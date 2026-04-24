@@ -61,6 +61,7 @@ function packPackage(packageDirName, tarballName) {
 
 function prepareWorkspace() {
   fs.rmSync(path.join(experimentRoot, ".tmp"), { recursive: true, force: true });
+  fs.mkdirSync(path.join(workspace, "plugins"), { recursive: true });
   fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "package.json"),
@@ -84,6 +85,11 @@ function prepareWorkspace() {
           strict: true,
           outDir: "dist",
           rootDir: "src",
+          plugins: [
+            {
+              transform: "./plugins/banner.cjs",
+            },
+          ],
         },
         include: ["src"],
       },
@@ -94,6 +100,23 @@ function prepareWorkspace() {
   fs.writeFileSync(
     path.join(workspace, "src", "main.ts"),
     'const message: string = "installed-runner-ok";\nconsole.log(message);\n',
+  );
+  fs.writeFileSync(
+    path.join(workspace, "plugins", "banner.cjs"),
+    [
+      "const { definePlugin } = require('ttsc');",
+      "",
+      "module.exports = definePlugin(() => ({",
+      "  name: 'experimental-install-transformer',",
+      "  transformOutput(context) {",
+      "    return context.code.replace(",
+      "      '\"installed-runner-ok\"',",
+      "      '\"installed-runner-ok:transformed\"',",
+      "    );",
+      "  },",
+      "}));",
+      "",
+    ].join("\n"),
   );
 }
 
@@ -131,6 +154,7 @@ function verifyInstalledPackages() {
       "const ttsc = require('ttsc'); console.log(ttsc.resolveBinary());",
     ],
     workspace,
+    "node -e \"require('ttsc').resolveBinary()\"",
   ).stdout.trim();
   assert(
     path.resolve(resolved) === path.resolve(platformBin),
@@ -147,13 +171,36 @@ function verifyTtscBuild() {
   run("npx ttsc --cwd . --emit", workspace);
   const output = path.join(workspace, "dist", "main.js");
   assert(fs.existsSync(output), "ttsc must emit dist/main.js");
-  const executed = runNode([output], workspace).stdout.trim();
-  assert(executed === "installed-runner-ok", "emitted JavaScript must run");
+  const emitted = fs.readFileSync(output, "utf8");
+  assert(
+    emitted.includes('"installed-runner-ok:transformed"'),
+    "emitted JavaScript must contain the transformed string literal",
+  );
+  assert(
+    /console\.log\(\s*message\s*\)/.test(emitted),
+    "emitted JavaScript must preserve the intended console.log call",
+  );
+  assertConsoleOutput(
+    "node dist/main.js",
+    runNode([output], workspace, "node dist/main.js").stdout,
+    "installed-runner-ok:transformed",
+  );
 }
 
 function verifyTtsxRun() {
-  const result = run("npx ttsx --cwd . src/main.ts", workspace).stdout.trim();
-  assert(result === "installed-runner-ok", "ttsx must run installed entry");
+  assertConsoleOutput(
+    "npx ttsx --cwd . src/main.ts",
+    run("npx ttsx --cwd . src/main.ts", workspace).stdout,
+    "installed-runner-ok:transformed",
+  );
+}
+
+function assertConsoleOutput(command, stdout, expected) {
+  const actual = stdout.trim();
+  assert(
+    actual === expected,
+    `${command} must print ${JSON.stringify(expected)} to stdout, got ${JSON.stringify(actual)}`,
+  );
 }
 
 function tarball(name) {
@@ -177,7 +224,8 @@ function run(command, cwd) {
   return { stdout: result };
 }
 
-function runNode(args, cwd) {
+function runNode(args, cwd, label) {
+  console.log(`$ ${label ?? [process.execPath, ...args].join(" ")}`);
   const result = cp.spawnSync(process.execPath, args, {
     cwd,
     encoding: "utf8",

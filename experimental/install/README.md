@@ -9,8 +9,10 @@ verifies that:
 - the current platform-specific `@ttsc/*` package tarball is installed;
 - `ttsc` resolves its native binary from the platform package, not a local
   workspace fallback;
+- an installed consumer project loads a local `compilerOptions.plugins`
+  transformer;
 - `ttsc --version`, `ttsc --emit`, and `ttsx` execute through the installed
-  package path.
+  package path and observe the transformed output.
 
 Run:
 
