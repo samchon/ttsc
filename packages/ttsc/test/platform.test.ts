@@ -48,11 +48,11 @@ test("platform helpers describe the published package contract", () => {
   assert.equal(binaryName({ platform: "linux" }), "ttsc");
   assert.equal(
     platformPackageRequest({ platform: "linux", arch: "x64" }),
-    "ttsc-linux-x64/bin/ttsc",
+    "@ttsc/linux-x64/bin/ttsc",
   );
 
   const hint = installHint({ platform: "linux", arch: "x64" });
-  assert.match(hint, /ttsc-linux-x64/);
+  assert.match(hint, /@ttsc\/linux-x64/);
   assert.match(hint, /TTSC_BINARY env var/);
   assert.doesNotMatch(hint, /ttsc-dev\.js/);
 });

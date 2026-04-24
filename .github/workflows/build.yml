@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "config/**"
+      - "scripts/**"
       - "packages/**"
       - "package.json"
       - "pnpm-lock.yaml"

@@ -12,20 +12,16 @@
       "types": "./src/index.ts",
       "default": "./lib/index.js"
     },
-    "./plugin": {
-      "types": "./src/plugin.ts",
-      "default": "./lib/plugin.js"
-    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; go run ./cmd/ttsc'",
+    "build": "rimraf lib && node ../../scripts/go.cjs run ./cmd/ttsc",
     "test": "pnpm run test:ts && pnpm run test:go",
     "test:ts": "node --test --test-reporter=spec --experimental-strip-types --experimental-specifier-resolution=node test/**/*.test.ts",
-    "test:go": "bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; go test ./...'",
-    "go:build": "bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; mkdir -p native && go build -o native/ttsc-native ./cmd/ttsc'",
-    "go:test": "bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; go test ./...'",
-    "go:vet": "bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; go vet ./...'",
+    "test:go": "node ../../scripts/go.cjs test ./...",
+    "go:build": "node ../../scripts/go.cjs build-native",
+    "go:test": "node ../../scripts/go.cjs test ./...",
+    "go:vet": "node ../../scripts/go.cjs vet ./...",
     "prepack": "pnpm run build && pnpm run go:build"
   },
   "repository": {
@@ -43,14 +39,27 @@
     "@typescript/native-preview": "catalog:typescript",
     "rimraf": "catalog:utils"
   },
+  "optionalDependencies": {
+    "@ttsc/linux-x64": "workspace:*",
+    "@ttsc/linux-arm64": "workspace:*",
+    "@ttsc/darwin-x64": "workspace:*",
+    "@ttsc/darwin-arm64": "workspace:*",
+    "@ttsc/win32-x64": "workspace:*",
+    "@ttsc/win32-arm64": "workspace:*"
+  },
   "sideEffects": false,
   "files": [
     "README.md",
-    "THIRD-PARTY-LICENSES.md",
+    "cmd",
+    "driver",
+    "go.mod",
+    "go.sum",
     "package.json",
     "lib",
-    "native",
-    "src"
+    "shim",
+    "src",
+    "test",
+    "tools"
   ],
   "keywords": [
     "tsgo",
@@ -70,10 +79,6 @@
       ".": {
         "types": "./lib/index.d.ts",
         "default": "./lib/index.js"
-      },
-      "./plugin": {
-        "types": "./lib/plugin.d.ts",
-        "default": "./lib/plugin.js"
       },
       "./package.json": "./package.json"
     }

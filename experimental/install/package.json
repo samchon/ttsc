@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-install",
+  "version": "0.0.0",
+  "description": "Experimental check for ttsc and ttsx tgz installation",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT"
+}
