@@ -5,31 +5,29 @@ const test = require("node:test");
 
 const workspaceRoot = path.resolve(__dirname, "../../..");
 
-test("ttsc workspace export points at one TypeScript source entry", () => {
+test("ttsc package entrypoints use built JavaScript output", () => {
   const packageJson = readPackageJson("ttsc");
 
-  assert.equal(packageJson.main, "src/index.ts");
-  assert.equal(packageJson.types, "src/index.ts");
-  assert.equal(packageJson.exports["."], "./src/index.ts");
-  assert.deepEqual(packageJson.publishConfig.exports["."], {
+  assert.equal(packageJson.main, "lib/index.js");
+  assert.equal(packageJson.types, "lib/index.d.ts");
+  assert.deepEqual(packageJson.exports["."], {
     types: "./lib/index.d.ts",
     default: "./lib/index.js",
   });
+  assert.equal(packageJson.publishConfig, undefined);
 });
 
 test("ttsc package owns both compiler and runtime commands", () => {
   const packageJson = readPackageJson("ttsc");
   assert.deepEqual(packageJson.bin, {
-    ttsc: "src/launcher/ttsc.js",
-    ttsx: "src/launcher/ttsx.js",
+    ttsc: "lib/launcher/ttsc.js",
+    ttsx: "lib/launcher/ttsx.js",
   });
-  assert.deepEqual(packageJson.publishConfig.bin, packageJson.bin);
 });
 
 test("ttsc exposes plugin helpers through the root package only", () => {
   const packageJson = readPackageJson("ttsc");
   assert.equal(packageJson.exports["./plugin"], undefined);
-  assert.equal(packageJson.publishConfig.exports["./plugin"], undefined);
   assert.equal(
     fs.existsSync(path.join(workspaceRoot, "packages", "ttsc", "src", "plugin.ts")),
     true,

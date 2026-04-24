@@ -139,18 +139,26 @@ function buildGoTransformer() {
     process.platform === "win32" ? "ttsc-go-transformer.exe" : "ttsc-go-transformer",
   );
   const result = child_process.spawnSync(
-    "bash",
-    [
-      "-c",
-      `export PATH="$HOME/go-sdk/go/bin:$PATH"; go build -o ${JSON.stringify(output)} ./cmd/ttsc-go-transformer`,
-    ],
+    "go",
+    ["build", "-o", output, "./cmd/ttsc-go-transformer"],
     {
       cwd: root,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: goPath(),
+      },
       maxBuffer: 1024 * 1024 * 64,
       windowsHide: true,
     },
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return output;
+}
+
+function goPath() {
+  const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
+  return fs.existsSync(localGo)
+    ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
+    : process.env.PATH;
 }

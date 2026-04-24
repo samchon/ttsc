@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:typescript",
+    "@typescript/native-preview": "catalog:tsgo",
     "ttsc": "workspace:^"
   }
 }

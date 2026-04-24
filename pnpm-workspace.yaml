@@ -3,9 +3,8 @@ packages:
   - 'packages/*'
   - 'tests/*'
 catalogs:
-  typescript:
+  tsgo:
     '@typescript/native-preview': 7.0.0-dev.20260421.2
-    typescript: ^5.9.3
   utils:
     '@types/node': ^25.3.0
     rimraf: ^6.1.2

@@ -22,9 +22,9 @@ const ttsxBin = path.join(
 const nativeBinary = path.join(
   workspaceRoot,
   "packages",
-  "ttsc",
-  "native",
-  process.platform === "win32" ? "ttsc-native.exe" : "ttsc-native",
+  `ttsc-${process.platform}-${process.arch}`,
+  "bin",
+  process.platform === "win32" ? "ttsc.exe" : "ttsc",
 );
 
 test("ttsc reports the native version banner", () => {
@@ -388,7 +388,7 @@ test("ttsx runs an .mts entry and resolves emitted .mjs imports", () => {
   assert.equal(result.stdout.trim(), "mts-runner-ok");
 });
 
-test("local native binary was built for the test run", () => {
+test("current platform package binary was built for the test run", () => {
   assert.equal(fs.existsSync(nativeBinary), true);
 });
 

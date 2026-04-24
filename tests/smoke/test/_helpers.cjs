@@ -21,9 +21,9 @@ const ttsxBin = path.join(
 const nativeBinary = path.join(
   workspaceRoot,
   "packages",
-  "ttsc",
-  "native",
-  process.platform === "win32" ? "ttsc-native.exe" : "ttsc-native",
+  `ttsc-${process.platform}-${process.arch}`,
+  "bin",
+  process.platform === "win32" ? "ttsc.exe" : "ttsc",
 );
 
 function createProject(files) {
