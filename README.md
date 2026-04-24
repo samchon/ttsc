@@ -112,7 +112,7 @@ It is transformed into dedicated JavaScript:
 >   return (input) => "object" === typeof input && null !== input && _io0(input);
 > })()({
 >   id: v4(),
->   email: "samchon.github@gmai19l.com",
+>   email: "samchon.github@gmail.com",
 >   age: 30,
 > });
 > console.log(matched); // true
