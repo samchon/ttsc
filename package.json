@@ -1,0 +1,35 @@
+{
+  "private": true,
+  "name": "ttsc-station",
+  "version": "0.1.0-dev",
+  "description": "Standalone TypeScript-Go compiler adapter and runner workspace.",
+  "scripts": {
+    "build": "pnpm run build:packages",
+    "build:packages": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter ttsx build",
+    "build:ttsc-runtime": "pnpm run build:packages",
+    "test": "pnpm run test:packages && pnpm run test:toolchain",
+    "test:packages": "pnpm --filter ttsc test",
+    "test:toolchain": "pnpm --filter ./tests/* -r start",
+    "go:test": "pnpm --filter ttsc go:test",
+    "go:vet": "pnpm --filter ttsc go:vet",
+    "package:tgz": "pnpm --filter ./packages/* -r pack",
+    "prepack": "pnpm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://github.com/samchon/ttsc",
+  "packageManager": "pnpm@10.6.4",
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:typescript",
+    "rimraf": "catalog:utils",
+    "typescript": "catalog:typescript"
+  }
+}

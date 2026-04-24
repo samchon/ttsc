@@ -1,0 +1,14 @@
+node_modules/
+lib/
+native/
+*.tgz
+*.tsbuildinfo
+dist/
+bin/
+coverage/
+.turbo/
+**/node_modules/
+**/lib/
+**/native/
+**/*.tgz
+**/.cache/

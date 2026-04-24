@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "downlevelIteration": true,
+    "newLine": "lf",
+    "stripInternal": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true
+  }
+}
