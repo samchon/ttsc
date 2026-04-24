@@ -13,7 +13,7 @@
  *   2. `ttsc-{platform}-{arch}/bin/ttsc{.exe}` optional dependency.
  *      Standard distribution path.
  *   3. A package-local `native/ttsc-native` binary. Used by this
- *      repository's local `pnpm run build:toolchain` output before the
+   *      repository's local `pnpm run build` output before the
  *      platform packages exist on npm.
  *
  * If every strategy fails, `resolveBinary` returns `null` so the caller can print a

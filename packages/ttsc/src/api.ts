@@ -187,9 +187,9 @@ export function transform(options: TransformOptions): string {
   const args = [
     "transform",
     "--file=" + sourceFile,
+    "--tsconfig=" + execution.tsconfig,
     "--rewrite-mode=" + execution.nativeMode,
   ];
-  if (options.tsconfig) args.push("--tsconfig=" + options.tsconfig);
 
   const res = spawnBinary(execution.bin, args, {
     cwd: options.cwd,
@@ -249,8 +249,11 @@ export interface BuildResult {
  */
 export function build(options: BuildOptions = {}): BuildResult {
   const execution = resolveExecutionContext(options);
-  const args = ["build", "--rewrite-mode=" + execution.nativeMode];
-  if (options.tsconfig) args.push("--tsconfig=" + options.tsconfig);
+  const args = [
+    "build",
+    "--tsconfig=" + execution.tsconfig,
+    "--rewrite-mode=" + execution.nativeMode,
+  ];
   if (options.emit === true) args.push("--emit");
   else if (options.emit === false) args.push("--noEmit");
   if (options.outDir) args.push("--outDir=" + options.outDir);
@@ -385,7 +388,7 @@ function applyBuildPlugins(
     return;
   }
   for (const file of emittedFiles) {
-    if (!file.endsWith(".js") || !fs.existsSync(file)) {
+    if (!isJavaScriptOutput(file) || !fs.existsSync(file)) {
       continue;
     }
     const current = fs.readFileSync(file, "utf8");
@@ -401,6 +404,10 @@ function applyBuildPlugins(
       fs.writeFileSync(file, next, "utf8");
     }
   }
+}
+
+function isJavaScriptOutput(file: string): boolean {
+  return /\.(?:[cm]?js)$/i.test(file);
 }
 
 function createTempManifestPath(): string {

@@ -106,3 +106,90 @@ test("readProjectConfig lets child tsconfig override inherited plugins", () => {
     { transform: "./local-plugin.cjs" },
   ]);
 });
+
+test("readProjectConfig resolves package tsconfig extends", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const preset = path.join(root, "node_modules", "@scope", "tsconfig");
+  const project = path.join(root, "project");
+  fs.mkdirSync(preset, { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(
+    path.join(preset, "base.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          outDir: "../../dist/preset",
+          plugins: [{ transform: "./plugins/from-preset.cjs" }],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify(
+      {
+        extends: "@scope/tsconfig/base.json",
+        compilerOptions: {},
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const parsed = readProjectConfig({
+    tsconfig: path.join(project, "tsconfig.json"),
+  });
+  assert.deepEqual(parsed.compilerOptions.plugins, [
+    { transform: "./plugins/from-preset.cjs" },
+  ]);
+  assert.equal(
+    parsed.compilerOptions.outDir,
+    path.join(root, "node_modules", "dist", "preset"),
+  );
+});
+
+test("readProjectConfig accepts JSONC comments and trailing commas", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    `{
+      // plugin host configuration may live in JSONC tsconfig files
+      "compilerOptions": {
+        "plugins": [
+          { "transform": "./plugins/jsonc.cjs" },
+        ],
+      },
+    }\n`,
+    "utf8",
+  );
+
+  const parsed = readProjectConfig({
+    tsconfig: path.join(root, "tsconfig.json"),
+  });
+  assert.deepEqual(parsed.compilerOptions.plugins, [
+    { transform: "./plugins/jsonc.cjs" },
+  ]);
+});
+
+test("readProjectConfig rejects circular tsconfig extends", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  fs.writeFileSync(
+    path.join(root, "a.json"),
+    JSON.stringify({ extends: "./b.json" }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "b.json"),
+    JSON.stringify({ extends: "./a.json" }),
+    "utf8",
+  );
+
+  assert.throws(
+    () => readProjectConfig({ tsconfig: path.join(root, "a.json") }),
+    /circular tsconfig extends detected/,
+  );
+});

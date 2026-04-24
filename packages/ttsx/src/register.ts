@@ -414,7 +414,8 @@ function resolveExactEmittedFile(
   }
   return path.resolve(
     context.emitDir,
-    relative.slice(0, relative.length - path.extname(relative).length) + ".js",
+    relative.slice(0, relative.length - path.extname(relative).length) +
+      emittedJavaScriptExtension(filename),
   );
 }
 
@@ -428,7 +429,7 @@ function listEmittedFiles(root: string): string[] {
       const next = path.join(current, entry.name);
       if (entry.isDirectory()) {
         stack.push(next);
-      } else if (entry.isFile() && next.endsWith(".js")) {
+      } else if (entry.isFile() && isJavaScriptOutput(next)) {
         output.push(path.resolve(next));
       }
     }
@@ -464,4 +465,19 @@ function looksLikeESM(output: string): boolean {
     return false;
   }
   return /^\s*(import|export)\s/m.test(output);
+}
+
+function emittedJavaScriptExtension(filename: string): string {
+  switch (path.extname(filename).toLowerCase()) {
+    case ".mts":
+      return ".mjs";
+    case ".cts":
+      return ".cjs";
+    default:
+      return ".js";
+  }
+}
+
+function isJavaScriptOutput(filename: string): boolean {
+  return /\.(?:[cm]?js)$/i.test(filename);
 }

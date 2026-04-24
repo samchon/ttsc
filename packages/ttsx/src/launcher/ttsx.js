@@ -13,7 +13,7 @@ if (fs.existsSync(builtCli)) {
   }
 } else {
   process.stderr.write(
-    "ttsx: lib/cli.js is missing. Build ttsc and ttsx first with `pnpm run build:toolchain`.\n",
+    "ttsx: lib/cli.js is missing. Build ttsc and ttsx first with `pnpm run build`.\n",
   );
   process.exitCode = 1;
 }

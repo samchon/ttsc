@@ -232,12 +232,14 @@ func (p *Program) Diagnostics() []Diagnostic {
 		return []Diagnostic{{Message: "driver: nil program"}}
 	}
 	ctx := context.Background()
-	raw := make([]*ast.Diagnostic, 0)
-	raw = append(raw, p.TSProgram.GetConfigFileParsingDiagnostics()...)
-	raw = append(raw, p.TSProgram.GetProgramDiagnostics()...)
-	raw = append(raw, p.TSProgram.GetSyntacticDiagnostics(ctx, nil)...)
-	raw = append(raw, p.TSProgram.GetSemanticDiagnostics(ctx, nil)...)
-	raw = append(raw, p.TSProgram.GetGlobalDiagnostics(ctx)...)
+	raw := shimcompiler.GetDiagnosticsOfAnyProgram(
+		ctx,
+		p.TSProgram,
+		nil,
+		false,
+		p.TSProgram.GetBindDiagnostics,
+		p.TSProgram.GetSemanticDiagnostics,
+	)
 	raw = filterDiagnostics(raw)
 	return convertDiagnostics(shimcompiler.SortAndDeduplicateDiagnostics(raw))
 }

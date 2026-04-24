@@ -235,7 +235,7 @@ function rewriteEsmSpecifiers(root: string): void {
         stack.push(next);
         continue;
       }
-      if (!entry.isFile() || !next.endsWith(".js")) {
+      if (!entry.isFile() || !isJavaScriptOutput(next)) {
         continue;
       }
       const before = fs.readFileSync(next, "utf8");
@@ -243,12 +243,12 @@ function rewriteEsmSpecifiers(root: string): void {
         .replace(
           /\bfrom\s+(['"])(\.[^'"]+)\1/g,
           (_, quote: string, specifier: string) =>
-            `from ${quote}${withJsExtension(specifier)}${quote}`,
+            `from ${quote}${withResolvableExtension(next, specifier)}${quote}`,
         )
         .replace(
           /\bimport\(\s*(['"])(\.[^'"]+)\1\s*\)/g,
           (_, quote: string, specifier: string) =>
-            `import(${quote}${withJsExtension(specifier)}${quote})`,
+            `import(${quote}${withResolvableExtension(next, specifier)}${quote})`,
         );
       if (after !== before) {
         fs.writeFileSync(next, after, "utf8");
@@ -257,12 +257,31 @@ function rewriteEsmSpecifiers(root: string): void {
   }
 }
 
-function withJsExtension(specifier: string): string {
+function withResolvableExtension(fromFile: string, specifier: string): string {
   if (!specifier.startsWith(".")) {
     return specifier;
   }
   if (/\.(?:[cm]?js|json|node)$/i.test(specifier)) {
     return specifier;
   }
+  const [pathname, suffix = ""] = splitSpecifierSuffix(specifier);
+  const fromDir = path.dirname(fromFile);
+  for (const extension of [".js", ".mjs", ".cjs"]) {
+    if (fs.existsSync(path.resolve(fromDir, pathname + extension))) {
+      return pathname + extension + suffix;
+    }
+  }
   return `${specifier}.js`;
+}
+
+function splitSpecifierSuffix(specifier: string): [string, string?] {
+  const index = specifier.search(/[?#]/);
+  if (index === -1) {
+    return [specifier];
+  }
+  return [specifier.slice(0, index), specifier.slice(index)];
+}
+
+function isJavaScriptOutput(filename: string): boolean {
+  return /\.(?:[cm]?js)$/i.test(filename);
 }

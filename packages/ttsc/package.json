@@ -2,20 +2,18 @@
   "name": "ttsc",
   "version": "0.1.0-dev",
   "description": "General-purpose compiler adapter and plugin host for tsgo.",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "bin": {
     "ttsc": "src/launcher/ttsc.js"
   },
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "import": "./lib/index.js",
+      "types": "./src/index.ts",
       "default": "./lib/index.js"
     },
     "./plugin": {
-      "types": "./lib/plugin.d.ts",
-      "import": "./lib/plugin.js",
+      "types": "./src/plugin.ts",
       "default": "./lib/plugin.js"
     },
     "./package.json": "./package.json"
@@ -62,6 +60,22 @@
   ],
   "packageManager": "pnpm@10.6.4",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "bin": {
+      "ttsc": "src/launcher/ttsc.js"
+    },
+    "exports": {
+      ".": {
+        "types": "./lib/index.d.ts",
+        "default": "./lib/index.js"
+      },
+      "./plugin": {
+        "types": "./lib/plugin.d.ts",
+        "default": "./lib/plugin.js"
+      },
+      "./package.json": "./package.json"
+    }
   }
 }

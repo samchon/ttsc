@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
