@@ -75,13 +75,12 @@ test("ttsc JS plugin transformOutput composes with native emit", () => {
       include: ["src"],
     }),
     "plugins/banner.cjs": `
-      const { definePlugin } = require("ttsc");
-      module.exports = definePlugin((config) => ({
+      module.exports = (config) => ({
         name: "banner",
         transformOutput(context) {
           return "// plugin:" + config.label + ":" + context.command + "\\n" + context.code;
         },
-      }));
+      });
     `,
     "src/main.ts": `export const value: string = "ok";\n`,
   });
@@ -114,13 +113,12 @@ test("ttsc build applies chained plugins and skips disabled plugin entries", () 
       include: ["src"],
     }),
     "plugins/first.cjs": `
-      const { definePlugin } = require("ttsc");
-      module.exports = definePlugin((config) => ({
+      module.exports = (config) => ({
         name: "first",
         transformOutput(context) {
           return context.code + "\\n// " + config.label + ":" + context.command;
         },
-      }));
+      };
     `,
     "plugins/second.cjs": `
       exports.plugin = {

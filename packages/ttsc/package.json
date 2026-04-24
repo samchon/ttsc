@@ -39,6 +39,7 @@
   },
   "optionalDependencies": {
     "@ttsc/linux-x64": "workspace:*",
+    "@ttsc/linux-arm": "workspace:*",
     "@ttsc/linux-arm64": "workspace:*",
     "@ttsc/darwin-x64": "workspace:*",
     "@ttsc/darwin-arm64": "workspace:*",

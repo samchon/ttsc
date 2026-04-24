@@ -71,6 +71,7 @@ export function platformPackageRequest(opts: ResolveOptions = {}): string {
 /** The list of platform keys the package currently ships. */
 export const SUPPORTED_PLATFORMS: readonly string[] = Object.freeze([
   "linux-x64",
+  "linux-arm",
   "linux-arm64",
   "darwin-x64",
   "darwin-arm64",

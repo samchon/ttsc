@@ -60,6 +60,9 @@ importers:
       '@ttsc/darwin-x64':
         specifier: workspace:*
         version: link:../ttsc-darwin-x64
+      '@ttsc/linux-arm':
+        specifier: workspace:*
+        version: link:../ttsc-linux-arm
       '@ttsc/linux-arm64':
         specifier: workspace:*
         version: link:../ttsc-linux-arm64
@@ -76,6 +79,8 @@ importers:
   packages/ttsc-darwin-arm64: {}
 
   packages/ttsc-darwin-x64: {}
+
+  packages/ttsc-linux-arm: {}
 
   packages/ttsc-linux-arm64: {}
 
