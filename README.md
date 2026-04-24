@@ -1,87 +1,142 @@
-# ttsc
+# `ttsc` and `ttsx`
 
-Standalone TypeScript-Go toolchain workspace.
+![banner of ttsc and ttsx](https://private-user-images.githubusercontent.com/13158709/583518390-6df1deb5-9e8c-4f4b-9d0f-eae1cc3bb55c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzcwNTQ2NzUsIm5iZiI6MTc3NzA1NDM3NSwicGF0aCI6Ii8xMzE1ODcwOS81ODM1MTgzOTAtNmRmMWRlYjUtOWU4Yy00ZjRiLTlkMGYtZWFlMWNjM2JiNTVjLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDI0VDE4MTI1NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTEzMzUxNTE4YThlZDYyNDZjYTVjYmRiMmZiYzAwYzYyZTkyNDk4MjVlYmI4OGZkYjE3NDllNWQzY2IxNmRhYWEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.7MYb2S99lZfQV-BqD09ZrZwdj1C3XDyJ9nkaSEr901M)
 
-This repository contains two pnpm workspace packages:
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
+[![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
+[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
 
-- `packages/ttsc`: compiler adapter and plugin host on top of `typescript-go`.
-- `packages/ttsx`: `ts-node` / `tsx` style runner that reuses the `ttsc` host.
+A `typescript-go` toolchain for compiler-powered transforms and type-safe execution.
 
-`ttsc` is not a consumer-specific adapter. It owns the generic compiler lane:
+- **`ttsc`**: build, check, and transform.
+- **`ttsx`**: execute TypeScript with type checking.
+  - 10x faster than `ts-node`.
+  - type checking that `tsx` does not provide.
+- **transformer support**: compiler-powered libraries, such as `typia`.
 
-- `ttsc`, `ttsc -p tsconfig.json`, `ttsc --noEmit`, `ttsc --watch`
-- `ttsc transform --file=src/index.ts`
-- JS APIs: `build`, `check`, `transform`, `transformAsync`, `version`
-- tsconfig `compilerOptions.plugins[]` loading
-- plugin-declared native backend selection
-- emitted JavaScript post-processing hooks
+> `ttsx` can run existing `typescript@6` projects.
 
-`ttsx` owns only the runner lane:
+## Setup
 
-- `ttsx src/index.ts`
-- CommonJS require-hook execution
-- ESM cached-build execution
-- project-aware cache reuse
-
-## Workspace
+Install the native TypeScript preview package with `ttsc` and `ttsx`:
 
 ```bash
-pnpm install
-pnpm run build
-pnpm test
+npm i -D ttsc ttsx @typescript/native-preview
 ```
 
-Build order matters:
+Run TypeScript directly:
 
 ```bash
-pnpm --filter ttsc build
-pnpm --filter ttsc go:build
-pnpm --filter ttsx build
+npx ttsx src/index.ts
 ```
 
-The current compiler dependency is `@typescript/native-preview`. It stands in for the TypeScript-Go lane until the stable `typescript@7` package contract is ready.
-
-## Packages
-
-### `ttsc`
+Build, check, or watch the project:
 
 ```bash
-pnpm --filter ttsc build
-pnpm --filter ttsc go:build
-pnpm --filter ttsc test
+npx ttsc
+npx ttsc --noEmit
+npx ttsc --watch
 ```
 
-The package contains:
+## Transformer Configuration
 
-- `src/`: public JS API, CLI parser, plugin loader, project helper, binary resolver
-- `cmd/ttsc`: Go CLI entrypoint
-- `driver/`: TypeScript-Go Program/CompilerHost/emit facade
-- `shim/`: go:linkname shims over selected TypeScript-Go internals
-- `tools/gen_shims`: shim regeneration tool adapted from the tsgolint pattern
+`ttsc` reads `compilerOptions.plugins` from `tsconfig.json`.
 
-### `ttsx`
+```json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "typia/lib/transform" }
+    ]
+  }
+}
+```
+
+The same configuration is used by both `ttsc` and `ttsx`.
 
 ```bash
-pnpm --filter ttsx build
+# compile
+npx ttsc
+
+# execute
+npx ttsx src/index.ts
 ```
 
-`ttsx` imports `ttsc` directly and must not duplicate project resolution, plugin loading, or native binary selection.
+This gives compiler-powered libraries one transform path for both build-time and runtime execution.
 
-## Tests
+## How It Works
 
-The default test suite is standalone and does not rely on a specific downstream consumer:
+`ttsc` is the compiler host. `ttsx` is the runtime entrypoint on top of it.
 
-```bash
-pnpm test
+```text
+ttsc ── build / check / transform
+  ▲
+  │
+ttsx ── execute TypeScript
 ```
 
-It covers:
+`ttsx` reuses the same compiler path as `ttsc`: project resolution, transformer loading, type checking, transformation, and cache layout.
 
-- TypeScript project build through TypeScript-Go
-- semantic diagnostic blocking before emit
-- generic `transformOutput` plugin composition
-- `ttsx` CommonJS entry execution
-- platform binary resolution
-- Go unit tests around the native CLI and driver surface
+That is why `ttsx` can be faster than `ts-node` without giving up the type checking that `tsx` does not provide.
 
-Consumer-specific compatibility tests belong in separate fixture packages. They should not become the only proof that `ttsc` works.
+## What Is a Transform?
+
+A transform uses TypeScript types to generate JavaScript before runtime.
+
+```ts
+import typia, { tags } from "typia";
+import { v4 } from "uuid";
+
+const matched: boolean = typia.is<IMember>({
+  id: v4(),
+  email: "samchon.github@gmail.com",
+  age: 30,
+});
+console.log(matched); // true
+
+interface IMember {
+  id: string & tags.Format<"uuid">;
+  email: string & tags.Format<"email">;
+  age: number &
+    tags.Type<"uint32"> &
+    tags.ExclusiveMinimum<19> &
+    tags.Maximum<100>;
+}
+```
+
+It is transformed into dedicated JavaScript:
+
+> ```js
+> import typia from "typia";
+> import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
+> import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
+> import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
+> import { v4 } from "uuid";
+>
+> const matched = (() => {
+>   const _io0 = (input) =>
+>     "string" === typeof input.id &&
+>     __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
+>     "string" === typeof input.email &&
+>     __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
+>     "number" === typeof input.age &&
+>     __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
+>     19 < input.age &&
+>     input.age <= 100;
+>   return (input) => "object" === typeof input && null !== input && _io0(input);
+> })()({
+>   id: v4(),
+>   email: "samchon.github@gmai19l.com",
+>   age: 30,
+> });
+> console.log(matched); // true
+> ```
+
+`ttsc` runs this transform during build, and `ttsx` runs through the same transform path during execution.
+
+## References
+
+- TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)
+- Transformer tooling: [`ttypescript`](https://github.com/cevek/ttypescript) and [`ts-patch`](https://github.com/nonara/ts-patch)
+- Inspired by: [`typical`](https://github.com/camwiegert/typical) and [`tsgonest`](https://github.com/tsgonest/tsgonest)

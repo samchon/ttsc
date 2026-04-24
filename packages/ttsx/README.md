@@ -1,56 +1,148 @@
-# ttsx
+# `ttsx`
 
-`ttsx` is a `ts-node` / `tsx`-style runner built on top of `ttsc`.
+![banner of ttsc and ttsx](https://private-user-images.githubusercontent.com/13158709/583518390-6df1deb5-9e8c-4f4b-9d0f-eae1cc3bb55c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzcwNTQ2NzUsIm5iZiI6MTc3NzA1NDM3NSwicGF0aCI6Ii8xMzE1ODcwOS81ODM1MTgzOTAtNmRmMWRlYjUtOWU4Yy00ZjRiLTlkMGYtZWFlMWNjM2JiNTVjLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDI0VDE4MTI1NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTEzMzUxNTE4YThlZDYyNDZjYTVjYmRiMmZiYzAwYzYyZTkyNDk4MjVlYmI4OGZkYjE3NDllNWQzY2IxNmRhYWEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.7MYb2S99lZfQV-BqD09ZrZwdj1C3XDyJ9nkaSEr901M)
 
-It exists so a project that already depends on the `ttsc` host can also run:
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/ttsx.svg)](https://www.npmjs.com/package/ttsx)
+[![NPM Downloads](https://img.shields.io/npm/dm/ttsx.svg)](https://www.npmjs.com/package/ttsx)
+[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
+
+A `typescript-go` runner for type-safe TypeScript execution.
+
+- **Type checking before execution**: code with compiler errors does not run.
+- **Transformer support**: `ttsx` uses the same transform path as `ttsc`.
+- **Fast local scripts**: a `ts-node` / `tsx`-style CLI on top of the native compiler lane.
+
+`ttsx` is the runtime entrypoint for the `ttsc` toolchain. Use it when you want to execute TypeScript directly while keeping the same project resolution, type checking, and transformer behavior that your build uses.
+
+## Setup
+
+Install the native TypeScript preview package with `ttsx`:
 
 ```bash
-ttsx src/index.ts
+npm i -D ttsx @typescript/native-preview
 ```
 
-without introducing a second compiler path.
-
-## Installation
+Run TypeScript directly:
 
 ```bash
-npm install -D @typescript/native-preview ttsx
-pnpm add -D @typescript/native-preview ttsx
+npx ttsx src/index.ts
 ```
 
-`ttsx` depends on `ttsc`, and uses its project resolution, transform pipeline, and cache directory conventions. Install `ttsc` explicitly as well when the project also calls the `ttsc` CLI directly from its own scripts.
+Pass arguments to the executed program after `--`:
 
-## What `ttsx` owns
+```bash
+npx ttsx src/index.ts -- --port 3000
+```
 
-- CLI runner: `ttsx src/index.ts`
-- in-process CommonJS require hook
-- cached ESM execution fallback
-- project-aware cache directories
+`ttsx` depends on `ttsc`, so installing `ttsx` also installs the compiler host. Install `ttsc` explicitly when your project scripts call the `ttsc` CLI directly.
 
-`ttsc` still owns:
+## Transformer Configuration
 
-- build / check / transform
-- tsconfig plugin loading
-- native rewrite backend selection
+`ttsx` reads the same `compilerOptions.plugins` configuration that `ttsc` reads from `tsconfig.json`.
 
-## Quick Start
+```json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "typia/lib/transform" }
+    ]
+  }
+}
+```
 
-### CommonJS-style execution
+The same configuration is used for build-time and runtime execution:
+
+```bash
+# compile
+npx ttsc
+
+# execute
+npx ttsx src/index.ts
+```
+
+This gives compiler-powered libraries one transform path for emitted JavaScript and directly executed TypeScript.
+
+## How It Works
+
+`ttsc` is the compiler host. `ttsx` is the runtime entrypoint on top of it.
+
+```text
+ttsc ── build / check / transform
+  ▲
+  │
+ttsx ── execute TypeScript
+```
+
+Before user code runs, `ttsx` resolves the project, reads `tsconfig.json`, loads configured transformers, type checks the program, and transforms the entrypoint through `ttsc`.
+
+That means:
+
+- invalid `tsconfig.json` files are rejected.
+- type checking failures stop execution.
+- transformed output is what Node receives.
+- the same plugin configuration works for `ttsc` and `ttsx`.
+
+## CLI
+
+```bash
+ttsx [options] <entry.ts> [-- <argv...>]
+```
+
+Common options:
 
 ```bash
 ttsx src/index.ts
 ttsx --project tsconfig.json src/index.ts
+ttsx --cwd packages/app src/index.ts
 ttsx --cache-dir .cache/ttsx src/index.ts
-ttsx src/index.ts -- --port 3000
+ttsx -r dotenv/config src/index.ts
 ```
 
-### Preload modules
+Supported options:
+
+- `-P, --project <file>`: use an explicit `tsconfig.json`.
+- `--cwd <dir>`: resolve the project and entrypoint from another directory.
+- `--cache-dir <dir>`: override the compiled output cache directory.
+- `--binary <path>`: force a particular `ttsc` native binary.
+- `-r, --require <file>`: preload a CommonJS module before the entrypoint.
+- `-h, --help`: print CLI help.
+- `-v, --version`: print the installed version.
+
+`--` separates `ttsx` options from entrypoint arguments:
 
 ```bash
-ttsx -r dotenv/config src/index.ts
-ttsx -r ./register-env.js src/index.ts -- --mode local
+ttsx src/server.ts -- --port 8080 --watch
 ```
 
-### Programmatic registration
+Inside the executed program:
+
+```ts
+process.argv;
+// [node, /abs/path/src/server.ts, "--port", "8080", "--watch"]
+```
+
+## Runtime Model
+
+`ttsx` has two execution paths.
+
+### CommonJS
+
+For CommonJS projects, `ttsx` installs an in-process require hook. Each TypeScript file is transformed through `ttsc.transform()`, cached, and then executed by Node in the same process.
+
+### ESM
+
+For ESM projects, `ttsx` builds the project into a cache directory and spawns Node on the cached JavaScript entrypoint. This keeps ESM execution on a real emitted project tree instead of forcing it through a CommonJS require hook.
+
+The default cache location is:
+
+```text
+<project-root>/node_modules/.cache/ttsc/ttsx
+```
+
+## JS API
+
+Use `register()` when embedding the CommonJS require hook in another tool:
 
 ```ts
 import { register } from "ttsx";
@@ -66,105 +158,7 @@ try {
 }
 ```
 
-## CLI
-
-```bash
-ttsx [options] <entry.ts> [-- <argv...>]
-```
-
-Supported options:
-
-- `-P, --project <file>`: use an explicit `tsconfig.json`
-- `--cwd <dir>`: resolve project and entry relative to a different directory
-- `--cache-dir <dir>`: override the compiled output cache
-- `--binary <path>`: force a particular `ttsc` native binary
-- `-r, --require <file>`: preload a module before the entrypoint
-- `-h, --help`
-- `-v, --version`
-
-`--` splits runner options from entrypoint argv.
-
-Example:
-
-```bash
-ttsx --project tsconfig.app.json src/index.ts -- --port 8080 --watch
-```
-
-Inside the executed program:
-
-```ts
-process.argv
-// [node, /abs/path/src/index.ts, "--port", "8080", "--watch"]
-```
-
-## Runtime Model
-
-`ttsx` has two execution paths.
-
-### 1. CommonJS path
-
-For a CommonJS project:
-
-- `ttsx` installs a require hook
-- each `.ts/.tsx/.cts/.mts` file is transformed on demand through `ttsc.transform()`
-- the resulting JS is cached under `node_modules/.cache/ttsc/ttsx/...`
-- Node executes the transformed text in-process
-
-This is the lightweight hot path.
-
-### 2. ESM path
-
-For an ESM project:
-
-- `ttsx` first probes the entry file with `transform()`
-- if the output still looks like ESM, `ttsx` falls back to a project build
-- it runs `ttsc.build({ emit: true, outDir: cacheDir })`
-- it rewrites relative import specifiers to include `.js`
-- it spawns a child Node process to execute the cached emitted entry
-
-This is heavier, but keeps the ESM lane working without pretending Node can run the transformed ESM in-process through the CJS require hook.
-
-## JS API
-
-```ts
-import { prepareExecution, register } from "ttsx";
-```
-
-### `register(options)`
-
-Install the in-process require hook and return an unregister function.
-
-```ts
-import { register } from "ttsx";
-
-const unregister = register({
-  cwd: process.cwd(),
-  project: "tsconfig.json",
-});
-
-require("./src/index.ts");
-unregister();
-```
-
-Supported options come from `RegisterOptions`, which extends `ttsc` common options:
-
-- `binary`
-- `cwd`
-- `env`
-- `plugins`
-- `rewriteMode`
-- `cacheDir`
-- `project`
-- `extensions`
-
-Important note:
-
-- the CLI exposes only a subset of these options
-- the JS API is currently broader than the CLI surface
-
-### `prepareExecution(entryFile, options)`
-
-Resolve whether the entry will run through the CJS path or the ESM fallback path.
+Use `prepareExecution()` when a wrapper needs to know how `ttsx` will run an entrypoint:
 
 ```ts
 import { prepareExecution } from "ttsx";
@@ -178,104 +172,21 @@ console.log(prepared.entryFile);
 console.log(prepared.emitDir);
 ```
 
-This is useful if you want to embed `ttsx` in another runner or wrapper.
+The JS API can also receive lower-level `ttsc` options such as `plugins`, `rewriteMode`, `binary`, `cwd`, `env`, `cacheDir`, and `extensions`.
 
-## Cache Layout
+## What `ttsx` Is For
 
-By default the runner uses:
+Use `ttsx` for scripts, tests, local tools, and development entrypoints that should behave like the project build:
 
-```text
-<project-root>/node_modules/.cache/ttsc/ttsx
-```
+- same `tsconfig.json`
+- same type checking
+- same transformer configuration
+- same native compiler backend selection
 
-Inside that cache:
+`ttsx` is intentionally small. Build, check, transform, plugin loading, and native backend selection are owned by `ttsc`; `ttsx` focuses on executing the checked and transformed result.
 
-- `single/` stores per-file transform results for the CJS path
-- `project/<pid>/` stores emitted project output for the ESM path
+## References
 
-The cache salt includes signatures from:
-
-- the selected native binary
-- relevant workspace compiler source trees
-
-so local compiler changes invalidate cached output during development.
-
-## How `ttsx` sees plugins
-
-`ttsx` does not load compiler plugins on its own.
-
-Instead it delegates to `ttsc`, which means:
-
-- tsconfig plugin resolution works the same way as `ttsc`
-- consumer packages reuse the same `transform` entry
-- the same native backend is selected for both build-time and runner-time execution
-
-That shared host surface is the main reason `ttsx` exists as a sibling package instead of reimplementing a second compiler path.
-
-## Current Constraints
-
-These are real current constraints.
-
-### 1. CJS and ESM paths are different
-
-The CommonJS lane is per-file and in-process. The ESM lane is project-wide and child-process based.
-
-That split is intentional for now, but it means:
-
-- startup cost differs by module kind
-- CJS debugging and ESM debugging do not go through the exact same runtime path
-- ESM execution depends on a cached emitted project tree
-
-### 2. The CLI does not expose every `RegisterOptions` field
-
-The JS API supports:
-
-- `plugins`
-- `rewriteMode`
-- `extensions`
-- `env`
-
-The CLI does not currently expose flags for those.
-
-If you need them today, use the JS API.
-
-### 3. In-process execution is CJS only
-
-The require hook throws if a transformed file still looks like ESM.
-
-That is why the ESM lane falls back to `build()` + child Node execution.
-
-## When to use `ttsx`
-
-Use `ttsx` when:
-
-- you already use `ttsc`
-- you want one consistent compiler / plugin host for build and run
-- you need `ts-node` / `tsx`-style execution for scripts, tests, or local tools
-
-Do not use `ttsx` when:
-
-- the project does not need the `ttsc` plugin host at all
-- another runtime is intentionally the source of truth
-
-## Development
-
-```bash
-pnpm build
-```
-
-The package is intentionally small. Most of the heavy lifting lives in `ttsc`.
-
-## Layout
-
-```
-toolchain/ttsx/
-├── src/launcher/ttsx.js
-├── src/cli.ts
-├── src/register.ts
-└── src/index.ts
-```
-
-## License
-
-MIT. See [../../LICENSE](../../LICENSE).
+- TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)
+- Transformer tooling: [`ttypescript`](https://github.com/cevek/ttypescript) and [`ts-patch`](https://github.com/nonara/ts-patch)
+- Inspired by: [`typical`](https://github.com/samchon/typical) and [`tsgonest`](https://github.com/samchon/tsgonest)

@@ -10,7 +10,7 @@ test("package metadata separates monorepo source exports from publish exports", 
     const packageJson = readPackageJson(packageName);
     assert.match(packageJson.main, /^src\/.+\.ts$/);
     assert.match(packageJson.types, /^src\/.+\.ts$/);
-    assert.equal(packageJson.exports["."].types, "./src/index.ts");
+    assert.equal(packageJson.exports["."], "./src/index.ts");
     assert.equal(packageJson.publishConfig.main, "lib/index.js");
     assert.equal(packageJson.publishConfig.types, "lib/index.d.ts");
     assert.equal(
@@ -106,7 +106,7 @@ test("platform packages expose os cpu constrained native binaries", () => {
     assert.equal(packageJson.name, name);
     assert.deepEqual(packageJson.os, [os]);
     assert.deepEqual(packageJson.cpu, [cpu]);
-    assert.deepEqual(packageJson.files, ["bin", "package.json"]);
+    assert.deepEqual(packageJson.files, ["bin", "package.json", "README.md"]);
     assert.equal(packageJson.scripts.build, "node ../../scripts/build-platform-package.cjs");
     assert.equal(packageJson.scripts.prepack, "pnpm run build");
     assert.equal(packageJson.description.includes(label), true);

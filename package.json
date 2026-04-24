@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "ttsc-station",
+  "name": "@ttsc/station",
   "version": "0.4.0-dev.20260424",
   "description": "Standalone TypeScript-Go compiler adapter and runner workspace.",
   "scripts": {

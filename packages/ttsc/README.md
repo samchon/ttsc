@@ -1,143 +1,147 @@
-# ttsc
+# `ttsc`
 
-`ttsc` is a standalone compiler adapter and plugin host for the `typescript-go` toolchain.
+![banner of ttsc and ttsx](https://private-user-images.githubusercontent.com/13158709/583518390-6df1deb5-9e8c-4f4b-9d0f-eae1cc3bb55c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzcwNTQ2NzUsIm5iZiI6MTc3NzA1NDM3NSwicGF0aCI6Ii8xMzE1ODcwOS81ODM1MTgzOTAtNmRmMWRlYjUtOWU4Yy00ZjRiLTlkMGYtZWFlMWNjM2JiNTVjLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDI0VDE4MTI1NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTEzMzUxNTE4YThlZDYyNDZjYTVjYmRiMmZiYzAwYzYyZTkyNDk4MjVlYmI4OGZkYjE3NDllNWQzY2IxNmRhYWEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.7MYb2S99lZfQV-BqD09ZrZwdj1C3XDyJ9nkaSEr901M)
 
-It is the package that owns:
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
+[![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
+[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
 
-- `ttsc`
-- `ttsc --noEmit`
-- `ttsc transform`
-- tsconfig plugin loading
-- native consumer binary selection
-- JavaScript-side post-processing hooks for emitted output
+A `typescript-go` compiler host for build-time transforms.
 
-`typia` is the first consumer, but `ttsc` is not typia-specific. The host surface is intended to be reusable by any plugin that wants to sit on top of the same `typescript-go` lane.
+- **Build and check**: run the project through the native TypeScript compiler lane.
+- **Transformer support**: load `compilerOptions.plugins` from `tsconfig.json`.
+- **Library author surface**: publish `ttsc` plugins with native backends or JS output hooks.
 
-## Installation
+`ttsc` is the compiler host used by `ttsx`. Use `ttsc` when you want one project-aware path for type checking, JavaScript emit, transformer loading, and native backend selection.
 
-Today the compiler lane is:
+## Setup
+
+Install the native TypeScript preview package with `ttsc`:
 
 ```bash
-npm install -D @typescript/native-preview ttsc
-pnpm add -D @typescript/native-preview ttsc
+npm i -D ttsc @typescript/native-preview
 ```
 
-Later the compiler package is expected to become `typescript@7`, but the current setup lane is still `@typescript/native-preview`.
+Build, check, or watch the project:
 
-## Quick Start
+```bash
+npx ttsc
+npx ttsc --noEmit
+npx ttsc --watch
+```
 
-### 1. Add a plugin to `tsconfig.json`
+Transform a single file:
+
+```bash
+npx ttsc transform --file src/index.ts
+```
+
+## Transformer Configuration
+
+`ttsc` reads `compilerOptions.plugins` from `tsconfig.json`.
 
 ```json
 {
   "compilerOptions": {
-    "plugins": [{ "transform": "typia/lib/transform" }]
+    "plugins": [
+      { "transform": "typia/lib/transform" }
+    ]
   }
 }
 ```
 
-### 2. Run `ttsc`
+The same configuration is used by `ttsc` and `ttsx`.
 
 ```bash
-ttsc
-ttsc --noEmit
-ttsc --watch
-ttsc -p tsconfig.json
+# compile
+npx ttsc
+
+# execute
+npx ttsx src/index.ts
 ```
 
-The CLI reads `compilerOptions.plugins`, resolves the plugin modules, chooses the matching native backend binary, and then runs the build or transform through that plugin-selected lane.
+This gives compiler-powered libraries one transform path for build-time and runtime execution.
 
 ## CLI
 
-### `ttsc`
+```bash
+ttsc [options]
+ttsc transform --file <path> [options]
+ttsc version
+```
 
-Build the project referenced by `tsconfig.json`. This follows the `tsc` / `tsgo` command shape: no subcommand means "compile the current project".
+Common commands:
 
 ```bash
 ttsc
 ttsc -p tsconfig.json
-ttsc --emit
 ttsc --noEmit
-ttsc --outDir lib
 ttsc --watch
+ttsc --outDir lib
 ttsc --verbose
-```
-
-Notes:
-
-- `--quiet` is the default.
-- `--verbose` prints the native build summary and emitted file list.
-- `--watch` keeps the JS host alive and reruns the build when project files change.
-- `ttsc build ...` remains a compatibility alias for the same project-build lane.
-
-### `ttsc --noEmit`
-
-Run the same host pipeline without emitting files.
-
-```bash
-ttsc --noEmit
-ttsc -p tsconfig.json --noEmit
-ttsc --watch --noEmit
-```
-
-This is the CI / pre-commit lane. `ttsc check ...` remains a compatibility alias.
-
-### `ttsc transform`
-
-Transform a single source file and print the rewritten JavaScript to stdout.
-
-```bash
 ttsc transform --file src/index.ts
 ttsc transform --file src/index.ts --out tmp/index.js
-ttsc transform --file src/index.ts --project tsconfig.json
 ```
 
-This is the per-file hook bundler adapters consume.
+Supported options:
 
-## Programmatic API
+- `-p, --project <file>`: resolve project settings from this config file.
+- `--tsconfig <file>`: alias for an explicit project config file.
+- `--cwd <dir>`: resolve project-relative paths from another directory.
+- `--emit`: force emitted files during build.
+- `--noEmit`: type check and transform without writing emitted files.
+- `-w, --watch`: rebuild when project files change.
+- `--preserveWatchOutput`: keep watch output on screen.
+- `--outDir <dir>`: override `compilerOptions.outDir`.
+- `--rewrite-mode <mode>`: force a native rewrite backend id.
+- `--quiet`: keep native build output quiet.
+- `--verbose`: print the native build summary and emitted files.
+- `--out <path>`: write single-file transform output to a file.
+- `--binary <path>`: use an explicit native backend binary.
 
-`ttsc` exports a small JS API for bundlers and higher-level tools.
+Compatibility aliases:
+
+```bash
+ttsc build
+ttsc check
+```
+
+`ttsc build` is the same project build lane as `ttsc`. `ttsc check` is the same as `ttsc --noEmit`.
+
+## JS API
+
+`ttsc` exposes a small JS API for bundlers, runners, and higher-level tools.
 
 ```ts
 import { build, check, transform, version } from "ttsc";
 ```
 
-### `transform(options)`
-
-Use this when you are writing a bundler adapter or any per-file transform hook.
+Transform one file:
 
 ```ts
 import { transform } from "ttsc";
 
 const code = transform({
+  cwd: "/project",
   file: "/project/src/index.ts",
   tsconfig: "/project/tsconfig.json",
-  cwd: "/project",
 });
 ```
 
-Important behavior:
-
-- `transform()` resolves the enclosing `tsconfig.json` unless `tsconfig` is given.
-- `plugins` can override the tsconfig plugin list.
-- `plugins: false` disables tsconfig plugin loading.
-- plugin-declared `native.mode` selects the native rewrite backend.
-- `rewriteMode` is a low-level override for tests and migration probes.
-- `out` writes the final transformed text to a file instead of only returning it.
-
-### `build(options)` / `check(options)`
+Build or check a project:
 
 ```ts
 import { build, check } from "ttsc";
 
-const result = build({
-  tsconfig: "tsconfig.json",
+const built = build({
   cwd: process.cwd(),
+  tsconfig: "tsconfig.json",
   emit: true,
 });
 
-if (result.status !== 0) {
-  console.error(result.stderr);
+if (built.status !== 0) {
+  console.error(built.stderr);
 }
 
 const checked = check({
@@ -145,97 +149,73 @@ const checked = check({
 });
 ```
 
-`build()` and `check()` return `{ status, stdout, stderr }`. They do not throw on a non-zero compiler exit; callers decide how to surface the failure.
+`transform()` throws when the native compiler exits with an error. `build()` and `check()` return `{ status, stdout, stderr }`, so callers can decide how to surface compiler failures.
 
-### `version(options)`
+## Transformer Library Authors
 
-```ts
-import { version } from "ttsc";
-
-console.log(version());
-```
-
-Useful for diagnostics or adapter user-agent strings.
-
-## tsconfig Plugin Contract
-
-`ttsc` reads `compilerOptions.plugins` from the resolved project config.
-
-Each plugin entry must have:
+Transformer libraries publish a normal tsconfig plugin entry:
 
 ```json
 {
-  "transform": "some-plugin-entry"
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "my-lib/lib/transform" }
+    ]
+  }
 }
 ```
 
-Optional extra keys are passed to the plugin factory unchanged.
+The `transform` value may be:
 
-### Resolution rules
+- a package specifier.
+- an absolute path.
+- a relative path from the project root.
 
-`transform` may be:
-
-- a package specifier
-- an absolute path
-- a relative path from the project root
-
-The loader also has a source-checkout fallback for `*/lib/transform`, so workspace consumers can be developed before packing/publishing.
-
-## Writing a Plugin
-
-The host surface for plugin authors lives in:
+The plugin module may export a plugin object directly, a default export, a `plugin` export, or a `createTtscPlugin` factory.
 
 ```ts
 import { definePlugin } from "ttsc";
+
+export default definePlugin((config, context) => ({
+  name: "my-lib",
+  native: {
+    mode: "my-lib",
+    binary: require.resolve("my-lib-native/bin/ttsc-my-lib.js"),
+    contractVersion: 1,
+    capabilities: ["rewrite", "diagnostics"],
+  },
+}));
 ```
 
-There are two plugin shapes.
+The factory receives:
 
-- **Native transform plugin**: owns type analysis, call-site recognition, AST rewrite,
-  diagnostics, and emitted assets in a consumer-native backend.
-- **JS output plugin**: receives emitted JavaScript text and returns edited JavaScript
-  text.
+- `config`: the raw `compilerOptions.plugins[]` entry.
+- `context.binary`: the fallback `ttsc` native binary path.
+- `context.cwd`: the invocation working directory.
+- `context.projectRoot`: the resolved project root.
+- `context.tsconfig`: the resolved config file path.
 
-The native shape is the TypeScript v7 path: the plugin describes the backend,
-and the backend performs compiler work through the `typescript-go` lane.
+Keep this Node-side entry small. Use it for package discovery, feature flags, native binary selection, and manifest construction. Put compiler-sensitive work in the native backend.
 
-### Minimal native consumer plugin
+## Native Backend Contract
+
+A native transform plugin describes the backend that owns type analysis and rewrite work.
 
 ```ts
 import { definePlugin } from "ttsc";
-import * as path from "node:path";
 
 export default definePlugin(() => ({
-  name: "my-consumer",
+  name: "my-lib",
   native: {
-    mode: "my-consumer",
-    binary: path.resolve(__dirname, "../native/ttsc-my-consumer.js"),
+    mode: "my-lib",
+    binary: require.resolve("my-lib-native/bin/ttsc-my-lib.js"),
     contractVersion: 1,
     capabilities: ["rewrite", "diagnostics", "assets"],
   },
 }));
 ```
 
-This tells `ttsc`:
-
-- which native rewrite mode to request (`native.mode`)
-- which consumer-owned native binary to run (`native.binary`)
-- which plugin contract version the package was written for
-- which capabilities the backend expects to own
-
-The backend binary is responsible for the work that old TypeScript
-transformers used to do in-process:
-
-- loading the project through the `typescript-go` lane
-- finding marker calls such as `typia.is<T>()`
-- analyzing types through native checker access or a serialized IR
-- emitting the replacement JavaScript
-- reporting plugin-specific diagnostics
-
-The plugin declaration should stay small. Keep compiler work in the native
-backend and keep package discovery/configuration in the Node plugin.
-
-### Native backend descriptor
+Descriptor shape:
 
 ```ts
 interface TtscNativeBackend {
@@ -246,13 +226,23 @@ interface TtscNativeBackend {
 }
 ```
 
-`mode` is the stable name passed to the native compiler process. `binary`
-overrides the default `ttsc` binary when the plugin ships a consumer-specific
-backend. `contractVersion` defaults to `1`; declaring it pins the plugin to the
-current host protocol. `capabilities` is descriptive today and should be used by
-plugin authors as a manifest of owned responsibilities.
+- `mode` is the rewrite backend id passed to the native compiler process.
+- `binary` points at a consumer-owned native binary.
+- `contractVersion` pins the plugin to the current host protocol.
+- `capabilities` records the backend responsibilities.
 
-### Plugin with JS-side output post-processing
+The backend is responsible for the work old TypeScript transformer libraries used to do through in-process compiler APIs:
+
+- loading the project through the `typescript-go` lane.
+- finding marker calls such as `typia.is<T>()`.
+- analyzing types through native checker access or a serialized IR.
+- emitting replacement JavaScript.
+- reporting plugin-specific diagnostics.
+- emitting plugin-owned assets when needed.
+
+## JS Output Hooks
+
+For text-level post-processing, a plugin can provide `transformOutput()`.
 
 ```ts
 import { definePlugin } from "ttsc";
@@ -268,227 +258,53 @@ export default definePlugin((config) => ({
 }));
 ```
 
-`transformOutput()` receives JavaScript text, not a TypeScript AST. It runs:
+`transformOutput()` receives JavaScript text after native emit. Use it for:
 
-- after `ttsc transform`
-- after emitted `.js` files are produced during `ttsc`
+- banner injection.
+- output string patching.
+- runtime helper import rewrites.
+- consumer-specific output normalization.
 
-Use this hook for text-level post-processing such as:
+Use a native backend for compiler-sensitive work:
 
-- banner injection
-- output string patching
-- runtime helper import rewrites
-- consumer-specific output normalization
-
-Put compiler-sensitive work in a native backend or in a separate IR bridge:
-
-- type analysis
-- AST mutation
-- call-site recognition
-- `ts.Program` / `ts.TypeChecker` transformer compatibility
-
-## Transform Development Guide
-
-This is the recommended path for a new transform consumer.
-
-### 1. Publish a tiny Node plugin entry
-
-Create a package entry such as `my-lib/lib/transform`.
-
-```ts
-import { definePlugin } from "ttsc";
-import * as path from "node:path";
-
-export default definePlugin((config, context) => ({
-  name: "my-lib",
-  native: {
-    mode: "my-lib",
-    binary: path.resolve(__dirname, "../../native/ttsc-my-lib.js"),
-    contractVersion: 1,
-    capabilities: ["rewrite", "diagnostics"],
-  },
-  transformOutput(output) {
-    return output.code;
-  },
-}));
-```
-
-The factory receives the raw `compilerOptions.plugins[]` entry as `config` and
-the resolved project locations as `context`. Use this entry for
-package-relative asset lookup, feature flags, diagnostics labels, and manifest
-construction. Keep type analysis and AST rewriting in the native backend.
-
-### 2. Add the plugin to `tsconfig.json`
-
-```json
-{
-  "compilerOptions": {
-    "plugins": [{ "transform": "my-lib/lib/transform" }]
-  }
-}
-```
-
-The same entry is consumed by the CLI and by the JS API.
-
-### 3. Call `ttsc` from a build
-
-```bash
-ttsc
-ttsc --noEmit
-ttsc --outDir bin
-```
-
-The host loads the plugin, selects `native.mode`, and runs the selected native
-backend. The user should not have to pass `--rewrite-mode` for normal use.
-
-### 4. Reuse the same contract from a bundler
-
-```ts
-import { transform } from "ttsc";
-
-const code = transform({
-  cwd: "/project",
-  file: "/project/src/index.ts",
-  tsconfig: "/project/tsconfig.json",
-  plugins: [{ transform: "my-lib/lib/transform" }],
-});
-```
-
-When `plugins` is supplied, it replaces the `tsconfig` plugin list. This is
-useful for bundlers that want deterministic plugin state.
-
-### 5. Keep the compiler boundary honest
-
-`typescript-go` exposes a new compiler lane. A `ttsc` transform should exchange
-stable artifacts:
-
-- plugin manifest
-- serialized request/response
-- generated JavaScript
-- emitted asset list
-- diagnostic payload
-
-Design transforms around those artifacts. Treat `typescript-go` internal Go
-structs, TypeScript's old JS `ts.Node` objects, and typia-specific helper names
-as implementation details.
-
-### Factory context
-
-A plugin factory receives:
-
-- `binary`: the fallback `ttsc` native binary path
-- `cwd`: invocation working directory
-- `projectRoot`: resolved project root
-- `tsconfig`: resolved project config path
-
-Use this if the plugin needs to locate assets relative to the consumer package or project root.
-
-## Host Model
-
-The current host is deliberately split:
-
-- the public CLI / JS API lives in Node
-- the generic compiler driver lives in Go
-- consumer plugins may point the host at their own native binary
-
-This allows:
-
-- one shared Node-side plugin resolution pipeline
-- consumer-specific native analyzers / rewriters
-- bundlers and runners to reuse the same surface
+- type analysis.
+- AST mutation.
+- call-site recognition.
+- `ts.Program` / `ts.TypeChecker` transformer compatibility.
 
 ## Current Constraints
 
-These are real current constraints, not future ideals.
+These are current host constraints transformer authors should design around.
 
-### 1. One native mode per invocation
+- One invocation can select one native `mode` / `binary` pair.
+- Multiple text-only `transformOutput()` plugins can run in order.
+- Passing `plugins` to the JS API replaces the tsconfig plugin list.
+- `transformOutput()` is a JS text hook, not a JS AST hook.
+- The current setup lane is `@typescript/native-preview`.
 
-Today `ttsc` allows only one `native.mode` / `native.binary` pair per invocation.
+## Integration Patterns
 
-If two loaded plugins request different native modes or binaries, the host throws.
+Consumer library:
 
-That means:
+- publish a tsconfig plugin entry such as `my-lib/lib/transform`.
+- resolve a consumer-owned native backend binary from that entry.
+- keep type analysis and rewrite logic in the native backend.
+- optionally layer `transformOutput()` for final JavaScript text normalization.
 
-- composing multiple native consumer plugins in one build is not supported yet
-- text-only `transformOutput()` plugins can still stack
+Bundler adapter:
 
-### 2. `transformOutput()` is JS-text level only
+- call `transform()` for per-file rewrites.
+- pass `plugins` when the adapter needs deterministic plugin state.
+- let `ttsc` resolve the native backend instead of spawning it manually.
 
-There is no JS-side AST hook in the plugin contract today.
+Runner:
 
-If you need:
+- use `ttsx` for direct execution.
+- reuse the same `compilerOptions.plugins` contract.
+- keep build-time and runtime transform behavior aligned.
 
-- type analysis
-- AST mutation
-- call-site recognition
+## References
 
-that work must happen in the native consumer backend, not in `transformOutput()`.
-
-### 3. `plugins` override replaces the tsconfig list
-
-In the JS API, passing `plugins` replaces the tsconfig plugin list rather than merging with it.
-
-This is deliberate but easy to miss when writing adapters.
-
-### 4. Stable `typescript@7` is not the current default
-
-The current documented and implemented setup lane is still `@typescript/native-preview`.
-
-## Typical Integration Patterns
-
-### Consumer package
-
-This is what `typia` does today:
-
-- publish a tsconfig plugin entry such as `typia/lib/transform`
-- point that entry at a consumer-native binary
-- optionally layer JS-side output transforms on top
-
-### Bundler adapter
-
-This is what `@typia/unplugin` does today:
-
-- call `transform()` for per-file rewrites
-- supply an explicit plugin list when it wants to bypass tsconfig state
-- let `ttsc` select the native backend
-
-### Runner
-
-This is what `ttsx` does today:
-
-- use `transform()` for single-file hot execution
-- use `build()` when it has to emit an ESM project into a cache directory
-
-## Development
-
-```bash
-# TypeScript side
-pnpm build
-pnpm test:ts
-
-# Go side
-pnpm go:build
-pnpm go:test
-pnpm go:vet
-
-# Both
-pnpm test
-```
-
-Go 1.26+ is expected for the native side.
-
-## Layout
-
-```
-toolchain/ttsc/
-├── src/launcher/      # public CLI launcher scripts
-├── native/            # local generated Go binary from pnpm go:build
-├── src/               # JS host, plugin contract, platform resolution, API
-├── driver/            # generic native rewrite / emit driver
-├── cmd/ttsc/          # standalone native binary
-└── test/              # JS-side tests
-```
-
-## License
-
-MIT. See [../../LICENSE](../../LICENSE).
+- TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)
+- Transformer tooling: [`ttypescript`](https://github.com/cevek/ttypescript) and [`ts-patch`](https://github.com/nonara/ts-patch)
+- Inspired by: [`typical`](https://github.com/samchon/typical) and [`tsgonest`](https://github.com/samchon/tsgonest)

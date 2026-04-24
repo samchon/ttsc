@@ -8,10 +8,7 @@
     "ttsx": "src/launcher/ttsx.js"
   },
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./lib/index.js"
-    },
+    ".": "./src/index.ts",
     "./package.json": "./package.json"
   },
   "scripts": {
