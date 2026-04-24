@@ -2,15 +2,14 @@
   "name": "ttsx",
   "version": "0.1.0-dev",
   "description": "Standalone tsgo runner built on top of the ttsc host.",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "bin": {
     "ttsx": "src/launcher/ttsx.js"
   },
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "import": "./lib/index.js",
+      "types": "./src/index.ts",
       "default": "./lib/index.js"
     },
     "./package.json": "./package.json"
@@ -52,6 +51,18 @@
   ],
   "packageManager": "pnpm@10.6.4",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "bin": {
+      "ttsx": "src/launcher/ttsx.js"
+    },
+    "exports": {
+      ".": {
+        "types": "./lib/index.d.ts",
+        "default": "./lib/index.js"
+      },
+      "./package.json": "./package.json"
+    }
   }
 }

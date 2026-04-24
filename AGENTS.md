@@ -17,7 +17,17 @@ Do not respond to that risk with vague confidence. Keep the test harness sharp. 
 - `packages/ttsc`: compiler adapter, JS API, plugin host, Go native CLI, TypeScript-Go shims.
 - `packages/ttsx`: runner package that reuses `ttsc`.
 - `tests/smoke`: standalone end-to-end tests for generic projects and generic plugins.
+- `tests/projects`: real fixture projects copied by the smoke suite. Add project-shaped regressions here instead of hiding every case inside test functions.
+- `tests/go-transformer`: Go transformer library and native backend fixture used to prove that plugin-selected native binaries can participate in the transform pipeline.
 - `config`: shared TypeScript compiler configuration.
+
+The smoke suite must stay as a corpus, not a single happy-path file. Add new reference-derived cases under:
+
+- `tests/smoke/test/compiler-corpus.test.cjs`
+- `tests/smoke/test/plugin-corpus.test.cjs`
+- `tests/smoke/test/runner-corpus.test.cjs`
+- `tests/smoke/test/transform-projects.test.cjs`
+- `tests/smoke/test/_helpers.cjs`
 
 ## Required Commands
 
@@ -34,12 +44,6 @@ For TypeScript-Go or shim changes, also run:
 ```bash
 pnpm --filter ttsc go:vet
 cd packages/ttsc && go list -deps ./cmd/ttsc
-```
-
-For package-boundary changes, run:
-
-```bash
-pnpm --filter ./packages/* -r pack
 ```
 
 ## Review Discipline
@@ -89,6 +93,9 @@ Local references commonly used for audits:
 - `/home/samchon/github/contributions/tsgolint`
 - `/home/samchon/github/contributions/tsgonest`
 - `/home/samchon/github/contributions/typical`
+- `/home/samchon/github/contributions/ts-patch`
+- `/home/samchon/github/contributions/tsx`
+- `/home/samchon/github/contributions/ts-node`
 - `/home/samchon/github/samchon/typia@next`
 
 Use them when a change touches TypeScript-Go internals, shim generation, Go compiler-host patterns, emitted JS rewrite strategy, or runner behavior. Be ready to read exact files line by line instead of relying on memory.

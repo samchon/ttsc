@@ -92,7 +92,7 @@ func runTransform(args []string) int {
 	var captured []byte
 	capture := func(name, text string, _ *shimcompiler.WriteFileData) error {
 		rel := filepath.ToSlash(name)
-		if !strings.HasSuffix(rel, ".js") {
+		if !isJavaScriptOutput(rel) {
 			return nil
 		}
 		captured = []byte(text)
@@ -154,4 +154,13 @@ func sharedSourceStemSegments(outPath, srcPath string) int {
 		shared++
 	}
 	return shared
+}
+
+func isJavaScriptOutput(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".js", ".mjs", ".cjs":
+		return true
+	default:
+		return false
+	}
 }

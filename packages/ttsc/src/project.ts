@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
+import { createRequire } from "node:module";
 import * as path from "node:path";
 
 export interface ProjectLocatorOptions {
@@ -183,10 +184,11 @@ function resolveExtendsConfig(tsconfig: string, specifier: string): string {
   if (isRelativePluginSpecifier(specifier)) {
     return resolveExistingExtendsPath(path.resolve(baseDir, specifier));
   }
+  const resolver = createRequire(tsconfig);
   try {
-    return resolveRealPath(require.resolve(specifier, { paths: [baseDir] }));
+    return resolveRealPath(resolver.resolve(specifier));
   } catch {
-    return resolveRealPath(require.resolve(`${specifier}.json`, { paths: [baseDir] }));
+    return resolveRealPath(resolver.resolve(`${specifier}.json`));
   }
 }
 
