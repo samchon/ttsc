@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const cwd = process.cwd();
 const manifest = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8"));
-const match = /^@ttsc\/(linux|darwin|win32)-(x64|arm64)$/.exec(manifest.name);
+const match = /^@ttsc\/(linux|darwin|win32)-(x64|arm|arm64)$/.exec(manifest.name);
 
 if (!match) {
   throw new Error(`build-platform-package: unsupported package name ${manifest.name}`);

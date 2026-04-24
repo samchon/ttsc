@@ -2,18 +2,16 @@
   "name": "ttsc",
   "version": "0.4.1",
   "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "bin": {
-    "ttsc": "src/launcher/ttsc.js",
-    "ttsx": "src/launcher/ttsx.js"
+    "ttsc": "lib/launcher/ttsc.js",
+    "ttsx": "lib/launcher/ttsx.js"
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "require": "./lib/index.js",
-      "default": "./src/index.ts"
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -25,7 +23,7 @@
     "go:build": "node ../../scripts/go.cjs build-native",
     "go:test": "node ../../scripts/go.cjs test ./...",
     "go:vet": "node ../../scripts/go.cjs vet ./...",
-    "prepack": "pnpm run build && pnpm run go:build"
+    "prepack": "pnpm run build"
   },
   "repository": {
     "type": "git",
@@ -39,11 +37,12 @@
   "homepage": "https://github.com/samchon/ttsc",
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:typescript",
+    "@typescript/native-preview": "catalog:tsgo",
     "rimraf": "catalog:utils"
   },
   "optionalDependencies": {
     "@ttsc/linux-x64": "workspace:*",
+    "@ttsc/linux-arm": "workspace:*",
     "@ttsc/linux-arm64": "workspace:*",
     "@ttsc/darwin-x64": "workspace:*",
     "@ttsc/darwin-arm64": "workspace:*",
@@ -71,21 +70,5 @@
     "plugin-host",
     "ttsc"
   ],
-  "packageManager": "pnpm@10.6.4",
-  "publishConfig": {
-    "access": "public",
-    "main": "lib/index.js",
-    "types": "lib/index.d.ts",
-    "bin": {
-      "ttsc": "src/launcher/ttsc.js",
-      "ttsx": "src/launcher/ttsx.js"
-    },
-    "exports": {
-      ".": {
-        "types": "./lib/index.d.ts",
-        "default": "./lib/index.js"
-      },
-      "./package.json": "./package.json"
-    }
-  }
+  "packageManager": "pnpm@10.6.4"
 }

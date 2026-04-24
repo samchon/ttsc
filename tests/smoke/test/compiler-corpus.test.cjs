@@ -16,7 +16,7 @@ const compilerProjects = [
     name: "single file compatibility mode writes to explicit outDir",
     root: () =>
       commonJsProject({
-        "src/main.ts": `export const value: number = 7;\nconsole.log(value);\n`,
+        "src/main.ts": `export const value: number = 7;\nconsole.log(value.toString());\n`,
       }),
     run(root) {
       const result = spawn(ttscBin, ["--cwd", root, "--outDir", "single", "src/main.ts"], {

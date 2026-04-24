@@ -1,0 +1,25 @@
+{
+  "name": "@ttsc/linux-arm",
+  "version": "0.4.1",
+  "description": "Linux arm native binary for ttsc.",
+  "os": ["linux"],
+  "cpu": ["arm"],
+  "scripts": {
+    "build": "node ../../scripts/build-platform-package.cjs",
+    "prepack": "pnpm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

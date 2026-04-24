@@ -53,4 +53,4 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Installed Tarballs
-        run: pnpm --dir experimental/install start -- --pack-current
+        run: pnpm run experimental

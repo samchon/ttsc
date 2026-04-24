@@ -4,7 +4,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "../..");
 const outputDir = __dirname;
-const targets = listTargets(path.join(root, "packages"));
+const platformKey = `${process.platform}-${process.arch}`;
+const targets = listTargets(path.join(root, "packages"), platformKey);
 
 preparePackages();
 clearOutputDirectory();
@@ -12,7 +13,7 @@ for (const target of targets) build(target);
 
 function preparePackages() {
   console.log("Preparing packages");
-  cp.execSync("pnpm run build", {
+  cp.execSync("pnpm run build:current", {
     cwd: root,
     stdio: "inherit",
   });
@@ -49,21 +50,19 @@ function clearOutputDirectory() {
   }
 }
 
-function listTargets(baseDir) {
-  return fs
-    .readdirSync(baseDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .filter((entry) => fs.existsSync(path.join(baseDir, entry.name, "package.json")))
-    .map((entry) => {
-      const dir = path.join(baseDir, entry.name);
-      const manifest = JSON.parse(
-        fs.readFileSync(path.join(dir, "package.json"), "utf8"),
-      );
-      return {
-        dir,
-        name: manifest.name,
-        tarballName: entry.name,
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+function listTargets(baseDir, key) {
+  return ["ttsc", `ttsc-${key}`].map((name) => {
+    const dir = path.join(baseDir, name);
+    if (!fs.existsSync(path.join(dir, "package.json"))) {
+      throw new Error(`package target does not exist: ${name}`);
+    }
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, "package.json"), "utf8"),
+    );
+    return {
+      dir,
+      name: manifest.name,
+      tarballName: name,
+    };
+  });
 }

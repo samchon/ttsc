@@ -6,25 +6,28 @@ const path = require("node:path");
 const test = require("node:test");
 
 const workspaceRoot = path.resolve(__dirname, "../../..");
-const testPackageRoot = path.resolve(__dirname, "..");
 const ttscBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsc.cmd" : "ttsc",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsc.js",
 );
 const ttsxBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsx.cmd" : "ttsx",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsx.js",
 );
 const nativeBinary = path.join(
   workspaceRoot,
   "packages",
-  "ttsc",
-  "native",
-  process.platform === "win32" ? "ttsc-native.exe" : "ttsc-native",
+  `ttsc-${process.platform}-${process.arch}`,
+  "bin",
+  process.platform === "win32" ? "ttsc.exe" : "ttsc",
 );
 
 test("ttsc reports the native version banner", () => {
@@ -46,7 +49,7 @@ test("ttsc builds a plain TypeScript project without typia", () => {
       },
       include: ["src"],
     }),
-    "src/main.ts": `export const add = (x: number, y: number): number => x + y;\nconsole.log(add(2, 3));\n`,
+    "src/main.ts": `export const add = (x: number, y: number): number => x + y;\nconsole.log(add(2, 3).toString());\n`,
   });
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
@@ -75,13 +78,12 @@ test("ttsc JS plugin transformOutput composes with native emit", () => {
       include: ["src"],
     }),
     "plugins/banner.cjs": `
-      const { definePlugin } = require("ttsc");
-      module.exports = definePlugin((config) => ({
+      module.exports = (config) => ({
         name: "banner",
         transformOutput(context) {
           return "// plugin:" + config.label + ":" + context.command + "\\n" + context.code;
         },
-      }));
+      });
     `,
     "src/main.ts": `export const value: string = "ok";\n`,
   });
@@ -114,13 +116,12 @@ test("ttsc build applies chained plugins and skips disabled plugin entries", () 
       include: ["src"],
     }),
     "plugins/first.cjs": `
-      const { definePlugin } = require("ttsc");
-      module.exports = definePlugin((config) => ({
+      module.exports = (config) => ({
         name: "first",
         transformOutput(context) {
           return context.code + "\\n// " + config.label + ":" + context.command;
         },
-      }));
+      });
     `,
     "plugins/second.cjs": `
       exports.plugin = {
@@ -238,7 +239,7 @@ test("ttsc programmatic transformAsync uses the resolved native binary", async (
     }),
     "src/main.ts": `export const value: string = "api";\n`,
   });
-  const { transformAsync } = require("ttsc");
+  const { transformAsync } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
 
   const js = await transformAsync({
     binary: nativeBinary,
@@ -390,7 +391,7 @@ test("ttsx runs an .mts entry and resolves emitted .mjs imports", () => {
   assert.equal(result.stdout.trim(), "mts-runner-ok");
 });
 
-test("local native binary was built for the test run", () => {
+test("current platform package binary was built for the test run", () => {
   assert.equal(fs.existsSync(nativeBinary), true);
 });
 
@@ -405,7 +406,11 @@ function createProject(files) {
 }
 
 function spawn(command, args, options) {
-  return child_process.spawnSync(command, args, {
+  const usesNodeLauncher = command === ttscBin || command === ttsxBin;
+  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
+    ...(usesNodeLauncher ? [command] : []),
+    ...args,
+  ], {
     ...options,
     env: {
       ...process.env,
@@ -415,4 +420,8 @@ function spawn(command, args, options) {
     maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
+  if (result.error && !result.stderr) {
+    result.stderr = result.error.message;
+  }
+  return result;
 }
