@@ -1,6 +1,6 @@
-# `ttsc` and `ttsx`
+# `ttsc`
 
-![banner of ttsc and ttsx](https://private-user-images.githubusercontent.com/13158709/583518390-6df1deb5-9e8c-4f4b-9d0f-eae1cc3bb55c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzcwNTQ2NzUsIm5iZiI6MTc3NzA1NDM3NSwicGF0aCI6Ii8xMzE1ODcwOS81ODM1MTgzOTAtNmRmMWRlYjUtOWU4Yy00ZjRiLTlkMGYtZWFlMWNjM2JiNTVjLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDI0VDE4MTI1NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTEzMzUxNTE4YThlZDYyNDZjYTVjYmRiMmZiYzAwYzYyZTkyNDk4MjVlYmI4OGZkYjE3NDllNWQzY2IxNmRhYWEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.7MYb2S99lZfQV-BqD09ZrZwdj1C3XDyJ9nkaSEr901M)
+![banner of ttsc](https://private-user-images.githubusercontent.com/13158709/583518390-6df1deb5-9e8c-4f4b-9d0f-eae1cc3bb55c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzcwNTQ2NzUsIm5iZiI6MTc3NzA1NDM3NSwicGF0aCI6Ii8xMzE1ODcwOS81ODM1MTgzOTAtNmRmMWRlYjUtOWU4Yy00ZjRiLTlkMGYtZWFlMWNjM2JiNTVjLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjA0MjQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwNDI0VDE4MTI1NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTEzMzUxNTE4YThlZDYyNDZjYTVjYmRiMmZiYzAwYzYyZTkyNDk4MjVlYmI4OGZkYjE3NDllNWQzY2IxNmRhYWEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.7MYb2S99lZfQV-BqD09ZrZwdj1C3XDyJ9nkaSEr901M)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
 [![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
@@ -15,23 +15,23 @@ A `typescript-go` toolchain for compiler-powered transforms and type-safe execut
   - type checking that `tsx` does not provide.
 - **transformer support**: compiler-powered libraries, such as `typia`.
 
-> `ttsx` can run existing `typescript@6` projects.
+> `ttsx` (CLI command) can run existing `typescript@6` projects.
 
 ## Setup
 
-Install the native TypeScript preview package with `ttsc` and `ttsx`:
+Install the native TypeScript preview package with `ttsc`:
 
 ```bash
-npm i -D ttsc ttsx @typescript/native-preview
+npm i -D ttsc @typescript/native-preview
 ```
 
-Run TypeScript directly:
+Run TypeScript directly with `ttsx` (CLI command):
 
 ```bash
 npx ttsx src/index.ts
 ```
 
-Build, check, or watch the project:
+Build, check, or watch the project with `ttsc`:
 
 ```bash
 npx ttsc
@@ -53,7 +53,7 @@ npx ttsc --watch
 }
 ```
 
-The same configuration is used by both `ttsc` and `ttsx`.
+The same configuration is used by both `ttsc` commands.
 
 ```bash
 # compile
@@ -64,21 +64,6 @@ npx ttsx src/index.ts
 ```
 
 This gives compiler-powered libraries one transform path for both build-time and runtime execution.
-
-## How It Works
-
-`ttsc` is the compiler host. `ttsx` is the runtime entrypoint on top of it.
-
-```text
-ttsc ── build / check / transform
-  ▲
-  │
-ttsx ── execute TypeScript
-```
-
-`ttsx` reuses the same compiler path as `ttsc`: project resolution, transformer loading, type checking, transformation, and cache layout.
-
-That is why `ttsx` can be faster than `ts-node` without giving up the type checking that `tsx` does not provide.
 
 ## What Is a Transform?
 
