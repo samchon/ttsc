@@ -110,3 +110,5 @@ This file records the initial standalone migration review from `../typia@next/to
 - Removed the workspace-local `native` directory from the published `ttsc` file list so published installs must resolve through the platform package path.
 - Restored `package:tgz` and added `experimental/install`, a tarball installation check that installs packed `ttsc`, `ttsx`, and the current platform binary package into a temporary npm project, then runs `ttsc` and `ttsx` from that installed path.
 - Split native OS/architecture tarball install verification into `experimental.yml`; `test.yml` remains the normal Ubuntu test gate.
+- Changed ttsc Go npm scripts from `bash -c` wrappers to `scripts/go.cjs` so package prepack works under Windows runners without shell-quote leakage.
+- Pinned `experimental.yml` to explicit standard GitHub-hosted labels for Linux, Windows, and macOS x64/arm64 runners.
