@@ -7,16 +7,20 @@ const workspaceRoot = path.resolve(__dirname, "../../..");
 const testPackageRoot = path.resolve(__dirname, "..");
 const projectsRoot = path.resolve(testPackageRoot, "..", "projects");
 const ttscBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsc.cmd" : "ttsc",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsc.js",
 );
 const ttsxBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsx.cmd" : "ttsx",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsx.js",
 );
 const nativeBinary = path.join(
   workspaceRoot,
@@ -83,7 +87,11 @@ function commonJsProject(files, options = {}) {
 }
 
 function spawn(command, args, options = {}) {
-  return child_process.spawnSync(command, args, {
+  const usesNodeLauncher = command === ttscBin || command === ttsxBin;
+  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
+    ...(usesNodeLauncher ? [command] : []),
+    ...args,
+  ], {
     ...options,
     env: {
       ...process.env,
@@ -94,6 +102,10 @@ function spawn(command, args, options = {}) {
     maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
+  if (result.error && !result.stderr) {
+    result.stderr = result.error.message;
+  }
+  return result;
 }
 
 function runNode(file, options = {}) {

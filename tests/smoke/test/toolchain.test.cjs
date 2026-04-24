@@ -6,18 +6,21 @@ const path = require("node:path");
 const test = require("node:test");
 
 const workspaceRoot = path.resolve(__dirname, "../../..");
-const testPackageRoot = path.resolve(__dirname, "..");
 const ttscBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsc.cmd" : "ttsc",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsc.js",
 );
 const ttsxBin = path.join(
-  testPackageRoot,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "ttsx.cmd" : "ttsx",
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsx.js",
 );
 const nativeBinary = path.join(
   workspaceRoot,
@@ -46,7 +49,7 @@ test("ttsc builds a plain TypeScript project without typia", () => {
       },
       include: ["src"],
     }),
-    "src/main.ts": `export const add = (x: number, y: number): number => x + y;\nconsole.log(add(2, 3));\n`,
+    "src/main.ts": `export const add = (x: number, y: number): number => x + y;\nconsole.log(add(2, 3).toString());\n`,
   });
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
@@ -403,7 +406,11 @@ function createProject(files) {
 }
 
 function spawn(command, args, options) {
-  return child_process.spawnSync(command, args, {
+  const usesNodeLauncher = command === ttscBin || command === ttsxBin;
+  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
+    ...(usesNodeLauncher ? [command] : []),
+    ...args,
+  ], {
     ...options,
     env: {
       ...process.env,
@@ -413,4 +420,8 @@ function spawn(command, args, options) {
     maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
+  if (result.error && !result.stderr) {
+    result.stderr = result.error.message;
+  }
+  return result;
 }
