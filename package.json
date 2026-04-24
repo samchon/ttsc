@@ -5,11 +5,12 @@
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
     "build": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter=\"./packages/ttsc-*\" -r build",
+    "experimental": "pnpm run package:tgz && pnpm --dir experimental/install start -- --skip-pack",
     "package:latest": "pnpm --filter=./packages/* -r publish --tag latest --access public",
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",
     "release": "bumpp -r",
-    "test": "pnpm run build && pnpm --filter ttsc test && bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; cd tests/go-transformer && go test ./...' && pnpm --dir tests/smoke start && pnpm run package:tgz && pnpm --dir experimental/install start -- --skip-pack"
+    "test": "pnpm --filter ttsc test && bash -c 'export PATH=\"$HOME/go-sdk/go/bin:$PATH\"; cd tests/go-transformer && go test ./...' && pnpm --dir tests/smoke start"
   },
   "repository": {
     "type": "git",

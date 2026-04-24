@@ -118,7 +118,7 @@ test("ttsc build applies chained plugins and skips disabled plugin entries", () 
         transformOutput(context) {
           return context.code + "\\n// " + config.label + ":" + context.command;
         },
-      };
+      });
     `,
     "plugins/second.cjs": `
       exports.plugin = {
@@ -236,7 +236,7 @@ test("ttsc programmatic transformAsync uses the resolved native binary", async (
     }),
     "src/main.ts": `export const value: string = "api";\n`,
   });
-  const { transformAsync } = require("ttsc");
+  const { transformAsync } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
 
   const js = await transformAsync({
     binary: nativeBinary,
