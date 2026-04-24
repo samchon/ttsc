@@ -2,7 +2,7 @@
   "private": true,
   "name": "@ttsc/experimental-install",
   "version": "0.0.0",
-  "description": "Experimental check for ttsc and ttsx tgz installation",
+  "description": "Experimental check for ttsc tgz installation",
   "scripts": {
     "start": "node src/index.js"
   },

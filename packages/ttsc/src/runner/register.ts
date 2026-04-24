@@ -5,13 +5,17 @@ import * as path from "node:path";
 import {
   build,
   check,
+  type CommonOptions,
+  transform,
+} from "../api";
+import {
   defaultCacheDirectory,
   resolveProjectConfig,
   resolveProjectRoot,
+} from "../project";
+import {
   resolveBinary,
-  transform,
-  type CommonOptions,
-} from "ttsc";
+} from "../platform";
 
 export interface RegisterOptions extends CommonOptions {
   cacheDir?: string;

@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/darwin-x64",
-  "version": "0.1.0-dev",
+  "version": "0.4.0-dev.20260424",
   "description": "macOS x64 native binary for ttsc.",
   "os": ["darwin"],
   "cpu": ["x64"],
@@ -16,7 +16,8 @@
   "license": "MIT",
   "files": [
     "bin",
-    "package.json"
+    "package.json",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"

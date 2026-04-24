@@ -3,14 +3,13 @@ import Module = require("node:module");
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 
+import { version } from "../api";
 import {
   prepareExecution,
   register,
   type PreparedExecution,
   type RegisterOptions,
 } from "./register";
-
-const VERSION = "0.1.0-dev";
 
 interface ParsedCLI extends RegisterOptions {
   entry: string;
@@ -34,7 +33,7 @@ function run(argv: readonly string[]): number {
     return 0;
   }
   if (parsed === "version") {
-    process.stdout.write(`ttsx ${VERSION}\n`);
+    process.stdout.write(`${version().replace(/^ttsc\b/, "ttsx")}\n`);
     return 0;
   }
 
@@ -159,7 +158,7 @@ function parseCLI(argv: readonly string[]): ParsedCLI | "help" | "version" {
 function printHelp(): void {
   process.stdout.write(
     [
-      "ttsx — ts-node/tsx-style runner built on top of the ttsc host.",
+      "ttsx — TypeScript runner provided by ttsc.",
       "",
       "Usage:",
       "  ttsx [options] <entry.ts> [-- <argv...>]",

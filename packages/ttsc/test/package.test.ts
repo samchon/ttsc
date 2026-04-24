@@ -6,22 +6,32 @@ const test = require("node:test");
 const workspaceRoot = path.resolve(__dirname, "../../..");
 
 test("package metadata separates monorepo source exports from publish exports", () => {
-  for (const packageName of ["ttsc", "ttsx"]) {
-    const packageJson = readPackageJson(packageName);
-    assert.match(packageJson.main, /^src\/.+\.ts$/);
-    assert.match(packageJson.types, /^src\/.+\.ts$/);
-    assert.equal(packageJson.exports["."].types, "./src/index.ts");
-    assert.equal(packageJson.publishConfig.main, "lib/index.js");
-    assert.equal(packageJson.publishConfig.types, "lib/index.d.ts");
-    assert.equal(
-      packageJson.publishConfig.exports["."].types,
-      "./lib/index.d.ts",
-    );
-    assert.equal(
-      packageJson.publishConfig.exports["."].default,
-      "./lib/index.js",
-    );
-  }
+  const packageJson = readPackageJson("ttsc");
+  assert.match(packageJson.main, /^src\/.+\.ts$/);
+  assert.match(packageJson.types, /^src\/.+\.ts$/);
+  assert.equal(packageJson.exports["."].types, "./src/index.ts");
+  assert.equal(packageJson.exports["."].import, "./src/index.ts");
+  assert.equal(packageJson.exports["."].require, "./lib/index.js");
+  assert.equal(packageJson.exports["."].default, "./src/index.ts");
+  assert.equal(packageJson.publishConfig.main, "lib/index.js");
+  assert.equal(packageJson.publishConfig.types, "lib/index.d.ts");
+  assert.equal(
+    packageJson.publishConfig.exports["."].types,
+    "./lib/index.d.ts",
+  );
+  assert.equal(
+    packageJson.publishConfig.exports["."].default,
+    "./lib/index.js",
+  );
+});
+
+test("ttsc package owns both compiler and runtime commands", () => {
+  const packageJson = readPackageJson("ttsc");
+  assert.deepEqual(packageJson.bin, {
+    ttsc: "src/launcher/ttsc.js",
+    ttsx: "src/launcher/ttsx.js",
+  });
+  assert.deepEqual(packageJson.publishConfig.bin, packageJson.bin);
 });
 
 test("ttsc exposes plugin helpers through the root package only", () => {
@@ -86,9 +96,7 @@ test("published package file lists keep TypeScript and Go sources", () => {
   }
   assert.equal(ttsc.files.includes("tsconfig.json"), false);
 
-  const ttsx = readPackageJson("ttsx");
-  assert.equal(ttsx.files.includes("src"), true, "ttsx files must include src");
-  assert.equal(ttsx.files.includes("tsconfig.json"), false);
+  assert.equal(fs.existsSync(path.join(workspaceRoot, "packages", "ttsx")), false);
 });
 
 test("platform packages expose os cpu constrained native binaries", () => {
@@ -106,7 +114,7 @@ test("platform packages expose os cpu constrained native binaries", () => {
     assert.equal(packageJson.name, name);
     assert.deepEqual(packageJson.os, [os]);
     assert.deepEqual(packageJson.cpu, [cpu]);
-    assert.deepEqual(packageJson.files, ["bin", "package.json"]);
+    assert.deepEqual(packageJson.files, ["bin", "package.json", "README.md"]);
     assert.equal(packageJson.scripts.build, "node ../../scripts/build-platform-package.cjs");
     assert.equal(packageJson.scripts.prepack, "pnpm run build");
     assert.equal(packageJson.description.includes(label), true);

@@ -7,6 +7,7 @@ dist/
 bin/
 coverage/
 .turbo/
+.references/
 **/node_modules/
 **/lib/
 **/native/
