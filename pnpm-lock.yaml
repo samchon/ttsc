@@ -53,6 +53,37 @@ importers:
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
+    optionalDependencies:
+      '@ttsc/darwin-arm64':
+        specifier: workspace:*
+        version: link:../ttsc-darwin-arm64
+      '@ttsc/darwin-x64':
+        specifier: workspace:*
+        version: link:../ttsc-darwin-x64
+      '@ttsc/linux-arm64':
+        specifier: workspace:*
+        version: link:../ttsc-linux-arm64
+      '@ttsc/linux-x64':
+        specifier: workspace:*
+        version: link:../ttsc-linux-x64
+      '@ttsc/win32-arm64':
+        specifier: workspace:*
+        version: link:../ttsc-win32-arm64
+      '@ttsc/win32-x64':
+        specifier: workspace:*
+        version: link:../ttsc-win32-x64
+
+  packages/ttsc-darwin-arm64: {}
+
+  packages/ttsc-darwin-x64: {}
+
+  packages/ttsc-linux-arm64: {}
+
+  packages/ttsc-linux-x64: {}
+
+  packages/ttsc-win32-arm64: {}
+
+  packages/ttsc-win32-x64: {}
 
   packages/ttsx:
     dependencies:

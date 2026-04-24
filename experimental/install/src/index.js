@@ -1,0 +1,198 @@
+const cp = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+const experimentRoot = path.resolve(__dirname, "..");
+const root = path.resolve(experimentRoot, "../..");
+const tarballs = path.join(root, "experimental", "tarballs");
+const workspace = path.join(experimentRoot, ".tmp", "project");
+const skipPack = process.argv.includes("--skip-pack");
+const packCurrent = process.argv.includes("--pack-current");
+const platformKey = `${process.platform}-${process.arch}`;
+const platformPackage = `@ttsc/${platformKey}`;
+const platformTarball = `ttsc-${platformKey}`;
+
+main();
+
+function main() {
+  if (packCurrent) {
+    prepareCurrentTarballs();
+  } else if (!skipPack) {
+    run("pnpm package:tgz", root);
+  }
+  prepareWorkspace();
+  installTarballs();
+  verifyInstalledPackages();
+  verifyTtscBuild();
+  verifyTtsxRun();
+  console.log("Success");
+}
+
+function prepareCurrentTarballs() {
+  fs.mkdirSync(tarballs, { recursive: true });
+  for (const name of ["ttsc", "ttsx", platformTarball]) {
+    fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
+  }
+
+  packPackage("ttsc", "ttsc");
+  packPackage("ttsx", "ttsx");
+  packPackage(platformTarball, platformTarball);
+}
+
+function packPackage(packageDirName, tarballName) {
+  const packageDir = path.join(root, "packages", packageDirName);
+  assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
+
+  for (const entry of fs.readdirSync(packageDir)) {
+    if (entry.endsWith(".tgz")) {
+      fs.rmSync(path.join(packageDir, entry), { force: true });
+    }
+  }
+
+  run("pnpm pack", packageDir);
+  const packed = fs.readdirSync(packageDir).find((entry) => entry.endsWith(".tgz"));
+  assert(packed, `${packageDirName} package tarball must be created`);
+  fs.copyFileSync(
+    path.join(packageDir, packed),
+    path.join(tarballs, `${tarballName}.tgz`),
+  );
+}
+
+function prepareWorkspace() {
+  fs.rmSync(path.join(experimentRoot, ".tmp"), { recursive: true, force: true });
+  fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, "package.json"),
+    JSON.stringify(
+      {
+        private: true,
+        name: "@ttsc/experiment-install-consumer",
+        version: "0.0.0",
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(workspace, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          outDir: "dist",
+          rootDir: "src",
+        },
+        include: ["src"],
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(workspace, "src", "main.ts"),
+    'const message: string = "installed-runner-ok";\nconsole.log(message);\n',
+  );
+}
+
+function installTarballs() {
+  const command = [
+    "npm install",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    tarball("ttsc"),
+    tarball("ttsx"),
+    tarball(platformTarball),
+  ].join(" ");
+  run(command, workspace);
+}
+
+function verifyInstalledPackages() {
+  const platformBin = path.join(
+    workspace,
+    "node_modules",
+    "@ttsc",
+    platformKey,
+    "bin",
+    process.platform === "win32" ? "ttsc.exe" : "ttsc",
+  );
+  assert(fs.existsSync(platformBin), `${platformPackage} binary must exist`);
+  assert(
+    !fs.existsSync(path.join(workspace, "node_modules", "ttsc", "native")),
+    "ttsc package must not ship a workspace-local native fallback",
+  );
+
+  const resolved = runNode(
+    [
+      "-e",
+      "const ttsc = require('ttsc'); console.log(ttsc.resolveBinary());",
+    ],
+    workspace,
+  ).stdout.trim();
+  assert(
+    path.resolve(resolved) === path.resolve(platformBin),
+    `resolveBinary must select ${platformPackage}, got ${resolved}`,
+  );
+
+  const version = run("npx ttsc --version", workspace).stdout;
+  assert(/^ttsc /m.test(version), "npx ttsc --version must print ttsc banner");
+  const ttsx = run("npx ttsx --version", workspace).stdout;
+  assert(/^ttsx /m.test(ttsx), "npx ttsx --version must print ttsx banner");
+}
+
+function verifyTtscBuild() {
+  run("npx ttsc --cwd . --emit", workspace);
+  const output = path.join(workspace, "dist", "main.js");
+  assert(fs.existsSync(output), "ttsc must emit dist/main.js");
+  const executed = runNode([output], workspace).stdout.trim();
+  assert(executed === "installed-runner-ok", "emitted JavaScript must run");
+}
+
+function verifyTtsxRun() {
+  const result = run("npx ttsx --cwd . src/main.ts", workspace).stdout.trim();
+  assert(result === "installed-runner-ok", "ttsx must run installed entry");
+}
+
+function tarball(name) {
+  const file = path.join(tarballs, `${name}.tgz`);
+  assert(fs.existsSync(file), `${name}.tgz must exist`);
+  return file;
+}
+
+function run(command, cwd) {
+  console.log(`$ ${command}`);
+  const result = cp.execSync(command, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result) process.stdout.write(result);
+  return { stdout: result };
+}
+
+function runNode(args, cwd) {
+  const result = cp.spawnSync(process.execPath, args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+    maxBuffer: 1024 * 1024 * 64,
+    windowsHide: true,
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  assert(result.status === 0, `node ${args.join(" ")} failed`);
+  return result;
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}

@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/test.yml"
       - "config/**"
+      - "experimental/**"
+      - "scripts/**"
       - "packages/**"
       - "tests/**"
       - "package.json"

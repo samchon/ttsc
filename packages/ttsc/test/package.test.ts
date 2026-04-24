@@ -38,6 +38,49 @@ test("ttsc plugin subpath also separates source and publish declarations", () =>
   );
 });
 
+test("ttsc declares platform packages as optional dependencies", () => {
+  const packageJson = readPackageJson("ttsc");
+  const expected = [
+    "@ttsc/linux-x64",
+    "@ttsc/linux-arm64",
+    "@ttsc/darwin-x64",
+    "@ttsc/darwin-arm64",
+    "@ttsc/win32-x64",
+    "@ttsc/win32-arm64",
+  ];
+
+  assert.deepEqual(
+    Object.keys(packageJson.optionalDependencies).sort(),
+    expected.toSorted(),
+  );
+  for (const name of expected) {
+    assert.equal(packageJson.optionalDependencies[name], "workspace:*");
+  }
+  assert.equal(packageJson.files.includes("native"), false);
+});
+
+test("platform packages expose os cpu constrained native binaries", () => {
+  const matrix = {
+    "ttsc-linux-x64": ["@ttsc/linux-x64", "linux", "x64", "Linux x64"],
+    "ttsc-linux-arm64": ["@ttsc/linux-arm64", "linux", "arm64", "Linux arm64"],
+    "ttsc-darwin-x64": ["@ttsc/darwin-x64", "darwin", "x64", "macOS x64"],
+    "ttsc-darwin-arm64": ["@ttsc/darwin-arm64", "darwin", "arm64", "macOS arm64"],
+    "ttsc-win32-x64": ["@ttsc/win32-x64", "win32", "x64", "Windows x64"],
+    "ttsc-win32-arm64": ["@ttsc/win32-arm64", "win32", "arm64", "Windows arm64"],
+  };
+
+  for (const [dir, [name, os, cpu, label]] of Object.entries(matrix)) {
+    const packageJson = readPackageJson(dir);
+    assert.equal(packageJson.name, name);
+    assert.deepEqual(packageJson.os, [os]);
+    assert.deepEqual(packageJson.cpu, [cpu]);
+    assert.deepEqual(packageJson.files, ["bin", "package.json"]);
+    assert.equal(packageJson.scripts.build, "node ../../scripts/build-platform-package.cjs");
+    assert.equal(packageJson.scripts.prepack, "pnpm run build");
+    assert.equal(packageJson.description.includes(label), true);
+  }
+});
+
 function readPackageJson(packageName) {
   return JSON.parse(
     fs.readFileSync(

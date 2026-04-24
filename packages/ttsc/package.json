@@ -43,13 +43,20 @@
     "@typescript/native-preview": "catalog:typescript",
     "rimraf": "catalog:utils"
   },
+  "optionalDependencies": {
+    "@ttsc/linux-x64": "workspace:*",
+    "@ttsc/linux-arm64": "workspace:*",
+    "@ttsc/darwin-x64": "workspace:*",
+    "@ttsc/darwin-arm64": "workspace:*",
+    "@ttsc/win32-x64": "workspace:*",
+    "@ttsc/win32-arm64": "workspace:*"
+  },
   "sideEffects": false,
   "files": [
     "README.md",
     "THIRD-PARTY-LICENSES.md",
     "package.json",
     "lib",
-    "native",
     "src"
   ],
   "keywords": [

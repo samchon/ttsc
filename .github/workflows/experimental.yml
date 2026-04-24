@@ -1,0 +1,56 @@
+name: experimental
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/experimental.yml"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+jobs:
+  Install:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-latest
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+          - name: darwin-x64
+            runner: macos-15-intel
+          - name: darwin-arm64
+            runner: macos-latest
+          - name: win32-x64
+            runner: windows-latest
+          - name: win32-arm64
+            runner: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Installed Tarballs
+        run: pnpm --dir experimental/install start -- --pack-current

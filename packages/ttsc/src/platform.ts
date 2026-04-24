@@ -10,10 +10,10 @@
  *   1. `TTSC_BINARY` environment variable (absolute path). Highest priority —
  *      lets local devs or CI point at an ad-hoc build without touching
  *      node_modules.
- *   2. `ttsc-{platform}-{arch}/bin/ttsc{.exe}` optional dependency.
+ *   2. `@ttsc/{platform}-{arch}/bin/ttsc{.exe}` optional dependency.
  *      Standard distribution path.
  *   3. A package-local `native/ttsc-native` binary. Used by this
-   *      repository's local `pnpm run build` output before the
+ *      repository's local `pnpm run build` output before the
  *      platform packages exist on npm.
  *
  * If every strategy fails, `resolveBinary` returns `null` so the caller can print a
@@ -65,7 +65,7 @@ export function binaryName(opts: ResolveOptions = {}): string {
 export function platformPackageRequest(opts: ResolveOptions = {}): string {
   const key = platformKey(opts);
   const bin = binaryName(opts);
-  return `ttsc-${key}/bin/${bin}`;
+  return `@ttsc/${key}/bin/${bin}`;
 }
 
 /** The list of platform keys the package currently ships. */
@@ -123,7 +123,7 @@ export function resolveBinary(opts: ResolveOptions = {}): string | null {
  */
 export function installHint(opts: ResolveOptions = {}): string {
   const key = platformKey(opts);
-  const pkg = `ttsc-${key}`;
+  const pkg = `@ttsc/${key}`;
   const supported = SUPPORTED_PLATFORMS.join(", ");
   return [
     `ttsc: platform-specific binary not found (${pkg}).`,

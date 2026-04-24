@@ -101,3 +101,12 @@ This file records the initial standalone migration review from `../typia@next/to
 - Added typia-style `release.yml` for tag-triggered npm publish plus `changelogithub`, without adding extra CI setup steps beyond the copied release shape.
 - Added `package:latest`, `package:next`, `release`, and `next.bash`; publishing targets only `packages/*` because this repository has no `toolchain/*` workspace.
 - Added `bumpp` as the release-versioning dependency.
+
+## Cycle 16. Platform Packages And Tarball Install Experiment
+
+- Added scoped platform-specific optional packages for Linux, macOS, and Windows across x64 and arm64: `@ttsc/linux-x64`, `@ttsc/linux-arm64`, `@ttsc/darwin-x64`, `@ttsc/darwin-arm64`, `@ttsc/win32-x64`, and `@ttsc/win32-arm64`.
+- Added a shared Go cross-build script that writes each platform package's `bin/ttsc` or `bin/ttsc.exe`.
+- Changed `ttsc` to depend on those scoped platform packages through `optionalDependencies`.
+- Removed the workspace-local `native` directory from the published `ttsc` file list so published installs must resolve through the platform package path.
+- Restored `package:tgz` and added `experimental/install`, a tarball installation check that installs packed `ttsc`, `ttsx`, and the current platform binary package into a temporary npm project, then runs `ttsc` and `ttsx` from that installed path.
+- Split native OS/architecture tarball install verification into `experimental.yml`; `test.yml` remains the normal Ubuntu test gate.
