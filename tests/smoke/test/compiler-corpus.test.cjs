@@ -124,6 +124,33 @@ const compilerProjects = [
       assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
     },
   },
+  {
+    name: "semantic diagnostics stop emit before JavaScript is written",
+    root: () =>
+      commonJsProject({
+        "src/main.ts": `const value: string = 123;\nconsole.log(value);\n`,
+      }),
+    run(root) {
+      const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Type 'number' is not assignable to type 'string'/);
+      assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
+    },
+  },
+  {
+    name: "invalid tsconfig is rejected before emit",
+    root: () =>
+      createProject({
+        "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,`,
+        "src/main.ts": `console.log("invalid-config-should-not-emit");\n`,
+      }),
+    run(root) {
+      const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Unexpected end of JSON input|Expected/);
+      assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
+    },
+  },
 ];
 
 for (const project of compilerProjects) {
