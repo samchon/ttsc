@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/linux-x64",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Linux x64 native binary for ttsc.",
   "os": ["linux"],
   "cpu": ["x64"],
