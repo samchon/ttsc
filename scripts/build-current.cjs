@@ -14,7 +14,7 @@ run(["--filter", "ttsc", "build"]);
 run(["--dir", platformDir, "build"]);
 
 function run(args) {
-  const result = cp.spawnSync(process.platform === "win32" ? "pnpm.cmd" : "pnpm", args, {
+  const result = cp.spawnSync(...pnpmCommand(args), {
     cwd: root,
     stdio: "inherit",
     windowsHide: true,
@@ -25,4 +25,11 @@ function run(args) {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function pnpmCommand(args) {
+  if (process.platform !== "win32") {
+    return ["pnpm", args];
+  }
+  return ["cmd.exe", ["/d", "/s", "/c", "pnpm", ...args]];
 }
