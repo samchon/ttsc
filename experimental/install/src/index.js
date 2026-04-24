@@ -31,12 +31,11 @@ function main() {
 
 function prepareCurrentTarballs() {
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", "ttsx", platformTarball]) {
+  for (const name of ["ttsc", platformTarball]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
-  packPackage("ttsx", "ttsx");
   packPackage(platformTarball, platformTarball);
 }
 
@@ -127,7 +126,6 @@ function installTarballs() {
     "--no-audit",
     "--no-fund",
     tarball("ttsc"),
-    tarball("ttsx"),
     tarball(platformTarball),
   ].join(" ");
   run(command, workspace);

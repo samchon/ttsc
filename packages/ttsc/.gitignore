@@ -4,3 +4,4 @@ go.work
 go.work.sum
 lib/
 node_modules/
+README.md

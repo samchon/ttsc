@@ -2,9 +2,9 @@
   "private": true,
   "name": "@ttsc/station",
   "version": "0.4.0-dev.20260424",
-  "description": "Standalone TypeScript-Go compiler adapter and runner workspace.",
+  "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
-    "build": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter ttsx build && pnpm --filter=\"./packages/ttsc-*\" -r build",
+    "build": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter=\"./packages/ttsc-*\" -r build",
     "package:latest": "pnpm --filter=./packages/* -r publish --tag latest --access public",
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",

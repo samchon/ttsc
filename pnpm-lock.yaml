@@ -85,22 +85,6 @@ importers:
 
   packages/ttsc-win32-x64: {}
 
-  packages/ttsx:
-    dependencies:
-      ttsc:
-        specifier: workspace:^
-        version: link:../ttsc
-    devDependencies:
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.6.0
-      '@typescript/native-preview':
-        specifier: catalog:typescript
-        version: 7.0.0-dev.20260421.2
-      rimraf:
-        specifier: catalog:utils
-        version: 6.1.3
-
   tests/smoke:
     devDependencies:
       '@types/node':
@@ -112,9 +96,6 @@ importers:
       ttsc:
         specifier: workspace:^
         version: link:../../packages/ttsc
-      ttsx:
-        specifier: workspace:^
-        version: link:../../packages/ttsx
 
 packages:
 

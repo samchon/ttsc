@@ -4,7 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const builtCli = path.resolve(__dirname, "..", "..", "lib", "cli.js");
+const builtCli = path.resolve(__dirname, "..", "..", "lib", "runner", "cli.js");
 if (fs.existsSync(builtCli)) {
   const { main } = require(builtCli);
   const code = main(process.argv.slice(2));
@@ -13,7 +13,7 @@ if (fs.existsSync(builtCli)) {
   }
 } else {
   process.stderr.write(
-    "ttsx: lib/cli.js is missing. Build ttsc and ttsx first with `pnpm run build`.\n",
+    "ttsx: lib/runner/cli.js is missing. Build ttsc first with `pnpm run build`.\n",
   );
   process.exitCode = 1;
 }

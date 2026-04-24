@@ -1,11 +1,11 @@
 # Experimental Install Check
 
-This check validates the packed-package installation path for `ttsc` and `ttsx`.
+This check validates the packed-package installation path for `ttsc`.
 
 It builds local `.tgz` packages, installs them into a temporary npm project, and
 verifies that:
 
-- `ttsc` and `ttsx` install from tarballs;
+- `ttsc` installs from a tarball;
 - the current platform-specific `@ttsc/*` package tarball is installed;
 - `ttsc` resolves its native binary from the platform package, not a local
   workspace fallback;
@@ -26,7 +26,7 @@ To reuse already-built tarballs:
 npm run start -- --skip-pack
 ```
 
-To pack only `ttsc`, `ttsx`, and the current platform package before running the
+To pack only `ttsc` and the current platform package before running the
 same check:
 
 ```bash

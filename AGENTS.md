@@ -1,8 +1,8 @@
 # AGENTS.md
 
-This repository is the standalone home for `ttsc` and `ttsx`.
+This repository is the standalone home for `ttsc`.
 
-The working rule is strict: treat `ttsc` as a general TypeScript-Go compiler adapter and plugin host, and treat `ttsx` as its runner sibling. Do not frame either package as a consumer-specific build adapter. Downstream projects can be important compatibility fixtures, but the package contracts in this repo must stay general.
+The working rule is strict: treat `ttsc` as a general TypeScript-Go compiler, runtime, and plugin host. The package owns both the `ttsc` compiler command and the `ttsx` runtime command. Do not frame it as a consumer-specific build adapter. Downstream projects can be important compatibility fixtures, but the package contract in this repo must stay general.
 
 ## Historical Context
 
@@ -14,8 +14,7 @@ Do not respond to that risk with vague confidence. Keep the test harness sharp. 
 
 ## Repository Shape
 
-- `packages/ttsc`: compiler adapter, JS API, plugin host, Go native CLI, TypeScript-Go shims.
-- `packages/ttsx`: runner package that reuses `ttsc`.
+- `packages/ttsc`: compiler adapter, runtime command, JS API, plugin host, Go native CLI, TypeScript-Go shims.
 - `tests/smoke`: standalone end-to-end tests for generic projects and generic plugins.
 - `tests/projects`: real fixture projects copied by the smoke suite. Add project-shaped regressions here instead of hiding every case inside test functions.
 - `tests/go-transformer`: Go transformer library and native backend fixture used to prove that plugin-selected native binaries can participate in the transform pipeline.
@@ -57,9 +56,9 @@ When changing `ttsc`, check all of these surfaces:
 - native backend selection: `native.mode`, `native.binary`, `contractVersion`.
 - TypeScript-Go wrapper: config parse, Program creation, checker acquisition/release, diagnostics, emit.
 - shim drift: every `go:linkname` target must still exist in the pinned TypeScript-Go version.
-- `ttsx`: no duplicated compiler semantics; it must call `ttsc` APIs.
+- runtime command: no duplicated compiler semantics; it must call `ttsc` APIs.
 
-When changing `ttsx`, verify both paths:
+When changing runtime behavior, verify both paths:
 
 - CommonJS: in-process require hook and single-file transform cache.
 - ESM: cached project build, rewritten relative `.js` imports, child Node execution.
@@ -78,7 +77,7 @@ Never treat a green `pnpm test` as proof that all TypeScript-Go internals are st
 ## Design Rules
 
 - Keep `ttsc` independent from any single consumer.
-- Keep `ttsx` thin and dependent on `ttsc`.
+- Keep the `ttsx` command thin and backed by `ttsc` APIs.
 - Prefer structured TypeScript-Go APIs and shim wrappers over string-based compiler behavior.
 - Do not add source-specific hardcoding to the compiler host.
 - Do not widen the public plugin API casually. `native`, `transformOutput`, and project plugin loading are the current stable surface.
