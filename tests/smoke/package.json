@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-smoke",
-  "version": "0.4.0-dev.20260424",
+  "version": "0.4.0-dev.20260425",
   "description": "Standalone end-to-end smoke tests for ttsc.",
   "scripts": {
     "start": "node --test --test-reporter=spec test/*.test.cjs"
