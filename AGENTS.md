@@ -72,7 +72,6 @@ When bumping `@typescript/native-preview` or `github.com/microsoft/typescript-go
 2. Regenerate or inspect shims under `packages/ttsc/shim`.
 3. Run Go tests before JS smoke tests.
 4. Add or tighten a regression test for the breakage that prompted the bump.
-5. Update docs when the user-facing contract changes.
 
 Never treat a green `pnpm test` as proof that all TypeScript-Go internals are stable. It proves only the current covered surface. If the change touches shims or compiler internals, inspect the upstream code directly.
 
@@ -83,7 +82,7 @@ Never treat a green `pnpm test` as proof that all TypeScript-Go internals are st
 - Prefer structured TypeScript-Go APIs and shim wrappers over string-based compiler behavior.
 - Do not add source-specific hardcoding to the compiler host.
 - Do not widen the public plugin API casually. `native`, `transformOutput`, and project plugin loading are the current stable surface.
-- If a new public hook is required, add tests and document the compatibility promise.
+- If a new public hook is required, add tests that lock the compatibility promise.
 
 ## Reference Repositories
 
