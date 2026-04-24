@@ -85,15 +85,18 @@ Never treat a green `pnpm test` as proof that all TypeScript-Go internals are st
 
 ## Reference Repositories
 
-Local references commonly used for audits:
+Clone external references under `.references/`, which is ignored by git:
 
-- `/home/samchon/github/contributions/typescript-go`
-- `/home/samchon/github/contributions/tsgolint`
-- `/home/samchon/github/contributions/tsgonest`
-- `/home/samchon/github/contributions/typical`
-- `/home/samchon/github/contributions/ts-patch`
-- `/home/samchon/github/contributions/tsx`
-- `/home/samchon/github/contributions/ts-node`
-- `/home/samchon/github/samchon/typia@next`
+```bash
+mkdir -p .references
+git clone https://github.com/samchon/typescript-go .references/typescript-go
+git clone https://github.com/samchon/tsgolint .references/tsgolint
+git clone https://github.com/samchon/tsgonest .references/tsgonest
+git clone https://github.com/samchon/typical .references/typical
+git clone https://github.com/samchon/ts-patch .references/ts-patch
+git clone https://github.com/samchon/tsx .references/tsx
+git clone https://github.com/samchon/ts-node .references/ts-node
+git clone https://github.com/samchon/typia .references/typia
+```
 
 Use them when a change touches TypeScript-Go internals, shim generation, Go compiler-host patterns, emitted JS rewrite strategy, or runner behavior. Be ready to read exact files line by line instead of relying on memory.
