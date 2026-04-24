@@ -124,4 +124,4 @@ It is transformed into dedicated JavaScript:
 
 - TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)
 - Transformer tooling: [`ttypescript`](https://github.com/cevek/ttypescript) and [`ts-patch`](https://github.com/nonara/ts-patch)
-- Inspired by: [`typical`](https://github.com/camwiegert/typical) and [`tsgonest`](https://github.com/tsgonest/tsgonest)
+- Inspired by: [`typical`](https://github.com/elliots/typical) and [`tsgonest`](https://github.com/tsgonest/tsgonest)
