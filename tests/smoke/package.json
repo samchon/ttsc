@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@ttsc/test-smoke",
+  "version": "0.1.0-dev",
+  "description": "Standalone end-to-end smoke tests for ttsc and ttsx.",
+  "scripts": {
+    "start": "node --test --test-reporter=spec test/*.test.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:typescript",
+    "ttsc": "workspace:^",
+    "ttsx": "workspace:^"
+  }
+}
