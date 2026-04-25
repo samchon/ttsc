@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # Dependabot uses the npm ecosystem key for pnpm and pnpm-workspace catalogs.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-name: "@typescript/native-preview"
+    labels:
+      - "dependencies"
+      - "typescript-go"
+    commit-message:
+      prefix: "deps(tsgo)"
+    open-pull-requests-limit: 25
