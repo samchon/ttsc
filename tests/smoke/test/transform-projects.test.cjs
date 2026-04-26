@@ -132,6 +132,24 @@ test("transform project corpus: Go native transformer library backs plugin-selec
   assert.equal(run.stdout.trim(), "GO NATIVE TRANSFORMER");
 });
 
+test("transform project corpus: Go native transformer sidecar handles project build", () => {
+  const transformerBinary = buildGoTransformer();
+  const root = copyProject("go-native-transformer");
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      TTSC_GO_TRANSFORMER_BINARY: transformerBinary,
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const out = path.join(root, "dist", "main.js");
+  const js = fs.readFileSync(out, "utf8");
+  assert.match(js, /GO NATIVE TRANSFORMER/);
+  const run = runNode(out, { cwd: root });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout.trim(), "GO NATIVE TRANSFORMER");
+});
+
 function buildGoTransformer() {
   const root = path.join(workspaceRoot, "tests", "go-transformer");
   const output = path.join(

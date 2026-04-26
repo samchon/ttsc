@@ -9,7 +9,6 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "downlevelIteration": true,
     "newLine": "lf",
     "stripInternal": true,
     "esModuleInterop": true,

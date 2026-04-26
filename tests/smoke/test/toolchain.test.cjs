@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const child_process = require("node:child_process");
 const fs = require("node:fs");
+const { createRequire } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
@@ -29,12 +30,53 @@ const nativeBinary = path.join(
   "bin",
   process.platform === "win32" ? "ttsc.exe" : "ttsc",
 );
+const tsgoBinary = resolveTsgoBinary();
 
-test("ttsc reports the native version banner", () => {
+test("ttsc reports the consumer tsgo version banner", () => {
   const result = spawn(ttscBin, ["--version"], { cwd: workspaceRoot });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^ttsc /);
-  assert.match(result.stdout, /go /);
+  assert.match(result.stdout, /Version 7\.0\.0-dev\./);
+});
+
+test("ttsx executes JavaScript emitted by the consumer-local tsgo", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ private: true }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        outDir: "dist",
+        rootDir: ".",
+      },
+      include: ["src"],
+    }),
+    "src/index.ts": `console.log("source-should-not-run");\n`,
+  });
+  const logFile = path.join(root, "tsgo.log");
+  createFakeNativePreview(root, `
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(logFile)}, args.join(" ") + "\\n");
+if (args.includes("--version")) {
+  console.log("Version 7.0.0-dev.CONSUMER-SMOKE");
+  process.exit(0);
+}
+const noEmitAt = args.indexOf("--noEmit");
+const noEmit = noEmitAt >= 0 && args[noEmitAt + 1] !== "false";
+if (!noEmit) {
+  const outDirAt = args.indexOf("--outDir");
+  const outDir = outDirAt >= 0 ? args[outDirAt + 1] : path.join(${JSON.stringify(root)}, "dist");
+  const out = path.join(outDir, "src", "index.js");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, "console.log(\\"consumer-local-tsgo\\");\\n", "utf8");
+}
+`);
+
+  const result = spawnWithoutTsgoOverride(ttsxBin, ["src/index.ts"], { cwd: root });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "consumer-local-tsgo");
+  assert.match(fs.readFileSync(logFile, "utf8"), /--outDir/);
 });
 
 test("ttsc builds a plain TypeScript project without typia", () => {
@@ -64,7 +106,7 @@ test("ttsc builds a plain TypeScript project without typia", () => {
   assert.equal(run.stdout.trim(), "5");
 });
 
-test("ttsc JS plugin transformOutput composes with native emit", () => {
+test("ttsc JS plugin transformOutput composes with consumer tsgo emit", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -225,7 +267,7 @@ test("ttsc emits declaration files when the project requests them", () => {
   assert.equal(fs.existsSync(path.join(root, "dist", "main.d.ts")), true);
 });
 
-test("ttsc programmatic transformAsync uses the resolved native binary", async () => {
+test("ttsc programmatic transformAsync uses the resolved tsgo binary", async () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -242,7 +284,7 @@ test("ttsc programmatic transformAsync uses the resolved native binary", async (
   const { transformAsync } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
 
   const js = await transformAsync({
-    binary: nativeBinary,
+    binary: tsgoBinary,
     cwd: root,
     file: path.join(root, "src", "main.ts"),
   });
@@ -415,6 +457,7 @@ function spawn(command, args, options) {
     env: {
       ...process.env,
       TTSC_BINARY: nativeBinary,
+      TTSC_TSGO_BINARY: tsgoBinary,
     },
     encoding: "utf8",
     maxBuffer: 1024 * 1024 * 64,
@@ -424,4 +467,79 @@ function spawn(command, args, options) {
     result.stderr = result.error.message;
   }
   return result;
+}
+
+function spawnWithoutTsgoOverride(command, args, options) {
+  const usesNodeLauncher = command === ttscBin || command === ttsxBin;
+  const env = { ...process.env };
+  delete env.TTSC_BINARY;
+  delete env.TTSC_TSGO_BINARY;
+  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
+    ...(usesNodeLauncher ? [command] : []),
+    ...args,
+  ], {
+    ...options,
+    env,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024 * 64,
+    windowsHide: true,
+  });
+  if (result.error && !result.stderr) {
+    result.stderr = result.error.message;
+  }
+  return result;
+}
+
+function createFakeNativePreview(root, scriptBody) {
+  const nativeRoot = path.join(root, "node_modules", "@typescript", "native-preview");
+  const platformRoot = path.join(
+    root,
+    "node_modules",
+    "@typescript",
+    `native-preview-${process.platform}-${process.arch}`,
+  );
+  fs.mkdirSync(nativeRoot, { recursive: true });
+  fs.mkdirSync(path.join(platformRoot, "lib"), { recursive: true });
+  fs.writeFileSync(
+    path.join(nativeRoot, "package.json"),
+    JSON.stringify({
+      name: "@typescript/native-preview",
+      version: "7.0.0-dev.CONSUMER-SMOKE",
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(platformRoot, "package.json"),
+    JSON.stringify({
+      name: `@typescript/native-preview-${process.platform}-${process.arch}`,
+      version: "7.0.0-dev.CONSUMER-SMOKE",
+    }),
+    "utf8",
+  );
+  const tsgo = path.join(
+    platformRoot,
+    "lib",
+    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+  );
+  fs.writeFileSync(
+    tsgo,
+    `#!/usr/bin/env node\nconst fs = require("node:fs");\nconst path = require("node:path");\n${scriptBody}\n`,
+    "utf8",
+  );
+  fs.chmodSync(tsgo, 0o755);
+}
+
+function resolveTsgoBinary() {
+  const packageJson = require.resolve("@typescript/native-preview/package.json", {
+    paths: [workspaceRoot],
+  });
+  const requireFromNativePreview = createRequire(packageJson);
+  const platformPackageJson = requireFromNativePreview.resolve(
+    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  );
+  return path.join(
+    path.dirname(platformPackageJson),
+    "lib",
+    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+  );
 }

@@ -1,6 +1,6 @@
 {
   "name": "ttsc",
-  "version": "0.4.2",
+  "version": "0.4.3-dev.20260426-2",
   "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -16,7 +16,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && node ../../scripts/go.cjs run ./cmd/ttsc && cp ../../README.md README.md",
+    "build": "rimraf lib && tsgo -p tsconfig.json && cp ../../README.md README.md",
     "test": "pnpm run test:ts && pnpm run test:go",
     "test:ts": "node --test --test-reporter=spec --experimental-strip-types --experimental-specifier-resolution=node test/**/*.test.ts",
     "test:go": "node ../../scripts/go.cjs test ./...",

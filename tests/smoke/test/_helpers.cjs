@@ -1,5 +1,6 @@
 const child_process = require("node:child_process");
 const fs = require("node:fs");
+const { createRequire } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -29,6 +30,7 @@ const nativeBinary = path.join(
   "bin",
   process.platform === "win32" ? "ttsc.exe" : "ttsc",
 );
+const tsgoBinary = resolveTsgoBinary();
 
 function createProject(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-smoke-"));
@@ -96,6 +98,7 @@ function spawn(command, args, options = {}) {
     env: {
       ...process.env,
       TTSC_BINARY: nativeBinary,
+      TTSC_TSGO_BINARY: tsgoBinary,
       ...options.env,
     },
     encoding: "utf8",
@@ -123,7 +126,23 @@ module.exports = {
   testPackageRoot,
   ttscBin,
   ttsxBin,
+  tsgoBinary,
   tsconfig,
   workspaceRoot,
   writeFiles,
 };
+
+function resolveTsgoBinary() {
+  const packageJson = require.resolve("@typescript/native-preview/package.json", {
+    paths: [workspaceRoot],
+  });
+  const requireFromNativePreview = createRequire(packageJson);
+  const platformPackageJson = requireFromNativePreview.resolve(
+    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  );
+  return path.join(
+    path.dirname(platformPackageJson),
+    "lib",
+    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+  );
+}

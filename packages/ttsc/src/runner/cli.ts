@@ -133,7 +133,7 @@ function parseCLI(argv: readonly string[]): ParsedCLI | "help" | "version" {
           binary = current.slice("--binary=".length);
         } else if (current.startsWith("-")) {
           throw new Error(`ttsx: unknown option ${current}`);
-                } else {
+        } else {
           entry = current;
         }
         break;
@@ -167,7 +167,7 @@ function printHelp(): void {
       "  -P, --project <file>   Use an explicit tsconfig.json",
       "  --cwd <dir>            Resolve entry/project relative to this directory",
       "  --cache-dir <dir>      Override the compiled JS cache directory",
-      "  --binary <path>        Use an explicit ttsc native binary",
+      "  --binary <path>        Use an explicit tsgo binary",
       "  -r, --require <file>   Preload a module before the entrypoint",
       "  -h, --help             Show this help",
       "  -v, --version          Print the runner version",
