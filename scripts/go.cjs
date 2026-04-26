@@ -15,7 +15,7 @@ if (command === "build-native") {
     "build",
     "-o",
     path.join("native", process.platform === "win32" ? "ttsc-native.exe" : "ttsc-native"),
-    "./cmd/ttsc",
+    "./cmd/platform",
   ]);
 } else {
   runGo([command, ...rest]);

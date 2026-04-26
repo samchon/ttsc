@@ -67,7 +67,7 @@ test("published package file lists keep TypeScript and Go sources", () => {
   assert.equal(fs.existsSync(path.join(workspaceRoot, "packages", "ttsx")), false);
 });
 
-test("platform package matrix follows the TypeScript-Go native package shape", () => {
+test("platform package matrix follows the ttsc helper package shape", () => {
   const packageJson = readPackageJson("ttsc");
   const expected = {
     "ttsc-linux-x64": ["@ttsc/linux-x64", "linux", "x64"],

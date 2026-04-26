@@ -435,6 +435,18 @@ test("ttsx runs an .mts entry and resolves emitted .mjs imports", () => {
 
 test("current platform package binary was built for the test run", () => {
   assert.equal(fs.existsSync(nativeBinary), true);
+  assert.ok(
+    fs.statSync(nativeBinary).size < 5 * 1024 * 1024,
+    "platform helper should stay below 5MB",
+  );
+
+  const result = child_process.spawnSync(nativeBinary, ["--version"], {
+    cwd: workspaceRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^ttsc platform helper /);
 });
 
 function createProject(files) {

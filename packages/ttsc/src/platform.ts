@@ -1,18 +1,22 @@
 /**
- * Platform detection and binary resolution for ttsc.
+ * Platform detection and helper-binary resolution for ttsc.
  *
  * This is the tested implementation used by the ttsc launcher after build.
  * Keep it pure and dependency-free so it can be unit-tested without spawning
  * any child process.
  *
- * Resolution order:
+ * The platform packages now ship a small compatibility helper, not the
+ * TypeScript-Go compiler. Compiler calls resolve the consuming project's
+ * `@typescript/native-preview` through `tsgo.ts`.
+ *
+ * Helper resolution order:
  *
  *   1. `TTSC_BINARY` environment variable (absolute path). Highest priority —
  *      lets local devs or CI point at an ad-hoc build without touching
  *      node_modules.
  *   2. `@ttsc/{platform}-{arch}/bin/ttsc{.exe}` optional dependency.
- *      Standard distribution path.
- *   3. A package-local `native/ttsc-native` binary. Used by this
+ *      Standard distribution path for compatibility helper commands.
+ *   3. A package-local `native/ttsc-native` helper. Used by this
  *      repository's local `pnpm run build` output before the
  *      platform packages exist on npm.
  *
@@ -51,7 +55,7 @@ export function platformKey(opts: ResolveOptions = {}): string {
   return `${platform}-${arch}`;
 }
 
-/** Binary filename for the current platform (`.exe` on Windows, else none). */
+/** Helper binary filename for the current platform (`.exe` on Windows, else none). */
 export function binaryName(opts: ResolveOptions = {}): string {
   const platform = opts.platform ?? process.platform;
   return platform === "win32" ? "ttsc.exe" : "ttsc";
@@ -85,7 +89,7 @@ export function isSupported(key: string): boolean {
 }
 
 /**
- * Resolve an absolute path to the ttsc binary using the documented priority
+ * Resolve an absolute path to the ttsc helper using the documented priority
  * order. Returns `null` when every strategy fails — the launcher then prints
  * the install hint and exits non-zero.
  */
@@ -127,7 +131,7 @@ export function installHint(opts: ResolveOptions = {}): string {
   const pkg = `@ttsc/${key}`;
   const supported = SUPPORTED_PLATFORMS.join(", ");
   return [
-    `ttsc: platform-specific binary not found (${pkg}).`,
+    `ttsc: platform-specific helper binary not found (${pkg}).`,
     `Platform: ${opts.platform ?? process.platform}/${opts.arch ?? process.arch}.`,
     ``,
     `Resolution order:`,

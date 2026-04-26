@@ -4,8 +4,8 @@
  * Exports:
  *   - tsgo helpers (`resolveTsgo`, …) — resolve the consuming project's
  *     `@typescript/native-preview` compiler binary.
- *   - platform helpers (`resolveBinary`, `installHint`, …) — legacy helpers
- *     for plugin-selected native sidecars.
+ *   - platform helpers (`resolveBinary`, `installHint`, …) — compatibility
+ *     helper resolution for commands such as `ttsc demo`.
  *   - programmatic API (`transform`, `build`, `check`, `version`) — a thin
  *     TS wrapper around the consumer `tsgo` binary plus JS output-plugin
  *     hooks. Adapters never have to shell out themselves; they call these

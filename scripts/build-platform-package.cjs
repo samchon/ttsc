@@ -27,7 +27,7 @@ const pathValue = fs.existsSync(goRoot)
   : process.env.PATH;
 
 console.log(`Building ${manifest.name} -> ${path.relative(root, outFile)}`);
-cp.execFileSync("go", ["build", "-o", outFile, "./cmd/ttsc"], {
+cp.execFileSync("go", ["build", "-o", outFile, "./cmd/platform"], {
   cwd: source,
   env: {
     ...process.env,
