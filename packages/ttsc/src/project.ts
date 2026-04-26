@@ -19,7 +19,7 @@ export interface ParsedProjectConfig {
   compilerOptions: {
     outDir?: string;
     plugins: ProjectPluginConfig[];
-  };
+  } & Record<string, unknown>;
   path: string;
   root: string;
 }
@@ -69,6 +69,7 @@ export function readProjectConfig(opts: ProjectLocatorOptions = {}): ParsedProje
   const compilerOptions = readResolvedCompilerOptions(tsconfig);
   return {
     compilerOptions: {
+      ...compilerOptions.options,
       outDir: compilerOptions.outDir,
       plugins: compilerOptions.plugins,
     },
@@ -130,13 +131,14 @@ function isProjectPluginConfig(value: unknown): value is ProjectPluginConfig {
 
 interface RawTsconfig {
   extends?: unknown;
-  compilerOptions?: {
+  compilerOptions?: Record<string, unknown> & {
     outDir?: unknown;
     plugins?: unknown;
   };
 }
 
 interface ResolvedCompilerOptions {
+  options: Record<string, unknown>;
   outDir?: string;
   plugins: ProjectPluginConfig[];
 }
@@ -164,8 +166,13 @@ function readResolvedCompilerOptions(
   const base =
     typeof parsed.extends === "string"
       ? readResolvedCompilerOptions(resolveExtendsConfig(canonical, parsed.extends), seen)
-      : { plugins: [] };
+      : { options: {}, plugins: [] };
+  const options = {
+    ...base.options,
+    ...(own ?? {}),
+  };
   return {
+    options,
     outDir:
       typeof own?.outDir === "string"
         ? resolveAbsolutePath(path.dirname(canonical), own.outDir)
