@@ -1,0 +1,62 @@
+name: typia
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/typia.yml"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+jobs:
+  Ubuntu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install ttsc dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build ttsc tarballs
+        run: pnpm package:tgz
+
+      - name: Clone typia next
+        run: |
+          rm -rf experimental/typia
+          git clone --depth=1 --branch next https://github.com/samchon/typia experimental/typia
+
+      - name: Use local ttsc tarballs
+        working-directory: experimental/typia
+        run: |
+          cat >> pnpm-workspace.yaml <<'YAML'
+
+          overrides:
+            ttsc: file:../tarballs/ttsc.tgz
+            '@ttsc/linux-x64': file:../tarballs/ttsc-linux-x64.tgz
+          YAML
+
+      - name: Test typia next
+        working-directory: experimental/typia
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm test
