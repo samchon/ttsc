@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -6,16 +5,12 @@ import {
   build,
   check,
   type CommonOptions,
-  transform,
 } from "../api";
 import {
   defaultCacheDirectory,
   resolveProjectConfig,
   resolveProjectRoot,
 } from "../project";
-import {
-  resolveBinary,
-} from "../platform";
 
 export interface RegisterOptions extends CommonOptions {
   cacheDir?: string;
@@ -36,8 +31,6 @@ type CompilableModule = NodeJS.Module & {
 
 interface ProjectContext {
   cacheDir: string;
-  cacheSalt: string;
-  compiledText: Map<string, string>;
   emitDir: string;
   emittedFiles: string[] | null;
   diagnosticsChecked: boolean;
@@ -54,7 +47,7 @@ const DEFAULT_EXTENSIONS: readonly string[] = Object.freeze([
 ]);
 
 const PROCESS_CACHE_KEY = String(process.pid);
-const SINGLE_FILE_CACHE_VERSION = "v4";
+const preparedContexts = new Map<string, ProjectContext>();
 
 export function register(options: RegisterOptions = {}): () => void {
   const cwd = path.resolve(options.cwd ?? process.cwd());
@@ -70,12 +63,15 @@ export function register(options: RegisterOptions = {}): () => void {
       const tsconfig = resolveProjectConfig({ cwd, tsconfig: key });
       const root = resolveProjectRoot({ cwd, tsconfig });
       const cacheDir = options.cacheDir ?? defaultCacheDirectory(root, "ttsx");
+      const prepared = takePreparedContext(tsconfig, cacheDir, options);
+      if (prepared) {
+        contextCache.set(key, prepared);
+        return prepared;
+      }
       const created = {
         tsconfig,
         root,
         cacheDir,
-        cacheSalt: createCompilerCacheSalt(options),
-        compiledText: new Map<string, string>(),
         diagnosticsChecked: false,
         emitDir: path.join(cacheDir, "project", PROCESS_CACHE_KEY),
         emittedFiles: null,
@@ -90,12 +86,15 @@ export function register(options: RegisterOptions = {}): () => void {
     if (cached) return cached;
     const root = resolveProjectRoot({ cwd, tsconfig });
     const cacheDir = options.cacheDir ?? defaultCacheDirectory(root, "ttsx");
+    const prepared = takePreparedContext(tsconfig, cacheDir, options);
+    if (prepared) {
+      contextCache.set(tsconfig, prepared);
+      return prepared;
+    }
     const created = {
       tsconfig,
       root,
       cacheDir,
-      cacheSalt: createCompilerCacheSalt(options),
-      compiledText: new Map<string, string>(),
       diagnosticsChecked: false,
       emitDir: path.join(cacheDir, "project", PROCESS_CACHE_KEY),
       emittedFiles: null,
@@ -144,8 +143,9 @@ export function prepareExecution(
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const context = resolveProjectContext(cwd, entryFile, options);
   ensureProjectDiagnostics(context, options);
-  const entryOutput = transformSingleFile(context, entryFile, options);
+  const entryOutput = readCompiledOutput(context, entryFile, options);
   if (!looksLikeESM(entryOutput)) {
+    storePreparedContext(context, options);
     return {
       emitDir: context.emitDir,
       entryFile,
@@ -165,6 +165,44 @@ export function prepareExecution(
   };
 }
 
+function storePreparedContext(
+  context: ProjectContext,
+  options: RegisterOptions,
+): void {
+  preparedContexts.set(preparedContextKey(context.tsconfig, context.cacheDir, options), context);
+}
+
+function takePreparedContext(
+  tsconfig: string,
+  cacheDir: string,
+  options: RegisterOptions,
+): ProjectContext | null {
+  const key = preparedContextKey(tsconfig, cacheDir, options);
+  const context = preparedContexts.get(key);
+  if (!context) {
+    return null;
+  }
+  preparedContexts.delete(key);
+  return context;
+}
+
+function preparedContextKey(
+  tsconfig: string,
+  cacheDir: string,
+  options: RegisterOptions,
+): string {
+  return JSON.stringify([
+    PROCESS_CACHE_KEY,
+    tsconfig,
+    cacheDir,
+    options.binary ?? "",
+    options.rewriteMode ?? "",
+    options.env?.TTSC_TSGO_BINARY ?? "",
+    options.env?.TTSC_BINARY ?? "",
+    options.plugins === false ? false : options.plugins ?? null,
+  ]);
+}
+
 function ensureProjectBuild(context: ProjectContext, options: RegisterOptions): void {
   if (context.emittedFiles !== null) return;
 
@@ -176,7 +214,10 @@ function ensureProjectBuild(context: ProjectContext, options: RegisterOptions): 
     env: options.env,
     emit: true,
     outDir: context.emitDir,
+    plugins: options.plugins,
     quiet: true,
+    rewriteMode: options.rewriteMode,
+    skipDiagnosticsCheck: context.diagnosticsChecked,
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
@@ -186,7 +227,7 @@ function ensureProjectBuild(context: ProjectContext, options: RegisterOptions): 
 
   fs.rmSync(context.emitDir, { recursive: true, force: true });
   const detail = [
-    `ttsx: native project build failed for ${context.tsconfig}`,
+    `ttsx: project build failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
   ]
     .filter((line) => line.trim().length !== 0)
@@ -199,7 +240,12 @@ function readCompiledOutput(
   filename: string,
   options: RegisterOptions,
 ): string {
-  return transformSingleFile(context, filename, options);
+  ensureProjectBuild(context, options);
+  const emitted = resolveEmittedFile(context, filename);
+  if (!emitted) {
+    throw new Error(`ttsx: emitted file not found for ${filename}`);
+  }
+  return fs.readFileSync(emitted, "utf8");
 }
 
 function resolveProjectContext(
@@ -229,8 +275,6 @@ function createProjectContext(
     tsconfig,
     root,
     cacheDir,
-    cacheSalt: createCompilerCacheSalt(options),
-    compiledText: new Map<string, string>(),
     diagnosticsChecked: false,
     emitDir: path.join(cacheDir, "project", PROCESS_CACHE_KEY),
     emittedFiles: null,
@@ -264,120 +308,6 @@ function ensureProjectDiagnostics(
     );
   }
   context.diagnosticsChecked = true;
-}
-
-function transformSingleFile(
-  context: ProjectContext,
-  filename: string,
-  options: RegisterOptions,
-): string {
-  const normalized = path.resolve(filename);
-  const cached = context.compiledText.get(normalized);
-  if (cached !== undefined) return cached;
-
-  const cacheFile = singleFileCachePath(context, normalized);
-  const sourceStat = safeStat(normalized);
-  const cacheStat = safeStat(cacheFile);
-  if (
-    sourceStat &&
-    cacheStat &&
-    cacheStat.isFile() &&
-    cacheStat.mtimeMs >= sourceStat.mtimeMs
-  ) {
-    const output = fs.readFileSync(cacheFile, "utf8");
-    context.compiledText.set(normalized, output);
-    return output;
-  }
-
-  const output = transform({
-    binary: options.binary,
-    cwd: context.root,
-    env: options.env,
-    file: normalized,
-    rewriteMode: options.rewriteMode,
-    tsconfig: context.tsconfig,
-  });
-  fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
-  fs.writeFileSync(cacheFile, output, "utf8");
-  context.compiledText.set(normalized, output);
-  return output;
-}
-
-function singleFileCachePath(context: ProjectContext, filename: string): string {
-  const digest = createHash("sha1")
-    .update(context.cacheSalt)
-    .update("\0")
-    .update(filename)
-    .digest("hex");
-  return path.join(
-    context.cacheDir,
-    "single",
-    SINGLE_FILE_CACHE_VERSION,
-    `${digest}.js`,
-  );
-}
-
-function createCompilerCacheSalt(options: RegisterOptions): string {
-  const parts = [SINGLE_FILE_CACHE_VERSION];
-  const binary = resolveBinary(options);
-  if (binary) {
-    parts.push(fileSignature(binary));
-    for (const location of workspaceCompilerLocations(binary)) {
-      const signature = treeSignature(location);
-      if (signature) {
-        parts.push(signature);
-      }
-    }
-  }
-  return parts.join("|");
-}
-
-function workspaceCompilerLocations(binary: string): string[] {
-  const resolved = path.resolve(binary);
-  const packageRoot = path.resolve(path.dirname(resolved), "..");
-  const candidates = [
-    path.resolve(packageRoot, "cmd"),
-    path.resolve(packageRoot, "src"),
-  ];
-  return candidates.filter((location) => fs.existsSync(location));
-}
-
-function fileSignature(file: string): string {
-  const stat = safeStat(file);
-  if (!stat) return `missing:${path.resolve(file)}`;
-  return `file:${path.resolve(file)}:${stat.size}:${stat.mtimeMs}`;
-}
-
-function treeSignature(root: string): string | null {
-  if (!fs.existsSync(root)) return null;
-  let latest = 0;
-  let count = 0;
-  const stack = [root];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (!/\.(?:go|[cm]?js|ts)$/.test(entry.name)) continue;
-      const stat = safeStat(next);
-      if (!stat) continue;
-      latest = Math.max(latest, stat.mtimeMs);
-      count += 1;
-    }
-  }
-  return `tree:${path.resolve(root)}:${count}:${latest}`;
-}
-
-function safeStat(file: string): fs.Stats | null {
-  try {
-    return fs.statSync(file);
-  } catch {
-    return null;
-  }
 }
 
 function resolveEmittedFile(context: ProjectContext, filename: string): string | null {

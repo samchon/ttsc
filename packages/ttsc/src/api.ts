@@ -2,26 +2,26 @@
  * Programmatic API for ttsc.
  *
  * This module is the TypeScript surface bundler adapters (unplugin, vite,
- * webpack, rollup, esbuild, rspack, farm, next/swc, bun) consume. Everything
- * here is a thin wrapper around the Go binary resolved by `platform.ts` —
- * adapters never have to spawn the process themselves.
+ * webpack, rollup, esbuild, rspack, farm, next/swc, bun) consume. Project
+ * builds delegate to the consuming project's `@typescript/native-preview`
+ * `tsgo` binary, while plugin-selected native sidecars remain opt-in.
  *
  * Contract:
  *
  * - `transform()` emits one file's rewritten JS, returning the text.
  * - `build()` runs the whole project (tsgo + ttsc rewrite + --emit).
  * - `check()` runs the analysis pass without emitting (CI gate use).
- * - `version()` returns the binary's version banner for user-agent logs.
+ * - `version()` returns the wrapper and resolved `tsgo` version banner.
  *
  * All helpers accept a `binary` override so tests can point at a specific
- * executable without touching PATH or node_modules.
+ * `tsgo` executable without touching PATH or node_modules.
  */
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { type ResolveOptions, installHint, resolveBinary } from "./platform";
+import { type ResolveOptions, resolveBinary } from "./platform";
 import {
   type TtscPlugin,
   applyPluginTransforms,
@@ -32,6 +32,7 @@ import {
   resolveProjectConfig,
   resolveProjectRoot,
 } from "./project";
+import { type ResolvedTsgo, resolveTsgo } from "./tsgo";
 
 /**
  * Options shared by every API call. `binary` takes precedence over platform
@@ -39,7 +40,7 @@ import {
  * current process env.
  */
 export interface CommonOptions extends ResolveOptions {
-  /** Absolute path to an already-resolved ttsc binary. Skips resolution. */
+  /** Absolute path to an already-resolved tsgo binary. Skips package resolution. */
   binary?: string;
   /** Working directory passed to the child process. */
   cwd?: string;
@@ -85,29 +86,12 @@ export interface BuildOptions extends CommonOptions {
   outDir?: string;
   /** Suppress the per-call summary banner. Default: `true`. */
   quiet?: boolean;
+  /** @internal Caller already ran diagnostics and accepts responsibility. */
+  skipDiagnosticsCheck?: boolean;
 }
 
 /** Options for `check()`. */
 export type CheckOptions = Omit<BuildOptions, "emit">;
-
-/**
- * Resolve the binary or throw a user-friendly error. Extracted so every API
- * helper shares the same failure mode.
- */
-function resolveOrThrow(opts: CommonOptions): string {
-  if (
-    opts.binary &&
-    path.isAbsolute(opts.binary) &&
-    fs.existsSync(opts.binary)
-  ) {
-    return opts.binary;
-  }
-  const bin = resolveBinary(opts);
-  if (!bin) {
-    throw new Error(installHint(opts));
-  }
-  return bin;
-}
 
 /** Merge spawn env without clobbering unrelated vars. */
 function mergeEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -184,6 +168,62 @@ export function transform(options: TransformOptions): string {
       ? options.file
       : path.resolve(options.cwd ?? process.cwd(), options.file),
   );
+  if (execution.nativeBinary) {
+    return transformWithNativeBinary(options, execution, sourceFile);
+  }
+  if (execution.nativeMode !== "none") {
+    throw new Error(
+      `ttsc.transform: native rewrite mode "${execution.nativeMode}" requires a plugin-provided version-matched binary`,
+    );
+  }
+
+  const tempOutDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-transform-"));
+  try {
+    const result = build({
+      ...options,
+      emit: true,
+      outDir: tempOutDir,
+      plugins: false,
+      tsconfig: execution.tsconfig,
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        "ttsc.transform exited " +
+          result.status +
+          "\n" +
+          (result.stderr || result.stdout),
+      );
+    }
+    const emitted = findEmittedFile(tempOutDir, execution.projectRoot, sourceFile);
+    if (!emitted) {
+      throw new Error(`ttsc.transform: no output produced for ${sourceFile}`);
+    }
+    const transformed = finalizeTransformText(
+      execution.plugins,
+      {
+        command: "transform",
+        cwd: execution.cwd,
+        projectRoot: execution.projectRoot,
+        sourceFile,
+        tsconfig: execution.tsconfig,
+      },
+      fs.readFileSync(emitted, "utf8"),
+    );
+    if (options.out) {
+      fs.mkdirSync(path.dirname(options.out), { recursive: true });
+      fs.writeFileSync(options.out, transformed, "utf8");
+    }
+    return transformed;
+  } finally {
+    fs.rmSync(tempOutDir, { recursive: true, force: true });
+  }
+}
+
+function transformWithNativeBinary(
+  options: TransformOptions,
+  execution: ExecutionContext,
+  sourceFile: string,
+): string {
   const args = [
     "transform",
     "--file=" + sourceFile,
@@ -191,7 +231,7 @@ export function transform(options: TransformOptions): string {
     "--rewrite-mode=" + execution.nativeMode,
   ];
 
-  const res = spawnBinary(execution.bin, args, {
+  const res = spawnBinary(execution.nativeBinary!, args, {
     cwd: options.cwd,
     env: mergeEnv(options.env),
     encoding: "utf8",
@@ -199,7 +239,7 @@ export function transform(options: TransformOptions): string {
   if (res.error) {
     throw new Error(
       "ttsc.transform: failed to spawn " +
-        execution.bin +
+        execution.nativeBinary +
         ": " +
         res.error.message,
     );
@@ -249,45 +289,52 @@ export interface BuildResult {
  */
 export function build(options: BuildOptions = {}): BuildResult {
   const execution = resolveExecutionContext(options);
-  const args = [
-    "build",
-    "--tsconfig=" + execution.tsconfig,
-    "--rewrite-mode=" + execution.nativeMode,
-  ];
-  if (options.emit === true) args.push("--emit");
-  else if (options.emit === false) args.push("--noEmit");
-  if (options.outDir) args.push("--outDir=" + options.outDir);
-  if (options.quiet === false) args.push("--verbose");
-  else if (options.quiet === true) args.push("--quiet");
-  const needsManifest = options.emit !== false && execution.plugins.length > 0;
-  const manifest = needsManifest ? createTempManifestPath() : null;
-  if (manifest) args.push("--manifest=" + manifest);
+  if (execution.nativeMode !== "none") {
+    return {
+      status: 2,
+      stdout: "",
+      stderr:
+        `ttsc.build: native rewrite mode "${execution.nativeMode}" requires ` +
+        "a version-matched sidecar build; project builds use the consuming project's @typescript/native-preview by default\n",
+    };
+  }
 
-  const res = spawnBinary(execution.bin, args, {
-    cwd: options.cwd,
+  if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
+    const checked = runTsgo(execution, ["--noEmit"], options);
+    if (checked.status !== 0) {
+      return checked;
+    }
+  }
+
+  const args = createTsgoBuildArgs(execution, options, {
+    listEmittedFiles: options.emit !== false && execution.plugins.length > 0,
+  });
+  const res = spawnBinary(execution.tsgo.binary, args, {
+    cwd: execution.projectRoot,
     env: mergeEnv(options.env),
     encoding: "utf8",
   });
   if (res.error) {
     throw new Error(
-      "ttsc.build: failed to spawn " + execution.bin + ": " + res.error.message,
+      "ttsc.build: failed to spawn " +
+        execution.tsgo.binary +
+        ": " +
+        res.error.message,
     );
   }
-  if ((res.status ?? 1) === 0 && manifest) {
-    try {
-      const emittedFiles = JSON.parse(
-        fs.readFileSync(manifest, "utf8"),
-      ) as string[];
-      applyBuildPlugins(execution.plugins, execution, emittedFiles);
-    } finally {
-      fs.rmSync(path.dirname(manifest), { recursive: true, force: true });
-    }
-  }
-  return {
+  const result = {
     status: res.status ?? 1,
     stdout: outputText(res.stdout),
     stderr: outputText(res.stderr),
   };
+  const emittedFiles = parseEmittedFiles(result.stdout);
+  if (emittedFiles.length !== 0) {
+    result.stdout = stripEmittedFileLines(result.stdout);
+  }
+  if (result.status === 0 && options.emit !== false && execution.plugins.length > 0) {
+    applyBuildPlugins(execution.plugins, execution, emittedFiles);
+  }
+  return normalizeFailedDiagnostics(result);
 }
 
 /**
@@ -298,10 +345,56 @@ export function check(options: CheckOptions = {}): BuildResult {
   return build({ ...options, emit: false });
 }
 
+function runTsgo(
+  execution: ExecutionContext,
+  extraArgs: readonly string[],
+  options: BuildOptions,
+): BuildResult {
+  const res = spawnBinary(
+    execution.tsgo.binary,
+    ["-p", execution.tsconfig, ...extraArgs],
+    {
+      cwd: execution.projectRoot,
+      env: mergeEnv(options.env),
+      encoding: "utf8",
+    },
+  );
+  if (res.error) {
+    throw new Error(
+      "ttsc: failed to spawn " + execution.tsgo.binary + ": " + res.error.message,
+    );
+  }
+  return normalizeFailedDiagnostics({
+    status: res.status ?? 1,
+    stdout: outputText(res.stdout),
+    stderr: outputText(res.stderr),
+  });
+}
+
+function createTsgoBuildArgs(
+  execution: ExecutionContext,
+  options: BuildOptions,
+  flags: { listEmittedFiles: boolean },
+): string[] {
+  const args = ["-p", execution.tsconfig];
+  if (options.emit === true) {
+    args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
+  } else if (options.emit === false) {
+    args.push("--noEmit");
+  }
+  if (options.outDir) {
+    args.push("--outDir", path.resolve(execution.cwd, options.outDir));
+  }
+  if (flags.listEmittedFiles) {
+    args.push("--listEmittedFiles");
+  }
+  return args;
+}
+
 /** Ask the binary for its version banner. Handy for user-agent strings. */
 export function version(options: CommonOptions = {}): string {
-  const bin = resolveOrThrow(options);
-  const res = spawnBinary(bin, ["version"], {
+  const tsgo = resolveTsgo(options);
+  const res = spawnBinary(tsgo.binary, ["--version"], {
     encoding: "utf8",
   });
   if (res.error || res.status !== 0) {
@@ -309,7 +402,7 @@ export function version(options: CommonOptions = {}): string {
       "ttsc.version: failed: " + (outputText(res.stderr) || res.error?.message),
     );
   }
-  return outputText(res.stdout).trim();
+  return `ttsc ${readOwnPackageVersion()} (${outputText(res.stdout).trim()})`;
 }
 
 /**
@@ -322,11 +415,12 @@ export function transformAsync(options: TransformOptions): Promise<string> {
 }
 
 interface ExecutionContext {
-  bin: string;
   cwd: string;
+  nativeBinary: string | null;
   nativeMode: string;
   plugins: readonly TtscPlugin[];
   projectRoot: string;
+  tsgo: ResolvedTsgo;
   tsconfig: string;
 }
 
@@ -334,33 +428,26 @@ function resolveExecutionContext(
   options: CommonOptions & { tsconfig?: string },
 ): ExecutionContext {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const fallbackBinary =
-    options.binary &&
-    path.isAbsolute(options.binary) &&
-    fs.existsSync(options.binary)
-      ? options.binary
-      : resolveBinary(options);
   const tsconfig = resolveProjectConfig({
     cwd,
     tsconfig: options.tsconfig,
   });
   const projectRoot = resolveProjectRoot({ cwd, tsconfig });
+  const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
+  const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
     binary: fallbackBinary ?? "",
     cwd,
     entries: options.plugins,
     tsconfig,
   });
-  const bin = options.binary ?? loaded.nativeBinary ?? fallbackBinary;
-  if (!bin) {
-    throw new Error(installHint(options));
-  }
   return {
-    bin,
     cwd,
+    nativeBinary: loaded.nativeBinary ?? null,
     nativeMode: options.rewriteMode ?? loaded.nativeMode,
     plugins: loaded.plugins.filter((plugin) => plugin.transformOutput),
     projectRoot,
+    tsgo,
     tsconfig,
   };
 }
@@ -410,7 +497,106 @@ function isJavaScriptOutput(file: string): boolean {
   return /\.(?:[cm]?js)$/i.test(file);
 }
 
-function createTempManifestPath(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-build-"));
-  return path.join(dir, "manifest.json");
+function parseEmittedFiles(stdout: string): string[] {
+  const out: string[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = line.match(/^TSFILE:\s*(.+)$/);
+    if (match?.[1]) {
+      out.push(path.resolve(match[1].trim()));
+    }
+  }
+  return out;
+}
+
+function stripEmittedFileLines(stdout: string): string {
+  return stdout
+    .split(/\r?\n/)
+    .filter((line) => !/^TSFILE:\s*/.test(line))
+    .join("\n")
+    .replace(/\n+$/, "");
+}
+
+function normalizeFailedDiagnostics(result: BuildResult): BuildResult {
+  if (result.status === 0 || result.stderr.trim().length !== 0) {
+    return result;
+  }
+  if (result.stdout.trim().length === 0) {
+    return result;
+  }
+  return {
+    status: result.status,
+    stdout: "",
+    stderr: result.stdout,
+  };
+}
+
+function findEmittedFile(
+  outDir: string,
+  projectRoot: string,
+  sourceFile: string,
+): string | null {
+  let best: string | null = null;
+  let bestScore = 0;
+  for (const file of listJavaScriptFiles(outDir)) {
+    const score = sharedSourceStemSegments(file, sourceFile);
+    if (score > bestScore) {
+      best = file;
+      bestScore = score;
+    }
+  }
+  if (best) {
+    return best;
+  }
+  const relative = path.relative(projectRoot, sourceFile);
+  if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
+    const exact = path.resolve(outDir, relative).replace(/\.[cm]?tsx?$/i, ".js");
+    if (fs.existsSync(exact)) {
+      return exact;
+    }
+  }
+  return null;
+}
+
+function listJavaScriptFiles(root: string): string[] {
+  const out: string[] = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    if (!fs.existsSync(current)) continue;
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile() && isJavaScriptOutput(next)) {
+        out.push(next);
+      }
+    }
+  }
+  return out;
+}
+
+function sharedSourceStemSegments(outPath: string, srcPath: string): number {
+  const trim = (value: string): string[] => {
+    const normalized = value.replace(/\\/g, "/");
+    return normalized.replace(/\.[^.]+$/, "").split("/");
+  };
+  const a = trim(outPath);
+  const b = trim(srcPath);
+  const n = Math.min(a.length, b.length);
+  let shared = 0;
+  for (let i = 1; i <= n; i += 1) {
+    if (a[a.length - i] !== b[b.length - i]) break;
+    shared += 1;
+  }
+  return shared;
+}
+
+function readOwnPackageVersion(): string {
+  try {
+    const file = path.resolve(__dirname, "..", "package.json");
+    const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
 }
