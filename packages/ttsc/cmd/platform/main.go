@@ -76,8 +76,8 @@ which resolve the consuming project's @typescript/native-preview binary and any
 plugin-selected native sidecar.
 
 Usage:
-  ttsc-platform --version
-  ttsc-platform demo --type=string
+  ttsc --version
+  ttsc demo --type=string
 `))
 }
 
