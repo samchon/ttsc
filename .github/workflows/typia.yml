@@ -58,5 +58,5 @@ jobs:
       - name: Test typia next
         working-directory: experimental/typia
         run: |
-          pnpm install
+          pnpm install --no-frozen-lockfile
           pnpm test
