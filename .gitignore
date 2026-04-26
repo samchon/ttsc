@@ -8,6 +8,7 @@ bin/
 coverage/
 .turbo/
 .references/
+.wiki/
 experimental/typia/
 **/node_modules/
 **/lib/

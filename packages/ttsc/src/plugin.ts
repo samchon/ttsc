@@ -29,10 +29,47 @@ export interface TtscTransformContext {
   code: string;
   command: "build" | "transform";
   cwd: string;
+  compilerOptions: Record<string, unknown>;
   outputFile?: string;
   projectRoot: string;
   sourceFile?: string;
   tsconfig: string;
+}
+
+export interface TtscSourceTransformContext {
+  code: string;
+  command: "build" | "transform";
+  compilerOptions: Record<string, unknown>;
+  cwd: string;
+  projectRoot: string;
+  sourceFile: string;
+  tsconfig: string;
+}
+
+export interface TtscSourceEdit {
+  code: string;
+  end: number;
+  start: number;
+}
+
+export interface TtscSourceTransformResult {
+  code?: string;
+  edits?: readonly TtscSourceEdit[];
+}
+
+export interface AppliedTtscSourceEdit extends TtscSourceEdit {
+  newEnd: number;
+  newStart: number;
+}
+
+export interface TtscSourceTransformStage {
+  before: string;
+  edits: readonly AppliedTtscSourceEdit[];
+}
+
+export interface TtscSourceTransformOutput {
+  code: string;
+  stages: readonly TtscSourceTransformStage[];
 }
 
 export interface TtscPlugin {
@@ -42,6 +79,9 @@ export interface TtscPlugin {
   nativeMode?: NativeRewriteMode;
   /** @deprecated Use `native.binary` instead. */
   nativeBinary?: string;
+  transformSource?(
+    context: TtscSourceTransformContext,
+  ): string | TtscSourceTransformResult | readonly TtscSourceEdit[] | undefined;
   transformOutput?(context: TtscTransformContext): string;
 }
 
@@ -150,6 +190,121 @@ export function applyPluginTransforms(
     code = plugin.transformOutput({ ...context, code });
   }
   return code;
+}
+
+export function applyPluginSourceTransforms(
+  plugins: readonly TtscPlugin[],
+  context: TtscSourceTransformContext,
+): string {
+  return applyPluginSourceTransformsWithMap(plugins, context).code;
+}
+
+export function applyPluginSourceTransformsWithMap(
+  plugins: readonly TtscPlugin[],
+  context: TtscSourceTransformContext,
+): TtscSourceTransformOutput {
+  let code = context.code;
+  const stages: TtscSourceTransformStage[] = [];
+  for (const plugin of plugins) {
+    if (!plugin.transformSource) {
+      continue;
+    }
+    const before = code;
+    const result = plugin.transformSource({ ...context, code });
+    if (typeof result === "string") {
+      code = result;
+      if (code !== before) {
+        stages.push({
+          before,
+          edits: createAppliedSourceEdits(before, [
+            { code, end: before.length, start: 0 },
+          ]),
+        });
+      }
+      continue;
+    }
+    if (isSourceEditArray(result)) {
+      const edits = createAppliedSourceEdits(before, result);
+      code = applySourceEdits(before, edits);
+      if (edits.length > 0) {
+        stages.push({ before, edits });
+      }
+      continue;
+    }
+    if (result?.code !== undefined) {
+      code = result.code;
+      if (code !== before) {
+        stages.push({
+          before,
+          edits: createAppliedSourceEdits(before, [
+            { code, end: before.length, start: 0 },
+          ]),
+        });
+      }
+      continue;
+    }
+    if (result?.edits) {
+      const edits = createAppliedSourceEdits(before, result.edits);
+      code = applySourceEdits(before, edits);
+      if (edits.length > 0) {
+        stages.push({ before, edits });
+      }
+    }
+  }
+  return { code, stages };
+}
+
+function isSourceEditArray(value: unknown): value is readonly TtscSourceEdit[] {
+  return Array.isArray(value);
+}
+
+function applySourceEdits(
+  source: string,
+  edits: readonly TtscSourceEdit[],
+): string {
+  if (edits.length === 0) {
+    return source;
+  }
+  const ordered = [...edits].sort((a, b) => b.start - a.start);
+  let output = source;
+  for (const edit of ordered) {
+    output = output.slice(0, edit.start) + edit.code + output.slice(edit.end);
+  }
+  return output;
+}
+
+function createAppliedSourceEdits(
+  source: string,
+  edits: readonly TtscSourceEdit[],
+): AppliedTtscSourceEdit[] {
+  if (edits.length === 0) {
+    return [];
+  }
+  const ordered = [...edits].sort((a, b) => a.start - b.start);
+  let previousEnd = 0;
+  let delta = 0;
+  const applied: AppliedTtscSourceEdit[] = [];
+  for (const edit of ordered) {
+    if (!Number.isInteger(edit.start) || !Number.isInteger(edit.end)) {
+      throw new Error("ttsc: transformSource edit offsets must be integers");
+    }
+    if (
+      edit.start < 0 ||
+      edit.end < edit.start ||
+      edit.end > source.length ||
+      edit.start < previousEnd
+    ) {
+      throw new Error(
+        `ttsc: invalid or overlapping transformSource edit ${edit.start}:${edit.end}`,
+      );
+    }
+    const newStart = edit.start + delta;
+    const newEnd = newStart + edit.code.length;
+    applied.push({ ...edit, newEnd, newStart });
+    delta += edit.code.length - (edit.end - edit.start);
+    previousEnd = edit.end;
+  }
+  return applied;
 }
 
 function loadPluginEntry(
