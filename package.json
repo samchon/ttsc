@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/station",
-  "version": "0.4.2",
+  "version": "0.4.3-dev.20260426-2",
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
     "build": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter=\"./packages/ttsc-*\" -r build",

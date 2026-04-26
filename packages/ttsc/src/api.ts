@@ -289,6 +289,9 @@ export interface BuildResult {
  */
 export function build(options: BuildOptions = {}): BuildResult {
   const execution = resolveExecutionContext(options);
+  if (execution.nativeBinary) {
+    return buildWithNativeBinary(options, execution);
+  }
   if (execution.nativeMode !== "none") {
     return {
       status: 2,
@@ -335,6 +338,31 @@ export function build(options: BuildOptions = {}): BuildResult {
     applyBuildPlugins(execution.plugins, execution, emittedFiles);
   }
   return normalizeFailedDiagnostics(result);
+}
+
+function buildWithNativeBinary(
+  options: BuildOptions,
+  execution: ExecutionContext,
+): BuildResult {
+  const args = createNativeBuildArgs(execution, options);
+  const res = spawnBinary(execution.nativeBinary!, args, {
+    cwd: execution.projectRoot,
+    env: mergeEnv(options.env),
+    encoding: "utf8",
+  });
+  if (res.error) {
+    throw new Error(
+      "ttsc.build: failed to spawn " +
+        execution.nativeBinary +
+        ": " +
+        res.error.message,
+    );
+  }
+  return normalizeFailedDiagnostics({
+    status: res.status ?? 1,
+    stdout: outputText(res.stdout),
+    stderr: outputText(res.stderr),
+  });
 }
 
 /**
@@ -387,6 +415,32 @@ function createTsgoBuildArgs(
   }
   if (flags.listEmittedFiles) {
     args.push("--listEmittedFiles");
+  }
+  return args;
+}
+
+function createNativeBuildArgs(
+  execution: ExecutionContext,
+  options: BuildOptions,
+): string[] {
+  const args = [
+    options.emit === false ? "check" : "build",
+    "--tsconfig=" + execution.tsconfig,
+    "--rewrite-mode=" + execution.nativeMode,
+    "--cwd=" + execution.projectRoot,
+  ];
+  if (options.emit === true) {
+    args.push("--emit");
+  } else if (options.emit === false) {
+    args.push("--noEmit");
+  }
+  if (options.outDir) {
+    args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
+  }
+  if (options.quiet === false) {
+    args.push("--verbose");
+  } else if (options.quiet === true) {
+    args.push("--quiet");
   }
   return args;
 }
