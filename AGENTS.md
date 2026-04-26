@@ -89,13 +89,13 @@ Clone external references under `.references/`, which is ignored by git:
 
 ```bash
 mkdir -p .references
-git clone https://github.com/samchon/typescript-go .references/typescript-go
-git clone https://github.com/samchon/tsgolint .references/tsgolint
-git clone https://github.com/samchon/tsgonest .references/tsgonest
-git clone https://github.com/samchon/typical .references/typical
-git clone https://github.com/samchon/ts-patch .references/ts-patch
-git clone https://github.com/samchon/tsx .references/tsx
-git clone https://github.com/samchon/ts-node .references/ts-node
+git clone https://github.com/microsoft/typescript-go .references/typescript-go
+git clone https://github.com/oxc-project/tsgolint .references/tsgolint
+git clone https://github.com/tsgonest/tsgonest .references/tsgonest
+git clone https://github.com/elliots/typical .references/typical
+git clone https://github.com/nonara/ts-patch .references/ts-patch
+git clone https://github.com/privatenumber/tsx .references/tsx
+git clone https://github.com/TypeStrong/ts-node .references/ts-node
 git clone https://github.com/samchon/typia .references/typia
 ```
 
