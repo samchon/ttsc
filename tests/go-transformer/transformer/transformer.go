@@ -12,13 +12,34 @@ type Result struct {
 	Code string
 }
 
-func Transform(source string) (Result, error) {
+type Plugin struct {
+	Config map[string]any
+	Mode   string
+	Name   string
+}
+
+func Transform(source string, plugins []Plugin) (Result, error) {
 	match := goUpperCall.FindStringSubmatch(source)
 	if match == nil {
 		return Result{}, fmt.Errorf(`go transformer: expected export const value = goUpper("...")`)
 	}
 	name := match[1]
-	value := strings.ToUpper(match[2])
+	value := match[2]
+	if len(plugins) == 0 {
+		plugins = []Plugin{{Mode: "go-native-transformer-test"}}
+	}
+	for _, plugin := range plugins {
+		switch plugin.Mode {
+		case "go-native-transformer-test", "go-uppercase":
+			value = strings.ToUpper(value)
+		case "go-prefix":
+			value = stringConfig(plugin.Config, "prefix") + value
+		case "go-suffix":
+			value += stringConfig(plugin.Config, "suffix")
+		default:
+			return Result{}, fmt.Errorf("go transformer: unsupported mode %q", plugin.Mode)
+		}
+	}
 	var builder strings.Builder
 	builder.WriteString(`"use strict";` + "\n")
 	builder.WriteString(`Object.defineProperty(exports, "__esModule", { value: true });` + "\n")
@@ -29,4 +50,12 @@ func Transform(source string) (Result, error) {
 		builder.WriteString(fmt.Sprintf("console.log(%s);\n", name))
 	}
 	return Result{Code: builder.String()}, nil
+}
+
+func stringConfig(config map[string]any, key string) string {
+	if config == nil {
+		return ""
+	}
+	value, _ := config[key].(string)
+	return value
 }

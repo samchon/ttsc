@@ -25,53 +25,6 @@ export interface TtscPluginFactoryContext {
   tsconfig: string;
 }
 
-export interface TtscTransformContext {
-  code: string;
-  command: "build" | "transform";
-  cwd: string;
-  compilerOptions: Record<string, unknown>;
-  outputFile?: string;
-  projectRoot: string;
-  sourceFile?: string;
-  tsconfig: string;
-}
-
-export interface TtscSourceTransformContext {
-  code: string;
-  command: "build" | "transform";
-  compilerOptions: Record<string, unknown>;
-  cwd: string;
-  projectRoot: string;
-  sourceFile: string;
-  tsconfig: string;
-}
-
-export interface TtscSourceEdit {
-  code: string;
-  end: number;
-  start: number;
-}
-
-export interface TtscSourceTransformResult {
-  code?: string;
-  edits?: readonly TtscSourceEdit[];
-}
-
-export interface AppliedTtscSourceEdit extends TtscSourceEdit {
-  newEnd: number;
-  newStart: number;
-}
-
-export interface TtscSourceTransformStage {
-  before: string;
-  edits: readonly AppliedTtscSourceEdit[];
-}
-
-export interface TtscSourceTransformOutput {
-  code: string;
-  stages: readonly TtscSourceTransformStage[];
-}
-
 export interface TtscPlugin {
   name: string;
   native?: TtscNativeBackend;
@@ -79,10 +32,6 @@ export interface TtscPlugin {
   nativeMode?: NativeRewriteMode;
   /** @deprecated Use `native.binary` instead. */
   nativeBinary?: string;
-  transformSource?(
-    context: TtscSourceTransformContext,
-  ): string | TtscSourceTransformResult | readonly TtscSourceEdit[] | undefined;
-  transformOutput?(context: TtscTransformContext): string;
 }
 
 export type TtscPluginFactory = (
@@ -92,11 +41,16 @@ export type TtscPluginFactory = (
 
 export type TtscPluginModule = TtscPlugin | TtscPluginFactory;
 
+export interface LoadedNativePlugin {
+  backend: TtscNativeBackend;
+  config: ProjectPluginConfig;
+  name: string;
+}
+
 export interface LoadedPlugins {
   compatibilityFallback: boolean;
-  nativeBackend: TtscNativeBackend | null;
   nativeBinary: string | null;
-  nativeMode: NativeRewriteMode;
+  nativePlugins: LoadedNativePlugin[];
   plugins: TtscPlugin[];
   project: ParsedProjectConfig;
 }
@@ -128,9 +82,8 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
   if (entries.length === 0) {
     return {
       compatibilityFallback: false,
-      nativeBackend: null,
       nativeBinary: null,
-      nativeMode: "none",
+      nativePlugins: [],
       plugins: [],
       project,
     };
@@ -145,166 +98,39 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
   const plugins = entries.map((entry) => loadPluginEntry(entry, context));
 
   let nativeBinary: string | null = null;
-  let nativeBackend: TtscNativeBackend | null = null;
-  let nativeMode: NativeRewriteMode = "none";
-  for (const plugin of plugins) {
+  const nativePlugins: LoadedNativePlugin[] = [];
+  plugins.forEach((plugin, index) => {
     const backend = resolveNativeBackend(plugin);
     if (!backend) {
-      continue;
+      return;
     }
-    if (nativeMode !== "none" && nativeMode !== backend.mode) {
-      throw new Error(
-        `ttsc: multiple native plugin modes requested (${nativeMode}, ${backend.mode})`,
-      );
-    }
-    nativeMode = backend.mode;
-    nativeBackend = backend;
     if (backend.binary) {
       if (nativeBinary !== null && nativeBinary !== backend.binary) {
         throw new Error(
-          `ttsc: multiple native plugin binaries requested (${nativeBinary}, ${backend.binary})`,
+          "ttsc: ordered native plugin pipeline requires a single native host binary " +
+            `(${nativeBinary}, ${backend.binary})`,
         );
       }
       nativeBinary = backend.binary;
     }
+    nativePlugins.push({ backend, config: entries[index]!, name: plugin.name });
+  });
+  if (nativePlugins.length !== plugins.length) {
+    const missing = plugins
+      .filter((plugin) => !resolveNativeBackend(plugin))
+      .map((plugin) => plugin.name)
+      .join(", ");
+    throw new Error(
+      `ttsc: every plugin must declare a native backend; missing native for ${missing}`,
+    );
   }
   return {
     compatibilityFallback: false,
-    nativeBackend,
     nativeBinary,
-    nativeMode,
+    nativePlugins,
     plugins,
     project,
   };
-}
-
-export function applyPluginTransforms(
-  plugins: readonly TtscPlugin[],
-  context: TtscTransformContext,
-): string {
-  let code = context.code;
-  for (const plugin of plugins) {
-    if (!plugin.transformOutput) {
-      continue;
-    }
-    code = plugin.transformOutput({ ...context, code });
-  }
-  return code;
-}
-
-export function applyPluginSourceTransforms(
-  plugins: readonly TtscPlugin[],
-  context: TtscSourceTransformContext,
-): string {
-  return applyPluginSourceTransformsWithMap(plugins, context).code;
-}
-
-export function applyPluginSourceTransformsWithMap(
-  plugins: readonly TtscPlugin[],
-  context: TtscSourceTransformContext,
-): TtscSourceTransformOutput {
-  let code = context.code;
-  const stages: TtscSourceTransformStage[] = [];
-  for (const plugin of plugins) {
-    if (!plugin.transformSource) {
-      continue;
-    }
-    const before = code;
-    const result = plugin.transformSource({ ...context, code });
-    if (typeof result === "string") {
-      code = result;
-      if (code !== before) {
-        stages.push({
-          before,
-          edits: createAppliedSourceEdits(before, [
-            { code, end: before.length, start: 0 },
-          ]),
-        });
-      }
-      continue;
-    }
-    if (isSourceEditArray(result)) {
-      const edits = createAppliedSourceEdits(before, result);
-      code = applySourceEdits(before, edits);
-      if (edits.length > 0) {
-        stages.push({ before, edits });
-      }
-      continue;
-    }
-    if (result?.code !== undefined) {
-      code = result.code;
-      if (code !== before) {
-        stages.push({
-          before,
-          edits: createAppliedSourceEdits(before, [
-            { code, end: before.length, start: 0 },
-          ]),
-        });
-      }
-      continue;
-    }
-    if (result?.edits) {
-      const edits = createAppliedSourceEdits(before, result.edits);
-      code = applySourceEdits(before, edits);
-      if (edits.length > 0) {
-        stages.push({ before, edits });
-      }
-    }
-  }
-  return { code, stages };
-}
-
-function isSourceEditArray(value: unknown): value is readonly TtscSourceEdit[] {
-  return Array.isArray(value);
-}
-
-function applySourceEdits(
-  source: string,
-  edits: readonly TtscSourceEdit[],
-): string {
-  if (edits.length === 0) {
-    return source;
-  }
-  const ordered = [...edits].sort((a, b) => b.start - a.start);
-  let output = source;
-  for (const edit of ordered) {
-    output = output.slice(0, edit.start) + edit.code + output.slice(edit.end);
-  }
-  return output;
-}
-
-function createAppliedSourceEdits(
-  source: string,
-  edits: readonly TtscSourceEdit[],
-): AppliedTtscSourceEdit[] {
-  if (edits.length === 0) {
-    return [];
-  }
-  const ordered = [...edits].sort((a, b) => a.start - b.start);
-  let previousEnd = 0;
-  let delta = 0;
-  const applied: AppliedTtscSourceEdit[] = [];
-  for (const edit of ordered) {
-    if (!Number.isInteger(edit.start) || !Number.isInteger(edit.end)) {
-      throw new Error("ttsc: transformSource edit offsets must be integers");
-    }
-    if (
-      edit.start < 0 ||
-      edit.end < edit.start ||
-      edit.end > source.length ||
-      edit.start < previousEnd
-    ) {
-      throw new Error(
-        `ttsc: invalid or overlapping transformSource edit ${edit.start}:${edit.end}`,
-      );
-    }
-    const newStart = edit.start + delta;
-    const newEnd = newStart + edit.code.length;
-    applied.push({ ...edit, newEnd, newStart });
-    delta += edit.code.length - (edit.end - edit.start);
-    previousEnd = edit.end;
-  }
-  return applied;
 }
 
 function loadPluginEntry(
@@ -327,18 +153,39 @@ function loadPluginEntry(
     mod.plugin ??
     (mod as unknown as TtscPluginModule);
   if (typeof candidate === "function") {
-    return candidate(entry, context);
+    const plugin = candidate(entry, context);
+    if (!isTtscPlugin(plugin)) {
+      throw new Error(
+        `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+      );
+    }
+    rejectJsTransformHooks(specifier, plugin);
+    return plugin;
   }
-  if (
-    candidate &&
-    typeof candidate === "object" &&
-    typeof candidate.name === "string"
-  ) {
+  if (isTtscPlugin(candidate)) {
+    rejectJsTransformHooks(specifier, candidate);
     return candidate;
   }
   throw new Error(
     `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
   );
+}
+
+function isTtscPlugin(value: unknown): value is TtscPlugin {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { name?: unknown }).name === "string"
+  );
+}
+
+function rejectJsTransformHooks(specifier: string, candidate: object): void {
+  if ("transformSource" in candidate || "transformOutput" in candidate) {
+    throw new Error(
+      `ttsc: plugin "${specifier}" declares unsupported JS transform hooks; ` +
+        "declare a native backend instead",
+    );
+  }
 }
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {

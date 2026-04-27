@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
+const child_process = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -7,13 +9,14 @@ const {
   commonJsProject,
   spawn,
   ttscBin,
+  workspaceRoot,
 } = require("./_helpers.cjs");
 
 function pluginProject(pluginEntries, pluginFiles) {
   return commonJsProject(
     {
       ...pluginFiles,
-      "src/main.ts": `export const value: string = "plugin";\n`,
+      "src/main.ts": `export const value: string = goUpper("plugin");\nconsole.log(value);\n`,
     },
     {
       compilerOptions: {
@@ -23,38 +26,60 @@ function pluginProject(pluginEntries, pluginFiles) {
   );
 }
 
-test("plugin corpus: default export factory is accepted", () => {
+function nativePlugin(mode) {
+  return `
+    module.exports = (config) => ({
+      name: config.name,
+      native: {
+        mode: ${JSON.stringify(mode)},
+        binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
+        contractVersion: 1,
+      },
+    });
+  `;
+}
+
+test("plugin corpus: default export factory is accepted as a native descriptor", () => {
+  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
-    [{ transform: "./plugins/default.cjs", label: "default-shape" }],
+    [{ transform: "./plugins/default.cjs", name: "default-shape" }],
     {
       "plugins/default.cjs": `
         exports.default = (config) => ({
-          name: "default-export",
-          transformOutput(context) {
-            return context.code + "\\n// " + config.label + ":" + context.command;
+          name: config.name,
+          native: {
+            mode: "go-uppercase",
+            binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
+            contractVersion: 1,
           },
         });
       `,
     },
   );
 
-  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary },
+  });
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
-    /\/\/ default-shape:build\s*$/,
+    /"PLUGIN"/,
   );
 });
 
-test("plugin corpus: createTtscPlugin export is accepted", () => {
+test("plugin corpus: createTtscPlugin export is accepted as a native descriptor", () => {
+  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
-    [{ transform: "./plugins/create.cjs" }],
+    [{ transform: "./plugins/create.cjs", name: "create-export" }],
     {
       "plugins/create.cjs": `
-        exports.createTtscPlugin = () => ({
-          name: "create-export",
-          transformOutput(context) {
-            return "// create:" + context.command + "\\n" + context.code;
+        exports.createTtscPlugin = (config) => ({
+          name: config.name,
+          native: {
+            mode: "go-uppercase",
+            binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
+            contractVersion: 1,
           },
         });
       `,
@@ -64,27 +89,56 @@ test("plugin corpus: createTtscPlugin export is accepted", () => {
   const result = spawn(
     ttscBin,
     ["transform", "--cwd", root, "--file", "src/main.ts"],
-    { cwd: root },
+    { cwd: root, env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary } },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^\/\/ create:transform\n/);
+  assert.match(result.stdout, /"PLUGIN"/);
 });
 
-test("plugin corpus: conflicting native modes fail before build", () => {
+test("plugin corpus: ordered native plugins are passed to the Go sidecar", () => {
+  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
     [
-      { transform: "./plugins/a.cjs" },
-      { transform: "./plugins/b.cjs" },
+      { transform: "./plugins/prefix.cjs", name: "prefix", prefix: "A:" },
+      { transform: "./plugins/disabled.cjs", name: "disabled", enabled: false, suffix: ":NO" },
+      { transform: "./plugins/upper.cjs", name: "upper" },
+      { transform: "./plugins/suffix.cjs", name: "suffix", suffix: ":Z" },
     ],
     {
-      "plugins/a.cjs": `module.exports = { name: "a", native: { mode: "alpha" } };\n`,
-      "plugins/b.cjs": `module.exports = { name: "b", native: { mode: "beta" } };\n`,
+      "plugins/prefix.cjs": nativePlugin("go-prefix"),
+      "plugins/disabled.cjs": nativePlugin("go-suffix"),
+      "plugins/upper.cjs": nativePlugin("go-uppercase"),
+      "plugins/suffix.cjs": nativePlugin("go-suffix"),
+    },
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /"A:PLUGIN:Z"/);
+});
+
+test("plugin corpus: JS transform hooks are rejected", () => {
+  const root = pluginProject(
+    [{ transform: "./plugins/invalid-hook.cjs" }],
+    {
+      "plugins/invalid-hook.cjs": `
+        module.exports = {
+          name: "invalid-hook",
+          transformOutput(context) {
+            return context.code;
+          },
+        };
+      `,
     },
   );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /multiple native plugin modes requested/);
+  assert.match(result.stderr, /unsupported JS transform hooks/);
 });
 
 test("plugin corpus: invalid plugin export reports the bad specifier", () => {
@@ -100,18 +154,12 @@ test("plugin corpus: invalid plugin export reports the bad specifier", () => {
   assert.match(result.stderr, /does not export a valid ttsc plugin/);
 });
 
-test("plugin corpus: transform --out receives transformOutput text", () => {
+test("plugin corpus: transform --out receives Go native output", () => {
+  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
-    [{ transform: "./plugins/out.cjs" }],
+    [{ transform: "./plugins/out.cjs", name: "out" }],
     {
-      "plugins/out.cjs": `
-        module.exports = {
-          name: "out",
-          transformOutput(context) {
-            return context.code + "\\n// out:" + context.command;
-          },
-        };
-      `,
+      "plugins/out.cjs": nativePlugin("go-uppercase"),
     },
   );
   const output = path.join(root, "custom", "main.js");
@@ -119,196 +167,39 @@ test("plugin corpus: transform --out receives transformOutput text", () => {
   const result = spawn(
     ttscBin,
     ["transform", "--cwd", root, "--file", "src/main.ts", "--out", output],
-    { cwd: root },
+    { cwd: root, env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary } },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.match(fs.readFileSync(output, "utf8"), /\/\/ out:transform\s*$/);
+  assert.match(fs.readFileSync(output, "utf8"), /"PLUGIN"/);
 });
 
-test("plugin corpus: transformSource is lowered by the consumer tsgo target", () => {
-  const root = commonJsProject(
+function buildGoTransformer() {
+  const root = path.join(workspaceRoot, "tests", "go-transformer");
+  const output = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-transformer-")),
+    process.platform === "win32" ? "ttsc-go-transformer.exe" : "ttsc-go-transformer",
+  );
+  const result = child_process.spawnSync(
+    "go",
+    ["build", "-o", output, "./cmd/ttsc-go-transformer"],
     {
-      "plugins/source.cjs": `
-        module.exports = {
-          name: "source-expression",
-          transformSource(context) {
-            const needle = "makeModern()";
-            const start = context.code.lastIndexOf(needle);
-            if (start < 0) return;
-            return [{
-              start,
-              end: start + needle.length,
-              code: "({ value: 'TARGET-LOWERED' }?.value ?? 'fallback')",
-            }];
-          },
-        };
-      `,
-      "src/main.ts": `
-        function makeModern(): string {
-          return "not transformed";
-        }
-        export const value: string = makeModern();
-        console.log(value);
-      `,
-    },
-    {
-      compilerOptions: {
-        target: "ES2015",
-        plugins: [{ transform: "./plugins/source.cjs" }],
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: goPath(),
       },
+      maxBuffer: 1024 * 1024 * 64,
+      windowsHide: true,
     },
   );
-
-  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
-  assert.doesNotMatch(js, /\?\./);
-  assert.doesNotMatch(js, /\?\?/);
-  assert.match(js, /TARGET-LOWERED/);
-  const run = spawn(process.execPath, [path.join(root, "dist", "main.js")], {
-    cwd: root,
-  });
-  assert.equal(run.status, 0, run.stderr);
-  assert.equal(run.stdout.trim(), "TARGET-LOWERED");
-});
-
-test("plugin corpus: transformSource build preserves source map paths", () => {
-  const root = commonJsProject(
-    {
-      "plugins/source-map.cjs": `
-        module.exports = {
-          name: "source-map-expression",
-          transformSource(context) {
-            const needle = "makeModern<IMember>()";
-            const start = context.code.lastIndexOf(needle);
-            if (start < 0) return;
-            return {
-              edits: [{
-                start,
-                end: start + needle.length,
-                code: "(() => {\\n  const box = { value: 'MAP-LOWERED' };\\n  return box?.value ?? 'fallback';\\n})()",
-              }],
-            };
-          },
-        };
-      `,
-      "src/main.ts": [
-        "type IMember = { name: string };",
-        "",
-        "const assert = makeModern<IMember>();",
-        "",
-        'console.log("assert function ready");',
-        "",
-        "declare function makeModern<T>(): (input: T) => T;",
-        "",
-      ].join("\n"),
-    },
-    {
-      compilerOptions: {
-        inlineSources: true,
-        sourceMap: true,
-        target: "ES2015",
-        plugins: [{ transform: "./plugins/source-map.cjs" }],
-      },
-    },
-  );
-
-  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  const mapFile = path.join(root, "dist", "main.js.map");
-  assert.equal(fs.existsSync(mapFile), true);
-  const mapText = fs.readFileSync(mapFile, "utf8");
-  const map = JSON.parse(mapText);
-  assert.deepEqual(map.sources, ["../src/main.ts"]);
-  assert.doesNotMatch(mapText, /ttsc-source-/);
-  assert.match(map.sourcesContent?.[0] ?? "", /makeModern<IMember>\(\)/);
-  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
-  assert.doesNotMatch(js, /\?\.|\?\?/);
-
-  const mappings = decodeMappings(map.mappings);
-  const generatedLines = js.split(/\r?\n/);
-  const replacementLine = generatedLines.findIndex((line) =>
-    line.includes("MAP-LOWERED"),
-  );
-  const consoleLine = generatedLines.findIndex((line) =>
-    line.includes("assert function ready"),
-  );
-  assert.notEqual(replacementLine, -1);
-  assert.notEqual(consoleLine, -1);
-  assert.equal(mappedOriginalLines(mappings, replacementLine).has(2), true);
-  assert.equal(mappedOriginalLines(mappings, consoleLine).has(4), true);
-});
-
-function mappedOriginalLines(mappings, generatedLine) {
-  return new Set(
-    (mappings[generatedLine] ?? [])
-      .filter((segment) => segment.length >= 4)
-      .map((segment) => segment[2]),
-  );
+  return output;
 }
 
-function decodeMappings(mappings) {
-  const lines = [];
-  let line = [];
-  let segment = [];
-  let index = 0;
-  const state = [0, 0, 0, 0, 0];
-  while (index < mappings.length) {
-    const char = mappings[index];
-    if (char === ";") {
-      if (segment.length > 0) {
-        line.push(segment);
-        segment = [];
-      }
-      lines.push(line);
-      line = [];
-      state[0] = 0;
-      index += 1;
-      continue;
-    }
-    if (char === ",") {
-      if (segment.length > 0) {
-        line.push(segment);
-        segment = [];
-      }
-      index += 1;
-      continue;
-    }
-    const read = readVlq(mappings, index);
-    index = read.next;
-    const field = segment.length;
-    state[field] += read.value;
-    segment.push(state[field]);
-  }
-  if (segment.length > 0) {
-    line.push(segment);
-  }
-  lines.push(line);
-  return lines;
-}
-
-const BASE64_CHARS =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const BASE64_VALUES = new Map(
-  [...BASE64_CHARS].map((char, index) => [char, index]),
-);
-
-function readVlq(input, start) {
-  let index = start;
-  let shift = 0;
-  let value = 0;
-  while (index < input.length) {
-    const digit = BASE64_VALUES.get(input[index]);
-    assert.notEqual(digit, undefined);
-    index += 1;
-    const continuation = (digit & 32) !== 0;
-    value += (digit & 31) << shift;
-    shift += 5;
-    if (!continuation) {
-      const negative = (value & 1) === 1;
-      const decoded = value >> 1;
-      return { next: index, value: negative ? -decoded : decoded };
-    }
-  }
-  throw new Error("unterminated VLQ");
+function goPath() {
+  const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
+  return fs.existsSync(localGo)
+    ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
+    : process.env.PATH;
 }
