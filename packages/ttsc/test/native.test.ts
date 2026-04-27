@@ -58,3 +58,46 @@ test("resolveNativeBackend rejects unsupported native contract versions", () => 
     /unsupported native contract version 2/,
   );
 });
+
+test("resolveNativeBackend accepts native.source descriptors", () => {
+  const backend = resolveNativeBackend({
+    name: "source-test",
+    native: {
+      mode: "native-test",
+      source: { dir: "/abs/path/to/plugin", entry: "./cmd/host" },
+      contractVersion: 1,
+    },
+  });
+
+  assert.deepEqual(backend, {
+    mode: "native-test",
+    source: { dir: "/abs/path/to/plugin", entry: "./cmd/host" },
+    contractVersion: 1,
+  });
+});
+
+test("resolveNativeBackend rejects native.source + native.binary together", () => {
+  assert.throws(
+    () =>
+      resolveNativeBackend({
+        name: "conflict-source-test",
+        native: {
+          mode: "native-test",
+          binary: "/tmp/binary",
+          source: { dir: "/tmp/source" },
+        },
+      }),
+    /must use either native\.binary or native\.source, not both/,
+  );
+});
+
+test("resolveNativeBackend rejects empty native.source.dir", () => {
+  assert.throws(
+    () =>
+      resolveNativeBackend({
+        name: "empty-source-test",
+        native: { mode: "native-test", source: { dir: "" } },
+      }),
+    /native\.source\.dir must be a non-empty string/,
+  );
+});
