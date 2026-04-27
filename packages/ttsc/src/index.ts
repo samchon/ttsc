@@ -7,9 +7,9 @@
  *   - platform helpers (`resolveBinary`, `installHint`, …) — compatibility
  *     helper resolution for commands such as `ttsc demo`.
  *   - programmatic API (`transform`, `build`, `check`, `version`) — a thin
- *     TS wrapper around the consumer `tsgo` binary plus JS output-plugin
- *     hooks. Adapters never have to shell out themselves; they call these
- *     helpers and get back a string or a result record.
+ *     TS wrapper around the consumer `tsgo` binary and native plugin
+ *     descriptors. Adapters never have to shell out themselves; they call
+ *     these helpers and get back a string or a result record.
  */
 
 export * from "./platform";

@@ -41,13 +41,16 @@ npx ttsc --watch
 
 ## Transformer Configuration
 
-`ttsc` reads `compilerOptions.plugins` from `tsconfig.json`.
+`ttsc` reads `compilerOptions.plugins` from `tsconfig.json`. Each plugin
+module is a JavaScript descriptor for an ordered native transformer backend;
+the transform implementation itself runs in Go.
 
 ```json
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "typia/lib/transform" }
+      { "transform": "typia/lib/transform" },
+      { "transform": "./plugins/another-native-transformer.cjs" }
     ]
   }
 }

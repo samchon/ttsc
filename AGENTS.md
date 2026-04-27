@@ -80,7 +80,7 @@ Never treat a green `pnpm test` as proof that all TypeScript-Go internals are st
 - Keep the `ttsx` command thin and backed by `ttsc` APIs.
 - Prefer structured TypeScript-Go APIs and shim wrappers over string-based compiler behavior.
 - Do not add source-specific hardcoding to the compiler host.
-- Do not widen the public plugin API casually. `native`, `transformOutput`, and project plugin loading are the current stable surface.
+- Do not widen the public plugin API casually. Ordered `native` plugin descriptors and project plugin loading are the current stable surface.
 - If a new public hook is required, add tests that lock the compatibility promise.
 
 ## Reference Repositories

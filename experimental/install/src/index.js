@@ -60,7 +60,6 @@ function packPackage(packageDirName, tarballName) {
 
 function prepareWorkspace() {
   fs.rmSync(path.join(experimentRoot, ".tmp"), { recursive: true, force: true });
-  fs.mkdirSync(path.join(workspace, "plugins"), { recursive: true });
   fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "package.json"),
@@ -84,11 +83,6 @@ function prepareWorkspace() {
           strict: true,
           outDir: "dist",
           rootDir: "src",
-          plugins: [
-            {
-              transform: "./plugins/banner.cjs",
-            },
-          ],
         },
         include: ["src"],
       },
@@ -99,23 +93,6 @@ function prepareWorkspace() {
   fs.writeFileSync(
     path.join(workspace, "src", "main.ts"),
     'const message: string = "installed-runner-ok";\nconsole.log(message);\n',
-  );
-  fs.writeFileSync(
-    path.join(workspace, "plugins", "banner.cjs"),
-    [
-      "const { definePlugin } = require('ttsc');",
-      "",
-      "module.exports = definePlugin(() => ({",
-      "  name: 'experimental-install-transformer',",
-      "  transformOutput(context) {",
-      "    return context.code.replace(",
-      "      '\"installed-runner-ok\"',",
-      "      '\"installed-runner-ok:transformed\"',",
-      "    );",
-      "  },",
-      "}));",
-      "",
-    ].join("\n"),
   );
 }
 
@@ -171,8 +148,8 @@ function verifyTtscBuild() {
   assert(fs.existsSync(output), "ttsc must emit dist/main.js");
   const emitted = fs.readFileSync(output, "utf8");
   assert(
-    emitted.includes('"installed-runner-ok:transformed"'),
-    "emitted JavaScript must contain the transformed string literal",
+    emitted.includes('"installed-runner-ok"'),
+    "emitted JavaScript must contain the source string literal",
   );
   assert(
     /console\.log\(\s*message\s*\)/.test(emitted),
@@ -181,7 +158,7 @@ function verifyTtscBuild() {
   assertConsoleOutput(
     "node dist/main.js",
     runNode([output], workspace, "node dist/main.js").stdout,
-    "installed-runner-ok:transformed",
+    "installed-runner-ok",
   );
 }
 
@@ -189,7 +166,7 @@ function verifyTtsxRun() {
   assertConsoleOutput(
     "npx ttsx --cwd . src/main.ts",
     run("npx ttsx --cwd . src/main.ts", workspace).stdout,
-    "installed-runner-ok:transformed",
+    "installed-runner-ok",
   );
 }
 

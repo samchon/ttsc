@@ -23,10 +23,7 @@ import * as path from "node:path";
 
 import { type ResolveOptions, resolveBinary } from "./platform";
 import {
-  type TtscSourceTransformStage,
-  type TtscPlugin,
-  applyPluginSourceTransformsWithMap,
-  applyPluginTransforms,
+  type LoadedNativePlugin,
   loadProjectPlugins,
 } from "./plugin";
 import {
@@ -90,7 +87,7 @@ export interface BuildOptions extends CommonOptions {
   quiet?: boolean;
   /** @internal Caller already ran diagnostics and accepts responsibility. */
   skipDiagnosticsCheck?: boolean;
-  /** @internal Force `tsgo --listEmittedFiles` even when no output plugin runs. */
+  /** @internal Force `tsgo --listEmittedFiles` for caller-side output discovery. */
   forceListEmittedFiles?: boolean;
 }
 
@@ -172,16 +169,13 @@ export function transform(options: TransformOptions): string {
       ? options.file
       : path.resolve(options.cwd ?? process.cwd(), options.file),
   );
-  if (execution.sourcePlugins.length > 0) {
-    return transformWithSourceTransforms(options, execution, sourceFile);
-  }
-  if (execution.nativeBinary) {
+  if (execution.nativePlugins.length > 0) {
+    if (!execution.nativeBinary) {
+      throw new Error(
+        "ttsc.transform: native transformer plugins require a version-matched binary",
+      );
+    }
     return transformWithNativeBinary(options, execution, sourceFile);
-  }
-  if (execution.nativeMode !== "none") {
-    throw new Error(
-      `ttsc.transform: native rewrite mode "${execution.nativeMode}" requires a plugin-provided version-matched binary`,
-    );
   }
 
   const tempOutDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-transform-"));
@@ -205,18 +199,7 @@ export function transform(options: TransformOptions): string {
     if (!emitted) {
       throw new Error(`ttsc.transform: no output produced for ${sourceFile}`);
     }
-    const transformed = finalizeTransformText(
-      execution.outputPlugins,
-      {
-        command: "transform",
-        compilerOptions: execution.compilerOptions,
-        cwd: execution.cwd,
-        projectRoot: execution.projectRoot,
-        sourceFile,
-        tsconfig: execution.tsconfig,
-      },
-      fs.readFileSync(emitted, "utf8"),
-    );
+    const transformed = fs.readFileSync(emitted, "utf8");
     if (options.out) {
       fs.mkdirSync(path.dirname(options.out), { recursive: true });
       fs.writeFileSync(options.out, transformed, "utf8");
@@ -237,6 +220,7 @@ function transformWithNativeBinary(
     "--file=" + sourceFile,
     "--tsconfig=" + execution.tsconfig,
     "--rewrite-mode=" + execution.nativeMode,
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
   ];
 
   const res = spawnBinary(execution.nativeBinary!, args, {
@@ -257,100 +241,12 @@ function transformWithNativeBinary(
       "ttsc.transform exited " + res.status + "\n" + (res.stderr || ""),
     );
   }
-  const transformed = finalizeTransformText(
-    execution.outputPlugins,
-    {
-      command: "transform",
-      compilerOptions: execution.compilerOptions,
-      cwd: execution.cwd,
-      projectRoot: execution.projectRoot,
-      sourceFile,
-      tsconfig: execution.tsconfig,
-    },
-    outputText(res.stdout),
-  );
+  const transformed = outputText(res.stdout);
   if (options.out) {
     fs.mkdirSync(path.dirname(options.out), { recursive: true });
     fs.writeFileSync(options.out, transformed, "utf8");
   }
   return transformed;
-}
-
-function transformWithSourceTransforms(
-  options: TransformOptions,
-  execution: ExecutionContext,
-  sourceFile: string,
-): string {
-  if (execution.nativeBinary || execution.nativeMode !== "none") {
-    throw new Error(
-      "ttsc.transform: transformSource cannot be combined with native rewrite mode yet",
-    );
-  }
-  const materialized = materializeSourceTransformedProject(
-    execution,
-    "transform",
-    sourceFile,
-  );
-  const tempOutDir = path.join(materialized.root, ".ttsc-transform-out");
-  try {
-    const tempSourceFile = toMaterializedPath(sourceFile, materialized);
-    const result = build({
-      ...options,
-      cwd: materialized.root,
-      emit: true,
-      forceListEmittedFiles: true,
-      outDir: tempOutDir,
-      plugins: false,
-      tsconfig: materialized.tsconfig,
-    });
-    if (result.status !== 0) {
-      throw new Error(
-        "ttsc.transform exited " +
-          result.status +
-          "\n" +
-          (result.stderr || result.stdout),
-      );
-    }
-    const emitted = findEmittedFile(tempOutDir, materialized.root, tempSourceFile);
-    if (!emitted) {
-      throw new Error(`ttsc.transform: no output produced for ${sourceFile}`);
-    }
-    let transformed = finalizeTransformText(
-      execution.outputPlugins,
-      {
-        command: "transform",
-        compilerOptions: execution.compilerOptions,
-        cwd: execution.cwd,
-        projectRoot: execution.projectRoot,
-        sourceFile,
-        tsconfig: execution.tsconfig,
-      },
-      fs.readFileSync(emitted, "utf8"),
-    );
-    if (options.out) {
-      const mapFile = `${emitted}.map`;
-      if (fs.existsSync(mapFile)) {
-        const outMap = `${options.out}.map`;
-        fs.mkdirSync(path.dirname(outMap), { recursive: true });
-        fs.writeFileSync(
-          outMap,
-          patchSourceMapText(
-            fs.readFileSync(mapFile, "utf8"),
-            materialized,
-            outMap,
-            mapFile,
-          ),
-          "utf8",
-        );
-        transformed = rewriteSourceMapReference(transformed, path.basename(outMap));
-      }
-      fs.mkdirSync(path.dirname(options.out), { recursive: true });
-      fs.writeFileSync(options.out, transformed, "utf8");
-    }
-    return transformed;
-  } finally {
-    fs.rmSync(materialized.root, { recursive: true, force: true });
-  }
 }
 
 function realpathIfExists(file: string): string {
@@ -376,20 +272,16 @@ export interface BuildResult {
  */
 export function build(options: BuildOptions = {}): BuildResult {
   const execution = resolveExecutionContext(options);
-  if (execution.sourcePlugins.length > 0) {
-    return buildWithSourceTransforms(options, execution);
-  }
-  if (execution.nativeBinary) {
+  if (execution.nativePlugins.length > 0) {
+    if (!execution.nativeBinary) {
+      return {
+        status: 2,
+        stdout: "",
+        stderr:
+          "ttsc.build: native transformer plugins require a version-matched binary\n",
+      };
+    }
     return buildWithNativeBinary(options, execution);
-  }
-  if (execution.nativeMode !== "none") {
-    return {
-      status: 2,
-      stdout: "",
-      stderr:
-        `ttsc.build: native rewrite mode "${execution.nativeMode}" requires ` +
-        "a version-matched sidecar build; project builds use the consuming project's @typescript/native-preview by default\n",
-    };
   }
 
   if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
@@ -401,8 +293,7 @@ export function build(options: BuildOptions = {}): BuildResult {
 
   const args = createTsgoBuildArgs(execution, options, {
     listEmittedFiles:
-      options.emit !== false &&
-      (execution.outputPlugins.length > 0 || options.forceListEmittedFiles === true),
+      options.emit !== false && options.forceListEmittedFiles === true,
   });
   const res = spawnBinary(execution.tsgo.binary, args, {
     cwd: execution.projectRoot,
@@ -425,9 +316,6 @@ export function build(options: BuildOptions = {}): BuildResult {
   const emittedFiles = parseEmittedFiles(result.stdout);
   if (emittedFiles.length !== 0) {
     result.stdout = stripEmittedFileLines(result.stdout);
-  }
-  if (result.status === 0 && options.emit !== false && execution.outputPlugins.length > 0) {
-    applyBuildPlugins(execution.outputPlugins, execution, emittedFiles);
   }
   return normalizeFailedDiagnostics({ ...result, emittedFiles });
 }
@@ -455,42 +343,6 @@ function buildWithNativeBinary(
     stdout: outputText(res.stdout),
     stderr: outputText(res.stderr),
   });
-}
-
-function buildWithSourceTransforms(
-  options: BuildOptions,
-  execution: ExecutionContext,
-): BuildResult {
-  if (execution.nativeBinary || execution.nativeMode !== "none") {
-    return {
-      status: 2,
-      stdout: "",
-      stderr:
-        "ttsc.build: transformSource cannot be combined with native rewrite mode yet\n",
-    };
-  }
-  const materialized = materializeSourceTransformedProject(execution, "build");
-  try {
-    const outDir = mapOutDirToMaterializedProject(options.outDir, execution, materialized);
-    const result = build({
-      ...options,
-      cwd: materialized.root,
-      forceListEmittedFiles: true,
-      outDir,
-      plugins: false,
-      tsconfig: materialized.tsconfig,
-    });
-    if (result.status === 0 && options.emit !== false) {
-      const copied = copyMaterializedEmittedFiles(materialized, result.emittedFiles ?? []);
-      result.emittedFiles = copied;
-      if (execution.outputPlugins.length > 0) {
-        applyBuildPlugins(execution.outputPlugins, execution, copied);
-      }
-    }
-    return result;
-  } finally {
-    fs.rmSync(materialized.root, { recursive: true, force: true });
-  }
 }
 
 /**
@@ -555,6 +407,7 @@ function createNativeBuildArgs(
     options.emit === false ? "check" : "build",
     "--tsconfig=" + execution.tsconfig,
     "--rewrite-mode=" + execution.nativeMode,
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
     "--cwd=" + execution.projectRoot,
   ];
   if (options.emit === true) {
@@ -573,6 +426,17 @@ function createNativeBuildArgs(
   return args;
 }
 
+function serializeNativePlugins(plugins: readonly LoadedNativePlugin[]): string {
+  return JSON.stringify(
+    plugins.map((plugin) => ({
+      config: plugin.config,
+      contractVersion: plugin.backend.contractVersion,
+      mode: plugin.backend.mode,
+      name: plugin.name,
+    })),
+  );
+}
+
 /** Ask the binary for its version banner. Handy for user-agent strings. */
 export function version(options: CommonOptions = {}): string {
   const tsgo = resolveTsgo(options);
@@ -588,9 +452,9 @@ export function version(options: CommonOptions = {}): string {
 }
 
 /**
- * Promise-facing variant of `transform()`. The plugin host keeps the transform
- * pipeline synchronous so plugin modules can stay dependency-free, but many
- * adapter surfaces still prefer a Promise-returning function.
+ * Promise-facing variant of `transform()`. The host path stays synchronous so
+ * plugin descriptors can stay dependency-free, but many adapter surfaces still
+ * prefer a Promise-returning function.
  */
 export function transformAsync(options: TransformOptions): Promise<string> {
   return Promise.resolve().then(() => transform(options));
@@ -601,9 +465,8 @@ interface ExecutionContext {
   cwd: string;
   nativeBinary: string | null;
   nativeMode: string;
-  outputPlugins: readonly TtscPlugin[];
+  nativePlugins: readonly LoadedNativePlugin[];
   projectRoot: string;
-  sourcePlugins: readonly TtscPlugin[];
   tsgo: ResolvedTsgo;
   tsconfig: string;
 }
@@ -629,55 +492,13 @@ function resolveExecutionContext(
     compilerOptions: loaded.project.compilerOptions,
     cwd,
     nativeBinary: loaded.nativeBinary ?? null,
-    nativeMode: options.rewriteMode ?? loaded.nativeMode,
-    outputPlugins: loaded.plugins.filter((plugin) => plugin.transformOutput),
+    nativeMode:
+      options.rewriteMode ?? loaded.nativePlugins[0]?.backend.mode ?? "none",
+    nativePlugins: loaded.nativePlugins,
     projectRoot,
-    sourcePlugins: loaded.plugins.filter((plugin) => plugin.transformSource),
     tsgo,
     tsconfig,
   };
-}
-
-function finalizeTransformText(
-  plugins: readonly TtscPlugin[],
-  context: Omit<Parameters<typeof applyPluginTransforms>[1], "code">,
-  text: string,
-): string {
-  if (plugins.length === 0) {
-    return text;
-  }
-  return applyPluginTransforms(plugins, {
-    ...context,
-    code: text,
-  });
-}
-
-function applyBuildPlugins(
-  plugins: readonly TtscPlugin[],
-  execution: ExecutionContext,
-  emittedFiles: readonly string[],
-): void {
-  if (plugins.length === 0) {
-    return;
-  }
-  for (const file of emittedFiles) {
-    if (!isJavaScriptOutput(file) || !fs.existsSync(file)) {
-      continue;
-    }
-    const current = fs.readFileSync(file, "utf8");
-    const next = applyPluginTransforms(plugins, {
-      code: current,
-      command: "build",
-      compilerOptions: execution.compilerOptions,
-      cwd: execution.cwd,
-      outputFile: file,
-      projectRoot: execution.projectRoot,
-      tsconfig: execution.tsconfig,
-    });
-    if (next !== current) {
-      fs.writeFileSync(file, next, "utf8");
-    }
-  }
 }
 
 function isJavaScriptOutput(file: string): boolean {
@@ -787,491 +608,4 @@ function readOwnPackageVersion(): string {
   } catch {
     return "0.0.0";
   }
-}
-
-interface MaterializedProject {
-  mappers: Map<string, SourcePositionMapper>;
-  originalRoot: string;
-  root: string;
-  tsconfig: string;
-}
-
-interface SourcePositionMapper {
-  finalCode: string;
-  originalCode: string;
-  stages: readonly TtscSourceTransformStage[];
-}
-
-function materializeSourceTransformedProject(
-  execution: ExecutionContext,
-  command: "build" | "transform",
-  onlySourceFile?: string,
-): MaterializedProject {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-"));
-  const materialized: MaterializedProject = {
-    mappers: new Map(),
-    originalRoot: execution.projectRoot,
-    root,
-    tsconfig: path.join(root, path.relative(execution.projectRoot, execution.tsconfig)),
-  };
-  copyProjectForSourceTransforms(execution.projectRoot, root, execution.compilerOptions);
-  const files = onlySourceFile
-    ? [toMaterializedPath(onlySourceFile, materialized)]
-    : listSourceTransformFiles(root);
-  for (const tempFile of files) {
-    if (!fs.existsSync(tempFile) || !fs.statSync(tempFile).isFile()) {
-      continue;
-    }
-    const originalFile = fromMaterializedPath(tempFile, materialized);
-    const current = fs.readFileSync(tempFile, "utf8");
-    const transformed = applyPluginSourceTransformsWithMap(execution.sourcePlugins, {
-      code: current,
-      command,
-      compilerOptions: execution.compilerOptions,
-      cwd: execution.cwd,
-      projectRoot: execution.projectRoot,
-      sourceFile: originalFile,
-      tsconfig: execution.tsconfig,
-    });
-    const next = transformed.code;
-    if (next !== current) {
-      fs.writeFileSync(tempFile, next, "utf8");
-    }
-    if (transformed.stages.length > 0) {
-      materialized.mappers.set(filepathKey(tempFile), {
-        finalCode: next,
-        originalCode: current,
-        stages: transformed.stages,
-      });
-    }
-  }
-  return materialized;
-}
-
-function copyProjectForSourceTransforms(
-  source: string,
-  target: string,
-  compilerOptions: Record<string, unknown>,
-): void {
-  const excluded = new Set([".git", "node_modules"]);
-  const outDir = typeof compilerOptions.outDir === "string" ? compilerOptions.outDir : "";
-  const resolvedOutDir = outDir ? path.resolve(outDir) : "";
-  copyDirectoryFiltered(source, target, (entry) => {
-    if (excluded.has(path.basename(entry))) {
-      return false;
-    }
-    if (resolvedOutDir && isPathInside(entry, resolvedOutDir)) {
-      return false;
-    }
-    return true;
-  });
-  const nodeModules = path.join(source, "node_modules");
-  if (fs.existsSync(nodeModules)) {
-    const targetNodeModules = path.join(target, "node_modules");
-    try {
-      fs.symlinkSync(nodeModules, targetNodeModules, "junction");
-    } catch {
-      copyDirectoryFiltered(nodeModules, targetNodeModules, () => true);
-    }
-  }
-}
-
-function copyDirectoryFiltered(
-  source: string,
-  target: string,
-  shouldCopy: (entry: string) => boolean,
-): void {
-  if (!shouldCopy(source)) {
-    return;
-  }
-  const stat = fs.lstatSync(source);
-  if (stat.isSymbolicLink()) {
-    const link = fs.readlinkSync(source);
-    fs.symlinkSync(link, target);
-    return;
-  }
-  if (stat.isDirectory()) {
-    fs.mkdirSync(target, { recursive: true });
-    for (const entry of fs.readdirSync(source)) {
-      copyDirectoryFiltered(path.join(source, entry), path.join(target, entry), shouldCopy);
-    }
-    return;
-  }
-  if (stat.isFile()) {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(source, target);
-  }
-}
-
-function listSourceTransformFiles(root: string): string[] {
-  const out: string[] = [];
-  const stack = [root];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".git") {
-        continue;
-      }
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-      } else if (entry.isFile() && isTransformableSource(next)) {
-        out.push(next);
-      }
-    }
-  }
-  return out;
-}
-
-function isTransformableSource(file: string): boolean {
-  return /\.(?:[cm]?tsx?)$/i.test(file) && !/\.d\.[cm]?ts$/i.test(file);
-}
-
-function mapOutDirToMaterializedProject(
-  outDir: string | undefined,
-  execution: ExecutionContext,
-  materialized: MaterializedProject,
-): string | undefined {
-  if (!outDir) {
-    return undefined;
-  }
-  const resolved = path.resolve(execution.cwd, outDir);
-  if (isPathInside(resolved, execution.projectRoot)) {
-    return toMaterializedPath(resolved, materialized);
-  }
-  return path.join(materialized.root, ".ttsc-out");
-}
-
-function copyMaterializedEmittedFiles(
-  materialized: MaterializedProject,
-  emittedFiles: readonly string[],
-): string[] {
-  const copied: string[] = [];
-  for (const emitted of emittedFiles) {
-    if (!isPathInside(emitted, materialized.root)) {
-      continue;
-    }
-    const target = fromMaterializedPath(emitted, materialized);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    if (/\.map$/i.test(emitted)) {
-      fs.writeFileSync(
-        target,
-        patchSourceMapText(fs.readFileSync(emitted, "utf8"), materialized, target),
-        "utf8",
-      );
-    } else {
-      fs.copyFileSync(emitted, target);
-    }
-    copied.push(target);
-  }
-  return copied;
-}
-
-function toMaterializedPath(file: string, materialized: MaterializedProject): string {
-  const relative = path.relative(materialized.originalRoot, file);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    return file;
-  }
-  return path.join(materialized.root, relative);
-}
-
-function fromMaterializedPath(file: string, materialized: MaterializedProject): string {
-  const relative = path.relative(materialized.root, file);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    return file;
-  }
-  return path.join(materialized.originalRoot, relative);
-}
-
-function isPathInside(file: string, parent: string): boolean {
-  const relative = path.relative(parent, file);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-function filepathKey(file: string): string {
-  return path.resolve(file).replace(/\\/g, "/");
-}
-
-function patchSourceMapText(
-  text: string,
-  materialized: MaterializedProject,
-  outputFile: string,
-  tempOutputFile = toMaterializedPath(outputFile, materialized),
-): string {
-  let map: {
-    sourceRoot?: string;
-    sources?: string[];
-    sourcesContent?: string[];
-    [key: string]: unknown;
-  };
-  try {
-    map = JSON.parse(text);
-  } catch {
-    return text;
-  }
-  if (!Array.isArray(map.sources)) {
-    return text;
-  }
-  const tempMapDir = path.dirname(tempOutputFile);
-  const originalMapDir = path.dirname(outputFile);
-  const nextSources: string[] = [];
-  const nextSourcesContent = Array.isArray(map.sourcesContent)
-    ? [...map.sourcesContent]
-    : undefined;
-  const sourceMappings = new Map<number, SourcePositionMapper>();
-  map.sources.forEach((source, index) => {
-    const tempSource = path.isAbsolute(source)
-      ? source
-      : path.resolve(tempMapDir, source);
-    if (isPathInside(tempSource, materialized.root)) {
-      const originalSource = fromMaterializedPath(tempSource, materialized);
-      const mapper = materialized.mappers.get(filepathKey(tempSource));
-      if (mapper) {
-        sourceMappings.set(index, mapper);
-      }
-      nextSources.push(relativeSourceMapPath(originalMapDir, originalSource));
-      if (nextSourcesContent) {
-        try {
-          nextSourcesContent[index] = fs.readFileSync(originalSource, "utf8");
-        } catch {
-          /* keep emitted sourcesContent */
-        }
-      }
-    } else {
-      nextSources.push(source);
-    }
-  });
-  if (sourceMappings.size > 0 && typeof map.mappings === "string") {
-    map.mappings = remapSourceMapMappings(map.mappings, sourceMappings);
-  }
-  map.sources = nextSources;
-  if (nextSourcesContent) {
-    map.sourcesContent = nextSourcesContent;
-  }
-  delete map.sourceRoot;
-  return JSON.stringify(map);
-}
-
-function relativeSourceMapPath(fromDir: string, file: string): string {
-  const relative = path.relative(fromDir, file).replace(/\\/g, "/");
-  return relative.startsWith(".") ? relative : `./${relative}`;
-}
-
-function rewriteSourceMapReference(code: string, mapFileName: string): string {
-  const reference = `//# sourceMappingURL=${mapFileName}`;
-  if (/\/\/# sourceMappingURL=.*(?:\r?\n)?$/m.test(code)) {
-    return code.replace(/\/\/# sourceMappingURL=.*(?:\r?\n)?$/m, `${reference}\n`);
-  }
-  return code.endsWith("\n") ? `${code}${reference}\n` : `${code}\n${reference}\n`;
-}
-
-function remapSourceMapMappings(
-  mappings: string,
-  sourceMappings: Map<number, SourcePositionMapper>,
-): string {
-  const decoded = decodeMappings(mappings);
-  for (const line of decoded) {
-    for (const segment of line) {
-      if (segment.length < 4) {
-        continue;
-      }
-      const mapper = sourceMappings.get(segment[1]!);
-      if (!mapper) {
-        continue;
-      }
-      const mapped = mapTransformedPositionToOriginal(mapper, {
-        column: segment[3]!,
-        line: segment[2]!,
-      });
-      segment[2] = mapped.line;
-      segment[3] = mapped.column;
-    }
-  }
-  return encodeMappings(decoded);
-}
-
-function mapTransformedPositionToOriginal(
-  mapper: SourcePositionMapper,
-  position: { line: number; column: number },
-): { line: number; column: number } {
-  let offset = lineColumnToOffset(mapper.finalCode, position.line, position.column);
-  for (let index = mapper.stages.length - 1; index >= 0; index -= 1) {
-    offset = mapOffsetToPreviousStage(offset, mapper.stages[index]!);
-  }
-  return offsetToLineColumn(mapper.originalCode, offset);
-}
-
-function mapOffsetToPreviousStage(
-  offset: number,
-  stage: TtscSourceTransformStage,
-): number {
-  let delta = 0;
-  for (const edit of stage.edits) {
-    if (offset < edit.newStart) {
-      return clampOffset(offset - delta, stage.before.length);
-    }
-    if (offset < edit.newEnd) {
-      return edit.start;
-    }
-    delta += edit.code.length - (edit.end - edit.start);
-  }
-  return clampOffset(offset - delta, stage.before.length);
-}
-
-function lineColumnToOffset(source: string, line: number, column: number): number {
-  const starts = lineStarts(source);
-  const start = starts[Math.min(Math.max(line, 0), starts.length - 1)] ?? 0;
-  return clampOffset(start + Math.max(column, 0), source.length);
-}
-
-function offsetToLineColumn(
-  source: string,
-  offset: number,
-): { line: number; column: number } {
-  const starts = lineStarts(source);
-  const clamped = clampOffset(offset, source.length);
-  let low = 0;
-  let high = starts.length - 1;
-  while (low <= high) {
-    const mid = (low + high) >> 1;
-    const start = starts[mid]!;
-    const next = starts[mid + 1] ?? Number.POSITIVE_INFINITY;
-    if (clamped < start) {
-      high = mid - 1;
-    } else if (clamped >= next) {
-      low = mid + 1;
-    } else {
-      return { column: clamped - start, line: mid };
-    }
-  }
-  const last = starts.length - 1;
-  return { column: clamped - (starts[last] ?? 0), line: last };
-}
-
-function lineStarts(source: string): number[] {
-  const starts = [0];
-  for (let index = 0; index < source.length; index += 1) {
-    const ch = source.charCodeAt(index);
-    if (ch === 13 /* \r */) {
-      if (source.charCodeAt(index + 1) === 10 /* \n */) {
-        index += 1;
-      }
-      starts.push(index + 1);
-    } else if (ch === 10 /* \n */) {
-      starts.push(index + 1);
-    }
-  }
-  return starts;
-}
-
-function clampOffset(offset: number, length: number): number {
-  return Math.min(Math.max(offset, 0), length);
-}
-
-type SourceMapSegment = number[];
-type DecodedMappings = SourceMapSegment[][];
-
-const BASE64_CHARS =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const BASE64_VALUES = new Map(
-  [...BASE64_CHARS].map((char, index) => [char, index] as const),
-);
-
-function decodeMappings(mappings: string): DecodedMappings {
-  const lines: DecodedMappings = [];
-  let line: SourceMapSegment[] = [];
-  let segment: SourceMapSegment = [];
-  let index = 0;
-  const state = [0, 0, 0, 0, 0];
-  while (index < mappings.length) {
-    const char = mappings[index]!;
-    if (char === ";") {
-      if (segment.length > 0) {
-        line.push(segment);
-        segment = [];
-      }
-      lines.push(line);
-      line = [];
-      state[0] = 0;
-      index += 1;
-      continue;
-    }
-    if (char === ",") {
-      if (segment.length > 0) {
-        line.push(segment);
-        segment = [];
-      }
-      index += 1;
-      continue;
-    }
-    const read = readVlq(mappings, index);
-    index = read.next;
-    const field = segment.length;
-    state[field] = (state[field] ?? 0) + read.value;
-    segment.push(state[field]!);
-  }
-  if (segment.length > 0) {
-    line.push(segment);
-  }
-  lines.push(line);
-  return lines;
-}
-
-function encodeMappings(lines: DecodedMappings): string {
-  const state = [0, 0, 0, 0, 0];
-  return lines
-    .map((line) => {
-      state[0] = 0;
-      return line
-        .map((segment) =>
-          segment
-            .map((value, index) => {
-              const relative = value - (state[index] ?? 0);
-              state[index] = value;
-              return writeVlq(relative);
-            })
-            .join(""),
-        )
-        .join(",");
-    })
-    .join(";");
-}
-
-function readVlq(input: string, start: number): { next: number; value: number } {
-  let index = start;
-  let shift = 0;
-  let value = 0;
-  while (index < input.length) {
-    const digit = BASE64_VALUES.get(input[index]!);
-    if (digit === undefined) {
-      throw new Error(`ttsc: invalid source map VLQ digit ${input[index]}`);
-    }
-    index += 1;
-    const continuation = (digit & 32) !== 0;
-    value += (digit & 31) << shift;
-    shift += 5;
-    if (!continuation) {
-      const negative = (value & 1) === 1;
-      const decoded = value >> 1;
-      return { next: index, value: negative ? -decoded : decoded };
-    }
-  }
-  throw new Error("ttsc: unterminated source map VLQ segment");
-}
-
-function writeVlq(value: number): string {
-  let vlq = Math.abs(value) << 1;
-  if (value < 0) {
-    vlq |= 1;
-  }
-  let out = "";
-  do {
-    let digit = vlq & 31;
-    vlq >>>= 5;
-    if (vlq > 0) {
-      digit |= 32;
-    }
-    out += BASE64_CHARS[digit]!;
-  } while (vlq > 0);
-  return out;
 }

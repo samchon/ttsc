@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -40,6 +41,7 @@ func runCheck(args []string) int {
 	_ = fs.String("cwd", "", "project directory")
 	_ = fs.String("tsconfig", "", "tsconfig")
 	_ = fs.String("rewrite-mode", "", "rewrite mode")
+	_ = fs.String("plugins-json", "", "ordered plugin descriptors")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -52,6 +54,7 @@ func runBuild(args []string) int {
 	cwd := fs.String("cwd", "", "project directory")
 	_ = fs.String("tsconfig", "", "tsconfig")
 	_ = fs.String("rewrite-mode", "", "rewrite mode")
+	pluginsJSON := fs.String("plugins-json", "", "ordered plugin descriptors")
 	_ = fs.Bool("emit", false, "emit")
 	_ = fs.Bool("quiet", false, "quiet")
 	outDir := fs.String("outDir", "dist", "out dir")
@@ -73,7 +76,12 @@ func runBuild(args []string) int {
 		fmt.Fprintf(os.Stderr, "ttsc-go-transformer: read %s: %v\n", source, err)
 		return 2
 	}
-	result, err := transformer.Transform(string(text))
+	plugins, err := parsePlugins(*pluginsJSON)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	result, err := transformer.Transform(string(text), plugins)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -100,6 +108,7 @@ func runTransform(args []string) int {
 	out := fs.String("out", "", "output file")
 	_ = fs.String("tsconfig", "", "owning tsconfig")
 	_ = fs.String("rewrite-mode", "", "rewrite mode")
+	pluginsJSON := fs.String("plugins-json", "", "ordered plugin descriptors")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -112,7 +121,12 @@ func runTransform(args []string) int {
 		fmt.Fprintf(os.Stderr, "ttsc-go-transformer: read %s: %v\n", *file, err)
 		return 2
 	}
-	result, err := transformer.Transform(string(source))
+	plugins, err := parsePlugins(*pluginsJSON)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	result, err := transformer.Transform(string(source), plugins)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -130,4 +144,29 @@ func runTransform(args []string) int {
 	}
 	fmt.Fprint(os.Stdout, result.Code)
 	return 0
+}
+
+type pluginDescriptor struct {
+	Config map[string]any `json:"config"`
+	Mode   string         `json:"mode"`
+	Name   string         `json:"name"`
+}
+
+func parsePlugins(input string) ([]transformer.Plugin, error) {
+	if input == "" {
+		return nil, nil
+	}
+	var descriptors []pluginDescriptor
+	if err := json.Unmarshal([]byte(input), &descriptors); err != nil {
+		return nil, fmt.Errorf("ttsc-go-transformer: invalid --plugins-json: %w", err)
+	}
+	plugins := make([]transformer.Plugin, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		plugins = append(plugins, transformer.Plugin{
+			Config: descriptor.Config,
+			Mode:   descriptor.Mode,
+			Name:   descriptor.Name,
+		})
+	}
+	return plugins, nil
 }
