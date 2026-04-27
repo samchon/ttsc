@@ -1,9 +1,15 @@
 export type NativeRewriteMode = string;
 export type NativePluginContractVersion = 1;
 
+export interface TtscNativeSource {
+  dir: string;
+  entry?: string;
+}
+
 export interface TtscNativeBackend {
   mode: NativeRewriteMode;
   binary?: string;
+  source?: TtscNativeSource;
   contractVersion?: NativePluginContractVersion;
   capabilities?: readonly string[];
 }
@@ -52,6 +58,18 @@ export function resolveNativeBackend(
     throw new Error(
       `ttsc: plugin "${plugin.name}" requested unsupported native contract version ${backend.contractVersion}`,
     );
+  }
+  if (backend.source) {
+    if (backend.binary) {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" must use either native.binary or native.source, not both`,
+      );
+    }
+    if (typeof backend.source.dir !== "string" || backend.source.dir.length === 0) {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" native.source.dir must be a non-empty string`,
+      );
+    }
   }
   return {
     ...backend,

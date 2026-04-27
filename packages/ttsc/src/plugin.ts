@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -11,11 +12,13 @@ import {
   type ProjectPluginConfig,
   readProjectConfig,
 } from "./project";
+import { buildSourcePlugin } from "./source-build";
 
 export type {
   NativePluginContractVersion,
   NativeRewriteMode,
   TtscNativeBackend,
+  TtscNativeSource,
 } from "./native";
 
 export interface TtscPluginFactoryContext {
@@ -99,10 +102,22 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
 
   let nativeBinary: string | null = null;
   const nativePlugins: LoadedNativePlugin[] = [];
+  const ttscVersion = readTtscVersion();
+  const tsgoVersion = readTsgoVersion(context.projectRoot);
   plugins.forEach((plugin, index) => {
-    const backend = resolveNativeBackend(plugin);
+    let backend = resolveNativeBackend(plugin);
     if (!backend) {
       return;
+    }
+    if (backend.source && !backend.binary) {
+      const built = buildSourcePlugin({
+        baseDir: context.projectRoot,
+        pluginName: plugin.name,
+        source: backend.source,
+        ttscVersion,
+        tsgoVersion,
+      });
+      backend = { ...backend, binary: built };
     }
     if (backend.binary) {
       if (nativeBinary !== null && nativeBinary !== backend.binary) {
@@ -239,5 +254,38 @@ function resolveSourceCheckoutPlugin(
     return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
   } catch {
     return null;
+  }
+}
+
+let cachedTtscVersion: string | null = null;
+
+function readTtscVersion(): string {
+  if (cachedTtscVersion !== null) {
+    return cachedTtscVersion;
+  }
+  try {
+    const file = path.resolve(__dirname, "..", "package.json");
+    const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      version?: string;
+    };
+    cachedTtscVersion = pkg.version ?? "0.0.0";
+  } catch {
+    cachedTtscVersion = "0.0.0";
+  }
+  return cachedTtscVersion;
+}
+
+function readTsgoVersion(projectRoot: string): string {
+  try {
+    const projectRequire = createRequire(path.join(projectRoot, "package.json"));
+    const pkgPath = projectRequire.resolve(
+      "@typescript/native-preview/package.json",
+    );
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+      version?: string;
+    };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
   }
 }
