@@ -11,7 +11,7 @@
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",
     "release": "bumpp -r",
-    "test": "pnpm run build:current && pnpm --filter ttsc test && pnpm --filter @ttsc/lint test && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && pnpm --dir tests/smoke start"
+    "test": "pnpm run build:current && pnpm --filter ttsc test && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && pnpm --dir tests/smoke start && pnpm --dir tests/lint start"
   },
   "repository": {
     "type": "git",

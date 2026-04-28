@@ -1,11 +1,15 @@
-// Run the @ttsc/lint Go-side tests.
+// Run the engine + config Go tests for the lint package.
 //
-// Tests live under `packages/lint/tests/go-plugin/` as an external Go
-// module — `package lint_test` — so the lint package's source dir
-// stays free of `_test.go` files. The runner mirrors the materialization
-// `packages/ttsc/src/source-build.ts` performs at compile time:
+// Tests live under `tests/lint/go-plugin/` as an external Go module
+// — `package lint_test` — alongside the rest of the workspace test
+// suites (smoke, go-transformer). The lint package's source dir stays
+// free of `_test.go` files; the rule corpus is exercised end-to-end
+// from `tests/lint/cases.test.cjs` instead.
 //
-//   1. Copy `tests/go-plugin/` into a scratch tmpdir.
+// This runner mirrors the materialization `packages/ttsc/src/source-build.ts`
+// performs at compile time:
+//
+//   1. Copy `tests/lint/go-plugin/` into a scratch tmpdir.
 //   2. Write a go.work that `use`s every in-tree shim, the lint
 //      package itself, and the ttsc package (the latter is required so
 //      Go workspace mode can resolve the multi-module placeholder
@@ -19,7 +23,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const lintPkgDir = path.join(root, "packages", "lint", "go-plugin");
-const lintTestsDir = path.join(root, "packages", "lint", "tests", "go-plugin");
+const lintTestsDir = path.join(root, "tests", "lint", "go-plugin");
 const ttscDir = path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 

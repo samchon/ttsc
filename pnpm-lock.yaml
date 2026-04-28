@@ -86,6 +86,15 @@ importers:
 
   packages/ttsc-win32-x64: {}
 
+  tests/lint:
+    devDependencies:
+      '@ttsc/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
   tests/smoke:
     devDependencies:
       '@types/node':

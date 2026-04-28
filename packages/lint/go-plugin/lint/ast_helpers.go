@@ -4,25 +4,26 @@ import (
 	"strings"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
+	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-// nodeText returns the source text under a node, with leading trivia
-// stripped. Useful for rules that compare textual identity (e.g.
-// `no-self-compare`, `no-self-assign`).
-//
-// We use the *node*'s Pos which points to the start of leading trivia;
-// the substring is trimmed left-most so comparisons are stable.
+// nodeText returns the source text under a node with all leading
+// trivia stripped — both whitespace AND comments. Used by rules that
+// compare textual identity (e.g. `no-self-assign`, `no-self-compare`,
+// `operator-assignment`); naively reading `src[node.Pos():node.End()]`
+// would include any preceding comment because tsgo's Pos points at
+// the start of leading trivia, not the actual token.
 func nodeText(file *shimast.SourceFile, node *shimast.Node) string {
 	if file == nil || node == nil {
 		return ""
 	}
 	src := file.Text()
-	pos := node.Pos()
 	end := node.End()
+	pos := shimscanner.SkipTrivia(src, node.Pos())
 	if pos < 0 || end > len(src) || pos >= end {
 		return ""
 	}
-	return strings.TrimLeft(src[pos:end], " \t\r\n")
+	return strings.TrimRight(src[pos:end], " \t\r\n")
 }
 
 // identifierText returns the lexical name of an Identifier node, or "" if

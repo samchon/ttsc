@@ -2,13 +2,13 @@
   "name": "@ttsc/lint",
   "version": "0.0.1",
   "description": "Reference ttsc plugin: ESLint-style lint rules hosted in the same Program/Checker as the type-check pass.",
-  "main": "plugin.cjs",
+  "main": "index.cjs",
   "exports": {
-    ".": "./plugin.cjs",
+    ".": "./index.cjs",
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "node --test --test-reporter=spec tests/**/*.test.cjs"
+    "test": "pnpm --dir ../../tests/lint start"
   },
   "keywords": [
     "ttsc",
@@ -19,7 +19,7 @@
   ],
   "files": [
     "README.md",
-    "plugin.cjs",
+    "index.cjs",
     "go-plugin"
   ],
   "repository": {
