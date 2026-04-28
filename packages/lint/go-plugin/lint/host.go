@@ -34,13 +34,19 @@ type program struct {
 	releaseChecker func()
 }
 
+type loadProgramOptions struct {
+	forceEmit   bool
+	forceNoEmit bool
+	outDir      string
+}
+
 // loadProgram parses the given tsconfig, builds a Program, and acquires a
 // type checker. Mirrors the canonical bootstrap pattern from
 // `03-tsgo.md` — the only ttsc-specific bit is that `forceEmit`/
 // `forceNoEmit`/`outDir` overrides are merged into the parsed config
 // before the program is created so `--noEmit` and friends behave like
 // they do in `ttsc check`.
-func loadProgram(cwd, tsconfigPath string, forceNoEmit bool) (*program, []*shimast.Diagnostic, error) {
+func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program, []*shimast.Diagnostic, error) {
 	if !filepath.IsAbs(cwd) {
 		abs, err := filepath.Abs(cwd)
 		if err != nil {
@@ -72,8 +78,14 @@ func loadProgram(cwd, tsconfigPath string, forceNoEmit bool) (*program, []*shima
 	if len(parsed.Errors) > 0 {
 		return nil, parsed.Errors, nil
 	}
-	if forceNoEmit {
-		parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+	if options.forceNoEmit {
+		forceNoEmit(parsed)
+	}
+	if options.forceEmit {
+		forceEmit(parsed)
+	}
+	if options.outDir != "" {
+		overrideOutDir(cwd, parsed, options.outDir)
 	}
 
 	tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
@@ -148,3 +160,29 @@ func (p *program) findSourceFile(target string) *shimast.SourceFile {
 	return nil
 }
 
+func forceEmit(parsed *tsoptions.ParsedCommandLine) {
+	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+		return
+	}
+	options := parsed.ParsedConfig.CompilerOptions
+	options.NoEmit = shimcore.TSFalse
+	options.EmitDeclarationOnly = shimcore.TSFalse
+}
+
+func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
+	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+		return
+	}
+	parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+}
+
+func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
+	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+		return
+	}
+	if filepath.IsAbs(outDir) {
+		parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(outDir)
+		return
+	}
+	parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
+}

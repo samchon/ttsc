@@ -28,7 +28,7 @@ require (
 require (
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/microsoft/typescript-go v0.0.0-20260408193441-2a5e1cf9fe22 // indirect
+	github.com/microsoft/typescript-go v0.0.0-20260424234512-515d036f927a // indirect
 	github.com/microsoft/typescript-go/shim/parser v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/tspath v0.0.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect

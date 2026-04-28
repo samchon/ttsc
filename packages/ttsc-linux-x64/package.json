@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/linux-x64",
   "version": "0.4.4",
-  "description": "Linux x64 native binary for ttsc.",
+  "description": "Linux x64 native binary and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["x64"],
   "scripts": {

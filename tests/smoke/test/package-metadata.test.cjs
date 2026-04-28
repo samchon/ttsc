@@ -17,6 +17,13 @@ test("ttsc package entrypoints use built JavaScript output", () => {
   assert.equal(packageJson.publishConfig, undefined);
 });
 
+test("workspace build packages only the current platform toolchain", () => {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(workspaceRoot, "package.json"), "utf8"),
+  );
+  assert.equal(packageJson.scripts.build, "pnpm run build:current");
+});
+
 test("ttsc package owns both compiler and runtime commands", () => {
   const packageJson = readPackageJson("ttsc");
   assert.deepEqual(packageJson.bin, {
@@ -89,11 +96,42 @@ test("platform package matrix follows the ttsc helper package shape", () => {
   for (const [directory, [name, os, cpu]] of Object.entries(expected)) {
     const platformJson = readPackageJson(directory);
     assert.equal(platformJson.name, name);
+    assert.match(platformJson.description, /bundled Go compiler/);
     assert.deepEqual(platformJson.os, [os]);
     assert.deepEqual(platformJson.cpu, [cpu]);
     assert.deepEqual(platformJson.files, ["bin", "package.json", "README.md"]);
     assert.equal(platformJson.scripts.build, "node ../../scripts/build-platform-package.cjs");
     assert.equal(platformJson.scripts.prepack, "pnpm run build");
+  }
+});
+
+test("typescript-go Go modules match the native-preview package git head", () => {
+  const nativePreview = JSON.parse(
+    fs.readFileSync(
+      require.resolve("@typescript/native-preview/package.json", {
+        paths: [workspaceRoot],
+      }),
+      "utf8",
+    ),
+  );
+  assert.match(nativePreview.gitHead, /^[0-9a-f]{40}$/);
+
+  const goMods = [
+    path.join(workspaceRoot, "packages", "ttsc", "go.mod"),
+    path.join(workspaceRoot, "packages", "lint", "go-plugin", "go.mod"),
+    ...listGoMods(path.join(workspaceRoot, "packages", "ttsc", "shim")),
+  ];
+  for (const file of goMods) {
+    const text = fs.readFileSync(file, "utf8");
+    const match = text.match(
+      /github\.com\/microsoft\/typescript-go\s+v0\.0\.0-\d{14}-([0-9a-f]{12})/,
+    );
+    assert.ok(match, `${path.relative(workspaceRoot, file)} must pin typescript-go`);
+    assert.equal(
+      nativePreview.gitHead.startsWith(match[1]),
+      true,
+      `${path.relative(workspaceRoot, file)} is not aligned with @typescript/native-preview ${nativePreview.version}`,
+    );
   }
 });
 
@@ -104,4 +142,21 @@ function readPackageJson(directory) {
       "utf8",
     ),
   );
+}
+
+function listGoMods(root) {
+  const out = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile() && entry.name === "go.mod") {
+        out.push(next);
+      }
+    }
+  }
+  return out.sort();
 }

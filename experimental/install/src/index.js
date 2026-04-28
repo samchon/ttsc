@@ -117,7 +117,18 @@ function verifyInstalledPackages() {
     "bin",
     process.platform === "win32" ? "ttsc.exe" : "ttsc",
   );
+  const platformGo = path.join(
+    workspace,
+    "node_modules",
+    "@ttsc",
+    platformKey,
+    "bin",
+    "go",
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
   assert(fs.existsSync(platformBin), `${platformPackage} binary must exist`);
+  assert(fs.existsSync(platformGo), `${platformPackage} bundled Go compiler must exist`);
   assert(
     !fs.existsSync(path.join(workspace, "node_modules", "ttsc", "native")),
     "ttsc package must not ship a workspace-local native fallback",

@@ -9,6 +9,8 @@ verifies that:
 - the current platform-specific `@ttsc/*` package tarball is installed;
 - `ttsc` resolves its native binary from the platform package, not a local
   workspace fallback;
+- the platform package includes the bundled Go compiler used for source
+  plugin builds;
 - `ttsc --version`, `ttsc --emit`, and `ttsx` execute through the installed
   package path and observe the emitted output.
 

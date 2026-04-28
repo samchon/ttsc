@@ -245,6 +245,11 @@ function rewriteEsmSpecifiers(root: string): void {
             `from ${quote}${withResolvableExtension(next, specifier)}${quote}`,
         )
         .replace(
+          /\bimport\s+(['"])(\.[^'"]+)\1/g,
+          (_, quote: string, specifier: string) =>
+            `import ${quote}${withResolvableExtension(next, specifier)}${quote}`,
+        )
+        .replace(
           /\bimport\(\s*(['"])(\.[^'"]+)\1\s*\)/g,
           (_, quote: string, specifier: string) =>
             `import(${quote}${withResolvableExtension(next, specifier)}${quote})`,

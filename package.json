@@ -4,7 +4,7 @@
   "version": "0.4.4",
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
-    "build": "pnpm --filter ttsc build && pnpm --filter ttsc go:build && pnpm --filter=\"./packages/ttsc-*\" -r build",
+    "build": "pnpm run build:current",
     "build:current": "node scripts/build-current.cjs",
     "experimental": "pnpm run package:tgz && pnpm --dir experimental/install start -- --skip-pack",
     "package:latest": "pnpm --filter=./packages/* -r publish --tag latest --access public",

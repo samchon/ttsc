@@ -4,8 +4,8 @@
 //   - Report version and platform (`ttsc --version`).
 //   - Exercise a native rewrite backend end-to-end (`ttsc demo --type=string`)
 //     so smoke tests can verify the Go binary really runs.
-//   - Act as a placeholder for the eventual `build` / `dev` / `check` / `setup`
-//     subcommands that will land in Week 3+.
+//   - Host the native project build, check, and single-file transform paths used
+//     by plugin-selected sidecars and smoke tests.
 //
 // Everything below is deliberately dependency-free so that the standalone binary
 // stays small and its behavior is trivial to audit.

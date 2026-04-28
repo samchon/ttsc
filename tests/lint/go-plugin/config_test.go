@@ -9,10 +9,10 @@ import (
 
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
 	cfg, err := lintpkg.ParseRules(map[string]any{
-		"no-var":         "error",
+		"no-var":          "error",
 		"no-explicit-any": "warn",
-		"no-debugger":    "off",
-		"eqeqeq":         "WARNING",
+		"no-debugger":     "off",
+		"eqeqeq":          "WARNING",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -82,7 +82,10 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("want 1 entry, got %d", len(entries))
 	}
-	entry := lintpkg.FindLintEntry(entries)
+	entry, err := lintpkg.FindLintEntry(entries)
+	if err != nil {
+		t.Fatalf("lintpkg.FindLintEntry: %v", err)
+	}
 	if entry == nil {
 		t.Fatal("lintpkg.FindLintEntry returned nil")
 	}
@@ -95,6 +98,27 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 	}
 	if cfg.Severity("no-var") != lintpkg.SeverityError {
 		t.Errorf("no-var severity: want error, got %v", cfg.Severity("no-var"))
+	}
+}
+
+func TestFindLintEntryRejectsNonFirstLintPlugin(t *testing.T) {
+	const blob = `[
+		{"name": "source-transform", "mode": "source-transform", "contractVersion": 1, "config": {}},
+		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"rules": {"no-var": "error"}}}
+	]`
+	entries, err := lintpkg.ParsePlugins(blob)
+	if err != nil {
+		t.Fatalf("lintpkg.ParsePlugins: %v", err)
+	}
+	entry, err := lintpkg.FindLintEntry(entries)
+	if err == nil {
+		t.Fatal("expected non-first @ttsc/lint entry to fail")
+	}
+	if entry != nil {
+		t.Fatalf("entry should be nil on placement error, got %+v", entry)
+	}
+	if !strings.Contains(err.Error(), "first active compilerOptions.plugins entry") {
+		t.Fatalf("error should explain plugin placement, got %v", err)
 	}
 }
 

@@ -4,7 +4,13 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { computeCacheKey } = require("../src/source-build.ts");
+const {
+  bundledGoPackageRequest,
+  computeCacheKey,
+  goBinaryName,
+  resolveGoCompiler,
+  resolvePluginCacheRoot,
+} = require("../src/source-build.ts");
 
 function withTempSourceDir(files: Record<string, string>): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-cache-key-"));
@@ -79,4 +85,94 @@ test("computeCacheKey ignores non-Go files (e.g. README.md)", () => {
   fs.writeFileSync(path.join(dir, "README.md"), "documentation\n");
   const after = computeCacheKey({ dir, entry: ".", ttscVersion: "1.0.0", tsgoVersion: "x" });
   assert.equal(before, after);
+});
+
+test("resolveGoCompiler prefers TTSC_GO_BINARY override", () => {
+  const resolved = resolveGoCompiler({
+    env: { TTSC_GO_BINARY: "/tmp/custom-go" },
+    localGoLookup: () => "/tmp/local-go",
+    resolver: () => {
+      throw new Error("resolver should not be called when TTSC_GO_BINARY is set");
+    },
+  });
+  assert.equal(resolved, "/tmp/custom-go");
+});
+
+test("resolveGoCompiler uses bundled platform package before PATH fallback", () => {
+  const resolved = resolveGoCompiler({
+    arch: "x64",
+    env: {},
+    localGoLookup: () => null,
+    platform: "linux",
+    resolver: (request) => {
+      assert.equal(request, "@ttsc/linux-x64/bin/go/bin/go");
+      return "/node_modules/@ttsc/linux-x64/bin/go/bin/go";
+    },
+  });
+  assert.equal(resolved, "/node_modules/@ttsc/linux-x64/bin/go/bin/go");
+});
+
+test("resolveGoCompiler falls back to package-local bundled Go before PATH", () => {
+  const resolved = resolveGoCompiler({
+    env: {},
+    localGoLookup: () => "/workspace/packages/ttsc/native/go/bin/go",
+    resolver: () => {
+      throw new Error("platform package missing");
+    },
+  });
+  assert.equal(resolved, "/workspace/packages/ttsc/native/go/bin/go");
+});
+
+test("resolveGoCompiler keeps go on PATH as the last development fallback", () => {
+  const resolved = resolveGoCompiler({
+    env: {},
+    localGoLookup: () => null,
+    resolver: () => {
+      throw new Error("platform package missing");
+    },
+  });
+  assert.equal(resolved, "go");
+});
+
+test("bundled Go package request follows platform package layout", () => {
+  assert.equal(goBinaryName({ platform: "win32" }), "go.exe");
+  assert.equal(goBinaryName({ platform: "linux" }), "go");
+  assert.equal(
+    bundledGoPackageRequest({ platform: "darwin", arch: "arm64" }),
+    "@ttsc/darwin-arm64/bin/go/bin/go",
+  );
+  assert.equal(
+    bundledGoPackageRequest({ platform: "win32", arch: "x64" }),
+    "@ttsc/win32-x64/bin/go/bin/go.exe",
+  );
+});
+
+test("resolvePluginCacheRoot prefers project node_modules cache", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
+  fs.mkdirSync(path.join(root, "node_modules"));
+  assert.equal(
+    resolvePluginCacheRoot(root),
+    path.join(root, "node_modules", ".ttsc", "plugins"),
+  );
+});
+
+test("resolvePluginCacheRoot falls back to project .ttsc without node_modules", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
+  assert.equal(resolvePluginCacheRoot(root), path.join(root, ".ttsc", "plugins"));
+});
+
+test("resolvePluginCacheRoot honors TTSC_CACHE_DIR as an explicit test override", () => {
+  const previous = process.env.TTSC_CACHE_DIR;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
+  const override = path.join(root, "override");
+  try {
+    process.env.TTSC_CACHE_DIR = override;
+    assert.equal(resolvePluginCacheRoot(root), path.join(override, "plugins"));
+  } finally {
+    if (previous === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previous;
+    }
+  }
 });

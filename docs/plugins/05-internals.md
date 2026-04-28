@@ -13,6 +13,7 @@ When `ttsc` encounters a plugin with `native.source` in `compilerOptions.plugins
    - `process.platform` / `process.arch`
    - `entry` value (default `.`)
    - every `*.go`, `*.s`, `*.c`, `*.h`, `*.cpp`, `*.hpp`, `go.mod`, `go.sum`, `go.work` file under the source dir, with relative path and content
+   - no user options: `rules`, `--emit`, `--outDir`, `--plugins-json`, and other runtime flags are passed to the already-built binary and never invalidate the binary cache
 3. **Cache hit?** If `<cache>/<key>/plugin` exists, use it. Skip everything below.
 4. **Cache miss.** Create a per-process scratch dir at `<cache>/scratch-<key>-<pid>-<timestamp>/`. Copy the plugin source into it (excluding `node_modules`, `.git`, `dist`, `build`, `vendor`, `lib`).
 5. **Write `go.work`** in the scratch dir. The `use` list contains:
@@ -29,7 +30,7 @@ Every step is synchronous, single-threaded inside one `ttsc` process. Multiple `
 ## Cache layout
 
 ```
-$TTSC_CACHE_DIR/plugins/                    # or $XDG_CACHE_HOME/ttsc/plugins, or ~/.cache/ttsc/plugins
+<project>/node_modules/.ttsc/plugins/       # default when node_modules exists
 ├── <key-1>/
 │   └── plugin                              # cached binary (or plugin.exe on Windows)
 ├── <key-2>/
@@ -37,17 +38,20 @@ $TTSC_CACHE_DIR/plugins/                    # or $XDG_CACHE_HOME/ttsc/plugins, o
 └── ...
 ```
 
+If the project does not have `node_modules/`, `ttsc` uses `<project>/.ttsc/plugins/` instead.
+
 There is one binary per cache key. Scratch dirs are deleted after each successful build — if you see `scratch-*` directories left behind, a build crashed mid-flight.
 
 ### Where the cache lives
 
-In priority order:
+Default projects use local cache paths only:
 
-1. `$TTSC_CACHE_DIR/plugins/` if `TTSC_CACHE_DIR` is set (used in tests for isolation)
-2. `$XDG_CACHE_HOME/ttsc/plugins/` if XDG is set
-3. `$HOME/.cache/ttsc/plugins/`
+1. `<project>/node_modules/.ttsc/plugins/` when `node_modules/` exists
+2. `<project>/.ttsc/plugins/` when `node_modules/` does not exist
 
-To force a full rebuild, delete the cache root or set `TTSC_CACHE_DIR` to a fresh directory.
+`TTSC_CACHE_DIR` is an explicit override for isolated tests and debugging; when it is set, `ttsc` uses `$TTSC_CACHE_DIR/plugins/`.
+
+To force a full rebuild in normal use, delete `node_modules/.ttsc/` or `.ttsc/` from the project root. In isolated tests, point `TTSC_CACHE_DIR` at a fresh temp directory.
 
 ### What invalidates the cache
 
@@ -61,23 +65,41 @@ To force a full rebuild, delete the cache root or set `TTSC_CACHE_DIR` to a fres
 | Bump `@typescript/native-preview` in the consumer | ✓ |
 | Switch platforms (cross-machine cache reuse) | ✓ |
 | Edit a `README.md` or other non-source file in the plugin dir | ✗ |
+| Change plugin options such as `rules`, `mode`, or custom config fields | ✗ |
+| Change CLI flags such as `--emit`, `--noEmit`, or `--outDir` | ✗ |
 | Edit consumer's TypeScript source | ✗ (only the plugin's source affects the cache) |
 
 ## Go toolchain
 
-`ttsc` invokes `go build` directly. It looks for the toolchain in this order:
+`ttsc` invokes `go build` directly, but published `ttsc` installs should not
+require a system Go installation. The platform-specific `@ttsc/*` optional
+package carries a bundled Go SDK under `bin/go/`, and source plugins use that
+compiler by default.
+
+Toolchain resolution order:
 
 1. `TTSC_GO_BINARY` env var if set (must be an absolute path)
-2. `go` on `PATH`
+2. `@ttsc/{platform}-{arch}/bin/go/bin/go{.exe}` from the installed optional dependency
+3. `ttsc/native/go/bin/go{.exe}` for local workspace builds
+4. `go` on `PATH` as a development fallback
 
-If neither is found, `ttsc` exits with:
+The compiled plugin binary is still cached under the normal plugin cache:
+
+```
+<project>/node_modules/.ttsc/plugins/<cache-key>/plugin
+<project>/.ttsc/plugins/<cache-key>/plugin
+$TTSC_CACHE_DIR/plugins/<cache-key>/plugin   # explicit override only
+```
+
+Delete that directory to force plugin binary rebuilds during tests.
+
+If no compiler can be found, `ttsc` exits with:
 
 ```
 ttsc: building plugin "..." failed because the Go toolchain was not found.
-Install Go (https://go.dev/dl/) or set TTSC_GO_BINARY to an absolute path.
+Reinstall ttsc with optional dependencies so the bundled Go compiler is present,
+or set TTSC_GO_BINARY to an absolute path.
 ```
-
-> **Roadmap.** A future release will bundle the Go toolchain as platform-specific npm subpackages (`ttsc-go-linux-x64`, `ttsc-go-darwin-arm64`, …) under `optionalDependencies`, so consumers don't need a system Go install. This will follow the same delivery channel `ttsc`'s own native binaries already use. Tracking under issue #14 / its successor.
 
 ## Debugging a failing build
 
@@ -92,7 +114,7 @@ Things to check:
 
 - **Did you forget the require line?** `no required module provides package github.com/microsoft/typescript-go/shim/...` → see [tsgo.md](./03-tsgo.md#how-to-use-a-shim--the-current-rules).
 - **Is your source actually in the cache key?** Files matching `*.go`, `*.s`, `*.c`, `*.h`, `*.cpp`, `*.hpp`, `go.mod`, `go.sum`, `go.work` are hashed and copied. Anything else (e.g. data files, `.json` configs) is *not*. If your plugin needs to read a data file at runtime, embed it via `//go:embed` so it's part of the binary.
-- **Did you check the right cache dir?** `TTSC_CACHE_DIR` overrides the default location. `printenv TTSC_CACHE_DIR` from the consumer process if you suspect a misroute.
+- **Did you check the right cache dir?** Normal projects use `node_modules/.ttsc/plugins/`; projects without `node_modules/` use `.ttsc/plugins/`. `TTSC_CACHE_DIR` overrides both only when explicitly set.
 - **Is the scratch dir a clue?** Force a build failure (e.g. break a `.go` file syntactically) and check `<cache>/scratch-*` immediately after — `ttsc` only deletes the scratch on success. The `go.work` file there shows exactly what overlay was applied.
 
 ## Logging

@@ -60,7 +60,7 @@ When a project's `tsconfig.json` references your plugin, `ttsc`:
 
 1. Reads your manifest.
 2. Hashes your Go source (plus `ttsc` version, `tsgo` version, platform/arch, entry).
-3. On cache hit (`~/.cache/ttsc/plugins/<hash>/plugin`), loads the existing binary.
+3. On cache hit (`node_modules/.ttsc/plugins/<hash>/plugin`, or `.ttsc/plugins/<hash>/plugin` if the project has no `node_modules/`), loads the existing binary.
 4. On cache miss, compiles your Go source against `ttsc`'s pinned `typescript-go` shim and caches the result.
 5. Spawns the binary against the user's `tsconfig` and source files, passing your config through `--plugins-json`.
 
@@ -101,7 +101,5 @@ These are the fixtures `ttsc`'s own test suite uses. They're the most authoritat
 ## Requirements (current)
 
 - Node.js ≥ 18 (consumer side)
-- Go ≥ 1.26 on the consumer's PATH, or the consumer sets `TTSC_GO_BINARY` to an absolute path
+- The bundled Go compiler installed through `ttsc`'s platform package. `TTSC_GO_BINARY` can override it for debugging.
 - The consumer project has `@typescript/native-preview` installed (this is the standard `tsgo` package)
-
-> **Roadmap:** the Go toolchain dependency will be replaced by `ttsc-go-<platform>` npm subpackages bundled under `optionalDependencies` so casual JS users don't need a system Go install. See [05-internals.md](./05-internals.md#go-toolchain).
