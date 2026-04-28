@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "@ttsc/test-lint",
+  "version": "0.4.4",
+  "description": "End-to-end rule corpus tests for @ttsc/lint. Each case ships a standalone .ts fixture with `// expect:` annotations; the runner spawns ttsc and verifies the rendered diagnostics match exactly.",
+  "scripts": {
+    "start": "node --test --test-reporter=spec --test-concurrency=4 *.test.cjs"
+  },
+  "devDependencies": {
+    "@ttsc/lint": "workspace:*",
+    "ttsc": "workspace:*"
+  }
+}

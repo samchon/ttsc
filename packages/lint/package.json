@@ -1,0 +1,39 @@
+{
+  "name": "@ttsc/lint",
+  "version": "0.0.1",
+  "description": "Reference ttsc plugin: ESLint-style lint rules hosted in the same Program/Checker as the type-check pass.",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "pnpm --dir ../../tests/lint start"
+  },
+  "keywords": [
+    "ttsc",
+    "lint",
+    "eslint",
+    "typescript",
+    "tsgo"
+  ],
+  "files": [
+    "README.md",
+    "index.cjs",
+    "go-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/lint#readme",
+  "deprecation": {
+    "preferred": "@typescript-eslint/eslint-plugin",
+    "rationale": "@ttsc/lint is a curated reference implementation. The strongly preferred outcome is for eslint / @typescript-eslint maintainers to take ownership of the host slot. If they do, this package will be deprecated and re-pointed at theirs."
+  }
+}

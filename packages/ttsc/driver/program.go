@@ -20,12 +20,71 @@ import (
 
 // Diagnostic is the compilation diagnostic shape ttsc passes around. Kept
 // dependency-free (no shim types) so callers can render or inspect freely.
+//
+// `raw` carries the original tsgo diagnostic for full color/context
+// rendering. `lint` carries a plugin-emitted lint diagnostic when the
+// diagnostic was produced outside the typecheck pipeline (e.g. by
+// `@ttsc/lint`). At most one of `raw` / `lint` is non-nil; both nil falls
+// back to the legacy single-line form.
 type Diagnostic struct {
-	File    string
-	Line    int
-	Column  int
-	Message string
-	raw     *ast.Diagnostic
+	File     string
+	Line     int
+	Column   int
+	Message  string
+	Severity Severity
+	raw      *ast.Diagnostic
+	lint     *shimdiagnosticwriter.LintDiagnostic
+}
+
+// Severity classifies a diagnostic's blast radius. ttsc treats Error as a
+// build-failing condition; Warning prints but does not flip the exit code.
+type Severity int
+
+const (
+	// SeverityError is the default for tsgo typecheck output and any
+	// plugin-emitted finding that should fail the build.
+	SeverityError Severity = iota
+	// SeverityWarning prints with warning coloring but keeps the build
+	// status at zero.
+	SeverityWarning
+)
+
+// IsError reports whether the diagnostic counts toward the build's error
+// total. Useful when plugins want to gate emit on the lint outcome without
+// re-walking the diagnostic list.
+func (d Diagnostic) IsError() bool { return d.Severity == SeverityError }
+
+// NewLintDiagnostic shapes a plugin finding so it renders alongside tsgo
+// diagnostics with full color / source context. `pos` and `end` are byte
+// offsets into the source file; `code` is a stable rule identifier (e.g. the
+// rule's enum index). Severity controls both the rendered banner color and
+// the exit-code outcome.
+func NewLintDiagnostic(
+	file *ast.SourceFile,
+	pos, end int,
+	code int32,
+	severity Severity,
+	message string,
+) Diagnostic {
+	cat := shimdiagnosticwriter.LintCategoryError
+	if severity == SeverityWarning {
+		cat = shimdiagnosticwriter.LintCategoryWarning
+	}
+	lint := shimdiagnosticwriter.NewLintDiagnostic(file, pos, end, code, cat, message)
+	d := Diagnostic{
+		Message:  message,
+		Severity: severity,
+		lint:     lint,
+	}
+	if file != nil {
+		d.File = file.FileName()
+		if pos >= 0 {
+			line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
+			d.Line = line + 1
+			d.Column = col + 1
+		}
+	}
+	return d
 }
 
 // SourceFile returns the program source file matching filename.
@@ -54,21 +113,67 @@ func (d Diagnostic) String() string {
 }
 
 // WritePrettyDiagnostics renders diagnostics with TypeScript-style colors,
-// source snippets and the trailing error summary when raw tsgo diagnostic
-// objects are available. It falls back to the legacy one-line form for
-// diagnostics assembled outside tsgo.
+// source snippets and the trailing error summary when raw tsgo or lint
+// diagnostic objects are available. Mixed batches (e.g. typecheck + lint)
+// are rendered through the same color/context pipeline; entries without
+// either anchor fall back to the legacy `path:line:col: message` form.
 func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
-	raw := make([]*ast.Diagnostic, 0, len(diagnostics))
-	for _, d := range diagnostics {
-		if d.raw == nil {
-			for _, d := range diagnostics {
-				fmt.Fprintln(w, "  -", d.String())
-			}
-			return
-		}
-		raw = append(raw, d.raw)
+	if len(diagnostics) == 0 {
+		return
 	}
-	shimdiagnosticwriter.FormatASTDiagnosticsWithColorAndContext(w, raw, cwd)
+	rich := make([]Diagnostic, 0, len(diagnostics))
+	plain := make([]Diagnostic, 0)
+	for _, d := range diagnostics {
+		if d.raw != nil || d.lint != nil {
+			rich = append(rich, d)
+		} else {
+			plain = append(plain, d)
+		}
+	}
+	if len(rich) > 0 {
+		astDiags := make([]*ast.Diagnostic, 0, len(rich))
+		lintDiags := make([]*shimdiagnosticwriter.LintDiagnostic, 0, len(rich))
+		for _, d := range rich {
+			if d.raw != nil {
+				astDiags = append(astDiags, d.raw)
+			}
+			if d.lint != nil {
+				lintDiags = append(lintDiags, d.lint)
+			}
+		}
+		shimdiagnosticwriter.FormatMixedDiagnostics(w, astDiags, lintDiags, cwd)
+	}
+	for _, d := range plain {
+		fmt.Fprintln(w, "  -", d.String())
+	}
+}
+
+// CountErrors returns the number of diagnostics that should fail the build.
+// tsgo diagnostics carry their own `Error` category; lint diagnostics carry a
+// caller-set Severity. Anything that isn't an explicit warning counts.
+func CountErrors(diagnostics []Diagnostic) int {
+	n := 0
+	for _, d := range diagnostics {
+		if d.lint != nil {
+			if d.lint.IsError() {
+				n++
+			}
+			continue
+		}
+		if d.raw != nil {
+			// tsgo diagnostics use the diagnostics package category. The
+			// renderer shim already mirrors the same Error/Warning split, so
+			// re-categorize via the public IsError shortcut.
+			if d.Severity != SeverityWarning {
+				n++
+			}
+			continue
+		}
+		// Plain text diagnostics (manually assembled): treat as errors so
+		// "ttsc: tsconfig not found"-style failures still flip the exit code.
+		n++
+	}
+	return n
 }
 
 // Program is the shim-agnostic facade the rest of the engine sees.

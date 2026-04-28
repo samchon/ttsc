@@ -36,6 +36,8 @@ importers:
 
   config: {}
 
+  packages/lint: {}
+
   packages/ttsc:
     devDependencies:
       '@types/node':
@@ -83,6 +85,15 @@ importers:
   packages/ttsc-win32-arm64: {}
 
   packages/ttsc-win32-x64: {}
+
+  tests/lint:
+    devDependencies:
+      '@ttsc/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
 
   tests/smoke:
     devDependencies:

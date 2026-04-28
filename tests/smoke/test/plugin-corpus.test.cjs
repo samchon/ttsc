@@ -614,6 +614,178 @@ test("plugin corpus: nonexistent native.source.dir produces a clear error", () =
   assert.match(result.stderr, /native\.source\.dir does not exist/);
 });
 
+test("plugin corpus: @ttsc/lint surfaces rule violations through the normal failure path", () => {
+  const root = setupLintProject("lint-violations");
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-violations-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.notEqual(result.status, 0, "expected lint errors to fail the build");
+
+  // Build the expected diagnostic set from `// expect:` annotations in
+  // the fixture. Every annotation pins (rule, severity) at the next
+  // non-comment, non-blank line — the renderer's `path:line:col` banner
+  // must match the line we annotated.
+  const sourcePath = path.join(root, "src", "main.ts");
+  const expected = parseExpectations(sourcePath);
+  const got = parseDiagnostics(result.stderr, sourcePath);
+
+  // 1. No diagnostic is missing.
+  for (const exp of expected) {
+    const hit = got.find(
+      (g) => g.line === exp.line && g.rule === exp.rule && g.severity === exp.severity,
+    );
+    assert.ok(
+      hit,
+      `expected ${exp.severity} [${exp.rule}] at line ${exp.line}; stderr=\n${result.stderr}`,
+    );
+  }
+
+  // 2. No diagnostic is unexpected.
+  for (const g of got) {
+    const hit = expected.find(
+      (exp) => exp.line === g.line && exp.rule === g.rule && exp.severity === g.severity,
+    );
+    assert.ok(
+      hit,
+      `unexpected ${g.severity} [${g.rule}] at line ${g.line}; not annotated in fixture\n${result.stderr}`,
+    );
+  }
+
+  // 3. The "off" rule never fires (sanity — `probe(x: number | null)`
+  // returns `x!`, which would otherwise trigger no-non-null-assertion).
+  assert.doesNotMatch(result.stderr, /\[no-non-null-assertion\]/);
+});
+
+test("plugin corpus: @ttsc/lint clean project exits zero", () => {
+  const root = setupLintProject("lint-violations");
+  // Replace the violating source with a clean file.
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "hi";\nconst _value: number = value.length;\nvoid _value;\n`,
+  );
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-clean-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("plugin corpus: @ttsc/lint reports unknown rule names", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [
+          {
+            transform: "@ttsc/lint",
+            rules: {
+              "made-up-rule": "error",
+            },
+          },
+        ],
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "ok";\n`,
+  );
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-unknown-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /ignoring unknown rule "made-up-rule"/);
+});
+
+// parseExpectations reads `// expect: <rule> <severity>` annotations and
+// returns the line each one anchors to (the next non-comment, non-blank
+// line after the annotation).
+function parseExpectations(filePath) {
+  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+  const expected = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
+    if (!match) continue;
+    const [, rule, severity] = match;
+    let target = i + 1;
+    while (
+      target < lines.length &&
+      (/^\s*$/.test(lines[target]) || /^\s*\/\//.test(lines[target]))
+    ) {
+      target++;
+    }
+    if (target < lines.length) {
+      expected.push({ rule, severity, line: target + 1 });
+    }
+  }
+  return expected;
+}
+
+// parseDiagnostics turns the renderer's stderr into structured records
+// for the given file. Strips ANSI color escapes before matching since
+// pretty diagnostics are colored when stdout is a TTY.
+//
+// The renderer uses the `path:LINE:COL - <category> TS<code>: <msg>`
+// shape — same one tsgo's `tsc --noEmit` prints.
+function parseDiagnostics(stderr, filePath) {
+  const ansi = /\x1b\[[0-9;]*[A-Za-z]/g;
+  const stripped = stderr.replace(ansi, "");
+  const lines = stripped.split(/\r?\n/);
+  const fileBase = path.basename(filePath).replace(/\./g, "\\.");
+  const banner = new RegExp(
+    `(?:^|[\\s/])[^\\s:]*${fileBase}:(\\d+):(\\d+)\\s+-\\s+(error|warning)\\s+TS\\d+:\\s*\\[([\\w-]+)\\]`,
+  );
+  const out = [];
+  for (const line of lines) {
+    const match = line.match(banner);
+    if (!match) continue;
+    const [, lineNo, , category, rule] = match;
+    out.push({
+      rule,
+      severity: category === "warning" ? "warn" : "error",
+      line: parseInt(lineNo, 10),
+    });
+  }
+  return out;
+}
+
+// setupLintProject copies a project fixture out to a tempdir and seeds a
+// `node_modules/@ttsc/lint` symlink pointing at the workspace package, so
+// `require("@ttsc/lint")` resolves the same way it would for a published
+// install. Using a real symlink (instead of writing a relay file) keeps the
+// plugin's `__dirname` pointed at the workspace go-plugin source dir.
+function setupLintProject(name) {
+  const root = copyProject(name);
+  const linkDir = path.join(root, "node_modules", "@ttsc");
+  fs.mkdirSync(linkDir, { recursive: true });
+  const target = path.join(workspaceRoot, "packages", "lint");
+  const link = path.join(linkDir, "lint");
+  try {
+    fs.symlinkSync(target, link, "junction");
+  } catch (err) {
+    if (err.code !== "EEXIST") throw err;
+  }
+  return root;
+}
+
 function buildGoTransformer() {
   const root = path.join(workspaceRoot, "tests", "go-transformer");
   const output = path.join(
