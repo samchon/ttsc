@@ -66,6 +66,12 @@ When a project's `tsconfig.json` references your plugin, `ttsc`:
 
 You publish the npm package once. End users do *not* need a precompiled binary in your tarball — `ttsc` builds it for them at first invocation.
 
+When you are experimenting with transformer source and want a forced cold build, run this from the consumer project:
+
+```bash
+npx ttsc clean
+```
+
 ## Why Go source instead of a precompiled binary?
 
 A precompiled binary plugin has to match three independent versions exactly: `ttsc`'s pinned `typescript-go`, `ttsc` itself, and the plugin. A skew between any two breaks consumers silently at *load* time.

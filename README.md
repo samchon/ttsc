@@ -40,6 +40,12 @@ npx ttsc --noEmit
 npx ttsc --watch
 ```
 
+Clear cached transformer binaries when developing or debugging a plugin:
+
+```bash
+npx ttsc clean
+```
+
 ## Transformer Configuration
 
 `ttsc` reads `compilerOptions.plugins` from `tsconfig.json`. Each plugin

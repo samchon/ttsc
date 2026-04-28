@@ -8,6 +8,8 @@ const {
   bundledGoPackageRequest,
   computeCacheKey,
   goBinaryName,
+  pluginCacheCleanupTargets,
+  resolveDefaultPluginCacheRoot,
   resolveGoCompiler,
   resolvePluginCacheRoot,
 } = require("../src/source-build.ts");
@@ -161,6 +163,25 @@ test("resolvePluginCacheRoot falls back to project .ttsc without node_modules", 
   assert.equal(resolvePluginCacheRoot(root), path.join(root, ".ttsc", "plugins"));
 });
 
+test("resolveDefaultPluginCacheRoot ignores TTSC_CACHE_DIR for local clean paths", () => {
+  const previous = process.env.TTSC_CACHE_DIR;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
+  fs.mkdirSync(path.join(root, "node_modules"));
+  try {
+    process.env.TTSC_CACHE_DIR = path.join(root, "override");
+    assert.equal(
+      resolveDefaultPluginCacheRoot(root),
+      path.join(root, "node_modules", ".ttsc", "plugins"),
+    );
+  } finally {
+    if (previous === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previous;
+    }
+  }
+});
+
 test("resolvePluginCacheRoot honors TTSC_CACHE_DIR as an explicit test override", () => {
   const previous = process.env.TTSC_CACHE_DIR;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
@@ -168,6 +189,26 @@ test("resolvePluginCacheRoot honors TTSC_CACHE_DIR as an explicit test override"
   try {
     process.env.TTSC_CACHE_DIR = override;
     assert.equal(resolvePluginCacheRoot(root), path.join(override, "plugins"));
+  } finally {
+    if (previous === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previous;
+    }
+  }
+});
+
+test("pluginCacheCleanupTargets deletes both local roots and explicit override", () => {
+  const previous = process.env.TTSC_CACHE_DIR;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-local-cache-"));
+  const override = path.join(root, "override");
+  try {
+    process.env.TTSC_CACHE_DIR = override;
+    assert.deepEqual(pluginCacheCleanupTargets(root), [
+      path.join(root, "node_modules", ".ttsc"),
+      path.join(root, ".ttsc"),
+      path.join(override, "plugins"),
+    ]);
   } finally {
     if (previous === undefined) {
       delete process.env.TTSC_CACHE_DIR;

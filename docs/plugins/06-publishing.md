@@ -108,3 +108,5 @@ For context (so you know what to test for):
 4. The compiled binary lands in `node_modules/.ttsc/plugins/<sha>/plugin` (or `.ttsc/plugins/<sha>/plugin` when the project has no `node_modules/`) and is reused on subsequent invocations.
 
 If your tarball is missing `go-plugin/`, step 3 fails immediately with `native.source.dir does not exist`. That's the single biggest pre-publish thing to verify.
+
+During plugin development, `npx ttsc clean` removes those cached binaries so the next `npx ttsc` run starts cold.

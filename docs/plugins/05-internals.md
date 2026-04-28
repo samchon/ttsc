@@ -51,7 +51,13 @@ Default projects use local cache paths only:
 
 `TTSC_CACHE_DIR` is an explicit override for isolated tests and debugging; when it is set, `ttsc` uses `$TTSC_CACHE_DIR/plugins/`.
 
-To force a full rebuild in normal use, delete `node_modules/.ttsc/` or `.ttsc/` from the project root. In isolated tests, point `TTSC_CACHE_DIR` at a fresh temp directory.
+To force a full rebuild in normal use, run:
+
+```bash
+npx ttsc clean
+```
+
+That removes `node_modules/.ttsc/` and `.ttsc/` from the project root. In isolated tests, point `TTSC_CACHE_DIR` at a fresh temp directory or run `npx ttsc clean` with the same `TTSC_CACHE_DIR` value.
 
 ### What invalidates the cache
 
@@ -91,7 +97,7 @@ The compiled plugin binary is still cached under the normal plugin cache:
 $TTSC_CACHE_DIR/plugins/<cache-key>/plugin   # explicit override only
 ```
 
-Delete that directory to force plugin binary rebuilds during tests.
+Run `npx ttsc clean` to force plugin binary rebuilds during development.
 
 If no compiler can be found, `ttsc` exits with:
 

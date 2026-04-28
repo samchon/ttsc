@@ -202,12 +202,28 @@ export function resolvePluginCacheRoot(projectRoot: string): string {
   if (process.env.TTSC_CACHE_DIR) {
     return path.resolve(process.env.TTSC_CACHE_DIR, "plugins");
   }
+  return resolveDefaultPluginCacheRoot(projectRoot);
+}
+
+export function resolveDefaultPluginCacheRoot(projectRoot: string): string {
   const root = path.resolve(projectRoot);
   const nodeModules = path.join(root, "node_modules");
   if (isDirectory(nodeModules)) {
     return path.join(nodeModules, ".ttsc", "plugins");
   }
   return path.join(root, ".ttsc", "plugins");
+}
+
+export function pluginCacheCleanupTargets(projectRoot: string): string[] {
+  const root = path.resolve(projectRoot);
+  const targets = [
+    path.join(root, "node_modules", ".ttsc"),
+    path.join(root, ".ttsc"),
+  ];
+  if (process.env.TTSC_CACHE_DIR) {
+    targets.push(path.resolve(process.env.TTSC_CACHE_DIR, "plugins"));
+  }
+  return [...new Set(targets)];
 }
 
 function isDirectory(candidate: string): boolean {
