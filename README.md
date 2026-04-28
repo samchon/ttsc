@@ -82,6 +82,19 @@ npx ttsx src/index.ts
 
 This gives compiler-powered libraries one transform path for both build-time and runtime execution.
 
+## First-party Utility Plugins
+
+The workspace also ships small `@ttsc/*` plugins for common compiler-adjacent
+jobs:
+
+- `@ttsc/lint`: report configured lint rules during the same type-check pass.
+- `@ttsc/alias`: rewrite emitted imports that match `compilerOptions.paths`.
+- `@ttsc/strip`: remove configured calls such as `console.log` or `assert.*`.
+- `@ttsc/banner`: prepend a fixed comment to emitted JavaScript and declarations.
+
+These packages share one native source host, so they can be used together in a
+single ordered `compilerOptions.plugins` pipeline.
+
 ## What Is a Transform?
 
 A transform uses TypeScript types to generate JavaScript before runtime.

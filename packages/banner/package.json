@@ -1,0 +1,36 @@
+{
+  "name": "@ttsc/banner",
+  "version": "0.0.1",
+  "description": "First-party ttsc plugin that prepends a banner comment to emitted files.",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "ttsc",
+    "banner",
+    "typescript",
+    "tsgo"
+  ],
+  "files": [
+    "README.md",
+    "index.cjs"
+  ],
+  "dependencies": {
+    "@ttsc/lint": "workspace:*"
+  },
+  "peerDependencies": {
+    "ttsc": "^0.4.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/banner#readme"
+}

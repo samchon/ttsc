@@ -98,6 +98,11 @@ func RunTransform(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
+	outputs, err := LoadOutputPipeline(*pluginsJSON, prog)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	engine := NewEngine(rules)
 	warnUnknownRules(os.Stderr, engine.UnknownRules())
 
@@ -121,7 +126,11 @@ func RunTransform(args []string) int {
 		if !isJavaScriptOutput(name) {
 			return nil
 		}
-		captured = text
+		patched, err := outputs.Apply(name, text)
+		if err != nil {
+			return err
+		}
+		captured = patched
 		return nil
 	}
 	result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{
@@ -232,6 +241,11 @@ func runProject(opts *subcommandOpts) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
+	outputs, err := LoadOutputPipeline(opts.pluginsJSON, prog)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	engine := NewEngine(rules)
 	warnUnknownRules(os.Stderr, engine.UnknownRules())
 
@@ -244,7 +258,15 @@ func runProject(opts *subcommandOpts) int {
 		return 0
 	}
 
-	result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{})
+	result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{
+		WriteFile: shimcompiler.WriteFile(func(fileName, text string, data *shimcompiler.WriteFileData) error {
+			patched, err := outputs.Apply(fileName, text)
+			if err != nil {
+				return err
+			}
+			return defaultWriteFile(fileName, patched)
+		}),
+	})
 	if result == nil {
 		fmt.Fprintln(os.Stderr, "@ttsc/lint: Emit returned nil")
 		return 3
@@ -379,4 +401,11 @@ func isJavaScriptOutput(name string) bool {
 	default:
 		return false
 	}
+}
+
+func defaultWriteFile(name string, text string) error {
+	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(name, []byte(text), 0o644)
 }

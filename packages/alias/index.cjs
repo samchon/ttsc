@@ -1,0 +1,29 @@
+// @ts-check
+"use strict";
+
+const path = require("node:path");
+
+module.exports = function createTtscAlias() {
+  return {
+    name: "@ttsc/alias",
+    native: {
+      mode: "ttsc-alias",
+      source: {
+        dir: resolveSharedGoPlugin(),
+      },
+      contractVersion: 1,
+      capabilities: ["check", "build", "transform"],
+    },
+  };
+};
+
+function resolveSharedGoPlugin() {
+  try {
+    const pkg = require.resolve("@ttsc/lint/package.json", {
+      paths: [__dirname],
+    });
+    return path.join(path.dirname(pkg), "go-plugin");
+  } catch {
+    return path.resolve(__dirname, "..", "lint", "go-plugin");
+  }
+}
