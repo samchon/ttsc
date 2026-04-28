@@ -3,11 +3,11 @@
 
 const path = require("node:path");
 
-module.exports = function createTtscAlias() {
+module.exports = function createTtscPaths() {
   return {
-    name: "@ttsc/alias",
+    name: "@ttsc/paths",
     native: {
-      mode: "ttsc-alias",
+      mode: "ttsc-paths",
       source: {
         dir: resolveSharedGoPlugin(),
       },

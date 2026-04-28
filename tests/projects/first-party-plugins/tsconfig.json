@@ -25,7 +25,7 @@
         "banner": "/*! first-party combo */"
       },
       {
-        "transform": "@ttsc/alias"
+        "transform": "@ttsc/paths"
       },
       {
         "transform": "@ttsc/strip",

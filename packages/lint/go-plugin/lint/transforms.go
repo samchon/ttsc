@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	modeAlias  = "ttsc-alias"
 	modeBanner = "ttsc-banner"
 	modeLint   = "ttsc-lint"
+	modePaths  = "ttsc-paths"
 	modeStrip  = "ttsc-strip"
 )
 
@@ -37,7 +37,7 @@ func LoadOutputPipeline(pluginsJSON string, prog *program) (*OutputPipeline, err
 
 func NewOutputPipeline(entries []PluginEntry, prog *program) (*OutputPipeline, error) {
 	pipeline := &OutputPipeline{}
-	var alias *aliasResolver
+	var paths *pathsResolver
 	for _, entry := range entries {
 		switch entry.Mode {
 		case "", modeLint:
@@ -48,11 +48,11 @@ func NewOutputPipeline(entries []PluginEntry, prog *program) (*OutputPipeline, e
 				return nil, err
 			}
 			pipeline.transforms = append(pipeline.transforms, banner)
-		case modeAlias:
-			if alias == nil {
-				alias = newAliasResolver(prog)
+		case modePaths:
+			if paths == nil {
+				paths = newPathsResolver(prog)
 			}
-			pipeline.transforms = append(pipeline.transforms, alias)
+			pipeline.transforms = append(pipeline.transforms, paths)
 		case modeStrip:
 			strip, err := parseStrip(entry.Config)
 			if err != nil {
@@ -109,21 +109,21 @@ func (b *bannerTransform) apply(fileName string, text string) (string, error) {
 	return b.text + text, nil
 }
 
-type aliasResolver struct {
+type pathsResolver struct {
 	basePath    string
 	outDir      string
-	patterns    []aliasPattern
+	patterns    []pathsPattern
 	rootDir     string
 	sourceFiles map[string]string
 }
 
-type aliasPattern struct {
+type pathsPattern struct {
 	pattern string
 	targets []string
 }
 
-func newAliasResolver(prog *program) *aliasResolver {
-	resolver := &aliasResolver{sourceFiles: map[string]string{}}
+func newPathsResolver(prog *program) *pathsResolver {
+	resolver := &pathsResolver{sourceFiles: map[string]string{}}
 	if prog == nil || prog.parsed == nil || prog.parsed.ParsedConfig == nil || prog.parsed.ParsedConfig.CompilerOptions == nil {
 		return resolver
 	}
@@ -145,20 +145,20 @@ func newAliasResolver(prog *program) *aliasResolver {
 	}
 	if options.Paths != nil {
 		for pattern, targets := range options.Paths.Entries() {
-			resolver.patterns = append(resolver.patterns, aliasPattern{
+			resolver.patterns = append(resolver.patterns, pathsPattern{
 				pattern: pattern,
 				targets: append([]string(nil), targets...),
 			})
 		}
 	}
 	sort.SliceStable(resolver.patterns, func(i, j int) bool {
-		return aliasPatternRank(resolver.patterns[i].pattern) > aliasPatternRank(resolver.patterns[j].pattern)
+		return pathsPatternRank(resolver.patterns[i].pattern) > pathsPatternRank(resolver.patterns[j].pattern)
 	})
 	return resolver
 }
 
-func (r *aliasResolver) apply(fileName string, text string) (string, error) {
-	if r == nil || len(r.patterns) == 0 || !isAliasableOutput(fileName) {
+func (r *pathsResolver) apply(fileName string, text string) (string, error) {
+	if r == nil || len(r.patterns) == 0 || !isPathsOutput(fileName) {
 		return text, nil
 	}
 	file := parseModuleSpecifierFile(fileName, text)
@@ -224,7 +224,7 @@ func (r *aliasResolver) apply(fileName string, text string) (string, error) {
 	return applyTextEdits(text, edits), nil
 }
 
-func (r *aliasResolver) rewriteSpecifier(outputFile string, specifier string) (string, bool) {
+func (r *pathsResolver) rewriteSpecifier(outputFile string, specifier string) (string, bool) {
 	if isExternalModuleNameRelative(specifier) || strings.HasPrefix(specifier, "/") {
 		return specifier, false
 	}
@@ -257,7 +257,7 @@ func (r *aliasResolver) rewriteSpecifier(outputFile string, specifier string) (s
 	return specifier, false
 }
 
-func (r *aliasResolver) resolveTargetSource(target string) (string, bool) {
+func (r *pathsResolver) resolveTargetSource(target string) (string, bool) {
 	base := r.basePath
 	if base == "" {
 		base = "."
@@ -284,7 +284,7 @@ func (r *aliasResolver) resolveTargetSource(target string) (string, bool) {
 	return "", false
 }
 
-func (r *aliasResolver) outputPathForSource(source string) string {
+func (r *pathsResolver) outputPathForSource(source string) string {
 	outputExt := outputExtensionForSource(source)
 	if r.outDir == "" {
 		return changeExtension(source, outputExt)
@@ -702,7 +702,7 @@ func isBannerableOutput(fileName string) bool {
 		isDeclarationOutput(fileName)
 }
 
-func isAliasableOutput(fileName string) bool {
+func isPathsOutput(fileName string) bool {
 	return isJavaScriptOutput(fileName) || isDeclarationOutput(fileName)
 }
 
@@ -717,7 +717,7 @@ func knownResolvableExtensions() []string {
 	return []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".json"}
 }
 
-func aliasPatternRank(pattern string) int {
+func pathsPatternRank(pattern string) int {
 	star := strings.Index(pattern, "*")
 	if star < 0 {
 		return 1_000_000 + len(pattern)

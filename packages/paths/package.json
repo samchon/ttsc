@@ -1,7 +1,7 @@
 {
-  "name": "@ttsc/alias",
+  "name": "@ttsc/paths",
   "version": "0.0.1",
-  "description": "First-party ttsc plugin that rewrites emitted import paths from tsconfig paths aliases.",
+  "description": "First-party ttsc plugin that rewrites emitted module specifiers from tsconfig paths.",
   "main": "index.cjs",
   "exports": {
     ".": "./index.cjs",
@@ -10,7 +10,6 @@
   "keywords": [
     "ttsc",
     "paths",
-    "alias",
     "typescript",
     "tsgo"
   ],
@@ -33,5 +32,5 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/alias#readme"
+  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/paths#readme"
 }

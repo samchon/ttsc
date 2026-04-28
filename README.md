@@ -88,7 +88,7 @@ The workspace also ships small `@ttsc/*` plugins for common compiler-adjacent
 jobs:
 
 - `@ttsc/lint`: report configured lint rules during the same type-check pass.
-- `@ttsc/alias`: rewrite emitted imports that match `compilerOptions.paths`.
+- `@ttsc/paths`: rewrite emitted imports that match `compilerOptions.paths`.
 - `@ttsc/strip`: remove configured calls such as `console.log` or `assert.*`.
 - `@ttsc/banner`: prepend a fixed comment to emitted JavaScript and declarations.
 

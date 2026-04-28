@@ -14,14 +14,14 @@ const {
   workspaceRoot,
 } = require("./_helpers.cjs");
 
-const firstPartyPackages = ["lint", "banner", "alias", "strip"];
+const firstPartyPackages = ["lint", "banner", "paths", "strip"];
 
 test("first-party plugins: descriptors share one native source host", () => {
   const lintFactory = require(path.join(workspaceRoot, "packages", "lint"));
   const sharedDir = lintFactory({}, {}).native.source.dir;
   const expectations = {
-    alias: "ttsc-alias",
     banner: "ttsc-banner",
+    paths: "ttsc-paths",
     strip: "ttsc-strip",
   };
   for (const [name, mode] of Object.entries(expectations)) {
@@ -34,7 +34,7 @@ test("first-party plugins: descriptors share one native source host", () => {
   }
 });
 
-test("first-party plugins: lint, banner, alias, and strip run together in ttsc build", () => {
+test("first-party plugins: lint, banner, paths, and strip run together in ttsc build", () => {
   const root = copyProject("first-party-plugins");
   seedFirstPartyPackages(root);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
@@ -90,7 +90,7 @@ test("first-party plugins: banner prepends JavaScript and declaration outputs", 
   assert.match(fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8"), /^\/\*! banner-only \*\//);
 });
 
-test("first-party plugins: alias rewrites ESM imports and re-exports", () => {
+test("first-party plugins: paths rewrites ESM imports and re-exports", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -104,12 +104,12 @@ test("first-party plugins: alias rewrites ESM imports and re-exports", () => {
         },
         outDir: "dist",
         rootDir: "src",
-        plugins: [{ transform: "@ttsc/alias" }],
+        plugins: [{ transform: "@ttsc/paths" }],
       },
       include: ["src"],
     }),
     "src/modules/exact.ts": `export const exact = "exact" as const;\n`,
-    "src/modules/message.ts": `export interface MessageBox { value: string }\nexport const message = "alias";\n`,
+    "src/modules/message.ts": `export interface MessageBox { value: string }\nexport const message = "paths";\n`,
     "src/main.ts": [
       `import { message } from "@lib/message";`,
       `import { exact } from "@lib/exact";`,
@@ -123,12 +123,12 @@ test("first-party plugins: alias rewrites ESM imports and re-exports", () => {
       ``,
     ].join("\n"),
   });
-  seedFirstPartyPackages(root, ["lint", "alias"]);
+  seedFirstPartyPackages(root, ["lint", "paths"]);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-alias-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-paths-")),
     },
   });
   assert.equal(result.status, 0, result.stderr);

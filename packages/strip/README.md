@@ -17,5 +17,4 @@ statements from emitted JavaScript.
 }
 ```
 
-Only explicit patterns are removed. The plugin is not a minifier or
-dead-code-elimination pass.
+Only explicit patterns are removed. The plugin is not a minifier or dead-code-elimination pass.
