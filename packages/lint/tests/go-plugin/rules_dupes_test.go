@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoDuplicateCase(t *testing.T) {
 	const source = `
@@ -13,7 +17,7 @@ func TestNoDuplicateCase(t *testing.T) {
 			default: break;
 		}
 	`
-	assertFindings(t, noDuplicateCase{}, source, SeverityError, []string{
+	assertFindings(t, "no-duplicate-case", source, lintpkg.SeverityError, []string{
 		"Duplicate case label.",
 		"Duplicate case label.",
 	})
@@ -29,7 +33,7 @@ func TestNoDupeKeys(t *testing.T) {
 			"c": 5,
 		};
 	`
-	assertFindings(t, noDupeKeys{}, source, SeverityError, []string{
+	assertFindings(t, "no-dupe-keys", source, lintpkg.SeverityError, []string{
 		"Duplicate key 'a'.",
 		"Duplicate key 'c'.",
 	})
@@ -43,7 +47,7 @@ func TestNoDupeKeysAccessorPair(t *testing.T) {
 			set foo(v: number) { },
 		};
 	`
-	assertFindings(t, noDupeKeys{}, source, SeverityError, nil)
+	assertFindings(t, "no-dupe-keys", source, lintpkg.SeverityError, nil)
 }
 
 func TestNoDupeArgs(t *testing.T) {
@@ -52,7 +56,7 @@ func TestNoDupeArgs(t *testing.T) {
 		const g = function(a: number, a: number) {};
 		const h = (a: number, b: number) => {};
 	`
-	assertFindings(t, noDupeArgs{}, source, SeverityError, []string{
+	assertFindings(t, "no-dupe-args", source, lintpkg.SeverityError, []string{
 		"Duplicate parameter name 'a'.",
 		"Duplicate parameter name 'a'.",
 	})

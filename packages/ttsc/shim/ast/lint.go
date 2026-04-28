@@ -241,6 +241,58 @@ const (
 	KindPlusPlusToken              = innerast.KindPlusPlusToken
 	KindMinusMinusToken            = innerast.KindMinusMinusToken
 	KindDotToken                   = innerast.KindDotToken
+
+	// Bitwise / shift / exponent operator tokens — needed by
+	// no-bitwise, prefer-exponentiation-operator, etc.
+	KindAmpersandToken                          = innerast.KindAmpersandToken
+	KindBarToken                                = innerast.KindBarToken
+	KindCaretToken                              = innerast.KindCaretToken
+	KindLessThanLessThanToken                   = innerast.KindLessThanLessThanToken
+	KindGreaterThanGreaterThanToken             = innerast.KindGreaterThanGreaterThanToken
+	KindGreaterThanGreaterThanGreaterThanToken  = innerast.KindGreaterThanGreaterThanGreaterThanToken
+	KindAsteriskAsteriskToken                   = innerast.KindAsteriskAsteriskToken
+	KindAmpersandAmpersandEqualsToken           = innerast.KindAmpersandAmpersandEqualsToken
+	KindBarBarEqualsToken                       = innerast.KindBarBarEqualsToken
+	KindQuestionQuestionEqualsToken             = innerast.KindQuestionQuestionEqualsToken
+	KindAsteriskEqualsToken                     = innerast.KindAsteriskEqualsToken
+	KindSlashEqualsToken                        = innerast.KindSlashEqualsToken
+	KindPercentEqualsToken                      = innerast.KindPercentEqualsToken
+	KindAsteriskAsteriskEqualsToken             = innerast.KindAsteriskAsteriskEqualsToken
+	KindAmpersandEqualsToken                    = innerast.KindAmpersandEqualsToken
+	KindBarEqualsToken                          = innerast.KindBarEqualsToken
+	KindCaretEqualsToken                        = innerast.KindCaretEqualsToken
+	KindLessThanLessThanEqualsToken             = innerast.KindLessThanLessThanEqualsToken
+	KindGreaterThanGreaterThanEqualsToken       = innerast.KindGreaterThanGreaterThanEqualsToken
+	KindGreaterThanGreaterThanGreaterThanEqualsToken = innerast.KindGreaterThanGreaterThanGreaterThanEqualsToken
+	KindCommaToken                              = innerast.KindCommaToken
+	KindQuestionToken                           = innerast.KindQuestionToken
+
+	// Metaprogramming / privacy / async syntax
+	KindMetaProperty                = innerast.KindMetaProperty
+	KindPrivateIdentifier           = innerast.KindPrivateIdentifier
+	KindClassStaticBlockDeclaration = innerast.KindClassStaticBlockDeclaration
+
+	// Misc syntax used by suggestion rules
+	KindCommaListExpression = innerast.KindCommaListExpression
+	KindSymbolKeyword       = innerast.KindSymbolKeyword
+	KindObjectKeyword       = innerast.KindObjectKeyword
+
+	// Modifier-style keywords
+	KindAsyncKeyword    = innerast.KindAsyncKeyword
+	KindAwaitKeyword    = innerast.KindAwaitKeyword
+	KindReadonlyKeyword = innerast.KindReadonlyKeyword
+	KindStaticKeyword   = innerast.KindStaticKeyword
+	KindAbstractKeyword = innerast.KindAbstractKeyword
+	KindExportKeyword   = innerast.KindExportKeyword
+	KindDeclareKeyword  = innerast.KindDeclareKeyword
+	KindModuleKeyword   = innerast.KindModuleKeyword
+	KindTypeKeyword     = innerast.KindTypeKeyword
+
+	// TypeScript-specific kinds used by ts rules
+	KindCallSignature      = innerast.KindCallSignature
+	KindConstructSignature = innerast.KindConstructSignature
+	KindTypeQuery          = innerast.KindTypeQuery
+	KindTypeOperator       = innerast.KindTypeOperator
 )
 
 // ---- Comment-directive kind constants ----

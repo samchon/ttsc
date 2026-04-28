@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoThrowLiteral(t *testing.T) {
 	const source = `
@@ -12,7 +16,7 @@ func TestNoThrowLiteral(t *testing.T) {
 		throw new Error("ok");
 		throw err;
 	`
-	findings := assertFindings(t, noThrowLiteral{}, source, SeverityError, []string{
+	findings := assertFindings(t, "no-throw-literal", source, lintpkg.SeverityError, []string{
 		"Expected an error object to be thrown.",
 		"Expected an error object to be thrown.",
 		"Expected an error object to be thrown.",

@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoUnsafeFinally(t *testing.T) {
 	const source = `
@@ -12,7 +16,7 @@ func TestNoUnsafeFinally(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noUnsafeFinally{}, source, SeverityError, []string{
+	assertFindings(t, "no-unsafe-finally", source, lintpkg.SeverityError, []string{
 		"Unsafe usage of return.",
 	})
 }
@@ -29,7 +33,7 @@ func TestNoUnsafeFinallyAllowsInnerLoopBreak(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noUnsafeFinally{}, source, SeverityError, nil)
+	assertFindings(t, "no-unsafe-finally", source, lintpkg.SeverityError, nil)
 }
 
 func TestNoUnsafeFinallyAllowsInnerFunction(t *testing.T) {
@@ -43,7 +47,7 @@ func TestNoUnsafeFinallyAllowsInnerFunction(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noUnsafeFinally{}, source, SeverityError, nil)
+	assertFindings(t, "no-unsafe-finally", source, lintpkg.SeverityError, nil)
 }
 
 func TestNoUselessCatch(t *testing.T) {
@@ -56,7 +60,7 @@ func TestNoUselessCatch(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noUselessCatch{}, source, SeverityError, []string{
+	assertFindings(t, "no-useless-catch", source, lintpkg.SeverityError, []string{
 		"Unnecessary try/catch wrapper.",
 	})
 }
@@ -73,5 +77,5 @@ func TestNoUselessCatchAllowsFinally(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noUselessCatch{}, source, SeverityError, nil)
+	assertFindings(t, "no-useless-catch", source, lintpkg.SeverityError, nil)
 }

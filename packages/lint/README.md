@@ -62,63 +62,58 @@ purpose; pick what you actually want enforced.
 
 ## Bundled rules
 
-The bundled rule corpus targets parity with the most common ESLint /
-`@typescript-eslint` rules that work off the AST alone. Each rule sees the
-same node stream, so adding a new one is mechanical.
+The bundled rule corpus targets parity with the AST-implementable rules
+from ESLint core and `@typescript-eslint`. Run `pnpm --filter @ttsc/lint
+test` (or look at `go-plugin/lint/rules_*_test.go`) to see exactly what
+each rule catches.
 
-### ESLint-equivalent (JavaScript)
+### ESLint core — Possible Problems
 
-| Rule | What it catches |
-| --- | --- |
-| `no-var` | `var` declarations (use `let` / `const`) |
-| `no-debugger` | `debugger` statements |
-| `no-with` | `with (...)` blocks |
-| `no-eval` | direct `eval()` calls |
-| `no-empty` | empty blocks / catch / finally |
-| `no-empty-function` | empty function / arrow / method bodies |
-| `no-throw-literal` | `throw "..."` / `throw 42` |
-| `no-self-assign` | `x = x` |
-| `no-self-compare` | `x === x` and friends |
-| `no-duplicate-case` | duplicated `case` labels in a `switch` |
-| `no-dupe-keys` | duplicated object-literal keys |
-| `no-dupe-args` | duplicated parameter names |
-| `no-sparse-arrays` | `[, , 1]` literals |
-| `no-extra-boolean-cast` | `!!x` / `Boolean(x)` in a boolean context |
-| `no-unsafe-negation` | `!a in b` / `!a instanceof b` |
-| `no-template-curly-in-string` | `${...}` inside a regular string |
-| `no-compare-neg-zero` | `x === -0` |
-| `for-direction` | `for` loops whose update goes the wrong way |
-| `no-cond-assign` | assignment inside `if (a = b)` |
-| `no-constant-condition` | `if (true)` / `while (1)` |
-| `no-iterator` | `obj.__iterator__` access |
-| `no-proto` | `obj.__proto__` access |
-| `no-undef-init` | `let x = undefined` |
-| `no-useless-concat` | `"a" + "b"` of two literals |
-| `radix` | `parseInt(x)` without a radix |
-| `use-isnan` | `x === NaN` |
-| `valid-typeof` | `typeof x === "stirng"` |
-| `eqeqeq` | `==` / `!=` |
-| `no-console` | `console.log()` etc. |
-| `no-unsafe-finally` | `return` / `break` in `finally` |
-| `no-array-constructor` | `new Array()` / `Array(...)` |
-| `no-new-wrappers` | `new String / Number / Boolean` |
-| `no-script-url` | `"javascript:..."` literals |
-| `no-multi-str` | `"line one\` continuation strings |
-| `no-octal` | `010` octal literals |
+`for-direction`, `no-async-promise-executor`, `no-class-assign`,
+`no-compare-neg-zero`, `no-cond-assign`, `no-constant-condition`,
+`no-control-regex`, `no-debugger`, `no-dupe-args`, `no-dupe-else-if`,
+`no-dupe-keys`, `no-duplicate-case`, `no-empty-character-class`,
+`no-empty-pattern`, `no-ex-assign`, `no-fallthrough`, `no-func-assign`,
+`no-inner-declarations`, `no-irregular-whitespace`, `no-loss-of-precision`,
+`no-misleading-character-class`, `no-obj-calls`,
+`no-promise-executor-return`, `no-prototype-builtins`, `no-self-assign`,
+`no-self-compare`, `no-sparse-arrays`, `no-template-curly-in-string`,
+`no-unsafe-finally`, `no-unsafe-negation`, `use-isnan`, `valid-typeof`.
+
+### ESLint core — Suggestions
+
+`eqeqeq`, `no-alert`, `no-array-constructor`, `no-bitwise`, `no-caller`,
+`no-case-declarations`, `no-console`, `no-continue`, `no-delete-var`,
+`no-empty`, `no-empty-function`, `no-eq-null`, `no-eval`, `no-extra-bind`,
+`no-extra-boolean-cast`, `no-iterator`, `no-labels`, `no-lone-blocks`,
+`no-lonely-if`, `no-multi-assign`, `no-multi-str`,
+`no-negated-condition`, `no-nested-ternary`, `no-new`, `no-new-func`,
+`no-new-wrappers`, `no-object-constructor`, `no-octal`, `no-octal-escape`,
+`no-plusplus`, `no-proto`, `no-regex-spaces`, `no-return-assign`,
+`no-script-url`, `no-sequences`, `no-shadow-restricted-names`,
+`no-throw-literal`, `no-undef-init`, `no-undefined`, `no-unneeded-ternary`,
+`no-unused-expressions`, `no-useless-call`, `no-useless-catch`,
+`no-useless-computed-key`, `no-useless-concat`, `no-useless-rename`,
+`no-var`, `no-with`, `object-shorthand`, `operator-assignment`,
+`prefer-exponentiation-operator`, `prefer-spread`, `prefer-template`,
+`radix`, `require-yield`, `vars-on-top`, `yoda`.
 
 ### `@typescript-eslint`-equivalent
 
-| Rule | What it catches |
-| --- | --- |
-| `no-explicit-any` | `: any` annotations |
-| `no-non-null-assertion` | `x!` postfix |
-| `no-empty-interface` | empty `interface { }` |
-| `no-inferrable-types` | `: number = 5` redundant annotation |
-| `no-namespace` | `namespace X {}` (TypeScript-only module) |
-| `no-this-alias` | `const self = this` |
-| `prefer-as-const` | `as 'foo'` instead of `as const` |
-| `no-require-imports` | CommonJS `require()` |
-| `ban-ts-comment` | `@ts-ignore` / `@ts-nocheck` |
+`adjacent-overload-signatures`, `array-type`, `ban-ts-comment`,
+`ban-tslint-comment`, `consistent-indexed-object-style`,
+`consistent-type-imports`, `no-array-delete`,
+`no-confusing-non-null-assertion`, `no-duplicate-enum-values`,
+`no-empty-interface`, `no-empty-object-type`, `no-explicit-any`,
+`no-extra-non-null-assertion`, `no-inferrable-types`, `no-misused-new`,
+`no-namespace`, `no-non-null-asserted-optional-chain`,
+`no-non-null-assertion`, `no-require-imports`, `no-this-alias`,
+`prefer-as-const`, `prefer-enum-initializers`, `prefer-for-of`,
+`prefer-function-type`, `prefer-namespace-keyword`,
+`triple-slash-reference`.
+
+That's **115 rules total**, every one with at least one positive and
+one negative test case in `go-plugin/lint/rules_*_test.go`.
 
 ## Limitations
 

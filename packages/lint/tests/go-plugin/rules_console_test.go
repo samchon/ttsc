@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoConsole(t *testing.T) {
 	const source = `
@@ -9,7 +13,7 @@ func TestNoConsole(t *testing.T) {
 		console.error("boom");
 		myConsole.log("ok");
 	`
-	assertFindings(t, noConsole{}, source, SeverityError, []string{
+	assertFindings(t, "no-console", source, lintpkg.SeverityError, []string{
 		"Unexpected console statement.",
 		"Unexpected console statement.",
 		"Unexpected console statement.",

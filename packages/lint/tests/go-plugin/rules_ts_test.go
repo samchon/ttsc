@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoExplicitAny(t *testing.T) {
 	const source = `
@@ -8,7 +12,7 @@ func TestNoExplicitAny(t *testing.T) {
 		const a: number = 0;
 		type Foo = any;
 	`
-	assertFindings(t, noExplicitAny{}, source, SeverityError, []string{
+	assertFindings(t, "no-explicit-any", source, lintpkg.SeverityError, []string{
 		"Unexpected any. Specify a different type.",
 		"Unexpected any. Specify a different type.",
 		"Unexpected any. Specify a different type.",
@@ -21,16 +25,16 @@ func TestNoNonNullAssertion(t *testing.T) {
 			return x!;
 		}
 	`
-	assertFindings(t, noNonNullAssertion{}, source, SeverityError, []string{
+	assertFindings(t, "no-non-null-assertion", source, lintpkg.SeverityError, []string{
 		"Forbidden non-null assertion.",
 	})
 }
 
 func TestNoEmptyInterface(t *testing.T) {
-	assertFindings(t, noEmptyInterface{}, "interface A {}", SeverityError, []string{
+	assertFindings(t, "no-empty-interface", "interface A {}", lintpkg.SeverityError, []string{
 		"An empty interface is equivalent to '{}'.",
 	})
-	assertFindings(t, noEmptyInterface{}, "interface A { x: number; }", SeverityError, nil)
+	assertFindings(t, "no-empty-interface", "interface A { x: number; }", lintpkg.SeverityError, nil)
 }
 
 func TestNoInferrableTypes(t *testing.T) {
@@ -41,7 +45,7 @@ func TestNoInferrableTypes(t *testing.T) {
 		const d: number = expensive();
 		const e = 5;
 	`
-	findings := assertFindings(t, noInferrableTypes{}, source, SeverityError, []string{
+	findings := assertFindings(t, "no-inferrable-types", source, lintpkg.SeverityError, []string{
 		"Type annotation here is unnecessary.",
 		"Type annotation here is unnecessary.",
 		"Type annotation here is unnecessary.",
@@ -52,11 +56,11 @@ func TestNoInferrableTypes(t *testing.T) {
 }
 
 func TestNoNamespace(t *testing.T) {
-	assertFindings(t, noNamespace{}, "namespace Foo { export const x = 1; }", SeverityError, []string{
+	assertFindings(t, "no-namespace", "namespace Foo { export const x = 1; }", lintpkg.SeverityError, []string{
 		"ES2015 module syntax is preferred over namespaces.",
 	})
 	// Ambient module declarations stay allowed.
-	assertFindings(t, noNamespace{}, `declare module "fs" { }`, SeverityError, nil)
+	assertFindings(t, "no-namespace", `declare module "fs" { }`, lintpkg.SeverityError, nil)
 }
 
 func TestNoThisAlias(t *testing.T) {
@@ -68,7 +72,7 @@ func TestNoThisAlias(t *testing.T) {
 			}
 		}
 	`
-	assertFindings(t, noThisAlias{}, source, SeverityError, []string{
+	assertFindings(t, "no-this-alias", source, lintpkg.SeverityError, []string{
 		"Unexpected aliasing of 'this' to local variable.",
 	})
 }
@@ -80,7 +84,7 @@ func TestPreferAsConst(t *testing.T) {
 		const c = "x" as const;
 	`
 	want := "Expected `as const` instead of `as` literal type."
-	findings := assertFindings(t, preferAsConst{}, source, SeverityError, []string{
+	findings := assertFindings(t, "prefer-as-const", source, lintpkg.SeverityError, []string{
 		want, want,
 	})
 	_ = findings
@@ -91,7 +95,7 @@ func TestNoRequireImports(t *testing.T) {
 		const fs = require("fs");
 		import path = require("path");
 	`
-	assertFindings(t, noRequireImports{}, source, SeverityError, []string{
+	assertFindings(t, "no-require-imports", source, lintpkg.SeverityError, []string{
 		"A `require()` style import is forbidden.",
 		"An `import = require()` style import is forbidden.",
 	})
@@ -102,7 +106,7 @@ func TestBanTsComment(t *testing.T) {
 		"const a: number = \"oops\" as any;\n" +
 		"// @ts-expect-error\n" +
 		"const b: number = \"oops\" as any;\n"
-	findings := assertFindings(t, banTsComment{}, source, SeverityError, []string{
+	findings := assertFindings(t, "ban-ts-comment", source, lintpkg.SeverityError, []string{
 		"Do not use `@ts-ignore` because it alters compilation errors.",
 		"Do not use `@ts-expect-error` because it alters compilation errors.",
 	})

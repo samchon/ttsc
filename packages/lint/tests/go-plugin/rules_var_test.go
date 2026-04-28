@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoVar(t *testing.T) {
 	const source = `
@@ -9,14 +13,14 @@ func TestNoVar(t *testing.T) {
 		const c = 3;
 		var d = 4, e = 5;
 	`
-	assertFindings(t, noVar{}, source, SeverityError, []string{
+	assertFindings(t, "no-var", source, lintpkg.SeverityError, []string{
 		"Unexpected var, use let or const instead.",
 		"Unexpected var, use let or const instead.",
 	})
 }
 
 func TestNoVarOff(t *testing.T) {
-	assertFindings(t, noVar{}, "var a = 1;", SeverityOff, nil)
+	assertFindings(t, "no-var", "var a = 1;", lintpkg.SeverityOff, nil)
 }
 
 func TestNoUndefInit(t *testing.T) {
@@ -27,7 +31,7 @@ func TestNoUndefInit(t *testing.T) {
 		let d;
 		let e = null;
 	`
-	assertFindings(t, noUndefInit{}, source, SeverityError, []string{
+	assertFindings(t, "no-undef-init", source, lintpkg.SeverityError, []string{
 		"It's not necessary to initialize \"undefined\".",
 		"It's not necessary to initialize \"undefined\".",
 	})

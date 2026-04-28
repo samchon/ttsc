@@ -22,6 +22,7 @@ import (
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // Rule is the contract every lint rule satisfies.
@@ -63,19 +64,26 @@ type Finding struct {
 	Message  string
 }
 
-// Report records a finding at the given node's source range. A finding is
-// silently dropped if the configured severity is `off` (defensive — the
-// engine already filters by severity before calling Check, but a rule
-// might lazy-evaluate in the future).
+// Report records a finding at the given node's source range. The pos is
+// trimmed past leading trivia (whitespace + comments) so the renderer's
+// `path:line:col` banner points at the offending token, not the start of
+// the surrounding indentation. A finding is silently dropped if the
+// configured severity is `off` (defensive — the engine already filters
+// by severity before calling Check, but a rule might lazy-evaluate in
+// the future).
 func (c *Context) Report(node *shimast.Node, message string) {
 	if c.Severity == SeverityOff || node == nil {
 		return
+	}
+	pos := node.Pos()
+	if c.File != nil {
+		pos = shimscanner.SkipTrivia(c.File.Text(), pos)
 	}
 	c.collect(&Finding{
 		Rule:     c.rule.Name(),
 		Severity: c.Severity,
 		File:     c.File,
-		Pos:      node.Pos(),
+		Pos:      pos,
 		End:      node.End(),
 		Message:  message,
 	})

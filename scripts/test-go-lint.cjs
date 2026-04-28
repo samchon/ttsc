@@ -1,19 +1,16 @@
 // Run the @ttsc/lint Go-side tests.
 //
-// The lint plugin's go-plugin module imports the in-tree
-// `microsoft/typescript-go/shim/*` modules with a v0.0.0 placeholder
-// version (matching the rest of ttsc's shim setup). Go workspace mode
-// gets confused when validating these placeholders because the public
-// proxy doesn't carry the matching multi-module tags. To work around it,
-// we mirror the materialization the plugin host does at runtime:
+// Tests live under `packages/lint/tests/go-plugin/` as an external Go
+// module — `package lint_test` — so the lint package's source dir
+// stays free of `_test.go` files. The runner mirrors the materialization
+// `packages/ttsc/src/source-build.ts` performs at compile time:
 //
-//   1. Copy go-plugin/* into a scratch tmpdir.
-//   2. Write a go.work that lists every in-tree shim with an *absolute*
-//      `use` path.
+//   1. Copy `tests/go-plugin/` into a scratch tmpdir.
+//   2. Write a go.work that `use`s every in-tree shim, the lint
+//      package itself, and the ttsc package (the latter is required so
+//      Go workspace mode can resolve the multi-module placeholder
+//      versions the shims declare).
 //   3. Run `go test ./...` in the scratch dir.
-//
-// Same shape `packages/ttsc/src/source-build.ts` uses; this script is
-// the test-only equivalent.
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -21,30 +18,53 @@ const os = require("node:os");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const goPluginDir = path.join(root, "packages", "lint", "go-plugin");
+const lintPkgDir = path.join(root, "packages", "lint", "go-plugin");
+const lintTestsDir = path.join(root, "packages", "lint", "tests", "go-plugin");
 const ttscDir = path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 try {
-  // Copy go-plugin source into the scratch dir, skipping go.work files
+  // Copy the test module into the scratch dir, skipping go.work files
   // and the build artifacts cache the way materializeScratchDir does.
   const skip = new Set(["go.work", "go.work.sum", "node_modules"]);
-  fs.cpSync(goPluginDir, scratch, {
+  fs.cpSync(lintTestsDir, scratch, {
     recursive: true,
     filter: (src) => !skip.has(path.basename(src)),
   });
 
-  // Discover every in-tree shim module + ttsc itself. Mirrors
-  // `findTtscOverlayDirs` from packages/ttsc/src/source-build.ts so
-  // workspace resolution sees the same module graph the runtime build
-  // does.
-  const useDirs = [scratch];
+  // Rewrite the dev-mode relative `replace` paths to the *absolute*
+  // in-tree locations the workspace overlay also points at. Without
+  // this rewrite, the relative paths from go.mod resolve outside the
+  // scratch dir and Go reports "conflicting replacements" when both
+  // the go.mod replace and the workspace go.work try to provide the
+  // same module from different directories.
+  rewriteReplacePaths(path.join(scratch, "go.mod"), {
+    "github.com/samchon/ttsc/packages/lint/go-plugin": lintPkgDir,
+    "github.com/microsoft/typescript-go/shim/ast": path.join(ttscDir, "shim", "ast"),
+    "github.com/microsoft/typescript-go/shim/bundled": path.join(ttscDir, "shim", "bundled"),
+    "github.com/microsoft/typescript-go/shim/checker": path.join(ttscDir, "shim", "checker"),
+    "github.com/microsoft/typescript-go/shim/compiler": path.join(ttscDir, "shim", "compiler"),
+    "github.com/microsoft/typescript-go/shim/core": path.join(ttscDir, "shim", "core"),
+    "github.com/microsoft/typescript-go/shim/diagnosticwriter": path.join(ttscDir, "shim", "diagnosticwriter"),
+    "github.com/microsoft/typescript-go/shim/parser": path.join(ttscDir, "shim", "parser"),
+    "github.com/microsoft/typescript-go/shim/scanner": path.join(ttscDir, "shim", "scanner"),
+    "github.com/microsoft/typescript-go/shim/tsoptions": path.join(ttscDir, "shim", "tsoptions"),
+    "github.com/microsoft/typescript-go/shim/tspath": path.join(ttscDir, "shim", "tspath"),
+    "github.com/microsoft/typescript-go/shim/vfs": path.join(ttscDir, "shim", "vfs"),
+    "github.com/microsoft/typescript-go/shim/vfs/cachedvfs": path.join(ttscDir, "shim", "vfs", "cachedvfs"),
+    "github.com/microsoft/typescript-go/shim/vfs/osvfs": path.join(ttscDir, "shim", "vfs", "osvfs"),
+  });
+
+  // Discover every in-tree module the workspace needs to satisfy:
+  //   - the lint package (whose tests we're running),
+  //   - packages/ttsc itself (required for shim resolution),
+  //   - every shim/* under packages/ttsc with a go.mod.
+  const useDirs = [scratch, lintPkgDir];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
     useDirs.push(ttscDir);
   }
-  const shimRoot = path.join(ttscDir, "shim");
-  walkForGoMod(shimRoot, useDirs);
+  walkForGoMod(path.join(ttscDir, "shim"), useDirs);
 
   fs.writeFileSync(
     path.join(scratch, "go.work"),
@@ -69,6 +89,53 @@ try {
   process.exit(result.status ?? 1);
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+}
+
+// rewriteReplacePaths rewrites every `replace foo => <relative>` in a
+// go.mod so the right-hand-side becomes the absolute path supplied via
+// the `targets` map (key: module path). Lines whose target isn't in the
+// map are dropped. Handles both grouped (`replace (...)`) and inline
+// `replace foo => bar` forms.
+function rewriteReplacePaths(goModPath, targets) {
+  if (!fs.existsSync(goModPath)) return;
+  const original = fs.readFileSync(goModPath, "utf8");
+  const lines = original.split(/\r?\n/);
+  const out = [];
+  let inGroup = false;
+  for (const line of lines) {
+    if (inGroup) {
+      if (line.trim() === ")") {
+        inGroup = false;
+        out.push(line);
+        continue;
+      }
+      const m = line.match(/^(\s*)([^\s=]+)\s+=>\s+(\S.*)$/);
+      if (!m) {
+        out.push(line);
+        continue;
+      }
+      const [, indent, name] = m;
+      const target = targets[name];
+      if (!target) continue; // drop unknown
+      out.push(`${indent}${name} => ${target.replace(/\\/g, "/")}`);
+      continue;
+    }
+    if (/^\s*replace\s*\(/.test(line)) {
+      inGroup = true;
+      out.push(line);
+      continue;
+    }
+    const inline = line.match(/^(\s*replace\s+)([^\s=]+)\s+=>\s+(\S.*)$/);
+    if (inline) {
+      const [, prefix, name] = inline;
+      const target = targets[name];
+      if (!target) continue;
+      out.push(`${prefix}${name} => ${target.replace(/\\/g, "/")}`);
+      continue;
+    }
+    out.push(line);
+  }
+  fs.writeFileSync(goModPath, out.join("\n"), "utf8");
 }
 
 function walkForGoMod(dir, out) {

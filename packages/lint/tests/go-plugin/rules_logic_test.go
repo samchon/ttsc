@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestEqeqeq(t *testing.T) {
 	const source = `
@@ -9,7 +13,7 @@ func TestEqeqeq(t *testing.T) {
 		if (a != b) {}
 		if (a === b) {}
 	`
-	assertFindings(t, eqeqeq{}, source, SeverityError, []string{
+	assertFindings(t, "eqeqeq", source, lintpkg.SeverityError, []string{
 		"Expected '===' and instead saw '=='.",
 		"Expected '!==' and instead saw '!='.",
 	})
@@ -22,7 +26,7 @@ func TestUseIsNaN(t *testing.T) {
 		if (NaN !== a) {}
 		if (a === 0) {}
 	`
-	assertFindings(t, useIsnan{}, source, SeverityError, []string{
+	assertFindings(t, "use-isnan", source, lintpkg.SeverityError, []string{
 		"Use the isNaN function to compare with NaN.",
 		"Use the isNaN function to compare with NaN.",
 	})
@@ -36,7 +40,7 @@ func TestValidTypeof(t *testing.T) {
 		if (typeof a === "object") {}
 		if ("nope" === typeof a) {}
 	`
-	assertFindings(t, validTypeof{}, source, SeverityError, []string{
+	assertFindings(t, "valid-typeof", source, lintpkg.SeverityError, []string{
 		"Invalid typeof comparison value.",
 		"Invalid typeof comparison value.",
 	})
@@ -49,7 +53,7 @@ func TestNoCompareNegZero(t *testing.T) {
 		if (-0 < x) {}
 		if (x === 0) {}
 	`
-	assertFindings(t, noCompareNegZero{}, source, SeverityError, []string{
+	assertFindings(t, "no-compare-neg-zero", source, lintpkg.SeverityError, []string{
 		"Do not use the '-0' literal in comparisons.",
 		"Do not use the '-0' literal in comparisons.",
 	})
@@ -62,7 +66,7 @@ func TestNoUnsafeNegation(t *testing.T) {
 		if (!"foo" instanceof Object) {}
 		if (!(x.has)) {}
 	`
-	assertFindings(t, noUnsafeNegation{}, source, SeverityError, []string{
+	assertFindings(t, "no-unsafe-negation", source, lintpkg.SeverityError, []string{
 		"Unexpected negating the left operand of a relational operator.",
 		"Unexpected negating the left operand of a relational operator.",
 	})
@@ -75,7 +79,7 @@ func TestNoCondAssign(t *testing.T) {
 		if ((a = b)) {}
 		while (a = b) {}
 	`
-	assertFindings(t, noCondAssign{}, source, SeverityError, []string{
+	assertFindings(t, "no-cond-assign", source, lintpkg.SeverityError, []string{
 		"Expected a conditional expression and instead saw an assignment.",
 		"Expected a conditional expression and instead saw an assignment.",
 	})
@@ -89,7 +93,7 @@ func TestNoConstantCondition(t *testing.T) {
 		if (someFn()) {}
 		while (true) {}
 	`
-	assertFindings(t, noConstantCondition{}, source, SeverityError, []string{
+	assertFindings(t, "no-constant-condition", source, lintpkg.SeverityError, []string{
 		"Unexpected constant condition.",
 		"Unexpected constant condition.",
 		"Unexpected constant condition.",
@@ -104,7 +108,7 @@ func TestNoExtraBooleanCast(t *testing.T) {
 		!!a;
 		const b = !!a;
 	`
-	assertFindings(t, noExtraBooleanCast{}, source, SeverityError, []string{
+	assertFindings(t, "no-extra-boolean-cast", source, lintpkg.SeverityError, []string{
 		"Redundant double negation.",
 		"Redundant Boolean call.",
 	})

@@ -284,11 +284,11 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
 	return astDiags, lintDiags
 }
 
-// ruleCode hashes a rule name into a stable, positive int32 so the
+// RuleCode hashes a rule name into a stable, positive int32 so the
 // renderer's banner (`TS9123`-style) is unique per rule. Codes start at
 // 9000 to avoid colliding with tsgo's diagnostic codes (which top out
-// well below that range).
-func ruleCode(name string) int32 {
+// well below that range). Public because tests pin the hash band.
+func RuleCode(name string) int32 {
 	const prime = 16777619
 	var h uint32 = 2166136261
 	for i := 0; i < len(name); i++ {
@@ -297,6 +297,10 @@ func ruleCode(name string) int32 {
 	}
 	return int32(9000 + (h % 9000))
 }
+
+// ruleCode is the internal alias kept for callers in the same package
+// that prefer the lowercase form.
+func ruleCode(name string) int32 { return RuleCode(name) }
 
 func resolveCwd(override string) (string, error) {
 	if override != "" {

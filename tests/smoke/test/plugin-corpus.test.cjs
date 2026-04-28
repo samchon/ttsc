@@ -624,14 +624,39 @@ test("plugin corpus: @ttsc/lint surfaces rule violations through the normal fail
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
   });
   assert.notEqual(result.status, 0, "expected lint errors to fail the build");
-  // Error-severity rules show up.
-  assert.match(result.stderr, /\[no-var\]/);
-  assert.match(result.stderr, /\[no-debugger\]/);
-  assert.match(result.stderr, /\[eqeqeq\]/);
-  // Warn-severity rules also render.
-  assert.match(result.stderr, /\[no-explicit-any\]/);
-  assert.match(result.stderr, /\[no-empty-interface\]/);
-  // The "off" rule must NOT fire even though the source contains `x!`.
+
+  // Build the expected diagnostic set from `// expect:` annotations in
+  // the fixture. Every annotation pins (rule, severity) at the next
+  // non-comment, non-blank line — the renderer's `path:line:col` banner
+  // must match the line we annotated.
+  const sourcePath = path.join(root, "src", "main.ts");
+  const expected = parseExpectations(sourcePath);
+  const got = parseDiagnostics(result.stderr, sourcePath);
+
+  // 1. No diagnostic is missing.
+  for (const exp of expected) {
+    const hit = got.find(
+      (g) => g.line === exp.line && g.rule === exp.rule && g.severity === exp.severity,
+    );
+    assert.ok(
+      hit,
+      `expected ${exp.severity} [${exp.rule}] at line ${exp.line}; stderr=\n${result.stderr}`,
+    );
+  }
+
+  // 2. No diagnostic is unexpected.
+  for (const g of got) {
+    const hit = expected.find(
+      (exp) => exp.line === g.line && exp.rule === g.rule && exp.severity === g.severity,
+    );
+    assert.ok(
+      hit,
+      `unexpected ${g.severity} [${g.rule}] at line ${g.line}; not annotated in fixture\n${result.stderr}`,
+    );
+  }
+
+  // 3. The "off" rule never fires (sanity — `probe(x: number | null)`
+  // returns `x!`, which would otherwise trigger no-non-null-assertion).
   assert.doesNotMatch(result.stderr, /\[no-non-null-assertion\]/);
 });
 
@@ -689,6 +714,58 @@ test("plugin corpus: @ttsc/lint reports unknown rule names", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /ignoring unknown rule "made-up-rule"/);
 });
+
+// parseExpectations reads `// expect: <rule> <severity>` annotations and
+// returns the line each one anchors to (the next non-comment, non-blank
+// line after the annotation).
+function parseExpectations(filePath) {
+  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+  const expected = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
+    if (!match) continue;
+    const [, rule, severity] = match;
+    let target = i + 1;
+    while (
+      target < lines.length &&
+      (/^\s*$/.test(lines[target]) || /^\s*\/\//.test(lines[target]))
+    ) {
+      target++;
+    }
+    if (target < lines.length) {
+      expected.push({ rule, severity, line: target + 1 });
+    }
+  }
+  return expected;
+}
+
+// parseDiagnostics turns the renderer's stderr into structured records
+// for the given file. Strips ANSI color escapes before matching since
+// pretty diagnostics are colored when stdout is a TTY.
+//
+// The renderer uses the `path:LINE:COL - <category> TS<code>: <msg>`
+// shape — same one tsgo's `tsc --noEmit` prints.
+function parseDiagnostics(stderr, filePath) {
+  const ansi = /\x1b\[[0-9;]*[A-Za-z]/g;
+  const stripped = stderr.replace(ansi, "");
+  const lines = stripped.split(/\r?\n/);
+  const fileBase = path.basename(filePath).replace(/\./g, "\\.");
+  const banner = new RegExp(
+    `(?:^|[\\s/])[^\\s:]*${fileBase}:(\\d+):(\\d+)\\s+-\\s+(error|warning)\\s+TS\\d+:\\s*\\[([\\w-]+)\\]`,
+  );
+  const out = [];
+  for (const line of lines) {
+    const match = line.match(banner);
+    if (!match) continue;
+    const [, lineNo, , category, rule] = match;
+    out.push({
+      rule,
+      severity: category === "warning" ? "warn" : "error",
+      line: parseInt(lineNo, 10),
+    });
+  }
+  return out;
+}
 
 // setupLintProject copies a project fixture out to a tempdir and seeds a
 // `node_modules/@ttsc/lint` symlink pointing at the workspace package, so

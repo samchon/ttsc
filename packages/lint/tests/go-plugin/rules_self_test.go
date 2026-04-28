@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoSelfAssign(t *testing.T) {
 	const source = `
@@ -10,7 +14,7 @@ func TestNoSelfAssign(t *testing.T) {
 		o.a = o.a;
 		x = 2;
 	`
-	assertFindings(t, noSelfAssign{}, source, SeverityError, []string{
+	assertFindings(t, "no-self-assign", source, lintpkg.SeverityError, []string{
 		"Self-assignment of a variable.",
 		"Self-assignment of a variable.",
 	})
@@ -24,7 +28,7 @@ func TestNoSelfCompare(t *testing.T) {
 		if (a < a) {}
 		if (a === b) {}
 	`
-	assertFindings(t, noSelfCompare{}, source, SeverityError, []string{
+	assertFindings(t, "no-self-compare", source, lintpkg.SeverityError, []string{
 		"Comparing to itself is potentially pointless.",
 		"Comparing to itself is potentially pointless.",
 		"Comparing to itself is potentially pointless.",

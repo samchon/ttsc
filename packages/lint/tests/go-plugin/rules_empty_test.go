@@ -1,6 +1,10 @@
-package lint
+package lint_test
 
-import "testing"
+import (
+	"testing"
+
+	lintpkg "github.com/samchon/ttsc/packages/lint/go-plugin/lint"
+)
 
 func TestNoEmpty(t *testing.T) {
 	// Empty `if` / `try` / `finally` / `while` all fire. Empty
@@ -11,7 +15,7 @@ func TestNoEmpty(t *testing.T) {
 		try {} catch (e) {} finally {}
 		while (1) {}
 	`
-	findings := assertFindings(t, noEmpty{}, source, SeverityError, []string{
+	findings := assertFindings(t, "no-empty", source, lintpkg.SeverityError, []string{
 		"Empty block statement.", // if
 		"Empty block statement.", // try
 		"Empty block statement.", // finally
@@ -28,13 +32,13 @@ func TestNoEmptyAllowsCatch(t *testing.T) {
 	// FORBIDS it. We allow it because that's the most common idiom when
 	// you legitimately want to swallow.
 	const source = `try { x(); } catch (e) {}`
-	assertFindings(t, noEmpty{}, source, SeverityError, nil)
+	assertFindings(t, "no-empty", source, lintpkg.SeverityError, nil)
 }
 
 func TestNoEmptyDoesNotFlagFunctionBody(t *testing.T) {
 	// Empty function body is `no-empty-function`'s territory.
 	const source = `function f() {}`
-	assertFindings(t, noEmpty{}, source, SeverityError, nil)
+	assertFindings(t, "no-empty", source, lintpkg.SeverityError, nil)
 }
 
 func TestNoEmptyFunction(t *testing.T) {
@@ -44,7 +48,7 @@ func TestNoEmptyFunction(t *testing.T) {
 		class A { m() {} get x() {} set x(v: number) {} constructor() {} }
 		const fn = function () {};
 	`
-	findings := assertFindings(t, noEmptyFunction{}, source, SeverityError, []string{
+	findings := assertFindings(t, "no-empty-function", source, lintpkg.SeverityError, []string{
 		"Unexpected empty function.",
 		"Unexpected empty function.",
 		"Unexpected empty function.",
@@ -59,11 +63,11 @@ func TestNoEmptyFunction(t *testing.T) {
 }
 
 func TestNoEmptyPattern(t *testing.T) {
-	assertFindings(t, noEmptyPattern{}, `function f({}: {}) {}`, SeverityError, []string{
+	assertFindings(t, "no-empty-pattern", `function f({}: {}) {}`, lintpkg.SeverityError, []string{
 		"Unexpected empty object pattern.",
 	})
-	assertFindings(t, noEmptyPattern{}, `function g([]: any[]) {}`, SeverityError, []string{
+	assertFindings(t, "no-empty-pattern", `function g([]: any[]) {}`, lintpkg.SeverityError, []string{
 		"Unexpected empty array pattern.",
 	})
-	assertFindings(t, noEmptyPattern{}, `function f({a}: {a: number}) { return a; }`, SeverityError, nil)
+	assertFindings(t, "no-empty-pattern", `function f({a}: {a: number}) { return a; }`, lintpkg.SeverityError, nil)
 }

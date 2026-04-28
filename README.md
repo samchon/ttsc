@@ -6,6 +6,7 @@
 [![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
 [![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
 [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
+[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 A `typescript-go` toolchain for compiler-powered transforms and type-safe execution.
 
@@ -49,8 +50,15 @@ the transform implementation itself runs in Go.
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "typia/lib/transform" },
-      { "transform": "./plugins/another-native-transformer.cjs" }
+      {
+        "transform": "@ttsc/lint",
+        "rules": {
+          "no-var": "error",
+          "no-explicit-any": "warn",
+          "no-non-null-assertion": "off"
+        }
+      },
+      { "transform": "typia/lib/transform" }
     ]
   }
 }
