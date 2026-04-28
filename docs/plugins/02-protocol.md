@@ -154,7 +154,7 @@ Project-wide build. Walk the project, transform every relevant source file, writ
 ### Common flag semantics
 
 - All path flags are **absolute** when `ttsc` invokes them. Don't assume `--cwd` matches `process.cwd()`.
-- Unknown flags should be tolerated silently — `ttsc` may add new optional flags in minor versions. Use a permissive flag parser (Go's `flag.ContinueOnError` with no validation on unknown names is fine).
+- Unknown flags should be tolerated silently — `ttsc` may add new optional flags in minor versions. Go's standard `flag` parser does **not** do this by itself; if your binary uses it, filter unknown flags before parsing or wrap it with a permissive parser.
 - Exit codes: `0` success, `2` for argument/usage errors, anything else for runtime errors. `ttsc` surfaces stderr verbatim to the user.
 
 ### `--rewrite-mode`
@@ -219,7 +219,7 @@ This is how `ttsc` keeps the contract simple: one binary per project, one proces
 
 The protocol version (`contractVersion: 1`) is the contract between `ttsc` and your binary. Within v1:
 
-- `ttsc` may add **new optional flags** to existing subcommands. Plugin binaries must ignore unknown flags.
+- `ttsc` may add **new optional flags** to existing subcommands. Plugin binaries must ignore unknown flags rather than failing argument parsing.
 - `ttsc` may add **new fields** to `--plugins-json` descriptors. Plugin binaries must ignore unknown JSON fields (which Go's `encoding/json` does by default).
 - `ttsc` will **not** rename or remove existing flags or descriptor fields without bumping `contractVersion`.
 

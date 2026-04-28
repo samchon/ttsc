@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/linux-arm64",
   "version": "0.4.4",
-  "description": "Linux arm64 native binary for ttsc.",
+  "description": "Linux arm64 native binary and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["arm64"],
   "scripts": {

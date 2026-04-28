@@ -60,7 +60,14 @@ func RunTransform(args []string) int {
 	cwd := fs.String("cwd", "", "override the working directory")
 	rewriteMode := fs.String("rewrite-mode", "ttsc-lint", "native rewrite backend id (informational)")
 	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(filterKnownFlags(args, map[string]bool{
+		"cwd":          true,
+		"file":         true,
+		"out":          true,
+		"plugins-json": true,
+		"rewrite-mode": true,
+		"tsconfig":     true,
+	})); err != nil {
 		return 2
 	}
 	_ = rewriteMode
@@ -73,7 +80,9 @@ func RunTransform(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, false)
+	prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
+		forceEmit: true,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
 		return 2
@@ -169,7 +178,17 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 	quiet := fs.Bool("quiet", false, "")
 	verbose := fs.Bool("verbose", false, "")
 	outDir := fs.String("outDir", "", "")
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(filterKnownFlags(args, map[string]bool{
+		"cwd":          true,
+		"emit":         false,
+		"noEmit":       false,
+		"outDir":       true,
+		"plugins-json": true,
+		"quiet":        false,
+		"rewrite-mode": true,
+		"tsconfig":     true,
+		"verbose":      false,
+	})); err != nil {
 		return nil, err
 	}
 	if *emit && *noEmit {
@@ -193,7 +212,11 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 }
 
 func runProject(opts *subcommandOpts) int {
-	prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, opts.noEmit)
+	prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
+		forceEmit:   opts.emit,
+		forceNoEmit: opts.noEmit,
+		outDir:      opts.outDir,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
 		return 2
@@ -246,7 +269,10 @@ func loadRules(pluginsJSON string) (RuleConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	entry := FindLintEntry(entries)
+	entry, err := FindLintEntry(entries)
+	if err != nil {
+		return nil, err
+	}
 	if entry == nil {
 		return RuleConfig{}, nil
 	}
@@ -257,6 +283,35 @@ func warnUnknownRules(w io.Writer, unknown []string) {
 	for _, name := range unknown {
 		fmt.Fprintf(w, "@ttsc/lint: ignoring unknown rule %q\n", name)
 	}
+}
+
+func filterKnownFlags(args []string, known map[string]bool) []string {
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			out = append(out, arg)
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		hasValue := strings.Contains(name, "=")
+		if index := strings.Index(name, "="); index >= 0 {
+			name = name[:index]
+		}
+		needsValue, ok := known[name]
+		if !ok {
+			if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				i++
+			}
+			continue
+		}
+		out = append(out, arg)
+		if needsValue && !hasValue && i+1 < len(args) {
+			i++
+			out = append(out, args[i])
+		}
+	}
+	return out
 }
 
 // collectDiagnostics merges tsgo typecheck diagnostics with the lint

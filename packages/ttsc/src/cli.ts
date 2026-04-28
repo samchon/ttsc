@@ -12,6 +12,7 @@ import {
 } from "./api";
 import { installHint, resolveBinary } from "./platform";
 import { resolveProjectConfig, resolveProjectRoot } from "./project";
+import { pluginCacheCleanupTargets } from "./source-build";
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
   try {
@@ -35,6 +36,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         return runCompatibleBuild(rest, false);
       case "check":
         return runCompatibleBuild(rest, true);
+      case "clean":
+        return runClean(rest);
       case "transform":
         return runTransform(rest);
       case "demo":
@@ -99,6 +102,49 @@ function runTransform(argv: readonly string[]): number {
   return 0;
 }
 
+interface CleanInvocation {
+  cwd?: string;
+  tsconfig?: string;
+}
+
+function runClean(argv: readonly string[]): number {
+  const options = parseCleanArgs(argv);
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
+  const targets = pluginCacheCleanupTargets(projectRoot);
+  const removed: string[] = [];
+  for (const target of targets) {
+    if (!fs.existsSync(target)) continue;
+    fs.rmSync(target, { recursive: true, force: true });
+    removed.push(target);
+  }
+  if (removed.length === 0) {
+    process.stdout.write(`ttsc: no cache directories found under ${projectRoot}\n`);
+    return 0;
+  }
+  for (const target of removed) {
+    process.stdout.write(`ttsc: removed ${formatCleanPath(cwd, target)}\n`);
+  }
+  return 0;
+}
+
+function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
+  try {
+    return path.dirname(resolveProjectConfig({ cwd, tsconfig }));
+  } catch (error) {
+    if (tsconfig) throw error;
+    return cwd;
+  }
+}
+
+function formatCleanPath(cwd: string, target: string): string {
+  const relative = path.relative(cwd, target);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return target;
+  }
+  return relative;
+}
+
 function delegateToNative(argv: readonly string[]): number {
   const bin = resolveBinary();
   if (!bin) {
@@ -120,6 +166,38 @@ function delegateToNative(argv: readonly string[]): number {
     return 1;
   }
   return result.status ?? 1;
+}
+
+function parseCleanArgs(argv: readonly string[]): CleanInvocation {
+  let cwd: string | undefined;
+  let tsconfig: string | undefined;
+
+  const rest = [...argv];
+  while (rest.length !== 0) {
+    const current = rest.shift()!;
+    switch (current) {
+      case "--cwd":
+        cwd = takeValue(current, rest);
+        break;
+      case "-p":
+      case "--tsconfig":
+      case "--project":
+        tsconfig = takeValue(current, rest);
+        break;
+      default:
+        if (current.startsWith("--cwd=")) {
+          cwd = current.slice("--cwd=".length);
+        } else if (current.startsWith("--tsconfig=")) {
+          tsconfig = current.slice("--tsconfig=".length);
+        } else if (current.startsWith("--project=")) {
+          tsconfig = current.slice("--project=".length);
+        } else {
+          throw new Error(`ttsc: unknown option ${current}`);
+        }
+        break;
+    }
+  }
+  return { cwd, tsconfig };
 }
 
 function parseBuildArgs(
@@ -298,6 +376,7 @@ function printHelp(): void {
       "  ttsc -p tsconfig.json",
       "  ttsc --watch",
       "  ttsc --noEmit",
+      "  ttsc clean [options]",
       "  ttsc transform --file <path> [options]",
       "  ttsc version",
       "  ttsc --help",
@@ -325,6 +404,7 @@ function printHelp(): void {
       "Compatibility aliases:",
       "  ttsc build [options]       Same project build lane as `ttsc [options]`.",
       "  ttsc check [options]       Same as `ttsc --noEmit [options]`.",
+      "  ttsc clean [options]       Delete local source-plugin cache directories.",
     ].join("\n"),
   );
   process.stdout.write("\n");

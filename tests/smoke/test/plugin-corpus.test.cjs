@@ -385,6 +385,24 @@ test("plugin corpus: source plugin build failure reports Go compiler stderr", ()
   );
 });
 
+test("plugin corpus: source plugins build with the bundled Go compiler", () => {
+  const root = copyProject("go-source-plugin");
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: "/nonexistent",
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-source-plugin-bundled-go-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /"PLUGIN"/,
+  );
+});
+
 test("plugin corpus: missing Go toolchain points users at the install hint", () => {
   const root = copyProject("go-source-plugin");
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
@@ -675,6 +693,214 @@ test("plugin corpus: @ttsc/lint clean project exits zero", () => {
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
   });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("plugin corpus: @ttsc/lint honors --emit and --outDir overrides", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        noEmit: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [
+          {
+            transform: "@ttsc/lint",
+            rules: {},
+          },
+        ],
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "lint-outdir";\n`,
+  );
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-outdir-"),
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit", "--outDir", "custom"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(path.join(root, "custom", "main.js")), true);
+  assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
+});
+
+test("plugin corpus: @ttsc/lint ignores future optional flags", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [{ transform: "@ttsc/lint", rules: {} }],
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "future-flag";\n`,
+  );
+
+  const ttscPackage = path.join(workspaceRoot, "packages", "ttsc");
+  const { loadProjectPlugins } = require(ttscPackage);
+  const previousPath = process.env.PATH;
+  const previousCacheDir = process.env.TTSC_CACHE_DIR;
+  process.env.PATH = goPath();
+  process.env.TTSC_CACHE_DIR = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-future-flag-"),
+  );
+  let loaded;
+  try {
+    loaded = loadProjectPlugins({
+      binary: nativeBinary,
+      cwd: root,
+      tsconfig: path.join(root, "tsconfig.json"),
+    });
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousCacheDir === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previousCacheDir;
+    }
+  }
+  assert.equal(typeof loaded.nativeBinary, "string");
+  const pluginsJson = JSON.stringify(
+    loaded.nativePlugins.map((plugin) => ({
+      config: plugin.config,
+      contractVersion: plugin.backend.contractVersion,
+      mode: plugin.backend.mode,
+      name: plugin.name,
+    })),
+  );
+
+  const result = spawn(
+    loaded.nativeBinary,
+    [
+      "check",
+      "--cwd",
+      root,
+      "--tsconfig",
+      path.join(root, "tsconfig.json"),
+      "--plugins-json",
+      pluginsJson,
+      "--future-optional-flag",
+      "ignored-value",
+    ],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary cache", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "cache-options";\n`,
+  );
+  const writeConfig = (rules) => {
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          outDir: "dist",
+          rootDir: "src",
+          plugins: [{ transform: "@ttsc/lint", rules }],
+        },
+        include: ["src"],
+      }),
+    );
+  };
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-cache-options-"),
+  );
+  const env = { PATH: goPath(), TTSC_CACHE_DIR: cacheDir };
+
+  writeConfig({ "no-var": "error" });
+  const first = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env,
+  });
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stderr, /building source plugin "@ttsc\/lint"/);
+
+  writeConfig({ "no-explicit-any": "warn", "prefer-template": "warn" });
+  const second = spawn(ttscBin, ["--cwd", root, "--emit", "--outDir", "custom"], {
+    cwd: root,
+    env,
+  });
+  assert.equal(second.status, 0, second.stderr);
+  assert.doesNotMatch(second.stderr, /building source plugin "@ttsc\/lint"/);
+  assert.equal(fs.existsSync(path.join(root, "custom", "main.js")), true);
+
+  const pluginCache = path.join(cacheDir, "plugins");
+  const entries = fs
+    .readdirSync(pluginCache, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"));
+  assert.equal(entries.length, 1);
+});
+
+test("plugin corpus: source plugin default cache is project-local under node_modules", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "local-cache";\n`,
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [{ transform: "@ttsc/lint", rules: { "no-var": "error" } }],
+      },
+      include: ["src"],
+    }),
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath() },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /building source plugin "@ttsc\/lint"/);
+
+  const pluginCache = path.join(root, "node_modules", ".ttsc", "plugins");
+  const entries = fs
+    .readdirSync(pluginCache, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"));
+  assert.equal(entries.length, 1);
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        pluginCache,
+        entries[0].name,
+        process.platform === "win32" ? "plugin.exe" : "plugin",
+      ),
+    ),
+    true,
+  );
+  assert.equal(fs.existsSync(path.join(root, ".ttsc")), false);
 });
 
 test("plugin corpus: @ttsc/lint reports unknown rule names", () => {

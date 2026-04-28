@@ -104,7 +104,9 @@ For context (so you know what to test for):
 
 1. `npm i -D your-plugin` puts your tarball under `node_modules/your-plugin/`.
 2. The consumer adds `{ "transform": "your-plugin" }` to `compilerOptions.plugins`.
-3. The first `npx ttsc` invocation reads your `plugin.cjs`, hashes your Go source, and runs `go build` against `ttsc`'s pinned shim. Cold-cache time: depends mostly on Go's module cache state on the consumer's machine. With a warm Go cache, plugin build is usually under 5 seconds. Cold first-ever Go cache: tens of seconds (Go is downloading `typescript-go`).
-4. The compiled binary lands in `~/.cache/ttsc/plugins/<sha>/plugin` and is reused on subsequent invocations.
+3. The first `npx ttsc` invocation reads your `plugin.cjs`, hashes your Go source, and runs `go build` with `ttsc`'s bundled Go compiler against `ttsc`'s pinned shim.
+4. The compiled binary lands in `node_modules/.ttsc/plugins/<sha>/plugin` (or `.ttsc/plugins/<sha>/plugin` when the project has no `node_modules/`) and is reused on subsequent invocations.
 
 If your tarball is missing `go-plugin/`, step 3 fails immediately with `native.source.dir does not exist`. That's the single biggest pre-publish thing to verify.
+
+During plugin development, `npx ttsc clean` removes those cached binaries so the next `npx ttsc` run starts cold.

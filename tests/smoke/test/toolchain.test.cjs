@@ -325,6 +325,33 @@ test("ttsx runs an ESM TypeScript entry through the emitted project path", () =>
   assert.equal(result.stdout.trim(), "esm-runner-ok");
 });
 
+test("ttsx rewrites extensionless ESM side-effect imports", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ type: "module" }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/setup.ts": `
+      export {};
+      declare global { var __ttsxSideEffect: string | undefined; }
+      globalThis.__ttsxSideEffect = "side-effect-import-ok";
+    `,
+    "src/main.ts": `import "./setup";\nconsole.log(globalThis.__ttsxSideEffect);\n`,
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "side-effect-import-ok");
+});
+
 test("ttsx runs an .mts entry and resolves emitted .mjs imports", () => {
   const root = createProject({
     "package.json": JSON.stringify({ type: "module" }),

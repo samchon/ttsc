@@ -15,10 +15,11 @@ This guide stays at the source-text level. Once you have it working, [03-tsgo.md
 ## Prerequisites
 
 - Node.js ≥ 18
-- Go ≥ 1.26 (`go version` should print something)
+- A normal `ttsc` install with its bundled Go compiler
+- Optional: Go ≥ 1.26 if you want to run `go test` or `go build` directly while developing the plugin
 - An empty workspace where you can scaffold a new package
 
-> The Go toolchain is needed *on the consumer's machine*, not on yours, but it's needed on yours too if you want to test locally.
+> Consumers do not need to install Go separately. `ttsc` uses its bundled compiler when it builds your source plugin.
 
 ## Project layout
 

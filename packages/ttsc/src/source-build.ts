@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
-import * as os from "node:os";
+import { createRequire } from "node:module";
 import * as path from "node:path";
 
 import type { TtscNativeSource } from "./native";
@@ -30,7 +30,8 @@ export function buildSourcePlugin(opts: BuildSourcePluginOptions): string {
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
-  const cacheDir = path.join(cacheRoot(), key);
+  const root = resolvePluginCacheRoot(opts.baseDir);
+  const cacheDir = path.join(root, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
   if (fs.existsSync(binaryPath)) {
@@ -42,7 +43,7 @@ export function buildSourcePlugin(opts: BuildSourcePluginOptions): string {
   );
 
   const scratchDir = path.join(
-    cacheRoot(),
+    root,
     `scratch-${key}-${process.pid}-${Date.now()}`,
   );
   try {
@@ -95,7 +96,7 @@ function runGoBuild(
     {
       cwd,
       encoding: "utf8",
-      env: process.env,
+      env: goBuildEnv(goBinary),
       maxBuffer: 1024 * 1024 * 64,
       windowsHide: true,
     },
@@ -104,7 +105,8 @@ function runGoBuild(
     if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
       throw new Error(
         `ttsc: building plugin "${pluginName}" failed because the Go toolchain was not found. ` +
-          `Install Go (https://go.dev/dl/) or set TTSC_GO_BINARY to an absolute path.`,
+          `Reinstall ttsc with optional dependencies so the bundled Go compiler is present, ` +
+          `or set TTSC_GO_BINARY to an absolute path.`,
       );
     }
     throw new Error(
@@ -116,6 +118,41 @@ function runGoBuild(
       `ttsc: building plugin "${pluginName}" via "go build" failed:\n${result.stderr || result.stdout}`,
     );
   }
+}
+
+function goBuildEnv(goBinary: string): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  const goRoot = inferGoRoot(goBinary);
+  if (goRoot && !env.GOROOT) {
+    env.GOROOT = goRoot;
+  }
+  return env;
+}
+
+function inferGoRoot(goBinary: string): string | null {
+  if (!path.isAbsolute(goBinary)) return null;
+  const binDir = path.dirname(goBinary);
+  if (path.basename(binDir) !== "bin") return null;
+  const goRoot = path.dirname(binDir);
+  return fs.existsSync(path.join(goRoot, "src", "runtime")) ? goRoot : null;
+}
+
+export interface ResolveGoBinaryOptions {
+  arch?: string;
+  env?: NodeJS.ProcessEnv;
+  localGoLookup?: () => string | null;
+  platform?: NodeJS.Platform;
+  resolver?: (request: string) => string;
+}
+
+export function goBinaryName(opts: ResolveGoBinaryOptions = {}): string {
+  return (opts.platform ?? process.platform) === "win32" ? "go.exe" : "go";
+}
+
+export function bundledGoPackageRequest(
+  opts: ResolveGoBinaryOptions = {},
+): string {
+  return `@ttsc/${goPlatformKey(opts)}/bin/go/bin/${goBinaryName(opts)}`;
 }
 
 let cachedOverlayDirs: readonly string[] | null = null;
@@ -161,19 +198,87 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
 }
 
-function cacheRoot(): string {
+export function resolvePluginCacheRoot(projectRoot: string): string {
   if (process.env.TTSC_CACHE_DIR) {
     return path.resolve(process.env.TTSC_CACHE_DIR, "plugins");
   }
-  const xdg = process.env.XDG_CACHE_HOME;
-  if (xdg) return path.join(xdg, "ttsc", "plugins");
-  return path.join(os.homedir(), ".cache", "ttsc", "plugins");
+  return resolveDefaultPluginCacheRoot(projectRoot);
+}
+
+export function resolveDefaultPluginCacheRoot(projectRoot: string): string {
+  const root = path.resolve(projectRoot);
+  const nodeModules = path.join(root, "node_modules");
+  if (isDirectory(nodeModules)) {
+    return path.join(nodeModules, ".ttsc", "plugins");
+  }
+  return path.join(root, ".ttsc", "plugins");
+}
+
+export function pluginCacheCleanupTargets(projectRoot: string): string[] {
+  const root = path.resolve(projectRoot);
+  const targets = [
+    path.join(root, "node_modules", ".ttsc"),
+    path.join(root, ".ttsc"),
+  ];
+  if (process.env.TTSC_CACHE_DIR) {
+    targets.push(path.resolve(process.env.TTSC_CACHE_DIR, "plugins"));
+  }
+  return [...new Set(targets)];
+}
+
+function isDirectory(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function resolveGoBinary(): string {
-  const explicit = process.env.TTSC_GO_BINARY;
+  return resolveGoCompiler();
+}
+
+export function resolveGoCompiler(
+  opts: ResolveGoBinaryOptions = {},
+): string {
+  const env = opts.env ?? process.env;
+  const explicit = env.TTSC_GO_BINARY;
   if (explicit && explicit.length > 0) return explicit;
+
+  const resolver =
+    opts.resolver ??
+    ((request: string) => createRequire(__filename).resolve(request));
+  try {
+    return resolver(bundledGoPackageRequest(opts));
+  } catch {
+    /* fall through */
+  }
+
+  if (opts.localGoLookup) {
+    const local = opts.localGoLookup();
+    if (local) return local;
+  } else {
+    const local = defaultLocalGoBinaryPath(opts);
+    if (local) return local;
+  }
+
   return "go";
+}
+
+function defaultLocalGoBinaryPath(opts: ResolveGoBinaryOptions): string | null {
+  const candidate = path.resolve(
+    __dirname,
+    "..",
+    "native",
+    "go",
+    "bin",
+    goBinaryName(opts),
+  );
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+function goPlatformKey(opts: ResolveGoBinaryOptions = {}): string {
+  return `${opts.platform ?? process.platform}-${opts.arch ?? process.arch}`;
 }
 
 interface KeyInputs {

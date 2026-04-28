@@ -35,15 +35,13 @@ func (s Severity) String() string {
 // including `rules` for `@ttsc/lint`. `Mode` and `Name` come from the
 // native descriptor.
 type PluginEntry struct {
-	Config         map[string]any `json:"config"`
-	ContractVersion int           `json:"contractVersion"`
-	Mode           string         `json:"mode"`
-	Name           string         `json:"name"`
+	Config          map[string]any `json:"config"`
+	ContractVersion int            `json:"contractVersion"`
+	Mode            string         `json:"mode"`
+	Name            string         `json:"name"`
 }
 
-// ParsePlugins decodes the `--plugins-json` payload. Returns the slice of
-// entries (the lint plugin always sits at length-1 today, but the format
-// supports ordered pipelines).
+// ParsePlugins decodes the `--plugins-json` payload.
 func ParsePlugins(text string) ([]PluginEntry, error) {
 	if strings.TrimSpace(text) == "" {
 		return nil, nil
@@ -55,16 +53,19 @@ func ParsePlugins(text string) ([]PluginEntry, error) {
 	return entries, nil
 }
 
-// FindLintEntry returns the first entry that matches the lint mode. Lint
-// plugins never collide because every entry's mode is unique within a
-// project.
-func FindLintEntry(entries []PluginEntry) *PluginEntry {
+// FindLintEntry returns the lint entry only when it is the first active
+// plugin. Linting after a source-transforming plugin would inspect mutated
+// source, which is not a meaningful user-code lint result.
+func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 	for i := range entries {
 		if entries[i].Mode == "ttsc-lint" {
-			return &entries[i]
+			if i != 0 {
+				return nil, fmt.Errorf("@ttsc/lint must be the first active compilerOptions.plugins entry")
+			}
+			return &entries[i], nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // RuleConfig captures the resolved per-rule severity. The map is keyed by

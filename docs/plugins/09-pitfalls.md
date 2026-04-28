@@ -143,7 +143,7 @@ You edited a file in `go-plugin/` and re-ran `ttsc`, but stderr doesn't show the
 
 **Fix.** If your plugin needs to read a runtime data file, embed it via `//go:embed` so it's part of the binary. The compiled binary is cache-key-invalidated on Go source change, so the embedded data updates with it.
 
-If you really need cache invalidation on a non-source file, set `TTSC_CACHE_DIR` to a fresh dir for the run, or `rm -rf ~/.cache/ttsc/plugins/`.
+If you really need cache invalidation on a non-source file, run `npx ttsc clean`, or set `TTSC_CACHE_DIR` to a fresh dir for the run.
 
 ---
 

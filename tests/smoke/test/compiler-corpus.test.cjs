@@ -151,6 +151,35 @@ const compilerProjects = [
       assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
     },
   },
+  {
+    name: "clean removes local source plugin cache directories",
+    root: () =>
+      commonJsProject({
+        "src/main.ts": `export const value = "clean";\n`,
+      }),
+    run(root) {
+      const override = path.join(root, "override-cache");
+      for (const target of [
+        path.join(root, "node_modules", ".ttsc", "plugins", "a"),
+        path.join(root, ".ttsc", "plugins", "b"),
+        path.join(override, "plugins", "c"),
+      ]) {
+        fs.mkdirSync(target, { recursive: true });
+        fs.writeFileSync(path.join(target, "plugin"), "binary", "utf8");
+      }
+
+      const result = spawn(ttscBin, ["clean", "--cwd", root], {
+        cwd: root,
+        env: { TTSC_CACHE_DIR: override },
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /removed node_modules[/\\]\.ttsc/);
+      assert.match(result.stdout, /removed \.ttsc/);
+      assert.equal(fs.existsSync(path.join(root, "node_modules", ".ttsc")), false);
+      assert.equal(fs.existsSync(path.join(root, ".ttsc")), false);
+      assert.equal(fs.existsSync(path.join(override, "plugins")), false);
+    },
+  },
 ];
 
 for (const project of compilerProjects) {
