@@ -614,6 +614,101 @@ test("plugin corpus: nonexistent native.source.dir produces a clear error", () =
   assert.match(result.stderr, /native\.source\.dir does not exist/);
 });
 
+test("plugin corpus: @ttsc/lint surfaces rule violations through the normal failure path", () => {
+  const root = setupLintProject("lint-violations");
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-violations-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.notEqual(result.status, 0, "expected lint errors to fail the build");
+  // Error-severity rules show up.
+  assert.match(result.stderr, /\[no-var\]/);
+  assert.match(result.stderr, /\[no-debugger\]/);
+  assert.match(result.stderr, /\[eqeqeq\]/);
+  // Warn-severity rules also render.
+  assert.match(result.stderr, /\[no-explicit-any\]/);
+  assert.match(result.stderr, /\[no-empty-interface\]/);
+  // The "off" rule must NOT fire even though the source contains `x!`.
+  assert.doesNotMatch(result.stderr, /\[no-non-null-assertion\]/);
+});
+
+test("plugin corpus: @ttsc/lint clean project exits zero", () => {
+  const root = setupLintProject("lint-violations");
+  // Replace the violating source with a clean file.
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "hi";\nconst _value: number = value.length;\nvoid _value;\n`,
+  );
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-clean-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("plugin corpus: @ttsc/lint reports unknown rule names", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [
+          {
+            transform: "@ttsc/lint",
+            rules: {
+              "made-up-rule": "error",
+            },
+          },
+        ],
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value: string = "ok";\n`,
+  );
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-lint-unknown-"),
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /ignoring unknown rule "made-up-rule"/);
+});
+
+// setupLintProject copies a project fixture out to a tempdir and seeds a
+// `node_modules/@ttsc/lint` symlink pointing at the workspace package, so
+// `require("@ttsc/lint")` resolves the same way it would for a published
+// install. Using a real symlink (instead of writing a relay file) keeps the
+// plugin's `__dirname` pointed at the workspace go-plugin source dir.
+function setupLintProject(name) {
+  const root = copyProject(name);
+  const linkDir = path.join(root, "node_modules", "@ttsc");
+  fs.mkdirSync(linkDir, { recursive: true });
+  const target = path.join(workspaceRoot, "packages", "lint");
+  const link = path.join(linkDir, "lint");
+  try {
+    fs.symlinkSync(target, link, "junction");
+  } catch (err) {
+    if (err.code !== "EEXIST") throw err;
+  }
+  return root;
+}
+
 function buildGoTransformer() {
   const root = path.join(workspaceRoot, "tests", "go-transformer");
   const output = path.join(

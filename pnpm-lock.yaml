@@ -36,6 +36,8 @@ importers:
 
   config: {}
 
+  packages/lint: {}
+
   packages/ttsc:
     devDependencies:
       '@types/node':
