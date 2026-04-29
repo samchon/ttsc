@@ -82,6 +82,10 @@ Field rules:
 
 Use only these capability strings. Unknown strings are not a public extension point.
 
+Projects can enable multiple plugin entries. `["check"]` entries run before emit and can be combined with a compiler backend. `["output"]` entries run after TypeScript-Go's normal emit path in tsconfig plugin order.
+
+The compiler backend role is exclusive. A build cannot chain two separate binaries that both own Program creation and emit. To compose several compiler-backend modes, make them resolve to the same native binary and dispatch inside that binary by the ordered `--plugins-json` payload.
+
 ## Disabled Entries
 
 `enabled: false` disables a plugin entry before loading:
@@ -167,7 +171,7 @@ Post-emit edit. Read `--file`, rewrite it in place, or write `--out` if the host
 
 ## `--plugins-json`
 
-`--plugins-json` is an ordered JSON array of active plugin descriptors:
+`--plugins-json` is an ordered JSON array of plugin descriptors for the current command:
 
 ```json
 [
@@ -186,7 +190,7 @@ Post-emit edit. Read `--file`, rewrite it in place, or write `--out` if the host
 
 `config` is the original tsconfig plugin entry. Read your user options there.
 
-When multiple entries resolve to the same binary, `ttsc` sends them together in source order. Apply them in order if your plugin supports a pipeline.
+When multiple entries resolve to the same binary, `ttsc` sends them together in tsconfig plugin order. Apply them in order if your plugin supports a pipeline.
 
 ## Exit and Output
 
