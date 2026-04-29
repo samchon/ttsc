@@ -13,6 +13,7 @@ type SignatureKind = innerchecker.SignatureKind
 type Type = innerchecker.Type
 type TypeFlags = innerchecker.TypeFlags
 type ObjectFlags = innerchecker.ObjectFlags
+type ElementFlags = innerchecker.ElementFlags
 
 const (
 	SignatureKindCall = innerchecker.SignatureKindCall
@@ -38,7 +39,16 @@ const (
 	TypeFlagsBigIntLike      = innerchecker.TypeFlagsBigIntLike
 	TypeFlagsBooleanLike     = innerchecker.TypeFlagsBooleanLike
 
-	ObjectFlagsReference = innerchecker.ObjectFlagsReference
+	ObjectFlagsReference        = innerchecker.ObjectFlagsReference
+	ObjectFlagsClass            = innerchecker.ObjectFlagsClass
+	ObjectFlagsInterface        = innerchecker.ObjectFlagsInterface
+	ObjectFlagsClassOrInterface = innerchecker.ObjectFlagsClassOrInterface
+
+	ElementFlagsNone     = innerchecker.ElementFlagsNone
+	ElementFlagsRequired = innerchecker.ElementFlagsRequired
+	ElementFlagsOptional = innerchecker.ElementFlagsOptional
+	ElementFlagsRest     = innerchecker.ElementFlagsRest
+	ElementFlagsVariadic = innerchecker.ElementFlagsVariadic
 )
 
 func IsTupleType(t *innerchecker.Type) bool {
@@ -143,4 +153,14 @@ func checkerIsArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool
 
 func Checker_isArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool {
 	return checkerIsArrayType(recv, t)
+}
+
+//go:linkname checkerGetBaseTypes github.com/microsoft/typescript-go/internal/checker.(*Checker).getBaseTypes
+func checkerGetBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type
+
+func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type {
+	if recv == nil || t == nil {
+		return nil
+	}
+	return checkerGetBaseTypes(recv, t)
 }

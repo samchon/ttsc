@@ -37,6 +37,8 @@ type TypeElementList = innerast.TypeElementList
 type Statement = innerast.Statement
 type Expression = innerast.Expression
 type TypeNode = innerast.TypeNode
+type TypePredicateParameterName = innerast.TypePredicateParameterName
+type AssertsKeyword = innerast.AssertsKeyword
 type BindingName = innerast.BindingName
 type BinaryOperatorToken = innerast.BinaryOperatorToken
 type PropertyName = innerast.PropertyName
@@ -147,6 +149,7 @@ const (
 	KindFunctionDeclaration           = innerast.KindFunctionDeclaration
 	KindMinusToken                    = innerast.KindMinusToken
 	KindQuestionDotToken              = innerast.KindQuestionDotToken
+	KindAssertsKeyword                = innerast.KindAssertsKeyword
 	KindEqualsGreaterThanToken        = innerast.KindEqualsGreaterThanToken
 
 	NodeFlagsOptionalChain = innerast.NodeFlagsOptionalChain
@@ -157,6 +160,10 @@ const (
 	SymbolFlagsAlias     = innerast.SymbolFlagsAlias
 	SymbolFlagsType      = innerast.SymbolFlagsType
 	SymbolFlagsNamespace = innerast.SymbolFlagsNamespace
+
+	ModifierFlagsPrivate   = innerast.ModifierFlagsPrivate
+	ModifierFlagsProtected = innerast.ModifierFlagsProtected
+	ModifierFlagsReadonly  = innerast.ModifierFlagsReadonly
 )
 
 func NewNodeFactory(hooks NodeFactoryHooks) *NodeFactory {
