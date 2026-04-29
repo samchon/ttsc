@@ -6,6 +6,7 @@
 [![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
 [![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
 [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
+[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 A `typescript-go` toolchain for compiler-powered transforms and type-safe execution.
@@ -142,15 +143,17 @@ It is transformed into dedicated JavaScript:
 
 `ttsc` ships a few small utility plugins in this repository.
 
-- [`{ "transform": "@ttsc/banner", ... }`](https://github.com/samchon/ttsc/tree/master/packages/banner)
-- [`{ "transform": "@ttsc/lint", ... }`](https://github.com/samchon/ttsc/tree/master/packages/lint)
-- [`{ "transform": "@ttsc/paths" }`](https://github.com/samchon/ttsc/tree/master/packages/paths)
-- [`{ "transform": "@ttsc/strip", ... }`](https://github.com/samchon/ttsc/tree/master/packages/strip)
+- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds banner comments to emitted JS and declarations.
+- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): fails compilation on lint violations.
+- [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites path aliases in emitted imports.
+- [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
+
+Plugin authors should start from the [`Guide Documents`](https://github.com/samchon/ttsc/tree/master/docs).
 
 Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
 
-- [`{ "transform": "@nestia/core/lib/transform" }`](https://github.com/samchon/nestia)
-- [`{ "transform": "typia/lib/transform" }`](https://github.com/samchon/typia)
+- [`@nestia/core`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
+- [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
 
 ## References
 
