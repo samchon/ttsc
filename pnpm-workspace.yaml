@@ -4,7 +4,7 @@ packages:
   - 'tests/*'
 catalogs:
   tsgo:
-    '@typescript/native-preview': 7.0.0-dev.20260428.1
+    '@typescript/native-preview': 7.0.0-dev.20260429.1
   utils:
     '@types/node': ^25.3.0
     rimraf: ^6.1.2
