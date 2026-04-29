@@ -14,41 +14,57 @@ const {
   workspaceRoot,
 } = require("./_helpers.cjs");
 
-const firstPartyPackages = ["lint", "banner", "paths", "strip"];
+const utilityPackages = ["lint", "banner", "paths", "strip"];
 
-test("first-party plugins: descriptors share one native source host", () => {
-  const lintFactory = require(path.join(workspaceRoot, "packages", "lint"));
-  const sharedDir = lintFactory({}, {}).native.source.dir;
+test("utility plugins: descriptors own separate native source directories", () => {
   const expectations = {
+    lint: ["ttsc-lint", ["check"]],
     banner: "ttsc-banner",
     paths: "ttsc-paths",
     strip: "ttsc-strip",
   };
-  for (const [name, mode] of Object.entries(expectations)) {
+  const seenDirs = new Set();
+  for (const [name, expectation] of Object.entries(expectations)) {
+    const [mode, capabilities] = Array.isArray(expectation)
+      ? expectation
+      : [expectation, ["output"]];
     const factory = require(path.join(workspaceRoot, "packages", name));
     const descriptor = factory({}, {});
     assert.equal(descriptor.name, `@ttsc/${name}`);
     assert.equal(descriptor.native.mode, mode);
     assert.equal(descriptor.native.contractVersion, 1);
-    assert.equal(descriptor.native.source.dir, sharedDir);
+    assert.deepEqual(descriptor.native.capabilities, capabilities);
+    assert.equal(
+      descriptor.native.source.dir,
+      path.join(workspaceRoot, "packages", name, "go-plugin"),
+    );
+    assert.equal(
+      fs.existsSync(path.join(descriptor.native.source.dir, "go.mod")),
+      true,
+    );
+    seenDirs.add(descriptor.native.source.dir);
   }
+  assert.equal(seenDirs.size, 4);
 });
 
-test("first-party plugins: lint, banner, paths, and strip run together in ttsc build", () => {
-  const root = copyProject("first-party-plugins");
-  seedFirstPartyPackages(root);
+test("utility plugins: lint, banner, paths, and strip run together in ttsc build", () => {
+  const root = copyProject("utility-plugins");
+  seedUtilityPackages(root);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-combo-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-combo-")),
     },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /building source plugin "@ttsc\/lint"/);
+  assert.match(result.stderr, /building source plugin "@ttsc\/banner"/);
+  assert.match(result.stderr, /building source plugin "@ttsc\/paths"/);
+  assert.match(result.stderr, /building source plugin "@ttsc\/strip"/);
 
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
-  assert.match(js, /^\/\*! first-party combo \*\//);
+  assert.match(js, /^\/\*! utility combo \*\//);
   assert.match(js, /require\("\.\/modules\/join\.js"\)/);
   assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /console\.(?:log|debug)/);
@@ -60,7 +76,45 @@ test("first-party plugins: lint, banner, paths, and strip run together in ttsc b
   assert.equal(run.stdout.trim(), "hello:ok");
 });
 
-test("first-party plugins: banner prepends JavaScript and declaration outputs", () => {
+test("utility plugins: output plugins run sequentially in ttsc transform", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `console.log("drop");\nexport const value: string = "transform";\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            banner: "/*! transform banner */",
+          },
+          {
+            transform: "@ttsc/strip",
+            calls: ["console.log"],
+          },
+        ],
+      },
+    },
+  );
+  seedUtilityPackages(root, ["banner", "strip"]);
+  const result = spawn(
+    ttscBin,
+    ["transform", "--cwd", root, "--file", "src/main.ts"],
+    {
+      cwd: root,
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-transform-")),
+      },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^\/\*! transform banner \*\//);
+  assert.doesNotMatch(result.stdout, /console\.log/);
+  assert.match(result.stdout, /"transform"/);
+});
+
+test("utility plugins: banner prepends JavaScript and declaration outputs", () => {
   const root = commonJsProject(
     {
       "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
@@ -77,12 +131,12 @@ test("first-party plugins: banner prepends JavaScript and declaration outputs", 
       },
     },
   );
-  seedFirstPartyPackages(root, ["lint", "banner"]);
+  seedUtilityPackages(root, ["banner"]);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-banner-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-banner-")),
     },
   });
   assert.equal(result.status, 0, result.stderr);
@@ -90,7 +144,7 @@ test("first-party plugins: banner prepends JavaScript and declaration outputs", 
   assert.match(fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8"), /^\/\*! banner-only \*\//);
 });
 
-test("first-party plugins: paths rewrites ESM imports and re-exports", () => {
+test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -123,12 +177,12 @@ test("first-party plugins: paths rewrites ESM imports and re-exports", () => {
       ``,
     ].join("\n"),
   });
-  seedFirstPartyPackages(root, ["lint", "paths"]);
+  seedUtilityPackages(root, ["paths"]);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-paths-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-paths-")),
     },
   });
   assert.equal(result.status, 0, result.stderr);
@@ -144,7 +198,7 @@ test("first-party plugins: paths rewrites ESM imports and re-exports", () => {
   assert.doesNotMatch(dts, /@lib\/message/);
 });
 
-test("first-party plugins: strip removes configured calls and debugger statements", () => {
+test("utility plugins: strip removes configured calls and debugger statements", () => {
   const root = commonJsProject(
     {
       "src/main.ts": `const assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\n`,
@@ -161,12 +215,12 @@ test("first-party plugins: strip removes configured calls and debugger statement
       },
     },
   );
-  seedFirstPartyPackages(root, ["lint", "strip"]);
+  seedUtilityPackages(root, ["strip"]);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-first-party-strip-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-strip-")),
     },
   });
   assert.equal(result.status, 0, result.stderr);
@@ -180,7 +234,7 @@ test("first-party plugins: strip removes configured calls and debugger statement
   assert.equal(run.stdout.trim(), "kept");
 });
 
-function seedFirstPartyPackages(root, names = firstPartyPackages) {
+function seedUtilityPackages(root, names = utilityPackages) {
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
   for (const name of names) {

@@ -53,6 +53,7 @@ export interface LoadedNativePlugin {
 export interface LoadedPlugins {
   compatibilityFallback: boolean;
   nativeBinary: string | null;
+  nativeBinaries: string[];
   nativePlugins: LoadedNativePlugin[];
   plugins: TtscPlugin[];
   project: ParsedProjectConfig;
@@ -86,6 +87,7 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
     return {
       compatibilityFallback: false,
       nativeBinary: null,
+      nativeBinaries: [],
       nativePlugins: [],
       plugins: [],
       project,
@@ -100,7 +102,6 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
   };
   const plugins = entries.map((entry) => loadPluginEntry(entry, context));
 
-  let nativeBinary: string | null = null;
   const nativePlugins: LoadedNativePlugin[] = [];
   const ttscVersion = readTtscVersion();
   const tsgoVersion = readTsgoVersion(context.projectRoot);
@@ -119,15 +120,6 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
       });
       backend = { ...backend, binary: built };
     }
-    if (backend.binary) {
-      if (nativeBinary !== null && nativeBinary !== backend.binary) {
-        throw new Error(
-          "ttsc: ordered native plugin pipeline requires a single native host binary " +
-            `(${nativeBinary}, ${backend.binary})`,
-        );
-      }
-      nativeBinary = backend.binary;
-    }
     nativePlugins.push({ backend, config: entries[index]!, name: plugin.name });
   });
   if (nativePlugins.length !== plugins.length) {
@@ -141,7 +133,14 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
   }
   return {
     compatibilityFallback: false,
-    nativeBinary,
+    nativeBinary: nativePlugins[0]?.backend.binary ?? null,
+    nativeBinaries: [
+      ...new Set(
+        nativePlugins
+          .map((plugin) => plugin.backend.binary)
+          .filter((binary): binary is string => typeof binary === "string"),
+      ),
+    ],
     nativePlugins,
     plugins,
     project,

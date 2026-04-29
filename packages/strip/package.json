@@ -16,11 +16,9 @@
   ],
   "files": [
     "README.md",
-    "index.cjs"
+    "index.cjs",
+    "go-plugin"
   ],
-  "dependencies": {
-    "@ttsc/lint": "workspace:*"
-  },
   "peerDependencies": {
     "ttsc": "^0.4.4"
   },

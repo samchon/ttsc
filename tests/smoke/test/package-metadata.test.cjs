@@ -74,6 +74,32 @@ test("published package file lists keep TypeScript and Go sources", () => {
   assert.equal(fs.existsSync(path.join(workspaceRoot, "packages", "ttsx")), false);
 });
 
+test("utility plugin packages own their native sources", () => {
+  const expectations = {
+    banner: { capabilities: ["output"], mode: "ttsc-banner" },
+    lint: { capabilities: ["check"], mode: "ttsc-lint" },
+    paths: { capabilities: ["output"], mode: "ttsc-paths" },
+    strip: { capabilities: ["output"], mode: "ttsc-strip" },
+  };
+  for (const [directory, expectation] of Object.entries(expectations)) {
+    const packageJson = readPackageJson(directory);
+    assert.equal(packageJson.files.includes("go-plugin"), true);
+    assert.equal(
+      fs.existsSync(path.join(workspaceRoot, "packages", directory, "go-plugin", "go.mod")),
+      true,
+    );
+    assert.equal(packageJson.dependencies?.["@ttsc/lint"], undefined);
+    const factory = require(path.join(workspaceRoot, "packages", directory));
+    const descriptor = factory({}, {});
+    assert.equal(descriptor.native.mode, expectation.mode);
+    assert.deepEqual(descriptor.native.capabilities, expectation.capabilities);
+    assert.equal(
+      descriptor.native.source.dir,
+      path.join(workspaceRoot, "packages", directory, "go-plugin"),
+    );
+  }
+});
+
 test("platform package matrix follows the ttsc helper package shape", () => {
   const packageJson = readPackageJson("ttsc");
   const expected = {
@@ -119,6 +145,8 @@ test("typescript-go Go modules match the native-preview package git head", () =>
   const goMods = [
     path.join(workspaceRoot, "packages", "ttsc", "go.mod"),
     path.join(workspaceRoot, "packages", "lint", "go-plugin", "go.mod"),
+    path.join(workspaceRoot, "packages", "paths", "go-plugin", "go.mod"),
+    path.join(workspaceRoot, "packages", "strip", "go-plugin", "go.mod"),
     ...listGoMods(path.join(workspaceRoot, "packages", "ttsc", "shim")),
   ];
   for (const file of goMods) {

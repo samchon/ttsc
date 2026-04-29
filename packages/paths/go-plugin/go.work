@@ -1,0 +1,17 @@
+go 1.26
+
+use (
+	.
+	../../ttsc
+	../../ttsc/shim/ast
+	../../ttsc/shim/bundled
+	../../ttsc/shim/compiler
+	../../ttsc/shim/core
+	../../ttsc/shim/diagnosticwriter
+	../../ttsc/shim/parser
+	../../ttsc/shim/tsoptions
+	../../ttsc/shim/tspath
+	../../ttsc/shim/vfs
+	../../ttsc/shim/vfs/cachedvfs
+	../../ttsc/shim/vfs/osvfs
+)

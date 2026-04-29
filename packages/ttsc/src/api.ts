@@ -152,6 +152,47 @@ function outputText(value: string | Buffer | null | undefined): string {
   return typeof value === "string" ? value : value.toString("utf8");
 }
 
+function hasCapability(
+  plugin: LoadedNativePlugin,
+  capability: string,
+): boolean {
+  return plugin.backend.capabilities?.includes(capability) === true;
+}
+
+function isOutputPlugin(plugin: LoadedNativePlugin): boolean {
+  return hasCapability(plugin, "output");
+}
+
+function isCheckOnlyPlugin(plugin: LoadedNativePlugin): boolean {
+  const capabilities = plugin.backend.capabilities ?? [];
+  return (
+    capabilities.length > 0 &&
+    capabilities.every((capability) => capability === "check")
+  );
+}
+
+function isCompilerPlugin(plugin: LoadedNativePlugin): boolean {
+  return !isOutputPlugin(plugin) && !isCheckOnlyPlugin(plugin);
+}
+
+function outputPlugins(
+  plugins: readonly LoadedNativePlugin[],
+): LoadedNativePlugin[] {
+  return plugins.filter(isOutputPlugin);
+}
+
+function checkOnlyPlugins(
+  plugins: readonly LoadedNativePlugin[],
+): LoadedNativePlugin[] {
+  return plugins.filter(isCheckOnlyPlugin);
+}
+
+function compilerPlugins(
+  plugins: readonly LoadedNativePlugin[],
+): LoadedNativePlugin[] {
+  return plugins.filter(isCompilerPlugin);
+}
+
 /**
  * Transform a single .ts file and return the rewritten JS as a string.
  *
@@ -170,12 +211,7 @@ export function transform(options: TransformOptions): string {
       : path.resolve(options.cwd ?? process.cwd(), options.file),
   );
   if (execution.nativePlugins.length > 0) {
-    if (!execution.nativeBinary) {
-      throw new Error(
-        "ttsc.transform: native transformer plugins require a version-matched binary",
-      );
-    }
-    return transformWithNativeBinary(options, execution, sourceFile);
+    return transformWithNativePlugins(options, execution, sourceFile);
   }
 
   const tempOutDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-transform-"));
@@ -210,43 +246,85 @@ export function transform(options: TransformOptions): string {
   }
 }
 
-function transformWithNativeBinary(
+function transformWithNativePlugins(
   options: TransformOptions,
   execution: ExecutionContext,
   sourceFile: string,
 ): string {
-  const args = [
-    "transform",
-    "--file=" + sourceFile,
-    "--tsconfig=" + execution.tsconfig,
-    "--rewrite-mode=" + execution.nativeMode,
-    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
-  ];
+  const checked = runNativeCheckPlugins(options, execution);
+  if (checked.status !== 0) {
+    throw new Error(
+      "ttsc.transform exited " + checked.status + "\n" + checked.stderr,
+    );
+  }
 
-  const res = spawnBinary(execution.nativeBinary!, args, {
-    cwd: options.cwd,
-    env: mergeEnv(options.env),
-    encoding: "utf8",
-  });
-  if (res.error) {
-    throw new Error(
-      "ttsc.transform: failed to spawn " +
-        execution.nativeBinary +
-        ": " +
-        res.error.message,
-    );
+  const compilers = compilerPlugins(execution.nativePlugins);
+  const outputs = outputPlugins(execution.nativePlugins);
+  const tempOutDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-transform-"));
+  try {
+    let emitted: string | null = null;
+    if (compilers.length !== 0) {
+      assertSingleCompilerHost(compilers);
+      emitted = path.join(tempOutDir, "transform.js");
+      const transformed = runNativeCompilerTransform(
+        options,
+        execution,
+        sourceFile,
+        emitted,
+        compilers,
+      );
+      if (transformed.status !== 0) {
+        throw new Error(
+          "ttsc.transform exited " +
+            transformed.status +
+            "\n" +
+            transformed.stderr,
+        );
+      }
+    } else {
+      const result = build({
+        ...options,
+        emit: true,
+        outDir: tempOutDir,
+        plugins: false,
+        skipDiagnosticsCheck: checkOnlyPlugins(execution.nativePlugins).length !== 0,
+        tsconfig: execution.tsconfig,
+      });
+      if (result.status !== 0) {
+        throw new Error(
+          "ttsc.transform exited " +
+            result.status +
+            "\n" +
+            (result.stderr || result.stdout),
+        );
+      }
+      emitted = findEmittedFile(tempOutDir, execution.projectRoot, sourceFile);
+      if (!emitted) {
+        throw new Error(`ttsc.transform: no output produced for ${sourceFile}`);
+      }
+    }
+
+    for (const plugin of outputs) {
+      const result = runNativeOutputPlugin(options, execution, plugin, emitted);
+      if (result.status !== 0) {
+        throw new Error(
+          "ttsc.transform exited " +
+            result.status +
+            "\n" +
+            (result.stderr || result.stdout),
+        );
+      }
+    }
+
+    const transformed = fs.readFileSync(emitted, "utf8");
+    if (options.out) {
+      fs.mkdirSync(path.dirname(options.out), { recursive: true });
+      fs.writeFileSync(options.out, transformed, "utf8");
+    }
+    return transformed;
+  } finally {
+    fs.rmSync(tempOutDir, { recursive: true, force: true });
   }
-  if (res.status !== 0) {
-    throw new Error(
-      "ttsc.transform exited " + res.status + "\n" + (res.stderr || ""),
-    );
-  }
-  const transformed = outputText(res.stdout);
-  if (options.out) {
-    fs.mkdirSync(path.dirname(options.out), { recursive: true });
-    fs.writeFileSync(options.out, transformed, "utf8");
-  }
-  return transformed;
 }
 
 function realpathIfExists(file: string): string {
@@ -273,15 +351,60 @@ export interface BuildResult {
 export function build(options: BuildOptions = {}): BuildResult {
   const execution = resolveExecutionContext(options);
   if (execution.nativePlugins.length > 0) {
-    if (!execution.nativeBinary) {
-      return {
-        status: 2,
-        stdout: "",
-        stderr:
-          "ttsc.build: native transformer plugins require a version-matched binary\n",
-      };
+    const compilers = compilerPlugins(execution.nativePlugins);
+    const outputs = outputPlugins(execution.nativePlugins);
+    const checked = runNativeCheckPlugins(options, execution);
+    if (checked.status !== 0) {
+      return checked;
     }
-    return buildWithNativeBinary(options, execution);
+
+    if (options.emit === false) {
+      if (compilers.length !== 0) {
+        assertSingleCompilerHost(compilers);
+        return appendBuildOutput(
+          checked,
+          buildWithNativeCompilerPlugins(options, execution, compilers),
+        );
+      }
+      if (checked.stdout !== "" || checked.stderr !== "") {
+        return checked;
+      }
+      return runTsgo(execution, ["--noEmit"], options);
+    }
+
+    let result: BuildResult;
+    if (compilers.length !== 0) {
+      assertSingleCompilerHost(compilers);
+      result = appendBuildOutput(
+        checked,
+        buildWithNativeCompilerPlugins(options, execution, compilers),
+      );
+    } else {
+      if (
+        checked.stdout === "" &&
+        checked.stderr === "" &&
+        options.skipDiagnosticsCheck !== true
+      ) {
+        const tsgoChecked = runTsgo(execution, ["--noEmit"], options);
+        if (tsgoChecked.status !== 0) {
+          return tsgoChecked;
+        }
+      }
+      const args = createTsgoBuildArgs(execution, options, {
+        listEmittedFiles:
+          outputs.length !== 0 || options.forceListEmittedFiles === true,
+      });
+      const emitted = runTsgoBuild(execution, options, args);
+      result = appendBuildOutput(checked, emitted);
+    }
+
+    if (result.status !== 0 || outputs.length === 0) {
+      return result;
+    }
+    return appendBuildOutput(
+      result,
+      applyOutputPlugins(options, execution, result.emittedFiles ?? [], outputs),
+    );
   }
 
   if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
@@ -295,54 +418,21 @@ export function build(options: BuildOptions = {}): BuildResult {
     listEmittedFiles:
       options.emit !== false && options.forceListEmittedFiles === true,
   });
-  const res = spawnBinary(execution.tsgo.binary, args, {
-    cwd: execution.projectRoot,
-    env: mergeEnv(options.env),
-    encoding: "utf8",
-  });
-  if (res.error) {
-    throw new Error(
-      "ttsc.build: failed to spawn " +
-        execution.tsgo.binary +
-        ": " +
-        res.error.message,
-    );
-  }
-  const result = {
-    status: res.status ?? 1,
-    stdout: outputText(res.stdout),
-    stderr: outputText(res.stderr),
-  };
-  const emittedFiles = parseEmittedFiles(result.stdout);
-  if (emittedFiles.length !== 0) {
-    result.stdout = stripEmittedFileLines(result.stdout);
-  }
-  return normalizeFailedDiagnostics({ ...result, emittedFiles });
+  return runTsgoBuild(execution, options, args);
 }
 
-function buildWithNativeBinary(
+function buildWithNativeCompilerPlugins(
   options: BuildOptions,
   execution: ExecutionContext,
+  plugins: readonly LoadedNativePlugin[],
 ): BuildResult {
-  const args = createNativeBuildArgs(execution, options);
-  const res = spawnBinary(execution.nativeBinary!, args, {
-    cwd: execution.projectRoot,
-    env: mergeEnv(options.env),
-    encoding: "utf8",
-  });
-  if (res.error) {
-    throw new Error(
-      "ttsc.build: failed to spawn " +
-        execution.nativeBinary +
-        ": " +
-        res.error.message,
-    );
-  }
-  return normalizeFailedDiagnostics({
-    status: res.status ?? 1,
-    stdout: outputText(res.stdout),
-    stderr: outputText(res.stderr),
-  });
+  return runNativePluginCommand(
+    plugins[0]!,
+    createNativeBuildArgs(execution, options, plugins),
+    options,
+    execution,
+    "ttsc.build",
+  );
 }
 
 /**
@@ -379,6 +469,36 @@ function runTsgo(
   });
 }
 
+function runTsgoBuild(
+  execution: ExecutionContext,
+  options: BuildOptions,
+  args: readonly string[],
+): BuildResult {
+  const res = spawnBinary(execution.tsgo.binary, args, {
+    cwd: execution.projectRoot,
+    env: mergeEnv(options.env),
+    encoding: "utf8",
+  });
+  if (res.error) {
+    throw new Error(
+      "ttsc.build: failed to spawn " +
+        execution.tsgo.binary +
+        ": " +
+        res.error.message,
+    );
+  }
+  const result = {
+    status: res.status ?? 1,
+    stdout: outputText(res.stdout),
+    stderr: outputText(res.stderr),
+  };
+  const emittedFiles = parseEmittedFiles(result.stdout);
+  if (emittedFiles.length !== 0) {
+    result.stdout = stripEmittedFileLines(result.stdout);
+  }
+  return normalizeFailedDiagnostics({ ...result, emittedFiles });
+}
+
 function createTsgoBuildArgs(
   execution: ExecutionContext,
   options: BuildOptions,
@@ -402,12 +522,13 @@ function createTsgoBuildArgs(
 function createNativeBuildArgs(
   execution: ExecutionContext,
   options: BuildOptions,
+  plugins: readonly LoadedNativePlugin[],
 ): string[] {
   const args = [
     options.emit === false ? "check" : "build",
     "--tsconfig=" + execution.tsconfig,
-    "--rewrite-mode=" + execution.nativeMode,
-    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
+    "--rewrite-mode=" + (options.rewriteMode ?? plugins[0]?.backend.mode ?? "none"),
+    "--plugins-json=" + serializeNativePlugins(plugins),
     "--cwd=" + execution.projectRoot,
   ];
   if (options.emit === true) {
@@ -426,6 +547,66 @@ function createNativeBuildArgs(
   return args;
 }
 
+function createNativeCheckArgs(
+  execution: ExecutionContext,
+  options: BuildOptions | TransformOptions,
+  plugin: LoadedNativePlugin,
+): string[] {
+  const args = [
+    "check",
+    "--tsconfig=" + execution.tsconfig,
+    "--rewrite-mode=" + (options.rewriteMode ?? plugin.backend.mode),
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
+    "--cwd=" + execution.projectRoot,
+  ];
+  if ("outDir" in options && options.outDir) {
+    args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
+  }
+  if ("quiet" in options && options.quiet === false) {
+    args.push("--verbose");
+  } else if ("quiet" in options && options.quiet === true) {
+    args.push("--quiet");
+  }
+  return args;
+}
+
+function createNativeOutputArgs(
+  execution: ExecutionContext,
+  options: BuildOptions | TransformOptions,
+  plugin: LoadedNativePlugin,
+  file: string,
+): string[] {
+  const args = [
+    "output",
+    "--file=" + file,
+    "--tsconfig=" + execution.tsconfig,
+    "--rewrite-mode=" + (options.rewriteMode ?? plugin.backend.mode),
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
+    "--cwd=" + execution.projectRoot,
+  ];
+  if ("outDir" in options && options.outDir) {
+    args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
+  }
+  return args;
+}
+
+function createNativeTransformArgs(
+  execution: ExecutionContext,
+  options: TransformOptions,
+  sourceFile: string,
+  out: string,
+  plugins: readonly LoadedNativePlugin[],
+): string[] {
+  return [
+    "transform",
+    "--file=" + sourceFile,
+    "--out=" + out,
+    "--tsconfig=" + execution.tsconfig,
+    "--rewrite-mode=" + (options.rewriteMode ?? plugins[0]?.backend.mode ?? "none"),
+    "--plugins-json=" + serializeNativePlugins(plugins),
+  ];
+}
+
 function serializeNativePlugins(plugins: readonly LoadedNativePlugin[]): string {
   return JSON.stringify(
     plugins.map((plugin) => ({
@@ -435,6 +616,138 @@ function serializeNativePlugins(plugins: readonly LoadedNativePlugin[]): string 
       name: plugin.name,
     })),
   );
+}
+
+function runNativeCheckPlugins(
+  options: BuildOptions | TransformOptions,
+  execution: ExecutionContext,
+): BuildResult {
+  let out: BuildResult = { status: 0, stdout: "", stderr: "" };
+  for (const plugin of checkOnlyPlugins(execution.nativePlugins)) {
+    const result = runNativePluginCommand(
+      plugin,
+      createNativeCheckArgs(execution, options, plugin),
+      options,
+      execution,
+      "ttsc.check",
+    );
+    out = appendBuildOutput(out, result);
+    if (result.status !== 0) {
+      return out;
+    }
+  }
+  return out;
+}
+
+function runNativeCompilerTransform(
+  options: TransformOptions,
+  execution: ExecutionContext,
+  sourceFile: string,
+  out: string,
+  plugins: readonly LoadedNativePlugin[],
+): BuildResult {
+  return runNativePluginCommand(
+    plugins[0]!,
+    createNativeTransformArgs(execution, options, sourceFile, out, plugins),
+    options,
+    execution,
+    "ttsc.transform",
+  );
+}
+
+function applyOutputPlugins(
+  options: BuildOptions,
+  execution: ExecutionContext,
+  emittedFiles: readonly string[],
+  plugins: readonly LoadedNativePlugin[],
+): BuildResult {
+  let out: BuildResult = { status: 0, stdout: "", stderr: "" };
+  for (const plugin of plugins) {
+    for (const file of emittedFiles) {
+      if (!fs.existsSync(file)) {
+        continue;
+      }
+      const result = runNativeOutputPlugin(options, execution, plugin, file);
+      out = appendBuildOutput(out, result);
+      if (result.status !== 0) {
+        return out;
+      }
+    }
+  }
+  return out;
+}
+
+function runNativeOutputPlugin(
+  options: BuildOptions | TransformOptions,
+  execution: ExecutionContext,
+  plugin: LoadedNativePlugin,
+  file: string,
+): BuildResult {
+  return runNativePluginCommand(
+    plugin,
+    createNativeOutputArgs(execution, options, plugin, file),
+    options,
+    execution,
+    "ttsc.output",
+  );
+}
+
+function runNativePluginCommand(
+  plugin: LoadedNativePlugin,
+  args: readonly string[],
+  options: BuildOptions | TransformOptions,
+  execution: ExecutionContext,
+  label: string,
+): BuildResult {
+  const binary = plugin.backend.binary;
+  if (!binary) {
+    return {
+      status: 2,
+      stdout: "",
+      stderr: `${label}: plugin "${plugin.name}" requires a version-matched binary\n`,
+    };
+  }
+  const res = spawnBinary(binary, args, {
+    cwd: execution.projectRoot,
+    env: mergeEnv(options.env),
+    encoding: "utf8",
+  });
+  if (res.error) {
+    throw new Error(
+      `${label}: failed to spawn ${binary}: ${res.error.message}`,
+    );
+  }
+  return normalizeFailedDiagnostics({
+    status: res.status ?? 1,
+    stdout: outputText(res.stdout),
+    stderr: outputText(res.stderr),
+  });
+}
+
+function appendBuildOutput(left: BuildResult, right: BuildResult): BuildResult {
+  return normalizeFailedDiagnostics({
+    emittedFiles:
+      right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
+    status: right.status !== 0 ? right.status : left.status,
+    stdout: left.stdout + right.stdout,
+    stderr: left.stderr + right.stderr,
+  });
+}
+
+function assertSingleCompilerHost(plugins: readonly LoadedNativePlugin[]): void {
+  const binaries = [
+    ...new Set(
+      plugins
+        .map((plugin) => plugin.backend.binary)
+        .filter((binary): binary is string => typeof binary === "string"),
+    ),
+  ];
+  if (binaries.length > 1) {
+    throw new Error(
+      "ttsc: multiple compiler native backends cannot share one emit pass; " +
+        "use output-capability plugins for post-emit transforms",
+    );
+  }
 }
 
 /** Ask the binary for its version banner. Handy for user-agent strings. */
@@ -463,8 +776,6 @@ export function transformAsync(options: TransformOptions): Promise<string> {
 interface ExecutionContext {
   compilerOptions: Record<string, unknown>;
   cwd: string;
-  nativeBinary: string | null;
-  nativeMode: string;
   nativePlugins: readonly LoadedNativePlugin[];
   projectRoot: string;
   tsgo: ResolvedTsgo;
@@ -491,9 +802,6 @@ function resolveExecutionContext(
   return {
     compilerOptions: loaded.project.compilerOptions,
     cwd,
-    nativeBinary: loaded.nativeBinary ?? null,
-    nativeMode:
-      options.rewriteMode ?? loaded.nativePlugins[0]?.backend.mode ?? "none",
     nativePlugins: loaded.nativePlugins,
     projectRoot,
     tsgo,

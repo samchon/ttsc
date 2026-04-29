@@ -92,8 +92,10 @@ jobs:
 - `@ttsc/strip`: remove configured calls such as `console.log` or `assert.*`.
 - `@ttsc/banner`: prepend a fixed comment to emitted JavaScript and declarations.
 
-These packages share one native source host, so they can be used together in a
-single ordered `compilerOptions.plugins` pipeline.
+Each package owns its native source under its own package directory. `ttsc`
+runs check plugins before emit and output plugins after emit in
+`compilerOptions.plugins` order, so these packages can be used together without
+sharing one binary.
 
 ## What Is a Transform?
 

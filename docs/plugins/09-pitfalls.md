@@ -105,13 +105,20 @@ for _, p := range plugins {
 
 See [08-recipes.md](./08-recipes.md#multi-mode-dispatch) for the full pattern.
 
-## 7. "ordered native plugin pipeline requires a single native host binary"
+## 7. Multiple compiler backends cannot share one emit pass
 
-The consumer wired two different plugins (`plugin-a`, `plugin-b`) and `ttsc` rejects the build at config-parse time.
+The consumer wired two different compiler-backend plugins and `ttsc` rejects
+the build with a message about multiple compiler native backends.
 
-**Cause.** Each plugin compiles to a separate binary. `ttsc`'s contract is one binary per project compile; mixing two plugins produces two binaries with no way to merge them.
+**Cause.** A compiler-backend plugin owns Program creation and emit. Two
+unrelated binaries cannot both own the same emit pass unless they are actually
+one coordinated binary that dispatches multiple modes.
 
-**Fix.** This is a constraint the consumer has to resolve, not the plugin author. The consumer either picks one plugin or finds a "meta-plugin" that subsumes both. Plugin authors writing in this space sometimes ship a single binary that registers multiple modes (see [08-recipes.md](./08-recipes.md#multi-mode-dispatch)) so consumers can mix capabilities without mixing binaries.
+**Fix.** If the plugin only edits emitted files, declare
+`native.capabilities: ["output"]` and implement the `output` command. `ttsc`
+will run multiple output plugins sequentially after emit. If the plugins really
+must participate inside one compiler pass, publish one multi-mode binary (see
+[08-recipes.md](./08-recipes.md#multi-mode-dispatch)).
 
 ## 8. Plugin builds locally, fails on Windows CI
 

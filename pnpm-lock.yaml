@@ -38,9 +38,6 @@ importers:
 
   packages/banner:
     dependencies:
-      '@ttsc/lint':
-        specifier: workspace:*
-        version: link:../lint
       ttsc:
         specifier: ^0.4.4
         version: 0.4.4
@@ -49,18 +46,12 @@ importers:
 
   packages/paths:
     dependencies:
-      '@ttsc/lint':
-        specifier: workspace:*
-        version: link:../lint
       ttsc:
         specifier: ^0.4.4
         version: 0.4.4
 
   packages/strip:
     dependencies:
-      '@ttsc/lint':
-        specifier: workspace:*
-        version: link:../lint
       ttsc:
         specifier: ^0.4.4
         version: 0.4.4

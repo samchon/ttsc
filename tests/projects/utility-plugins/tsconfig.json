@@ -22,7 +22,7 @@
       },
       {
         "transform": "@ttsc/banner",
-        "banner": "/*! first-party combo */"
+        "banner": "/*! utility combo */"
       },
       {
         "transform": "@ttsc/paths"

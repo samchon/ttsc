@@ -1,112 +1,39 @@
-package lint
+package paths
 
 import (
+	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
+	"github.com/microsoft/typescript-go/shim/bundled"
+	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 	shimcore "github.com/microsoft/typescript-go/shim/core"
+	shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 	shimparser "github.com/microsoft/typescript-go/shim/parser"
+	"github.com/microsoft/typescript-go/shim/tsoptions"
 	shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+	"github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
+	"github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
-const (
-	modeBanner = "ttsc-banner"
-	modeLint   = "ttsc-lint"
-	modePaths  = "ttsc-paths"
-	modeStrip  = "ttsc-strip"
-)
+const modePaths = "ttsc-paths"
 
-type outputTransform interface {
-	apply(fileName string, text string) (string, error)
+type pluginEntry struct {
+	Config map[string]any `json:"config"`
+	Mode   string         `json:"mode"`
+	Name   string         `json:"name"`
 }
 
-type OutputPipeline struct {
-	transforms []outputTransform
-}
-
-func LoadOutputPipeline(pluginsJSON string, prog *program) (*OutputPipeline, error) {
-	entries, err := ParsePlugins(pluginsJSON)
-	if err != nil {
-		return nil, err
-	}
-	return NewOutputPipeline(entries, prog)
-}
-
-func NewOutputPipeline(entries []PluginEntry, prog *program) (*OutputPipeline, error) {
-	pipeline := &OutputPipeline{}
-	var paths *pathsResolver
-	for _, entry := range entries {
-		switch entry.Mode {
-		case "", modeLint:
-			continue
-		case modeBanner:
-			banner, err := parseBanner(entry.Config)
-			if err != nil {
-				return nil, err
-			}
-			pipeline.transforms = append(pipeline.transforms, banner)
-		case modePaths:
-			if paths == nil {
-				paths = newPathsResolver(prog)
-			}
-			pipeline.transforms = append(pipeline.transforms, paths)
-		case modeStrip:
-			strip, err := parseStrip(entry.Config)
-			if err != nil {
-				return nil, err
-			}
-			pipeline.transforms = append(pipeline.transforms, strip)
-		default:
-			return nil, fmt.Errorf("@ttsc/lint: unsupported first-party plugin mode %q", entry.Mode)
-		}
-	}
-	return pipeline, nil
-}
-
-func (p *OutputPipeline) Apply(fileName string, text string) (string, error) {
-	if p == nil {
-		return text, nil
-	}
-	var err error
-	for _, transform := range p.transforms {
-		text, err = transform.apply(fileName, text)
-		if err != nil {
-			return "", err
-		}
-	}
-	return text, nil
-}
-
-type bannerTransform struct {
-	text string
-}
-
-func parseBanner(config map[string]any) (*bannerTransform, error) {
-	raw, ok := config["banner"]
-	if !ok {
-		return nil, fmt.Errorf("@ttsc/banner: \"banner\" must be a non-empty string")
-	}
-	text, ok := raw.(string)
-	if !ok || strings.TrimSpace(text) == "" {
-		return nil, fmt.Errorf("@ttsc/banner: \"banner\" must be a non-empty string")
-	}
-	if !strings.HasSuffix(text, "\n") {
-		text += "\n"
-	}
-	return &bannerTransform{text: text}, nil
-}
-
-func (b *bannerTransform) apply(fileName string, text string) (string, error) {
-	if !isBannerableOutput(fileName) {
-		return text, nil
-	}
-	if strings.HasPrefix(text, b.text) {
-		return text, nil
-	}
-	return b.text + text, nil
+type program struct {
+	cwd       string
+	parsed    *tsoptions.ParsedCommandLine
+	tsProgram *shimcompiler.Program
 }
 
 type pathsResolver struct {
@@ -120,6 +47,133 @@ type pathsResolver struct {
 type pathsPattern struct {
 	pattern string
 	targets []string
+}
+
+type textEdit struct {
+	start int
+	end   int
+	text  string
+}
+
+func RunOutput(args []string) int {
+	fs := flag.NewFlagSet("output", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	file := fs.String("file", "", "emitted file to transform")
+	out := fs.String("out", "", "write transformed text to this file instead of updating --file")
+	cwd := fs.String("cwd", "", "project directory")
+	outDir := fs.String("outDir", "", "emit directory override")
+	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
+	_ = fs.String("rewrite-mode", modePaths, "native mode")
+	tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *file == "" {
+		fmt.Fprintln(os.Stderr, "@ttsc/paths: output requires --file")
+		return 2
+	}
+	if err := requireConfig(*pluginsJSON); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	resolvedCwd, err := resolveCwd(*cwd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, *outDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "@ttsc/paths: %v\n", err)
+		return 2
+	}
+	if len(parseDiags) > 0 {
+		shimdw.FormatASTDiagnosticsWithColorAndContext(os.Stderr, parseDiags, resolvedCwd)
+		return 2
+	}
+	text, err := os.ReadFile(*file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "@ttsc/paths: read %s: %v\n", *file, err)
+		return 2
+	}
+	patched, err := Apply(prog, *file, string(text))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	target := *file
+	if *out != "" {
+		target = *out
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "@ttsc/paths: mkdir: %v\n", err)
+		return 2
+	}
+	if err := os.WriteFile(target, []byte(patched), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "@ttsc/paths: write %s: %v\n", target, err)
+		return 2
+	}
+	return 0
+}
+
+func Apply(prog *program, fileName string, text string) (string, error) {
+	resolver := newPathsResolver(prog)
+	return resolver.apply(fileName, text)
+}
+
+func loadProgram(cwd, tsconfigPath string, outDir string) (*program, []*shimast.Diagnostic, error) {
+	if !filepath.IsAbs(cwd) {
+		abs, err := filepath.Abs(cwd)
+		if err != nil {
+			return nil, nil, fmt.Errorf("cwd: %w", err)
+		}
+		cwd = abs
+	}
+	resolved := tsconfigPath
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(cwd, resolved)
+	}
+	fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+	host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
+	parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
+		resolved,
+		&shimcore.CompilerOptions{},
+		nil,
+		host,
+		nil,
+	)
+	if parsed == nil {
+		return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", resolved)
+	}
+	if len(parseDiags) > 0 {
+		return nil, parseDiags, nil
+	}
+	if len(parsed.Errors) > 0 {
+		return nil, parsed.Errors, nil
+	}
+	if outDir != "" {
+		overrideOutDir(cwd, parsed, outDir)
+	}
+	tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
+		Config:                      parsed,
+		SingleThreaded:              shimcore.TSTrue,
+		Host:                        host,
+		UseSourceOfProjectReference: true,
+	})
+	if tsProgram == nil {
+		return nil, nil, errors.New("compiler.NewProgram returned nil")
+	}
+	return &program{cwd: cwd, parsed: parsed, tsProgram: tsProgram}, nil, nil
+}
+
+func (p *program) userSourceFiles() []*shimast.SourceFile {
+	out := make([]*shimast.SourceFile, 0)
+	for _, f := range p.tsProgram.SourceFiles() {
+		if f == nil || f.IsDeclarationFile {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 func newPathsResolver(prog *program) *pathsResolver {
@@ -297,200 +351,46 @@ func (r *pathsResolver) outputPathForSource(source string) string {
 	return normalizePath(filepath.Join(r.outDir, filepath.Base(changeExtension(source, outputExt))))
 }
 
-type stripTransform struct {
-	calls         []callPattern
-	stripDebugger bool
+func requireConfig(pluginsJSON string) error {
+	if strings.TrimSpace(pluginsJSON) == "" {
+		return fmt.Errorf("@ttsc/paths: missing --plugins-json")
+	}
+	var entries []pluginEntry
+	if err := json.Unmarshal([]byte(pluginsJSON), &entries); err != nil {
+		return fmt.Errorf("@ttsc/paths: invalid --plugins-json: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.Mode == modePaths || entry.Name == "@ttsc/paths" {
+			return nil
+		}
+	}
+	return fmt.Errorf("@ttsc/paths: plugin entry not found")
 }
 
-type callPattern struct {
-	parts    []string
-	wildcard bool
-}
-
-func parseStrip(config map[string]any) (*stripTransform, error) {
-	calls, err := stringArrayConfig(config, "calls")
-	if err != nil {
-		return nil, fmt.Errorf("@ttsc/strip: %w", err)
-	}
-	statements, err := stringArrayConfig(config, "statements")
-	if err != nil {
-		return nil, fmt.Errorf("@ttsc/strip: %w", err)
-	}
-	out := &stripTransform{}
-	for _, call := range calls {
-		pattern, err := parseCallPattern(call)
+func resolveCwd(override string) (string, error) {
+	if override != "" {
+		abs, err := filepath.Abs(override)
 		if err != nil {
-			return nil, fmt.Errorf("@ttsc/strip: %w", err)
+			return "", fmt.Errorf("@ttsc/paths: --cwd: %w", err)
 		}
-		out.calls = append(out.calls, pattern)
+		return abs, nil
 	}
-	for _, statement := range statements {
-		switch statement {
-		case "debugger":
-			out.stripDebugger = true
-		default:
-			return nil, fmt.Errorf("unsupported statement pattern %q", statement)
-		}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("@ttsc/paths: cwd: %w", err)
 	}
-	return out, nil
+	return wd, nil
 }
 
-func (s *stripTransform) apply(fileName string, text string) (string, error) {
-	if s == nil || !isJavaScriptOutput(fileName) || (len(s.calls) == 0 && !s.stripDebugger) {
-		return text, nil
+func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
+	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+		return
 	}
-	file := parseJS(fileName, text)
-	if file == nil {
-		return text, nil
+	if filepath.IsAbs(outDir) {
+		parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(outDir)
+		return
 	}
-	edits := make([]textEdit, 0)
-	var walk func(*shimast.Node)
-	walk = func(node *shimast.Node) {
-		if node == nil {
-			return
-		}
-		switch node.Kind {
-		case shimast.KindDebuggerStatement:
-			if s.stripDebugger {
-				start, end := statementRemovalRange(text, node)
-				edits = append(edits, textEdit{start: start, end: end})
-			}
-		case shimast.KindExpressionStatement:
-			expr := node.AsExpressionStatement().Expression
-			name, ok := callExpressionName(expr)
-			if ok && s.matchesCall(name) {
-				start, end := statementRemovalRange(text, node)
-				edits = append(edits, textEdit{start: start, end: end})
-			}
-		}
-		node.ForEachChild(func(child *shimast.Node) bool {
-			walk(child)
-			return false
-		})
-	}
-	for _, stmt := range file.Statements.Nodes {
-		walk(stmt)
-	}
-	return applyTextEdits(text, edits), nil
-}
-
-func (s *stripTransform) matchesCall(name string) bool {
-	for _, pattern := range s.calls {
-		if pattern.matches(name) {
-			return true
-		}
-	}
-	return false
-}
-
-func parseCallPattern(text string) (callPattern, error) {
-	parts := strings.Split(text, ".")
-	if len(parts) == 0 {
-		return callPattern{}, fmt.Errorf("empty call pattern")
-	}
-	for i, part := range parts {
-		if part == "" {
-			return callPattern{}, fmt.Errorf("invalid call pattern %q", text)
-		}
-		if part == "*" && i != len(parts)-1 {
-			return callPattern{}, fmt.Errorf("wildcard is only supported at the end of call pattern %q", text)
-		}
-	}
-	wildcard := parts[len(parts)-1] == "*"
-	if wildcard {
-		parts = parts[:len(parts)-1]
-	}
-	return callPattern{parts: parts, wildcard: wildcard}, nil
-}
-
-func (p callPattern) matches(name string) bool {
-	parts := strings.Split(name, ".")
-	if p.wildcard {
-		if len(parts) <= len(p.parts) {
-			return false
-		}
-		return equalStringSlices(parts[:len(p.parts)], p.parts)
-	}
-	return equalStringSlices(parts, p.parts)
-}
-
-func callExpressionName(expr *shimast.Node) (string, bool) {
-	if expr == nil || expr.Kind != shimast.KindCallExpression {
-		return "", false
-	}
-	call := expr.AsCallExpression()
-	return dottedName(call.Expression)
-}
-
-func dottedName(expr *shimast.Node) (string, bool) {
-	if expr == nil {
-		return "", false
-	}
-	switch expr.Kind {
-	case shimast.KindIdentifier:
-		return expr.Text(), true
-	case shimast.KindPropertyAccessExpression:
-		prop := expr.AsPropertyAccessExpression()
-		left, ok := dottedName(prop.Expression)
-		if !ok || prop.Name() == nil {
-			return "", false
-		}
-		return left + "." + prop.Name().Text(), true
-	default:
-		return "", false
-	}
-}
-
-func isRequireCall(call *shimast.CallExpression) bool {
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindIdentifier {
-		return false
-	}
-	return call.Expression.Text() == "require"
-}
-
-func isDynamicImportCall(call *shimast.CallExpression) bool {
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindImportKeyword {
-		return false
-	}
-	return call.Arguments != nil && len(call.Arguments.Nodes) == 1
-}
-
-type textEdit struct {
-	start int
-	end   int
-	text  string
-}
-
-func applyTextEdits(text string, edits []textEdit) string {
-	if len(edits) == 0 {
-		return text
-	}
-	sort.SliceStable(edits, func(i, j int) bool {
-		if edits[i].start == edits[j].start {
-			return edits[i].end > edits[j].end
-		}
-		return edits[i].start > edits[j].start
-	})
-	out := text
-	lastStart := len(text) + 1
-	for _, edit := range edits {
-		if edit.start < 0 || edit.end < edit.start || edit.start > len(out) {
-			continue
-		}
-		if edit.end > lastStart {
-			edit.end = lastStart
-		}
-		if edit.end > len(out) {
-			edit.end = len(out)
-		}
-		out = out[:edit.start] + edit.text + out[edit.end:]
-		lastStart = edit.start
-	}
-	return out
-}
-
-func parseJS(fileName string, text string) *shimast.SourceFile {
-	return parseModuleSpecifierFile(fileName, text)
+	parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
 }
 
 func parseModuleSpecifierFile(fileName string, text string) *shimast.SourceFile {
@@ -508,24 +408,18 @@ func parseModuleSpecifierFile(fileName string, text string) *shimast.SourceFile 
 	return shimparser.ParseSourceFile(opts, text, kind)
 }
 
-func stringArrayConfig(config map[string]any, key string) ([]string, error) {
-	raw, ok := config[key]
-	if !ok || raw == nil {
-		return nil, nil
+func isRequireCall(call *shimast.CallExpression) bool {
+	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindIdentifier {
+		return false
 	}
-	values, ok := raw.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%q must be an array of strings", key)
+	return call.Expression.Text() == "require"
+}
+
+func isDynamicImportCall(call *shimast.CallExpression) bool {
+	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindImportKeyword {
+		return false
 	}
-	out := make([]string, 0, len(values))
-	for i, value := range values {
-		text, ok := value.(string)
-		if !ok || strings.TrimSpace(text) == "" {
-			return nil, fmt.Errorf("%q[%d] must be a non-empty string", key, i)
-		}
-		out = append(out, text)
-	}
-	return out, nil
+	return call.Arguments != nil && len(call.Arguments.Nodes) == 1
 }
 
 func stringLiteralRange(text string, node *shimast.Node) (int, int, byte, bool) {
@@ -575,29 +469,32 @@ func quoteJSString(quote byte, value string) string {
 
 const utf8RuneSelf = 0x80
 
-func statementRemovalRange(text string, node *shimast.Node) (int, int) {
-	start := clamp(node.Pos(), 0, len(text))
-	end := clamp(node.End(), start, len(text))
-	lineStart := start
-	for lineStart > 0 && text[lineStart-1] != '\n' && text[lineStart-1] != '\r' {
-		lineStart--
+func applyTextEdits(text string, edits []textEdit) string {
+	if len(edits) == 0 {
+		return text
 	}
-	if strings.TrimSpace(text[lineStart:start]) == "" {
-		start = lineStart
+	sort.SliceStable(edits, func(i, j int) bool {
+		if edits[i].start == edits[j].start {
+			return edits[i].end > edits[j].end
+		}
+		return edits[i].start > edits[j].start
+	})
+	out := text
+	lastStart := len(text) + 1
+	for _, edit := range edits {
+		if edit.start < 0 || edit.end < edit.start || edit.start > len(out) {
+			continue
+		}
+		if edit.end > lastStart {
+			edit.end = lastStart
+		}
+		if edit.end > len(out) {
+			edit.end = len(out)
+		}
+		out = out[:edit.start] + edit.text + out[edit.end:]
+		lastStart = edit.start
 	}
-	if end < len(text) && text[end] == ';' {
-		end++
-	}
-	for end < len(text) && (text[end] == ' ' || text[end] == '\t') {
-		end++
-	}
-	if end < len(text) && text[end] == '\r' {
-		end++
-	}
-	if end < len(text) && text[end] == '\n' {
-		end++
-	}
-	return start, end
+	return out
 }
 
 func matchPathPattern(pattern string, specifier string) (string, bool) {
@@ -693,17 +590,17 @@ func isExternalModuleNameRelative(specifier string) bool {
 		specifier == ".."
 }
 
-func isBannerableOutput(fileName string) bool {
-	lower := strings.ToLower(fileName)
-	if strings.HasSuffix(lower, ".map") || strings.HasSuffix(lower, ".tsbuildinfo") {
-		return false
-	}
-	return isJavaScriptOutput(fileName) ||
-		isDeclarationOutput(fileName)
-}
-
 func isPathsOutput(fileName string) bool {
 	return isJavaScriptOutput(fileName) || isDeclarationOutput(fileName)
+}
+
+func isJavaScriptOutput(fileName string) bool {
+	switch strings.ToLower(filepath.Ext(fileName)) {
+	case ".js", ".mjs", ".cjs":
+		return true
+	default:
+		return false
+	}
 }
 
 func isDeclarationOutput(fileName string) bool {
@@ -725,18 +622,6 @@ func pathsPatternRank(pattern string) int {
 	prefix := len(pattern[:star])
 	suffix := len(pattern[star+1:])
 	return prefix*1_000 + suffix*10 + len(pattern)
-}
-
-func equalStringSlices(a []string, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func clamp(value int, min int, max int) int {

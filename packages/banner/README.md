@@ -16,4 +16,6 @@ files during `ttsc` builds.
 }
 ```
 
-The plugin shares the first-party `ttsc` native host with `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip`, so those plugins can be used together in one ordered pipeline.
+The package owns its native implementation under `packages/banner/go-plugin`.
+It can be used with `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip`; `ttsc`
+runs output plugins after emit in `compilerOptions.plugins` order.

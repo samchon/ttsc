@@ -22,7 +22,7 @@ module.exports = function createTtscLint(_config) {
         dir: path.resolve(__dirname, "go-plugin"),
       },
       contractVersion: 1,
-      capabilities: ["check", "build", "transform"],
+      capabilities: ["check"],
     },
   };
 };

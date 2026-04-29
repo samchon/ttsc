@@ -9,21 +9,10 @@ module.exports = function createTtscPaths() {
     native: {
       mode: "ttsc-paths",
       source: {
-        dir: resolveSharedGoPlugin(),
+        dir: path.resolve(__dirname, "go-plugin"),
       },
       contractVersion: 1,
-      capabilities: ["check", "build", "transform"],
+      capabilities: ["output"],
     },
   };
 };
-
-function resolveSharedGoPlugin() {
-  try {
-    const pkg = require.resolve("@ttsc/lint/package.json", {
-      paths: [__dirname],
-    });
-    return path.join(path.dirname(pkg), "go-plugin");
-  } catch {
-    return path.resolve(__dirname, "..", "lint", "go-plugin");
-  }
-}
