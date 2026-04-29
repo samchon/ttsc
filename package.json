@@ -1,13 +1,13 @@
 {
   "private": true,
   "name": "@ttsc/station",
-  "version": "0.5.0",
+  "version": "0.5.0-dev.20260429-5",
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
     "build": "node scripts/build-platforms.cjs",
     "build:current": "node scripts/build-current.cjs",
     "experimental": "pnpm --dir experimental/install start -- --pack-current",
-    "package:latest": "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public && pnpm --filter ttsc publish --tag latest --access public",
+    "package:latest": "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",
     "release": "bumpp -r",
