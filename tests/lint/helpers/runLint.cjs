@@ -75,7 +75,7 @@ process.on("exit", () => {
  * @param {object} opts
  * @param {string} opts.name        — used to name the tmpdir for diagnostic output
  * @param {string} opts.source      — TypeScript source written to `src/main.ts`
- * @param {Record<string, "off"|"warn"|"error">} opts.rules — `tsconfig.json` plugin rules map
+ * @param {Record<string, "off"|"warning"|"warn"|"error">} opts.rules — `tsconfig.json` plugin rules map
  * @param {Record<string, string>=} opts.extraSources — relative-path → content for additional fixture files (paths are interpreted relative to the project root)
  * @returns {{ status: number, stderr: string, diagnostics: Array<{file:string,line:number,column:number,severity:"warn"|"error",rule:string}> }}
  */

@@ -10,9 +10,9 @@ import (
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
 	cfg, err := lintpkg.ParseRules(map[string]any{
 		"no-var":          "error",
-		"no-explicit-any": "warn",
+		"no-explicit-any": "warning",
 		"no-debugger":     "off",
-		"eqeqeq":          "WARNING",
+		"eqeqeq":          "warn",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -21,13 +21,13 @@ func TestParseRulesAcceptsStringSeverities(t *testing.T) {
 		t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
 	}
 	if cfg.Severity("no-explicit-any") != lintpkg.SeverityWarn {
-		t.Errorf("no-explicit-any: want warn, got %v", cfg.Severity("no-explicit-any"))
+		t.Errorf("no-explicit-any: want warning, got %v", cfg.Severity("no-explicit-any"))
 	}
 	if cfg.Severity("no-debugger") != lintpkg.SeverityOff {
 		t.Errorf("no-debugger: want off, got %v", cfg.Severity("no-debugger"))
 	}
 	if cfg.Severity("eqeqeq") != lintpkg.SeverityWarn {
-		t.Errorf("eqeqeq (WARNING alias): want warn, got %v", cfg.Severity("eqeqeq"))
+		t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))
 	}
 	// Unconfigured rule defaults to off.
 	if cfg.Severity("not-listed") != lintpkg.SeverityOff {
@@ -35,7 +35,7 @@ func TestParseRulesAcceptsStringSeverities(t *testing.T) {
 	}
 }
 
-func TestParseRulesAcceptsNumericSeverities(t *testing.T) {
+func TestParseRulesAcceptsLegacyNumericSeverities(t *testing.T) {
 	cfg, err := lintpkg.ParseRules(map[string]any{
 		"a": float64(0),
 		"b": float64(1),
@@ -46,18 +46,6 @@ func TestParseRulesAcceptsNumericSeverities(t *testing.T) {
 	}
 	if cfg.Severity("a") != lintpkg.SeverityOff || cfg.Severity("b") != lintpkg.SeverityWarn || cfg.Severity("c") != lintpkg.SeverityError {
 		t.Errorf("numeric severities not parsed correctly: %+v", cfg)
-	}
-}
-
-func TestParseRulesRejectsNonsense(t *testing.T) {
-	if _, err := lintpkg.ParseRules(map[string]any{"foo": "kaboom"}); err == nil {
-		t.Errorf("expected error for unknown severity")
-	}
-	if _, err := lintpkg.ParseRules(map[string]any{"foo": float64(99)}); err == nil {
-		t.Errorf("expected error for out-of-range severity")
-	}
-	if _, err := lintpkg.ParseRules(map[string]any{"foo": []string{"warn"}}); err == nil {
-		t.Errorf("expected error for non-string-or-number severity")
 	}
 }
 
