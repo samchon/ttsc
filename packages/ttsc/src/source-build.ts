@@ -49,8 +49,10 @@ export function buildSourcePlugin(opts: BuildSourcePluginOptions): string {
   try {
     materializeScratchDir(dir, scratchDir);
     writeGoWork(scratchDir, findTtscOverlayDirs());
-    runGoBuild(scratchDir, entry, binaryName, opts.pluginName);
-    const builtBinary = path.join(scratchDir, binaryName);
+    const scratchBinaryName =
+      process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
+    runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName);
+    const builtBinary = path.join(scratchDir, scratchBinaryName);
     fs.renameSync(builtBinary, binaryPath);
     if (process.platform !== "win32") {
       fs.chmodSync(binaryPath, 0o755);

@@ -1,12 +1,11 @@
 {
   "name": "@ttsc/linux-arm64",
-  "version": "0.4.4",
+  "version": "0.5.0-dev.20260429",
   "description": "Linux arm64 native binary and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["arm64"],
   "scripts": {
-    "build": "node ../../scripts/build-platform-package.cjs",
-    "prepack": "pnpm run build"
+    "build": "node ../../scripts/build-platform-package.cjs"
   },
   "repository": {
     "type": "git",

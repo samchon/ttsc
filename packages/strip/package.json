@@ -1,10 +1,10 @@
 {
   "name": "@ttsc/strip",
-  "version": "0.0.1",
+  "version": "0.5.0-dev.20260429",
   "description": "First-party ttsc plugin that removes configured calls and statements from emitted JavaScript.",
-  "main": "index.cjs",
+  "main": "src/index.cjs",
   "exports": {
-    ".": "./index.cjs",
+    ".": "./src/index.cjs",
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -16,13 +16,12 @@
   ],
   "files": [
     "README.md",
-    "index.cjs",
-    "go-plugin/go.mod",
-    "go-plugin/main.go",
-    "go-plugin/strip"
+    "src/index.cjs",
+    "go.mod",
+    "plugin"
   ],
   "peerDependencies": {
-    "ttsc": "^0.4.4"
+    "ttsc": "^0.5.0-dev.20260429"
   },
   "repository": {
     "type": "git",

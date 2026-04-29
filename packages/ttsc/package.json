@@ -1,6 +1,6 @@
 {
   "name": "ttsc",
-  "version": "0.4.4",
+  "version": "0.5.0-dev.20260429",
   "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -22,8 +22,7 @@
     "test:go": "node ../../scripts/go.cjs test ./...",
     "go:build": "node ../../scripts/go.cjs build-native",
     "go:test": "node ../../scripts/go.cjs test ./...",
-    "go:vet": "node ../../scripts/go.cjs vet ./...",
-    "prepack": "pnpm run build"
+    "go:vet": "node ../../scripts/go.cjs vet ./..."
   },
   "repository": {
     "type": "git",
