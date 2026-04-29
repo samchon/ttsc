@@ -1,17 +1,24 @@
+# Dependencies and package manager state
 node_modules/
+
+# Build outputs
 lib/
 native/
-*.tgz
-*.tsbuildinfo
 dist/
 bin/
 coverage/
+
+# Local caches and package archives
+.cache/
 .turbo/
+*.tgz
+*.tsbuildinfo
+
+# Local Go workspace overlays
+go.work
+go.work.sum
+
+# Reference and experiment checkouts
 .references/
 .wiki/
 experimental/typia/
-**/node_modules/
-**/lib/
-**/native/
-**/*.tgz
-**/.cache/

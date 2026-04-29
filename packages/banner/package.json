@@ -16,7 +16,9 @@
   "files": [
     "README.md",
     "index.cjs",
-    "go-plugin"
+    "go-plugin/go.mod",
+    "go-plugin/main.go",
+    "go-plugin/banner"
   ],
   "peerDependencies": {
     "ttsc": "^0.4.4"

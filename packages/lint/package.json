@@ -20,7 +20,9 @@
   "files": [
     "README.md",
     "index.cjs",
-    "go-plugin"
+    "go-plugin/go.mod",
+    "go-plugin/main.go",
+    "go-plugin/lint"
   ],
   "repository": {
     "type": "git",

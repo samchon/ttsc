@@ -1,9 +1,0 @@
-go 1.26
-
-use (
-	.
-	../../ttsc
-	../../ttsc/shim/ast
-	../../ttsc/shim/core
-	../../ttsc/shim/parser
-)
