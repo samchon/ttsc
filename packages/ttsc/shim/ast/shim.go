@@ -8,11 +8,53 @@ import (
 type CallExpression = innerast.CallExpression
 type Diagnostic = innerast.Diagnostic
 type Identifier = innerast.Identifier
+type IdentifierNode = innerast.IdentifierNode
+type ImportAttributesNode = innerast.ImportAttributesNode
+type ImportClauseNode = innerast.ImportClauseNode
+type ImportPhaseModifierSyntaxKind = innerast.ImportPhaseModifierSyntaxKind
+type ImportSpecifierList = innerast.ImportSpecifierList
 type IntersectionTypeNode = innerast.IntersectionTypeNode
 type Kind = innerast.Kind
+type KeywordExpressionSyntaxKind = innerast.KeywordExpressionSyntaxKind
+type KeywordTypeSyntaxKind = innerast.KeywordTypeSyntaxKind
 type LiteralTypeNode = innerast.LiteralTypeNode
 type NoSubstitutionTemplateLiteral = innerast.NoSubstitutionTemplateLiteral
 type Node = innerast.Node
+type NodeFactory = innerast.NodeFactory
+type NodeFactoryHooks = innerast.NodeFactoryHooks
+type NodeVisitor = innerast.NodeVisitor
+type NodeVisitorHooks = innerast.NodeVisitorHooks
+type TokenFlags = innerast.TokenFlags
+type ModifierList = innerast.ModifierList
+type StatementList = innerast.StatementList
+type VariableDeclarationNodeList = innerast.VariableDeclarationNodeList
+type BindingElementList = innerast.BindingElementList
+type TypeParameterList = innerast.TypeParameterList
+type ParameterList = innerast.ParameterList
+type ElementList = innerast.ElementList
+type TypeList = innerast.TypeList
+type TypeElementList = innerast.TypeElementList
+type Statement = innerast.Statement
+type Expression = innerast.Expression
+type TypeNode = innerast.TypeNode
+type BindingName = innerast.BindingName
+type BinaryOperatorToken = innerast.BinaryOperatorToken
+type PropertyName = innerast.PropertyName
+type MemberName = innerast.MemberName
+type EntityName = innerast.EntityName
+type ModuleExportName = innerast.ModuleExportName
+type NamedImportBindings = innerast.NamedImportBindings
+type ConciseBody = innerast.ConciseBody
+type TemplateSpanList = innerast.TemplateSpanList
+type TemplateMiddleOrTail = innerast.TemplateMiddleOrTail
+type TemplateHeadNode = innerast.TemplateHeadNode
+type QuestionDotToken = innerast.QuestionDotToken
+type QuestionToken = innerast.QuestionToken
+type DotDotDotToken = innerast.DotDotDotToken
+type ExclamationToken = innerast.ExclamationToken
+type EqualsGreaterThanToken = innerast.EqualsGreaterThanToken
+type AsteriskToken = innerast.AsteriskToken
+type TokenNode = innerast.TokenNode
 type TemplateHead = innerast.TemplateHead
 type TemplateLiteralTypeNode = innerast.TemplateLiteralTypeNode
 type TemplateLiteralTypeSpan = innerast.TemplateLiteralTypeSpan
@@ -62,6 +104,7 @@ const (
 	KindBooleanKeyword                = innerast.KindBooleanKeyword
 	KindBigIntKeyword                 = innerast.KindBigIntKeyword
 	KindAnyKeyword                    = innerast.KindAnyKeyword
+	KindUnknownKeyword                = innerast.KindUnknownKeyword
 	KindNeverKeyword                  = innerast.KindNeverKeyword
 	KindUndefinedKeyword              = innerast.KindUndefinedKeyword
 	KindNullKeyword                   = innerast.KindNullKeyword
@@ -103,12 +146,54 @@ const (
 	KindModuleDeclaration             = innerast.KindModuleDeclaration
 	KindFunctionDeclaration           = innerast.KindFunctionDeclaration
 	KindMinusToken                    = innerast.KindMinusToken
+	KindQuestionDotToken              = innerast.KindQuestionDotToken
+	KindEqualsGreaterThanToken        = innerast.KindEqualsGreaterThanToken
+
+	NodeFlagsOptionalChain = innerast.NodeFlagsOptionalChain
+
+	TokenFlagsNone = innerast.TokenFlagsNone
 
 	SymbolFlagsOptional  = innerast.SymbolFlagsOptional
 	SymbolFlagsAlias     = innerast.SymbolFlagsAlias
 	SymbolFlagsType      = innerast.SymbolFlagsType
 	SymbolFlagsNamespace = innerast.SymbolFlagsNamespace
 )
+
+func NewNodeFactory(hooks NodeFactoryHooks) *NodeFactory {
+	return innerast.NewNodeFactory(hooks)
+}
+
+func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, hooks NodeVisitorHooks) *NodeVisitor {
+	return innerast.NewNodeVisitor(visit, factory, hooks)
+}
+
+func IsFunctionLike(node *Node) bool {
+	return innerast.IsFunctionLike(node)
+}
+
+func IsPropertyAssignment(node *Node) bool {
+	return innerast.IsPropertyAssignment(node)
+}
+
+func IsPropertyDeclaration(node *Node) bool {
+	return innerast.IsPropertyDeclaration(node)
+}
+
+func IsModuleBlock(node *Node) bool {
+	return innerast.IsModuleBlock(node)
+}
+
+func IsStringLiteral(node *Node) bool {
+	return innerast.IsStringLiteral(node)
+}
+
+func IsPropertyAccessExpression(node *Node) bool {
+	return innerast.IsPropertyAccessExpression(node)
+}
+
+func IsElementAccessExpression(node *Node) bool {
+	return innerast.IsElementAccessExpression(node)
+}
 
 //go:linkname GetSourceFileOfNode github.com/microsoft/typescript-go/internal/ast.GetSourceFileOfNode
 func GetSourceFileOfNode(node *innerast.Node) *innerast.SourceFile

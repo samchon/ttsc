@@ -6,6 +6,7 @@
 [![NPM Version](https://img.shields.io/npm/v/@ttsc/strip.svg)](https://www.npmjs.com/package/@ttsc/strip)
 [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/strip.svg)](https://www.npmjs.com/package/@ttsc/strip)
 [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
+[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 `@ttsc/strip` removes configured call-expression statements and debugger statements from emitted JavaScript.
