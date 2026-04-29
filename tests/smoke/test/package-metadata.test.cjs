@@ -76,17 +76,33 @@ test("published package file lists keep TypeScript and Go sources", () => {
 
 test("utility plugin packages own their native sources", () => {
   const expectations = {
-    banner: { capabilities: ["output"], mode: "ttsc-banner" },
-    lint: { capabilities: ["check"], mode: "ttsc-lint" },
-    paths: { capabilities: ["output"], mode: "ttsc-paths" },
-    strip: { capabilities: ["output"], mode: "ttsc-strip" },
+    banner: { capabilities: ["output"], mode: "ttsc-banner", source: "banner" },
+    lint: { capabilities: ["check"], mode: "ttsc-lint", source: "lint" },
+    paths: { capabilities: ["output"], mode: "ttsc-paths", source: "paths" },
+    strip: { capabilities: ["output"], mode: "ttsc-strip", source: "strip" },
   };
   for (const [directory, expectation] of Object.entries(expectations)) {
     const packageJson = readPackageJson(directory);
-    assert.equal(packageJson.files.includes("go-plugin"), true);
+    assert.deepEqual(packageJson.files, [
+      "README.md",
+      "index.cjs",
+      "go-plugin/go.mod",
+      "go-plugin/main.go",
+      `go-plugin/${expectation.source}`,
+    ]);
     assert.equal(
       fs.existsSync(path.join(workspaceRoot, "packages", directory, "go-plugin", "go.mod")),
       true,
+    );
+    assert.equal(
+      listPackageGoArtifacts(path.join(workspaceRoot, "packages", directory, "go-plugin"))
+        .some((file) => file.endsWith("go.work") || file.endsWith("go.work.sum")),
+      false,
+    );
+    assert.equal(
+      listPackageGoArtifacts(path.join(workspaceRoot, "packages", directory, "go-plugin"))
+        .some((file) => file.endsWith("_test.go")),
+      false,
     );
     assert.equal(packageJson.dependencies?.["@ttsc/lint"], undefined);
     const factory = require(path.join(workspaceRoot, "packages", directory));
@@ -182,6 +198,23 @@ function listGoMods(root) {
       if (entry.isDirectory()) {
         stack.push(next);
       } else if (entry.isFile() && entry.name === "go.mod") {
+        out.push(next);
+      }
+    }
+  }
+  return out.sort();
+}
+
+function listPackageGoArtifacts(root) {
+  const out = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile()) {
         out.push(next);
       }
     }
