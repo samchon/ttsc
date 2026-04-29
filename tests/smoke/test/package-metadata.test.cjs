@@ -166,6 +166,18 @@ test("next publish bumps versions before a single workspace build", () => {
   assert.match(script, /pnpm --filter=\.\/packages\/\* -r publish --tag next --access public --no-git-checks/);
 });
 
+test("experimental pack-current builds current artifacts before packing", () => {
+  const script = fs.readFileSync(
+    path.join(workspaceRoot, "experimental", "install", "src", "index.js"),
+    "utf8",
+  );
+  const buildIndex = script.indexOf('run("pnpm run build:current", root);');
+  const packIndex = script.indexOf('packPackage("ttsc", "ttsc");');
+  assert.ok(buildIndex >= 0, "pack-current must build current artifacts");
+  assert.ok(packIndex >= 0, "pack-current must pack ttsc");
+  assert.ok(buildIndex < packIndex, "pack-current must build before packing");
+});
+
 test("typescript-go Go modules match the native-preview package git head", () => {
   const nativePreview = JSON.parse(
     fs.readFileSync(

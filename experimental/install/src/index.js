@@ -31,6 +31,8 @@ function main() {
 }
 
 function prepareCurrentTarballs() {
+  run("pnpm run build:current", root);
+
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball, bannerTarball]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
