@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/linux-arm64",
-  "version": "0.5.0-dev.20260429-5",
+  "version": "0.5.0",
   "description": "Linux arm64 native binary and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["arm64"],
