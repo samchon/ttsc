@@ -17,11 +17,12 @@ test("ttsc package entrypoints use built JavaScript output", () => {
   assert.equal(packageJson.publishConfig, undefined);
 });
 
-test("workspace build packages only the current platform toolchain", () => {
+test("workspace build packages every platform toolchain", () => {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(workspaceRoot, "package.json"), "utf8"),
   );
-  assert.equal(packageJson.scripts.build, "pnpm run build:current");
+  assert.equal(packageJson.scripts.build, "node scripts/build-platforms.cjs");
+  assert.equal(packageJson.scripts["build:current"], "node scripts/build-current.cjs");
 });
 
 test("ttsc package owns both compiler and runtime commands", () => {

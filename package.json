@@ -4,9 +4,9 @@
   "version": "0.4.4",
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
-    "build": "pnpm run build:current",
+    "build": "node scripts/build-platforms.cjs",
     "build:current": "node scripts/build-current.cjs",
-    "experimental": "pnpm run package:tgz && pnpm --dir experimental/install start -- --skip-pack",
+    "experimental": "pnpm --dir experimental/install start -- --pack-current",
     "package:latest": "pnpm --filter=./packages/* -r publish --tag latest --access public",
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",
