@@ -841,7 +841,7 @@ test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary ca
   assert.equal(first.status, 0, first.stderr);
   assert.match(first.stderr, /building source plugin "@ttsc\/lint"/);
 
-  writeConfig({ "no-explicit-any": "warn", "prefer-template": "warn" });
+  writeConfig({ "no-explicit-any": "warning", "prefer-template": "warning" });
   const second = spawn(ttscBin, ["--cwd", root, "--emit", "--outDir", "custom"], {
     cwd: root,
     env,

@@ -36,7 +36,25 @@ importers:
 
   config: {}
 
+  packages/banner:
+    dependencies:
+      ttsc:
+        specifier: ^0.4.4
+        version: 0.4.4
+
   packages/lint: {}
+
+  packages/paths:
+    dependencies:
+      ttsc:
+        specifier: ^0.4.4
+        version: 0.4.4
+
+  packages/strip:
+    dependencies:
+      ttsc:
+        specifier: ^0.4.4
+        version: 0.4.4
 
   packages/ttsc:
     devDependencies:
@@ -108,6 +126,41 @@ importers:
         version: link:../../packages/ttsc
 
 packages:
+
+  '@ttsc/darwin-arm64@0.4.4':
+    resolution: {integrity: sha512-8ARerYDaepdzFWprdfcun1f1qVoFeF0dBor7cOpINxCnjF1C5QzxHbWkL39ujWP4VZ3RjxfsJAp5UP+oYo6UFg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@ttsc/darwin-x64@0.4.4':
+    resolution: {integrity: sha512-q5hoiD0YwvgmObMCpxuPlLMo99v9rs3Ll73yQIyn311W+u6P9QSaM2fDK+89v5B3trZ7SSU4wvektVCFIFBo3A==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@ttsc/linux-arm64@0.4.4':
+    resolution: {integrity: sha512-j02Uvb3iOEfJsV2037QcadNq0RnRZ0iqPy6WGcLa9/mkmcH0RYSURd4Tr6I8gH+P630f8Ar57aOsU2ctmAAtOA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@ttsc/linux-arm@0.4.4':
+    resolution: {integrity: sha512-npWHhr+rv5iHuqN0CbCU4vx1RJBL5rTDdQUckUxgUydomMmxkOVUZ7fcu/BlAERC4wQ7W6k5VqwbWE4Wwh6RQg==}
+    cpu: [arm]
+    os: [linux]
+
+  '@ttsc/linux-x64@0.4.4':
+    resolution: {integrity: sha512-o/+L/G5aj3WWJa1DqVyjQq0QXSsE217y6BKN6Kt+6t6AmUeUNkV22Y9GXRFbfDR9gFHkM+C4Xt6gPb/xSXMYNw==}
+    cpu: [x64]
+    os: [linux]
+
+  '@ttsc/win32-arm64@0.4.4':
+    resolution: {integrity: sha512-gKxJrlMO/2XrSv7ccOexCwah0WMznxoVuIZZFCRV39FrYQte3gGXlAL3SVDJbZCrt8qVbXbise6y1Pn6Mf1hQw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@ttsc/win32-x64@0.4.4':
+    resolution: {integrity: sha512-Jdo2pBf9u96sjo9+lW7yJMdnPgYdey3qQHE2k5tNPr2w2si3KAPfS/th56egyZ3NMrME3a4EXmdV/kPwhjGOEw==}
+    cpu: [x64]
+    os: [win32]
 
   '@types/node@25.6.0':
     resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
@@ -302,6 +355,10 @@ packages:
     resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
     engines: {node: '>=12.0.0'}
 
+  ttsc@0.4.4:
+    resolution: {integrity: sha512-Ge3fy/ucvFANWjXQ7+R0mhGJfHxFaOYp2ZynXAEMW5HNpRD5IMVIB/gPZuefST64/gR2mJ7uggE4ze0wEiYN3Q==}
+    hasBin: true
+
   undici-types@7.19.2:
     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
@@ -311,6 +368,27 @@ packages:
     hasBin: true
 
 snapshots:
+
+  '@ttsc/darwin-arm64@0.4.4':
+    optional: true
+
+  '@ttsc/darwin-x64@0.4.4':
+    optional: true
+
+  '@ttsc/linux-arm64@0.4.4':
+    optional: true
+
+  '@ttsc/linux-arm@0.4.4':
+    optional: true
+
+  '@ttsc/linux-x64@0.4.4':
+    optional: true
+
+  '@ttsc/win32-arm64@0.4.4':
+    optional: true
+
+  '@ttsc/win32-x64@0.4.4':
+    optional: true
 
   '@types/node@25.6.0':
     dependencies:
@@ -473,6 +551,16 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
+
+  ttsc@0.4.4:
+    optionalDependencies:
+      '@ttsc/darwin-arm64': 0.4.4
+      '@ttsc/darwin-x64': 0.4.4
+      '@ttsc/linux-arm': 0.4.4
+      '@ttsc/linux-arm64': 0.4.4
+      '@ttsc/linux-x64': 0.4.4
+      '@ttsc/win32-arm64': 0.4.4
+      '@ttsc/win32-x64': 0.4.4
 
   undici-types@7.19.2: {}
 

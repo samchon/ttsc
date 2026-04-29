@@ -52,5 +52,5 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify Installed Tarballs
+      - name: Verify Installed Tarballs With Bundled Go
         run: pnpm run experimental

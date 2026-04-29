@@ -4,8 +4,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "../..");
 const outputDir = __dirname;
-const platformKey = `${process.platform}-${process.arch}`;
-const targets = listTargets(path.join(root, "packages"), platformKey);
+const targets = listTargets(path.join(root, "packages"));
 
 preparePackages();
 clearOutputDirectory();
@@ -13,7 +12,7 @@ for (const target of targets) build(target);
 
 function preparePackages() {
   console.log("Preparing packages");
-  cp.execSync("pnpm run build:current", {
+  cp.execSync("pnpm run build", {
     cwd: root,
     stdio: "inherit",
   });
@@ -50,8 +49,12 @@ function clearOutputDirectory() {
   }
 }
 
-function listTargets(baseDir, key) {
-  return ["ttsc", `ttsc-${key}`].map((name) => {
+function listTargets(baseDir) {
+  const names = ["ttsc", "banner", "lint", "paths", "strip", ...fs
+    .readdirSync(baseDir)
+    .filter((entry) => /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry))
+    .sort()];
+  return names.map((name) => {
     const dir = path.join(baseDir, name);
     if (!fs.existsSync(path.join(dir, "package.json"))) {
       throw new Error(`package target does not exist: ${name}`);

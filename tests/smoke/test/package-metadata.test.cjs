@@ -17,11 +17,12 @@ test("ttsc package entrypoints use built JavaScript output", () => {
   assert.equal(packageJson.publishConfig, undefined);
 });
 
-test("workspace build packages only the current platform toolchain", () => {
+test("workspace build packages every platform toolchain", () => {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(workspaceRoot, "package.json"), "utf8"),
   );
-  assert.equal(packageJson.scripts.build, "pnpm run build:current");
+  assert.equal(packageJson.scripts.build, "node scripts/build-platforms.cjs");
+  assert.equal(packageJson.scripts["build:current"], "node scripts/build-current.cjs");
 });
 
 test("ttsc package owns both compiler and runtime commands", () => {
@@ -74,6 +75,48 @@ test("published package file lists keep TypeScript and Go sources", () => {
   assert.equal(fs.existsSync(path.join(workspaceRoot, "packages", "ttsx")), false);
 });
 
+test("utility plugin packages own their native sources", () => {
+  const expectations = {
+    banner: { capabilities: ["output"], mode: "ttsc-banner", source: "banner" },
+    lint: { capabilities: ["check"], mode: "ttsc-lint", source: "lint" },
+    paths: { capabilities: ["output"], mode: "ttsc-paths", source: "paths" },
+    strip: { capabilities: ["output"], mode: "ttsc-strip", source: "strip" },
+  };
+  for (const [directory, expectation] of Object.entries(expectations)) {
+    const packageJson = readPackageJson(directory);
+    assert.deepEqual(packageJson.files, [
+      "README.md",
+      "index.cjs",
+      "go-plugin/go.mod",
+      "go-plugin/main.go",
+      `go-plugin/${expectation.source}`,
+    ]);
+    assert.equal(
+      fs.existsSync(path.join(workspaceRoot, "packages", directory, "go-plugin", "go.mod")),
+      true,
+    );
+    assert.equal(
+      listPackageGoArtifacts(path.join(workspaceRoot, "packages", directory, "go-plugin"))
+        .some((file) => file.endsWith("go.work") || file.endsWith("go.work.sum")),
+      false,
+    );
+    assert.equal(
+      listPackageGoArtifacts(path.join(workspaceRoot, "packages", directory, "go-plugin"))
+        .some((file) => file.endsWith("_test.go")),
+      false,
+    );
+    assert.equal(packageJson.dependencies?.["@ttsc/lint"], undefined);
+    const factory = require(path.join(workspaceRoot, "packages", directory));
+    const descriptor = factory({}, {});
+    assert.equal(descriptor.native.mode, expectation.mode);
+    assert.deepEqual(descriptor.native.capabilities, expectation.capabilities);
+    assert.equal(
+      descriptor.native.source.dir,
+      path.join(workspaceRoot, "packages", directory, "go-plugin"),
+    );
+  }
+});
+
 test("platform package matrix follows the ttsc helper package shape", () => {
   const packageJson = readPackageJson("ttsc");
   const expected = {
@@ -119,6 +162,8 @@ test("typescript-go Go modules match the native-preview package git head", () =>
   const goMods = [
     path.join(workspaceRoot, "packages", "ttsc", "go.mod"),
     path.join(workspaceRoot, "packages", "lint", "go-plugin", "go.mod"),
+    path.join(workspaceRoot, "packages", "paths", "go-plugin", "go.mod"),
+    path.join(workspaceRoot, "packages", "strip", "go-plugin", "go.mod"),
     ...listGoMods(path.join(workspaceRoot, "packages", "ttsc", "shim")),
   ];
   for (const file of goMods) {
@@ -154,6 +199,23 @@ function listGoMods(root) {
       if (entry.isDirectory()) {
         stack.push(next);
       } else if (entry.isFile() && entry.name === "go.mod") {
+        out.push(next);
+      }
+    }
+  }
+  return out.sort();
+}
+
+function listPackageGoArtifacts(root) {
+  const out = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile()) {
         out.push(next);
       }
     }

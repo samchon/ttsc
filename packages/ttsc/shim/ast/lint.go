@@ -68,11 +68,13 @@ type PropertyDeclaration = innerast.PropertyDeclaration
 type ImportDeclaration = innerast.ImportDeclaration
 type ImportSpecifier = innerast.ImportSpecifier
 type ImportEqualsDeclaration = innerast.ImportEqualsDeclaration
+type ExternalModuleReference = innerast.ExternalModuleReference
 type NamedImports = innerast.NamedImports
 type NamespaceImport = innerast.NamespaceImport
 type ExportDeclaration = innerast.ExportDeclaration
 type ExportSpecifier = innerast.ExportSpecifier
 type ExportAssignment = innerast.ExportAssignment
+type ImportTypeNode = innerast.ImportTypeNode
 
 // ---- Binding patterns ----
 
@@ -177,6 +179,9 @@ const (
 	KindExportAssignment        = innerast.KindExportAssignment
 	KindExportDeclaration       = innerast.KindExportDeclaration
 	KindImportEqualsDeclaration = innerast.KindImportEqualsDeclaration
+	KindExternalModuleReference = innerast.KindExternalModuleReference
+	KindImportType              = innerast.KindImportType
+	KindImportKeyword           = innerast.KindImportKeyword
 
 	// Binding
 	KindBindingElement       = innerast.KindBindingElement

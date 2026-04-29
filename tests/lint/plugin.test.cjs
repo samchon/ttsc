@@ -20,7 +20,7 @@ test("index.cjs is a factory that returns a native source descriptor", () => {
   assert.equal(descriptor.name, "@ttsc/lint");
   assert.equal(descriptor.native.mode, "ttsc-lint");
   assert.equal(descriptor.native.contractVersion, 1);
-  assert.deepEqual(descriptor.native.capabilities, ["check", "build", "transform"]);
+  assert.deepEqual(descriptor.native.capabilities, ["check"]);
 });
 
 test("native.source.dir points at the bundled go-plugin sources", () => {

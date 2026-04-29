@@ -167,11 +167,30 @@ Most plugins (typia-class) emit imports + same-line call replacements and don't 
 
 ## Ordered pipelines that span multiple plugins
 
-When the consumer mixes `transform: "plugin-a"` and `transform: "plugin-b"` in their tsconfig, **they're not part of the same pipeline**. `ttsc` only collapses into one binary when entries point to the same `source.dir` (i.e., the same physical Go module). Different plugins → different binaries → `ttsc` rejects the project at config-parse time with `ordered native plugin pipeline requires a single native host binary`.
+Use `native.capabilities: ["output"]` for post-emit plugins. `ttsc` compiles the
+project, discovers emitted files, and then invokes each output plugin binary in
+`compilerOptions.plugins` order:
 
-This is intentional. Cross-plugin composition is a project-architecture problem; one option is to publish a "meta-plugin" binary that other plugins integrate with at the source level. Another is to do plugin composition through tsgo's normal compiler-plugin chain (out of scope here).
+```js
+module.exports = {
+  name: "my-banner",
+  native: {
+    mode: "my-banner",
+    source: { dir: path.resolve(__dirname, "go-plugin") },
+    contractVersion: 1,
+    capabilities: ["output"],
+  },
+};
+```
 
-For *within-plugin* pipelines (multiple modes, one binary), see [Multi-mode dispatch](#multi-mode-dispatch) above.
+Your binary implements `output --file <emitted-file> --plugins-json <json>`.
+Read the file, apply this plugin's config, and write the file back. This is the
+right shape for banner insertion, import-specifier rewrites, strip passes, and
+other transforms that operate on emitted JS or declarations.
+
+Compiler-backend plugins that need to own Program creation and emit should keep
+using `transform`/`build` behavior. Multiple compiler-backend modes can still
+share one binary through [Multi-mode dispatch](#multi-mode-dispatch) above.
 
 ## Versioning a plugin against multiple `ttsc` minors
 

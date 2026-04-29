@@ -244,7 +244,11 @@ func runProject(opts *subcommandOpts) int {
 		return 0
 	}
 
-	result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{})
+	result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{
+		WriteFile: shimcompiler.WriteFile(func(fileName, text string, data *shimcompiler.WriteFileData) error {
+			return defaultWriteFile(fileName, text)
+		}),
+	})
 	if result == nil {
 		fmt.Fprintln(os.Stderr, "@ttsc/lint: Emit returned nil")
 		return 3
@@ -379,4 +383,11 @@ func isJavaScriptOutput(name string) bool {
 	default:
 		return false
 	}
+}
+
+func defaultWriteFile(name string, text string) error {
+	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(name, []byte(text), 0o644)
 }

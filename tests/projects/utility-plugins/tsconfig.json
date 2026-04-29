@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lib/*": ["./src/modules/*"],
+      "exact-message": ["./src/modules/message.ts"]
+    },
+    "outDir": "dist",
+    "rootDir": "src",
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "rules": {
+          "no-var": "error",
+          "no-explicit-any": "error",
+          "no-debugger": "off",
+          "no-console": "off"
+        }
+      },
+      {
+        "transform": "@ttsc/banner",
+        "banner": "/*! utility combo */"
+      },
+      {
+        "transform": "@ttsc/paths"
+      },
+      {
+        "transform": "@ttsc/strip",
+        "calls": ["console.log", "console.debug", "assert.*"],
+        "statements": ["debugger"]
+      }
+    ]
+  },
+  "include": ["src"]
+}

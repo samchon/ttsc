@@ -12,6 +12,7 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
+const bannerTarball = "banner";
 
 main();
 
@@ -31,12 +32,13 @@ function main() {
 
 function prepareCurrentTarballs() {
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", platformTarball]) {
+  for (const name of ["ttsc", platformTarball, bannerTarball]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
   packPackage(platformTarball, platformTarball);
+  packPackage("banner", bannerTarball);
 }
 
 function packPackage(packageDirName, tarballName) {
@@ -83,6 +85,12 @@ function prepareWorkspace() {
           strict: true,
           outDir: "dist",
           rootDir: "src",
+          plugins: [
+            {
+              transform: "@ttsc/banner",
+              banner: "/*! bundled-go-ok */",
+            },
+          ],
         },
         include: ["src"],
       },
@@ -104,6 +112,7 @@ function installTarballs() {
     "--no-fund",
     tarball("ttsc"),
     tarball(platformTarball),
+    tarball(bannerTarball),
   ].join(" ");
   run(command, workspace);
 }
@@ -154,10 +163,14 @@ function verifyInstalledPackages() {
 }
 
 function verifyTtscBuild() {
-  run("npx ttsc --cwd . --emit", workspace);
+  runInstalledTtsc(["--cwd", ".", "--emit"], workspace);
   const output = path.join(workspace, "dist", "main.js");
   assert(fs.existsSync(output), "ttsc must emit dist/main.js");
   const emitted = fs.readFileSync(output, "utf8");
+  assert(
+    emitted.startsWith("/*! bundled-go-ok */"),
+    "ttsc must build and run @ttsc/banner with the bundled Go compiler",
+  );
   assert(
     emitted.includes('"installed-runner-ok"'),
     "emitted JavaScript must contain the source string literal",
@@ -222,6 +235,45 @@ function runNode(args, cwd, label) {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   assert(result.status === 0, `node ${args.join(" ")} failed`);
+  return result;
+}
+
+function runInstalledTtsc(args, cwd) {
+  const launcher = path.join(
+    cwd,
+    "node_modules",
+    "ttsc",
+    "lib",
+    "launcher",
+    "ttsc.js",
+  );
+  const embeddedGo = path.join(
+    cwd,
+    "node_modules",
+    "@ttsc",
+    platformKey,
+    "bin",
+    "go",
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
+  assert(fs.existsSync(launcher), "installed ttsc launcher must exist");
+  assert(fs.existsSync(embeddedGo), "embedded Go compiler must exist");
+
+  console.log(`$ node ${path.relative(cwd, launcher)} ${args.join(" ")}`);
+  const result = cp.spawnSync(process.execPath, [launcher, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      TTSC_GO_BINARY: embeddedGo,
+    },
+    maxBuffer: 1024 * 1024 * 64,
+    windowsHide: true,
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  assert(result.status === 0, `installed ttsc failed with status ${result.status}`);
   return result;
 }
 

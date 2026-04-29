@@ -90,6 +90,7 @@ function runGoBuild(
   pluginName: string,
 ): void {
   const goBinary = resolveGoBinary();
+  ensureExecutableGoToolchain(goBinary);
   const result = spawnSync(
     goBinary,
     ["build", "-o", binaryName, entry],
@@ -135,6 +136,44 @@ function inferGoRoot(goBinary: string): string | null {
   if (path.basename(binDir) !== "bin") return null;
   const goRoot = path.dirname(binDir);
   return fs.existsSync(path.join(goRoot, "src", "runtime")) ? goRoot : null;
+}
+
+function ensureExecutableGoToolchain(goBinary: string): void {
+  if (process.platform === "win32") return;
+  if (!path.isAbsolute(goBinary) || !fs.existsSync(goBinary)) return;
+  try {
+    fs.chmodSync(goBinary, 0o755);
+    const goRoot = inferGoRoot(goBinary);
+    if (!goRoot) return;
+    const gofmt = path.join(path.dirname(goBinary), "gofmt");
+    if (fs.existsSync(gofmt)) fs.chmodSync(gofmt, 0o755);
+    const toolDir = path.join(goRoot, "pkg", "tool");
+    if (!fs.existsSync(toolDir)) return;
+    for (const file of walkToolFiles(toolDir)) {
+      fs.chmodSync(file, 0o755);
+    }
+  } catch {
+    // Let the subsequent go build spawn fail with the real OS error.
+  }
+}
+
+function walkToolFiles(dir: string): string[] {
+  const out: string[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkToolFiles(file));
+    } else if (entry.isFile()) {
+      out.push(file);
+    }
+  }
+  return out;
 }
 
 export interface ResolveGoBinaryOptions {

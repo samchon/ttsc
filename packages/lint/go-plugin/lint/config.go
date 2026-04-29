@@ -6,9 +6,7 @@ import (
 	"strings"
 )
 
-// Severity is the `error | warn | off` ladder. Numeric forms (0 / 1 / 2)
-// are accepted to match ESLint's accepted shapes; anything else is a
-// configuration error.
+// Severity is the `error | warning | off` ladder.
 type Severity int
 
 const (
@@ -22,7 +20,7 @@ func (s Severity) String() string {
 	case SeverityError:
 		return "error"
 	case SeverityWarn:
-		return "warn"
+		return "warning"
 	case SeverityOff:
 		return "off"
 	}
@@ -75,9 +73,9 @@ type RuleConfig map[string]Severity
 // ParseRules normalizes the `rules` map from a tsconfig plugin entry.
 //
 // Severity values:
-//   - `"off"` / `0` → SeverityOff
-//   - `"warn"` / `"warning"` / `1` → SeverityWarn
-//   - `"error"` / `2` → SeverityError
+//   - `"off"` → SeverityOff
+//   - `"warning"` → SeverityWarn
+//   - `"error"` → SeverityError
 //
 // Anything else returns an error (no silent fallback — typos in a rule
 // severity should be loud).
@@ -103,17 +101,17 @@ func ParseRules(raw any) (RuleConfig, error) {
 func parseSeverity(v any) (Severity, error) {
 	switch x := v.(type) {
 	case string:
-		switch strings.ToLower(x) {
+		switch x {
 		case "off":
 			return SeverityOff, nil
-		case "warn", "warning":
+		case "warning", "warn":
 			return SeverityWarn, nil
 		case "error":
 			return SeverityError, nil
 		}
-		return SeverityOff, fmt.Errorf("unknown severity %q (want off | warn | error)", x)
-	case float64: // JSON numbers decode as float64
-		switch int(x) {
+		return SeverityOff, fmt.Errorf("unknown severity %q (want off | warning | error)", x)
+	case float64:
+		switch x {
 		case 0:
 			return SeverityOff, nil
 		case 1:
@@ -121,14 +119,9 @@ func parseSeverity(v any) (Severity, error) {
 		case 2:
 			return SeverityError, nil
 		}
-		return SeverityOff, fmt.Errorf("severity number must be 0/1/2, got %v", x)
-	case bool:
-		if x {
-			return SeverityError, nil
-		}
-		return SeverityOff, nil
+		return SeverityOff, fmt.Errorf("unknown severity %v (want off | warning | error)", x)
 	}
-	return SeverityOff, fmt.Errorf("severity must be string or number, got %T", v)
+	return SeverityOff, fmt.Errorf("severity must be one of: off | warning | error, got %T", v)
 }
 
 // Severity returns the configured level for a rule, defaulting to

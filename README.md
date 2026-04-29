@@ -46,11 +46,11 @@ Clear cached transformer binaries when developing or debugging a plugin:
 npx ttsc clean
 ```
 
-## Transformer Configuration
+## Plugin Configuration
 
-`ttsc` reads `compilerOptions.plugins` from `tsconfig.json`. Each plugin
-module is a JavaScript descriptor for an ordered native transformer backend;
-the transform implementation itself runs in Go.
+Open your project's `tsconfig.json`, then add plugin entries under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge the `plugins` array into the existing object.
+
+Each plugin module is a JavaScript descriptor for an ordered native transformer backend; the transform implementation itself runs in Go.
 
 ```json
 {
@@ -60,17 +60,18 @@ the transform implementation itself runs in Go.
         "transform": "@ttsc/lint",
         "rules": {
           "no-var": "error",
-          "no-explicit-any": "warn",
+          "no-explicit-any": "warning",
           "no-non-null-assertion": "off"
         }
       },
+      { "transform": "@ttsc/paths" },
       { "transform": "typia/lib/transform" }
     ]
   }
 }
 ```
 
-The same configuration is used by both `ttsc` commands.
+The same configuration is used by both `ttsc` and `ttsx` commands.
 
 ```bash
 # compile
@@ -136,6 +137,20 @@ It is transformed into dedicated JavaScript:
 > ```
 
 `ttsc` runs this transform during build, and `ttsx` runs through the same transform path during execution.
+
+## List of Plugins
+
+`ttsc` ships a few small utility plugins in this repository.
+
+- [`{ "transform": "@ttsc/banner", ... }`](https://github.com/samchon/ttsc/tree/master/packages/banner)
+- [`{ "transform": "@ttsc/lint", ... }`](https://github.com/samchon/ttsc/tree/master/packages/lint)
+- [`{ "transform": "@ttsc/paths" }`](https://github.com/samchon/ttsc/tree/master/packages/paths)
+- [`{ "transform": "@ttsc/strip", ... }`](https://github.com/samchon/ttsc/tree/master/packages/strip)
+
+Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
+
+- [`{ "transform": "@nestia/core/lib/transform" }`](https://github.com/samchon/nestia)
+- [`{ "transform": "typia/lib/transform" }`](https://github.com/samchon/typia)
 
 ## References
 

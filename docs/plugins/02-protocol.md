@@ -69,7 +69,7 @@ interface TtscNativeSource {
 - **`native.source.entry`** — Go package path inside `dir` to build, in the form `go build` accepts (e.g. `"./cmd/transformer"`). Default is `"."`. Use this when your repo has multiple `main` packages or shared internal packages.
 - **`native.binary`** — for users who pre-build their binary out-of-band (e.g. CI artifact), an absolute path to it. **Mutually exclusive with `native.source`.** This path is the legacy lane preserved for compatibility; new plugins should use `source`.
 - **`native.contractVersion`** — protocol version your binary speaks. Must be `1` today. Future major-protocol changes will bump this; `ttsc` refuses to load mismatched contract versions.
-- **`native.capabilities`** — informational list of capability strings (e.g. `["transform"]`). Currently advisory; reserved for protocol negotiation.
+- **`native.capabilities`** — capability strings used by the host to place the plugin in the pipeline. Omit it, or use `["transform"]`/`["build"]`, for a compiler backend that owns emit. Use `["check"]` for diagnostics-only plugins that run before emit. Use `["output"]` for post-emit plugins that receive emitted files through the `output` command.
 
 ### Validation
 
@@ -195,7 +195,7 @@ The `config` field is the **complete plugin entry from tsconfig.json**, includin
 
 ### Ordered pipelines
 
-When the consumer declares multiple tsconfig plugin entries that all resolve to the same `source.dir`, `ttsc` builds **one** binary and invokes it once per `transform`/`build` call with the *full ordered list* in `--plugins-json`. Your binary is responsible for applying the descriptors in array order:
+When the consumer declares multiple tsconfig plugin entries that all resolve to the same `source.dir`, `ttsc` builds **one** binary and invokes it once per `transform`/`build` call with the relevant ordered list in `--plugins-json`. Your binary is responsible for applying those descriptors in array order:
 
 ```go
 for _, plugin := range pluginsFromJSON {
@@ -207,7 +207,17 @@ for _, plugin := range pluginsFromJSON {
 }
 ```
 
-This is how `ttsc` keeps the contract simple: one binary per project, one process spawn per file, all pipeline ordering inside the JSON descriptor.
+Different `["output"]` plugins may point at different `source.dir` values. `ttsc` emits the project first, then invokes each output plugin's binary in `compilerOptions.plugins` order once per emitted file:
+
+```go
+switch os.Args[1] {
+case "output":
+    // read --file, apply this plugin's config from --plugins-json,
+    // then rewrite --file or write --out
+}
+```
+
+Check-only plugins run before emit. Compiler-backend plugins still own their emit pass; multiple compiler backends must share one binary if they are meant to cooperate inside the same compiler pass.
 
 ### What `ttsc` does to the binary's stdout/stderr
 

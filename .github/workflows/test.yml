@@ -37,6 +37,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Use System Go For Source Plugin Tests
+        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
+
       - name: Run Tests
         run: pnpm test
 

@@ -28,6 +28,7 @@ import (
 // program bundles the tsgo Program with the parsed config and a checker
 // release callback so the orchestration code can clean up after itself.
 type program struct {
+	cwd            string
 	tsProgram      *shimcompiler.Program
 	parsed         *tsoptions.ParsedCommandLine
 	checker        *shimchecker.Checker
@@ -99,6 +100,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
 	}
 	checker, release := tsProgram.GetTypeChecker(context.Background())
 	return &program{
+		cwd:            cwd,
 		tsProgram:      tsProgram,
 		parsed:         parsed,
 		checker:        checker,
