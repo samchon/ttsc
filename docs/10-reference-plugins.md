@@ -217,8 +217,7 @@ Consumer config:
 
 What to learn:
 
-- `["check"]` plugin placement.
-- First-plugin guard: lint must inspect authored source before output plugins run.
+- Check-plugin placement: lint inspects authored source before emit and output plugins run.
 - Program/Checker bootstrap for diagnostics.
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.

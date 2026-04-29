@@ -21,7 +21,7 @@
     "plugin"
   ],
   "peerDependencies": {
-    "ttsc": "^0.5.0-dev.20260429"
+    "ttsc": "^0.5.0"
   },
   "repository": {
     "type": "git",

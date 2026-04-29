@@ -2,7 +2,7 @@
 
 This page builds a post-emit output plugin. It prepends a comment to every emitted JavaScript and declaration file. This is intentionally simple: one manifest, one Go module, one `output` command.
 
-After this works, read [AST and Checker](./03-tsgo.md) for source/AST/semantic plugins.
+After this works, compare it with the shipped [`@ttsc/banner`](../packages/banner/) plugin. Move on to [AST and Checker](./03-tsgo.md) only when your plugin needs source structure or semantic types.
 
 ## 1. Create the Package
 
@@ -24,7 +24,7 @@ ttsc-plugin-banner/
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
   "peerDependencies": {
-    "ttsc": "^0.4.0"
+    "ttsc": "^0.5.0"
   },
   "engines": {
     "node": ">=18"
@@ -221,7 +221,8 @@ What matters:
 
 - `output` receives an emitted file, not the original `.ts` source.
 - `--plugins-json` carries the original tsconfig plugin entry, including `banner`.
-- Unknown flags are ignored by declaring them even when unused.
+- Current optional flags are accepted by declaring them even when unused.
+- Production plugins should also tolerate future optional flags; see [Protocol](./02-protocol.md#compatibility-rules).
 - The transform is idempotent.
 
 ## 5. Use It
@@ -263,4 +264,4 @@ The first run builds and caches the Go binary. Later runs reuse it until the plu
 
 ## Next Step
 
-For a production-quality version of this exact shape, read [`packages/banner`](../packages/banner/). For AST-based edits, continue to [AST and Checker](./03-tsgo.md).
+For a production-quality version of this exact shape, read [`packages/banner`](../packages/banner/). For copyable helper patterns, use [Recipes](./08-recipes.md). If the build fails, check [Pitfalls](./09-pitfalls.md). For AST-based edits, continue to [AST and Checker](./03-tsgo.md).

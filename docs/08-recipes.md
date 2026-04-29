@@ -1,6 +1,6 @@
 # Recipes
 
-Short patterns for common plugin work.
+Short patterns for common plugin work. There is no high-level Go helper package yet; these snippets are the current reusable surface.
 
 ## Read Options from `--plugins-json`
 
@@ -66,6 +66,8 @@ func runPipeline(value string, plugins []PluginEntry) (string, error) {
 
 Consumer config order becomes execution order.
 
+When modes need to cooperate inside the compiler backend, keep those modes in one native binary and dispatch over the ordered `--plugins-json` entries. Output and check plugins do not need to share that binary.
+
 ## Output Plugin
 
 Use `capabilities: ["output"]` for post-emit edits:
@@ -85,7 +87,7 @@ Implement:
 my-plugin output --file=/project/dist/main.js --plugins-json='[...]'
 ```
 
-Read the file, patch it, write it back.
+Read the file, patch it, write it back. Output plugins can be combined with other output plugins; `ttsc` runs them after TypeScript-Go's normal emit path.
 
 ## Check Plugin
 
@@ -142,4 +144,4 @@ Prefer line-preserving edits. If the plugin substantially restructures JavaScrip
 
 ## Watch Mode
 
-`ttsc --watch` starts a fresh plugin process for each invocation. Keep state in files under `outDir` if needed; do not rely on process globals.
+`ttsc --watch` starts a fresh plugin process for each invocation. The source build cache avoids rebuilding the Go binary after the first run, but every rebuild still pays process startup and backend initialization. Keep state in files under `outDir` if needed; do not rely on process globals.

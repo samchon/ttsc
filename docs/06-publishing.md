@@ -12,7 +12,7 @@ A plugin is one npm package containing a JS manifest and Go source.
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
   "peerDependencies": {
-    "ttsc": "^0.4.0"
+    "ttsc": "^0.5.0"
   },
   "engines": {
     "node": ">=18"
@@ -46,7 +46,7 @@ Use `peerDependencies` for `ttsc`:
 
 ```json
 "peerDependencies": {
-  "ttsc": "^0.4.0"
+  "ttsc": "^0.5.0"
 }
 ```
 

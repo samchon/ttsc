@@ -25,7 +25,7 @@ test("workspace build packages every platform toolchain", () => {
   assert.equal(packageJson.scripts["build:current"], "node scripts/build-current.cjs");
   assert.equal(
     packageJson.scripts["package:latest"],
-    "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public && pnpm --filter ttsc publish --tag latest --access public",
+    "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
   );
   assert.equal(packageJson.scripts.release, "bumpp -r");
 });
@@ -81,6 +81,7 @@ test("published package file lists keep TypeScript and Go sources", () => {
 });
 
 test("utility plugin packages own their native sources", () => {
+  const ttsc = readPackageJson("ttsc");
   const expectations = {
     banner: { capabilities: ["output"], mode: "ttsc-banner" },
     lint: { capabilities: ["check"], mode: "ttsc-lint" },
@@ -97,6 +98,11 @@ test("utility plugin packages own their native sources", () => {
       "go.mod",
       "plugin",
     ]);
+    assert.equal(
+      packageJson.peerDependencies?.ttsc,
+      `^${ttsc.version}`,
+      `${directory} must peer-depend on the current ttsc version`,
+    );
     assert.equal(
       fs.existsSync(path.join(workspaceRoot, "packages", directory, "go.mod")),
       true,

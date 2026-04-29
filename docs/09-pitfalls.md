@@ -62,15 +62,60 @@ You declared `--plugins-json` but never parsed it. The user's tsconfig options l
 
 Parse it and find your entry by `mode` or `name`.
 
-## Multiple Compiler Backends Conflict
+## Combining Plugins
 
-Only one compiler backend can own Program creation and emit. If your plugin only edits emitted files, make it an output plugin:
+Multiple `compilerOptions.plugins[]` entries are supported. The limit is about ownership of the emit pass, not the number of plugin entries.
+
+This works with TypeScript-Go's normal emit path:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "banner": "/*! license */" },
+      { "transform": "@ttsc/paths" }
+    ]
+  }
+}
+```
+
+`@ttsc/banner` and `@ttsc/paths` are output plugins, so they run after TypeScript-Go emits files.
+
+This works with a compiler backend:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "my-compiler-backend" }
+    ]
+  }
+}
+```
+
+`@ttsc/lint` is a check plugin, so it runs before the compiler backend.
+
+This fails when the entries resolve to different compiler backend binaries:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "compiler-backend-a" },
+      { "transform": "compiler-backend-b" }
+    ]
+  }
+}
+```
+
+If your plugin only edits emitted files, make it an output plugin:
 
 ```js
 capabilities: ["output"]
 ```
 
-If several modes must cooperate inside one compiler pass, put them in one binary and dispatch by ordered `--plugins-json`.
+If several compiler-backend modes must cooperate inside one compiler pass, put them in one binary and dispatch by ordered `--plugins-json`.
 
 ## Windows Path Failures
 
