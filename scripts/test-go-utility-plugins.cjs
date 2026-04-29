@@ -12,7 +12,7 @@ const ttscDir = path.join(root, "packages", "ttsc");
 const packages = ["banner", "paths", "strip"];
 
 for (const name of packages) {
-  const source = path.join(root, "packages", name, "go-plugin");
+  const source = path.join(root, "packages", name);
   const tests = path.join(root, "tests", "utility-plugins", name);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-${name}-go-test-`));
   try {
@@ -20,12 +20,17 @@ for (const name of packages) {
       recursive: true,
       filter: (src) => {
         const base = path.basename(src);
-        return base !== "go.work" && base !== "go.work.sum";
+        return (
+          base !== "go.work" &&
+          base !== "go.work.sum" &&
+          base !== "node_modules" &&
+          !base.endsWith(".tgz")
+        );
       },
     });
     fs.cpSync(tests, scratch, { recursive: true });
     writeGoWork(scratch);
-    const result = cp.spawnSync("go", ["test", "./..."], {
+    const result = cp.spawnSync("go", ["test", "./plugin"], {
       cwd: scratch,
       env: {
         ...process.env,

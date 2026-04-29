@@ -36,8 +36,9 @@ test("utility plugins: descriptors own separate native source directories", () =
     assert.deepEqual(descriptor.native.capabilities, capabilities);
     assert.equal(
       descriptor.native.source.dir,
-      path.join(workspaceRoot, "packages", name, "go-plugin"),
+      path.join(workspaceRoot, "packages", name),
     );
+    assert.equal(descriptor.native.source.entry, "./plugin");
     assert.equal(
       fs.existsSync(path.join(descriptor.native.source.dir, "go.mod")),
       true,

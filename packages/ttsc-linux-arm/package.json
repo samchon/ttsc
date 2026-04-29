@@ -1,12 +1,11 @@
 {
   "name": "@ttsc/linux-arm",
-  "version": "0.4.4",
+  "version": "0.5.0-dev.20260429-4",
   "description": "Linux arm native binary and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["arm"],
   "scripts": {
-    "build": "node ../../scripts/build-platform-package.cjs",
-    "prepack": "pnpm run build"
+    "build": "node ../../scripts/build-platform-package.cjs"
   },
   "repository": {
     "type": "git",

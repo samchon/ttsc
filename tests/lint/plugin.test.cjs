@@ -2,7 +2,7 @@
 //
 // These checks pin the contract between the JS plugin descriptor and
 // the ttsc plugin host. The rule corpus is exercised end-to-end by
-// `cases.test.cjs`; engine + config sanity by `go-plugin/`.
+// `cases.test.cjs`; engine + config sanity by `plugin/`.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -10,10 +10,11 @@ const path = require("node:path");
 const test = require("node:test");
 
 const lintPkgDir = path.resolve(__dirname, "..", "..", "packages", "lint");
-const pluginPath = path.join(lintPkgDir, "index.cjs");
-const goPluginDir = path.join(lintPkgDir, "go-plugin");
+const pluginPath = path.join(lintPkgDir, "src", "index.cjs");
+const goSourceDir = lintPkgDir;
+const goPluginDir = path.join(lintPkgDir, "plugin");
 
-test("index.cjs is a factory that returns a native source descriptor", () => {
+test("src/index.cjs is a factory that returns a native source descriptor", () => {
   const factory = require(pluginPath);
   assert.equal(typeof factory, "function");
   const descriptor = factory({ name: "@ttsc/lint" }, {});
@@ -23,18 +24,19 @@ test("index.cjs is a factory that returns a native source descriptor", () => {
   assert.deepEqual(descriptor.native.capabilities, ["check"]);
 });
 
-test("native.source.dir points at the bundled go-plugin sources", () => {
+test("native.source points at the bundled plugin sources", () => {
   const factory = require(pluginPath);
   const descriptor = factory({ name: "@ttsc/lint" }, {});
-  assert.equal(descriptor.native.source.dir, goPluginDir);
+  assert.equal(descriptor.native.source.dir, goSourceDir);
+  assert.equal(descriptor.native.source.entry, "./plugin");
   // The Go module file must exist; otherwise the source build will fail.
   assert.ok(
-    fs.existsSync(path.join(goPluginDir, "go.mod")),
-    "go-plugin/go.mod is missing",
+    fs.existsSync(path.join(goSourceDir, "go.mod")),
+    "go.mod is missing",
   );
   assert.ok(
     fs.existsSync(path.join(goPluginDir, "main.go")),
-    "go-plugin/main.go is missing",
+    "plugin/main.go is missing",
   );
 });
 
