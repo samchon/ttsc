@@ -144,6 +144,15 @@ function verifyInstalledPackages() {
     !fs.existsSync(path.join(workspace, "node_modules", "ttsc", "native")),
     "ttsc package must not ship a workspace-local native fallback",
   );
+  const ttscPackage = JSON.parse(
+    fs.readFileSync(path.join(workspace, "node_modules", "ttsc", "package.json"), "utf8"),
+  );
+  for (const [name, version] of Object.entries(ttscPackage.optionalDependencies ?? {})) {
+    assert(
+      version === ttscPackage.version,
+      `ttsc optional dependency ${name} must resolve to exact package version ${ttscPackage.version}, got ${version}`,
+    );
+  }
 
   const resolved = runNode(
     [

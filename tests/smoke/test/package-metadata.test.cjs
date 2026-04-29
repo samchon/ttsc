@@ -25,9 +25,9 @@ test("workspace build packages every platform toolchain", () => {
   assert.equal(packageJson.scripts["build:current"], "node scripts/build-current.cjs");
   assert.equal(
     packageJson.scripts["package:latest"],
-    "pnpm build && pnpm --filter=./packages/* -r publish --tag latest --access public",
+    "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public && pnpm --filter ttsc publish --tag latest --access public",
   );
-  assert.equal(packageJson.scripts.release, "pnpm build && bumpp -r");
+  assert.equal(packageJson.scripts.release, "bumpp -r");
 });
 
 test("ttsc package owns both compiler and runtime commands", () => {
@@ -146,6 +146,18 @@ test("platform package matrix follows the ttsc helper package shape", () => {
       .map(([name]) => name)
       .sort(),
   );
+  for (const [directory, [name]] of Object.entries(expected)) {
+    assert.equal(
+      packageJson.optionalDependencies[name],
+      "workspace:*",
+      `${name} must stay workspace-linked in source metadata`,
+    );
+    assert.equal(
+      readPackageJson(directory).version,
+      packageJson.version,
+      `${name} must share the exact ttsc package version`,
+    );
+  }
 
   for (const [directory, [name, os, cpu]] of Object.entries(expected)) {
     const platformJson = readPackageJson(directory);
@@ -163,7 +175,11 @@ test("next publish bumps versions before a single workspace build", () => {
   const script = fs.readFileSync(path.join(workspaceRoot, "next.bash"), "utf8");
   assert.match(script, /pnpm bumpp "\$1"/);
   assert.match(script, /pnpm build/);
-  assert.match(script, /pnpm --filter=\.\/packages\/\* -r publish --tag next --access public --no-git-checks/);
+  const publishOthers = "pnpm --filter=./packages/* --filter=!ttsc -r publish --tag next --access public --no-git-checks";
+  const publishTtsc = "pnpm --filter ttsc publish --tag next --access public --no-git-checks";
+  assert.ok(script.includes(publishOthers), "next publish must publish non-ttsc packages first");
+  assert.ok(script.includes(publishTtsc), "next publish must publish ttsc last");
+  assert.ok(script.indexOf(publishOthers) < script.indexOf(publishTtsc));
 });
 
 test("experimental pack-current builds current artifacts before packing", () => {
