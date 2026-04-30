@@ -33,7 +33,8 @@
   "devDependencies": {
     "@typescript/native-preview": "catalog:tsgo",
     "@types/node": "catalog:utils",
-    "rimraf": "catalog:utils"
+    "rimraf": "catalog:utils",
+    "ttsc": "workspace:*"
   },
   "repository": {
     "type": "git",
