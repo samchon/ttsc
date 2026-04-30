@@ -110,6 +110,7 @@ function installTarballs() {
   const command = [
     "npm install",
     "--ignore-scripts",
+    "--legacy-peer-deps",
     "--no-audit",
     "--no-fund",
     tarball("ttsc"),
