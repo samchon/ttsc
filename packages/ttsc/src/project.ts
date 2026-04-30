@@ -3,26 +3,15 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-export interface ProjectLocatorOptions {
-  cwd?: string;
-  file?: string;
-  tsconfig?: string;
-}
+import type { ITtscCacheKeyInput } from "./structures/ITtscCacheKeyInput";
+import type { ITtscParsedProjectConfig } from "./structures/ITtscParsedProjectConfig";
+import type { ITtscProjectLocatorOptions } from "./structures/ITtscProjectLocatorOptions";
+import type { ITtscProjectPluginConfig } from "./structures/ITtscProjectPluginConfig";
 
-export interface ProjectPluginConfig {
-  enabled?: boolean;
-  transform?: string;
-  [key: string]: unknown;
-}
-
-export interface ParsedProjectConfig {
-  compilerOptions: {
-    outDir?: string;
-    plugins: ProjectPluginConfig[];
-  } & Record<string, unknown>;
-  path: string;
-  root: string;
-}
+export type { ITtscCacheKeyInput } from "./structures/ITtscCacheKeyInput";
+export type { ITtscParsedProjectConfig } from "./structures/ITtscParsedProjectConfig";
+export type { ITtscProjectLocatorOptions } from "./structures/ITtscProjectLocatorOptions";
+export type { ITtscProjectPluginConfig } from "./structures/ITtscProjectPluginConfig";
 
 export function resolveWorkingDirectory(cwd?: string): string {
   return path.resolve(cwd ?? process.cwd());
@@ -32,7 +21,7 @@ export function resolveAbsolutePath(cwd: string, target: string): string {
   return path.isAbsolute(target) ? target : path.resolve(cwd, target);
 }
 
-export function resolveProjectConfig(opts: ProjectLocatorOptions = {}): string {
+export function resolveProjectConfig(opts: ITtscProjectLocatorOptions = {}): string {
   const cwd = resolveWorkingDirectory(opts.cwd);
   if (opts.tsconfig) {
     const resolved = resolveAbsolutePath(cwd, opts.tsconfig);
@@ -55,7 +44,7 @@ export function resolveProjectConfig(opts: ProjectLocatorOptions = {}): string {
   return resolveRealPath(found);
 }
 
-export function resolveProjectRoot(opts: ProjectLocatorOptions = {}): string {
+export function resolveProjectRoot(opts: ITtscProjectLocatorOptions = {}): string {
   return path.dirname(resolveProjectConfig(opts));
 }
 
@@ -63,7 +52,7 @@ export function defaultCacheDirectory(projectRoot: string, tool: string): string
   return path.join(projectRoot, "node_modules", ".cache", "ttsc", tool);
 }
 
-export function readProjectConfig(opts: ProjectLocatorOptions = {}): ParsedProjectConfig {
+export function readProjectConfig(opts: ITtscProjectLocatorOptions = {}): ITtscParsedProjectConfig {
   const tsconfig = resolveProjectConfig(opts);
   const root = path.dirname(tsconfig);
   const compilerOptions = readResolvedCompilerOptions(tsconfig);
@@ -78,15 +67,7 @@ export function readProjectConfig(opts: ProjectLocatorOptions = {}): ParsedProje
   };
 }
 
-export interface CacheKeyInput {
-  file: string;
-  tsconfig: string;
-  version: string;
-  mode?: string;
-  extra?: readonly string[];
-}
-
-export function createTransformCacheKey(input: CacheKeyInput): string {
+export function createTransformCacheKey(input: ITtscCacheKeyInput): string {
   const hash = crypto.createHash("sha256");
   hash.update("file\0");
   hash.update(fs.readFileSync(input.file));
@@ -125,11 +106,11 @@ function isDirectory(location: string): boolean {
   }
 }
 
-function isProjectPluginConfig(value: unknown): value is ProjectPluginConfig {
+function isProjectPluginConfig(value: unknown): value is ITtscProjectPluginConfig {
   return typeof value === "object" && value !== null;
 }
 
-interface RawTsconfig {
+interface ITtscRawTsconfig {
   extends?: unknown;
   compilerOptions?: Record<string, unknown> & {
     outDir?: unknown;
@@ -137,10 +118,10 @@ interface RawTsconfig {
   };
 }
 
-interface ResolvedCompilerOptions {
+interface ITtscResolvedCompilerOptions {
   options: Record<string, unknown>;
   outDir?: string;
-  plugins: ProjectPluginConfig[];
+  plugins: ITtscProjectPluginConfig[];
 }
 
 function resolveRealPath(location: string): string {
@@ -154,14 +135,14 @@ function resolveRealPath(location: string): string {
 function readResolvedCompilerOptions(
   tsconfig: string,
   seen: Set<string> = new Set(),
-): ResolvedCompilerOptions {
+): ITtscResolvedCompilerOptions {
   const canonical = resolveRealPath(tsconfig);
   if (seen.has(canonical)) {
     throw new Error(`ttsc: circular tsconfig extends detected: ${canonical}`);
   }
   seen.add(canonical);
 
-  const parsed = parseJsonc(fs.readFileSync(canonical, "utf8")) as RawTsconfig;
+  const parsed = parseJsonc(fs.readFileSync(canonical, "utf8")) as ITtscRawTsconfig;
   const own = parsed.compilerOptions;
   const base =
     typeof parsed.extends === "string"

@@ -7,11 +7,11 @@ import { version } from "../api";
 import {
   prepareExecution,
   register,
-  type PreparedExecution,
-  type RegisterOptions,
+  type ITtscPreparedExecution,
+  type ITtscRegisterOptions,
 } from "./register";
 
-interface ParsedCLI extends RegisterOptions {
+interface ITtscParsedCLI extends ITtscRegisterOptions {
   entry: string;
   passthrough: string[];
   preload: string[];
@@ -80,7 +80,7 @@ function formatError(error: unknown): string {
   return String(error);
 }
 
-function parseCLI(argv: readonly string[]): ParsedCLI | "help" | "version" {
+function parseCLI(argv: readonly string[]): ITtscParsedCLI | "help" | "version" {
   const preload: string[] = [];
   const passthroughIndex = argv.indexOf("--");
   const head = passthroughIndex === -1 ? [...argv] : [...argv.slice(0, passthroughIndex)];
@@ -199,7 +199,7 @@ function takeValue(flag: string, rest: string[]): string {
   return value;
 }
 
-function runEsmEntry(parsed: ParsedCLI, execution: PreparedExecution, cwd: string): number {
+function runEsmEntry(parsed: ITtscParsedCLI, execution: ITtscPreparedExecution, cwd: string): number {
   fs.mkdirSync(execution.emitDir, { recursive: true });
   rewriteEsmSpecifiers(execution.emitDir);
   fs.writeFileSync(

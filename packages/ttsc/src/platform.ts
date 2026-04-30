@@ -27,36 +27,19 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export interface ResolveOptions {
-  /**
-   * Override `require.resolve` for testing. Takes a module request string and
-   * returns an absolute path (or throws).
-   */
-  resolver?: (request: string) => string;
-  /** Override `process.platform` for testing. */
-  platform?: NodeJS.Platform;
-  /** Override `process.arch` for testing. */
-  arch?: string;
-  /** Override `process.env` for testing. */
-  env?: NodeJS.ProcessEnv;
-  /**
-   * Override the package-local scan used for the local `native/ttsc-native`
-   * fallback. Returns an absolute path if present, else null.
-   */
-  localBinaryLookup?: () => string | null;
-  /** Override the module directory used to resolve the package-local binary. */
-  moduleDir?: string;
-}
+import type { ITtscResolveOptions } from "./structures/ITtscResolveOptions";
+
+export type { ITtscResolveOptions } from "./structures/ITtscResolveOptions";
 
 /** Canonical key `{platform}-{arch}` used in the binary package name. */
-export function platformKey(opts: ResolveOptions = {}): string {
+export function platformKey(opts: ITtscResolveOptions = {}): string {
   const platform = opts.platform ?? process.platform;
   const arch = opts.arch ?? process.arch;
   return `${platform}-${arch}`;
 }
 
 /** Helper binary filename for the current platform (`.exe` on Windows, else none). */
-export function binaryName(opts: ResolveOptions = {}): string {
+export function binaryName(opts: ITtscResolveOptions = {}): string {
   const platform = opts.platform ?? process.platform;
   return platform === "win32" ? "ttsc.exe" : "ttsc";
 }
@@ -66,7 +49,7 @@ export function binaryName(opts: ResolveOptions = {}): string {
  * platform. Separated from actual resolution so we can log the request when
  * the dependency is missing.
  */
-export function platformPackageRequest(opts: ResolveOptions = {}): string {
+export function platformPackageRequest(opts: ITtscResolveOptions = {}): string {
   const key = platformKey(opts);
   const bin = binaryName(opts);
   return `@ttsc/${key}/bin/${bin}`;
@@ -93,7 +76,7 @@ export function isSupported(key: string): boolean {
  * order. Returns `null` when every strategy fails — the launcher then prints
  * the install hint and exits non-zero.
  */
-export function resolveBinary(opts: ResolveOptions = {}): string | null {
+export function resolveBinary(opts: ITtscResolveOptions = {}): string | null {
   const env = opts.env ?? process.env;
 
   // 1. Env override. Absolute path is required; a relative value is ignored so
@@ -126,7 +109,7 @@ export function resolveBinary(opts: ResolveOptions = {}): string | null {
  * Human-readable message shown when no binary can be located. Pure string —
  * the launcher writes it to stderr.
  */
-export function installHint(opts: ResolveOptions = {}): string {
+export function installHint(opts: ITtscResolveOptions = {}): string {
   const key = platformKey(opts);
   const pkg = `@ttsc/${key}`;
   const supported = SUPPORTED_PLATFORMS.join(", ");
@@ -149,7 +132,7 @@ export function installHint(opts: ResolveOptions = {}): string {
   ].join("\n");
 }
 
-function defaultLocalBinaryPath(opts: ResolveOptions): string | null {
+function defaultLocalBinaryPath(opts: ITtscResolveOptions): string | null {
   const root = packageRootDir(opts);
   const candidate = path.resolve(
     root,
@@ -160,7 +143,7 @@ function defaultLocalBinaryPath(opts: ResolveOptions): string | null {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
-function packageRootDir(opts: ResolveOptions = {}): string {
+function packageRootDir(opts: ITtscResolveOptions = {}): string {
   if (opts.moduleDir) {
     return fs.realpathSync.native?.(opts.moduleDir) ?? fs.realpathSync(opts.moduleDir);
   }

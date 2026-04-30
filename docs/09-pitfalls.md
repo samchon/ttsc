@@ -87,7 +87,7 @@ This works with a compiler backend:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
       { "transform": "my-compiler-backend" }
     ]
   }

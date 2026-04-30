@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -59,7 +61,7 @@ func TestParseRulesNilTreatedAsEmpty(t *testing.T) {
 
 func TestParsePluginsRoundTrip(t *testing.T) {
 	const blob = `[
-		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"rules": {"no-var": "error"}}}
+		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"config": {"no-var": "error"}}}
 	]`
 	entries, err := ParsePlugins(blob)
 	if err != nil {
@@ -78,7 +80,7 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 	if entry.Mode != "ttsc-lint" {
 		t.Errorf("entry.Mode: want ttsc-lint, got %q", entry.Mode)
 	}
-	cfg, err := ParseRules(entry.Config["rules"])
+	cfg, err := ParseRules(entry.Config["config"])
 	if err != nil {
 		t.Fatalf("ParseRules: %v", err)
 	}
@@ -90,7 +92,7 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 func TestFindLintEntryRejectsNonFirstLintPlugin(t *testing.T) {
 	const blob = `[
 		{"name": "source-transform", "mode": "source-transform", "contractVersion": 1, "config": {}},
-		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"rules": {"no-var": "error"}}}
+		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"config": {"no-var": "error"}}}
 	]`
 	entries, err := ParsePlugins(blob)
 	if err != nil {
@@ -113,5 +115,138 @@ func TestParsePluginsRejectsBadJSON(t *testing.T) {
 		t.Error("expected error for malformed JSON")
 	} else if !strings.Contains(err.Error(), "invalid --plugins-json") {
 		t.Errorf("error should mention plugins-json: %v", err)
+	}
+}
+
+func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+	writeFile(t, filepath.Join(dir, "ttsc-lint.config.json"), `{
+		"no-var": "error",
+		"eqeqeq": "warning"
+	}`)
+
+	cfg, err := LoadRuleConfig(&PluginEntry{
+		Config: map[string]any{
+			"config": "./ttsc-lint.config.json",
+		},
+	}, dir, "tsconfig.json")
+	if err != nil {
+		t.Fatalf("LoadRuleConfig: %v", err)
+	}
+	if cfg.Severity("no-var") != SeverityError {
+		t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+	}
+	if cfg.Severity("eqeqeq") != SeverityWarn {
+		t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))
+	}
+}
+
+func TestLoadRuleConfigLoadsJavaScriptConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+	writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), `module.exports = {
+		"no-console": "warn",
+		"no-debugger": "error",
+	};`)
+
+	cfg, err := LoadRuleConfig(&PluginEntry{
+		Config: map[string]any{
+			"config": "./ttsc-lint.config.cjs",
+		},
+	}, dir, "tsconfig.json")
+	if err != nil {
+		t.Fatalf("LoadRuleConfig: %v", err)
+	}
+	if cfg.Severity("no-console") != SeverityWarn {
+		t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
+	}
+	if cfg.Severity("no-debugger") != SeverityError {
+		t.Errorf("no-debugger: want error, got %v", cfg.Severity("no-debugger"))
+	}
+}
+
+func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+	writeFile(t, filepath.Join(dir, "ttsc-lint.config.ts"), `const config: Record<string, string> = {
+		"no-explicit-any": "error",
+	};
+	export default config;`)
+
+	cfg, err := LoadRuleConfig(&PluginEntry{
+		Config: map[string]any{
+			"config": "./ttsc-lint.config.ts",
+		},
+	}, dir, "tsconfig.json")
+	if err != nil {
+		t.Fatalf("LoadRuleConfig: %v", err)
+	}
+	if cfg.Severity("no-explicit-any") != SeverityError {
+		t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
+	}
+}
+
+func TestLoadRuleConfigAcceptsInlineConfigObject(t *testing.T) {
+	cfg, err := LoadRuleConfig(&PluginEntry{
+		Config: map[string]any{
+			"config": map[string]any{
+				"no-var": "error",
+			},
+		},
+	}, t.TempDir(), "tsconfig.json")
+	if err != nil {
+		t.Fatalf("LoadRuleConfig: %v", err)
+	}
+	if cfg.Severity("no-var") != SeverityError {
+		t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+	}
+}
+
+func TestLoadRuleConfigRejectsLegacyConfigFileAliases(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+
+	for _, key := range []string{"configFile", "configPath"} {
+		_, err := LoadRuleConfig(&PluginEntry{
+			Config: map[string]any{
+				key: "./ttsc-lint.config.json",
+			},
+		}, dir, "tsconfig.json")
+		if err == nil {
+			t.Fatalf("expected %s to be rejected", key)
+		}
+		if !strings.Contains(err.Error(), "use \"config\"") {
+			t.Fatalf("error should point to config-only contract, got %v", err)
+		}
+	}
+}
+
+func TestLoadRuleConfigRejectsLegacyTopLevelRules(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+
+	_, err := LoadRuleConfig(&PluginEntry{
+		Config: map[string]any{
+			"rules": map[string]any{
+				"no-var": "off",
+			},
+		},
+	}, dir, "tsconfig.json")
+	if err == nil {
+		t.Fatal("expected top-level rules to be rejected")
+	}
+	if !strings.Contains(err.Error(), "use \"config\"") {
+		t.Fatalf("error should point to config-only contract, got %v", err)
+	}
+}
+
+func writeFile(t *testing.T, location, text string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(location), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(location, []byte(text), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
 	}
 }

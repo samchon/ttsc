@@ -21,10 +21,10 @@ The module exports either a plugin object or a factory:
 ```js
 const path = require("node:path");
 
-module.exports = (config, context) => ({
+module.exports = (context) => ({
   name: "my-plugin",
   native: {
-    mode: String(config.mode ?? "default"),
+    mode: String(context.plugin.mode ?? "default"),
     source: { dir: path.resolve(__dirname, "go-plugin") },
     contractVersion: 1,
     capabilities: ["output"],
@@ -38,20 +38,42 @@ module.exports = (config, context) => ({
 {
   binary: string;
   cwd: string;
+  plugin: ITtscProjectPluginConfig;
   projectRoot: string;
   tsconfig: string;
+}
+```
+
+`context.plugin` is the original tsconfig plugin entry. If you want stronger
+typing, specialize the context type in your factory:
+
+```ts
+import type { ITtscPluginFactoryContext } from "ttsc";
+
+type MyPluginEntry = {
+  transform: string;
+  mode?: string;
+};
+
+export function createTtscPlugin(
+  context: ITtscPluginFactoryContext<MyPluginEntry>,
+) {
+  return {
+    name: "my-plugin",
+    native: { mode: context.plugin.mode ?? "default" },
+  };
 }
 ```
 
 ### Shape
 
 ```ts
-interface TtscPlugin {
+interface ITtscPlugin {
   name: string;
-  native?: TtscNativeBackend;
+  native?: ITtscNativeBackend;
 }
 
-interface TtscNativeBackend {
+interface ITtscNativeBackend {
   mode: string;
   source?: { dir: string; entry?: string };
   binary?: string;

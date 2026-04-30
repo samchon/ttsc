@@ -28,7 +28,7 @@ The cache key includes:
 The cache key does not include:
 
 - consumer TypeScript source files;
-- plugin options such as `rules`, `banner`, or `calls`;
+- plugin options such as lint `config`, `banner`, or `calls`;
 - CLI flags such as `--emit` or `--outDir`;
 - README or JSON data files.
 

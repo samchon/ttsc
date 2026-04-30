@@ -11,19 +11,20 @@ The order is by implementation difficulty. `strip` is easier than `paths`: `stri
 
 ## Shared Package Shape
 
-Each package has:
+Each package has a JavaScript descriptor factory and a Go plugin module:
 
 ```text
 packages/<name>/
 |- package.json
-|- src/index.cjs
+|- src/index.cjs        # most first-party plugins
+|- src/index.ts         # @ttsc/lint, compiled to lib/index.js
 |- go.mod
 `- plugin/
    |- main.go
    `- <name>.go
 ```
 
-The descriptor factory lives in `src/index.cjs`:
+For simple CommonJS plugins, the descriptor factory lives in `src/index.cjs`:
 
 ```js
 const path = require("node:path");
@@ -205,7 +206,7 @@ Consumer config:
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "rules": {
+        "config": {
           "no-var": "error",
           "no-explicit-any": "warning"
         }
@@ -245,7 +246,8 @@ rules_*.go
 
 Read:
 
-- [`packages/lint/src/index.cjs`](../packages/lint/src/index.cjs)
+- [`packages/lint/src/index.ts`](../packages/lint/src/index.ts)
+- [`packages/lint/src/structures`](../packages/lint/src/structures/)
 - [`packages/lint/plugin/config.go`](../packages/lint/plugin/config.go)
 - [`packages/lint/plugin/host.go`](../packages/lint/plugin/host.go)
 - [`packages/lint/plugin/engine.go`](../packages/lint/plugin/engine.go)
@@ -266,7 +268,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     "rootDir": "src",
     "outDir": "dist",
     "plugins": [
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
       { "transform": "@ttsc/paths" },
       {

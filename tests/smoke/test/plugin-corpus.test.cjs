@@ -32,8 +32,8 @@ function pluginProject(pluginEntries, pluginFiles) {
 
 function nativePlugin(mode) {
   return `
-    module.exports = (config) => ({
-      name: config.name,
+    module.exports = (context) => ({
+      name: context.plugin.name,
       native: {
         mode: ${JSON.stringify(mode)},
         binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
@@ -49,8 +49,8 @@ test("plugin corpus: default export factory is accepted as a native descriptor",
     [{ transform: "./plugins/default.cjs", name: "default-shape" }],
     {
       "plugins/default.cjs": `
-        exports.default = (config) => ({
-          name: config.name,
+        exports.default = (context) => ({
+          name: context.plugin.name,
           native: {
             mode: "go-uppercase",
             binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
@@ -78,8 +78,8 @@ test("plugin corpus: createTtscPlugin export is accepted as a native descriptor"
     [{ transform: "./plugins/create.cjs", name: "create-export" }],
     {
       "plugins/create.cjs": `
-        exports.createTtscPlugin = (config) => ({
-          name: config.name,
+        exports.createTtscPlugin = (context) => ({
+          name: context.plugin.name,
           native: {
             mode: "go-uppercase",
             binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
@@ -209,16 +209,16 @@ test("plugin corpus: source plugins serve an ordered --plugins-json pipeline", (
   const cacheDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "ttsc-source-plugin-ordered-"),
   );
-  // Override plugin.cjs to expose a config-driven manifest factory so we can
+  // Override plugin.cjs to expose a context-driven manifest factory so we can
   // declare prefix → upper → suffix as ordered entries that all share the
   // same source dir (and therefore the same compiled binary).
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     `const path = require("node:path");
-module.exports = (config) => ({
-  name: config.name,
+module.exports = (context) => ({
+  name: context.plugin.name,
   native: {
-    mode: config.mode,
+    mode: context.plugin.mode,
     source: { dir: path.resolve(__dirname, "go-plugin") },
     contractVersion: 1,
   },
@@ -710,7 +710,7 @@ test("plugin corpus: @ttsc/lint honors --emit and --outDir overrides", () => {
         plugins: [
           {
             transform: "@ttsc/lint",
-            rules: {},
+            config: {},
           },
         ],
       },
@@ -745,7 +745,7 @@ test("plugin corpus: @ttsc/lint ignores future optional flags", () => {
         strict: true,
         outDir: "dist",
         rootDir: "src",
-        plugins: [{ transform: "@ttsc/lint", rules: {} }],
+        plugins: [{ transform: "@ttsc/lint", config: {} }],
       },
       include: ["src"],
     }),
@@ -812,7 +812,7 @@ test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary ca
     path.join(root, "src", "main.ts"),
     `export const value: string = "cache-options";\n`,
   );
-  const writeConfig = (rules) => {
+  const writeConfig = (config) => {
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
@@ -822,7 +822,7 @@ test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary ca
           strict: true,
           outDir: "dist",
           rootDir: "src",
-          plugins: [{ transform: "@ttsc/lint", rules }],
+          plugins: [{ transform: "@ttsc/lint", config }],
         },
         include: ["src"],
       }),
@@ -872,7 +872,7 @@ test("plugin corpus: source plugin default cache is project-local under node_mod
         strict: true,
         outDir: "dist",
         rootDir: "src",
-        plugins: [{ transform: "@ttsc/lint", rules: { "no-var": "error" } }],
+        plugins: [{ transform: "@ttsc/lint", config: { "no-var": "error" } }],
       },
       include: ["src"],
     }),
@@ -917,7 +917,7 @@ test("plugin corpus: @ttsc/lint reports unknown rule names", () => {
         plugins: [
           {
             transform: "@ttsc/lint",
-            rules: {
+            config: {
               "made-up-rule": "error",
             },
           },

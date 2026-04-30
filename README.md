@@ -59,7 +59,7 @@ Each plugin module is a JavaScript descriptor for an ordered native transformer 
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "rules": {
+        "config": {
           "no-var": "error",
           "no-explicit-any": "warning",
           "no-non-null-assertion": "off"

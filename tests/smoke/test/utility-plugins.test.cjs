@@ -28,8 +28,9 @@ test("utility plugins: descriptors own separate native source directories", () =
     const [mode, capabilities] = Array.isArray(expectation)
       ? expectation
       : [expectation, ["output"]];
-    const factory = require(path.join(workspaceRoot, "packages", name));
-    const descriptor = factory({}, {});
+    const mod = require(path.join(workspaceRoot, "packages", name));
+    const factory = mod.createTtscPlugin ?? mod.default ?? mod;
+    const descriptor = factory(factoryContext(name));
     assert.equal(descriptor.name, `@ttsc/${name}`);
     assert.equal(descriptor.native.mode, mode);
     assert.equal(descriptor.native.contractVersion, 1);
@@ -47,6 +48,16 @@ test("utility plugins: descriptors own separate native source directories", () =
   }
   assert.equal(seenDirs.size, 4);
 });
+
+function factoryContext(name) {
+  return {
+    binary: "",
+    cwd: workspaceRoot,
+    plugin: { transform: `@ttsc/${name}` },
+    projectRoot: workspaceRoot,
+    tsconfig: path.join(workspaceRoot, "tsconfig.json"),
+  };
+}
 
 test("utility plugins: lint, banner, paths, and strip run together in ttsc build", () => {
   const root = copyProject("utility-plugins");

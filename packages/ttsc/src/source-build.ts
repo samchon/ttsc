@@ -4,17 +4,13 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-import type { TtscNativeSource } from "./native";
+import type { ITtscBuildSourcePluginOptions } from "./structures/ITtscBuildSourcePluginOptions";
+import type { ITtscResolveGoBinaryOptions } from "./structures/ITtscResolveGoBinaryOptions";
 
-export interface BuildSourcePluginOptions {
-  source: TtscNativeSource;
-  pluginName: string;
-  baseDir: string;
-  ttscVersion: string;
-  tsgoVersion: string;
-}
+export type { ITtscBuildSourcePluginOptions } from "./structures/ITtscBuildSourcePluginOptions";
+export type { ITtscResolveGoBinaryOptions } from "./structures/ITtscResolveGoBinaryOptions";
 
-export function buildSourcePlugin(opts: BuildSourcePluginOptions): string {
+export function buildSourcePlugin(opts: ITtscBuildSourcePluginOptions): string {
   const dir = path.isAbsolute(opts.source.dir)
     ? opts.source.dir
     : path.resolve(opts.baseDir, opts.source.dir);
@@ -210,20 +206,12 @@ function walkToolFiles(dir: string): string[] {
   return out;
 }
 
-export interface ResolveGoBinaryOptions {
-  arch?: string;
-  env?: NodeJS.ProcessEnv;
-  localGoLookup?: () => string | null;
-  platform?: NodeJS.Platform;
-  resolver?: (request: string) => string;
-}
-
-export function goBinaryName(opts: ResolveGoBinaryOptions = {}): string {
+export function goBinaryName(opts: ITtscResolveGoBinaryOptions = {}): string {
   return (opts.platform ?? process.platform) === "win32" ? "go.exe" : "go";
 }
 
 export function bundledGoPackageRequest(
-  opts: ResolveGoBinaryOptions = {},
+  opts: ITtscResolveGoBinaryOptions = {},
 ): string {
   return `@ttsc/${goPlatformKey(opts)}/bin/go/bin/${goBinaryName(opts)}`;
 }
@@ -312,7 +300,7 @@ function resolveGoBinary(): string {
 }
 
 export function resolveGoCompiler(
-  opts: ResolveGoBinaryOptions = {},
+  opts: ITtscResolveGoBinaryOptions = {},
 ): string {
   const env = opts.env ?? process.env;
   const explicit = env.TTSC_GO_BINARY;
@@ -338,7 +326,7 @@ export function resolveGoCompiler(
   return "go";
 }
 
-function defaultLocalGoBinaryPath(opts: ResolveGoBinaryOptions): string | null {
+function defaultLocalGoBinaryPath(opts: ITtscResolveGoBinaryOptions): string | null {
   const candidate = path.resolve(
     __dirname,
     "..",
@@ -350,18 +338,18 @@ function defaultLocalGoBinaryPath(opts: ResolveGoBinaryOptions): string | null {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
-function goPlatformKey(opts: ResolveGoBinaryOptions = {}): string {
+function goPlatformKey(opts: ITtscResolveGoBinaryOptions = {}): string {
   return `${opts.platform ?? process.platform}-${opts.arch ?? process.arch}`;
 }
 
-interface KeyInputs {
+interface ITtscSourceBuildCacheKeyInput {
   dir: string;
   entry: string;
   ttscVersion: string;
   tsgoVersion: string;
 }
 
-export function computeCacheKey(inputs: KeyInputs): string {
+export function computeCacheKey(inputs: ITtscSourceBuildCacheKeyInput): string {
   const hash = crypto.createHash("sha256");
   hash.update(`ttsc=${inputs.ttscVersion}\n`);
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);

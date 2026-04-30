@@ -52,7 +52,7 @@ Call patterns match statement-level calls such as `console.log("debug")` or `ass
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },

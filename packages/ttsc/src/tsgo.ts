@@ -2,39 +2,21 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-export interface TsgoResolveOptions {
-  /** Absolute path to an explicit tsgo-compatible binary. */
-  binary?: string;
-  /** Project directory used for node_modules resolution. */
-  cwd?: string;
-  /** Environment variables used for explicit binary overrides. */
-  env?: NodeJS.ProcessEnv;
-  /** Override process.platform for tests. */
-  platform?: NodeJS.Platform;
-  /** Override process.arch for tests. */
-  arch?: string;
-  /** Override package resolution for tests. */
-  resolver?: (request: string) => string;
-}
+import type { ITtscResolvedTsgo } from "./structures/ITtscResolvedTsgo";
+import type { ITtscTsgoResolveOptions } from "./structures/ITtscTsgoResolveOptions";
 
-export interface ResolvedTsgo {
-  binary: string;
-  gitHead?: string;
-  packageJson: string;
-  packageRoot: string;
-  platformPackageJson?: string;
-  version: string;
-}
+export type { ITtscResolvedTsgo } from "./structures/ITtscResolvedTsgo";
+export type { ITtscTsgoResolveOptions } from "./structures/ITtscTsgoResolveOptions";
 
 export function nativePreviewPlatformPackage(
-  opts: TsgoResolveOptions = {},
+  opts: ITtscTsgoResolveOptions = {},
 ): string {
   return `@typescript/native-preview-${opts.platform ?? process.platform}-${
     opts.arch ?? process.arch
   }`;
 }
 
-export function resolveTsgo(opts: TsgoResolveOptions = {}): ResolvedTsgo {
+export function resolveTsgo(opts: ITtscTsgoResolveOptions = {}): ITtscResolvedTsgo {
   const env = opts.env ?? process.env;
   const explicit = opts.binary ?? env.TTSC_TSGO_BINARY;
   if (explicit) {

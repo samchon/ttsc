@@ -17,6 +17,7 @@
 //   4. Run `go test ./plugin` in the scratch dir.
 
 const cp = require("node:child_process");
+const { createRequire } = require("node:module");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -26,6 +27,8 @@ const lintPkgDir = path.join(root, "packages", "lint");
 const lintTestsDir = path.join(root, "tests", "lint", "plugin");
 const ttscDir = path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
+const ttsxBinary = path.join(ttscDir, "lib", "launcher", "ttsx.js");
+const tsgoBinary = resolveTsgoBinary();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 try {
@@ -61,6 +64,8 @@ try {
       PATH: fs.existsSync(goRoot)
         ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
         : process.env.PATH,
+      TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
+      TTSC_TTSX_BINARY: process.env.TTSC_TTSX_BINARY ?? ttsxBinary,
     },
     stdio: "inherit",
     windowsHide: true,
@@ -71,6 +76,21 @@ try {
   process.exit(result.status ?? 1);
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+}
+
+function resolveTsgoBinary() {
+  const packageJson = require.resolve("@typescript/native-preview/package.json", {
+    paths: [root],
+  });
+  const requireFromNativePreview = createRequire(packageJson);
+  const platformPackageJson = requireFromNativePreview.resolve(
+    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  );
+  return path.join(
+    path.dirname(platformPackageJson),
+    "lib",
+    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+  );
 }
 
 function walkForGoMod(dir, out) {

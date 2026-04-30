@@ -13,7 +13,7 @@
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "rules": {
+        "config": {
           "no-var": "error",
           "no-explicit-any": "error",
           "no-debugger": "off",
