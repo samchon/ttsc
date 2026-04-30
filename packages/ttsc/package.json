@@ -1,6 +1,6 @@
 {
   "name": "ttsc",
-  "version": "0.6.0-dev.20250501",
+  "version": "0.6.0-dev.20250501-2",
   "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
   "main": "lib/index.js",
   "types": "src/index.ts",
