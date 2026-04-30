@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/station",
-  "version": "0.6.0-dev.20250430",
+  "version": "0.6.0-dev.20250501",
   "description": "Standalone TypeScript-Go compiler and runtime workspace.",
   "scripts": {
     "build": "node scripts/build-platforms.cjs",

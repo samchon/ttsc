@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/darwin-x64",
-  "version": "0.6.0-dev.20250430",
+  "version": "0.6.0-dev.20250501",
   "description": "macOS x64 native binary and bundled Go compiler for ttsc.",
   "os": ["darwin"],
   "cpu": ["x64"],
