@@ -2,76 +2,37 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  type NativeRewriteMode,
-  type TtscNativeBackend,
-  resolveNativeBackend,
-} from "./native";
-import {
-  type ParsedProjectConfig,
-  type ProjectPluginConfig,
-  readProjectConfig,
-} from "./project";
+import type { ITtscLoadPluginsOptions } from "./structures/ITtscLoadPluginsOptions";
+import type { ITtscLoadedNativePlugin } from "./structures/ITtscLoadedNativePlugin";
+import type { ITtscLoadedPlugins } from "./structures/ITtscLoadedPlugins";
+import type { ITtscPlugin } from "./structures/ITtscPlugin";
+import type { ITtscPluginFactory } from "./structures/ITtscPluginFactory";
+import type { ITtscPluginFactoryContext } from "./structures/ITtscPluginFactoryContext";
+import type { ITtscPluginModule } from "./structures/ITtscPluginModule";
+import type { ITtscProjectPluginConfig } from "./structures/ITtscProjectPluginConfig";
+import { resolveNativeBackend } from "./native";
+import { readProjectConfig } from "./project";
 import { buildSourcePlugin } from "./source-build";
 
+export type { ITtscLoadPluginsOptions } from "./structures/ITtscLoadPluginsOptions";
+export type { ITtscLoadedNativePlugin } from "./structures/ITtscLoadedNativePlugin";
+export type { ITtscLoadedPlugins } from "./structures/ITtscLoadedPlugins";
 export type {
-  NativePluginContractVersion,
-  NativeRewriteMode,
-  TtscNativeBackend,
-  TtscNativeSource,
+  ITtscNativePluginContractVersion,
+  ITtscNativeRewriteMode,
+  ITtscNativeBackend,
+  ITtscNativeSource,
 } from "./native";
+export type { ITtscPlugin } from "./structures/ITtscPlugin";
+export type { ITtscPluginFactory } from "./structures/ITtscPluginFactory";
+export type { ITtscPluginFactoryContext } from "./structures/ITtscPluginFactoryContext";
+export type { ITtscPluginModule } from "./structures/ITtscPluginModule";
 
-export interface TtscPluginFactoryContext {
-  binary: string;
-  cwd: string;
-  projectRoot: string;
-  tsconfig: string;
-}
-
-export interface TtscPlugin {
-  name: string;
-  native?: TtscNativeBackend;
-  /** @deprecated Use `native.mode` instead. */
-  nativeMode?: NativeRewriteMode;
-  /** @deprecated Use `native.binary` instead. */
-  nativeBinary?: string;
-}
-
-export type TtscPluginFactory = (
-  config: ProjectPluginConfig,
-  context: TtscPluginFactoryContext,
-) => TtscPlugin;
-
-export type TtscPluginModule = TtscPlugin | TtscPluginFactory;
-
-export interface LoadedNativePlugin {
-  backend: TtscNativeBackend;
-  config: ProjectPluginConfig;
-  name: string;
-}
-
-export interface LoadedPlugins {
-  compatibilityFallback: boolean;
-  nativeBinary: string | null;
-  nativeBinaries: string[];
-  nativePlugins: LoadedNativePlugin[];
-  plugins: TtscPlugin[];
-  project: ParsedProjectConfig;
-}
-
-export interface LoadPluginsOptions {
-  binary: string;
-  cwd?: string;
-  entries?: readonly ProjectPluginConfig[] | false;
-  file?: string;
-  tsconfig?: string;
-}
-
-export function definePlugin<T extends TtscPluginModule>(plugin: T): T {
+export function definePlugin<T extends ITtscPluginModule>(plugin: T): T {
   return plugin;
 }
 
-export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
+export function loadProjectPlugins(options: ITtscLoadPluginsOptions): ITtscLoadedPlugins {
   const project = readProjectConfig({
     cwd: options.cwd,
     file: options.file,
@@ -94,15 +55,17 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
     };
   }
 
-  const context: TtscPluginFactoryContext = {
+  const context = {
     binary: options.binary,
     cwd: path.resolve(options.cwd ?? process.cwd()),
     projectRoot: project.root,
     tsconfig: project.path,
   };
-  const plugins = entries.map((entry) => loadPluginEntry(entry, context));
+  const plugins = entries.map((entry) =>
+    loadPluginEntry(entry, { ...context, plugin: entry }),
+  );
 
-  const nativePlugins: LoadedNativePlugin[] = [];
+  const nativePlugins: ITtscLoadedNativePlugin[] = [];
   const ttscVersion = readTtscVersion();
   const tsgoVersion = readTsgoVersion(context.projectRoot);
   plugins.forEach((plugin, index) => {
@@ -148,9 +111,9 @@ export function loadProjectPlugins(options: LoadPluginsOptions): LoadedPlugins {
 }
 
 function loadPluginEntry(
-  entry: ProjectPluginConfig,
-  context: TtscPluginFactoryContext,
-): TtscPlugin {
+  entry: ITtscProjectPluginConfig,
+  context: ITtscPluginFactoryContext,
+): ITtscPlugin {
   const specifier = entry.transform;
   if (typeof specifier !== "string" || specifier.length === 0) {
     throw new Error(`ttsc: plugin entry is missing a string "transform" field`);
@@ -158,16 +121,16 @@ function loadPluginEntry(
 
   const request = resolvePluginRequest(specifier, context.projectRoot);
   const mod = require(request) as {
-    createTtscPlugin?: TtscPluginFactory;
-    default?: TtscPluginModule;
-  } & Partial<Record<"plugin", TtscPluginModule>>;
+    createTtscPlugin?: ITtscPluginFactory;
+    default?: ITtscPluginModule;
+  } & Partial<Record<"plugin", ITtscPluginModule>>;
   const candidate =
     mod.createTtscPlugin ??
     mod.default ??
     mod.plugin ??
-    (mod as unknown as TtscPluginModule);
+    (mod as unknown as ITtscPluginModule);
   if (typeof candidate === "function") {
-    const plugin = candidate(entry, context);
+    const plugin = candidate(context);
     if (!isTtscPlugin(plugin)) {
       throw new Error(
         `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
@@ -185,7 +148,7 @@ function loadPluginEntry(
   );
 }
 
-function isTtscPlugin(value: unknown): value is TtscPlugin {
+function isTtscPlugin(value: unknown): value is ITtscPlugin {
   return (
     typeof value === "object" &&
     value !== null &&

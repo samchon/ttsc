@@ -51,7 +51,7 @@ The banner is written to emitted `.js`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, and `
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },

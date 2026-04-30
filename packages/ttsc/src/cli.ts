@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
-  type BuildOptions,
-  type TransformOptions,
+  type ITtscBuildOptions,
+  type ITtscTransformOptions,
   build,
   check,
   transform,
@@ -70,7 +70,7 @@ function isBuildAlias(command: string): boolean {
   );
 }
 
-interface BuildInvocation extends BuildOptions {
+interface ITtscBuildInvocation extends ITtscBuildOptions {
   files: string[];
   preserveWatchOutput: boolean;
   watch: boolean;
@@ -102,7 +102,7 @@ function runTransform(argv: readonly string[]): number {
   return 0;
 }
 
-interface CleanInvocation {
+interface ITtscCleanInvocation {
   cwd?: string;
   tsconfig?: string;
 }
@@ -168,7 +168,7 @@ function delegateToNative(argv: readonly string[]): number {
   return result.status ?? 1;
 }
 
-function parseCleanArgs(argv: readonly string[]): CleanInvocation {
+function parseCleanArgs(argv: readonly string[]): ITtscCleanInvocation {
   let cwd: string | undefined;
   let tsconfig: string | undefined;
 
@@ -203,7 +203,7 @@ function parseCleanArgs(argv: readonly string[]): CleanInvocation {
 function parseBuildArgs(
   argv: readonly string[],
   checkOnly: boolean,
-): BuildInvocation {
+): ITtscBuildInvocation {
   let binary: string | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
@@ -299,7 +299,7 @@ function parseBuildArgs(
   };
 }
 
-function parseTransformArgs(argv: readonly string[]): TransformOptions {
+function parseTransformArgs(argv: readonly string[]): ITtscTransformOptions {
   let binary: string | undefined;
   let cwd: string | undefined;
   let file: string | undefined;
@@ -410,7 +410,7 @@ function printHelp(): void {
   process.stdout.write("\n");
 }
 
-function runSingleFile(options: BuildInvocation): number {
+function runSingleFile(options: ITtscBuildInvocation): number {
   if (options.files.length !== 1) {
     throw new Error(
       "ttsc: single-file mode currently accepts exactly one input file",
@@ -448,9 +448,9 @@ function resolveSingleFileOut(
   return file.replace(/\.[cm]?tsx?$/i, ".js");
 }
 
-function runWatch(options: BuildInvocation, checkOnly: boolean): number {
+function runWatch(options: ITtscBuildInvocation, checkOnly: boolean): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const invocation: BuildInvocation = {
+  const invocation: ITtscBuildInvocation = {
     ...options,
     cwd,
     quiet: true,

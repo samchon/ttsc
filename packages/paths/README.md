@@ -59,7 +59,7 @@ No separate plugin options are required. `@ttsc/paths` reads the same `compilerO
     "outDir": "dist",
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },

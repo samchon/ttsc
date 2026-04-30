@@ -90,14 +90,36 @@ test("utility plugin packages own their native sources", () => {
   };
   for (const [directory, expectation] of Object.entries(expectations)) {
     const packageJson = readPackageJson(directory);
-    assert.equal(packageJson.main, "src/index.cjs");
-    assert.equal(packageJson.exports["."], "./src/index.cjs");
-    assert.deepEqual(packageJson.files, [
-      "README.md",
-      "src/index.cjs",
-      "go.mod",
-      "plugin",
-    ]);
+    if (directory === "lint") {
+      assert.equal(packageJson.main, "lib/index.js");
+      assert.equal(packageJson.types, "lib/index.d.ts");
+      assert.deepEqual(packageJson.exports["."], {
+        types: "./lib/index.d.ts",
+        default: "./lib/index.js",
+      });
+      assert.deepEqual(packageJson.files, [
+        "README.md",
+        "lib",
+        "src",
+        "tsconfig.json",
+        "go.mod",
+        "plugin",
+      ]);
+      assert.equal(packageJson.devDependencies?.ttsc, "workspace:*");
+      assert.equal(
+        packageJson.devDependencies?.["@typescript/native-preview"],
+        "catalog:tsgo",
+      );
+    } else {
+      assert.equal(packageJson.main, "src/index.cjs");
+      assert.equal(packageJson.exports["."], "./src/index.cjs");
+      assert.deepEqual(packageJson.files, [
+        "README.md",
+        "src/index.cjs",
+        "go.mod",
+        "plugin",
+      ]);
+    }
     assert.equal(
       packageJson.peerDependencies?.ttsc,
       `^${ttsc.version}`,
@@ -122,8 +144,15 @@ test("utility plugin packages own their native sources", () => {
       false,
     );
     assert.equal(packageJson.dependencies?.["@ttsc/lint"], undefined);
-    const factory = require(path.join(workspaceRoot, "packages", directory));
-    const descriptor = factory({}, {});
+    const mod = require(path.join(workspaceRoot, "packages", directory));
+    const factory = mod.createTtscPlugin ?? mod.default ?? mod;
+    const descriptor = factory({
+      binary: "",
+      cwd: workspaceRoot,
+      plugin: { transform: `@ttsc/${directory}` },
+      projectRoot: workspaceRoot,
+      tsconfig: path.join(workspaceRoot, "tsconfig.json"),
+    });
     assert.equal(descriptor.native.mode, expectation.mode);
     assert.deepEqual(descriptor.native.capabilities, expectation.capabilities);
     assert.equal(

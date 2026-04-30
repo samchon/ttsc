@@ -1,35 +1,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import {
-  build,
-  check,
-  type CommonOptions,
-} from "../api";
+import type { ITtscPreparedExecution } from "../structures/ITtscPreparedExecution";
+import type { ITtscRegisterOptions } from "../structures/ITtscRegisterOptions";
+import { build, check } from "../api";
 import {
   defaultCacheDirectory,
   resolveProjectConfig,
   resolveProjectRoot,
 } from "../project";
 
-export interface RegisterOptions extends CommonOptions {
-  cacheDir?: string;
-  project?: string;
-  extensions?: readonly string[];
-}
+export type { ITtscPreparedExecution } from "../structures/ITtscPreparedExecution";
+export type { ITtscRegisterOptions } from "../structures/ITtscRegisterOptions";
 
-export interface PreparedExecution {
-  emitDir: string;
-  entryFile: string;
-  moduleKind: "cjs" | "esm";
-}
-
-type RequireExtension = (module: NodeJS.Module, filename: string) => void;
-type CompilableModule = NodeJS.Module & {
+type ITtscRequireExtension = (module: NodeJS.Module, filename: string) => void;
+type ITtscCompilableModule = NodeJS.Module & {
   _compile(code: string, filename: string): void;
 };
 
-interface ProjectContext {
+interface ITtscRunnerProjectContext {
   cacheDir: string;
   emitDir: string;
   emittedFiles: string[] | null;
@@ -47,15 +36,15 @@ const DEFAULT_EXTENSIONS: readonly string[] = Object.freeze([
 ]);
 
 const PROCESS_CACHE_KEY = String(process.pid);
-const preparedContexts = new Map<string, ProjectContext>();
+const preparedContexts = new Map<string, ITtscRunnerProjectContext>();
 
-export function register(options: RegisterOptions = {}): () => void {
+export function register(options: ITtscRegisterOptions = {}): () => void {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const extensions = [...(options.extensions ?? DEFAULT_EXTENSIONS)];
-  const contextCache = new Map<string, ProjectContext>();
-  const previous = new Map<string, RequireExtension | undefined>();
+  const contextCache = new Map<string, ITtscRunnerProjectContext>();
+  const previous = new Map<string, ITtscRequireExtension | undefined>();
 
-  const getContext = (filename: string): ProjectContext => {
+  const getContext = (filename: string): ITtscRunnerProjectContext => {
     if (options.project) {
       const key = path.resolve(cwd, options.project);
       const cached = contextCache.get(key);
@@ -120,7 +109,7 @@ export function register(options: RegisterOptions = {}): () => void {
     previous.set(extension, require.extensions[extension]);
     require.extensions[extension] = (module: NodeJS.Module, filename: string) => {
       const compiled = compile(filename);
-      (module as CompilableModule)._compile(compiled, filename);
+      (module as ITtscCompilableModule)._compile(compiled, filename);
     };
   }
 
@@ -138,8 +127,8 @@ export function register(options: RegisterOptions = {}): () => void {
 
 export function prepareExecution(
   entryFile: string,
-  options: RegisterOptions = {},
-): PreparedExecution {
+  options: ITtscRegisterOptions = {},
+): ITtscPreparedExecution {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const context = resolveProjectContext(cwd, entryFile, options);
   ensureProjectDiagnostics(context, options);
@@ -166,8 +155,8 @@ export function prepareExecution(
 }
 
 function storePreparedContext(
-  context: ProjectContext,
-  options: RegisterOptions,
+  context: ITtscRunnerProjectContext,
+  options: ITtscRegisterOptions,
 ): void {
   preparedContexts.set(preparedContextKey(context.tsconfig, context.cacheDir, options), context);
 }
@@ -175,8 +164,8 @@ function storePreparedContext(
 function takePreparedContext(
   tsconfig: string,
   cacheDir: string,
-  options: RegisterOptions,
-): ProjectContext | null {
+  options: ITtscRegisterOptions,
+): ITtscRunnerProjectContext | null {
   const key = preparedContextKey(tsconfig, cacheDir, options);
   const context = preparedContexts.get(key);
   if (!context) {
@@ -189,7 +178,7 @@ function takePreparedContext(
 function preparedContextKey(
   tsconfig: string,
   cacheDir: string,
-  options: RegisterOptions,
+  options: ITtscRegisterOptions,
 ): string {
   return JSON.stringify([
     PROCESS_CACHE_KEY,
@@ -203,7 +192,7 @@ function preparedContextKey(
   ]);
 }
 
-function ensureProjectBuild(context: ProjectContext, options: RegisterOptions): void {
+function ensureProjectBuild(context: ITtscRunnerProjectContext, options: ITtscRegisterOptions): void {
   if (context.emittedFiles !== null) return;
 
   fs.mkdirSync(context.cacheDir, { recursive: true });
@@ -236,9 +225,9 @@ function ensureProjectBuild(context: ProjectContext, options: RegisterOptions): 
 }
 
 function readCompiledOutput(
-  context: ProjectContext,
+  context: ITtscRunnerProjectContext,
   filename: string,
-  options: RegisterOptions,
+  options: ITtscRegisterOptions,
 ): string {
   ensureProjectBuild(context, options);
   const emitted = resolveEmittedFile(context, filename);
@@ -251,8 +240,8 @@ function readCompiledOutput(
 function resolveProjectContext(
   cwd: string,
   filename: string,
-  options: RegisterOptions,
-): ProjectContext {
+  options: ITtscRegisterOptions,
+): ITtscRunnerProjectContext {
   if (options.project) {
     const tsconfig = resolveProjectConfig({
       cwd,
@@ -267,8 +256,8 @@ function resolveProjectContext(
 function createProjectContext(
   cwd: string,
   tsconfig: string,
-  options: RegisterOptions,
-): ProjectContext {
+  options: ITtscRegisterOptions,
+): ITtscRunnerProjectContext {
   const root = resolveProjectRoot({ cwd, tsconfig });
   const cacheDir = options.cacheDir ?? defaultCacheDirectory(root, "ttsx");
   return {
@@ -283,8 +272,8 @@ function createProjectContext(
 }
 
 function ensureProjectDiagnostics(
-  context: ProjectContext,
-  options: RegisterOptions,
+  context: ITtscRunnerProjectContext,
+  options: ITtscRegisterOptions,
 ): void {
   if (context.diagnosticsChecked) {
     return;
@@ -310,7 +299,7 @@ function ensureProjectDiagnostics(
   context.diagnosticsChecked = true;
 }
 
-function resolveEmittedFile(context: ProjectContext, filename: string): string | null {
+function resolveEmittedFile(context: ITtscRunnerProjectContext, filename: string): string | null {
   const normalized = path.resolve(filename);
   const cached = context.entryMap.get(normalized);
   if (cached && fs.existsSync(cached)) return cached;
@@ -339,7 +328,7 @@ function resolveEmittedFile(context: ProjectContext, filename: string): string |
 }
 
 function resolveExactEmittedFile(
-  context: ProjectContext,
+  context: ITtscRunnerProjectContext,
   filename: string,
 ): string | null {
   const relative = path.relative(context.root, filename);

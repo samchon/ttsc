@@ -1,29 +1,15 @@
-export type NativeRewriteMode = string;
-export type NativePluginContractVersion = 1;
+import type { ITtscNativeBackend } from "./structures/ITtscNativeBackend";
+import type { ITtscNativePluginShape } from "./structures/ITtscNativePluginShape";
 
-export interface TtscNativeSource {
-  dir: string;
-  entry?: string;
-}
-
-export interface TtscNativeBackend {
-  mode: NativeRewriteMode;
-  binary?: string;
-  source?: TtscNativeSource;
-  contractVersion?: NativePluginContractVersion;
-  capabilities?: readonly string[];
-}
-
-export interface TtscNativePluginShape {
-  name: string;
-  native?: TtscNativeBackend;
-  nativeMode?: NativeRewriteMode;
-  nativeBinary?: string;
-}
+export type { ITtscNativeBackend } from "./structures/ITtscNativeBackend";
+export type { ITtscNativePluginContractVersion } from "./structures/ITtscNativePluginContractVersion";
+export type { ITtscNativePluginShape } from "./structures/ITtscNativePluginShape";
+export type { ITtscNativeRewriteMode } from "./structures/ITtscNativeRewriteMode";
+export type { ITtscNativeSource } from "./structures/ITtscNativeSource";
 
 export function resolveNativeBackend(
-  plugin: TtscNativePluginShape,
-): TtscNativeBackend | null {
+  plugin: ITtscNativePluginShape,
+): ITtscNativeBackend | null {
   if (plugin.native && (plugin.nativeMode || plugin.nativeBinary)) {
     throw new Error(
       `ttsc: plugin "${plugin.name}" must use either native or nativeMode/nativeBinary, not both`,

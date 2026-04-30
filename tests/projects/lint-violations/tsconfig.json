@@ -8,7 +8,7 @@
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "rules": {
+        "config": {
           "no-var": "error",
           "no-explicit-any": "warn",
           "no-non-null-assertion": "off",

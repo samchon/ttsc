@@ -38,6 +38,14 @@ const ttscBin = path.join(
   "launcher",
   "ttsc.js",
 );
+const ttsxBin = path.join(
+  workspaceRoot,
+  "packages",
+  "ttsc",
+  "lib",
+  "launcher",
+  "ttsx.js",
+);
 const lintPkgDir = path.join(workspaceRoot, "packages", "lint");
 
 // The fixture tmpdir doesn't `pnpm install` its own deps — that would be
@@ -75,16 +83,17 @@ process.on("exit", () => {
  * @param {object} opts
  * @param {string} opts.name        — used to name the tmpdir for diagnostic output
  * @param {string} opts.source      — TypeScript source written to `src/main.ts`
- * @param {Record<string, "off"|"warning"|"warn"|"error">} opts.rules — `tsconfig.json` plugin rules map
+ * @param {Record<string, "off"|"warning"|"warn"|"error">=} opts.rules — `tsconfig.json` plugin rules map
+ * @param {Record<string, unknown>=} opts.pluginConfig — full `@ttsc/lint` plugin config; defaults to `{ config: rules }`
  * @param {Record<string, string>=} opts.extraSources — relative-path → content for additional fixture files (paths are interpreted relative to the project root)
  * @returns {{ status: number, stderr: string, diagnostics: Array<{file:string,line:number,column:number,severity:"warn"|"error",rule:string}> }}
  */
-function runLint({ name, source, rules, extraSources }) {
+function runLint({ name, source, rules, pluginConfig, extraSources }) {
   const tmpdir = fs.mkdtempSync(
     path.join(os.tmpdir(), `ttsc-lint-case-${sanitizeForFsName(name)}-`),
   );
   try {
-    writeFixtureProject(tmpdir, source, rules);
+    writeFixtureProject(tmpdir, source, pluginConfig ?? { config: rules });
     if (extraSources) {
       for (const [relPath, content] of Object.entries(extraSources)) {
         const target = path.join(tmpdir, relPath);
@@ -102,6 +111,7 @@ function runLint({ name, source, rules, extraSources }) {
         env: {
           ...process.env,
           TTSC_CACHE_DIR: sharedCacheDir,
+          TTSC_TTSX_BINARY: ttsxBin,
           TTSC_TSGO_BINARY: tsgoBinary,
           PATH: prependGoToPath(),
         },
@@ -122,7 +132,7 @@ function runLint({ name, source, rules, extraSources }) {
   }
 }
 
-function writeFixtureProject(tmpdir, source, rules) {
+function writeFixtureProject(tmpdir, source, pluginConfig) {
   fs.mkdirSync(path.join(tmpdir, "src"), { recursive: true });
   fs.writeFileSync(path.join(tmpdir, "src", "main.ts"), source, "utf8");
   fs.writeFileSync(
@@ -138,7 +148,7 @@ function writeFixtureProject(tmpdir, source, rules) {
           plugins: [
             {
               transform: "@ttsc/lint",
-              rules,
+              ...pluginConfig,
             },
           ],
         },
@@ -256,5 +266,6 @@ module.exports = {
   rulesFromExpectations,
   workspaceRoot,
   ttscBin,
+  ttsxBin,
   lintPkgDir,
 };

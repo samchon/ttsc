@@ -21,83 +21,44 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { type ResolveOptions, resolveBinary } from "./platform";
-import {
-  type LoadedNativePlugin,
-  loadProjectPlugins,
-} from "./plugin";
-import {
-  type ProjectPluginConfig,
-  resolveProjectConfig,
-  resolveProjectRoot,
-} from "./project";
-import { type ResolvedTsgo, resolveTsgo } from "./tsgo";
+import type { ITtscBuildOptions } from "./structures/ITtscBuildOptions";
+import type { ITtscBuildResult } from "./structures/ITtscBuildResult";
+import type { ITtscCheckOptions } from "./structures/ITtscCheckOptions";
+import type { ITtscCommonOptions } from "./structures/ITtscCommonOptions";
+import type { ITtscLoadedNativePlugin } from "./structures/ITtscLoadedNativePlugin";
+import type { ITtscResolvedTsgo } from "./structures/ITtscResolvedTsgo";
+import type { ITtscTransformOptions } from "./structures/ITtscTransformOptions";
+import { resolveBinary } from "./platform";
+import { loadProjectPlugins } from "./plugin";
+import { resolveProjectConfig, resolveProjectRoot } from "./project";
+import { resolveTsgo } from "./tsgo";
 
-/**
- * Options shared by every API call. `binary` takes precedence over platform
- * resolution; `cwd` defaults to `process.cwd()`; `env` layers on top of the
- * current process env.
- */
-export interface CommonOptions extends ResolveOptions {
-  /** Absolute path to an already-resolved tsgo binary. Skips package resolution. */
-  binary?: string;
-  /** Working directory passed to the child process. */
-  cwd?: string;
-  /** Extra environment variables; merged onto `process.env`. */
-  env?: NodeJS.ProcessEnv;
-  /**
-   * Override project plugin loading. `false` disables tsconfig plugins; an
-   * array replaces the tsconfig `compilerOptions.plugins` list.
-   */
-  plugins?: readonly ProjectPluginConfig[] | false;
-  /**
-   * Override the native rewrite backend. Defaults to the loaded plugin mode.
-   *
-   * @deprecated Prefer plugin-declared `native.mode`; this override is for
-   *   low-level tests and migration probes.
-   */
-  rewriteMode?: string;
-}
-
-/** Options for `transform()`. */
-export interface TransformOptions extends CommonOptions {
-  /** Path to the .ts file to transform. Absolute or `cwd`-relative. */
-  file: string;
-  /** Path to the tsconfig owning `file`. Default: `tsconfig.json`. */
-  tsconfig?: string;
-  /**
-   * When provided, the binary writes JS directly to this path instead of piping
-   * stdout. Useful when the emitted text is large.
-   */
-  out?: string;
-}
-
-/** Options for `build()`. */
-export interface BuildOptions extends CommonOptions {
-  /** Path to tsconfig.json. Default: `tsconfig.json`. */
-  tsconfig?: string;
-  /**
-   * Emit override. `true` forces emit, `false` forces noEmit, `undefined`
-   * follows tsconfig.
-   */
-  emit?: boolean;
-  /** Override compilerOptions.outDir for this invocation. */
-  outDir?: string;
-  /** Suppress the per-call summary banner. Default: `true`. */
-  quiet?: boolean;
-  /** @internal Caller already ran diagnostics and accepts responsibility. */
-  skipDiagnosticsCheck?: boolean;
-  /** @internal Force `tsgo --listEmittedFiles` for caller-side output discovery. */
-  forceListEmittedFiles?: boolean;
-}
-
-/** Options for `check()`. */
-export type CheckOptions = Omit<BuildOptions, "emit">;
+export type { ITtscBuildOptions } from "./structures/ITtscBuildOptions";
+export type { ITtscBuildResult } from "./structures/ITtscBuildResult";
+export type { ITtscCheckOptions } from "./structures/ITtscCheckOptions";
+export type { ITtscCommonOptions } from "./structures/ITtscCommonOptions";
+export type { ITtscTransformOptions } from "./structures/ITtscTransformOptions";
 
 /** Merge spawn env without clobbering unrelated vars. */
 function mergeEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (!extra) return process.env;
-  return { ...process.env, ...extra };
+  const base = {
+    ...process.env,
+    TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
+  };
+  if (!extra) return base;
+  return { ...base, ...extra };
+}
+
+function nativePluginEnv(
+  extra: NodeJS.ProcessEnv | undefined,
+  execution: ITtscExecutionContext,
+): NodeJS.ProcessEnv {
+  return mergeEnv({
+    TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? execution.tsgo.binary,
+    TTSC_TTSX_BINARY:
+      process.env.TTSC_TTSX_BINARY ?? path.join(__dirname, "launcher", "ttsx.js"),
+    ...extra,
+  });
 }
 
 function spawnBinary(
@@ -153,17 +114,17 @@ function outputText(value: string | Buffer | null | undefined): string {
 }
 
 function hasCapability(
-  plugin: LoadedNativePlugin,
+  plugin: ITtscLoadedNativePlugin,
   capability: string,
 ): boolean {
   return plugin.backend.capabilities?.includes(capability) === true;
 }
 
-function isOutputPlugin(plugin: LoadedNativePlugin): boolean {
+function isOutputPlugin(plugin: ITtscLoadedNativePlugin): boolean {
   return hasCapability(plugin, "output");
 }
 
-function isCheckOnlyPlugin(plugin: LoadedNativePlugin): boolean {
+function isCheckOnlyPlugin(plugin: ITtscLoadedNativePlugin): boolean {
   const capabilities = plugin.backend.capabilities ?? [];
   return (
     capabilities.length > 0 &&
@@ -171,25 +132,25 @@ function isCheckOnlyPlugin(plugin: LoadedNativePlugin): boolean {
   );
 }
 
-function isCompilerPlugin(plugin: LoadedNativePlugin): boolean {
+function isCompilerPlugin(plugin: ITtscLoadedNativePlugin): boolean {
   return !isOutputPlugin(plugin) && !isCheckOnlyPlugin(plugin);
 }
 
 function outputPlugins(
-  plugins: readonly LoadedNativePlugin[],
-): LoadedNativePlugin[] {
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscLoadedNativePlugin[] {
   return plugins.filter(isOutputPlugin);
 }
 
 function checkOnlyPlugins(
-  plugins: readonly LoadedNativePlugin[],
-): LoadedNativePlugin[] {
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscLoadedNativePlugin[] {
   return plugins.filter(isCheckOnlyPlugin);
 }
 
 function compilerPlugins(
-  plugins: readonly LoadedNativePlugin[],
-): LoadedNativePlugin[] {
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscLoadedNativePlugin[] {
   return plugins.filter(isCompilerPlugin);
 }
 
@@ -203,7 +164,7 @@ function compilerPlugins(
  * Throws when the binary exits non-zero — the error includes stderr so bundler
  * error overlays surface the real cause.
  */
-export function transform(options: TransformOptions): string {
+export function transform(options: ITtscTransformOptions): string {
   const execution = resolveExecutionContext(options);
   const sourceFile = realpathIfExists(
     path.isAbsolute(options.file)
@@ -247,8 +208,8 @@ export function transform(options: TransformOptions): string {
 }
 
 function transformWithNativePlugins(
-  options: TransformOptions,
-  execution: ExecutionContext,
+  options: ITtscTransformOptions,
+  execution: ITtscExecutionContext,
   sourceFile: string,
 ): string {
   const checked = runNativeCheckPlugins(options, execution);
@@ -335,20 +296,12 @@ function realpathIfExists(file: string): string {
   }
 }
 
-/** Result of `build()`. Non-zero `status` means the build failed. */
-export interface BuildResult {
-  emittedFiles?: string[];
-  status: number;
-  stdout: string;
-  stderr: string;
-}
-
 /**
  * Run `ttsc` against a tsconfig. Returns once the binary exits so the caller
  * can decide how to surface diagnostics. Does not throw on non-zero exit —
  * bundler pipelines often want to continue and collect errors.
  */
-export function build(options: BuildOptions = {}): BuildResult {
+export function build(options: ITtscBuildOptions = {}): ITtscBuildResult {
   const execution = resolveExecutionContext(options);
   if (execution.nativePlugins.length > 0) {
     const compilers = compilerPlugins(execution.nativePlugins);
@@ -372,7 +325,7 @@ export function build(options: BuildOptions = {}): BuildResult {
       return runTsgo(execution, ["--noEmit"], options);
     }
 
-    let result: BuildResult;
+    let result: ITtscBuildResult;
     if (compilers.length !== 0) {
       assertSingleCompilerHost(compilers);
       result = appendBuildOutput(
@@ -422,10 +375,10 @@ export function build(options: BuildOptions = {}): BuildResult {
 }
 
 function buildWithNativeCompilerPlugins(
-  options: BuildOptions,
-  execution: ExecutionContext,
-  plugins: readonly LoadedNativePlugin[],
-): BuildResult {
+  options: ITtscBuildOptions,
+  execution: ITtscExecutionContext,
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscBuildResult {
   return runNativePluginCommand(
     plugins[0]!,
     createNativeBuildArgs(execution, options, plugins),
@@ -439,15 +392,15 @@ function buildWithNativeCompilerPlugins(
  * Run `ttsc check` (build without emit) — CI gate / pre-commit hook use.
  * Resolves with an exit-code record; does not throw.
  */
-export function check(options: CheckOptions = {}): BuildResult {
+export function check(options: ITtscCheckOptions = {}): ITtscBuildResult {
   return build({ ...options, emit: false });
 }
 
 function runTsgo(
-  execution: ExecutionContext,
+  execution: ITtscExecutionContext,
   extraArgs: readonly string[],
-  options: BuildOptions,
-): BuildResult {
+  options: ITtscBuildOptions,
+): ITtscBuildResult {
   const res = spawnBinary(
     execution.tsgo.binary,
     ["-p", execution.tsconfig, ...extraArgs],
@@ -470,10 +423,10 @@ function runTsgo(
 }
 
 function runTsgoBuild(
-  execution: ExecutionContext,
-  options: BuildOptions,
+  execution: ITtscExecutionContext,
+  options: ITtscBuildOptions,
   args: readonly string[],
-): BuildResult {
+): ITtscBuildResult {
   const res = spawnBinary(execution.tsgo.binary, args, {
     cwd: execution.projectRoot,
     env: mergeEnv(options.env),
@@ -500,8 +453,8 @@ function runTsgoBuild(
 }
 
 function createTsgoBuildArgs(
-  execution: ExecutionContext,
-  options: BuildOptions,
+  execution: ITtscExecutionContext,
+  options: ITtscBuildOptions,
   flags: { listEmittedFiles: boolean },
 ): string[] {
   const args = ["-p", execution.tsconfig];
@@ -520,9 +473,9 @@ function createTsgoBuildArgs(
 }
 
 function createNativeBuildArgs(
-  execution: ExecutionContext,
-  options: BuildOptions,
-  plugins: readonly LoadedNativePlugin[],
+  execution: ITtscExecutionContext,
+  options: ITtscBuildOptions,
+  plugins: readonly ITtscLoadedNativePlugin[],
 ): string[] {
   const args = [
     options.emit === false ? "check" : "build",
@@ -548,9 +501,9 @@ function createNativeBuildArgs(
 }
 
 function createNativeCheckArgs(
-  execution: ExecutionContext,
-  options: BuildOptions | TransformOptions,
-  plugin: LoadedNativePlugin,
+  execution: ITtscExecutionContext,
+  options: ITtscBuildOptions | ITtscTransformOptions,
+  plugin: ITtscLoadedNativePlugin,
 ): string[] {
   const args = [
     "check",
@@ -571,9 +524,9 @@ function createNativeCheckArgs(
 }
 
 function createNativeOutputArgs(
-  execution: ExecutionContext,
-  options: BuildOptions | TransformOptions,
-  plugin: LoadedNativePlugin,
+  execution: ITtscExecutionContext,
+  options: ITtscBuildOptions | ITtscTransformOptions,
+  plugin: ITtscLoadedNativePlugin,
   file: string,
 ): string[] {
   const args = [
@@ -591,11 +544,11 @@ function createNativeOutputArgs(
 }
 
 function createNativeTransformArgs(
-  execution: ExecutionContext,
-  options: TransformOptions,
+  execution: ITtscExecutionContext,
+  options: ITtscTransformOptions,
   sourceFile: string,
   out: string,
-  plugins: readonly LoadedNativePlugin[],
+  plugins: readonly ITtscLoadedNativePlugin[],
 ): string[] {
   return [
     "transform",
@@ -607,7 +560,7 @@ function createNativeTransformArgs(
   ];
 }
 
-function serializeNativePlugins(plugins: readonly LoadedNativePlugin[]): string {
+function serializeNativePlugins(plugins: readonly ITtscLoadedNativePlugin[]): string {
   return JSON.stringify(
     plugins.map((plugin) => ({
       config: plugin.config,
@@ -619,10 +572,10 @@ function serializeNativePlugins(plugins: readonly LoadedNativePlugin[]): string 
 }
 
 function runNativeCheckPlugins(
-  options: BuildOptions | TransformOptions,
-  execution: ExecutionContext,
-): BuildResult {
-  let out: BuildResult = { status: 0, stdout: "", stderr: "" };
+  options: ITtscBuildOptions | ITtscTransformOptions,
+  execution: ITtscExecutionContext,
+): ITtscBuildResult {
+  let out: ITtscBuildResult = { status: 0, stdout: "", stderr: "" };
   for (const plugin of checkOnlyPlugins(execution.nativePlugins)) {
     const result = runNativePluginCommand(
       plugin,
@@ -640,12 +593,12 @@ function runNativeCheckPlugins(
 }
 
 function runNativeCompilerTransform(
-  options: TransformOptions,
-  execution: ExecutionContext,
+  options: ITtscTransformOptions,
+  execution: ITtscExecutionContext,
   sourceFile: string,
   out: string,
-  plugins: readonly LoadedNativePlugin[],
-): BuildResult {
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscBuildResult {
   return runNativePluginCommand(
     plugins[0]!,
     createNativeTransformArgs(execution, options, sourceFile, out, plugins),
@@ -656,12 +609,12 @@ function runNativeCompilerTransform(
 }
 
 function applyOutputPlugins(
-  options: BuildOptions,
-  execution: ExecutionContext,
+  options: ITtscBuildOptions,
+  execution: ITtscExecutionContext,
   emittedFiles: readonly string[],
-  plugins: readonly LoadedNativePlugin[],
-): BuildResult {
-  let out: BuildResult = { status: 0, stdout: "", stderr: "" };
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscBuildResult {
+  let out: ITtscBuildResult = { status: 0, stdout: "", stderr: "" };
   for (const plugin of plugins) {
     for (const file of emittedFiles) {
       if (!fs.existsSync(file)) {
@@ -678,11 +631,11 @@ function applyOutputPlugins(
 }
 
 function runNativeOutputPlugin(
-  options: BuildOptions | TransformOptions,
-  execution: ExecutionContext,
-  plugin: LoadedNativePlugin,
+  options: ITtscBuildOptions | ITtscTransformOptions,
+  execution: ITtscExecutionContext,
+  plugin: ITtscLoadedNativePlugin,
   file: string,
-): BuildResult {
+): ITtscBuildResult {
   return runNativePluginCommand(
     plugin,
     createNativeOutputArgs(execution, options, plugin, file),
@@ -693,12 +646,12 @@ function runNativeOutputPlugin(
 }
 
 function runNativePluginCommand(
-  plugin: LoadedNativePlugin,
+  plugin: ITtscLoadedNativePlugin,
   args: readonly string[],
-  options: BuildOptions | TransformOptions,
-  execution: ExecutionContext,
+  options: ITtscBuildOptions | ITtscTransformOptions,
+  execution: ITtscExecutionContext,
   label: string,
-): BuildResult {
+): ITtscBuildResult {
   const binary = plugin.backend.binary;
   if (!binary) {
     return {
@@ -709,7 +662,7 @@ function runNativePluginCommand(
   }
   const res = spawnBinary(binary, args, {
     cwd: execution.projectRoot,
-    env: mergeEnv(options.env),
+    env: nativePluginEnv(options.env, execution),
     encoding: "utf8",
   });
   if (res.error) {
@@ -724,7 +677,7 @@ function runNativePluginCommand(
   });
 }
 
-function appendBuildOutput(left: BuildResult, right: BuildResult): BuildResult {
+function appendBuildOutput(left: ITtscBuildResult, right: ITtscBuildResult): ITtscBuildResult {
   return normalizeFailedDiagnostics({
     emittedFiles:
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
@@ -734,7 +687,7 @@ function appendBuildOutput(left: BuildResult, right: BuildResult): BuildResult {
   });
 }
 
-function assertSingleCompilerHost(plugins: readonly LoadedNativePlugin[]): void {
+function assertSingleCompilerHost(plugins: readonly ITtscLoadedNativePlugin[]): void {
   const binaries = [
     ...new Set(
       plugins
@@ -751,7 +704,7 @@ function assertSingleCompilerHost(plugins: readonly LoadedNativePlugin[]): void 
 }
 
 /** Ask the binary for its version banner. Handy for user-agent strings. */
-export function version(options: CommonOptions = {}): string {
+export function version(options: ITtscCommonOptions = {}): string {
   const tsgo = resolveTsgo(options);
   const res = spawnBinary(tsgo.binary, ["--version"], {
     encoding: "utf8",
@@ -769,22 +722,22 @@ export function version(options: CommonOptions = {}): string {
  * plugin descriptors can stay dependency-free, but many adapter surfaces still
  * prefer a Promise-returning function.
  */
-export function transformAsync(options: TransformOptions): Promise<string> {
+export function transformAsync(options: ITtscTransformOptions): Promise<string> {
   return Promise.resolve().then(() => transform(options));
 }
 
-interface ExecutionContext {
+interface ITtscExecutionContext {
   compilerOptions: Record<string, unknown>;
   cwd: string;
-  nativePlugins: readonly LoadedNativePlugin[];
+  nativePlugins: readonly ITtscLoadedNativePlugin[];
   projectRoot: string;
-  tsgo: ResolvedTsgo;
+  tsgo: ITtscResolvedTsgo;
   tsconfig: string;
 }
 
 function resolveExecutionContext(
-  options: CommonOptions & { tsconfig?: string },
-): ExecutionContext {
+  options: ITtscCommonOptions & { tsconfig?: string },
+): ITtscExecutionContext {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const tsconfig = resolveProjectConfig({
     cwd,
@@ -832,7 +785,7 @@ function stripEmittedFileLines(stdout: string): string {
     .replace(/\n+$/, "");
 }
 
-function normalizeFailedDiagnostics(result: BuildResult): BuildResult {
+function normalizeFailedDiagnostics(result: ITtscBuildResult): ITtscBuildResult {
   if (result.status === 0 || result.stderr.trim().length !== 0) {
     return result;
   }

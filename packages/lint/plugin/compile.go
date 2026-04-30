@@ -93,7 +93,7 @@ func RunTransform(args []string) int {
 	}
 	defer prog.close()
 
-	rules, err := loadRules(*pluginsJSON)
+	rules, err := loadRules(*pluginsJSON, resolvedCwd, *tsconfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -227,7 +227,7 @@ func runProject(opts *subcommandOpts) int {
 	}
 	defer prog.close()
 
-	rules, err := loadRules(opts.pluginsJSON)
+	rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -268,7 +268,7 @@ func runProject(opts *subcommandOpts) int {
 	return 0
 }
 
-func loadRules(pluginsJSON string) (RuleConfig, error) {
+func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleConfig, error) {
 	entries, err := ParsePlugins(pluginsJSON)
 	if err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func loadRules(pluginsJSON string) (RuleConfig, error) {
 	if entry == nil {
 		return RuleConfig{}, nil
 	}
-	return ParseRules(entry.Config["rules"])
+	return LoadRuleConfig(entry, cwd, tsconfigPath)
 }
 
 func warnUnknownRules(w io.Writer, unknown []string) {

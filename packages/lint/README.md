@@ -27,7 +27,7 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "rules": {
+        "config": {
           "no-var": "error",
           "prefer-const": "error",
           "no-explicit-any": "warning",
@@ -48,6 +48,50 @@ npx ttsx src/index.ts
 
 Lint errors fail the command. With `ttsx`, lint errors stop the program before your entrypoint runs. Lint warnings are printed without changing the exit code.
 
+You can also keep the lint rules in a standalone config file and leave only the file reference in `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "config": "./ttsc-lint.config.ts"
+      }
+    ]
+  }
+}
+```
+
+```ts
+// ttsc-lint.config.ts
+export default {
+  "no-var": "error",
+  "prefer-const": "error",
+  "no-explicit-any": "warning",
+  "no-console": "off"
+};
+```
+
+`config` accepts either a config object or a path to `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`. JavaScript and TypeScript config files may export the object directly, as `default`, as `config`, or as a function that returns the object. Relative paths are resolved from the owning tsconfig directory.
+
+Inline `config` is also accepted:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "config": {
+          "no-var": "error"
+        }
+      }
+    ]
+  }
+}
+```
+
 ## Notes
 
 `@ttsc/lint` must be the first active plugin entry because it reports on the source code you wrote. Output plugins such as `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` can come after it.
@@ -57,7 +101,7 @@ Lint errors fail the command. With `ttsx`, lint errors stop the program before y
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error", "prefer-const": "error" } },
+      { "transform": "@ttsc/lint", "config": { "no-var": "error", "prefer-const": "error" } },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
@@ -76,12 +120,10 @@ Rules are off until you enable them:
 
 ```jsonc
 {
-  "rules": {
-    "no-var": "error",
-    "eqeqeq": "error",
-    "prefer-template": "warning",
-    "no-non-null-assertion": "off"
-  }
+  "no-var": "error",
+  "eqeqeq": "error",
+  "prefer-template": "warning",
+  "no-non-null-assertion": "off"
 }
 ```
 
