@@ -168,3 +168,59 @@ func stringLiteralText(node *shimast.Node) string {
 	}
 	return ""
 }
+
+// walkDescendants visits node and every child below it, depth-first.
+func walkDescendants(node *shimast.Node, visit func(*shimast.Node)) {
+	if node == nil {
+		return
+	}
+	visit(node)
+	node.ForEachChild(func(child *shimast.Node) bool {
+		walkDescendants(child, visit)
+		return false
+	})
+}
+
+func bindingIdentifierNames(node *shimast.Node) []string {
+	if node == nil {
+		return nil
+	}
+	if name := identifierText(node); name != "" {
+		return []string{name}
+	}
+	if node.Kind != shimast.KindObjectBindingPattern && node.Kind != shimast.KindArrayBindingPattern {
+		return nil
+	}
+	var names []string
+	walkDescendants(node, func(child *shimast.Node) {
+		if child == node {
+			return
+		}
+		if name := identifierText(child); name != "" {
+			names = append(names, name)
+		}
+	})
+	return names
+}
+
+func isLiteralLike(node *shimast.Node) bool {
+	node = stripParens(node)
+	if node == nil {
+		return false
+	}
+	if isLiteralExpression(node) {
+		return true
+	}
+	if node.Kind == shimast.KindPrefixUnaryExpression {
+		prefix := node.AsPrefixUnaryExpression()
+		if prefix == nil {
+			return false
+		}
+		switch prefix.Operator {
+		case shimast.KindPlusToken, shimast.KindMinusToken:
+			return prefix.Operand != nil &&
+				(prefix.Operand.Kind == shimast.KindNumericLiteral || prefix.Operand.Kind == shimast.KindBigIntLiteral)
+		}
+	}
+	return false
+}

@@ -29,6 +29,7 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
         "transform": "@ttsc/lint",
         "rules": {
           "no-var": "error",
+          "prefer-const": "error",
           "no-explicit-any": "warning",
           "no-console": "off"
         }
@@ -56,7 +57,7 @@ Lint errors fail the command. With `ttsx`, lint errors stop the program before y
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "rules": { "no-var": "error", "prefer-const": "error" } },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
@@ -93,7 +94,10 @@ The rule corpus is tested in `tests/lint/cases/*.ts`, which is the best place to
 - [`ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
 - [`ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
 - [`consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
+- [`consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
+- [`consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.
 - [`consistent-type-imports`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/consistent-type-imports/violation.ts): uses `import type` when imported names are type-only.
+- [`dot-notation`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/dot-notation.ts): prefers dot property access when a string-literal key is a valid identifier.
 - [`eqeqeq`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/eqeqeq.ts): requires strict equality operators.
 - [`for-direction`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/for-direction.ts): catches loop counters updated in the wrong direction.
 - [`no-alert`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-alert.ts): rejects `alert`, `confirm`, and `prompt`.
@@ -118,12 +122,14 @@ The rule corpus is tested in `tests/lint/cases/*.ts`, which is the best place to
 - [`no-dupe-keys`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-dupe-keys.ts): rejects duplicate object keys.
 - [`no-duplicate-case`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-duplicate-case.ts): rejects duplicate `switch` case labels.
 - [`no-duplicate-enum-values`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-duplicate-enum-values.ts): rejects duplicate enum member values.
+- [`no-dynamic-delete`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-dynamic-delete.ts): rejects `delete` on dynamically computed property keys.
 - [`no-empty`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty.ts): rejects empty blocks.
 - [`no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-character-class.ts): rejects empty regex character classes.
 - [`no-empty-function`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-function.ts): rejects empty functions.
 - [`no-empty-interface`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-interface.ts): rejects empty interfaces.
 - [`no-empty-object-type`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-object-type.ts): rejects empty object type literals.
 - [`no-empty-pattern`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-pattern.ts): rejects empty destructuring patterns.
+- [`no-empty-static-block`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-empty-static-block.ts): rejects empty class static blocks.
 - [`no-eq-null`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-eq-null.ts): rejects loose null comparisons.
 - [`no-eval`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-eval.ts): rejects `eval`.
 - [`no-ex-assign`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-ex-assign.ts): rejects reassignment of caught exceptions.
@@ -151,6 +157,7 @@ The rule corpus is tested in `tests/lint/cases/*.ts`, which is the best place to
 - [`no-new`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-new.ts): rejects `new` expressions used only for side effects.
 - [`no-new-func`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-new-func.ts): rejects `Function` constructors.
 - [`no-new-wrappers`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-new-wrappers.ts): rejects primitive wrapper constructors.
+- [`no-non-null-asserted-nullish-coalescing`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-non-null-asserted-nullish-coalescing.ts): rejects non-null assertions next to `??`.
 - [`no-non-null-asserted-optional-chain`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-non-null-asserted-optional-chain.ts): rejects non-null assertions on optional chains.
 - [`no-non-null-assertion`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-non-null-assertion.ts): rejects postfix non-null assertions.
 - [`no-obj-calls`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-obj-calls.ts): rejects calling global objects as functions.
@@ -168,6 +175,7 @@ The rule corpus is tested in `tests/lint/cases/*.ts`, which is the best place to
 - [`no-self-assign`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-self-assign.ts): rejects assignments to the same value.
 - [`no-self-compare`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-self-compare.ts): rejects comparing a value to itself.
 - [`no-sequences`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-sequences.ts): rejects comma expressions.
+- [`no-setter-return`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-setter-return.ts): rejects returned values from setters.
 - [`no-shadow-restricted-names`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-shadow-restricted-names.ts): rejects shadowing restricted globals.
 - [`no-sparse-arrays`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-sparse-arrays.ts): rejects sparse arrays.
 - [`no-template-curly-in-string`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-template-curly-in-string.ts): rejects `${...}` text inside normal strings.
@@ -175,24 +183,32 @@ The rule corpus is tested in `tests/lint/cases/*.ts`, which is the best place to
 - [`no-throw-literal`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-throw-literal.ts): rejects throwing literals.
 - [`no-undef-init`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-undef-init.ts): rejects initializing to `undefined`.
 - [`no-undefined`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-undefined.ts): rejects the global `undefined` identifier.
+- [`no-unnecessary-type-constraint`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unnecessary-type-constraint.ts): rejects redundant `extends any` and `extends unknown` constraints.
 - [`no-unneeded-ternary`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unneeded-ternary.ts): rejects redundant ternary expressions.
+- [`no-unsafe-declaration-merging`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unsafe-declaration-merging.ts): rejects unsafe class/interface declaration merging.
 - [`no-unsafe-finally`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unsafe-finally.ts): rejects control flow from `finally`.
+- [`no-unsafe-function-type`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unsafe-function-type.ts): rejects the unsafe `Function` type.
 - [`no-unsafe-negation`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unsafe-negation.ts): rejects unsafe negation before relational checks.
 - [`no-unused-expressions`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unused-expressions.ts): rejects expression statements with no effect.
+- [`no-unused-labels`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-unused-labels.ts): rejects labels that no `break` or `continue` targets.
 - [`no-useless-call`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-call.ts): rejects unnecessary `.call()` and `.apply()`.
 - [`no-useless-catch`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-catch.ts): rejects catch blocks that only rethrow.
 - [`no-useless-computed-key`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-computed-key.ts): rejects unnecessary computed property keys.
 - [`no-useless-concat`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-concat.ts): rejects unnecessary string concatenation.
+- [`no-useless-constructor`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-constructor.ts): rejects empty constructors with no parameters.
 - [`no-useless-rename`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-useless-rename.ts): rejects import/export/destructure renames to the same name.
 - [`no-var`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-var.ts): rejects `var`.
 - [`no-with`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-with.ts): rejects `with` statements.
+- [`no-wrapper-object-types`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/no-wrapper-object-types.ts): rejects boxed object type names such as `String` and `Boolean`.
 - [`object-shorthand`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/object-shorthand.ts): requires object property shorthand where possible.
 - [`operator-assignment`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/operator-assignment.ts): prefers compound assignment operators.
 - [`prefer-as-const`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-as-const.ts): prefers `as const` for literal assertions.
+- [`prefer-const`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-const.ts): prefers `const` for `let` bindings that are never reassigned.
 - [`prefer-enum-initializers`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-enum-initializers.ts): requires explicit enum member initializers.
 - [`prefer-exponentiation-operator`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-exponentiation-operator.ts): prefers `**` over `Math.pow`.
 - [`prefer-for-of`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-for-of.ts): prefers `for...of` for simple array iteration.
 - [`prefer-function-type`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-function-type.ts): prefers function type aliases over single-call interfaces.
+- [`prefer-literal-enum-member`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-literal-enum-member.ts): prefers literal enum member initializers over computed expressions.
 - [`prefer-namespace-keyword`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-namespace-keyword.ts): prefers `namespace` over TypeScript's legacy `module` keyword.
 - [`prefer-spread`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-spread.ts): prefers spread arguments over `.apply`.
 - [`prefer-template`](https://github.com/samchon/ttsc/blob/master/tests/lint/cases/prefer-template.ts): prefers template literals over string concatenation.

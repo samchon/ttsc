@@ -81,8 +81,40 @@ function writeGoWork(scratchDir: string, useDirs: readonly string[]): void {
   for (const dir of useDirs) {
     useLines.push(`\t${dir.replace(/\\/g, "/")}`);
   }
-  const goWork = `go 1.26\n\nuse (\n${useLines.join("\n")}\n)\n`;
+  const replaceLines = sourceBuildWorkspaceReplacements(useDirs);
+  const replaceBlock =
+    replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
+  const goWork = `go 1.26\n\nuse (\n${useLines.join("\n")}\n)${replaceBlock}`;
   fs.writeFileSync(path.join(scratchDir, "go.work"), goWork, "utf8");
+}
+
+export function sourceBuildWorkspaceReplacements(
+  useDirs: readonly string[],
+): string[] {
+  const ttscRoot = useDirs.find((dir) =>
+    hasModulePath(dir, "github.com/samchon/ttsc/packages/ttsc"),
+  );
+  if (!ttscRoot) {
+    return [];
+  }
+  return [
+    `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscRoot.replace(/\\/g, "/")}`,
+  ];
+}
+
+function hasModulePath(dir: string, modulePath: string): boolean {
+  try {
+    const goMod = fs.readFileSync(path.join(dir, "go.mod"), "utf8");
+    return new RegExp(`^module\\s+${escapeRegExp(modulePath)}\\s*$`, "m").test(
+      goMod,
+    );
+  } catch {
+    return false;
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function runGoBuild(

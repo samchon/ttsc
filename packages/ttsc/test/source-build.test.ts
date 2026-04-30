@@ -12,6 +12,7 @@ const {
   resolveDefaultPluginCacheRoot,
   resolveGoCompiler,
   resolvePluginCacheRoot,
+  sourceBuildWorkspaceReplacements,
 } = require("../src/source-build.ts");
 
 function withTempSourceDir(files: Record<string, string>): string {
@@ -147,6 +148,18 @@ test("bundled Go package request follows platform package layout", () => {
     bundledGoPackageRequest({ platform: "win32", arch: "x64" }),
     "@ttsc/win32-x64/bin/go/bin/go.exe",
   );
+});
+
+test("sourceBuildWorkspaceReplacements pins the ttsc module for source plugins", () => {
+  const ttscRoot = withTempSourceDir({
+    "go.mod": "module github.com/samchon/ttsc/packages/ttsc\n\ngo 1.26\n",
+  });
+  const otherRoot = withTempSourceDir({
+    "go.mod": "module example.com/other\n\ngo 1.26\n",
+  });
+  assert.deepEqual(sourceBuildWorkspaceReplacements([otherRoot, ttscRoot]), [
+    `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscRoot.replace(/\\/g, "/")}`,
+  ]);
 });
 
 test("resolvePluginCacheRoot prefers project node_modules cache", () => {
