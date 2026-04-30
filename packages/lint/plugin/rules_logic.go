@@ -277,7 +277,20 @@ func isAssignmentOperator(kind shimast.Kind) bool {
 	switch kind {
 	case shimast.KindEqualsToken,
 		shimast.KindPlusEqualsToken,
-		shimast.KindMinusEqualsToken:
+		shimast.KindMinusEqualsToken,
+		shimast.KindAsteriskEqualsToken,
+		shimast.KindAsteriskAsteriskEqualsToken,
+		shimast.KindSlashEqualsToken,
+		shimast.KindPercentEqualsToken,
+		shimast.KindLessThanLessThanEqualsToken,
+		shimast.KindGreaterThanGreaterThanEqualsToken,
+		shimast.KindGreaterThanGreaterThanGreaterThanEqualsToken,
+		shimast.KindAmpersandEqualsToken,
+		shimast.KindBarEqualsToken,
+		shimast.KindCaretEqualsToken,
+		shimast.KindAmpersandAmpersandEqualsToken,
+		shimast.KindBarBarEqualsToken,
+		shimast.KindQuestionQuestionEqualsToken:
 		return true
 	}
 	return false
