@@ -1,0 +1,5 @@
+.references/
+bin/
+dist/
+lib/
+node_modules/

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { main } from "../cli";
+import { runTtsc } from "./internal/runTtsc";
 
-const code = main(process.argv.slice(2));
+const code = runTtsc(process.argv.slice(2));
 if (typeof code === "number") {
   process.exitCode = code;
 }

@@ -13,9 +13,9 @@ type Result struct {
 }
 
 type Plugin struct {
-	Config map[string]any
-	Mode   string
-	Name   string
+	Config    map[string]any
+	Operation string
+	Name      string
 }
 
 func Transform(source string, plugins []Plugin) (Result, error) {
@@ -26,18 +26,18 @@ func Transform(source string, plugins []Plugin) (Result, error) {
 	name := match[1]
 	value := match[2]
 	if len(plugins) == 0 {
-		plugins = []Plugin{{Mode: "go-native-transformer-test"}}
+		plugins = []Plugin{{Operation: "go-uppercase"}}
 	}
 	for _, plugin := range plugins {
-		switch plugin.Mode {
-		case "go-native-transformer-test", "go-uppercase":
+		switch plugin.Operation {
+		case "go-uppercase":
 			value = strings.ToUpper(value)
 		case "go-prefix":
 			value = stringConfig(plugin.Config, "prefix") + value
 		case "go-suffix":
 			value += stringConfig(plugin.Config, "suffix")
 		default:
-			return Result{}, fmt.Errorf("go transformer: unsupported mode %q", plugin.Mode)
+			return Result{}, fmt.Errorf("go transformer: unsupported operation %q", plugin.Operation)
 		}
 	}
 	var builder strings.Builder

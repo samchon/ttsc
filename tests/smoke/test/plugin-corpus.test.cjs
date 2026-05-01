@@ -30,40 +30,51 @@ function pluginProject(pluginEntries, pluginFiles) {
   );
 }
 
-function nativePlugin(mode) {
+function nativePlugin() {
   return `
     module.exports = (context) => ({
       name: context.plugin.name,
-      native: {
-        mode: ${JSON.stringify(mode)},
-        binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
-        contractVersion: 1,
-      },
+      source: require("node:path").resolve(
+        __dirname,
+        "..",
+        "go-plugin",
+        "cmd",
+        "ttsc-go-transformer"
+      ),
     });
   `;
 }
 
+function copyDirectory(from, to) {
+  fs.cpSync(from, to, { recursive: true });
+}
+
 test("plugin corpus: default export factory is accepted as a native descriptor", () => {
-  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
     [{ transform: "./plugins/default.cjs", name: "default-shape" }],
     {
       "plugins/default.cjs": `
         exports.default = (context) => ({
           name: context.plugin.name,
-          native: {
-            mode: "go-uppercase",
-            binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
-            contractVersion: 1,
-          },
+          source: require("node:path").resolve(
+            __dirname,
+            "..",
+            "go-plugin",
+            "cmd",
+            "ttsc-go-transformer"
+          ),
         });
       `,
     },
   );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
+  );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
-    env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary },
+    env: { PATH: goPath() },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(
@@ -73,52 +84,65 @@ test("plugin corpus: default export factory is accepted as a native descriptor",
 });
 
 test("plugin corpus: createTtscPlugin export is accepted as a native descriptor", () => {
-  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
     [{ transform: "./plugins/create.cjs", name: "create-export" }],
     {
       "plugins/create.cjs": `
         exports.createTtscPlugin = (context) => ({
           name: context.plugin.name,
-          native: {
-            mode: "go-uppercase",
-            binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
-            contractVersion: 1,
-          },
+          source: require("node:path").resolve(
+            __dirname,
+            "..",
+            "go-plugin",
+            "cmd",
+            "ttsc-go-transformer"
+          ),
         });
       `,
     },
+  );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
   );
 
   const result = spawn(
     ttscBin,
     ["transform", "--cwd", root, "--file", "src/main.ts"],
-    { cwd: root, env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary } },
+    { cwd: root, env: { PATH: goPath() } },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /"PLUGIN"/);
 });
 
 test("plugin corpus: ordered native plugins are passed to the Go sidecar", () => {
-  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
     [
       { transform: "./plugins/prefix.cjs", name: "prefix", prefix: "A:" },
-      { transform: "./plugins/disabled.cjs", name: "disabled", enabled: false, suffix: ":NO" },
+      {
+        transform: "./plugins/disabled.cjs",
+        name: "disabled",
+        enabled: false,
+        suffix: ":NO",
+      },
       { transform: "./plugins/upper.cjs", name: "upper" },
       { transform: "./plugins/suffix.cjs", name: "suffix", suffix: ":Z" },
     ],
     {
-      "plugins/prefix.cjs": nativePlugin("go-prefix"),
-      "plugins/disabled.cjs": nativePlugin("go-suffix"),
-      "plugins/upper.cjs": nativePlugin("go-uppercase"),
-      "plugins/suffix.cjs": nativePlugin("go-suffix"),
+      "plugins/prefix.cjs": nativePlugin(),
+      "plugins/disabled.cjs": nativePlugin(),
+      "plugins/upper.cjs": nativePlugin(),
+      "plugins/suffix.cjs": nativePlugin(),
     },
+  );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
   );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
-    env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary },
+    env: { PATH: goPath() },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
@@ -126,10 +150,8 @@ test("plugin corpus: ordered native plugins are passed to the Go sidecar", () =>
 });
 
 test("plugin corpus: JS transform hooks are rejected", () => {
-  const root = pluginProject(
-    [{ transform: "./plugins/invalid-hook.cjs" }],
-    {
-      "plugins/invalid-hook.cjs": `
+  const root = pluginProject([{ transform: "./plugins/invalid-hook.cjs" }], {
+    "plugins/invalid-hook.cjs": `
         module.exports = {
           name: "invalid-hook",
           transformOutput(context) {
@@ -137,8 +159,7 @@ test("plugin corpus: JS transform hooks are rejected", () => {
           },
         };
       `,
-    },
-  );
+  });
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
@@ -146,12 +167,9 @@ test("plugin corpus: JS transform hooks are rejected", () => {
 });
 
 test("plugin corpus: invalid plugin export reports the bad specifier", () => {
-  const root = pluginProject(
-    [{ transform: "./plugins/invalid.cjs" }],
-    {
-      "plugins/invalid.cjs": `module.exports = 123;\n`,
-    },
-  );
+  const root = pluginProject([{ transform: "./plugins/invalid.cjs" }], {
+    "plugins/invalid.cjs": `module.exports = 123;\n`,
+  });
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
@@ -159,19 +177,22 @@ test("plugin corpus: invalid plugin export reports the bad specifier", () => {
 });
 
 test("plugin corpus: transform --out receives Go native output", () => {
-  const transformerBinary = buildGoTransformer();
   const root = pluginProject(
     [{ transform: "./plugins/out.cjs", name: "out" }],
     {
-      "plugins/out.cjs": nativePlugin("go-uppercase"),
+      "plugins/out.cjs": nativePlugin(),
     },
+  );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
   );
   const output = path.join(root, "custom", "main.js");
 
   const result = spawn(
     ttscBin,
     ["transform", "--cwd", root, "--file", "src/main.ts", "--out", output],
-    { cwd: root, env: { TTSC_GO_TRANSFORMER_BINARY: transformerBinary } },
+    { cwd: root, env: { PATH: goPath() } },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.match(fs.readFileSync(output, "utf8"), /"PLUGIN"/);
@@ -217,11 +238,7 @@ test("plugin corpus: source plugins serve an ordered --plugins-json pipeline", (
     `const path = require("node:path");
 module.exports = (context) => ({
   name: context.plugin.name,
-  native: {
-    mode: context.plugin.mode,
-    source: { dir: path.resolve(__dirname, "go-plugin") },
-    contractVersion: 1,
-  },
+  source: path.resolve(__dirname, "go-plugin"),
 });
 `,
   );
@@ -235,9 +252,9 @@ module.exports = (context) => ({
         outDir: "dist",
         rootDir: "src",
         plugins: [
-          { transform: "./plugin.cjs", name: "prefix", mode: "go-prefix", prefix: "A:" },
-          { transform: "./plugin.cjs", name: "upper", mode: "go-uppercase" },
-          { transform: "./plugin.cjs", name: "suffix", mode: "go-suffix", suffix: ":Z" },
+          { transform: "./plugin.cjs", name: "prefix", prefix: "A:" },
+          { transform: "./plugin.cjs", name: "upper" },
+          { transform: "./plugin.cjs", name: "suffix", suffix: ":Z" },
         ],
       },
       include: ["src"],
@@ -296,7 +313,7 @@ test("plugin corpus: source plugin cache invalidates when Go source changes", ()
   );
 });
 
-test("plugin corpus: native.source.entry selects a sub-package", () => {
+test("plugin corpus: source path selects a sub-package", () => {
   const root = copyProject("go-source-plugin-entry");
   const cacheDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "ttsc-source-plugin-entry-"),
@@ -306,58 +323,100 @@ test("plugin corpus: native.source.entry selects a sub-package", () => {
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stderr, /building source plugin "go-source-plugin-entry"/);
+  assert.match(
+    result.stderr,
+    /building source plugin "go-source-plugin-entry"/,
+  );
   assert.match(
     fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
     /"ENTRY"/,
   );
 });
 
-test("plugin corpus: declaring both native.source and native.binary is rejected", () => {
+test("plugin corpus: source path can point directly at go.mod", () => {
+  const root = copyProject("go-source-plugin");
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    `const path = require("node:path");
+module.exports = {
+  name: "go-source-plugin",
+  source: path.resolve(__dirname, "go-plugin", "go.mod"),
+};
+`,
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-source-plugin-gomod-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /"PLUGIN"/,
+  );
+});
+
+test("plugin corpus: source path searches at most three parents for go.mod", () => {
+  const root = copyProject("go-source-plugin");
+  const tooDeep = path.join(root, "go-plugin", "a", "b", "c", "d");
+  fs.mkdirSync(tooDeep, { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    `const path = require("node:path");
+module.exports = {
+  name: "go-source-plugin-too-deep",
+  source: path.resolve(__dirname, "go-plugin", "a", "b", "c", "d"),
+};
+`,
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-source-plugin-too-deep-"),
+      ),
+    },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /go\.mod within 3 parent directories/);
+});
+
+test("plugin corpus: missing source is rejected", () => {
   const root = pluginProject(
-    [{ transform: "./plugins/conflict.cjs", name: "conflict" }],
+    [{ transform: "./plugins/missing-source.cjs", name: "missing-source" }],
     {
-      "plugins/conflict.cjs": `
-        const path = require("node:path");
+      "plugins/missing-source.cjs": `
         module.exports = {
-          name: "conflict",
-          native: {
-            mode: "go-uppercase",
-            binary: "/some/path/to/binary",
-            source: { dir: path.resolve(__dirname, "..", "go-plugin") },
-            contractVersion: 1,
-          },
+          name: "missing-source",
         };
       `,
     },
   );
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    /must use either native\.binary or native\.source, not both/,
-  );
+  assert.match(result.stderr, /must declare source/);
 });
 
-test("plugin corpus: missing native.source.dir produces a clear error", () => {
+test("plugin corpus: empty source produces a clear error", () => {
   const root = pluginProject(
     [{ transform: "./plugins/empty-source.cjs", name: "empty" }],
     {
       "plugins/empty-source.cjs": `
         module.exports = {
           name: "empty",
-          native: {
-            mode: "go-uppercase",
-            source: { dir: "" },
-            contractVersion: 1,
-          },
+          source: "",
         };
       `,
     },
   );
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /native\.source\.dir must be a non-empty string/);
+  assert.match(result.stderr, /must declare source/);
 });
 
 test("plugin corpus: source plugin build failure reports Go compiler stderr", () => {
@@ -461,33 +520,6 @@ test("plugin corpus: ttsx executes source plugin output end-to-end", () => {
   assert.equal(result.stdout.trim(), "PLUGIN");
 });
 
-test("plugin corpus: programmatic transformAsync drives the source plugin", async () => {
-  const root = copyProject("go-source-plugin");
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-source-plugin-async-"),
-  );
-  const harnessFile = path.join(root, "harness.cjs");
-  const ttscPackage = path.join(workspaceRoot, "packages", "ttsc");
-  fs.writeFileSync(
-    harnessFile,
-    `const ttsc = require(${JSON.stringify(ttscPackage)});
-ttsc
-  .transformAsync({ cwd: ${JSON.stringify(root)}, file: ${JSON.stringify(path.join(root, "src", "main.ts"))} })
-  .then((text) => { process.stdout.write(text); })
-  .catch((error) => {
-    process.stderr.write(error.stack || String(error));
-    process.exit(1);
-  });
-`,
-  );
-  const result = spawn(process.execPath, [harnessFile], {
-    cwd: root,
-    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /"PLUGIN"/);
-});
-
 test("plugin corpus: source plugin bootstraps a Program and Checker against the consumer tsconfig", () => {
   const root = copyProject("go-source-plugin-checker");
   const cacheDir = fs.mkdtempSync(
@@ -545,10 +577,7 @@ test("plugin corpus: source plugin can import tsgo shim modules via go.work over
     },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(
-    result.stderr,
-    /building source plugin "go-source-plugin-tsgo"/,
-  );
+  assert.match(result.stderr, /building source plugin "go-source-plugin-tsgo"/);
   assert.match(
     fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
     /"TSGO \(tsgo\)"/,
@@ -607,7 +636,7 @@ test("plugin corpus: concurrent ttsc invocations on a cold cache both succeed", 
   );
 });
 
-test("plugin corpus: nonexistent native.source.dir produces a clear error", () => {
+test("plugin corpus: nonexistent source produces a clear error", () => {
   const root = pluginProject(
     [{ transform: "./plugins/missing-dir.cjs", name: "missing" }],
     {
@@ -615,11 +644,7 @@ test("plugin corpus: nonexistent native.source.dir produces a clear error", () =
         const path = require("node:path");
         module.exports = {
           name: "missing",
-          native: {
-            mode: "go-uppercase",
-            source: { dir: path.resolve(__dirname, "..", "no-such-dir") },
-            contractVersion: 1,
-          },
+          source: path.resolve(__dirname, "..", "no-such-dir"),
         };
       `,
     },
@@ -629,7 +654,7 @@ test("plugin corpus: nonexistent native.source.dir produces a clear error", () =
     env: { PATH: goPath() },
   });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /native\.source\.dir does not exist/);
+  assert.match(result.stderr, /source does not exist/);
 });
 
 test("plugin corpus: @ttsc/lint surfaces rule violations through the normal failure path", () => {
@@ -654,7 +679,10 @@ test("plugin corpus: @ttsc/lint surfaces rule violations through the normal fail
   // 1. No diagnostic is missing.
   for (const exp of expected) {
     const hit = got.find(
-      (g) => g.line === exp.line && g.rule === exp.rule && g.severity === exp.severity,
+      (g) =>
+        g.line === exp.line &&
+        g.rule === exp.rule &&
+        g.severity === exp.severity,
     );
     assert.ok(
       hit,
@@ -665,7 +693,10 @@ test("plugin corpus: @ttsc/lint surfaces rule violations through the normal fail
   // 2. No diagnostic is unexpected.
   for (const g of got) {
     const hit = expected.find(
-      (exp) => exp.line === g.line && exp.rule === g.rule && exp.severity === g.severity,
+      (exp) =>
+        exp.line === g.line &&
+        exp.rule === g.rule &&
+        exp.severity === g.severity,
     );
     assert.ok(
       hit,
@@ -685,9 +716,7 @@ test("plugin corpus: @ttsc/lint clean project exits zero", () => {
     path.join(root, "src", "main.ts"),
     `export const value: string = "hi";\nconst _value: number = value.length;\nvoid _value;\n`,
   );
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-lint-clean-"),
-  );
+  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-clean-"));
   const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
@@ -721,14 +750,16 @@ test("plugin corpus: @ttsc/lint honors --emit and --outDir overrides", () => {
     path.join(root, "src", "main.ts"),
     `export const value: string = "lint-outdir";\n`,
   );
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-lint-outdir-"),
-  );
+  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-outdir-"));
 
-  const result = spawn(ttscBin, ["--cwd", root, "--emit", "--outDir", "custom"], {
-    cwd: root,
-    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
-  });
+  const result = spawn(
+    ttscBin,
+    ["--cwd", root, "--emit", "--outDir", "custom"],
+    {
+      cwd: root,
+      env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+    },
+  );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.existsSync(path.join(root, "custom", "main.js")), true);
   assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
@@ -755,8 +786,17 @@ test("plugin corpus: @ttsc/lint ignores future optional flags", () => {
     `export const value: string = "future-flag";\n`,
   );
 
-  const ttscPackage = path.join(workspaceRoot, "packages", "ttsc");
-  const { loadProjectPlugins } = require(ttscPackage);
+  const { loadProjectPlugins } = require(
+    path.join(
+      workspaceRoot,
+      "packages",
+      "ttsc",
+      "lib",
+      "plugin",
+      "internal",
+      "loadProjectPlugins.js",
+    ),
+  );
   const previousPath = process.env.PATH;
   const previousCacheDir = process.env.TTSC_CACHE_DIR;
   process.env.PATH = goPath();
@@ -778,18 +818,18 @@ test("plugin corpus: @ttsc/lint ignores future optional flags", () => {
       process.env.TTSC_CACHE_DIR = previousCacheDir;
     }
   }
-  assert.equal(typeof loaded.nativeBinary, "string");
+  const loadedBinary = loaded.nativePlugins[0]?.binary;
+  assert.equal(typeof loadedBinary, "string");
   const pluginsJson = JSON.stringify(
     loaded.nativePlugins.map((plugin) => ({
       config: plugin.config,
-      contractVersion: plugin.backend.contractVersion,
-      mode: plugin.backend.mode,
       name: plugin.name,
+      stage: plugin.stage,
     })),
   );
 
   const result = spawn(
-    loaded.nativeBinary,
+    loadedBinary,
     [
       "check",
       "--cwd",
@@ -842,10 +882,14 @@ test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary ca
   assert.match(first.stderr, /building source plugin "@ttsc\/lint"/);
 
   writeConfig({ "no-explicit-any": "warning", "prefer-template": "warning" });
-  const second = spawn(ttscBin, ["--cwd", root, "--emit", "--outDir", "custom"], {
-    cwd: root,
-    env,
-  });
+  const second = spawn(
+    ttscBin,
+    ["--cwd", root, "--emit", "--outDir", "custom"],
+    {
+      cwd: root,
+      env,
+    },
+  );
   assert.equal(second.status, 0, second.stderr);
   assert.doesNotMatch(second.stderr, /building source plugin "@ttsc\/lint"/);
   assert.equal(fs.existsSync(path.join(root, "custom", "main.js")), true);
@@ -853,7 +897,9 @@ test("plugin corpus: @ttsc/lint option changes reuse the source plugin binary ca
   const pluginCache = path.join(cacheDir, "plugins");
   const entries = fs
     .readdirSync(pluginCache, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"));
+    .filter(
+      (entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"),
+    );
   assert.equal(entries.length, 1);
 });
 
@@ -888,7 +934,9 @@ test("plugin corpus: source plugin default cache is project-local under node_mod
   const pluginCache = path.join(root, "node_modules", ".ttsc", "plugins");
   const entries = fs
     .readdirSync(pluginCache, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"));
+    .filter(
+      (entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"),
+    );
   assert.equal(entries.length, 1);
   assert.equal(
     fs.existsSync(
@@ -930,9 +978,7 @@ test("plugin corpus: @ttsc/lint reports unknown rule names", () => {
     path.join(root, "src", "main.ts"),
     `export const value: string = "ok";\n`,
   );
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-lint-unknown-"),
-  );
+  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-unknown-"));
   const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
@@ -948,7 +994,9 @@ function parseExpectations(filePath) {
   const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
   const expected = [];
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
+    const match = lines[i].match(
+      /\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/,
+    );
     if (!match) continue;
     const [, rule, severity] = match;
     let target = i + 1;
@@ -1010,30 +1058,6 @@ function setupLintProject(name) {
     if (err.code !== "EEXIST") throw err;
   }
   return root;
-}
-
-function buildGoTransformer() {
-  const root = path.join(workspaceRoot, "tests", "go-transformer");
-  const output = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-transformer-")),
-    process.platform === "win32" ? "ttsc-go-transformer.exe" : "ttsc-go-transformer",
-  );
-  const result = child_process.spawnSync(
-    "go",
-    ["build", "-o", output, "./cmd/ttsc-go-transformer"],
-    {
-      cwd: root,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: goPath(),
-      },
-      maxBuffer: 1024 * 1024 * 64,
-      windowsHide: true,
-    },
-  );
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  return output;
 }
 
 function goPath() {

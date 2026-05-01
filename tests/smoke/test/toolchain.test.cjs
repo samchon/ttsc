@@ -182,30 +182,6 @@ test("ttsc emits declaration files when the project requests them", () => {
   assert.equal(fs.existsSync(path.join(root, "dist", "main.d.ts")), true);
 });
 
-test("ttsc programmatic transformAsync uses the resolved tsgo binary", async () => {
-  const root = createProject({
-    "tsconfig.json": JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "commonjs",
-        strict: true,
-        outDir: "dist",
-        rootDir: "src",
-      },
-      include: ["src"],
-    }),
-    "src/main.ts": `export const value: string = "api";\n`,
-  });
-  const { transformAsync } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
-
-  const js = await transformAsync({
-    binary: tsgoBinary,
-    cwd: root,
-    file: path.join(root, "src", "main.ts"),
-  });
-  assert.match(js, /exports\.value/);
-});
-
 test("ttsc blocks semantic diagnostics before emit", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({

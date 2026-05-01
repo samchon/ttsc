@@ -7,7 +7,7 @@ import (
 
 func TestTransformGoUpper(t *testing.T) {
 	result, err := Transform(`export const message: string = goUpper("hello"); console.log(message);`, []Plugin{
-		{Mode: "go-uppercase"},
+		{Operation: "go-uppercase"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -19,9 +19,9 @@ func TestTransformGoUpper(t *testing.T) {
 
 func TestTransformOrderedPlugins(t *testing.T) {
 	result, err := Transform(`export const message: string = goUpper("hello"); console.log(message);`, []Plugin{
-		{Mode: "go-prefix", Config: map[string]any{"prefix": "A:"}},
-		{Mode: "go-uppercase"},
-		{Mode: "go-suffix", Config: map[string]any{"suffix": ":Z"}},
+		{Operation: "go-prefix", Config: map[string]any{"prefix": "A:"}},
+		{Operation: "go-uppercase"},
+		{Operation: "go-suffix", Config: map[string]any{"suffix": ":Z"}},
 	})
 	if err != nil {
 		t.Fatal(err)

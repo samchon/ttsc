@@ -61,7 +61,7 @@ func TestParseRulesNilTreatedAsEmpty(t *testing.T) {
 
 func TestParsePluginsRoundTrip(t *testing.T) {
 	const blob = `[
-		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"config": {"no-var": "error"}}}
+		{"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}}
 	]`
 	entries, err := ParsePlugins(blob)
 	if err != nil {
@@ -77,8 +77,8 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 	if entry == nil {
 		t.Fatal("FindLintEntry returned nil")
 	}
-	if entry.Mode != "ttsc-lint" {
-		t.Errorf("entry.Mode: want ttsc-lint, got %q", entry.Mode)
+	if entry.Stage != "check" {
+		t.Errorf("entry.Stage: want check, got %q", entry.Stage)
 	}
 	cfg, err := ParseRules(entry.Config["config"])
 	if err != nil {
@@ -91,8 +91,8 @@ func TestParsePluginsRoundTrip(t *testing.T) {
 
 func TestFindLintEntryRejectsNonFirstLintPlugin(t *testing.T) {
 	const blob = `[
-		{"name": "source-transform", "mode": "source-transform", "contractVersion": 1, "config": {}},
-		{"name": "@ttsc/lint", "mode": "ttsc-lint", "contractVersion": 1, "config": {"config": {"no-var": "error"}}}
+		{"name": "source-transform", "stage": "transform", "config": {}},
+		{"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}}
 	]`
 	entries, err := ParsePlugins(blob)
 	if err != nil {

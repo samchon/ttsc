@@ -13,9 +13,10 @@ import (
 var goUpperCall = regexp.MustCompile(`(?m)export\s+const\s+([A-Za-z_$][A-Za-z0-9_$]*)(?:\s*:\s*[^=]+)?=\s*goUpper\("([^"]*)"\)\s*;`)
 
 type Plugin struct {
-	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
-	Name   string         `json:"name"`
+	Config    map[string]any `json:"config"`
+	Name      string         `json:"name"`
+	Operation string         `json:"-"`
+	Stage     string         `json:"stage"`
 }
 
 func main() {
@@ -49,7 +50,6 @@ func runTransform(args []string) int {
 	file := fs.String("file", "", "")
 	out := fs.String("out", "", "")
 	_ = fs.String("tsconfig", "", "")
-	_ = fs.String("rewrite-mode", "", "")
 	pluginsJSON := fs.String("plugins-json", "", "")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -93,7 +93,6 @@ func runBuild(args []string) int {
 	fs.SetOutput(os.Stderr)
 	cwd := fs.String("cwd", "", "")
 	_ = fs.String("tsconfig", "", "")
-	_ = fs.String("rewrite-mode", "", "")
 	pluginsJSON := fs.String("plugins-json", "", "")
 	_ = fs.Bool("emit", false, "")
 	_ = fs.Bool("quiet", false, "")
@@ -151,6 +150,9 @@ func parsePlugins(input string) ([]Plugin, error) {
 	if err := json.Unmarshal([]byte(input), &plugins); err != nil {
 		return nil, fmt.Errorf("go-source-plugin: invalid --plugins-json: %w", err)
 	}
+	for i := range plugins {
+		plugins[i].Operation = inferOperation(plugins[i].Config)
+	}
 	return plugins, nil
 }
 
@@ -162,10 +164,10 @@ func transform(source string, plugins []Plugin) (string, error) {
 	name := match[1]
 	value := match[2]
 	if len(plugins) == 0 {
-		plugins = []Plugin{{Mode: "go-uppercase"}}
+		plugins = []Plugin{{Operation: "go-uppercase"}}
 	}
 	for _, plugin := range plugins {
-		switch plugin.Mode {
+		switch plugin.Operation {
 		case "go-uppercase":
 			value = strings.ToUpper(value)
 		case "go-lowercase":
@@ -181,7 +183,7 @@ func transform(source string, plugins []Plugin) (string, error) {
 			}
 			value = string(runes)
 		default:
-			return "", fmt.Errorf("go-source-plugin: unsupported mode %q", plugin.Mode)
+			return "", fmt.Errorf("go-source-plugin: unsupported operation %q", plugin.Operation)
 		}
 	}
 	var b strings.Builder
@@ -194,6 +196,19 @@ func transform(source string, plugins []Plugin) (string, error) {
 		b.WriteString(fmt.Sprintf("console.log(%s);\n", name))
 	}
 	return b.String(), nil
+}
+
+func inferOperation(config map[string]any) string {
+	if value, ok := config["operation"].(string); ok && value != "" {
+		return value
+	}
+	if _, ok := config["prefix"]; ok {
+		return "go-prefix"
+	}
+	if _, ok := config["suffix"]; ok {
+		return "go-suffix"
+	}
+	return "go-uppercase"
 }
 
 func stringConfig(config map[string]any, key string) string {

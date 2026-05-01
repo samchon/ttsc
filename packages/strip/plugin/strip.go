@@ -14,12 +14,10 @@ import (
 	shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
-const modeStrip = "ttsc-strip"
-
 type pluginEntry struct {
 	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
 	Name   string         `json:"name"`
+	Stage  string         `json:"stage"`
 }
 
 type stripTransform struct {
@@ -46,7 +44,6 @@ func RunOutput(args []string) int {
 	_ = fs.String("cwd", "", "project directory")
 	_ = fs.String("outDir", "", "emit directory override")
 	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
-	_ = fs.String("rewrite-mode", modeStrip, "native mode")
 	_ = fs.String("tsconfig", "tsconfig.json", "project tsconfig")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -320,7 +317,7 @@ func findConfig(pluginsJSON string) (map[string]any, error) {
 		return nil, fmt.Errorf("@ttsc/strip: invalid --plugins-json: %w", err)
 	}
 	for _, entry := range entries {
-		if entry.Mode == modeStrip || entry.Name == "@ttsc/strip" {
+		if entry.Name == "@ttsc/strip" {
 			if entry.Config == nil {
 				return map[string]any{}, nil
 			}

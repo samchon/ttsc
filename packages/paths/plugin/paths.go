@@ -22,12 +22,10 @@ import (
 	"github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
-const modePaths = "ttsc-paths"
-
 type pluginEntry struct {
 	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
 	Name   string         `json:"name"`
+	Stage  string         `json:"stage"`
 }
 
 type program struct {
@@ -63,7 +61,6 @@ func RunOutput(args []string) int {
 	cwd := fs.String("cwd", "", "project directory")
 	outDir := fs.String("outDir", "", "emit directory override")
 	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
-	_ = fs.String("rewrite-mode", modePaths, "native mode")
 	tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -360,7 +357,7 @@ func requireConfig(pluginsJSON string) error {
 		return fmt.Errorf("@ttsc/paths: invalid --plugins-json: %w", err)
 	}
 	for _, entry := range entries {
-		if entry.Mode == modePaths || entry.Name == "@ttsc/paths" {
+		if entry.Name == "@ttsc/paths" {
 			return nil
 		}
 	}

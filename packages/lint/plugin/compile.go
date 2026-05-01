@@ -58,19 +58,16 @@ func RunTransform(args []string) int {
 	out := fs.String("out", "", "write output JS to PATH (default: stdout)")
 	tsconfig := fs.String("tsconfig", "tsconfig.json", "tsconfig owning --file")
 	cwd := fs.String("cwd", "", "override the working directory")
-	rewriteMode := fs.String("rewrite-mode", "ttsc-lint", "native rewrite backend id (informational)")
 	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
 	if err := fs.Parse(filterKnownFlags(args, map[string]bool{
 		"cwd":          true,
 		"file":         true,
 		"out":          true,
 		"plugins-json": true,
-		"rewrite-mode": true,
 		"tsconfig":     true,
 	})); err != nil {
 		return 2
 	}
-	_ = rewriteMode
 	if *file == "" {
 		fmt.Fprintln(os.Stderr, "@ttsc/lint transform: --file is required")
 		return 2
@@ -158,7 +155,6 @@ type subcommandOpts struct {
 	cwd         string
 	tsconfig    string
 	pluginsJSON string
-	rewriteMode string
 	emit        bool
 	noEmit      bool
 	quiet       bool
@@ -172,7 +168,6 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 	cwd := fs.String("cwd", "", "")
 	tsconfig := fs.String("tsconfig", "tsconfig.json", "")
 	pluginsJSON := fs.String("plugins-json", "", "")
-	rewriteMode := fs.String("rewrite-mode", "ttsc-lint", "")
 	emit := fs.Bool("emit", false, "")
 	noEmit := fs.Bool("noEmit", false, "")
 	quiet := fs.Bool("quiet", false, "")
@@ -185,7 +180,6 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 		"outDir":       true,
 		"plugins-json": true,
 		"quiet":        false,
-		"rewrite-mode": true,
 		"tsconfig":     true,
 		"verbose":      false,
 	})); err != nil {
@@ -202,7 +196,6 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 		cwd:         resolvedCwd,
 		tsconfig:    *tsconfig,
 		pluginsJSON: *pluginsJSON,
-		rewriteMode: *rewriteMode,
 		emit:        *emit,
 		noEmit:      *noEmit,
 		quiet:       *quiet,

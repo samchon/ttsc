@@ -7,6 +7,7 @@
     "build": "node scripts/build-platforms.cjs",
     "build:current": "node scripts/build-current.cjs",
     "experimental": "pnpm --dir experimental/install start -- --pack-current",
+    "format": "prettier --write \"**/*.ts\"",
     "package:latest": "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
     "package:next": "bash next.bash",
     "package:tgz": "node experimental/tarballs",
@@ -25,9 +26,12 @@
   "homepage": "https://github.com/samchon/ttsc",
   "packageManager": "pnpm@10.6.4",
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "catalog:utils",
     "@typescript/native-preview": "catalog:tsgo",
     "bumpp": "^10.4.1",
+    "prettier": "^3.8.3",
+    "prettier-plugin-jsdoc": "^1.8.0",
     "rimraf": "catalog:utils"
   }
 }

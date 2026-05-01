@@ -3,10 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const {
-  nativePreviewPlatformPackage,
-  resolveTsgo,
-} = require("../src/tsgo.ts");
+const { resolveTsgo } = require("../lib/compiler/internal/resolveTsgo.js");
 
 test("resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-tsgo-test-"));
@@ -61,8 +58,4 @@ test("resolveTsgo resolves the consumer native-preview platform package", () => 
   assert.equal(resolved.version, "7.0.0-dev.consumer");
   assert.equal(resolved.gitHead, "abc123");
   assert.equal(resolved.binary, path.join(platformRoot, "lib", "tsgo"));
-  assert.equal(
-    nativePreviewPlatformPackage({ platform: "linux", arch: "x64" }),
-    "@typescript/native-preview-linux-x64",
-  );
 });

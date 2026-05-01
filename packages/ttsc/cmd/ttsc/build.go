@@ -28,7 +28,6 @@ func runBuild(args []string) int {
 	noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
 	outDir := fs.String("outDir", "", "override compilerOptions.outDir for this build")
 	manifestPath := fs.String("manifest", "", "write emitted file list as JSON to this path")
-	rewriteMode := fs.String("rewrite-mode", "none", "native rewrite backend id")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -71,13 +70,8 @@ func runBuild(args []string) int {
 
 	rewrites := driver.NewRewriteSet()
 	shouldEmit := !prog.ParsedConfig.ParsedConfig.CompilerOptions.NoEmit.IsTrue()
-	if *rewriteMode != "none" {
-		fmt.Fprintf(stderr, "ttsc: rewrite backend %q is not built into the standalone ttsc binary\n", *rewriteMode)
-		fmt.Fprintln(stderr, "ttsc: run through the JS host with the matching compiler plugin so it can select the consumer-provided native binary")
-		return 2
-	}
 	if !*quiet {
-		fmt.Fprintf(stdout, "// ttsc: tsconfig=%s cwd=%s sites=%d emit=%v rewrite=%s\n", *tsconfigPath, cwd, 0, shouldEmit, *rewriteMode)
+		fmt.Fprintf(stdout, "// ttsc: tsconfig=%s cwd=%s sites=%d emit=%v\n", *tsconfigPath, cwd, 0, shouldEmit)
 	}
 
 	if shouldEmit {

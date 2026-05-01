@@ -1,9 +1,8 @@
+const path = require("node:path");
+
 module.exports = {
   name: "go-native-transformer-test",
-  native: {
-    mode: "go-native-transformer-test",
-    binary: process.env.TTSC_GO_TRANSFORMER_BINARY,
-    contractVersion: 1,
-    capabilities: ["transform"],
-  },
+  source:
+    process.env.TTSC_GO_TRANSFORMER_SOURCE ??
+    path.resolve(__dirname, "go-transformer", "cmd", "ttsc-go-transformer"),
 };
