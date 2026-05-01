@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/win32-arm64",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Windows arm64 native binary and bundled Go compiler for ttsc.",
   "os": ["win32"],
   "cpu": ["arm64"],
