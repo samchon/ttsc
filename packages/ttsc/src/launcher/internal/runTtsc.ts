@@ -150,6 +150,9 @@ function delegateToNative(argv: readonly string[]): number {
     return 1;
   }
   const viaNode = /\.(?:[cm]?js|ts)$/i.test(bin);
+  if (!viaNode) {
+    ensureExecutable(bin);
+  }
   const result = spawnSync(
     viaNode ? process.execPath : bin,
     viaNode ? [bin, ...argv] : [...argv],
@@ -164,6 +167,21 @@ function delegateToNative(argv: readonly string[]): number {
     return 1;
   }
   return result.status ?? 1;
+}
+
+function ensureExecutable(binary: string): void {
+  if (process.platform === "win32") {
+    return;
+  }
+  try {
+    const mode = fs.statSync(binary).mode & 0o777;
+    if ((mode & 0o111) !== 0) {
+      return;
+    }
+    fs.chmodSync(binary, mode | 0o755);
+  } catch {
+    /* keep the original spawn error path */
+  }
 }
 
 function parseCleanArgs(argv: readonly string[]) {

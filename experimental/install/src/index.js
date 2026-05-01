@@ -154,17 +154,11 @@ function verifyInstalledPackages() {
     );
   }
 
-  const resolved = runNode(
-    [
-      "-e",
-      "const ttsc = require('ttsc'); console.log(ttsc.resolveBinary());",
-    ],
-    workspace,
-    "node -e \"require('ttsc').resolveBinary()\"",
-  ).stdout.trim();
+  const nativeDemo = run("npx ttsc demo --type=string", workspace).stdout;
   assert(
-    path.resolve(resolved) === path.resolve(platformBin),
-    `resolveBinary must select ${platformPackage}, got ${resolved}`,
+    nativeDemo.includes("emitted by ttsc platform helper") &&
+      nativeDemo.includes('"string" === typeof input'),
+    "npx ttsc demo must execute the installed platform helper",
   );
 
   const version = run("npx ttsc --version", workspace).stdout;
