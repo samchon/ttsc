@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { resolveTsgo } = require("../lib/api/internal/resolveTsgo.js");
+const { resolveTsgo } = require("../lib/compiler/internal/resolveTsgo.js");
 
 test("resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-tsgo-test-"));

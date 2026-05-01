@@ -6,7 +6,7 @@ const test = require("node:test");
 
 const {
   buildSourcePlugin,
-} = require("../lib/api/internal/plugin/buildSourcePlugin.js");
+} = require("../lib/plugin/internal/buildSourcePlugin.js");
 
 test("buildSourcePlugin rejects a source outside a nearby Go module", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
