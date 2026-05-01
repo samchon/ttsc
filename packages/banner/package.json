@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/banner",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "First-party ttsc plugin that prepends a banner comment to emitted files.",
   "main": "src/index.cjs",
   "exports": {

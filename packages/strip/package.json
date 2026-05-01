@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/strip",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "First-party ttsc plugin that removes configured calls and statements from emitted JavaScript.",
   "main": "src/index.cjs",
   "exports": {
