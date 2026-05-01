@@ -57,13 +57,17 @@ function createProjectContext(
   const root = project.root;
   const cacheDir =
     options.cacheDir ?? path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
+  const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
+  const virtualRoot = path.join(processDir, "fs");
   return {
     tsconfig,
     root,
     cacheDir,
-    emitDir:
-      project.compilerOptions.outDir ??
-      path.join(cacheDir, "project", PROCESS_CACHE_KEY),
+    processDir,
+    virtualRoot,
+    emitDir: project.compilerOptions.outDir
+      ? virtualPath(virtualRoot, project.compilerOptions.outDir)
+      : path.join(processDir, "out"),
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
@@ -76,7 +80,8 @@ function buildProject(
   if (context.built) return;
 
   fs.mkdirSync(context.cacheDir, { recursive: true });
-  fs.rmSync(context.emitDir, { recursive: true, force: true });
+  fs.rmSync(context.processDir, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
   const result = runBuild({
     binary: options.binary,
     cwd: context.root,
@@ -89,6 +94,7 @@ function buildProject(
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
+    linkVirtualProjectLayout(context);
     context.built = true;
     context.emittedFiles =
       result.emittedFiles && result.emittedFiles.length !== 0
@@ -97,7 +103,7 @@ function buildProject(
     return;
   }
 
-  fs.rmSync(context.emitDir, { recursive: true, force: true });
+  fs.rmSync(context.processDir, { recursive: true, force: true });
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
@@ -105,6 +111,59 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+function linkVirtualProjectLayout(
+  context: ReturnType<typeof createProjectContext>,
+): void {
+  for (const directory of collectLinkDirectories(context.root)) {
+    const virtualDirectory = virtualPath(context.virtualRoot, directory);
+    fs.mkdirSync(virtualDirectory, { recursive: true });
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const realEntry = path.join(directory, entry.name);
+      const virtualEntry = path.join(virtualDirectory, entry.name);
+      if (fs.existsSync(virtualEntry)) {
+        continue;
+      }
+      fs.symlinkSync(
+        realEntry,
+        virtualEntry,
+        entry.isDirectory() && process.platform === "win32" ? "junction" : undefined,
+      );
+    }
+  }
+}
+
+function collectLinkDirectories(projectRoot: string): string[] {
+  const out: string[] = [];
+  let current = projectRoot;
+  for (let depth = 0; depth < 8; depth += 1) {
+    out.push(current);
+    if (
+      depth > 0 &&
+      (fs.existsSync(path.join(current, "pnpm-workspace.yaml")) ||
+        fs.existsSync(path.join(current, ".git")))
+    ) {
+      break;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return out.reverse();
+}
+
+function virtualPath(root: string, absolute: string): string {
+  const parsed = path.parse(path.resolve(absolute));
+  const label =
+    parsed.root === path.sep
+      ? "posix"
+      : parsed.root.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") ||
+        "root";
+  const relative = path.relative(parsed.root, path.resolve(absolute));
+  return path.join(root, label, relative);
 }
 
 function looksLikeESM(output: string): boolean {

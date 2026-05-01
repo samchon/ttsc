@@ -208,6 +208,39 @@ test("runner corpus: ESM import.meta.url resolves from configured outDir", () =>
   assert.equal(result.stdout.trim(), "import-meta-preserved");
 });
 
+test("runner corpus: ttsx keeps configured outDir untouched", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ type: "module" }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "dist/keep.txt": "do-not-delete",
+    "src/helper.ts": `export const message: string = "cache-only-run";\n`,
+    "src/main.ts": `import { message } from "./helper";\nconsole.log(message);\n`,
+  });
+  const cacheDir = path.join(root, ".ttsx-cache");
+
+  const result = spawn(
+    ttsxBin,
+    ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "cache-only-run");
+  assert.equal(fs.readFileSync(path.join(root, "dist", "keep.txt"), "utf8"), "do-not-delete");
+  assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
+  assert.equal(fs.existsSync(path.join(root, "dist", "package.json")), false);
+  assert.equal(fs.existsSync(path.join(cacheDir, "project")), true);
+});
+
 test("runner corpus: type-check diagnostics prevent entry execution", () => {
   const root = commonJsProject({
     "src/main.ts": `
