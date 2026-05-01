@@ -1,1 +1,0 @@
-export type ITtscNativeRewriteMode = string;

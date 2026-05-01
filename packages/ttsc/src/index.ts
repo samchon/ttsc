@@ -1,20 +1,9 @@
 /**
  * ttsc — public TypeScript entry.
  *
- * Exports:
- *   - tsgo helpers (`resolveTsgo`, …) — resolve the consuming project's
- *     `@typescript/native-preview` compiler binary.
- *   - platform helpers (`resolveBinary`, `installHint`, …) — compatibility
- *     helper resolution for commands such as `ttsc demo`.
- *   - programmatic API (`transform`, `build`, `check`, `version`) — a thin
- *     TS wrapper around the consumer `tsgo` binary and native plugin
- *     descriptors. Adapters never have to shell out themselves; they call
- *     these helpers and get back a string or a result record.
+ * Exports the supported JS API and the structures barrel used by plugin
+ * authors.
  */
 
-export * from "./platform";
-export * from "./api";
-export * from "./project";
-export * from "./plugin";
-export * from "./tsgo";
-export * from "./runner/register";
+export * from "./api/index";
+export * from "./structures/index";

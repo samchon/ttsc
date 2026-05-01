@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const child_process = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -117,12 +116,12 @@ test("transform project corpus: transform diagnostics fail before writing output
 });
 
 test("transform project corpus: Go native transformer library backs plugin-selected binary", () => {
-  const transformerBinary = buildGoTransformer();
   const root = copyProject("go-native-transformer");
   const out = path.join(root, "out", "main.js");
   transformToFile(root, "src/main.ts", out, {
     env: {
-      TTSC_GO_TRANSFORMER_BINARY: transformerBinary,
+      PATH: goPath(),
+      TTSC_GO_TRANSFORMER_SOURCE: goTransformerSource(),
     },
   });
   const js = fs.readFileSync(out, "utf8");
@@ -133,12 +132,12 @@ test("transform project corpus: Go native transformer library backs plugin-selec
 });
 
 test("transform project corpus: Go native transformer sidecar handles project build", () => {
-  const transformerBinary = buildGoTransformer();
   const root = copyProject("go-native-transformer");
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: {
-      TTSC_GO_TRANSFORMER_BINARY: transformerBinary,
+      PATH: goPath(),
+      TTSC_GO_TRANSFORMER_SOURCE: goTransformerSource(),
     },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -150,28 +149,14 @@ test("transform project corpus: Go native transformer sidecar handles project bu
   assert.equal(run.stdout.trim(), "GO NATIVE TRANSFORMER");
 });
 
-function buildGoTransformer() {
-  const root = path.join(workspaceRoot, "tests", "go-transformer");
-  const output = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-transformer-")),
-    process.platform === "win32" ? "ttsc-go-transformer.exe" : "ttsc-go-transformer",
+function goTransformerSource() {
+  return path.join(
+    workspaceRoot,
+    "tests",
+    "go-transformer",
+    "cmd",
+    "ttsc-go-transformer",
   );
-  const result = child_process.spawnSync(
-    "go",
-    ["build", "-o", output, "./cmd/ttsc-go-transformer"],
-    {
-      cwd: root,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: goPath(),
-      },
-      maxBuffer: 1024 * 1024 * 64,
-      windowsHide: true,
-    },
-  );
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  return output;
 }
 
 function goPath() {

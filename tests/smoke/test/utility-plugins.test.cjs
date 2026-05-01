@@ -18,33 +18,24 @@ const utilityPackages = ["lint", "banner", "paths", "strip"];
 
 test("utility plugins: descriptors own separate native source directories", () => {
   const expectations = {
-    lint: ["ttsc-lint", ["check"]],
-    banner: "ttsc-banner",
-    paths: "ttsc-paths",
-    strip: "ttsc-strip",
+    lint: "check",
+    banner: "output",
+    paths: "output",
+    strip: "output",
   };
   const seenDirs = new Set();
-  for (const [name, expectation] of Object.entries(expectations)) {
-    const [mode, capabilities] = Array.isArray(expectation)
-      ? expectation
-      : [expectation, ["output"]];
+  for (const [name, stage] of Object.entries(expectations)) {
     const mod = require(path.join(workspaceRoot, "packages", name));
     const factory = mod.createTtscPlugin ?? mod.default ?? mod;
     const descriptor = factory(factoryContext(name));
     assert.equal(descriptor.name, `@ttsc/${name}`);
-    assert.equal(descriptor.native.mode, mode);
-    assert.equal(descriptor.native.contractVersion, 1);
-    assert.deepEqual(descriptor.native.capabilities, capabilities);
+    assert.equal(descriptor.stage, stage);
+    assert.equal(descriptor.source, path.join(workspaceRoot, "packages", name, "plugin"));
     assert.equal(
-      descriptor.native.source.dir,
-      path.join(workspaceRoot, "packages", name),
-    );
-    assert.equal(descriptor.native.source.entry, "./plugin");
-    assert.equal(
-      fs.existsSync(path.join(descriptor.native.source.dir, "go.mod")),
+      fs.existsSync(path.join(workspaceRoot, "packages", name, "go.mod")),
       true,
     );
-    seenDirs.add(descriptor.native.source.dir);
+    seenDirs.add(descriptor.source);
   }
   assert.equal(seenDirs.size, 4);
 });

@@ -19,16 +19,13 @@ test("lib/index.js is a factory that returns a native source descriptor", () => 
   assert.equal(typeof factory, "function");
   const descriptor = factory(factoryContext({ transform: "@ttsc/lint" }));
   assert.equal(descriptor.name, "@ttsc/lint");
-  assert.equal(descriptor.native.mode, "ttsc-lint");
-  assert.equal(descriptor.native.contractVersion, 1);
-  assert.deepEqual(descriptor.native.capabilities, ["check"]);
+  assert.equal(descriptor.stage, "check");
 });
 
-test("native.source points at the bundled plugin sources", () => {
+test("source points at the bundled plugin command package", () => {
   const factory = loadFactory();
   const descriptor = factory(factoryContext({ transform: "@ttsc/lint" }));
-  assert.equal(descriptor.native.source.dir, goSourceDir);
-  assert.equal(descriptor.native.source.entry, "./plugin");
+  assert.equal(descriptor.source, goPluginDir);
   // The Go module file must exist; otherwise the source build will fail.
   assert.ok(
     fs.existsSync(path.join(goSourceDir, "go.mod")),
@@ -49,9 +46,8 @@ test("descriptor is independent of plugin entry config", () => {
     factoryContext({ transform: "x", config: { "no-var": "error" } }),
   );
   const b = factory(factoryContext({ transform: "y", config: {} }));
-  assert.equal(a.native.mode, b.native.mode);
-  assert.equal(a.native.contractVersion, b.native.contractVersion);
-  assert.equal(a.native.source.dir, b.native.source.dir);
+  assert.equal(a.stage, b.stage);
+  assert.equal(a.source, b.source);
 });
 
 function loadFactory() {
@@ -70,32 +66,49 @@ function factoryContext(plugin) {
 }
 
 test("lib/index.d.ts exposes typed lint config files", () => {
-  const dts = fs.readFileSync(path.join(lintPkgDir, "lib", "index.d.ts"), "utf8");
+  const dts = fs.readFileSync(
+    path.join(lintPkgDir, "lib", "index.d.ts"),
+    "utf8",
+  );
   const configDts = fs.readFileSync(
-    path.join(lintPkgDir, "lib", "structures", "ITtscLintConfig.d.ts"),
+    path.join(lintPkgDir, "lib", "structures", "TtscLintConfig.d.ts"),
+    "utf8",
+  );
+  const pluginConfigDts = fs.readFileSync(
+    path.join(
+      lintPkgDir,
+      "lib",
+      "structures",
+      "ITtscLintPluginConfig.d.ts",
+    ),
+    "utf8",
+  );
+  const structuresIndexDts = fs.readFileSync(
+    path.join(lintPkgDir, "lib", "structures", "index.d.ts"),
     "utf8",
   );
   const ruleDts = fs.readFileSync(
-    path.join(lintPkgDir, "lib", "structures", "ITtscLintRule.d.ts"),
+    path.join(lintPkgDir, "lib", "structures", "TtscLintRule.d.ts"),
     "utf8",
   );
   const severityDts = fs.readFileSync(
-    path.join(lintPkgDir, "lib", "structures", "ITtscLintSeverity.d.ts"),
+    path.join(lintPkgDir, "lib", "structures", "TtscLintSeverity.d.ts"),
     "utf8",
   );
-  assert.match(dts, /import type { ITtscLintConfig }/);
+  assert.match(dts, /export \* from "\.\/structures\/index"/);
   assert.match(dts, /import type {[\s\S]*ITtscPlugin[\s\S]*} from "ttsc"/);
-  assert.match(dts, /ITtscLintPluginConfig = ITtscProjectPluginConfig/);
-  assert.doesNotMatch(dts, /export type ITtscLintConfig/);
-  assert.doesNotMatch(dts, /export type TtscLintRuleName/);
-  assert.doesNotMatch(dts, /TtscLintPluginFactoryContext/);
-  assert.doesNotMatch(dts, /TtscLintPluginDescriptor/);
-  assert.doesNotMatch(dts, /ITtscNativeSource/);
+  assert.match(pluginConfigDts, /import type { TtscLintConfig }/);
+  assert.match(
+    pluginConfigDts,
+    /export interface ITtscLintPluginConfig extends ITtscProjectPluginConfig/,
+  );
   assert.doesNotMatch(dts, /configFile/);
   assert.doesNotMatch(dts, /configPath/);
   assert.doesNotMatch(dts, /rules\?:/);
-  assert.match(configDts, /export type ITtscLintConfig/);
-  assert.match(ruleDts, /export type ITtscLintRule/);
-  assert.match(severityDts, /export type ITtscLintSeverity/);
+  assert.match(configDts, /export type TtscLintConfig/);
+  assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintPluginConfig"/);
+  assert.match(structuresIndexDts, /export \* from "\.\/TtscLintConfig"/);
+  assert.match(ruleDts, /export type TtscLintRule/);
+  assert.match(severityDts, /export type TtscLintSeverity/);
   assert.doesNotMatch(dts, /defineConfig/);
 });

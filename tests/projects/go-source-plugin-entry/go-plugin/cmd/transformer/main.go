@@ -42,7 +42,6 @@ func runTransform(args []string) int {
 	file := fs.String("file", "", "")
 	out := fs.String("out", "", "")
 	_ = fs.String("tsconfig", "", "")
-	_ = fs.String("rewrite-mode", "", "")
 	_ = fs.String("plugins-json", "", "")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -77,7 +76,6 @@ func runBuild(args []string) int {
 	fs.SetOutput(os.Stderr)
 	cwd := fs.String("cwd", "", "")
 	_ = fs.String("tsconfig", "", "")
-	_ = fs.String("rewrite-mode", "", "")
 	_ = fs.String("plugins-json", "", "")
 	_ = fs.Bool("emit", false, "")
 	_ = fs.Bool("quiet", false, "")

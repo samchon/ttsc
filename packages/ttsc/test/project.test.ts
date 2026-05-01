@@ -6,8 +6,10 @@ const test = require("node:test");
 
 const {
   readProjectConfig,
+} = require("../lib/api/internal/project/readProjectConfig.js");
+const {
   resolveProjectConfig,
-} = require("../src/project.ts");
+} = require("../lib/api/internal/project/resolveProjectConfig.js");
 
 test("resolveProjectConfig canonicalizes symlinked tsconfig paths", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));

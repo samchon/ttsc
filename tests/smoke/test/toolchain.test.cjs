@@ -182,7 +182,7 @@ test("ttsc emits declaration files when the project requests them", () => {
   assert.equal(fs.existsSync(path.join(root, "dist", "main.d.ts")), true);
 });
 
-test("ttsc programmatic transformAsync uses the resolved tsgo binary", async () => {
+test("ttsc programmatic transform uses the resolved tsgo binary", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -196,9 +196,9 @@ test("ttsc programmatic transformAsync uses the resolved tsgo binary", async () 
     }),
     "src/main.ts": `export const value: string = "api";\n`,
   });
-  const { transformAsync } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
+  const { transform } = require(path.join(workspaceRoot, "packages", "ttsc", "lib", "index.js"));
 
-  const js = await transformAsync({
+  const js = transform({
     binary: tsgoBinary,
     cwd: root,
     file: path.join(root, "src", "main.ts"),

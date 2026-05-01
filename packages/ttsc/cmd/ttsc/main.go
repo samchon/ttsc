@@ -153,14 +153,12 @@ Build options:
   --noEmit          Force analysis-only run even when tsconfig would emit.
   --quiet           Suppress the per-call summary banner (default).
   --verbose         Print the per-call summary banner and emitted file list.
-  --rewrite-mode=M  Native rewrite backend id.
   --manifest=FILE   Write emitted file paths as JSON to FILE after build --emit.
 
 Transform options:
   --file=PATH       Absolute or cwd-relative path of the .ts file to transform.
   --tsconfig=FILE   tsconfig.json owning --file (default: tsconfig.json).
   --out=PATH        Write output JS to PATH. Default: stdout.
-  --rewrite-mode=M  Native rewrite backend id.
 
 Demo options:
   --type=T          Atomic TypeScript type to simulate. One of:

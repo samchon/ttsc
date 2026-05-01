@@ -1,19 +1,19 @@
 import type { ITtscCommonOptions } from "./ITtscCommonOptions";
 
+/** Options for a project build through the JS `ttsc` API. */
 export interface ITtscBuildOptions extends ITtscCommonOptions {
-  /** Path to tsconfig.json. Default: `tsconfig.json`. */
+  /** Project config file to compile. Relative paths are resolved from `cwd`. */
   tsconfig?: string;
   /**
-   * Emit override. `true` forces emit, `false` forces noEmit, `undefined`
-   * follows tsconfig.
+   * Emit override for the current call.
+   *
+   * - `true`: force file writes even when the project has `noEmit`.
+   * - `false`: force diagnostics/check-only behavior.
+   * - `undefined`: follow the resolved tsconfig exactly.
    */
   emit?: boolean;
-  /** Override compilerOptions.outDir for this invocation. */
+  /** Per-call TypeScript-Go `outDir` override. */
   outDir?: string;
-  /** Suppress the per-call summary banner. Default: `true`. */
+  /** Suppress summary banners from ttsc/native sidecars. Defaults to `true`. */
   quiet?: boolean;
-  /** @internal Caller already ran diagnostics and accepts responsibility. */
-  skipDiagnosticsCheck?: boolean;
-  /** @internal Force `tsgo --listEmittedFiles` for caller-side output discovery. */
-  forceListEmittedFiles?: boolean;
 }

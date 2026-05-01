@@ -1,13 +1,11 @@
 import type { ITtscCommonOptions } from "./ITtscCommonOptions";
 
+/** Options for transforming one source file through the JS `ttsc` API. */
 export interface ITtscTransformOptions extends ITtscCommonOptions {
-  /** Path to the .ts file to transform. Absolute or `cwd`-relative. */
+  /** Source file to transform. Absolute paths and `cwd`-relative paths work. */
   file: string;
-  /** Path to the tsconfig owning `file`. Default: `tsconfig.json`. */
+  /** Project config owning `file`; discovered from `file` when omitted. */
   tsconfig?: string;
-  /**
-   * When provided, the binary writes JS directly to this path instead of piping
-   * stdout. Useful when the emitted text is large.
-   */
+  /** Optional output file path. Omit to return emitted text from stdout. */
   out?: string;
 }

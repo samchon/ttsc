@@ -40,7 +40,6 @@ func runCheck(args []string) int {
 	fs.SetOutput(os.Stderr)
 	_ = fs.String("cwd", "", "project directory")
 	_ = fs.String("tsconfig", "", "tsconfig")
-	_ = fs.String("rewrite-mode", "", "rewrite mode")
 	_ = fs.String("plugins-json", "", "ordered plugin descriptors")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -53,7 +52,6 @@ func runBuild(args []string) int {
 	fs.SetOutput(os.Stderr)
 	cwd := fs.String("cwd", "", "project directory")
 	_ = fs.String("tsconfig", "", "tsconfig")
-	_ = fs.String("rewrite-mode", "", "rewrite mode")
 	pluginsJSON := fs.String("plugins-json", "", "ordered plugin descriptors")
 	_ = fs.Bool("emit", false, "emit")
 	_ = fs.Bool("quiet", false, "quiet")
@@ -107,7 +105,6 @@ func runTransform(args []string) int {
 	file := fs.String("file", "", "source file")
 	out := fs.String("out", "", "output file")
 	_ = fs.String("tsconfig", "", "owning tsconfig")
-	_ = fs.String("rewrite-mode", "", "rewrite mode")
 	pluginsJSON := fs.String("plugins-json", "", "ordered plugin descriptors")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -148,8 +145,8 @@ func runTransform(args []string) int {
 
 type pluginDescriptor struct {
 	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
 	Name   string         `json:"name"`
+	Stage  string         `json:"stage"`
 }
 
 func parsePlugins(input string) ([]transformer.Plugin, error) {
@@ -163,10 +160,23 @@ func parsePlugins(input string) ([]transformer.Plugin, error) {
 	plugins := make([]transformer.Plugin, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		plugins = append(plugins, transformer.Plugin{
-			Config: descriptor.Config,
-			Mode:   descriptor.Mode,
-			Name:   descriptor.Name,
+			Config:    descriptor.Config,
+			Operation: inferOperation(descriptor.Config),
+			Name:      descriptor.Name,
 		})
 	}
 	return plugins, nil
+}
+
+func inferOperation(config map[string]any) string {
+	if value, ok := config["operation"].(string); ok && value != "" {
+		return value
+	}
+	if _, ok := config["prefix"]; ok {
+		return "go-prefix"
+	}
+	if _, ok := config["suffix"]; ok {
+		return "go-suffix"
+	}
+	return "go-uppercase"
 }

@@ -32,13 +32,12 @@ func (s Severity) String() string {
 
 // PluginEntry mirrors the shape ttsc serializes into `--plugins-json`.
 //
-// `Config` carries the tsconfig plugin entry. `Mode` and `Name` come from
-// the native descriptor.
+// `Config` carries the original tsconfig plugin entry. `Name` and `Stage`
+// come from the JS plugin descriptor returned to the ttsc host.
 type PluginEntry struct {
-	Config          map[string]any `json:"config"`
-	ContractVersion int            `json:"contractVersion"`
-	Mode            string         `json:"mode"`
-	Name            string         `json:"name"`
+	Config map[string]any `json:"config"`
+	Name   string         `json:"name"`
+	Stage  string         `json:"stage"`
 }
 
 // ParsePlugins decodes the `--plugins-json` payload.
@@ -58,7 +57,7 @@ func ParsePlugins(text string) ([]PluginEntry, error) {
 // source, which is not a meaningful user-code lint result.
 func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 	for i := range entries {
-		if entries[i].Mode == "ttsc-lint" {
+		if entries[i].Name == "@ttsc/lint" {
 			if i != 0 {
 				return nil, fmt.Errorf("@ttsc/lint must be the first active compilerOptions.plugins entry")
 			}
