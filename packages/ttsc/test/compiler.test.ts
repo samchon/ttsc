@@ -57,7 +57,7 @@ test("TtscCompiler.compile applies configured source plugins without project out
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
-test("TtscCompiler.transform returns project output without project files", () => {
+test("TtscCompiler.transform returns TypeScript source without project files", () => {
   const root = createProject();
   const compiler = new TtscCompiler({
     binary: tsgo,
@@ -68,16 +68,20 @@ test("TtscCompiler.transform returns project output without project files", () =
   const result = compiler.transform();
 
   assert.equal(result.type, "success");
-  assert.match(result.typescript["dist/main.js"], /api-ok/);
   assert.match(
-    result.typescript["dist/main.js"],
+    result.typescript["src/main.ts"],
+    /const message: string = "api-ok"/,
+  );
+  assert.match(
+    result.typescript["src/main.ts"],
     /console\.log\(\s*message\s*\)/,
   );
-  assert.match(result.typescript["dist/main.d.ts"], /declare const message/);
+  assert.equal(result.typescript["dist/main.js"], undefined);
+  assert.equal(result.typescript["dist/main.d.ts"], undefined);
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
-test("TtscCompiler.transform applies configured source plugins to project output", () => {
+test("TtscCompiler.transform applies configured source plugins to TypeScript output", () => {
   const root = createProject({
     plugins: [{ transform: "./plugin.cjs" }],
     source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
@@ -88,7 +92,12 @@ test("TtscCompiler.transform applies configured source plugins to project output
   const result = compiler.transform();
 
   assert.equal(result.type, "success");
-  assert.match(result.typescript["dist/main.js"], /PLUGIN/);
+  assert.match(
+    result.typescript["src/main.ts"],
+    /export const value = "PLUGIN"/,
+  );
+  assert.match(result.typescript["src/main.ts"], /console\.log\(value\)/);
+  assert.equal(result.typescript["dist/main.js"], undefined);
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
@@ -106,7 +115,7 @@ test("TtscCompiler.transform returns failure on compiler diagnostics", () => {
 
   assert.equal(result.type, "failure");
   assert.equal(result.diagnostics[0].code, 2322);
-  assert.equal(typeof result.typescript, "object");
+  assert.match(result.typescript["src/main.ts"], /not-a-number/);
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
@@ -250,6 +259,7 @@ function writeCompilerPlugin(root) {
       "package main",
       "",
       "import (",
+      '\t"encoding/json"',
       '\t"flag"',
       '\t"fmt"',
       '\t"os"',
@@ -264,6 +274,8 @@ function writeCompilerPlugin(root) {
       "\tswitch args[0] {",
       '\tcase "build":',
       "\t\treturn build(args[1:])",
+      '\tcase "transform":',
+      "\t\treturn transformSource(args[1:])",
       '\tcase "check", "version":',
       "\t\treturn 0",
       "\tdefault:",
@@ -294,6 +306,30 @@ function writeCompilerPlugin(root) {
       '\tif !filepath.IsAbs(*outDir) { file = filepath.Join(root, *outDir, "main.js") }',
       "\tif err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "\tif err := os.WriteFile(file, []byte(output), 0o644); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
+      "\treturn 0",
+      "}",
+      "",
+      "type transformResult struct {",
+      '\tTypeScript map[string]string `json:"typescript"`',
+      "}",
+      "",
+      "func transformSource(args []string) int {",
+      '\tfs := flag.NewFlagSet("transform", flag.ContinueOnError)',
+      "\tfs.SetOutput(os.Stderr)",
+      '\tcwd := fs.String("cwd", "", "")',
+      '\t_ = fs.String("tsconfig", "", "")',
+      '\t_ = fs.String("plugins-json", "", "")',
+      "\tif err := fs.Parse(args); err != nil { return 2 }",
+      "\troot := *cwd",
+      '\tif root == "" { root, _ = os.Getwd() }',
+      '\tinput, err := os.ReadFile(filepath.Join(root, "src", "main.ts"))',
+      "\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
+      '\tvalue := "PLUGIN"',
+      '\tif !strings.Contains(string(input), `goUpper("plugin")`) { value = "UNKNOWN" }',
+      '\toutput := fmt.Sprintf("export const value = %q;\\nconsole.log(value);\\n", value)',
+      '\tdata, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/main.ts": output}})',
+      "\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
+      "\tfmt.Fprintln(os.Stdout, string(data))",
       "\treturn 0",
       "}",
       "",
