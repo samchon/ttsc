@@ -49,9 +49,7 @@ npx ttsc clean
 
 ## Plugin Configuration
 
-Open your project's `tsconfig.json`, then add plugin entries under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge the `plugins` array into the existing object.
-
-Each plugin module is a JavaScript descriptor for an ordered native transformer backend; the transform implementation itself runs in Go.
+Add plugin entries under `compilerOptions.plugins` in your `tsconfig.json`.
 
 ```json
 {
@@ -137,14 +135,14 @@ It is transformed into dedicated JavaScript:
 > console.log(matched); // true
 > ```
 
-`ttsc` runs this transform during build, and `ttsx` runs through the same transform path during execution.
+`ttsc` applies this transform at build time; `ttsx` applies the same transform when running the file.
 
 ## List of Plugins
 
 `ttsc` ships a few small utility plugins in this repository.
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds banner comments to emitted JS and declarations.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): fails compilation on lint violations.
+- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): type-check + lint in one compile pass, ~20x faster than `eslint` in theory.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites path aliases in emitted imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 
