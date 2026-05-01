@@ -134,15 +134,19 @@ test("runner corpus: CommonJS __dirname resolves from configured outDir", () => 
       },
       include: ["src"],
     }),
+    "app/src/node.d.ts": `
+      declare const __dirname: string;
+      declare function require(name: string): { readFileSync(file: string, encoding: string): string };
+    `,
     "app/src/TestGlobal.ts": `
       export class TestGlobal {
         public static readonly ROOT: string = __dirname + "/..";
       }
     `,
     "app/src/main.ts": `
-      import fs from "node:fs";
       import { TestGlobal } from "./TestGlobal";
 
+      const fs = require("node:fs");
       console.log(fs.readFileSync(TestGlobal.ROOT + "/../template/data.txt", "utf8"));
     `,
     "template/data.txt": "dirname-preserved",
@@ -168,6 +172,18 @@ test("runner corpus: ESM import.meta.url resolves from configured outDir", () =>
       },
       include: ["src"],
     }),
+    "app/src/node.d.ts": `
+      declare module "node:fs" {
+        export function readFileSync(file: string, encoding: string): string;
+      }
+      declare module "node:path" {
+        export function dirname(file: string): string;
+        export function resolve(...parts: string[]): string;
+      }
+      declare module "node:url" {
+        export function fileURLToPath(url: string): string;
+      }
+    `,
     "app/src/global.ts": `
       import path from "node:path";
       import { fileURLToPath } from "node:url";
