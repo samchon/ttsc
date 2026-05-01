@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/paths",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "First-party ttsc plugin that rewrites emitted module specifiers from tsconfig paths.",
   "main": "src/index.cjs",
   "exports": {
