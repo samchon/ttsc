@@ -122,6 +122,76 @@ test("runner corpus: ttsx executes the intended entrypoint and side effects", ()
   });
 });
 
+test("runner corpus: CommonJS __dirname resolves from configured outDir", () => {
+  const root = createProject({
+    "app/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "bin",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "app/src/TestGlobal.ts": `
+      export class TestGlobal {
+        public static readonly ROOT: string = __dirname + "/..";
+      }
+    `,
+    "app/src/main.ts": `
+      import fs from "node:fs";
+      import { TestGlobal } from "./TestGlobal";
+
+      console.log(fs.readFileSync(TestGlobal.ROOT + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "dirname-preserved",
+  });
+  const cwd = path.join(root, "app");
+
+  const result = spawn(ttsxBin, ["--cwd", cwd, "src/main.ts"], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "dirname-preserved");
+});
+
+test("runner corpus: ESM import.meta.url resolves from configured outDir", () => {
+  const root = createProject({
+    "app/package.json": JSON.stringify({ type: "module" }),
+    "app/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "bin",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "app/src/global.ts": `
+      import path from "node:path";
+      import { fileURLToPath } from "node:url";
+
+      export const ROOT = path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "..",
+      );
+    `,
+    "app/src/main.ts": `
+      import fs from "node:fs";
+      import { ROOT } from "./global";
+
+      console.log(fs.readFileSync(ROOT + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "import-meta-preserved",
+  });
+  const cwd = path.join(root, "app");
+
+  const result = spawn(ttsxBin, ["--cwd", cwd, "src/main.ts"], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "import-meta-preserved");
+});
+
 test("runner corpus: type-check diagnostics prevent entry execution", () => {
   const root = commonJsProject({
     "src/main.ts": `

@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
-import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -48,17 +48,22 @@ function createProjectContext(
   filename: string,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ) {
-  const tsconfig = options.project
-    ? resolveProjectConfig({ cwd, tsconfig: path.resolve(cwd, options.project) })
-    : resolveProjectConfig({ cwd, file: filename });
-  const root = path.dirname(tsconfig);
+  const project = readProjectConfig(
+    options.project
+      ? { cwd, tsconfig: path.resolve(cwd, options.project) }
+      : { cwd, file: filename },
+  );
+  const tsconfig = project.path;
+  const root = project.root;
   const cacheDir =
     options.cacheDir ?? path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   return {
     tsconfig,
     root,
     cacheDir,
-    emitDir: path.join(cacheDir, "project", PROCESS_CACHE_KEY),
+    emitDir:
+      project.compilerOptions.outDir ??
+      path.join(cacheDir, "project", PROCESS_CACHE_KEY),
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
