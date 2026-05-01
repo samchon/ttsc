@@ -54,6 +54,8 @@ func run(args []string) int {
 		return runDemo(args[1:])
 	case "build":
 		return runBuild(args[1:])
+	case "api-compile":
+		return runAPICompile(args[1:])
 	case "check":
 		// `ttsc check` runs the analyze pipeline without emitting JS — useful
 		// in CI and pre-commit hooks that only need schema validation.

@@ -20,6 +20,10 @@ export function buildSourcePlugin(opts: {
   source: string;
   pluginName: string;
   baseDir: string;
+  cacheDir?: string;
+  label?: string;
+  overlayDirs?: readonly string[];
+  quiet?: boolean;
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -30,7 +34,7 @@ export function buildSourcePlugin(opts: {
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
-  const root = resolvePluginCacheRoot(opts.baseDir);
+  const root = resolvePluginCacheRoot(opts.baseDir, opts.cacheDir);
   const cacheDir = path.join(root, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
@@ -38,9 +42,12 @@ export function buildSourcePlugin(opts: {
     return binaryPath;
   }
   fs.mkdirSync(cacheDir, { recursive: true });
-  process.stderr.write(
-    `ttsc: building source plugin "${opts.pluginName}" from ${source} (this runs once per cache key)\n`,
-  );
+  const label = opts.label ?? "source plugin";
+  if (opts.quiet !== true) {
+    process.stderr.write(
+      `ttsc: building ${label} "${opts.pluginName}" from ${source} (this runs once per cache key)\n`,
+    );
+  }
 
   const scratchDir = path.join(
     root,
@@ -48,7 +55,7 @@ export function buildSourcePlugin(opts: {
   );
   try {
     materializeScratchDir(dir, scratchDir);
-    writeGoWork(scratchDir, findTtscOverlayDirs());
+    writeGoWork(scratchDir, opts.overlayDirs ?? findTtscOverlayDirs());
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName);
@@ -301,7 +308,10 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
 }
 
-function resolvePluginCacheRoot(projectRoot: string): string {
+function resolvePluginCacheRoot(projectRoot: string, cacheDir?: string): string {
+  if (cacheDir) {
+    return path.resolve(cacheDir, "plugins");
+  }
   if (process.env.TTSC_CACHE_DIR) {
     return path.resolve(process.env.TTSC_CACHE_DIR, "plugins");
   }
