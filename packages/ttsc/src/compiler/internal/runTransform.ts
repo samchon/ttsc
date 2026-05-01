@@ -2,13 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { ITtscTransformOptions } from "../../structures/ITtscTransformOptions";
+import type { TtscTransformOptions } from "../../structures/internal/TtscTransformOptions";
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
 import { runBuild } from "./runBuild";
 
 /** Transform one source file by emitting its project into a temporary directory. */
-export function runTransform(options: ITtscTransformOptions): string {
+export function runTransform(options: TtscTransformOptions): string {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const sourceFile = realpathIfExists(
     path.isAbsolute(options.file) ? options.file : path.resolve(cwd, options.file),
@@ -31,7 +31,7 @@ export function runTransform(options: ITtscTransformOptions): string {
     });
     if (result.status !== 0) {
       throw new Error(
-        "ttsc.transform exited " +
+        "ttsc transform exited " +
           result.status +
           "\n" +
           (result.stderr || result.stdout),
@@ -44,7 +44,7 @@ export function runTransform(options: ITtscTransformOptions): string {
       sourceFile,
     });
     if (emitted === null) {
-      throw new Error(`ttsc.transform: no output produced for ${sourceFile}`);
+      throw new Error(`ttsc transform: no output produced for ${sourceFile}`);
     }
     const transformed = fs.readFileSync(emitted, "utf8");
     if (options.out) {

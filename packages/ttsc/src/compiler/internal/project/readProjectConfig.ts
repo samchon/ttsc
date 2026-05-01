@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
+import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
-import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 
 import { resolveProjectConfig } from "./resolveProjectConfig";
 

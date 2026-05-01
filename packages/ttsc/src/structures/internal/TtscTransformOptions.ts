@@ -1,7 +1,7 @@
-import type { ITtscCommonOptions } from "./ITtscCommonOptions";
+import type { TtscCommonOptions } from "./TtscCommonOptions";
 
-/** Options for transforming one source file through the JS `ttsc` API. */
-export interface ITtscTransformOptions extends ITtscCommonOptions {
+/** Internal options for transforming one source file through the CLI path. */
+export interface TtscTransformOptions extends TtscCommonOptions {
   /** Source file to transform. Absolute paths and `cwd`-relative paths work. */
   file: string;
   /** Project config owning `file`; discovered from `file` when omitted. */

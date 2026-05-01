@@ -1,17 +1,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { runBuild } from "../../api/internal/runBuild";
-import { resolveProjectConfig } from "../../api/internal/project/resolveProjectConfig";
-import { resolveEmittedJavaScript } from "../../api/internal/resolveEmittedJavaScript";
-import type { ITtscCommonOptions } from "../../structures/ITtscCommonOptions";
+import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
+import { runBuild } from "../../compiler/internal/runBuild";
+import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
+import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 const PROCESS_CACHE_KEY = String(process.pid);
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
   entryFile: string,
-  options: ITtscCommonOptions & {
+  options: TtscCommonOptions & {
     cacheDir?: string;
     project?: string;
   } = {},

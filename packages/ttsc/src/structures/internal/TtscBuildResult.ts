@@ -1,5 +1,5 @@
-/** Result object returned by `build()` and `check()`. */
-export interface ITtscBuildResult {
+/** Internal result captured from TypeScript-Go or native plugin sidecars. */
+export interface TtscBuildResult {
   /** Files written by the build when emitted-file listing was requested. */
   emittedFiles?: string[];
   /** Process-style exit status. `0` means success. */

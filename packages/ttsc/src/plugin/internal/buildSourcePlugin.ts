@@ -265,7 +265,7 @@ function walkToolFiles(dir: string): string[] {
 }
 
 function findTtscOverlayDirs(): readonly string[] {
-  const ttscRoot = path.resolve(__dirname, "..", "..", "..", "..");
+  const ttscRoot = path.resolve(__dirname, "..", "..", "..");
   const dirs: string[] = [];
   if (fs.existsSync(path.join(ttscRoot, "go.mod"))) {
     dirs.push(ttscRoot);

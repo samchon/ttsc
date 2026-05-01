@@ -1,7 +1,7 @@
-import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
+import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 
-/** Options shared by build, check, transform, version, and runtime APIs. */
-export interface ITtscCommonOptions {
+/** Internal options shared by the CLI build, transform, and runtime paths. */
+export interface TtscCommonOptions {
   /**
    * Explicit TypeScript-Go executable.
    *

@@ -2,17 +2,18 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
-import type {
-  ITtscPlugin,
-  ITtscPluginFactory,
-  ITtscPluginFactoryContext,
-  ITtscProjectPluginConfig,
-  TtscPluginStage,
-} from "../../../structures";
-import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
-import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
-import { readProjectConfig } from "../project/readProjectConfig";
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import type { ITtscPlugin } from "../../structures/ITtscPlugin";
+import type { ITtscPluginFactoryContext } from "../../structures/ITtscPluginFactoryContext";
+import type { ITtscProjectPluginConfig } from "../../structures/ITtscProjectPluginConfig";
+import type { TtscPluginStage } from "../../structures/TtscPluginStage";
+import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
+import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import { buildSourcePlugin } from "./buildSourcePlugin";
+
+type TtscPluginFactory<T = ITtscProjectPluginConfig> = (
+  context: ITtscPluginFactoryContext<T>,
+) => ITtscPlugin;
 
 export function loadProjectPlugins(options: {
   binary: string;
@@ -88,14 +89,14 @@ function loadPluginEntry(
 
   const request = resolvePluginRequest(specifier, context.projectRoot);
   const mod = require(request) as {
-    createTtscPlugin?: ITtscPluginFactory;
-    default?: ITtscPlugin | ITtscPluginFactory;
-  } & Partial<Record<"plugin", ITtscPlugin | ITtscPluginFactory>>;
+    createTtscPlugin?: TtscPluginFactory;
+    default?: ITtscPlugin | TtscPluginFactory;
+  } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
   const candidate =
     mod.createTtscPlugin ??
     mod.default ??
     mod.plugin ??
-    (mod as unknown as ITtscPlugin | ITtscPluginFactory);
+    (mod as unknown as ITtscPlugin | TtscPluginFactory);
   if (typeof candidate === "function") {
     const plugin = candidate(context);
     if (!isTtscPlugin(plugin)) {
@@ -182,7 +183,7 @@ function readTtscVersion(): string {
     return cachedTtscVersion;
   }
   try {
-    const file = path.resolve(__dirname, "..", "..", "..", "..", "package.json");
+    const file = path.resolve(__dirname, "..", "..", "..", "package.json");
     const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as {
       version?: string;
     };

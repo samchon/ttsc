@@ -1,7 +1,7 @@
-import type { ITtscCommonOptions } from "./ITtscCommonOptions";
+import type { TtscCommonOptions } from "./TtscCommonOptions";
 
-/** Options for a project build through the JS `ttsc` API. */
-export interface ITtscBuildOptions extends ITtscCommonOptions {
+/** Internal options for a TypeScript-Go project build. */
+export interface TtscBuildOptions extends TtscCommonOptions {
   /** Project config file to compile. Relative paths are resolved from `cwd`. */
   tsconfig?: string;
   /**

@@ -2,14 +2,13 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { build } from "../../api/build";
-import { check } from "../../api/check";
-import { transform } from "../../api/transform";
-import { version } from "../../api/version";
-import { resolveBinary } from "../../api/internal/resolveBinary";
-import { resolveProjectConfig } from "../../api/internal/project/resolveProjectConfig";
-import type { ITtscBuildOptions } from "../../structures/ITtscBuildOptions";
-import type { ITtscTransformOptions } from "../../structures/ITtscTransformOptions";
+import { resolveBinary } from "../../compiler/internal/resolveBinary";
+import { runBuild } from "../../compiler/internal/runBuild";
+import { runTransform } from "../../compiler/internal/runTransform";
+import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
+import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
+import type { TtscTransformOptions } from "../../structures/internal/TtscTransformOptions";
+import { getCompilerVersionText } from "./getCompilerVersionText";
 
 export function runTtsc(argv: readonly string[] = process.argv.slice(2)): number {
   try {
@@ -27,7 +26,7 @@ export function runTtsc(argv: readonly string[] = process.argv.slice(2)): number
       case "-v":
       case "--version":
       case "version":
-        process.stdout.write(`${version()}\n`);
+        process.stdout.write(`${getCompilerVersionText()}\n`);
         return 0;
       case "build":
         return runCompatibleBuild(rest, false);
@@ -36,7 +35,7 @@ export function runTtsc(argv: readonly string[] = process.argv.slice(2)): number
       case "clean":
         return runClean(rest);
       case "transform":
-        return runTransform(rest);
+        return runTransformCommand(rest);
       case "demo":
         return delegateToNative(argv);
       case "-p":
@@ -78,15 +77,15 @@ function runCompatibleBuild(
   if (options.files.length !== 0) {
     return runSingleFile(options);
   }
-  const result = checkOnly ? check(options) : build(options);
+  const result = runBuild(checkOnly ? { ...options, emit: false } : options);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
 }
 
-function runTransform(argv: readonly string[]): number {
+function runTransformCommand(argv: readonly string[]): number {
   const options = parseTransformArgs(argv);
-  const text = transform(options);
+  const text = runTransform(options);
   if (!options.out) {
     process.stdout.write(text);
   }
@@ -289,7 +288,7 @@ function parseBuildArgs(
   };
 }
 
-function parseTransformArgs(argv: readonly string[]): ITtscTransformOptions {
+function parseTransformArgs(argv: readonly string[]): TtscTransformOptions {
   let binary: string | undefined;
   let cwd: string | undefined;
   let file: string | undefined;
@@ -399,7 +398,7 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const file = path.resolve(cwd, options.files[0]!);
   const out = resolveSingleFileOut(file, cwd, options.outDir);
-  const text = transform({
+  const text = runTransform({
     binary: options.binary,
     cwd,
     file,
@@ -464,7 +463,9 @@ function runWatch(
       invocation.files.length !== 0
         ? runSingleFile(invocation)
         : (() => {
-            const result = checkOnly ? check(invocation) : build(invocation);
+            const result = runBuild(
+              checkOnly ? { ...invocation, emit: false } : invocation,
+            );
             if (result.stdout) process.stdout.write(result.stdout);
             if (result.stderr) process.stderr.write(result.stderr);
             return result.status;

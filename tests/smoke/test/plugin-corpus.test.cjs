@@ -520,34 +520,6 @@ test("plugin corpus: ttsx executes source plugin output end-to-end", () => {
   assert.equal(result.stdout.trim(), "PLUGIN");
 });
 
-test("plugin corpus: programmatic transform drives the source plugin", () => {
-  const root = copyProject("go-source-plugin");
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-source-plugin-transform-"),
-  );
-  const harnessFile = path.join(root, "harness.cjs");
-  const ttscPackage = path.join(workspaceRoot, "packages", "ttsc");
-  fs.writeFileSync(
-    harnessFile,
-    `const ttsc = require(${JSON.stringify(ttscPackage)});
-try {
-  process.stdout.write(
-    ttsc.transform({ cwd: ${JSON.stringify(root)}, file: ${JSON.stringify(path.join(root, "src", "main.ts"))} }),
-  );
-} catch (error) {
-  process.stderr.write(error.stack || String(error));
-  process.exit(1);
-}
-`,
-  );
-  const result = spawn(process.execPath, [harnessFile], {
-    cwd: root,
-    env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /"PLUGIN"/);
-});
-
 test("plugin corpus: source plugin bootstraps a Program and Checker against the consumer tsconfig", () => {
   const root = copyProject("go-source-plugin-checker");
   const cacheDir = fs.mkdtempSync(

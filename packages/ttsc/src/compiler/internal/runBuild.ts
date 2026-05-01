@@ -1,33 +1,13 @@
-/**
- * Programmatic API for ttsc.
- *
- * This module is the TypeScript surface bundler adapters (unplugin, vite,
- * webpack, rollup, esbuild, rspack, farm, next/swc, bun) consume. Project
- * builds delegate to the consuming project's `@typescript/native-preview`
- * `tsgo` binary, while plugin-selected native sidecars remain opt-in.
- *
- * Contract:
- *
- * - `transform()` emits one file's rewritten JS, returning the text.
- * - `build()` runs the whole project (tsgo + ttsc rewrite + --emit).
- * - `check()` runs the analysis pass without emitting (CI gate use).
- * - `version()` returns the wrapper and resolved `tsgo` version banner.
- *
- * All helpers accept a `binary` override so tests can point at a specific
- * `tsgo` executable without touching PATH or node_modules.
- */
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type {
-  ITtscBuildOptions,
-  ITtscBuildResult,
-  ITtscCommonOptions,
-} from "../../structures";
+import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
-import { loadProjectPlugins } from "./plugin/loadProjectPlugins";
+import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
+import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -104,16 +84,15 @@ function outputText(value: string | Buffer | null | undefined): string {
 }
 
 /**
- * Run `ttsc` against a tsconfig. Returns once the binary exits so the caller
- * can decide how to surface diagnostics. Does not throw on non-zero exit —
- * bundler pipelines often want to continue and collect errors.
+ * Run `ttsc` against a tsconfig. Returns once the binary exits so the CLI can
+ * decide how to surface diagnostics. Does not throw on non-zero exit.
  */
 export function runBuild(
-  options: ITtscBuildOptions & {
+  options: TtscBuildOptions & {
     skipDiagnosticsCheck?: boolean;
     forceListEmittedFiles?: boolean;
   } = {},
-): ITtscBuildResult {
+): TtscBuildResult {
   const execution = resolveExecutionContext(options);
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
@@ -141,7 +120,7 @@ export function runBuild(
       return runTsgo(execution, ["--noEmit"], options);
     }
 
-    let result: ITtscBuildResult;
+    let result: TtscBuildResult;
     if (compilers.length !== 0) {
       assertSingleCompilerHost(compilers);
       result = appendBuildOutput(
@@ -196,10 +175,10 @@ export function runBuild(
 }
 
 function buildWithNativeCompilerPlugins(
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
   plugins: readonly ITtscLoadedNativePlugin[],
-): ITtscBuildResult {
+): TtscBuildResult {
   return runNativePluginCommand(
     plugins[0]!,
     createNativeBuildArgs(execution, options, plugins),
@@ -213,7 +192,7 @@ function runTsgo(
   execution: ReturnType<typeof resolveExecutionContext>,
   extraArgs: readonly string[],
   options: NonNullable<Parameters<typeof runBuild>[0]>,
-): ITtscBuildResult {
+): TtscBuildResult {
   const res = spawnBinary(
     execution.tsgo.binary,
     ["-p", execution.tsconfig, ...extraArgs],
@@ -242,7 +221,7 @@ function runTsgoBuild(
   execution: ReturnType<typeof resolveExecutionContext>,
   options: NonNullable<Parameters<typeof runBuild>[0]>,
   args: readonly string[],
-): ITtscBuildResult {
+): TtscBuildResult {
   const res = spawnBinary(execution.tsgo.binary, args, {
     cwd: execution.projectRoot,
     env: mergeEnv(options.env),
@@ -290,7 +269,7 @@ function createTsgoBuildArgs(
 
 function createNativeBuildArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   plugins: readonly ITtscLoadedNativePlugin[],
 ): string[] {
   const args = [
@@ -317,7 +296,7 @@ function createNativeBuildArgs(
 
 function createNativeCheckArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
 ): string[] {
   const args = [
     "check",
@@ -338,7 +317,7 @@ function createNativeCheckArgs(
 
 function createNativeOutputArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   file: string,
 ): string[] {
   const args = [
@@ -367,10 +346,10 @@ function serializeNativePlugins(
 }
 
 function runNativeCheckPlugins(
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
-): ITtscBuildResult {
-  let out: ITtscBuildResult = { status: 0, stdout: "", stderr: "" };
+): TtscBuildResult {
+  let out: TtscBuildResult = { status: 0, stdout: "", stderr: "" };
   for (const plugin of execution.nativePlugins.filter(
     (plugin) => plugin.stage === "check",
   )) {
@@ -390,12 +369,12 @@ function runNativeCheckPlugins(
 }
 
 function applyOutputPlugins(
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
   emittedFiles: readonly string[],
   plugins: readonly ITtscLoadedNativePlugin[],
-): ITtscBuildResult {
-  let out: ITtscBuildResult = { status: 0, stdout: "", stderr: "" };
+): TtscBuildResult {
+  let out: TtscBuildResult = { status: 0, stdout: "", stderr: "" };
   for (const plugin of plugins) {
     for (const file of emittedFiles) {
       if (!fs.existsSync(file)) {
@@ -412,11 +391,11 @@ function applyOutputPlugins(
 }
 
 function runNativeOutputPlugin(
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
   plugin: ITtscLoadedNativePlugin,
   file: string,
-): ITtscBuildResult {
+): TtscBuildResult {
   return runNativePluginCommand(
     plugin,
     createNativeOutputArgs(execution, options, file),
@@ -429,10 +408,10 @@ function runNativeOutputPlugin(
 function runNativePluginCommand(
   plugin: ITtscLoadedNativePlugin,
   args: readonly string[],
-  options: ITtscBuildOptions,
+  options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
   label: string,
-): ITtscBuildResult {
+): TtscBuildResult {
   const res = spawnBinary(plugin.binary, args, {
     cwd: execution.projectRoot,
     env: nativePluginEnv(options.env, execution),
@@ -451,9 +430,9 @@ function runNativePluginCommand(
 }
 
 function appendBuildOutput(
-  left: ITtscBuildResult,
-  right: ITtscBuildResult,
-): ITtscBuildResult {
+  left: TtscBuildResult,
+  right: TtscBuildResult,
+): TtscBuildResult {
   return normalizeFailedDiagnostics({
     emittedFiles:
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
@@ -476,7 +455,7 @@ function assertSingleCompilerHost(
 }
 
 function resolveExecutionContext(
-  options: ITtscCommonOptions & { tsconfig?: string },
+  options: TtscCommonOptions & { tsconfig?: string },
 ) {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const tsconfig = resolveProjectConfig({
@@ -521,8 +500,8 @@ function stripEmittedFileLines(stdout: string): string {
 }
 
 function normalizeFailedDiagnostics(
-  result: ITtscBuildResult,
-): ITtscBuildResult {
+  result: TtscBuildResult,
+): TtscBuildResult {
   if (result.status === 0 || result.stderr.trim().length !== 0) {
     return result;
   }

@@ -2,12 +2,13 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import type { ITtscCommonOptions } from "../structures";
+import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
-import { resolveTsgo } from "./internal/resolveTsgo";
-
-/** Return the ttsc wrapper version and resolved TypeScript-Go version banner. */
-export function version(options: ITtscCommonOptions = {}): string {
+/** Format the CLI version banner from the wrapper package and resolved tsgo. */
+export function getCompilerVersionText(
+  options: TtscCommonOptions = {},
+): string {
   const tsgo = resolveTsgo(options);
   const res = spawnSync(tsgo.binary, ["--version"], {
     encoding: "utf8",
@@ -32,7 +33,7 @@ function outputText(value: string | Buffer | null | undefined): string {
 
 function readOwnPackageVersion(): string {
   try {
-    const file = path.resolve(__dirname, "..", "..", "package.json");
+    const file = path.resolve(__dirname, "..", "..", "..", "package.json");
     const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as {
       version?: string;
     };

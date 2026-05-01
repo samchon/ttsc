@@ -1,9 +1,8 @@
 /**
  * ttsc — public TypeScript entry.
  *
- * Exports the supported JS API and the structures barrel used by plugin
- * authors.
+ * The package root intentionally exposes only plugin-author contracts.
+ * Compiler execution is owned by the `ttsc` and `ttsx` commands.
  */
 
-export * from "./api/index";
 export * from "./structures/index";

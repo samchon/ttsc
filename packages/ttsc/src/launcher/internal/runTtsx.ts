@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 
-import { version } from "../../api/version";
+import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 
 export function runTtsx(argv: readonly string[] = process.argv.slice(2)): number {
@@ -21,7 +21,9 @@ function run(argv: readonly string[]): number {
     return 0;
   }
   if (parsed === "version") {
-    process.stdout.write(`${version().replace(/^ttsc\b/, "ttsx")}\n`);
+    process.stdout.write(
+      `${getCompilerVersionText().replace(/^ttsc\b/, "ttsx")}\n`,
+    );
     return 0;
   }
 
