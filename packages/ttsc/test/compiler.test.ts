@@ -81,6 +81,35 @@ test("TtscCompiler.transform returns TypeScript source without project files", (
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.transform returns every included TypeScript source file", () => {
+  const root = createProject({
+    files: {
+      "src/helpers.ts":
+        "export const helper = (value: string): string => value.toUpperCase();\n",
+      "src/nested/model.ts": "export interface Model { value: string }\n",
+    },
+    source:
+      'import { helper } from "./helpers";\nconst message: string = helper("api-ok");\nconsole.log(message);\n',
+  });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.match(result.typescript["src/main.ts"], /helper\("api-ok"\)/);
+  assert.match(result.typescript["src/helpers.ts"], /toUpperCase/);
+  assert.match(result.typescript["src/nested/model.ts"], /interface Model/);
+  for (const key of Object.keys(result.typescript)) {
+    assert.equal(key.startsWith("dist/"), false);
+    assert.equal(/\.(?:js|cjs|mjs|d\.ts|map)$/.test(key), false);
+  }
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
 test("TtscCompiler.transform applies configured source plugins to TypeScript output", () => {
   const root = createProject({
     plugins: [{ transform: "./plugin.cjs" }],
@@ -98,6 +127,21 @@ test("TtscCompiler.transform applies configured source plugins to TypeScript out
   );
   assert.match(result.typescript["src/main.ts"], /console\.log\(value\)/);
   assert.equal(result.typescript["dist/main.js"], undefined);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
+test("TtscCompiler.transform rejects plugin output that is not TypeScript source", () => {
+  const root = createProject({
+    plugins: [{ transform: "./plugin.cjs" }],
+    source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
+  });
+  writeBrokenTransformPlugin(root);
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "exception");
+  assert.match(result.error.message, /did not return a TypeScript source map/);
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
@@ -197,6 +241,11 @@ function createProject(options = {}) {
       'const message: string = "api-ok";\nconsole.log(message);\n',
     "utf8",
   );
+  for (const [file, content] of Object.entries(options.files ?? {})) {
+    const location = path.join(root, file);
+    fs.mkdirSync(path.dirname(location), { recursive: true });
+    fs.writeFileSync(location, content, "utf8");
+  }
   fs.writeFileSync(
     path.join(root, "tsconfig.json"),
     JSON.stringify(
@@ -237,6 +286,40 @@ function writeSourcePlugin(root) {
   fs.writeFileSync(
     path.join(root, "plugin-go", "main.go"),
     "package main\n\nfunc main() {}\n",
+    "utf8",
+  );
+}
+
+function writeBrokenTransformPlugin(root) {
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    'module.exports = { name: "broken-transform-fixture", source: "./plugin-go" };\n',
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "go.mod"),
+    "module example.com/brokentransformfixture\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "main.go"),
+    [
+      "package main",
+      "",
+      "import (",
+      '\t"fmt"',
+      '\t"os"',
+      ")",
+      "",
+      "func main() {",
+      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
+      '\t\tfmt.Println(`{"output":{"dist/main.js":"console.log(\\"wrong\\");\\n"}}`)',
+      "\t\treturn",
+      "\t}",
+      "}",
+      "",
+    ].join("\n"),
     "utf8",
   );
 }

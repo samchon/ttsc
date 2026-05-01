@@ -323,13 +323,18 @@ function parseNativeTransformOutput(
       typescript?: Record<string, string>;
     };
     if (!isTextRecord(parsed.typescript)) {
-      throw new Error("missing typescript record");
+      throw new Error(
+        "ttsc: native transform host did not return a TypeScript source map",
+      );
     }
     return {
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
       typescript: parsed.typescript,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && !(error instanceof SyntaxError)) {
+      throw error;
+    }
     throw new Error(
       (stderr || stdout).trim() ||
         "ttsc: native transform host returned no output",
