@@ -67,10 +67,21 @@ function createProjectContext(
     virtualRoot,
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-      : path.join(processDir, "out"),
+      : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, filename)),
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
+}
+
+function resolveRuntimeSourceRoot(
+  project: ReturnType<typeof readProjectConfig>,
+  filename: string,
+): string {
+  const rootDir = project.compilerOptions.rootDir;
+  if (typeof rootDir === "string") {
+    return path.isAbsolute(rootDir) ? rootDir : path.resolve(project.root, rootDir);
+  }
+  return path.dirname(filename);
 }
 
 function buildProject(

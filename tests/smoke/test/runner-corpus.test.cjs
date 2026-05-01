@@ -241,6 +241,34 @@ test("runner corpus: ttsx keeps configured outDir untouched", () => {
   assert.equal(fs.existsSync(path.join(cacheDir, "project")), true);
 });
 
+test("runner corpus: CommonJS __dirname resolves without configured outDir", () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/node.d.ts": `
+      declare const __dirname: string;
+      declare function require(name: string): { readFileSync(file: string, encoding: string): string };
+    `,
+    "src/main.ts": `
+      const fs = require("node:fs");
+      console.log(fs.readFileSync(__dirname + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "no-outdir-preserved",
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "no-outdir-preserved");
+  assert.equal(fs.existsSync(path.join(root, "src", "main.js")), false);
+});
+
 test("runner corpus: type-check diagnostics prevent entry execution", () => {
   const root = commonJsProject({
     "src/main.ts": `
