@@ -122,6 +122,153 @@ test("runner corpus: ttsx executes the intended entrypoint and side effects", ()
   });
 });
 
+test("runner corpus: CommonJS __dirname resolves from configured outDir", () => {
+  const root = createProject({
+    "app/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "bin",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "app/src/node.d.ts": `
+      declare const __dirname: string;
+      declare function require(name: string): { readFileSync(file: string, encoding: string): string };
+    `,
+    "app/src/TestGlobal.ts": `
+      export class TestGlobal {
+        public static readonly ROOT: string = __dirname + "/..";
+      }
+    `,
+    "app/src/main.ts": `
+      import { TestGlobal } from "./TestGlobal";
+
+      const fs = require("node:fs");
+      console.log(fs.readFileSync(TestGlobal.ROOT + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "dirname-preserved",
+  });
+  const cwd = path.join(root, "app");
+
+  const result = spawn(ttsxBin, ["--cwd", cwd, "src/main.ts"], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "dirname-preserved");
+});
+
+test("runner corpus: ESM import.meta.url resolves from configured outDir", () => {
+  const root = createProject({
+    "app/package.json": JSON.stringify({ type: "module" }),
+    "app/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "bin",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "app/src/node.d.ts": `
+      declare module "node:fs" {
+        export function readFileSync(file: string, encoding: string): string;
+      }
+      declare module "node:path" {
+        export function dirname(file: string): string;
+        export function resolve(...parts: string[]): string;
+      }
+      declare module "node:url" {
+        export function fileURLToPath(url: string): string;
+      }
+    `,
+    "app/src/global.ts": `
+      import path from "node:path";
+      import { fileURLToPath } from "node:url";
+
+      export const ROOT = path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "..",
+      );
+    `,
+    "app/src/main.ts": `
+      import fs from "node:fs";
+      import { ROOT } from "./global";
+
+      console.log(fs.readFileSync(ROOT + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "import-meta-preserved",
+  });
+  const cwd = path.join(root, "app");
+
+  const result = spawn(ttsxBin, ["--cwd", cwd, "src/main.ts"], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "import-meta-preserved");
+});
+
+test("runner corpus: ttsx keeps configured outDir untouched", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ type: "module" }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "dist/keep.txt": "do-not-delete",
+    "src/helper.ts": `export const message: string = "cache-only-run";\n`,
+    "src/main.ts": `import { message } from "./helper";\nconsole.log(message);\n`,
+  });
+  const cacheDir = path.join(root, ".ttsx-cache");
+
+  const result = spawn(
+    ttsxBin,
+    ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "cache-only-run");
+  assert.equal(fs.readFileSync(path.join(root, "dist", "keep.txt"), "utf8"), "do-not-delete");
+  assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
+  assert.equal(fs.existsSync(path.join(root, "dist", "package.json")), false);
+  assert.equal(fs.existsSync(path.join(cacheDir, "project")), true);
+});
+
+test("runner corpus: CommonJS __dirname resolves without configured outDir", () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/node.d.ts": `
+      declare const __dirname: string;
+      declare function require(name: string): { readFileSync(file: string, encoding: string): string };
+    `,
+    "src/main.ts": `
+      const fs = require("node:fs");
+      console.log(fs.readFileSync(__dirname + "/../template/data.txt", "utf8"));
+    `,
+    "template/data.txt": "no-outdir-preserved",
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "no-outdir-preserved");
+  assert.equal(fs.existsSync(path.join(root, "src", "main.js")), false);
+});
+
 test("runner corpus: type-check diagnostics prevent entry execution", () => {
   const root = commonJsProject({
     "src/main.ts": `
