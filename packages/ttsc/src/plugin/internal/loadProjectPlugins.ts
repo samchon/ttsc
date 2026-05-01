@@ -17,6 +17,7 @@ type TtscPluginFactory<T = ITtscProjectPluginConfig> = (
 
 export function loadProjectPlugins(options: {
   binary: string;
+  cacheDir?: string;
   cwd?: string;
   entries?: readonly ITtscProjectPluginConfig[] | false;
   file?: string;
@@ -60,6 +61,7 @@ export function loadProjectPlugins(options: {
     validatePluginSource(plugin);
     const binary = buildSourcePlugin({
       baseDir: context.projectRoot,
+      cacheDir: options.cacheDir,
       pluginName: plugin.name,
       source: plugin.source,
       ttscVersion,

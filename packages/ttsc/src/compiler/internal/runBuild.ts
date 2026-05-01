@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
+import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
@@ -195,7 +196,12 @@ function runTsgo(
 ): TtscBuildResult {
   const res = spawnBinary(
     execution.tsgo.binary,
-    ["-p", execution.tsconfig, ...extraArgs],
+    [
+      "-p",
+      execution.tsconfig,
+      ...extraArgs,
+      ...createTsgoDiagnosticArgs(options),
+    ],
     {
       cwd: execution.projectRoot,
       env: mergeEnv(options.env),
@@ -210,11 +216,14 @@ function runTsgo(
         res.error.message,
     );
   }
-  return normalizeFailedDiagnostics({
-    status: res.status ?? 1,
-    stdout: outputText(res.stdout),
-    stderr: outputText(res.stderr),
-  });
+  return normalizeFailedDiagnostics(
+    {
+      status: res.status ?? 1,
+      stdout: outputText(res.stdout),
+      stderr: outputText(res.stderr),
+    },
+    execution.projectRoot,
+  );
 }
 
 function runTsgoBuild(
@@ -244,7 +253,10 @@ function runTsgoBuild(
   if (emittedFiles.length !== 0) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }
-  return normalizeFailedDiagnostics({ ...result, emittedFiles });
+  return normalizeFailedDiagnostics(
+    { ...result, emittedFiles },
+    execution.projectRoot,
+  );
 }
 
 function createTsgoBuildArgs(
@@ -264,7 +276,12 @@ function createTsgoBuildArgs(
   if (flags.listEmittedFiles) {
     args.push("--listEmittedFiles");
   }
+  args.push(...createTsgoDiagnosticArgs(options));
   return args;
+}
+
+function createTsgoDiagnosticArgs(options: TtscCommonOptions): string[] {
+  return options.structuredDiagnostics === true ? ["--pretty", "false"] : [];
 }
 
 function createNativeBuildArgs(
@@ -349,7 +366,12 @@ function runNativeCheckPlugins(
   options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
 ): TtscBuildResult {
-  let out: TtscBuildResult = { status: 0, stdout: "", stderr: "" };
+  let out: TtscBuildResult = {
+    diagnostics: [],
+    status: 0,
+    stdout: "",
+    stderr: "",
+  };
   for (const plugin of execution.nativePlugins.filter(
     (plugin) => plugin.stage === "check",
   )) {
@@ -374,7 +396,12 @@ function applyOutputPlugins(
   emittedFiles: readonly string[],
   plugins: readonly ITtscLoadedNativePlugin[],
 ): TtscBuildResult {
-  let out: TtscBuildResult = { status: 0, stdout: "", stderr: "" };
+  let out: TtscBuildResult = {
+    diagnostics: [],
+    status: 0,
+    stdout: "",
+    stderr: "",
+  };
   for (const plugin of plugins) {
     for (const file of emittedFiles) {
       if (!fs.existsSync(file)) {
@@ -422,11 +449,14 @@ function runNativePluginCommand(
       `${label}: failed to spawn ${plugin.binary}: ${res.error.message}`,
     );
   }
-  return normalizeFailedDiagnostics({
-    status: res.status ?? 1,
-    stdout: outputText(res.stdout),
-    stderr: outputText(res.stderr),
-  });
+  return normalizeFailedDiagnostics(
+    {
+      status: res.status ?? 1,
+      stdout: outputText(res.stdout),
+      stderr: outputText(res.stderr),
+    },
+    execution.projectRoot,
+  );
 }
 
 function appendBuildOutput(
@@ -434,6 +464,7 @@ function appendBuildOutput(
   right: TtscBuildResult,
 ): TtscBuildResult {
   return normalizeFailedDiagnostics({
+    diagnostics: [...left.diagnostics, ...right.diagnostics],
     emittedFiles:
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
     status: right.status !== 0 ? right.status : left.status,
@@ -467,6 +498,7 @@ function resolveExecutionContext(
   const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
     binary: fallbackBinary ?? "",
+    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     cwd,
     entries: options.plugins,
     tsconfig,
@@ -499,19 +531,114 @@ function stripEmittedFileLines(stdout: string): string {
     .replace(/\n+$/, "");
 }
 
+type PartialBuildResult = Omit<TtscBuildResult, "diagnostics"> & {
+  diagnostics?: ITtscCompilerDiagnostic[];
+};
+
 function normalizeFailedDiagnostics(
-  result: TtscBuildResult,
+  result: PartialBuildResult,
+  cwd?: string,
 ): TtscBuildResult {
+  const diagnostics =
+    result.diagnostics ?? parseCompilerDiagnostics(result, cwd);
   if (result.status === 0 || result.stderr.trim().length !== 0) {
-    return result;
+    return { ...result, diagnostics };
   }
   if (result.stdout.trim().length === 0) {
-    return result;
+    return { ...result, diagnostics };
   }
   return {
+    diagnostics,
     emittedFiles: result.emittedFiles,
     status: result.status,
     stdout: "",
     stderr: result.stdout,
   };
+}
+
+function parseCompilerDiagnostics(
+  result: Pick<TtscBuildResult, "stderr" | "stdout">,
+  cwd: string | undefined,
+): ITtscCompilerDiagnostic[] {
+  const lines = stripAnsi(`${result.stderr}\n${result.stdout}`).split(/\r?\n/);
+  const out: ITtscCompilerDiagnostic[] = [];
+  let current: ITtscCompilerDiagnostic | undefined;
+  for (const line of lines) {
+    if (line.length === 0 || /^TSFILE:\s*/.test(line)) {
+      continue;
+    }
+    if (/^Found\s+\d+\s+errors?/i.test(line)) {
+      continue;
+    }
+
+    const diagnostic = parseDiagnosticLine(line, cwd);
+    if (diagnostic !== null) {
+      current = diagnostic;
+      out.push(current);
+      continue;
+    }
+
+    if (current !== undefined && /^\s+/.test(line)) {
+      current.messageText += `\n${line.trimEnd()}`;
+    }
+  }
+  return out;
+}
+
+function parseDiagnosticLine(
+  line: string,
+  cwd: string | undefined,
+): ITtscCompilerDiagnostic | null {
+  const fileMatch = line.match(
+    /^(.+?)\((\d+),(\d+)\):\s+(error|warning|suggestion|message)\s+([A-Z]+)?(\d+|[A-Z][A-Z0-9_-]*):\s+(.+)$/i,
+  );
+  if (fileMatch) {
+    return {
+      category: normalizeDiagnosticCategory(fileMatch[4]!),
+      character: Number(fileMatch[3]),
+      code: normalizeDiagnosticCode(fileMatch[6]!),
+      file: normalizeDiagnosticFile(fileMatch[1]!, cwd),
+      line: Number(fileMatch[2]),
+      messageText: fileMatch[7]!,
+    };
+  }
+
+  const globalMatch = line.match(
+    /^(error|warning|suggestion|message)\s+([A-Z]+)?(\d+|[A-Z][A-Z0-9_-]*):\s+(.+)$/i,
+  );
+  if (!globalMatch) {
+    return null;
+  }
+  return {
+    category: normalizeDiagnosticCategory(globalMatch[1]!),
+    code: normalizeDiagnosticCode(globalMatch[3]!),
+    file: null,
+    messageText: globalMatch[4]!,
+  };
+}
+
+function normalizeDiagnosticFile(file: string, cwd: string | undefined): string {
+  if (path.isAbsolute(file) || cwd === undefined) {
+    return file;
+  }
+  return path.resolve(cwd, file);
+}
+
+function normalizeDiagnosticCategory(
+  value: string,
+): ITtscCompilerDiagnostic.Category {
+  const lowered = value.toLowerCase();
+  return lowered === "warning" ||
+    lowered === "suggestion" ||
+    lowered === "message"
+    ? lowered
+    : "error";
+}
+
+function normalizeDiagnosticCode(value: string): number | string {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*m/g, "");
 }

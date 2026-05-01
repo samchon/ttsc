@@ -50,7 +50,7 @@ cd packages/ttsc && go list -deps ./cmd/ttsc
 When changing `ttsc`, check all of these surfaces:
 
 - CLI parity: `ttsc`, `ttsc -p`, `ttsc --noEmit`, `ttsc --watch`, `ttsc transform`.
-- JS API parity: `build`, `check`, `transform`, `transformAsync`, `version`.
+- JS API parity: `TtscCompiler.compile`, `TtscCompiler.prepare`, `TtscCompiler.clean`.
 - project config: `tsconfig.json`, `jsconfig.json`, `extends`, plugin inheritance, circular extends.
 - plugin loading: `default`, `plugin`, `createTtscPlugin`, relative paths, package paths.
 - native backend selection: `native.mode`, `native.binary`, `contractVersion`.
@@ -97,6 +97,7 @@ git clone https://github.com/nonara/ts-patch .references/ts-patch
 git clone https://github.com/privatenumber/tsx .references/tsx
 git clone https://github.com/TypeStrong/ts-node .references/ts-node
 git clone https://github.com/samchon/typia .references/typia
+git clone https://github.com/samchon/embed-typescript .references/embed-typescript
 ```
 
 Use them when a change touches TypeScript-Go internals, shim generation, Go compiler-host patterns, emitted JS rewrite strategy, or runner behavior. Be ready to read exact files line by line instead of relying on memory.

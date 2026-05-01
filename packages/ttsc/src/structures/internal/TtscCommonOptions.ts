@@ -13,6 +13,10 @@ export interface TtscCommonOptions {
   cwd?: string;
   /** Environment variables merged over `process.env` for child processes. */
   env?: NodeJS.ProcessEnv;
+  /** Explicit root directory for compiled source-plugin cache artifacts. */
+  cacheDir?: string;
+  /** Normalize compiler output so diagnostics can be parsed structurally. */
+  structuredDiagnostics?: boolean;
   /**
    * Override project plugin loading for this invocation.
    *

@@ -30,6 +30,9 @@ type Diagnostic struct {
 	File     string
 	Line     int
 	Column   int
+	Code     int32
+	Start    *int
+	Length   *int
 	Message  string
 	Severity Severity
 	raw      *ast.Diagnostic
@@ -72,6 +75,7 @@ func NewLintDiagnostic(
 	}
 	lint := shimdiagnosticwriter.NewLintDiagnostic(file, pos, end, code, cat, message)
 	d := Diagnostic{
+		Code:     code,
 		Message:  message,
 		Severity: severity,
 		lint:     lint,
@@ -79,6 +83,9 @@ func NewLintDiagnostic(
 	if file != nil {
 		d.File = file.FileName()
 		if pos >= 0 {
+			length := end - pos
+			d.Start = &pos
+			d.Length = &length
 			line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
 			d.Line = line + 1
 			d.Column = col + 1
@@ -388,10 +395,13 @@ func convertDiagnostics(in []*ast.Diagnostic) []Diagnostic {
 		if d == nil {
 			continue
 		}
-		diag := Diagnostic{Message: d.String(), raw: d}
+		diag := Diagnostic{Code: d.Code(), Message: d.String(), raw: d}
 		if file := d.File(); file != nil {
 			diag.File = file.FileName()
 			if pos := d.Pos(); pos >= 0 {
+				length := d.Len()
+				diag.Start = &pos
+				diag.Length = &length
 				line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
 				diag.Line = line + 1
 				diag.Column = col + 1
