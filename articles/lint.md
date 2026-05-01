@@ -1,5 +1,5 @@
 ---
-title: "@ttsc/lint - I made TypeScript lint 20x faster by building it into typescript-go — one compile catches both"
+title: "@ttsc/lint - I made 20x faster TS Lint by building it into typescript-go — one compile catches both"
 published: false
 description: "One compile pass for type checks and lint — built into typescript-go, ~20x faster than tsc + ESLint in theory."
 tags: typescript, javascript, compilers, tooling

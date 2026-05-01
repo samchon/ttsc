@@ -32,8 +32,6 @@ func run(args []string) int {
 	case "-v", "--version", "version":
 		fmt.Fprintln(os.Stdout, "go-source-plugin 0.0.0-test")
 		return 0
-	case "transform":
-		return runTransform(args[1:])
 	case "build":
 		return runBuild(args[1:])
 	case "check":
@@ -42,50 +40,6 @@ func run(args []string) int {
 		fmt.Fprintf(os.Stderr, "go-source-plugin: unknown command %q\n", args[0])
 		return 2
 	}
-}
-
-func runTransform(args []string) int {
-	fs := flag.NewFlagSet("transform", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	file := fs.String("file", "", "")
-	out := fs.String("out", "", "")
-	_ = fs.String("tsconfig", "", "")
-	pluginsJSON := fs.String("plugins-json", "", "")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	if *file == "" {
-		fmt.Fprintln(os.Stderr, "go-source-plugin: transform requires --file")
-		return 2
-	}
-	plugins, err := parsePlugins(*pluginsJSON)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-	source, err := os.ReadFile(*file)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "go-source-plugin: read %s: %v\n", *file, err)
-		return 2
-	}
-	code, err := transform(string(source), plugins)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-	if *out != "" {
-		if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 2
-		}
-		if err := os.WriteFile(*out, []byte(code), 0o644); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 2
-		}
-		return 0
-	}
-	fmt.Fprint(os.Stdout, code)
-	return 0
 }
 
 func runBuild(args []string) int {

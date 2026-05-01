@@ -39,7 +39,7 @@ func run(args []string) int {
 		return 0
 	case "demo":
 		return runDemo(args[1:])
-	case "build", "check", "transform":
+	case "build", "check":
 		fmt.Fprintf(
 			stderr,
 			"ttsc platform helper: %s is provided by the JavaScript ttsc CLI using the consuming project's @typescript/native-preview, or by a plugin-selected native sidecar.\n",

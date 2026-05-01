@@ -25,7 +25,7 @@ The smoke suite must stay as a corpus, not a single happy-path file. Add new ref
 - `tests/smoke/test/compiler-corpus.test.cjs`
 - `tests/smoke/test/plugin-corpus.test.cjs`
 - `tests/smoke/test/runner-corpus.test.cjs`
-- `tests/smoke/test/transform-projects.test.cjs`
+- `tests/smoke/test/native-transformer.test.cjs`
 - `tests/smoke/test/_helpers.cjs`
 
 ## Required Commands
@@ -49,8 +49,8 @@ cd packages/ttsc && go list -deps ./cmd/ttsc
 
 When changing `ttsc`, check all of these surfaces:
 
-- CLI parity: `ttsc`, `ttsc -p`, `ttsc --noEmit`, `ttsc --watch`, `ttsc transform`.
-- JS API parity: `TtscCompiler.compile`, `TtscCompiler.prepare`, `TtscCompiler.clean`.
+- CLI parity: `ttsc`, `ttsc -p`, `ttsc --noEmit`, `ttsc --watch`.
+- JS API parity: `TtscCompiler.compile`, `TtscCompiler.transform`, `TtscCompiler.prepare`, `TtscCompiler.clean`.
 - project config: `tsconfig.json`, `jsconfig.json`, `extends`, plugin inheritance, circular extends.
 - plugin loading: `default`, `plugin`, `createTtscPlugin`, relative paths, package paths.
 - native backend selection: `native.mode`, `native.binary`, `contractVersion`.
@@ -60,7 +60,7 @@ When changing `ttsc`, check all of these surfaces:
 
 When changing runtime behavior, verify both paths:
 
-- CommonJS: in-process require hook and single-file transform cache.
+- CommonJS: in-process require hook and single-file runtime compile cache.
 - ESM: cached project build, rewritten relative `.js` imports, child Node execution.
 
 ## Upstream Drift Policy

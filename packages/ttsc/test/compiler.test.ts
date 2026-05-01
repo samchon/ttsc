@@ -10,7 +10,11 @@ const tsgo = resolveTsgo({ cwd: path.resolve(__dirname, "..") }).binary;
 
 test("TtscCompiler.compile returns output without writing project files", () => {
   const root = createProject();
-  const compiler = new TtscCompiler({ binary: tsgo, cwd: root, plugins: false });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
 
   const result = compiler.compile();
 
@@ -27,7 +31,11 @@ test("TtscCompiler can disable project plugin loading", () => {
   const root = createProject({
     plugins: [{ transform: "./missing-plugin.cjs" }],
   });
-  const compiler = new TtscCompiler({ binary: tsgo, cwd: root, plugins: false });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
 
   const result = compiler.compile();
 
@@ -49,11 +57,68 @@ test("TtscCompiler.compile applies configured source plugins without project out
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.transform returns project output without project files", () => {
+  const root = createProject();
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.match(result.typescript["dist/main.js"], /api-ok/);
+  assert.match(
+    result.typescript["dist/main.js"],
+    /console\.log\(\s*message\s*\)/,
+  );
+  assert.match(result.typescript["dist/main.d.ts"], /declare const message/);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
+test("TtscCompiler.transform applies configured source plugins to project output", () => {
+  const root = createProject({
+    plugins: [{ transform: "./plugin.cjs" }],
+    source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
+  });
+  writeCompilerPlugin(root);
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.match(result.typescript["dist/main.js"], /PLUGIN/);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
+test("TtscCompiler.transform returns failure on compiler diagnostics", () => {
+  const root = createProject({
+    source: 'const value: number = "not-a-number";\nconsole.log(value);\n',
+  });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "failure");
+  assert.equal(result.diagnostics[0].code, 2322);
+  assert.equal(typeof result.typescript, "object");
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
 test("TtscCompiler.compile returns structured diagnostics", () => {
   const root = createProject({
     source: 'const value: number = "not-a-number";\nconsole.log(value);\n',
   });
-  const compiler = new TtscCompiler({ binary: tsgo, cwd: root, plugins: false });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
 
   const result = compiler.compile();
 
@@ -76,7 +141,11 @@ test("TtscCompiler.compile does not accept per-call context overrides", () => {
   const other = createProject({
     plugins: [{ transform: "./missing-plugin.cjs" }],
   });
-  const compiler = new TtscCompiler({ binary: tsgo, cwd: root, plugins: false });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
 
   const result = compiler.compile({
     binary: path.join(other, "missing-tsgo"),
@@ -204,7 +273,7 @@ function writeCompilerPlugin(root) {
       "",
       "func build(args []string) int {",
       '\tfs := flag.NewFlagSet("build", flag.ContinueOnError)',
-      '\tfs.SetOutput(os.Stderr)',
+      "\tfs.SetOutput(os.Stderr)",
       '\tcwd := fs.String("cwd", "", "")',
       '\toutDir := fs.String("outDir", "dist", "")',
       '\t_ = fs.String("tsconfig", "", "")',
@@ -215,14 +284,14 @@ function writeCompilerPlugin(root) {
       '\t_ = fs.Bool("noEmit", false, "")',
       "\tif err := fs.Parse(args); err != nil { return 2 }",
       "\troot := *cwd",
-      "\tif root == \"\" { root, _ = os.Getwd() }",
+      '\tif root == "" { root, _ = os.Getwd() }',
       '\tinput, err := os.ReadFile(filepath.Join(root, "src", "main.ts"))',
-      '\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }',
+      "\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       '\tvalue := "PLUGIN"',
       '\tif !strings.Contains(string(input), `goUpper("plugin")`) { value = "UNKNOWN" }',
       '\toutput := fmt.Sprintf("\\"use strict\\";\\nObject.defineProperty(exports, \\"__esModule\\", { value: true });\\nexports.value = void 0;\\nconst value = %q;\\nexports.value = value;\\nconsole.log(value);\\n", value)',
       '\tfile := filepath.Join(*outDir, "main.js")',
-      "\tif !filepath.IsAbs(*outDir) { file = filepath.Join(root, *outDir, \"main.js\") }",
+      '\tif !filepath.IsAbs(*outDir) { file = filepath.Join(root, *outDir, "main.js") }',
       "\tif err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "\tif err := os.WriteFile(file, []byte(output), 0o644); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "\treturn 0",

@@ -4,8 +4,8 @@
 //   - Report version and platform (`ttsc --version`).
 //   - Exercise a native rewrite backend end-to-end (`ttsc demo --type=string`)
 //     so smoke tests can verify the Go binary really runs.
-//   - Host the native project build, check, and single-file transform paths used
-//     by plugin-selected sidecars and smoke tests.
+//   - Host the native project build and check paths used by plugin-selected
+//     sidecars and smoke tests.
 //
 // Everything below is deliberately dependency-free so that the standalone binary
 // stays small and its behavior is trivial to audit.
@@ -60,11 +60,6 @@ func run(args []string) int {
 		// `ttsc check` runs the analyze pipeline without emitting JS — useful
 		// in CI and pre-commit hooks that only need schema validation.
 		return runBuild(append([]string{"--noEmit"}, args[1:]...))
-	case "transform":
-		// Single-file transform for bundler plugin integration (unplugin,
-		// vite, esbuild, webpack, …). Emits only the requested file's JS to
-		// stdout or a chosen path — no project-wide write.
-		return runTransform(args[1:])
 	case "-p", "--project":
 		if len(args) < 2 {
 			fmt.Fprintln(stderr, "ttsc: -p/--project requires a path argument")
@@ -137,13 +132,11 @@ Usage:
   ttsc -p tsconfig.json
   ttsc --watch
   ttsc --noEmit
-  ttsc transform --file=src/main.ts
 
 Project build:
   ttsc compiles the current tsconfig.json, matching the tsc/tsgo shape.
   build         Compatibility alias for the same project build lane.
   check         Compatibility alias for --noEmit validation.
-  transform     Emit a single file's rewritten JS (bundler plugin hook).
   demo          Run a native backend smoke pipeline with synthetic input.
   version       Print version, build info, and platform.
   help          Show this help.
@@ -157,11 +150,6 @@ Build options:
   --verbose         Print the per-call summary banner and emitted file list.
   --manifest=FILE   Write emitted file paths as JSON to FILE after build --emit.
 
-Transform options:
-  --file=PATH       Absolute or cwd-relative path of the .ts file to transform.
-  --tsconfig=FILE   tsconfig.json owning --file (default: tsconfig.json).
-  --out=PATH        Write output JS to PATH. Default: stdout.
-
 Demo options:
   --type=T          Atomic TypeScript type to simulate. One of:
                       string, number, boolean, bigint, any (default: string).
@@ -171,13 +159,9 @@ Examples:
   ttsc
   ttsc -p ./tsconfig.json
   ttsc --noEmit
-  ttsc transform --file=src/main.ts
   ttsc demo --type=number
 
 Integration guide (bundlers):
-  - vite / webpack / rollup / esbuild: shell out to "ttsc transform" per file,
-    forward stdout as the bundler transform result. A bundler adapter can wrap
-    this command without depending on the Go internals.
   - Next.js / Nuxt / Bun: "ttsc" in your pipeline replaces tsc and
     the rewritten .js feeds the runtime directly.
   - Monorepo / pnpm workspace: share one ttsc binary via a root script;

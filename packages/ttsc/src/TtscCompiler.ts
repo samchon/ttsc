@@ -8,6 +8,7 @@ import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
+import type { ITtscCompilerTransformation } from "./structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
 
 /**
@@ -28,6 +29,8 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
  *   context.
  * - {@link TtscCompiler.compile}: compile the configured project and return a
  *   structured result instead of terminal text.
+ * - {@link TtscCompiler.transform}: transform the configured project and
+ *   return an embed-style transformation result.
  */
 export class TtscCompiler {
   private readonly context: ITtscCompilerContext;
@@ -114,6 +117,24 @@ export class TtscCompiler {
    */
   public compile(): ITtscCompilerResult {
     return runProject(() => compileProjectInMemory(this.compilerContext()));
+  }
+
+  /**
+   * Transform the configured project and return TypeScript text by file path.
+   *
+   * This is the lightweight plugin-author API for inspecting transform output.
+   * It uses the same fixed constructor context as {@link TtscCompiler.compile}:
+   * working directory, project config, plugin descriptors, native toolchain,
+   * environment, and cache root are not supplied per call.
+   *
+   * The returned shape mirrors `embed-typescript`'s transformation API:
+   * `success` and `failure` carry a `typescript` map, while unexpected host
+   * errors return `exception`.
+   *
+   * @returns Transformation result containing TypeScript text or diagnostics.
+   */
+  public transform(): ITtscCompilerTransformation {
+    return toCompilerTransformation(this.compile());
   }
 
   private compilerContext(): ITtscCompilerContext {
@@ -227,6 +248,25 @@ function createProcessDiagnostic(
     file: null,
     messageText,
   };
+}
+
+function toCompilerTransformation(
+  result: ITtscCompilerResult,
+): ITtscCompilerTransformation {
+  if (result.type === "success") {
+    return {
+      type: "success",
+      typescript: result.output,
+    };
+  }
+  if (result.type === "failure") {
+    return {
+      diagnostics: result.diagnostics,
+      type: "failure",
+      typescript: result.output,
+    };
+  }
+  return result;
 }
 
 function normalizeError(error: unknown): unknown {
