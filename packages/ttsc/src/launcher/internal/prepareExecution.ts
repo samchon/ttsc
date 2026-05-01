@@ -125,13 +125,33 @@ function linkVirtualProjectLayout(
       if (fs.existsSync(virtualEntry)) {
         continue;
       }
-      fs.symlinkSync(
-        realEntry,
-        virtualEntry,
-        entry.isDirectory() && process.platform === "win32" ? "junction" : undefined,
-      );
+      linkVirtualEntry(realEntry, virtualEntry, entry);
     }
   }
+}
+
+function linkVirtualEntry(
+  realEntry: string,
+  virtualEntry: string,
+  entry: fs.Dirent,
+): void {
+  if (entry.isDirectory()) {
+    fs.symlinkSync(
+      realEntry,
+      virtualEntry,
+      process.platform === "win32" ? "junction" : undefined,
+    );
+    return;
+  }
+  if (entry.isFile()) {
+    try {
+      fs.linkSync(realEntry, virtualEntry);
+    } catch {
+      fs.copyFileSync(realEntry, virtualEntry);
+    }
+    return;
+  }
+  fs.symlinkSync(realEntry, virtualEntry);
 }
 
 function collectLinkDirectories(projectRoot: string): string[] {
