@@ -4,10 +4,12 @@ import * as path from "node:path";
 import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemory";
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
+import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
+import type { ITtscCompilerTransformation } from "./structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
 
 /**
@@ -28,6 +30,8 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
  *   context.
  * - {@link TtscCompiler.compile}: compile the configured project and return a
  *   structured result instead of terminal text.
+ * - {@link TtscCompiler.transform}: transform the configured project and
+ *   return an embed-style transformation result.
  */
 export class TtscCompiler {
   private readonly context: ITtscCompilerContext;
@@ -116,6 +120,28 @@ export class TtscCompiler {
     return runProject(() => compileProjectInMemory(this.compilerContext()));
   }
 
+  /**
+   * Transform the configured project and return TypeScript text by file path.
+   *
+   * This is the source-to-source API for plugin authors. It must not return
+   * JavaScript emit, declaration files, or source maps; those artifacts belong
+   * to {@link TtscCompiler.compile}. A transform sidecar is expected to write
+   * JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to stdout.
+   * When no transform sidecar is configured, ttsc returns the TypeScript files
+   * loaded by the TypeScript-Go Program together with normal diagnostics.
+   *
+   * The returned shape mirrors `embed-typescript`'s transformation API:
+   * `success` and `failure` carry a `typescript` map, while unexpected host
+   * errors return `exception`.
+   *
+   * @returns Transformation result containing TypeScript text or diagnostics.
+   */
+  public transform(): ITtscCompilerTransformation {
+    return runTransformation(() =>
+      transformProjectInMemory(this.compilerContext()),
+    );
+  }
+
   private compilerContext(): ITtscCompilerContext {
     return {
       ...this.context,
@@ -186,9 +212,27 @@ interface ProjectResult {
   result: TtscBuildResult;
 }
 
+interface ProjectTransformation {
+  result: TtscBuildResult;
+  typescript: Record<string, string>;
+}
+
 function runProject(task: () => ProjectResult): ITtscCompilerResult {
   try {
     return toCompilerResult(task());
+  } catch (error) {
+    return {
+      error: normalizeError(error),
+      type: "exception",
+    };
+  }
+}
+
+function runTransformation(
+  task: () => ProjectTransformation,
+): ITtscCompilerTransformation {
+  try {
+    return toCompilerTransformation(task());
   } catch (error) {
     return {
       error: normalizeError(error),
@@ -226,6 +270,26 @@ function createProcessDiagnostic(
     code: "TTSC_PROCESS",
     file: null,
     messageText,
+  };
+}
+
+function toCompilerTransformation(
+  project: ProjectTransformation,
+): ITtscCompilerTransformation {
+  const { result, typescript } = project;
+  if (result.status === 0 && result.diagnostics.length === 0) {
+    return {
+      type: "success",
+      typescript,
+    };
+  }
+  return {
+    diagnostics:
+      result.diagnostics.length === 0
+        ? [createProcessDiagnostic(result)]
+        : result.diagnostics,
+    type: "failure",
+    typescript,
   };
 }
 

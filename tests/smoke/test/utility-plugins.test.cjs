@@ -30,7 +30,10 @@ test("utility plugins: descriptors own separate native source directories", () =
     const descriptor = factory(factoryContext(name));
     assert.equal(descriptor.name, `@ttsc/${name}`);
     assert.equal(descriptor.stage, stage);
-    assert.equal(descriptor.source, path.join(workspaceRoot, "packages", name, "plugin"));
+    assert.equal(
+      descriptor.source,
+      path.join(workspaceRoot, "packages", name, "plugin"),
+    );
     assert.equal(
       fs.existsSync(path.join(workspaceRoot, "packages", name, "go.mod")),
       true,
@@ -57,7 +60,9 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-combo-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-combo-"),
+      ),
     },
   });
   assert.equal(result.status, 0, result.stderr);
@@ -77,44 +82,6 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
   const run = runNode(path.join(root, "dist", "main.js"), { cwd: root });
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout.trim(), "hello:ok");
-});
-
-test("utility plugins: output plugins run sequentially in ttsc transform", () => {
-  const root = commonJsProject(
-    {
-      "src/main.ts": `console.log("drop");\nexport const value: string = "transform";\n`,
-    },
-    {
-      compilerOptions: {
-        plugins: [
-          {
-            transform: "@ttsc/banner",
-            banner: "/*! transform banner */",
-          },
-          {
-            transform: "@ttsc/strip",
-            calls: ["console.log"],
-          },
-        ],
-      },
-    },
-  );
-  seedUtilityPackages(root, ["banner", "strip"]);
-  const result = spawn(
-    ttscBin,
-    ["transform", "--cwd", root, "--file", "src/main.ts"],
-    {
-      cwd: root,
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-transform-")),
-      },
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^\/\*! transform banner \*\//);
-  assert.doesNotMatch(result.stdout, /console\.log/);
-  assert.match(result.stdout, /"transform"/);
 });
 
 test("utility plugins: banner prepends JavaScript and declaration outputs", () => {
@@ -139,12 +106,20 @@ test("utility plugins: banner prepends JavaScript and declaration outputs", () =
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-banner-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-banner-"),
+      ),
     },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"), /^\/\*! banner-only \*\//);
-  assert.match(fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8"), /^\/\*! banner-only \*\//);
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /^\/\*! banner-only \*\//,
+  );
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8"),
+    /^\/\*! banner-only \*\//,
+  );
 });
 
 test("utility plugins: paths rewrites ESM imports and re-exports", () => {
@@ -185,7 +160,9 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-paths-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-paths-"),
+      ),
     },
   });
   assert.equal(result.status, 0, result.stderr);
@@ -223,7 +200,9 @@ test("utility plugins: strip removes configured calls and debugger statements", 
     cwd: root,
     env: {
       PATH: goPath(),
-      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-utility-strip-")),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-strip-"),
+      ),
     },
   });
   assert.equal(result.status, 0, result.stderr);

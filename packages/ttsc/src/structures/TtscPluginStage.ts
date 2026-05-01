@@ -1,10 +1,13 @@
 /**
  * Pipeline stage where a plugin's lazily built Go sidecar participates.
  *
- * - `"transform"`: owns the TypeScript-Go emit pass. This is the default and
- *   is the right stage for compiler-transform plugins such as typia-style
- *   source rewrites. A transform sidecar receives the ordered plugin manifest
- *   and is responsible for producing the project's emitted output.
+ * - `"transform"`: owns the TypeScript transform/emit pass. This is the
+ *   default and is the right stage for compiler-transform plugins such as
+ *   typia-style source rewrites. During compilation, a transform sidecar
+ *   produces the project's emitted output. During
+ *   {@link TtscCompiler.transform}, the same sidecar may expose a
+ *   source-to-source `transform` command that returns transformed TypeScript
+ *   text.
  * - `"check"`: runs before emit and reports diagnostics only. Use this for
  *   lint or validation plugins that should fail the compile before JavaScript
  *   or declaration output is generated.

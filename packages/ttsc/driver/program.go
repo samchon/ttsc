@@ -194,8 +194,8 @@ type Program struct {
 }
 
 // LoadProgramOptions controls tsconfig overrides applied before tsgo creates
-// the program. `ForceEmit` is used by `ttsc --emit` and `ttsc transform`
-// so runtime compilation still works when the project defaults to `noEmit`.
+// the program. `ForceEmit` is used by `ttsc --emit` and runtime compilation
+// so execution still works when the project defaults to `noEmit`.
 type LoadProgramOptions struct {
 	ForceEmit   bool
 	ForceNoEmit bool

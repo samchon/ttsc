@@ -4,13 +4,14 @@ import * as path from "node:path";
 
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
-import { runTransform } from "../../compiler/internal/runTransform";
+import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
-import type { TtscTransformOptions } from "../../structures/internal/TtscTransformOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 
-export function runTtsc(argv: readonly string[] = process.argv.slice(2)): number {
+export function runTtsc(
+  argv: readonly string[] = process.argv.slice(2),
+): number {
   try {
     if (argv.length === 0) {
       return runCompatibleBuild([], false);
@@ -34,8 +35,6 @@ export function runTtsc(argv: readonly string[] = process.argv.slice(2)): number
         return runCompatibleBuild(rest, true);
       case "clean":
         return runClean(rest);
-      case "transform":
-        return runTransformCommand(rest);
       case "demo":
         return delegateToNative(argv);
       case "-p":
@@ -81,15 +80,6 @@ function runCompatibleBuild(
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
-}
-
-function runTransformCommand(argv: readonly string[]): number {
-  const options = parseTransformArgs(argv);
-  const text = runTransform(options);
-  if (!options.out) {
-    process.stdout.write(text);
-  }
-  return 0;
 }
 
 function runClean(argv: readonly string[]): number {
@@ -216,10 +206,7 @@ function parseCleanArgs(argv: readonly string[]) {
   return { cwd, tsconfig };
 }
 
-function parseBuildArgs(
-  argv: readonly string[],
-  checkOnly: boolean,
-) {
+function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let binary: string | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
@@ -306,64 +293,6 @@ function parseBuildArgs(
   };
 }
 
-function parseTransformArgs(argv: readonly string[]): TtscTransformOptions {
-  let binary: string | undefined;
-  let cwd: string | undefined;
-  let file: string | undefined;
-  let out: string | undefined;
-  let tsconfig: string | undefined;
-
-  const rest = [...argv];
-  while (rest.length !== 0) {
-    const current = rest.shift()!;
-    switch (current) {
-      case "--binary":
-        binary = takeValue(current, rest);
-        break;
-      case "--cwd":
-        cwd = takeValue(current, rest);
-        break;
-      case "--file":
-        file = takeValue(current, rest);
-        break;
-      case "--out":
-        out = takeValue(current, rest);
-        break;
-      case "--tsconfig":
-      case "--project":
-        tsconfig = takeValue(current, rest);
-        break;
-      default:
-        if (current.startsWith("--binary=")) {
-          binary = current.slice("--binary=".length);
-        } else if (current.startsWith("--cwd=")) {
-          cwd = current.slice("--cwd=".length);
-        } else if (current.startsWith("--file=")) {
-          file = current.slice("--file=".length);
-        } else if (current.startsWith("--out=")) {
-          out = current.slice("--out=".length);
-        } else if (current.startsWith("--tsconfig=")) {
-          tsconfig = current.slice("--tsconfig=".length);
-        } else if (current.startsWith("--project=")) {
-          tsconfig = current.slice("--project=".length);
-        } else {
-          throw new Error(`ttsc: unknown option ${current}`);
-        }
-        break;
-    }
-  }
-  if (!file) {
-    throw new Error("ttsc: transform requires --file");
-  }
-  return {
-    binary,
-    cwd,
-    file,
-    out,
-    tsconfig,
-  };
-}
-
 function printHelp(): void {
   process.stdout.write(
     [
@@ -375,7 +304,6 @@ function printHelp(): void {
       "  ttsc --watch",
       "  ttsc --noEmit",
       "  ttsc clean [options]",
-      "  ttsc transform --file <path> [options]",
       "  ttsc version",
       "  ttsc --help",
       "",
@@ -390,7 +318,6 @@ function printHelp(): void {
       "  --outDir <dir>         Override compilerOptions.outDir for this invocation",
       "  --quiet                Keep build output quiet (default)",
       "  --verbose              Print the build summary and emitted files",
-      "  --out <path>           Write transform output to a file instead of stdout",
       "  --binary <path>        Use an explicit tsgo binary",
       "",
       "Plugin contract:",
@@ -416,7 +343,7 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const file = path.resolve(cwd, options.files[0]!);
   const out = resolveSingleFileOut(file, cwd, options.outDir);
-  const text = runTransform({
+  const text = runSingleFileEmit({
     binary: options.binary,
     cwd,
     file,

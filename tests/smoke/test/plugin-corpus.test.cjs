@@ -106,13 +106,15 @@ test("plugin corpus: createTtscPlugin export is accepted as a native descriptor"
     path.join(root, "go-plugin"),
   );
 
-  const result = spawn(
-    ttscBin,
-    ["transform", "--cwd", root, "--file", "src/main.ts"],
-    { cwd: root, env: { PATH: goPath() } },
-  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: { PATH: goPath() },
+  });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /"PLUGIN"/);
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /"PLUGIN"/,
+  );
 });
 
 test("plugin corpus: ordered native plugins are passed to the Go sidecar", () => {
@@ -176,7 +178,7 @@ test("plugin corpus: invalid plugin export reports the bad specifier", () => {
   assert.match(result.stderr, /does not export a valid ttsc plugin/);
 });
 
-test("plugin corpus: transform --out receives Go native output", () => {
+test("plugin corpus: custom outDir receives Go native output", () => {
   const root = pluginProject(
     [{ transform: "./plugins/out.cjs", name: "out" }],
     {
@@ -191,8 +193,11 @@ test("plugin corpus: transform --out receives Go native output", () => {
 
   const result = spawn(
     ttscBin,
-    ["transform", "--cwd", root, "--file", "src/main.ts", "--out", output],
-    { cwd: root, env: { PATH: goPath() } },
+    ["--cwd", root, "--emit", "--outDir", "custom"],
+    {
+      cwd: root,
+      env: { PATH: goPath() },
+    },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.match(fs.readFileSync(output, "utf8"), /"PLUGIN"/);
@@ -479,32 +484,6 @@ test("plugin corpus: missing Go toolchain points users at the install hint", () 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Go toolchain was not found/);
   assert.match(result.stderr, /TTSC_GO_BINARY/);
-});
-
-test("plugin corpus: ttsc transform single-file mode drives the source plugin", () => {
-  const root = copyProject("go-source-plugin");
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-source-plugin-transform-"),
-  );
-  const out = path.join(root, "out", "main.js");
-  const result = spawn(
-    ttscBin,
-    [
-      "transform",
-      "--cwd",
-      root,
-      "--file",
-      path.join(root, "src", "main.ts"),
-      "--out",
-      out,
-    ],
-    {
-      cwd: root,
-      env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(fs.readFileSync(out, "utf8"), /"PLUGIN"/);
 });
 
 test("plugin corpus: ttsx executes source plugin output end-to-end", () => {

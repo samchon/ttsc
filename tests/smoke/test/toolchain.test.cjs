@@ -54,7 +54,9 @@ test("ttsx executes JavaScript emitted by the consumer-local tsgo", () => {
     "src/index.ts": `console.log("source-should-not-run");\n`,
   });
   const logFile = path.join(root, "tsgo.log");
-  createFakeNativePreview(root, `
+  createFakeNativePreview(
+    root,
+    `
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(logFile)}, args.join(" ") + "\\n");
 if (args.includes("--version")) {
@@ -70,9 +72,12 @@ if (!noEmit) {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, "console.log(\\"consumer-local-tsgo\\");\\n", "utf8");
 }
-`);
+`,
+  );
 
-  const result = spawnWithoutTsgoOverride(ttsxBin, ["src/index.ts"], { cwd: root });
+  const result = spawnWithoutTsgoOverride(ttsxBin, ["src/index.ts"], {
+    cwd: root,
+  });
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "consumer-local-tsgo");
@@ -106,7 +111,7 @@ test("ttsc builds a plain TypeScript project without typia", () => {
   assert.equal(run.stdout.trim(), "5");
 });
 
-test("ttsc transform writes --out and honors auto-detected jsconfig", () => {
+test("ttsc rejects unsupported transform command", () => {
   const root = createProject({
     "jsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -120,16 +125,11 @@ test("ttsc transform writes --out and honors auto-detected jsconfig", () => {
     }),
     "src/main.ts": `export const answer: number = 42;\n`,
   });
-  const out = path.join(root, "out", "main.js");
 
-  const result = spawn(
-    ttscBin,
-    ["transform", "--cwd", root, "--file", "src/main.ts", "--out", out],
-    { cwd: root },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const js = fs.readFileSync(out, "utf8");
-  assert.match(js, /exports\.answer/);
+  const result = spawn(ttscBin, ["transform", "--cwd", root], { cwd: root });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /unknown command "transform"/);
 });
 
 test("ttsc check resolves paths mappings under current TypeScript-Go policy", () => {
@@ -199,7 +199,10 @@ test("ttsc blocks semantic diagnostics before emit", () => {
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Type 'number' is not assignable to type 'string'/);
+  assert.match(
+    result.stderr,
+    /Type 'number' is not assignable to type 'string'/,
+  );
   assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
 });
 
@@ -268,7 +271,16 @@ test("ttsx forwards argv after -- and runs preload modules", () => {
 
   const result = spawn(
     ttsxBin,
-    ["--cwd", root, "-r", "./preload.cjs", "src/main.ts", "--", "--flag", "value"],
+    [
+      "--cwd",
+      root,
+      "-r",
+      "./preload.cjs",
+      "src/main.ts",
+      "--",
+      "--flag",
+      "value",
+    ],
     { cwd: root },
   );
   assert.equal(result.status, 0, result.stderr);
@@ -379,20 +391,21 @@ function createProject(files) {
 
 function spawn(command, args, options) {
   const usesNodeLauncher = command === ttscBin || command === ttsxBin;
-  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
-    ...(usesNodeLauncher ? [command] : []),
-    ...args,
-  ], {
-    ...options,
-    env: {
-      ...process.env,
-      TTSC_BINARY: nativeBinary,
-      TTSC_TSGO_BINARY: tsgoBinary,
+  const result = child_process.spawnSync(
+    usesNodeLauncher ? process.execPath : command,
+    [...(usesNodeLauncher ? [command] : []), ...args],
+    {
+      ...options,
+      env: {
+        ...process.env,
+        TTSC_BINARY: nativeBinary,
+        TTSC_TSGO_BINARY: tsgoBinary,
+      },
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 64,
+      windowsHide: true,
     },
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024 * 64,
-    windowsHide: true,
-  });
+  );
   if (result.error && !result.stderr) {
     result.stderr = result.error.message;
   }
@@ -404,16 +417,17 @@ function spawnWithoutTsgoOverride(command, args, options) {
   const env = { ...process.env };
   delete env.TTSC_BINARY;
   delete env.TTSC_TSGO_BINARY;
-  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
-    ...(usesNodeLauncher ? [command] : []),
-    ...args,
-  ], {
-    ...options,
-    env,
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024 * 64,
-    windowsHide: true,
-  });
+  const result = child_process.spawnSync(
+    usesNodeLauncher ? process.execPath : command,
+    [...(usesNodeLauncher ? [command] : []), ...args],
+    {
+      ...options,
+      env,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 64,
+      windowsHide: true,
+    },
+  );
   if (result.error && !result.stderr) {
     result.stderr = result.error.message;
   }
@@ -421,7 +435,12 @@ function spawnWithoutTsgoOverride(command, args, options) {
 }
 
 function createFakeNativePreview(root, scriptBody) {
-  const nativeRoot = path.join(root, "node_modules", "@typescript", "native-preview");
+  const nativeRoot = path.join(
+    root,
+    "node_modules",
+    "@typescript",
+    "native-preview",
+  );
   const platformRoot = path.join(
     root,
     "node_modules",
@@ -460,9 +479,12 @@ function createFakeNativePreview(root, scriptBody) {
 }
 
 function resolveTsgoBinary() {
-  const packageJson = require.resolve("@typescript/native-preview/package.json", {
-    paths: [workspaceRoot],
-  });
+  const packageJson = require.resolve(
+    "@typescript/native-preview/package.json",
+    {
+      paths: [workspaceRoot],
+    },
+  );
   const requireFromNativePreview = createRequire(packageJson);
   const platformPackageJson = requireFromNativePreview.resolve(
     `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,

@@ -2,16 +2,18 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { TtscTransformOptions } from "../../structures/internal/TtscTransformOptions";
+import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
 import { runBuild } from "./runBuild";
 
-/** Transform one source file by emitting its project into a temporary directory. */
-export function runTransform(options: TtscTransformOptions): string {
+/** Emit one source file by building its project into a temporary directory. */
+export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const sourceFile = realpathIfExists(
-    path.isAbsolute(options.file) ? options.file : path.resolve(cwd, options.file),
+    path.isAbsolute(options.file)
+      ? options.file
+      : path.resolve(cwd, options.file),
   );
   const tsconfig = resolveProjectConfig({
     cwd,
@@ -19,7 +21,7 @@ export function runTransform(options: TtscTransformOptions): string {
     tsconfig: options.tsconfig,
   });
   const projectRoot = path.dirname(tsconfig);
-  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-transform-"));
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-single-file-"));
   try {
     const result = runBuild({
       ...options,
@@ -31,7 +33,7 @@ export function runTransform(options: TtscTransformOptions): string {
     });
     if (result.status !== 0) {
       throw new Error(
-        "ttsc transform exited " +
+        "ttsc single-file emit exited " +
           result.status +
           "\n" +
           (result.stderr || result.stdout),
@@ -44,7 +46,9 @@ export function runTransform(options: TtscTransformOptions): string {
       sourceFile,
     });
     if (emitted === null) {
-      throw new Error(`ttsc transform: no output produced for ${sourceFile}`);
+      throw new Error(
+        `ttsc single-file emit: no output produced for ${sourceFile}`,
+      );
     }
     const transformed = fs.readFileSync(emitted, "utf8");
     if (options.out) {

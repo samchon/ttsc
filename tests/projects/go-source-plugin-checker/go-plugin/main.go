@@ -5,7 +5,7 @@
 // consumer's TypeScript source and rewrites the emitted JavaScript so the
 // call is replaced with a string literal of T's source text.
 //
-// The interesting part of this fixture is the bootstrap (see runTransform):
+// The interesting part of this fixture is the bootstrap (see runBuild):
 // the plugin parses the user's tsconfig with shim/tsoptions, builds a real
 // shim/compiler.Program, acquires a shim/checker.Checker, and looks up the
 // target source file in the program's SourceFiles(). With those handles in
@@ -54,65 +54,12 @@ func run(args []string) int {
 		return 0
 	case "check":
 		return 0
-	case "transform":
-		return runTransform(args[1:])
 	case "build":
 		return runBuild(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "go-source-plugin-checker: unknown command %q\n", args[0])
 		return 2
 	}
-}
-
-// runTransform handles `transform --file=X` invocations. It bootstraps a
-// full Program + Checker against the consumer's tsconfig, locates the
-// target source file, then emits the rewritten JS.
-func runTransform(args []string) int {
-	fs := flag.NewFlagSet("transform", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	file := fs.String("file", "", "")
-	out := fs.String("out", "", "")
-	tsconfig := fs.String("tsconfig", "", "")
-	_ = fs.String("plugins-json", "", "")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	if *file == "" || *tsconfig == "" {
-		fmt.Fprintln(os.Stderr, "go-source-plugin-checker: --file and --tsconfig are required")
-		return 2
-	}
-	cwd := filepath.Dir(*tsconfig)
-
-	program, releaseChecker, err := bootstrap(cwd, *tsconfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "go-source-plugin-checker: bootstrap: %v\n", err)
-		return 2
-	}
-	defer releaseChecker()
-
-	source := findSourceFile(program, *file)
-	if source == "" {
-		fmt.Fprintf(os.Stderr, "go-source-plugin-checker: source file not in program: %s\n", *file)
-		return 2
-	}
-	code, err := transform(source)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-	if *out != "" {
-		if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 2
-		}
-		if err := os.WriteFile(*out, []byte(code), 0o644); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 2
-		}
-		return 0
-	}
-	fmt.Fprint(os.Stdout, code)
-	return 0
 }
 
 // runBuild handles project-build invocations. The bootstrap is the same;
