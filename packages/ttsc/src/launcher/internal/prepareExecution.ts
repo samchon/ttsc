@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
@@ -7,6 +8,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 const PROCESS_CACHE_KEY = String(process.pid);
+const MAX_VIRTUAL_PARENT_DEPTH = 3;
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -168,7 +170,7 @@ function linkVirtualEntry(
 function collectLinkDirectories(projectRoot: string): string[] {
   const out: string[] = [];
   let current = projectRoot;
-  for (let depth = 0; depth < 8; depth += 1) {
+  for (let depth = 0; depth <= MAX_VIRTUAL_PARENT_DEPTH; depth += 1) {
     out.push(current);
     if (
       depth > 0 &&
@@ -178,12 +180,21 @@ function collectLinkDirectories(projectRoot: string): string[] {
       break;
     }
     const parent = path.dirname(current);
-    if (parent === current) {
+    if (parent === current || isUnsafeVirtualParent(parent)) {
       break;
     }
     current = parent;
   }
   return out.reverse();
+}
+
+function isUnsafeVirtualParent(directory: string): boolean {
+  const resolved = path.resolve(directory);
+  const root = path.parse(resolved).root;
+  return (
+    resolved === root ||
+    resolved === path.resolve(os.tmpdir())
+  );
 }
 
 function virtualPath(root: string, absolute: string): string {
