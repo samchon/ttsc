@@ -9,7 +9,48 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/lint` reports ESLint-style diagnostics from the same TypeScript-Go type-check pass that `ttsc` already runs.
+Lint as compile errors.
+
+Rules run inside `ttsc`'s `typescript-go` type-check pass — one compile, both checks.
+
+## Demonstration
+
+Given this file:
+
+```typescript
+// src/lint.ts
+var x: number = 3;
+let y: number = 4;
+const z: string = 5;
+
+console.log(x + y + z);
+```
+
+Run `ttsc` with `@ttsc/lint` enabled (see [Setup](#setup)):
+
+```bash
+$ pnpm ttsc
+src/lint.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+
+3 const z: string = 5;
+        ~
+
+src/lint.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let y: number = 4;
+      ~~~~~~~~~~~~~
+
+src/lint.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var x: number = 3;
+  ~~~~~~~~~~~~~~~~~~
+
+Found 3 errors in the same file, starting at: src/lint.ts:3
+```
+
+Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out together, in the same `error TSxxxxx` shape.
+
+CI that already runs `ttsc` blocks on lint with no extra wiring.
 
 ## Setup
 
@@ -19,7 +60,9 @@ Install `ttsc`, TypeScript-Go, and the lint plugin:
 npm install -D ttsc @typescript/native-preview @ttsc/lint
 ```
 
-Open your project's `tsconfig.json`, then add this entry under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge this into the existing object and keep `@ttsc/lint` as the first active plugin:
+Add the plugin under `compilerOptions.plugins` in your `tsconfig.json`.
+
+Keep `@ttsc/lint` as the first plugin entry — see [Plugin order](#plugin-order).
 
 ```jsonc
 {
@@ -39,16 +82,20 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
 }
 ```
 
-Run your normal `ttsc` or `ttsx` command:
+Then run your normal `ttsc` or `ttsx`:
 
 ```bash
 npx ttsc
 npx ttsx src/index.ts
 ```
 
-Lint errors fail the command. With `ttsx`, lint errors stop the program before your entrypoint runs. Lint warnings are printed without changing the exit code.
+- Lint errors fail the command.
+- Under `ttsx`, lint errors stop the program before your entrypoint runs.
+- Lint warnings are printed without changing the exit code.
 
-You can also keep the lint rules in a standalone config file and leave only the file reference in `tsconfig.json`:
+### External config file
+
+You can also keep the rules in a standalone file and reference it from `tsconfig.json`:
 
 ```jsonc
 {
@@ -73,28 +120,17 @@ export default {
 };
 ```
 
-`config` accepts either a config object or a path to `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`. JavaScript and TypeScript config files may export the object directly, as `default`, as `config`, or as a function that returns the object. Relative paths are resolved from the owning tsconfig directory.
+The `config` field accepts:
 
-Inline `config` is also accepted:
+- An inline object (shown earlier), **or** a path to a file ending in `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`.
+- For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
+- Relative paths resolve from the directory of the owning `tsconfig.json`.
 
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error"
-        }
-      }
-    ]
-  }
-}
-```
+## Plugin order
 
-## Notes
+`@ttsc/lint` must be the first plugin in `compilerOptions.plugins`.
 
-`@ttsc/lint` must be the first active plugin entry because it reports on the source code you wrote. Output plugins such as `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` can come after it.
+It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have to come after it.
 
 ```jsonc
 {
@@ -112,7 +148,9 @@ Inline `config` is also accepted:
 }
 ```
 
-This package is diagnostic-only today: no autofix, no recommended preset, no custom rule loading, and no cross-file lint rules.
+## Scope
+
+Diagnostic-only today: no autofix, no recommended preset, no custom rule loading, and no cross-file lint rules.
 
 ## Rules
 
