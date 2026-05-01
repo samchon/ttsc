@@ -59,7 +59,8 @@ function createProjectContext(
     root,
     cacheDir,
     emitDir: path.join(cacheDir, "project", PROCESS_CACHE_KEY),
-    emittedFiles: null as string[] | null,
+    built: false,
+    emittedFiles: undefined as string[] | undefined,
   };
 }
 
@@ -67,7 +68,7 @@ function buildProject(
   context: ReturnType<typeof createProjectContext>,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ): void {
-  if (context.emittedFiles !== null) return;
+  if (context.built) return;
 
   fs.mkdirSync(context.cacheDir, { recursive: true });
   fs.rmSync(context.emitDir, { recursive: true, force: true });
@@ -83,13 +84,17 @@ function buildProject(
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
-    context.emittedFiles = result.emittedFiles ?? [];
+    context.built = true;
+    context.emittedFiles =
+      result.emittedFiles && result.emittedFiles.length !== 0
+        ? result.emittedFiles
+        : undefined;
     return;
   }
 
   fs.rmSync(context.emitDir, { recursive: true, force: true });
   const detail = [
-    `ttsx: project build failed for ${context.tsconfig}`,
+    `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
   ]
     .filter((line) => line.trim().length !== 0)

@@ -793,6 +793,7 @@ test("plugin corpus: @ttsc/lint ignores future optional flags", () => {
       "ttsc",
       "lib",
       "plugin",
+      "internal",
       "loadProjectPlugins.js",
     ),
   );
