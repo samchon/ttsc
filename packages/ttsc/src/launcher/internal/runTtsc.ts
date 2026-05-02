@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { TtscCompiler } from "../../TtscCompiler";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
@@ -35,6 +36,8 @@ export function runTtsc(
         return runCompatibleBuild(rest, true);
       case "clean":
         return runClean(rest);
+      case "prepare":
+        return runPrepare(rest);
       case "demo":
         return delegateToNative(argv);
       case "-p":
@@ -82,8 +85,34 @@ function runCompatibleBuild(
   return result.status;
 }
 
+function runPrepare(argv: readonly string[]): number {
+  const options = parseProjectArgs(argv);
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const compiler = new TtscCompiler({
+    cwd,
+    tsconfig: options.tsconfig,
+  });
+  const prepared = compiler.prepare();
+  if (prepared.length === 0) {
+    const projectRoot = path.dirname(
+      resolveProjectConfig({
+        cwd,
+        tsconfig: options.tsconfig,
+      }),
+    );
+    process.stdout.write(
+      `ttsc: no source plugins found under ${formatProjectPath(cwd, projectRoot)}\n`,
+    );
+    return 0;
+  }
+  for (const target of prepared) {
+    process.stdout.write(`ttsc: prepared ${formatProjectPath(cwd, target)}\n`);
+  }
+  return 0;
+}
+
 function runClean(argv: readonly string[]): number {
-  const options = parseCleanArgs(argv);
+  const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
   const targets = [
@@ -106,7 +135,7 @@ function runClean(argv: readonly string[]): number {
     return 0;
   }
   for (const target of removed) {
-    process.stdout.write(`ttsc: removed ${formatCleanPath(cwd, target)}\n`);
+    process.stdout.write(`ttsc: removed ${formatProjectPath(cwd, target)}\n`);
   }
   return 0;
 }
@@ -120,7 +149,7 @@ function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
   }
 }
 
-function formatCleanPath(cwd: string, target: string): string {
+function formatProjectPath(cwd: string, target: string): string {
   const relative = path.relative(cwd, target);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
     return target;
@@ -174,7 +203,7 @@ function ensureExecutable(binary: string): void {
   }
 }
 
-function parseCleanArgs(argv: readonly string[]) {
+function parseProjectArgs(argv: readonly string[]) {
   let cwd: string | undefined;
   let tsconfig: string | undefined;
 
@@ -303,6 +332,7 @@ function printHelp(): void {
       "  ttsc -p tsconfig.json",
       "  ttsc --watch",
       "  ttsc --noEmit",
+      "  ttsc prepare [options]",
       "  ttsc clean [options]",
       "  ttsc version",
       "  ttsc --help",
@@ -328,6 +358,7 @@ function printHelp(): void {
       "Compatibility aliases:",
       "  ttsc build [options]       Same project build lane as `ttsc [options]`.",
       "  ttsc check [options]       Same as `ttsc --noEmit [options]`.",
+      "  ttsc prepare [options]     Build configured source-plugin binaries into cache.",
       "  ttsc clean [options]       Delete local source-plugin cache directories.",
     ].join("\n"),
   );
