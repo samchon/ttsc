@@ -6,24 +6,24 @@
 package main
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimcore "github.com/microsoft/typescript-go/shim/core"
-	shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 // parseTS parses a TypeScript snippet under a virtual absolute file
 // name (the parser refuses relative paths). Returns the SourceFile the
 // engine will receive at runtime.
 func parseTS(t *testing.T, source string) *shimast.SourceFile {
-	t.Helper()
-	opts := shimast.SourceFileParseOptions{
-		FileName: "/virtual/test.ts",
-	}
-	file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTS)
-	if file == nil {
-		t.Fatalf("parser returned nil source file")
-	}
-	return file
+  t.Helper()
+  opts := shimast.SourceFileParseOptions{
+    FileName: "/virtual/test.ts",
+  }
+  file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTS)
+  if file == nil {
+    t.Fatalf("parser returned nil source file")
+  }
+  return file
 }

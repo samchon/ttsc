@@ -1,8 +1,5 @@
 import path from "node:path";
-import type {
-  ITtscPlugin,
-  ITtscPluginFactoryContext,
-} from "ttsc";
+import type { ITtscPlugin, ITtscPluginFactoryContext } from "ttsc";
 
 import type { ITtscLintPluginConfig } from "./structures";
 

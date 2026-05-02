@@ -17,8 +17,7 @@ export function getCompilerVersionText(
   });
   if (res.error || res.status !== 0) {
     throw new Error(
-      "ttsc.version: failed: " +
-        (outputText(res.stderr) || res.error?.message),
+      "ttsc.version: failed: " + (outputText(res.stderr) || res.error?.message),
     );
   }
   return `ttsc ${readOwnPackageVersion()} (${outputText(res.stdout).trim()})`;

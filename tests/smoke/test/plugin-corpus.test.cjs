@@ -299,15 +299,12 @@ test("plugin corpus: source plugin cache invalidates when Go source changes", ()
   // behavior is observable end-to-end.
   const goFile = path.join(root, "go-plugin", "main.go");
   const original = fs.readFileSync(goFile, "utf8");
-  fs.writeFileSync(
-    goFile,
-    original.replace(
-      `case "go-uppercase":
-			value = strings.ToUpper(value)`,
-      `case "go-uppercase":
-			value = "[" + strings.ToUpper(value) + "]"`,
-    ),
+  const changed = original.replace(
+    /(case "go-uppercase":\n)(\s*)value = strings\.ToUpper\(value\)/,
+    `$1$2value = "[" + strings.ToUpper(value) + "]"`,
   );
+  assert.notEqual(changed, original, "expected to edit go-uppercase branch");
+  fs.writeFileSync(goFile, changed);
 
   const second = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root, env });
   assert.equal(second.status, 0, second.stderr);

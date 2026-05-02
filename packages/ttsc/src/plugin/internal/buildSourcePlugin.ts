@@ -155,7 +155,9 @@ function writeGoWork(scratchDir: string, useDirs: readonly string[]): void {
   fs.writeFileSync(path.join(scratchDir, "go.work"), goWork, "utf8");
 }
 
-function sourceBuildWorkspaceReplacements(useDirs: readonly string[]): string[] {
+function sourceBuildWorkspaceReplacements(
+  useDirs: readonly string[],
+): string[] {
   const ttscRoot = useDirs.find((dir) =>
     hasModulePath(dir, "github.com/samchon/ttsc/packages/ttsc"),
   );
@@ -308,7 +310,10 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
 }
 
-function resolvePluginCacheRoot(projectRoot: string, cacheDir?: string): string {
+function resolvePluginCacheRoot(
+  projectRoot: string,
+  cacheDir?: string,
+): string {
   if (cacheDir) {
     return path.resolve(cacheDir, "plugins");
   }
