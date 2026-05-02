@@ -1,103 +1,46 @@
 # AGENTS.md
 
-This repository is the standalone home for `ttsc`.
+`ttsc` is a standalone TypeScript-Go compiler, runtime, and plugin host.
 
-The working rule is strict: treat `ttsc` as a general TypeScript-Go compiler, runtime, and plugin host. The package owns both the `ttsc` compiler command and the `ttsx` runtime command. Do not frame it as a consumer-specific build adapter. Downstream projects can be important compatibility fixtures, but the package contract in this repo must stay general.
+Keep the package contract general. `ttsc` owns the compiler command, `ttsx`
+owns the runtime command, and downstream projects are compatibility fixtures,
+not the product definition.
 
-## Historical Context
+## Layout
 
-`ttsc` exists because the TypeScript-Go transition removes the old Node.js TypeScript compiler process that tools such as `ttypescript` and `ts-patch` relied on. The old ecosystem could monkey-patch `typescript/lib/tsc.js` or run a patched compiler in-process. TypeScript-Go is a Go binary, so that path is gone.
+- `packages/ttsc`: JS launcher/API, Go native host, driver, shims, and tools.
+- `packages/lint`: `@ttsc/lint` package and native lint plugin.
+- `packages/banner`, `packages/paths`, `packages/strip`: utility plugins.
+- `packages/ttsc-*`: platform packages.
+- `tests/smoke`: end-to-end project corpus.
+- `tests/projects`: project-shaped fixtures.
+- `tests/go-transformer`, `tests/utility-plugins`, `tests/lint`: focused Go and plugin tests.
+- `config`, `scripts`: shared config and workspace scripts.
 
-This is also a maintenance-risk project. TypeScript has a long history of compiler API breakage at patch and minor release boundaries, even before TypeScript-Go. That instability killed or weakened much of the transformer-plugin ecosystem. `ts-patch` and a small number of heavily maintained consumers survived because they were maintained aggressively. TypeScript-Go is newer, its public surface is still moving, and many required APIs are still internal. Every future maintainer must assume that a new TypeScript-Go snapshot can break shims, compiler host behavior, emit behavior, diagnostic formatting, option parsing, or project-reference semantics.
+## Commands
 
-Do not respond to that risk with vague confidence. Keep the test harness sharp. Keep the shim boundary small and reviewable. When TypeScript-Go moves, inspect the upstream API and the local shims directly.
-
-## Repository Shape
-
-- `packages/ttsc`: compiler adapter, runtime command, JS API, plugin host, Go native CLI, TypeScript-Go shims.
-- `tests/smoke`: standalone end-to-end tests for generic projects and generic plugins.
-- `tests/projects`: real fixture projects copied by the smoke suite. Add project-shaped regressions here instead of hiding every case inside test functions.
-- `tests/go-transformer`: Go transformer library and native backend fixture used to prove that plugin-selected native binaries can participate in the transform pipeline.
-- `config`: shared TypeScript compiler configuration.
-
-The smoke suite must stay as a corpus, not a single happy-path file. Add new reference-derived cases under:
-
-- `tests/smoke/test/compiler-corpus.test.cjs`
-- `tests/smoke/test/plugin-corpus.test.cjs`
-- `tests/smoke/test/runner-corpus.test.cjs`
-- `tests/smoke/test/native-transformer.test.cjs`
-- `tests/smoke/test/_helpers.cjs`
-
-## Required Commands
-
-Run these before claiming the workspace is healthy:
+Run the relevant subset for the change:
 
 ```bash
 pnpm install
-pnpm run build
+pnpm format
+pnpm build
 pnpm test
 ```
 
-For TypeScript-Go or shim changes, also run:
+For Go, shim, or native plugin changes:
 
 ```bash
 pnpm --filter ttsc go:vet
 cd packages/ttsc && go list -deps ./cmd/ttsc
+node scripts/test-go-transformer.cjs
+node scripts/test-go-lint.cjs
+node scripts/test-go-utility-plugins.cjs
 ```
 
-## Review Discipline
+## Work Rules
 
-When changing `ttsc`, check all of these surfaces:
-
-- CLI parity: `ttsc`, `ttsc -p`, `ttsc --noEmit`, `ttsc --watch`.
-- JS API parity: `TtscCompiler.compile`, `TtscCompiler.transform`, `TtscCompiler.prepare`, `TtscCompiler.clean`.
-- project config: `tsconfig.json`, `jsconfig.json`, `extends`, plugin inheritance, circular extends.
-- plugin loading: `default`, `plugin`, `createTtscPlugin`, relative paths, package paths.
-- native backend selection: `native.mode`, `native.binary`, `contractVersion`.
-- TypeScript-Go wrapper: config parse, Program creation, checker acquisition/release, diagnostics, emit.
-- shim drift: every `go:linkname` target must still exist in the pinned TypeScript-Go version.
-- runtime command: no duplicated compiler semantics; it must call `ttsc` APIs.
-
-When changing runtime behavior, verify both paths:
-
-- CommonJS: in-process require hook and single-file runtime compile cache.
-- ESM: cached project build, rewritten relative `.js` imports, child Node execution.
-
-## Upstream Drift Policy
-
-When bumping `@typescript/native-preview` or `github.com/microsoft/typescript-go`:
-
-1. Read the upstream compiler, tsconfig, Program, emit, diagnostics, VFS, and checker changes relevant to the shim imports.
-2. Regenerate or inspect shims under `packages/ttsc/shim`.
-3. Run Go tests before JS smoke tests.
-4. Add or tighten a regression test for the breakage that prompted the bump.
-
-Never treat a green `pnpm test` as proof that all TypeScript-Go internals are stable. It proves only the current covered surface. If the change touches shims or compiler internals, inspect the upstream code directly.
-
-## Design Rules
-
-- Keep `ttsc` independent from any single consumer.
-- Keep the `ttsx` command thin and backed by `ttsc` APIs.
-- Prefer structured TypeScript-Go APIs and shim wrappers over string-based compiler behavior.
-- Do not add source-specific hardcoding to the compiler host.
-- Do not widen the public plugin API casually. Ordered `native` plugin descriptors and project plugin loading are the current stable surface.
-- If a new public hook is required, add tests that lock the compatibility promise.
-
-## Reference Repositories
-
-Clone external references under `.references/`, which is ignored by git:
-
-```bash
-mkdir -p .references
-git clone https://github.com/microsoft/typescript-go .references/typescript-go
-git clone https://github.com/oxc-project/tsgolint .references/tsgolint
-git clone https://github.com/tsgonest/tsgonest .references/tsgonest
-git clone https://github.com/elliots/typical .references/typical
-git clone https://github.com/nonara/ts-patch .references/ts-patch
-git clone https://github.com/privatenumber/tsx .references/tsx
-git clone https://github.com/TypeStrong/ts-node .references/ts-node
-git clone https://github.com/samchon/typia .references/typia
-git clone https://github.com/samchon/embed-typescript .references/embed-typescript
-```
-
-Use them when a change touches TypeScript-Go internals, shim generation, Go compiler-host patterns, emitted JS rewrite strategy, or runner behavior. Be ready to read exact files line by line instead of relying on memory.
+- Prefer the existing package boundaries and fixture style.
+- Add project-shaped regressions under `tests/projects` when behavior depends on real project layout.
+- For TypeScript-Go or shim changes, inspect the pinned API and local shims directly.
+- Do not hardcode consumer-specific behavior into the compiler host.

@@ -16,33 +16,33 @@
 package main
 
 import (
-	"fmt"
-	"os"
+  "fmt"
+  "os"
 )
 
 const version = "0.0.1"
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+  os.Exit(run(os.Args[1:]))
 }
 
 func run(args []string) int {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|build|transform|version)")
-		return 2
-	}
-	switch args[0] {
-	case "-v", "--version", "version":
-		fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
-		return 0
-	case "check":
-		return RunCheck(args[1:])
-	case "build":
-		return RunBuild(args[1:])
-	case "transform":
-		return RunTransform(args[1:])
-	default:
-		fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
-		return 2
-	}
+  if len(args) == 0 {
+    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|build|transform|version)")
+    return 2
+  }
+  switch args[0] {
+  case "-v", "--version", "version":
+    fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
+    return 0
+  case "check":
+    return RunCheck(args[1:])
+  case "build":
+    return RunBuild(args[1:])
+  case "transform":
+    return RunTransform(args[1:])
+  default:
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
+    return 2
+  }
 }
