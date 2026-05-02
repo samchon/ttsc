@@ -76,35 +76,39 @@ function tsconfig(compilerOptions, extra = {}) {
 
 function commonJsProject(files, options = {}) {
   return createProject({
-    "tsconfig.json": tsconfig({
-      target: "ES2022",
-      module: "commonjs",
-      strict: true,
-      outDir: "dist",
-      rootDir: "src",
-      ...options.compilerOptions,
-    }, options.config ?? {}),
+    "tsconfig.json": tsconfig(
+      {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        ...options.compilerOptions,
+      },
+      options.config ?? {},
+    ),
     ...files,
   });
 }
 
 function spawn(command, args, options = {}) {
   const usesNodeLauncher = command === ttscBin || command === ttsxBin;
-  const result = child_process.spawnSync(usesNodeLauncher ? process.execPath : command, [
-    ...(usesNodeLauncher ? [command] : []),
-    ...args,
-  ], {
-    ...options,
-    env: {
-      ...process.env,
-      TTSC_BINARY: nativeBinary,
-      TTSC_TSGO_BINARY: tsgoBinary,
-      ...options.env,
+  const result = child_process.spawnSync(
+    usesNodeLauncher ? process.execPath : command,
+    [...(usesNodeLauncher ? [command] : []), ...args],
+    {
+      ...options,
+      env: {
+        ...process.env,
+        TTSC_BINARY: nativeBinary,
+        TTSC_TSGO_BINARY: tsgoBinary,
+        ...options.env,
+      },
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 64,
+      windowsHide: true,
     },
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024 * 64,
-    windowsHide: true,
-  });
+  );
   if (result.error && !result.stderr) {
     result.stderr = result.error.message;
   }
@@ -133,9 +137,12 @@ module.exports = {
 };
 
 function resolveTsgoBinary() {
-  const packageJson = require.resolve("@typescript/native-preview/package.json", {
-    paths: [workspaceRoot],
-  });
+  const packageJson = require.resolve(
+    "@typescript/native-preview/package.json",
+    {
+      paths: [workspaceRoot],
+    },
+  );
   const requireFromNativePreview = createRequire(packageJson);
   const platformPackageJson = requireFromNativePreview.resolve(
     `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,

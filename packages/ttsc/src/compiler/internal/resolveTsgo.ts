@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-
 /** Resolve the consumer project's TypeScript-Go preview binary. */
 export function resolveTsgo(
   opts: {

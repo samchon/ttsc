@@ -1,8 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const {
-  resolveBinary,
-} = require("../lib/compiler/internal/resolveBinary.js");
+const { resolveBinary } = require("../lib/compiler/internal/resolveBinary.js");
 
 test("resolveBinary prefers TTSC_BINARY absolute override", () => {
   const resolved = resolveBinary({

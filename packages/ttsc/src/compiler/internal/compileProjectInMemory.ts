@@ -125,8 +125,10 @@ function readOutputDirectory(
     return output;
   }
   for (const file of listFiles(directory)) {
-    output[keyOf(pathToKey(path.relative(directory, file)))] =
-      fs.readFileSync(file, "utf8");
+    output[keyOf(pathToKey(path.relative(directory, file)))] = fs.readFileSync(
+      file,
+      "utf8",
+    );
   }
   return output;
 }
@@ -166,7 +168,8 @@ function parseNativeCompileOutput(
     };
   } catch {
     throw new Error(
-      (stderr || stdout).trim() || "ttsc: native compiler host returned no output",
+      (stderr || stdout).trim() ||
+        "ttsc: native compiler host returned no output",
     );
   }
 }

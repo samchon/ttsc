@@ -1,8 +1,10 @@
 function f(x: number) {
   switch (x) {
-    case 1: return "a";
+    case 1:
+      return "a";
     // expect: no-duplicate-case error
-    case 1: return "b";
+    case 1:
+      return "b";
   }
   return "";
 }

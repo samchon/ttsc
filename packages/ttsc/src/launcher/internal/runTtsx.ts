@@ -5,7 +5,9 @@ import * as path from "node:path";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 
-export function runTtsx(argv: readonly string[] = process.argv.slice(2)): number {
+export function runTtsx(
+  argv: readonly string[] = process.argv.slice(2),
+): number {
   try {
     return run(argv);
   } catch (error) {
@@ -53,8 +55,10 @@ function formatError(error: unknown): string {
 function parseCLI(argv: readonly string[]) {
   const preload: string[] = [];
   const passthroughIndex = argv.indexOf("--");
-  const head = passthroughIndex === -1 ? [...argv] : [...argv.slice(0, passthroughIndex)];
-  const passthrough = passthroughIndex === -1 ? [] : [...argv.slice(passthroughIndex + 1)];
+  const head =
+    passthroughIndex === -1 ? [...argv] : [...argv.slice(0, passthroughIndex)];
+  const passthrough =
+    passthroughIndex === -1 ? [] : [...argv.slice(passthroughIndex + 1)];
 
   let binary: string | undefined;
   let cacheDir: string | undefined;
@@ -151,7 +155,11 @@ function printHelp(): void {
 }
 
 function resolvePreload(cwd: string, preload: string): string {
-  if (preload.startsWith(".") || preload.startsWith("/") || preload.includes(path.sep)) {
+  if (
+    preload.startsWith(".") ||
+    preload.startsWith("/") ||
+    preload.includes(path.sep)
+  ) {
     return path.resolve(cwd, preload);
   }
   return preload;
@@ -180,7 +188,10 @@ function runPreparedEntry(
     );
   }
   const args = [
-    ...parsed.preload.flatMap((preload) => ["-r", resolvePreload(cwd, preload)]),
+    ...parsed.preload.flatMap((preload) => [
+      "-r",
+      resolvePreload(cwd, preload),
+    ]),
     execution.entryFile,
     ...parsed.passthrough,
   ];

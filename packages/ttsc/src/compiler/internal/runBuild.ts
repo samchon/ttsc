@@ -617,7 +617,10 @@ function parseDiagnosticLine(
   };
 }
 
-function normalizeDiagnosticFile(file: string, cwd: string | undefined): string {
+function normalizeDiagnosticFile(
+  file: string,
+  cwd: string | undefined,
+): string {
   if (path.isAbsolute(file) || cwd === undefined) {
     return file;
   }

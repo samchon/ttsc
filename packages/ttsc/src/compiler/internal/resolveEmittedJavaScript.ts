@@ -19,7 +19,8 @@ export function resolveEmittedJavaScript(options: {
 
   let best: string | null = null;
   let bestScore = 0;
-  for (const file of options.emittedFiles ?? listJavaScriptFiles(options.outDir)) {
+  for (const file of options.emittedFiles ??
+    listJavaScriptFiles(options.outDir)) {
     if (!isJavaScriptOutput(file)) continue;
     const score = sharedSourceStemSegments(file, options.sourceFile);
     if (score > bestScore) {

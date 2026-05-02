@@ -58,7 +58,8 @@ function createProjectContext(
   const tsconfig = project.path;
   const root = project.root;
   const cacheDir =
-    options.cacheDir ?? path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
+    options.cacheDir ??
+    path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const virtualRoot = path.join(processDir, "fs");
   return {
@@ -81,7 +82,9 @@ function resolveRuntimeSourceRoot(
 ): string {
   const rootDir = project.compilerOptions.rootDir;
   if (typeof rootDir === "string") {
-    return path.isAbsolute(rootDir) ? rootDir : path.resolve(project.root, rootDir);
+    return path.isAbsolute(rootDir)
+      ? rootDir
+      : path.resolve(project.root, rootDir);
   }
   return path.dirname(filename);
 }
@@ -191,10 +194,7 @@ function collectLinkDirectories(projectRoot: string): string[] {
 function isUnsafeVirtualParent(directory: string): boolean {
   const resolved = path.resolve(directory);
   const root = path.parse(resolved).root;
-  return (
-    resolved === root ||
-    resolved === path.resolve(os.tmpdir())
-  );
+  return resolved === root || resolved === path.resolve(os.tmpdir());
 }
 
 function virtualPath(root: string, absolute: string): string {

@@ -20,7 +20,12 @@ test("resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler", () => {
 
 test("resolveTsgo resolves the consumer native-preview platform package", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-tsgo-test-"));
-  const nativeRoot = path.join(root, "node_modules", "@typescript", "native-preview");
+  const nativeRoot = path.join(
+    root,
+    "node_modules",
+    "@typescript",
+    "native-preview",
+  );
   const platformRoot = path.join(
     root,
     "node_modules",
