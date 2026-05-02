@@ -230,6 +230,47 @@ test("plugin corpus: source plugins are built locally and used", () => {
   );
 });
 
+test("plugin corpus: prepare builds source plugins without emitting project output", () => {
+  const root = copyProject("go-source-plugin");
+  const cacheDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-source-plugin-prepare-"),
+  );
+  const env = {
+    PATH: goPath(),
+    TTSC_CACHE_DIR: cacheDir,
+  };
+
+  const prepared = spawn(ttscBin, ["prepare", "--cwd", root], {
+    cwd: root,
+    env,
+  });
+  assert.equal(prepared.status, 0, prepared.stderr);
+  assert.match(prepared.stdout, /ttsc: prepared /);
+  assert.match(prepared.stderr, /building source plugin "go-source-plugin"/);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+  const pluginCache = path.join(cacheDir, "plugins");
+  const binaries = fs
+    .readdirSync(pluginCache, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      path.join(
+        pluginCache,
+        entry.name,
+        process.platform === "win32" ? "plugin.exe" : "plugin",
+      ),
+    );
+  assert.equal(binaries.length, 1);
+  assert.equal(fs.existsSync(binaries[0]), true);
+
+  const built = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root, env });
+  assert.equal(built.status, 0, built.stderr);
+  assert.doesNotMatch(built.stderr, /building source plugin/);
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /"PLUGIN"/,
+  );
+});
+
 test("plugin corpus: source plugins serve an ordered --plugins-json pipeline", () => {
   const root = copyProject("go-source-plugin");
   const cacheDir = fs.mkdtempSync(

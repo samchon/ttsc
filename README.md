@@ -41,9 +41,10 @@ npx ttsc --noEmit
 npx ttsc --watch
 ```
 
-Clear cached transformer binaries when developing or debugging a plugin:
+Prebuild or clear cached source-plugin binaries:
 
 ```bash
+npx ttsc prepare
 npx ttsc clean
 ```
 
