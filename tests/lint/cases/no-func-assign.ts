@@ -1,7 +1,3 @@
-function g() {
-  return 1;
-}
+function g() { return 1; }
 // expect: no-func-assign error
-g = function () {
-  return 2;
-};
+g = function () { return 2; };

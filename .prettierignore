@@ -3,5 +3,4 @@ bin/
 dist/
 lib/
 node_modules/
-tests/lint/cases/no-octal-escape.ts
-tests/lint/cases/no-octal.ts
+tests/lint/cases/**

@@ -1,7 +1,7 @@
 function f() {
   try {
     return 1;
-    // expect: no-useless-catch error
+  // expect: no-useless-catch error
   } catch (e) {
     throw e;
   }
