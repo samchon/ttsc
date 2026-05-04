@@ -16,8 +16,7 @@ A `typescript-go` toolchain for compiler-powered transforms and type-safe execut
   - 10x faster than `ts-node`.
   - type checking that `tsx` does not provide.
 - **transformer support**: compiler-powered libraries, such as `typia`.
-
-> `ttsx` (CLI command) can run existing `typescript@6` projects.
+  - `@ttsc/lint`: lint violations as TS compile errors.
 
 ## Setup
 
