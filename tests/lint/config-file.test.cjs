@@ -90,6 +90,27 @@ function diagnosticComparable(diagnostic) {
   };
 }
 
+async function assertESLintRuntimeParity(options, files = ["src/main.ts"]) {
+  const project = createLintProject(options);
+  try {
+    const ttsc = runLintProject(project.tmpdir);
+    const eslint = await runESLintDirect(
+      project.tmpdir,
+      "eslint.config.mjs",
+      files,
+    );
+
+    assert.notEqual(ttsc.status, 0, ttsc.stderr);
+    assert.deepEqual(
+      ttsc.diagnostics.map(diagnosticComparable),
+      eslint,
+      ttsc.stderr,
+    );
+  } finally {
+    project.cleanup();
+  }
+}
+
 test("lint config file: tsconfig may reference a standalone JSON file", () => {
   const result = runLint({
     name: "config-file-json",
@@ -563,7 +584,7 @@ test("lint config file: installed ESLint runtime executes typed typescript-eslin
 });
 
 test("lint config file: ESLint runtime diagnostics match ESLint API output", async () => {
-  const project = createLintProject({
+  await assertESLintRuntimeParity({
     name: "config-file-eslint-runtime-parity",
     source: `const value: any = 1;\nPromise.resolve(value);\n`,
     pluginConfig: {
@@ -592,21 +613,256 @@ test("lint config file: ESLint runtime diagnostics match ESLint API output", asy
       });\n`,
     },
   });
-  try {
-    const ttsc = runLintProject(project.tmpdir);
-    const eslint = await runESLintDirect(project.tmpdir, "eslint.config.mjs", [
-      "src/main.ts",
-    ]);
+});
 
-    assert.notEqual(ttsc.status, 0, ttsc.stderr);
-    assert.deepEqual(
-      ttsc.diagnostics.map(diagnosticComparable),
-      eslint,
-      ttsc.stderr,
-    );
-  } finally {
-    project.cleanup();
-  }
+test("lint config file: ESLint runtime matches package shareable config output", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-shareable-package",
+    source: `const forbidden = 1;\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import shared from "eslint-config-ttsc-parity";
+
+      export default [shared];\n`,
+      "node_modules/eslint-config-ttsc-parity/package.json": JSON.stringify({
+        type: "module",
+        exports: "./index.mjs",
+      }),
+      "node_modules/eslint-config-ttsc-parity/index.mjs": `import tseslint from "typescript-eslint";
+
+      const plugin = {
+        rules: {
+          "no-forbidden-name": {
+            meta: {
+              type: "problem",
+              messages: {
+                bad: "Forbidden identifier from shareable config.",
+              },
+            },
+            create(context) {
+              return {
+                Identifier(node) {
+                  if (node.name === "forbidden") {
+                    context.report({ node, messageId: "bad" });
+                  }
+                },
+              };
+            },
+          },
+        },
+      };
+
+      export default {
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+        },
+        plugins: {
+          local: plugin,
+        },
+        rules: {
+          "local/no-forbidden-name": "error",
+        },
+      };\n`,
+    },
+  });
+});
+
+test("lint config file: ESLint runtime matches custom plugin output", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-custom-plugin",
+    source: `const forbidden = 1;\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      const plugin = {
+        rules: {
+          "no-forbidden-name": {
+            meta: {
+              type: "problem",
+              schema: [
+                {
+                  type: "object",
+                  properties: {
+                    label: { type: "string" },
+                  },
+                  additionalProperties: false,
+                },
+              ],
+              messages: {
+                bad: "Forbidden identifier from {{label}} via {{source}}.",
+              },
+            },
+            create(context) {
+              const label = context.options[0]?.label ?? "missing option";
+              const source = context.settings.localSource ?? "missing setting";
+              return {
+                Identifier(node) {
+                  if (node.name === "forbidden") {
+                    context.report({
+                      node,
+                      messageId: "bad",
+                      data: { label, source },
+                    });
+                  }
+                },
+              };
+            },
+          },
+        },
+      };
+
+      export default [{
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+        },
+        plugins: {
+          local: plugin,
+        },
+        settings: {
+          localSource: "settings",
+        },
+        rules: {
+          "local/no-forbidden-name": ["error", { label: "rule option" }],
+        },
+      }];\n`,
+    },
+  });
+});
+
+test("lint config file: ESLint runtime matches UTF-16 columns", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-utf16-column",
+    source: `const emoji = "😀"; forbidden();\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      const plugin = {
+        rules: {
+          "no-forbidden-name": {
+            meta: {
+              type: "problem",
+              messages: {
+                bad: "Forbidden identifier after emoji.",
+              },
+            },
+            create(context) {
+              return {
+                Identifier(node) {
+                  if (node.name === "forbidden") {
+                    context.report({ node, messageId: "bad" });
+                  }
+                },
+              };
+            },
+          },
+        },
+      };
+
+      export default [{
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+        },
+        plugins: {
+          local: plugin,
+        },
+        rules: {
+          "local/no-forbidden-name": "error",
+        },
+      }];\n`,
+    },
+  });
+});
+
+test("lint config file: ESLint runtime matches processor output", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-processor",
+    source: `const forbidden = 1;\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `const plugin = {
+        processors: {
+          ts: {
+            preprocess(text, filename) {
+              return [{ text, filename }];
+            },
+            postprocess(messages) {
+              return messages.flat();
+            },
+            supportsAutofix: true,
+          },
+        },
+        rules: {
+          "no-forbidden-name": {
+            meta: {
+              type: "problem",
+              messages: {
+                bad: "Forbidden identifier from processor.",
+              },
+            },
+            create(context) {
+              return {
+                Identifier(node) {
+                  if (node.name === "forbidden") {
+                    context.report({ node, messageId: "bad" });
+                  }
+                },
+              };
+            },
+          },
+        },
+      };
+
+      export default [{
+        files: ["src/**/*.ts"],
+        plugins: {
+          local: plugin,
+        },
+        processor: "local/ts",
+        rules: {
+          "local/no-forbidden-name": "error",
+        },
+      }];\n`,
+    },
+  });
+});
+
+test("lint config file: ESLint runtime matches linterOptions output", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-linter-options",
+    source: `/* eslint-disable no-console */\nconsole.log(1);\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `export default [{
+        files: ["src/**/*.ts"],
+        linterOptions: {
+          noInlineConfig: true,
+        },
+        rules: {
+          "no-console": "error",
+        },
+      }];\n`,
+    },
+  });
 });
 
 test("lint config file: installed ESLint runtime respects ignored files silently", () => {
