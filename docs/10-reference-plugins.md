@@ -262,7 +262,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     "outDir": "dist",
     "plugins": [
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       {
         "transform": "@ttsc/strip",

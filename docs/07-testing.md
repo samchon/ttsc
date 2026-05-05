@@ -20,12 +20,12 @@ Test it directly:
 ```go
 func TestApplyBanner(t *testing.T) {
 	out, err := applyBanner("dist/main.js", "console.log(1);\n", map[string]any{
-		"banner": "/*! x */",
+		"banner": "x",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out, "/*! x */\n") {
+	if !strings.HasPrefix(out, "/**\n * ----------------------------------------------------------------\n * x\n *\n * @packageDocumentation\n */\n") {
 		t.Fatalf("missing banner:\n%s", out)
 	}
 }
