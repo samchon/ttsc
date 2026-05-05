@@ -94,6 +94,7 @@ type ParenthesizedTypeNode = innerast.ParenthesizedTypeNode
 const (
   KindCallExpression                = innerast.KindCallExpression
   KindIdentifier                    = innerast.KindIdentifier
+  KindMultiLineCommentTrivia        = innerast.KindMultiLineCommentTrivia
   KindPropertyAccessExpression      = innerast.KindPropertyAccessExpression
   KindPropertySignature             = innerast.KindPropertySignature
   KindComputedPropertyName          = innerast.KindComputedPropertyName

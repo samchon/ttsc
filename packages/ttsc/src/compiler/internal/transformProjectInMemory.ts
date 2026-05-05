@@ -118,7 +118,7 @@ function transformProjectWithPlugins(
   if (transformers.length === 0) {
     return transformProjectWithNativeHost(options, project);
   }
-  assertSingleTransformHost(transformers);
+  assertTransformHostCompatibility(transformers);
 
   const plugin = transformers[0]!;
   const res = spawnNative(
@@ -218,21 +218,38 @@ function serializeNativePlugins(
   return JSON.stringify(
     plugins.map((plugin) => ({
       config: plugin.config,
+      hooks: plugin.hooks,
       name: plugin.name,
       stage: plugin.stage,
     })),
   );
 }
 
-function assertSingleTransformHost(
+function assertTransformHostCompatibility(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): void {
   const binaries = [...new Set(plugins.map((plugin) => plugin.binary))];
-  if (binaries.length > 1) {
-    throw new Error(
-      "ttsc: multiple transform native backends cannot share one source-to-source pass",
-    );
+  if (binaries.length <= 1) {
+    return;
   }
+  if (plugins.every(isFirstPartyUtilityTransformPlugin)) {
+    return;
+  }
+  throw new Error(
+    "ttsc: multiple transform native backends cannot share one source-to-source pass; " +
+      "compose transform hook libraries through one aggregate host",
+  );
+}
+
+function isFirstPartyUtilityTransformPlugin(
+  plugin: ITtscLoadedNativePlugin,
+): boolean {
+  return (
+    plugin.stage === "transform" &&
+    (plugin.name === "@ttsc/banner" ||
+      plugin.name === "@ttsc/paths" ||
+      plugin.name === "@ttsc/strip")
+  );
 }
 
 function appendBuildResult(

@@ -7,7 +7,7 @@ This repository ships four package-shaped plugins. Study them in this order:
 3. `@ttsc/paths`
 4. `@ttsc/lint`
 
-The order is by implementation difficulty. `strip` is easier than `paths`: `strip` only needs the emitted JS file in front of it; `paths` needs tsconfig and Program data to map aliases back to emitted files.
+The order is by implementation difficulty. `strip` is easier than `paths`: `strip` only needs the source AST in front of it; `paths` needs tsconfig and Program data to map aliases through the final output layout.
 
 ## Shared Package Shape
 
@@ -32,26 +32,21 @@ const path = require("node:path");
 module.exports = function createPlugin() {
   return {
     name: "@ttsc/name",
-    native: {
-      mode: "ttsc-name",
-      source: {
-        dir: path.resolve(__dirname, ".."),
-        entry: "./plugin",
-      },
-      contractVersion: 1,
-      capabilities: ["output"],
-    },
+    source: path.resolve(__dirname, "..", "plugin"),
+    stage: "transform",
+    hooks: { source: true, declaration: true },
   };
 };
 ```
 
-The package root is `source.dir` because `go.mod` is at the package root. The binary entry is `./plugin`.
+The `plugin` directory is inside the package root, so the source builder finds
+the package `go.mod` by walking upward.
 
 ## `@ttsc/banner`
 
 Path: [`packages/banner`](../packages/banner/)
 
-Purpose: prepend a configured comment to emitted JavaScript and declaration files.
+Purpose: add a configured `@packageDocumentation` JSDoc block to JavaScript and declaration emit.
 
 Consumer config:
 
@@ -61,7 +56,7 @@ Consumer config:
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "/*! @license MIT */"
+        "banner": "@license MIT"
       }
     ]
   }
@@ -70,10 +65,9 @@ Consumer config:
 
 What to learn:
 
-- Minimal `["output"]` plugin descriptor.
+- Minimal transform plugin descriptor with package-declared hooks.
 - Finding the plugin's config from `--plugins-json`.
-- Filtering output file extensions.
-- Idempotent transform: skip when the banner already exists.
+- Formatting user banner text into compiler-owned JSDoc.
 - Clean error messages for invalid config.
 
 Read:
@@ -83,13 +77,13 @@ Read:
 - [`packages/banner/plugin/banner.go`](../packages/banner/plugin/banner.go)
 - [`tests/utility-plugins/banner/plugin/banner_test.go`](../tests/utility-plugins/banner/plugin/banner_test.go)
 
-Use this as the template for simple post-emit file edits.
+Use this as the template for simple source/declaration comment transforms.
 
 ## `@ttsc/strip`
 
 Path: [`packages/strip`](../packages/strip/)
 
-Purpose: remove configured call-expression statements and `debugger` statements from emitted JavaScript.
+Purpose: remove configured call-expression statements and `debugger` statements from TypeScript source AST before emit.
 
 Consumer config:
 
@@ -109,12 +103,11 @@ Consumer config:
 
 What to learn:
 
-- Parse emitted JS with `shim/parser`.
+- Mutate source `SourceFile.Statements` directly.
 - Walk `SourceFile.Statements` and recurse with `node.ForEachChild`.
 - Match `ExpressionStatement -> CallExpression`.
 - Convert a callee AST into a dotted name such as `console.log`.
-- Remove a whole statement by computing a source range.
-- Apply text edits from the end of the file to the start.
+- Remove a whole statement by filtering the parent statement list.
 
 Key AST flow:
 
@@ -140,7 +133,7 @@ Then compare the AST discussion in [AST and Checker](./03-tsgo.md#recognizing-ca
 
 Path: [`packages/paths`](../packages/paths/)
 
-Purpose: rewrite emitted module specifiers that match `compilerOptions.paths` into relative output paths.
+Purpose: rewrite source and declaration module specifiers that match `compilerOptions.paths` into relative output paths.
 
 Consumer config:
 
@@ -161,7 +154,7 @@ Consumer config:
 
 What to learn:
 
-- Output plugins can still load tsconfig and Program data.
+- Transform plugins can still load tsconfig and Program data.
 - `tsoptions.GetParsedCommandLineOfConfigFile` is the right way to read compiler options.
 - Path alias resolution must use real project source files, not string guessing alone.
 - More-specific path patterns should win before broad wildcard patterns.
@@ -218,7 +211,7 @@ Consumer config:
 
 What to learn:
 
-- Check-plugin placement: lint inspects authored source before emit and output plugins run.
+- Check-plugin placement: lint inspects authored source before transform emit.
 - Program/Checker bootstrap for diagnostics.
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
@@ -255,7 +248,7 @@ Read:
 - [`packages/lint/plugin`](../packages/lint/plugin/)
 - [`tests/lint/cases`](../tests/lint/cases/)
 
-Use this design only when you need source diagnostics or semantic analysis. For output rewrites, prefer the smaller `banner`, `strip`, or `paths` shapes.
+Use this design only when you need source diagnostics or semantic analysis. For source/declaration transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
 ## Combined Pipeline
 
@@ -284,9 +277,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 Execution:
 
 1. `@ttsc/lint check` runs first.
-2. TypeScript-Go emits files.
-3. `@ttsc/banner output` prepends comments.
-4. `@ttsc/paths output` rewrites specifiers.
-5. `@ttsc/strip output` removes debug statements.
+2. The utility transform host applies `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in manifest order.
+3. TypeScript-Go emits JavaScript, declarations, and maps.
 
 Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs).

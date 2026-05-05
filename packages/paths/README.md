@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/paths` rewrites emitted module specifiers that match `compilerOptions.paths` into relative JavaScript paths.
+`@ttsc/paths` rewrites source and declaration module specifiers that match `compilerOptions.paths` into relative JavaScript paths.
 
 ## Setup
 
@@ -43,7 +43,7 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-An emitted import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`.
+An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration imports are rewritten with the same path rule.
 
 ## Notes
 
@@ -61,8 +61,8 @@ No separate plugin options are required. `@ttsc/paths` reads the same `compilerO
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // Transform plugins run in order.
+      { "transform": "@ttsc/banner", "banner": "@license MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] }
     ]

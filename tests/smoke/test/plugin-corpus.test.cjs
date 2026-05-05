@@ -41,6 +41,7 @@ function nativePlugin() {
         "cmd",
         "ttsc-go-transformer"
       ),
+      hooks: { source: true },
     });
   `;
 }
@@ -63,6 +64,7 @@ test("plugin corpus: default export factory is accepted as a native descriptor",
             "cmd",
             "ttsc-go-transformer"
           ),
+          hooks: { source: true },
         });
       `,
     },
@@ -97,6 +99,7 @@ test("plugin corpus: createTtscPlugin export is accepted as a native descriptor"
             "cmd",
             "ttsc-go-transformer"
           ),
+          hooks: { source: true },
         });
       `,
     },
@@ -285,6 +288,7 @@ test("plugin corpus: source plugins serve an ordered --plugins-json pipeline", (
 module.exports = (context) => ({
   name: context.plugin.name,
   source: path.resolve(__dirname, "go-plugin"),
+  hooks: { source: true },
 });
 `,
   );
@@ -384,6 +388,7 @@ test("plugin corpus: source path can point directly at go.mod", () => {
 module.exports = {
   name: "go-source-plugin",
   source: path.resolve(__dirname, "go-plugin", "go.mod"),
+  hooks: { source: true },
 };
 `,
   );
@@ -413,6 +418,7 @@ test("plugin corpus: source path searches at most three parents for go.mod", () 
 module.exports = {
   name: "go-source-plugin-too-deep",
   source: path.resolve(__dirname, "go-plugin", "a", "b", "c", "d"),
+  hooks: { source: true },
 };
 `,
   );
@@ -436,6 +442,7 @@ test("plugin corpus: missing source is rejected", () => {
       "plugins/missing-source.cjs": `
         module.exports = {
           name: "missing-source",
+          hooks: { source: true },
         };
       `,
     },
@@ -453,6 +460,7 @@ test("plugin corpus: empty source produces a clear error", () => {
         module.exports = {
           name: "empty",
           source: "",
+          hooks: { source: true },
         };
       `,
     },
@@ -662,6 +670,7 @@ test("plugin corpus: nonexistent source produces a clear error", () => {
         module.exports = {
           name: "missing",
           source: path.resolve(__dirname, "..", "no-such-dir"),
+          hooks: { source: true },
         };
       `,
     },

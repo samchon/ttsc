@@ -19,9 +19,9 @@ const utilityPackages = ["lint", "banner", "paths", "strip"];
 test("utility plugins: descriptors own separate native source directories", () => {
   const expectations = {
     lint: "check",
-    banner: "output",
-    paths: "output",
-    strip: "output",
+    banner: "transform",
+    paths: "transform",
+    strip: "transform",
   };
   const seenDirs = new Set();
   for (const [name, stage] of Object.entries(expectations)) {
@@ -30,6 +30,17 @@ test("utility plugins: descriptors own separate native source directories", () =
     const descriptor = factory(factoryContext(name));
     assert.equal(descriptor.name, `@ttsc/${name}`);
     assert.equal(descriptor.stage, stage);
+    if (stage === "transform") {
+      assert.equal(descriptor.hooks?.source, true);
+    } else {
+      assert.equal(descriptor.hooks, undefined);
+    }
+    if (name === "banner" || name === "paths") {
+      assert.equal(descriptor.hooks.declaration, true);
+    }
+    if (name === "strip") {
+      assert.equal(descriptor.hooks.declaration, undefined);
+    }
     assert.equal(
       descriptor.source,
       path.join(workspaceRoot, "packages", name, "plugin"),
@@ -72,7 +83,7 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
   assert.match(result.stderr, /building source plugin "@ttsc\/strip"/);
 
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
-  assert.match(js, /^\/\*! utility combo \*\//);
+  assert.match(js, bannerPreamble("utility combo"));
   assert.match(js, /require\("\.\/modules\/join\.js"\)/);
   assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /console\.(?:log|debug)/);
@@ -82,9 +93,79 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
   const run = runNode(path.join(root, "dist", "main.js"), { cwd: root });
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout.trim(), "hello:ok");
+
+  const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
+  assert.match(dts, bannerPreamble("utility combo"));
+  assert.match(dts, /import\("\.\/modules\/join\.js"\)/);
+  assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
+  assert.doesNotMatch(dts, /@lib\/join|exact-message/);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "dist", "main.js.map"), "utf8"))
+      .version,
+    3,
+  );
+  assert.equal(
+    JSON.parse(
+      fs.readFileSync(path.join(root, "dist", "main.d.ts.map"), "utf8"),
+    ).version,
+    3,
+  );
 });
 
-test("utility plugins: banner prepends JavaScript and declaration outputs", () => {
+test("utility plugins: shared transform host works when paths is first", () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        declaration: true,
+        strict: true,
+        paths: {
+          "@lib/*": ["./src/modules/*"],
+        },
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [
+          { transform: "@ttsc/paths" },
+          { transform: "@ttsc/banner", banner: "paths first" },
+          {
+            transform: "@ttsc/strip",
+            calls: ["console.log"],
+            statements: ["debugger"],
+          },
+        ],
+      },
+      include: ["src"],
+    }),
+    "src/modules/message.ts": `export const message = "ok";\n`,
+    "src/main.ts": [
+      `import { message } from "@lib/message";`,
+      `console.log("drop");`,
+      `debugger;`,
+      `export const value = message;`,
+      ``,
+    ].join("\n"),
+  });
+  seedUtilityPackages(root, ["banner", "paths", "strip"]);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-paths-first-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
+  assert.match(js, bannerPreamble("paths first"));
+  assert.match(dts, bannerPreamble("paths first"));
+  assert.match(js, /require\("\.\/modules\/message\.js"\)/);
+  assert.doesNotMatch(js, /@lib\/message|console\.log|\bdebugger\b/);
+});
+
+test("utility plugins: banner injects JavaScript and declaration JSDoc", () => {
   const root = commonJsProject(
     {
       "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
@@ -92,10 +173,12 @@ test("utility plugins: banner prepends JavaScript and declaration outputs", () =
     {
       compilerOptions: {
         declaration: true,
+        declarationMap: true,
+        sourceMap: true,
         plugins: [
           {
             transform: "@ttsc/banner",
-            banner: "/*! banner-only */",
+            banner: "banner-only\nsecond line",
           },
         ],
       },
@@ -112,13 +195,59 @@ test("utility plugins: banner prepends JavaScript and declaration outputs", () =
     },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(
-    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
-    /^\/\*! banner-only \*\//,
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
+  const jsMap = fs.readFileSync(path.join(root, "dist", "main.js.map"), "utf8");
+  const dtsMap = fs.readFileSync(
+    path.join(root, "dist", "main.d.ts.map"),
+    "utf8",
   );
-  assert.match(
+  assert.match(js, bannerPreamble("banner-only\nsecond line"));
+  assert.match(dts, bannerPreamble("banner-only\nsecond line"));
+  assert.match(js, /\n\/\/# sourceMappingURL=main\.js\.map$/);
+  assert.match(dts, /\n\/\/# sourceMappingURL=main\.d\.ts\.map$/);
+  assert.doesNotMatch(jsMap, /@packageDocumentation|banner-only/);
+  assert.doesNotMatch(dtsMap, /@packageDocumentation|banner-only/);
+  assert.equal(JSON.parse(jsMap).version, 3);
+  assert.equal(JSON.parse(dtsMap).version, 3);
+});
+
+test("utility plugins: banner follows removeComments", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
+    },
+    {
+      compilerOptions: {
+        declaration: true,
+        removeComments: true,
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            banner: "removed banner",
+          },
+        ],
+      },
+    },
+  );
+  seedUtilityPackages(root, ["banner"]);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-banner-remove-comments-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /@packageDocumentation|removed banner/,
+  );
+  assert.doesNotMatch(
     fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8"),
-    /^\/\*! banner-only \*\//,
+    /@packageDocumentation|removed banner/,
   );
 });
 
@@ -181,10 +310,11 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
 test("utility plugins: strip removes configured calls and debugger statements", () => {
   const root = commonJsProject(
     {
-      "src/main.ts": `const assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\n`,
+      "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\n`,
     },
     {
       compilerOptions: {
+        declaration: true,
         plugins: [
           {
             transform: "@ttsc/strip",
@@ -211,9 +341,88 @@ test("utility plugins: strip removes configured calls and debugger statements", 
   assert.doesNotMatch(js, /\bdebugger\b/);
   assert.doesNotMatch(js, /assert\.equal/);
   assert.match(js, /console\.info\("kept"\)/);
+  const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
+  assert.match(dts, /interface StripBox/);
+  assert.match(dts, /value: string/);
+  assert.doesNotMatch(dts, /console|debugger|assert/);
   const run = runNode(path.join(root, "dist", "main.js"), { cwd: root });
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout.trim(), "kept");
+});
+
+test("utility plugins: removed output stage descriptor is rejected", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `export const value = "x";\n`,
+      "plugins/output.cjs": `
+        module.exports = {
+          name: "legacy-output",
+          source: require("node:path").resolve(__dirname, "..", "plugin"),
+          stage: "output",
+        };
+      `,
+      "plugin/go.mod": "module example.com/legacyoutput\n\ngo 1.26\n",
+      "plugin/main.go": "package main\n\nfunc main() {}\n",
+    },
+    {
+      compilerOptions: {
+        plugins: [{ transform: "./plugins/output.cjs" }],
+      },
+    },
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /removed stage "output"/);
+});
+
+test("utility plugins: user phase options are rejected", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `export const value = "x";\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            banner: "phase",
+            afterDeclarations: true,
+          },
+        ],
+      },
+    },
+  );
+  seedUtilityPackages(root, ["banner"]);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /unsupported ts-patch option "afterDeclarations"/,
+  );
+});
+
+test("utility plugins: transform descriptors must declare hooks", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `export const value = "x";\n`,
+      "plugins/no-hooks.cjs": `
+        module.exports = {
+          name: "no-hooks",
+          source: require("node:path").resolve(__dirname, "..", "plugin"),
+        };
+      `,
+      "plugin/go.mod": "module example.com/nohooks\n\ngo 1.26\n",
+      "plugin/main.go": "package main\n\nfunc main() {}\n",
+    },
+    {
+      compilerOptions: {
+        plugins: [{ transform: "./plugins/no-hooks.cjs" }],
+      },
+    },
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must declare source\/declaration hooks/);
 });
 
 function seedUtilityPackages(root, names = utilityPackages) {
@@ -235,4 +444,26 @@ function goPath() {
   return fs.existsSync(localGo)
     ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
     : process.env.PATH;
+}
+
+function bannerPreamble(text) {
+  const lines = text.split(/\r?\n/).filter((line, index, all) => {
+    return index < all.length - 1 || line.trim() !== "";
+  });
+  const sep = "-".repeat(64);
+  const escaped = [
+    "/**",
+    ` * ${sep}`,
+    ...lines.map((line) => ` * ${line.replaceAll("*/", "* /")}`),
+    " *",
+    " * @packageDocumentation",
+    " */",
+  ]
+    .map(escapeRegExp)
+    .join("\\n");
+  return new RegExp(`^${escaped}\\n`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

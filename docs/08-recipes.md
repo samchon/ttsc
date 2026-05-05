@@ -66,40 +66,42 @@ func runPipeline(value string, plugins []PluginEntry) (string, error) {
 
 Consumer config order becomes execution order.
 
-When modes need to cooperate inside the compiler backend, keep those modes in one native binary and dispatch over the ordered `--plugins-json` entries. Output and check plugins do not need to share that binary.
+When modes need to cooperate inside one transform emit pass, keep those modes in
+one native binary and dispatch over the ordered `--plugins-json` entries. Check
+plugins are independent diagnostics passes.
 
-## Output Plugin
+## Transform Plugin
 
-Use `capabilities: ["output"]` for post-emit edits:
+Declare transform hooks in the package descriptor:
 
 ```js
-native: {
-  mode: "my-output-plugin",
-  source: { dir: path.resolve(__dirname, "go-plugin") },
-  contractVersion: 1,
-  capabilities: ["output"],
-}
+module.exports = {
+  name: "my-transform-plugin",
+  source: path.resolve(__dirname, "go-plugin"),
+  stage: "transform",
+  hooks: { source: true, declaration: true },
+};
 ```
 
 Implement:
 
 ```bash
-my-plugin output --file=/project/dist/main.js --plugins-json='[...]'
+my-plugin build --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 ```
 
-Read the file, patch it, write it back. Output plugins can be combined with other output plugins; `ttsc` runs them after TypeScript-Go's normal emit path.
+Load the project, mutate TypeScript or declaration AST, then let TypeScript-Go
+print JavaScript, declarations, and source maps.
 
 ## Check Plugin
 
-Use `capabilities: ["check"]` for diagnostics before emit:
+Use `stage: "check"` for diagnostics before emit:
 
 ```js
-native: {
-  mode: "my-check-plugin",
-  source: { dir: path.resolve(__dirname, "go-plugin") },
-  contractVersion: 1,
-  capabilities: ["check"],
-}
+module.exports = {
+  name: "my-check-plugin",
+  source: path.resolve(__dirname, "go-plugin"),
+  stage: "check",
+};
 ```
 
 Implement:
@@ -140,7 +142,9 @@ return 2
 
 ## Source Maps
 
-Prefer line-preserving edits. If the plugin substantially restructures JavaScript, it owns the source-map problem. Most output plugins should avoid that complexity.
+Prefer AST transforms and TypeScript-Go printing so source maps stay owned by the
+compiler. The public plugin contract does not provide generated JavaScript text
+as a source-map-bearing edit target.
 
 ## Watch Mode
 

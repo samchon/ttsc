@@ -4,7 +4,7 @@ Consumers do not need Go installed. Plugin authors usually do, because direct `g
 
 ## Basic Loop
 
-For a plugin that does not import TypeScript-Go shims:
+For a check plugin that does not import TypeScript-Go shims:
 
 ```bash
 go test ./go-plugin/...
@@ -12,7 +12,8 @@ go vet ./go-plugin/...
 go build ./go-plugin
 ```
 
-That is enough for output plugins like a banner rewriter.
+That is enough for simple diagnostics plugins. Transform plugins usually import
+the `ttsc` driver or TypeScript-Go shims.
 
 ## Shim-Using Plugins
 

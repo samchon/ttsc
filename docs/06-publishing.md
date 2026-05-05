@@ -38,7 +38,8 @@ Verify before publish:
 npm pack --dry-run
 ```
 
-If the tarball does not contain `go-plugin/main.go`, consumers will fail with `native.source.dir does not exist` or a Go build error.
+If the tarball does not contain `go-plugin/main.go`, consumers will fail with a
+`source does not exist` or Go build error.
 
 ## Dependencies
 
@@ -62,11 +63,12 @@ Practical rule:
 | --- | --- |
 | bug fix | patch |
 | new mode or option | minor |
-| removed mode or changed output contract | major |
+| removed mode or changed transform contract | major |
 | newly verified `ttsc` minor range | minor |
 | dropped old `ttsc` minor support | major |
 
-`native.contractVersion` is not your package version. Keep it at `1` until `ttsc` introduces a new protocol.
+Your package version is separate from the `ttsc` plugin protocol. Pin a tested
+`ttsc` peer range and widen it only after verification.
 
 ## Pre-Publish Check
 

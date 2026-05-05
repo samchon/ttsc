@@ -1,5 +1,20 @@
 import type { TtscPluginStage } from "./TtscPluginStage";
 
+export interface ITtscPluginHooks {
+  /**
+   * Runs against TypeScript SourceFile AST before TypeScript-Go's built-in emit
+   * transforms. The Program/checker are created from the original source before
+   * this hook participates in emit.
+   */
+  source?: boolean;
+
+  /**
+   * Runs against declaration AST before declaration printing. This is a
+   * plugin-package capability, never a user-facing tsconfig phase option.
+   */
+  declaration?: boolean;
+}
+
 /**
  * Runtime descriptor returned by a ttsc plugin module.
  *
@@ -48,11 +63,23 @@ export interface ITtscPlugin {
   /**
    * Pipeline stage implemented by the sidecar.
    *
-   * Omit this field for normal compiler-transform plugins. Explicit stages are
-   * intended for tools that only validate (`"check"`) or rewrite already
-   * emitted files (`"output"`).
+   * Omit this field for normal compiler-transform plugins. The only explicit
+   * non-transform stage is `"check"`.
    *
    * @default "transform"
    */
   stage?: TtscPluginStage;
+
+  /** Native transform hook capabilities implemented by the plugin package. */
+  hooks?: ITtscPluginHooks;
+}
+
+export function defineTtscPlugin<T extends ITtscPlugin>(plugin: T): T;
+export function defineTtscPlugin<TContext, T extends ITtscPlugin>(
+  factory: (context: TContext) => T,
+): (context: TContext) => T;
+export function defineTtscPlugin(
+  value: ITtscPlugin | ((context: unknown) => ITtscPlugin),
+): ITtscPlugin | ((context: unknown) => ITtscPlugin) {
+  return value;
 }

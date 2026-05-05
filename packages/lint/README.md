@@ -130,7 +130,7 @@ The `config` field accepts:
 
 `@ttsc/lint` must be the first plugin in `compilerOptions.plugins`.
 
-It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have to come after it.
+It inspects the source you wrote, so transform plugins such as `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` have to come after it.
 
 ```jsonc
 {
@@ -139,8 +139,8 @@ It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/path
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error", "prefer-const": "error" } },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // Transform plugins run in order.
+      { "transform": "@ttsc/banner", "banner": "@license MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] }
     ]

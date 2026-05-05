@@ -58,7 +58,9 @@ export function loadProjectPlugins(options: {
   const ttscVersion = readTtscVersion();
   const tsgoVersion = readTsgoVersion(context.projectRoot);
   plugins.forEach((plugin, index) => {
+    const stage = resolvePluginStage(plugin);
     validatePluginSource(plugin);
+    validatePluginHooks(plugin, stage);
     const binary = buildSourcePlugin({
       baseDir: context.projectRoot,
       cacheDir: options.cacheDir,
@@ -70,8 +72,9 @@ export function loadProjectPlugins(options: {
     nativePlugins.push({
       binary,
       config: entries[index]!,
+      hooks: plugin.hooks,
       name: plugin.name,
-      stage: resolvePluginStage(plugin),
+      stage,
     });
   });
   return {
@@ -88,6 +91,7 @@ function loadPluginEntry(
   if (typeof specifier !== "string" || specifier.length === 0) {
     throw new Error(`ttsc: plugin entry is missing a string "transform" field`);
   }
+  rejectUserPhaseOptions(specifier, entry);
 
   const request = resolvePluginRequest(specifier, context.projectRoot);
   const mod = require(request) as {
@@ -135,11 +139,37 @@ function rejectJsTransformHooks(specifier: string, candidate: object): void {
   }
 }
 
+function rejectUserPhaseOptions(
+  specifier: string,
+  entry: ITtscProjectPluginConfig,
+): void {
+  for (const key of [
+    "after",
+    "afterDeclarations",
+    "before",
+    "phase",
+    "source:after",
+  ]) {
+    if (key in entry) {
+      throw new Error(
+        `ttsc: plugin entry for "${specifier}" uses unsupported ts-patch option ${JSON.stringify(key)}; ` +
+          "ttsc plugins declare source/declaration hooks in the package descriptor, not in user tsconfig",
+      );
+    }
+  }
+}
+
 function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
   if (plugin.stage === undefined) {
     return "transform";
   }
   if (!isPluginStage(plugin.stage)) {
+    if (plugin.stage === "output") {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" requested removed stage "output"; ` +
+          "upgrade the plugin to a transform hook descriptor compatible with this ttsc version",
+      );
+    }
     throw new Error(
       `ttsc: plugin "${plugin.name}" requested unsupported stage ${JSON.stringify(plugin.stage)}`,
     );
@@ -153,8 +183,56 @@ function validatePluginSource(plugin: ITtscPlugin): void {
   }
 }
 
+function validatePluginHooks(
+  plugin: ITtscPlugin,
+  stage: TtscPluginStage,
+): void {
+  const hooks = plugin.hooks;
+  if (hooks !== undefined && typeof hooks !== "object") {
+    throw new Error(`ttsc: plugin "${plugin.name}" hooks must be an object`);
+  }
+  if (stage === "check") {
+    if (hooks !== undefined && Object.keys(hooks).length !== 0) {
+      throw new Error(
+        `ttsc: check plugin "${plugin.name}" must not declare transform hooks`,
+      );
+    }
+    return;
+  }
+  if (hooks === undefined) {
+    throw new Error(
+      `ttsc: transform plugin "${plugin.name}" must declare source/declaration hooks in its package descriptor`,
+    );
+  }
+  for (const key of Object.keys(hooks)) {
+    if (key !== "source" && key !== "declaration") {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" requested unsupported hook ${JSON.stringify(key)}`,
+      );
+    }
+  }
+  if (hooks.source !== undefined && typeof hooks.source !== "boolean") {
+    throw new Error(
+      `ttsc: plugin "${plugin.name}" hooks.source must be boolean`,
+    );
+  }
+  if (
+    hooks.declaration !== undefined &&
+    typeof hooks.declaration !== "boolean"
+  ) {
+    throw new Error(
+      `ttsc: plugin "${plugin.name}" hooks.declaration must be boolean`,
+    );
+  }
+  if (hooks.source !== true && hooks.declaration !== true) {
+    throw new Error(
+      `ttsc: transform plugin "${plugin.name}" must enable at least one source/declaration hook`,
+    );
+  }
+}
+
 function isPluginStage(value: string): value is TtscPluginStage {
-  return value === "transform" || value === "check" || value === "output";
+  return value === "transform" || value === "check";
 }
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {

@@ -141,9 +141,9 @@ It is transformed into dedicated JavaScript:
 
 `ttsc` ships a few small utility plugins in this repository.
 
-- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds banner comments to emitted JS and declarations.
+- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners to JS and declaration emit.
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): type-check + lint in one compile pass, ~20x faster than `eslint` in theory.
-- [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites path aliases in emitted imports.
+- [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites path aliases in JS and declaration imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 
 Plugin authors should start from the [`Guide Documents`](https://github.com/samchon/ttsc/tree/master/docs).

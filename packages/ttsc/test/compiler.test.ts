@@ -274,7 +274,7 @@ function createProject(options = {}) {
 function writeSourcePlugin(root) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
-    'module.exports = { name: "prepare-fixture", source: "./plugin-go" };\n',
+    'module.exports = { name: "prepare-fixture", source: "./plugin-go", hooks: { source: true } };\n',
     "utf8",
   );
   fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
@@ -293,7 +293,7 @@ function writeSourcePlugin(root) {
 function writeBrokenTransformPlugin(root) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
-    'module.exports = { name: "broken-transform-fixture", source: "./plugin-go" };\n',
+    'module.exports = { name: "broken-transform-fixture", source: "./plugin-go", hooks: { source: true } };\n',
     "utf8",
   );
   fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
@@ -327,7 +327,7 @@ function writeBrokenTransformPlugin(root) {
 function writeCompilerPlugin(root) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
-    'module.exports = { name: "compile-fixture", source: "./plugin-go" };\n',
+    'module.exports = { name: "compile-fixture", source: "./plugin-go", hooks: { source: true } };\n',
     "utf8",
   );
   fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });

@@ -99,9 +99,6 @@ export function runBuild(
     const compilers = execution.nativePlugins.filter(
       (plugin) => plugin.stage === "transform",
     );
-    const outputs = execution.nativePlugins.filter(
-      (plugin) => plugin.stage === "output",
-    );
     const checked = runNativeCheckPlugins(options, execution);
     if (checked.status !== 0) {
       return checked;
@@ -109,7 +106,7 @@ export function runBuild(
 
     if (options.emit === false) {
       if (compilers.length !== 0) {
-        assertSingleCompilerHost(compilers);
+        assertCompilerHostCompatibility(compilers);
         return appendBuildOutput(
           checked,
           buildWithNativeCompilerPlugins(options, execution, compilers),
@@ -123,7 +120,7 @@ export function runBuild(
 
     let result: TtscBuildResult;
     if (compilers.length !== 0) {
-      assertSingleCompilerHost(compilers);
+      assertCompilerHostCompatibility(compilers);
       result = appendBuildOutput(
         checked,
         buildWithNativeCompilerPlugins(options, execution, compilers),
@@ -140,25 +137,13 @@ export function runBuild(
         }
       }
       const args = createTsgoBuildArgs(execution, options, {
-        listEmittedFiles:
-          outputs.length !== 0 || options.forceListEmittedFiles === true,
+        listEmittedFiles: options.forceListEmittedFiles === true,
       });
       const emitted = runTsgoBuild(execution, options, args);
       result = appendBuildOutput(checked, emitted);
     }
 
-    if (result.status !== 0 || outputs.length === 0) {
-      return result;
-    }
-    return appendBuildOutput(
-      result,
-      applyOutputPlugins(
-        options,
-        execution,
-        result.emittedFiles ?? [],
-        outputs,
-      ),
-    );
+    return result;
   }
 
   if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
@@ -332,30 +317,13 @@ function createNativeCheckArgs(
   return args;
 }
 
-function createNativeOutputArgs(
-  execution: ReturnType<typeof resolveExecutionContext>,
-  options: TtscBuildOptions,
-  file: string,
-): string[] {
-  const args = [
-    "output",
-    "--file=" + file,
-    "--tsconfig=" + execution.tsconfig,
-    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
-    "--cwd=" + execution.projectRoot,
-  ];
-  if (options.outDir) {
-    args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
-  }
-  return args;
-}
-
 function serializeNativePlugins(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): string {
   return JSON.stringify(
     plugins.map((plugin) => ({
       config: plugin.config,
+      hooks: plugin.hooks,
       name: plugin.name,
       stage: plugin.stage,
     })),
@@ -388,48 +356,6 @@ function runNativeCheckPlugins(
     }
   }
   return out;
-}
-
-function applyOutputPlugins(
-  options: TtscBuildOptions,
-  execution: ReturnType<typeof resolveExecutionContext>,
-  emittedFiles: readonly string[],
-  plugins: readonly ITtscLoadedNativePlugin[],
-): TtscBuildResult {
-  let out: TtscBuildResult = {
-    diagnostics: [],
-    status: 0,
-    stdout: "",
-    stderr: "",
-  };
-  for (const plugin of plugins) {
-    for (const file of emittedFiles) {
-      if (!fs.existsSync(file)) {
-        continue;
-      }
-      const result = runNativeOutputPlugin(options, execution, plugin, file);
-      out = appendBuildOutput(out, result);
-      if (result.status !== 0) {
-        return out;
-      }
-    }
-  }
-  return out;
-}
-
-function runNativeOutputPlugin(
-  options: TtscBuildOptions,
-  execution: ReturnType<typeof resolveExecutionContext>,
-  plugin: ITtscLoadedNativePlugin,
-  file: string,
-): TtscBuildResult {
-  return runNativePluginCommand(
-    plugin,
-    createNativeOutputArgs(execution, options, file),
-    options,
-    execution,
-    "ttsc.output",
-  );
 }
 
 function runNativePluginCommand(
@@ -473,16 +399,31 @@ function appendBuildOutput(
   });
 }
 
-function assertSingleCompilerHost(
+function assertCompilerHostCompatibility(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): void {
   const binaries = [...new Set(plugins.map((plugin) => plugin.binary))];
-  if (binaries.length > 1) {
-    throw new Error(
-      "ttsc: multiple compiler native backends cannot share one emit pass; " +
-        "use output-capability plugins for post-emit transforms",
-    );
+  if (binaries.length <= 1) {
+    return;
   }
+  if (plugins.every(isFirstPartyUtilityTransformPlugin)) {
+    return;
+  }
+  throw new Error(
+    "ttsc: multiple compiler native backends cannot share one emit pass; " +
+      "compose transform hook libraries through one aggregate host",
+  );
+}
+
+function isFirstPartyUtilityTransformPlugin(
+  plugin: ITtscLoadedNativePlugin,
+): boolean {
+  return (
+    plugin.stage === "transform" &&
+    (plugin.name === "@ttsc/banner" ||
+      plugin.name === "@ttsc/paths" ||
+      plugin.name === "@ttsc/strip")
+  );
 }
 
 function resolveExecutionContext(

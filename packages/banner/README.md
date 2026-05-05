@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/banner` prepends a fixed comment to emitted JavaScript and declaration files.
+`@ttsc/banner` adds a fixed `@packageDocumentation` JSDoc banner to JavaScript and declaration emit.
 
 ## Setup
 
@@ -27,7 +27,7 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "/*! @license MIT (c) 2026 Acme */"
+        "banner": "@license MIT (c) 2026 Acme"
       }
     ]
   }
@@ -40,7 +40,7 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-The banner is written to emitted `.js`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, and `.d.cts` files. Source maps and build-info files are left unchanged.
+The plugin formats every banner line inside a compiler-owned JSDoc block and adds `@packageDocumentation`. The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
 
 ## Notes
 
@@ -53,8 +53,8 @@ The banner is written to emitted `.js`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, and `
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // Transform plugins run in order.
+      { "transform": "@ttsc/banner", "banner": "@license MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] }
     ]

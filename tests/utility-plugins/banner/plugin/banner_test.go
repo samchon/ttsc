@@ -1,54 +1,96 @@
-// Unit tests for the banner output transform.
-//
-// The corpus fixes the public behavior: JS and declaration outputs receive the
-// banner, structured outputs stay untouched, and invalid config is rejected.
 package main
 
 import (
+  "encoding/json"
+  "os"
+  "path/filepath"
   "strings"
   "testing"
 )
 
-func TestApplyPrependsBannerToJavaScript(t *testing.T) {
-  out, err := Apply("/project/dist/main.js", `"use strict";`+"\n", map[string]any{
-    "banner": "/*! test */",
+func TestBannerSidecarBuildsJavaScriptAndDeclarations(t *testing.T) {
+  root := seedProject(t, map[string]string{
+    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"declaration":true,"declarationMap":true,"sourceMap":true,"outDir":"dist","rootDir":"src"},"include":["src"]}`,
+    "src/main.ts":   `export interface Box { value: string }` + "\n" + `export const box: Box = { value: "ok" };` + "\n",
   })
-  if err != nil {
-    t.Fatal(err)
+  manifest := mustJSON(t, []map[string]any{{
+    "name":  "@ttsc/banner",
+    "stage": "transform",
+    "hooks": map[string]any{"source": true, "declaration": true},
+    "config": map[string]any{
+      "transform": "@ttsc/banner",
+      "banner":    "unit banner",
+    },
+  }})
+
+  status := run([]string{"build", "--cwd=" + root, "--tsconfig=" + filepath.Join(root, "tsconfig.json"), "--plugins-json=" + manifest, "--emit", "--quiet"})
+  if status != 0 {
+    t.Fatalf("build status=%d", status)
   }
-  if !strings.HasPrefix(out, "/*! test */\n") {
-    t.Fatalf("banner was not prepended:\n%s", out)
+
+  js := readFile(t, filepath.Join(root, "dist", "main.js"))
+  dts := readFile(t, filepath.Join(root, "dist", "main.d.ts"))
+  if !strings.HasPrefix(js, bannerPrefix("unit banner")) {
+    t.Fatalf("missing JS banner:\n%s", js)
+  }
+  if !strings.HasPrefix(dts, bannerPrefix("unit banner")) {
+    t.Fatalf("missing declaration banner:\n%s", dts)
+  }
+  assertJSONMap(t, filepath.Join(root, "dist", "main.js.map"))
+  assertJSONMap(t, filepath.Join(root, "dist", "main.d.ts.map"))
+}
+
+func TestBannerSidecarRejectsOutputCommand(t *testing.T) {
+  if status := run([]string{"output"}); status == 0 {
+    t.Fatal("output command must not be accepted")
   }
 }
 
-func TestApplyPrependsBannerToDeclarations(t *testing.T) {
-  out, err := Apply("/project/dist/main.d.ts", `export {};`+"\n", map[string]any{
-    "banner": "/*! types */",
-  })
+func seedProject(t *testing.T, files map[string]string) string {
+  t.Helper()
+  root := t.TempDir()
+  for name, text := range files {
+    file := filepath.Join(root, filepath.FromSlash(name))
+    if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+      t.Fatal(err)
+    }
+  }
+  return root
+}
+
+func mustJSON(t *testing.T, value any) string {
+  t.Helper()
+  data, err := json.Marshal(value)
   if err != nil {
     t.Fatal(err)
   }
-  if !strings.HasPrefix(out, "/*! types */\n") {
-    t.Fatalf("banner was not prepended to declaration:\n%s", out)
-  }
+  return string(data)
 }
 
-func TestApplyRejectsMissingBanner(t *testing.T) {
-  _, err := Apply("/project/dist/main.js", `console.log(1);`, map[string]any{})
-  if err == nil || !strings.Contains(err.Error(), "non-empty string") {
-    t.Fatalf("expected banner config error, got %v", err)
-  }
-}
-
-func TestApplySkipsSourceMaps(t *testing.T) {
-  const text = `{"version":3}`
-  out, err := Apply("/project/dist/main.js.map", text, map[string]any{
-    "banner": "/*! test */",
-  })
+func readFile(t *testing.T, file string) string {
+  t.Helper()
+  data, err := os.ReadFile(file)
   if err != nil {
     t.Fatal(err)
   }
-  if out != text {
-    t.Fatalf("source map should be unchanged: %q", out)
+  return string(data)
+}
+
+func assertJSONMap(t *testing.T, file string) {
+  t.Helper()
+  var out map[string]any
+  if err := json.Unmarshal([]byte(readFile(t, file)), &out); err != nil {
+    t.Fatalf("%s is not JSON: %v", file, err)
   }
+  if out["version"] != float64(3) {
+    t.Fatalf("%s version=%v", file, out["version"])
+  }
+}
+
+func bannerPrefix(text string) string {
+  sep := strings.Repeat("-", 64)
+  return "/**\n * " + sep + "\n * " + text + "\n *\n * @packageDocumentation\n */\n"
 }

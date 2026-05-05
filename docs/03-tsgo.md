@@ -2,7 +2,7 @@
 
 This is the deep plugin-author chapter. Read it when your plugin needs to understand TypeScript source, walk AST nodes, inspect declarations, query types, or produce diagnostics tied to source ranges.
 
-For simple post-emit text edits, start with [Getting Started](./01-getting-started.md). For the four shipped examples, read [Reference Plugins](./10-reference-plugins.md).
+For a small source-AST transform, start with [Getting Started](./01-getting-started.md). For the four shipped examples, read [Reference Plugins](./10-reference-plugins.md).
 
 ## Choosing the Right Level
 
@@ -10,9 +10,9 @@ Use the smallest surface that answers your question:
 
 | Need | Use | Example |
 | --- | --- | --- |
-| Add a license banner | emitted file text | `@ttsc/banner` |
-| Remove `console.log(...)` statements from JS output | parse emitted JS AST | `@ttsc/strip` |
-| Rewrite `paths` aliases in emitted JS and declarations | parse emitted files plus load project config/Program | `@ttsc/paths` |
+| Add a package banner | synthetic JSDoc on source/declaration AST before print | `@ttsc/banner` |
+| Remove `console.log(...)` statements | source AST statement filtering | `@ttsc/strip` |
+| Rewrite `paths` aliases in JS and declarations | source/declaration AST plus project config/Program | `@ttsc/paths` |
 | Report source diagnostics | Program + AST + diagnostics writer | `@ttsc/lint` |
 | Generate code from `T` in `foo<T>()` | Program + AST + Checker | semantic transformer plugins |
 
@@ -55,7 +55,7 @@ Useful shim modules:
 | Shim | Use |
 | --- | --- |
 | `shim/ast` | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression` |
-| `shim/parser` | parse emitted JS or TS text into a `SourceFile` |
+| `shim/parser` | parse JS or TS text into a `SourceFile` when the plugin owns that text |
 | `shim/scanner` | token positions, trivia skipping, line/column mapping, source text helpers |
 | `shim/tsoptions` | parse `tsconfig.json` |
 | `shim/compiler` | create Program, emit, diagnostics |
@@ -525,7 +525,8 @@ If your plugin exits non-zero, write clear diagnostics to stderr. `ttsc` surface
 
 ## Text Edits
 
-Most plugins should not mutate AST nodes. They should compute text edits and apply them to source or output text.
+Prefer AST mutation for syntax changes. Use text edits only when the plugin owns
+the source text workflow and the change is naturally range-based.
 
 Edit type:
 
@@ -560,11 +561,13 @@ func applyTextEdits(text string, edits []textEdit) string {
 
 Why reverse order: earlier edits do not shift the offsets of later edits that are already applied.
 
-For statement removal, include indentation and trailing newline when that is safe. `@ttsc/strip` shows a practical statement range function.
+For statement removal, prefer filtering the parent `NodeList` instead of slicing
+emitted text. `@ttsc/strip` is the reference.
 
-## Parsing Emitted JS Without a Program
+## Parsing Text Without a Program
 
-Output plugins can parse a single emitted JS file:
+A standalone tool can parse a single JS or TS text file without loading a full
+Program:
 
 ```go
 func parseJS(fileName, text string) *shimast.SourceFile {
@@ -575,9 +578,12 @@ func parseJS(fileName, text string) *shimast.SourceFile {
 }
 ```
 
-Use this when the emitted file contains all information needed for the edit. `@ttsc/strip` is the model.
+Use this only when the text itself is the plugin-owned input. The public `ttsc`
+plugin contract does not expose generated JavaScript text as a transform target.
 
-Use a Program when you need project-level facts, such as `compilerOptions.paths`, source file membership, declaration emit mapping, or semantic types. `@ttsc/paths` and `@ttsc/lint` are the models.
+Use a Program when you need project-level facts, such as `compilerOptions.paths`,
+source file membership, declaration emit mapping, or semantic types.
+`@ttsc/paths` and `@ttsc/lint` are the models.
 
 ## Common AST Mistakes
 
@@ -586,6 +592,7 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 - Calling `AsX()` and assuming it cannot be nil.
 - Walking declaration files when you meant user code.
 - Treating a type node as a resolved type.
+- Editing text when an AST mutation would express the same change.
 - Editing text from the start of the file toward the end.
 - Reporting diagnostics at statement start instead of token start.
 - Trying to use Checker data before acquiring and deferring the release callback.
@@ -594,8 +601,8 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 
 Read these in order:
 
-1. [`packages/banner`](../packages/banner/) - output pass with no AST.
-2. [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go) - parse emitted JS, walk AST, edit text.
+1. [`packages/banner`](../packages/banner/) - synthetic JSDoc on JS/declaration print paths.
+2. [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go) - source AST statement filtering.
 3. [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go) - parse tsconfig, load Program, rewrite specifiers.
 4. [`tests/projects/go-source-plugin-checker`](../tests/projects/go-source-plugin-checker/) - Program/Checker bootstrap.
 5. [`tests/projects/go-source-plugin-properties`](../tests/projects/go-source-plugin-properties/) - declaration AST walk.
