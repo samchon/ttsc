@@ -78,6 +78,115 @@ func TestEngineSkipsDeclarationFiles(t *testing.T) {
   }
 }
 
+func TestEngineRespectsESLintDisableNextLine(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
+    var before = 1;
+    // eslint-disable-next-line no-var -- deliberate fixture
+    var skipped = 2;
+    var after = 3;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineRespectsLintDisableNextLineAlias(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
+  file := parseTS(t, `
+    debugger;
+    // lint-disable-next-line no-debugger
+    debugger;
+    debugger;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineRespectsESLintDisableLine(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
+    var before = 1;
+    var skipped = 2; // eslint-disable-line no-var
+    var after = 3;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineRespectsBlockDisableEnable(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
+    var before = 1;
+    /* eslint-disable no-var */
+    var skipped = 2;
+    /* eslint-enable no-var */
+    var after = 3;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
+  engine := NewEngine(RuleConfig{
+    "no-var":      SeverityError,
+    "no-debugger": SeverityError,
+  })
+  file := parseTS(t, `
+    // eslint-disable-next-line
+    var skipped = 1; debugger;
+    var reported = 2; debugger;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineDirectiveNormalizesTypeScriptESLintRuleNames(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-explicit-any": SeverityError})
+  file := parseTS(t, `
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const skipped: any = 1;
+    const reported: any = 2;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 1 {
+    t.Fatalf("want 1 unsuppressed finding, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineIgnoresDirectiveTextInsideStrings(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
+    const text = "// eslint-disable-next-line no-var";
+    var reported = 1;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 1 {
+    t.Fatalf("want 1 finding, got %d: %v", got, findingRules(findings))
+  }
+}
+
+func TestEngineBlockDisableAfterCodeDoesNotSuppressEarlierSameLine(t *testing.T) {
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
+    var reported = 1; /* eslint-disable no-var */
+    var skipped = 2;
+  `)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 1 {
+    t.Fatalf("want 1 finding, got %d: %v", got, findingRules(findings))
+  }
+}
+
 func TestAllRuleNamesIsSorted(t *testing.T) {
   names := AllRuleNames()
   sorted := append([]string(nil), names...)
@@ -120,4 +229,13 @@ func TestRuleCodeIsStable(t *testing.T) {
   if a == b {
     t.Errorf("ruleCode collision for no-var vs no-debugger")
   }
+}
+
+func findingRules(findings []*Finding) []string {
+  names := make([]string, 0, len(findings))
+  for _, finding := range findings {
+    names = append(names, finding.Rule)
+  }
+  sort.Strings(names)
+  return names
 }

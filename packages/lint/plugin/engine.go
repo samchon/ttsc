@@ -274,5 +274,5 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   for _, stmt := range statements.Nodes {
     walk(stmt)
   }
-  return collected
+  return filterInlineDisabledFindings(file, collected)
 }

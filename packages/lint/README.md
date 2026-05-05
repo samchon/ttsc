@@ -191,6 +191,11 @@ and `@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only
 features such as `plugins`, `languageOptions`, `processor`, `settings`,
 `linterOptions`, or string `extends` require ESLint to be installed.
 
+Inline disable comments are respected in both paths. Use the ESLint forms
+`eslint-disable-next-line`, `eslint-disable-line`, `eslint-disable`, and
+`eslint-enable`; the native engine also accepts the `lint-*` aliases for the
+same directives.
+
 ## Plugin order
 
 `@ttsc/lint` must be the first plugin in `compilerOptions.plugins`.

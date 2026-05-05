@@ -133,6 +133,39 @@ test("lint config file: tsconfig may reference a standalone JSON file", () => {
   );
 });
 
+test("lint disable comments: native engine respects eslint and lint directives", () => {
+  const result = runLint({
+    name: "native-inline-disable-directives",
+    source: `var before = 1;
+// eslint-disable-next-line no-var, @typescript-eslint/no-explicit-any -- deliberate
+var skipped: any = 2;
+var sameLine = 3; debugger; // lint-disable-line no-var, no-debugger
+/* eslint-disable no-var */
+var blockSkipped = 4;
+/* eslint-enable no-var */
+var after = 5;
+const text = "// eslint-disable-next-line no-var";
+var stringNotDirective = 6;
+`,
+    rules: {
+      "no-var": "error",
+      "no-debugger": "error",
+      "no-explicit-any": "error",
+    },
+  });
+
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.line]),
+    [
+      ["no-var", 1],
+      ["no-var", 8],
+      ["no-var", 10],
+    ],
+    result.stderr,
+  );
+});
+
 test("lint config file: JavaScript configs may export the rules object", () => {
   const result = runLint({
     name: "config-file-js",
@@ -609,6 +642,40 @@ test("lint config file: ESLint runtime diagnostics match ESLint API output", asy
         rules: {
           "@typescript-eslint/no-explicit-any": "error",
           "@typescript-eslint/no-floating-promises": "error",
+        },
+      });\n`,
+    },
+  });
+});
+
+test("lint config file: ESLint runtime matches inline disable output", async () => {
+  await assertESLintRuntimeParity({
+    name: "config-file-eslint-runtime-inline-disable",
+    source: `const reported: any = 1;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const skipped: any = reported;
+`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      export default tseslint.config({
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: {
+            project: "./tsconfig.json",
+            tsconfigRootDir: import.meta.dirname,
+          },
+        },
+        plugins: {
+          "@typescript-eslint": tseslint.plugin,
+        },
+        rules: {
+          "@typescript-eslint/no-explicit-any": "error",
         },
       });\n`,
     },
