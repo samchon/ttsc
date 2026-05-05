@@ -74,11 +74,11 @@ Keep `@ttsc/lint` as the first plugin entry — see [Plugin order](#plugin-order
           "no-var": "error",
           "prefer-const": "error",
           "no-explicit-any": "warning",
-          "no-console": "off"
-        }
-      }
-    ]
-  }
+          "no-console": "off",
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -103,28 +103,90 @@ You can also keep the rules in a standalone file and reference it from `tsconfig
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "config": "./ttsc-lint.config.ts"
-      }
-    ]
-  }
+        "config": "./ttsc-lint.config.ts",
+      },
+    ],
+  },
 }
 ```
 
 ```ts
 // ttsc-lint.config.ts
-export default {
+import type { TtscLintConfig } from "@ttsc/lint/config";
+
+const config = {
   "no-var": "error",
   "prefer-const": "error",
   "no-explicit-any": "warning",
-  "no-console": "off"
-};
+  "no-console": "off",
+} satisfies TtscLintConfig;
+
+export default config;
 ```
 
 The `config` field accepts:
 
 - An inline object (shown earlier), **or** a path to a file ending in `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`.
 - For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
+- If `config` is omitted, `@ttsc/lint` discovers the nearest `eslint.config.js`, `eslint.config.mjs`, `eslint.config.cjs`, `eslint.config.ts`, `eslint.config.mts`, or `eslint.config.cts` from the owning `tsconfig.json` directory upward.
+- Inline objects use the standard `@ttsc/lint` native rule map shape.
+- Standalone config files may additionally export ESLint flat-config-style objects or arrays. `@ttsc/lint` lowers their `basePath`, `files`, `ignores`, object/array `extends`, and `rules` fields into native per-file rule maps, accepts ESLint severity tuples, and maps `@typescript-eslint/<rule>` keys to native rule names when a matching native rule exists.
 - Relative paths resolve from the directory of the owning `tsconfig.json`.
+
+For example, a flat-config-style file can enable native `@ttsc/lint` rules with
+ESLint or `@typescript-eslint/*` keys:
+
+```ts
+// eslint.config.ts
+import type { Linter } from "eslint";
+
+const config = [
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "warning",
+        { fixStyle: "inline-type-imports" },
+      ],
+      "no-console": "off",
+    },
+  },
+] satisfies Linter.Config[];
+
+export default config;
+```
+
+Config factories can be used when they return a resolved flat config object or
+array. Current `typescript-eslint` versions prefer ESLint's `defineConfig(...)`;
+existing configs that still use `typescript-eslint`'s `config(...)` are readable
+when they export the resolved object/array shape:
+
+```ts
+// eslint.config.ts
+import tseslint, { type ConfigArray } from "typescript-eslint";
+
+const config = tseslint.config({
+  extends: [tseslint.configs.recommended],
+  rules: {
+    "@typescript-eslint/no-explicit-any": "error",
+  },
+}) satisfies ConfigArray;
+
+export default config;
+```
+
+When a project has `eslint` installed and the external config is an
+`eslint.config.*` file, or the config uses runtime-only fields such as `plugins`,
+`languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint`
+delegates diagnostics to the installed ESLint runtime and forwards its rule ids,
+severities, messages, and locations. This is the path that runs external
+RuleModules such as `@typescript-eslint/no-floating-promises`.
+
+When ESLint is not installed and the config can be represented as native rules,
+`@ttsc/lint` falls back to the lowered native rule map. That fallback supports
+`files`, `ignores`, `basePath`, object/array `extends`, `rules`, severity tuples,
+and `@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only
+features such as string `extends` require ESLint to be installed.
 
 ## Plugin order
 
@@ -137,14 +199,17 @@ It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/path
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "config": { "no-var": "error", "prefer-const": "error" } },
+      {
+        "transform": "@ttsc/lint",
+        "config": { "no-var": "error", "prefer-const": "error" },
+      },
 
       // Output plugins run after emit, in order.
       { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
       { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] }
-    ]
-  }
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
 }
 ```
 
@@ -161,7 +226,7 @@ Rules are off until you enable them:
   "no-var": "error",
   "eqeqeq": "error",
   "prefer-template": "warning",
-  "no-non-null-assertion": "off"
+  "no-non-null-assertion": "off",
 }
 ```
 

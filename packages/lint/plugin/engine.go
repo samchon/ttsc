@@ -145,7 +145,7 @@ func AllRuleNames() []string {
 // Engine binds a rule configuration to a Program and walks the AST once
 // per source file, dispatching each visited node to its interested rules.
 type Engine struct {
-  config  RuleConfig
+  config  RuleResolver
   rules   map[shimast.Kind][]Rule
   enabled map[string]Severity
   unknown []string
@@ -156,21 +156,28 @@ type Engine struct {
 // an unknown rule are recorded so the caller can surface them as a
 // configuration warning rather than a silent typo.
 func NewEngine(config RuleConfig) *Engine {
+  return NewEngineWithResolver(config)
+}
+
+// NewEngineWithResolver returns an engine configured by a resolver that can
+// vary rule severities per file.
+func NewEngineWithResolver(config RuleResolver) *Engine {
+  if config == nil {
+    config = RuleConfig{}
+  }
   eng := &Engine{
     config:  config,
     rules:   make(map[shimast.Kind][]Rule),
     enabled: make(map[string]Severity),
   }
-  for name, sev := range config {
+  displaySeverities := config.EnabledRuleConfig()
+  for _, name := range config.ActiveRuleNames() {
     rule, ok := registered.rules[name]
     if !ok {
       eng.unknown = append(eng.unknown, name)
       continue
     }
-    if sev == SeverityOff {
-      continue
-    }
-    eng.enabled[name] = sev
+    eng.enabled[name] = displaySeverities.Severity(name)
     for _, kind := range rule.Visits() {
       eng.rules[kind] = append(eng.rules[kind], rule)
     }
@@ -206,6 +213,11 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
 func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
   var collected []*Finding
   collect := func(f *Finding) { collected = append(collected, f) }
+  resolved := e.config.ResolveRules(file.FileName())
+  if resolved.Ignored {
+    return collected
+  }
+  fileRules := resolved.Rules
 
   var walk func(node *shimast.Node)
   walk = func(node *shimast.Node) {
@@ -214,10 +226,14 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
     }
     if rules, ok := e.rules[node.Kind]; ok {
       for _, rule := range rules {
+        severity := fileRules.Severity(rule.Name())
+        if severity == SeverityOff {
+          continue
+        }
         ctx := &Context{
           File:     file,
           Checker:  checker,
-          Severity: e.enabled[rule.Name()],
+          Severity: severity,
           rule:     rule,
           collect:  collect,
         }
@@ -236,10 +252,14 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // SourceFile).
   if rules, ok := e.rules[shimast.KindSourceFile]; ok {
     for _, rule := range rules {
+      severity := fileRules.Severity(rule.Name())
+      if severity == SeverityOff {
+        continue
+      }
       ctx := &Context{
         File:     file,
         Checker:  checker,
-        Severity: e.enabled[rule.Name()],
+        Severity: severity,
         rule:     rule,
         collect:  collect,
       }

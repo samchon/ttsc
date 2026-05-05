@@ -174,7 +174,7 @@ function seedNodeModulesLink(tmpdir) {
 
 const ansiPattern = /\x1b\[[0-9;]*[A-Za-z]/g;
 const bannerPattern =
-  /(?:^|[\s/])([^\s:]+\.ts):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([\w-]+)\]\s*(.*)$/;
+  /(?:^|[\s/])([^\s:]+\.ts):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([^\]]+)\]\s*(.*)$/;
 
 /**
  * Parse the renderer's stderr into structured records.
@@ -224,8 +224,7 @@ function parseExpectations(source) {
     let target = i + 1;
     while (
       target < lines.length &&
-      (/^\s*$/.test(lines[target]) ||
-        /^\s*\/\/\s*expect:/.test(lines[target]))
+      (/^\s*$/.test(lines[target]) || /^\s*\/\/\s*expect:/.test(lines[target]))
     ) {
       target++;
     }

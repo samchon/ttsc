@@ -4,9 +4,8 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
 /**
  * Inline rule map accepted by the `@ttsc/lint` tsconfig plugin entry.
  *
- * Each property key is a native lint rule name. Omitted rules use the sidecar's
- * default severity, while present rules override that severity for the current
- * project.
+ * Each property key is a native lint rule name. Omitted rules are disabled,
+ * while present rules enable or disable that rule for the current project.
  */
 export type TtscLintConfig = {
   [P in TtscLintRule]?: TtscLintSeverity;

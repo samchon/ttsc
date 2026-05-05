@@ -66,8 +66,15 @@ function factoryContext(plugin) {
 }
 
 test("lib/index.d.ts exposes typed lint config files", () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(lintPkgDir, "package.json"), "utf8"),
+  );
   const dts = fs.readFileSync(
     path.join(lintPkgDir, "lib", "index.d.ts"),
+    "utf8",
+  );
+  const configEntryDts = fs.readFileSync(
+    path.join(lintPkgDir, "lib", "config.d.ts"),
     "utf8",
   );
   const configDts = fs.readFileSync(
@@ -75,12 +82,7 @@ test("lib/index.d.ts exposes typed lint config files", () => {
     "utf8",
   );
   const pluginConfigDts = fs.readFileSync(
-    path.join(
-      lintPkgDir,
-      "lib",
-      "structures",
-      "ITtscLintPluginConfig.d.ts",
-    ),
+    path.join(lintPkgDir, "lib", "structures", "ITtscLintPluginConfig.d.ts"),
     "utf8",
   );
   const structuresIndexDts = fs.readFileSync(
@@ -97,6 +99,13 @@ test("lib/index.d.ts exposes typed lint config files", () => {
   );
   assert.match(dts, /export \* from "\.\/structures\/index"/);
   assert.match(dts, /import type {[\s\S]*ITtscPlugin[\s\S]*} from "ttsc"/);
+  assert.match(
+    configEntryDts,
+    /export type { TtscLintConfig } from "\.\/structures\/TtscLintConfig"/,
+  );
+  assert.doesNotMatch(configEntryDts, /from "ttsc"/);
+  assert.equal(manifest.exports["./config"].types, "./lib/config.d.ts");
+  assert.equal(manifest.exports["./config"].default, "./lib/config.js");
   assert.match(pluginConfigDts, /import type { TtscLintConfig }/);
   assert.match(
     pluginConfigDts,
@@ -106,7 +115,10 @@ test("lib/index.d.ts exposes typed lint config files", () => {
   assert.doesNotMatch(dts, /configPath/);
   assert.doesNotMatch(dts, /rules\?:/);
   assert.match(configDts, /export type TtscLintConfig/);
-  assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintPluginConfig"/);
+  assert.match(
+    structuresIndexDts,
+    /export \* from "\.\/ITtscLintPluginConfig"/,
+  );
   assert.match(structuresIndexDts, /export \* from "\.\/TtscLintConfig"/);
   assert.match(ruleDts, /export type TtscLintRule/);
   assert.match(severityDts, /export type TtscLintSeverity/);

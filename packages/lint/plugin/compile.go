@@ -95,10 +95,16 @@ func RunTransform(args []string) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  engine := NewEngine(rules)
-  warnUnknownRules(os.Stderr, engine.UnknownRules())
+  engine := NewEngineWithResolver(rules)
 
-  astDiags, lintDiags := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  if !externalRan {
+    warnUnknownRules(os.Stderr, engine.UnknownRules())
+  }
   if errors := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, resolvedCwd); errors > 0 {
     return 2
   }
@@ -225,10 +231,16 @@ func runProject(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  engine := NewEngine(rules)
-  warnUnknownRules(os.Stderr, engine.UnknownRules())
+  engine := NewEngineWithResolver(rules)
 
-  astDiags, lintDiags := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  if !externalRan {
+    warnUnknownRules(os.Stderr, engine.UnknownRules())
+  }
   if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
     return 2
   }
@@ -261,7 +273,7 @@ func runProject(opts *subcommandOpts) int {
   return 0
 }
 
-func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleConfig, error) {
+func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   entries, err := ParsePlugins(pluginsJSON)
   if err != nil {
     return nil, err
@@ -273,7 +285,7 @@ func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleConfig, error) {
   if entry == nil {
     return RuleConfig{}, nil
   }
-  return LoadRuleConfig(entry, cwd, tsconfigPath)
+  return LoadConfigResolver(entry, cwd, tsconfigPath)
 }
 
 func warnUnknownRules(w io.Writer, unknown []string) {
@@ -314,9 +326,14 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
 // collectDiagnostics merges tsgo typecheck diagnostics with the lint
 // engine's findings. The renderer takes the two slices and walks them in
 // source order, so we don't need to interleave here.
-func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic) {
+func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, bool, error) {
   astDiags := prog.programDiagnostics()
   files := prog.userSourceFiles()
+  if externalDiags, ran, err := runExternalESLintDiagnostics(engine.config, prog.cwd, files); err != nil {
+    return nil, nil, false, err
+  } else if ran {
+    return astDiags, externalDiags, true, nil
+  }
   findings := engine.Run(files, prog.checker)
   lintDiags := make([]*shimdw.LintDiagnostic, 0, len(findings))
   for _, finding := range findings {
@@ -333,7 +350,7 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
       fmt.Sprintf("[%s] %s", finding.Rule, finding.Message),
     ))
   }
-  return astDiags, lintDiags
+  return astDiags, lintDiags, false, nil
 }
 
 // RuleCode hashes a rule name into a stable, positive int32 so the

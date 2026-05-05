@@ -49,6 +49,213 @@ func TestParseRulesAcceptsLegacyNumericSeverities(t *testing.T) {
   }
 }
 
+func TestParseExternalConfigRulesAcceptsESLintSeverityTuples(t *testing.T) {
+  cfg, err := parseExternalConfigRules(map[string]any{
+    "no-var":                             []any{"error", map[string]any{"ignore": true}},
+    "no-console":                         []any{"warn"},
+    "@typescript-eslint/no-explicit-any": []any{float64(2), map[string]any{"fixToUnknown": true}},
+    "typescript-eslint/consistent-type-imports": "warn",
+  })
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
+  if cfg.Severity("no-console") != SeverityWarn {
+    t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
+  }
+  if cfg.Severity("no-explicit-any") != SeverityError {
+    t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
+  }
+  if cfg.Severity("consistent-type-imports") != SeverityWarn {
+    t.Errorf("consistent-type-imports: want warning, got %v", cfg.Severity("consistent-type-imports"))
+  }
+}
+
+func TestParseExternalConfigRulesAcceptsESLintFlatConfigArray(t *testing.T) {
+  cfg, err := parseExternalConfigRules([]any{
+    map[string]any{
+      "name": "base",
+      "rules": map[string]any{
+        "no-var":     "error",
+        "no-console": "warn",
+      },
+    },
+    map[string]any{
+      "files": []any{"src/**/*.ts"},
+      "rules": map[string]any{
+        "no-console":                         "off",
+        "@typescript-eslint/no-explicit-any": "error",
+      },
+    },
+    map[string]any{
+      "ignores": []any{"dist/**"},
+    },
+  })
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
+  if cfg.Severity("no-console") != SeverityOff {
+    t.Errorf("no-console: want off after later flat config override, got %v", cfg.Severity("no-console"))
+  }
+  if cfg.Severity("no-explicit-any") != SeverityError {
+    t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
+  }
+}
+
+func TestParseExternalConfigStoreResolvesFilesAndIgnores(t *testing.T) {
+  store, err := parseExternalConfigStore([]any{
+    map[string]any{
+      "rules": map[string]any{
+        "no-var":     "error",
+        "no-console": "warn",
+      },
+    },
+    map[string]any{
+      "files": []any{"src/**/*.test.ts"},
+      "rules": map[string]any{
+        "no-console": "off",
+      },
+    },
+    map[string]any{
+      "ignores": []any{"src/generated/**"},
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+
+  main := store.ResolveRules("/project/src/main.ts")
+  if main.Ignored {
+    t.Fatal("main.ts should not be ignored")
+  }
+  if main.Rules.Severity("no-var") != SeverityError || main.Rules.Severity("no-console") != SeverityWarn {
+    t.Fatalf("main.ts rules not resolved correctly: %+v", main.Rules)
+  }
+
+  testFile := store.ResolveRules("/project/src/example.test.ts")
+  if testFile.Ignored {
+    t.Fatal("example.test.ts should not be ignored")
+  }
+  if testFile.Rules.Severity("no-var") != SeverityError || testFile.Rules.Severity("no-console") != SeverityOff {
+    t.Fatalf("example.test.ts rules not resolved correctly: %+v", testFile.Rules)
+  }
+
+  generated := store.ResolveRules("/project/src/generated/schema.ts")
+  if !generated.Ignored {
+    t.Fatalf("generated file should be ignored, got %+v", generated)
+  }
+}
+
+func TestParseExternalConfigStoreRespectsBasePath(t *testing.T) {
+  store, err := parseExternalConfigStore([]any{
+    map[string]any{
+      "basePath": "packages/app",
+      "files":    []any{"**/*.ts"},
+      "rules": map[string]any{
+        "no-var": "error",
+      },
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+
+  matched := store.ResolveRules("/project/packages/app/src/main.ts")
+  if matched.Rules.Severity("no-var") != SeverityError {
+    t.Fatalf("basePath file should match no-var, got %+v", matched.Rules)
+  }
+  outside := store.ResolveRules("/project/packages/other/src/main.ts")
+  if outside.Rules.Severity("no-var") != SeverityOff {
+    t.Fatalf("outside basePath should not match no-var, got %+v", outside.Rules)
+  }
+}
+
+func TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules(t *testing.T) {
+  cfg, err := parseExternalConfigRules(map[string]any{
+    "extends": []any{
+      map[string]any{
+        "rules": map[string]any{
+          "no-var":                             "warn",
+          "@typescript-eslint/no-explicit-any": "warn",
+          "no-console":                         "error",
+        },
+      },
+      []any{
+        map[string]any{
+          "rules": map[string]any{
+            "no-console": "off",
+          },
+        },
+      },
+    },
+    "rules": map[string]any{
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  })
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityWarn {
+    t.Errorf("no-var: want warning from extended config, got %v", cfg.Severity("no-var"))
+  }
+  if cfg.Severity("no-console") != SeverityOff {
+    t.Errorf("no-console: want off from later extended config, got %v", cfg.Severity("no-console"))
+  }
+  if cfg.Severity("no-explicit-any") != SeverityError {
+    t.Errorf("no-explicit-any: want local override to error, got %v", cfg.Severity("no-explicit-any"))
+  }
+}
+
+func TestParseExternalConfigRulesRejectsUnresolvedStringExtends(t *testing.T) {
+  _, err := parseExternalConfigRules(map[string]any{
+    "extends": []any{"eslint:recommended"},
+  })
+  if err == nil {
+    t.Fatal("expected string extends to be rejected")
+  }
+  if !strings.Contains(err.Error(), "config.extends[0] must be an object or flat config array") {
+    t.Fatalf("error should explain unsupported unresolved extends, got %v", err)
+  }
+}
+
+func TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly(t *testing.T) {
+  store, err := parseExternalConfigStoreForFile(map[string]any{
+    "extends": []any{"eslint/recommended"},
+    "rules": map[string]any{
+      "no-var": "error",
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if !store.WantsESLintRuntime() {
+    t.Fatal("string extends should request ESLint runtime")
+  }
+  if !store.RequiresESLintRuntime() {
+    t.Fatal("string extends should require ESLint runtime")
+  }
+  if store.Flatten().Severity("no-var") != SeverityError {
+    t.Fatalf("local rules should still be available for fallback diagnostics, got %+v", store.Flatten())
+  }
+}
+
+func TestParseRulesRejectsESLintTuplesInStandardInlineConfig(t *testing.T) {
+  _, err := ParseRules(map[string]any{
+    "no-var": []any{"error", map[string]any{"ignore": true}},
+  })
+  if err == nil {
+    t.Fatal("expected standard inline config to reject ESLint tuple values")
+  }
+  if !strings.Contains(err.Error(), "severity must be one of") {
+    t.Fatalf("error should explain standard severity contract, got %v", err)
+  }
+}
+
 func TestParseRulesNilTreatedAsEmpty(t *testing.T) {
   cfg, err := ParseRules(nil)
   if err != nil {
@@ -200,6 +407,52 @@ func TestLoadRuleConfigAcceptsInlineConfigObject(t *testing.T) {
   }
   if cfg.Severity("no-var") != SeverityError {
     t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
+}
+
+func TestFindESLintConfigFileDiscoversNearestAncestor(t *testing.T) {
+  dir := t.TempDir()
+  nested := filepath.Join(dir, "packages", "app")
+  writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
+  writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
+
+  discovered, err := findESLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
+  if err != nil {
+    t.Fatalf("findESLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(dir, "eslint.config.mjs") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestFindESLintConfigFilePrefersNearestDirectory(t *testing.T) {
+  dir := t.TempDir()
+  nested := filepath.Join(dir, "packages", "app")
+  writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
+  writeFile(t, filepath.Join(nested, "eslint.config.cjs"), "module.exports = [];")
+  writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
+
+  discovered, err := findESLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
+  if err != nil {
+    t.Fatalf("findESLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(nested, "eslint.config.cjs") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestFindESLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
+  writeFile(t, filepath.Join(dir, "eslint.config.cjs"), "module.exports = [];")
+
+  _, err := findESLintConfigFile(dir, "tsconfig.json")
+  if err == nil {
+    t.Fatal("expected conflicting eslint config files to fail")
+  }
+  if !strings.Contains(err.Error(), "multiple eslint config files found") {
+    t.Fatalf("error should explain conflict, got %v", err)
   }
 }
 
