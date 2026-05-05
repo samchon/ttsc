@@ -10,6 +10,8 @@ export interface ITtscLoadedNativePlugin {
   config: ITtscProjectPluginConfig;
   /** Stable plugin name used in diagnostics and native manifests. */
   name: string;
+  /** Go source directory selected by the plugin descriptor. */
+  source: string;
   /** Pipeline stage where the sidecar participates. */
   stage: TtscPluginStage;
   /** Native transform hook capabilities declared by the plugin package. */

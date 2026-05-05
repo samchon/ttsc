@@ -65,7 +65,7 @@ Pick the smallest kind that fits the job:
 
 Most plugin authors should start with a transform plugin. Move to Program/Checker work only when source/declaration hooks are not enough.
 
-A project can list several `compilerOptions.plugins[]` entries. Check plugins compose with compiler backends. Transform plugins compose in manifest order when they share one host.
+A project can list several `compilerOptions.plugins[]` entries. Check plugins compose with compiler backends. Transform plugins compose through the transform host selected for the pass. The first-party utility host applies `@ttsc/paths` before `@ttsc/strip`; `@ttsc/banner` participates through the JavaScript/declaration emit print hook.
 
 The one exclusive role is the compiler backend. A build can have only one distinct native binary that owns Program creation and emit. If several compiler-backend modes need to cooperate, expose them from one native binary and dispatch by the ordered `--plugins-json` payload.
 

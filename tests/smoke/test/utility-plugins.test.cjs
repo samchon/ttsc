@@ -425,6 +425,56 @@ test("utility plugins: transform descriptors must declare hooks", () => {
   assert.match(result.stderr, /must declare source\/declaration hooks/);
 });
 
+test("utility plugins: first-party aggregate requires package identity", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `export const value = "x";\n`,
+      "plugins/fake-banner.cjs": `
+        module.exports = {
+          name: "@ttsc/banner",
+          source: require("node:path").resolve(__dirname, "..", "fake-banner"),
+          stage: "transform",
+          hooks: { source: true },
+        };
+      `,
+      "plugins/fake-strip.cjs": `
+        module.exports = {
+          name: "@ttsc/strip",
+          source: require("node:path").resolve(__dirname, "..", "fake-strip"),
+          stage: "transform",
+          hooks: { source: true },
+        };
+      `,
+      "fake-banner/go.mod": "module example.com/fakebanner\n\ngo 1.26\n",
+      "fake-banner/main.go": "package main\n\nfunc main() {}\n",
+      "fake-strip/go.mod": "module example.com/fakestrip\n\ngo 1.26\n",
+      "fake-strip/main.go": "package main\n\nfunc main() {}\n",
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          { transform: "./plugins/fake-banner.cjs" },
+          { transform: "./plugins/fake-strip.cjs" },
+        ],
+      },
+    },
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-fake-first-party-"),
+      ),
+    },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /multiple compiler native backends cannot share one emit pass/,
+  );
+});
+
 function seedUtilityPackages(root, names = utilityPackages) {
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });

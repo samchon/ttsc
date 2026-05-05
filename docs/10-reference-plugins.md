@@ -56,7 +56,7 @@ Consumer config:
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "@license MIT"
+        "banner": "License MIT"
       }
     ]
   }
@@ -277,7 +277,8 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 Execution:
 
 1. `@ttsc/lint check` runs first.
-2. The utility transform host applies `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in manifest order.
-3. TypeScript-Go emits JavaScript, declarations, and maps.
+2. The first-party utility source phase applies `@ttsc/paths` before `@ttsc/strip`.
+3. `@ttsc/banner` participates through the JavaScript/declaration print hook.
+4. TypeScript-Go emits JavaScript, declarations, and maps.
 
 Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs).

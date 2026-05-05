@@ -139,8 +139,8 @@ It inspects the source you wrote, so transform plugins such as `@ttsc/banner`, `
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error", "prefer-const": "error" } },
 
-      // Transform plugins run in order.
-      { "transform": "@ttsc/banner", "banner": "@license MIT" },
+      // First-party utilities use their documented source/emit hook order.
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] }
     ]

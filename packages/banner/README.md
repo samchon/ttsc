@@ -27,7 +27,7 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "@license MIT (c) 2026 Acme"
+        "banner": "License MIT (c) 2026 Acme"
       }
     ]
   }
@@ -53,8 +53,8 @@ The plugin formats every banner line inside a compiler-owned JSDoc block and add
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // Transform plugins run in order.
-      { "transform": "@ttsc/banner", "banner": "@license MIT" },
+      // First-party utilities use their documented source/emit hook order.
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] }
     ]

@@ -244,12 +244,40 @@ function assertTransformHostCompatibility(
 function isFirstPartyUtilityTransformPlugin(
   plugin: ITtscLoadedNativePlugin,
 ): boolean {
-  return (
-    plugin.stage === "transform" &&
-    (plugin.name === "@ttsc/banner" ||
-      plugin.name === "@ttsc/paths" ||
-      plugin.name === "@ttsc/strip")
-  );
+  if (plugin.stage !== "transform") return false;
+  if (!firstPartyUtilityPluginNames.has(plugin.name)) return false;
+  const manifest = readNearestPackageManifest(plugin.source);
+  return manifest?.name === plugin.name;
+}
+
+const firstPartyUtilityPluginNames = new Set([
+  "@ttsc/banner",
+  "@ttsc/paths",
+  "@ttsc/strip",
+]);
+
+function readNearestPackageManifest(
+  source: string,
+): { name?: unknown } | undefined {
+  try {
+    let current = fs.statSync(source).isDirectory()
+      ? source
+      : path.dirname(source);
+    for (let i = 0; i < 4; i += 1) {
+      const manifest = path.join(current, "package.json");
+      if (fs.existsSync(manifest)) {
+        return JSON.parse(fs.readFileSync(manifest, "utf8")) as {
+          name?: unknown;
+        };
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function appendBuildResult(

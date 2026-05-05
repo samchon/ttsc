@@ -74,6 +74,7 @@ export function loadProjectPlugins(options: {
       config: entries[index]!,
       hooks: plugin.hooks,
       name: plugin.name,
+      source: plugin.source,
       stage,
     });
   });

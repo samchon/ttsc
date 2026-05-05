@@ -89,6 +89,7 @@ function runPrepare(argv: readonly string[]): number {
   const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const compiler = new TtscCompiler({
+    cacheDir: options.cacheDir,
     cwd,
     tsconfig: options.tsconfig,
   });
@@ -118,6 +119,7 @@ function runClean(argv: readonly string[]): number {
   const targets = [
     path.join(projectRoot, "node_modules", ".ttsc"),
     path.join(projectRoot, ".ttsc"),
+    ...(options.cacheDir ? [path.resolve(cwd, options.cacheDir)] : []),
     ...(process.env.TTSC_CACHE_DIR
       ? [path.resolve(process.env.TTSC_CACHE_DIR, "plugins")]
       : []),
@@ -204,6 +206,7 @@ function ensureExecutable(binary: string): void {
 }
 
 function parseProjectArgs(argv: readonly string[]) {
+  let cacheDir: string | undefined;
   let cwd: string | undefined;
   let tsconfig: string | undefined;
 
@@ -214,6 +217,9 @@ function parseProjectArgs(argv: readonly string[]) {
       case "--cwd":
         cwd = takeValue(current, rest);
         break;
+      case "--cache-dir":
+        cacheDir = takeValue(current, rest);
+        break;
       case "-p":
       case "--tsconfig":
       case "--project":
@@ -222,6 +228,8 @@ function parseProjectArgs(argv: readonly string[]) {
       default:
         if (current.startsWith("--cwd=")) {
           cwd = current.slice("--cwd=".length);
+        } else if (current.startsWith("--cache-dir=")) {
+          cacheDir = current.slice("--cache-dir=".length);
         } else if (current.startsWith("--tsconfig=")) {
           tsconfig = current.slice("--tsconfig=".length);
         } else if (current.startsWith("--project=")) {
@@ -232,11 +240,12 @@ function parseProjectArgs(argv: readonly string[]) {
         break;
     }
   }
-  return { cwd, tsconfig };
+  return { cacheDir, cwd, tsconfig };
 }
 
 function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let binary: string | undefined;
+  let cacheDir: string | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
   const files: string[] = [];
@@ -283,6 +292,9 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
       case "--binary":
         binary = takeValue(current, rest);
         break;
+      case "--cache-dir":
+        cacheDir = takeValue(current, rest);
+        break;
       default:
         if (current.startsWith("--cwd=")) {
           cwd = current.slice("--cwd=".length);
@@ -299,6 +311,8 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
             current.slice("--preserveWatchOutput=".length) !== "false";
         } else if (current.startsWith("--binary=")) {
           binary = current.slice("--binary=".length);
+        } else if (current.startsWith("--cache-dir=")) {
+          cacheDir = current.slice("--cache-dir=".length);
         } else if (current === "--verbose") {
           quiet = false;
         } else if (current.startsWith("-")) {
@@ -311,6 +325,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   }
   return {
     binary,
+    cacheDir,
     cwd,
     emit,
     files,
@@ -349,6 +364,7 @@ function printHelp(): void {
       "  --quiet                Keep build output quiet (default)",
       "  --verbose              Print the build summary and emitted files",
       "  --binary <path>        Use an explicit tsgo binary",
+      "  --cache-dir <dir>      Use this cache root for source-plugin builds",
       "",
       "Plugin contract:",
       "  ttsc reads compilerOptions.plugins from tsconfig.json.",

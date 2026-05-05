@@ -11,9 +11,11 @@ verifies that:
   workspace fallback;
 - the platform package includes the bundled Go compiler used for source
   plugin builds;
-- `@ttsc/banner` builds from source with that bundled Go compiler;
+- `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` build from source with
+  that bundled Go compiler;
 - `ttsc --version`, `ttsc --emit`, and `ttsx` execute through the installed
-  package path and observe the emitted output.
+  package path and observe the emitted JavaScript, declarations, source maps,
+  path rewrites, stripped statements, and runtime output.
 
 Run:
 
@@ -27,8 +29,8 @@ To reuse already-built tarballs:
 npm run start -- --skip-pack
 ```
 
-To pack only `ttsc`, `@ttsc/banner`, and the current platform package before
-running the same check:
+To pack only `ttsc`, the first-party utility plugins, and the current platform
+package before running the same check:
 
 ```bash
 npm run start -- --pack-current

@@ -180,6 +180,31 @@ const compilerProjects = [
       assert.equal(fs.existsSync(path.join(override, "plugins")), false);
     },
   },
+  {
+    name: "clean removes explicit cache directory",
+    root: () =>
+      commonJsProject({
+        "src/main.ts": `export const value = "clean-cache-dir";\n`,
+      }),
+    run(root) {
+      const cacheDir = path.join(root, ".custom-ttsc-cache");
+      fs.mkdirSync(path.join(cacheDir, "plugins", "a"), { recursive: true });
+      fs.writeFileSync(
+        path.join(cacheDir, "plugins", "a", "plugin"),
+        "binary",
+        "utf8",
+      );
+
+      const result = spawn(
+        ttscBin,
+        ["clean", "--cwd", root, "--cache-dir", cacheDir],
+        { cwd: root },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /removed \.custom-ttsc-cache/);
+      assert.equal(fs.existsSync(cacheDir), false);
+    },
+  },
 ];
 
 for (const project of compilerProjects) {

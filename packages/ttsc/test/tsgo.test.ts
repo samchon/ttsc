@@ -30,7 +30,7 @@ test("resolveTsgo resolves the consumer native-preview platform package", () => 
     root,
     "node_modules",
     "@typescript",
-    "native-preview-linux-x64",
+    `native-preview-${process.platform}-${process.arch}`,
   );
   fs.mkdirSync(nativeRoot, { recursive: true });
   fs.mkdirSync(path.join(platformRoot, "lib"), { recursive: true });
@@ -46,21 +46,24 @@ test("resolveTsgo resolves the consumer native-preview platform package", () => 
   fs.writeFileSync(
     path.join(platformRoot, "package.json"),
     JSON.stringify({
-      name: "@typescript/native-preview-linux-x64",
+      name: `@typescript/native-preview-${process.platform}-${process.arch}`,
       version: "7.0.0-dev.consumer",
     }),
     "utf8",
   );
-  fs.writeFileSync(path.join(platformRoot, "lib", "tsgo"), "", "utf8");
+  const binary = path.join(
+    platformRoot,
+    "lib",
+    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+  );
+  fs.writeFileSync(binary, "", "utf8");
 
   const resolved = resolveTsgo({
-    arch: "x64",
     cwd: root,
     env: {},
-    platform: "linux",
   });
 
   assert.equal(resolved.version, "7.0.0-dev.consumer");
   assert.equal(resolved.gitHead, "abc123");
-  assert.equal(resolved.binary, path.join(platformRoot, "lib", "tsgo"));
+  assert.equal(resolved.binary, binary);
 });
