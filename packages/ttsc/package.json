@@ -71,7 +71,8 @@
     "shim",
     "src",
     "test",
-    "tools"
+    "tools",
+    "utility"
   ],
   "keywords": [
     "tsgo",

@@ -90,7 +90,7 @@ function prepareWorkspace() {
           plugins: [
             {
               transform: "@ttsc/banner",
-              banner: "/*! bundled-go-ok */",
+              banner: "bundled-go-ok",
             },
           ],
         },
@@ -173,7 +173,9 @@ function verifyTtscBuild() {
   assert(fs.existsSync(output), "ttsc must emit dist/main.js");
   const emitted = fs.readFileSync(output, "utf8");
   assert(
-    emitted.startsWith("/*! bundled-go-ok */"),
+    emitted.startsWith("/**\n") &&
+      emitted.includes(" * bundled-go-ok\n") &&
+      emitted.includes(" * @packageDocumentation\n"),
     "ttsc must build and run @ttsc/banner with the bundled Go compiler",
   );
   assert(
