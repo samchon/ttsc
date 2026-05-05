@@ -180,13 +180,16 @@ When a project has `eslint` installed and the external config is an
 `languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint`
 delegates diagnostics to the installed ESLint runtime and forwards its rule ids,
 severities, messages, and locations. This is the path that runs external
-RuleModules such as `@typescript-eslint/no-floating-promises`.
+RuleModules such as `@typescript-eslint/no-floating-promises`; typed
+typescript-eslint rules work when your ESLint config supplies the usual parser
+and `parserOptions.project` / `projectService` settings.
 
 When ESLint is not installed and the config can be represented as native rules,
 `@ttsc/lint` falls back to the lowered native rule map. That fallback supports
 `files`, `ignores`, `basePath`, object/array `extends`, `rules`, severity tuples,
 and `@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only
-features such as string `extends` require ESLint to be installed.
+features such as `plugins`, `languageOptions`, `processor`, `settings`,
+`linterOptions`, or string `extends` require ESLint to be installed.
 
 ## Plugin order
 
@@ -215,7 +218,9 @@ It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/path
 
 ## Scope
 
-Diagnostic-only today: no autofix, no recommended preset, no custom rule loading, and no cross-file lint rules.
+Diagnostic-only today: no autofix and no bundled recommended preset. The native
+engine does not load custom Go rules; external ESLint RuleModules run through
+the installed ESLint runtime path described above.
 
 ## Rules
 

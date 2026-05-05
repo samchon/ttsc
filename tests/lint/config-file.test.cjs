@@ -1,7 +1,13 @@
 const assert = require("node:assert/strict");
+const { createRequire } = require("node:module");
+const path = require("node:path");
 const test = require("node:test");
 
-const { runLint } = require("./helpers/runLint.cjs");
+const {
+  createLintProject,
+  runLint,
+  runLintProject,
+} = require("./helpers/runLint.cjs");
 
 const source = `var value = 1;\nconsole.log(value);\n`;
 const sourceWithTsEslintViolations = `var value = 1;\nlet typed: any = value;\nconsole.log(typed);\n`;
@@ -40,6 +46,47 @@ function fakeEslintRuntimeModule(ruleId, message) {
       ESLint,
       loadESLint: async () => ESLint,
     };\n`,
+  };
+}
+
+async function runESLintDirect(tmpdir, configPath, files) {
+  const requireFromProject = createRequire(path.join(tmpdir, "package.json"));
+  const eslintModule = requireFromProject("eslint");
+  const ESLintCtor =
+    typeof eslintModule.loadESLint === "function"
+      ? await eslintModule.loadESLint({ useFlatConfig: true })
+      : (eslintModule.ESLint ??
+        eslintModule.default?.ESLint ??
+        eslintModule.default);
+  const eslint = new ESLintCtor({
+    cwd: tmpdir,
+    overrideConfigFile: path.join(tmpdir, configPath),
+    ignore: true,
+    warnIgnored: false,
+  });
+  const results = await eslint.lintFiles(
+    files.map((file) => path.join(tmpdir, file)),
+  );
+  return results.flatMap((result) =>
+    result.messages.map((message) => ({
+      file: path.relative(tmpdir, result.filePath).replaceAll(path.sep, "/"),
+      line: message.line || 1,
+      column: message.column || 1,
+      severity: message.severity >= 2 ? "error" : "warn",
+      rule: message.ruleId || "eslint",
+      message: message.message,
+    })),
+  );
+}
+
+function diagnosticComparable(diagnostic) {
+  return {
+    file: diagnostic.file,
+    line: diagnostic.line,
+    column: diagnostic.column,
+    severity: diagnostic.severity,
+    rule: diagnostic.rule,
+    message: diagnostic.message,
   };
 }
 
@@ -364,11 +411,7 @@ test("lint config file: typescript-eslint configs can enable native TS rules", (
         config: (...configs) => {
           const plugin = {};
           plugin.self = plugin;
-          return configs.flat().map((config) => ({
-            ...config,
-            plugins: { "@typescript-eslint": plugin },
-            languageOptions: { parser: plugin },
-          }));
+          return configs.flat();
         },
       };\n`,
       "node_modules/typescript-eslint/index.d.ts": `declare const tseslint: {
@@ -403,9 +446,6 @@ test("lint config file: installed ESLint runtime executes external RuleModules",
     extraSources: {
       "eslint.config.mjs": `export default [
         {
-          plugins: {
-            "@typescript-eslint": {},
-          },
           rules: {
             "@typescript-eslint/no-floating-promises": "error",
           },
@@ -437,9 +477,207 @@ test("lint config file: installed ESLint runtime executes external RuleModules",
   );
 });
 
+test("lint config file: installed ESLint runtime executes real typescript-eslint RuleModules", () => {
+  const result = runLint({
+    name: "config-file-eslint-runtime-real-typescript-eslint",
+    source: `const value: any = 1;\nconsole.log(value);\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      export default tseslint.config({
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+        },
+        plugins: {
+          "@typescript-eslint": tseslint.plugin,
+        },
+        rules: {
+          "@typescript-eslint/no-explicit-any": "error",
+          "no-console": "off",
+        },
+      });\n`,
+    },
+  });
+
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.equal(
+    result.stderr.includes("@ttsc/lint: ignoring unknown rule"),
+    false,
+    result.stderr,
+  );
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.severity, d.message]),
+    [
+      [
+        "@typescript-eslint/no-explicit-any",
+        "error",
+        "Unexpected any. Specify a different type.",
+      ],
+    ],
+    result.stderr,
+  );
+});
+
+test("lint config file: installed ESLint runtime executes typed typescript-eslint rules", () => {
+  const result = runLint({
+    name: "config-file-eslint-runtime-real-typescript-eslint-typed",
+    source: `Promise.resolve(1);\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      export default tseslint.config({
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: {
+            project: "./tsconfig.json",
+            tsconfigRootDir: import.meta.dirname,
+          },
+        },
+        plugins: {
+          "@typescript-eslint": tseslint.plugin,
+        },
+        rules: {
+          "@typescript-eslint/no-floating-promises": "error",
+        },
+      });\n`,
+    },
+  });
+
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.severity]),
+    [["@typescript-eslint/no-floating-promises", "error"]],
+    result.stderr,
+  );
+  assert.match(result.diagnostics[0].message, /Promises must be awaited/);
+});
+
+test("lint config file: ESLint runtime diagnostics match ESLint API output", async () => {
+  const project = createLintProject({
+    name: "config-file-eslint-runtime-parity",
+    source: `const value: any = 1;\nPromise.resolve(value);\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      export default tseslint.config({
+        files: ["src/**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: {
+            project: "./tsconfig.json",
+            tsconfigRootDir: import.meta.dirname,
+          },
+        },
+        plugins: {
+          "@typescript-eslint": tseslint.plugin,
+        },
+        rules: {
+          "@typescript-eslint/no-explicit-any": "error",
+          "@typescript-eslint/no-floating-promises": "error",
+        },
+      });\n`,
+    },
+  });
+  try {
+    const ttsc = runLintProject(project.tmpdir);
+    const eslint = await runESLintDirect(project.tmpdir, "eslint.config.mjs", [
+      "src/main.ts",
+    ]);
+
+    assert.notEqual(ttsc.status, 0, ttsc.stderr);
+    assert.deepEqual(
+      ttsc.diagnostics.map(diagnosticComparable),
+      eslint,
+      ttsc.stderr,
+    );
+  } finally {
+    project.cleanup();
+  }
+});
+
+test("lint config file: installed ESLint runtime respects ignored files silently", () => {
+  const result = runLint({
+    name: "config-file-eslint-runtime-ignored-files",
+    source: `export const value: any = 1;\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    linkNodeModules: ["eslint", "typescript-eslint", "typescript"],
+    extraSources: {
+      "src/generated.ts": `export const generated: any = 1;\n`,
+      "eslint.config.mjs": `import tseslint from "typescript-eslint";
+
+      export default tseslint.config(
+        {
+          ignores: ["src/generated.ts"],
+        },
+        {
+          files: ["src/**/*.ts"],
+          languageOptions: {
+            parser: tseslint.parser,
+          },
+          plugins: {
+            "@typescript-eslint": tseslint.plugin,
+          },
+          rules: {
+            "@typescript-eslint/no-explicit-any": "error",
+          },
+        },
+      );\n`,
+    },
+  });
+
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.file, d.rule, d.severity]),
+    [["src/main.ts", "@typescript-eslint/no-explicit-any", "error"]],
+    result.stderr,
+  );
+});
+
 test("lint config file: missing ESLint runtime falls back with unknown-rule warnings", () => {
   const result = runLint({
     name: "config-file-eslint-missing-runtime-fallback-warning",
+    source: `const promise = Promise.resolve(1);\nvoid promise;\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    extraSources: {
+      "eslint.config.mjs": `export default [
+        {
+          rules: {
+            "@typescript-eslint/no-floating-promises": "error",
+          },
+        },
+      ];\n`,
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.diagnostics.length, 0, result.stderr);
+  assert.match(
+    result.stderr,
+    /@ttsc\/lint: ignoring unknown rule "no-floating-promises"/,
+  );
+});
+
+test("lint config file: missing ESLint runtime fails for runtime-only fields", () => {
+  const result = runLint({
+    name: "config-file-eslint-missing-runtime-plugin-required",
     source: `const promise = Promise.resolve(1);\nvoid promise;\n`,
     pluginConfig: {
       config: "./eslint.config.mjs",
@@ -458,12 +696,8 @@ test("lint config file: missing ESLint runtime falls back with unknown-rule warn
     },
   });
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.diagnostics.length, 0, result.stderr);
-  assert.match(
-    result.stderr,
-    /@ttsc\/lint: ignoring unknown rule "no-floating-promises"/,
-  );
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /ESLint runtime is required/);
 });
 
 test("lint config file: missing ESLint runtime fails for string extends", () => {

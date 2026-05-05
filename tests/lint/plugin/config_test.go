@@ -244,6 +244,29 @@ func TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly(t *testi
   }
 }
 
+func TestParseExternalConfigStoreForFileRequiresRuntimeFields(t *testing.T) {
+  store, err := parseExternalConfigStoreForFile(map[string]any{
+    "languageOptions": map[string]any{
+      "parser": map[string]any{},
+    },
+    "plugins": map[string]any{
+      "@typescript-eslint": map[string]any{},
+    },
+    "rules": map[string]any{
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if !store.WantsESLintRuntime() {
+    t.Fatal("runtime-only fields should request ESLint runtime")
+  }
+  if !store.RequiresESLintRuntime() {
+    t.Fatal("runtime-only fields should require ESLint runtime")
+  }
+}
+
 func TestParseRulesRejectsESLintTuplesInStandardInlineConfig(t *testing.T) {
   _, err := ParseRules(map[string]any{
     "no-var": []any{"error", map[string]any{"ignore": true}},

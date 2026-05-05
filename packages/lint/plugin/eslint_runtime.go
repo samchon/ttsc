@@ -221,6 +221,7 @@ const path = require("node:path");
     cwd,
     overrideConfigFile: configPath,
     ignore: true,
+    warnIgnored: false,
   });
   const results = await eslint.lintFiles(files);
   process.stdout.write(JSON.stringify({

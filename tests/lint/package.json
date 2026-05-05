@@ -8,6 +8,9 @@
   },
   "devDependencies": {
     "@ttsc/lint": "workspace:*",
-    "ttsc": "workspace:*"
+    "eslint": "^10.3.0",
+    "ttsc": "workspace:*",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.2"
   }
 }

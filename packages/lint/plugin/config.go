@@ -303,6 +303,7 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
     if isESLintConfigObject(typed) {
       if marker, ok := typed["__ttscLintEslintRuntime"].(bool); ok && marker {
         store.eslintRuntime = true
+        store.eslintRuntimeRequired = true
       }
       localBaseDir := baseDir
       if rawBasePath, ok := typed["basePath"]; ok {
@@ -318,6 +319,7 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
       }
       if hasESLintRuntimeFields(typed) {
         store.eslintRuntime = true
+        store.eslintRuntimeRequired = true
       }
       if extended, ok := typed["extends"]; ok {
         if err := collectExternalExtends(store, extended, localBaseDir, path+".extends", allowRuntimeOnly); err != nil {
