@@ -94,7 +94,6 @@ type ParenthesizedTypeNode = innerast.ParenthesizedTypeNode
 const (
   KindEndOfFile                     = innerast.KindEndOfFile
   KindSingleLineCommentTrivia       = innerast.KindSingleLineCommentTrivia
-  KindMultiLineCommentTrivia        = innerast.KindMultiLineCommentTrivia
   KindCallExpression                = innerast.KindCallExpression
   KindIdentifier                    = innerast.KindIdentifier
   KindMultiLineCommentTrivia        = innerast.KindMultiLineCommentTrivia
