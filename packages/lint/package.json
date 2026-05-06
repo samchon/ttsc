@@ -30,7 +30,6 @@
     "README.md",
     "lib",
     "src",
-    "tsconfig.json",
     "go.mod",
     "plugin"
   ],

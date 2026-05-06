@@ -71,8 +71,7 @@
   "files": [
     "README.md",
     "lib",
-    "src",
-    "tsconfig.json"
+    "src"
   ],
   "dependencies": {
     "diff-match-patch-es": "^1.0.1",
