@@ -16,7 +16,9 @@ test("transformTtsc leaves source unchanged when plugins are disabled", async ()
 });
 
 async function assertTransformSkipsProjectPlugins() {
-  const root = createProject();
+  const root = createProject({
+    source: 'export const value: string = "plugin";\n',
+  });
   const result = await transformTtsc(
     mainFile(root),
     mainSource(root),

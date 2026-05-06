@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -33,7 +34,7 @@ async function assertTransformPassesBundlerAliases() {
         },
       ],
     }),
-    { "@lib": "src/modules" },
+    { "@lib": path.join(root, "src", "modules") },
   );
 
   assert.ok(result);

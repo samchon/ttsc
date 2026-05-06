@@ -17,8 +17,49 @@ test("transformTtsc uses the project option for an alternate tsconfig", async ()
   await assertTransformUsesProjectOption();
 });
 
+test("transformTtsc resolves a relative project option from cwd", async () => {
+  await assertTransformUsesRelativeProjectOption();
+});
+
 async function assertTransformUsesProjectOption() {
   const root = createProject({ plugins: [] });
+  writeUnpluginProject(root);
+
+  const result = await transformTtsc(
+    mainFile(root),
+    mainSource(root),
+    resolveOptions({
+      project: path.join(root, "tsconfig.unplugin.json"),
+    }),
+  );
+
+  assert.ok(result);
+  assert.match(result.code, /"PLUGIN"/);
+}
+
+async function assertTransformUsesRelativeProjectOption() {
+  const root = createProject({ plugins: [] });
+  writeUnpluginProject(root);
+
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    const result = await transformTtsc(
+      mainFile(root),
+      mainSource(root),
+      resolveOptions({
+        project: "tsconfig.unplugin.json",
+      }),
+    );
+
+    assert.ok(result);
+    assert.match(result.code, /"PLUGIN"/);
+  } finally {
+    process.chdir(cwd);
+  }
+}
+
+function writeUnpluginProject(root) {
   fs.writeFileSync(
     path.join(root, "tsconfig.unplugin.json"),
     JSON.stringify(
@@ -33,15 +74,4 @@ async function assertTransformUsesProjectOption() {
     ),
     "utf8",
   );
-
-  const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
-    resolveOptions({
-      project: path.join(root, "tsconfig.unplugin.json"),
-    }),
-  );
-
-  assert.ok(result);
-  assert.match(result.code, /"PLUGIN"/);
 }

@@ -46,7 +46,9 @@ npx ttsc --watch
 
 ### Bundlers
 
-For bundlers, install `ttsc`, TypeScript-Go, and `@ttsc/unplugin`:
+Use `@ttsc/unplugin` when a bundler owns your build.
+
+It runs the same `compilerOptions.plugins` that `ttsc` and `ttsx` use.
 
 ```bash
 npm i -D ttsc @typescript/native-preview
@@ -65,7 +67,19 @@ export default defineConfig({
 });
 ```
 
-See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for Rollup, esbuild, Webpack, Rspack, Next.js, Farm, Bun, and adapter options.
+Supported bundlers:
+
+- Vite
+- Rollup
+- Rolldown
+- esbuild
+- Webpack
+- Rspack
+- Next.js
+- Farm
+- Bun
+
+See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
 
 ## Plugins
 
