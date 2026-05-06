@@ -20,11 +20,15 @@ A `typescript-go` toolchain for compiler-powered transforms and type-safe execut
 
 ## Setup
 
+### Install
+
 Install the native TypeScript preview package with `ttsc`:
 
 ```bash
 npm i -D ttsc @typescript/native-preview
 ```
+
+### Commands
 
 Run TypeScript directly with `ttsx` (CLI command):
 
@@ -40,14 +44,32 @@ npx ttsc --noEmit
 npx ttsc --watch
 ```
 
-Prebuild or clear cached source-plugin binaries:
+### Bundlers
+
+For bundlers, install `ttsc`, TypeScript-Go, and `@ttsc/unplugin`:
 
 ```bash
-npx ttsc prepare
-npx ttsc clean
+npm i -D ttsc @typescript/native-preview
+npm i -D @ttsc/unplugin
 ```
 
-## Plugin Configuration
+Minimal Vite setup:
+
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for Rollup, esbuild, Webpack, Rspack, Next.js, Farm, Bun, and adapter options.
+
+## Plugins
+
+### Configuration
 
 Add plugin entries under `compilerOptions.plugins` in your `tsconfig.json`.
 
@@ -82,7 +104,7 @@ npx ttsx src/index.ts
 
 This gives compiler-powered libraries one transform path for both build-time and runtime execution.
 
-## What Is a Transform?
+### What Is a Transform?
 
 A transform uses TypeScript types to generate JavaScript before runtime.
 
@@ -126,7 +148,8 @@ It is transformed into dedicated JavaScript:
 >     __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
 >     19 < input.age &&
 >     input.age <= 100;
->   return (input) => "object" === typeof input && null !== input && _io0(input);
+>   return (input) =>
+>     "object" === typeof input && null !== input && _io0(input);
 > })()({
 >   id: v4(),
 >   email: "samchon.github@gmail.com",
@@ -137,7 +160,7 @@ It is transformed into dedicated JavaScript:
 
 `ttsc` applies this transform at build time; `ttsx` applies the same transform when running the file.
 
-## List of Plugins
+### List of Plugins
 
 `ttsc` ships a few small utility plugins in this repository.
 
@@ -145,6 +168,7 @@ It is transformed into dedicated JavaScript:
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): type-check + lint in one compile pass, ~20x faster than `eslint` in theory.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
+- [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs configured `ttsc` source transforms inside bundlers supported by `unplugin`.
 
 Plugin authors should start from the [`Guide Documents`](https://github.com/samchon/ttsc/tree/master/docs).
 

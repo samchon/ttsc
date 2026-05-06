@@ -1,0 +1,107 @@
+{
+  "name": "@ttsc/unplugin",
+  "version": "0.8.0",
+  "description": "Bundler adapters for ttsc plugins.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./api": {
+      "types": "./lib/api.d.ts",
+      "default": "./lib/api.js"
+    },
+    "./bun": {
+      "types": "./lib/bun.d.ts",
+      "default": "./lib/bun.js"
+    },
+    "./esbuild": {
+      "types": "./lib/esbuild.d.ts",
+      "default": "./lib/esbuild.js"
+    },
+    "./farm": {
+      "types": "./lib/farm.d.ts",
+      "default": "./lib/farm.js"
+    },
+    "./next": {
+      "types": "./lib/next.d.ts",
+      "default": "./lib/next.js"
+    },
+    "./rolldown": {
+      "types": "./lib/rolldown.d.ts",
+      "default": "./lib/rolldown.js"
+    },
+    "./rollup": {
+      "types": "./lib/rollup.d.ts",
+      "default": "./lib/rollup.js"
+    },
+    "./rspack": {
+      "types": "./lib/rspack.d.ts",
+      "default": "./lib/rspack.js"
+    },
+    "./vite": {
+      "types": "./lib/vite.d.ts",
+      "default": "./lib/vite.js"
+    },
+    "./webpack": {
+      "types": "./lib/webpack.d.ts",
+      "default": "./lib/webpack.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf lib && tsgo",
+    "test": "pnpm run build && node --test --test-reporter=spec ../../tests/unplugin/**/*.test.cjs"
+  },
+  "keywords": [
+    "ttsc",
+    "unplugin",
+    "vite",
+    "esbuild",
+    "rollup",
+    "webpack",
+    "typescript",
+    "tsgo"
+  ],
+  "files": [
+    "README.md",
+    "lib",
+    "src",
+    "tsconfig.json"
+  ],
+  "dependencies": {
+    "diff-match-patch-es": "^1.0.1",
+    "magic-string": "^0.30.21",
+    "unplugin": "^2.3.11"
+  },
+  "peerDependencies": {
+    "@typescript/native-preview": ">=7.0.0-dev.0",
+    "ttsc": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "esbuild": "^0.25.12",
+    "rimraf": "catalog:utils",
+    "rollup": "^4.60.3",
+    "ttsc": "workspace:*",
+    "vite": "^7.1.12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/unplugin#readme",
+  "sideEffects": false,
+  "packageManager": "pnpm@10.6.4"
+}
