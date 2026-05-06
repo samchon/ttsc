@@ -9,7 +9,9 @@ import (
   "sort"
   "strings"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -47,7 +49,7 @@ func RunBuild(args []string) int {
   if !ok {
     return 2
   }
-  prog, entries, _, ok := loadUtilityProgram(opts)
+  prog, entries, _, sourcePreamble, ok := loadUtilityProgram(opts)
   if !ok {
     return 2
   }
@@ -66,7 +68,7 @@ func RunBuild(args []string) int {
     eDiags []driver.Diagnostic
     err    error
   )
-  res, eDiags, err = prog.EmitAllRaw(nil)
+  res, eDiags, err = prog.EmitAllRaw(makeSourcePreambleWriteFile(prog, sourcePreamble))
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
@@ -86,7 +88,7 @@ func RunTransform(args []string) int {
   if !ok {
     return 2
   }
-  prog, _, _, ok := loadUtilityProgram(opts)
+  prog, _, _, _, ok := loadUtilityProgram(opts)
   if !ok {
     return 2
   }
@@ -147,16 +149,16 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   }, true
 }
 
-func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, transformState, bool) {
+func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, transformState, string, bool) {
   entries, err := parsePluginEntries(opts.pluginsJSON)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   sourcePreamble, err := prepareSourcePreamble(entries)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   prog, diags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
     ForceEmit:      opts.emit,
@@ -166,26 +168,26 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, trans
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   if len(diags) > 0 {
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   if diags := prog.Diagnostics(); len(diags) > 0 {
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   state, err := prepareTransforms(prog, entries)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
   if err := applySourceTransforms(prog, state); err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return nil, nil, transformState{}, false
+    return nil, nil, transformState{}, "", false
   }
-  return prog, entries, state, true
+  return prog, entries, state, sourcePreamble, true
 }
 
 func parsePluginEntries(input string) ([]pluginEntry, error) {
@@ -229,6 +231,39 @@ func prepareSourcePreamble(entries []pluginEntry) (string, error) {
     preamble.WriteString(banner)
   }
   return preamble.String(), nil
+}
+
+func makeSourcePreambleWriteFile(prog *driver.Program, sourcePreamble string) shimcompiler.WriteFile {
+  if sourcePreamble == "" || shouldRemoveComments(prog) {
+    return nil
+  }
+  return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+    if shouldEnsureSourcePreamble(fileName, text, sourcePreamble) {
+      text = sourcePreamble + text
+    }
+    return driver.DefaultWriteFile(fileName, text)
+  }
+}
+
+func shouldRemoveComments(prog *driver.Program) bool {
+  if prog == nil || prog.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
+    return false
+  }
+  return prog.ParsedConfig.ParsedConfig.CompilerOptions.RemoveComments.IsTrue()
+}
+
+func shouldEnsureSourcePreamble(fileName, text, sourcePreamble string) bool {
+  return isSourcePreambleOutputTarget(fileName) && !strings.Contains(text, sourcePreamble)
+}
+
+func isSourcePreambleOutputTarget(fileName string) bool {
+  lower := strings.ToLower(filepath.ToSlash(fileName))
+  for _, suffix := range []string{".d.ts", ".d.mts", ".d.cts", ".js", ".jsx", ".mjs", ".cjs"} {
+    if strings.HasSuffix(lower, suffix) {
+      return true
+    }
+  }
+  return false
 }
 
 func applySourceTransforms(prog *driver.Program, state transformState) error {
