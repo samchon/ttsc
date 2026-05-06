@@ -1,14 +1,11 @@
 // Native sidecar entrypoint for `@ttsc/banner`.
-//
-// The command follows the ttsc plugin sidecar protocol: `check` validates the
-// plugin can run, `output` receives one emitted file and may rewrite it, and
-// `version` reports the sidecar version. All project semantics stay in the
-// host; this binary only prepends configured banner text.
 package main
 
 import (
   "fmt"
   "os"
+
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 const version = "0.0.1"
@@ -19,18 +16,19 @@ func main() {
 
 func run(args []string) int {
   if len(args) == 0 {
-    fmt.Fprintln(os.Stderr, "@ttsc/banner: command required (expected output|version)")
+    fmt.Fprintln(os.Stderr, "@ttsc/banner: command required (expected build|transform|check|version)")
     return 2
   }
   switch args[0] {
   case "-v", "--version", "version":
     fmt.Fprintf(os.Stdout, "@ttsc/banner %s\n", version)
     return 0
+  case "build":
+    return utility.RunBuild(args[1:])
+  case "transform":
+    return utility.RunTransform(args[1:])
   case "check":
-    // Banner rewriting is output-only; there is no program-wide analysis.
     return 0
-  case "output":
-    return RunOutput(args[1:])
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/banner: unknown command %q\n", args[0])
     return 2

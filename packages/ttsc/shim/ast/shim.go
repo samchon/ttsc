@@ -97,6 +97,7 @@ const (
   KindMultiLineCommentTrivia        = innerast.KindMultiLineCommentTrivia
   KindCallExpression                = innerast.KindCallExpression
   KindIdentifier                    = innerast.KindIdentifier
+  KindMultiLineCommentTrivia        = innerast.KindMultiLineCommentTrivia
   KindPropertyAccessExpression      = innerast.KindPropertyAccessExpression
   KindPropertySignature             = innerast.KindPropertySignature
   KindComputedPropertyName          = innerast.KindComputedPropertyName
@@ -169,12 +170,12 @@ const (
   ModifierFlagsReadonly  = innerast.ModifierFlagsReadonly
 )
 
-func NewNodeFactory(hooks NodeFactoryHooks) *NodeFactory {
-  return innerast.NewNodeFactory(hooks)
+func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
+  return innerast.NewNodeFactory(options)
 }
 
-func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, hooks NodeVisitorHooks) *NodeVisitor {
-  return innerast.NewNodeVisitor(visit, factory, hooks)
+func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options NodeVisitorHooks) *NodeVisitor {
+  return innerast.NewNodeVisitor(visit, factory, options)
 }
 
 func IsFunctionLike(node *Node) bool {

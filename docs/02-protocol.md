@@ -4,15 +4,15 @@ This page is the contract between `ttsc` and a plugin package.
 
 ## Manifest
 
-The plugin entry in `tsconfig.json` points at a JavaScript module:
+The consumer points `compilerOptions.plugins[]` at a JavaScript module:
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "my-plugin", "mode": "strict", "enabled": true }
-    ]
-  }
+      { "transform": "my-plugin", "mode": "strict", "enabled": true },
+    ],
+  },
 }
 ```
 
@@ -23,12 +23,8 @@ const path = require("node:path");
 
 module.exports = (context) => ({
   name: "my-plugin",
-  native: {
-    mode: String(context.plugin.mode ?? "default"),
-    source: { dir: path.resolve(__dirname, "go-plugin") },
-    contractVersion: 1,
-    capabilities: ["output"],
-  },
+  source: path.resolve(__dirname, "go-plugin"),
+  stage: "transform",
 });
 ```
 
@@ -60,7 +56,8 @@ export function createTtscPlugin(
 ) {
   return {
     name: "my-plugin",
-    native: { mode: context.plugin.mode ?? "default" },
+    source: "go-plugin",
+    stage: "transform",
   };
 }
 ```
@@ -70,43 +67,69 @@ export function createTtscPlugin(
 ```ts
 interface ITtscPlugin {
   name: string;
-  native?: ITtscNativeBackend;
-}
-
-interface ITtscNativeBackend {
-  mode: string;
-  source?: { dir: string; entry?: string };
-  binary?: string;
-  contractVersion?: 1;
-  capabilities?: readonly string[];
+  source: string;
+  stage?: "transform" | "check";
 }
 ```
 
 Field rules:
 
 - `name`: non-empty display name.
-- `native.mode`: stable dispatch string. Prefer a package-scoped value such as `acme.schema`.
-- `native.source.dir`: absolute path to a Go module containing `go.mod`.
-- `native.source.entry`: package path passed to `go build`; default is `"."`.
-- `native.binary`: absolute prebuilt binary path. Advanced/legacy only.
-- `native.contractVersion`: currently `1`.
-- `native.capabilities`: pipeline placement.
+- `source`: Go command package directory or `go.mod` file. Relative paths are
+  resolved from the consumer project root; package descriptors should usually
+  return an absolute path based on `__dirname`.
+- `stage`: pipeline placement. Omit for `"transform"`.
 
-`native.source` and `native.binary` are mutually exclusive.
+`ttsc` accepts Go source only. It builds the source with the pinned Go toolchain
+and TypeScript-Go shim overlay, then caches the resulting executable.
 
-## Capabilities
+## Stages
 
-| Capability | Host behavior | Binary commands |
-| --- | --- | --- |
-| omitted / `["transform"]` / `["build"]` | plugin owns compiler backend and emit | `check`, `transform`, `build` |
-| `["check"]` | plugin runs diagnostics before emit | `check` |
-| `["output"]` | plugin runs after emit, once per emitted file, in plugin order | `output` |
+Public stages are deliberately small:
 
-Use only these capability strings. Unknown strings are not a public extension point.
+| Stage                   | Host behavior                                    | Binary commands               |
+| ----------------------- | ------------------------------------------------ | ----------------------------- |
+| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build` |
+| `"check"`               | reports diagnostics before emit                  | `check`                       |
 
-Projects can enable multiple plugin entries. `["check"]` entries run before emit and can be combined with a compiler backend. `["output"]` entries run after TypeScript-Go's normal emit path in tsconfig plugin order.
+There is no public `output` stage. Plugins do not receive generated JavaScript
+text or emitted file text for post-processing.
 
-The compiler backend role is exclusive. A build cannot chain two separate binaries that both own Program creation and emit. To compose several compiler-backend modes, make them resolve to the same native binary and dispatch inside that binary by the ordered `--plugins-json` payload.
+## Composition
+
+Projects can enable multiple plugin entries. `check` entries run before emit and
+compose with transform entries.
+
+Transform entries can share one compiler host when they resolve to the same
+native binary. This is how the first-party utility plugins compose:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "banner": "license" },
+      { "transform": "@ttsc/paths" },
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
+}
+```
+
+Distinct third-party compiler hosts cannot be chained blindly, because each one
+would need to own `Program` creation and emit. If several transform modes must
+cooperate, expose them from one native binary and dispatch by the ordered
+`--plugins-json` payload.
+
+## Plugin Config Keys
+
+`ttsc` reads only `transform` and `enabled` from each user plugin entry. Every
+other key remains plugin-owned config and is passed through unchanged to the
+native sidecar.
+
+ts-patch placement words such as `before`, `after`, or `phase` have no compiler
+placement meaning in `ttsc`. If a plugin package chooses to use those names for
+its own config, they are ordinary plugin data. Package descriptors choose only
+between the public `"transform"` and `"check"` stages.
 
 ## Disabled Entries
 
@@ -117,9 +140,9 @@ The compiler backend role is exclusive. A build cannot chain two separate binari
   "compilerOptions": {
     "plugins": [
       { "transform": "my-plugin", "enabled": false },
-      { "transform": "other-plugin" }
-    ]
-  }
+      { "transform": "other-plugin" },
+    ],
+  },
 }
 ```
 
@@ -127,7 +150,8 @@ Disabled entries are not resolved, built, or included in `--plugins-json`.
 
 ## CLI Commands
 
-The binary receives subcommands. Unknown flags should be ignored so future `ttsc` minors can add optional flags.
+The built Go binary receives subcommands. Unknown flags should be ignored so
+future `ttsc` minors can add optional flags.
 
 ### `version`
 
@@ -145,7 +169,6 @@ Print a human-readable version and exit `0`.
 my-plugin check \
   --cwd=/project \
   --tsconfig=/project/tsconfig.json \
-  --rewrite-mode=my-plugin \
   --plugins-json='[...]'
 ```
 
@@ -155,14 +178,22 @@ Run diagnostics only. Write diagnostics to stderr. Exit non-zero for errors.
 
 ```bash
 my-plugin transform \
-  --file=/project/src/main.ts \
-  --out=/tmp/main.js \
+  --cwd=/project \
   --tsconfig=/project/tsconfig.json \
-  --rewrite-mode=my-plugin \
   --plugins-json='[...]'
 ```
 
-Single-source-file transform used by `ttsc transform` and bundler-style callers. Write JS to `--out` when provided, otherwise stdout.
+Project-wide source transform used by `ttsc.transform()` and in-memory callers.
+Write JSON to stdout:
+
+```json
+{
+  "diagnostics": [],
+  "typescript": {
+    "src/main.ts": "export const value = 1;\n"
+  }
+}
+```
 
 ### `build`
 
@@ -170,49 +201,35 @@ Single-source-file transform used by `ttsc transform` and bundler-style callers.
 my-plugin build \
   --cwd=/project \
   --tsconfig=/project/tsconfig.json \
-  --rewrite-mode=my-plugin \
   --plugins-json='[...]' \
   --emit \
   --outDir=/project/dist
 ```
 
-Project-wide compiler backend. Run diagnostics and write outputs.
-
-### `output`
-
-```bash
-my-plugin output \
-  --file=/project/dist/main.js \
-  --cwd=/project \
-  --tsconfig=/project/tsconfig.json \
-  --rewrite-mode=my-plugin \
-  --plugins-json='[...]'
-```
-
-Post-emit edit. Read `--file`, rewrite it in place, or write `--out` if the host supplies one.
+Project-wide transform build. Run diagnostics and write TypeScript-Go outputs.
 
 ## `--plugins-json`
 
-`--plugins-json` is an ordered JSON array of plugin descriptors for the current command:
+`--plugins-json` is an ordered JSON array of loaded plugin descriptors for the
+current command:
 
 ```json
 [
   {
     "name": "my-plugin",
-    "mode": "prefix",
-    "contractVersion": 1,
+    "stage": "transform",
     "config": {
       "transform": "my-plugin",
-      "mode": "prefix",
-      "prefix": "A:"
+      "mode": "strict"
     }
   }
 ]
 ```
 
-`config` is the original tsconfig plugin entry. Read your user options there.
+`config` is the original tsconfig plugin entry. Read user options there.
 
-When multiple entries resolve to the same binary, `ttsc` sends them together in tsconfig plugin order. Apply them in order if your plugin supports a pipeline.
+When multiple entries resolve to the same binary, `ttsc` sends them together in
+tsconfig plugin order. Apply them in order if your plugin supports a pipeline.
 
 ## Exit and Output
 
@@ -220,12 +237,12 @@ When multiple entries resolve to the same binary, `ttsc` sends them together in 
 - `2`: argument/config/diagnostic failure.
 - Any other non-zero: runtime failure.
 - `stderr` is shown to users; format errors for humans.
-- `transform` stdout is captured only when `--out` is absent.
-- `output` should write the resulting file content to `--file` or `--out`.
+- `transform` stdout must be the JSON shape above.
+- `build` writes project outputs through TypeScript-Go emit.
 
 ## Compatibility Rules
 
-Within `contractVersion: 1`:
+Within the current protocol:
 
 - `ttsc` may add optional flags.
 - `ttsc` may add JSON fields.

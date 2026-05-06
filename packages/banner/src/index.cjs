@@ -7,6 +7,6 @@ module.exports = function createTtscBanner() {
   return {
     name: "@ttsc/banner",
     source: path.resolve(__dirname, "..", "plugin"),
-    stage: "output",
+    stage: "transform",
   };
 };

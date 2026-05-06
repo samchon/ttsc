@@ -1,4 +1,4 @@
-// Run Go unit tests for utility output plugins without keeping test files in
+// Run Go unit tests for utility transform plugins without keeping test files in
 // the package directories that npm ships for lazy native builds.
 
 const cp = require("node:child_process");
@@ -60,7 +60,16 @@ function writeGoWork(scratch) {
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
   fs.writeFileSync(
     path.join(scratch, "go.work"),
-    `go 1.26\n\nuse (\n${useDirs.map((dir) => `\t${dir.replace(/\\/g, "/")}`).join("\n")}\n)\n`,
+    [
+      "go 1.26",
+      "",
+      "use (",
+      useDirs.map((dir) => `\t${dir.replace(/\\/g, "/")}`).join("\n"),
+      ")",
+      "",
+      `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscDir.replace(/\\/g, "/")}`,
+      "",
+    ].join("\n"),
     "utf8",
   );
 }

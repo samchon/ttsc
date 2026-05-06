@@ -59,4 +59,4 @@ jobs:
         working-directory: experimental/typia
         run: |
           pnpm install --no-frozen-lockfile
-          pnpm test
+          pnpm run test:ci

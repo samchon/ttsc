@@ -114,14 +114,12 @@ You can also keep the rules in a standalone file and reference it from `tsconfig
 // ttsc-lint.config.ts
 import type { TtscLintConfig } from "@ttsc/lint/config";
 
-const config = {
+export default {
   "no-var": "error",
   "prefer-const": "error",
   "no-explicit-any": "warning",
   "no-console": "off",
 } satisfies TtscLintConfig;
-
-export default config;
 ```
 
 The `config` field accepts:
@@ -200,7 +198,7 @@ same directives.
 
 `@ttsc/lint` must be the first plugin in `compilerOptions.plugins`.
 
-It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have to come after it.
+It inspects the source you wrote, so transform plugins such as `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` have to come after it.
 
 ```jsonc
 {
@@ -212,8 +210,8 @@ It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/path
         "config": { "no-var": "error", "prefer-const": "error" },
       },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // First-party utilities use their documented transform order.
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] },
     ],

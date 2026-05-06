@@ -60,7 +60,7 @@ func run(args []string) int {
     return runAPITransform(args[1:])
   case "check":
     // `ttsc check` runs the analyze pipeline without emitting JS — useful
-    // in CI and pre-commit hooks that only need schema validation.
+    // in CI and pre-commit checks that only need schema validation.
     return runBuild(append([]string{"--noEmit"}, args[1:]...))
   case "-p", "--project":
     if len(args) < 2 {

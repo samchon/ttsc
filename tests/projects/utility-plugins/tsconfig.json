@@ -3,6 +3,9 @@
     "target": "ES2022",
     "module": "commonjs",
     "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "paths": {
       "@/*": ["./src/*"],
       "@lib/*": ["./src/modules/*"],
@@ -22,7 +25,7 @@
       },
       {
         "transform": "@ttsc/banner",
-        "banner": "/*! utility combo */"
+        "banner": "utility combo"
       },
       {
         "transform": "@ttsc/paths"

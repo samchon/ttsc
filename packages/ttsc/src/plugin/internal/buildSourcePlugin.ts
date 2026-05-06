@@ -348,6 +348,20 @@ function resolveGoCompiler(): string {
     /* fall through */
   }
 
+  const platformPackage = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    `ttsc-${process.platform}-${process.arch}`,
+    "bin",
+    "go",
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
+  if (fs.existsSync(platformPackage)) return platformPackage;
+
   const local = path.resolve(
     __dirname,
     "..",
@@ -360,6 +374,15 @@ function resolveGoCompiler(): string {
     process.platform === "win32" ? "go.exe" : "go",
   );
   if (fs.existsSync(local)) return local;
+
+  const homeSdk = path.join(
+    process.env.HOME ?? "",
+    "go-sdk",
+    "go",
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
+  if (fs.existsSync(homeSdk)) return homeSdk;
 
   return "go";
 }

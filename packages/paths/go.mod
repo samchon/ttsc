@@ -2,18 +2,7 @@ module github.com/samchon/ttsc/packages/paths
 
 go 1.26
 
-require (
-	github.com/microsoft/typescript-go/shim/ast v0.0.0
-	github.com/microsoft/typescript-go/shim/bundled v0.0.0
-	github.com/microsoft/typescript-go/shim/compiler v0.0.0
-	github.com/microsoft/typescript-go/shim/core v0.0.0
-	github.com/microsoft/typescript-go/shim/diagnosticwriter v0.0.0
-	github.com/microsoft/typescript-go/shim/parser v0.0.0
-	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0
-	github.com/microsoft/typescript-go/shim/tspath v0.0.0
-	github.com/microsoft/typescript-go/shim/vfs/cachedvfs v0.0.0
-	github.com/microsoft/typescript-go/shim/vfs/osvfs v0.0.0
-)
+require github.com/samchon/ttsc/packages/ttsc v0.0.0
 
 require (
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect

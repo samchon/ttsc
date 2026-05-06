@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/banner",
-  "version": "0.7.3",
-  "description": "First-party ttsc plugin that prepends a banner comment to emitted files.",
+  "version": "0.8.0-dev.20260506",
+  "description": "First-party ttsc plugin that adds package-documentation JSDoc banners during emit.",
   "main": "src/index.cjs",
   "exports": {
     ".": "./src/index.cjs",

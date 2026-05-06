@@ -2,7 +2,7 @@
 
 Common failures and direct fixes.
 
-## `native.source.dir does not exist`
+## `source does not exist`
 
 Your tarball missed the Go source or the manifest used a relative runtime path.
 
@@ -15,7 +15,7 @@ Fix `package.json`:
 Fix `plugin.cjs`:
 
 ```js
-source: { dir: path.resolve(__dirname, "go-plugin") }
+source: path.resolve(__dirname, "go-plugin");
 ```
 
 Verify:
@@ -72,14 +72,14 @@ This works with TypeScript-Go's normal emit path:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "banner": "/*! license */" },
-      { "transform": "@ttsc/paths" }
-    ]
-  }
+      { "transform": "@ttsc/banner", "banner": "license" },
+      { "transform": "@ttsc/paths" },
+    ],
+  },
 }
 ```
 
-`@ttsc/banner` and `@ttsc/paths` are output plugins, so they run after TypeScript-Go emits files.
+`@ttsc/banner` and `@ttsc/paths` are transform plugins, so their package descriptors select the transform stage.
 
 This works with a compiler backend:
 
@@ -88,9 +88,9 @@ This works with a compiler backend:
   "compilerOptions": {
     "plugins": [
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-      { "transform": "my-compiler-backend" }
-    ]
-  }
+      { "transform": "my-compiler-backend" },
+    ],
+  },
 }
 ```
 
@@ -103,16 +103,16 @@ This fails when the entries resolve to different compiler backend binaries:
   "compilerOptions": {
     "plugins": [
       { "transform": "compiler-backend-a" },
-      { "transform": "compiler-backend-b" }
-    ]
-  }
+      { "transform": "compiler-backend-b" },
+    ],
+  },
 }
 ```
 
-If your plugin only edits emitted files, make it an output plugin:
+If your plugin only needs source AST changes, make it a transform plugin:
 
 ```js
-capabilities: ["output"]
+stage: "transform";
 ```
 
 If several compiler-backend modes must cooperate inside one compiler pass, put them in one binary and dispatch by ordered `--plugins-json`.
@@ -165,4 +165,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.name = void 0;
 ```
 
-Output plugins avoid most of this by editing TypeScript-Go's emitted JavaScript instead of generating a whole file.
+Transform plugins avoid most of this by mutating AST and letting TypeScript-Go
+print the final JavaScript.

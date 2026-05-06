@@ -13,6 +13,7 @@ coverage/
 .turbo/
 *.tgz
 *.tsbuildinfo
+*.log
 
 # Local Go workspace overlays
 go.work

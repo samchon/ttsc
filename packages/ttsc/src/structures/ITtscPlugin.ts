@@ -48,11 +48,20 @@ export interface ITtscPlugin {
   /**
    * Pipeline stage implemented by the sidecar.
    *
-   * Omit this field for normal compiler-transform plugins. Explicit stages are
-   * intended for tools that only validate (`"check"`) or rewrite already
-   * emitted files (`"output"`).
+   * Omit this field for normal compiler-transform plugins. The only explicit
+   * non-transform stage is `"check"`.
    *
    * @default "transform"
    */
   stage?: TtscPluginStage;
+}
+
+export function defineTtscPlugin<T extends ITtscPlugin>(plugin: T): T;
+export function defineTtscPlugin<TContext, T extends ITtscPlugin>(
+  factory: (context: TContext) => T,
+): (context: TContext) => T;
+export function defineTtscPlugin(
+  value: ITtscPlugin | ((context: unknown) => ITtscPlugin),
+): ITtscPlugin | ((context: unknown) => ITtscPlugin) {
+  return value;
 }
