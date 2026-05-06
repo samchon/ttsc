@@ -1,17 +1,18 @@
 const test = require("node:test");
 
-const unpluginBun = require("../../packages/unplugin/lib/bun.js").default;
 const {
   assertTransformedToPlugin,
   createProject,
   mainFile,
 } = require("./helpers/project.cjs");
+const { loadUnpluginAdapter } = require("./helpers/unplugin.cjs");
 
 test("bun adapter registers an onLoad transformer for TypeScript sources", async () => {
   await assertBunAdapterTransformsSource();
 });
 
 async function assertBunAdapterTransformsSource() {
+  const unpluginBun = await loadUnpluginAdapter("bun");
   const root = createProject();
   const loaders = [];
   unpluginBun().setup({

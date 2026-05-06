@@ -9,7 +9,7 @@ import type {
 import { TtscCompiler } from "ttsc";
 import type { TransformResult } from "unplugin";
 
-import type { ResolvedTtscUnpluginOptions } from "./options";
+import type { ResolvedTtscUnpluginOptions } from "./options.js";
 
 export type TtscTransformResult = Exclude<
   TransformResult,
@@ -27,7 +27,11 @@ export async function transformTtsc(
   options: ResolvedTtscUnpluginOptions,
   aliases?: unknown,
 ): Promise<TtscTransformResult | undefined> {
-  const file = path.resolve(stripQuery(id));
+  const clean = stripQuery(id);
+  if (clean.includes("\0")) {
+    return undefined;
+  }
+  const file = path.resolve(clean);
   if (isDeclarationFile(file)) {
     return undefined;
   }

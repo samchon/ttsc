@@ -31,7 +31,9 @@ function build(target) {
     stdio: "inherit",
   });
 
-  const file = fs.readdirSync(target.dir).find((entry) => entry.endsWith(".tgz"));
+  const file = fs
+    .readdirSync(target.dir)
+    .find((entry) => entry.endsWith(".tgz"));
   if (!file) {
     throw new Error(`package tarball was not created: ${target.name}`);
   }
@@ -50,10 +52,20 @@ function clearOutputDirectory() {
 }
 
 function listTargets(baseDir) {
-  const names = ["ttsc", "banner", "lint", "paths", "strip", ...fs
-    .readdirSync(baseDir)
-    .filter((entry) => /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry))
-    .sort()];
+  const names = [
+    "ttsc",
+    "banner",
+    "lint",
+    "paths",
+    "strip",
+    "unplugin",
+    ...fs
+      .readdirSync(baseDir)
+      .filter((entry) =>
+        /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry),
+      )
+      .sort(),
+  ];
   return names.map((name) => {
     const dir = path.join(baseDir, name);
     if (!fs.existsSync(path.join(dir, "package.json"))) {

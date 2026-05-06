@@ -1,13 +1,12 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const unpluginEsbuild =
-  require("../../packages/unplugin/lib/esbuild.js").default;
 const {
   assertTransformedToPlugin,
   createProject,
   requireFromUnplugin,
 } = require("./helpers/project.cjs");
+const { loadUnpluginAdapter } = require("./helpers/unplugin.cjs");
 
 const esbuild = requireFromUnplugin("esbuild");
 
@@ -16,6 +15,7 @@ test("esbuild adapter runs the configured ttsc source transform", async () => {
 });
 
 async function assertEsbuildAdapterTransformsSource() {
+  const unpluginEsbuild = await loadUnpluginAdapter("esbuild");
   const root = createProject();
   const result = await esbuild.build({
     absWorkingDir: root,

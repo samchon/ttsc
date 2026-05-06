@@ -1,4 +1,4 @@
-import unplugin from "./core/index";
+import unplugin from "./core/index.js";
 
 const webpack: typeof unplugin.webpack = unplugin.webpack;
 

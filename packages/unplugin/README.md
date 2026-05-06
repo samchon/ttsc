@@ -86,13 +86,13 @@ await build({
 ### Webpack
 
 ```js
-// webpack.config.cjs
-const ttsc = require("@ttsc/unplugin/webpack").default;
+// webpack.config.mjs
+import ttsc from "@ttsc/unplugin/webpack";
 
-module.exports = {
+export default {
   entry: "./src/index.ts",
   output: {
-    path: `${__dirname}/dist`,
+    path: new URL("./dist", import.meta.url).pathname,
   },
   plugins: [ttsc()],
 };
@@ -101,10 +101,10 @@ module.exports = {
 ### Rspack
 
 ```js
-// rspack.config.cjs
-const ttsc = require("@ttsc/unplugin/rspack").default;
+// rspack.config.mjs
+import ttsc from "@ttsc/unplugin/rspack";
 
-module.exports = {
+export default {
   entry: "./src/index.ts",
   plugins: [ttsc()],
 };

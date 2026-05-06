@@ -4,20 +4,18 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
-  resolveOptions,
-  transformTtsc,
-} = require("../../packages/unplugin/lib/api.js");
-const {
   createProject,
   mainFile,
   mainSource,
 } = require("./helpers/project.cjs");
+const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
 test("transformTtsc reads plugins from the discovered tsconfig", async () => {
   await assertTransformReadsDiscoveredTsconfig();
 });
 
 async function assertTransformReadsDiscoveredTsconfig() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
   const root = createProject();
   const result = await transformTtsc(
     mainFile(root),

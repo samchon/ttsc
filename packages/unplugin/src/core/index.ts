@@ -1,13 +1,14 @@
 import type { UnpluginFactory, UnpluginInstance } from "unplugin";
 import { createUnplugin } from "unplugin";
 
-import type { TtscUnpluginOptions } from "./options";
-import { resolveOptions } from "./options";
-import { isDeclarationFile, stripQuery, transformTtsc } from "./transform";
+import type { TtscUnpluginOptions } from "./options.js";
+import { resolveOptions } from "./options.js";
+import { isDeclarationFile, stripQuery, transformTtsc } from "./transform.js";
 
 const name = "ttsc-unplugin";
 const sourceFilePattern = /\.[cm]?[jt]sx?$/;
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
+const virtualModulePattern = /\0/;
 
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -47,7 +48,7 @@ const unplugin: UnpluginInstance<TtscUnpluginOptions | undefined, false> =
 export type {
   TtscUnpluginCompilerOptionsJson,
   TtscUnpluginOptions,
-} from "./options";
+} from "./options.js";
 export { resolveOptions, transformTtsc, unplugin };
 
 export default unplugin;
@@ -55,6 +56,7 @@ export default unplugin;
 function isTransformTarget(id: string): boolean {
   return (
     sourceFilePattern.test(id) &&
+    !virtualModulePattern.test(id) &&
     !isDeclarationFile(id) &&
     !nodeModulesPattern.test(id)
   );

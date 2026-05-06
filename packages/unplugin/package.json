@@ -1,52 +1,65 @@
 {
   "name": "@ttsc/unplugin",
+  "type": "module",
   "version": "0.8.0",
   "description": "Bundler adapters for ttsc plugins.",
   "main": "lib/index.js",
+  "module": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
       "default": "./lib/index.js"
     },
     "./api": {
       "types": "./lib/api.d.ts",
+      "import": "./lib/api.js",
       "default": "./lib/api.js"
     },
     "./bun": {
       "types": "./lib/bun.d.ts",
+      "import": "./lib/bun.js",
       "default": "./lib/bun.js"
     },
     "./esbuild": {
       "types": "./lib/esbuild.d.ts",
+      "import": "./lib/esbuild.js",
       "default": "./lib/esbuild.js"
     },
     "./farm": {
       "types": "./lib/farm.d.ts",
+      "import": "./lib/farm.js",
       "default": "./lib/farm.js"
     },
     "./next": {
       "types": "./lib/next.d.ts",
+      "import": "./lib/next.js",
       "default": "./lib/next.js"
     },
     "./rolldown": {
       "types": "./lib/rolldown.d.ts",
+      "import": "./lib/rolldown.js",
       "default": "./lib/rolldown.js"
     },
     "./rollup": {
       "types": "./lib/rollup.d.ts",
+      "import": "./lib/rollup.js",
       "default": "./lib/rollup.js"
     },
     "./rspack": {
       "types": "./lib/rspack.d.ts",
+      "import": "./lib/rspack.js",
       "default": "./lib/rspack.js"
     },
     "./vite": {
       "types": "./lib/vite.d.ts",
+      "import": "./lib/vite.js",
       "default": "./lib/vite.js"
     },
     "./webpack": {
       "types": "./lib/webpack.d.ts",
+      "import": "./lib/webpack.js",
       "default": "./lib/webpack.js"
     },
     "./package.json": "./package.json"
@@ -56,7 +69,7 @@
   },
   "scripts": {
     "build": "rimraf lib && tsgo",
-    "test": "pnpm run build && node --test --test-reporter=spec ../../tests/unplugin/**/*.test.cjs"
+    "test": "pnpm --dir ../.. --filter ttsc build && pnpm run build && node --test --test-reporter=spec ../../tests/unplugin/**/*.test.cjs"
   },
   "keywords": [
     "ttsc",

@@ -1,44 +1,69 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { unplugin } = require("../../packages/unplugin/lib/api.js");
-const unpluginFarm = require("../../packages/unplugin/lib/farm.js").default;
-const unpluginNext = require("../../packages/unplugin/lib/next.js").default;
-const unpluginRolldown =
-  require("../../packages/unplugin/lib/rolldown.js").default;
-const unpluginRspack = require("../../packages/unplugin/lib/rspack.js").default;
-const unpluginWebpack =
-  require("../../packages/unplugin/lib/webpack.js").default;
+const {
+  libUrl,
+  loadUnpluginAdapter,
+  loadUnpluginApi,
+} = require("./helpers/unplugin.cjs");
 
-test("adapter entrypoints expose the expected plugin factories", () => {
-  assertAdapterEntrypointsExposeFactories();
+test("adapter entrypoints expose the expected plugin factories", async () => {
+  await assertAdapterEntrypointsExposeFactories();
 });
 
-test("shared adapter filter accepts source files and skips declarations", () => {
-  assertSharedAdapterFilter();
+test("adapter entrypoints support Node ESM default import", async () => {
+  await assertAdapterEntrypointsSupportEsmDefaultImport();
 });
 
-test("next adapter preserves an existing webpack hook", () => {
-  assertNextAdapterPreservesWebpackHook();
+test("shared adapter filter accepts source files and skips declarations", async () => {
+  await assertSharedAdapterFilter();
 });
 
-function assertAdapterEntrypointsExposeFactories() {
+test("next adapter preserves an existing webpack hook", async () => {
+  await assertNextAdapterPreservesWebpackHook();
+});
+
+async function assertAdapterEntrypointsExposeFactories() {
+  const unpluginFarm = await loadUnpluginAdapter("farm");
+  const unpluginRolldown = await loadUnpluginAdapter("rolldown");
+  const unpluginRspack = await loadUnpluginAdapter("rspack");
+  const unpluginWebpack = await loadUnpluginAdapter("webpack");
   assert.equal(typeof unpluginFarm, "function");
   assert.equal(typeof unpluginRolldown, "function");
   assert.equal(typeof unpluginRspack, "function");
   assert.equal(typeof unpluginWebpack, "function");
 }
 
-function assertSharedAdapterFilter() {
+async function assertAdapterEntrypointsSupportEsmDefaultImport() {
+  for (const entrypoint of [
+    "bun",
+    "esbuild",
+    "farm",
+    "next",
+    "rolldown",
+    "rollup",
+    "rspack",
+    "vite",
+    "webpack",
+  ]) {
+    const mod = await import(libUrl(entrypoint));
+    assert.equal(typeof mod.default, "function", entrypoint);
+  }
+}
+
+async function assertSharedAdapterFilter() {
+  const { unplugin } = await loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
   assert.equal(raw.transformInclude?.("main.ts"), true);
   assert.equal(raw.transformInclude?.("main.tsx"), true);
   assert.equal(raw.transformInclude?.("main.css"), false);
   assert.equal(raw.transformInclude?.("node_modules/pkg/main.ts"), false);
   assert.equal(raw.transformInclude?.("main.d.ts"), false);
+  assert.equal(raw.transformInclude?.("\0rolldown/runtime.js"), false);
 }
 
-function assertNextAdapterPreservesWebpackHook() {
+async function assertNextAdapterPreservesWebpackHook() {
+  const unpluginNext = await loadUnpluginAdapter("next");
   let called = false;
   const next = unpluginNext({
     webpack(config) {
