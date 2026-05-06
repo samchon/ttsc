@@ -6,6 +6,15 @@ import nodeExternals from "rollup-plugin-node-externals";
 import { globSync } from "tinyglobby";
 
 const inputs = globSync("./src/**/*.ts");
+const externalPackages = [
+  "diff-match-patch-es",
+  "magic-string",
+  "ttsc",
+  "unplugin",
+];
+const external = (id) =>
+  id.startsWith("node:") ||
+  externalPackages.some((name) => id === name || id.startsWith(`${name}/`));
 
 const output = (format, extension) => ({
   dir: "./lib",
@@ -23,6 +32,7 @@ const output = (format, extension) => ({
 });
 
 export default {
+  external,
   input: inputs,
   output: [output("cjs", "js"), output("esm", "mjs")],
   plugins: [

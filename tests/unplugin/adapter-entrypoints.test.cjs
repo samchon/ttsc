@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const test = require("node:test");
 
 const {
@@ -18,6 +19,10 @@ test("adapter entrypoints support Node ESM default import", async () => {
 
 test("adapter entrypoints support Node CJS require", () => {
   assertAdapterEntrypointsSupportCjsRequire();
+});
+
+test("package build keeps runtime dependencies external", () => {
+  assertPackageBuildKeepsRuntimeDependenciesExternal();
 });
 
 test("shared adapter filter accepts source files and skips declarations", async () => {
@@ -83,6 +88,36 @@ function assertAdapterEntrypointsSupportCjsRequire() {
   assert.equal(typeof api.transformTtsc, "function");
 }
 
+function assertPackageBuildKeepsRuntimeDependenciesExternal() {
+  assert.equal(fs.existsSync(libPath("core/transform", "js")), true);
+  assert.equal(fs.existsSync(libPath("core/transform", "mjs")), true);
+  assert.equal(fs.existsSync(libPath("_virtual/index", "js")), false);
+  assert.equal(fs.existsSync(libPath("_virtual/index", "mjs")), false);
+
+  const cjs = fs.readFileSync(libPath("core/transform", "js"), "utf8");
+  const esm = fs.readFileSync(libPath("core/transform", "mjs"), "utf8");
+  const cjsCore = fs.readFileSync(libPath("core/index", "js"), "utf8");
+  const esmCore = fs.readFileSync(libPath("core/index", "mjs"), "utf8");
+
+  for (const dependency of ["diff-match-patch-es", "magic-string", "ttsc"]) {
+    assert.match(
+      cjs,
+      new RegExp(`require\\('${escapeRegExp(dependency)}'\\)`),
+      dependency,
+    );
+  }
+
+  assert.match(esm, /from 'diff-match-patch-es'/);
+  assert.match(esm, /from 'magic-string'/);
+  assert.match(esm, /from 'ttsc'/);
+  assert.match(cjsCore, /require\('unplugin'\)/);
+  assert.match(esmCore, /from 'unplugin'/);
+
+  for (const output of [cjs, esm, cjsCore, esmCore]) {
+    assert.doesNotMatch(output, /_virtual|__dirname|packages\/ttsc/);
+  }
+}
+
 async function assertSharedAdapterFilter() {
   const { unplugin } = await loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
@@ -92,6 +127,10 @@ async function assertSharedAdapterFilter() {
   assert.equal(raw.transformInclude?.("node_modules/pkg/main.ts"), false);
   assert.equal(raw.transformInclude?.("main.d.ts"), false);
   assert.equal(raw.transformInclude?.("\0rolldown/runtime.js"), false);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function assertNextAdapterPreservesWebpackHook() {
