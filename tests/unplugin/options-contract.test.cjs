@@ -1,13 +1,14 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { resolveOptions } = require("../../packages/unplugin/lib/api.js");
+const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
-test("resolveOptions keeps only the public ttsc adapter contract", () => {
-  assertResolveOptionsKeepsOnlyPublicContract();
+test("resolveOptions keeps only the public ttsc adapter contract", async () => {
+  await assertResolveOptionsKeepsOnlyPublicContract();
 });
 
-function assertResolveOptionsKeepsOnlyPublicContract() {
+async function assertResolveOptionsKeepsOnlyPublicContract() {
+  const { resolveOptions } = await loadUnpluginApi();
   const options = resolveOptions({
     compilerOptions: {
       module: "commonjs",

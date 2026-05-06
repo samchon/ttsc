@@ -1,6 +1,5 @@
 const test = require("node:test");
 
-const unpluginRollup = require("../../packages/unplugin/lib/rollup.js").default;
 const {
   assertTransformedToPlugin,
   collectRollupOutputCode,
@@ -8,6 +7,7 @@ const {
   mainFile,
   requireFromUnplugin,
 } = require("./helpers/project.cjs");
+const { loadUnpluginAdapter } = require("./helpers/unplugin.cjs");
 
 const { rollup } = requireFromUnplugin("rollup");
 
@@ -16,6 +16,7 @@ test("rollup adapter runs the configured ttsc source transform", async () => {
 });
 
 async function assertRollupAdapterTransformsSource() {
+  const unpluginRollup = await loadUnpluginAdapter("rollup");
   const root = createProject();
   const bundle = await rollup({
     input: mainFile(root),

@@ -4,14 +4,11 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
-  resolveOptions,
-  transformTtsc,
-} = require("../../packages/unplugin/lib/api.js");
-const {
   createProject,
   mainFile,
   mainSource,
 } = require("./helpers/project.cjs");
+const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
 test("transformTtsc uses the project option for an alternate tsconfig", async () => {
   await assertTransformUsesProjectOption();
@@ -22,6 +19,7 @@ test("transformTtsc resolves a relative project option from cwd", async () => {
 });
 
 async function assertTransformUsesProjectOption() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
   const root = createProject({ plugins: [] });
   writeUnpluginProject(root);
 
@@ -38,6 +36,7 @@ async function assertTransformUsesProjectOption() {
 }
 
 async function assertTransformUsesRelativeProjectOption() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
   const root = createProject({ plugins: [] });
   writeUnpluginProject(root);
 

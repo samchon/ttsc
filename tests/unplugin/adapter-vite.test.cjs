@@ -1,13 +1,13 @@
 const path = require("node:path");
 const test = require("node:test");
 
-const unpluginVite = require("../../packages/unplugin/lib/vite.js").default;
 const {
   assertTransformedToPlugin,
   collectRollupOutputCode,
   createProject,
   requireFromUnplugin,
 } = require("./helpers/project.cjs");
+const { loadUnpluginAdapter } = require("./helpers/unplugin.cjs");
 
 const { build: viteBuild } = requireFromUnplugin("vite");
 
@@ -16,6 +16,7 @@ test("vite adapter runs the configured ttsc source transform", async () => {
 });
 
 async function assertViteAdapterTransformsSource() {
+  const unpluginVite = await loadUnpluginAdapter("vite");
   const root = createProject();
   const output = await viteBuild({
     root,

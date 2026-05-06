@@ -3,20 +3,18 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
-  resolveOptions,
-  transformTtsc,
-} = require("../../packages/unplugin/lib/api.js");
-const {
   createProject,
   mainFile,
   mainSource,
 } = require("./helpers/project.cjs");
+const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
 test("transformTtsc passes bundler aliases through compilerOptions.paths", async () => {
   await assertTransformPassesBundlerAliases();
 });
 
 async function assertTransformPassesBundlerAliases() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
   const root = createProject({ plugins: [] });
   const result = await transformTtsc(
     mainFile(root),

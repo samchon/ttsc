@@ -2,20 +2,18 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
-  resolveOptions,
-  transformTtsc,
-} = require("../../packages/unplugin/lib/api.js");
-const {
   createProject,
   mainFile,
   mainSource,
 } = require("./helpers/project.cjs");
+const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
 test("transformTtsc applies top-level plugin overrides in order", async () => {
   await assertTransformAppliesOrderedPluginOverrides();
 });
 
 async function assertTransformAppliesOrderedPluginOverrides() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
   const root = createProject({ plugins: [] });
   const result = await transformTtsc(
     mainFile(root),

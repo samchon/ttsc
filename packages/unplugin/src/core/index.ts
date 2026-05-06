@@ -8,6 +8,7 @@ import { isDeclarationFile, stripQuery, transformTtsc } from "./transform";
 const name = "ttsc-unplugin";
 const sourceFilePattern = /\.[cm]?[jt]sx?$/;
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
+const virtualModulePattern = /\0/;
 
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -55,6 +56,7 @@ export default unplugin;
 function isTransformTarget(id: string): boolean {
   return (
     sourceFilePattern.test(id) &&
+    !virtualModulePattern.test(id) &&
     !isDeclarationFile(id) &&
     !nodeModulesPattern.test(id)
   );

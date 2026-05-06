@@ -27,7 +27,11 @@ export async function transformTtsc(
   options: ResolvedTtscUnpluginOptions,
   aliases?: unknown,
 ): Promise<TtscTransformResult | undefined> {
-  const file = path.resolve(stripQuery(id));
+  const clean = stripQuery(id);
+  if (clean.includes("\0")) {
+    return undefined;
+  }
+  const file = path.resolve(clean);
   if (isDeclarationFile(file)) {
     return undefined;
   }

@@ -13,6 +13,10 @@ verifies that:
   plugin builds;
 - `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` build from source with
   that bundled Go compiler;
+- `@ttsc/unplugin` installs from its tarball, exposes every adapter entrypoint
+  through ESM default import and CJS require, and runs inside a real Vite build;
+- `@ttsc/lint` and `@ttsc/unplugin` do not publish their local
+  `tsconfig.json` files;
 - `ttsc --version`, `ttsc --emit`, and `ttsx` execute through the installed
   package path and observe the emitted JavaScript, declarations, source maps,
   path rewrites, stripped statements, and runtime output.
