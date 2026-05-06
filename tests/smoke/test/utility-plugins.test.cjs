@@ -77,7 +77,7 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
   assert.match(result.stderr, /building source plugin "@ttsc\/strip"/);
 
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
-  assert.match(js, bannerPreamble("utility combo"));
+  assertSingleBanner(js, "utility combo");
   assert.match(js, /require\("\.\/modules\/join\.js"\)/);
   assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /console\.(?:log|debug)/);
@@ -89,7 +89,7 @@ test("utility plugins: lint, banner, paths, and strip run together in ttsc build
   assert.equal(run.stdout.trim(), "hello:ok");
 
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
-  assert.match(dts, bannerPreamble("utility combo"));
+  assertSingleBanner(dts, "utility combo");
   assert.match(dts, /import\("\.\/modules\/join\.js"\)/);
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(dts, /@lib\/join|exact-message/);
@@ -153,8 +153,8 @@ test("utility plugins: shared transform host works when paths is first", () => {
   assert.equal(result.status, 0, result.stderr);
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
-  assert.match(js, bannerPreamble("paths first"));
-  assert.match(dts, bannerPreamble("paths first"));
+  assertSingleBanner(js, "paths first");
+  assertSingleBanner(dts, "paths first");
   assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /@lib\/message|console\.log|\bdebugger\b/);
 });
@@ -196,8 +196,8 @@ test("utility plugins: banner injects JavaScript and declaration JSDoc", () => {
     path.join(root, "dist", "main.d.ts.map"),
     "utf8",
   );
-  assert.match(js, bannerPreamble("banner-only\nsecond line"));
-  assert.match(dts, bannerPreamble("banner-only\nsecond line"));
+  assertSingleBanner(js, "banner-only\nsecond line");
+  assertSingleBanner(dts, "banner-only\nsecond line");
   assert.match(js, /\n\/\/# sourceMappingURL=main\.js\.map$/);
   assert.match(dts, /\n\/\/# sourceMappingURL=main\.d\.ts\.map$/);
   assert.doesNotMatch(jsMap, /@packageDocumentation|banner-only/);
@@ -464,12 +464,22 @@ function goPath() {
     : process.env.PATH;
 }
 
+function assertSingleBanner(output, text) {
+  const banner = bannerPreamble(text);
+  const count = output.split(banner).length - 1;
+  assert.equal(
+    count,
+    1,
+    `expected one ${JSON.stringify(text)} banner, got ${count}`,
+  );
+}
+
 function bannerPreamble(text) {
   const lines = text.split(/\r?\n/).filter((line, index, all) => {
     return index < all.length - 1 || line.trim() !== "";
   });
   const sep = "-".repeat(64);
-  const escaped = [
+  return [
     "/**",
     ` * ${sep}`,
     ...lines.map((line) => ` * ${line.replaceAll("*/", "* /")}`),
@@ -477,11 +487,6 @@ function bannerPreamble(text) {
     " * @packageDocumentation",
     " */",
   ]
-    .map(escapeRegExp)
-    .join("\\n");
-  return new RegExp(`${escaped}\\n`);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    .join("\n")
+    .concat("\n");
 }

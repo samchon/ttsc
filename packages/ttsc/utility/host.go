@@ -9,9 +9,7 @@ import (
   "sort"
   "strings"
 
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -178,9 +176,6 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, trans
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
     return nil, nil, transformState{}, false
   }
-  if sourcePreamble != "" {
-    attachSourcePreambleComments(prog)
-  }
   state, err := prepareTransforms(prog, entries)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -234,79 +229,6 @@ func prepareSourcePreamble(entries []pluginEntry) (string, error) {
     preamble.WriteString(banner)
   }
   return preamble.String(), nil
-}
-
-func attachSourcePreambleComments(prog *driver.Program) {
-  for _, file := range prog.SourceFiles() {
-    if file == nil || file.Statements == nil {
-      continue
-    }
-    var declarationStmt *shimast.Node
-    var runtimeStmt *shimast.Node
-    for _, stmt := range file.Statements.Nodes {
-      if declarationStmt == nil && isDeclarationEmitStatement(stmt) {
-        declarationStmt = stmt
-      }
-      if runtimeStmt == nil && isRuntimeStatement(stmt) {
-        runtimeStmt = stmt
-      }
-      if declarationStmt != nil && runtimeStmt != nil {
-        break
-      }
-    }
-    if declarationStmt != nil {
-      declarationStmt.Loc = shimcore.NewTextRange(0, declarationStmt.End())
-      if !isRuntimeStatement(declarationStmt) && runtimeStmt != nil {
-        runtimeStmt.Loc = shimcore.NewTextRange(0, runtimeStmt.End())
-      }
-      continue
-    }
-    if runtimeStmt != nil {
-      runtimeStmt.Loc = shimcore.NewTextRange(0, runtimeStmt.End())
-    }
-  }
-}
-
-func isDeclarationEmitStatement(stmt *shimast.Node) bool {
-  if stmt == nil {
-    return false
-  }
-  switch stmt.Kind {
-  case shimast.KindClassDeclaration,
-    shimast.KindEnumDeclaration,
-    shimast.KindExportAssignment,
-    shimast.KindFunctionDeclaration,
-    shimast.KindInterfaceDeclaration,
-    shimast.KindModuleDeclaration,
-    shimast.KindTypeAliasDeclaration,
-    shimast.KindVariableStatement:
-    return true
-  case shimast.KindExportDeclaration:
-    export := stmt.AsExportDeclaration()
-    return !export.IsTypeOnly && export.ModuleSpecifier != nil
-  default:
-    return false
-  }
-}
-
-func isRuntimeStatement(stmt *shimast.Node) bool {
-  if stmt == nil {
-    return false
-  }
-  switch stmt.Kind {
-  case shimast.KindInterfaceDeclaration, shimast.KindTypeAliasDeclaration:
-    return false
-  case shimast.KindImportDeclaration:
-    clause := stmt.AsImportDeclaration().ImportClause
-    return clause == nil || !clause.IsTypeOnly()
-  case shimast.KindImportEqualsDeclaration:
-    return !stmt.AsImportEqualsDeclaration().IsTypeOnly
-  case shimast.KindExportDeclaration:
-    export := stmt.AsExportDeclaration()
-    return !export.IsTypeOnly && export.ModuleSpecifier != nil
-  default:
-    return true
-  }
 }
 
 func applySourceTransforms(prog *driver.Program, state transformState) error {

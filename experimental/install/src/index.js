@@ -56,7 +56,9 @@ function packPackage(packageDirName, tarballName) {
   }
 
   run("pnpm pack", packageDir);
-  const packed = fs.readdirSync(packageDir).find((entry) => entry.endsWith(".tgz"));
+  const packed = fs
+    .readdirSync(packageDir)
+    .find((entry) => entry.endsWith(".tgz"));
   assert(packed, `${packageDirName} package tarball must be created`);
   fs.copyFileSync(
     path.join(packageDir, packed),
@@ -65,7 +67,10 @@ function packPackage(packageDirName, tarballName) {
 }
 
 function prepareWorkspace() {
-  fs.rmSync(path.join(experimentRoot, ".tmp"), { recursive: true, force: true });
+  fs.rmSync(path.join(experimentRoot, ".tmp"), {
+    recursive: true,
+    force: true,
+  });
   fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
   fs.mkdirSync(path.join(workspace, "src", "lib"), { recursive: true });
   fs.writeFileSync(
@@ -175,15 +180,23 @@ function verifyInstalledPackages() {
     process.platform === "win32" ? "go.exe" : "go",
   );
   assert(fs.existsSync(platformBin), `${platformPackage} binary must exist`);
-  assert(fs.existsSync(platformGo), `${platformPackage} bundled Go compiler must exist`);
+  assert(
+    fs.existsSync(platformGo),
+    `${platformPackage} bundled Go compiler must exist`,
+  );
   assert(
     !fs.existsSync(path.join(workspace, "node_modules", "ttsc", "native")),
     "ttsc package must not ship a workspace-local native fallback",
   );
   const ttscPackage = JSON.parse(
-    fs.readFileSync(path.join(workspace, "node_modules", "ttsc", "package.json"), "utf8"),
+    fs.readFileSync(
+      path.join(workspace, "node_modules", "ttsc", "package.json"),
+      "utf8",
+    ),
   );
-  for (const [name, version] of Object.entries(ttscPackage.optionalDependencies ?? {})) {
+  for (const [name, version] of Object.entries(
+    ttscPackage.optionalDependencies ?? {},
+  )) {
     assert(
       version === ttscPackage.version,
       `ttsc optional dependency ${name} must resolve to exact package version ${ttscPackage.version}, got ${version}`,
@@ -218,16 +231,14 @@ function verifyTtscBuild() {
   const emitted = fs.readFileSync(output, "utf8");
   const emittedMessage = fs.readFileSync(messageOutput, "utf8");
   const emittedDeclaration = fs.readFileSync(declaration, "utf8");
+  const expectedBanner = bannerPreamble("License MIT");
   assert(
-    emitted.startsWith("/**\n") &&
-      emitted.includes(" * License MIT\n") &&
-      emitted.includes(" * @packageDocumentation\n"),
+    countOccurrences(emitted, expectedBanner) === 1,
     "ttsc must build and run @ttsc/banner from tarball with the bundled Go compiler",
   );
   assert(
-    emittedDeclaration.startsWith("/**\n") &&
-      emittedDeclaration.includes(" * License MIT\n") &&
-      emittedDeclaration.includes(" * @packageDocumentation\n"),
+    emittedDeclaration.startsWith(expectedBanner) &&
+      countOccurrences(emittedDeclaration, expectedBanner) === 1,
     "ttsc must emit @ttsc/banner into declarations",
   );
   assert(
@@ -279,6 +290,27 @@ function assertConsoleOutput(command, stdout, expected) {
     actual === expected,
     `${command} must print ${JSON.stringify(expected)} to stdout, got ${JSON.stringify(actual)}`,
   );
+}
+
+function bannerPreamble(text) {
+  const lines = text.split(/\r?\n/).filter((line, index, all) => {
+    return index < all.length - 1 || line.trim() !== "";
+  });
+  const sep = "-".repeat(64);
+  return [
+    "/**",
+    ` * ${sep}`,
+    ...lines.map((line) => ` * ${line.replaceAll("*/", "* /")}`),
+    " *",
+    " * @packageDocumentation",
+    " */",
+  ]
+    .join("\n")
+    .concat("\n");
+}
+
+function countOccurrences(text, search) {
+  return text.split(search).length - 1;
 }
 
 function tarball(name) {
@@ -352,7 +384,10 @@ function runInstalledTtsc(args, cwd) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
-  assert(result.status === 0, `installed ttsc failed with status ${result.status}`);
+  assert(
+    result.status === 0,
+    `installed ttsc failed with status ${result.status}`,
+  );
   return result;
 }
 
