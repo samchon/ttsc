@@ -7,6 +7,7 @@ const packagesDir = path.join(root, "packages");
 
 run(["--filter", "ttsc", "build"]);
 run(["--filter", "@ttsc/lint", "build"]);
+run(["--filter", "@ttsc/unplugin", "build"]);
 
 for (const platformDir of listPlatformPackageDirs()) {
   console.log(`Building platform package: ${path.basename(platformDir)}`);

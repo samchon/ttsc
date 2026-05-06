@@ -67,3 +67,7 @@ No separate plugin options are required. `@ttsc/paths` reads the same `compilerO
   },
 }
 ```
+
+## References
+
+Inspired by [`typescript-transform-paths`](https://github.com/LeDDGroup/typescript-transform-paths).
