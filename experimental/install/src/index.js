@@ -369,6 +369,24 @@ function verifyInstalledPackages() {
   assert(/^ttsx /m.test(ttsx), "npx ttsx --version must print ttsx banner");
   assertPackageFileMissing("@ttsc/lint", "tsconfig.json");
   assertPackageFileMissing("@ttsc/unplugin", "tsconfig.json");
+  assertPackageFileMissing("@ttsc/unplugin", "lib/_virtual");
+  assertPackageFileMissing("@ttsc/unplugin", "lib/vite.cjs");
+  assertPackageFileExists("@ttsc/unplugin", "lib/vite.js");
+  assertPackageFileExists("@ttsc/unplugin", "lib/vite.mjs");
+  const unpluginPackage = readInstalledPackageJson("@ttsc/unplugin");
+  assert(
+    unpluginPackage.type === undefined,
+    "@ttsc/unplugin must not set package.json type=module",
+  );
+  assert(
+    unpluginPackage.peerDependencies === undefined,
+    "@ttsc/unplugin must not publish peerDependencies",
+  );
+  assert(
+    unpluginPackage.exports?.["./vite"]?.import === "./lib/vite.mjs" &&
+      unpluginPackage.exports?.["./vite"]?.default === "./lib/vite.js",
+    "@ttsc/unplugin must publish ESM through import and CJS through default",
+  );
 }
 
 function verifyUnpluginEntrypoints() {
@@ -471,6 +489,26 @@ function assertPackageFileMissing(packageName, relative) {
     relative,
   );
   assert(!fs.existsSync(file), `${packageName} must not ship ${relative}`);
+}
+
+function assertPackageFileExists(packageName, relative) {
+  const file = path.join(
+    workspace,
+    "node_modules",
+    ...packageName.split("/"),
+    relative,
+  );
+  assert(fs.existsSync(file), `${packageName} must ship ${relative}`);
+}
+
+function readInstalledPackageJson(packageName) {
+  const file = path.join(
+    workspace,
+    "node_modules",
+    ...packageName.split("/"),
+    "package.json",
+  );
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 function verifyTtscBuild() {
