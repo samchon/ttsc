@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import type { UnpluginContextMeta } from "unplugin";
 
-import { unplugin } from "./api.js";
-import type { TtscUnpluginOptions } from "./core/options.js";
+import { unplugin } from "./api";
+import type { TtscUnpluginOptions } from "./core/options";
 
 export interface BunLikePlugin {
   name: string;

@@ -263,6 +263,8 @@ Supported entrypoints are:
 - `@ttsc/unplugin/next`
 - `@ttsc/unplugin/bun`
 
+Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`.
+
 ### Options
 
 ```ts

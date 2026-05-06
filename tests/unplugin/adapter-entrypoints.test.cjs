@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  libPath,
   libUrl,
   loadUnpluginAdapter,
   loadUnpluginApi,
@@ -13,6 +14,10 @@ test("adapter entrypoints expose the expected plugin factories", async () => {
 
 test("adapter entrypoints support Node ESM default import", async () => {
   await assertAdapterEntrypointsSupportEsmDefaultImport();
+});
+
+test("adapter entrypoints support Node CJS require", () => {
+  assertAdapterEntrypointsSupportCjsRequire();
 });
 
 test("shared adapter filter accepts source files and skips declarations", async () => {
@@ -35,6 +40,9 @@ async function assertAdapterEntrypointsExposeFactories() {
 }
 
 async function assertAdapterEntrypointsSupportEsmDefaultImport() {
+  const root = await import(libUrl("index"));
+  assert.equal(typeof root.default.vite, "function", "index");
+
   for (const entrypoint of [
     "bun",
     "esbuild",
@@ -49,6 +57,30 @@ async function assertAdapterEntrypointsSupportEsmDefaultImport() {
     const mod = await import(libUrl(entrypoint));
     assert.equal(typeof mod.default, "function", entrypoint);
   }
+}
+
+function assertAdapterEntrypointsSupportCjsRequire() {
+  const root = require(libPath("index", "js"));
+  assert.equal(typeof root.default.vite, "function", "index");
+
+  for (const entrypoint of [
+    "bun",
+    "esbuild",
+    "farm",
+    "next",
+    "rolldown",
+    "rollup",
+    "rspack",
+    "vite",
+    "webpack",
+  ]) {
+    const mod = require(libPath(entrypoint, "js"));
+    assert.equal(typeof mod.default, "function", entrypoint);
+  }
+
+  const api = require(libPath("api", "js"));
+  assert.equal(typeof api.resolveOptions, "function");
+  assert.equal(typeof api.transformTtsc, "function");
 }
 
 async function assertSharedAdapterFilter() {

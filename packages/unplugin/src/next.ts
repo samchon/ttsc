@@ -1,5 +1,5 @@
-import type { TtscUnpluginOptions } from "./core/options.js";
-import webpack from "./webpack.js";
+import type { TtscUnpluginOptions } from "./core/options";
+import webpack from "./webpack";
 
 export type NextLikeConfig = Record<string, unknown> & {
   webpack?: (config: WebpackLikeConfig, options: unknown) => WebpackLikeConfig;

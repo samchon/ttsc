@@ -1,5 +1,5 @@
-import unplugin from "./core/index.js";
+import unplugin from "./core/index";
 
-export type { TtscUnpluginOptions } from "./core/options.js";
+export type { TtscUnpluginOptions } from "./core/options";
 
 export default unplugin;

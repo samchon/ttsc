@@ -152,6 +152,7 @@ function prepareWorkspace() {
 }
 
 function writeUnpluginFixture() {
+  fs.mkdirSync(path.join(workspace, "unplugin-src"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "tsconfig.unplugin.json"),
     JSON.stringify(
@@ -159,13 +160,14 @@ function writeUnpluginFixture() {
         extends: "./tsconfig.json",
         compilerOptions: {
           module: "ESNext",
+          rootDir: ".",
           plugins: [
             {
               transform: "./unplugin-transform.cjs",
             },
           ],
         },
-        include: ["src/bundler.ts"],
+        include: ["unplugin-src/bundler.ts"],
       },
       null,
       2,
@@ -173,7 +175,7 @@ function writeUnpluginFixture() {
     "utf8",
   );
   fs.writeFileSync(
-    path.join(workspace, "src", "bundler.ts"),
+    path.join(workspace, "unplugin-src", "bundler.ts"),
     [
       'export const bundled: string = goUpper("installed-unplugin-ok");',
       "console.log(bundled);",
@@ -195,7 +197,7 @@ function writeUnpluginFixture() {
       "    minify: false,",
       '    outDir: "dist-vite",',
       "    rollupOptions: {",
-      '      input: path.resolve("src/bundler.ts"),',
+      '      input: path.resolve("unplugin-src/bundler.ts"),',
       "      output: {",
       '        entryFileNames: "bundler.js",',
       '        format: "es",',
@@ -279,14 +281,14 @@ function writeUnpluginTransformPlugin() {
       "  if err := fs.Parse(args); err != nil { return 2 }",
       "  root := *cwd",
       '  if root == "" { root, _ = os.Getwd() }',
-      '  source, err := os.ReadFile(filepath.Join(root, "src", "bundler.ts"))',
+      '  source, err := os.ReadFile(filepath.Join(root, "unplugin-src", "bundler.ts"))',
       "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "  code := goUpperCall.ReplaceAllStringFunc(string(source), func(call string) string {",
       "    match := goUpperCall.FindStringSubmatch(call)",
       "    if len(match) != 2 { return call }",
       '    return fmt.Sprintf("%q", strings.ToUpper(match[1]))',
       "  })",
-      '  data, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/bundler.ts": code}})',
+      '  data, err := json.Marshal(transformResult{TypeScript: map[string]string{"unplugin-src/bundler.ts": code}})',
       "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "  fmt.Fprintln(os.Stdout, string(data))",
       "  return 0",
@@ -373,6 +375,11 @@ function verifyUnpluginEntrypoints() {
   fs.writeFileSync(
     path.join(workspace, "verify-unplugin.mjs"),
     [
+      'const root = await import("@ttsc/unplugin");',
+      'if (typeof root.default.vite !== "function") {',
+      '  throw new Error("@ttsc/unplugin ESM default import must expose adapters");',
+      "}",
+      "",
       'const api = await import("@ttsc/unplugin/api");',
       'if (typeof api.resolveOptions !== "function") {',
       '  throw new Error("@ttsc/unplugin/api resolveOptions must be exported");',
@@ -402,6 +409,43 @@ function verifyUnpluginEntrypoints() {
     "utf8",
   );
   run("node verify-unplugin.mjs", workspace);
+  fs.writeFileSync(
+    path.join(workspace, "verify-unplugin.cjs"),
+    [
+      'const root = require("@ttsc/unplugin");',
+      'if (typeof root.default.vite !== "function") {',
+      '  throw new Error("@ttsc/unplugin CJS require must expose adapters");',
+      "}",
+      "",
+      'const api = require("@ttsc/unplugin/api");',
+      'if (typeof api.resolveOptions !== "function") {',
+      '  throw new Error("@ttsc/unplugin/api resolveOptions must be exported through CJS");',
+      "}",
+      'if (typeof api.transformTtsc !== "function") {',
+      '  throw new Error("@ttsc/unplugin/api transformTtsc must be exported through CJS");',
+      "}",
+      "",
+      "for (const entrypoint of [",
+      '  "bun",',
+      '  "esbuild",',
+      '  "farm",',
+      '  "next",',
+      '  "rolldown",',
+      '  "rollup",',
+      '  "rspack",',
+      '  "vite",',
+      '  "webpack",',
+      "]) {",
+      "  const mod = require(`@ttsc/unplugin/${entrypoint}`);",
+      '  if (typeof mod.default !== "function") {',
+      "    throw new Error(`${entrypoint} CJS require must expose a default function`);",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  run("node verify-unplugin.cjs", workspace);
 }
 
 function verifyUnpluginViteBuild() {

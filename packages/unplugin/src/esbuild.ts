@@ -1,4 +1,4 @@
-import unplugin from "./core/index.js";
+import unplugin from "./core/index";
 
 const esbuild: typeof unplugin.esbuild = unplugin.esbuild;
 

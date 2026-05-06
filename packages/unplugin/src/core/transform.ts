@@ -9,7 +9,7 @@ import type {
 import { TtscCompiler } from "ttsc";
 import type { TransformResult } from "unplugin";
 
-import type { ResolvedTtscUnpluginOptions } from "./options.js";
+import type { ResolvedTtscUnpluginOptions } from "./options";
 
 export type TtscTransformResult = Exclude<
   TransformResult,
