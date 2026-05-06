@@ -74,11 +74,11 @@ Keep `@ttsc/lint` as the first plugin entry — see [Plugin order](#plugin-order
           "no-var": "error",
           "prefer-const": "error",
           "no-explicit-any": "warning",
-          "no-console": "off"
-        }
-      }
-    ]
-  }
+          "no-console": "off",
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -103,10 +103,10 @@ You can also keep the rules in a standalone file and reference it from `tsconfig
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "config": "./ttsc-lint.config.ts"
-      }
-    ]
-  }
+        "config": "./ttsc-lint.config.ts",
+      },
+    ],
+  },
 }
 ```
 
@@ -116,7 +116,7 @@ export default {
   "no-var": "error",
   "prefer-const": "error",
   "no-explicit-any": "warning",
-  "no-console": "off"
+  "no-console": "off",
 };
 ```
 
@@ -130,21 +130,24 @@ The `config` field accepts:
 
 `@ttsc/lint` must be the first plugin in `compilerOptions.plugins`.
 
-It inspects the source you wrote, so output plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have to come after it.
+It inspects the source you wrote, so transform plugins such as `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` have to come after it.
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
       // Keep lint first.
-      { "transform": "@ttsc/lint", "config": { "no-var": "error", "prefer-const": "error" } },
+      {
+        "transform": "@ttsc/lint",
+        "config": { "no-var": "error", "prefer-const": "error" },
+      },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // First-party utilities use their documented transform order.
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] }
-    ]
-  }
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
 }
 ```
 
@@ -161,7 +164,7 @@ Rules are off until you enable them:
   "no-var": "error",
   "eqeqeq": "error",
   "prefer-template": "warning",
-  "no-non-null-assertion": "off"
+  "no-non-null-assertion": "off",
 }
 ```
 

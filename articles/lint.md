@@ -126,11 +126,11 @@ Then add the lint plugin to `compilerOptions.plugins` in your `tsconfig.json`:
         "config": {
           "no-var": "error",
           "prefer-const": "error",
-          "no-explicit-any": "warning"
-        }
-      }
-    ]
-  }
+          "no-explicit-any": "warning",
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -187,7 +187,7 @@ A transformer, in one line:
 
 At runtime, types are gone. TypeScript erases them on the way to JavaScript, so there's no general way to ask, at runtime, "what was this object's field type supposed to be?"
 
-A transformer hooks in at the moment when the compiler is alive and **still knows the types**. It looks at those types and produces code. Information that only existed in the type system survives into the runtime output.
+A transformer runs at the moment when the compiler is alive and **still knows the types**. It looks at those types and produces code. Information that only existed in the type system survives into the runtime output.
 
 ---
 
@@ -287,11 +287,11 @@ npm i -D ttsc @typescript/native-preview @ttsc/lint
         "config": {
           "no-var": "error",
           "prefer-const": "error",
-          "no-explicit-any": "warning"
-        }
-      }
-    ]
-  }
+          "no-explicit-any": "warning",
+        },
+      },
+    ],
+  },
 }
 ```
 

@@ -151,21 +151,24 @@ test("plugin corpus: ordered native plugins are passed to the Go sidecar", () =>
   assert.match(js, /"A:PLUGIN:Z"/);
 });
 
-test("plugin corpus: JS transform hooks are rejected", () => {
-  const root = pluginProject([{ transform: "./plugins/invalid-hook.cjs" }], {
-    "plugins/invalid-hook.cjs": `
+test("plugin corpus: JS transform functions are rejected", () => {
+  const root = pluginProject(
+    [{ transform: "./plugins/invalid-js-transform.cjs" }],
+    {
+      "plugins/invalid-js-transform.cjs": `
         module.exports = {
-          name: "invalid-hook",
+          name: "invalid-js-transform",
           transformOutput(context) {
             return context.code;
           },
         };
       `,
-  });
+    },
+  );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /unsupported JS transform hooks/);
+  assert.match(result.stderr, /unsupported JS transform functions/);
 });
 
 test("plugin corpus: invalid plugin export reports the bad specifier", () => {

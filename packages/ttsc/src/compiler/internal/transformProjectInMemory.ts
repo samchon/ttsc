@@ -118,7 +118,7 @@ function transformProjectWithPlugins(
   if (transformers.length === 0) {
     return transformProjectWithNativeHost(options, project);
   }
-  assertSingleTransformHost(transformers);
+  assertTransformHostCompatibility(transformers);
 
   const plugin = transformers[0]!;
   const res = spawnNative(
@@ -224,15 +224,59 @@ function serializeNativePlugins(
   );
 }
 
-function assertSingleTransformHost(
+function assertTransformHostCompatibility(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): void {
   const binaries = [...new Set(plugins.map((plugin) => plugin.binary))];
-  if (binaries.length > 1) {
-    throw new Error(
-      "ttsc: multiple transform native backends cannot share one source-to-source pass",
-    );
+  if (binaries.length <= 1) {
+    return;
   }
+  if (plugins.every(isFirstPartyUtilityTransformPlugin)) {
+    return;
+  }
+  throw new Error(
+    "ttsc: multiple transform native backends cannot share one source-to-source pass; " +
+      "compose transform libraries through one aggregate native host",
+  );
+}
+
+function isFirstPartyUtilityTransformPlugin(
+  plugin: ITtscLoadedNativePlugin,
+): boolean {
+  if (plugin.stage !== "transform") return false;
+  if (!firstPartyUtilityPluginNames.has(plugin.name)) return false;
+  const manifest = readNearestPackageManifest(plugin.source);
+  return manifest?.name === plugin.name;
+}
+
+const firstPartyUtilityPluginNames = new Set([
+  "@ttsc/banner",
+  "@ttsc/paths",
+  "@ttsc/strip",
+]);
+
+function readNearestPackageManifest(
+  source: string,
+): { name?: unknown } | undefined {
+  try {
+    let current = fs.statSync(source).isDirectory()
+      ? source
+      : path.dirname(source);
+    for (let i = 0; i < 4; i += 1) {
+      const manifest = path.join(current, "package.json");
+      if (fs.existsSync(manifest)) {
+        return JSON.parse(fs.readFileSync(manifest, "utf8")) as {
+          name?: unknown;
+        };
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function appendBuildResult(

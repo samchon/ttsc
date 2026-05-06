@@ -58,6 +58,7 @@ export function loadProjectPlugins(options: {
   const ttscVersion = readTtscVersion();
   const tsgoVersion = readTsgoVersion(context.projectRoot);
   plugins.forEach((plugin, index) => {
+    const stage = resolvePluginStage(plugin);
     validatePluginSource(plugin);
     const binary = buildSourcePlugin({
       baseDir: context.projectRoot,
@@ -71,7 +72,8 @@ export function loadProjectPlugins(options: {
       binary,
       config: entries[index]!,
       name: plugin.name,
-      stage: resolvePluginStage(plugin),
+      source: plugin.source,
+      stage,
     });
   });
   return {
@@ -106,11 +108,11 @@ function loadPluginEntry(
         `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
       );
     }
-    rejectJsTransformHooks(specifier, plugin);
+    rejectJsTransformFunctions(specifier, plugin);
     return plugin;
   }
   if (isTtscPlugin(candidate)) {
-    rejectJsTransformHooks(specifier, candidate);
+    rejectJsTransformFunctions(specifier, candidate);
     return candidate;
   }
   throw new Error(
@@ -126,10 +128,13 @@ function isTtscPlugin(value: unknown): value is ITtscPlugin {
   );
 }
 
-function rejectJsTransformHooks(specifier: string, candidate: object): void {
+function rejectJsTransformFunctions(
+  specifier: string,
+  candidate: object,
+): void {
   if ("transformSource" in candidate || "transformOutput" in candidate) {
     throw new Error(
-      `ttsc: plugin "${specifier}" declares unsupported JS transform hooks; ` +
+      `ttsc: plugin "${specifier}" declares unsupported JS transform functions; ` +
         "declare a native backend instead",
     );
   }
@@ -140,6 +145,12 @@ function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
     return "transform";
   }
   if (!isPluginStage(plugin.stage)) {
+    if (plugin.stage === "output") {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" requested removed stage "output"; ` +
+          "upgrade the plugin to a transform-stage descriptor compatible with this ttsc version",
+      );
+    }
     throw new Error(
       `ttsc: plugin "${plugin.name}" requested unsupported stage ${JSON.stringify(plugin.stage)}`,
     );
@@ -154,7 +165,7 @@ function validatePluginSource(plugin: ITtscPlugin): void {
 }
 
 function isPluginStage(value: string): value is TtscPluginStage {
-  return value === "transform" || value === "check" || value === "output";
+  return value === "transform" || value === "check";
 }
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {

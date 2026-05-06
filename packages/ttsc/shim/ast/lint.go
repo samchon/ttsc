@@ -128,6 +128,7 @@ type ExternalModuleIndicatorOptions = innerast.ExternalModuleIndicatorOptions
 
 const (
   NodeFlagsNone         = innerast.NodeFlagsNone
+  NodeFlagsSynthesized  = innerast.NodeFlagsSynthesized
   NodeFlagsLet          = innerast.NodeFlagsLet
   NodeFlagsConst        = innerast.NodeFlagsConst
   NodeFlagsBlockScoped  = innerast.NodeFlagsBlockScoped

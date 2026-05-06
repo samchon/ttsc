@@ -1,6 +1,6 @@
 {
   "name": "ttsc",
-  "version": "0.7.3",
+  "version": "0.8.0-dev.20260506",
   "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
   "main": "lib/index.js",
   "types": "src/index.ts",
@@ -71,7 +71,8 @@
     "shim",
     "src",
     "test",
-    "tools"
+    "tools",
+    "utility"
   ],
   "keywords": [
     "tsgo",

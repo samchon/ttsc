@@ -20,12 +20,12 @@ Test it directly:
 ```go
 func TestApplyBanner(t *testing.T) {
 	out, err := applyBanner("dist/main.js", "console.log(1);\n", map[string]any{
-		"banner": "/*! x */",
+		"banner": "x",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out, "/*! x */\n") {
+	if !strings.HasPrefix(out, "/**\n * ----------------------------------------------------------------\n * x\n *\n * @packageDocumentation\n */\n") {
 		t.Fatalf("missing banner:\n%s", out)
 	}
 }
@@ -67,7 +67,7 @@ const test = require("node:test");
 
 const ttscBin = require.resolve("ttsc/lib/launcher/ttsc.js");
 
-test("plugin rewrites output", () => {
+test("plugin transforms source before emit", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "my-plugin-"));
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(path.join(root, "src/main.ts"), `export const x = 1;\n`);
@@ -90,7 +90,7 @@ test("plugin rewrites output", () => {
 
   assert.equal(result.status, 0, result.stderr);
   const js = fs.readFileSync(path.join(root, "dist/main.js"), "utf8");
-  assert.match(js, /expected output/);
+  assert.match(js, /expected transform result/);
 });
 ```
 
@@ -116,7 +116,7 @@ Use a fresh cache when the test asserts first-build behavior.
 For successful builds:
 
 - exit status is `0`;
-- emitted output contains the expected change;
+- emitted output contains the expected transform result;
 - runtime output still works when relevant;
 - stderr contains only expected cache-build logs.
 

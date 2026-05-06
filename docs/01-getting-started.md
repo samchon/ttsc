@@ -1,13 +1,15 @@
-# Getting Started: Smallest Useful Plugin
+# Getting Started: Smallest Useful Transform Plugin
 
-This page builds a post-emit output plugin. It prepends a comment to every emitted JavaScript and declaration file. This is intentionally simple: one manifest, one Go module, one `output` command.
+This page builds a source transform plugin that removes `debugger` statements
+from TypeScript AST before TypeScript-Go emits JavaScript and declarations.
 
-After this works, compare it with the shipped [`@ttsc/banner`](../packages/banner/) plugin. Move on to [AST and Checker](./03-tsgo.md) only when your plugin needs source structure or semantic types.
+After this works, compare it with the shipped [`@ttsc/strip`](../packages/strip/)
+and [`@ttsc/banner`](../packages/banner/) plugins.
 
 ## 1. Create the Package
 
 ```text
-ttsc-plugin-banner/
+ttsc-plugin-debugger-strip/
 |- package.json
 |- plugin.cjs
 `- go-plugin/
@@ -19,12 +21,12 @@ ttsc-plugin-banner/
 
 ```json
 {
-  "name": "ttsc-plugin-banner",
+  "name": "ttsc-plugin-debugger-strip",
   "version": "0.1.0",
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
   "peerDependencies": {
-    "ttsc": "^0.5.0"
+    "ttsc": "^0.7.0"
   },
   "engines": {
     "node": ">=18"
@@ -32,26 +34,21 @@ ttsc-plugin-banner/
 }
 ```
 
-The `files` field is not optional. Your Go source must ship in the npm tarball because `ttsc` builds it on the consumer machine.
+The `files` field is not optional. Your Go source must ship in the npm tarball
+because `ttsc` builds it on the consumer machine.
 
-## 2. Write the Manifest
+## 2. Write the Descriptor
 
 `plugin.cjs`:
 
 ```js
 const path = require("node:path");
 
-module.exports = function createBannerPlugin() {
+module.exports = function createDebuggerStripPlugin() {
   return {
-    name: "ttsc-plugin-banner",
-    native: {
-      mode: "ttsc-plugin-banner",
-      source: {
-        dir: path.resolve(__dirname, "go-plugin"),
-      },
-      contractVersion: 1,
-      capabilities: ["output"],
-    },
+    name: "ttsc-plugin-debugger-strip",
+    source: path.resolve(__dirname, "go-plugin"),
+    stage: "transform",
   };
 };
 ```
@@ -59,24 +56,27 @@ module.exports = function createBannerPlugin() {
 Important fields:
 
 - `name`: human-readable plugin name for errors and logs.
-- `native.mode`: stable mode string passed to the binary.
-- `native.source.dir`: absolute path to the Go module.
-- `native.contractVersion`: currently `1`.
-- `native.capabilities: ["output"]`: run after TypeScript-Go emits files.
+- `source`: Go command package directory.
+- `stage: "transform"`: participate in the TypeScript-Go transform path.
+
+There is no `output` stage. Generated JavaScript text is not the plugin API.
 
 ## 3. Write the Go Module
 
 `go-plugin/go.mod`:
 
 ```text
-module ttsc-plugin-banner
+module ttsc-plugin-debugger-strip
 
 go 1.26
+
+require github.com/samchon/ttsc/packages/ttsc v0.0.0
 ```
 
-This plugin does not import TypeScript-Go shims, so it needs no `require` lines.
+`ttsc` supplies this module through its generated `go.work` overlay while it
+builds the plugin.
 
-## 4. Implement `output`
+## 4. Implement `build`
 
 `go-plugin/main.go`:
 
@@ -90,12 +90,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	shimast "github.com/microsoft/typescript-go/shim/ast"
+
+	"github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-type pluginEntry struct {
-	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
-	Name   string         `json:"name"`
+type options struct {
+	cwd      string
+	emit     bool
+	noEmit   bool
+	outDir   string
+	tsconfig string
+}
+
+type transformResult struct {
+	Diagnostics []any             `json:"diagnostics,omitempty"`
+	TypeScript  map[string]string `json:"typescript"`
 }
 
 func main() {
@@ -104,133 +115,199 @@ func main() {
 
 func run(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "ttsc-plugin-banner: command required")
+		fmt.Fprintln(os.Stderr, "ttsc-plugin-debugger-strip: command required")
 		return 2
 	}
 	switch args[0] {
 	case "version", "-v", "--version":
-		fmt.Fprintln(os.Stdout, "ttsc-plugin-banner 0.1.0")
+		fmt.Fprintln(os.Stdout, "ttsc-plugin-debugger-strip 0.1.0")
 		return 0
 	case "check":
 		return 0
-	case "output":
-		return runOutput(args[1:])
+	case "transform":
+		return runTransform(args[1:])
+	case "build":
+		return runBuild(args[1:])
 	default:
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-banner: unknown command %q\n", args[0])
+		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: unknown command %q\n", args[0])
 		return 2
 	}
 }
 
-func runOutput(args []string) int {
-	fs := flag.NewFlagSet("output", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	file := fs.String("file", "", "emitted file to transform")
-	out := fs.String("out", "", "optional output path")
-	pluginsJSON := fs.String("plugins-json", "", "ttsc plugin metadata")
-	_ = fs.String("cwd", "", "")
-	_ = fs.String("outDir", "", "")
-	_ = fs.String("rewrite-mode", "", "")
-	_ = fs.String("tsconfig", "", "")
-	if err := fs.Parse(args); err != nil {
+func runBuild(args []string) int {
+	opts, ok := parseOptions("build", args)
+	if !ok {
 		return 2
 	}
-	if *file == "" {
-		fmt.Fprintln(os.Stderr, "ttsc-plugin-banner: output requires --file")
+	prog, ok := loadProgram(opts)
+	if !ok {
 		return 2
 	}
-
-	config, err := findConfig(*pluginsJSON)
+	defer prog.Close()
+	stripProgram(prog)
+	if opts.noEmit {
+		return 0
+	}
+	_, emitDiags, err := prog.EmitAllRaw(nil)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
+		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: emit failed: %v\n", err)
+		return 3
 	}
-
-	text, err := os.ReadFile(*file)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-banner: read %s: %v\n", *file, err)
-		return 2
+	for _, diag := range emitDiags {
+		fmt.Fprintln(os.Stderr, diag.String())
 	}
-	patched, err := applyBanner(*file, string(text), config)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-
-	target := *file
-	if *out != "" {
-		target = *out
-	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-	if err := os.WriteFile(target, []byte(patched), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if len(emitDiags) > 0 {
 		return 2
 	}
 	return 0
 }
 
-func applyBanner(fileName, text string, config map[string]any) (string, error) {
-	if !isOutputFile(fileName) {
-		return text, nil
+func runTransform(args []string) int {
+	opts, ok := parseOptions("transform", args)
+	if !ok {
+		return 2
 	}
-	banner, ok := config["banner"].(string)
-	if !ok || strings.TrimSpace(banner) == "" {
-		return "", fmt.Errorf(`ttsc-plugin-banner: "banner" must be a non-empty string`)
+	prog, ok := loadProgram(opts)
+	if !ok {
+		return 2
 	}
-	if !strings.HasSuffix(banner, "\n") {
-		banner += "\n"
+	defer prog.Close()
+	stripProgram(prog)
+	out := transformResult{TypeScript: map[string]string{}}
+	for _, file := range prog.SourceFiles() {
+		out.TypeScript[outputKey(opts.cwd, file.FileName())] = file.Text()
 	}
-	if strings.HasPrefix(text, banner) {
-		return text, nil
+	data, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: transform marshal failed: %v\n", err)
+		return 3
 	}
-	return banner + text, nil
+	fmt.Fprintln(os.Stdout, string(data))
+	return 0
 }
 
-func findConfig(pluginsJSON string) (map[string]any, error) {
-	var entries []pluginEntry
-	if err := json.Unmarshal([]byte(pluginsJSON), &entries); err != nil {
-		return nil, fmt.Errorf("ttsc-plugin-banner: invalid --plugins-json: %w", err)
+func parseOptions(command string, args []string) (options, bool) {
+	fs := flag.NewFlagSet(command, flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	cwd := fs.String("cwd", "", "project directory")
+	emit := fs.Bool("emit", false, "force emit")
+	noEmit := fs.Bool("noEmit", false, "force no emit")
+	outDir := fs.String("outDir", "", "emit directory override")
+	tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
+	_ = fs.String("plugins-json", "", "ttsc plugin metadata")
+	_ = fs.Bool("quiet", true, "suppress summary")
+	_ = fs.Bool("verbose", false, "print summary")
+	if err := fs.Parse(args); err != nil {
+		return options{}, false
 	}
-	for _, entry := range entries {
-		if entry.Mode == "ttsc-plugin-banner" || entry.Name == "ttsc-plugin-banner" {
-			return entry.Config, nil
+
+	root := *cwd
+	if root == "" {
+		var err error
+		root, err = os.Getwd()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return options{}, false
 		}
 	}
-	return nil, fmt.Errorf("ttsc-plugin-banner: plugin entry not found")
+	if !filepath.IsAbs(root) {
+		abs, err := filepath.Abs(root)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return options{}, false
+		}
+		root = abs
+	}
+	return options{
+		cwd:      filepath.Clean(root),
+		emit:     *emit,
+		noEmit:   *noEmit,
+		outDir:   *outDir,
+		tsconfig: *tsconfig,
+	}, true
 }
 
-func isOutputFile(fileName string) bool {
-	lower := strings.ToLower(fileName)
-	if strings.HasSuffix(lower, ".map") || strings.HasSuffix(lower, ".tsbuildinfo") {
+func loadProgram(opts options) (*driver.Program, bool) {
+	prog, parseDiags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
+		ForceEmit:   opts.emit,
+		ForceNoEmit: opts.noEmit,
+		OutDir:      opts.outDir,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: %v\n", err)
+		return nil, false
+	}
+	if len(parseDiags) > 0 {
+		driver.WritePrettyDiagnostics(os.Stderr, parseDiags, opts.cwd)
+		prog.Close()
+		return nil, false
+	}
+	if diags := prog.Diagnostics(); len(diags) > 0 {
+		driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+		prog.Close()
+		return nil, false
+	}
+	return prog, true
+}
+
+func stripProgram(prog *driver.Program) {
+	for _, file := range prog.SourceFiles() {
+		removeDebuggers(file.Statements)
+	}
+}
+
+func outputKey(cwd, fileName string) string {
+	rel, err := filepath.Rel(cwd, fileName)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filepath.ToSlash(fileName)
+	}
+	return filepath.ToSlash(rel)
+}
+
+func removeDebuggers(list *shimast.NodeList) {
+	if list == nil || len(list.Nodes) == 0 {
+		return
+	}
+	out := list.Nodes[:0]
+	for _, stmt := range list.Nodes {
+		if stmt.Kind == shimast.KindDebuggerStatement {
+			continue
+		}
+		removeDebuggersFromChildren(stmt)
+		out = append(out, stmt)
+	}
+	list.Nodes = out
+}
+
+func removeDebuggersFromChildren(node *shimast.Node) {
+	if node == nil {
+		return
+	}
+	if node.CanHaveStatements() {
+		removeDebuggers(node.StatementList())
+	}
+	node.ForEachChild(func(child *shimast.Node) bool {
+		removeDebuggersFromChildren(child)
 		return false
-	}
-	switch strings.ToLower(filepath.Ext(fileName)) {
-	case ".js", ".mjs", ".cjs":
-		return true
-	default:
-		return strings.HasSuffix(lower, ".d.ts") ||
-			strings.HasSuffix(lower, ".d.mts") ||
-			strings.HasSuffix(lower, ".d.cts")
-	}
+	})
 }
 ```
 
 What matters:
 
-- `output` receives an emitted file, not the original `.ts` source.
-- `--plugins-json` carries the original tsconfig plugin entry, including `banner`.
-- Current optional flags are accepted by declaring them even when unused.
-- Production plugins should also tolerate future optional flags; see [Protocol](./02-protocol.md#compatibility-rules).
-- The transform is idempotent.
+- The plugin changes TypeScript AST, not emitted text.
+- `driver.LoadProgram` lets TypeScript-Go parse and typecheck the real project.
+- `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map
+  printing after the AST mutation.
+- Optional flags are accepted even when unused. Future `ttsc` minors may add
+  more optional flags.
 
 ## 5. Use It
 
 Consumer install:
 
 ```bash
-npm i -D ttsc @typescript/native-preview /path/to/ttsc-plugin-banner
+npm i -D ttsc @typescript/native-preview /path/to/ttsc-plugin-debugger-strip
 ```
 
 Consumer `tsconfig.json`:
@@ -243,14 +320,9 @@ Consumer `tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "plugins": [
-      {
-        "transform": "ttsc-plugin-banner",
-        "banner": "/*! built by ttsc */"
-      }
-    ]
+    "plugins": [{ "transform": "ttsc-plugin-debugger-strip" }],
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 
@@ -260,8 +332,13 @@ Run:
 npx ttsc --emit
 ```
 
-The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes.
+The first run builds and caches the Go binary. Later runs reuse it until the
+plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry
+changes.
 
 ## Next Step
 
-For a production-quality version of this exact shape, read [`packages/banner`](../packages/banner/). For copyable helper patterns, use [Recipes](./08-recipes.md). If the build fails, check [Pitfalls](./09-pitfalls.md). For AST-based edits, continue to [AST and Checker](./03-tsgo.md).
+For production-quality versions of this shape, read [`packages/strip`](../packages/strip/)
+and [`packages/banner`](../packages/banner/). For copyable helper patterns, use
+[Recipes](./08-recipes.md). If the build fails, check [Pitfalls](./09-pitfalls.md).
+For deeper AST and checker work, continue to [AST and Checker](./03-tsgo.md).

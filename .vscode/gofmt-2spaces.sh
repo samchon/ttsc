@@ -20,14 +20,24 @@ for arg in "$@"; do
 done
 
 if [ "$write" = true ]; then
-  gofmt "$@"
+  args=()
   files=()
   for arg in "$@"; do
     case "$arg" in
-      -* | "") ;;
-      *.go) files+=("$arg") ;;
+      -* | "") args+=("$arg") ;;
+      *.go)
+        if [ -e "$arg" ]; then
+          args+=("$arg")
+          files+=("$arg")
+        fi
+        ;;
+      *) args+=("$arg") ;;
     esac
   done
+  if [ "${#files[@]}" -eq 0 ]; then
+    exit 0
+  fi
+  gofmt "${args[@]}"
   if [ "${#files[@]}" -gt 0 ]; then
     perl -0pi -e 's/\t/  /g' "${files[@]}"
   fi

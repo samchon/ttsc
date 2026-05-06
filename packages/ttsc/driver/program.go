@@ -6,6 +6,8 @@ import (
   "fmt"
   "io"
   "path/filepath"
+  "strings"
+  "time"
 
   "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
@@ -197,9 +199,10 @@ type Program struct {
 // the program. `ForceEmit` is used by `ttsc --emit` and runtime compilation
 // so execution still works when the project defaults to `noEmit`.
 type LoadProgramOptions struct {
-  ForceEmit   bool
-  ForceNoEmit bool
-  OutDir      string
+  ForceEmit      bool
+  ForceNoEmit    bool
+  OutDir         string
+  SourcePreamble string
 }
 
 // Close releases the checker pool lease acquired by LoadProgram.
@@ -263,6 +266,12 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   }
   cwd = tspath.ResolvePath(cwd)
   fs := DefaultFS()
+  if options.SourcePreamble != "" {
+    fs = sourcePreambleFS{
+      FS:       fs,
+      preamble: options.SourcePreamble,
+    }
+  }
   host := DefaultHost(cwd, fs)
 
   parsed, diags, err := ParseTSConfig(fs, cwd, tsconfigPath, host)
@@ -322,6 +331,50 @@ func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir stri
     return
   }
   parsed.ParsedConfig.CompilerOptions.OutDir = tspath.ResolvePath(cwd, outDir)
+}
+
+type sourcePreambleFS struct {
+  vfs.FS
+  preamble string
+}
+
+func (fs sourcePreambleFS) ReadFile(filePath string) (string, bool) {
+  contents, ok := fs.FS.ReadFile(filePath)
+  if !ok || !isSourcePreambleTarget(filePath) {
+    return contents, ok
+  }
+  return fs.preamble + contents, true
+}
+
+func (fs sourcePreambleFS) WriteFile(filePath string, data string) error {
+  return fs.FS.WriteFile(filePath, data)
+}
+
+func (fs sourcePreambleFS) AppendFile(filePath string, data string) error {
+  return fs.FS.AppendFile(filePath, data)
+}
+
+func (fs sourcePreambleFS) Remove(filePath string) error {
+  return fs.FS.Remove(filePath)
+}
+
+func (fs sourcePreambleFS) Chtimes(filePath string, aTime time.Time, mTime time.Time) error {
+  return fs.FS.Chtimes(filePath, aTime, mTime)
+}
+
+func isSourcePreambleTarget(filePath string) bool {
+  lower := strings.ToLower(filepath.ToSlash(filePath))
+  for _, suffix := range []string{".d.ts", ".d.mts", ".d.cts"} {
+    if strings.HasSuffix(lower, suffix) {
+      return false
+    }
+  }
+  for _, suffix := range []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"} {
+    if strings.HasSuffix(lower, suffix) {
+      return true
+    }
+  }
+  return false
 }
 
 // SourceFiles exposes the program's user-authored source files (declaration

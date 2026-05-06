@@ -12,7 +12,7 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
-const bannerTarball = "banner";
+const utilityTarballs = ["banner", "paths", "strip"];
 
 main();
 
@@ -34,13 +34,15 @@ function prepareCurrentTarballs() {
   run("pnpm run build:current", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", platformTarball, bannerTarball]) {
+  for (const name of ["ttsc", platformTarball, ...utilityTarballs]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
   packPackage(platformTarball, platformTarball);
-  packPackage("banner", bannerTarball);
+  for (const name of utilityTarballs) {
+    packPackage(name, name);
+  }
 }
 
 function packPackage(packageDirName, tarballName) {
@@ -54,7 +56,9 @@ function packPackage(packageDirName, tarballName) {
   }
 
   run("pnpm pack", packageDir);
-  const packed = fs.readdirSync(packageDir).find((entry) => entry.endsWith(".tgz"));
+  const packed = fs
+    .readdirSync(packageDir)
+    .find((entry) => entry.endsWith(".tgz"));
   assert(packed, `${packageDirName} package tarball must be created`);
   fs.copyFileSync(
     path.join(packageDir, packed),
@@ -63,8 +67,12 @@ function packPackage(packageDirName, tarballName) {
 }
 
 function prepareWorkspace() {
-  fs.rmSync(path.join(experimentRoot, ".tmp"), { recursive: true, force: true });
+  fs.rmSync(path.join(experimentRoot, ".tmp"), {
+    recursive: true,
+    force: true,
+  });
   fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
+  fs.mkdirSync(path.join(workspace, "src", "lib"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "package.json"),
     JSON.stringify(
@@ -85,12 +93,26 @@ function prepareWorkspace() {
           target: "ES2022",
           module: "commonjs",
           strict: true,
+          declaration: true,
+          declarationMap: true,
+          sourceMap: true,
           outDir: "dist",
           rootDir: "src",
+          paths: {
+            "@lib/*": ["./src/lib/*"],
+          },
           plugins: [
             {
+              transform: "@ttsc/paths",
+            },
+            {
               transform: "@ttsc/banner",
-              banner: "/*! bundled-go-ok */",
+              banner: "License MIT",
+            },
+            {
+              transform: "@ttsc/strip",
+              calls: ["console.debug"],
+              statements: ["debugger"],
             },
           ],
         },
@@ -101,8 +123,27 @@ function prepareWorkspace() {
     ),
   );
   fs.writeFileSync(
+    path.join(workspace, "src", "lib", "message.ts"),
+    [
+      "export interface Payload {",
+      "  text: string;",
+      "}",
+      "",
+      'export const message: Payload = { text: "installed-runner-ok" };',
+      "",
+    ].join("\n"),
+  );
+  fs.writeFileSync(
     path.join(workspace, "src", "main.ts"),
-    'const message: string = "installed-runner-ok";\nconsole.log(message);\n',
+    [
+      'import { message, type Payload } from "@lib/message";',
+      "",
+      'console.debug("strip-me");',
+      "debugger;",
+      "export const value: Payload = message;",
+      "console.log(value.text);",
+      "",
+    ].join("\n"),
   );
 }
 
@@ -114,7 +155,7 @@ function installTarballs() {
     "--no-fund",
     tarball("ttsc"),
     tarball(platformTarball),
-    tarball(bannerTarball),
+    ...utilityTarballs.map(tarball),
   ].join(" ");
   run(command, workspace);
 }
@@ -139,15 +180,23 @@ function verifyInstalledPackages() {
     process.platform === "win32" ? "go.exe" : "go",
   );
   assert(fs.existsSync(platformBin), `${platformPackage} binary must exist`);
-  assert(fs.existsSync(platformGo), `${platformPackage} bundled Go compiler must exist`);
+  assert(
+    fs.existsSync(platformGo),
+    `${platformPackage} bundled Go compiler must exist`,
+  );
   assert(
     !fs.existsSync(path.join(workspace, "node_modules", "ttsc", "native")),
     "ttsc package must not ship a workspace-local native fallback",
   );
   const ttscPackage = JSON.parse(
-    fs.readFileSync(path.join(workspace, "node_modules", "ttsc", "package.json"), "utf8"),
+    fs.readFileSync(
+      path.join(workspace, "node_modules", "ttsc", "package.json"),
+      "utf8",
+    ),
   );
-  for (const [name, version] of Object.entries(ttscPackage.optionalDependencies ?? {})) {
+  for (const [name, version] of Object.entries(
+    ttscPackage.optionalDependencies ?? {},
+  )) {
     assert(
       version === ttscPackage.version,
       `ttsc optional dependency ${name} must resolve to exact package version ${ttscPackage.version}, got ${version}`,
@@ -170,19 +219,55 @@ function verifyInstalledPackages() {
 function verifyTtscBuild() {
   runInstalledTtsc(["--cwd", ".", "--emit"], workspace);
   const output = path.join(workspace, "dist", "main.js");
+  const messageOutput = path.join(workspace, "dist", "lib", "message.js");
   assert(fs.existsSync(output), "ttsc must emit dist/main.js");
+  assert(fs.existsSync(messageOutput), "ttsc must emit dist/lib/message.js");
+  const declaration = path.join(workspace, "dist", "main.d.ts");
+  const jsMapFile = path.join(workspace, "dist", "main.js.map");
+  const dtsMapFile = path.join(workspace, "dist", "main.d.ts.map");
+  assert(fs.existsSync(declaration), "ttsc must emit dist/main.d.ts");
+  assert(fs.existsSync(jsMapFile), "ttsc must emit dist/main.js.map");
+  assert(fs.existsSync(dtsMapFile), "ttsc must emit dist/main.d.ts.map");
   const emitted = fs.readFileSync(output, "utf8");
+  const emittedMessage = fs.readFileSync(messageOutput, "utf8");
+  const emittedDeclaration = fs.readFileSync(declaration, "utf8");
+  const expectedBanner = bannerPreamble("License MIT");
   assert(
-    emitted.startsWith("/*! bundled-go-ok */"),
-    "ttsc must build and run @ttsc/banner with the bundled Go compiler",
+    countOccurrences(emitted, expectedBanner) === 1,
+    "ttsc must build and run @ttsc/banner from tarball with the bundled Go compiler",
   );
   assert(
-    emitted.includes('"installed-runner-ok"'),
+    emittedDeclaration.startsWith(expectedBanner) &&
+      countOccurrences(emittedDeclaration, expectedBanner) === 1,
+    "ttsc must emit @ttsc/banner into declarations",
+  );
+  assert(
+    /require\("\.\/lib\/message\.js"\)/.test(emitted),
+    "ttsc must build and run @ttsc/paths from tarball for JavaScript output",
+  );
+  assert(
+    /from "\.\/lib\/message\.js"/.test(emittedDeclaration),
+    "ttsc must build and run @ttsc/paths from tarball for declaration output",
+  );
+  assert(
+    !/console\.debug|strip-me|\bdebugger\b/.test(emitted),
+    "ttsc must build and run @ttsc/strip from tarball before emit",
+  );
+  assert(
+    emittedMessage.includes('"installed-runner-ok"'),
     "emitted JavaScript must contain the source string literal",
   );
   assert(
-    /console\.log\(\s*message\s*\)/.test(emitted),
+    /console\.log\(/.test(emitted),
     "emitted JavaScript must preserve the intended console.log call",
+  );
+  assert(
+    JSON.parse(fs.readFileSync(jsMapFile, "utf8")).version === 3,
+    "JavaScript source map must be valid version 3 JSON",
+  );
+  assert(
+    JSON.parse(fs.readFileSync(dtsMapFile, "utf8")).version === 3,
+    "declaration source map must be valid version 3 JSON",
   );
   assertConsoleOutput(
     "node dist/main.js",
@@ -205,6 +290,27 @@ function assertConsoleOutput(command, stdout, expected) {
     actual === expected,
     `${command} must print ${JSON.stringify(expected)} to stdout, got ${JSON.stringify(actual)}`,
   );
+}
+
+function bannerPreamble(text) {
+  const lines = text.split(/\r?\n/).filter((line, index, all) => {
+    return index < all.length - 1 || line.trim() !== "";
+  });
+  const sep = "-".repeat(64);
+  return [
+    "/**",
+    ` * ${sep}`,
+    ...lines.map((line) => ` * ${line.replaceAll("*/", "* /")}`),
+    " *",
+    " * @packageDocumentation",
+    " */",
+  ]
+    .join("\n")
+    .concat("\n");
+}
+
+function countOccurrences(text, search) {
+  return text.split(search).length - 1;
 }
 
 function tarball(name) {
@@ -278,7 +384,10 @@ function runInstalledTtsc(args, cwd) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
-  assert(result.status === 0, `installed ttsc failed with status ${result.status}`);
+  assert(
+    result.status === 0,
+    `installed ttsc failed with status ${result.status}`,
+  );
   return result;
 }
 

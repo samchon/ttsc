@@ -4,16 +4,16 @@ This page is for debugging source plugin builds.
 
 ## Cold Build Path
 
-When `ttsc` sees `native.source`:
+When `ttsc` sees a plugin `source` descriptor:
 
-1. Resolve `native.source.dir`.
+1. Resolve `source`.
 2. Hash the plugin source and host versions.
 3. Reuse the cached binary on hit.
 4. Copy source into a scratch directory on miss.
 5. Generate a `go.work` overlay pointing at `ttsc` and its shims.
 6. Run `go build -o plugin <entry>`.
 7. Move the binary into the cache.
-8. Invoke the binary with `check`, `transform`, `build`, or `output`.
+8. Invoke the binary with `check`, `transform`, or `build`.
 
 ## Cache Key Inputs
 
@@ -22,7 +22,7 @@ The cache key includes:
 - `ttsc` package version.
 - resolved `@typescript/native-preview` version.
 - platform and architecture.
-- `native.source.entry`.
+- resolved source entry.
 - `*.go`, `*.s`, `*.c`, `*.h`, `*.cpp`, `*.hpp`, `go.mod`, `go.sum`, and `go.work` files under the plugin source directory.
 
 The cache key does not include:
@@ -79,7 +79,7 @@ Check:
 
 - missing shim `require` in `go.mod`;
 - missing source files in the npm tarball;
-- wrong `native.source.entry`;
+- wrong source directory or package entry;
 - stale cache, fixed with `npx ttsc clean`;
 - pnpm local dev layout, fixed in [Local Development](./04-local-dev.md).
 

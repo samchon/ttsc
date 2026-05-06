@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/strip` removes configured call-expression statements and debugger statements from emitted JavaScript.
+`@ttsc/strip` removes configured call-expression statements and debugger statements from TypeScript source before emit.
 
 ## Setup
 
@@ -28,10 +28,10 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```
 
@@ -54,15 +54,15 @@ Call patterns match statement-level calls such as `console.log("debug")` or `ass
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // Output plugins run after emit, in order.
-      { "transform": "@ttsc/banner", "banner": "/*! @license MIT */" },
+      // First-party utilities use their documented transform order.
+      { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```
