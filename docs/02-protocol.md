@@ -10,9 +10,9 @@ The consumer points `compilerOptions.plugins[]` at a JavaScript module:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "my-plugin", "mode": "strict", "enabled": true }
-    ]
-  }
+      { "transform": "my-plugin", "mode": "strict", "enabled": true },
+    ],
+  },
 }
 ```
 
@@ -25,7 +25,6 @@ module.exports = (context) => ({
   name: "my-plugin",
   source: path.resolve(__dirname, "go-plugin"),
   stage: "transform",
-  hooks: { source: true },
 });
 ```
 
@@ -59,7 +58,6 @@ export function createTtscPlugin(
     name: "my-plugin",
     source: "go-plugin",
     stage: "transform",
-    hooks: { source: true },
   };
 }
 ```
@@ -71,10 +69,6 @@ interface ITtscPlugin {
   name: string;
   source: string;
   stage?: "transform" | "check";
-  hooks?: {
-    source?: boolean;
-    declaration?: boolean;
-  };
 }
 ```
 
@@ -85,10 +79,6 @@ Field rules:
   resolved from the consumer project root; package descriptors should usually
   return an absolute path based on `__dirname`.
 - `stage`: pipeline placement. Omit for `"transform"`.
-- `hooks.source`: the package mutates TypeScript `SourceFile` AST before
-  TypeScript-Go emit transforms.
-- `hooks.declaration`: the package mutates declaration AST before declaration
-  printing. This is a package capability, not a user tsconfig phase option.
 
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain
 and TypeScript-Go shim overlay, then caches the resulting executable.
@@ -97,23 +87,13 @@ and TypeScript-Go shim overlay, then caches the resulting executable.
 
 Public stages are deliberately small:
 
-| Stage | Host behavior | Binary commands |
-| --- | --- | --- |
+| Stage                   | Host behavior                                    | Binary commands               |
+| ----------------------- | ------------------------------------------------ | ----------------------------- |
 | omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build` |
-| `"check"` | reports diagnostics before emit | `check` |
+| `"check"`               | reports diagnostics before emit                  | `check`                       |
 
 There is no public `output` stage. Plugins do not receive generated JavaScript
 text or emitted file text for post-processing.
-
-Transform plugins must declare at least one hook:
-
-```js
-hooks: { source: true }
-hooks: { source: true, declaration: true }
-hooks: { declaration: true }
-```
-
-Check plugins must not declare transform hooks.
 
 ## Composition
 
@@ -129,9 +109,9 @@ native binary. This is how the first-party utility plugins compose:
     "plugins": [
       { "transform": "@ttsc/banner", "banner": "license" },
       { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] }
-    ]
-  }
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
 }
 ```
 
@@ -140,19 +120,16 @@ would need to own `Program` creation and emit. If several transform modes must
 cooperate, expose them from one native binary and dispatch by the ordered
 `--plugins-json` payload.
 
-## Rejected Phase Options
+## Plugin Config Keys
 
-`ttsc` does not copy ts-patch placement options into user tsconfig. These keys
-are rejected in plugin entries:
+`ttsc` reads only `transform` and `enabled` from each user plugin entry. Every
+other key remains plugin-owned config and is passed through unchanged to the
+native sidecar.
 
-- `before`
-- `after`
-- `afterDeclarations`
-- `phase`
-- `source:after`
-
-Hook placement belongs to the plugin package descriptor. Users select the plugin
-and its own options only.
+ts-patch placement words such as `before`, `after`, or `phase` have no compiler
+placement meaning in `ttsc`. If a plugin package chooses to use those names for
+its own config, they are ordinary plugin data. Package descriptors choose only
+between the public `"transform"` and `"check"` stages.
 
 ## Disabled Entries
 
@@ -163,9 +140,9 @@ and its own options only.
   "compilerOptions": {
     "plugins": [
       { "transform": "my-plugin", "enabled": false },
-      { "transform": "other-plugin" }
-    ]
-  }
+      { "transform": "other-plugin" },
+    ],
+  },
 }
 ```
 
@@ -241,7 +218,6 @@ current command:
   {
     "name": "my-plugin",
     "stage": "transform",
-    "hooks": { "source": true },
     "config": {
       "transform": "my-plugin",
       "mode": "strict"

@@ -49,7 +49,6 @@ module.exports = function createDebuggerStripPlugin() {
     name: "ttsc-plugin-debugger-strip",
     source: path.resolve(__dirname, "go-plugin"),
     stage: "transform",
-    hooks: { source: true },
   };
 };
 ```
@@ -59,7 +58,6 @@ Important fields:
 - `name`: human-readable plugin name for errors and logs.
 - `source`: Go command package directory.
 - `stage: "transform"`: participate in the TypeScript-Go transform path.
-- `hooks.source: true`: the package mutates TypeScript `SourceFile` AST.
 
 There is no `output` stage. Generated JavaScript text is not the plugin API.
 
@@ -322,11 +320,9 @@ Consumer `tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "plugins": [
-      { "transform": "ttsc-plugin-debugger-strip" }
-    ]
+    "plugins": [{ "transform": "ttsc-plugin-debugger-strip" }],
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 

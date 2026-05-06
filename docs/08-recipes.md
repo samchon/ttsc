@@ -72,14 +72,13 @@ plugins are independent diagnostics passes.
 
 ## Transform Plugin
 
-Declare transform hooks in the package descriptor:
+Declare a transform plugin descriptor:
 
 ```js
 module.exports = {
   name: "my-transform-plugin",
   source: path.resolve(__dirname, "go-plugin"),
   stage: "transform",
-  hooks: { source: true, declaration: true },
 };
 ```
 
@@ -89,7 +88,7 @@ Implement:
 my-plugin build --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 ```
 
-Load the project, mutate TypeScript or declaration AST, then let TypeScript-Go
+Load the project, mutate TypeScript source AST, then let TypeScript-Go
 print JavaScript, declarations, and source maps.
 
 ## Check Plugin

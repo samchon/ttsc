@@ -26,7 +26,6 @@ func TestStripSidecarRemovesSourceStatementsAndLeavesDeclarations(t *testing.T) 
   manifest := mustJSON(t, []map[string]any{{
     "name":  "@ttsc/strip",
     "stage": "transform",
-    "hooks": map[string]any{"source": true},
     "config": map[string]any{
       "transform":  "@ttsc/strip",
       "calls":      []any{"console.log", "console.debug", "assert.*"},

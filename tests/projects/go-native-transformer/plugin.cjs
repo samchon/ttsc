@@ -5,5 +5,4 @@ module.exports = {
   source:
     process.env.TTSC_GO_TRANSFORMER_SOURCE ??
     path.resolve(__dirname, "go-transformer", "cmd", "ttsc-go-transformer"),
-  hooks: { source: true },
 };

@@ -1,20 +1,5 @@
 import type { TtscPluginStage } from "./TtscPluginStage";
 
-export interface ITtscPluginHooks {
-  /**
-   * Runs against TypeScript SourceFile AST before TypeScript-Go's built-in emit
-   * transforms. The Program/checker are created from the original source before
-   * this hook participates in emit.
-   */
-  source?: boolean;
-
-  /**
-   * Runs against declaration AST before declaration printing. This is a
-   * plugin-package capability, never a user-facing tsconfig phase option.
-   */
-  declaration?: boolean;
-}
-
 /**
  * Runtime descriptor returned by a ttsc plugin module.
  *
@@ -69,9 +54,6 @@ export interface ITtscPlugin {
    * @default "transform"
    */
   stage?: TtscPluginStage;
-
-  /** Native transform hook capabilities implemented by the plugin package. */
-  hooks?: ITtscPluginHooks;
 }
 
 export function defineTtscPlugin<T extends ITtscPlugin>(plugin: T): T;

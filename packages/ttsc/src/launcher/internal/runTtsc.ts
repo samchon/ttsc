@@ -369,7 +369,7 @@ function printHelp(): void {
       "Plugin contract:",
       "  ttsc reads compilerOptions.plugins from tsconfig.json.",
       "  Plugin modules are descriptors for ordered native transformer backends.",
-      "  JS transformOutput/transformSource hooks are not part of the public contract.",
+      "  JS transformOutput/transformSource functions are not part of the public contract.",
       "",
       "Compatibility aliases:",
       "  ttsc build [options]       Same project build lane as `ttsc [options]`.",

@@ -1,6 +1,6 @@
 # ttsc Plugin Author Guide
 
-This guide is for developers writing `ttsc` plugins: npm packages that expose a JavaScript descriptor and a Go native backend. The backend can run as a diagnostics pass or as a TypeScript source/declaration transform host.
+This guide is for developers writing `ttsc` plugins: npm packages that expose a JavaScript descriptor and a Go native backend. The backend can run as a diagnostics pass or as a TypeScript transform host.
 
 `ttsc` is a general TypeScript-Go compiler/runtime/plugin host. These docs describe the public plugin contract for general TypeScript projects, not a consumer-specific adapter.
 
@@ -19,7 +19,7 @@ For a normal build with plugins:
 5. The built binary is cached under the project cache.
 6. `ttsc` routes execution by stage:
    - `check` runs before emit for diagnostics;
-   - `transform` runs source/declaration hooks or owns the compiler emit host.
+   - `transform` owns the compiler transform host.
 7. The binary receives project/plugin data through CLI flags, especially `--plugins-json`.
 
 The important boundary: the JavaScript manifest selects and configures the backend; the Go binary does the real plugin work.
@@ -47,7 +47,6 @@ module.exports = {
   name: "my-plugin",
   source: path.resolve(__dirname, "go-plugin"),
   stage: "transform",
-  hooks: { source: true },
 };
 ```
 
@@ -57,15 +56,15 @@ When a consumer runs `ttsc`, the host reads this manifest, builds the Go source 
 
 Pick the smallest kind that fits the job:
 
-| Kind | Descriptor | Use it for | Reference |
-| --- | --- | --- | --- |
-| Check plugin | `stage: "check"` | Add diagnostics before emit | `@ttsc/lint` |
-| Transform plugin | `hooks.source` / `hooks.declaration` | Mutate TypeScript source or declaration emit in the compiler host | `@ttsc/banner`, `@ttsc/strip`, `@ttsc/paths` |
-| Compiler backend | `stage: "transform"` with a native build host | Own Program creation and emit | semantic codegen plugins |
+| Kind             | Descriptor                                    | Use it for                                    | Reference                                    |
+| ---------------- | --------------------------------------------- | --------------------------------------------- | -------------------------------------------- |
+| Check plugin     | `stage: "check"`                              | Add diagnostics before emit                   | `@ttsc/lint`                                 |
+| Transform plugin | `stage: "transform"`                          | Mutate TypeScript source in the compiler host | `@ttsc/banner`, `@ttsc/strip`, `@ttsc/paths` |
+| Compiler backend | `stage: "transform"` with a native build host | Own Program creation and emit                 | semantic codegen plugins                     |
 
-Most plugin authors should start with a transform plugin. Move to Program/Checker work only when source/declaration hooks are not enough.
+Most plugin authors should start with a transform plugin. Move to Program/Checker work only when source AST work is not enough.
 
-A project can list several `compilerOptions.plugins[]` entries. Check plugins compose with compiler backends. Transform plugins compose through the transform host selected for the pass. The first-party utility host applies `@ttsc/paths` before `@ttsc/strip`; `@ttsc/banner` participates through the JavaScript/declaration emit print hook.
+A project can list several `compilerOptions.plugins[]` entries. Check plugins compose with compiler backends. Transform plugins compose through the transform host selected for the pass. The first-party utility host applies `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` as source-level transforms before normal TypeScript-Go emit.
 
 The one exclusive role is the compiler backend. A build can have only one distinct native binary that owns Program creation and emit. If several compiler-backend modes need to cooperate, expose them from one native binary and dispatch by the ordered `--plugins-json` payload.
 

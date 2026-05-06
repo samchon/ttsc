@@ -28,10 +28,10 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```
 
@@ -54,15 +54,15 @@ Call patterns match statement-level calls such as `console.log("debug")` or `ass
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // First-party utilities use their documented source/emit hook order.
+      // First-party utilities use their documented transform order.
       { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```

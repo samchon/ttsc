@@ -8,13 +8,13 @@ For a small source-AST transform, start with [Getting Started](./01-getting-star
 
 Use the smallest surface that answers your question:
 
-| Need | Use | Example |
-| --- | --- | --- |
-| Add a package banner | synthetic JSDoc on source/declaration AST before print | `@ttsc/banner` |
-| Remove `console.log(...)` statements | source AST statement filtering | `@ttsc/strip` |
-| Rewrite `paths` aliases in JS and declarations | source/declaration AST plus project config/Program | `@ttsc/paths` |
-| Report source diagnostics | Program + AST + diagnostics writer | `@ttsc/lint` |
-| Generate code from `T` in `foo<T>()` | Program + AST + Checker | semantic transformer plugins |
+| Need                                                | Use                                               | Example                      |
+| --------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
+| Add a package banner                                | source JSDoc before TypeScript-Go parses the file | `@ttsc/banner`               |
+| Remove `console.log(...)` statements                | source AST statement filtering                    | `@ttsc/strip`                |
+| Rewrite `paths` aliases for JS and declaration emit | source AST plus project config/Program            | `@ttsc/paths`                |
+| Report source diagnostics                           | Program + AST + diagnostics writer                | `@ttsc/lint`                 |
+| Generate code from `T` in `foo<T>()`                | Program + AST + Checker                           | semantic transformer plugins |
 
 The AST is not a string parser. Use it when structure matters: statement kind, callee shape, declaration members, type argument syntax, import/export syntax, or diagnostic ranges.
 
@@ -52,16 +52,16 @@ require (
 
 Useful shim modules:
 
-| Shim | Use |
-| --- | --- |
-| `shim/ast` | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression` |
-| `shim/parser` | parse JS or TS text into a `SourceFile` when the plugin owns that text |
-| `shim/scanner` | token positions, trivia skipping, line/column mapping, source text helpers |
-| `shim/tsoptions` | parse `tsconfig.json` |
-| `shim/compiler` | create Program, emit, diagnostics |
-| `shim/checker` | query symbols and types |
-| `shim/diagnosticwriter` | render compiler-like diagnostics |
-| `shim/bundled` | TypeScript lib files for Program creation |
+| Shim                    | Use                                                                        |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`     |
+| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text     |
+| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers |
+| `shim/tsoptions`        | parse `tsconfig.json`                                                      |
+| `shim/compiler`         | create Program, emit, diagnostics                                          |
+| `shim/checker`          | query symbols and types                                                    |
+| `shim/diagnosticwriter` | render compiler-like diagnostics                                           |
+| `shim/bundled`          | TypeScript lib files for Program creation                                  |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
@@ -601,9 +601,9 @@ source file membership, declaration emit mapping, or semantic types.
 
 Read these in order:
 
-1. [`packages/banner`](../packages/banner/) - synthetic JSDoc on JS/declaration print paths.
+1. [`packages/banner`](../packages/banner/) - source JSDoc preamble insertion.
 2. [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go) - source AST statement filtering.
 3. [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go) - parse tsconfig, load Program, rewrite specifiers.
 4. [`tests/projects/go-source-plugin-checker`](../tests/projects/go-source-plugin-checker/) - Program/Checker bootstrap.
-5. [`tests/projects/go-source-plugin-properties`](../tests/projects/go-source-plugin-properties/) - declaration AST walk.
+5. [`tests/projects/go-source-plugin-properties`](../tests/projects/go-source-plugin-properties/) - interface AST walk.
 6. [`packages/lint/plugin`](../packages/lint/plugin/) - full diagnostics engine.

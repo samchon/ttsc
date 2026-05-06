@@ -8,8 +8,5 @@ module.exports = function createTtscStrip() {
     name: "@ttsc/strip",
     source: path.resolve(__dirname, "..", "plugin"),
     stage: "transform",
-    hooks: {
-      source: true,
-    },
   };
 };

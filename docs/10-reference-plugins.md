@@ -34,7 +34,6 @@ module.exports = function createPlugin() {
     name: "@ttsc/name",
     source: path.resolve(__dirname, "..", "plugin"),
     stage: "transform",
-    hooks: { source: true, declaration: true },
   };
 };
 ```
@@ -46,7 +45,7 @@ the package `go.mod` by walking upward.
 
 Path: [`packages/banner`](../packages/banner/)
 
-Purpose: add a configured `@packageDocumentation` JSDoc block to JavaScript and declaration emit.
+Purpose: add a configured `@packageDocumentation` source JSDoc block so JavaScript and declaration emit both carry the banner.
 
 Consumer config:
 
@@ -56,16 +55,16 @@ Consumer config:
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "License MIT"
-      }
-    ]
-  }
+        "banner": "License MIT",
+      },
+    ],
+  },
 }
 ```
 
 What to learn:
 
-- Minimal transform plugin descriptor with package-declared hooks.
+- Minimal transform plugin descriptor.
 - Finding the plugin's config from `--plugins-json`.
 - Formatting user banner text into compiler-owned JSDoc.
 - Clean error messages for invalid config.
@@ -77,7 +76,7 @@ Read:
 - [`packages/banner/plugin/banner.go`](../packages/banner/plugin/banner.go)
 - [`tests/utility-plugins/banner/plugin/banner_test.go`](../tests/utility-plugins/banner/plugin/banner_test.go)
 
-Use this as the template for simple source/declaration comment transforms.
+Use this as the template for simple source comment transforms.
 
 ## `@ttsc/strip`
 
@@ -94,10 +93,10 @@ Consumer config:
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```
 
@@ -133,7 +132,7 @@ Then compare the AST discussion in [AST and Checker](./03-tsgo.md#recognizing-ca
 
 Path: [`packages/paths`](../packages/paths/)
 
-Purpose: rewrite source and declaration module specifiers that match `compilerOptions.paths` into relative output paths.
+Purpose: rewrite source module specifiers that match `compilerOptions.paths` into relative output paths. Declaration emit follows the same source AST rewrite.
 
 Consumer config:
 
@@ -141,14 +140,12 @@ Consumer config:
 {
   "compilerOptions": {
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
     "rootDir": "src",
     "outDir": "dist",
-    "plugins": [
-      { "transform": "@ttsc/paths" }
-    ]
-  }
+    "plugins": [{ "transform": "@ttsc/paths" }],
+  },
 }
 ```
 
@@ -158,12 +155,12 @@ What to learn:
 - `tsoptions.GetParsedCommandLineOfConfigFile` is the right way to read compiler options.
 - Path alias resolution must use real project source files, not string guessing alone.
 - More-specific path patterns should win before broad wildcard patterns.
-- The plugin must handle JS and declaration syntax:
+- The plugin must handle module-specifier syntax that can affect emitted JS and declarations:
   - `import ... from "..."`
   - `export ... from "..."`
   - `require("...")`
   - dynamic `import("...")`
-  - `import("...").T` in declarations
+  - `import("...").T` type queries
 
 Mental model:
 
@@ -201,11 +198,11 @@ Consumer config:
         "transform": "@ttsc/lint",
         "config": {
           "no-var": "error",
-          "no-explicit-any": "warning"
-        }
-      }
-    ]
-  }
+          "no-explicit-any": "warning",
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -248,7 +245,7 @@ Read:
 - [`packages/lint/plugin`](../packages/lint/plugin/)
 - [`tests/lint/cases`](../tests/lint/cases/)
 
-Use this design only when you need source diagnostics or semantic analysis. For source/declaration transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
+Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
 ## Combined Pipeline
 
@@ -256,7 +253,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 {
   "compilerOptions": {
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
     "rootDir": "src",
     "outDir": "dist",
@@ -267,10 +264,10 @@ Use this design only when you need source diagnostics or semantic analysis. For 
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
+        "statements": ["debugger"],
+      },
+    ],
+  },
 }
 ```
 
@@ -278,7 +275,7 @@ Execution:
 
 1. `@ttsc/lint check` runs first.
 2. The first-party utility source phase applies `@ttsc/paths` before `@ttsc/strip`.
-3. `@ttsc/banner` participates through the JavaScript/declaration print hook.
+3. `@ttsc/banner` injects source JSDoc before TypeScript-Go parses the project.
 4. TypeScript-Go emits JavaScript, declarations, and maps.
 
 Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs).

@@ -218,7 +218,6 @@ function serializeNativePlugins(
   return JSON.stringify(
     plugins.map((plugin) => ({
       config: plugin.config,
-      hooks: plugin.hooks,
       name: plugin.name,
       stage: plugin.stage,
     })),
@@ -237,7 +236,7 @@ function assertTransformHostCompatibility(
   }
   throw new Error(
     "ttsc: multiple transform native backends cannot share one source-to-source pass; " +
-      "compose transform hook libraries through one aggregate host",
+      "compose transform libraries through one aggregate native host",
   );
 }
 

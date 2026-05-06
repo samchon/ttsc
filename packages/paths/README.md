@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/paths` rewrites source and declaration module specifiers that match `compilerOptions.paths` into relative JavaScript paths.
+`@ttsc/paths` rewrites source module specifiers that match `compilerOptions.paths` into relative JavaScript paths. TypeScript-Go carries those source AST changes into declaration emit.
 
 ## Setup
 
@@ -26,14 +26,12 @@ Open your project's `tsconfig.json`, then configure `paths`, `rootDir`, `outDir`
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
     "rootDir": "src",
     "outDir": "dist",
-    "plugins": [
-      { "transform": "@ttsc/paths" }
-    ]
-  }
+    "plugins": [{ "transform": "@ttsc/paths" }],
+  },
 }
 ```
 
@@ -43,7 +41,7 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration imports are rewritten with the same path rule.
+An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration output follows the same source rewrite.
 
 ## Notes
 
@@ -53,7 +51,7 @@ No separate plugin options are required. `@ttsc/paths` reads the same `compilerO
 {
   "compilerOptions": {
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
     "rootDir": "src",
     "outDir": "dist",
@@ -61,11 +59,11 @@ No separate plugin options are required. `@ttsc/paths` reads the same `compilerO
       // Keep lint first.
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
 
-      // First-party utilities use their documented source/emit hook order.
+      // First-party utilities use their documented transform order.
       { "transform": "@ttsc/banner", "banner": "License MIT" },
       { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] }
-    ]
-  }
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
 }
 ```

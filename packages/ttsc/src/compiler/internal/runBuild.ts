@@ -323,7 +323,6 @@ function serializeNativePlugins(
   return JSON.stringify(
     plugins.map((plugin) => ({
       config: plugin.config,
-      hooks: plugin.hooks,
       name: plugin.name,
       stage: plugin.stage,
     })),
@@ -411,7 +410,7 @@ function assertCompilerHostCompatibility(
   }
   throw new Error(
     "ttsc: multiple compiler native backends cannot share one emit pass; " +
-      "compose transform hook libraries through one aggregate host",
+      "compose transform libraries through one aggregate native host",
   );
 }
 

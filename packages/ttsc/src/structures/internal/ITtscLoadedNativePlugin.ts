@@ -1,5 +1,4 @@
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
-import type { ITtscPluginHooks } from "../ITtscPlugin";
 import type { TtscPluginStage } from "../TtscPluginStage";
 
 /** Native sidecar selected and built from one plugin descriptor. */
@@ -14,6 +13,4 @@ export interface ITtscLoadedNativePlugin {
   source: string;
   /** Pipeline stage where the sidecar participates. */
   stage: TtscPluginStage;
-  /** Native transform hook capabilities declared by the plugin package. */
-  hooks?: ITtscPluginHooks;
 }

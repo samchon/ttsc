@@ -15,7 +15,7 @@ Fix `package.json`:
 Fix `plugin.cjs`:
 
 ```js
-source: path.resolve(__dirname, "go-plugin")
+source: path.resolve(__dirname, "go-plugin");
 ```
 
 Verify:
@@ -73,13 +73,13 @@ This works with TypeScript-Go's normal emit path:
   "compilerOptions": {
     "plugins": [
       { "transform": "@ttsc/banner", "banner": "license" },
-      { "transform": "@ttsc/paths" }
-    ]
-  }
+      { "transform": "@ttsc/paths" },
+    ],
+  },
 }
 ```
 
-`@ttsc/banner` and `@ttsc/paths` are transform plugins, so their package descriptors declare the source/declaration hooks they need.
+`@ttsc/banner` and `@ttsc/paths` are transform plugins, so their package descriptors select the transform stage.
 
 This works with a compiler backend:
 
@@ -88,9 +88,9 @@ This works with a compiler backend:
   "compilerOptions": {
     "plugins": [
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-      { "transform": "my-compiler-backend" }
-    ]
-  }
+      { "transform": "my-compiler-backend" },
+    ],
+  },
 }
 ```
 
@@ -103,16 +103,16 @@ This fails when the entries resolve to different compiler backend binaries:
   "compilerOptions": {
     "plugins": [
       { "transform": "compiler-backend-a" },
-      { "transform": "compiler-backend-b" }
-    ]
-  }
+      { "transform": "compiler-backend-b" },
+    ],
+  },
 }
 ```
 
-If your plugin only needs source/declaration changes, make it a transform plugin with package-declared hooks:
+If your plugin only needs source AST changes, make it a transform plugin:
 
 ```js
-hooks: { source: true, declaration: true }
+stage: "transform";
 ```
 
 If several compiler-backend modes must cooperate inside one compiler pass, put them in one binary and dispatch by ordered `--plugins-json`.

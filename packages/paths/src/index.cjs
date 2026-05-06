@@ -8,9 +8,5 @@ module.exports = function createTtscPaths() {
     name: "@ttsc/paths",
     source: path.resolve(__dirname, "..", "plugin"),
     stage: "transform",
-    hooks: {
-      source: true,
-      declaration: true,
-    },
   };
 };

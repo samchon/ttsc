@@ -167,12 +167,12 @@ const (
   ModifierFlagsReadonly  = innerast.ModifierFlagsReadonly
 )
 
-func NewNodeFactory(hooks NodeFactoryHooks) *NodeFactory {
-  return innerast.NewNodeFactory(hooks)
+func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
+  return innerast.NewNodeFactory(options)
 }
 
-func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, hooks NodeVisitorHooks) *NodeVisitor {
-  return innerast.NewNodeVisitor(visit, factory, hooks)
+func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options NodeVisitorHooks) *NodeVisitor {
+  return innerast.NewNodeVisitor(visit, factory, options)
 }
 
 func IsFunctionLike(node *Node) bool {

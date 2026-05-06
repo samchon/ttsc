@@ -30,17 +30,11 @@ test("utility plugins: descriptors own separate native source directories", () =
     const descriptor = factory(factoryContext(name));
     assert.equal(descriptor.name, `@ttsc/${name}`);
     assert.equal(descriptor.stage, stage);
-    if (stage === "transform") {
-      assert.equal(descriptor.hooks?.source, true);
-    } else {
-      assert.equal(descriptor.hooks, undefined);
-    }
-    if (name === "banner" || name === "paths") {
-      assert.equal(descriptor.hooks.declaration, true);
-    }
-    if (name === "strip") {
-      assert.equal(descriptor.hooks.declaration, undefined);
-    }
+    assert.deepEqual(Object.keys(descriptor).sort(), [
+      "name",
+      "source",
+      "stage",
+    ]);
     assert.equal(
       descriptor.source,
       path.join(workspaceRoot, "packages", name, "plugin"),
@@ -375,7 +369,7 @@ test("utility plugins: removed output stage descriptor is rejected", () => {
   assert.match(result.stderr, /removed stage "output"/);
 });
 
-test("utility plugins: user phase options are rejected", () => {
+test("utility plugins: legacy-named user options remain plugin config", () => {
   const root = commonJsProject(
     {
       "src/main.ts": `export const value = "x";\n`,
@@ -386,7 +380,9 @@ test("utility plugins: user phase options are rejected", () => {
           {
             transform: "@ttsc/banner",
             banner: "phase",
-            afterDeclarations: true,
+            after: true,
+            before: true,
+            phase: "custom-plugin-config",
           },
         ],
       },
@@ -394,35 +390,9 @@ test("utility plugins: user phase options are rejected", () => {
   );
   seedUtilityPackages(root, ["banner"]);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
-  assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    /unsupported ts-patch option "afterDeclarations"/,
-  );
-});
-
-test("utility plugins: transform descriptors must declare hooks", () => {
-  const root = commonJsProject(
-    {
-      "src/main.ts": `export const value = "x";\n`,
-      "plugins/no-hooks.cjs": `
-        module.exports = {
-          name: "no-hooks",
-          source: require("node:path").resolve(__dirname, "..", "plugin"),
-        };
-      `,
-      "plugin/go.mod": "module example.com/nohooks\n\ngo 1.26\n",
-      "plugin/main.go": "package main\n\nfunc main() {}\n",
-    },
-    {
-      compilerOptions: {
-        plugins: [{ transform: "./plugins/no-hooks.cjs" }],
-      },
-    },
-  );
-  const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /must declare source\/declaration hooks/);
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /phase/);
 });
 
 test("utility plugins: first-party aggregate requires package identity", () => {
@@ -434,7 +404,6 @@ test("utility plugins: first-party aggregate requires package identity", () => {
           name: "@ttsc/banner",
           source: require("node:path").resolve(__dirname, "..", "fake-banner"),
           stage: "transform",
-          hooks: { source: true },
         };
       `,
       "plugins/fake-strip.cjs": `
@@ -442,7 +411,6 @@ test("utility plugins: first-party aggregate requires package identity", () => {
           name: "@ttsc/strip",
           source: require("node:path").resolve(__dirname, "..", "fake-strip"),
           stage: "transform",
-          hooks: { source: true },
         };
       `,
       "fake-banner/go.mod": "module example.com/fakebanner\n\ngo 1.26\n",
@@ -511,7 +479,7 @@ function bannerPreamble(text) {
   ]
     .map(escapeRegExp)
     .join("\\n");
-  return new RegExp(`^${escaped}\\n`);
+  return new RegExp(`${escaped}\\n`);
 }
 
 function escapeRegExp(value) {

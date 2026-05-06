@@ -41,7 +41,6 @@ function nativePlugin() {
         "cmd",
         "ttsc-go-transformer"
       ),
-      hooks: { source: true },
     });
   `;
 }
@@ -64,7 +63,6 @@ test("plugin corpus: default export factory is accepted as a native descriptor",
             "cmd",
             "ttsc-go-transformer"
           ),
-          hooks: { source: true },
         });
       `,
     },
@@ -99,7 +97,6 @@ test("plugin corpus: createTtscPlugin export is accepted as a native descriptor"
             "cmd",
             "ttsc-go-transformer"
           ),
-          hooks: { source: true },
         });
       `,
     },
@@ -154,21 +151,24 @@ test("plugin corpus: ordered native plugins are passed to the Go sidecar", () =>
   assert.match(js, /"A:PLUGIN:Z"/);
 });
 
-test("plugin corpus: JS transform hooks are rejected", () => {
-  const root = pluginProject([{ transform: "./plugins/invalid-hook.cjs" }], {
-    "plugins/invalid-hook.cjs": `
+test("plugin corpus: JS transform functions are rejected", () => {
+  const root = pluginProject(
+    [{ transform: "./plugins/invalid-js-transform.cjs" }],
+    {
+      "plugins/invalid-js-transform.cjs": `
         module.exports = {
-          name: "invalid-hook",
+          name: "invalid-js-transform",
           transformOutput(context) {
             return context.code;
           },
         };
       `,
-  });
+    },
+  );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /unsupported JS transform hooks/);
+  assert.match(result.stderr, /unsupported JS transform functions/);
 });
 
 test("plugin corpus: invalid plugin export reports the bad specifier", () => {
@@ -288,7 +288,6 @@ test("plugin corpus: source plugins serve an ordered --plugins-json pipeline", (
 module.exports = (context) => ({
   name: context.plugin.name,
   source: path.resolve(__dirname, "go-plugin"),
-  hooks: { source: true },
 });
 `,
   );
@@ -388,7 +387,6 @@ test("plugin corpus: source path can point directly at go.mod", () => {
 module.exports = {
   name: "go-source-plugin",
   source: path.resolve(__dirname, "go-plugin", "go.mod"),
-  hooks: { source: true },
 };
 `,
   );
@@ -418,7 +416,6 @@ test("plugin corpus: source path searches at most three parents for go.mod", () 
 module.exports = {
   name: "go-source-plugin-too-deep",
   source: path.resolve(__dirname, "go-plugin", "a", "b", "c", "d"),
-  hooks: { source: true },
 };
 `,
   );
@@ -442,7 +439,6 @@ test("plugin corpus: missing source is rejected", () => {
       "plugins/missing-source.cjs": `
         module.exports = {
           name: "missing-source",
-          hooks: { source: true },
         };
       `,
     },
@@ -460,7 +456,6 @@ test("plugin corpus: empty source produces a clear error", () => {
         module.exports = {
           name: "empty",
           source: "",
-          hooks: { source: true },
         };
       `,
     },
@@ -670,7 +665,6 @@ test("plugin corpus: nonexistent source produces a clear error", () => {
         module.exports = {
           name: "missing",
           source: path.resolve(__dirname, "..", "no-such-dir"),
-          hooks: { source: true },
         };
       `,
     },

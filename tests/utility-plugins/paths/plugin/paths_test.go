@@ -23,7 +23,6 @@ func TestPathsSidecarRewritesSourceAndDeclarationSpecifiers(t *testing.T) {
   manifest := mustJSON(t, []map[string]any{{
     "name":   "@ttsc/paths",
     "stage":  "transform",
-    "hooks":  map[string]any{"source": true, "declaration": true},
     "config": map[string]any{"transform": "@ttsc/paths"},
   }})
 

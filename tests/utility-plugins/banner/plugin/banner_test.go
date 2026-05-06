@@ -16,7 +16,6 @@ func TestBannerSidecarBuildsJavaScriptAndDeclarations(t *testing.T) {
   manifest := mustJSON(t, []map[string]any{{
     "name":  "@ttsc/banner",
     "stage": "transform",
-    "hooks": map[string]any{"source": true, "declaration": true},
     "config": map[string]any{
       "transform": "@ttsc/banner",
       "banner":    "unit banner",
@@ -30,7 +29,7 @@ func TestBannerSidecarBuildsJavaScriptAndDeclarations(t *testing.T) {
 
   js := readFile(t, filepath.Join(root, "dist", "main.js"))
   dts := readFile(t, filepath.Join(root, "dist", "main.d.ts"))
-  if !strings.HasPrefix(js, bannerPrefix("unit banner")) {
+  if !strings.Contains(js, bannerPrefix("unit banner")) {
     t.Fatalf("missing JS banner:\n%s", js)
   }
   if !strings.HasPrefix(dts, bannerPrefix("unit banner")) {

@@ -18,7 +18,6 @@ import (
 
 type pluginEntry struct {
   Config map[string]any `json:"config"`
-  Hooks  map[string]any `json:"hooks"`
   Name   string         `json:"name"`
   Stage  string         `json:"stage"`
 }
@@ -35,9 +34,8 @@ type hostOptions struct {
 }
 
 type transformState struct {
-  banner string
-  paths  *pathsRewriter
-  strip  *stripRewriter
+  paths *pathsRewriter
+  strip *stripRewriter
 }
 
 type transformResult struct {
@@ -51,7 +49,7 @@ func RunBuild(args []string) int {
   if !ok {
     return 2
   }
-  prog, entries, state, ok := loadUtilityProgram(opts)
+  prog, entries, _, ok := loadUtilityProgram(opts)
   if !ok {
     return 2
   }
@@ -70,19 +68,7 @@ func RunBuild(args []string) int {
     eDiags []driver.Diagnostic
     err    error
   )
-  if state.banner != "" {
-    hooks := shimcompiler.EmitHooks{
-      BeforePrintJS: func(context *shimcompiler.EmitContext, file *shimast.SourceFile) *shimast.SourceFile {
-        return applyBannerJSDoc(context, file, state.banner)
-      },
-      BeforePrintDeclaration: func(context *shimcompiler.EmitContext, file *shimast.SourceFile) *shimast.SourceFile {
-        return applyBannerJSDoc(context, file, state.banner)
-      },
-    }
-    res, eDiags, err = prog.EmitAllRawWithHooks(nil, hooks)
-  } else {
-    res, eDiags, err = prog.EmitAllRaw(nil)
-  }
+  res, eDiags, err = prog.EmitAllRaw(nil)
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
@@ -96,7 +82,7 @@ func RunBuild(args []string) int {
   return 0
 }
 
-// RunTransform returns the project TypeScript text after source-hook mutations.
+// RunTransform returns the project TypeScript text after source mutations.
 func RunTransform(args []string) int {
   opts, ok := parseHostOptions("transform", args)
   if !ok {
@@ -169,10 +155,16 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, trans
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, transformState{}, false
   }
+  sourcePreamble, err := prepareSourcePreamble(entries)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, nil, transformState{}, false
+  }
   prog, diags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
-    ForceEmit:   opts.emit,
-    ForceNoEmit: opts.noEmit,
-    OutDir:      opts.outDir,
+    ForceEmit:      opts.emit,
+    ForceNoEmit:    opts.noEmit,
+    OutDir:         opts.outDir,
+    SourcePreamble: sourcePreamble,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)
@@ -185,6 +177,9 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, trans
   if diags := prog.Diagnostics(); len(diags) > 0 {
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
     return nil, nil, transformState{}, false
+  }
+  if sourcePreamble != "" {
+    attachSourcePreambleComments(prog)
   }
   state, err := prepareTransforms(prog, entries)
   if err != nil {
@@ -213,12 +208,6 @@ func prepareTransforms(prog *driver.Program, entries []pluginEntry) (transformSt
   state := transformState{}
   for _, entry := range entries {
     switch entry.Name {
-    case "@ttsc/banner":
-      banner, err := parseBanner(entry.Config)
-      if err != nil {
-        return state, err
-      }
-      state.banner = banner
     case "@ttsc/paths":
       state.paths = newPathsRewriter(prog)
     case "@ttsc/strip":
@@ -230,6 +219,94 @@ func prepareTransforms(prog *driver.Program, entries []pluginEntry) (transformSt
     }
   }
   return state, nil
+}
+
+func prepareSourcePreamble(entries []pluginEntry) (string, error) {
+  var preamble strings.Builder
+  for _, entry := range entries {
+    if entry.Name != "@ttsc/banner" {
+      continue
+    }
+    banner, err := parseBanner(entry.Config)
+    if err != nil {
+      return "", err
+    }
+    preamble.WriteString(banner)
+  }
+  return preamble.String(), nil
+}
+
+func attachSourcePreambleComments(prog *driver.Program) {
+  for _, file := range prog.SourceFiles() {
+    if file == nil || file.Statements == nil {
+      continue
+    }
+    var declarationStmt *shimast.Node
+    var runtimeStmt *shimast.Node
+    for _, stmt := range file.Statements.Nodes {
+      if declarationStmt == nil && isDeclarationEmitStatement(stmt) {
+        declarationStmt = stmt
+      }
+      if runtimeStmt == nil && isRuntimeStatement(stmt) {
+        runtimeStmt = stmt
+      }
+      if declarationStmt != nil && runtimeStmt != nil {
+        break
+      }
+    }
+    if declarationStmt != nil {
+      declarationStmt.Loc = shimcore.NewTextRange(0, declarationStmt.End())
+      if !isRuntimeStatement(declarationStmt) && runtimeStmt != nil {
+        runtimeStmt.Loc = shimcore.NewTextRange(0, runtimeStmt.End())
+      }
+      continue
+    }
+    if runtimeStmt != nil {
+      runtimeStmt.Loc = shimcore.NewTextRange(0, runtimeStmt.End())
+    }
+  }
+}
+
+func isDeclarationEmitStatement(stmt *shimast.Node) bool {
+  if stmt == nil {
+    return false
+  }
+  switch stmt.Kind {
+  case shimast.KindClassDeclaration,
+    shimast.KindEnumDeclaration,
+    shimast.KindExportAssignment,
+    shimast.KindFunctionDeclaration,
+    shimast.KindInterfaceDeclaration,
+    shimast.KindModuleDeclaration,
+    shimast.KindTypeAliasDeclaration,
+    shimast.KindVariableStatement:
+    return true
+  case shimast.KindExportDeclaration:
+    export := stmt.AsExportDeclaration()
+    return !export.IsTypeOnly && export.ModuleSpecifier != nil
+  default:
+    return false
+  }
+}
+
+func isRuntimeStatement(stmt *shimast.Node) bool {
+  if stmt == nil {
+    return false
+  }
+  switch stmt.Kind {
+  case shimast.KindInterfaceDeclaration, shimast.KindTypeAliasDeclaration:
+    return false
+  case shimast.KindImportDeclaration:
+    clause := stmt.AsImportDeclaration().ImportClause
+    return clause == nil || !clause.IsTypeOnly()
+  case shimast.KindImportEqualsDeclaration:
+    return !stmt.AsImportEqualsDeclaration().IsTypeOnly
+  case shimast.KindExportDeclaration:
+    export := stmt.AsExportDeclaration()
+    return !export.IsTypeOnly && export.ModuleSpecifier != nil
+  default:
+    return true
+  }
 }
 
 func applySourceTransforms(prog *driver.Program, state transformState) error {
@@ -267,7 +344,8 @@ func parseBanner(config map[string]any) (string, error) {
   }
   var b strings.Builder
   sep := strings.Repeat("-", 64)
-  b.WriteString("*\n * ")
+  b.WriteString("/**\n")
+  b.WriteString(" * ")
   b.WriteString(sep)
   b.WriteByte('\n')
   for _, line := range lines {
@@ -277,19 +355,12 @@ func parseBanner(config map[string]any) (string, error) {
   }
   b.WriteString(" *\n")
   b.WriteString(" * @packageDocumentation\n ")
+  b.WriteString("*/\n")
   return b.String(), nil
 }
 
 func sanitizeJSDocLine(line string) string {
   return strings.ReplaceAll(line, "*/", "* /")
-}
-
-func applyBannerJSDoc(context *shimcompiler.EmitContext, file *shimast.SourceFile, banner string) *shimast.SourceFile {
-  if context == nil || file == nil || banner == "" || file.Statements == nil || len(file.Statements.Nodes) == 0 {
-    return file
-  }
-  context.AddSyntheticLeadingComment(file.Statements.Nodes[0], shimast.KindMultiLineCommentTrivia, banner, true)
-  return file
 }
 
 type pathsRewriter struct {
