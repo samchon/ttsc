@@ -204,7 +204,7 @@ Consumer `package.json`:
 }
 ```
 
-When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning `tsconfig.json` directory upward. If no config file exists, the build fails.
+When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the project directory upward. If no config file exists, the build fails.
 
 What to learn:
 

@@ -22,9 +22,9 @@ export interface TtscTransformAlias {
 }
 
 export interface TtscCachedProjectTransform {
+  inputHashes: Record<string, string>;
   projectRoot: string;
   result: ITtscCompilerTransformation;
-  sourceHashes: Record<string, string>;
 }
 
 export type TtscTransformCache = Map<
@@ -124,17 +124,19 @@ function matchesCachedSource(
   file: string,
   source: string,
 ): boolean {
-  const key = toProjectKey(cached.projectRoot, file);
-  return cached.sourceHashes[key] === hashText(source);
+  const currentKey = toProjectKey(cached.projectRoot, file);
+  const currentHashes = collectProjectInputHashes(cached.projectRoot);
+  currentHashes[currentKey] = hashText(source);
+  return sameHashes(cached.inputHashes, currentHashes);
 }
 
-function collectSourceHashes(props: {
+function collectInputHashes(props: {
   currentFile: string;
   currentSource: string;
   projectRoot: string;
   result: ITtscCompilerTransformation;
 }): Record<string, string> {
-  const hashes: Record<string, string> = {};
+  const hashes = collectProjectInputHashes(props.projectRoot);
   if (props.result.type !== "exception") {
     for (const key of Object.keys(props.result.typescript)) {
       const file = path.resolve(props.projectRoot, key);
@@ -152,7 +154,84 @@ function collectSourceHashes(props: {
   return hashes;
 }
 
-function hashText(input: string): string {
+function collectProjectInputHashes(
+  projectRoot: string,
+): Record<string, string> {
+  const hashes: Record<string, string> = {};
+  for (const file of listProjectInputFiles(projectRoot)) {
+    try {
+      hashes[toProjectKey(projectRoot, file)] = hashText(
+        fs.readFileSync(file),
+      );
+    } catch {
+      // File watchers may observe a transform while another process is moving
+      // or deleting files. The missing key invalidates older cache entries.
+    }
+  }
+  return hashes;
+}
+
+function listProjectInputFiles(root: string): string[] {
+  const out: string[] = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (isIgnoredProjectDirectory(entry.name)) {
+        continue;
+      }
+      const file = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(file);
+      } else if (entry.isFile()) {
+        out.push(file);
+      }
+    }
+  }
+  out.sort();
+  return out;
+}
+
+function isIgnoredProjectDirectory(name: string): boolean {
+  return (
+    name === ".git" ||
+    name === ".ttsc" ||
+    name === ".cache" ||
+    name === ".next" ||
+    name === ".nuxt" ||
+    name === ".svelte-kit" ||
+    name === ".turbo" ||
+    name === ".vite" ||
+    name === "build" ||
+    name === "coverage" ||
+    name === "dist" ||
+    name === "lib" ||
+    name === "node_modules" ||
+    name === "out" ||
+    name === "temp" ||
+    name === "tmp"
+  );
+}
+
+function sameHashes(
+  left: Record<string, string>,
+  right: Record<string, string>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  return leftKeys.every((key) => right[key] === left[key]);
+}
+
+function hashText(input: string | Buffer): string {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
@@ -175,14 +254,14 @@ async function transformProject(props: {
       tsconfig: configured.path,
     }).transform();
     return {
-      projectRoot,
-      result,
-      sourceHashes: collectSourceHashes({
+      inputHashes: collectInputHashes({
         currentFile: props.currentFile,
         currentSource: props.currentSource,
         projectRoot,
         result,
       }),
+      projectRoot,
+      result,
     };
   } finally {
     configured.dispose();

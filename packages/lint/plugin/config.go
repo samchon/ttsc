@@ -563,7 +563,7 @@ func loadExternalConfigResolver(location string) (RuleResolver, error) {
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := configBaseDir(cwd, tsconfigPath)
+  dir := discoveryConfigBaseDir(cwd, tsconfigPath)
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
@@ -611,10 +611,10 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
   }
-  return filepath.Join(configBaseDir(cwd, tsconfigPath), configPath)
+  return filepath.Join(tsconfigBaseDir(cwd, tsconfigPath), configPath)
 }
 
-func configBaseDir(cwd, tsconfigPath string) string {
+func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
   base := cwd
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
@@ -626,6 +626,17 @@ func configBaseDir(cwd, tsconfigPath string) string {
     }
   }
   return base
+}
+
+func tsconfigBaseDir(cwd, tsconfigPath string) string {
+  if tsconfigPath == "" {
+    return cwd
+  }
+  resolvedTsconfig := tsconfigPath
+  if !filepath.IsAbs(resolvedTsconfig) {
+    resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
+  }
+  return filepath.Dir(resolvedTsconfig)
 }
 
 func isPathInside(root, file string) bool {

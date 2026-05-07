@@ -463,6 +463,35 @@ func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   }
 }
 
+func TestFindLintConfigFileUsesCwdWhenTsconfigIsOutsideCwd(t *testing.T) {
+  dir := t.TempDir()
+  wrapper := filepath.Join(t.TempDir(), "tsconfig.json")
+  writeFile(t, wrapper, "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.json"), `{
+    "no-var": "error"
+  }`)
+
+  discovered, err := findLintConfigFile(dir, wrapper)
+  if err != nil {
+    t.Fatalf("findLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(dir, "lint.config.json") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestResolveConfigFilePathUsesTsconfigDirectory(t *testing.T) {
+  dir := t.TempDir()
+  wrapper := filepath.Join(t.TempDir(), "tsconfig.json")
+  writeFile(t, wrapper, "{}")
+
+  resolved := resolveConfigFilePath("./lint.config.json", dir, wrapper)
+  expected := filepath.Join(filepath.Dir(wrapper), "lint.config.json")
+  if resolved != expected {
+    t.Fatalf("unexpected explicit config path: got %s, want %s", resolved, expected)
+  }
+}
+
 func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
