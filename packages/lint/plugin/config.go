@@ -563,14 +563,7 @@ func loadExternalConfigResolver(location string) (RuleResolver, error) {
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := cwd
-  if tsconfigPath != "" {
-    resolvedTsconfig := tsconfigPath
-    if !filepath.IsAbs(resolvedTsconfig) {
-      resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
-    }
-    dir = filepath.Dir(resolvedTsconfig)
-  }
+  dir := configBaseDir(cwd, tsconfigPath)
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
@@ -618,15 +611,37 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
   }
+  return filepath.Join(configBaseDir(cwd, tsconfigPath), configPath)
+}
+
+func configBaseDir(cwd, tsconfigPath string) string {
   base := cwd
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
     if !filepath.IsAbs(resolvedTsconfig) {
       resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
     }
-    base = filepath.Dir(resolvedTsconfig)
+    if isPathInside(cwd, resolvedTsconfig) {
+      base = filepath.Dir(resolvedTsconfig)
+    }
   }
-  return filepath.Join(base, configPath)
+  return base
+}
+
+func isPathInside(root, file string) bool {
+  cleanRoot, err := filepath.Abs(root)
+  if err != nil {
+    return false
+  }
+  cleanFile, err := filepath.Abs(file)
+  if err != nil {
+    return false
+  }
+  rel, err := filepath.Rel(cleanRoot, cleanFile)
+  if err != nil {
+    return false
+  }
+  return rel == "." || rel == "" || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func loadConfigFile(location string) (any, error) {

@@ -112,10 +112,10 @@ export function runBuild(
           buildWithNativeCompilerPlugins(options, execution, compilers),
         );
       }
-      if (checked.stdout !== "" || checked.stderr !== "") {
-        return checked;
-      }
-      return runTsgo(execution, ["--noEmit"], options);
+      return appendBuildOutput(
+        checked,
+        runTsgo(execution, ["--noEmit"], options),
+      );
     }
 
     let result: TtscBuildResult;
@@ -126,14 +126,10 @@ export function runBuild(
         buildWithNativeCompilerPlugins(options, execution, compilers),
       );
     } else {
-      if (
-        checked.stdout === "" &&
-        checked.stderr === "" &&
-        options.skipDiagnosticsCheck !== true
-      ) {
+      if (options.skipDiagnosticsCheck !== true) {
         const tsgoChecked = runTsgo(execution, ["--noEmit"], options);
         if (tsgoChecked.status !== 0) {
-          return tsgoChecked;
+          return appendBuildOutput(checked, tsgoChecked);
         }
       }
       const args = createTsgoBuildArgs(execution, options, {
@@ -201,7 +197,7 @@ function runTsgo(
         res.error.message,
     );
   }
-  return normalizeFailedDiagnostics(
+  return normalizeBuildOutput(
     {
       status: res.status ?? 1,
       stdout: outputText(res.stdout),
@@ -238,7 +234,7 @@ function runTsgoBuild(
   if (emittedFiles.length !== 0) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }
-  return normalizeFailedDiagnostics(
+  return normalizeBuildOutput(
     { ...result, emittedFiles },
     execution.projectRoot,
   );
@@ -374,7 +370,7 @@ function runNativePluginCommand(
       `${label}: failed to spawn ${plugin.binary}: ${res.error.message}`,
     );
   }
-  return normalizeFailedDiagnostics(
+  return normalizeBuildOutput(
     {
       status: res.status ?? 1,
       stdout: outputText(res.stdout),
@@ -384,11 +380,11 @@ function runNativePluginCommand(
   );
 }
 
-function appendBuildOutput(
+export function appendBuildOutput(
   left: TtscBuildResult,
   right: TtscBuildResult,
 ): TtscBuildResult {
-  return normalizeFailedDiagnostics({
+  return normalizeBuildOutput({
     diagnostics: [...left.diagnostics, ...right.diagnostics],
     emittedFiles:
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
@@ -506,7 +502,7 @@ type PartialBuildResult = Omit<TtscBuildResult, "diagnostics"> & {
   diagnostics?: ITtscCompilerDiagnostic[];
 };
 
-function normalizeFailedDiagnostics(
+export function normalizeBuildOutput(
   result: PartialBuildResult,
   cwd?: string,
 ): TtscBuildResult {
@@ -560,6 +556,20 @@ function parseDiagnosticLine(
   line: string,
   cwd: string | undefined,
 ): ITtscCompilerDiagnostic | null {
+  const colonMatch = line.match(
+    /^(.+):(\d+):(\d+)\s+-\s+(error|warning|suggestion|message)\s+([A-Z]+)?(\d+|[A-Z][A-Z0-9_-]*):\s+(.+)$/i,
+  );
+  if (colonMatch) {
+    return {
+      category: normalizeDiagnosticCategory(colonMatch[4]!),
+      character: Number(colonMatch[3]),
+      code: normalizeDiagnosticCode(colonMatch[6]!),
+      file: normalizeDiagnosticFile(colonMatch[1]!, cwd),
+      line: Number(colonMatch[2]),
+      messageText: colonMatch[7]!,
+    };
+  }
+
   const fileMatch = line.match(
     /^(.+?)\((\d+),(\d+)\):\s+(error|warning|suggestion|message)\s+([A-Z]+)?(\d+|[A-Z][A-Z0-9_-]*):\s+(.+)$/i,
   );
@@ -614,5 +624,5 @@ function normalizeDiagnosticCode(value: string): number | string {
 }
 
 function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
+  return text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
 }

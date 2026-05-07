@@ -83,3 +83,66 @@ test("computeCacheKey changes when overlay source changes", () => {
 
   assert.notEqual(first, second);
 });
+
+test("computeCacheKey changes when embedded data changes", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+  const plugin = path.join(root, "plugin");
+  fs.mkdirSync(plugin, { recursive: true });
+  fs.writeFileSync(
+    path.join(plugin, "go.mod"),
+    "module example.com/plugin\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(plugin, "main.go"),
+    'package main\n\nimport _ "embed"\n\n//go:embed rules.json\nvar rules string\n',
+    "utf8",
+  );
+  const data = path.join(plugin, "rules.json");
+  fs.writeFileSync(data, '{"version":1}\n', "utf8");
+
+  const first = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+  fs.writeFileSync(data, '{"version":2}\n', "utf8");
+  const second = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+
+  assert.notEqual(first, second);
+});
+
+test("computeCacheKey changes when Go compiler identity changes", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+  const plugin = path.join(root, "plugin");
+  fs.mkdirSync(plugin, { recursive: true });
+  fs.writeFileSync(
+    path.join(plugin, "go.mod"),
+    "module example.com/plugin\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(plugin, "main.go"), "package main\n", "utf8");
+
+  const first = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    goBinary: "/opt/go-a/bin/go",
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+  const second = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    goBinary: "/opt/go-b/bin/go",
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+
+  assert.notEqual(first, second);
+});

@@ -66,6 +66,7 @@ export class TtscCompiler {
       cacheDir: this.resolvePluginCacheDir(),
       cwd: execution.cwd,
       entries: this.context.plugins,
+      projectRoot: execution.projectRoot,
       tsconfig: execution.tsconfig,
     });
     return loaded.nativePlugins.map((plugin) => plugin.binary);
@@ -245,8 +246,11 @@ function runTransformation(
 
 function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
   const { output, result } = project;
-  if (result.status === 0 && result.diagnostics.length === 0) {
+  if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
     return {
+      ...(result.diagnostics.length === 0
+        ? {}
+        : { diagnostics: result.diagnostics }),
       output,
       type: "success",
     };
@@ -279,8 +283,11 @@ function toCompilerTransformation(
   project: ProjectTransformation,
 ): ITtscCompilerTransformation {
   const { result, typescript } = project;
-  if (result.status === 0 && result.diagnostics.length === 0) {
+  if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
     return {
+      ...(result.diagnostics.length === 0
+        ? {}
+        : { diagnostics: result.diagnostics }),
       type: "success",
       typescript,
     };
@@ -293,6 +300,12 @@ function toCompilerTransformation(
     type: "failure",
     typescript,
   };
+}
+
+function hasErrorDiagnostics(
+  diagnostics: readonly ITtscCompilerDiagnostic[],
+): boolean {
+  return diagnostics.some((diagnostic) => diagnostic.category === "error");
 }
 
 function normalizeError(error: unknown): unknown {

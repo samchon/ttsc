@@ -19,6 +19,9 @@ export namespace ITtscCompilerTransformation {
     /** Indicates that transformation completed without diagnostics. */
     type: "success";
 
+    /** Non-fatal diagnostics reported during transformation. */
+    diagnostics?: ITtscCompilerDiagnostic[];
+
     /** Transformed TypeScript source text keyed by project file path. */
     typescript: Record<string, string>;
   }

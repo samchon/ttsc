@@ -894,6 +894,51 @@ test("plugin corpus: @ttsc/lint clean project exits zero", () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test("plugin corpus: check plugin output does not suppress TypeScript diagnostics", () => {
+  const root = commonJsProject(
+    {
+      "plugins/check.cjs": `module.exports = {
+        name: "warning-check",
+        source: require("node:path").resolve(__dirname, "check-go"),
+        stage: "check",
+      };\n`,
+      "plugins/check-go/go.mod": "module example.com/warningcheck\n\ngo 1.26\n",
+      "plugins/check-go/main.go": [
+        "package main",
+        "",
+        "import (",
+        '\t"fmt"',
+        '\t"os"',
+        ")",
+        "",
+        "func main() {",
+        '\tif len(os.Args) > 1 && os.Args[1] == "check" {',
+        '\t\tfmt.Fprintln(os.Stderr, "src/main.ts(1,1): warning TS9001: check warning")',
+        "\t}",
+        "}",
+        "",
+      ].join("\n"),
+      "src/main.ts": `const value: number = "type-error";\nconsole.log(value);\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [{ transform: "./plugins/check.cjs" }],
+      },
+    },
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-check-")),
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /TS9001: check warning/);
+  assert.match(result.stderr, /TS2322/);
+});
+
 test("plugin corpus: @ttsc/lint honors --emit and --outDir overrides", () => {
   const root = setupLintProject("lint-violations");
   fs.writeFileSync(
