@@ -12,7 +12,7 @@ A plugin is one npm package containing a JS manifest and Go source.
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
   "peerDependencies": {
-    "ttsc": "^0.5.0"
+    "ttsc": "^0.8.0"
   },
   "engines": {
     "node": ">=18"
@@ -47,7 +47,7 @@ Use `peerDependencies` for `ttsc`:
 
 ```json
 "peerDependencies": {
-  "ttsc": "^0.5.0"
+  "ttsc": "^0.8.0"
 }
 ```
 
@@ -59,13 +59,13 @@ Do not declare `@typescript/native-preview` as your plugin peer. The consumer in
 
 Practical rule:
 
-| Change | Bump |
-| --- | --- |
-| bug fix | patch |
-| new mode or option | minor |
+| Change                                     | Bump  |
+| ------------------------------------------ | ----- |
+| bug fix                                    | patch |
+| new mode or option                         | minor |
 | removed mode or changed transform contract | major |
-| newly verified `ttsc` minor range | minor |
-| dropped old `ttsc` minor support | major |
+| newly verified `ttsc` minor range          | minor |
+| dropped old `ttsc` minor support           | major |
 
 Your package version is separate from the `ttsc` plugin protocol. Pin a tested
 `ttsc` peer range and widen it only after verification.

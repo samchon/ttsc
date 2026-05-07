@@ -8,6 +8,8 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
 
 import { resolveProjectConfig } from "./resolveProjectConfig";
 
+const PATH_OPTIONS = new Set(["baseUrl", "declarationDir", "rootDir"]);
+
 /** Read the resolved project config subset used by ttsc. */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
@@ -22,6 +24,7 @@ export function readProjectConfig(
       plugins: compilerOptions.plugins,
     },
     path: tsconfig,
+    pluginBaseDirs: compilerOptions.pluginBaseDirs,
     root,
   };
 }
@@ -49,7 +52,9 @@ function readResolvedCompilerOptions(
   seen: Set<string> = new Set(),
 ): {
   options: Record<string, unknown>;
+  optionBaseDirs: Record<string, string>;
   outDir?: string;
+  pluginBaseDirs: string[];
   plugins: ITtscProjectPluginConfig[];
 } {
   const canonical = resolveRealPath(tsconfig);
@@ -72,21 +77,55 @@ function readResolvedCompilerOptions(
           resolveExtendsConfig(canonical, parsed.extends),
           seen,
         )
-      : { options: {}, plugins: [] };
-  const options = {
-    ...base.options,
-    ...(own ?? {}),
+      : { optionBaseDirs: {}, options: {}, pluginBaseDirs: [], plugins: [] };
+  const ownBaseDir = path.dirname(canonical);
+  const ownOptionBaseDirs =
+    own === undefined
+      ? {}
+      : Object.fromEntries(
+          Object.keys(own).map((key) => [key, ownBaseDir] as const),
+        );
+  const optionBaseDirs = {
+    ...base.optionBaseDirs,
+    ...ownOptionBaseDirs,
   };
+  const options = resolvePathOptions(
+    {
+      ...base.options,
+      ...(own ?? {}),
+    },
+    optionBaseDirs,
+  );
+  const plugins = Array.isArray(own?.plugins)
+    ? own.plugins.filter(isProjectPluginConfig)
+    : base.plugins;
   return {
+    optionBaseDirs,
     options,
     outDir:
       typeof own?.outDir === "string"
-        ? resolveAbsolutePath(path.dirname(canonical), own.outDir)
+        ? resolveAbsolutePath(ownBaseDir, own.outDir)
         : base.outDir,
-    plugins: Array.isArray(own?.plugins)
-      ? own.plugins.filter(isProjectPluginConfig)
-      : base.plugins,
+    pluginBaseDirs: Array.isArray(own?.plugins)
+      ? plugins.map(() => ownBaseDir)
+      : base.pluginBaseDirs,
+    plugins,
   };
+}
+
+function resolvePathOptions(
+  options: Record<string, unknown>,
+  baseDirs: Record<string, string>,
+): Record<string, unknown> {
+  const resolved = { ...options };
+  for (const key of PATH_OPTIONS) {
+    const value = resolved[key];
+    const baseDir = baseDirs[key];
+    if (typeof value === "string" && baseDir !== undefined) {
+      resolved[key] = resolveAbsolutePath(baseDir, value);
+    }
+  }
+  return resolved;
 }
 
 function resolveExtendsConfig(tsconfig: string, specifier: string): string {

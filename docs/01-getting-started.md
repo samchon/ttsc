@@ -26,7 +26,7 @@ ttsc-plugin-debugger-strip/
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
   "peerDependencies": {
-    "ttsc": "^0.7.0"
+    "ttsc": "^0.8.0"
   },
   "engines": {
     "node": ">=18"

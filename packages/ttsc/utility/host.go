@@ -117,7 +117,7 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   quiet := fs.Bool("quiet", true, "suppress summary")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
   verbose := fs.Bool("verbose", false, "print summary")
-  if err := fs.Parse(args); err != nil {
+  if err := fs.Parse(filterHostArgs(args)); err != nil {
     return hostOptions{}, false
   }
   resolvedCwd := *cwd
@@ -147,6 +147,50 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
     tsconfig:    *tsconfig,
     verbose:     *verbose,
   }, true
+}
+
+func filterHostArgs(args []string) []string {
+  known := map[string]bool{
+    "cwd":          true,
+    "emit":         false,
+    "noEmit":       false,
+    "outDir":       true,
+    "plugins-json": true,
+    "quiet":        false,
+    "tsconfig":     true,
+    "verbose":      false,
+  }
+  filtered := make([]string, 0, len(args))
+  for i := 0; i < len(args); i++ {
+    current := args[i]
+    if current == "--" {
+      break
+    }
+    if !strings.HasPrefix(current, "--") {
+      filtered = append(filtered, current)
+      continue
+    }
+    name, hasInlineValue := flagName(current)
+    takesValue, ok := known[name]
+    if ok {
+      filtered = append(filtered, current)
+      if takesValue && !hasInlineValue && i+1 < len(args) {
+        i++
+        filtered = append(filtered, args[i])
+      }
+      continue
+    }
+    if !hasInlineValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+      i++
+    }
+  }
+  return filtered
+}
+
+func flagName(arg string) (string, bool) {
+  name := strings.TrimPrefix(arg, "--")
+  before, _, found := strings.Cut(name, "=")
+  return before, found
 }
 
 func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, transformState, string, bool) {

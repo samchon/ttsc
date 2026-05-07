@@ -8,6 +8,9 @@ const {
   readProjectConfig,
 } = require("../lib/compiler/internal/project/readProjectConfig.js");
 const {
+  loadProjectPlugins,
+} = require("../lib/plugin/internal/loadProjectPlugins.js");
+const {
   resolveProjectConfig,
 } = require("../lib/compiler/internal/project/resolveProjectConfig.js");
 
@@ -64,7 +67,82 @@ test("readProjectConfig inherits plugins and outDir through tsconfig extends", (
   assert.deepEqual(parsed.compilerOptions.plugins, [
     { transform: "./plugins/example.cjs" },
   ]);
+  assert.deepEqual(parsed.pluginBaseDirs, [shared]);
   assert.equal(parsed.compilerOptions.outDir, path.join(root, "dist/shared"));
+});
+
+test("readProjectConfig resolves inherited relative path options from the declaring file", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const shared = path.join(root, "config");
+  const project = path.join(root, "project");
+  fs.mkdirSync(shared, { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(
+    path.join(shared, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          baseUrl: "../shared-base",
+          rootDir: "../shared-src",
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify({ extends: "../config/tsconfig.json" }, null, 2),
+    "utf8",
+  );
+
+  const parsed = readProjectConfig({
+    tsconfig: path.join(project, "tsconfig.json"),
+  });
+
+  assert.equal(parsed.compilerOptions.baseUrl, path.join(root, "shared-base"));
+  assert.equal(parsed.compilerOptions.rootDir, path.join(root, "shared-src"));
+});
+
+test("loadProjectPlugins resolves inherited relative transform paths from the declaring file", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const shared = path.join(root, "config");
+  const project = path.join(root, "project");
+  fs.mkdirSync(path.join(shared, "plugins"), { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(
+    path.join(shared, "plugins", "base.cjs"),
+    `module.exports = { name: "base-relative", source: "" };\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(shared, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          plugins: [{ transform: "./plugins/base.cjs" }],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify({ extends: "../config/tsconfig.json" }, null, 2),
+    "utf8",
+  );
+
+  assert.throws(
+    () =>
+      loadProjectPlugins({
+        binary: "",
+        tsconfig: path.join(project, "tsconfig.json"),
+      }),
+    /must declare source/,
+  );
 });
 
 test("readProjectConfig lets child tsconfig override inherited plugins", () => {

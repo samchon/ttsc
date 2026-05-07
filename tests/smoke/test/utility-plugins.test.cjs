@@ -8,6 +8,7 @@ const {
   commonJsProject,
   copyProject,
   createProject,
+  nativeBinary,
   runNode,
   spawn,
   ttscBin,
@@ -441,6 +442,85 @@ test("utility plugins: first-party aggregate requires package identity", () => {
     result.stderr,
     /multiple compiler native backends cannot share one emit pass/,
   );
+});
+
+test("utility plugins: shared host ignores future optional flags", () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [{ transform: "@ttsc/banner", banner: "future flag" }],
+      },
+      include: ["src"],
+    }),
+    "src/main.ts": `export const value: string = "future-flag";\n`,
+  });
+  seedUtilityPackages(root, ["banner"]);
+
+  const { loadProjectPlugins } = require(
+    path.join(
+      workspaceRoot,
+      "packages",
+      "ttsc",
+      "lib",
+      "plugin",
+      "internal",
+      "loadProjectPlugins.js",
+    ),
+  );
+  const previousPath = process.env.PATH;
+  const previousCacheDir = process.env.TTSC_CACHE_DIR;
+  process.env.PATH = goPath();
+  process.env.TTSC_CACHE_DIR = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-utility-future-flag-"),
+  );
+  let loaded;
+  try {
+    loaded = loadProjectPlugins({
+      binary: nativeBinary,
+      cwd: root,
+      tsconfig: path.join(root, "tsconfig.json"),
+    });
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousCacheDir === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previousCacheDir;
+    }
+  }
+  const loadedBinary = loaded.nativePlugins[0]?.binary;
+  assert.equal(typeof loadedBinary, "string");
+  const pluginsJson = JSON.stringify(
+    loaded.nativePlugins.map((plugin) => ({
+      config: plugin.config,
+      name: plugin.name,
+      stage: plugin.stage,
+    })),
+  );
+
+  const result = spawn(
+    loadedBinary,
+    [
+      "transform",
+      "--cwd",
+      root,
+      "--tsconfig",
+      path.join(root, "tsconfig.json"),
+      "--plugins-json",
+      pluginsJson,
+      "--future-optional-flag",
+      "ignored-value",
+    ],
+    { cwd: root },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /"typescript"/);
 });
 
 function seedUtilityPackages(root, names = utilityPackages) {
