@@ -9,13 +9,13 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-A `typescript-go` toolchain for compiler-powered transforms and type-safe execution.
+A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
   - 10x faster than `ts-node`.
   - type checking that `tsx` does not provide.
-- **transformer support**: compiler-powered libraries, such as `typia`.
+- **plugin support**: compiler-powered libraries, such as `typia`.
   - `@ttsc/lint`: lint violations as TS compile errors.
 
 ## Setup
