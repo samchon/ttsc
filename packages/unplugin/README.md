@@ -13,6 +13,13 @@ Bundler adapter for `ttsc` plugins.
 
 Use it when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun should run the same `compilerOptions.plugins` entries that `ttsc` and `ttsx` use.
 
+During one bundler build, the adapter caches the project-wide `ttsc` transform
+result and reuses it for module transform hooks in the same project/config. When
+it needs a generated tsconfig for bundler aliases or inline compiler options,
+the temporary file is created outside the project root and deleted after the
+project transform completes. The adapter returns transformed code only; it does
+not synthesize source maps from text diffs.
+
 ## Setup
 
 Install `ttsc` and TypeScript-Go first. Then install the bundler adapter:

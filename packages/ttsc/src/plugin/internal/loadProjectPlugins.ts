@@ -26,6 +26,7 @@ export function loadProjectPlugins(options: {
   cwd?: string;
   entries?: readonly ITtscProjectPluginConfig[] | false;
   file?: string;
+  projectRoot?: string;
   tsconfig?: string;
 }): {
   nativePlugins: ITtscLoadedNativePlugin[];
@@ -34,6 +35,7 @@ export function loadProjectPlugins(options: {
   const project = readProjectConfig({
     cwd: options.cwd,
     file: options.file,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
   const entries: ProjectPluginEntry[] =

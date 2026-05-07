@@ -3,7 +3,12 @@ import { createUnplugin } from "unplugin";
 
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
-import { isDeclarationFile, stripQuery, transformTtsc } from "./transform";
+import {
+  createTtscTransformCache,
+  isDeclarationFile,
+  stripQuery,
+  transformTtsc,
+} from "./transform";
 
 const name = "ttsc-unplugin";
 const sourceFilePattern = /\.[cm]?tsx?$/;
@@ -15,6 +20,7 @@ const unpluginFactory: UnpluginFactory<
   false
 > = (rawOptions = {}) => {
   const options = resolveOptions(rawOptions);
+  const transformCache = createTtscTransformCache();
   let aliases: unknown;
 
   return {
@@ -27,6 +33,10 @@ const unpluginFactory: UnpluginFactory<
       },
     },
 
+    buildStart() {
+      transformCache.clear();
+    },
+
     transformInclude(id) {
       const file = stripQuery(id);
       return isTransformTarget(file);
@@ -37,7 +47,7 @@ const unpluginFactory: UnpluginFactory<
       if (!isTransformTarget(file)) {
         return undefined;
       }
-      return transformTtsc(file, source, options, aliases);
+      return transformTtsc(file, source, options, aliases, transformCache);
     },
   };
 };

@@ -246,6 +246,38 @@ test("utility plugins: banner follows removeComments", () => {
   );
 });
 
+test("utility plugins: banner preserves executable shebang", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `#!/usr/bin/env node\nexport const value = "cli";\nconsole.log(value);\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            banner: "cli banner",
+          },
+        ],
+      },
+    },
+  );
+  seedUtilityPackages(root, ["banner"]);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-banner-shebang-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.equal(js.startsWith("#!/usr/bin/env node\n"), true, js);
+  assertSingleBanner(js, "cli banner");
+});
+
 test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
@@ -255,6 +287,7 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
         declaration: true,
         strict: true,
         paths: {
+          "@pkg": ["./src/pkg"],
           "@lib/exact": ["./src/modules/exact.ts"],
           "@lib/*": ["./src/missing/*", "./src/modules/*"],
         },
@@ -266,13 +299,15 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
     }),
     "src/modules/exact.ts": `export const exact = "exact" as const;\n`,
     "src/modules/message.ts": `export interface MessageBox { value: string }\nexport const message = "paths";\n`,
+    "src/pkg/index.ts": `export const index = "index" as const;\n`,
     "src/main.ts": [
       `import { message } from "@lib/message";`,
       `import { exact } from "@lib/exact";`,
+      `import { index } from "@pkg";`,
       `export { message } from "@lib/message";`,
       `export type { MessageBox } from "@lib/message";`,
       `export type ImportedBox = import("@lib/message").MessageBox;`,
-      `export const value = message + ":" + exact;`,
+      `export const value = message + ":" + exact + ":" + index;`,
       `export async function loadMessage(): Promise<string> {`,
       `  return (await import("@lib/message")).message;`,
       `}`,
@@ -293,9 +328,11 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   assert.match(js, /from "\.\/modules\/exact\.js"/);
   assert.match(js, /from "\.\/modules\/message\.js"/);
+  assert.match(js, /from "\.\/pkg\/index\.js"/);
   assert.match(js, /import\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /@lib\/message/);
   assert.doesNotMatch(js, /@lib\/exact/);
+  assert.doesNotMatch(js, /@pkg/);
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
   assert.match(dts, /from "\.\/modules\/message\.js"/);
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
@@ -305,7 +342,7 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
 test("utility plugins: strip removes configured calls and debugger statements", () => {
   const root = commonJsProject(
     {
-      "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\n`,
+      "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\nif (box.value) console.log("drop-if");\n`,
     },
     {
       compilerOptions: {
@@ -335,6 +372,7 @@ test("utility plugins: strip removes configured calls and debugger statements", 
   assert.doesNotMatch(js, /console\.(?:log|debug)/);
   assert.doesNotMatch(js, /\bdebugger\b/);
   assert.doesNotMatch(js, /assert\.equal/);
+  assert.doesNotMatch(js, /drop-if/);
   assert.match(js, /console\.info\("kept"\)/);
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
   assert.match(dts, /interface StripBox/);

@@ -20,6 +20,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const project = readProjectConfig({
     cwd,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
   if (configuredPlugins(options, project).length !== 0) {
@@ -27,15 +28,15 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
   }
   const tsconfig = project.path;
   const binary = buildNativeCompiler({
-    cacheBaseDir: path.dirname(tsconfig),
+    cacheBaseDir: project.root,
     cacheDir: options.cacheDir,
     packageRoot: packageRootDir(),
   });
   const res = spawnSync(
     binary,
-    ["api-compile", "--cwd", path.dirname(tsconfig), "--tsconfig", tsconfig],
+    ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
-      cwd: path.dirname(tsconfig),
+      cwd: project.root,
       encoding: "utf8",
       env: { ...process.env, ...options.env },
       maxBuffer: 1024 * 1024 * 256,

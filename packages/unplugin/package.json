@@ -86,8 +86,6 @@
     "src"
   ],
   "dependencies": {
-    "diff-match-patch-es": "^1.0.1",
-    "magic-string": "^0.30.21",
     "unplugin": "^2.3.11"
   },
   "devDependencies": {

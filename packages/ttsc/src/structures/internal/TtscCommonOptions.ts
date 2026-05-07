@@ -11,6 +11,8 @@ export interface TtscCommonOptions {
   binary?: string;
   /** Working directory for config discovery and relative file paths. */
   cwd?: string;
+  /** Project root override for generated tsconfig wrappers. */
+  projectRoot?: string;
   /** Environment variables merged over `process.env` for child processes. */
   env?: NodeJS.ProcessEnv;
   /** Explicit root directory for compiled source-plugin cache artifacts. */

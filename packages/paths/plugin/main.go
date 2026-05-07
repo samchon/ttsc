@@ -28,7 +28,7 @@ func run(args []string) int {
   case "transform":
     return utility.RunTransform(args[1:])
   case "check":
-    return 0
+    return utility.RunCheck(args[1:])
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/paths: unknown command %q\n", args[0])
     return 2

@@ -531,6 +531,45 @@ test("lint config file: installed ESLint runtime executes external RuleModules",
   );
 });
 
+test("lint config file: ESLint runtime supplements native diagnostics", () => {
+  const result = runLint({
+    name: "config-file-eslint-runtime-supplements-native",
+    source: `const promise = Promise.resolve(1);\nconsole.log(promise);\n`,
+    pluginConfig: {
+      config: "./eslint.config.mjs",
+    },
+    extraSources: {
+      "eslint.config.mjs": `export default [
+        {
+          plugins: {
+            custom: {},
+          },
+          rules: {
+            "custom/rule": "error",
+            "no-console": "error",
+          },
+        },
+      ];\n`,
+      ...fakeEslintRuntimeModule("custom/rule", "External rule failed."),
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.equal(
+    result.stderr.includes("@ttsc/lint: ignoring unknown rule"),
+    false,
+    result.stderr,
+  );
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.severity, d.message]),
+    [
+      ["no-console", "error", "Unexpected console statement."],
+      ["custom/rule", "error", "External rule failed."],
+    ],
+    result.stderr,
+  );
+});
+
 test("lint config file: installed ESLint runtime executes real typescript-eslint RuleModules", () => {
   const result = runLint({
     name: "config-file-eslint-runtime-real-typescript-eslint",

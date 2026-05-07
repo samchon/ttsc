@@ -31,6 +31,9 @@ import (
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 	shimchecker "github.com/microsoft/typescript-go/shim/checker"
 	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+	shimcore "github.com/microsoft/typescript-go/shim/core"
+	shimparser "github.com/microsoft/typescript-go/shim/parser"
+	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 ```
 
@@ -45,6 +48,9 @@ require (
 	github.com/microsoft/typescript-go/shim/ast v0.0.0
 	github.com/microsoft/typescript-go/shim/checker v0.0.0
 	github.com/microsoft/typescript-go/shim/compiler v0.0.0
+	github.com/microsoft/typescript-go/shim/core v0.0.0
+	github.com/microsoft/typescript-go/shim/parser v0.0.0
+	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 )
 ```
 
@@ -398,6 +404,16 @@ func stringLiteralRange(text string, node *shimast.Node) (int, int, byte, bool) 
 		return 0, 0, 0, false
 	}
 	return start, end, quote, true
+}
+
+func clamp(value, min, max int) int {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
 ```
 

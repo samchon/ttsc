@@ -161,7 +161,9 @@ export class TtscCompiler {
     });
     return {
       cwd,
-      projectRoot: path.dirname(tsconfig),
+      projectRoot: this.context.projectRoot
+        ? path.resolve(cwd, this.context.projectRoot)
+        : path.dirname(tsconfig),
       tsconfig,
     };
   }

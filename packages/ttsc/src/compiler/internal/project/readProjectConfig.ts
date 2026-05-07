@@ -15,7 +15,9 @@ export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
 ): ITtscParsedProjectConfig {
   const tsconfig = resolveProjectConfig(opts);
-  const root = path.dirname(tsconfig);
+  const root = opts.projectRoot
+    ? path.resolve(opts.cwd ?? process.cwd(), opts.projectRoot)
+    : path.dirname(tsconfig);
   const compilerOptions = readResolvedCompilerOptions(tsconfig);
   return {
     compilerOptions: {

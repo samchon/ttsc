@@ -343,7 +343,7 @@ func (fs sourcePreambleFS) ReadFile(filePath string) (string, bool) {
   if !ok || !isSourcePreambleTarget(filePath) {
     return contents, ok
   }
-  return fs.preamble + contents, true
+  return ApplySourcePreamble(contents, fs.preamble), true
 }
 
 func (fs sourcePreambleFS) WriteFile(filePath string, data string) error {
@@ -375,6 +375,28 @@ func isSourcePreambleTarget(filePath string) bool {
     }
   }
   return false
+}
+
+// ApplySourcePreamble inserts a generated source preamble without moving the
+// file's BOM or hashbang away from the first bytes of the physical output.
+func ApplySourcePreamble(text string, preamble string) string {
+  if preamble == "" {
+    return text
+  }
+  bom := ""
+  rest := text
+  if strings.HasPrefix(rest, "\ufeff") {
+    bom = "\ufeff"
+    rest = strings.TrimPrefix(rest, "\ufeff")
+  }
+  if strings.HasPrefix(rest, "#!") {
+    end := strings.IndexByte(rest, '\n')
+    if end < 0 {
+      return bom + rest + "\n" + preamble
+    }
+    return bom + rest[:end+1] + preamble + rest[end+1:]
+  }
+  return bom + preamble + rest
 }
 
 // SourceFiles exposes the program's user-authored source files (declaration

@@ -99,7 +99,7 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   const cjsCore = fs.readFileSync(libPath("core/index", "js"), "utf8");
   const esmCore = fs.readFileSync(libPath("core/index", "mjs"), "utf8");
 
-  for (const dependency of ["diff-match-patch-es", "magic-string", "ttsc"]) {
+  for (const dependency of ["ttsc"]) {
     assert.match(
       cjs,
       new RegExp(`require\\('${escapeRegExp(dependency)}'\\)`),
@@ -107,8 +107,6 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
     );
   }
 
-  assert.match(esm, /from 'diff-match-patch-es'/);
-  assert.match(esm, /from 'magic-string'/);
   assert.match(esm, /from 'ttsc'/);
   assert.match(cjsCore, /require\('unplugin'\)/);
   assert.match(esmCore, /from 'unplugin'/);
