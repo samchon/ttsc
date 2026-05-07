@@ -25,7 +25,7 @@ A `typescript-go` toolchain for compiler-powered transforms and type-safe execut
 Install the native TypeScript preview package with `ttsc`:
 
 ```bash
-npm i -D ttsc @typescript/native-preview
+npm install -D ttsc @typescript/native-preview
 ```
 
 ### Commands
@@ -51,8 +51,8 @@ Use `@ttsc/unplugin` when a bundler owns your build.
 It runs the same `compilerOptions.plugins` that `ttsc` and `ttsx` use.
 
 ```bash
-npm i -D ttsc @typescript/native-preview
-npm i -D @ttsc/unplugin
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/unplugin
 ```
 
 Minimal Vite setup:

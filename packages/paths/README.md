@@ -13,10 +13,11 @@
 
 ## Setup
 
-Install `ttsc`, TypeScript-Go, and the paths plugin:
+Install `ttsc` and TypeScript-Go, then the paths plugin:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/paths
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/paths
 ```
 
 Open your project's `tsconfig.json`, then configure `paths`, `rootDir`, `outDir`, and this plugin under `compilerOptions`. If the file already has `compilerOptions`, merge these fields into the existing object:

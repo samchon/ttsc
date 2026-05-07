@@ -54,10 +54,11 @@ CI that already runs `ttsc` blocks on lint with no extra wiring.
 
 ## Setup
 
-Install `ttsc`, TypeScript-Go, and the lint plugin:
+Install `ttsc` and TypeScript-Go, then the lint plugin:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/lint
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/lint
 ```
 
 Add the plugin under `compilerOptions.plugins` in your `tsconfig.json`.
