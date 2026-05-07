@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/banner` adds a fixed `@packageDocumentation` JSDoc banner by inserting a source preamble before TypeScript-Go parses the project.
+`@ttsc/banner` adds a fixed `@packageDocumentation` JSDoc banner to the output.
 
 ## Setup
 
@@ -42,23 +42,3 @@ npx ttsc
 ```
 
 The plugin formats every banner line inside a JSDoc block and adds `@packageDocumentation`. The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
-
-## Notes
-
-`@ttsc/banner` can be used with other `ttsc` plugins:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      // Keep lint first.
-      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-
-      // First-party utilities use their documented transform order.
-      { "transform": "@ttsc/banner", "banner": "License MIT" },
-      { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] },
-    ],
-  },
-}
-```

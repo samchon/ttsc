@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import type {
@@ -23,6 +24,7 @@ export interface TtscTransformAlias {
 export interface TtscCachedProjectTransform {
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  sourceHashes: Record<string, string>;
 }
 
 export type TtscTransformCache = Map<
@@ -62,17 +64,35 @@ export async function transformTtsc(
   });
 
   let transformed = cache?.get(key);
+  if (transformed !== undefined) {
+    const cached = await transformed;
+    if (matchesCachedSource(cached, file, source)) {
+      reportSuccessDiagnostics(cached.result);
+      const code = selectTransformedSource({
+        file,
+        projectRoot: cached.projectRoot,
+        result: cached.result,
+      });
+      return createTransformResult(source, code);
+    }
+    cache?.delete(key);
+    transformed = undefined;
+  }
+
   if (transformed === undefined) {
     transformed = transformProject({
       aliasPaths,
       baseUrl,
       compilerOptions: options.compilerOptions,
+      currentFile: file,
+      currentSource: source,
       plugins: options.plugins,
       tsconfig,
     });
     cache?.set(key, transformed);
   }
   const { projectRoot, result } = await transformed;
+  reportSuccessDiagnostics(result);
   const code = selectTransformedSource({ file, projectRoot, result });
   return createTransformResult(source, code);
 }
@@ -99,24 +119,70 @@ export function createTransformResult(
   return { code };
 }
 
+function matchesCachedSource(
+  cached: TtscCachedProjectTransform,
+  file: string,
+  source: string,
+): boolean {
+  const key = toProjectKey(cached.projectRoot, file);
+  return cached.sourceHashes[key] === hashText(source);
+}
+
+function collectSourceHashes(props: {
+  currentFile: string;
+  currentSource: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): Record<string, string> {
+  const hashes: Record<string, string> = {};
+  if (props.result.type !== "exception") {
+    for (const key of Object.keys(props.result.typescript)) {
+      const file = path.resolve(props.projectRoot, key);
+      try {
+        hashes[key] = hashText(fs.readFileSync(file, "utf8"));
+      } catch {
+        // A plugin may synthesize a virtual TypeScript file. It should not
+        // decide cache reuse for real source files.
+      }
+    }
+  }
+  hashes[toProjectKey(props.projectRoot, props.currentFile)] = hashText(
+    props.currentSource,
+  );
+  return hashes;
+}
+
+function hashText(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+
 async function transformProject(props: {
   aliasPaths: Record<string, string[]>;
   baseUrl: string;
   compilerOptions: Record<string, unknown>;
+  currentFile: string;
+  currentSource: string;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
   const configured = createTransformTsconfig(props);
   const projectRoot = path.dirname(props.tsconfig);
   try {
+    const result = new TtscCompiler({
+      cwd: projectRoot,
+      plugins: props.plugins,
+      projectRoot,
+      tsconfig: configured.path,
+    }).transform();
     return {
       projectRoot,
-      result: new TtscCompiler({
-        cwd: projectRoot,
-        plugins: props.plugins,
+      result,
+      sourceHashes: collectSourceHashes({
+        currentFile: props.currentFile,
+        currentSource: props.currentSource,
         projectRoot,
-        tsconfig: configured.path,
-      }).transform(),
+        result,
+      }),
     };
   } finally {
     configured.dispose();
@@ -199,7 +265,7 @@ function normalizePluginConfigForGeneratedTsconfig(
     return entry;
   }
   const output: Record<string, unknown> = { ...entry };
-  for (const key of ["source", "transform"]) {
+  for (const key of ["config", "source", "transform"]) {
     const value = output[key];
     if (typeof value === "string" && isRelativeSpecifier(value)) {
       output[key] = path.resolve(tsconfigDir, value);
@@ -383,6 +449,16 @@ function selectTransformedSource(props: {
     }
   }
   throw new Error(`ttsc transform did not return output for ${props.file}`);
+}
+
+function reportSuccessDiagnostics(result: ITtscCompilerTransformation): void {
+  if (result.type !== "success" || result.diagnostics === undefined) {
+    return;
+  }
+  const text = formatDiagnostics(result.diagnostics);
+  if (text.length !== 0) {
+    process.stderr.write(`${text}\n`);
+  }
 }
 
 function formatDiagnostics(diagnostics: ITtscCompilerDiagnostic[]): string {

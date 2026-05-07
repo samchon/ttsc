@@ -2,9 +2,7 @@
 
 `ttsc` is a standalone TypeScript-Go compiler, runtime, and plugin host.
 
-Keep the package contract general. `ttsc` owns the compiler command, `ttsx`
-owns the runtime command, and downstream projects are compatibility fixtures,
-not the product definition.
+Keep the package contract general. `ttsc` owns the compiler command, `ttsx` owns the runtime command, and downstream projects are compatibility fixtures, not the product definition.
 
 ## Layout
 

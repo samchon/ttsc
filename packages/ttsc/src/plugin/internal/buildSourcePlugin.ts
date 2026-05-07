@@ -29,9 +29,11 @@ export function buildSourcePlugin(opts: {
 }): string {
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = opts.overlayDirs ?? findTtscOverlayDirs();
+  const goBinary = resolveGoCompiler();
   const key = computeCacheKey({
     dir,
     entry,
+    goBinary,
     overlayDirs,
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
@@ -60,7 +62,7 @@ export function buildSourcePlugin(opts: {
     writeGoWork(scratchDir, overlayDirs);
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
-    runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName);
+    runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName, goBinary);
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     fs.renameSync(builtBinary, binaryPath);
     if (process.platform !== "win32") {
@@ -191,8 +193,8 @@ function runGoBuild(
   entry: string,
   binaryName: string,
   pluginName: string,
+  goBinary: string,
 ): void {
-  const goBinary = resolveGoCompiler();
   ensureExecutableGoToolchain(goBinary);
   const result = spawnSync(goBinary, ["build", "-o", binaryName, entry], {
     cwd,
@@ -392,6 +394,7 @@ function resolveGoCompiler(): string {
 export function computeCacheKey(inputs: {
   dir: string;
   entry: string;
+  goBinary?: string;
   overlayDirs?: readonly string[];
   ttscVersion: string;
   tsgoVersion: string;
@@ -401,6 +404,9 @@ export function computeCacheKey(inputs: {
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
   hash.update(`platform=${process.platform}/${process.arch}\n`);
   hash.update(`entry=${inputs.entry}\n`);
+  if (inputs.goBinary !== undefined) {
+    hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary)}\n`);
+  }
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir);
@@ -450,6 +456,56 @@ function walk(dir: string, out: string[]): void {
 }
 
 function isHashableFile(name: string): boolean {
-  if (name === "go.mod" || name === "go.sum" || name === "go.work") return true;
-  return /\.(?:go|s|c|h|cpp|hpp)$/i.test(name);
+  return !name.endsWith("~");
+}
+
+function resolveGoCompilerIdentity(goBinary: string): string {
+  const resolved = resolveExecutableIdentityPath(goBinary);
+  const version = spawnSync(goBinary, ["version"], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  const versionText =
+    version.error !== undefined
+      ? version.error.message
+      : `${version.status ?? 0}:${version.stdout}${version.stderr}`;
+  let statText = "";
+  try {
+    const stat = fs.statSync(resolved);
+    statText = `${stat.size}:${stat.mtimeMs}`;
+  } catch {
+    statText = "missing";
+  }
+  return `${goBinary}:${resolved}:${statText}:${versionText}`;
+}
+
+function resolveExecutableIdentityPath(binary: string): string {
+  if (path.isAbsolute(binary)) {
+    return resolveRealPath(binary);
+  }
+  if (binary.includes(path.sep)) {
+    return resolveRealPath(path.resolve(binary));
+  }
+  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (dir.length === 0) continue;
+    const candidate = path.join(dir, binary);
+    if (fs.existsSync(candidate)) {
+      return resolveRealPath(candidate);
+    }
+    if (process.platform === "win32") {
+      const executable = `${candidate}.exe`;
+      if (fs.existsSync(executable)) {
+        return resolveRealPath(executable);
+      }
+    }
+  }
+  return binary;
+}
+
+function resolveRealPath(location: string): string {
+  try {
+    return fs.realpathSync(location);
+  } catch {
+    return location;
+  }
 }

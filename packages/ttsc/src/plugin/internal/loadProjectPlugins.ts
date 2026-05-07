@@ -20,6 +20,13 @@ type ProjectPluginEntry = {
   config: ITtscProjectPluginConfig;
 };
 
+type PackageManifest = {
+  dependencies?: Record<string, unknown>;
+  devDependencies?: Record<string, unknown>;
+  name?: unknown;
+  ttsc?: unknown;
+};
+
 export function loadProjectPlugins(options: {
   binary: string;
   cacheDir?: string;
@@ -88,7 +95,7 @@ export function loadProjectPlugins(options: {
     });
   });
   return {
-    nativePlugins,
+    nativePlugins: orderNativePlugins(nativePlugins),
     project,
   };
 }
@@ -103,10 +110,207 @@ function resolvePluginEntries(
       config,
     }));
   }
-  return project.compilerOptions.plugins.map((config, index) => ({
+  const configured = project.compilerOptions.plugins.map((config, index) => ({
     baseDir: project.pluginBaseDirs[index] ?? project.root,
     config,
   }));
+  return [...configured, ...discoverPackagePluginEntries(project, configured)];
+}
+
+function discoverPackagePluginEntries(
+  project: ITtscParsedProjectConfig,
+  configured: readonly ProjectPluginEntry[],
+): ProjectPluginEntry[] {
+  const projectPackageJson = path.join(project.root, "package.json");
+  const projectManifest = readPackageManifest(projectPackageJson);
+  if (projectManifest === undefined) {
+    return [];
+  }
+
+  const configuredTransforms = createConfiguredTransformSet(configured);
+  const out: ProjectPluginEntry[] = [];
+  for (const name of directDependencyNames(projectManifest)) {
+    const packageJson = resolveDependencyPackageJson(name, project.root);
+    if (packageJson === undefined) {
+      continue;
+    }
+    const manifest = readPackageManifest(packageJson);
+    const config = readPackagePluginConfig(name, manifest);
+    if (config === undefined || config.enabled === false) {
+      continue;
+    }
+    const packageRoot = path.dirname(packageJson);
+    const transform = config.transform;
+    if (typeof transform !== "string") {
+      continue;
+    }
+    const baseDir = isRelativePluginSpecifier(transform)
+      ? packageRoot
+      : project.root;
+    const resolved = resolvePluginRequest(transform, baseDir);
+    if (hasConfiguredTransform(configuredTransforms, transform, resolved)) {
+      continue;
+    }
+    out.push({
+      baseDir,
+      config,
+    });
+    addConfiguredTransform(configuredTransforms, transform, resolved);
+  }
+  return out;
+}
+
+type ConfiguredTransformSet = {
+  raw: Set<string>;
+  resolved: Set<string>;
+};
+
+function createConfiguredTransformSet(
+  entries: readonly ProjectPluginEntry[],
+): ConfiguredTransformSet {
+  const raw = new Set<string>();
+  const resolved = new Set<string>();
+  for (const entry of entries) {
+    const transform = entry.config.transform;
+    if (typeof transform !== "string" || transform.length === 0) {
+      continue;
+    }
+    if (!isRelativePluginSpecifier(transform)) {
+      raw.add(transform);
+    }
+    try {
+      resolved.add(resolvePluginRequest(transform, entry.baseDir));
+    } catch {
+      // Keep the normal plugin loading error path for invalid explicit entries.
+    }
+  }
+  return { raw, resolved };
+}
+
+function hasConfiguredTransform(
+  configuredTransforms: ConfiguredTransformSet,
+  transform: string,
+  resolved: string,
+): boolean {
+  return (
+    configuredTransforms.resolved.has(resolved) ||
+    (!isRelativePluginSpecifier(transform) &&
+      configuredTransforms.raw.has(transform))
+  );
+}
+
+function addConfiguredTransform(
+  configuredTransforms: ConfiguredTransformSet,
+  transform: string,
+  resolved: string,
+): void {
+  if (!isRelativePluginSpecifier(transform)) {
+    configuredTransforms.raw.add(transform);
+  }
+  configuredTransforms.resolved.add(resolved);
+}
+
+function directDependencyNames(manifest: PackageManifest): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const dependencies of [
+    manifest.dependencies,
+    manifest.devDependencies,
+  ]) {
+    if (!isRecord(dependencies)) {
+      continue;
+    }
+    for (const name of Object.keys(dependencies)) {
+      if (seen.has(name)) {
+        continue;
+      }
+      seen.add(name);
+      out.push(name);
+    }
+  }
+  return out;
+}
+
+function resolveDependencyPackageJson(
+  name: string,
+  projectRoot: string,
+): string | undefined {
+  const direct = path.join(projectRoot, "node_modules", ...name.split("/"));
+  const directManifest = path.join(direct, "package.json");
+  if (fs.existsSync(directManifest)) {
+    return resolveRealPath(directManifest);
+  }
+  const projectPackage = path.join(projectRoot, "package.json");
+  const projectRequire = createRequire(projectPackage);
+  try {
+    return resolveRealPath(projectRequire.resolve(`${name}/package.json`));
+  } catch {
+    try {
+      return findNearestPackageJson(projectRequire.resolve(name));
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+function findNearestPackageJson(location: string): string | undefined {
+  let current = fs.statSync(location).isDirectory()
+    ? location
+    : path.dirname(location);
+  while (true) {
+    const manifest = path.join(current, "package.json");
+    if (fs.existsSync(manifest)) {
+      return resolveRealPath(manifest);
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+  }
+}
+
+function readPackageManifest(file: string): PackageManifest | undefined {
+  if (!fs.existsSync(file)) {
+    return undefined;
+  }
+  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+  return isRecord(parsed) ? (parsed as PackageManifest) : undefined;
+}
+
+function readPackagePluginConfig(
+  packageName: string,
+  manifest: PackageManifest | undefined,
+): ITtscProjectPluginConfig | undefined {
+  const ttsc = manifest?.ttsc;
+  if (!isRecord(ttsc) || !("plugin" in ttsc)) {
+    return undefined;
+  }
+  const plugin = ttsc.plugin;
+  if (!isRecord(plugin) || Array.isArray(plugin)) {
+    throw new Error(
+      `ttsc: package ${JSON.stringify(packageName)} declares invalid "ttsc.plugin"; expected an object`,
+    );
+  }
+  if (typeof plugin.transform !== "string" || plugin.transform.length === 0) {
+    throw new Error(
+      `ttsc: package ${JSON.stringify(packageName)} declares invalid "ttsc.plugin.transform"; expected a non-empty string`,
+    );
+  }
+  return { ...plugin } as ITtscProjectPluginConfig;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function orderNativePlugins(
+  plugins: readonly ITtscLoadedNativePlugin[],
+): ITtscLoadedNativePlugin[] {
+  return [
+    ...plugins.filter((plugin) => plugin.stage === "check"),
+    ...plugins.filter((plugin) => plugin.stage === "transform"),
+  ];
 }
 
 function loadPluginEntry(
@@ -204,6 +408,14 @@ function resolvePluginRequest(specifier: string, projectRoot: string): string {
     return path.resolve(projectRoot, specifier);
   }
   return require.resolve(specifier, { paths: [projectRoot] });
+}
+
+function resolveRealPath(location: string): string {
+  try {
+    return fs.realpathSync(location);
+  } catch {
+    return location;
+  }
 }
 
 function isRelativePluginSpecifier(specifier: string): boolean {

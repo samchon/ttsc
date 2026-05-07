@@ -10,6 +10,11 @@ A plugin is one npm package containing a JS manifest and Go source.
   "version": "0.1.0",
   "description": "What the plugin does.",
   "main": "plugin.cjs",
+  "ttsc": {
+    "plugin": {
+      "transform": "my-ttsc-plugin"
+    }
+  },
   "files": ["plugin.cjs", "go-plugin"],
   "engines": {
     "node": ">=18"
@@ -18,6 +23,8 @@ A plugin is one npm package containing a JS manifest and Go source.
   "license": "MIT"
 }
 ```
+
+`ttsc.plugin` is a single object, not an array. One package contributes one auto-discovered plugin entry. If the consumer also writes a `compilerOptions.plugins[]` entry with the same `transform`, the `tsconfig.json` entry wins.
 
 ## Required Package Contents
 
@@ -35,13 +42,11 @@ Verify before publish:
 npm pack --dry-run
 ```
 
-If the tarball does not contain `go-plugin/main.go`, consumers will fail with a
-`source does not exist` or Go build error.
+If the tarball does not contain `go-plugin/main.go`, consumers will fail with a `source does not exist` or Go build error.
 
 ## Dependencies
 
-Do not list `ttsc` in the plugin's published `dependencies` or
-`peerDependencies`.
+Do not list `ttsc` in the plugin's published `dependencies` or `peerDependencies`.
 
 Do not declare `@typescript/native-preview` as your plugin peer. The consumer installs it for `ttsc`, and `ttsc` supplies the matching shim/build overlay.
 

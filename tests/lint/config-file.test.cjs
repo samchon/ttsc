@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const { createRequire } = require("node:module");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -7,7 +9,10 @@ const {
   createLintProject,
   runLint,
   runLintProject,
+  tsgoBinary,
+  ttsxBin,
 } = require("./helpers/runLint.cjs");
+const { TtscCompiler } = require("../../packages/ttsc/lib/index.js");
 
 const source = `var value = 1;\nconsole.log(value);\n`;
 const sourceWithTsEslintViolations = `var value = 1;\nlet typed: any = value;\nconsole.log(typed);\n`;
@@ -132,6 +137,56 @@ test("lint config file: tsconfig may reference a standalone JSON file", () => {
     result.stderr,
   );
 });
+
+test("lint config file: wrapper tsconfig outside cwd discovers project config", () => {
+  const project = createLintProject({
+    name: "config-file-wrapper-outside-cwd",
+    source,
+    pluginConfig: {},
+    extraSources: {
+      "lint.config.json": JSON.stringify({
+        "no-var": "error",
+      }),
+    },
+  });
+  const wrapper = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-wrapper-"));
+  try {
+    const tsconfig = path.join(wrapper, "tsconfig.json");
+    fs.writeFileSync(
+      tsconfig,
+      JSON.stringify({ extends: path.join(project.tmpdir, "tsconfig.json") }),
+      "utf8",
+    );
+    const compiler = new TtscCompiler({
+      cacheDir: path.join(project.tmpdir, ".cache", "ttsc"),
+      cwd: project.tmpdir,
+      env: {
+        PATH: lintGoPath(),
+        TTSC_TSGO_BINARY: tsgoBinary,
+        TTSC_TTSX_BINARY: ttsxBin,
+      },
+      projectRoot: project.tmpdir,
+      tsconfig,
+    });
+    const result = compiler.compile();
+
+    assert.equal(result.type, "failure");
+    assert.deepEqual(
+      result.diagnostics.map((d) => [d.code, d.category]),
+      [[11966, "error"]],
+    );
+  } finally {
+    fs.rmSync(wrapper, { recursive: true, force: true });
+    project.cleanup();
+  }
+});
+
+function lintGoPath() {
+  const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
+  return fs.existsSync(localGo)
+    ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
+    : process.env.PATH;
+}
 
 test("lint disable comments: native engine respects eslint and lint directives", () => {
   const result = runLint({

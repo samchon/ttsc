@@ -134,10 +134,10 @@ function createLintProject({
   }
 }
 
-function runLintProject(tmpdir) {
+function runLintProject(tmpdir, args = []) {
   const result = spawnSync(
     process.execPath,
-    [ttscBin, "--cwd", tmpdir, "--noEmit"],
+    [ttscBin, "--cwd", tmpdir, ...args, "--noEmit"],
     {
       cwd: tmpdir,
       env: {
@@ -311,5 +311,6 @@ module.exports = {
   workspaceRoot,
   ttscBin,
   ttsxBin,
+  tsgoBinary,
   lintPkgDir,
 };

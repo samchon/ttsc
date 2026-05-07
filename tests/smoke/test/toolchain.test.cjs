@@ -365,6 +365,37 @@ test("ttsx runs an ESM TypeScript entry through the emitted project path", () =>
   assert.equal(result.stdout.trim(), "esm-runner-ok");
 });
 
+test("ttsx --cwd becomes the child process cwd", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-smoke-parent-"));
+  const root = path.join(parent, "app");
+  fs.mkdirSync(root, { recursive: true });
+  for (const [name, contents] of Object.entries({
+    "package.json": JSON.stringify({ private: true }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/main.ts": `declare const process: { cwd(): string };\nconst parts = process.cwd().split(/[\\\\/]/);\nconsole.log(parts[parts.length - 1]);\n`,
+  })) {
+    const file = path.join(root, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, contents, "utf8");
+  }
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
+    cwd: parent,
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "app");
+});
+
 test("ttsx rewrites extensionless ESM side-effect imports", () => {
   const root = createProject({
     "package.json": JSON.stringify({ type: "module" }),
@@ -390,6 +421,30 @@ test("ttsx rewrites extensionless ESM side-effect imports", () => {
   const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "side-effect-import-ok");
+});
+
+test("ttsx rewrites extensionless ESM directory index imports", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ type: "module" }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/pkg/index.ts": `export const message: string = "directory-index-ok";\n`,
+    "src/main.ts": `import { message } from "./pkg";\nconsole.log(message);\n`,
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "directory-index-ok");
 });
 
 test("ttsx ESM rewrite leaves strings, templates, comments, and regex literals untouched", () => {

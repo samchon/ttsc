@@ -130,6 +130,22 @@ test("TtscCompiler.transform applies configured source plugins to TypeScript out
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.transform preserves warning diagnostics from check plugins", () => {
+  const root = createProject({
+    plugins: [{ transform: "./check-plugin.cjs" }],
+  });
+  writeWarningCheckPlugin(root);
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.equal(result.diagnostics?.length, 1);
+  assert.equal(result.diagnostics?.[0].category, "warning");
+  assert.equal(result.diagnostics?.[0].code, 9001);
+  assert.match(result.typescript["src/main.ts"], /api-ok/);
+});
+
 test("TtscCompiler.transform rejects plugin output that is not TypeScript source", () => {
   const root = createProject({
     plugins: [{ transform: "./plugin.cjs" }],
@@ -232,6 +248,48 @@ test("TtscCompiler.prepare builds source plugins and clean removes context cache
   assert.equal(fs.existsSync(cacheDir), false);
 });
 
+test("TtscCompiler.prepare honors projectRoot when tsconfig is outside the project", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+  const project = path.join(root, "project");
+  const config = path.join(root, "config");
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(config, { recursive: true });
+  fs.writeFileSync(
+    path.join(project, "package.json"),
+    JSON.stringify({
+      private: true,
+      devDependencies: {
+        "prepare-fixture": "0.0.0",
+      },
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(config, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+      },
+    }),
+    "utf8",
+  );
+  writePackageSourcePlugin(project, "prepare-fixture");
+  const cacheDir = path.join(project, ".cache", "ttsc");
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cacheDir,
+    cwd: root,
+    projectRoot: "project",
+    tsconfig: "config/tsconfig.json",
+  });
+
+  const prepared = compiler.prepare();
+
+  assert.equal(prepared.length, 1);
+  assert.equal(fs.existsSync(prepared[0]), true);
+  assert.equal(prepared[0].startsWith(path.join(cacheDir, "plugins")), true);
+});
+
 function createProject(options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
@@ -281,6 +339,81 @@ function writeSourcePlugin(root) {
   fs.writeFileSync(
     path.join(root, "plugin-go", "go.mod"),
     "module example.com/preparefixture\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "main.go"),
+    "package main\n\nfunc main() {}\n",
+    "utf8",
+  );
+}
+
+function writePackageSourcePlugin(root, packageName) {
+  const packageRoot = path.join(root, "node_modules", packageName);
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify({
+      main: "index.cjs",
+      name: packageName,
+      ttsc: {
+        plugin: {
+          transform: packageName,
+        },
+      },
+      version: "0.0.0",
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "index.cjs"),
+    `module.exports = {
+      name: ${JSON.stringify(packageName)},
+      source: ${JSON.stringify(path.join(packageRoot, "plugin-go"))}
+    };\n`,
+    "utf8",
+  );
+  writeMinimalGoPlugin(packageRoot);
+}
+
+function writeWarningCheckPlugin(root) {
+  fs.writeFileSync(
+    path.join(root, "check-plugin.cjs"),
+    'module.exports = { name: "warning-check", source: "./check-go", stage: "check" };\n',
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "check-go"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "check-go", "go.mod"),
+    "module example.com/warningcheck\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "check-go", "main.go"),
+    [
+      "package main",
+      "",
+      "import (",
+      '\t"fmt"',
+      '\t"os"',
+      ")",
+      "",
+      "func main() {",
+      '\tif len(os.Args) > 1 && os.Args[1] == "check" {',
+      '\t\tfmt.Fprintln(os.Stderr, "src/main.ts(1,1): warning TS9001: check warning")',
+      "\t}",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+}
+
+function writeMinimalGoPlugin(root) {
+  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "go.mod"),
+    "module example.com/packagepreparefixture\n\ngo 1.26\n",
     "utf8",
   );
   fs.writeFileSync(

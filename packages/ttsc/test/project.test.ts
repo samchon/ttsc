@@ -71,6 +71,121 @@ test("readProjectConfig inherits plugins and outDir through tsconfig extends", (
   assert.equal(parsed.compilerOptions.outDir, path.join(root, "dist/shared"));
 });
 
+test("readProjectConfig applies array extends in order", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const shared = path.join(root, "config");
+  const project = path.join(root, "project");
+  fs.mkdirSync(shared, { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(
+    path.join(shared, "base-a.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          outDir: "../dist/base-a",
+          rootDir: "../src-a",
+          plugins: [{ transform: "./plugins/base-a.cjs" }],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(shared, "base-b.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          outDir: "../dist/base-b",
+          plugins: [{ transform: "./plugins/base-b.cjs" }],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify(
+      {
+        extends: ["../config/base-a.json", "../config/base-b.json"],
+        compilerOptions: {
+          declarationDir: "../types",
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const parsed = readProjectConfig({
+    tsconfig: path.join(project, "tsconfig.json"),
+  });
+
+  assert.equal(parsed.compilerOptions.outDir, path.join(root, "dist/base-b"));
+  assert.equal(parsed.compilerOptions.rootDir, path.join(root, "src-a"));
+  assert.equal(parsed.compilerOptions.declarationDir, path.join(root, "types"));
+  assert.deepEqual(parsed.compilerOptions.plugins, [
+    { transform: "./plugins/base-b.cjs" },
+  ]);
+  assert.deepEqual(parsed.pluginBaseDirs, [shared]);
+});
+
+test("readProjectConfig lets later array extends clear inherited plugins", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const shared = path.join(root, "config");
+  const project = path.join(root, "project");
+  fs.mkdirSync(shared, { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.writeFileSync(
+    path.join(shared, "base-a.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          plugins: [{ transform: "./plugins/base-a.cjs" }],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(shared, "base-b.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          plugins: [],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify(
+      {
+        extends: ["../config/base-a.json", "../config/base-b.json"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const parsed = readProjectConfig({
+    tsconfig: path.join(project, "tsconfig.json"),
+  });
+
+  assert.deepEqual(parsed.compilerOptions.plugins, []);
+  assert.deepEqual(parsed.pluginBaseDirs, []);
+});
+
 test("readProjectConfig resolves inherited relative path options from the declaring file", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
   const shared = path.join(root, "config");

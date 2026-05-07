@@ -203,6 +203,7 @@ function runPreparedEntry(
     ...parsed.passthrough,
   ];
   const result = spawnSync(process.execPath, args, {
+    cwd,
     stdio: "inherit",
     env: process.env,
     windowsHide: true,
@@ -435,6 +436,12 @@ function withResolvableExtension(fromFile: string, specifier: string): string {
   for (const extension of [".js", ".mjs", ".cjs"]) {
     if (fs.existsSync(path.resolve(fromDir, pathname + extension))) {
       return pathname + extension + suffix;
+    }
+  }
+  const directory = pathname.replace(/\/+$/, "");
+  for (const extension of [".js", ".mjs", ".cjs"]) {
+    if (fs.existsSync(path.resolve(fromDir, directory, "index" + extension))) {
+      return `${directory}/index${extension}${suffix}`;
     }
   }
   return `${specifier}.js`;

@@ -12,8 +12,7 @@ go vet ./go-plugin/...
 go build ./go-plugin
 ```
 
-That is enough for simple diagnostics plugins. Transform plugins usually import
-the `ttsc` driver or TypeScript-Go shims.
+That is enough for simple diagnostics plugins. Transform plugins usually import the `ttsc` driver or TypeScript-Go shims.
 
 ## Shim-Using Plugins
 

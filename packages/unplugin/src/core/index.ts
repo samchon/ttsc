@@ -59,7 +59,7 @@ export type {
   TtscUnpluginCompilerOptionsJson,
   TtscUnpluginOptions,
 } from "./options";
-export { resolveOptions, transformTtsc, unplugin };
+export { createTtscTransformCache, resolveOptions, transformTtsc, unplugin };
 
 export default unplugin;
 

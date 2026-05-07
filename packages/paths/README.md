@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/paths` rewrites source module specifiers that match `compilerOptions.paths` into relative JavaScript paths. TypeScript-Go carries those source AST changes into declaration emit.
+`@ttsc/paths` rewrites module specifiers that match `compilerOptions.paths` into relative JavaScript and declaration imports.
 
 ## Setup
 
@@ -20,7 +20,17 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/paths
 ```
 
-Open your project's `tsconfig.json`, then configure `paths`, `rootDir`, `outDir`, and this plugin under `compilerOptions`. If the file already has `compilerOptions`, merge these fields into the existing object:
+Run your normal `ttsc` command:
+
+```bash
+npx ttsc
+```
+
+## Configuration
+
+`@ttsc/paths` has no separate plugin options. It reads the same `compilerOptions.paths`, `rootDir`, and `outDir` values that `ttsc` uses for the project.
+
+Configure those fields under `compilerOptions`:
 
 ```jsonc
 {
@@ -31,43 +41,11 @@ Open your project's `tsconfig.json`, then configure `paths`, `rootDir`, `outDir`
     },
     "rootDir": "src",
     "outDir": "dist",
-    "plugins": [{ "transform": "@ttsc/paths" }],
   },
 }
-```
-
-Run your normal `ttsc` command:
-
-```bash
-npx ttsc
 ```
 
 An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration output follows the same source rewrite.
-
-## Notes
-
-No separate plugin options are required. `@ttsc/paths` reads the same `compilerOptions.paths`, `rootDir`, and `outDir` values that `ttsc` uses for the project.
-
-```jsonc
-{
-  "compilerOptions": {
-    "paths": {
-      "@lib/*": ["./src/modules/*"],
-    },
-    "rootDir": "src",
-    "outDir": "dist",
-    "plugins": [
-      // Keep lint first.
-      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-
-      // First-party utilities use their documented transform order.
-      { "transform": "@ttsc/banner", "banner": "License MIT" },
-      { "transform": "@ttsc/paths" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] },
-    ],
-  },
-}
-```
 
 ## References
 

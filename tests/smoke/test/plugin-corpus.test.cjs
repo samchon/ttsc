@@ -49,6 +49,40 @@ function copyDirectory(from, to) {
   fs.cpSync(from, to, { recursive: true });
 }
 
+function writeRelativePackagePlugin(root, name, config) {
+  const packageRoot = path.join(root, "node_modules", name);
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify({
+      name,
+      version: "0.1.0",
+      ttsc: {
+        plugin: {
+          transform: "./plugin.cjs",
+          ...config,
+        },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "plugin.cjs"),
+    `const path = require("node:path");
+module.exports = (context) => ({
+  name: context.plugin.name,
+  source: path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "go-plugin",
+    "cmd",
+    "ttsc-go-transformer"
+  ),
+});
+`,
+  );
+}
+
 test("plugin corpus: default export factory is accepted as a native descriptor", () => {
   const root = pluginProject(
     [{ transform: "./plugins/default.cjs", name: "default-shape" }],
@@ -149,6 +183,46 @@ test("plugin corpus: ordered native plugins are passed to the Go sidecar", () =>
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   assert.match(js, /"A:PLUGIN:Z"/);
+});
+
+test("plugin corpus: package-relative auto plugins do not collide by raw transform", () => {
+  const root = commonJsProject({
+    "src/main.ts": `export const value: string = goUpper("plugin");\nconsole.log(value);\n`,
+  });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({
+      dependencies: {
+        "plugin-a": "0.1.0",
+        "plugin-b": "0.1.0",
+      },
+    }),
+  );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
+  );
+  writeRelativePackagePlugin(root, "plugin-a", {
+    name: "prefix",
+    prefix: "A:",
+  });
+  writeRelativePackagePlugin(root, "plugin-b", {
+    name: "suffix",
+    suffix: ":B",
+  });
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-package-relative-plugins-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /"A:plugin:B"/);
 });
 
 test("plugin corpus: JS transform functions are rejected", () => {
@@ -729,6 +803,82 @@ test("plugin corpus: @ttsc/lint surfaces rule violations through the normal fail
   assert.doesNotMatch(result.stderr, /\[no-non-null-assertion\]/);
 });
 
+test("plugin corpus: package ttsc.plugin auto-discovers @ttsc/lint config files", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ devDependencies: { "@ttsc/lint": "0.8.1" } }),
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "lint.config.json"),
+    JSON.stringify({ "no-var": "error" }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `var value = "auto-lint";\nconsole.log(value);\n`,
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-auto-lint-")),
+    },
+  });
+  assert.notEqual(result.status, 0, "expected auto-discovered lint to run");
+  assert.match(result.stderr, /\[no-var\]/);
+});
+
+test("plugin corpus: auto-discovered @ttsc/lint fails when no config file exists", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@ttsc/lint": "0.8.1" } }),
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value = "no-config";\n`,
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-lint-missing-config-"),
+      ),
+    },
+  });
+  assert.notEqual(result.status, 0, "expected missing lint config to fail");
+  assert.match(result.stderr, /config.*ttsc-lint\.config/s);
+});
+
 test("plugin corpus: @ttsc/lint clean project exits zero", () => {
   const root = setupLintProject("lint-violations");
   // Replace the violating source with a clean file.
@@ -742,6 +892,51 @@ test("plugin corpus: @ttsc/lint clean project exits zero", () => {
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
   });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("plugin corpus: check plugin output does not suppress TypeScript diagnostics", () => {
+  const root = commonJsProject(
+    {
+      "plugins/check.cjs": `module.exports = {
+        name: "warning-check",
+        source: require("node:path").resolve(__dirname, "check-go"),
+        stage: "check",
+      };\n`,
+      "plugins/check-go/go.mod": "module example.com/warningcheck\n\ngo 1.26\n",
+      "plugins/check-go/main.go": [
+        "package main",
+        "",
+        "import (",
+        '\t"fmt"',
+        '\t"os"',
+        ")",
+        "",
+        "func main() {",
+        '\tif len(os.Args) > 1 && os.Args[1] == "check" {',
+        '\t\tfmt.Fprintln(os.Stderr, "src/main.ts(1,1): warning TS9001: check warning")',
+        "\t}",
+        "}",
+        "",
+      ].join("\n"),
+      "src/main.ts": `const value: number = "type-error";\nconsole.log(value);\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [{ transform: "./plugins/check.cjs" }],
+      },
+    },
+  );
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-check-")),
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /TS9001: check warning/);
+  assert.match(result.stderr, /TS2322/);
 });
 
 test("plugin corpus: @ttsc/lint honors --emit and --outDir overrides", () => {

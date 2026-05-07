@@ -35,6 +35,11 @@ export namespace ITtscCompilerResult {
     type: "success";
 
     /**
+     * Non-fatal diagnostics reported during compilation.
+     */
+    diagnostics?: ITtscCompilerDiagnostic[];
+
+    /**
      * The generated compiler output.
      *
      * A record mapping project-relative output file paths to their generated

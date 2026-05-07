@@ -13,6 +13,7 @@ import { buildNativeCompiler } from "./buildNativeCompiler";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
+import { appendBuildOutput, normalizeBuildOutput } from "./runBuild";
 
 /** Transform a project and capture TypeScript source output in memory. */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
@@ -118,7 +119,11 @@ function transformProjectWithPlugins(
     };
   }
   if (transformers.length === 0) {
-    return transformProjectWithNativeHost(options, project);
+    const transformed = transformProjectWithNativeHost(options, project);
+    return {
+      result: appendBuildOutput(checked, transformed.result),
+      typescript: transformed.typescript,
+    };
   }
   assertTransformHostCompatibility(transformers);
 
@@ -140,13 +145,14 @@ function transformProjectWithPlugins(
     outputText(res.stdout),
     outputText(res.stderr),
   );
+  const result = {
+    diagnostics: output.diagnostics,
+    status: res.status ?? 1,
+    stdout: "",
+    stderr: outputText(res.stderr),
+  };
   return {
-    result: {
-      diagnostics: output.diagnostics,
-      status: res.status ?? 1,
-      stdout: "",
-      stderr: outputText(res.stderr),
-    },
+    result: appendBuildOutput(checked, result),
     typescript: output.typescript,
   };
 }
@@ -177,12 +183,17 @@ function runNativeChecks(
         `ttsc.transform.check: failed to spawn ${plugin.binary}: ${res.error.message}`,
       );
     }
-    result = appendBuildResult(result, {
-      diagnostics: [],
-      status: res.status ?? 1,
-      stdout: outputText(res.stdout),
-      stderr: outputText(res.stderr),
-    });
+    result = appendBuildOutput(
+      result,
+      normalizeBuildOutput(
+        {
+          status: res.status ?? 1,
+          stdout: outputText(res.stdout),
+          stderr: outputText(res.stderr),
+        },
+        project.root,
+      ),
+    );
     if (result.status !== 0) {
       return result;
     }
@@ -279,18 +290,6 @@ function readNearestPackageManifest(
     return undefined;
   }
   return undefined;
-}
-
-function appendBuildResult(
-  left: TtscBuildResult,
-  right: TtscBuildResult,
-): TtscBuildResult {
-  return {
-    diagnostics: [...left.diagnostics, ...right.diagnostics],
-    status: right.status !== 0 ? right.status : left.status,
-    stdout: left.stdout + right.stdout,
-    stderr: left.stderr + right.stderr,
-  };
 }
 
 function nativePluginEnv(

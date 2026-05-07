@@ -14,6 +14,11 @@
     "typescript",
     "tsgo"
   ],
+  "ttsc": {
+    "plugin": {
+      "transform": "@ttsc/strip"
+    }
+  },
   "files": [
     "README.md",
     "src/index.cjs",
