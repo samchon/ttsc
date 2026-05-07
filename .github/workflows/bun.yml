@@ -1,0 +1,44 @@
+name: bun
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/bun.yml"
+      - "experimental/test-unplugin/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+jobs:
+  Unplugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Unplugin With Bun Runtime
+        run: pnpm run experimental:unplugin
