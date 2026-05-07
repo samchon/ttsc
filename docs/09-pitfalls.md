@@ -64,8 +64,7 @@ Parse it and find your entry by `mode` or `name`.
 
 ## Auto Plugin Did Not Run
 
-`package.json#ttsc.plugin` is read only from packages listed directly in the
-consumer project's `dependencies` or `devDependencies`.
+`package.json#ttsc.plugin` is read only from packages listed directly in the consumer project's `dependencies` or `devDependencies`.
 
 Fix the consumer package:
 
@@ -89,13 +88,11 @@ Fix the plugin package:
 }
 ```
 
-If `tsconfig.json` also has a plugin entry with the same `transform`, the
-`tsconfig.json` entry wins and the auto-discovered entry is skipped.
+If `tsconfig.json` also has a plugin entry with the same `transform`, the `tsconfig.json` entry wins and the auto-discovered entry is skipped.
 
 ## Combining Plugins
 
-Multiple explicit plugin entries and package-enabled plugins are supported. The
-limit is about ownership of the emit pass, not the number of plugin entries.
+Multiple explicit plugin entries and package-enabled plugins are supported. The limit is about ownership of the emit pass, not the number of plugin entries.
 
 This works with TypeScript-Go's normal emit path:
 
@@ -110,8 +107,7 @@ This works with TypeScript-Go's normal emit path:
 }
 ```
 
-`@ttsc/banner` and `@ttsc/strip` are transform plugins, so their package
-descriptors select the transform stage.
+`@ttsc/banner` and `@ttsc/strip` are transform plugins, so their package descriptors select the transform stage.
 
 This works with a compiler backend:
 
@@ -147,8 +143,7 @@ If your plugin only needs source AST changes, make it a transform plugin:
 stage: "transform";
 ```
 
-If several compiler-backend modes must cooperate inside one compiler pass, put
-them in one binary and dispatch by explicit mode or option fields.
+If several compiler-backend modes must cooperate inside one compiler pass, put them in one binary and dispatch by explicit mode or option fields.
 
 ## Windows Path Failures
 
@@ -198,5 +193,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.name = void 0;
 ```
 
-Transform plugins avoid most of this by mutating AST and letting TypeScript-Go
-print the final JavaScript.
+Transform plugins avoid most of this by mutating AST and letting TypeScript-Go print the final JavaScript.

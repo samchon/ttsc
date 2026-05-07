@@ -9,8 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/paths` rewrites module specifiers that match `compilerOptions.paths`
-into relative JavaScript and declaration imports.
+`@ttsc/paths` rewrites module specifiers that match `compilerOptions.paths` into relative JavaScript and declaration imports.
 
 ## Setup
 
@@ -29,9 +28,7 @@ npx ttsc
 
 ## Configuration
 
-`@ttsc/paths` has no separate plugin options. It reads the same
-`compilerOptions.paths`, `rootDir`, and `outDir` values that `ttsc` uses for the
-project.
+`@ttsc/paths` has no separate plugin options. It reads the same `compilerOptions.paths`, `rootDir`, and `outDir` values that `ttsc` uses for the project.
 
 Configure those fields under `compilerOptions`:
 

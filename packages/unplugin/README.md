@@ -11,8 +11,7 @@
 
 Bundler adapter for `ttsc` plugins.
 
-Use it when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns
-the build but the project still needs `ttsc` plugins.
+Use it when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns the build but the project still needs `ttsc` plugins.
 
 ## Setup
 
@@ -151,8 +150,7 @@ await Bun.build({
 
 ## Configuration
 
-By default, `@ttsc/unplugin` finds the nearest `tsconfig.json` from the file
-being transformed and uses its plugin settings.
+By default, `@ttsc/unplugin` finds the nearest `tsconfig.json` from the file being transformed and uses its plugin settings.
 
 If that is already the config you want, `ttsc()` is enough.
 
@@ -202,8 +200,7 @@ export default {
 
 ### Plugin Overrides
 
-Use the top-level `plugins` option inside `ttsc(...)` when the bundler should
-use a different plugin list from `tsconfig.json`:
+Use the top-level `plugins` option inside `ttsc(...)` when the bundler should use a different plugin list from `tsconfig.json`:
 
 ```ts
 import ttsc from "@ttsc/unplugin/vite";
@@ -220,8 +217,7 @@ export default {
 };
 ```
 
-Explicit adapter options override the plugin list read from the selected
-project config.
+Explicit adapter options override the plugin list read from the selected project config.
 
 Set `plugins: false` to run the adapter without loading project plugins.
 

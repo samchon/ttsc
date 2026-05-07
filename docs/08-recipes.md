@@ -80,9 +80,7 @@ func runModes(value string, plugins []PluginEntry) (string, error) {
 }
 ```
 
-When modes need to cooperate inside one transform emit pass, keep those modes in
-one native binary and dispatch by explicit `mode` values. Check plugins are
-independent diagnostics passes.
+When modes need to cooperate inside one transform emit pass, keep those modes in one native binary and dispatch by explicit `mode` values. Check plugins are independent diagnostics passes.
 
 ## Transform Plugin
 
@@ -102,8 +100,7 @@ Implement:
 my-plugin build --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 ```
 
-Load the project, mutate TypeScript source AST, then let TypeScript-Go
-print JavaScript, declarations, and source maps.
+Load the project, mutate TypeScript source AST, then let TypeScript-Go print JavaScript, declarations, and source maps.
 
 ## Check Plugin
 
@@ -155,9 +152,7 @@ return 2
 
 ## Source Maps
 
-Prefer AST transforms and TypeScript-Go printing so source maps stay owned by the
-compiler. The public plugin contract does not provide generated JavaScript text
-as a source-map-bearing edit target.
+Prefer AST transforms and TypeScript-Go printing so source maps stay owned by the compiler. The public plugin contract does not provide generated JavaScript text as a source-map-bearing edit target.
 
 ## Watch Mode
 

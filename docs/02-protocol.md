@@ -40,13 +40,9 @@ module.exports = (context) => ({
 }
 ```
 
-`context.plugin` is the original tsconfig plugin entry. If you want stronger
-typing, specialize the context type in your factory:
+`context.plugin` is the original tsconfig plugin entry. If you want stronger typing, specialize the context type in your factory:
 
-`context.binary` is the absolute `ttsc` native helper selected for this
-invocation. It is not the plugin sidecar binary and not the JavaScript launcher.
-Most descriptors do not need it; it exists for advanced factories that need to
-inspect the active native host.
+`context.binary` is the absolute `ttsc` native helper selected for this invocation. It is not the plugin sidecar binary and not the JavaScript launcher. Most descriptors do not need it; it exists for advanced factories that need to inspect the active native host.
 
 ```ts
 import type { ITtscPluginFactoryContext } from "ttsc";
@@ -80,13 +76,10 @@ interface ITtscPlugin {
 Field rules:
 
 - `name`: non-empty display name.
-- `source`: Go command package directory or `go.mod` file. Relative paths are
-  resolved from the consumer project root; package descriptors should usually
-  return an absolute path based on `__dirname`.
+- `source`: Go command package directory or `go.mod` file. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
 - `stage`: plugin kind. Omit for `"transform"`.
 
-`ttsc` accepts Go source only. It builds the source with the pinned Go toolchain
-and TypeScript-Go shim overlay, then caches the resulting executable.
+`ttsc` accepts Go source only. It builds the source with the pinned Go toolchain and TypeScript-Go shim overlay, then caches the resulting executable.
 
 ## Stages
 
@@ -97,16 +90,13 @@ Public stages are deliberately small:
 | omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build` |
 | `"check"`               | reports diagnostics before emit                  | `check`                       |
 
-There is no public `output` stage. Plugins do not receive generated JavaScript
-text or emitted file text for post-processing.
+There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
 ## Composition
 
-Projects can enable multiple plugin entries. `check` entries run before emit and
-compose with transform entries.
+Projects can enable multiple plugin entries. `check` entries run before emit and compose with transform entries.
 
-Transform entries can share one compiler host when they resolve to the same
-native binary. This is how the first-party utility plugins compose:
+Transform entries can share one compiler host when they resolve to the same native binary. This is how the first-party utility plugins compose:
 
 ```jsonc
 {
@@ -119,21 +109,13 @@ native binary. This is how the first-party utility plugins compose:
 }
 ```
 
-Distinct third-party compiler hosts cannot be chained blindly, because each one
-would need to own `Program` creation and emit. If several transform modes must
-cooperate, expose them from one native binary and dispatch by explicit mode or
-option fields in the `--plugins-json` payload.
+Distinct third-party compiler hosts cannot be chained blindly, because each one would need to own `Program` creation and emit. If several transform modes must cooperate, expose them from one native binary and dispatch by explicit mode or option fields in the `--plugins-json` payload.
 
 ## Plugin Config Keys
 
-`ttsc` reads only `transform` and `enabled` from each user plugin entry. Every
-other key remains plugin-owned config and is passed through unchanged to the
-native sidecar.
+`ttsc` reads only `transform` and `enabled` from each user plugin entry. Every other key remains plugin-owned config and is passed through unchanged to the native sidecar.
 
-ts-patch words such as `before`, `after`, or `phase` do not affect `ttsc`
-execution. If a plugin package chooses to use those names for its own config,
-they are ordinary plugin data. Package descriptors choose only between the
-public `"transform"` and `"check"` stages.
+ts-patch words such as `before`, `after`, or `phase` do not affect `ttsc` execution. If a plugin package chooses to use those names for its own config, they are ordinary plugin data. Package descriptors choose only between the public `"transform"` and `"check"` stages.
 
 ## Disabled Entries
 
@@ -154,8 +136,7 @@ Disabled entries are not resolved, built, or included in `--plugins-json`.
 
 ## CLI Commands
 
-The built Go binary receives subcommands. Unknown flags should be ignored so
-future `ttsc` minors can add optional flags.
+The built Go binary receives subcommands. Unknown flags should be ignored so future `ttsc` minors can add optional flags.
 
 ### `version`
 
@@ -187,8 +168,7 @@ my-plugin transform \
   --plugins-json='[...]'
 ```
 
-Project-wide source transform used by `ttsc.transform()` and in-memory callers.
-Write JSON to stdout:
+Project-wide source transform used by `ttsc.transform()` and in-memory callers. Write JSON to stdout:
 
 ```json
 {
@@ -214,8 +194,7 @@ Project-wide transform build. Run diagnostics and write TypeScript-Go outputs.
 
 ## `--plugins-json`
 
-`--plugins-json` is a JSON array of loaded plugin descriptors for the current
-command:
+`--plugins-json` is a JSON array of loaded plugin descriptors for the current command:
 
 ```json
 [
@@ -232,8 +211,7 @@ command:
 
 `config` is the original tsconfig plugin entry. Read user options there.
 
-When multiple entries resolve to the same binary, `ttsc` sends them together.
-Select the entry you need by `name`, `mode`, or plugin-owned option fields.
+When multiple entries resolve to the same binary, `ttsc` sends them together. Select the entry you need by `name`, `mode`, or plugin-owned option fields.
 
 ## Exit and Output
 

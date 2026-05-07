@@ -1,10 +1,8 @@
 # Getting Started: Smallest Useful Transform Plugin
 
-This page builds a source transform plugin that removes `debugger` statements
-from TypeScript AST before TypeScript-Go emits JavaScript and declarations.
+This page builds a source transform plugin that removes `debugger` statements from TypeScript AST before TypeScript-Go emits JavaScript and declarations.
 
-After this works, compare it with the shipped [`@ttsc/strip`](../packages/strip/)
-and [`@ttsc/banner`](../packages/banner/) plugins.
+After this works, compare it with the shipped [`@ttsc/strip`](../packages/strip/) and [`@ttsc/banner`](../packages/banner/) plugins.
 
 ## 1. Create the Package
 
@@ -36,16 +34,11 @@ ttsc-plugin-debugger-strip/
 }
 ```
 
-The `files` field is not optional. Your Go source must ship in the npm tarball
-because `ttsc` builds it on the consumer machine.
+The `files` field is not optional. Your Go source must ship in the npm tarball because `ttsc` builds it on the consumer machine.
 
-Do not list `ttsc` in the plugin's published `dependencies` or
-`peerDependencies`.
+Do not list `ttsc` in the plugin's published `dependencies` or `peerDependencies`.
 
-`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only
-from packages listed directly in the consumer project's `dependencies` or
-`devDependencies`. A matching `compilerOptions.plugins[]` entry in
-`tsconfig.json` takes priority.
+`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only from packages listed directly in the consumer project's `dependencies` or `devDependencies`. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
 
 ## 2. Write the Descriptor
 
@@ -83,8 +76,7 @@ go 1.26
 require github.com/samchon/ttsc/packages/ttsc v0.0.0
 ```
 
-`ttsc` supplies this module through its generated `go.work` overlay while it
-builds the plugin.
+`ttsc` supplies this module through its generated `go.work` overlay while it builds the plugin.
 
 ## 4. Implement `build`
 
@@ -307,10 +299,8 @@ What matters:
 
 - The plugin changes TypeScript AST, not emitted text.
 - `driver.LoadProgram` lets TypeScript-Go parse and typecheck the real project.
-- `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map
-  printing after the AST mutation.
-- Optional flags are accepted even when unused. Future `ttsc` minors may add
-  more optional flags.
+- `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map printing after the AST mutation.
+- Optional flags are accepted even when unused. Future `ttsc` minors may add more optional flags.
 
 ## 5. Use It
 
@@ -341,13 +331,8 @@ Run:
 npx ttsc --emit
 ```
 
-The first run builds and caches the Go binary. Later runs reuse it until the
-plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry
-changes.
+The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes.
 
 ## Next Step
 
-For production-quality versions of this shape, read [`packages/strip`](../packages/strip/)
-and [`packages/banner`](../packages/banner/). For copyable helper patterns, use
-[Recipes](./08-recipes.md). If the build fails, check [Pitfalls](./09-pitfalls.md).
-For deeper AST and checker work, continue to [AST and Checker](./03-tsgo.md).
+For production-quality versions of this shape, read [`packages/strip`](../packages/strip/) and [`packages/banner`](../packages/banner/). For copyable helper patterns, use [Recipes](./08-recipes.md). If the build fails, check [Pitfalls](./09-pitfalls.md). For deeper AST and checker work, continue to [AST and Checker](./03-tsgo.md).

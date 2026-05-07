@@ -38,13 +38,9 @@ module.exports = function createPlugin() {
 };
 ```
 
-The `plugin` directory is inside the package root, so the source builder finds
-the package `go.mod` by walking upward.
+The `plugin` directory is inside the package root, so the source builder finds the package `go.mod` by walking upward.
 
-`@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare
-`package.json#ttsc.plugin`, so direct installation enables them automatically.
-`@ttsc/banner` needs explicit `tsconfig.json` configuration because a banner
-string is required.
+`@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare `package.json#ttsc.plugin`, so direct installation enables them automatically. `@ttsc/banner` needs explicit `tsconfig.json` configuration because a banner string is required.
 
 ## `@ttsc/banner`
 
@@ -99,9 +95,7 @@ Consumer `package.json`:
 }
 ```
 
-With no plugin options, `@ttsc/strip` removes `console.log`, `console.debug`,
-`assert.*`, and `debugger`. Add a `compilerOptions.plugins[]` entry when the
-project needs a different call or statement list.
+With no plugin options, `@ttsc/strip` removes `console.log`, `console.debug`, `assert.*`, and `debugger`. Add a `compilerOptions.plugins[]` entry when the project needs a different call or statement list.
 
 What to learn:
 
@@ -210,9 +204,7 @@ Consumer `package.json`:
 }
 ```
 
-When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the
-nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning
-`tsconfig.json` directory upward. If no config file exists, the build fails.
+When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning `tsconfig.json` directory upward. If no config file exists, the build fails.
 
 What to learn:
 
@@ -287,8 +279,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 
 Behavior:
 
-- `@ttsc/lint` reports diagnostics before emit. It can use
-  `lint.config.*`, `ttsc-lint.config.*`, `eslint.config.*`, or direct plugin config.
+- `@ttsc/lint` reports diagnostics before emit. It can use `lint.config.*`, `ttsc-lint.config.*`, `eslint.config.*`, or direct plugin config.
 - `@ttsc/banner` uses the banner string configured in `tsconfig.json`.
 - `@ttsc/paths` reads `compilerOptions.paths`, `rootDir`, and `outDir`.
 - `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.

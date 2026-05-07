@@ -61,8 +61,7 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/lint
 ```
 
-Add a lint config file next to your project config. A config file is required;
-if `@ttsc/lint` cannot find one, the compile fails.
+Add a lint config file next to your project config. A config file is required; if `@ttsc/lint` cannot find one, the compile fails.
 
 Use `lint.config.json` for a simple rule map:
 
@@ -89,8 +88,7 @@ export default {
 } satisfies TtscLintConfig;
 ```
 
-Use `compilerOptions.plugins` only when the project needs inline config or an
-explicit config file path.
+Use `compilerOptions.plugins` only when the project needs inline config or an explicit config file path.
 
 ```jsonc
 {
@@ -123,12 +121,9 @@ npx ttsx src/index.ts
 
 ### Config Files
 
-`@ttsc/lint` can read `lint.config.json`, `lint.config.ts`, and other
-`lint.config.*` files. It can also read ESLint configuration files such as
-`eslint.config.js`, `eslint.config.mjs`, and `eslint.config.ts`.
+`@ttsc/lint` can read `lint.config.json`, `lint.config.ts`, and other `lint.config.*` files. It can also read ESLint configuration files such as `eslint.config.js`, `eslint.config.mjs`, and `eslint.config.ts`.
 
-You can reference a config file directly from `tsconfig.json` when you want to
-use a non-default location:
+You can reference a config file directly from `tsconfig.json` when you want to use a non-default location:
 
 ```jsonc
 {
@@ -161,14 +156,10 @@ The `config` field accepts:
 - For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
 - If `config` is omitted, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning `tsconfig.json` directory upward. If no config file exists, the compile fails.
 - Inline objects use the rule map shape shown earlier.
-- ESLint configuration files may additionally export flat-config-style
-  objects or arrays. `@ttsc/lint` reads `basePath`, `files`, `ignores`,
-  object/array `extends`, and `rules`, accepts ESLint severity tuples, and
-  understands `@typescript-eslint/<rule>` keys for supported rules.
+- ESLint configuration files may additionally export flat-config-style objects or arrays. `@ttsc/lint` reads `basePath`, `files`, `ignores`, object/array `extends`, and `rules`, accepts ESLint severity tuples, and understands `@typescript-eslint/<rule>` keys for supported rules.
 - Relative paths resolve from the directory of the owning `tsconfig.json`.
 
-For example, a flat-config-style file can enable rules with ESLint or
-`@typescript-eslint/*` keys:
+For example, a flat-config-style file can enable rules with ESLint or `@typescript-eslint/*` keys:
 
 ```ts
 // eslint.config.ts
@@ -190,10 +181,7 @@ const config = [
 export default config;
 ```
 
-Config factories can be used when they return a resolved flat config object or
-array. Current `typescript-eslint` versions prefer ESLint's `defineConfig(...)`;
-existing configs that still use `typescript-eslint`'s `config(...)` are readable
-when they export the resolved object/array shape:
+Config factories can be used when they return a resolved flat config object or array. Current `typescript-eslint` versions prefer ESLint's `defineConfig(...)`; existing configs that still use `typescript-eslint`'s `config(...)` are readable when they export the resolved object/array shape:
 
 ```ts
 // eslint.config.ts
@@ -209,31 +197,15 @@ const config = tseslint.config({
 export default config;
 ```
 
-When a project has `eslint` installed and the external config is an
-`eslint.config.*` file, or the config uses runtime-only fields such as `plugins`,
-`languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint`
-runs the installed ESLint package and forwards its rule ids, severities,
-messages, and locations. Built-in `@ttsc/lint` rules can still run in the same
-pass; duplicate diagnostics are collapsed. External rules such as
-`@typescript-eslint/no-floating-promises` work when your ESLint config supplies
-the usual parser and `parserOptions.project` / `projectService` settings.
+When a project has `eslint` installed and the external config is an `eslint.config.*` file, or the config uses runtime-only fields such as `plugins`, `languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint` runs the installed ESLint package and forwards its rule ids, severities, messages, and locations. Built-in `@ttsc/lint` rules can still run in the same pass; duplicate diagnostics are collapsed. External rules such as `@typescript-eslint/no-floating-promises` work when your ESLint config supplies the usual parser and `parserOptions.project` / `projectService` settings.
 
-When ESLint is not installed, only config shapes that can be represented by
-built-in `@ttsc/lint` rules are supported. That path supports `files`,
-`ignores`, `basePath`, object/array `extends`, `rules`, severity tuples, and
-`@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only
-features such as `plugins`, `languageOptions`, `processor`, `settings`,
-`linterOptions`, or string `extends` require ESLint to be installed.
+When ESLint is not installed, only config shapes that can be represented by built-in `@ttsc/lint` rules are supported. That path supports `files`, `ignores`, `basePath`, object/array `extends`, `rules`, severity tuples, and `@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only features such as `plugins`, `languageOptions`, `processor`, `settings`, `linterOptions`, or string `extends` require ESLint to be installed.
 
-Inline disable comments are respected in both paths. Use the ESLint forms
-`eslint-disable-next-line`, `eslint-disable-line`, `eslint-disable`, and
-`eslint-enable`; the `lint-*` aliases are also accepted for the same directives.
+Inline disable comments are respected in both paths. Use the ESLint forms `eslint-disable-next-line`, `eslint-disable-line`, `eslint-disable`, and `eslint-enable`; the `lint-*` aliases are also accepted for the same directives.
 
 ## Scope
 
-Diagnostic-only today: no autofix and no bundled recommended preset. The
-built-in rule set does not load custom Go rules; external ESLint rules run when
-ESLint is installed.
+Diagnostic-only today: no autofix and no bundled recommended preset. The built-in rule set does not load custom Go rules; external ESLint rules run when ESLint is installed.
 
 ## Rules
 

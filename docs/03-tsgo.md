@@ -541,8 +541,7 @@ If your plugin exits non-zero, write clear diagnostics to stderr. `ttsc` surface
 
 ## Text Edits
 
-Prefer AST mutation for syntax changes. Use text edits only when the plugin owns
-the source text workflow and the change is naturally range-based.
+Prefer AST mutation for syntax changes. Use text edits only when the plugin owns the source text workflow and the change is naturally range-based.
 
 Edit type:
 
@@ -577,13 +576,11 @@ func applyTextEdits(text string, edits []textEdit) string {
 
 Why reverse order: earlier edits do not shift the offsets of later edits that are already applied.
 
-For statement removal, prefer filtering the parent `NodeList` instead of slicing
-emitted text. `@ttsc/strip` is the reference.
+For statement removal, prefer filtering the parent `NodeList` instead of slicing emitted text. `@ttsc/strip` is the reference.
 
 ## Parsing Text Without a Program
 
-A standalone tool can parse a single JS or TS text file without loading a full
-Program:
+A standalone tool can parse a single JS or TS text file without loading a full Program:
 
 ```go
 func parseJS(fileName, text string) *shimast.SourceFile {
@@ -594,12 +591,9 @@ func parseJS(fileName, text string) *shimast.SourceFile {
 }
 ```
 
-Use this only when the text itself is the plugin-owned input. The public `ttsc`
-plugin contract does not expose generated JavaScript text as a transform target.
+Use this only when the text itself is the plugin-owned input. The public `ttsc` plugin contract does not expose generated JavaScript text as a transform target.
 
-Use a Program when you need project-level facts, such as `compilerOptions.paths`,
-source file membership, declaration emit mapping, or semantic types.
-`@ttsc/paths` and `@ttsc/lint` are the models.
+Use a Program when you need project-level facts, such as `compilerOptions.paths`, source file membership, declaration emit mapping, or semantic types. `@ttsc/paths` and `@ttsc/lint` are the models.
 
 ## Common AST Mistakes
 

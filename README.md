@@ -83,8 +83,7 @@ See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unpl
 
 ## Plugins
 
-Plugins let libraries add compile-time checks, transforms, and type-driven code
-generation to normal `ttsc` and `ttsx` runs.
+Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs.
 
 ```bash
 # compile
@@ -119,8 +118,7 @@ interface IMember {
 }
 ```
 
-The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at
-build time. `ttsx` applies the same transform when running the file directly.
+The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time. `ttsx` applies the same transform when running the file directly.
 
 ### List of Plugins
 
