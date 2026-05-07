@@ -12,8 +12,9 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
-const packageTarballs = ["banner", "lint", "paths", "strip", "unplugin"];
-const registryDependencies = ["@typescript/native-preview", "vite"];
+const currentPackageTarballs = ["banner", "lint", "paths", "strip", "unplugin"];
+const packageTarballs = ["banner", "lint", "paths", "strip"];
+const registryDependencies = ["@typescript/native-preview"];
 
 main();
 
@@ -26,8 +27,6 @@ function main() {
   prepareWorkspace();
   installTarballs();
   verifyInstalledPackages();
-  verifyUnpluginEntrypoints();
-  verifyUnpluginViteBuild();
   verifyTtscBuild();
   verifyTtsxRun();
   console.log("Success");
@@ -37,13 +36,13 @@ function prepareCurrentTarballs() {
   run("pnpm run build:current", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", platformTarball, ...packageTarballs]) {
+  for (const name of ["ttsc", platformTarball, ...currentPackageTarballs]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
   packPackage(platformTarball, platformTarball);
-  for (const name of packageTarballs) {
+  for (const name of currentPackageTarballs) {
     packPackage(name, name);
   }
 }
@@ -148,155 +147,6 @@ function prepareWorkspace() {
       "",
     ].join("\n"),
   );
-  writeUnpluginFixture();
-}
-
-function writeUnpluginFixture() {
-  fs.mkdirSync(path.join(workspace, "unplugin-src"), { recursive: true });
-  fs.writeFileSync(
-    path.join(workspace, "tsconfig.unplugin.json"),
-    JSON.stringify(
-      {
-        extends: "./tsconfig.json",
-        compilerOptions: {
-          module: "ESNext",
-          rootDir: ".",
-          plugins: [
-            {
-              transform: "./unplugin-transform.cjs",
-            },
-          ],
-        },
-        include: ["unplugin-src/bundler.ts"],
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-src", "bundler.ts"),
-    [
-      'export const bundled: string = goUpper("installed-unplugin-ok");',
-      "console.log(bundled);",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  writeUnpluginTransformPlugin();
-  fs.writeFileSync(
-    path.join(workspace, "vite.config.mjs"),
-    [
-      'import path from "node:path";',
-      'import ttsc from "@ttsc/unplugin/vite";',
-      'import { defineConfig } from "vite";',
-      "",
-      "export default defineConfig({",
-      "  build: {",
-      "    emptyOutDir: true,",
-      "    minify: false,",
-      '    outDir: "dist-vite",',
-      "    rollupOptions: {",
-      '      input: path.resolve("unplugin-src/bundler.ts"),',
-      "      output: {",
-      '        entryFileNames: "bundler.js",',
-      '        format: "es",',
-      "      },",
-      "    },",
-      "  },",
-      '  logLevel: "silent",',
-      '  plugins: [ttsc({ project: "tsconfig.unplugin.json" })],',
-      "});",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
-function writeUnpluginTransformPlugin() {
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-transform.cjs"),
-    [
-      'const path = require("node:path");',
-      "",
-      "module.exports = function createUnpluginTransform() {",
-      "  return {",
-      '    name: "unplugin-transform-fixture",',
-      '    source: path.resolve(__dirname, "unplugin-transform-go"),',
-      "  };",
-      "};",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  fs.mkdirSync(path.join(workspace, "unplugin-transform-go"), {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-transform-go", "go.mod"),
-    "module example.com/ttscunplugininstall\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-transform-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '  "encoding/json"',
-      '  "flag"',
-      '  "fmt"',
-      '  "os"',
-      '  "path/filepath"',
-      '  "regexp"',
-      '  "strings"',
-      ")",
-      "",
-      'var goUpperCall = regexp.MustCompile(`goUpper\\("([^"]*)"\\)`)',
-      "",
-      "type transformResult struct {",
-      '  TypeScript map[string]string `json:"typescript"`',
-      "}",
-      "",
-      "func main() { os.Exit(run(os.Args[1:])) }",
-      "",
-      "func run(args []string) int {",
-      "  if len(args) == 0 { return 2 }",
-      "  switch args[0] {",
-      '  case "transform":',
-      "    return transform(args[1:])",
-      '  case "check", "version", "build":',
-      "    return 0",
-      "  default:",
-      '    fmt.Fprintf(os.Stderr, "unknown command %q\\n", args[0])',
-      "    return 2",
-      "  }",
-      "}",
-      "",
-      "func transform(args []string) int {",
-      '  fs := flag.NewFlagSet("transform", flag.ContinueOnError)',
-      '  cwd := fs.String("cwd", "", "")',
-      '  _ = fs.String("tsconfig", "", "")',
-      '  _ = fs.String("plugins-json", "", "")',
-      "  if err := fs.Parse(args); err != nil { return 2 }",
-      "  root := *cwd",
-      '  if root == "" { root, _ = os.Getwd() }',
-      '  source, err := os.ReadFile(filepath.Join(root, "unplugin-src", "bundler.ts"))',
-      "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
-      "  code := goUpperCall.ReplaceAllStringFunc(string(source), func(call string) string {",
-      "    match := goUpperCall.FindStringSubmatch(call)",
-      "    if len(match) != 2 { return call }",
-      '    return fmt.Sprintf("%q", strings.ToUpper(match[1]))',
-      "  })",
-      '  data, err := json.Marshal(transformResult{TypeScript: map[string]string{"unplugin-src/bundler.ts": code}})',
-      "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
-      "  fmt.Fprintln(os.Stdout, string(data))",
-      "  return 0",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
 }
 
 function installTarballs() {
@@ -368,117 +218,6 @@ function verifyInstalledPackages() {
   const ttsx = run("npx ttsx --version", workspace).stdout;
   assert(/^ttsx /m.test(ttsx), "npx ttsx --version must print ttsx banner");
   assertPackageFileMissing("@ttsc/lint", "tsconfig.json");
-  assertPackageFileMissing("@ttsc/unplugin", "tsconfig.json");
-  assertPackageFileMissing("@ttsc/unplugin", "lib/_virtual");
-  assertPackageFileMissing("@ttsc/unplugin", "lib/vite.cjs");
-  assertPackageFileExists("@ttsc/unplugin", "lib/vite.js");
-  assertPackageFileExists("@ttsc/unplugin", "lib/vite.mjs");
-  const unpluginPackage = readInstalledPackageJson("@ttsc/unplugin");
-  assert(
-    unpluginPackage.type === undefined,
-    "@ttsc/unplugin must not set package.json type=module",
-  );
-  assert(
-    unpluginPackage.peerDependencies === undefined,
-    "@ttsc/unplugin must not publish peerDependencies",
-  );
-  assert(
-    unpluginPackage.exports?.["./vite"]?.import === "./lib/vite.mjs" &&
-      unpluginPackage.exports?.["./vite"]?.default === "./lib/vite.js",
-    "@ttsc/unplugin must publish ESM through import and CJS through default",
-  );
-}
-
-function verifyUnpluginEntrypoints() {
-  fs.writeFileSync(
-    path.join(workspace, "verify-unplugin.mjs"),
-    [
-      'const root = await import("@ttsc/unplugin");',
-      'if (typeof root.default.vite !== "function") {',
-      '  throw new Error("@ttsc/unplugin ESM default import must expose adapters");',
-      "}",
-      "",
-      'const api = await import("@ttsc/unplugin/api");',
-      'if (typeof api.resolveOptions !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api resolveOptions must be exported");',
-      "}",
-      'if (typeof api.transformTtsc !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api transformTtsc must be exported");',
-      "}",
-      "",
-      "for (const entrypoint of [",
-      '  "bun",',
-      '  "esbuild",',
-      '  "farm",',
-      '  "next",',
-      '  "rolldown",',
-      '  "rollup",',
-      '  "rspack",',
-      '  "vite",',
-      '  "webpack",',
-      "]) {",
-      "  const mod = await import(`@ttsc/unplugin/${entrypoint}`);",
-      '  if (typeof mod.default !== "function") {',
-      "    throw new Error(`${entrypoint} ESM default import must be a function`);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  run("node verify-unplugin.mjs", workspace);
-  fs.writeFileSync(
-    path.join(workspace, "verify-unplugin.cjs"),
-    [
-      'const root = require("@ttsc/unplugin");',
-      'if (typeof root.default.vite !== "function") {',
-      '  throw new Error("@ttsc/unplugin CJS require must expose adapters");',
-      "}",
-      "",
-      'const api = require("@ttsc/unplugin/api");',
-      'if (typeof api.resolveOptions !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api resolveOptions must be exported through CJS");',
-      "}",
-      'if (typeof api.transformTtsc !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api transformTtsc must be exported through CJS");',
-      "}",
-      "",
-      "for (const entrypoint of [",
-      '  "bun",',
-      '  "esbuild",',
-      '  "farm",',
-      '  "next",',
-      '  "rolldown",',
-      '  "rollup",',
-      '  "rspack",',
-      '  "vite",',
-      '  "webpack",',
-      "]) {",
-      "  const mod = require(`@ttsc/unplugin/${entrypoint}`);",
-      '  if (typeof mod.default !== "function") {',
-      "    throw new Error(`${entrypoint} CJS require must expose a default function`);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  run("node verify-unplugin.cjs", workspace);
-}
-
-function verifyUnpluginViteBuild() {
-  run("npx vite build --config vite.config.mjs", workspace);
-  const output = path.join(workspace, "dist-vite", "bundler.js");
-  assert(fs.existsSync(output), "Vite must emit dist-vite/bundler.js");
-  const emitted = fs.readFileSync(output, "utf8");
-  assert(
-    emitted.includes("INSTALLED-UNPLUGIN-OK"),
-    "@ttsc/unplugin/vite must preserve the intended bundled source",
-  );
-  assert(
-    !/goUpper|installed-unplugin-ok/.test(emitted),
-    "@ttsc/unplugin/vite must run the configured ttsc source transform before Vite emits",
-  );
 }
 
 function assertPackageFileMissing(packageName, relative) {
@@ -489,26 +228,6 @@ function assertPackageFileMissing(packageName, relative) {
     relative,
   );
   assert(!fs.existsSync(file), `${packageName} must not ship ${relative}`);
-}
-
-function assertPackageFileExists(packageName, relative) {
-  const file = path.join(
-    workspace,
-    "node_modules",
-    ...packageName.split("/"),
-    relative,
-  );
-  assert(fs.existsSync(file), `${packageName} must ship ${relative}`);
-}
-
-function readInstalledPackageJson(packageName) {
-  const file = path.join(
-    workspace,
-    "node_modules",
-    ...packageName.split("/"),
-    "package.json",
-  );
-  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 function verifyTtscBuild() {

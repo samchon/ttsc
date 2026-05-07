@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-test-unplugin",
+  "version": "0.0.0",
+  "description": "Experimental install check for @ttsc/unplugin tgz builds",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT"
+}

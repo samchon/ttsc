@@ -16,7 +16,7 @@ export interface BunLikeBuild {
   ): void;
 }
 
-const sourceFilePattern = /\.[cm]?[jt]sx?$/;
+const sourceFilePattern = /\.[cm]?tsx?$/;
 
 export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
   return {

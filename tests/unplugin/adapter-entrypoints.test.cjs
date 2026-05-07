@@ -123,6 +123,8 @@ async function assertSharedAdapterFilter() {
   const raw = unplugin.raw(undefined, {});
   assert.equal(raw.transformInclude?.("main.ts"), true);
   assert.equal(raw.transformInclude?.("main.tsx"), true);
+  assert.equal(raw.transformInclude?.("main.js"), false);
+  assert.equal(raw.transformInclude?.("main.jsx"), false);
   assert.equal(raw.transformInclude?.("main.css"), false);
   assert.equal(raw.transformInclude?.("node_modules/pkg/main.ts"), false);
   assert.equal(raw.transformInclude?.("main.d.ts"), false);

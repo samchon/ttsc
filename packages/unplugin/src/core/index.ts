@@ -6,7 +6,7 @@ import { resolveOptions } from "./options";
 import { isDeclarationFile, stripQuery, transformTtsc } from "./transform";
 
 const name = "ttsc-unplugin";
-const sourceFilePattern = /\.[cm]?[jt]sx?$/;
+const sourceFilePattern = /\.[cm]?tsx?$/;
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 const virtualModulePattern = /\0/;
 
