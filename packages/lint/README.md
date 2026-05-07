@@ -54,10 +54,11 @@ CI that already runs `ttsc` blocks on lint with no extra wiring.
 
 ## Setup
 
-Install `ttsc`, TypeScript-Go, and the lint plugin:
+Install `ttsc` and TypeScript-Go, then the lint plugin:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/lint
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/lint
 ```
 
 Add the plugin under `compilerOptions.plugins` in your `tsconfig.json`.
@@ -176,11 +177,14 @@ export default config;
 When a project has `eslint` installed and the external config is an
 `eslint.config.*` file, or the config uses runtime-only fields such as `plugins`,
 `languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint`
-delegates diagnostics to the installed ESLint runtime and forwards its rule ids,
-severities, messages, and locations. This is the path that runs external
-RuleModules such as `@typescript-eslint/no-floating-promises`; typed
-typescript-eslint rules work when your ESLint config supplies the usual parser
-and `parserOptions.project` / `projectService` settings.
+runs the installed ESLint runtime and forwards its rule ids, severities,
+messages, and locations. Native `@ttsc/lint` rules that can still be lowered
+also run in the same pass; when ESLint reports the same canonical rule,
+`@ttsc/lint` keeps the ESLint diagnostic to avoid duplicate output. This is the
+path that runs external RuleModules such as
+`@typescript-eslint/no-floating-promises`; typed typescript-eslint rules work
+when your ESLint config supplies the usual parser and `parserOptions.project` /
+`projectService` settings.
 
 When ESLint is not installed and the config can be represented as native rules,
 `@ttsc/lint` falls back to the lowered native rule map. That fallback supports

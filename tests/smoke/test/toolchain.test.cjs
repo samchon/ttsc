@@ -290,6 +290,58 @@ test("ttsx forwards argv after -- and runs preload modules", () => {
   });
 });
 
+test("ttsx keeps package preload specifiers unresolved", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ private: true }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "node_modules/@scope/preload/index.js": `
+      globalThis.__ttsxScopedPreload = "scoped";
+    `,
+    "node_modules/plain-preload/package.json": JSON.stringify({
+      name: "plain-preload",
+      version: "1.0.0",
+    }),
+    "node_modules/plain-preload/register.js": `
+      globalThis.__ttsxSubpathPreload = "subpath";
+    `,
+    "src/main.ts": `
+      console.log(JSON.stringify({
+        scoped: (globalThis as any).__ttsxScopedPreload,
+        subpath: (globalThis as any).__ttsxSubpathPreload,
+      }));
+    `,
+  });
+
+  const result = spawn(
+    ttsxBin,
+    [
+      "--cwd",
+      root,
+      "-r",
+      "@scope/preload",
+      "--require",
+      "plain-preload/register",
+      "src/main.ts",
+    ],
+    { cwd: root },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    scoped: "scoped",
+    subpath: "subpath",
+  });
+});
+
 test("ttsx runs an ESM TypeScript entry through the emitted project path", () => {
   const root = createProject({
     "package.json": JSON.stringify({ type: "module" }),
@@ -338,6 +390,54 @@ test("ttsx rewrites extensionless ESM side-effect imports", () => {
   const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "side-effect-import-ok");
+});
+
+test("ttsx ESM rewrite leaves strings, templates, comments, and regex literals untouched", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({ type: "module" }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/dynamic.ts": `export const dynamic: string = "dynamic-ok";\n`,
+    "src/helper.ts": `export const message: string = "scanner-ok";\n`,
+    "src/main.ts": `
+      import { message } from "./helper";
+      const dynamic = await import("./dynamic");
+      const interpolation = \`\${(await import("./dynamic")).dynamic}\`;
+      const ordinary = "from './helper'";
+      const template = \`import('./dynamic')\`;
+      const regex = /import\\('\\.\\/helper'\\)/;
+      // from './helper'
+      console.log(JSON.stringify({
+        message,
+        dynamic: dynamic.dynamic,
+        interpolation,
+        ordinary,
+        template,
+        regex: regex.source,
+      }));
+    `,
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    message: "scanner-ok",
+    dynamic: "dynamic-ok",
+    interpolation: "dynamic-ok",
+    ordinary: "from './helper'",
+    template: "import('./dynamic')",
+    regex: "import\\('\\.\\/helper'\\)",
+  });
 });
 
 test("ttsx runs an .mts entry and resolves emitted .mjs imports", () => {

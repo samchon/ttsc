@@ -28,9 +28,11 @@ export function buildSourcePlugin(opts: {
   tsgoVersion: string;
 }): string {
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
+  const overlayDirs = opts.overlayDirs ?? findTtscOverlayDirs();
   const key = computeCacheKey({
     dir,
     entry,
+    overlayDirs,
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
@@ -55,7 +57,7 @@ export function buildSourcePlugin(opts: {
   );
   try {
     materializeScratchDir(dir, scratchDir);
-    writeGoWork(scratchDir, opts.overlayDirs ?? findTtscOverlayDirs());
+    writeGoWork(scratchDir, overlayDirs);
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName);
@@ -387,9 +389,10 @@ function resolveGoCompiler(): string {
   return "go";
 }
 
-function computeCacheKey(inputs: {
+export function computeCacheKey(inputs: {
   dir: string;
   entry: string;
+  overlayDirs?: readonly string[];
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -398,12 +401,25 @@ function computeCacheKey(inputs: {
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
   hash.update(`platform=${process.platform}/${process.arch}\n`);
   hash.update(`entry=${inputs.entry}\n`);
-  for (const file of collectSourceFiles(inputs.dir)) {
-    const rel = path.relative(inputs.dir, file).replace(/\\/g, "/");
-    hash.update(`f=${rel}\n`);
-    hash.update(fs.readFileSync(file));
+  hashSourceDirectory(hash, "plugin", inputs.dir);
+  for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
+    hashSourceDirectory(hash, `overlay:${index}`, dir);
   }
   return hash.digest("hex").slice(0, 32);
+}
+
+function hashSourceDirectory(
+  hash: crypto.Hash,
+  label: string,
+  root: string,
+): void {
+  hash.update(`dir=${label}\n`);
+  for (const file of collectSourceFiles(root)) {
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    hash.update(`f=${rel}\n`);
+    hash.update(fs.readFileSync(file));
+    hash.update("\n");
+  }
 }
 
 function collectSourceFiles(root: string): string[] {

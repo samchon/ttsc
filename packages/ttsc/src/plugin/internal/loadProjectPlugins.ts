@@ -15,12 +15,18 @@ type TtscPluginFactory<T = ITtscProjectPluginConfig> = (
   context: ITtscPluginFactoryContext<T>,
 ) => ITtscPlugin;
 
+type ProjectPluginEntry = {
+  baseDir: string;
+  config: ITtscProjectPluginConfig;
+};
+
 export function loadProjectPlugins(options: {
   binary: string;
   cacheDir?: string;
   cwd?: string;
   entries?: readonly ITtscProjectPluginConfig[] | false;
   file?: string;
+  projectRoot?: string;
   tsconfig?: string;
 }): {
   nativePlugins: ITtscLoadedNativePlugin[];
@@ -29,13 +35,14 @@ export function loadProjectPlugins(options: {
   const project = readProjectConfig({
     cwd: options.cwd,
     file: options.file,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  const entries =
+  const entries: ProjectPluginEntry[] =
     options.entries === false
       ? []
-      : [...(options.entries ?? project.compilerOptions.plugins)].filter(
-          (entry) => entry.enabled !== false,
+      : resolvePluginEntries(project, options.entries).filter(
+          (entry) => entry.config.enabled !== false,
         );
   if (entries.length === 0) {
     return {
@@ -51,7 +58,11 @@ export function loadProjectPlugins(options: {
     tsconfig: project.path,
   };
   const plugins = entries.map((entry) =>
-    loadPluginEntry(entry, { ...context, plugin: entry }),
+    loadPluginEntry(
+      entry.config,
+      { ...context, plugin: entry.config },
+      entry.baseDir,
+    ),
   );
 
   const nativePlugins: ITtscLoadedNativePlugin[] = [];
@@ -70,7 +81,7 @@ export function loadProjectPlugins(options: {
     });
     nativePlugins.push({
       binary,
-      config: entries[index]!,
+      config: entries[index]!.config,
       name: plugin.name,
       source: plugin.source,
       stage,
@@ -82,16 +93,33 @@ export function loadProjectPlugins(options: {
   };
 }
 
+function resolvePluginEntries(
+  project: ITtscParsedProjectConfig,
+  entries?: readonly ITtscProjectPluginConfig[],
+): ProjectPluginEntry[] {
+  if (entries !== undefined) {
+    return entries.map((config) => ({
+      baseDir: project.root,
+      config,
+    }));
+  }
+  return project.compilerOptions.plugins.map((config, index) => ({
+    baseDir: project.pluginBaseDirs[index] ?? project.root,
+    config,
+  }));
+}
+
 function loadPluginEntry(
   entry: ITtscProjectPluginConfig,
   context: ITtscPluginFactoryContext,
+  baseDir: string,
 ): ITtscPlugin {
   const specifier = entry.transform;
   if (typeof specifier !== "string" || specifier.length === 0) {
     throw new Error(`ttsc: plugin entry is missing a string "transform" field`);
   }
 
-  const request = resolvePluginRequest(specifier, context.projectRoot);
+  const request = resolvePluginRequest(specifier, baseDir);
   const mod = require(request) as {
     createTtscPlugin?: TtscPluginFactory;
     default?: ITtscPlugin | TtscPluginFactory;

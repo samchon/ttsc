@@ -329,19 +329,14 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
 func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, bool, error) {
   astDiags := prog.programDiagnostics()
   files := prog.userSourceFiles()
-  if externalDiags, ran, err := runExternalESLintDiagnostics(engine.config, prog.cwd, files); err != nil {
-    return nil, nil, false, err
-  } else if ran {
-    return astDiags, externalDiags, true, nil
-  }
   findings := engine.Run(files, prog.checker)
-  lintDiags := make([]*shimdw.LintDiagnostic, 0, len(findings))
+  nativeDiags := make([]*shimdw.LintDiagnostic, 0, len(findings))
   for _, finding := range findings {
     category := shimdw.LintCategoryError
     if finding.Severity == SeverityWarn {
       category = shimdw.LintCategoryWarning
     }
-    lintDiags = append(lintDiags, shimdw.NewLintDiagnostic(
+    nativeDiags = append(nativeDiags, shimdw.NewLintDiagnostic(
       finding.File,
       finding.Pos,
       finding.End,
@@ -350,7 +345,58 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
       fmt.Sprintf("[%s] %s", finding.Rule, finding.Message),
     ))
   }
-  return astDiags, lintDiags, false, nil
+  if externalDiags, ran, err := runExternalESLintDiagnostics(engine.config, prog.cwd, files); err != nil {
+    return nil, nil, false, err
+  } else if ran {
+    return astDiags, mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags), true, nil
+  }
+  return astDiags, nativeDiags, false, nil
+}
+
+func mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags []*shimdw.LintDiagnostic) []*shimdw.LintDiagnostic {
+  if len(nativeDiags) == 0 {
+    return externalDiags
+  }
+  if len(externalDiags) == 0 {
+    return nativeDiags
+  }
+  externalRules := make(map[string]struct{})
+  for _, diag := range externalDiags {
+    if rule := canonicalLintRule(lintDiagnosticRule(diag)); rule != "" {
+      externalRules[rule] = struct{}{}
+    }
+  }
+  out := make([]*shimdw.LintDiagnostic, 0, len(nativeDiags)+len(externalDiags))
+  for _, diag := range nativeDiags {
+    rule := canonicalLintRule(lintDiagnosticRule(diag))
+    if _, exists := externalRules[rule]; rule != "" && exists {
+      continue
+    }
+    out = append(out, diag)
+  }
+  return append(out, externalDiags...)
+}
+
+func lintDiagnosticRule(diag *shimdw.LintDiagnostic) string {
+  if diag == nil {
+    return ""
+  }
+  message := diag.Message()
+  if !strings.HasPrefix(message, "[") {
+    return ""
+  }
+  end := strings.Index(message, "]")
+  if end <= 1 {
+    return ""
+  }
+  return message[1:end]
+}
+
+func canonicalLintRule(rule string) string {
+  rule = strings.TrimSpace(rule)
+  rule = strings.TrimPrefix(rule, "@typescript-eslint/")
+  rule = strings.TrimPrefix(rule, "typescript-eslint/")
+  return rule
 }
 
 // RuleCode hashes a rule name into a stable, positive int32 so the

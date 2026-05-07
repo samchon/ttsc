@@ -6,12 +6,7 @@ import nodeExternals from "rollup-plugin-node-externals";
 import { globSync } from "tinyglobby";
 
 const inputs = globSync("./src/**/*.ts");
-const externalPackages = [
-  "diff-match-patch-es",
-  "magic-string",
-  "ttsc",
-  "unplugin",
-];
+const externalPackages = ["ttsc", "unplugin"];
 const external = (id) =>
   id.startsWith("node:") ||
   externalPackages.some((name) => id === name || id.startsWith(`${name}/`));

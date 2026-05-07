@@ -43,6 +43,11 @@ module.exports = (context) => ({
 `context.plugin` is the original tsconfig plugin entry. If you want stronger
 typing, specialize the context type in your factory:
 
+`context.binary` is the absolute `ttsc` native helper selected for this
+invocation. It is not the plugin sidecar binary and not the JavaScript launcher.
+Most descriptors do not need it; it exists for advanced factories that need to
+inspect the active native host.
+
 ```ts
 import type { ITtscPluginFactoryContext } from "ttsc";
 

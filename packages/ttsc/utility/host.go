@@ -43,6 +43,22 @@ type transformResult struct {
   TypeScript  map[string]string `json:"typescript"`
 }
 
+// RunCheck validates the project and first-party utility plugin configuration
+// without emitting output.
+func RunCheck(args []string) int {
+  opts, ok := parseHostOptions("check", args)
+  if !ok {
+    return 2
+  }
+  opts.noEmit = true
+  prog, _, _, _, ok := loadUtilityProgram(opts)
+  if !ok {
+    return 2
+  }
+  defer prog.Close()
+  return 0
+}
+
 // RunBuild hosts first-party utility transform plugins inside one compiler emit.
 func RunBuild(args []string) int {
   opts, ok := parseHostOptions("build", args)
@@ -75,6 +91,9 @@ func RunBuild(args []string) int {
   }
   for _, d := range eDiags {
     fmt.Fprintln(os.Stderr, "  -", d.String())
+  }
+  if driver.CountErrors(eDiags) > 0 {
+    return 2
   }
   if res != nil && !opts.quiet {
     fmt.Fprintf(os.Stdout, "// ttsc utility: emitted=%d files\n", len(res.EmittedFiles))
@@ -117,7 +136,7 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   quiet := fs.Bool("quiet", true, "suppress summary")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
   verbose := fs.Bool("verbose", false, "print summary")
-  if err := fs.Parse(args); err != nil {
+  if err := fs.Parse(filterHostArgs(args)); err != nil {
     return hostOptions{}, false
   }
   resolvedCwd := *cwd
@@ -149,6 +168,50 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   }, true
 }
 
+func filterHostArgs(args []string) []string {
+  known := map[string]bool{
+    "cwd":          true,
+    "emit":         false,
+    "noEmit":       false,
+    "outDir":       true,
+    "plugins-json": true,
+    "quiet":        false,
+    "tsconfig":     true,
+    "verbose":      false,
+  }
+  filtered := make([]string, 0, len(args))
+  for i := 0; i < len(args); i++ {
+    current := args[i]
+    if current == "--" {
+      break
+    }
+    if !strings.HasPrefix(current, "--") {
+      filtered = append(filtered, current)
+      continue
+    }
+    name, hasInlineValue := flagName(current)
+    takesValue, ok := known[name]
+    if ok {
+      filtered = append(filtered, current)
+      if takesValue && !hasInlineValue && i+1 < len(args) {
+        i++
+        filtered = append(filtered, args[i])
+      }
+      continue
+    }
+    if !hasInlineValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+      i++
+    }
+  }
+  return filtered
+}
+
+func flagName(arg string) (string, bool) {
+  name := strings.TrimPrefix(arg, "--")
+  before, _, found := strings.Cut(name, "=")
+  return before, found
+}
+
 func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, transformState, string, bool) {
   entries, err := parsePluginEntries(opts.pluginsJSON)
   if err != nil {
@@ -172,19 +235,25 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []pluginEntry, trans
   }
   if len(diags) > 0 {
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    if prog != nil {
+      _ = prog.Close()
+    }
     return nil, nil, transformState{}, "", false
   }
   if diags := prog.Diagnostics(); len(diags) > 0 {
     driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    _ = prog.Close()
     return nil, nil, transformState{}, "", false
   }
   state, err := prepareTransforms(prog, entries)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
+    _ = prog.Close()
     return nil, nil, transformState{}, "", false
   }
   if err := applySourceTransforms(prog, state); err != nil {
     fmt.Fprintln(os.Stderr, err)
+    _ = prog.Close()
     return nil, nil, transformState{}, "", false
   }
   return prog, entries, state, sourcePreamble, true
@@ -239,7 +308,7 @@ func makeSourcePreambleWriteFile(prog *driver.Program, sourcePreamble string) sh
   }
   return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     if shouldEnsureSourcePreamble(fileName, text, sourcePreamble) {
-      text = sourcePreamble + text
+      text = driver.ApplySourcePreamble(text, sourcePreamble)
     }
     return driver.DefaultWriteFile(fileName, text)
   }
@@ -402,9 +471,14 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
     if arg != nil && arg.Kind == shimast.KindLiteralType {
       visit(arg.AsLiteralTypeNode().Literal)
     }
+  case shimast.KindModuleDeclaration:
+    decl := node.AsModuleDeclaration()
+    if decl != nil {
+      visit(decl.Name())
+    }
   case shimast.KindCallExpression:
     call := node.AsCallExpression()
-    if call.Expression != nil && call.Expression.Kind == shimast.KindImportKeyword && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
       visit(call.Arguments.Nodes[0])
     }
   }
@@ -412,6 +486,20 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
     visitModuleSpecifiers(child, visit)
     return false
   })
+}
+
+func isModuleSpecifierCall(call *shimast.CallExpression) bool {
+  if call == nil || call.Expression == nil {
+    return false
+  }
+  switch call.Expression.Kind {
+  case shimast.KindImportKeyword:
+    return true
+  case shimast.KindIdentifier:
+    return call.Expression.Text() == "require"
+  default:
+    return false
+  }
 }
 
 func (r *pathsRewriter) rewrite(fromSource string, specifier string) (string, bool) {
@@ -465,6 +553,11 @@ func (r *pathsRewriter) lookupSource(candidate string) (string, bool) {
   }
   for _, ext := range []string{".ts", ".tsx", ".mts", ".cts"} {
     if source, ok := r.sourceFiles[stem+ext]; ok {
+      return source, true
+    }
+  }
+  for _, ext := range []string{".ts", ".tsx", ".mts", ".cts"} {
+    if source, ok := r.sourceFiles[normalizePath(filepath.Join(stem, "index"+ext))]; ok {
       return source, true
     }
   }
@@ -595,7 +688,7 @@ func filterStatements(list *shimast.NodeList, strip *stripRewriter) {
   if list == nil || len(list.Nodes) == 0 {
     return
   }
-  out := list.Nodes[:0]
+  out := make([]*shimast.Node, 0, len(list.Nodes))
   for _, stmt := range list.Nodes {
     if shouldStripStatement(stmt, strip) {
       continue
@@ -610,6 +703,7 @@ func filterChildStatements(node *shimast.Node, strip *stripRewriter) {
   if node == nil {
     return
   }
+  filterEmbeddedStatements(node, strip)
   if node.CanHaveStatements() {
     filterStatements(node.StatementList(), strip)
   }
@@ -617,6 +711,53 @@ func filterChildStatements(node *shimast.Node, strip *stripRewriter) {
     filterChildStatements(child, strip)
     return false
   })
+}
+
+func filterEmbeddedStatements(node *shimast.Node, strip *stripRewriter) {
+  switch node.Kind {
+  case shimast.KindIfStatement:
+    stmt := node.AsIfStatement()
+    stmt.ThenStatement = filterEmbeddedStatement(stmt.ThenStatement, strip)
+    stmt.ElseStatement = filterEmbeddedStatement(stmt.ElseStatement, strip)
+  case shimast.KindDoStatement:
+    stmt := node.AsDoStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  case shimast.KindWhileStatement:
+    stmt := node.AsWhileStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  case shimast.KindForStatement:
+    stmt := node.AsForStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    stmt := node.AsForInOrOfStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  case shimast.KindWithStatement:
+    stmt := node.AsWithStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  case shimast.KindLabeledStatement:
+    stmt := node.AsLabeledStatement()
+    stmt.Statement = filterEmbeddedStatement(stmt.Statement, strip)
+  }
+}
+
+func filterEmbeddedStatement(stmt *shimast.Statement, strip *stripRewriter) *shimast.Statement {
+  if stmt == nil {
+    return nil
+  }
+  if shouldStripStatement(stmt, strip) {
+    return emptyStatement(stmt)
+  }
+  filterChildStatements(stmt, strip)
+  return stmt
+}
+
+func emptyStatement(original *shimast.Node) *shimast.Statement {
+  empty := shimast.NewNodeFactory(shimast.NodeFactoryHooks{}).NewEmptyStatement()
+  empty.Flags |= shimast.NodeFlagsSynthesized
+  if original != nil {
+    empty.Loc = original.Loc
+  }
+  return empty
 }
 
 func shouldStripStatement(node *shimast.Node, strip *stripRewriter) bool {

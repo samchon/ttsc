@@ -11,6 +11,8 @@ export interface ITtscParsedProjectConfig {
   } & Record<string, unknown>;
   /** Absolute path to the resolved tsconfig/jsconfig. */
   path: string;
+  /** Directory that declared each inherited plugin entry. */
+  pluginBaseDirs: string[];
   /** Directory containing the resolved tsconfig/jsconfig. */
   root: string;
 }

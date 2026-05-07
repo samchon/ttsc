@@ -142,7 +142,7 @@ function printHelp(): void {
       "  --cwd <dir>            Resolve entry/project relative to this directory",
       "  --cache-dir <dir>      Override the compiled JS cache directory",
       "  --binary <path>        Use an explicit tsgo binary",
-      "  -r, --require <file>   Preload a module before the entrypoint",
+      "  -r, --require <module> Preload a module before the entrypoint",
       "  -h, --help             Show this help",
       "  -v, --version          Print the runner version",
       "",
@@ -155,14 +155,21 @@ function printHelp(): void {
 }
 
 function resolvePreload(cwd: string, preload: string): string {
-  if (
-    preload.startsWith(".") ||
-    preload.startsWith("/") ||
-    preload.includes(path.sep)
-  ) {
+  if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
     return path.resolve(cwd, preload);
   }
   return preload;
+}
+
+function isRelativeSpecifier(specifier: string): boolean {
+  return (
+    specifier === "." ||
+    specifier === ".." ||
+    specifier.startsWith("./") ||
+    specifier.startsWith("../") ||
+    specifier.startsWith(".\\") ||
+    specifier.startsWith("..\\")
+  );
 }
 
 function takeValue(flag: string, rest: string[]): string {
@@ -221,27 +228,199 @@ function rewriteEsmSpecifiers(root: string): void {
         continue;
       }
       const before = fs.readFileSync(next, "utf8");
-      const after = before
-        .replace(
-          /\bfrom\s+(['"])(\.[^'"]+)\1/g,
-          (_, quote: string, specifier: string) =>
-            `from ${quote}${withResolvableExtension(next, specifier)}${quote}`,
-        )
-        .replace(
-          /\bimport\s+(['"])(\.[^'"]+)\1/g,
-          (_, quote: string, specifier: string) =>
-            `import ${quote}${withResolvableExtension(next, specifier)}${quote}`,
-        )
-        .replace(
-          /\bimport\(\s*(['"])(\.[^'"]+)\1\s*\)/g,
-          (_, quote: string, specifier: string) =>
-            `import(${quote}${withResolvableExtension(next, specifier)}${quote})`,
-        );
+      const after = rewriteEsmSpecifiersInText(next, before);
       if (after !== before) {
         fs.writeFileSync(next, after, "utf8");
       }
     }
   }
+}
+
+function rewriteEsmSpecifiersInText(fromFile: string, input: string): string {
+  const replacements: Array<{ start: number; end: number; text: string }> = [];
+  scanEsmSpecifiers(fromFile, input, 0, input.length, replacements);
+  if (replacements.length === 0) {
+    return input;
+  }
+  let output = "";
+  let last = 0;
+  for (const replacement of replacements) {
+    output += input.slice(last, replacement.start);
+    output += replacement.text;
+    last = replacement.end;
+  }
+  return output + input.slice(last);
+}
+
+function scanEsmSpecifiers(
+  fromFile: string,
+  input: string,
+  start: number,
+  end: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  let i = start;
+  while (i < end) {
+    if (input[i] === "`") {
+      i = scanTemplateExpressions(fromFile, input, i, replacements);
+      continue;
+    }
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped;
+      continue;
+    }
+    if (isKeywordAt(input, i, "import")) {
+      const next = skipWhitespace(input, i + "import".length);
+      if (input[next] === "(") {
+        rewriteDynamicImportSpecifier(fromFile, input, next, replacements);
+      } else if (isQuote(input[next])) {
+        rewriteStringSpecifier(fromFile, input, next, replacements);
+      } else {
+        rewriteFromSpecifier(fromFile, input, next, replacements);
+      }
+      i += "import".length;
+      continue;
+    }
+    if (isKeywordAt(input, i, "export")) {
+      rewriteFromSpecifier(fromFile, input, i + "export".length, replacements);
+      i += "export".length;
+      continue;
+    }
+    i += 1;
+  }
+}
+
+function rewriteDynamicImportSpecifier(
+  fromFile: string,
+  input: string,
+  openParen: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  const specifier = skipWhitespace(input, openParen + 1);
+  if (isQuote(input[specifier])) {
+    rewriteStringSpecifier(fromFile, input, specifier, replacements);
+  }
+}
+
+function rewriteFromSpecifier(
+  fromFile: string,
+  input: string,
+  start: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  let i = start;
+  let depth = 0;
+  while (i < input.length) {
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped;
+      continue;
+    }
+    const current = input[i]!;
+    if (depth === 0 && current === ";") {
+      return;
+    }
+    if (current === "{" || current === "[" || current === "(") {
+      depth += 1;
+      i += 1;
+      continue;
+    }
+    if (current === "}" || current === "]" || current === ")") {
+      depth = Math.max(0, depth - 1);
+      i += 1;
+      continue;
+    }
+    if (depth === 0 && isKeywordAt(input, i, "from")) {
+      const specifier = skipWhitespace(input, i + "from".length);
+      if (isQuote(input[specifier])) {
+        rewriteStringSpecifier(fromFile, input, specifier, replacements);
+      }
+      return;
+    }
+    i += 1;
+  }
+}
+
+function rewriteStringSpecifier(
+  fromFile: string,
+  input: string,
+  quoteIndex: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  const literal = readSimpleStringLiteral(input, quoteIndex);
+  if (literal === null) {
+    return;
+  }
+  const next = withResolvableExtension(fromFile, literal.value);
+  if (next === literal.value) {
+    return;
+  }
+  replacements.push({
+    start: literal.start,
+    end: literal.end,
+    text: next,
+  });
+}
+
+function scanTemplateExpressions(
+  fromFile: string,
+  input: string,
+  start: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): number {
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "`") {
+      return i + 1;
+    }
+    if (current === "$" && input[i + 1] === "{") {
+      const expressionStart = i + 2;
+      const expressionEnd = findTemplateExpressionEnd(input, expressionStart);
+      if (expressionEnd === null) {
+        return input.length;
+      }
+      scanEsmSpecifiers(
+        fromFile,
+        input,
+        expressionStart,
+        expressionEnd,
+        replacements,
+      );
+      i = expressionEnd;
+    }
+  }
+  return input.length;
+}
+
+function findTemplateExpressionEnd(
+  input: string,
+  expressionStart: number,
+): number | null {
+  let depth = 1;
+  for (let i = expressionStart; i < input.length; i += 1) {
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped - 1;
+      continue;
+    }
+    const current = input[i]!;
+    if (current === "{") {
+      depth += 1;
+      continue;
+    }
+    if (current === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+  return null;
 }
 
 function withResolvableExtension(fromFile: string, specifier: string): string {
@@ -271,4 +450,162 @@ function splitSpecifierSuffix(specifier: string): [string, string?] {
 
 function isJavaScriptOutput(filename: string): boolean {
   return /\.(?:[cm]?js)$/i.test(filename);
+}
+
+function skipNonCode(input: string, start: number): number {
+  const current = input[start];
+  const next = input[start + 1];
+  if (current === '"' || current === "'") {
+    return skipString(input, start);
+  }
+  if (current === "`") {
+    return skipTemplate(input, start);
+  }
+  if (current === "/" && next === "/") {
+    return skipLineComment(input, start);
+  }
+  if (current === "/" && next === "*") {
+    return skipBlockComment(input, start);
+  }
+  if (current === "/" && looksLikeRegexStart(input, start)) {
+    return skipRegex(input, start);
+  }
+  return start;
+}
+
+function skipString(input: string, start: number): number {
+  const quote = input[start]!;
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === quote) {
+      return i + 1;
+    }
+  }
+  return input.length;
+}
+
+function skipTemplate(input: string, start: number): number {
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "`") {
+      return i + 1;
+    }
+  }
+  return input.length;
+}
+
+function skipLineComment(input: string, start: number): number {
+  const end = input.indexOf("\n", start + 2);
+  return end === -1 ? input.length : end + 1;
+}
+
+function skipBlockComment(input: string, start: number): number {
+  const end = input.indexOf("*/", start + 2);
+  return end === -1 ? input.length : end + 2;
+}
+
+function skipRegex(input: string, start: number): number {
+  let inClass = false;
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "[") {
+      inClass = true;
+      continue;
+    }
+    if (current === "]") {
+      inClass = false;
+      continue;
+    }
+    if (current === "/" && !inClass) {
+      i += 1;
+      while (/[A-Za-z]/.test(input[i] ?? "")) {
+        i += 1;
+      }
+      return i;
+    }
+  }
+  return input.length;
+}
+
+function looksLikeRegexStart(input: string, start: number): boolean {
+  let i = start - 1;
+  while (i >= 0 && /\s/.test(input[i]!)) {
+    i -= 1;
+  }
+  if (i < 0) {
+    return true;
+  }
+  const previous = input[i]!;
+  if ("([{=,:;!?&|+-*~^<>".includes(previous)) {
+    return true;
+  }
+  const word = readPreviousWord(input, i);
+  return /^(?:return|throw|case|delete|void|typeof|instanceof|in|of|yield|await)$/.test(
+    word,
+  );
+}
+
+function readPreviousWord(input: string, end: number): string {
+  let start = end;
+  while (start >= 0 && isIdentifierPart(input[start]!)) {
+    start -= 1;
+  }
+  return input.slice(start + 1, end + 1);
+}
+
+function readSimpleStringLiteral(
+  input: string,
+  quoteIndex: number,
+): { start: number; end: number; value: string } | null {
+  const quote = input[quoteIndex]!;
+  for (let i = quoteIndex + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      return null;
+    }
+    if (current === quote) {
+      return {
+        start: quoteIndex + 1,
+        end: i,
+        value: input.slice(quoteIndex + 1, i),
+      };
+    }
+  }
+  return null;
+}
+
+function skipWhitespace(input: string, start: number): number {
+  let i = start;
+  while (i < input.length && /\s/.test(input[i]!)) {
+    i += 1;
+  }
+  return i;
+}
+
+function isKeywordAt(input: string, start: number, keyword: string): boolean {
+  return (
+    input.startsWith(keyword, start) &&
+    !isIdentifierPart(input[start - 1] ?? "") &&
+    !isIdentifierPart(input[start + keyword.length] ?? "")
+  );
+}
+
+function isIdentifierPart(value: string): boolean {
+  return /[$\p{ID_Continue}]/u.test(value);
+}
+
+function isQuote(value: string | undefined): value is '"' | "'" {
+  return value === '"' || value === "'";
 }

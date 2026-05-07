@@ -36,6 +36,17 @@ export interface ITtscCompilerContext {
   tsconfig?: string;
 
   /**
+   * Project root override for generated config wrappers.
+   *
+   * Most callers should leave this unset so the project root is the directory
+   * containing {@link ITtscCompilerContext.tsconfig}. Embedders that synthesize
+   * a temporary config extending a real project config can set this to keep
+   * plugin resolution, cache paths, and native sidecar `--cwd` anchored to the
+   * real project.
+   */
+  projectRoot?: string;
+
+  /**
    * Explicit TypeScript-Go executable for controlled embedding.
    *
    * Normal consumers should leave this unset. ttsc resolves the installed or

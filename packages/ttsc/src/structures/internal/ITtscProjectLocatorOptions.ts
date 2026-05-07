@@ -4,6 +4,8 @@ export interface ITtscProjectLocatorOptions {
   cwd?: string;
   /** Source file used as the starting point for nearest-config discovery. */
   file?: string;
+  /** Project root override for generated tsconfig wrappers. */
+  projectRoot?: string;
   /** Explicit tsconfig/jsconfig path. */
   tsconfig?: string;
 }

@@ -28,9 +28,9 @@ export interface ITtscProjectPluginConfig {
   /**
    * Plugin module specifier, relative path, or absolute path to load.
    *
-   * Relative paths are resolved from the resolved project root, which is the
-   * directory containing the active tsconfig/jsconfig. Package specifiers are
-   * resolved with Node's package resolution from that same project root.
+   * Relative paths are resolved from the tsconfig/jsconfig file that declared
+   * the plugin entry. Package specifiers are resolved with Node's package
+   * resolution from that same directory.
    *
    * The loaded JavaScript module must export an {@link ITtscPlugin} descriptor
    * or a `createTtscPlugin(context)` factory. The Go implementation itself is

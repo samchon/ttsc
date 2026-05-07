@@ -24,6 +24,7 @@ The cache key includes:
 - platform and architecture.
 - resolved source entry.
 - `*.go`, `*.s`, `*.c`, `*.h`, `*.cpp`, `*.hpp`, `go.mod`, `go.sum`, and `go.work` files under the plugin source directory.
+- the same hashable files under the local `ttsc` and shim overlay directories used for the generated `go.work`.
 
 The cache key does not include:
 
@@ -32,7 +33,7 @@ The cache key does not include:
 - CLI flags such as `--emit` or `--outDir`;
 - README or JSON data files.
 
-If your plugin needs runtime data, embed it with `//go:embed` or run `npx ttsc clean` after edits.
+If your plugin needs runtime data, embed it with `//go:embed` or run `npx ttsc clean` after edits. Local workspace changes to `ttsc`'s Go host or shim overlay now invalidate the source plugin cache automatically.
 
 ## Cache Locations
 

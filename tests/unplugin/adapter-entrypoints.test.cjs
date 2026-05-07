@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -98,8 +99,12 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   const esm = fs.readFileSync(libPath("core/transform", "mjs"), "utf8");
   const cjsCore = fs.readFileSync(libPath("core/index", "js"), "utf8");
   const esmCore = fs.readFileSync(libPath("core/index", "mjs"), "utf8");
+  const rollupConfig = fs.readFileSync(
+    path.resolve(__dirname, "../../packages/unplugin/rollup.config.mjs"),
+    "utf8",
+  );
 
-  for (const dependency of ["diff-match-patch-es", "magic-string", "ttsc"]) {
+  for (const dependency of ["ttsc"]) {
     assert.match(
       cjs,
       new RegExp(`require\\('${escapeRegExp(dependency)}'\\)`),
@@ -107,11 +112,17 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
     );
   }
 
-  assert.match(esm, /from 'diff-match-patch-es'/);
-  assert.match(esm, /from 'magic-string'/);
   assert.match(esm, /from 'ttsc'/);
   assert.match(cjsCore, /require\('unplugin'\)/);
   assert.match(esmCore, /from 'unplugin'/);
+
+  for (const staleExternal of ["diff-match-patch-es", "magic-string"]) {
+    const pattern = new RegExp(escapeRegExp(staleExternal));
+    assert.doesNotMatch(rollupConfig, pattern);
+    for (const output of [cjs, esm, cjsCore, esmCore]) {
+      assert.doesNotMatch(output, pattern);
+    }
+  }
 
   for (const output of [cjs, esm, cjsCore, esmCore]) {
     assert.doesNotMatch(output, /_virtual|__dirname|packages\/ttsc/);

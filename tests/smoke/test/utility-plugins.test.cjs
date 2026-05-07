@@ -8,6 +8,7 @@ const {
   commonJsProject,
   copyProject,
   createProject,
+  nativeBinary,
   runNode,
   spawn,
   ttscBin,
@@ -245,6 +246,38 @@ test("utility plugins: banner follows removeComments", () => {
   );
 });
 
+test("utility plugins: banner preserves executable shebang", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": `#!/usr/bin/env node\nexport const value = "cli";\nconsole.log(value);\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            banner: "cli banner",
+          },
+        ],
+      },
+    },
+  );
+  seedUtilityPackages(root, ["banner"]);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-utility-banner-shebang-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.equal(js.startsWith("#!/usr/bin/env node\n"), true, js);
+  assertSingleBanner(js, "cli banner");
+});
+
 test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const root = createProject({
     "tsconfig.json": JSON.stringify({
@@ -254,6 +287,7 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
         declaration: true,
         strict: true,
         paths: {
+          "@pkg": ["./src/pkg"],
           "@lib/exact": ["./src/modules/exact.ts"],
           "@lib/*": ["./src/missing/*", "./src/modules/*"],
         },
@@ -265,15 +299,22 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
     }),
     "src/modules/exact.ts": `export const exact = "exact" as const;\n`,
     "src/modules/message.ts": `export interface MessageBox { value: string }\nexport const message = "paths";\n`,
+    "src/pkg/index.ts": `export const index = "index" as const;\n`,
     "src/main.ts": [
+      `declare const require: (id: string) => unknown;`,
       `import { message } from "@lib/message";`,
       `import { exact } from "@lib/exact";`,
+      `import { index } from "@pkg";`,
       `export { message } from "@lib/message";`,
       `export type { MessageBox } from "@lib/message";`,
       `export type ImportedBox = import("@lib/message").MessageBox;`,
-      `export const value = message + ":" + exact;`,
+      `export const loaded = require("@lib/message");`,
+      `export const value = message + ":" + exact + ":" + index;`,
       `export async function loadMessage(): Promise<string> {`,
       `  return (await import("@lib/message")).message;`,
+      `}`,
+      `declare module "@lib/message" {`,
+      `  export const augmented: string;`,
       `}`,
       ``,
     ].join("\n"),
@@ -292,19 +333,23 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   assert.match(js, /from "\.\/modules\/exact\.js"/);
   assert.match(js, /from "\.\/modules\/message\.js"/);
+  assert.match(js, /from "\.\/pkg\/index\.js"/);
+  assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.match(js, /import\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /@lib\/message/);
   assert.doesNotMatch(js, /@lib\/exact/);
+  assert.doesNotMatch(js, /@pkg/);
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
   assert.match(dts, /from "\.\/modules\/message\.js"/);
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
+  assert.match(dts, /declare module "\.\/modules\/message\.js"/);
   assert.doesNotMatch(dts, /@lib\/message/);
 });
 
 test("utility plugins: strip removes configured calls and debugger statements", () => {
   const root = commonJsProject(
     {
-      "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\n`,
+      "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\nif (box.value) console.log("drop-if");\n`,
     },
     {
       compilerOptions: {
@@ -334,6 +379,7 @@ test("utility plugins: strip removes configured calls and debugger statements", 
   assert.doesNotMatch(js, /console\.(?:log|debug)/);
   assert.doesNotMatch(js, /\bdebugger\b/);
   assert.doesNotMatch(js, /assert\.equal/);
+  assert.doesNotMatch(js, /drop-if/);
   assert.match(js, /console\.info\("kept"\)/);
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
   assert.match(dts, /interface StripBox/);
@@ -441,6 +487,85 @@ test("utility plugins: first-party aggregate requires package identity", () => {
     result.stderr,
     /multiple compiler native backends cannot share one emit pass/,
   );
+});
+
+test("utility plugins: shared host ignores future optional flags", () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [{ transform: "@ttsc/banner", banner: "future flag" }],
+      },
+      include: ["src"],
+    }),
+    "src/main.ts": `export const value: string = "future-flag";\n`,
+  });
+  seedUtilityPackages(root, ["banner"]);
+
+  const { loadProjectPlugins } = require(
+    path.join(
+      workspaceRoot,
+      "packages",
+      "ttsc",
+      "lib",
+      "plugin",
+      "internal",
+      "loadProjectPlugins.js",
+    ),
+  );
+  const previousPath = process.env.PATH;
+  const previousCacheDir = process.env.TTSC_CACHE_DIR;
+  process.env.PATH = goPath();
+  process.env.TTSC_CACHE_DIR = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-utility-future-flag-"),
+  );
+  let loaded;
+  try {
+    loaded = loadProjectPlugins({
+      binary: nativeBinary,
+      cwd: root,
+      tsconfig: path.join(root, "tsconfig.json"),
+    });
+  } finally {
+    process.env.PATH = previousPath;
+    if (previousCacheDir === undefined) {
+      delete process.env.TTSC_CACHE_DIR;
+    } else {
+      process.env.TTSC_CACHE_DIR = previousCacheDir;
+    }
+  }
+  const loadedBinary = loaded.nativePlugins[0]?.binary;
+  assert.equal(typeof loadedBinary, "string");
+  const pluginsJson = JSON.stringify(
+    loaded.nativePlugins.map((plugin) => ({
+      config: plugin.config,
+      name: plugin.name,
+      stage: plugin.stage,
+    })),
+  );
+
+  const result = spawn(
+    loadedBinary,
+    [
+      "transform",
+      "--cwd",
+      root,
+      "--tsconfig",
+      path.join(root, "tsconfig.json"),
+      "--plugins-json",
+      pluginsJson,
+      "--future-optional-flag",
+      "ignored-value",
+    ],
+    { cwd: root },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /"typescript"/);
 });
 
 function seedUtilityPackages(root, names = utilityPackages) {

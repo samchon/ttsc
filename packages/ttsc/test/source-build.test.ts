@@ -6,6 +6,7 @@ const test = require("node:test");
 
 const {
   buildSourcePlugin,
+  computeCacheKey,
 } = require("../lib/plugin/internal/buildSourcePlugin.js");
 
 test("buildSourcePlugin rejects a source outside a nearby Go module", () => {
@@ -42,4 +43,43 @@ test("buildSourcePlugin rejects non-directory and non-go.mod sources", () => {
       }),
     /Go package directory or go\.mod file/,
   );
+});
+
+test("computeCacheKey changes when overlay source changes", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+  const plugin = path.join(root, "plugin");
+  const overlay = path.join(root, "overlay");
+  fs.mkdirSync(plugin, { recursive: true });
+  fs.mkdirSync(overlay, { recursive: true });
+  fs.writeFileSync(
+    path.join(plugin, "go.mod"),
+    "module example.com/plugin\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(plugin, "main.go"), "package main\n", "utf8");
+  fs.writeFileSync(
+    path.join(overlay, "go.mod"),
+    "module example.com/overlay\n\ngo 1.26\n",
+    "utf8",
+  );
+  const overlayFile = path.join(overlay, "host.go");
+  fs.writeFileSync(overlayFile, "package overlay\nconst Value = 1\n", "utf8");
+
+  const first = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    overlayDirs: [overlay],
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+  fs.writeFileSync(overlayFile, "package overlay\nconst Value = 2\n", "utf8");
+  const second = computeCacheKey({
+    dir: plugin,
+    entry: ".",
+    overlayDirs: [overlay],
+    ttscVersion: "1.0.0",
+    tsgoVersion: "7.0.0-dev",
+  });
+
+  assert.notEqual(first, second);
 });

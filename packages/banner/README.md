@@ -13,10 +13,11 @@
 
 ## Setup
 
-Install `ttsc`, TypeScript-Go, and the banner plugin:
+Install `ttsc` and TypeScript-Go, then the banner plugin:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/banner
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/banner
 ```
 
 Open your project's `tsconfig.json`, then add this entry under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge this into the existing object:

@@ -461,7 +461,9 @@ function resolveExecutionContext(
     cwd,
     tsconfig: options.tsconfig,
   });
-  const projectRoot = path.dirname(tsconfig);
+  const projectRoot = options.projectRoot
+    ? path.resolve(cwd, options.projectRoot)
+    : path.dirname(tsconfig);
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
   const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
@@ -469,6 +471,7 @@ function resolveExecutionContext(
     cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     cwd,
     entries: options.plugins,
+    projectRoot,
     tsconfig,
   });
   return {

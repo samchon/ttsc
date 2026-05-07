@@ -22,6 +22,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const project = readProjectConfig({
     cwd,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
   if (configuredPlugins(options, project).length !== 0) {
@@ -95,6 +96,7 @@ function transformProjectWithPlugins(
     cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     cwd,
     entries: options.plugins,
+    projectRoot: options.projectRoot,
     tsconfig: project.path,
   });
   const checks = loaded.nativePlugins.filter(

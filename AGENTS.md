@@ -9,6 +9,7 @@ not the product definition.
 ## Layout
 
 - `packages/ttsc`: JS launcher/API, Go native host, driver, shims, and tools.
+- `packages/unplugin`: bundler adapters that run the same `ttsc` transform plugins inside unplugin-supported bundlers.
 - `packages/lint`: `@ttsc/lint` package and native lint plugin.
 - `packages/banner`, `packages/paths`, `packages/strip`: utility plugins.
 - `packages/ttsc-*`: platform packages.

@@ -13,10 +13,11 @@
 
 ## Setup
 
-Install `ttsc`, TypeScript-Go, and the strip plugin:
+Install `ttsc` and TypeScript-Go, then the strip plugin:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/strip
+npm install -D ttsc @typescript/native-preview
+npm install -D @ttsc/strip
 ```
 
 Open your project's `tsconfig.json`, then add this entry under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge this into the existing object:

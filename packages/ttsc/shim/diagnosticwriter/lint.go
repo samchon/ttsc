@@ -83,6 +83,14 @@ func (d *LintDiagnostic) Localize(_ locale.Locale) string        { return d.mess
 func (d *LintDiagnostic) MessageChain() []inner.Diagnostic       { return nil }
 func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 
+// Message returns the already-localized lint message.
+func (d *LintDiagnostic) Message() string {
+  if d == nil {
+    return ""
+  }
+  return d.message
+}
+
 // IsError reports whether the diagnostic should fail the build. Lint plugins
 // use this to compute their exit code separately from the renderer.
 func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError }

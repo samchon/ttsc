@@ -1,7 +1,6 @@
-import * as Diff from "diff-match-patch-es";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import MagicString from "magic-string";
 import type {
   ITtscCompilerDiagnostic,
   ITtscCompilerTransformation,
@@ -21,11 +20,26 @@ export interface TtscTransformAlias {
   replacement: string;
 }
 
+export interface TtscCachedProjectTransform {
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}
+
+export type TtscTransformCache = Map<
+  string,
+  Promise<TtscCachedProjectTransform>
+>;
+
+export function createTtscTransformCache(): TtscTransformCache {
+  return new Map();
+}
+
 export async function transformTtsc(
   id: string,
   source: string,
   options: ResolvedTtscUnpluginOptions,
   aliases?: unknown,
+  cache?: TtscTransformCache,
 ): Promise<TtscTransformResult | undefined> {
   const clean = stripQuery(id);
   if (clean.includes("\0")) {
@@ -40,28 +54,27 @@ export async function transformTtsc(
   const tsconfigDir = path.dirname(tsconfig);
   const baseUrl = resolveBaseUrl(tsconfigDir, options.compilerOptions);
   const aliasPaths = createAliasPaths(baseUrl, aliases);
-  const configured = createTransformTsconfig({
+  const key = createTransformCacheKey({
     aliasPaths,
-    baseUrl,
     compilerOptions: options.compilerOptions,
+    plugins: options.plugins,
     tsconfig,
   });
-  try {
-    const effectiveTsconfig = configured.path;
-    const result = new TtscCompiler({
-      cwd: path.dirname(effectiveTsconfig),
+
+  let transformed = cache?.get(key);
+  if (transformed === undefined) {
+    transformed = transformProject({
+      aliasPaths,
+      baseUrl,
+      compilerOptions: options.compilerOptions,
       plugins: options.plugins,
-      tsconfig: effectiveTsconfig,
-    }).transform();
-    const code = selectTransformedSource({
-      file,
-      projectRoot: path.dirname(effectiveTsconfig),
-      result,
+      tsconfig,
     });
-    return createTransformResult(source, code, file);
-  } finally {
-    configured.dispose();
+    cache?.set(key, transformed);
   }
+  const { projectRoot, result } = await transformed;
+  const code = selectTransformedSource({ file, projectRoot, result });
+  return createTransformResult(source, code);
 }
 
 export function stripQuery(id: string): string {
@@ -79,49 +92,35 @@ export function isDeclarationFile(id: string): boolean {
 export function createTransformResult(
   source: string,
   code: string,
-  id: string,
 ): TtscTransformResult | undefined {
   if (source === code) {
     return undefined;
   }
+  return { code };
+}
 
-  const magic = new MagicString(source);
-  const diff = Diff.diff(source, code);
-  Diff.diffCleanupSemantic(diff);
-
-  let offset = 0;
-  for (let index = 0; index < diff.length; index += 1) {
-    const [type, text] = diff[index]!;
-    if (type === 0) {
-      offset += text.length;
-      continue;
-    }
-    if (type === 1) {
-      magic.prependLeft(offset, text);
-      continue;
-    }
-
-    const next = diff[index + 1];
-    if (next?.[0] === 1) {
-      magic.update(offset, offset + text.length, next[1]);
-      index += 1;
-    } else {
-      magic.remove(offset, offset + text.length);
-    }
-    offset += text.length;
+async function transformProject(props: {
+  aliasPaths: Record<string, string[]>;
+  baseUrl: string;
+  compilerOptions: Record<string, unknown>;
+  plugins?: ResolvedTtscUnpluginOptions["plugins"];
+  tsconfig: string;
+}): Promise<TtscCachedProjectTransform> {
+  const configured = createTransformTsconfig(props);
+  const projectRoot = path.dirname(props.tsconfig);
+  try {
+    return {
+      projectRoot,
+      result: new TtscCompiler({
+        cwd: projectRoot,
+        plugins: props.plugins,
+        projectRoot,
+        tsconfig: configured.path,
+      }).transform(),
+    };
+  } finally {
+    configured.dispose();
   }
-
-  if (!magic.hasChanged()) {
-    return undefined;
-  }
-  return {
-    code: magic.toString(),
-    map: magic.generateMap({
-      file: `${id}.map`,
-      includeContent: true,
-      source: id,
-    }),
-  };
 }
 
 function createTransformTsconfig(props: {
@@ -130,10 +129,13 @@ function createTransformTsconfig(props: {
   compilerOptions: Record<string, unknown>;
   tsconfig: string;
 }): { path: string; dispose: () => void } {
-  const compilerOptions = {
-    ...props.compilerOptions,
-    ...createAliasCompilerOptions(props),
-  };
+  const compilerOptions = normalizeCompilerOptionsForGeneratedTsconfig(
+    {
+      ...props.compilerOptions,
+      ...createAliasCompilerOptions(props),
+    },
+    path.dirname(props.tsconfig),
+  );
   if (Object.keys(compilerOptions).length === 0) {
     return {
       path: props.tsconfig,
@@ -141,18 +143,13 @@ function createTransformTsconfig(props: {
     };
   }
 
-  const directory = path.dirname(props.tsconfig);
-  const file = path.join(
-    directory,
-    `.ttsc-unplugin-${process.pid}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.json`,
-  );
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-unplugin-"));
+  const file = path.join(directory, "tsconfig.json");
   fs.writeFileSync(
     file,
     JSON.stringify(
       {
-        extends: `./${path.basename(props.tsconfig)}`,
+        extends: normalizePath(props.tsconfig),
         compilerOptions,
       },
       null,
@@ -162,8 +159,53 @@ function createTransformTsconfig(props: {
   );
   return {
     path: file,
-    dispose: () => fs.rmSync(file, { force: true }),
+    dispose: () => fs.rmSync(directory, { force: true, recursive: true }),
   };
+}
+
+function normalizeCompilerOptionsForGeneratedTsconfig(
+  compilerOptions: Record<string, unknown>,
+  tsconfigDir: string,
+): Record<string, unknown> {
+  const output = { ...compilerOptions };
+  for (const key of ["baseUrl", "declarationDir", "outDir", "rootDir"]) {
+    if (typeof output[key] === "string") {
+      output[key] = path.resolve(tsconfigDir, output[key]);
+    }
+  }
+  for (const key of ["rootDirs", "typeRoots"]) {
+    if (Array.isArray(output[key])) {
+      output[key] = output[key].map((entry) =>
+        typeof entry === "string" ? path.resolve(tsconfigDir, entry) : entry,
+      );
+    }
+  }
+  if (hasPaths(output.paths) && typeof output.baseUrl !== "string") {
+    output.baseUrl = tsconfigDir;
+  }
+  if (Array.isArray(output.plugins)) {
+    output.plugins = output.plugins.map((entry) =>
+      normalizePluginConfigForGeneratedTsconfig(entry, tsconfigDir),
+    );
+  }
+  return output;
+}
+
+function normalizePluginConfigForGeneratedTsconfig(
+  entry: unknown,
+  tsconfigDir: string,
+): unknown {
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    return entry;
+  }
+  const output: Record<string, unknown> = { ...entry };
+  for (const key of ["source", "transform"]) {
+    const value = output[key];
+    if (typeof value === "string" && isRelativeSpecifier(value)) {
+      output[key] = path.resolve(tsconfigDir, value);
+    }
+  }
+  return output;
 }
 
 function createAliasCompilerOptions(props: {
@@ -181,6 +223,15 @@ function createAliasCompilerOptions(props: {
       ...props.aliasPaths,
     },
   };
+}
+
+function hasPaths(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length !== 0
+  );
 }
 
 function readPaths(value: unknown): Record<string, string[]> {
@@ -258,6 +309,44 @@ function normalizeAliases(aliases: unknown): TtscTransformAlias[] {
       .map(([find, replacement]) => ({ find, replacement }));
   }
   return [];
+}
+
+function createTransformCacheKey(props: {
+  aliasPaths: Record<string, string[]>;
+  compilerOptions: Record<string, unknown>;
+  plugins?: ResolvedTtscUnpluginOptions["plugins"];
+  tsconfig: string;
+}): string {
+  return stableStringify({
+    aliasPaths: props.aliasPaths,
+    compilerOptions: props.compilerOptions,
+    plugins: props.plugins,
+    tsconfig: path.resolve(props.tsconfig),
+  });
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function isRelativeSpecifier(value: string): boolean {
+  return (
+    value === "." ||
+    value === ".." ||
+    value.startsWith("./") ||
+    value.startsWith("../") ||
+    value.startsWith(".\\") ||
+    value.startsWith("..\\")
+  );
 }
 
 function isAlias(value: unknown): value is TtscTransformAlias {

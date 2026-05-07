@@ -39,6 +39,26 @@ func TestBannerSidecarBuildsJavaScriptAndDeclarations(t *testing.T) {
   assertJSONMap(t, filepath.Join(root, "dist", "main.d.ts.map"))
 }
 
+func TestBannerSidecarCheckRunsProjectDiagnostics(t *testing.T) {
+  root := seedProject(t, map[string]string{
+    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"outDir":"dist","rootDir":"src"},"include":["src"]}`,
+    "src/main.ts":   `export const value: string = 1;` + "\n",
+  })
+  manifest := mustJSON(t, []map[string]any{{
+    "name":  "@ttsc/banner",
+    "stage": "transform",
+    "config": map[string]any{
+      "transform": "@ttsc/banner",
+      "banner":    "unit banner",
+    },
+  }})
+
+  status := run([]string{"check", "--cwd=" + root, "--tsconfig=" + filepath.Join(root, "tsconfig.json"), "--plugins-json=" + manifest, "--quiet"})
+  if status == 0 {
+    t.Fatal("check must fail on project diagnostics")
+  }
+}
+
 func TestBannerSidecarRejectsOutputCommand(t *testing.T) {
   if status := run([]string{"output"}); status == 0 {
     t.Fatal("output command must not be accepted")
