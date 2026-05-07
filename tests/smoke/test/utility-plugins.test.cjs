@@ -301,15 +301,20 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
     "src/modules/message.ts": `export interface MessageBox { value: string }\nexport const message = "paths";\n`,
     "src/pkg/index.ts": `export const index = "index" as const;\n`,
     "src/main.ts": [
+      `declare const require: (id: string) => unknown;`,
       `import { message } from "@lib/message";`,
       `import { exact } from "@lib/exact";`,
       `import { index } from "@pkg";`,
       `export { message } from "@lib/message";`,
       `export type { MessageBox } from "@lib/message";`,
       `export type ImportedBox = import("@lib/message").MessageBox;`,
+      `export const loaded = require("@lib/message");`,
       `export const value = message + ":" + exact + ":" + index;`,
       `export async function loadMessage(): Promise<string> {`,
       `  return (await import("@lib/message")).message;`,
+      `}`,
+      `declare module "@lib/message" {`,
+      `  export const augmented: string;`,
       `}`,
       ``,
     ].join("\n"),
@@ -329,6 +334,7 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   assert.match(js, /from "\.\/modules\/exact\.js"/);
   assert.match(js, /from "\.\/modules\/message\.js"/);
   assert.match(js, /from "\.\/pkg\/index\.js"/);
+  assert.match(js, /require\("\.\/modules\/message\.js"\)/);
   assert.match(js, /import\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(js, /@lib\/message/);
   assert.doesNotMatch(js, /@lib\/exact/);
@@ -336,6 +342,7 @@ test("utility plugins: paths rewrites ESM imports and re-exports", () => {
   const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
   assert.match(dts, /from "\.\/modules\/message\.js"/);
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
+  assert.match(dts, /declare module "\.\/modules\/message\.js"/);
   assert.doesNotMatch(dts, /@lib\/message/);
 });
 

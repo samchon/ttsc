@@ -4,7 +4,7 @@ This guide is for developers writing `ttsc` plugins: npm packages that expose a 
 
 `ttsc` is a general TypeScript-Go compiler/runtime/plugin host. These docs describe the public plugin contract for general TypeScript projects, not a consumer-specific adapter.
 
-> Status: v1, still moving. Pin a tested `ttsc` minor in your plugin's `peerDependencies` until the protocol stabilizes.
+> Status: v1, still moving. Do not publish `ttsc` as a plugin dependency or peer dependency.
 
 ## How ttsc Works
 

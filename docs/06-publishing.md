@@ -11,9 +11,6 @@ A plugin is one npm package containing a JS manifest and Go source.
   "description": "What the plugin does.",
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
-  "peerDependencies": {
-    "ttsc": "^0.8.0"
-  },
   "engines": {
     "node": ">=18"
   },
@@ -43,15 +40,8 @@ If the tarball does not contain `go-plugin/main.go`, consumers will fail with a
 
 ## Dependencies
 
-Use `peerDependencies` for `ttsc`:
-
-```json
-"peerDependencies": {
-  "ttsc": "^0.8.0"
-}
-```
-
-Do not put `ttsc` in `dependencies`; that can install a second host copy in the consumer project.
+Do not list `ttsc` in the plugin's published `dependencies` or
+`peerDependencies`.
 
 Do not declare `@typescript/native-preview` as your plugin peer. The consumer installs it for `ttsc`, and `ttsc` supplies the matching shim/build overlay.
 
@@ -64,11 +54,10 @@ Practical rule:
 | bug fix                                    | patch |
 | new mode or option                         | minor |
 | removed mode or changed transform contract | major |
-| newly verified `ttsc` minor range          | minor |
+| newly verified `ttsc` compatibility        | minor |
 | dropped old `ttsc` minor support           | major |
 
-Your package version is separate from the `ttsc` plugin protocol. Pin a tested
-`ttsc` peer range and widen it only after verification.
+Your package version is separate from the `ttsc` plugin protocol.
 
 ## Pre-Publish Check
 

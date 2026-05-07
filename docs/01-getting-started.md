@@ -25,9 +25,6 @@ ttsc-plugin-debugger-strip/
   "version": "0.1.0",
   "main": "plugin.cjs",
   "files": ["plugin.cjs", "go-plugin"],
-  "peerDependencies": {
-    "ttsc": "^0.8.0"
-  },
   "engines": {
     "node": ">=18"
   }
@@ -36,6 +33,9 @@ ttsc-plugin-debugger-strip/
 
 The `files` field is not optional. Your Go source must ship in the npm tarball
 because `ttsc` builds it on the consumer machine.
+
+Do not list `ttsc` in the plugin's published `dependencies` or
+`peerDependencies`.
 
 ## 2. Write the Descriptor
 

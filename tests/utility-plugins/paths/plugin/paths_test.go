@@ -13,10 +13,15 @@ func TestPathsSidecarRewritesSourceAndDeclarationSpecifiers(t *testing.T) {
     "tsconfig.json":          `{"compilerOptions":{"target":"ES2022","module":"ES2022","strict":true,"declaration":true,"declarationMap":true,"sourceMap":true,"paths":{"@lib/*":["./src/modules/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
     "src/modules/message.ts": `export interface MessageBox { value: string }` + "\n" + `export const message = "ok";` + "\n",
     "src/main.ts": strings.Join([]string{
+      `declare const require: (id: string) => unknown;`,
       `import { message } from "@lib/message";`,
       `export type Imported = import("@lib/message").MessageBox;`,
       `export { message } from "@lib/message";`,
+      `export const loaded = require("@lib/message");`,
       `export const value = message;`,
+      `declare module "@lib/message" {`,
+      `  export const augmented: string;`,
+      `}`,
       ``,
     }, "\n"),
   })
@@ -36,7 +41,10 @@ func TestPathsSidecarRewritesSourceAndDeclarationSpecifiers(t *testing.T) {
   if !strings.Contains(js, `from "./modules/message.js"`) {
     t.Fatalf("JS specifier was not rewritten:\n%s", js)
   }
-  if !strings.Contains(dts, `import("./modules/message.js")`) || !strings.Contains(dts, `from "./modules/message.js"`) {
+  if !strings.Contains(js, `require("./modules/message.js")`) {
+    t.Fatalf("JS require specifier was not rewritten:\n%s", js)
+  }
+  if !strings.Contains(dts, `import("./modules/message.js")`) || !strings.Contains(dts, `from "./modules/message.js"`) || !strings.Contains(dts, `declare module "./modules/message.js"`) {
     t.Fatalf("declaration specifier was not rewritten:\n%s", dts)
   }
   if strings.Contains(js, "@lib/message") || strings.Contains(dts, "@lib/message") {

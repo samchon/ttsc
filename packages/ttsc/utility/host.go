@@ -471,9 +471,14 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
     if arg != nil && arg.Kind == shimast.KindLiteralType {
       visit(arg.AsLiteralTypeNode().Literal)
     }
+  case shimast.KindModuleDeclaration:
+    decl := node.AsModuleDeclaration()
+    if decl != nil {
+      visit(decl.Name())
+    }
   case shimast.KindCallExpression:
     call := node.AsCallExpression()
-    if call.Expression != nil && call.Expression.Kind == shimast.KindImportKeyword && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
       visit(call.Arguments.Nodes[0])
     }
   }
@@ -481,6 +486,20 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
     visitModuleSpecifiers(child, visit)
     return false
   })
+}
+
+func isModuleSpecifierCall(call *shimast.CallExpression) bool {
+  if call == nil || call.Expression == nil {
+    return false
+  }
+  switch call.Expression.Kind {
+  case shimast.KindImportKeyword:
+    return true
+  case shimast.KindIdentifier:
+    return call.Expression.Text() == "require"
+  default:
+    return false
+  }
 }
 
 func (r *pathsRewriter) rewrite(fromSource string, specifier string) (string, bool) {
