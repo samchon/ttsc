@@ -531,7 +531,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       return nil, err
     }
     if discovered == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no eslint.config.* or ttsc-lint.config.* file can be discovered")
+      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or eslint.config.* file can be discovered")
     }
     return loadExternalConfigResolver(discovered)
   }
@@ -574,6 +574,13 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
+      "lint.config.json",
+      "lint.config.js",
+      "lint.config.mjs",
+      "lint.config.cjs",
+      "lint.config.ts",
+      "lint.config.mts",
+      "lint.config.cts",
       "ttsc-lint.config.json",
       "ttsc-lint.config.js",
       "ttsc-lint.config.mjs",

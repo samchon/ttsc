@@ -125,6 +125,10 @@ function prepareWorkspace() {
     ),
   );
   fs.writeFileSync(
+    path.join(workspace, "lint.config.json"),
+    JSON.stringify({}, null, 2),
+  );
+  fs.writeFileSync(
     path.join(workspace, "src", "lib", "message.ts"),
     [
       "export interface Payload {",

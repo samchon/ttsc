@@ -64,8 +64,21 @@ npm install -D @ttsc/lint
 Add a lint config file next to your project config. A config file is required;
 if `@ttsc/lint` cannot find one, the compile fails.
 
+Use `lint.config.json` for a simple rule map:
+
+```json
+{
+  "no-var": "error",
+  "prefer-const": "error",
+  "no-explicit-any": "warning",
+  "no-console": "off"
+}
+```
+
+Use `lint.config.ts` when you want typed configuration:
+
 ```ts
-// ttsc-lint.config.ts
+// lint.config.ts
 import type { TtscLintConfig } from "@ttsc/lint/config";
 
 export default {
@@ -108,9 +121,14 @@ npx ttsx src/index.ts
 - Under `ttsx`, lint errors stop the program before your entrypoint runs.
 - Lint warnings are printed without changing the exit code.
 
-### External config file
+### Config Files
 
-You can also keep the rules in a standalone file and reference it from `tsconfig.json`:
+`@ttsc/lint` can read `lint.config.json`, `lint.config.ts`, and other
+`lint.config.*` files. It can also read ESLint configuration files such as
+`eslint.config.js`, `eslint.config.mjs`, and `eslint.config.ts`.
+
+You can reference a config file directly from `tsconfig.json` when you want to
+use a non-default location:
 
 ```jsonc
 {
@@ -118,7 +136,7 @@ You can also keep the rules in a standalone file and reference it from `tsconfig
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "config": "./ttsc-lint.config.ts",
+        "config": "./lint.config.ts",
       },
     ],
   },
@@ -126,7 +144,7 @@ You can also keep the rules in a standalone file and reference it from `tsconfig
 ```
 
 ```ts
-// ttsc-lint.config.ts
+// lint.config.ts
 import type { TtscLintConfig } from "@ttsc/lint/config";
 
 export default {
@@ -141,9 +159,9 @@ The `config` field accepts:
 
 - An inline object (shown earlier), **or** a path to a file ending in `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`.
 - For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
-- If `config` is omitted, `@ttsc/lint` discovers the nearest `ttsc-lint.config.json`, `ttsc-lint.config.js`, `ttsc-lint.config.mjs`, `ttsc-lint.config.cjs`, `ttsc-lint.config.ts`, `ttsc-lint.config.mts`, `ttsc-lint.config.cts`, `eslint.config.js`, `eslint.config.mjs`, `eslint.config.cjs`, `eslint.config.ts`, `eslint.config.mts`, or `eslint.config.cts` from the owning `tsconfig.json` directory upward. If no config file exists, the compile fails.
+- If `config` is omitted, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning `tsconfig.json` directory upward. If no config file exists, the compile fails.
 - Inline objects use the rule map shape shown earlier.
-- Standalone config files may additionally export ESLint flat-config-style
+- ESLint configuration files may additionally export flat-config-style
   objects or arrays. `@ttsc/lint` reads `basePath`, `files`, `ignores`,
   object/array `extends`, and `rules`, accepts ESLint severity tuples, and
   understands `@typescript-eslint/<rule>` keys for supported rules.

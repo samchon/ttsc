@@ -823,7 +823,7 @@ test("plugin corpus: package ttsc.plugin auto-discovers @ttsc/lint config files"
     }),
   );
   fs.writeFileSync(
-    path.join(root, "ttsc-lint.config.json"),
+    path.join(root, "lint.config.json"),
     JSON.stringify({ "no-var": "error" }),
   );
   fs.writeFileSync(

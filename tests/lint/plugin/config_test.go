@@ -449,6 +449,38 @@ func TestFindLintConfigFileDiscoversNearestAncestor(t *testing.T) {
   }
 }
 
+func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.ts"), "export default {};")
+
+  discovered, err := findLintConfigFile(dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("findLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(dir, "lint.config.ts") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.json"), `{
+    "no-var": "error"
+  }`)
+
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{},
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
+}
+
 func TestFindLintConfigFilePrefersNearestDirectory(t *testing.T) {
   dir := t.TempDir()
   nested := filepath.Join(dir, "packages", "app")
@@ -490,7 +522,7 @@ func TestLoadRuleConfigRejectsMissingDiscoveredConfig(t *testing.T) {
   if err == nil {
     t.Fatal("expected missing lint config to fail")
   }
-  if !strings.Contains(err.Error(), "config") || !strings.Contains(err.Error(), "ttsc-lint.config") {
+  if !strings.Contains(err.Error(), "config") || !strings.Contains(err.Error(), "lint.config") {
     t.Fatalf("error should explain required config discovery, got %v", err)
   }
 }
