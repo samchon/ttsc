@@ -49,6 +49,40 @@ function copyDirectory(from, to) {
   fs.cpSync(from, to, { recursive: true });
 }
 
+function writeRelativePackagePlugin(root, name, config) {
+  const packageRoot = path.join(root, "node_modules", name);
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify({
+      name,
+      version: "0.1.0",
+      ttsc: {
+        plugin: {
+          transform: "./plugin.cjs",
+          ...config,
+        },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "plugin.cjs"),
+    `const path = require("node:path");
+module.exports = (context) => ({
+  name: context.plugin.name,
+  source: path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "go-plugin",
+    "cmd",
+    "ttsc-go-transformer"
+  ),
+});
+`,
+  );
+}
+
 test("plugin corpus: default export factory is accepted as a native descriptor", () => {
   const root = pluginProject(
     [{ transform: "./plugins/default.cjs", name: "default-shape" }],
@@ -149,6 +183,46 @@ test("plugin corpus: ordered native plugins are passed to the Go sidecar", () =>
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   assert.match(js, /"A:PLUGIN:Z"/);
+});
+
+test("plugin corpus: package-relative auto plugins do not collide by raw transform", () => {
+  const root = commonJsProject({
+    "src/main.ts": `export const value: string = goUpper("plugin");\nconsole.log(value);\n`,
+  });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({
+      dependencies: {
+        "plugin-a": "0.1.0",
+        "plugin-b": "0.1.0",
+      },
+    }),
+  );
+  copyDirectory(
+    path.join(workspaceRoot, "tests", "go-transformer"),
+    path.join(root, "go-plugin"),
+  );
+  writeRelativePackagePlugin(root, "plugin-a", {
+    name: "prefix",
+    prefix: "A:",
+  });
+  writeRelativePackagePlugin(root, "plugin-b", {
+    name: "suffix",
+    suffix: ":B",
+  });
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-package-relative-plugins-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /"A:plugin:B"/);
 });
 
 test("plugin corpus: JS transform functions are rejected", () => {

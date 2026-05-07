@@ -148,26 +148,26 @@ function discoverPackagePluginEntries(
       ? packageRoot
       : project.root;
     const resolved = resolvePluginRequest(transform, baseDir);
-    if (
-      configuredTransforms.raw.has(transform) ||
-      configuredTransforms.resolved.has(resolved)
-    ) {
+    if (hasConfiguredTransform(configuredTransforms, transform, resolved)) {
       continue;
     }
     out.push({
       baseDir,
       config,
     });
-    configuredTransforms.raw.add(transform);
-    configuredTransforms.resolved.add(resolved);
+    addConfiguredTransform(configuredTransforms, transform, resolved);
   }
   return out;
 }
 
-function createConfiguredTransformSet(entries: readonly ProjectPluginEntry[]): {
+type ConfiguredTransformSet = {
   raw: Set<string>;
   resolved: Set<string>;
-} {
+};
+
+function createConfiguredTransformSet(
+  entries: readonly ProjectPluginEntry[],
+): ConfiguredTransformSet {
   const raw = new Set<string>();
   const resolved = new Set<string>();
   for (const entry of entries) {
@@ -175,7 +175,9 @@ function createConfiguredTransformSet(entries: readonly ProjectPluginEntry[]): {
     if (typeof transform !== "string" || transform.length === 0) {
       continue;
     }
-    raw.add(transform);
+    if (!isRelativePluginSpecifier(transform)) {
+      raw.add(transform);
+    }
     try {
       resolved.add(resolvePluginRequest(transform, entry.baseDir));
     } catch {
@@ -183,6 +185,29 @@ function createConfiguredTransformSet(entries: readonly ProjectPluginEntry[]): {
     }
   }
   return { raw, resolved };
+}
+
+function hasConfiguredTransform(
+  configuredTransforms: ConfiguredTransformSet,
+  transform: string,
+  resolved: string,
+): boolean {
+  return (
+    configuredTransforms.resolved.has(resolved) ||
+    (!isRelativePluginSpecifier(transform) &&
+      configuredTransforms.raw.has(transform))
+  );
+}
+
+function addConfiguredTransform(
+  configuredTransforms: ConfiguredTransformSet,
+  transform: string,
+  resolved: string,
+): void {
+  if (!isRelativePluginSpecifier(transform)) {
+    configuredTransforms.raw.add(transform);
+  }
+  configuredTransforms.resolved.add(resolved);
 }
 
 function directDependencyNames(manifest: PackageManifest): string[] {
