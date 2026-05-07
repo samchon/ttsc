@@ -42,33 +42,47 @@ func decodeConfig(raw map[string]any) (Config, error) {
 
 Validate after decoding. Error loudly on wrong types.
 
-## Ordered Modes
+## Multiple Modes
 
 One binary can support several modes:
 
 ```go
-func runPipeline(value string, plugins []PluginEntry) (string, error) {
+func runModes(value string, plugins []PluginEntry) (string, error) {
+	var (
+		prefix    *PluginEntry
+		uppercase bool
+		suffix    *PluginEntry
+	)
 	for _, plugin := range plugins {
 		switch plugin.Mode {
 		case "prefix":
-			value = stringOption(plugin.Config, "prefix") + value
+			entry := plugin
+			prefix = &entry
 		case "uppercase":
-			value = strings.ToUpper(value)
+			uppercase = true
 		case "suffix":
-			value += stringOption(plugin.Config, "suffix")
+			entry := plugin
+			suffix = &entry
 		default:
 			return "", fmt.Errorf("unsupported mode %q", plugin.Mode)
 		}
+	}
+	if prefix != nil {
+		value = stringOption(prefix.Config, "prefix") + value
+	}
+	if uppercase {
+		value = strings.ToUpper(value)
+	}
+	if suffix != nil {
+		value += stringOption(suffix.Config, "suffix")
 	}
 	return value, nil
 }
 ```
 
-Consumer config order becomes execution order.
-
 When modes need to cooperate inside one transform emit pass, keep those modes in
-one native binary and dispatch over the ordered `--plugins-json` entries. Check
-plugins are independent diagnostics passes.
+one native binary and dispatch by explicit `mode` values. Check plugins are
+independent diagnostics passes.
 
 ## Transform Plugin
 

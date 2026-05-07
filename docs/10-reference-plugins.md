@@ -41,6 +41,11 @@ module.exports = function createPlugin() {
 The `plugin` directory is inside the package root, so the source builder finds
 the package `go.mod` by walking upward.
 
+`@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare
+`package.json#ttsc.plugin`, so direct installation enables them automatically.
+`@ttsc/banner` needs explicit `tsconfig.json` configuration because a banner
+string is required.
+
 ## `@ttsc/banner`
 
 Path: [`packages/banner`](../packages/banner/)
@@ -84,21 +89,19 @@ Path: [`packages/strip`](../packages/strip/)
 
 Purpose: remove configured call-expression statements and `debugger` statements from TypeScript source AST before emit.
 
-Consumer config:
+Consumer `package.json`:
 
-```jsonc
+```json
 {
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/strip",
-        "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"],
-      },
-    ],
-  },
+  "devDependencies": {
+    "@ttsc/strip": "^0.8.1"
+  }
 }
 ```
+
+With no plugin options, `@ttsc/strip` removes `console.log`, `console.debug`,
+`assert.*`, and `debugger`. Add a `compilerOptions.plugins[]` entry when the
+project needs a different call or statement list.
 
 What to learn:
 
@@ -134,7 +137,17 @@ Path: [`packages/paths`](../packages/paths/)
 
 Purpose: rewrite source module specifiers that match `compilerOptions.paths` into relative output paths. Declaration emit follows the same source AST rewrite.
 
-Consumer config:
+Consumer `package.json`:
+
+```json
+{
+  "devDependencies": {
+    "@ttsc/paths": "^0.8.1"
+  }
+}
+```
+
+Consumer `tsconfig.json`:
 
 ```jsonc
 {
@@ -144,7 +157,6 @@ Consumer config:
     },
     "rootDir": "src",
     "outDir": "dist",
-    "plugins": [{ "transform": "@ttsc/paths" }],
   },
 }
 ```
@@ -188,27 +200,23 @@ Path: [`packages/lint`](../packages/lint/)
 
 Purpose: report ESLint-style diagnostics from TypeScript-Go's Program and Checker path.
 
-Consumer config:
+Consumer `package.json`:
 
-```jsonc
+```json
 {
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error",
-          "no-explicit-any": "warning",
-        },
-      },
-    ],
-  },
+  "devDependencies": {
+    "@ttsc/lint": "^0.8.1"
+  }
 }
 ```
 
+When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the
+nearest `ttsc-lint.config.*` or `eslint.config.*` file from the owning
+`tsconfig.json` directory upward. If no config file exists, the build fails.
+
 What to learn:
 
-- Check-plugin placement: lint inspects authored source before transform emit.
+- Reporting diagnostics before emit.
 - Program/Checker bootstrap for diagnostics.
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
@@ -247,7 +255,7 @@ Read:
 
 Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
-## Combined Pipeline
+## Combined Project
 
 ```jsonc
 {
@@ -258,9 +266,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     "rootDir": "src",
     "outDir": "dist",
     "plugins": [
-      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
       { "transform": "@ttsc/banner", "banner": "License MIT" },
-      { "transform": "@ttsc/paths" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
@@ -271,11 +277,21 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 }
 ```
 
-Execution:
+`ttsc-lint.config.json`:
 
-1. `@ttsc/lint check` runs first.
-2. The first-party utility source phase applies `@ttsc/paths` before `@ttsc/strip`.
-3. `@ttsc/banner` injects source JSDoc before TypeScript-Go parses the project.
-4. TypeScript-Go emits JavaScript, declarations, and maps.
+```json
+{
+  "no-var": "error"
+}
+```
+
+Behavior:
+
+- `@ttsc/lint` reports diagnostics before emit. It can use
+  `ttsc-lint.config.json`, `eslint.config.*`, or direct plugin config.
+- `@ttsc/banner` uses the banner string configured in `tsconfig.json`.
+- `@ttsc/paths` reads `compilerOptions.paths`, `rootDir`, and `outDir`.
+- `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.
+- TypeScript-Go emits JavaScript, declarations, and maps.
 
 Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs).

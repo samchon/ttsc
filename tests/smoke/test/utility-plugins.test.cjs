@@ -44,9 +44,92 @@ test("utility plugins: descriptors own separate native source directories", () =
       fs.existsSync(path.join(workspaceRoot, "packages", name, "go.mod")),
       true,
     );
+    const manifest = JSON.parse(
+      fs.readFileSync(
+        path.join(workspaceRoot, "packages", name, "package.json"),
+        "utf8",
+      ),
+    );
+    if (name === "banner") {
+      assert.equal(manifest.ttsc?.plugin, undefined);
+    } else {
+      assert.deepEqual(manifest.ttsc?.plugin, {
+        transform: `@ttsc/${name}`,
+      });
+    }
     seenDirs.add(descriptor.source);
   }
   assert.equal(seenDirs.size, 4);
+});
+
+test("utility plugins: package ttsc.plugin auto-discovers strip defaults", () => {
+  const root = commonJsProject({
+    "src/main.ts": [
+      `declare const assert: { equal(left: unknown, right: unknown): void };`,
+      `console.log("drop-log");`,
+      `console.debug("drop-debug");`,
+      `assert.equal("drop", "assert");`,
+      `debugger;`,
+      `export const value = "kept";`,
+      ``,
+    ].join("\n"),
+  });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@ttsc/strip": "0.8.1" } }),
+  );
+  seedUtilityPackages(root, ["strip"]);
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-strip-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /kept/);
+  assert.doesNotMatch(js, /console\.(?:log|debug)|assert\.equal|\bdebugger\b/);
+});
+
+test("utility plugins: tsconfig plugin wins over duplicate package auto plugin", () => {
+  const root = commonJsProject(
+    {
+      "src/main.ts": [
+        `console.log("keep-log");`,
+        `console.warn("drop-warn");`,
+        `export const value = "explicit";`,
+        ``,
+      ].join("\n"),
+    },
+    {
+      compilerOptions: {
+        plugins: [{ transform: "@ttsc/strip", calls: ["console.warn"] }],
+      },
+    },
+  );
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ devDependencies: { "@ttsc/strip": "0.8.1" } }),
+  );
+  seedUtilityPackages(root, ["strip"]);
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-strip-explicit-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assert.match(js, /console\.log\("keep-log"\)/);
+  assert.doesNotMatch(js, /console\.warn/);
 });
 
 function factoryContext(name) {

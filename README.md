@@ -48,7 +48,7 @@ npx ttsc --watch
 
 Use `@ttsc/unplugin` when a bundler owns your build.
 
-It runs the same `compilerOptions.plugins` that `ttsc` and `ttsx` use.
+It runs `ttsc` plugins inside supported bundlers.
 
 ```bash
 npm install -D ttsc @typescript/native-preview
@@ -83,30 +83,8 @@ See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unpl
 
 ## Plugins
 
-### Configuration
-
-Add plugin entries under `compilerOptions.plugins` in your `tsconfig.json`.
-
-```json
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error",
-          "no-explicit-any": "warning",
-          "no-non-null-assertion": "off"
-        }
-      },
-      { "transform": "@ttsc/paths" },
-      { "transform": "typia/lib/transform" }
-    ]
-  }
-}
-```
-
-The same configuration is used by both `ttsc` and `ttsx` commands.
+Plugins let libraries add compile-time checks, transforms, and type-driven code
+generation to normal `ttsc` and `ttsx` runs.
 
 ```bash
 # compile
@@ -116,9 +94,7 @@ npx ttsc
 npx ttsx src/index.ts
 ```
 
-This gives compiler-powered libraries one transform path for both build-time and runtime execution.
-
-### What Is a Transform?
+### Transform Example
 
 A transform uses TypeScript types to generate JavaScript before runtime.
 
@@ -143,46 +119,18 @@ interface IMember {
 }
 ```
 
-It is transformed into dedicated JavaScript:
-
-> ```js
-> import typia from "typia";
-> import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-> import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-> import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
-> import { v4 } from "uuid";
->
-> const matched = (() => {
->   const _io0 = (input) =>
->     "string" === typeof input.id &&
->     __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
->     "string" === typeof input.email &&
->     __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
->     "number" === typeof input.age &&
->     __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
->     19 < input.age &&
->     input.age <= 100;
->   return (input) =>
->     "object" === typeof input && null !== input && _io0(input);
-> })()({
->   id: v4(),
->   email: "samchon.github@gmail.com",
->   age: 30,
-> });
-> console.log(matched); // true
-> ```
-
-`ttsc` applies this transform at build time; `ttsx` applies the same transform when running the file.
+The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at
+build time. `ttsx` applies the same transform when running the file directly.
 
 ### List of Plugins
 
 `ttsc` ships a few small utility plugins in this repository.
 
-- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners through source preamble insertion.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): type-check + lint in one compile pass, ~20x faster than `eslint` in theory.
+- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
+- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): reports lint violations as TypeScript compile errors.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
-- [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs configured `ttsc` source transforms inside bundlers supported by `unplugin`.
+- [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
 
 Plugin authors should start from the [`Guide Documents`](https://github.com/samchon/ttsc/tree/master/docs).
 

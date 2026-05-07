@@ -1,9 +1,10 @@
 /**
- * Raw `compilerOptions.plugins[]` entry read from tsconfig/jsconfig.
+ * Raw plugin entry read from `compilerOptions.plugins[]` or from a directly
+ * installed package's `package.json#ttsc.plugin` marker.
  *
- * This is the project-facing config shape that users write in
- * `tsconfig.json`. ttsc deliberately keeps it open-ended because plugin
- * packages own their own config fields.
+ * This is the project-facing config shape that users write in `tsconfig.json`
+ * or plugin packages expose through `package.json`. ttsc deliberately keeps it
+ * open-ended because plugin packages own their own config fields.
  *
  * ttsc interprets only two properties:
  *

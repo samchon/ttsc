@@ -26,6 +26,11 @@
     "typescript",
     "tsgo"
   ],
+  "ttsc": {
+    "plugin": {
+      "transform": "@ttsc/lint"
+    }
+  },
   "files": [
     "README.md",
     "lib",

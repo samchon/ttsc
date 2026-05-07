@@ -83,7 +83,7 @@ Field rules:
 - `source`: Go command package directory or `go.mod` file. Relative paths are
   resolved from the consumer project root; package descriptors should usually
   return an absolute path based on `__dirname`.
-- `stage`: pipeline placement. Omit for `"transform"`.
+- `stage`: plugin kind. Omit for `"transform"`.
 
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain
 and TypeScript-Go shim overlay, then caches the resulting executable.
@@ -113,7 +113,6 @@ native binary. This is how the first-party utility plugins compose:
   "compilerOptions": {
     "plugins": [
       { "transform": "@ttsc/banner", "banner": "license" },
-      { "transform": "@ttsc/paths" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] },
     ],
   },
@@ -122,8 +121,8 @@ native binary. This is how the first-party utility plugins compose:
 
 Distinct third-party compiler hosts cannot be chained blindly, because each one
 would need to own `Program` creation and emit. If several transform modes must
-cooperate, expose them from one native binary and dispatch by the ordered
-`--plugins-json` payload.
+cooperate, expose them from one native binary and dispatch by explicit mode or
+option fields in the `--plugins-json` payload.
 
 ## Plugin Config Keys
 
@@ -131,10 +130,10 @@ cooperate, expose them from one native binary and dispatch by the ordered
 other key remains plugin-owned config and is passed through unchanged to the
 native sidecar.
 
-ts-patch placement words such as `before`, `after`, or `phase` have no compiler
-placement meaning in `ttsc`. If a plugin package chooses to use those names for
-its own config, they are ordinary plugin data. Package descriptors choose only
-between the public `"transform"` and `"check"` stages.
+ts-patch words such as `before`, `after`, or `phase` do not affect `ttsc`
+execution. If a plugin package chooses to use those names for its own config,
+they are ordinary plugin data. Package descriptors choose only between the
+public `"transform"` and `"check"` stages.
 
 ## Disabled Entries
 
@@ -215,8 +214,8 @@ Project-wide transform build. Run diagnostics and write TypeScript-Go outputs.
 
 ## `--plugins-json`
 
-`--plugins-json` is an ordered JSON array of loaded plugin descriptors for the
-current command:
+`--plugins-json` is a JSON array of loaded plugin descriptors for the current
+command:
 
 ```json
 [
@@ -233,8 +232,8 @@ current command:
 
 `config` is the original tsconfig plugin entry. Read user options there.
 
-When multiple entries resolve to the same binary, `ttsc` sends them together in
-tsconfig plugin order. Apply them in order if your plugin supports a pipeline.
+When multiple entries resolve to the same binary, `ttsc` sends them together.
+Select the entry you need by `name`, `mode`, or plugin-owned option fields.
 
 ## Exit and Output
 

@@ -115,23 +115,17 @@ Install:
 npm i -D ttsc @typescript/native-preview @ttsc/lint
 ```
 
-Then add the lint plugin to `compilerOptions.plugins` in your `tsconfig.json`:
+Then add a lint config file:
 
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error",
-          "prefer-const": "error",
-          "no-explicit-any": "warning",
-        },
-      },
-    ],
-  },
-}
+```ts
+// ttsc-lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint/config";
+
+export default {
+  "no-var": "error",
+  "prefer-const": "error",
+  "no-explicit-any": "warning",
+} satisfies TtscLintConfig;
 ```
 
 Rules are off by default — you turn them on explicitly. Start with one or two and ramp up.
@@ -177,9 +171,9 @@ Strip the multipliers away and the story is plain: lint got rolled into the comp
 
 ---
 
-## 5. So what is a "transformer"?
+## 5. So what is a compiler plugin?
 
-`@ttsc/lint` is actually one flavor of a broader concept that `ttsc` supports: a **transformer plugin**. In this case, a transformer that emits diagnostics rather than changing code.
+`@ttsc/lint` is one flavor of a broader concept that `ttsc` supports: a **compiler plugin**. In this case, the plugin reports diagnostics rather than changing code.
 
 A transformer, in one line:
 
@@ -250,11 +244,11 @@ console.log(matched);
 
 What started as a generic-looking call has been replaced, at compile time, with validation logic specialized to `IMember`. The user only wrote `typia.is<IMember>(...)`, but the output has bespoke checking code baked in.
 
-That's a transformer. `@ttsc/lint` plugs into the same slot — it's just a transformer that **reports violations as diagnostics** instead of rewriting code.
+That's a transformer. `@ttsc/lint` plugs into the same compiler extension system, but it **reports violations as diagnostics** instead of rewriting code.
 
-`ttsc` is the compiler that standardizes and exposes this transformer slot, which is why tools like `@ttsc/lint` can be wired in at all.
+`ttsc` is the compiler that standardizes and exposes this plugin system, which is why tools like `@ttsc/lint` can be wired in at all.
 
-> The same plugin configuration applies to both `ttsc` and `ttsx`. A transformer that runs at build time runs the same way when you execute the file directly with `ttsx`.
+> The same installed plugins and config files apply to both `ttsc` and `ttsx`. A transformer that runs at build time runs the same way when you execute the file directly with `ttsx`.
 
 ---
 
@@ -266,7 +260,7 @@ Bringing it back to the start:
 - `@ttsc/lint` pulls lint rules into the compiler so **one compile catches both**.
 - This works because `@ttsc/lint` reuses the AST `typescript-go` already built. No double parsing.
 - And because it runs in Go instead of JavaScript, **two-into-one × JS-to-Go = about 20x faster, in theory** (formal benchmarks coming with TS v7).
-- The thing that makes all of this possible is `ttsc`'s transformer plugin system. Tools like `typia` and `@ttsc/lint` — anything that wants to use compile-time type information — plug into the same slot.
+- The thing that makes all of this possible is `ttsc`'s compiler plugin system. Tools like `typia` and `@ttsc/lint` — anything that wants to use compile-time type information — plug into the same system.
 
 If you want to try it, it's three steps.
 
@@ -276,23 +270,17 @@ If you want to try it, it's three steps.
 npm i -D ttsc @typescript/native-preview @ttsc/lint
 ```
 
-**2. Add the plugin entry to your `tsconfig.json`** under `compilerOptions.plugins` (turn on whichever rules you want — they're all off by default):
+**2. Add a lint config file** next to your project config (turn on whichever rules you want — they're all off by default):
 
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error",
-          "prefer-const": "error",
-          "no-explicit-any": "warning",
-        },
-      },
-    ],
-  },
-}
+```ts
+// ttsc-lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint/config";
+
+export default {
+  "no-var": "error",
+  "prefer-const": "error",
+  "no-explicit-any": "warning",
+} satisfies TtscLintConfig;
 ```
 
 **3. Run it like you always have:**

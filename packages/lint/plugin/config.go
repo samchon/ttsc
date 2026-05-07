@@ -53,15 +53,12 @@ func ParsePlugins(text string) ([]PluginEntry, error) {
   return entries, nil
 }
 
-// FindLintEntry returns the lint entry only when it is the first active
-// plugin. Linting after a source-transforming plugin would inspect mutated
-// source, which is not a meaningful user-code lint result.
+// FindLintEntry returns the active lint entry. ttsc orders check plugins before
+// transform plugins before invoking native sidecars, so lint inspects authored
+// source even when transform plugins are also configured.
 func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
   for i := range entries {
     if entries[i].Name == "@ttsc/lint" {
-      if i != 0 {
-        return nil, fmt.Errorf("@ttsc/lint must be the first active compilerOptions.plugins entry")
-      }
       return &entries[i], nil
     }
   }
@@ -529,12 +526,12 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
 
   value, ok := inline["config"]
   if !ok {
-    discovered, err := findESLintConfigFile(cwd, tsconfigPath)
+    discovered, err := findLintConfigFile(cwd, tsconfigPath)
     if err != nil {
       return nil, err
     }
     if discovered == "" {
-      return RuleConfig{}, nil
+      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no eslint.config.* or ttsc-lint.config.* file can be discovered")
     }
     return loadExternalConfigResolver(discovered)
   }
@@ -565,7 +562,7 @@ func loadExternalConfigResolver(location string) (RuleResolver, error) {
   return store, nil
 }
 
-func findESLintConfigFile(cwd, tsconfigPath string) (string, error) {
+func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
   dir := cwd
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
@@ -577,6 +574,13 @@ func findESLintConfigFile(cwd, tsconfigPath string) (string, error) {
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
+      "ttsc-lint.config.json",
+      "ttsc-lint.config.js",
+      "ttsc-lint.config.mjs",
+      "ttsc-lint.config.cjs",
+      "ttsc-lint.config.ts",
+      "ttsc-lint.config.mts",
+      "ttsc-lint.config.cts",
       "eslint.config.js",
       "eslint.config.mjs",
       "eslint.config.cjs",
@@ -590,7 +594,7 @@ func findESLintConfigFile(cwd, tsconfigPath string) (string, error) {
       }
     }
     if len(matches) > 1 {
-      return "", fmt.Errorf("@ttsc/lint: multiple eslint config files found in %s; set \"config\" explicitly", dir)
+      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s; set \"config\" explicitly", dir)
     }
     if len(matches) == 1 {
       return matches[0], nil

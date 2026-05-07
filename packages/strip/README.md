@@ -9,7 +9,8 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/strip` removes configured call-expression statements and debugger statements from TypeScript source before emit.
+`@ttsc/strip` removes configured debug calls and `debugger` statements from the
+compiled output.
 
 ## Setup
 
@@ -20,21 +21,8 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/strip
 ```
 
-Open your project's `tsconfig.json`, then add this entry under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge this into the existing object:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/strip",
-        "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"],
-      },
-    ],
-  },
-}
-```
+With no `tsconfig.json` entry, `@ttsc/strip` removes `console.log`,
+`console.debug`, `assert.*`, and `debugger`.
 
 Run your normal `ttsc` command:
 
@@ -42,22 +30,30 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-Only the configured patterns are removed. `@ttsc/strip` is not a minifier, tree-shaker, or dead-code-elimination pass.
+Only the configured patterns are removed. `@ttsc/strip` is not a minifier,
+tree-shaker, or dead-code-elimination pass.
 
-## Notes
+## Configuration
 
-Call patterns match statement-level calls such as `console.log("debug")` or `assert.equal(left, right)`. A wildcard is supported at the end of a dotted call pattern, such as `assert.*`.
+Default behavior removes these statement patterns:
+
+```json
+{
+  "calls": ["console.log", "console.debug", "assert.*"],
+  "statements": ["debugger"]
+}
+```
+
+Call patterns match statement-level calls such as `console.log("debug")` or
+`assert.equal(left, right)`. A wildcard is supported at the end of a dotted call
+pattern, such as `assert.*`.
+
+Add a direct plugin config only when the project needs a different strip list:
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
-      // Keep lint first.
-      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-
-      // First-party utilities use their documented transform order.
-      { "transform": "@ttsc/banner", "banner": "License MIT" },
-      { "transform": "@ttsc/paths" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],

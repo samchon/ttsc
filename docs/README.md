@@ -1,85 +1,20 @@
 # ttsc Plugin Author Guide
 
-This guide is for developers writing `ttsc` plugins: npm packages that expose a JavaScript descriptor and a Go native backend. The backend can run as a diagnostics pass or as a TypeScript transform host.
-
-`ttsc` is a general TypeScript-Go compiler/runtime/plugin host. These docs describe the public plugin contract for general TypeScript projects, not a consumer-specific adapter.
+This guide is for developers writing `ttsc` plugins.
 
 > Status: v1, still moving. Do not publish `ttsc` as a plugin dependency or peer dependency.
-
-## How ttsc Works
-
-`ttsc` is a JavaScript host around the TypeScript-Go compiler. TypeScript-Go still parses, checks, and emits the project. `ttsc` adds the plugin layer around that compiler run.
-
-For a normal build with plugins:
-
-1. `ttsc` reads the consumer's `tsconfig.json`.
-2. It resolves every active `compilerOptions.plugins[]` entry.
-3. Each plugin's JavaScript manifest returns a native backend descriptor.
-4. `ttsc` builds the descriptor's Go `source` with the `ttsc`-pinned TypeScript-Go shims.
-5. The built binary is cached under the project cache.
-6. `ttsc` routes execution by stage:
-   - `check` runs before emit for diagnostics;
-   - `transform` owns the compiler transform host.
-7. The binary receives project/plugin data through CLI flags, especially `--plugins-json`.
-
-The important boundary: the JavaScript manifest selects and configures the backend; the Go binary does the real plugin work.
-
-## What You Build
-
-A plugin package usually contains:
-
-```text
-my-plugin/
-|- package.json
-|- plugin.cjs
-|- go-plugin/
-|  |- go.mod
-|  `- main.go
-`- README.md
-```
-
-The descriptor tells `ttsc` where the Go source lives:
-
-```js
-const path = require("node:path");
-
-module.exports = {
-  name: "my-plugin",
-  source: path.resolve(__dirname, "go-plugin"),
-  stage: "transform",
-};
-```
-
-When a consumer runs `ttsc`, the host reads this manifest, builds the Go source with `ttsc`'s pinned TypeScript-Go shims, caches the binary, and invokes it with the plugin protocol.
-
-## Plugin Kinds
-
-Pick the smallest kind that fits the job:
-
-| Kind             | Descriptor                                    | Use it for                                    | Reference                                    |
-| ---------------- | --------------------------------------------- | --------------------------------------------- | -------------------------------------------- |
-| Check plugin     | `stage: "check"`                              | Add diagnostics before emit                   | `@ttsc/lint`                                 |
-| Transform plugin | `stage: "transform"`                          | Mutate TypeScript source in the compiler host | `@ttsc/banner`, `@ttsc/strip`, `@ttsc/paths` |
-| Compiler backend | `stage: "transform"` with a native build host | Own Program creation and emit                 | semantic codegen plugins                     |
-
-Most plugin authors should start with a transform plugin. Move to Program/Checker work only when source AST work is not enough.
-
-A project can list several `compilerOptions.plugins[]` entries. Check plugins compose with compiler backends. Transform plugins compose through the transform host selected for the pass. The first-party utility host applies `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` as source-level transforms before normal TypeScript-Go emit.
-
-The one exclusive role is the compiler backend. A build can have only one distinct native binary that owns Program creation and emit. If several compiler-backend modes need to cooperate, expose them from one native binary and dispatch by the ordered `--plugins-json` payload.
 
 ## Reading Order
 
 1. [Getting Started](./01-getting-started.md) - build the smallest useful source transform plugin.
-2. [Protocol](./02-protocol.md) - manifest fields and binary subcommands.
-3. [Reference Plugins](./10-reference-plugins.md) - guided tour of `banner`, `strip`, `paths`, and `lint`, ordered by difficulty.
+2. [Protocol](./02-protocol.md) - plugin package contract and binary subcommands.
+3. [Reference Plugins](./10-reference-plugins.md) - guided tour of `banner`, `strip`, `paths`, and `lint`, grouped by difficulty.
 4. [Recipes](./08-recipes.md) - focused patterns you can copy.
 5. [AST and Checker](./03-tsgo.md) - TypeScript-Go AST traversal, text ranges, Program bootstrap, and Checker usage.
 6. [Local Development](./04-local-dev.md) - `go.work`, gopls, `go test`, and pnpm notes.
-7. [Internals](./05-internals.md) - build cache and toolchain resolution.
-8. [Testing](./07-testing.md) - Go unit tests and end-to-end `ttsc` fixtures.
-9. [Publishing](./06-publishing.md) - npm package shape and pre-publish checks.
-10. [Pitfalls](./09-pitfalls.md) - common first-hour failures.
+7. [Testing](./07-testing.md) - Go unit tests and end-to-end `ttsc` fixtures.
+8. [Publishing](./06-publishing.md) - npm package shape and pre-publish checks.
+9. [Pitfalls](./09-pitfalls.md) - common first-hour failures.
 
 ## Repository References
 

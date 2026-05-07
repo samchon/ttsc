@@ -13,6 +13,11 @@
     "typescript",
     "tsgo"
   ],
+  "ttsc": {
+    "plugin": {
+      "transform": "@ttsc/paths"
+    }
+  },
   "files": [
     "README.md",
     "src/index.cjs",

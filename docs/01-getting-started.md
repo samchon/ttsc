@@ -24,6 +24,11 @@ ttsc-plugin-debugger-strip/
   "name": "ttsc-plugin-debugger-strip",
   "version": "0.1.0",
   "main": "plugin.cjs",
+  "ttsc": {
+    "plugin": {
+      "transform": "ttsc-plugin-debugger-strip"
+    }
+  },
   "files": ["plugin.cjs", "go-plugin"],
   "engines": {
     "node": ">=18"
@@ -36,6 +41,11 @@ because `ttsc` builds it on the consumer machine.
 
 Do not list `ttsc` in the plugin's published `dependencies` or
 `peerDependencies`.
+
+`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only
+from packages listed directly in the consumer project's `dependencies` or
+`devDependencies`. A matching `compilerOptions.plugins[]` entry in
+`tsconfig.json` takes priority.
 
 ## 2. Write the Descriptor
 
@@ -320,7 +330,6 @@ Consumer `tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "plugins": [{ "transform": "ttsc-plugin-debugger-strip" }],
   },
   "include": ["src"],
 }

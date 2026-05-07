@@ -650,6 +650,14 @@ type callPattern struct {
 }
 
 func parseStrip(config map[string]any) (*stripRewriter, error) {
+  _, hasCalls := config["calls"]
+  _, hasStatements := config["statements"]
+  if !hasCalls && !hasStatements {
+    config = map[string]any{
+      "calls":      []any{"console.log", "console.debug", "assert.*"},
+      "statements": []any{"debugger"},
+    }
+  }
   calls, err := stringArrayConfig(config, "calls")
   if err != nil {
     return nil, fmt.Errorf("@ttsc/strip: %w", err)

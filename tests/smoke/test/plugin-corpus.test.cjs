@@ -729,6 +729,82 @@ test("plugin corpus: @ttsc/lint surfaces rule violations through the normal fail
   assert.doesNotMatch(result.stderr, /\[no-non-null-assertion\]/);
 });
 
+test("plugin corpus: package ttsc.plugin auto-discovers @ttsc/lint config files", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ devDependencies: { "@ttsc/lint": "0.8.1" } }),
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "ttsc-lint.config.json"),
+    JSON.stringify({ "no-var": "error" }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `var value = "auto-lint";\nconsole.log(value);\n`,
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-auto-lint-")),
+    },
+  });
+  assert.notEqual(result.status, 0, "expected auto-discovered lint to run");
+  assert.match(result.stderr, /\[no-var\]/);
+});
+
+test("plugin corpus: auto-discovered @ttsc/lint fails when no config file exists", () => {
+  const root = setupLintProject("lint-violations");
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@ttsc/lint": "0.8.1" } }),
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    `export const value = "no-config";\n`,
+  );
+
+  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-lint-missing-config-"),
+      ),
+    },
+  });
+  assert.notEqual(result.status, 0, "expected missing lint config to fail");
+  assert.match(result.stderr, /config.*ttsc-lint\.config/s);
+});
+
 test("plugin corpus: @ttsc/lint clean project exits zero", () => {
   const root = setupLintProject("lint-violations");
   // Replace the violating source with a clean file.

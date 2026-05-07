@@ -319,24 +319,25 @@ func TestParsePluginsRoundTrip(t *testing.T) {
   }
 }
 
-func TestFindLintEntryRejectsNonFirstLintPlugin(t *testing.T) {
+func TestFindLintEntryAcceptsSortedCheckPluginPayload(t *testing.T) {
   const blob = `[
-    {"name": "source-transform", "stage": "transform", "config": {}},
-    {"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}}
+    {"name": "other-check", "stage": "check", "config": {}},
+    {"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}},
+    {"name": "source-transform", "stage": "transform", "config": {}}
   ]`
   entries, err := ParsePlugins(blob)
   if err != nil {
     t.Fatalf("ParsePlugins: %v", err)
   }
   entry, err := FindLintEntry(entries)
-  if err == nil {
-    t.Fatal("expected non-first @ttsc/lint entry to fail")
+  if err != nil {
+    t.Fatalf("FindLintEntry: %v", err)
   }
-  if entry != nil {
-    t.Fatalf("entry should be nil on placement error, got %+v", entry)
+  if entry == nil {
+    t.Fatal("FindLintEntry returned nil")
   }
-  if !strings.Contains(err.Error(), "first active compilerOptions.plugins entry") {
-    t.Fatalf("error should explain plugin placement, got %v", err)
+  if entry.Name != "@ttsc/lint" {
+    t.Fatalf("unexpected entry: %+v", entry)
   }
 }
 
@@ -433,49 +434,64 @@ func TestLoadRuleConfigAcceptsInlineConfigObject(t *testing.T) {
   }
 }
 
-func TestFindESLintConfigFileDiscoversNearestAncestor(t *testing.T) {
+func TestFindLintConfigFileDiscoversNearestAncestor(t *testing.T) {
   dir := t.TempDir()
   nested := filepath.Join(dir, "packages", "app")
   writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
   writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
 
-  discovered, err := findESLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
+  discovered, err := findLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
   if err != nil {
-    t.Fatalf("findESLintConfigFile: %v", err)
+    t.Fatalf("findLintConfigFile: %v", err)
   }
   if discovered != filepath.Join(dir, "eslint.config.mjs") {
     t.Fatalf("unexpected discovery path: %s", discovered)
   }
 }
 
-func TestFindESLintConfigFilePrefersNearestDirectory(t *testing.T) {
+func TestFindLintConfigFilePrefersNearestDirectory(t *testing.T) {
   dir := t.TempDir()
   nested := filepath.Join(dir, "packages", "app")
   writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
-  writeFile(t, filepath.Join(nested, "eslint.config.cjs"), "module.exports = [];")
+  writeFile(t, filepath.Join(nested, "ttsc-lint.config.cjs"), "module.exports = {};")
   writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
 
-  discovered, err := findESLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
+  discovered, err := findLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
   if err != nil {
-    t.Fatalf("findESLintConfigFile: %v", err)
+    t.Fatalf("findLintConfigFile: %v", err)
   }
-  if discovered != filepath.Join(nested, "eslint.config.cjs") {
+  if discovered != filepath.Join(nested, "ttsc-lint.config.cjs") {
     t.Fatalf("unexpected discovery path: %s", discovered)
   }
 }
 
-func TestFindESLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
+func TestFindLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
-  writeFile(t, filepath.Join(dir, "eslint.config.cjs"), "module.exports = [];")
+  writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), "module.exports = {};")
 
-  _, err := findESLintConfigFile(dir, "tsconfig.json")
+  _, err := findLintConfigFile(dir, "tsconfig.json")
   if err == nil {
-    t.Fatal("expected conflicting eslint config files to fail")
+    t.Fatal("expected conflicting lint config files to fail")
   }
-  if !strings.Contains(err.Error(), "multiple eslint config files found") {
+  if !strings.Contains(err.Error(), "multiple lint config files found") {
     t.Fatalf("error should explain conflict, got %v", err)
+  }
+}
+
+func TestLoadRuleConfigRejectsMissingDiscoveredConfig(t *testing.T) {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+
+  _, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{},
+  }, dir, "tsconfig.json")
+  if err == nil {
+    t.Fatal("expected missing lint config to fail")
+  }
+  if !strings.Contains(err.Error(), "config") || !strings.Contains(err.Error(), "ttsc-lint.config") {
+    t.Fatalf("error should explain required config discovery, got %v", err)
   }
 }
 
