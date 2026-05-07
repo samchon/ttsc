@@ -13,8 +13,9 @@ const platformKey = `${process.platform}-${process.arch}`;
 const platformTarball = `ttsc-${platformKey}`;
 const registryDependencies = [
   "@farmfe/core",
-  "@rspack/cli",
-  "@rspack/core",
+  // Rspack 2.0.1+ crashes on Windows ARM64 during native binding teardown.
+  "@rspack/cli@2.0.0",
+  "@rspack/core@2.0.0",
   "@types/react",
   "@types/react-dom",
   "@typescript/native-preview",
