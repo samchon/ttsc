@@ -316,26 +316,143 @@ func matchParen(text string, pos int) (int, bool) {
     return 0, false
   }
   depth := 1
+  lastSignificant := byte('(')
   for i := pos + 1; i < len(text); i++ {
-    switch text[i] {
+    ch := text[i]
+    switch ch {
+    case ' ', '\t', '\n', '\r', '\f':
+      continue
     case '(':
       depth++
+      lastSignificant = ch
     case ')':
       depth--
       if depth == 0 {
         return i, true
       }
-    case '"', '\'', '`':
-      q := text[i]
-      j := i + 1
-      for j < len(text) && text[j] != q {
-        if text[j] == '\\' {
-          j++
-        }
-        j++
+      lastSignificant = ch
+    case '"', '\'':
+      end, ok := skipQuoted(text, i, ch)
+      if !ok {
+        return 0, false
       }
-      i = j
+      i = end
+      lastSignificant = 'x'
+    case '`':
+      end, ok := skipTemplate(text, i)
+      if !ok {
+        return 0, false
+      }
+      i = end
+      lastSignificant = 'x'
+    case '/':
+      if i+1 < len(text) {
+        switch text[i+1] {
+        case '/':
+          i = skipLineComment(text, i+2)
+          continue
+        case '*':
+          end, ok := skipBlockComment(text, i+2)
+          if !ok {
+            return 0, false
+          }
+          i = end
+          continue
+        }
+      }
+      if canStartRegexLiteral(lastSignificant) {
+        end, ok := skipRegexLiteral(text, i)
+        if !ok {
+          return 0, false
+        }
+        i = end
+        lastSignificant = 'x'
+        continue
+      }
+      lastSignificant = ch
+    default:
+      lastSignificant = ch
     }
   }
   return 0, false
+}
+
+func skipQuoted(text string, pos int, quote byte) (int, bool) {
+  for i := pos + 1; i < len(text); i++ {
+    switch text[i] {
+    case '\\':
+      i++
+    case quote:
+      return i, true
+    case '\n', '\r':
+      return 0, false
+    }
+  }
+  return 0, false
+}
+
+func skipTemplate(text string, pos int) (int, bool) {
+  for i := pos + 1; i < len(text); i++ {
+    switch text[i] {
+    case '\\':
+      i++
+    case '`':
+      return i, true
+    }
+  }
+  return 0, false
+}
+
+func skipLineComment(text string, pos int) int {
+  for i := pos; i < len(text); i++ {
+    if text[i] == '\n' || text[i] == '\r' {
+      return i
+    }
+  }
+  return len(text) - 1
+}
+
+func skipBlockComment(text string, pos int) (int, bool) {
+  for i := pos; i+1 < len(text); i++ {
+    if text[i] == '*' && text[i+1] == '/' {
+      return i + 1, true
+    }
+  }
+  return 0, false
+}
+
+func canStartRegexLiteral(previous byte) bool {
+  return strings.ContainsRune("([{=,:;!&|?+-*~^<>%", rune(previous))
+}
+
+func skipRegexLiteral(text string, pos int) (int, bool) {
+  inClass := false
+  for i := pos + 1; i < len(text); i++ {
+    switch text[i] {
+    case '\\':
+      i++
+    case '[':
+      inClass = true
+    case ']':
+      inClass = false
+    case '/':
+      if inClass {
+        continue
+      }
+      for i+1 < len(text) && isRegexFlag(text[i+1]) {
+        i++
+      }
+      return i, true
+    case '\n', '\r':
+      return 0, false
+    }
+  }
+  return 0, false
+}
+
+func isRegexFlag(ch byte) bool {
+  return ch == '_' ||
+    ch == '$' ||
+    unicode.IsLetter(rune(ch)) ||
+    unicode.IsDigit(rune(ch))
 }

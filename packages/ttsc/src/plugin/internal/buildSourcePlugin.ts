@@ -2,18 +2,13 @@ import { spawnSync } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import { createRequire } from "node:module";
+import * as os from "node:os";
 import * as path from "node:path";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
-const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "vendor",
-  "lib",
-]);
+const PRUNE_DIRS = new Set(["node_modules", ".git", ".ttsc"]);
+const GENERATED_WORKSPACE_FILES = new Set(["go.work", "go.work.sum"]);
 
 /** Build one Go source plugin into a cached executable. */
 export function buildSourcePlugin(opts: {
@@ -53,9 +48,8 @@ export function buildSourcePlugin(opts: {
     );
   }
 
-  const scratchDir = path.join(
-    root,
-    `scratch-${key}-${process.pid}-${Date.now()}`,
+  const scratchDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), `ttsc-plugin-${key}-`),
   );
   try {
     materializeScratchDir(dir, scratchDir);
@@ -64,13 +58,33 @@ export function buildSourcePlugin(opts: {
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName, goBinary);
     const builtBinary = path.join(scratchDir, scratchBinaryName);
-    fs.renameSync(builtBinary, binaryPath);
-    if (process.platform !== "win32") {
-      fs.chmodSync(binaryPath, 0o755);
-    }
+    publishBuiltBinary(builtBinary, binaryPath);
     return binaryPath;
   } finally {
     fs.rmSync(scratchDir, { recursive: true, force: true });
+  }
+}
+
+function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
+  const pending = `${binaryPath}.${process.pid}.${Date.now()}-${Math.random()
+    .toString(16)
+    .slice(2)}.tmp`;
+  fs.copyFileSync(builtBinary, pending);
+  if (process.platform !== "win32") {
+    fs.chmodSync(pending, 0o755);
+  }
+  try {
+    fs.renameSync(pending, binaryPath);
+  } catch (error) {
+    fs.rmSync(pending, { force: true });
+    const code = (error as NodeJS.ErrnoException).code;
+    if (
+      (code === "EEXIST" || code === "EPERM" || code === "EACCES") &&
+      fs.existsSync(binaryPath)
+    ) {
+      return;
+    }
+    throw error;
   }
 }
 
@@ -140,8 +154,8 @@ function materializeScratchDir(source: string, scratch: string): void {
     recursive: true,
     filter: (src) => {
       const base = path.basename(src);
-      if (SKIP_DIRS.has(base)) return false;
-      if (base === "go.work" || base === "go.work.sum") return false;
+      if (shouldPruneDirectory(base)) return false;
+      if (shouldOmitSourceFile(base)) return false;
       return true;
     },
   });
@@ -309,7 +323,7 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (SKIP_DIRS.has(entry.name)) continue;
+    if (shouldPruneDirectory(entry.name)) continue;
     walkForGoMod(path.join(dir, entry.name), out);
   }
 }
@@ -443,16 +457,25 @@ function walk(dir: string, out: string[]): void {
     return;
   }
   for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (shouldPruneDirectory(entry.name)) continue;
       walk(full, out);
       continue;
     }
     if (!entry.isFile()) continue;
+    if (shouldOmitSourceFile(entry.name)) continue;
     if (!isHashableFile(entry.name)) continue;
     out.push(full);
   }
+}
+
+function shouldPruneDirectory(name: string): boolean {
+  return PRUNE_DIRS.has(name);
+}
+
+function shouldOmitSourceFile(name: string): boolean {
+  return GENERATED_WORKSPACE_FILES.has(name);
 }
 
 function isHashableFile(name: string): boolean {
