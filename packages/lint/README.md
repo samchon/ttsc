@@ -154,7 +154,7 @@ The `config` field accepts:
 
 - An inline object (shown earlier), **or** a path to a file ending in `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`.
 - For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
-- If `config` is omitted, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`) from the project directory upward. If no config file exists, the compile fails.
+- If `config` is omitted, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the compile fails.
 - Inline objects use the rule map shape shown earlier.
 - ESLint configuration files may additionally export flat-config-style objects or arrays. `@ttsc/lint` reads `basePath`, `files`, `ignores`, object/array `extends`, and `rules`, accepts ESLint severity tuples, and understands `@typescript-eslint/<rule>` keys for supported rules.
 - Relative `config` paths resolve from the directory of the selected `tsconfig.json`.

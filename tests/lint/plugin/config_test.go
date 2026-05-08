@@ -488,11 +488,15 @@ func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   }
 }
 
-func TestFindLintConfigFileUsesCwdWhenTsconfigIsOutsideCwd(t *testing.T) {
+func TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
   dir := t.TempDir()
-  wrapper := filepath.Join(t.TempDir(), "tsconfig.json")
+  wrapperDir := t.TempDir()
+  wrapper := filepath.Join(wrapperDir, "tsconfig.json")
   writeFile(t, wrapper, "{}")
   writeFile(t, filepath.Join(dir, "lint.config.json"), `{
+    "no-console": "error"
+  }`)
+  writeFile(t, filepath.Join(wrapperDir, "lint.config.json"), `{
     "no-var": "error"
   }`)
 
@@ -500,7 +504,7 @@ func TestFindLintConfigFileUsesCwdWhenTsconfigIsOutsideCwd(t *testing.T) {
   if err != nil {
     t.Fatalf("findLintConfigFile: %v", err)
   }
-  if discovered != filepath.Join(dir, "lint.config.json") {
+  if discovered != filepath.Join(wrapperDir, "lint.config.json") {
     t.Fatalf("unexpected discovery path: %s", discovered)
   }
 }

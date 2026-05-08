@@ -46,7 +46,7 @@ If `@ttsc/banner` is installed and no banner config file can be found, the compi
 
 ## Configuration
 
-`@ttsc/banner` discovers the nearest banner config file from the project directory upward. Use `banner.config.js` or `banner.config.ts` for ordinary projects.
+Use `banner.config.js` or `banner.config.ts` for ordinary projects.
 
 Use `compilerOptions.plugins` only when the project needs a different config file path or inline text:
 

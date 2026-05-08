@@ -216,7 +216,7 @@ Consumer `package.json`:
 }
 ```
 
-When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`) from the project directory upward. If no config file exists, the build fails.
+When `config` is not written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
 What to learn:
 

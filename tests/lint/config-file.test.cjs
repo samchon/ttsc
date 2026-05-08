@@ -138,20 +138,25 @@ test("lint config file: tsconfig may reference a standalone JSON file", () => {
   );
 });
 
-test("lint config file: wrapper tsconfig outside cwd discovers project config", () => {
+test("lint config file: wrapper tsconfig outside cwd discovers wrapper config", () => {
   const project = createLintProject({
     name: "config-file-wrapper-outside-cwd",
     source,
     pluginConfig: {},
     extraSources: {
       "lint.config.json": JSON.stringify({
-        "no-var": "error",
+        "no-console": "error",
       }),
     },
   });
   const wrapper = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-wrapper-"));
   try {
     const tsconfig = path.join(wrapper, "tsconfig.json");
+    fs.writeFileSync(
+      path.join(wrapper, "lint.config.json"),
+      JSON.stringify({ "no-var": "error" }),
+      "utf8",
+    );
     fs.writeFileSync(
       tsconfig,
       JSON.stringify({ extends: path.join(project.tmpdir, "tsconfig.json") }),
@@ -172,8 +177,13 @@ test("lint config file: wrapper tsconfig outside cwd discovers project config", 
 
     assert.equal(result.type, "failure");
     assert.deepEqual(
-      result.diagnostics.map((d) => [d.code, d.category]),
-      [[11966, "error"]],
+      result.diagnostics.map((d) => [d.messageText, d.category]),
+      [
+        [
+          "[no-var] Unexpected var, use let or const instead.\n  ~~~~~~~~~~~~~~",
+          "error",
+        ],
+      ],
     );
   } finally {
     fs.rmSync(wrapper, { recursive: true, force: true });

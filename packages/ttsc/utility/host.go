@@ -506,33 +506,14 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
 }
 
 func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
-	base := cwd
 	if tsconfigPath != "" {
 		resolvedTsconfig := tsconfigPath
 		if !filepath.IsAbs(resolvedTsconfig) {
 			resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
 		}
-		if isPathInside(cwd, resolvedTsconfig) {
-			base = filepath.Dir(resolvedTsconfig)
-		}
+		return filepath.Dir(resolvedTsconfig)
 	}
-	return base
-}
-
-func isPathInside(root, file string) bool {
-	cleanRoot, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	cleanFile, err := filepath.Abs(file)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(cleanRoot, cleanFile)
-	if err != nil {
-		return false
-	}
-	return rel == "." || rel == "" || !isOutsideRelativePath(rel)
+	return cwd
 }
 
 func loadBannerConfigFile(location string) (any, error) {
