@@ -15,8 +15,8 @@
     "package:next": "bash next.bash",
     "package:tgz": "node --experimental-strip-types experimental/tarballs/index.ts",
     "release": "bumpp -r",
-    "test": "pnpm run build:current && pnpm run test:typecheck && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-utility-plugins.cjs && pnpm run test:features",
-    "test:features": "pnpm --dir tests/test-ttsc-api start && pnpm --dir tests/test-ttsc-project start && pnpm --dir tests/test-ttsc-source-plugin start && pnpm --dir tests/test-ttsc-platform start && pnpm --dir tests/test-ttsc-tsgo start && pnpm --dir tests/test-ttsc-go start && pnpm --dir tests/test-ttsc-compiler start && pnpm --dir tests/test-ttsc-plugin start && pnpm --dir tests/test-ttsc-native-transformer start && pnpm --dir tests/test-ttsx-runtime start && pnpm --dir tests/test-utility-plugins start && pnpm --dir tests/test-unplugin-adapters start && pnpm --dir tests/test-unplugin-transform start && pnpm --dir tests/test-lint-plugin start && pnpm --dir tests/test-lint-config start && pnpm --dir tests/test-lint-rules start",
+    "test": "pnpm run build:current && pnpm run test:typecheck && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-ttsc-utility-plugins.cjs && pnpm run test:features",
+    "test:features": "pnpm --dir tests/test-ttsc-api start && pnpm --dir tests/test-ttsc-project start && pnpm --dir tests/test-ttsc-source-plugin start && pnpm --dir tests/test-ttsc-platform start && pnpm --dir tests/test-ttsc-tsgo start && pnpm --dir tests/test-ttsc-go start && pnpm --dir tests/test-ttsc-compiler start && pnpm --dir tests/test-ttsc-plugin start && pnpm --dir tests/test-ttsc-native-transformer start && pnpm --dir tests/test-ttsx-runtime start && pnpm --dir tests/test-ttsc-utility-plugins start && pnpm --dir tests/test-unplugin-adapters start && pnpm --dir tests/test-unplugin-transform start && pnpm --dir tests/test-lint-plugin start && pnpm --dir tests/test-lint-config start && pnpm --dir tests/test-lint-rules start",
     "test:typecheck": "tsgo --noEmit -p tests/tsconfig.json"
   },
   "repository": {

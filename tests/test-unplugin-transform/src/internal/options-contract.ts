@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertResolveOptionsKeepsOnlyPublicContract() {
-  const { resolveOptions } = await loadUnpluginApi();
+  const { resolveOptions } = await TestUnpluginRuntime.loadUnpluginApi();
   const options = resolveOptions({
     compilerOptions: {
       module: "commonjs",
@@ -27,4 +27,4 @@ async function assertResolveOptionsKeepsOnlyPublicContract() {
   assert.equal(options.project, "tsconfig.build.json");
 }
 
-export { assert, assertResolveOptionsKeepsOnlyPublicContract, loadUnpluginApi };
+export { assertResolveOptionsKeepsOnlyPublicContract };

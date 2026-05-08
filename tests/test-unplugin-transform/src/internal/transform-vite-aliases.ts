@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import {
-  createProject,
-  mainFile,
-  mainSource,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformPassesBundlerAliases() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       plugins: [
         {
@@ -33,12 +30,4 @@ async function assertTransformPassesBundlerAliases() {
   assert.match(result.code, /"PLUGIN"/);
 }
 
-export {
-  assert,
-  assertTransformPassesBundlerAliases,
-  createProject,
-  loadUnpluginApi,
-  mainFile,
-  mainSource,
-  path,
-};
+export { assertTransformPassesBundlerAliases };

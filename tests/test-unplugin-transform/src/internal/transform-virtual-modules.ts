@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformIgnoresVirtualModules() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
   const result = await transformTtsc(
     "\0rolldown/runtime.js",
     "export {};",
@@ -12,4 +13,4 @@ async function assertTransformIgnoresVirtualModules() {
   assert.equal(result, undefined);
 }
 
-export { assert, assertTransformIgnoresVirtualModules, loadUnpluginApi };
+export { assertTransformIgnoresVirtualModules };

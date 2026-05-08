@@ -1,17 +1,14 @@
 import assert from "node:assert/strict";
-import {
-  createProject,
-  mainFile,
-  mainSource,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformAppliesOrderedPluginOverrides() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       plugins: [
         { transform: "./plugin.cjs", name: "prefix", prefix: "A:" },
@@ -25,11 +22,4 @@ async function assertTransformAppliesOrderedPluginOverrides() {
   assert.match(result.code, /"A:PLUGIN:Z"/);
 }
 
-export {
-  assert,
-  assertTransformAppliesOrderedPluginOverrides,
-  createProject,
-  loadUnpluginApi,
-  mainFile,
-  mainSource,
-};
+export { assertTransformAppliesOrderedPluginOverrides };

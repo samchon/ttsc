@@ -1,17 +1,12 @@
 import path from "node:path";
-import {
-  assertTransformedToPlugin,
-  collectRollupOutputCode,
-  createProject,
-  requireFromUnplugin,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginAdapter } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
-const { build: viteBuild } = requireFromUnplugin("vite");
+const { build: viteBuild } = TestUnpluginProject.requireFromUnplugin("vite");
 
 async function assertViteAdapterTransformsSource() {
-  const unpluginVite = await loadUnpluginAdapter("vite");
-  const root = createProject();
+  const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+  const root = TestUnpluginProject.createProject();
   const output = await viteBuild({
     root,
     build: {
@@ -28,15 +23,9 @@ async function assertViteAdapterTransformsSource() {
   const chunks = Array.isArray(output)
     ? output.flatMap((entry) => entry.output)
     : output.output;
-  assertTransformedToPlugin(collectRollupOutputCode(chunks));
+  TestUnpluginProject.assertTransformedToPlugin(
+    TestUnpluginProject.collectRollupOutputCode(chunks),
+  );
 }
 
-export {
-  assertTransformedToPlugin,
-  assertViteAdapterTransformsSource,
-  collectRollupOutputCode,
-  createProject,
-  loadUnpluginAdapter,
-  path,
-  requireFromUnplugin,
-};
+export { assertViteAdapterTransformsSource };

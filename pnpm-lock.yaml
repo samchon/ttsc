@@ -464,7 +464,7 @@ importers:
         specifier: ^7.1.12
         version: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/test-utility-plugins:
+  tests/test-ttsc-utility-plugins:
     devDependencies:
       '@ttsc/banner':
         specifier: workspace:*

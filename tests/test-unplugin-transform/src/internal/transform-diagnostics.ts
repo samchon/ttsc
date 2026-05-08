@@ -1,28 +1,23 @@
 import assert from "node:assert/strict";
-import {
-  createProject,
-  mainFile,
-  mainSource,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformReportsNativeDiagnostics() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({
     source: 'export const value: string = "plain";\n',
   });
 
   await assert.rejects(
-    () => transformTtsc(mainFile(root), mainSource(root), resolveOptions()),
+    () =>
+      transformTtsc(
+        TestUnpluginProject.mainFile(root),
+        TestUnpluginProject.mainSource(root),
+        resolveOptions(),
+      ),
     /expected export const value = goUpper/,
   );
 }
 
-export {
-  assert,
-  assertTransformReportsNativeDiagnostics,
-  createProject,
-  loadUnpluginApi,
-  mainFile,
-  mainSource,
-};
+export { assertTransformReportsNativeDiagnostics };

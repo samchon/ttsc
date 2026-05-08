@@ -1,13 +1,9 @@
-import {
-  assertTransformedToPlugin,
-  createProject,
-  mainFile,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginAdapter } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertBunAdapterTransformsSource() {
-  const unpluginBun = await loadUnpluginAdapter("bun");
-  const root = createProject();
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject();
   const loaders = [];
   unpluginBun().setup({
     onLoad(options, loader) {
@@ -16,17 +12,11 @@ async function assertBunAdapterTransformsSource() {
   });
 
   const [{ loader, options }] = loaders;
-  if (!options.filter.test(mainFile(root))) {
+  if (!options.filter.test(TestUnpluginProject.mainFile(root))) {
     throw new Error("Bun adapter did not register a TypeScript source filter");
   }
-  const result = await loader({ path: mainFile(root) });
-  assertTransformedToPlugin(result.contents);
+  const result = await loader({ path: TestUnpluginProject.mainFile(root) });
+  TestUnpluginProject.assertTransformedToPlugin(result.contents);
 }
 
-export {
-  assertBunAdapterTransformsSource,
-  assertTransformedToPlugin,
-  createProject,
-  loadUnpluginAdapter,
-  mainFile,
-};
+export { assertBunAdapterTransformsSource };

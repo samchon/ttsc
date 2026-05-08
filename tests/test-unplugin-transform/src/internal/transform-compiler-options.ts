@@ -1,20 +1,16 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  createProject,
-  mainFile,
-  mainSource,
-  writePackagePlugin,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformUsesInlineCompilerOptions() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       compilerOptions: {
         plugins: [{ transform: "./plugin.cjs", name: "fixture" }],
@@ -27,11 +23,12 @@ async function assertTransformUsesInlineCompilerOptions() {
 }
 
 async function assertGeneratedTsconfigStaysOutsideProjectRoot() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       compilerOptions: {
         plugins: [
@@ -50,11 +47,12 @@ async function assertGeneratedTsconfigStaysOutsideProjectRoot() {
 }
 
 async function assertTransformResultHasNoSyntheticSourceMap() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       compilerOptions: {
         plugins: [{ transform: "./plugin.cjs", name: "fixture" }],
@@ -68,11 +66,11 @@ async function assertTransformResultHasNoSyntheticSourceMap() {
 
 async function assertTransformCacheInvalidatesOnSourceChange() {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await loadUnpluginApi();
-  const root = createProject();
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject();
   const cache = createTtscTransformCache();
-  const file = mainFile(root);
-  const firstSource = mainSource(root);
+  const file = TestUnpluginProject.mainFile(root);
+  const firstSource = TestUnpluginProject.mainSource(root);
   const first = await transformTtsc(
     file,
     firstSource,
@@ -100,8 +98,8 @@ async function assertTransformCacheInvalidatesOnSourceChange() {
 
 async function assertTransformCacheInvalidatesOnProjectSourceChange() {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await loadUnpluginApi();
-  const root = createProject({
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({
     plugins: [
       {
         transform: "./plugin.cjs",
@@ -111,8 +109,8 @@ async function assertTransformCacheInvalidatesOnProjectSourceChange() {
     ],
   });
   const cache = createTtscTransformCache();
-  const file = mainFile(root);
-  const source = mainSource(root);
+  const file = TestUnpluginProject.mainFile(root);
+  const source = TestUnpluginProject.mainSource(root);
   const helper = path.join(root, "src", "helper.ts");
   fs.writeFileSync(helper, "first\n", "utf8");
   const first = await transformTtsc(file, source, resolveOptions(), {}, cache);
@@ -128,8 +126,8 @@ async function assertTransformCacheInvalidatesOnProjectSourceChange() {
 
 async function assertTransformCacheInvalidatesOnLibSourceChange() {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await loadUnpluginApi();
-  const root = createProject({
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({
     plugins: [
       {
         transform: "./plugin.cjs",
@@ -140,8 +138,8 @@ async function assertTransformCacheInvalidatesOnLibSourceChange() {
     ],
   });
   const cache = createTtscTransformCache();
-  const file = mainFile(root);
-  const source = mainSource(root);
+  const file = TestUnpluginProject.mainFile(root);
+  const source = TestUnpluginProject.mainSource(root);
   const helper = path.join(root, "lib", "helper.ts");
   fs.mkdirSync(path.dirname(helper), { recursive: true });
   fs.writeFileSync(helper, "first\n", "utf8");
@@ -157,16 +155,17 @@ async function assertTransformCacheInvalidatesOnLibSourceChange() {
 }
 
 async function assertTransformAbsolutizesPluginConfigPaths() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   fs.writeFileSync(
     path.join(root, "fixture.config.json"),
     JSON.stringify({ ok: true }),
     "utf8",
   );
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       compilerOptions: {
         plugins: [
@@ -186,13 +185,14 @@ async function assertTransformAbsolutizesPluginConfigPaths() {
 }
 
 async function assertTransformUsesPackageDiscoveredProjectPlugins() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
-  writePackagePlugin(root, "fixture-auto");
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  TestUnpluginProject.writePackagePlugin(root, "fixture-auto");
 
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions(),
   );
 
@@ -201,7 +201,6 @@ async function assertTransformUsesPackageDiscoveredProjectPlugins() {
 }
 
 export {
-  assert,
   assertGeneratedTsconfigStaysOutsideProjectRoot,
   assertTransformAbsolutizesPluginConfigPaths,
   assertTransformCacheInvalidatesOnLibSourceChange,
@@ -210,11 +209,4 @@ export {
   assertTransformResultHasNoSyntheticSourceMap,
   assertTransformUsesInlineCompilerOptions,
   assertTransformUsesPackageDiscoveredProjectPlugins,
-  createProject,
-  fs,
-  loadUnpluginApi,
-  mainFile,
-  mainSource,
-  path,
-  writePackagePlugin,
 };

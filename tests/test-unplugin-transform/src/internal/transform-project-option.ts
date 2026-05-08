@@ -1,21 +1,18 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  createProject,
-  mainFile,
-  mainSource,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginApi } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 async function assertTransformUsesProjectOption() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   writeUnpluginProject(root);
 
   const result = await transformTtsc(
-    mainFile(root),
-    mainSource(root),
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
     resolveOptions({
       project: path.join(root, "tsconfig.unplugin.json"),
     }),
@@ -26,16 +23,17 @@ async function assertTransformUsesProjectOption() {
 }
 
 async function assertTransformUsesRelativeProjectOption() {
-  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
-  const root = createProject({ plugins: [] });
+  const { resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
   writeUnpluginProject(root);
 
   const cwd = process.cwd();
   process.chdir(root);
   try {
     const result = await transformTtsc(
-      mainFile(root),
-      mainSource(root),
+      TestUnpluginProject.mainFile(root),
+      TestUnpluginProject.mainSource(root),
       resolveOptions({
         project: "tsconfig.unplugin.json",
       }),
@@ -66,14 +64,7 @@ function writeUnpluginProject(root) {
 }
 
 export {
-  assert,
   assertTransformUsesProjectOption,
   assertTransformUsesRelativeProjectOption,
-  createProject,
-  fs,
-  loadUnpluginApi,
-  mainFile,
-  mainSource,
-  path,
   writeUnpluginProject,
 };

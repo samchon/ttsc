@@ -2,21 +2,19 @@ import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  libPath,
-  libUrl,
-  loadUnpluginAdapter,
-  loadUnpluginApi,
-} from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
 const requireFromTest = createRequire(import.meta.url);
 const __dirname = import.meta.dirname;
 
 async function assertAdapterEntrypointsExposeFactories() {
-  const unpluginFarm = await loadUnpluginAdapter("farm");
-  const unpluginRolldown = await loadUnpluginAdapter("rolldown");
-  const unpluginRspack = await loadUnpluginAdapter("rspack");
-  const unpluginWebpack = await loadUnpluginAdapter("webpack");
+  const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");
+  const unpluginRolldown =
+    await TestUnpluginRuntime.loadUnpluginAdapter("rolldown");
+  const unpluginRspack =
+    await TestUnpluginRuntime.loadUnpluginAdapter("rspack");
+  const unpluginWebpack =
+    await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
   assert.equal(typeof unpluginFarm, "function");
   assert.equal(typeof unpluginRolldown, "function");
   assert.equal(typeof unpluginRspack, "function");
@@ -24,7 +22,7 @@ async function assertAdapterEntrypointsExposeFactories() {
 }
 
 async function assertAdapterEntrypointsSupportEsmDefaultImport() {
-  const root = await import(libUrl("index"));
+  const root = await import(TestUnpluginRuntime.libUrl("index"));
   assert.equal(typeof root.default.vite, "function", "index");
 
   for (const entrypoint of [
@@ -38,13 +36,13 @@ async function assertAdapterEntrypointsSupportEsmDefaultImport() {
     "vite",
     "webpack",
   ]) {
-    const mod = await import(libUrl(entrypoint));
+    const mod = await import(TestUnpluginRuntime.libUrl(entrypoint));
     assert.equal(typeof mod.default, "function", entrypoint);
   }
 }
 
 function assertAdapterEntrypointsSupportCjsRequire() {
-  const root = requireFromTest(libPath("index", "js"));
+  const root = requireFromTest(TestUnpluginRuntime.libPath("index", "js"));
   assert.equal(typeof root.default.vite, "function", "index");
 
   for (const entrypoint of [
@@ -58,25 +56,49 @@ function assertAdapterEntrypointsSupportCjsRequire() {
     "vite",
     "webpack",
   ]) {
-    const mod = requireFromTest(libPath(entrypoint, "js"));
+    const mod = requireFromTest(TestUnpluginRuntime.libPath(entrypoint, "js"));
     assert.equal(typeof mod.default, "function", entrypoint);
   }
 
-  const api = requireFromTest(libPath("api", "js"));
+  const api = requireFromTest(TestUnpluginRuntime.libPath("api", "js"));
   assert.equal(typeof api.resolveOptions, "function");
   assert.equal(typeof api.transformTtsc, "function");
 }
 
 function assertPackageBuildKeepsRuntimeDependenciesExternal() {
-  assert.equal(fs.existsSync(libPath("core/transform", "js")), true);
-  assert.equal(fs.existsSync(libPath("core/transform", "mjs")), true);
-  assert.equal(fs.existsSync(libPath("_virtual/index", "js")), false);
-  assert.equal(fs.existsSync(libPath("_virtual/index", "mjs")), false);
+  assert.equal(
+    fs.existsSync(TestUnpluginRuntime.libPath("core/transform", "js")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(TestUnpluginRuntime.libPath("core/transform", "mjs")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(TestUnpluginRuntime.libPath("_virtual/index", "js")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(TestUnpluginRuntime.libPath("_virtual/index", "mjs")),
+    false,
+  );
 
-  const cjs = fs.readFileSync(libPath("core/transform", "js"), "utf8");
-  const esm = fs.readFileSync(libPath("core/transform", "mjs"), "utf8");
-  const cjsCore = fs.readFileSync(libPath("core/index", "js"), "utf8");
-  const esmCore = fs.readFileSync(libPath("core/index", "mjs"), "utf8");
+  const cjs = fs.readFileSync(
+    TestUnpluginRuntime.libPath("core/transform", "js"),
+    "utf8",
+  );
+  const esm = fs.readFileSync(
+    TestUnpluginRuntime.libPath("core/transform", "mjs"),
+    "utf8",
+  );
+  const cjsCore = fs.readFileSync(
+    TestUnpluginRuntime.libPath("core/index", "js"),
+    "utf8",
+  );
+  const esmCore = fs.readFileSync(
+    TestUnpluginRuntime.libPath("core/index", "mjs"),
+    "utf8",
+  );
   const rollupConfig = fs.readFileSync(
     path.resolve(__dirname, "../../../../packages/unplugin/rollup.config.mjs"),
     "utf8",
@@ -108,7 +130,7 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
 }
 
 async function assertSharedAdapterFilter() {
-  const { unplugin } = await loadUnpluginApi();
+  const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
   assert.equal(raw.transformInclude?.("main.ts"), true);
   assert.equal(raw.transformInclude?.("main.tsx"), true);
@@ -125,7 +147,7 @@ function escapeRegExp(value) {
 }
 
 async function assertNextAdapterPreservesWebpackHook() {
-  const unpluginNext = await loadUnpluginAdapter("next");
+  const unpluginNext = await TestUnpluginRuntime.loadUnpluginAdapter("next");
   let called = false;
   const next = unpluginNext({
     webpack(config) {
@@ -141,21 +163,10 @@ async function assertNextAdapterPreservesWebpackHook() {
 }
 
 export {
-  __dirname,
-  assert,
   assertAdapterEntrypointsExposeFactories,
   assertAdapterEntrypointsSupportCjsRequire,
   assertAdapterEntrypointsSupportEsmDefaultImport,
   assertNextAdapterPreservesWebpackHook,
   assertPackageBuildKeepsRuntimeDependenciesExternal,
   assertSharedAdapterFilter,
-  createRequire,
-  escapeRegExp,
-  fs,
-  libPath,
-  libUrl,
-  loadUnpluginAdapter,
-  loadUnpluginApi,
-  path,
-  requireFromTest,
 };

@@ -23,7 +23,7 @@
     "go-transformer/**/*",
     "projects/**/*",
     "test-lint-rules/src/cases/**/*",
-    "utility-plugins/**/*"
+    "test-ttsc-go-utility-plugins/**/*"
   ],
   "ts-node": {
     "esm": true,

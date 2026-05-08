@@ -5,7 +5,7 @@
   "description": "One-feature-per-rule corpus for @ttsc/lint.",
   "type": "module",
   "scripts": {
-    "start": "node --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-strip-types src/index.ts"
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
   },
   "devDependencies": {
     "@ttsc/lint": "workspace:*",

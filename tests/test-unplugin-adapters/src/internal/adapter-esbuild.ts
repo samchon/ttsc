@@ -1,16 +1,12 @@
-import assert from "node:assert/strict";
-import {
-  assertTransformedToPlugin,
-  createProject,
-  requireFromUnplugin,
-} from "@ttsc/testing/unplugin/project";
-import { loadUnpluginAdapter } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
+import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
 
-const esbuild = requireFromUnplugin("esbuild");
+const esbuild = TestUnpluginProject.requireFromUnplugin("esbuild");
 
 async function assertEsbuildAdapterTransformsSource() {
-  const unpluginEsbuild = await loadUnpluginAdapter("esbuild");
-  const root = createProject();
+  const unpluginEsbuild =
+    await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");
+  const root = TestUnpluginProject.createProject();
   const result = await esbuild.build({
     absWorkingDir: root,
     bundle: false,
@@ -21,15 +17,7 @@ async function assertEsbuildAdapterTransformsSource() {
     write: false,
   });
 
-  assertTransformedToPlugin(result.outputFiles[0].text);
+  TestUnpluginProject.assertTransformedToPlugin(result.outputFiles[0].text);
 }
 
-export {
-  assert,
-  assertEsbuildAdapterTransformsSource,
-  assertTransformedToPlugin,
-  createProject,
-  esbuild,
-  loadUnpluginAdapter,
-  requireFromUnplugin,
-};
+export { assertEsbuildAdapterTransformsSource };
