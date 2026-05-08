@@ -14,7 +14,8 @@ Keep the package contract general. `ttsc` owns the compiler command, `ttsx` owns
 - `tests/projects`: project-shaped fixtures.
 - `tests/test-lint`, `tests/test-ttsc`, `tests/test-unplugin`: TypeScript feature test packages. Group package families inside `src/features/<domain>` and keep one `test_*.ts` feature file per case.
 - `tests/utils`: shared test-only runner and fixture helper package (`@ttsc/testing`).
-- `tests/go-transformer`, `tests/test-banner`, `tests/test-paths`, `tests/test-strip`: focused Go plugin tests.
+- `tests/go-transformer`: focused Go transformer tests.
+- `packages/banner/plugin`, `packages/paths/plugin`, `packages/strip/plugin`: utility plugin Go unit tests.
 - `config`, `scripts`: shared config and workspace scripts.
 
 ## Commands

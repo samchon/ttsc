@@ -30,7 +30,8 @@
     "lib",
     "src",
     "go.mod",
-    "plugin"
+    "plugin/banner.go",
+    "plugin/main.go"
   ],
   "devDependencies": {
     "@types/node": "catalog:utils",
