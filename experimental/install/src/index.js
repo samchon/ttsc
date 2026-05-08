@@ -109,7 +109,7 @@ function prepareWorkspace() {
             },
             {
               transform: "@ttsc/banner",
-              banner: "License MIT",
+              text: "License MIT",
             },
             {
               transform: "@ttsc/strip",
