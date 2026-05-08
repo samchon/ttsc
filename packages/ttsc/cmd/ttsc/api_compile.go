@@ -144,8 +144,12 @@ func toAPICompileDiagnostic(diag driver.Diagnostic) apiCompileDiagnostic {
 func apiOutputKey(cwd, fileName string) string {
   // Relative keys are the API contract for files inside the project. Absolute
   // keys are preserved for uncommon compiler outputs outside cwd.
-  if rel, err := filepath.Rel(cwd, fileName); err == nil && !strings.HasPrefix(rel, "..") {
+  if rel, err := filepath.Rel(cwd, fileName); err == nil && !isOutsideRelativePath(rel) {
     return filepath.ToSlash(rel)
   }
   return filepath.ToSlash(fileName)
+}
+
+func isOutsideRelativePath(rel string) bool {
+  return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

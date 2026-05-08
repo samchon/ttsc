@@ -100,6 +100,18 @@ export function loadProjectPlugins(options: {
   };
 }
 
+export function hasProjectPluginEntries(
+  project: ITtscParsedProjectConfig,
+  entries?: readonly ITtscProjectPluginConfig[] | false,
+): boolean {
+  if (entries === false) {
+    return false;
+  }
+  return resolvePluginEntries(project, entries).some(
+    (entry) => entry.config.enabled !== false,
+  );
+}
+
 function resolvePluginEntries(
   project: ITtscParsedProjectConfig,
   entries?: readonly ITtscProjectPluginConfig[],
@@ -402,12 +414,12 @@ function isPluginStage(value: string): value is TtscPluginStage {
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {
   if (path.isAbsolute(specifier)) {
-    return specifier;
+    return resolveRealPath(specifier);
   }
   if (isRelativePluginSpecifier(specifier)) {
-    return path.resolve(projectRoot, specifier);
+    return resolveRealPath(path.resolve(projectRoot, specifier));
   }
-  return require.resolve(specifier, { paths: [projectRoot] });
+  return resolveRealPath(require.resolve(specifier, { paths: [projectRoot] }));
 }
 
 function resolveRealPath(location: string): string {

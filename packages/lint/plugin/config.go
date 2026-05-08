@@ -531,7 +531,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       return nil, err
     }
     if discovered == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or eslint.config.* file can be discovered")
+      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered")
     }
     return loadExternalConfigResolver(discovered)
   }

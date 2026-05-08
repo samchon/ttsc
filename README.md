@@ -13,7 +13,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
-  - 10x faster than `ts-node`.
+  - native TypeScript-Go execution instead of transpile-only runners.
   - type checking that `tsx` does not provide.
 - **plugin support**: compiler-powered libraries, such as `typia`.
   - `@ttsc/lint`: lint violations as TS compile errors.

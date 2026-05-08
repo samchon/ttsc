@@ -84,9 +84,12 @@ export interface ITtscCompilerContext {
   /**
    * Plugin entries for this compiler instance.
    *
-   * - `undefined`: read `compilerOptions.plugins` from the project config.
-   * - `false`: ignore project plugins for this compiler instance.
-   * - array: use these plugin entries instead of the project config entries.
+   * - `undefined`: read project plugins from `compilerOptions.plugins` and
+   *   directly installed package markers.
+   * - `false`: ignore project config plugins and package markers for this
+   *   compiler instance.
+   * - array: use these plugin entries instead of project config entries and
+   *   package markers.
    *
    * Plugin entries are resolved once per operation from this instance context.
    * Per-call plugin overrides are intentionally not part of the public API.

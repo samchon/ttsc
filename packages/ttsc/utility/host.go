@@ -349,10 +349,14 @@ func applySourceTransforms(prog *driver.Program, state transformState) error {
 
 func apiOutputKey(cwd, fileName string) string {
   rel, err := filepath.Rel(cwd, fileName)
-  if err != nil || strings.HasPrefix(rel, "..") {
+  if err != nil || isOutsideRelativePath(rel) {
     return filepath.ToSlash(fileName)
   }
   return filepath.ToSlash(rel)
+}
+
+func isOutsideRelativePath(rel string) bool {
+  return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func parseBanner(config map[string]any) (string, error) {
@@ -569,10 +573,21 @@ func (r *pathsRewriter) outputPathForSource(source string) string {
     return ""
   }
   rel, err := filepath.Rel(r.rootDir, source)
-  if err != nil || strings.HasPrefix(rel, "..") {
+  if err != nil || isOutsideRelativePath(rel) {
     return ""
   }
-  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, ".js")))
+  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel))))
+}
+
+func emittedJavaScriptExtension(source string) string {
+  switch strings.ToLower(filepath.Ext(source)) {
+  case ".mts":
+    return ".mjs"
+  case ".cts":
+    return ".cjs"
+  default:
+    return ".js"
+  }
 }
 
 func matchPattern(pattern string, specifier string) (string, bool) {

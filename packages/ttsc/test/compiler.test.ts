@@ -27,6 +27,27 @@ test("TtscCompiler.compile returns output without writing project files", () => 
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.compile keeps relative keys for internal dotted output directories", () => {
+  const root = createProject({
+    outDir: "..dist",
+  });
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
+
+  const result = compiler.compile();
+
+  assert.equal(result.type, "success");
+  assert.match(result.output["..dist/main.js"], /api-ok/);
+  assert.equal(
+    Object.keys(result.output).some((key) => path.isAbsolute(key)),
+    false,
+  );
+  assert.equal(fs.existsSync(path.join(root, "..dist")), false);
+});
+
 test("TtscCompiler can disable project plugin loading", () => {
   const root = createProject({
     plugins: [{ transform: "./missing-plugin.cjs" }],
@@ -48,6 +69,20 @@ test("TtscCompiler.compile applies configured source plugins without project out
     source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
   });
   writeCompilerPlugin(root);
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+
+  const result = compiler.compile();
+
+  assert.equal(result.type, "success");
+  assert.match(result.output["dist/main.js"], /PLUGIN/);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
+test("TtscCompiler.compile applies package-discovered source plugins", () => {
+  const root = createProject({
+    source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
+  });
+  writePackageCompilerPlugin(root, "compile-fixture");
   const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
 
   const result = compiler.compile();
@@ -110,6 +145,24 @@ test("TtscCompiler.transform returns every included TypeScript source file", () 
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.transform keeps relative keys for internal dotted source directories", () => {
+  const root = createDottedSourceProject();
+  const compiler = new TtscCompiler({
+    binary: tsgo,
+    cwd: root,
+    plugins: false,
+  });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.match(result.typescript["..src/main.ts"], /dotted-source/);
+  assert.equal(
+    Object.keys(result.typescript).some((key) => path.isAbsolute(key)),
+    false,
+  );
+});
+
 test("TtscCompiler.transform applies configured source plugins to TypeScript output", () => {
   const root = createProject({
     plugins: [{ transform: "./plugin.cjs" }],
@@ -127,6 +180,23 @@ test("TtscCompiler.transform applies configured source plugins to TypeScript out
   );
   assert.match(result.typescript["src/main.ts"], /console\.log\(value\)/);
   assert.equal(result.typescript["dist/main.js"], undefined);
+  assert.equal(fs.existsSync(path.join(root, "dist")), false);
+});
+
+test("TtscCompiler.transform applies package-discovered source plugins", () => {
+  const root = createProject({
+    source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
+  });
+  writePackageCompilerPlugin(root, "compile-fixture");
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+
+  const result = compiler.transform();
+
+  assert.equal(result.type, "success");
+  assert.match(
+    result.typescript["src/main.ts"],
+    /export const value = "PLUGIN"/,
+  );
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
@@ -312,14 +382,43 @@ function createProject(options = {}) {
           target: "ES2022",
           module: "commonjs",
           strict: true,
-          outDir: "dist",
+          outDir: options.outDir ?? "dist",
           declaration: true,
           declarationMap: true,
-          rootDir: "src",
+          rootDir: options.rootDir ?? "src",
           sourceMap: true,
           plugins: options.plugins,
         },
-        include: ["src"],
+        include: options.include ?? ["src"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  return root;
+}
+
+function createDottedSourceProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+  fs.mkdirSync(path.join(root, "..src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "..src", "main.ts"),
+    'export const value: string = "dotted-source";\n',
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          rootDir: "..src",
+          outDir: "dist",
+        },
+        files: ["..src/main.ts"],
       },
       null,
       2,
@@ -350,6 +449,7 @@ function writeSourcePlugin(root) {
 
 function writePackageSourcePlugin(root, packageName) {
   const packageRoot = path.join(root, "node_modules", packageName);
+  writeProjectDependency(root, packageName);
   fs.mkdirSync(packageRoot, { recursive: true });
   fs.writeFileSync(
     path.join(packageRoot, "package.json"),
@@ -374,6 +474,48 @@ function writePackageSourcePlugin(root, packageName) {
     "utf8",
   );
   writeMinimalGoPlugin(packageRoot);
+}
+
+function writePackageCompilerPlugin(root, packageName) {
+  const packageRoot = path.join(root, "node_modules", packageName);
+  writeProjectDependency(root, packageName);
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify({
+      main: "index.cjs",
+      name: packageName,
+      ttsc: {
+        plugin: {
+          transform: packageName,
+        },
+      },
+      version: "0.0.0",
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "index.cjs"),
+    `module.exports = {
+      name: ${JSON.stringify(packageName)},
+      source: ${JSON.stringify(path.join(packageRoot, "plugin-go"))}
+    };\n`,
+    "utf8",
+  );
+  writeCompilerPluginBackend(path.join(packageRoot, "plugin-go"));
+}
+
+function writeProjectDependency(root, packageName) {
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({
+      private: true,
+      devDependencies: {
+        [packageName]: "0.0.0",
+      },
+    }),
+    "utf8",
+  );
 }
 
 function writeWarningCheckPlugin(root) {
@@ -463,14 +605,18 @@ function writeCompilerPlugin(root) {
     'module.exports = { name: "compile-fixture", source: "./plugin-go" };\n',
     "utf8",
   );
-  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
+  writeCompilerPluginBackend(path.join(root, "plugin-go"));
+}
+
+function writeCompilerPluginBackend(pluginRoot) {
+  fs.mkdirSync(pluginRoot, { recursive: true });
   fs.writeFileSync(
-    path.join(root, "plugin-go", "go.mod"),
+    path.join(pluginRoot, "go.mod"),
     "module example.com/compilefixture\n\ngo 1.26\n",
     "utf8",
   );
   fs.writeFileSync(
-    path.join(root, "plugin-go", "main.go"),
+    path.join(pluginRoot, "main.go"),
     [
       "package main",
       "",

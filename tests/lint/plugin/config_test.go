@@ -449,6 +449,31 @@ func TestFindLintConfigFileDiscoversNearestAncestor(t *testing.T) {
   }
 }
 
+func TestFindLintConfigFileDiscoversSupportedESLintFlatConfigExtensions(t *testing.T) {
+  for _, name := range []string{
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "eslint.config.cjs",
+    "eslint.config.ts",
+    "eslint.config.mts",
+    "eslint.config.cts",
+  } {
+    t.Run(name, func(t *testing.T) {
+      dir := t.TempDir()
+      writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+      writeFile(t, filepath.Join(dir, name), "export default [];")
+
+      discovered, err := findLintConfigFile(dir, "tsconfig.json")
+      if err != nil {
+        t.Fatalf("findLintConfigFile: %v", err)
+      }
+      if discovered != filepath.Join(dir, name) {
+        t.Fatalf("unexpected discovery path: %s", discovered)
+      }
+    })
+  }
+}
+
 func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

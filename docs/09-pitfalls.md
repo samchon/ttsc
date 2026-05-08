@@ -107,7 +107,7 @@ This works with TypeScript-Go's normal emit path:
 }
 ```
 
-`@ttsc/banner` and `@ttsc/strip` are transform plugins, so their package descriptors select the transform stage.
+`@ttsc/banner` and `@ttsc/strip` are transform plugins. `@ttsc/strip` can also be enabled by direct package installation, while `@ttsc/banner` needs the explicit entry above because the banner text is required.
 
 This works with a compiler backend:
 
@@ -171,13 +171,15 @@ pos := shimscanner.GetTokenPosOfNode(node, file, false)
 
 ## Cache Did Not Rebuild
 
-Only source-like files affect the plugin binary cache:
+Files inside the plugin source directory affect the plugin binary cache:
 
 ```text
-*.go, *.s, *.c, *.h, *.cpp, *.hpp, go.mod, go.sum, go.work
+Go source, go.mod/go.sum/go.work, embedded JSON/schema/data files, and other package files
 ```
 
-If you changed data files, embed them with `//go:embed` or run:
+Generated/cache directories and editor backup files ending in `~` are skipped. Consumer TypeScript source files and plugin options such as lint `config`, `banner`, or `calls` do not affect the source-plugin binary cache.
+
+If you need to force a cold source-plugin build, run:
 
 ```bash
 npx ttsc clean

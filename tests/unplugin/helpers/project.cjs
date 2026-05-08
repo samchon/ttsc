@@ -87,6 +87,62 @@ function writePluginEntry(root) {
   );
 }
 
+function writePackagePlugin(root, packageName) {
+  const projectManifest = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify(
+      {
+        ...projectManifest,
+        devDependencies: {
+          ...(projectManifest.devDependencies ?? {}),
+          [packageName]: "0.0.0",
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const packageRoot = path.join(root, "node_modules", packageName);
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    JSON.stringify(
+      {
+        main: "index.cjs",
+        name: packageName,
+        ttsc: {
+          plugin: {
+            transform: packageName,
+          },
+        },
+        version: "0.0.0",
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(packageRoot, "index.cjs"),
+    [
+      'const path = require("node:path");',
+      "",
+      "module.exports = (context) => ({",
+      "  name: context.plugin.name ?? context.plugin.transform,",
+      '  source: path.resolve(__dirname, "go-plugin"),',
+      "});",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  writeGoPlugin(packageRoot);
+}
+
 function writeGoPlugin(root) {
   fs.mkdirSync(path.join(root, "go-plugin"), { recursive: true });
   fs.writeFileSync(
@@ -286,4 +342,5 @@ module.exports = {
   mainFile,
   mainSource,
   requireFromUnplugin,
+  writePackagePlugin,
 };

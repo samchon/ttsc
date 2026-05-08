@@ -160,9 +160,7 @@ function collectProjectInputHashes(
   const hashes: Record<string, string> = {};
   for (const file of listProjectInputFiles(projectRoot)) {
     try {
-      hashes[toProjectKey(projectRoot, file)] = hashText(
-        fs.readFileSync(file),
-      );
+      hashes[toProjectKey(projectRoot, file)] = hashText(fs.readFileSync(file));
     } catch {
       // File watchers may observe a transform while another process is moving
       // or deleting files. The missing key invalidates older cache entries.

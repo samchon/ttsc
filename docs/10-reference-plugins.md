@@ -204,7 +204,7 @@ Consumer `package.json`:
 }
 ```
 
-When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the project directory upward. If no config file exists, the build fails.
+When `config` is not written in `tsconfig.json`, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`) from the project directory upward. If no config file exists, the build fails.
 
 What to learn:
 
@@ -279,7 +279,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 
 Behavior:
 
-- `@ttsc/lint` reports diagnostics before emit. It can use `lint.config.*`, `ttsc-lint.config.*`, `eslint.config.*`, or direct plugin config.
+- `@ttsc/lint` reports diagnostics before emit. It can use `lint.config.*`, `ttsc-lint.config.*`, supported ESLint flat config files, or direct plugin config.
 - `@ttsc/banner` uses the banner string configured in `tsconfig.json`.
 - `@ttsc/paths` reads `compilerOptions.paths`, `rootDir`, and `outDir`.
 - `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.

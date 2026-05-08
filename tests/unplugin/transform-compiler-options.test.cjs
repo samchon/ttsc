@@ -7,6 +7,7 @@ const {
   createProject,
   mainFile,
   mainSource,
+  writePackagePlugin,
 } = require("./helpers/project.cjs");
 const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
@@ -32,6 +33,10 @@ test("transformTtsc invalidates project cache when another project source change
 
 test("transformTtsc absolutizes relative plugin config paths in generated tsconfig", async () => {
   await assertTransformAbsolutizesPluginConfigPaths();
+});
+
+test("transformTtsc applies package-discovered project plugins", async () => {
+  await assertTransformUsesPackageDiscoveredProjectPlugins();
 });
 
 async function assertTransformUsesInlineCompilerOptions() {
@@ -174,6 +179,21 @@ async function assertTransformAbsolutizesPluginConfigPaths() {
         ],
       },
     }),
+  );
+
+  assert.ok(result);
+  assert.match(result.code, /"PLUGIN"/);
+}
+
+async function assertTransformUsesPackageDiscoveredProjectPlugins() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
+  const root = createProject({ plugins: [] });
+  writePackagePlugin(root, "fixture-auto");
+
+  const result = await transformTtsc(
+    mainFile(root),
+    mainSource(root),
+    resolveOptions(),
   );
 
   assert.ok(result);

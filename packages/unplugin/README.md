@@ -150,7 +150,7 @@ await Bun.build({
 
 ## Configuration
 
-By default, `@ttsc/unplugin` finds the nearest `tsconfig.json` from the file being transformed and uses its plugin settings.
+By default, `@ttsc/unplugin` finds the nearest `tsconfig.json` from the file being transformed and uses that project's plugin settings, including directly installed plugin packages.
 
 If that is already the config you want, `ttsc()` is enough.
 
