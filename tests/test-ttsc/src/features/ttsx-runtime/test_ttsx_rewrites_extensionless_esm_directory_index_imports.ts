@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx rewrites extensionless ESM directory index imports.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_ttsx_rewrites_extensionless_esm_directory_index_imports =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module" }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -31,9 +31,13 @@ export const test_ttsx_rewrites_extensionless_esm_directory_index_imports =
       "src/main.ts": `import { message } from "./pkg";\nconsole.log(message);\n`,
     });
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-    });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+      },
+    );
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "directory-index-ok");

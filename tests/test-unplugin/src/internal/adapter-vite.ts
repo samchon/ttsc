@@ -1,8 +1,7 @@
 import path from "node:path";
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
-const { build: viteBuild } = TestUnpluginProject.requireFromUnplugin("vite");
+const { build: viteBuild } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite");
 
 async function assertViteAdapterTransformsSource() {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");

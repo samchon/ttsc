@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: invalid tsconfig prevents entry execution.
@@ -16,7 +16,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_invalid_tsconfig_prevents_entry_execution =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,`,
       "src/main.ts": `
       declare const process: { env: { TTSX_MARKER?: string } };
@@ -33,12 +33,16 @@ export const test_runner_corpus_invalid_tsconfig_prevents_entry_execution =
     });
     const marker = path.join(root, "invalid-config-marker.txt");
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-      env: {
-        TTSX_MARKER: marker,
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+        env: {
+          TTSX_MARKER: marker,
+        },
       },
-    });
+    );
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /Unexpected end of JSON input|Expected/);
     assert.doesNotMatch(result.stdout, /invalid-config-should-not-run/);

@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: ESLint config extends are reduced before local rules.
@@ -15,7 +15,7 @@ export const test_lint_config_file_eslint_config_extends_are_reduced_before_loca
   () => {
     const result = runLint({
       name: "config-file-eslint-extends",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./eslint.config.mjs",
       },

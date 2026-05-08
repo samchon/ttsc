@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx ESM rewrite leaves strings, templates, comments, and regex literals untouched.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_literals_untouched =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module" }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -48,9 +48,13 @@ export const test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_l
     `,
     });
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-    });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+      },
+    );
 
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout.trim()), {

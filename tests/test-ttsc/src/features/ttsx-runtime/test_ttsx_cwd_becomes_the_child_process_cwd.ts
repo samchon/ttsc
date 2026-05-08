@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx --cwd becomes the child process cwd.
@@ -38,9 +38,13 @@ export const test_ttsx_cwd_becomes_the_child_process_cwd = () => {
     fs.writeFileSync(file, contents, "utf8");
   }
 
-  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-    cwd: parent,
-  });
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    {
+      cwd: parent,
+    },
+  );
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "app");

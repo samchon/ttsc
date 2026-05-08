@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: ttsx keeps configured outDir untouched.
@@ -15,7 +15,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_runner_corpus_ttsx_keeps_configured_outdir_untouched = () => {
-  const root = createProject({
+  const root = TestProject.createProject({
     "package.json": JSON.stringify({ type: "module" }),
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -34,8 +34,8 @@ export const test_runner_corpus_ttsx_keeps_configured_outdir_untouched = () => {
   });
   const cacheDir = path.join(root, ".ttsx-cache");
 
-  const result = spawn(
-    ttsxBin,
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
     ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
     { cwd: root },
   );

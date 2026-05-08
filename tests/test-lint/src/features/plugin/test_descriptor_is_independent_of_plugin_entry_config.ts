@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { TestLintPlugin } from "../../internal/plugin";
+import { TestLintPlugin } from "../../internal/TestLintPlugin";
 
 /**
  * Verifies descriptor is independent of plugin entry config.

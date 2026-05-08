@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { commonJsProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: type-check diagnostics prevent entry execution.
@@ -16,7 +16,7 @@ import { commonJsProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
   () => {
-    const root = commonJsProject({
+    const root = TestProject.commonJsProject({
       "src/main.ts": `
       declare const process: { env: { TTSX_MARKER?: string } };
       declare function require(name: string): {
@@ -33,12 +33,16 @@ export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
     });
     const marker = path.join(root, "type-error-marker.txt");
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-      env: {
-        TTSX_MARKER: marker,
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+        env: {
+          TTSX_MARKER: marker,
+        },
       },
-    });
+    );
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /project check failed/);
     assert.match(

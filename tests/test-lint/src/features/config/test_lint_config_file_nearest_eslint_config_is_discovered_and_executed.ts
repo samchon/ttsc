@@ -2,7 +2,6 @@ import {
   assert,
   fakeEslintRuntimeModule,
   runLint,
-  source,
 } from "../../internal/config-file";
 
 /**

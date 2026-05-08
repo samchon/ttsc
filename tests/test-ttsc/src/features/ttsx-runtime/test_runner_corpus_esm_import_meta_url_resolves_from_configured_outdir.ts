@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: ESM import.meta.url resolves from configured outDir.
@@ -16,7 +16,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "app/package.json": JSON.stringify({ type: "module" }),
       "app/tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -60,7 +60,11 @@ export const test_runner_corpus_esm_import_meta_url_resolves_from_configured_out
     });
     const cwd = path.join(root, "app");
 
-    const result = spawn(ttsxBin, ["--cwd", cwd, "src/main.ts"], { cwd });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", cwd, "src/main.ts"],
+      { cwd },
+    );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "import-meta-preserved");
   };

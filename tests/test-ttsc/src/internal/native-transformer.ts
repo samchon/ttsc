@@ -2,17 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  copyProject,
-  runNode,
-  spawn,
-  ttscBin,
-  workspaceRoot,
-} from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
+
+const TTSC_BIN = TestProject.TTSC_BIN;
+const WORKSPACE_ROOT = TestProject.WORKSPACE_ROOT;
 
 function goTransformerSource() {
   return path.join(
-    workspaceRoot,
+    WORKSPACE_ROOT,
     "tests",
     "go-transformer",
     "cmd",
@@ -27,6 +24,18 @@ function goPath() {
     : process.env.PATH;
 }
 
+function copyProject(name: string) {
+  return TestProject.copyProject(name);
+}
+
+function runNode(file: string, options?: any) {
+  return TestProject.runNode(file, options);
+}
+
+function spawn(command: string, args: string[], options?: any) {
+  return TestProject.spawn(command, args, options);
+}
+
 export {
   assert,
   copyProject,
@@ -37,6 +46,6 @@ export {
   path,
   runNode,
   spawn,
-  ttscBin,
-  workspaceRoot,
+  TTSC_BIN as ttscBin,
+  WORKSPACE_ROOT as workspaceRoot,
 };

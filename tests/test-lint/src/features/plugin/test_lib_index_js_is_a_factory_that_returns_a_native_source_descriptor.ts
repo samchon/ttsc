@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { TestLintPlugin } from "../../internal/plugin";
+import { TestLintPlugin } from "../../internal/TestLintPlugin";
 
 /**
  * Verifies lib/index.js is a factory that returns a native source descriptor.

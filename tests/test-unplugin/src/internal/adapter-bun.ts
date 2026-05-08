@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 type BunLoadOptions = { filter: RegExp };
 type BunLoader = (args: { path: string }) => Promise<{ contents: string }>;

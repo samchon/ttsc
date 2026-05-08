@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: ESLint files and ignores are resolved per source file.
@@ -15,13 +15,13 @@ export const test_lint_config_file_eslint_files_and_ignores_are_resolved_per_sou
   () => {
     const result = runLint({
       name: "config-file-eslint-files-ignores",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./eslint.config.mjs",
       },
       extraSources: {
-        "src/example.test.ts": source,
-        "src/generated.ts": source,
+        "src/example.test.ts": SOURCE,
+        "src/generated.ts": SOURCE,
         "eslint.config.mjs": `export default [
         {
           rules: {

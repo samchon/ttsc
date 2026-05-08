@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { workspaceRoot } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Runs the Go test suite owned by `packages/ttsc`.
@@ -15,10 +15,10 @@ import { workspaceRoot } from "@ttsc/testing";
  *
  * 1. Resolve the workspace `packages/ttsc` directory.
  * 2. Prefer the local Go SDK path when the developer machine has one.
- * 3. Execute `go test ./...` and fail on either spawn or test failure.
+ * 3. Execute `go test ./...` and fail on either TestProject.spawn or test failure.
  */
 export const test_ttsc_go_package_tests_pass = (): void => {
-  const ttscRoot = path.join(workspaceRoot, "packages", "ttsc");
+  const ttscRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc");
   const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
   const result = child_process.spawnSync("go", ["test", "./..."], {
     cwd: ttscRoot,

@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: tsconfig may reference a standalone JSON file.
@@ -15,7 +15,7 @@ export const test_lint_config_file_tsconfig_may_reference_a_standalone_json_file
   () => {
     const result = runLint({
       name: "config-file-json",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./ttsc-lint.config.json",
       },

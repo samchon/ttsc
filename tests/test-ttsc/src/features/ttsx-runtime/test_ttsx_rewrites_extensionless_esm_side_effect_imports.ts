@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx rewrites extensionless ESM side-effect imports.
@@ -13,7 +13,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsx_rewrites_extensionless_esm_side_effect_imports = () => {
-  const root = createProject({
+  const root = TestProject.createProject({
     "package.json": JSON.stringify({ type: "module" }),
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -34,7 +34,11 @@ export const test_ttsx_rewrites_extensionless_esm_side_effect_imports = () => {
     "src/main.ts": `import "./setup";\nconsole.log(globalThis.__ttsxSideEffect);\n`,
   });
 
-  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "side-effect-import-ok");
 };

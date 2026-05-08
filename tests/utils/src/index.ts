@@ -1,2 +1,4 @@
 export * from "./TestExecutor";
-export * from "./project";
+export * from "./TestProject";
+export * from "./lint";
+export * from "./unplugin";

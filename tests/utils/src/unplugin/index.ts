@@ -1,2 +1,2 @@
-export { TestUnpluginProject } from "./project";
-export { TestUnpluginRuntime } from "./unplugin";
+export { TestUnpluginProject } from "./TestUnpluginProject";
+export { TestUnpluginRuntime } from "./TestUnpluginRuntime";

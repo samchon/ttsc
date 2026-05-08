@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: missing ESLint runtime fails for string extends.
@@ -15,7 +15,7 @@ export const test_lint_config_file_missing_eslint_runtime_fails_for_string_exten
   () => {
     const result = runLint({
       name: "config-file-eslint-missing-runtime-string-extends",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./eslint.config.mjs",
       },

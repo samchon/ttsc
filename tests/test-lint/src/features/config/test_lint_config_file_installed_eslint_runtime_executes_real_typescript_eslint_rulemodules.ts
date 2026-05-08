@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: installed ESLint runtime executes real typescript-eslint RuleModules.

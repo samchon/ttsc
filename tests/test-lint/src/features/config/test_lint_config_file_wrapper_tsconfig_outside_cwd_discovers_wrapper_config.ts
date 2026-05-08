@@ -1,14 +1,15 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
 import {
-  TtscCompiler,
+  SOURCE,
+  TSGO_BINARY,
+  TTSX_BIN,
   assert,
   createLintProject,
-  fs,
   lintGoPath,
-  os,
-  path,
-  source,
-  tsgoBinary,
-  ttsxBin,
 } from "../../internal/config-file";
 
 /**
@@ -26,7 +27,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
   () => {
     const project = createLintProject({
       name: "config-file-wrapper-outside-cwd",
-      source,
+      source: SOURCE,
       pluginConfig: {},
       extraSources: {
         "lint.config.json": JSON.stringify({
@@ -54,8 +55,8 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
         cwd: project.tmpdir,
         env: {
           PATH: lintGoPath(),
-          TTSC_TSGO_BINARY: tsgoBinary,
-          TTSC_TTSX_BINARY: ttsxBin,
+          TTSC_TSGO_BINARY: TSGO_BINARY,
+          TTSC_TTSX_BINARY: TTSX_BIN,
         },
         projectRoot: project.tmpdir,
         tsconfig,

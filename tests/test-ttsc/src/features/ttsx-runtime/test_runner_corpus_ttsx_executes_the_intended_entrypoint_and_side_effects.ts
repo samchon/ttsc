@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { commonJsProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: ttsx executes the intended entrypoint and side effects.
@@ -16,7 +16,7 @@ import { commonJsProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_ttsx_executes_the_intended_entrypoint_and_side_effects =
   () => {
-    const root = commonJsProject({
+    const root = TestProject.commonJsProject({
       "src/main.ts": `
       declare const process: {
         argv: string[];
@@ -40,8 +40,8 @@ export const test_runner_corpus_ttsx_executes_the_intended_entrypoint_and_side_e
     });
     const marker = path.join(root, "runner-marker.json");
 
-    const result = spawn(
-      ttsxBin,
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
       ["--cwd", root, "src/main.ts", "--", "--mode", "probe"],
       {
         cwd: root,

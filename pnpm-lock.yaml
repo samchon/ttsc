@@ -182,6 +182,24 @@ importers:
         specifier: ^7.1.12
         version: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(yaml@2.8.3)
 
+  tests/test-banner:
+    devDependencies:
+      '@ttsc/banner':
+        specifier: workspace:*
+        version: link:../../packages/banner
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
   tests/test-lint:
     devDependencies:
       '@ttsc/lint':
@@ -205,6 +223,42 @@ importers:
       typescript-eslint:
         specifier: ^8.59.2
         version: 8.59.2(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.3)
+
+  tests/test-paths:
+    devDependencies:
+      '@ttsc/paths':
+        specifier: workspace:*
+        version: link:../../packages/paths
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
+  tests/test-strip:
+    devDependencies:
+      '@ttsc/strip':
+        specifier: workspace:*
+        version: link:../../packages/strip
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
 
   tests/test-ttsc:
     devDependencies:

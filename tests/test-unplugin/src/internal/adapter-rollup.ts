@@ -1,7 +1,6 @@
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
-const { rollup } = TestUnpluginProject.requireFromUnplugin("rollup");
+const { rollup } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup");
 
 async function assertRollupAdapterTransformsSource() {
   const unpluginRollup =

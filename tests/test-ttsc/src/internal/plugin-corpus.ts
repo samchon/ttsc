@@ -3,20 +3,10 @@ import child_process from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  commonJsProject,
-  copyProject,
-  nativeBinary,
-  requireFromTest,
-  spawn,
-  tsgoBinary,
-  ttscBin,
-  ttsxBin,
-  workspaceRoot,
-} from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
-const __dirname = path.join(
-  workspaceRoot,
+const INTERNAL_DIR = path.join(
+  TestProject.WORKSPACE_ROOT,
   "tests",
   "test-ttsc",
   "src",
@@ -39,7 +29,7 @@ function pluginProject(
   pluginEntries: unknown[],
   pluginFiles: Record<string, string>,
 ) {
-  return commonJsProject(
+  return TestProject.commonJsProject(
     {
       ...pluginFiles,
       "src/main.ts": `export const value: string = goUpper("plugin");\nconsole.log(value);\n`,
@@ -174,10 +164,10 @@ function parseDiagnostics(stderr: string, filePath: string): ILintDiagnostic[] {
 // install. Using a real symlink (instead of writing a relay file) keeps the
 // plugin's `__dirname` pointed at the workspace go-plugin source dir.
 function setupLintProject(name: string): string {
-  const root = copyProject(name);
+  const root = TestProject.copyProject(name);
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
-  const target = path.join(workspaceRoot, "packages", "lint");
+  const target = path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
   const link = path.join(linkDir, "lint");
   try {
     fs.symlinkSync(target, link, "junction");
@@ -195,8 +185,27 @@ function goPath(): string | undefined {
     : process.env.PATH;
 }
 
+function commonJsProject(files: Record<string, string>, options?: any) {
+  return TestProject.commonJsProject(files, options);
+}
+
+function copyProject(name: string) {
+  return TestProject.copyProject(name);
+}
+
+function spawn(command: string, args: string[], options?: any) {
+  return TestProject.spawn(command, args, options);
+}
+
+const NATIVE_BINARY = TestProject.NATIVE_BINARY;
+const REQUIRE_FROM_TEST = TestProject.REQUIRE_FROM_TEST;
+const TSGO_BINARY = TestProject.TSGO_BINARY;
+const TTSC_BIN = TestProject.TTSC_BIN;
+const TTSX_BIN = TestProject.TTSX_BIN;
+const WORKSPACE_ROOT = TestProject.WORKSPACE_ROOT;
+
 export {
-  __dirname,
+  INTERNAL_DIR as __dirname,
   assert,
   child_process,
   commonJsProject,
@@ -204,19 +213,19 @@ export {
   copyProject,
   fs,
   goPath,
-  nativeBinary,
+  NATIVE_BINARY as nativeBinary,
   nativePlugin,
   os,
   parseDiagnostics,
   parseExpectations,
   path,
   pluginProject,
-  requireFromTest,
+  REQUIRE_FROM_TEST as requireFromTest,
   setupLintProject,
   spawn,
-  tsgoBinary,
-  ttscBin,
-  ttsxBin,
-  workspaceRoot,
+  TSGO_BINARY as tsgoBinary,
+  TTSC_BIN as ttscBin,
+  TTSX_BIN as ttsxBin,
+  WORKSPACE_ROOT as workspaceRoot,
   writeRelativePackagePlugin,
 };

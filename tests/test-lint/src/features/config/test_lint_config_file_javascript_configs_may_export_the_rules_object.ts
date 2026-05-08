@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: JavaScript configs may export the rules object.
@@ -15,7 +15,7 @@ export const test_lint_config_file_javascript_configs_may_export_the_rules_objec
   () => {
     const result = runLint({
       name: "config-file-js",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./ttsc-lint.config.cjs",
       },

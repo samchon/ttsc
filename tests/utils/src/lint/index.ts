@@ -1,1 +1,1 @@
-export * from "./runLint";
+export { TestLint } from "./TestLint";

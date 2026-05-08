@@ -5,9 +5,13 @@ import path from "node:path";
 
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index.js";
 import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
-import { workspaceRoot } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
-const ttscPackageRoot = path.join(workspaceRoot, "packages", "ttsc");
+const ttscPackageRoot = path.join(
+  TestProject.WORKSPACE_ROOT,
+  "packages",
+  "ttsc",
+);
 const tsgo = resolveTsgo({ cwd: ttscPackageRoot }).binary;
 
 interface ICompilerApiProjectOptions {

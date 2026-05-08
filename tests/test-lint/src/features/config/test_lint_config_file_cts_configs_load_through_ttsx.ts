@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: .cts configs load through ttsx.
@@ -14,7 +14,7 @@ import { assert, runLint, source } from "../../internal/config-file";
 export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
   const result = runLint({
     name: "config-file-cts",
-    source,
+    source: SOURCE,
     pluginConfig: {
       config: "./ttsc-lint.config.cts",
     },

@@ -3,24 +3,31 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { TtscCompiler } from "../../../../packages/ttsc/lib/index.js";
-import { workspaceRoot } from "@ttsc/testing";
-import {
-  createLintProject,
-  type ILintDiagnostic,
-  type IRunLintOptions,
-  runLint,
-  runLintProject,
-  tsgoBinary,
-  ttsxBin,
-} from "@ttsc/testing/lint";
+import { TestLint, TestProject } from "@ttsc/testing";
 
-const requireFromTest = createRequire(
-  path.join(workspaceRoot, "tests", "test-lint", "package.json"),
-);
+const TSGO_BINARY = TestProject.TSGO_BINARY;
+const TTSX_BIN = TestProject.TTSX_BIN;
 
-const source = `var value = 1;\nconsole.log(value);\n`;
-const sourceWithTsEslintViolations = `var value = 1;\nlet typed: any = value;\nconsole.log(typed);\n`;
+const SOURCE = `var value = 1;\nconsole.log(value);\n`;
+const SOURCE_WITH_TS_ESLINT_VIOLATIONS = `var value = 1;\nlet typed: any = value;\nconsole.log(typed);\n`;
+
+type ILintDiagnostic = TestLint.ILintDiagnostic;
+type IRunLintOptions = TestLint.IRunLintOptions;
+
+function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
+  return TestLint.run(options);
+}
+
+function createLintProject(options: IRunLintOptions): TestLint.IRunLintProject {
+  return TestLint.createProject(options);
+}
+
+function runLintProject(
+  tmpdir: string,
+  args: string[] = [],
+): TestLint.IRunLintResult {
+  return TestLint.runProject(tmpdir, args);
+}
 
 function fakeEslintRuntimeModule(
   ruleId: string,
@@ -142,20 +149,15 @@ export {
   assert,
   assertESLintRuntimeParity,
   createLintProject,
-  createRequire,
   diagnosticComparable,
   fakeEslintRuntimeModule,
-  fs,
   lintGoPath,
-  os,
-  path,
-  requireFromTest,
   runESLintDirect,
   runLint,
   runLintProject,
-  source,
-  sourceWithTsEslintViolations,
-  TtscCompiler,
-  tsgoBinary,
-  ttsxBin,
+  SOURCE,
+  SOURCE_WITH_TS_ESLINT_VIOLATIONS,
+  TSGO_BINARY,
+  TTSX_BIN,
 };
+export type { ILintDiagnostic, IRunLintOptions };

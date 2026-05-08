@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 async function assertTransformReportsNativeDiagnostics() {
   const { resolveOptions, transformTtsc } =

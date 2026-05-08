@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  parseExpectations,
-  runLint,
-  rulesFromExpectations,
-} from "@ttsc/testing/lint";
+import { TestLint } from "@ttsc/testing";
 
 const casesRoot = path.join(process.cwd(), "src", "cases");
 
@@ -20,11 +16,11 @@ export function assertAllLintCases(): void {
 
 export function assertLintCase(relativeFile: string): void {
   const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
-  const expected = parseExpectations(source);
-  const result = runLint({
+  const expected = TestLint.parseExpectations(source);
+  const result = TestLint.run({
     name: relativeFile,
     source,
-    rules: rulesFromExpectations(expected),
+    rules: TestLint.rulesFromExpectations(expected),
     extraSources: collectExtraSources(relativeFile),
   });
 
@@ -50,7 +46,7 @@ function listLintCases(): string[] {
     .map((file) => path.relative(casesRoot, file).replaceAll(path.sep, "/"))
     .filter((file) => {
       const source = fs.readFileSync(path.join(casesRoot, file), "utf8");
-      return parseExpectations(source).length !== 0;
+      return TestLint.parseExpectations(source).length !== 0;
     });
 }
 

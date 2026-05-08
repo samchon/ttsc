@@ -1,8 +1,7 @@
 import {
+  SOURCE_WITH_TS_ESLINT_VIOLATIONS,
   assert,
   runLint,
-  source,
-  sourceWithTsEslintViolations,
 } from "../../internal/config-file";
 
 /**
@@ -20,7 +19,7 @@ export const test_lint_config_file_typescript_eslint_configs_can_enable_native_t
   () => {
     const result = runLint({
       name: "config-file-typescript-eslint",
-      source: sourceWithTsEslintViolations,
+      source: SOURCE_WITH_TS_ESLINT_VIOLATIONS,
       pluginConfig: {
         config: "./eslint.config.ts",
       },

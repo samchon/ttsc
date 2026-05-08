@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 async function assertTransformReadsDiscoveredTsconfig() {
   const { resolveOptions, transformTtsc } =

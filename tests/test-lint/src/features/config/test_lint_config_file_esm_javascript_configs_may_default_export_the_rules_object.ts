@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: ESM JavaScript configs may default-export the rules object.
@@ -15,7 +15,7 @@ export const test_lint_config_file_esm_javascript_configs_may_default_export_the
   () => {
     const result = runLint({
       name: "config-file-mjs",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./ttsc-lint.config.mjs",
       },

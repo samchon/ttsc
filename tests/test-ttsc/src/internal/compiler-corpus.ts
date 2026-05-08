@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  commonJsProject,
-  createProject,
-  runNode,
-  spawn,
-  ttscBin,
-} from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
+
+function commonJsProject(files: Record<string, string>, options?: any) {
+  return TestProject.commonJsProject(files, options);
+}
+
+function createProject(files: Record<string, string>) {
+  return TestProject.createProject(files);
+}
+
+function runNode(file: string, options?: any) {
+  return TestProject.runNode(file, options);
+}
+
+function spawn(command: string, args: string[], options?: any) {
+  return TestProject.spawn(command, args, options);
+}
+
+const TTSC_BIN = TestProject.TTSC_BIN;
 
 export {
   assert,
@@ -17,5 +29,5 @@ export {
   path,
   runNode,
   spawn,
-  ttscBin,
+  TTSC_BIN as ttscBin,
 };

@@ -2,14 +2,18 @@ import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { workspaceRoot } from "@ttsc/testing";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 
-const requireFromTest = createRequire(
-  path.join(workspaceRoot, "tests", "test-unplugin", "package.json"),
+const REQUIRE_FROM_TEST = createRequire(
+  path.join(
+    TestProject.WORKSPACE_ROOT,
+    "tests",
+    "test-unplugin",
+    "package.json",
+  ),
 );
-const __dirname = path.join(
-  workspaceRoot,
+const INTERNAL_DIR = path.join(
+  TestProject.WORKSPACE_ROOT,
   "tests",
   "test-unplugin",
   "src",
@@ -51,7 +55,7 @@ async function assertAdapterEntrypointsSupportEsmDefaultImport() {
 }
 
 function assertAdapterEntrypointsSupportCjsRequire() {
-  const root = requireFromTest(TestUnpluginRuntime.libPath("index", "js"));
+  const root = REQUIRE_FROM_TEST(TestUnpluginRuntime.libPath("index", "js"));
   assert.equal(typeof root.default.vite, "function", "index");
 
   for (const entrypoint of [
@@ -65,11 +69,13 @@ function assertAdapterEntrypointsSupportCjsRequire() {
     "vite",
     "webpack",
   ]) {
-    const mod = requireFromTest(TestUnpluginRuntime.libPath(entrypoint, "js"));
+    const mod = REQUIRE_FROM_TEST(
+      TestUnpluginRuntime.libPath(entrypoint, "js"),
+    );
     assert.equal(typeof mod.default, "function", entrypoint);
   }
 
-  const api = requireFromTest(TestUnpluginRuntime.libPath("api", "js"));
+  const api = REQUIRE_FROM_TEST(TestUnpluginRuntime.libPath("api", "js"));
   assert.equal(typeof api.resolveOptions, "function");
   assert.equal(typeof api.transformTtsc, "function");
 }
@@ -109,7 +115,10 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
     "utf8",
   );
   const rollupConfig = fs.readFileSync(
-    path.resolve(__dirname, "../../../../packages/unplugin/rollup.config.mjs"),
+    path.resolve(
+      INTERNAL_DIR,
+      "../../../../packages/unplugin/rollup.config.mjs",
+    ),
     "utf8",
   );
 

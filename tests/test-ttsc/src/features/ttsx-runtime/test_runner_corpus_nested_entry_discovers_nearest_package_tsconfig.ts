@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: nested entry discovers nearest package tsconfig.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_nested_entry_discovers_nearest_package_tsconfig =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "packages/app/tsconfig.json": JSON.stringify({
         compilerOptions: {
           target: "ES2022",
@@ -28,9 +28,13 @@ export const test_runner_corpus_nested_entry_discovers_nearest_package_tsconfig 
       "packages/app/src/main.ts": `const message: string = "nested-tsconfig-ok";\nconsole.log(message);\n`,
     });
 
-    const result = spawn(ttsxBin, ["--cwd", root, "packages/app/src/main.ts"], {
-      cwd: root,
-    });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "packages/app/src/main.ts"],
+      {
+        cwd: root,
+      },
+    );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "nested-tsconfig-ok");
   };

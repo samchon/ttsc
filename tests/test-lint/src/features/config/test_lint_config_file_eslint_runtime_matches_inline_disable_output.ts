@@ -1,4 +1,4 @@
-import { assertESLintRuntimeParity, source } from "../../internal/config-file";
+import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: ESLint runtime matches inline disable output.

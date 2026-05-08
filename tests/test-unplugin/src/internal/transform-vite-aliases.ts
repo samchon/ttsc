@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 async function assertTransformPassesBundlerAliases() {
   const { resolveOptions, transformTtsc } =

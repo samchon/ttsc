@@ -1,7 +1,6 @@
-import { TestUnpluginProject } from "@ttsc/testing/unplugin/project";
-import { TestUnpluginRuntime } from "@ttsc/testing/unplugin/unplugin";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
-const esbuild = TestUnpluginProject.requireFromUnplugin("esbuild");
+const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
 
 async function assertEsbuildAdapterTransformsSource() {
   const unpluginEsbuild =

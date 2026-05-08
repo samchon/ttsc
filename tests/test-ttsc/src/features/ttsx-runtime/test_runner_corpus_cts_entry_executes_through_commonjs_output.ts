@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: .cts entry executes through CommonJS output.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_cts_entry_executes_through_commonjs_output =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module" }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -30,9 +30,13 @@ export const test_runner_corpus_cts_entry_executes_through_commonjs_output =
       "src/main.cts": `const message: string = "cts-runner-ok";\nconsole.log(message);\n`,
     });
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.cts"], {
-      cwd: root,
-    });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.cts"],
+      {
+        cwd: root,
+      },
+    );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "cts-runner-ok");
   };

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestLintPlugin } from "../../internal/plugin";
+import { TestLintPlugin } from "../../internal/TestLintPlugin";
 
 /**
  * Verifies lib/index.d.ts exposes typed lint config files.

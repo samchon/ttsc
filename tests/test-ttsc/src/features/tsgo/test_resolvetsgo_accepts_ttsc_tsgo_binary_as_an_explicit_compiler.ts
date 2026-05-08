@@ -1,4 +1,9 @@
-import { assert, fs, os, path, resolveTsgo } from "../../internal/tsgo";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 
 /**
  * Verifies resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler.

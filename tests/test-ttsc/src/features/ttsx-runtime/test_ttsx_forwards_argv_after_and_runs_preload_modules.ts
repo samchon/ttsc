@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx forwards argv after -- and runs preload modules.
@@ -13,7 +13,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsx_forwards_argv_after_and_runs_preload_modules = () => {
-  const root = createProject({
+  const root = TestProject.createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -34,8 +34,8 @@ export const test_ttsx_forwards_argv_after_and_runs_preload_modules = () => {
     `,
   });
 
-  const result = spawn(
-    ttsxBin,
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
     [
       "--cwd",
       root,

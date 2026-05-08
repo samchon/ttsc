@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx runs a CommonJS TypeScript entry through ttsc.
@@ -13,7 +13,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsx_runs_a_commonjs_typescript_entry_through_ttsc = () => {
-  const root = createProject({
+  const root = TestProject.createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -27,7 +27,11 @@ export const test_ttsx_runs_a_commonjs_typescript_entry_through_ttsc = () => {
     "src/main.ts": `const message: string = "runner-ok";\nconsole.log(message);\n`,
   });
 
-  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "runner-ok");
 };

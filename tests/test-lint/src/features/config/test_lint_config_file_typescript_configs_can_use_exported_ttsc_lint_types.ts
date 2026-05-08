@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: TypeScript configs can use exported @ttsc/lint types.
@@ -15,7 +15,7 @@ export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint
   () => {
     const result = runLint({
       name: "config-file-ts-satisfies-native-type",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./ttsc-lint.config.ts",
       },

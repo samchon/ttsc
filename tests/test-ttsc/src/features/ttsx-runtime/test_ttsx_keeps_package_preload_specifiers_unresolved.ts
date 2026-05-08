@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx keeps package preload specifiers unresolved.
@@ -13,7 +13,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsx_keeps_package_preload_specifiers_unresolved = () => {
-  const root = createProject({
+  const root = TestProject.createProject({
     "package.json": JSON.stringify({ private: true }),
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -43,8 +43,8 @@ export const test_ttsx_keeps_package_preload_specifiers_unresolved = () => {
     `,
   });
 
-  const result = spawn(
-    ttsxBin,
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
     [
       "--cwd",
       root,

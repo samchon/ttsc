@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config file: ESLint flat config arrays are reduced to rules maps.
@@ -15,7 +15,7 @@ export const test_lint_config_file_eslint_flat_config_arrays_are_reduced_to_rule
   () => {
     const result = runLint({
       name: "config-file-eslint-flat-array",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: "./eslint.config.mjs",
       },

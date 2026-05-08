@@ -1,4 +1,4 @@
-import { assert, runLint, source } from "../../internal/config-file";
+import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
  * Verifies lint config object: tsconfig may carry an inline config object.
@@ -15,7 +15,7 @@ export const test_lint_config_object_tsconfig_may_carry_an_inline_config_object 
   () => {
     const result = runLint({
       name: "config-inline-object",
-      source,
+      source: SOURCE,
       pluginConfig: {
         config: {
           "no-var": "off",

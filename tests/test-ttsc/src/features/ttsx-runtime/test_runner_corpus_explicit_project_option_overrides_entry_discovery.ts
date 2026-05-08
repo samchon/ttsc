@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies runner corpus: explicit project option overrides entry discovery.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_runner_corpus_explicit_project_option_overrides_entry_discovery =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "configs/app.json": JSON.stringify({
         compilerOptions: {
           target: "ES2022",
@@ -28,8 +28,8 @@ export const test_runner_corpus_explicit_project_option_overrides_entry_discover
       "src/main.ts": `const message: string = "explicit-runner-project";\nconsole.log(message);\n`,
     });
 
-    const result = spawn(
-      ttsxBin,
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
       ["--cwd", root, "--project", "configs/app.json", "src/main.ts"],
       { cwd: root },
     );

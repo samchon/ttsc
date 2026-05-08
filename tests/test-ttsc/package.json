@@ -2,7 +2,7 @@
   "private": true,
   "name": "@ttsc/test-ttsc",
   "version": "0.8.1",
-  "description": "Compiler, API, plugin, platform, and utility plugin tests for ttsc.",
+  "description": "Compiler, API, plugin host, platform, and first-party plugin integration tests for ttsc.",
   "type": "module",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"

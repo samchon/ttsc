@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createProject, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 import {
   createFakeNativePreview,
   spawnWithoutTsgoOverride,
@@ -20,7 +20,7 @@ import {
  */
 export const test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -55,9 +55,13 @@ if (!noEmit) {
 `,
     );
 
-    const result = spawnWithoutTsgoOverride(ttsxBin, ["src/index.ts"], {
-      cwd: root,
-    });
+    const result = spawnWithoutTsgoOverride(
+      TestProject.TTSX_BIN,
+      ["src/index.ts"],
+      {
+        cwd: root,
+      },
+    );
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "consumer-local-tsgo");

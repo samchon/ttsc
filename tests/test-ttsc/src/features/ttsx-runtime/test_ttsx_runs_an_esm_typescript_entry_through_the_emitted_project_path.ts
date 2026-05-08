@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx runs an ESM TypeScript entry through the emitted project path.
@@ -14,7 +14,7 @@ import { createProject, spawn, ttsxBin } from "@ttsc/testing";
  */
 export const test_ttsx_runs_an_esm_typescript_entry_through_the_emitted_project_path =
   () => {
-    const root = createProject({
+    const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module" }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -31,9 +31,13 @@ export const test_ttsx_runs_an_esm_typescript_entry_through_the_emitted_project_
       "src/main.ts": `import { message } from "./helper";\nconsole.log(message);\n`,
     });
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-    });
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+      },
+    );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "esm-runner-ok");
   };
