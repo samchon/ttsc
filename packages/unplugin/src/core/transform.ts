@@ -209,7 +209,6 @@ function isIgnoredProjectDirectory(name: string): boolean {
     name === "build" ||
     name === "coverage" ||
     name === "dist" ||
-    name === "lib" ||
     name === "node_modules" ||
     name === "out" ||
     name === "temp" ||

@@ -31,6 +31,10 @@ test("transformTtsc invalidates project cache when another project source change
   await assertTransformCacheInvalidatesOnProjectSourceChange();
 });
 
+test("transformTtsc invalidates project cache when lib source changes", async () => {
+  await assertTransformCacheInvalidatesOnLibSourceChange();
+});
+
 test("transformTtsc absolutizes relative plugin config paths in generated tsconfig", async () => {
   await assertTransformAbsolutizesPluginConfigPaths();
 });
@@ -144,6 +148,36 @@ async function assertTransformCacheInvalidatesOnProjectSourceChange() {
   const file = mainFile(root);
   const source = mainSource(root);
   const helper = path.join(root, "src", "helper.ts");
+  fs.writeFileSync(helper, "first\n", "utf8");
+  const first = await transformTtsc(file, source, resolveOptions(), {}, cache);
+
+  fs.writeFileSync(helper, "second\n", "utf8");
+  const second = await transformTtsc(file, source, resolveOptions(), {}, cache);
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.match(first.code, /"PLUGIN:FIRST"/);
+  assert.match(second.code, /"PLUGIN:SECOND"/);
+}
+
+async function assertTransformCacheInvalidatesOnLibSourceChange() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await loadUnpluginApi();
+  const root = createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "read-configured-helper",
+        path: "lib/helper.ts",
+      },
+    ],
+  });
+  const cache = createTtscTransformCache();
+  const file = mainFile(root);
+  const source = mainSource(root);
+  const helper = path.join(root, "lib", "helper.ts");
+  fs.mkdirSync(path.dirname(helper), { recursive: true });
   fs.writeFileSync(helper, "first\n", "utf8");
   const first = await transformTtsc(file, source, resolveOptions(), {}, cache);
 
