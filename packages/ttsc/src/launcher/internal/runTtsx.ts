@@ -38,7 +38,7 @@ function run(argv: readonly string[]): number {
 
   const prepared = prepareExecution(entry, {
     binary: parsed.binary,
-    cacheDir: parsed.cacheDir,
+    cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
     cwd,
     project: parsed.project,
   });
@@ -140,7 +140,7 @@ function printHelp(): void {
       "Options:",
       "  -P, --project <file>   Use an explicit tsconfig.json",
       "  --cwd <dir>            Resolve entry/project relative to this directory",
-      "  --cache-dir <dir>      Override the compiled JS cache directory",
+      "  --cache-dir <dir>      Override the runner and source-plugin cache root",
       "  --binary <path>        Use an explicit tsgo binary",
       "  -r, --require <module> Preload a module before the entrypoint",
       "  -h, --help             Show this help",
@@ -170,6 +170,13 @@ function isRelativeSpecifier(specifier: string): boolean {
     specifier.startsWith(".\\") ||
     specifier.startsWith("..\\")
   );
+}
+
+function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
+  if (!cacheDir) {
+    return undefined;
+  }
+  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }
 
 function takeValue(flag: string, rest: string[]): string {

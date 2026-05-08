@@ -6,12 +6,21 @@ import path from "node:path";
 
 import { TestProject } from "../TestProject";
 
+/**
+ * Fixture builder for unplugin adapter and transform tests.
+ *
+ * The generated project contains a TypeScript entrypoint, a tsconfig plugin
+ * descriptor, and a tiny Go source transformer. That lets tests exercise the
+ * same native source-plugin path that real bundler integrations use.
+ */
 export namespace TestUnpluginProject {
+  /** Options for the synthetic project used by unplugin transform scenarios. */
   interface ICreateProjectOptions {
     plugins?: unknown[];
     source?: string;
   }
 
+  /** Require function scoped to the unplugin package under test. */
   export const REQUIRE_FROM_UNPLUGIN = createRequire(
     path.join(
       TestProject.WORKSPACE_ROOT,
@@ -21,8 +30,15 @@ export namespace TestUnpluginProject {
     ),
   );
 
+  // transformTtsc() runs in-process, so seed the same tsgo override that the
+  // spawn-based helpers pass explicitly through child-process environments.
   process.env.TTSC_TSGO_BINARY ??= resolveTsgoBinary();
 
+  /**
+   * Create a temporary project that transforms `goUpper("...")` through a Go
+   * plugin descriptor. Callers can override plugin config or source text to
+   * probe adapter-specific behavior without duplicating fixture setup.
+   */
   export function createProject(options: ICreateProjectOptions = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-unplugin-"));
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
@@ -64,19 +80,23 @@ export namespace TestUnpluginProject {
     return root;
   }
 
+  /** Absolute path to the generated TypeScript entrypoint. */
   export function mainFile(root: string): string {
     return path.join(root, "src", "main.ts");
   }
 
+  /** Read the generated entrypoint after a test mutates it. */
   export function mainSource(root: string): string {
     return fs.readFileSync(mainFile(root), "utf8");
   }
 
+  /** Assert that the fixture Go plugin replaced the helper call with output. */
   export function assertTransformedToPlugin(code: string): void {
     assert.match(code, /PLUGIN/);
     assert.doesNotMatch(code, /goUpper/);
   }
 
+  /** Extract JavaScript code chunks from Rollup's mixed output array. */
   export function collectRollupOutputCode(output: readonly unknown[]): string {
     return output
       .filter(
@@ -90,6 +110,7 @@ export namespace TestUnpluginProject {
       .join("\n");
   }
 
+  /** Write the local CommonJS plugin descriptor consumed by ttsc. */
   export function writePluginEntry(root: string): void {
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
@@ -106,6 +127,12 @@ export namespace TestUnpluginProject {
     );
   }
 
+  /**
+   * Add a package-discovered plugin fixture under node_modules.
+   *
+   * This mirrors the npm package contract where package.json advertises the
+   * ttsc plugin entry and the descriptor resolves its own Go source directory.
+   */
   export function writePackagePlugin(root: string, packageName: string): void {
     const projectManifest = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
@@ -162,6 +189,13 @@ export namespace TestUnpluginProject {
     writeGoPlugin(packageRoot);
   }
 
+  /**
+   * Write the tiny Go transformer used by unplugin adapter tests.
+   *
+   * The plugin supports multiple operations so adapter tests can prove plugin
+   * ordering, generated tsconfig paths, config path absolutization, and cache
+   * invalidation without depending on a production first-party plugin.
+   */
   export function writeGoPlugin(root: string): void {
     fs.mkdirSync(path.join(root, "go-plugin"), { recursive: true });
     fs.writeFileSync(
@@ -344,6 +378,7 @@ export namespace TestUnpluginProject {
     );
   }
 
+  /** Resolve TypeScript-Go for unplugin tests that call transform APIs directly. */
   export function resolveTsgoBinary() {
     const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
       "@typescript/native-preview/package.json",

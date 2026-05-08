@@ -333,7 +333,7 @@ function resolvePluginCacheRoot(
   cacheDir?: string,
 ): string {
   if (cacheDir) {
-    return path.resolve(cacheDir, "plugins");
+    return path.resolve(projectRoot, cacheDir, "plugins");
   }
   if (process.env.TTSC_CACHE_DIR) {
     return path.resolve(process.env.TTSC_CACHE_DIR, "plugins");

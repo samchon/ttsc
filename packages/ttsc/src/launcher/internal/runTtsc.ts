@@ -72,7 +72,7 @@ function runCompatibleBuild(
   argv: readonly string[],
   checkOnly: boolean,
 ): number {
-  const options = parseBuildArgs(argv, checkOnly);
+  const options = normalizeBuildOptions(parseBuildArgs(argv, checkOnly));
   if (options.watch) {
     return runWatch(options, checkOnly);
   }
@@ -83,6 +83,17 @@ function runCompatibleBuild(
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
+}
+
+function normalizeBuildOptions(
+  options: ReturnType<typeof parseBuildArgs>,
+): ReturnType<typeof parseBuildArgs> {
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  return {
+    ...options,
+    cacheDir: resolveCacheDir(cwd, options.cacheDir),
+    cwd,
+  };
 }
 
 function runPrepare(argv: readonly string[]): number {
@@ -504,6 +515,13 @@ function runWatch(
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
   runOnce();
   return 0;
+}
+
+function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
+  if (!cacheDir) {
+    return undefined;
+  }
+  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }
 
 function collectWatchDirectories(root: string): string[] {

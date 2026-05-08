@@ -57,8 +57,9 @@ function createProjectContext(
   );
   const tsconfig = project.path;
   const root = project.root;
+  const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
   const cacheDir =
-    options.cacheDir ??
+    explicitCacheDir ??
     path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const virtualRoot = path.join(processDir, "fs");
@@ -67,6 +68,7 @@ function createProjectContext(
     root,
     cacheDir,
     processDir,
+    pluginCacheDir: explicitCacheDir,
     virtualRoot,
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
@@ -104,6 +106,7 @@ function buildProject(
     emit: true,
     env: options.env,
     forceListEmittedFiles: true,
+    cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
     plugins: options.plugins,
     quiet: true,
@@ -127,6 +130,13 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
+  if (!cacheDir) {
+    return undefined;
+  }
+  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }
 
 function linkVirtualProjectLayout(

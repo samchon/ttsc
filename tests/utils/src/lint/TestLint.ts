@@ -54,7 +54,7 @@ const LINT_PACKAGE_DIR = path.join(
 // The fixture tmpdir doesn't `pnpm install` its own deps — that would be
 // far too slow. Instead we resolve the tsgo binary from the workspace
 // once and forward it to every spawned ttsc via env vars (matches the
-// the shared testing project helper's strategy).
+// shared testing project helper's strategy).
 const TSGO_BINARY = (function resolveTsgoBinary() {
   const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
     "@typescript/native-preview/package.json",
@@ -83,9 +83,12 @@ process.on("exit", () => {
 });
 
 export namespace TestLint {
+  /** Normalized severities produced by the native lint plugin. */
   export type LintSeverity = "warn" | "error";
+  /** User-facing rule config severities accepted in test tsconfig snippets. */
   export type LintRuleConfigSeverity = "off" | "warning" | LintSeverity;
 
+  /** Parsed representation of one rendered lint diagnostic. */
   export interface ILintDiagnostic {
     file: string;
     line: number;
@@ -95,12 +98,14 @@ export namespace TestLint {
     message: string;
   }
 
+  /** Expected diagnostic encoded in a fixture with `// expect:` comments. */
   export interface ILintExpectation {
     rule: string;
     severity: LintSeverity;
     line: number;
   }
 
+  /** Inputs needed to synthesize and execute one lint fixture project. */
   export interface IRunLintOptions {
     name: string;
     source: string;
@@ -110,17 +115,20 @@ export namespace TestLint {
     linkNodeModules?: string[];
   }
 
+  /** Temporary project handle returned when a test needs manual lifecycle control. */
   export interface IRunLintProject {
     tmpdir: string;
     cleanup(): void;
   }
 
+  /** Raw process result plus diagnostics parsed from stderr. */
   export interface IRunLintResult {
     status: number;
     stderr: string;
     diagnostics: ILintDiagnostic[];
   }
 
+  /** Create, run, and remove a one-off lint fixture project. */
   export function run(options: IRunLintOptions): IRunLintResult {
     const project = createProject(options);
     try {
@@ -130,6 +138,12 @@ export namespace TestLint {
     }
   }
 
+  /**
+   * Create a temporary lint project and link the workspace lint package into it.
+   *
+   * Some config tests need to mutate files or run multiple commands, so this
+   * lower-level helper returns a cleanup handle instead of running immediately.
+   */
   export function createProject(options: IRunLintOptions): IRunLintProject {
     const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
       options;
@@ -168,6 +182,7 @@ export namespace TestLint {
     }
   }
 
+  /** Run ttsc in lint mode against an already materialized fixture project. */
   export function runProject(
     tmpdir: string,
     args: string[] = [],
@@ -198,6 +213,7 @@ export namespace TestLint {
     };
   }
 
+  /** Write the minimal tsconfig and source file needed to load @ttsc/lint. */
   function writeFixtureProject(
     tmpdir: string,
     source: string,
@@ -231,6 +247,7 @@ export namespace TestLint {
     );
   }
 
+  /** Link the workspace @ttsc/lint package as if the fixture had installed it. */
   function seedNodeModulesLink(tmpdir: string): void {
     const linkParent = path.join(tmpdir, "node_modules", "@ttsc");
     fs.mkdirSync(linkParent, { recursive: true });
@@ -243,6 +260,7 @@ export namespace TestLint {
     }
   }
 
+  /** Link optional runtime dependencies used by ESLint-backed config tests. */
   function linkNodeModulePackage(tmpdir: string, packageName: string): void {
     const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
       `${packageName}/package.json`,
@@ -357,6 +375,7 @@ export namespace TestLint {
     return s.replace(/[^\w.-]/g, "_").slice(0, 64);
   }
 
+  /** Prefer a locally provisioned Go toolchain when the shell PATH lacks Go. */
   function prependGoToPath(): string | undefined {
     const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
     return fs.existsSync(localGo)
