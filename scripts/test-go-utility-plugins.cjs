@@ -1,5 +1,4 @@
-// Run Go unit tests for utility transform plugins without keeping test files in
-// the package directories that npm ships for lazy native builds.
+// Run Go unit tests that live beside each utility plugin package.
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -9,31 +8,19 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttscDir = path.join(root, "packages", "ttsc");
-const packages = ["banner", "paths", "strip"];
+const packageNames = ["banner", "paths", "strip"];
 
-for (const name of packages) {
-  const source = path.join(root, "packages", name);
-  const tests = path.join(root, "tests", "utility-plugins", name);
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-${name}-go-test-`));
+for (const name of packageNames) {
+  const packageDir = path.join(root, "packages", name);
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-${name}-go-work-`));
   try {
-    fs.cpSync(source, scratch, {
-      recursive: true,
-      filter: (src) => {
-        const base = path.basename(src);
-        return (
-          base !== "go.work" &&
-          base !== "go.work.sum" &&
-          base !== "node_modules" &&
-          !base.endsWith(".tgz")
-        );
-      },
-    });
-    fs.cpSync(tests, scratch, { recursive: true });
-    writeGoWork(scratch);
+    const goWork = path.join(workdir, "go.work");
+    writeGoWork(goWork, packageDir);
     const result = cp.spawnSync("go", ["test", "./plugin"], {
-      cwd: scratch,
+      cwd: packageDir,
       env: {
         ...process.env,
+        GOWORK: goWork,
         PATH: fs.existsSync(goRoot)
           ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
           : process.env.PATH,
@@ -48,18 +35,18 @@ for (const name of packages) {
       process.exit(result.status ?? 1);
     }
   } finally {
-    fs.rmSync(scratch, { recursive: true, force: true });
+    fs.rmSync(workdir, { recursive: true, force: true });
   }
 }
 
-function writeGoWork(scratch) {
-  const useDirs = [scratch];
+function writeGoWork(location, packageDir) {
+  const useDirs = [packageDir];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
     useDirs.push(ttscDir);
   }
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
   fs.writeFileSync(
-    path.join(scratch, "go.work"),
+    location,
     [
       "go 1.26",
       "",

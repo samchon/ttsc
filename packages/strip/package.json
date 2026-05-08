@@ -23,7 +23,8 @@
     "README.md",
     "src/index.cjs",
     "go.mod",
-    "plugin"
+    "plugin/main.go",
+    "plugin/strip.go"
   ],
   "repository": {
     "type": "git",

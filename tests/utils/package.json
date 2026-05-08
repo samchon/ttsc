@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "@ttsc/testing",
+  "version": "0.8.1",
+  "description": "Shared test-only helpers for ttsc workspace packages.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "src/index.ts",
+  "devDependencies": {
+    "@nestia/e2e": "catalog:utils",
+    "@ttsc/lint": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "eslint": "^10.3.0",
+    "ttsc": "workspace:*",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.2"
+  }
+}

@@ -200,7 +200,7 @@ Read:
 - [`packages/paths/src/index.cjs`](../packages/paths/src/index.cjs)
 - [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go)
 - [`tests/utility-plugins/paths/plugin/paths_test.go`](../tests/utility-plugins/paths/plugin/paths_test.go)
-- [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs)
+- [`tests/test-utility-plugins/src/features/utility-plugins`](../tests/test-utility-plugins/src/features/utility-plugins/)
 
 Then compare [AST and Checker](./03-tsgo.md#recognizing-imports-and-module-specifiers).
 
@@ -259,7 +259,7 @@ Read:
 - [`packages/lint/plugin/engine.go`](../packages/lint/plugin/engine.go)
 - [`packages/lint/plugin/compile.go`](../packages/lint/plugin/compile.go)
 - [`packages/lint/plugin`](../packages/lint/plugin/)
-- [`tests/lint/cases`](../tests/lint/cases/)
+- [`tests/test-lint/src/cases`](../tests/test-lint/src/cases/)
 
 Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
@@ -311,4 +311,4 @@ Behavior:
 - `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.
 - TypeScript-Go emits JavaScript, declarations, and maps.
 
-Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/smoke/test/utility-plugins.test.cjs`](../tests/smoke/test/utility-plugins.test.cjs).
+Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/test-utility-plugins/src/features/utility-plugins/test_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](../tests/test-utility-plugins/src/features/utility-plugins/test_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts).

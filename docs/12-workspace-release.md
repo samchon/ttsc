@@ -15,11 +15,14 @@ Use the focused current-platform build while iterating on native or launcher cod
 
 ```bash
 pnpm run build:current
-pnpm --filter ttsc test
-pnpm --filter ttsc go:vet
+pnpm run test:features -- --include=ttsc
+pnpm --dir packages/ttsc go:vet
 ```
 
-The root `pnpm test` script builds the current platform package, runs the `ttsc` and `@ttsc/unplugin` tests, then runs the Go transformer, lint, utility plugin, smoke, and lint fixture suites.
+The root `pnpm test` script builds the current platform package, type-checks the
+test workspace, runs the Go transformer/lint/utility-plugin checks, then runs
+the `tests/test-*` feature packages. Production package manifests do not own
+test scripts; test execution is centralized under `tests`.
 
 ## Tarball Smoke
 

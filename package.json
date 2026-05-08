@@ -13,9 +13,11 @@
     "format:go": "git ls-files -z \"*.go\" | xargs -0 ./.vscode/gofmt-2spaces.sh -w",
     "package:latest": "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
     "package:next": "bash next.bash",
-    "package:tgz": "node experimental/tarballs",
+    "package:tgz": "node --experimental-strip-types experimental/tarballs/index.ts",
     "release": "bumpp -r",
-    "test": "pnpm run build:current && pnpm --filter ttsc test && pnpm --filter @ttsc/unplugin test && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-utility-plugins.cjs && pnpm --dir tests/smoke start && pnpm --dir tests/lint start"
+    "test": "pnpm run build:current && pnpm run test:typecheck && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-utility-plugins.cjs && pnpm run test:features",
+    "test:features": "pnpm --filter \"./tests/test-*\" -r start",
+    "test:typecheck": "node scripts/test-typecheck.cjs"
   },
   "repository": {
     "type": "git",

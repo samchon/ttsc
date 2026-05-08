@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@ttsc/test-banner",
+  "version": "0.8.1",
+  "description": "@ttsc/banner project-shape feature tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/banner": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "ttsc": "workspace:*"
+  }
+}

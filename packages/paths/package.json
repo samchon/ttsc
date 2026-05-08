@@ -22,7 +22,8 @@
     "README.md",
     "src/index.cjs",
     "go.mod",
-    "plugin"
+    "plugin/main.go",
+    "plugin/paths.go"
   ],
   "repository": {
     "type": "git",

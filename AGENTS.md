@@ -11,9 +11,11 @@ Keep the package contract general. `ttsc` owns the compiler command, `ttsx` owns
 - `packages/lint`: `@ttsc/lint` package and native lint plugin.
 - `packages/banner`, `packages/paths`, `packages/strip`: utility plugins.
 - `packages/ttsc-*`: platform packages.
-- `tests/smoke`: end-to-end project corpus.
 - `tests/projects`: project-shaped fixtures.
-- `tests/go-transformer`, `tests/utility-plugins`, `tests/lint`: focused Go and plugin tests.
+- `tests/test-*`: TypeScript feature test packages. Keep one package per package/configuration axis, and one `src/features/test_*.ts` file per case.
+- `tests/utils`: shared test-only runner and fixture helper package (`@ttsc/testing`).
+- `tests/go-transformer`: focused Go transformer tests.
+- `packages/banner/plugin`, `packages/paths/plugin`, `packages/strip/plugin`: utility plugin Go unit tests.
 - `config`, `scripts`: shared config and workspace scripts.
 
 ## Commands
@@ -30,7 +32,7 @@ pnpm test
 For Go, shim, or native plugin changes:
 
 ```bash
-pnpm --filter ttsc go:vet
+pnpm --dir packages/ttsc go:vet
 cd packages/ttsc && go list -deps ./cmd/ttsc
 node scripts/test-go-transformer.cjs
 node scripts/test-go-lint.cjs

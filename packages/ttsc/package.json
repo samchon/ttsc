@@ -28,11 +28,7 @@
   },
   "scripts": {
     "build": "rimraf lib && tsgo && cp ../../README.md README.md",
-    "test": "pnpm run test:ts && pnpm run test:go",
-    "test:ts": "node --test --test-reporter=spec --experimental-strip-types --experimental-specifier-resolution=node test/**/*.test.ts",
-    "test:go": "node ../../scripts/go.cjs test ./...",
     "go:build": "node ../../scripts/go.cjs build-native",
-    "go:test": "node ../../scripts/go.cjs test ./...",
     "go:vet": "node ../../scripts/go.cjs vet ./..."
   },
   "repository": {
@@ -70,7 +66,6 @@
     "lib",
     "shim",
     "src",
-    "test",
     "tools",
     "utility"
   ],

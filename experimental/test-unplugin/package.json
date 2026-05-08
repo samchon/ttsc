@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "description": "Experimental install check for @ttsc/unplugin tgz builds",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node --experimental-strip-types src/index.ts"
   },
   "repository": {
     "type": "git",

@@ -10,6 +10,9 @@ catalogs:
       specifier: 7.0.0-dev.20260507.1
       version: 7.0.0-dev.20260507.1
   utils:
+    '@nestia/e2e':
+      specifier: ^11.2.0
+      version: 11.2.0
     '@types/node':
       specifier: ^25.3.0
       version: 25.6.0
@@ -179,11 +182,35 @@ importers:
         specifier: ^7.1.12
         version: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(yaml@2.8.3)
 
-  tests/lint:
+  tests/test-banner:
+    devDependencies:
+      '@ttsc/banner':
+        specifier: workspace:*
+        version: link:../../packages/banner
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
+  tests/test-lint:
     devDependencies:
       '@ttsc/lint':
         specifier: workspace:*
         version: link:../../packages/lint
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
       eslint:
         specifier: ^10.3.0
         version: 10.3.0(jiti@2.6.1)
@@ -197,8 +224,14 @@ importers:
         specifier: ^8.59.2
         version: 8.59.2(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.3)
 
-  tests/smoke:
+  tests/test-paths:
     devDependencies:
+      '@ttsc/paths':
+        specifier: workspace:*
+        version: link:../../packages/paths
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
       '@types/node':
         specifier: catalog:utils
         version: 25.6.0
@@ -206,8 +239,113 @@ importers:
         specifier: catalog:tsgo
         version: 7.0.0-dev.20260507.1
       ttsc:
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/ttsc
+
+  tests/test-strip:
+    devDependencies:
+      '@ttsc/strip':
+        specifier: workspace:*
+        version: link:../../packages/strip
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
+  tests/test-ttsc:
+    devDependencies:
+      '@ttsc/banner':
+        specifier: workspace:*
+        version: link:../../packages/banner
+      '@ttsc/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
+      '@ttsc/paths':
+        specifier: workspace:*
+        version: link:../../packages/paths
+      '@ttsc/strip':
+        specifier: workspace:*
+        version: link:../../packages/strip
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+
+  tests/test-unplugin:
+    devDependencies:
+      '@rollup/plugin-commonjs':
+        specifier: ^29.0.2
+        version: 29.0.2(rollup@4.60.3)
+      '@rollup/plugin-node-resolve':
+        specifier: ^16.0.3
+        version: 16.0.3(rollup@4.60.3)
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+      rollup:
+        specifier: ^4.60.3
+        version: 4.60.3
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^7.1.12
+        version: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(yaml@2.8.3)
+
+  tests/utils:
+    devDependencies:
+      '@nestia/e2e':
+        specifier: catalog:utils
+        version: 11.2.0
+      '@ttsc/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260507.1
+      eslint:
+        specifier: ^10.3.0
+        version: 10.3.0(jiti@2.6.1)
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      typescript-eslint:
+        specifier: ^8.59.2
+        version: 8.59.2(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.3)
 
 packages:
 
@@ -625,6 +763,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@nestia/e2e@11.2.0':
+    resolution: {integrity: sha512-ZZaAJ+ZitPJwNLbZwmxHoaDAIqVGVyZGHUBPYZs+z9BpgJ66cJ2HSGO4lip6bk+RIPUrrXVIfkXy2RKM5oX4gA==}
 
   '@rollup/plugin-commonjs@29.0.2':
     resolution: {integrity: sha512-S/ggWH1LU7jTyi9DxZOKyxpVd4hF/OZ0JrEbeLjXk/DFXwRny0tjD2c992zOUYQobLrVkRVMDdmHP16HKP7GRg==}
@@ -1943,6 +2084,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@nestia/e2e@11.2.0': {}
 
   '@rollup/plugin-commonjs@29.0.2(rollup@4.60.3)':
     dependencies:
