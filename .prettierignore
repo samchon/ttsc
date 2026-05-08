@@ -4,5 +4,4 @@ dist/
 experimental/test-unplugin/.tmp/
 lib/
 node_modules/
-tests/lint/cases/**
-tests/test-lint-rules/src/cases/**
+tests/test-lint/src/cases/**

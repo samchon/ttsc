@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { createProject, spawn, ttsxBin } from "@ttsc/testing";
+
+/**
+ * Verifies ttsx runs a CommonJS TypeScript entry through ttsc.
+ *
+ * This ttsx runtime toolchain scenario is isolated as one exported TypeScript feature
+ * so failures identify the exact package contract under test without a
+ * shared smoke wrapper or package-level switch statement.
+ *
+ * 1. Materialize the project fixture or module graph required by the case.
+ * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
+ * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ */
+export const test_ttsx_runs_a_commonjs_typescript_entry_through_ttsc = () => {
+  const root = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "src/main.ts": `const message: string = "runner-ok";\nconsole.log(message);\n`,
+  });
+
+  const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], { cwd: root });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "runner-ok");
+};

@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "name": "@ttsc/test-ttsc",
+  "version": "0.8.1",
+  "description": "Compiler, API, plugin, platform, and utility plugin tests for ttsc.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/banner": "workspace:*",
+    "@ttsc/lint": "workspace:*",
+    "@ttsc/paths": "workspace:*",
+    "@ttsc/strip": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "ttsc": "workspace:*"
+  }
+}

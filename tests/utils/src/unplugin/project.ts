@@ -4,17 +4,21 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+import { requireFromTest, workspaceRoot } from "../project";
+
 export namespace TestUnpluginProject {
-  const requireFromTest = createRequire(import.meta.url);
-  const __dirname = import.meta.dirname;
+  interface ICreateProjectOptions {
+    plugins?: unknown[];
+    source?: string;
+  }
 
   export const requireFromUnplugin = createRequire(
-    path.resolve(__dirname, "../../../../packages/unplugin/package.json"),
+    path.join(workspaceRoot, "packages", "unplugin", "package.json"),
   );
 
   process.env.TTSC_TSGO_BINARY ??= resolveTsgoBinary();
 
-  export function createProject(options: any = {}) {
+  export function createProject(options: ICreateProjectOptions = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-unplugin-"));
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     fs.writeFileSync(
@@ -55,27 +59,33 @@ export namespace TestUnpluginProject {
     return root;
   }
 
-  export function mainFile(root) {
+  export function mainFile(root: string): string {
     return path.join(root, "src", "main.ts");
   }
 
-  export function mainSource(root) {
+  export function mainSource(root: string): string {
     return fs.readFileSync(mainFile(root), "utf8");
   }
 
-  export function assertTransformedToPlugin(code) {
+  export function assertTransformedToPlugin(code: string): void {
     assert.match(code, /PLUGIN/);
     assert.doesNotMatch(code, /goUpper/);
   }
 
-  export function collectRollupOutputCode(output) {
+  export function collectRollupOutputCode(output: readonly unknown[]): string {
     return output
-      .filter((chunk) => "code" in chunk)
+      .filter(
+        (chunk): chunk is { code: string } =>
+          typeof chunk === "object" &&
+          chunk !== null &&
+          "code" in chunk &&
+          typeof (chunk as { code?: unknown }).code === "string",
+      )
       .map((chunk) => chunk.code)
       .join("\n");
   }
 
-  export function writePluginEntry(root) {
+  export function writePluginEntry(root: string): void {
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       [
@@ -91,7 +101,7 @@ export namespace TestUnpluginProject {
     );
   }
 
-  export function writePackagePlugin(root, packageName) {
+  export function writePackagePlugin(root: string, packageName: string): void {
     const projectManifest = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
     );
@@ -147,7 +157,7 @@ export namespace TestUnpluginProject {
     writeGoPlugin(packageRoot);
   }
 
-  export function writeGoPlugin(root) {
+  export function writeGoPlugin(root: string): void {
     fs.mkdirSync(path.join(root, "go-plugin"), { recursive: true });
     fs.writeFileSync(
       path.join(root, "go-plugin", "go.mod"),

@@ -1,16 +1,16 @@
 // Run the engine + config Go tests for the lint package.
 //
-// Tests live under `tests/test-lint-plugin/plugin/` and are copied next to the
+// Tests live under `tests/test-lint/plugin/` and are copied next to the
 // package's Go plugin sources in a scratch module. The published lint
 // package stays free of `_test.go` files; the rule corpus is exercised
-// end-to-end from `tests/test-lint-rules/src/features/rules/test_*.ts`
+// end-to-end from `tests/test-lint/src/features/rules/test_*.ts`
 // instead.
 //
 // This runner mirrors the materialization `packages/ttsc/src/source-build.ts`
 // performs at compile time:
 //
 //   1. Copy `packages/lint/` into a scratch tmpdir.
-//   2. Copy `tests/test-lint-plugin/plugin/` into scratch/plugin.
+//   2. Copy `tests/test-lint/plugin/` into scratch/plugin.
 //   3. Write a go.work that `use`s every in-tree shim, the lint
 //      package itself, and the ttsc package (the latter is required so
 //      Go workspace mode can resolve the multi-module placeholder
@@ -25,7 +25,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const lintPkgDir = path.join(root, "packages", "lint");
-const lintTestsDir = path.join(root, "tests", "test-lint-plugin", "plugin");
+const lintTestsDir = path.join(root, "tests", "test-lint", "plugin");
 const ttscDir = path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttsxBinary = path.join(ttscDir, "lib", "launcher", "ttsx.js");

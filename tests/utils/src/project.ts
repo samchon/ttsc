@@ -4,12 +4,13 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-const requireFromTest = createRequire(import.meta.url);
-const __dirname = import.meta.dirname;
-
-const workspaceRoot = path.resolve(__dirname, "../../..");
-const testPackageRoot = path.resolve(__dirname, "..");
-const projectsRoot = path.resolve(testPackageRoot, "..", "projects");
+const workspaceRoot = findWorkspaceRoot(process.cwd());
+const testPackageRoot = path.join(workspaceRoot, "tests", "utils");
+const projectsRoot = path.join(workspaceRoot, "tests", "projects");
+const requireFromTest = createRequire(
+  path.join(testPackageRoot, "package.json"),
+);
+const __dirname = path.join(testPackageRoot, "src");
 const ttscBin = path.join(
   workspaceRoot,
   "packages",
@@ -138,6 +139,20 @@ function resolveTsgoBinary() {
     "lib",
     process.platform === "win32" ? "tsgo.exe" : "tsgo",
   );
+}
+
+function findWorkspaceRoot(start: string): string {
+  let dir = path.resolve(start);
+  while (true) {
+    if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      throw new Error(`Unable to find workspace root from ${start}`);
+    }
+    dir = parent;
+  }
 }
 
 export {

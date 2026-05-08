@@ -1,26 +1,26 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-export namespace TestUnpluginRuntime {
-  const __dirname = import.meta.dirname;
+import { workspaceRoot } from "../project";
 
-  export function libUrl(entrypoint) {
+export namespace TestUnpluginRuntime {
+  export function libUrl(entrypoint: string): string {
     return pathToFileURL(libPath(entrypoint, "mjs")).href;
   }
 
-  export function libPath(entrypoint, extension) {
+  export function libPath(entrypoint: string, extension: "js" | "mjs"): string {
     return path.resolve(
-      __dirname,
-      "../../../../packages/unplugin/lib",
+      workspaceRoot,
+      "packages/unplugin/lib",
       `${entrypoint}.${extension}`,
     );
   }
 
-  export async function loadUnpluginApi() {
+  export async function loadUnpluginApi(): Promise<any> {
     return import(libUrl("api"));
   }
 
-  export async function loadUnpluginAdapter(entrypoint) {
+  export async function loadUnpluginAdapter(entrypoint: string): Promise<any> {
     const mod = await import(libUrl(entrypoint));
     return mod.default;
   }

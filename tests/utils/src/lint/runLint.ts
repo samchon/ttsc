@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const requireFromTest = createRequire(import.meta.url);
+import { requireFromTest, testPackageRoot, workspaceRoot } from "../project";
+
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
 //
@@ -26,14 +27,8 @@ const requireFromTest = createRequire(import.meta.url);
 // doesn't match the banner regex is preserved as `result.stderr` so
 // failure messages can include the raw output.
 
-const __dirname = import.meta.dirname;
-
-// tests/utils/src/lint/runLint.ts lives 4 levels deep;
-// resolve up to the workspace root so both the ttsc launcher and the
-// lint package source are reachable regardless of the temporary CWD
-// the test runner uses.
-const workspaceRoot = path.resolve(__dirname, "..", "..", "..", "..");
-const testingPackageRoot = path.resolve(__dirname, "..", "..");
+const __dirname = path.join(testPackageRoot, "src", "lint");
+const testingPackageRoot = testPackageRoot;
 const ttscBin = path.join(
   workspaceRoot,
   "packages",
@@ -83,17 +78,45 @@ process.on("exit", () => {
   } catch {}
 });
 
-/**
- * @param {object} opts
- * @param {string} opts.name        — used to name the tmpdir for diagnostic output
- * @param {string} opts.source      — TypeScript source written to `src/main.ts`
- * @param {Record<string, "off"|"warning"|"warn"|"error">=} opts.rules — `tsconfig.json` plugin rules map
- * @param {Record<string, unknown>=} opts.pluginConfig — full `@ttsc/lint` plugin config; defaults to `{ config: rules }`
- * @param {Record<string, string>=} opts.extraSources — relative-path → content for additional fixture files (paths are interpreted relative to the project root)
- * @param {string[]=} opts.linkNodeModules — package names from this test project to expose in the fixture's node_modules
- * @returns {{ status: number, stderr: string, diagnostics: Array<{file:string,line:number,column:number,severity:"warn"|"error",rule:string}> }}
- */
-function runLint(options) {
+export type LintSeverity = "warn" | "error";
+export type LintRuleConfigSeverity = "off" | "warning" | LintSeverity;
+
+export interface ILintDiagnostic {
+  file: string;
+  line: number;
+  column: number;
+  severity: LintSeverity;
+  rule: string;
+  message: string;
+}
+
+export interface ILintExpectation {
+  rule: string;
+  severity: LintSeverity;
+  line: number;
+}
+
+export interface IRunLintOptions {
+  name: string;
+  source: string;
+  rules?: Record<string, LintRuleConfigSeverity>;
+  pluginConfig?: Record<string, unknown>;
+  extraSources?: Record<string, string>;
+  linkNodeModules?: string[];
+}
+
+export interface IRunLintProject {
+  tmpdir: string;
+  cleanup(): void;
+}
+
+export interface IRunLintResult {
+  status: number;
+  stderr: string;
+  diagnostics: ILintDiagnostic[];
+}
+
+function runLint(options: IRunLintOptions): IRunLintResult {
   const project = createLintProject(options);
   try {
     return runLintProject(project.tmpdir);
@@ -102,14 +125,18 @@ function runLint(options) {
   }
 }
 
-function createLintProject(options: any) {
+function createLintProject(options: IRunLintOptions): IRunLintProject {
   const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
     options;
   const tmpdir = fs.mkdtempSync(
     path.join(os.tmpdir(), `ttsc-lint-case-${sanitizeForFsName(name)}-`),
   );
   try {
-    writeFixtureProject(tmpdir, source, pluginConfig ?? { config: rules });
+    writeFixtureProject(
+      tmpdir,
+      source,
+      pluginConfig ?? { config: rules ?? {} },
+    );
     if (extraSources) {
       for (const [relPath, content] of Object.entries(extraSources) as [
         string,
@@ -136,7 +163,7 @@ function createLintProject(options: any) {
   }
 }
 
-function runLintProject(tmpdir, args = []) {
+function runLintProject(tmpdir: string, args: string[] = []): IRunLintResult {
   const result = spawnSync(
     process.execPath,
     [ttscBin, "--cwd", tmpdir, ...args, "--noEmit"],
@@ -163,7 +190,11 @@ function runLintProject(tmpdir, args = []) {
   };
 }
 
-function writeFixtureProject(tmpdir, source, pluginConfig) {
+function writeFixtureProject(
+  tmpdir: string,
+  source: string,
+  pluginConfig: Record<string, unknown>,
+): void {
   fs.mkdirSync(path.join(tmpdir, "src"), { recursive: true });
   fs.writeFileSync(path.join(tmpdir, "src", "main.ts"), source, "utf8");
   fs.writeFileSync(
@@ -192,18 +223,19 @@ function writeFixtureProject(tmpdir, source, pluginConfig) {
   );
 }
 
-function seedNodeModulesLink(tmpdir) {
+function seedNodeModulesLink(tmpdir: string): void {
   const linkParent = path.join(tmpdir, "node_modules", "@ttsc");
   fs.mkdirSync(linkParent, { recursive: true });
   const link = path.join(linkParent, "lint");
   try {
     fs.symlinkSync(lintPkgDir, link, "junction");
   } catch (err) {
-    if (err.code !== "EEXIST") throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "EEXIST") throw err;
   }
 }
 
-function linkNodeModulePackage(tmpdir, packageName) {
+function linkNodeModulePackage(tmpdir: string, packageName: string): void {
   const packageJson = requireFromTest.resolve(`${packageName}/package.json`, {
     paths: [testingPackageRoot, workspaceRoot],
   });
@@ -213,7 +245,8 @@ function linkNodeModulePackage(tmpdir, packageName) {
   try {
     fs.symlinkSync(source, target, "junction");
   } catch (err) {
-    if (err.code !== "EEXIST") throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "EEXIST") throw err;
   }
 }
 
@@ -226,13 +259,22 @@ const bannerPattern =
  * @param {string} stderr
  * @returns {Array<{file:string,line:number,column:number,severity:"warn"|"error",rule:string,message:string}>}
  */
-function parseDiagnostics(stderr) {
+function parseDiagnostics(stderr: string): ILintDiagnostic[] {
   const stripped = stderr.replace(ansiPattern, "");
-  const out = [];
+  const out: ILintDiagnostic[] = [];
   for (const line of stripped.split(/\r?\n/)) {
     const match = line.match(bannerPattern);
     if (!match) continue;
     const [, file, lineStr, columnStr, category, rule, message] = match;
+    if (
+      !file ||
+      !lineStr ||
+      !columnStr ||
+      !category ||
+      !rule ||
+      message === undefined
+    )
+      continue;
     out.push({
       file,
       line: parseInt(lineStr, 10),
@@ -252,15 +294,16 @@ function parseDiagnostics(stderr) {
  * @param {string} source
  * @returns {Array<{rule:string,severity:"warn"|"error",line:number}>}
  */
-function parseExpectations(source) {
+function parseExpectations(source: string): ILintExpectation[] {
   const lines = source.split(/\r?\n/);
-  const expected = [];
+  const expected: ILintExpectation[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(
-      /\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/,
-    );
+    const line = lines[i] ?? "";
+    const match = line.match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
     if (!match) continue;
-    const [, rule, severity] = match;
+    const rule = match[1];
+    const severity = match[2] as LintSeverity | undefined;
+    if (!rule || !severity) continue;
     // Skip blank lines and other `// expect:` annotations stacked
     // above the same target, but NOT regular comment lines — rules
     // like ban-ts-comment / triple-slash-reference fire on a comment
@@ -269,7 +312,10 @@ function parseExpectations(source) {
     let target = i + 1;
     while (
       target < lines.length &&
-      (/^\s*$/.test(lines[target]) || /^\s*\/\/\s*expect:/.test(lines[target]))
+      (/^\s*$/.test(lines[target] ?? "") ||
+        /^\s*\/\/\s*expect:/.test(lines[target] ?? "") ||
+        (rule !== "ban-ts-comment" &&
+          /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(lines[target] ?? "")))
     ) {
       target++;
     }
@@ -284,19 +330,21 @@ function parseExpectations(source) {
  *  of a fixture file. Every rule that appears in `// expect:`
  *  annotations is enabled at its annotated severity; everything else
  *  is implicitly off (the default for unconfigured rules). */
-function rulesFromExpectations(expected) {
-  const out = {};
+function rulesFromExpectations(
+  expected: ILintExpectation[],
+): Record<string, LintSeverity> {
+  const out: Record<string, LintSeverity> = {};
   for (const exp of expected) {
     out[exp.rule] = exp.severity;
   }
   return out;
 }
 
-function sanitizeForFsName(s) {
+function sanitizeForFsName(s: string): string {
   return s.replace(/[^\w.-]/g, "_").slice(0, 64);
 }
 
-function prependGoToPath() {
+function prependGoToPath(): string | undefined {
   const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
   return fs.existsSync(localGo)
     ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`

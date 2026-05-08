@@ -35,6 +35,14 @@ const main = async (props: ITestExecutorProps): Promise<void> => {
       (exclude.length ? exclude.every((str) => !name.includes(str)) : true),
   });
 
+  if (report.executions.length === 0) {
+    const reason = include.length
+      ? `No tests matched --include=${include.join(",")}`
+      : `No tests were discovered under ${props.location}`;
+    console.error(reason);
+    process.exit(1);
+  }
+
   const exceptions: Error[] = report.executions
     .filter((exec) => exec.error !== null)
     .map((exec) => exec.error!);

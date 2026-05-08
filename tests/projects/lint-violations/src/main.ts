@@ -2,7 +2,7 @@
 //
 // Each `// expect: <rule> <severity>` line pins the diagnostic the
 // lint pass MUST emit on the *next* non-comment, non-blank line. The
-// plugin corpus feature in tests/test-ttsc-plugin parses these
+// plugin corpus feature in tests/test-ttsc parses these
 // annotations and asserts the diagnostic set is exact — every
 // annotated site fires, no extra sites fire, and the rendered
 // line:column matches what the engine reports.

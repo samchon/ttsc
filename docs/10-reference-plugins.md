@@ -259,7 +259,7 @@ Read:
 - [`packages/lint/plugin/engine.go`](../packages/lint/plugin/engine.go)
 - [`packages/lint/plugin/compile.go`](../packages/lint/plugin/compile.go)
 - [`packages/lint/plugin`](../packages/lint/plugin/)
-- [`tests/test-lint-rules/src/cases`](../tests/test-lint-rules/src/cases/)
+- [`tests/test-lint/src/cases`](../tests/test-lint/src/cases/)
 
 Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
