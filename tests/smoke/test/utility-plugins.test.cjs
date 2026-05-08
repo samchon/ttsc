@@ -50,13 +50,9 @@ test("utility plugins: descriptors own separate native source directories", () =
         "utf8",
       ),
     );
-    if (name === "banner") {
-      assert.equal(manifest.ttsc?.plugin, undefined);
-    } else {
-      assert.deepEqual(manifest.ttsc?.plugin, {
-        transform: `@ttsc/${name}`,
-      });
-    }
+    assert.deepEqual(manifest.ttsc?.plugin, {
+      transform: `@ttsc/${name}`,
+    });
     seenDirs.add(descriptor.source);
   }
   assert.equal(seenDirs.size, 4);
@@ -95,6 +91,94 @@ test("utility plugins: package ttsc.plugin auto-discovers strip defaults", () =>
   assert.doesNotMatch(js, /console\.(?:log|debug)|assert\.equal|\bdebugger\b/);
 });
 
+test("utility plugins: package ttsc.plugin walks to ancestor package.json", () => {
+  const root = createProject({
+    "package.json": JSON.stringify({
+      dependencies: { "@ttsc/strip": "0.8.1" },
+    }),
+    "packages/app/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    "packages/app/src/main.ts": [
+      `console.log("drop-log");`,
+      `debugger;`,
+      `export const value = "kept";`,
+      ``,
+    ].join("\n"),
+  });
+  seedUtilityPackages(root, ["strip"]);
+
+  const project = path.join(root, "packages", "app");
+  const result = spawn(ttscBin, ["--cwd", project, "--emit"], {
+    cwd: project,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-ancestor-strip-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(project, "dist", "main.js"), "utf8");
+  assert.match(js, /kept/);
+  assert.doesNotMatch(js, /console\.log|\bdebugger\b/);
+});
+
+test("utility plugins: package ttsc.plugin auto-discovers banner config files", () => {
+  const root = commonJsProject({
+    "banner.config.cjs": `module.exports = { text: "auto banner" };\n`,
+    "src/main.ts": `export const value = "banner";\n`,
+  });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@ttsc/banner": "0.8.1" } }),
+  );
+  seedUtilityPackages(root, ["banner"]);
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-banner-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assertSingleBanner(js, "auto banner");
+});
+
+test("utility plugins: auto-discovered banner fails when no config file exists", () => {
+  const root = commonJsProject({
+    "src/main.ts": `export const value = "banner";\n`,
+  });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@ttsc/banner": "0.8.1" } }),
+  );
+  seedUtilityPackages(root, ["banner"]);
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-banner-missing-config-"),
+      ),
+    },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /banner\.config\.\{js,cjs,mjs,ts,mts,cts\}/);
+});
+
 test("utility plugins: tsconfig plugin wins over duplicate package auto plugin", () => {
   const root = commonJsProject(
     {
@@ -130,6 +214,47 @@ test("utility plugins: tsconfig plugin wins over duplicate package auto plugin",
   const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
   assert.match(js, /console\.log\("keep-log"\)/);
   assert.doesNotMatch(js, /console\.warn/);
+});
+
+test("utility plugins: tsconfig banner config wins over package auto config", () => {
+  const root = commonJsProject(
+    {
+      "banner.config.cjs": `module.exports = "auto banner";\n`,
+      "src/main.ts": `export const value = "banner";\n`,
+    },
+    {
+      compilerOptions: {
+        plugins: [
+          { transform: "@ttsc/banner", config: "./config/banner.config.cjs" },
+        ],
+      },
+    },
+  );
+  fs.mkdirSync(path.join(root, "config"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "config", "banner.config.cjs"),
+    `module.exports = { text: "explicit banner" };\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ devDependencies: { "@ttsc/banner": "0.8.1" } }),
+  );
+  seedUtilityPackages(root, ["banner"]);
+
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: fs.mkdtempSync(
+        path.join(os.tmpdir(), "ttsc-auto-banner-explicit-"),
+      ),
+    },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
+  assertSingleBanner(js, "explicit banner");
+  assert.doesNotMatch(js, /auto banner/);
 });
 
 function factoryContext(name) {
@@ -205,7 +330,7 @@ test("utility plugins: shared transform host works when paths is first", () => {
         rootDir: "src",
         plugins: [
           { transform: "@ttsc/paths" },
-          { transform: "@ttsc/banner", banner: "paths first" },
+          { transform: "@ttsc/banner", text: "paths first" },
           {
             transform: "@ttsc/strip",
             calls: ["console.log"],
@@ -256,7 +381,7 @@ test("utility plugins: banner injects JavaScript and declaration JSDoc", () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            banner: "banner-only\nsecond line",
+            text: "banner-only\nsecond line",
           },
         ],
       },
@@ -302,7 +427,7 @@ test("utility plugins: banner follows removeComments", () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            banner: "removed banner",
+            text: "removed banner",
           },
         ],
       },
@@ -339,7 +464,7 @@ test("utility plugins: banner preserves executable shebang", () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            banner: "cli banner",
+            text: "cli banner",
           },
         ],
       },
@@ -508,7 +633,7 @@ test("utility plugins: legacy-named user options remain plugin config", () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            banner: "phase",
+            text: "phase",
             after: true,
             before: true,
             phase: "custom-plugin-config",
@@ -581,7 +706,7 @@ test("utility plugins: shared host ignores future optional flags", () => {
         strict: true,
         outDir: "dist",
         rootDir: "src",
-        plugins: [{ transform: "@ttsc/banner", banner: "future flag" }],
+        plugins: [{ transform: "@ttsc/banner", text: "future flag" }],
       },
       include: ["src"],
     }),

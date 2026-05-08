@@ -102,7 +102,7 @@ Transform entries can share one compiler host when they resolve to the same nati
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "banner": "license" },
+      { "transform": "@ttsc/banner", "text": "license" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] },
     ],
   },

@@ -38,7 +38,7 @@ The `files` field is not optional. Your Go source must ship in the npm tarball b
 
 Do not list `ttsc` in the plugin's published `dependencies` or `peerDependencies`.
 
-`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only from packages listed directly in the consumer project's `dependencies` or `devDependencies`. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
+`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only from packages listed directly in the nearest consumer `package.json` at or above the selected project. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
 
 ## 2. Write the Descriptor
 

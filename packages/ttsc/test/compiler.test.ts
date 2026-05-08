@@ -92,6 +92,46 @@ test("TtscCompiler.compile applies package-discovered source plugins", () => {
   assert.equal(fs.existsSync(path.join(root, "dist")), false);
 });
 
+test("TtscCompiler.compile discovers package plugins from ancestor package.json", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-workspace-"));
+  const project = path.join(workspace, "packages", "app");
+  writeBasicProject(
+    project,
+    'declare function goUpper(value: string): string;\nexport const value = goUpper("plugin");\nconsole.log(value);\n',
+  );
+  writePackageCompilerPlugin(workspace, "compile-fixture");
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: project });
+
+  const result = compiler.compile();
+
+  assert.equal(result.type, "success");
+  assert.match(result.output["dist/main.js"], /PLUGIN/);
+  assert.equal(fs.existsSync(path.join(project, "dist")), false);
+});
+
+test("TtscCompiler.compile stops package plugin discovery at nearest package.json", () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-workspace-"));
+  const project = path.join(workspace, "packages", "app");
+  writeBasicProject(
+    project,
+    'declare function goUpper(value: string): string;\nexport const value = goUpper("plugin");\nconsole.log(value);\n',
+  );
+  writePackageCompilerPlugin(workspace, "compile-fixture");
+  fs.writeFileSync(
+    path.join(project, "package.json"),
+    JSON.stringify({ private: true }),
+    "utf8",
+  );
+  const compiler = new TtscCompiler({ binary: tsgo, cwd: project });
+
+  const result = compiler.compile();
+
+  assert.equal(result.type, "success");
+  assert.match(result.output["dist/main.js"], /goUpper\("plugin"\)/);
+  assert.doesNotMatch(result.output["dist/main.js"], /PLUGIN/);
+  assert.equal(fs.existsSync(path.join(project, "dist")), false);
+});
+
 test("TtscCompiler.transform returns TypeScript source without project files", () => {
   const root = createProject();
   const compiler = new TtscCompiler({
@@ -362,11 +402,25 @@ test("TtscCompiler.prepare honors projectRoot when tsconfig is outside the proje
 
 function createProject(options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+  writeBasicProject(
+    root,
+    options.source ??
+      'const message: string = "api-ok";\nconsole.log(message);\n',
+    options,
+  );
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ private: true }),
+    "utf8",
+  );
+  return root;
+}
+
+function writeBasicProject(root, source, options = {}) {
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),
-    options.source ??
-      'const message: string = "api-ok";\nconsole.log(message);\n',
+    source,
     "utf8",
   );
   for (const [file, content] of Object.entries(options.files ?? {})) {
@@ -396,7 +450,6 @@ function createProject(options = {}) {
     ),
     "utf8",
   );
-  return root;
 }
 
 function createDottedSourceProject() {

@@ -25,7 +25,7 @@
       },
       {
         "transform": "@ttsc/banner",
-        "banner": "utility combo"
+        "text": "utility combo"
       },
       {
         "transform": "@ttsc/paths"

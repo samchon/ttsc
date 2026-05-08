@@ -40,7 +40,7 @@ module.exports = function createPlugin() {
 
 The `plugin` directory is inside the package root, so the source builder finds the package `go.mod` by walking upward.
 
-`@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare `package.json#ttsc.plugin`, so direct installation enables them automatically. `@ttsc/banner` needs explicit `tsconfig.json` configuration because a banner string is required.
+`@ttsc/banner`, `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare `package.json#ttsc.plugin`, so direct installation in the nearest consumer `package.json` enables them automatically. Plugins that need project options read their own config files or direct `compilerOptions.plugins` overrides.
 
 ## `@ttsc/banner`
 
@@ -50,23 +50,35 @@ Purpose: add a configured `@packageDocumentation` source JSDoc block so JavaScri
 
 Consumer config:
 
+```js
+// banner.config.js
+export default {
+  text: "License MIT",
+};
+```
+
+Use `compilerOptions.plugins` only for inline text or a non-default config path:
+
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "License MIT",
+        "config": "./config/banner.config.ts",
       },
     ],
   },
 }
 ```
 
+If no inline text, explicit `config`, or discovered banner config file exists, the build fails.
+
 What to learn:
 
 - Minimal transform plugin descriptor.
 - Finding the plugin's config from `--plugins-json`.
+- Loading project config from `banner.config.js` or `banner.config.ts`.
 - Formatting user banner text into compiler-owned JSDoc.
 - Clean error messages for invalid config.
 
@@ -258,7 +270,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     "rootDir": "src",
     "outDir": "dist",
     "plugins": [
-      { "transform": "@ttsc/banner", "banner": "License MIT" },
+      { "transform": "@ttsc/banner", "config": "./banner.config.js" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
@@ -267,6 +279,14 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     ],
   },
 }
+```
+
+`banner.config.js`:
+
+```js
+export default {
+  text: "License MIT",
+};
 ```
 
 `lint.config.json`:
@@ -280,7 +300,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 Behavior:
 
 - `@ttsc/lint` reports diagnostics before emit. It can use `lint.config.*`, `ttsc-lint.config.*`, supported ESLint flat config files, or direct plugin config.
-- `@ttsc/banner` uses the banner string configured in `tsconfig.json`.
+- `@ttsc/banner` uses inline text, an explicit `config` path, or a banner config file.
 - `@ttsc/paths` reads `compilerOptions.paths`, `rootDir`, and `outDir`.
 - `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.
 - TypeScript-Go emits JavaScript, declarations, and maps.

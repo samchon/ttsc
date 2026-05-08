@@ -20,7 +20,7 @@ Test it directly:
 ```go
 func TestApplyBanner(t *testing.T) {
 	out, err := applyBanner("dist/main.js", "console.log(1);\n", map[string]any{
-		"banner": "x",
+		"text": "x",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,21 +71,24 @@ test("plugin transforms source before emit", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "my-plugin-"));
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(path.join(root, "src/main.ts"), `export const x = 1;\n`);
-  fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({
-    compilerOptions: {
-      target: "ES2022",
-      module: "commonjs",
-      rootDir: "src",
-      outDir: "dist",
-      plugins: [{ transform: "my-plugin" }]
-    },
-    include: ["src"]
-  }));
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        rootDir: "src",
+        outDir: "dist",
+        plugins: [{ transform: "my-plugin" }],
+      },
+      include: ["src"],
+    }),
+  );
 
   const result = child_process.spawnSync(
     process.execPath,
     [ttscBin, "--cwd", root, "--emit"],
-    { encoding: "utf8", windowsHide: true }
+    { encoding: "utf8", windowsHide: true },
   );
 
   assert.equal(result.status, 0, result.stderr);

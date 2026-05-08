@@ -133,7 +133,11 @@ function discoverPackagePluginEntries(
   project: ITtscParsedProjectConfig,
   configured: readonly ProjectPluginEntry[],
 ): ProjectPluginEntry[] {
-  const projectPackageJson = path.join(project.root, "package.json");
+  const projectPackageJson = findNearestPackageJson(project.root);
+  if (projectPackageJson === undefined) {
+    return [];
+  }
+  const projectPackageRoot = path.dirname(projectPackageJson);
   const projectManifest = readPackageManifest(projectPackageJson);
   if (projectManifest === undefined) {
     return [];
@@ -142,7 +146,7 @@ function discoverPackagePluginEntries(
   const configuredTransforms = createConfiguredTransformSet(configured);
   const out: ProjectPluginEntry[] = [];
   for (const name of directDependencyNames(projectManifest)) {
-    const packageJson = resolveDependencyPackageJson(name, project.root);
+    const packageJson = resolveDependencyPackageJson(name, projectPackageRoot);
     if (packageJson === undefined) {
       continue;
     }
@@ -158,7 +162,7 @@ function discoverPackagePluginEntries(
     }
     const baseDir = isRelativePluginSpecifier(transform)
       ? packageRoot
-      : project.root;
+      : projectPackageRoot;
     const resolved = resolvePluginRequest(transform, baseDir);
     if (hasConfiguredTransform(configuredTransforms, transform, resolved)) {
       continue;
