@@ -1,6 +1,6 @@
-import * as fs from "node:fs";
+import fs from "node:fs";
 import { spawnSync } from "node:child_process";
-import * as path from "node:path";
+import path from "node:path";
 
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";

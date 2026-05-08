@@ -67,8 +67,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsgo --emitDeclarationOnly && rollup -c",
-    "test": "pnpm --dir ../.. --filter ttsc build && pnpm run build && node --test --test-reporter=spec ../../tests/unplugin/**/*.test.cjs"
+    "build": "rimraf lib && tsgo --emitDeclarationOnly && rollup -c"
   },
   "keywords": [
     "ttsc",

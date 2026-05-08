@@ -1,0 +1,32 @@
+{
+  "extends": "../config/tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
+    "strictNullChecks": false,
+    "rootDir": "..",
+    "sourceMap": false,
+    "strict": false,
+    "useUnknownInCatchVariables": false
+  },
+  "include": [
+    "../experimental/**/*.ts",
+    "test-*/src/**/*.ts",
+    "utils/src/**/*.ts"
+  ],
+  "exclude": [
+    "go-transformer/**/*",
+    "projects/**/*",
+    "test-lint-rules/src/cases/**/*",
+    "utility-plugins/**/*"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}

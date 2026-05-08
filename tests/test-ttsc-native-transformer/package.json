@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "@ttsc/test-ttsc-native-transformer",
+  "version": "0.8.1",
+  "description": "Project-shaped native transformer regressions for ttsc.",
+  "type": "module",
+  "scripts": {
+    "start": "node --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-strip-types src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "ttsc": "workspace:*"
+  }
+}

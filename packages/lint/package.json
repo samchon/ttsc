@@ -12,8 +12,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && tsgo",
-    "test": "pnpm run build && pnpm --dir ../../tests/lint start"
+    "build": "rimraf lib && tsgo"
   },
   "keywords": [
     "ttsc",
