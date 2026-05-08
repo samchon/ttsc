@@ -278,6 +278,40 @@ function writeBrokenTransformPlugin(root: string) {
   );
 }
 
+function writeArrayTransformPlugin(root: string) {
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    'module.exports = { name: "array-transform-fixture", source: "./plugin-go" };\n',
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "go.mod"),
+    "module example.com/arraytransformfixture\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "main.go"),
+    [
+      "package main",
+      "",
+      "import (",
+      '\t"fmt"',
+      '\t"os"',
+      ")",
+      "",
+      "func main() {",
+      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
+      '\t\tfmt.Println(`{"typescript":["not-a-source-map"]}`)',
+      "\t\treturn",
+      "\t}",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+}
+
 function writeCompilerPlugin(root: string) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
@@ -408,6 +442,7 @@ export {
   tsgo,
   ttscPackageRoot,
   writeBasicProject,
+  writeArrayTransformPlugin,
   writeBrokenTransformPlugin,
   writeCompilerPlugin,
   writeCompilerPluginBackend,

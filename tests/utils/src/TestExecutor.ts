@@ -1,10 +1,25 @@
 import { DynamicExecutor } from "@nestia/e2e";
 
+/**
+ * Shared feature-test runner used by the package-shaped test projects.
+ *
+ * Test packages expose each scenario as a `test_*` function; this wrapper keeps
+ * discovery, include/exclude filtering, and console reporting identical across
+ * compiler, runner, lint, and plugin suites.
+ */
 export namespace TestExecutor {
+  /** Location of the feature module tree that DynamicExecutor scans. */
   export interface IProps {
     location: string;
   }
 
+  /**
+   * Execute every discovered `test_*` export under the requested location.
+   *
+   * Command-line filters intentionally match by substring so a failing scenario
+   * can be rerun from any package with `--include=<case-name>` without adding
+   * package-specific runner switches.
+   */
   export const main = async (props: IProps): Promise<void> => {
     const include = getArguments("include");
     const exclude = getArguments("exclude");
@@ -57,6 +72,7 @@ export namespace TestExecutor {
     if (exceptions.length) process.exit(1);
   };
 
+  /** Read comma-separated repeatable CLI filters such as `--include=a,b`. */
   function getArguments(key: string): string[] {
     const prefix = `--${key}=`;
     return process.argv
