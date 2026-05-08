@@ -73,12 +73,15 @@ module ttsc-plugin-debugger-strip
 
 go 1.26
 
-require github.com/samchon/ttsc/packages/ttsc v0.0.0
+require (
+	github.com/samchon/ttsc/packages/ttsc v0.0.0
+	github.com/microsoft/typescript-go/shim/ast v0.0.0
+)
 ```
 
-`ttsc` supplies this module through its generated `go.work` overlay while it builds the plugin.
+`ttsc` supplies these `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. Add a `require` line for every shim package your plugin imports.
 
-## 4. Implement `build`
+## 4. Implement the Plugin Commands
 
 `go-plugin/main.go`:
 
@@ -325,13 +328,21 @@ Consumer `tsconfig.json`:
 }
 ```
 
+Consumer `src/main.ts`:
+
+```ts
+debugger;
+
+export const value = 1;
+```
+
 Run:
 
 ```bash
 npx ttsc --emit
 ```
 
-The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes.
+The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes. The emitted `dist/main.js` should contain `value` but not the `debugger` statement.
 
 ## Next Step
 

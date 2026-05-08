@@ -188,7 +188,10 @@ export default {
             transform: "@ttsc/lint",
             config: { "no-var": "error" },
           },
-          { transform: "typia/lib/transform" },
+          {
+            transform: "typia/lib/transform",
+            finite: true,
+          },
         ],
       },
     }),

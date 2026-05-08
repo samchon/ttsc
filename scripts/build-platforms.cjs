@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, "..");
 const packagesDir = path.join(root, "packages");
 
 run(["--filter", "ttsc", "build"]);
+run(["--filter", "@ttsc/banner", "build"]);
 run(["--filter", "@ttsc/lint", "build"]);
 run(["--filter", "@ttsc/unplugin", "build"]);
 

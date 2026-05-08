@@ -9,7 +9,7 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://github.com/samchon/ttsc/tree/master/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/strip` removes configured debug calls and `debugger` statements from the compiled output.
+`@ttsc/strip` removes configured debug calls and `debugger` statements from TypeScript source AST before emit.
 
 ## Setup
 
@@ -20,13 +20,13 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/strip
 ```
 
-With no `tsconfig.json` entry, `@ttsc/strip` removes `console.log`, `console.debug`, `assert.*`, and `debugger`.
-
 Run your normal `ttsc` command:
 
 ```bash
 npx ttsc
 ```
+
+With no extra config, `@ttsc/strip` removes `console.log`, `console.debug`, `assert.*`, and `debugger`.
 
 Only the configured patterns are removed. `@ttsc/strip` is not a minifier, tree-shaker, or dead-code-elimination pass.
 

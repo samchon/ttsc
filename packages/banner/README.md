@@ -20,20 +20,15 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/banner
 ```
 
-Add a banner config file next to your project config:
+Add `banner.config.ts` next to your project config:
 
-```js
-// banner.config.js
+```ts
+// banner.config.ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
 export default {
   text: "License MIT (c) 2026 Acme",
-};
-```
-
-The config may also export the banner text directly:
-
-```js
-// banner.config.js
-export default "License MIT (c) 2026 Acme";
+} satisfies TtscBannerConfig;
 ```
 
 Run your normal `ttsc` command:
@@ -46,7 +41,7 @@ If `@ttsc/banner` is installed and no banner config file can be found, the compi
 
 ## Configuration
 
-Use `banner.config.js` or `banner.config.ts` for ordinary projects.
+Use `banner.config.ts` for ordinary projects.
 
 Use `compilerOptions.plugins` only when the project needs a different config file path or inline text:
 
@@ -63,7 +58,7 @@ Use `compilerOptions.plugins` only when the project needs a different config fil
 }
 ```
 
-The explicit `config` path resolves from the selected `tsconfig.json` directory. Use `banner.config.js` or `banner.config.ts` for ordinary projects.
+The explicit `config` path resolves from the selected `tsconfig.json` directory.
 
 Existing inline text config remains supported:
 

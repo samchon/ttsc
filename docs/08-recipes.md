@@ -7,8 +7,8 @@ Short patterns for common plugin work. There is no high-level Go helper package 
 ```go
 type PluginEntry struct {
 	Config map[string]any `json:"config"`
-	Mode   string         `json:"mode"`
 	Name   string         `json:"name"`
+	Stage  string         `json:"stage"`
 }
 
 func parsePlugins(text string) ([]PluginEntry, error) {
@@ -20,7 +20,7 @@ func parsePlugins(text string) ([]PluginEntry, error) {
 }
 ```
 
-The `Config` map is the original tsconfig plugin entry.
+The `Config` map is the original tsconfig plugin entry. Plugin-owned options such as `mode`, `calls`, or `text` live inside `Config`, not beside `name` and `stage`.
 
 ## Typed Config
 
@@ -54,7 +54,8 @@ func runModes(value string, plugins []PluginEntry) (string, error) {
 		suffix    *PluginEntry
 	)
 	for _, plugin := range plugins {
-		switch plugin.Mode {
+		mode := stringOption(plugin.Config, "mode")
+		switch mode {
 		case "prefix":
 			entry := plugin
 			prefix = &entry
@@ -64,7 +65,7 @@ func runModes(value string, plugins []PluginEntry) (string, error) {
 			entry := plugin
 			suffix = &entry
 		default:
-			return "", fmt.Errorf("unsupported mode %q", plugin.Mode)
+			return "", fmt.Errorf("unsupported mode %q", mode)
 		}
 	}
 	if prefix != nil {
@@ -77,6 +78,11 @@ func runModes(value string, plugins []PluginEntry) (string, error) {
 		value += stringOption(suffix.Config, "suffix")
 	}
 	return value, nil
+}
+
+func stringOption(config map[string]any, key string) string {
+	value, _ := config[key].(string)
+	return value
 }
 ```
 
@@ -94,13 +100,15 @@ module.exports = {
 };
 ```
 
-Implement:
+Accept the transform-stage command set:
 
 ```bash
+my-plugin check --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
+my-plugin transform --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 my-plugin build --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 ```
 
-Load the project, mutate TypeScript source AST, then let TypeScript-Go print JavaScript, declarations, and source maps.
+`check` may be a no-op for pure transforms. `transform` writes the transformed TypeScript JSON used by in-memory callers and bundler adapters. `build` loads the project, mutates TypeScript source AST, then lets TypeScript-Go print JavaScript, declarations, and source maps.
 
 ## Check Plugin
 

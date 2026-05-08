@@ -133,3 +133,5 @@ Avoid whole-file snapshots unless the exact output is the contract. Compiler boi
 ## TypeScript-Go Drift Tests
 
 If your plugin imports a shim symbol, add an end-to-end case that exercises that exact code path. When `ttsc` bumps TypeScript-Go, a moved symbol should fail in CI, not in a user's install.
+
+For this repository's full test matrix and release smoke checks, see [Workspace Release](./12-workspace-release.md).
