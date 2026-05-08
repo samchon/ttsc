@@ -306,7 +306,7 @@ test("lint config file: TypeScript configs can use exported @ttsc/lint types", (
       config: "./ttsc-lint.config.ts",
     },
     extraSources: {
-      "ttsc-lint.config.ts": `import type { TtscLintConfig } from "@ttsc/lint/config";
+      "ttsc-lint.config.ts": `import type { TtscLintConfig } from "@ttsc/lint";
 
       const config = {
         "no-var": "error",

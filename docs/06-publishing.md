@@ -1,6 +1,8 @@
-# Publishing
+# Publishing Plugins
 
 A plugin is one npm package containing a JS manifest and Go source.
+
+For publishing this repository's `ttsc`, `@ttsc/*`, and platform packages, see [Workspace Release](./12-workspace-release.md).
 
 ## `package.json`
 

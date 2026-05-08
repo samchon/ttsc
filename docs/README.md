@@ -1,10 +1,23 @@
-# ttsc Plugin Author Guide
+# ttsc Guide Documents
 
-This guide is for developers writing `ttsc` plugins.
+These guides cover `ttsc` consumers, `ttsx` runtime users, bundler users, and plugin authors.
 
 > Status: v1, still moving. Do not publish `ttsc` as a plugin dependency or peer dependency.
 
+## Start Here
+
+| Reader                                       | Start with                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------------------- |
+| Application developer using `ttsc` or `ttsx` | [Consumer Quickstart](./00-consumer-quickstart.md)                              |
+| Runtime user replacing `tsx` or `ts-node`    | [ttsx Runtime](./11-ttsx-runtime.md)                                            |
+| Bundler user                                 | [`@ttsc/unplugin`](../packages/unplugin/)                                       |
+| Transform plugin author                      | [Getting Started](./01-getting-started.md)                                      |
+| Check or lint plugin author                  | [Protocol](./02-protocol.md) and [Reference Plugins](./10-reference-plugins.md) |
+| Workspace maintainer or releaser             | [Workspace Release](./12-workspace-release.md)                                  |
+
 ## Reading Order
+
+Plugin authors should read:
 
 1. [Getting Started](./01-getting-started.md) - build the smallest useful source transform plugin.
 2. [Protocol](./02-protocol.md) - plugin package contract and binary subcommands.
@@ -15,6 +28,8 @@ This guide is for developers writing `ttsc` plugins.
 7. [Testing](./07-testing.md) - Go unit tests and end-to-end `ttsc` fixtures.
 8. [Publishing](./06-publishing.md) - npm package shape and pre-publish checks.
 9. [Pitfalls](./09-pitfalls.md) - common first-hour failures.
+10. [Internals](./05-internals.md) - source-plugin build cache and Go toolchain resolution.
+11. [Workspace Release](./12-workspace-release.md) - repository build, test, tarball, platform package, and release flow.
 
 ## Repository References
 

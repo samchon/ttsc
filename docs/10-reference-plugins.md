@@ -16,15 +16,15 @@ Each package has a JavaScript descriptor factory and a Go plugin module:
 ```text
 packages/<name>/
 |- package.json
-|- src/index.cjs        # most first-party plugins
-|- src/index.ts         # @ttsc/lint, compiled to lib/index.js
+|- src/index.cjs        # simple descriptor factory
+|- src/index.ts         # typed package surface, compiled to lib/index.js
 |- go.mod
 `- plugin/
    |- main.go
    `- <name>.go
 ```
 
-For simple CommonJS plugins, the descriptor factory lives in `src/index.cjs`:
+For a package with no public TypeScript types, the descriptor factory can live in `src/index.cjs`:
 
 ```js
 const path = require("node:path");
@@ -40,7 +40,9 @@ module.exports = function createPlugin() {
 
 The `plugin` directory is inside the package root, so the source builder finds the package `go.mod` by walking upward.
 
-`@ttsc/banner`, `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` declare `package.json#ttsc.plugin`, so direct installation in the nearest consumer `package.json` enables them automatically. Plugins that need project options read their own config files or direct `compilerOptions.plugins` overrides.
+For a package that exposes config types, put the descriptor in `src/index.ts` and export those types from the same root index.
+
+`@ttsc/banner`, `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` are package-contract examples for plugin authors. Their user-facing READMEs describe install and config files; this chapter focuses on how each package is wired internally.
 
 ## `@ttsc/banner`
 
@@ -50,11 +52,13 @@ Purpose: add a configured `@packageDocumentation` source JSDoc block so JavaScri
 
 Consumer config:
 
-```js
-// banner.config.js
+```ts
+// banner.config.ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
 export default {
   text: "License MIT",
-};
+} satisfies TtscBannerConfig;
 ```
 
 Use `compilerOptions.plugins` only for inline text or a non-default config path:
@@ -78,13 +82,13 @@ What to learn:
 
 - Minimal transform plugin descriptor.
 - Finding the plugin's config from `--plugins-json`.
-- Loading project config from `banner.config.js` or `banner.config.ts`.
+- Loading project config from `banner.config.ts`.
 - Formatting user banner text into compiler-owned JSDoc.
 - Clean error messages for invalid config.
 
 Read:
 
-- [`packages/banner/src/index.cjs`](../packages/banner/src/index.cjs)
+- [`packages/banner/src/index.ts`](../packages/banner/src/index.ts)
 - [`packages/banner/plugin/main.go`](../packages/banner/plugin/main.go)
 - [`packages/banner/plugin/banner.go`](../packages/banner/plugin/banner.go)
 - [`tests/utility-plugins/banner/plugin/banner_test.go`](../tests/utility-plugins/banner/plugin/banner_test.go)
@@ -270,7 +274,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
     "rootDir": "src",
     "outDir": "dist",
     "plugins": [
-      { "transform": "@ttsc/banner", "config": "./banner.config.js" },
+      { "transform": "@ttsc/banner", "config": "./banner.config.ts" },
       {
         "transform": "@ttsc/strip",
         "calls": ["console.log", "console.debug", "assert.*"],
@@ -281,12 +285,14 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 }
 ```
 
-`banner.config.js`:
+`banner.config.ts`:
 
-```js
+```ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
 export default {
   text: "License MIT",
-};
+} satisfies TtscBannerConfig;
 ```
 
 `lint.config.json`:

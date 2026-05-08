@@ -107,31 +107,31 @@ This works with TypeScript-Go's normal emit path:
 }
 ```
 
-`@ttsc/banner` and `@ttsc/strip` are transform plugins. Direct package installation can enable both. `@ttsc/banner` needs inline text, an explicit `config` path, or a discovered banner config file.
+`@ttsc/banner` and `@ttsc/strip` are transform plugins. `@ttsc/banner` needs inline text, an explicit `config` path, or a banner config file.
 
-This works with a compiler backend:
+This works when a check plugin runs before one transform sidecar that owns the source/emit pass:
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
       { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
-      { "transform": "my-compiler-backend" },
+      { "transform": "my-source-transform" },
     ],
   },
 }
 ```
 
-`@ttsc/lint` is a check plugin, so it runs before the compiler backend.
+`@ttsc/lint` is a check plugin, so it runs before the transform sidecar.
 
-This fails when the entries resolve to different compiler backend binaries:
+This fails when the entries resolve to different transform sidecars that each need to own Program creation and emit:
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "compiler-backend-a" },
-      { "transform": "compiler-backend-b" },
+      { "transform": "source-transform-a" },
+      { "transform": "source-transform-b" },
     ],
   },
 }
@@ -143,7 +143,7 @@ If your plugin only needs source AST changes, make it a transform plugin:
 stage: "transform";
 ```
 
-If several compiler-backend modes must cooperate inside one compiler pass, put them in one binary and dispatch by explicit mode or option fields.
+If several transform modes must cooperate inside one compiler pass, put them in one binary and dispatch by explicit mode or option fields.
 
 ## Windows Path Failures
 
@@ -185,9 +185,9 @@ If you need to force a cold source-plugin build, run:
 npx ttsc clean
 ```
 
-## Runtime Output Fails
+## Runtime Output Fails After Manual Emit
 
-If a compiler-backend plugin emits CommonJS manually, mirror TypeScript-Go's expected boilerplate:
+The public plugin contract does not provide an output-stage text hook. If a custom sidecar goes beyond source AST mutation and writes CommonJS manually, it must mirror TypeScript-Go's expected boilerplate:
 
 ```js
 "use strict";
@@ -195,4 +195,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.name = void 0;
 ```
 
-Transform plugins avoid most of this by mutating AST and letting TypeScript-Go print the final JavaScript.
+Normal transform plugins avoid this by mutating TypeScript AST and letting TypeScript-Go print the final JavaScript.

@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { ITtscLintPluginConfig } from "./structures";
+import type { ITtscBannerPluginConfig } from "./structures";
 
 export * from "./structures/index";
 
@@ -18,12 +18,12 @@ type TtscPluginFactoryContext<TConfig> = {
   tsconfig: string;
 };
 
-export default function createTtscPlugin(
-  _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+export default function createTtscBanner(
+  _context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
 ): TtscPluginDescriptor {
   return {
-    name: "@ttsc/lint",
+    name: "@ttsc/banner",
     source: path.resolve(__dirname, "..", "plugin"),
-    stage: "check",
+    stage: "transform",
   };
 }

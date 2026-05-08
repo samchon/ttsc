@@ -73,10 +73,6 @@ test("lib/index.d.ts exposes typed lint config files", () => {
     path.join(lintPkgDir, "lib", "index.d.ts"),
     "utf8",
   );
-  const configEntryDts = fs.readFileSync(
-    path.join(lintPkgDir, "lib", "config.d.ts"),
-    "utf8",
-  );
   const configDts = fs.readFileSync(
     path.join(lintPkgDir, "lib", "structures", "TtscLintConfig.d.ts"),
     "utf8",
@@ -98,19 +94,11 @@ test("lib/index.d.ts exposes typed lint config files", () => {
     "utf8",
   );
   assert.match(dts, /export \* from "\.\/structures\/index"/);
-  assert.match(dts, /import type {[\s\S]*ITtscPlugin[\s\S]*} from "ttsc"/);
-  assert.match(
-    configEntryDts,
-    /export type { TtscLintConfig } from "\.\/structures\/TtscLintConfig"/,
-  );
-  assert.doesNotMatch(configEntryDts, /from "ttsc"/);
-  assert.equal(manifest.exports["./config"].types, "./lib/config.d.ts");
-  assert.equal(manifest.exports["./config"].default, "./lib/config.js");
+  assert.doesNotMatch(dts, /from "ttsc"/);
+  assert.equal(manifest.exports["./config"], undefined);
   assert.match(pluginConfigDts, /import type { TtscLintConfig }/);
-  assert.match(
-    pluginConfigDts,
-    /export interface ITtscLintPluginConfig extends ITtscProjectPluginConfig/,
-  );
+  assert.doesNotMatch(pluginConfigDts, /from "ttsc"/);
+  assert.match(pluginConfigDts, /export interface ITtscLintPluginConfig/);
   assert.doesNotMatch(dts, /configFile/);
   assert.doesNotMatch(dts, /configPath/);
   assert.doesNotMatch(dts, /rules\?:/);

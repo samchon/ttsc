@@ -45,6 +45,7 @@ module.exports = (context) => ({
 `context.binary` is the absolute `ttsc` native helper selected for this invocation. It is not the plugin sidecar binary and not the JavaScript launcher. Most descriptors do not need it; it exists for advanced factories that need to inspect the active native host.
 
 ```ts
+import * as path from "node:path";
 import type { ITtscPluginFactoryContext } from "ttsc";
 
 type MyPluginEntry = {
@@ -57,7 +58,7 @@ export function createTtscPlugin(
 ) {
   return {
     name: "my-plugin",
-    source: "go-plugin",
+    source: path.resolve(__dirname, "go-plugin"),
     stage: "transform",
   };
 }

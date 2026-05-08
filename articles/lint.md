@@ -119,7 +119,7 @@ Then add a lint config file:
 
 ```ts
 // ttsc-lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint/config";
+import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
   "no-var": "error",
@@ -274,7 +274,7 @@ npm i -D ttsc @typescript/native-preview @ttsc/lint
 
 ```ts
 // ttsc-lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint/config";
+import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
   "no-var": "error",

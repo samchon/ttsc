@@ -11,6 +11,7 @@ if (!fs.existsSync(path.join(platformDir, "package.json"))) {
 }
 
 run(["--filter", "ttsc", "build"]);
+run(["--filter", "@ttsc/banner", "build"]);
 run(["--filter", "@ttsc/lint", "build"]);
 run(["--filter", "@ttsc/unplugin", "build"]);
 run(["--dir", platformDir, "build"]);

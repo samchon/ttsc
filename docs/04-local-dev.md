@@ -1,4 +1,4 @@
-# Local Development
+# Local Plugin Development
 
 Consumers do not need Go installed. Plugin authors usually do, because direct `go test`, `go vet`, and gopls feedback are much faster than running `ttsc` for every edit.
 
@@ -97,3 +97,5 @@ go vet ./go-plugin/...
 ```
 
 If TypeScript-Go moved a shim symbol you use, the Go compile error points at the exact call site.
+
+For this repository's workspace build, test, platform package, and release commands, see [Workspace Release](./12-workspace-release.md).
