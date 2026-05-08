@@ -7,6 +7,7 @@ const {
   createProject,
   mainFile,
   mainSource,
+  writePackagePlugin,
 } = require("./helpers/project.cjs");
 const { loadUnpluginApi } = require("./helpers/unplugin.cjs");
 
@@ -26,8 +27,16 @@ test("transformTtsc invalidates project cache when source changes", async () => 
   await assertTransformCacheInvalidatesOnSourceChange();
 });
 
+test("transformTtsc invalidates project cache when another project source changes", async () => {
+  await assertTransformCacheInvalidatesOnProjectSourceChange();
+});
+
 test("transformTtsc absolutizes relative plugin config paths in generated tsconfig", async () => {
   await assertTransformAbsolutizesPluginConfigPaths();
+});
+
+test("transformTtsc applies package-discovered project plugins", async () => {
+  await assertTransformUsesPackageDiscoveredProjectPlugins();
 });
 
 async function assertTransformUsesInlineCompilerOptions() {
@@ -94,7 +103,13 @@ async function assertTransformCacheInvalidatesOnSourceChange() {
   const cache = createTtscTransformCache();
   const file = mainFile(root);
   const firstSource = mainSource(root);
-  const first = await transformTtsc(file, firstSource, resolveOptions(), {}, cache);
+  const first = await transformTtsc(
+    file,
+    firstSource,
+    resolveOptions(),
+    {},
+    cache,
+  );
 
   const secondSource =
     'export const value: string = goUpper("second");\nconsole.log(value);\n';
@@ -111,6 +126,34 @@ async function assertTransformCacheInvalidatesOnSourceChange() {
   assert.ok(second);
   assert.match(first.code, /"PLUGIN"/);
   assert.match(second.code, /"SECOND"/);
+}
+
+async function assertTransformCacheInvalidatesOnProjectSourceChange() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await loadUnpluginApi();
+  const root = createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "read-helper",
+      },
+    ],
+  });
+  const cache = createTtscTransformCache();
+  const file = mainFile(root);
+  const source = mainSource(root);
+  const helper = path.join(root, "src", "helper.ts");
+  fs.writeFileSync(helper, "first\n", "utf8");
+  const first = await transformTtsc(file, source, resolveOptions(), {}, cache);
+
+  fs.writeFileSync(helper, "second\n", "utf8");
+  const second = await transformTtsc(file, source, resolveOptions(), {}, cache);
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.match(first.code, /"PLUGIN:FIRST"/);
+  assert.match(second.code, /"PLUGIN:SECOND"/);
 }
 
 async function assertTransformAbsolutizesPluginConfigPaths() {
@@ -136,6 +179,21 @@ async function assertTransformAbsolutizesPluginConfigPaths() {
         ],
       },
     }),
+  );
+
+  assert.ok(result);
+  assert.match(result.code, /"PLUGIN"/);
+}
+
+async function assertTransformUsesPackageDiscoveredProjectPlugins() {
+  const { resolveOptions, transformTtsc } = await loadUnpluginApi();
+  const root = createProject({ plugins: [] });
+  writePackagePlugin(root, "fixture-auto");
+
+  const result = await transformTtsc(
+    mainFile(root),
+    mainSource(root),
+    resolveOptions(),
   );
 
   assert.ok(result);

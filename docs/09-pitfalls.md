@@ -64,7 +64,7 @@ Parse it and find your entry by `mode` or `name`.
 
 ## Auto Plugin Did Not Run
 
-`package.json#ttsc.plugin` is read only from packages listed directly in the consumer project's `dependencies` or `devDependencies`.
+`package.json#ttsc.plugin` is read only from packages listed directly in the nearest consumer `package.json` at or above the selected project.
 
 Fix the consumer package:
 
@@ -100,14 +100,14 @@ This works with TypeScript-Go's normal emit path:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "banner": "license" },
+      { "transform": "@ttsc/banner", "text": "license" },
       { "transform": "@ttsc/strip", "calls": ["console.log"] },
     ],
   },
 }
 ```
 
-`@ttsc/banner` and `@ttsc/strip` are transform plugins, so their package descriptors select the transform stage.
+`@ttsc/banner` and `@ttsc/strip` are transform plugins. Direct package installation can enable both. `@ttsc/banner` needs inline text, an explicit `config` path, or a discovered banner config file.
 
 This works with a compiler backend:
 
@@ -171,13 +171,15 @@ pos := shimscanner.GetTokenPosOfNode(node, file, false)
 
 ## Cache Did Not Rebuild
 
-Only source-like files affect the plugin binary cache:
+Files inside the plugin source directory affect the plugin binary cache:
 
 ```text
-*.go, *.s, *.c, *.h, *.cpp, *.hpp, go.mod, go.sum, go.work
+Go source, go.mod/go.sum/go.work, embedded JSON/schema/data files, and other package files
 ```
 
-If you changed data files, embed them with `//go:embed` or run:
+Generated/cache directories and editor backup files ending in `~` are skipped. Consumer TypeScript source files and plugin options such as lint `config`, `banner`, or `calls` do not affect the source-plugin binary cache.
+
+If you need to force a cold source-plugin build, run:
 
 ```bash
 npx ttsc clean

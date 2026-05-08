@@ -449,6 +449,31 @@ func TestFindLintConfigFileDiscoversNearestAncestor(t *testing.T) {
   }
 }
 
+func TestFindLintConfigFileDiscoversSupportedESLintFlatConfigExtensions(t *testing.T) {
+  for _, name := range []string{
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "eslint.config.cjs",
+    "eslint.config.ts",
+    "eslint.config.mts",
+    "eslint.config.cts",
+  } {
+    t.Run(name, func(t *testing.T) {
+      dir := t.TempDir()
+      writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+      writeFile(t, filepath.Join(dir, name), "export default [];")
+
+      discovered, err := findLintConfigFile(dir, "tsconfig.json")
+      if err != nil {
+        t.Fatalf("findLintConfigFile: %v", err)
+      }
+      if discovered != filepath.Join(dir, name) {
+        t.Fatalf("unexpected discovery path: %s", discovered)
+      }
+    })
+  }
+}
+
 func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
@@ -460,6 +485,39 @@ func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   }
   if discovered != filepath.Join(dir, "lint.config.ts") {
     t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
+  dir := t.TempDir()
+  wrapperDir := t.TempDir()
+  wrapper := filepath.Join(wrapperDir, "tsconfig.json")
+  writeFile(t, wrapper, "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.json"), `{
+    "no-console": "error"
+  }`)
+  writeFile(t, filepath.Join(wrapperDir, "lint.config.json"), `{
+    "no-var": "error"
+  }`)
+
+  discovered, err := findLintConfigFile(dir, wrapper)
+  if err != nil {
+    t.Fatalf("findLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(wrapperDir, "lint.config.json") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
+}
+
+func TestResolveConfigFilePathUsesTsconfigDirectory(t *testing.T) {
+  dir := t.TempDir()
+  wrapper := filepath.Join(t.TempDir(), "tsconfig.json")
+  writeFile(t, wrapper, "{}")
+
+  resolved := resolveConfigFilePath("./lint.config.json", dir, wrapper)
+  expected := filepath.Join(filepath.Dir(wrapper), "lint.config.json")
+  if resolved != expected {
+    t.Fatalf("unexpected explicit config path: got %s, want %s", resolved, expected)
   }
 }
 

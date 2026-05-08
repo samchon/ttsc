@@ -531,7 +531,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       return nil, err
     }
     if discovered == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or eslint.config.* file can be discovered")
+      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered")
     }
     return loadExternalConfigResolver(discovered)
   }
@@ -563,7 +563,7 @@ func loadExternalConfigResolver(location string) (RuleResolver, error) {
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := configBaseDir(cwd, tsconfigPath)
+  dir := discoveryConfigBaseDir(cwd, tsconfigPath)
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
@@ -611,37 +611,29 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
   }
-  return filepath.Join(configBaseDir(cwd, tsconfigPath), configPath)
+  return filepath.Join(tsconfigBaseDir(cwd, tsconfigPath), configPath)
 }
 
-func configBaseDir(cwd, tsconfigPath string) string {
-  base := cwd
+func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
     if !filepath.IsAbs(resolvedTsconfig) {
       resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
     }
-    if isPathInside(cwd, resolvedTsconfig) {
-      base = filepath.Dir(resolvedTsconfig)
-    }
+    return filepath.Dir(resolvedTsconfig)
   }
-  return base
+  return cwd
 }
 
-func isPathInside(root, file string) bool {
-  cleanRoot, err := filepath.Abs(root)
-  if err != nil {
-    return false
+func tsconfigBaseDir(cwd, tsconfigPath string) string {
+  if tsconfigPath == "" {
+    return cwd
   }
-  cleanFile, err := filepath.Abs(file)
-  if err != nil {
-    return false
+  resolvedTsconfig := tsconfigPath
+  if !filepath.IsAbs(resolvedTsconfig) {
+    resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
   }
-  rel, err := filepath.Rel(cleanRoot, cleanFile)
-  if err != nil {
-    return false
-  }
-  return rel == "." || rel == "" || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+  return filepath.Dir(resolvedTsconfig)
 }
 
 func loadConfigFile(location string) (any, error) {

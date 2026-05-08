@@ -2,10 +2,12 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
+import {
+  hasProjectPluginEntries,
+  loadProjectPlugins,
+} from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
-import type { ITtscProjectPluginConfig } from "../../structures/ITtscProjectPluginConfig";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
@@ -26,21 +28,17 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  if (configuredPlugins(options, project).length !== 0) {
+  if (hasConfiguredPlugins(options, project)) {
     return transformProjectWithPlugins(options, cwd, project);
   }
   return transformProjectWithNativeHost(options, project);
 }
 
-function configuredPlugins(
+function hasConfiguredPlugins(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
-): ITtscProjectPluginConfig[] {
-  if (options.plugins === false) {
-    return [];
-  }
-  const entries = options.plugins ?? project.compilerOptions.plugins;
-  return entries.filter((entry) => entry.enabled !== false);
+): boolean {
+  return hasProjectPluginEntries(project, options.plugins);
 }
 
 function transformProjectWithNativeHost(

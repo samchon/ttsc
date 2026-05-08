@@ -154,10 +154,10 @@ The `config` field accepts:
 
 - An inline object (shown earlier), **or** a path to a file ending in `.json`, `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, or `.mts`.
 - For JS/TS configs: a `default` export, a named `config` export, a direct module export, or a function that returns the object.
-- If `config` is omitted, `@ttsc/lint` discovers the nearest `lint.config.*`, `ttsc-lint.config.*`, or `eslint.config.*` file from the owning `tsconfig.json` directory upward. If no config file exists, the compile fails.
+- If `config` is omitted, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the compile fails.
 - Inline objects use the rule map shape shown earlier.
 - ESLint configuration files may additionally export flat-config-style objects or arrays. `@ttsc/lint` reads `basePath`, `files`, `ignores`, object/array `extends`, and `rules`, accepts ESLint severity tuples, and understands `@typescript-eslint/<rule>` keys for supported rules.
-- Relative paths resolve from the directory of the owning `tsconfig.json`.
+- Relative `config` paths resolve from the directory of the selected `tsconfig.json`.
 
 For example, a flat-config-style file can enable rules with ESLint or `@typescript-eslint/*` keys:
 
@@ -197,7 +197,7 @@ const config = tseslint.config({
 export default config;
 ```
 
-When a project has `eslint` installed and the external config is an `eslint.config.*` file, or the config uses runtime-only fields such as `plugins`, `languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint` runs the installed ESLint package and forwards its rule ids, severities, messages, and locations. Built-in `@ttsc/lint` rules can still run in the same pass; duplicate diagnostics are collapsed. External rules such as `@typescript-eslint/no-floating-promises` work when your ESLint config supplies the usual parser and `parserOptions.project` / `projectService` settings.
+When a project has `eslint` installed and the external config is a supported ESLint flat config file, or the config uses runtime-only fields such as `plugins`, `languageOptions`, `processor`, `settings`, or string `extends`, `@ttsc/lint` runs the installed ESLint package and forwards its rule ids, severities, messages, and locations. Built-in `@ttsc/lint` rules can still run in the same pass; duplicate diagnostics are collapsed. External rules such as `@typescript-eslint/no-floating-promises` work when your ESLint config supplies the usual parser and `parserOptions.project` / `projectService` settings.
 
 When ESLint is not installed, only config shapes that can be represented by built-in `@ttsc/lint` rules are supported. That path supports `files`, `ignores`, `basePath`, object/array `extends`, `rules`, severity tuples, and `@typescript-eslint/` or `typescript-eslint/` rule prefixes. Runtime-only features such as `plugins`, `languageOptions`, `processor`, `settings`, `linterOptions`, or string `extends` require ESLint to be installed.
 

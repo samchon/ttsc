@@ -54,6 +54,35 @@ func TestPathsSidecarRewritesSourceAndDeclarationSpecifiers(t *testing.T) {
   assertJSONMap(t, filepath.Join(root, "dist", "main.d.ts.map"))
 }
 
+func TestPathsSidecarUsesModuleSpecificJavaScriptExtensions(t *testing.T) {
+  root := seedProject(t, map[string]string{
+    "tsconfig.json":            `{"compilerOptions":{"target":"ES2022","module":"NodeNext","moduleResolution":"NodeNext","strict":true,"declaration":true,"paths":{"@lib/message":["./src/modules/message.mts"],"@lib/constant":["./src/modules/constant.cts"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
+    "src/modules/message.mts":  `export const message = "esm";` + "\n",
+    "src/modules/constant.cts": `export const constant = "cjs";` + "\n",
+    "src/main.mts":             `import { message } from "@lib/message";` + "\n" + `export const value = message;` + "\n",
+    "src/require-consumer.cts": `declare const require: (id: string) => unknown;` + "\n" + `export const loaded = require("@lib/constant");` + "\n",
+  })
+  manifest := mustJSON(t, []map[string]any{{
+    "name":   "@ttsc/paths",
+    "stage":  "transform",
+    "config": map[string]any{"transform": "@ttsc/paths"},
+  }})
+
+  status := run([]string{"build", "--cwd=" + root, "--tsconfig=" + filepath.Join(root, "tsconfig.json"), "--plugins-json=" + manifest, "--emit", "--quiet"})
+  if status != 0 {
+    t.Fatalf("build status=%d", status)
+  }
+
+  mjs := readFile(t, filepath.Join(root, "dist", "main.mjs"))
+  cjs := readFile(t, filepath.Join(root, "dist", "require-consumer.cjs"))
+  if !strings.Contains(mjs, `from "./modules/message.mjs"`) {
+    t.Fatalf("ESM specifier used the wrong extension:\n%s", mjs)
+  }
+  if !strings.Contains(cjs, `require("./modules/constant.cjs")`) {
+    t.Fatalf("CJS specifier used the wrong extension:\n%s", cjs)
+  }
+}
+
 func TestPathsSidecarRejectsOutputCommand(t *testing.T) {
   if status := run([]string{"output"}); status == 0 {
     t.Fatal("output command must not be accepted")

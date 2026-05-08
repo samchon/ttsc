@@ -100,6 +100,18 @@ export function loadProjectPlugins(options: {
   };
 }
 
+export function hasProjectPluginEntries(
+  project: ITtscParsedProjectConfig,
+  entries?: readonly ITtscProjectPluginConfig[] | false,
+): boolean {
+  if (entries === false) {
+    return false;
+  }
+  return resolvePluginEntries(project, entries).some(
+    (entry) => entry.config.enabled !== false,
+  );
+}
+
 function resolvePluginEntries(
   project: ITtscParsedProjectConfig,
   entries?: readonly ITtscProjectPluginConfig[],
@@ -121,7 +133,11 @@ function discoverPackagePluginEntries(
   project: ITtscParsedProjectConfig,
   configured: readonly ProjectPluginEntry[],
 ): ProjectPluginEntry[] {
-  const projectPackageJson = path.join(project.root, "package.json");
+  const projectPackageJson = findNearestPackageJson(project.root);
+  if (projectPackageJson === undefined) {
+    return [];
+  }
+  const projectPackageRoot = path.dirname(projectPackageJson);
   const projectManifest = readPackageManifest(projectPackageJson);
   if (projectManifest === undefined) {
     return [];
@@ -130,7 +146,7 @@ function discoverPackagePluginEntries(
   const configuredTransforms = createConfiguredTransformSet(configured);
   const out: ProjectPluginEntry[] = [];
   for (const name of directDependencyNames(projectManifest)) {
-    const packageJson = resolveDependencyPackageJson(name, project.root);
+    const packageJson = resolveDependencyPackageJson(name, projectPackageRoot);
     if (packageJson === undefined) {
       continue;
     }
@@ -146,7 +162,7 @@ function discoverPackagePluginEntries(
     }
     const baseDir = isRelativePluginSpecifier(transform)
       ? packageRoot
-      : project.root;
+      : projectPackageRoot;
     const resolved = resolvePluginRequest(transform, baseDir);
     if (hasConfiguredTransform(configuredTransforms, transform, resolved)) {
       continue;
@@ -402,12 +418,12 @@ function isPluginStage(value: string): value is TtscPluginStage {
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {
   if (path.isAbsolute(specifier)) {
-    return specifier;
+    return resolveRealPath(specifier);
   }
   if (isRelativePluginSpecifier(specifier)) {
-    return path.resolve(projectRoot, specifier);
+    return resolveRealPath(path.resolve(projectRoot, specifier));
   }
-  return require.resolve(specifier, { paths: [projectRoot] });
+  return resolveRealPath(require.resolve(specifier, { paths: [projectRoot] }));
 }
 
 function resolveRealPath(location: string): string {

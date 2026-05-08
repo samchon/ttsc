@@ -13,7 +13,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
-  - 10x faster than `ts-node`.
+  - native TypeScript-Go execution instead of transpile-only runners.
   - type checking that `tsx` does not provide.
 - **plugin support**: compiler-powered libraries, such as `typia`.
   - `@ttsc/lint`: lint violations as TS compile errors.
@@ -118,7 +118,32 @@ interface IMember {
 }
 ```
 
-The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time. `ttsx` applies the same transform when running the file directly.
+The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time:
+
+```js
+import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
+import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
+import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
+import typia from "typia";
+import { v4 } from "uuid";
+const matched = (() => {
+  const _io0 = (input) =>
+    "string" === typeof input.id &&
+    __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
+    "string" === typeof input.email &&
+    __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
+    "number" === typeof input.age &&
+    __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
+    19 < input.age &&
+    input.age <= 100;
+  return (input) => "object" === typeof input && null !== input && _io0(input);
+})()({
+  id: v4(),
+  email: "samchon.github@gmail.com",
+  age: 30,
+});
+console.log(matched); // true
+```
 
 ### List of Plugins
 
@@ -134,7 +159,7 @@ Plugin authors should start from the [`Guide Documents`](https://github.com/samc
 
 Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
 
-- [`@nestia/core`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
+- [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
 - [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
 
 ## References

@@ -22,9 +22,9 @@ export interface TtscUnpluginOptions {
   /**
    * `ttsc` plugin entries.
    *
-   * `undefined` reads `compilerOptions.plugins` from the project config,
-   * `false` disables project plugins, and an array overrides the project
-   * plugin list.
+   * `undefined` reads project plugins from `compilerOptions.plugins` and
+   * directly installed package markers, `false` disables project plugins, and
+   * an array overrides the project plugin list.
    */
   plugins?: readonly ITtscProjectPluginConfig[] | false;
 }

@@ -43,10 +43,13 @@ export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   plugin: T;
 
   /**
-   * Directory containing the resolved tsconfig/jsconfig.
+   * Project root used as the native plugin working directory and package
+   * discovery base.
    *
-   * Relative plugin module specifiers and plugin source paths are resolved from
-   * this directory, matching TypeScript plugin config behavior.
+   * By default this is the directory containing the resolved tsconfig/jsconfig.
+   * Callers may override it when a wrapper config lives outside the project.
+   * Relative `source` paths returned by a plugin descriptor resolve from this
+   * directory.
    */
   projectRoot: string;
 

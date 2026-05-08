@@ -23,7 +23,7 @@ The cache key includes:
 - resolved `@typescript/native-preview` version.
 - platform and architecture.
 - resolved source entry.
-- `*.go`, `*.s`, `*.c`, `*.h`, `*.cpp`, `*.hpp`, `go.mod`, `go.sum`, and `go.work` files under the plugin source directory.
+- files under the plugin source directory, except skipped generated/cache directories and editor backup files ending in `~`.
 - the same hashable files under the local `ttsc` and shim overlay directories used for the generated `go.work`.
 
 The cache key does not include:
@@ -31,9 +31,8 @@ The cache key does not include:
 - consumer TypeScript source files;
 - plugin options such as lint `config`, `banner`, or `calls`;
 - CLI flags such as `--emit` or `--outDir`;
-- README or JSON data files.
 
-If your plugin needs runtime data, embed it with `//go:embed` or run `npx ttsc clean` after edits. Local workspace changes to `ttsc`'s Go host or shim overlay now invalidate the source plugin cache automatically.
+README, JSON, schema, and other data files inside the plugin source directory do affect the cache key. This keeps `//go:embed` and other file-backed plugin data aligned with the built binary. Local workspace changes to `ttsc`'s Go host or shim overlay also invalidate the source plugin cache automatically.
 
 ## Cache Locations
 

@@ -260,6 +260,77 @@ test("loadProjectPlugins resolves inherited relative transform paths from the de
   );
 });
 
+test("loadProjectPlugins suppresses package auto plugin through symlinked explicit path", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const realPackage = path.join(root, "packages", "linked-plugin");
+  const project = path.join(root, "project");
+  const linkedPackage = path.join(project, "node_modules", "linked-plugin");
+  fs.mkdirSync(path.dirname(linkedPackage), { recursive: true });
+  fs.mkdirSync(path.join(realPackage, "plugin-go"), { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+  fs.symlinkSync(realPackage, linkedPackage, "junction");
+  fs.writeFileSync(
+    path.join(project, "package.json"),
+    JSON.stringify({
+      private: true,
+      devDependencies: {
+        "linked-plugin": "0.0.0",
+      },
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(project, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        plugins: [{ transform: "./node_modules/linked-plugin/index.cjs" }],
+      },
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(realPackage, "package.json"),
+    JSON.stringify({
+      main: "index.cjs",
+      name: "linked-plugin",
+      ttsc: {
+        plugin: {
+          transform: "linked-plugin",
+        },
+      },
+      version: "0.0.0",
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(realPackage, "index.cjs"),
+    `module.exports = {
+      name: "linked-plugin",
+      source: ${JSON.stringify(path.join(realPackage, "plugin-go"))}
+    };\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(realPackage, "plugin-go", "go.mod"),
+    "module example.com/linkedplugin\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(realPackage, "plugin-go", "main.go"),
+    "package main\n\nfunc main() {}\n",
+    "utf8",
+  );
+
+  const loaded = loadProjectPlugins({
+    binary: "",
+    cacheDir: path.join(root, "cache"),
+    cwd: project,
+    tsconfig: path.join(project, "tsconfig.json"),
+  });
+
+  assert.equal(loaded.nativePlugins.length, 1);
+});
+
 test("readProjectConfig lets child tsconfig override inherited plugins", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
   const shared = path.join(root, "config");

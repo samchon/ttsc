@@ -20,7 +20,35 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/banner
 ```
 
-Open your project's `tsconfig.json`, then add this entry under `compilerOptions.plugins`. If the file already has `compilerOptions`, merge this into the existing object:
+Add a banner config file next to your project config:
+
+```js
+// banner.config.js
+export default {
+  text: "License MIT (c) 2026 Acme",
+};
+```
+
+The config may also export the banner text directly:
+
+```js
+// banner.config.js
+export default "License MIT (c) 2026 Acme";
+```
+
+Run your normal `ttsc` command:
+
+```bash
+npx ttsc
+```
+
+If `@ttsc/banner` is installed and no banner config file can be found, the compile fails.
+
+## Configuration
+
+Use `banner.config.js` or `banner.config.ts` for ordinary projects.
+
+Use `compilerOptions.plugins` only when the project needs a different config file path or inline text:
 
 ```jsonc
 {
@@ -28,17 +56,28 @@ Open your project's `tsconfig.json`, then add this entry under `compilerOptions.
     "plugins": [
       {
         "transform": "@ttsc/banner",
-        "banner": "License MIT (c) 2026 Acme",
+        "config": "./config/banner.config.ts",
       },
     ],
   },
 }
 ```
 
-Run your normal `ttsc` command:
+The explicit `config` path resolves from the selected `tsconfig.json` directory. Use `banner.config.js` or `banner.config.ts` for ordinary projects.
 
-```bash
-npx ttsc
+Existing inline text config remains supported:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/banner",
+        "text": "License MIT (c) 2026 Acme",
+      },
+    ],
+  },
+}
 ```
 
 The plugin formats every banner line inside a JSDoc block and adds `@packageDocumentation`. The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.

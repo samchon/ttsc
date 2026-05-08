@@ -37,11 +37,7 @@ function resolveExactEmittedFile(
   sourceFile: string,
 ): string | null {
   const relative = path.relative(projectRoot, sourceFile);
-  if (
-    relative === "" ||
-    relative.startsWith("..") ||
-    path.isAbsolute(relative)
-  ) {
+  if (relative === "" || isOutsideRelativePath(relative)) {
     return null;
   }
   return path.resolve(
@@ -85,6 +81,14 @@ function sharedSourceStemSegments(outPath: string, srcPath: string): number {
     shared += 1;
   }
   return shared;
+}
+
+function isOutsideRelativePath(relative: string): boolean {
+  return (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  );
 }
 
 function emittedJavaScriptExtension(filename: string): string {

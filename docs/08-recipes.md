@@ -28,7 +28,7 @@ For structured options, marshal the config map back into a typed struct:
 
 ```go
 type Config struct {
-	Banner string   `json:"banner"`
+	Text   string   `json:"text"`
 	Calls  []string `json:"calls"`
 }
 

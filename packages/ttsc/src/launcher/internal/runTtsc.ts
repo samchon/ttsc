@@ -153,10 +153,18 @@ function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
 
 function formatProjectPath(cwd: string, target: string): string {
   const relative = path.relative(cwd, target);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+  if (!relative || isOutsideRelativePath(relative)) {
     return target;
   }
   return relative;
+}
+
+function isOutsideRelativePath(relative: string): boolean {
+  return (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  );
 }
 
 function delegateToNative(argv: readonly string[]): number {

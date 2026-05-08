@@ -3,9 +3,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { hasProjectPluginEntries } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
-import type { ITtscProjectPluginConfig } from "../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { buildNativeCompiler } from "./buildNativeCompiler";
@@ -23,7 +23,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  if (configuredPlugins(options, project).length !== 0) {
+  if (hasConfiguredPlugins(options, project)) {
     return compileProjectWithPlugins(options, cwd, project);
   }
   const tsconfig = project.path;
@@ -61,15 +61,11 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
   };
 }
 
-function configuredPlugins(
+function hasConfiguredPlugins(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
-): ITtscProjectPluginConfig[] {
-  if (options.plugins === false) {
-    return [];
-  }
-  const entries = options.plugins ?? project.compilerOptions.plugins;
-  return entries.filter((entry) => entry.enabled !== false);
+): boolean {
+  return hasProjectPluginEntries(project, options.plugins);
 }
 
 function compileProjectWithPlugins(
@@ -110,11 +106,19 @@ function outputKeyMapper(
     return (relativePath) => relativePath;
   }
   const relativeOutDir = path.relative(project.root, outDir);
-  if (relativeOutDir !== "" && !relativeOutDir.startsWith("..")) {
+  if (relativeOutDir !== "" && !isOutsideRelativePath(relativeOutDir)) {
     const prefix = pathToKey(relativeOutDir);
     return (relativePath) => path.posix.join(prefix, relativePath);
   }
   return (relativePath) => pathToKey(path.join(outDir, relativePath));
+}
+
+function isOutsideRelativePath(relative: string): boolean {
+  return (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  );
 }
 
 function readOutputDirectory(
