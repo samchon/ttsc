@@ -4,7 +4,7 @@ packages:
   - 'tests/*'
 catalogs:
   tsgo:
-    '@typescript/native-preview': 7.0.0-dev.20260507.1
+    '@typescript/native-preview': 7.0.0-dev.20260508.1
   utils:
     '@nestia/e2e': ^11.2.0
     '@types/node': ^25.3.0
