@@ -85,7 +85,7 @@ func NewLintDiagnostic(
   if file != nil {
     d.File = file.FileName()
     if pos >= 0 {
-      length := end - pos
+      length := lint.Len()
       d.Start = &pos
       d.Length = &length
       line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
@@ -240,6 +240,9 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
+  if parsed == nil {
+    return nil, nil, errors.New("driver: nil parsed command line")
+  }
   opts := shimcompiler.ProgramOptions{
     Config:                      parsed,
     SingleThreaded:              core.TSTrue,
@@ -403,6 +406,9 @@ func ApplySourcePreamble(text string, preamble string) string {
 // files filtered out).
 func (p *Program) SourceFiles() []*ast.SourceFile {
   out := make([]*ast.SourceFile, 0)
+  if p == nil || p.TSProgram == nil {
+    return out
+  }
   for _, f := range p.TSProgram.SourceFiles() {
     if f.IsDeclarationFile {
       continue
