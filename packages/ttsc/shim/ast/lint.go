@@ -1,10 +1,7 @@
 // Lint-oriented additions to the AST shim.
 //
-// The handcrafted shim.go in this directory exposes only the kinds/types the
-// existing fixtures need. Lint rules walk a much wider AST surface (every
-// statement / expression node), so this file extends the shim with the
-// kinds, type aliases, helpers, and node-flag constants the `@ttsc/lint`
-// plugin (and any other AST-walking plugin) needs to navigate the tree.
+// This file groups the helpers and node-flag constants the `@ttsc/lint`
+// plugin needs to navigate the tree.
 //
 // Everything here is a pure re-export of `internal/ast` symbols — there is
 // no behavior, no copy of upstream logic. Adding a new node type is

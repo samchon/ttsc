@@ -13,7 +13,9 @@ import (
   "regexp"
   "strings"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimprinter "github.com/microsoft/typescript-go/shim/printer"
 )
 
 var goUpperCall = regexp.MustCompile(`(?m)export\s+const\s+([A-Za-z_$][A-Za-z0-9_$]*)(?:\s*:\s*[^=]+)?=\s*goUpper\("([^"]*)"\)\s*;`)
@@ -100,7 +102,7 @@ func transform(source string) (string, error) {
   }
   name := match[1]
   value := strings.ToUpper(match[2])
-  if shimcore.TSTrue != shimcore.TSFalse {
+  if shimcore.TSTrue != shimcore.TSFalse && canBuildConditionalTokenSurface() {
     // The visible suffix proves the shim import participated in the compiled
     // binary and was not optimized out as an unused dependency.
     value += " (tsgo)"
@@ -115,4 +117,28 @@ func transform(source string) (string, error) {
     b.WriteString(fmt.Sprintf("console.log(%s);\n", name))
   }
   return b.String(), nil
+}
+
+func canBuildConditionalTokenSurface() bool {
+  factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+  questionToken := factory.NewToken(shimast.KindQuestionToken)
+  colonToken := factory.NewToken(shimast.KindColonToken)
+  var typedColonToken *shimast.ColonToken = colonToken
+  condition := factory.NewIdentifier("condition")
+  whenTrue := factory.NewIdentifier("whenTrue")
+  whenFalse := factory.NewIdentifier("whenFalse")
+  expression := factory.NewConditionalExpression(
+    condition,
+    questionToken,
+    whenTrue,
+    typedColonToken,
+    whenFalse,
+  )
+  emitContext := shimprinter.NewEmitContext()
+  printer := shimprinter.NewPrinter(
+    shimprinter.PrinterOptions{},
+    shimprinter.PrintHandlers{},
+    emitContext,
+  )
+  return expression.Kind == shimast.KindConditionalExpression && printer != nil
 }
