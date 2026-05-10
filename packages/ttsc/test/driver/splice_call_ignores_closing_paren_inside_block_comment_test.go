@@ -5,13 +5,9 @@ import "testing"
 // TestDriverSpliceCallIgnoresClosingParenInsideBlockComment verifies block
 // comments do not terminate call scanning.
 //
-// Plugin call rewriting consumes balanced call parentheses from raw source
-// text. A closing parenthesis inside a block comment should not be counted as
+// This scenario covers the comment branch directly through the splice helper
+// because a closing parenthesis inside a block comment should not be counted as
 // the end of the call argument list.
-//
-// This scenario covers the comment branch directly through the splice helper.
-// It avoids a larger emit fixture because the observable risk is isolated to
-// lexical scanning of replacement boundaries.
 //
 // 1. Splice a plugin call whose argument list contains a block comment.
 // 2. Include a closing parenthesis character inside that comment.

@@ -5,13 +5,9 @@ import "testing"
 // TestDriverSpliceCallConsumesRegexLiteralWithClosingParen verifies regex
 // literals do not terminate call scanning.
 //
-// The rewrite scanner walks raw TypeScript text while looking for the closing
-// parenthesis of a plugin call. A regular expression literal may contain a
-// parenthesis character that looks like syntax but belongs to the literal body.
-//
-// This scenario keeps the low-level splice coverage while moving it out of the
-// production driver directory. The test binds to the private scanner because the
-// failure mode is narrower than a full compiler emit fixture.
+// The test binds to the private scanner because a regular expression literal
+// may contain a parenthesis character that looks like syntax but belongs to the
+// literal body, making the failure mode narrower than a full emit fixture.
 //
 // 1. Splice a plugin call whose argument is a regex literal containing `)`.
 // 2. Consume the call parentheses through the driver rewrite helper.
