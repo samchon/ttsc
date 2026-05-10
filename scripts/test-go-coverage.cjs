@@ -1,4 +1,4 @@
-// Enforce 100% statement coverage for Go logic packages.
+// Enforce exact 100% block coverage for Go logic packages.
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -116,10 +116,15 @@ function readCoverprofileBlocks(coverprofile) {
 function runUtilityPluginCoverage(name) {
   const packageDir = path.join(root, "packages", name);
   const workdir = fs.mkdtempSync(path.join(coverageRoot, `${name}-work-`));
+  const unitProfile = path.join(coverageRoot, `${name}-unit.out`);
+  const commandCoverDir = path.join(coverageRoot, `${name}-command`);
+  const commandMergedDir = path.join(coverageRoot, `${name}-command-merged`);
+  const commandProfile = path.join(coverageRoot, `${name}-command.out`);
   const coverprofile = path.join(coverageRoot, `${name}.out`);
   try {
     const goWork = path.join(workdir, "go.work");
     writeGoWork(goWork, packageDir);
+    fs.mkdirSync(commandCoverDir, { recursive: true });
     run(
       "go",
       [
@@ -127,13 +132,24 @@ function runUtilityPluginCoverage(name) {
         "./test",
         "-covermode=atomic",
         "-coverpkg=./plugin",
-        `-coverprofile=${coverprofile}`,
+        `-coverprofile=${unitProfile}`,
       ],
       {
         cwd: packageDir,
-        env: { ...goEnv(), GOWORK: goWork },
+        env: {
+          ...goEnv(),
+          GOWORK: goWork,
+          TTSC_PLUGIN_COVERDIR: commandCoverDir,
+        },
       },
     );
+    convertCommandCoverage(commandCoverDir, commandMergedDir, commandProfile, {
+      cwd: packageDir,
+      env: { ...goEnv(), GOWORK: goWork },
+      label: `packages/${name} command coverage`,
+      requiredPaths: ["plugin/"],
+    });
+    mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
     assertFullCoverage(`packages/${name}`, coverprofile, {
       cwd: packageDir,
       env: { ...goEnv(), GOWORK: goWork },
@@ -225,9 +241,18 @@ function assertFullCoverage(label, coverprofile, options) {
   if (match === null) {
     throw new Error(`${label}: could not parse total coverage from ${total}`);
   }
-  if (Number(match[1]) !== 100) {
+  const uncovered = readCoverprofileRecords(coverprofile).filter(
+    (block) => block.statements > 0 && block.count === 0,
+  );
+  if (uncovered.length > 0) {
     process.stdout.write(result.stdout);
-    throw new Error(`${label}: Go logic coverage is ${match[1]}%, expected 100%`);
+    const sample = uncovered
+      .slice(0, 10)
+      .map((block) => `  - ${block.location} (${block.statements} statements)`)
+      .join("\n");
+    throw new Error(
+      `${label}: Go logic coverage has ${uncovered.length} uncovered block(s), expected exact 100%\n${sample}`,
+    );
   }
   console.log(`${label}: Go logic coverage 100.0%`);
 }
@@ -255,7 +280,12 @@ function mergeCoverprofiles(target, profiles) {
   if (modes.size === 0) {
     throw new Error("coverage merge received no profiles");
   }
-  const mode = modes.has("atomic") ? "atomic" : [...modes][0];
+  if (modes.size !== 1) {
+    throw new Error(
+      `coverage merge received mixed modes: ${[...modes].join(", ")}`,
+    );
+  }
+  const mode = [...modes][0];
   const lines = [`mode: ${mode}`];
   for (const [key, count] of [...blocks.entries()].sort(([a], [b]) =>
     a.localeCompare(b),
@@ -263,6 +293,26 @@ function mergeCoverprofiles(target, profiles) {
     lines.push(`${key} ${count}`);
   }
   fs.writeFileSync(target, `${lines.join("\n")}\n`, "utf8");
+}
+
+function readCoverprofileRecords(coverprofile) {
+  const text = fs.readFileSync(coverprofile, "utf8").trim();
+  if (text === "") return [];
+  const records = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith("mode: ")) continue;
+    const match = line.match(/^(.+:\d+\.\d+,\d+\.\d+)\s+(\d+)\s+(\d+)$/);
+    if (match === null) {
+      throw new Error(`invalid coverage line: ${line}`);
+    }
+    records.push({
+      count: Number(match[3]),
+      line,
+      location: match[1],
+      statements: Number(match[2]),
+    });
+  }
+  return records;
 }
 
 function run(command, args, options) {

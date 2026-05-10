@@ -42,7 +42,7 @@ Unit tests should cover:
 
 References:
 
-- [`packages/ttsc/utility/host_test.go`](../packages/ttsc/utility/host_test.go)
+- [`packages/ttsc/test/utility`](../packages/ttsc/test/utility/)
 - [`packages/banner/test`](../packages/banner/test/)
 - [`packages/strip/test`](../packages/strip/test/)
 - [`packages/paths/test`](../packages/paths/test/)
@@ -145,11 +145,18 @@ Go logic coverage can be audited with:
 pnpm run coverage:go
 ```
 
-The audit covers behavioral Go packages and fixture sidecars:
+This command is a manual Go coverage gate, separate from `pnpm test` and CI's
+`Run Tests` step. It enforces exact 100% block coverage for the runtime Go
+logic it measures and fails on profile-generation errors, uncovered blocks, or
+invalid coverage-profile merges.
+
+The audit covers behavioral Go packages and fixture backends:
 
 - `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
 - `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
 - `packages/lint/plugin`
 - `tests/go-transformer`
 
-Generated shim re-export files under `packages/ttsc/shim` are not counted as logic.
+Generated shim re-export files and the shim generator under `packages/ttsc/shim`
+and `packages/ttsc/tools/gen_shims` are drift-managed code, not part of this
+runtime coverage gate.

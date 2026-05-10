@@ -146,6 +146,10 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   if err := fs.Parse(filterHostArgs(args)); err != nil {
     return hostOptions{}, false
   }
+  if *emit && *noEmit {
+    fmt.Fprintln(os.Stderr, "ttsc utility: --emit and --noEmit are mutually exclusive")
+    return hostOptions{}, false
+  }
   resolvedCwd := *cwd
   if resolvedCwd == "" {
     var err error
