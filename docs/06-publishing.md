@@ -44,13 +44,13 @@ Verify before publish:
 npm pack --dry-run
 ```
 
-If the tarball does not contain `go-plugin/main.go`, consumers will fail with a `source does not exist` or Go build error.
+The tarball contains `go-plugin/main.go`; `ttsc` builds that source on the consumer machine.
 
 ## Dependencies
 
-Do not list `ttsc` in the plugin's published `dependencies` or `peerDependencies`.
+Published plugin packages carry their JS manifest and Go source, while the consumer project supplies `ttsc` and the active `@typescript/native-preview` runtime.
 
-Do not declare `@typescript/native-preview` as your plugin peer. The consumer installs it for `ttsc`, and `ttsc` supplies the matching shim/build overlay.
+Plugin `go.mod` files use `require` lines for host modules. `ttsc` owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...` through its build overlay. Plugin-specific wrappers live under the plugin's own Go module.
 
 ## Versioning
 

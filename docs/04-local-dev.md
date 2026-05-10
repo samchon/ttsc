@@ -37,6 +37,7 @@ use (
 	./node_modules/ttsc/shim/core
 	./node_modules/ttsc/shim/diagnosticwriter
 	./node_modules/ttsc/shim/parser
+	./node_modules/ttsc/shim/printer
 	./node_modules/ttsc/shim/scanner
 	./node_modules/ttsc/shim/tsoptions
 	./node_modules/ttsc/shim/tspath
@@ -56,7 +57,7 @@ Every imported shim still needs a `require` line:
 require github.com/microsoft/typescript-go/shim/ast v0.0.0
 ```
 
-The `go.work` file tells Go where `v0.0.0` lives locally. Without the `require`, gopls and `go test` will still complain.
+The `go.work` file tells Go where `v0.0.0` lives locally. The plugin `go.mod` keeps `require` lines for imported host modules, and the installed `ttsc` package owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...`. Printer, AST, and other plugin helper code belongs under the plugin's own module path while importing the `ttsc`-supplied shims.
 
 ## pnpm
 

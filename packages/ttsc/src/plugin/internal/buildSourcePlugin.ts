@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
+const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
+const TSGO_GO_MODULE_PATH = "github.com/microsoft/typescript-go";
 
 const PRUNE_DIRS = new Set(["node_modules", ".git", ".ttsc"]);
 const GENERATED_WORKSPACE_FILES = new Set(["go.work", "go.work.sum"]);
@@ -53,7 +55,7 @@ export function buildSourcePlugin(opts: {
   );
   try {
     materializeScratchDir(dir, scratchDir);
-    writeGoWork(scratchDir, overlayDirs);
+    writeGoWork(scratchDir, overlayDirs, goBinary, opts.pluginName);
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName, goBinary);
@@ -161,45 +163,214 @@ function materializeScratchDir(source: string, scratch: string): void {
   });
 }
 
-function writeGoWork(scratchDir: string, useDirs: readonly string[]): void {
+function writeGoWork(
+  scratchDir: string,
+  useDirs: readonly string[],
+  goBinary: string,
+  pluginName: string,
+): void {
+  const goModReader = createGoModReader(goBinary, pluginName);
+  validateSourceReplacements(
+    scratchDir,
+    useDirs,
+    goModReader,
+    pluginName,
+  );
   const useLines = ["\t."];
   for (const dir of useDirs) {
     useLines.push(`\t${dir.replace(/\\/g, "/")}`);
   }
-  const replaceLines = sourceBuildWorkspaceReplacements(useDirs);
+  const replaceLines = sourceBuildWorkspaceReplacements(
+    useDirs,
+    goModReader,
+  );
   const replaceBlock =
     replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
   const goWork = `go 1.26\n\nuse (\n${useLines.join("\n")}\n)${replaceBlock}`;
   fs.writeFileSync(path.join(scratchDir, "go.work"), goWork, "utf8");
 }
 
+function validateSourceReplacements(
+  scratchDir: string,
+  useDirs: readonly string[],
+  goModReader: GoModReader,
+  pluginName: string,
+): void {
+  const sourceInfo = goModReader.read(scratchDir);
+  if (sourceInfo.modulePath === TTSC_GO_MODULE_PATH) {
+    return;
+  }
+  const sourceReplacements = sourceInfo.replacements;
+  if (sourceReplacements.length === 0) {
+    return;
+  }
+  const overlayModules = collectOverlayModulePaths(useDirs, goModReader);
+  for (const replacement of sourceReplacements) {
+    if (
+      isTtscManagedModulePath(replacement.modulePath) ||
+      overlayModules.has(replacement.modulePath)
+    ) {
+      throw new Error(
+        `ttsc: plugin "${pluginName}" go.mod replaces ttsc-managed module ` +
+          `${JSON.stringify(replacement.modulePath)}. Remove this replace directive; ` +
+          `ttsc supplies its own compiler and shim modules while building source plugins.`,
+      );
+    }
+  }
+}
+
 function sourceBuildWorkspaceReplacements(
   useDirs: readonly string[],
+  goModReader: GoModReader,
 ): string[] {
-  const ttscRoot = useDirs.find((dir) =>
-    hasModulePath(dir, "github.com/samchon/ttsc/packages/ttsc"),
+  const ttscRoot = useDirs.find(
+    (dir) => goModReader.read(dir).modulePath === TTSC_GO_MODULE_PATH,
   );
   if (!ttscRoot) {
     return [];
   }
   return [
-    `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscRoot.replace(/\\/g, "/")}`,
+    `replace ${TTSC_GO_MODULE_PATH} v0.0.0 => ${ttscRoot.replace(/\\/g, "/")}`,
   ];
 }
 
-function hasModulePath(dir: string, modulePath: string): boolean {
-  try {
-    const goMod = fs.readFileSync(path.join(dir, "go.mod"), "utf8");
-    return new RegExp(`^module\\s+${escapeRegExp(modulePath)}\\s*$`, "m").test(
-      goMod,
-    );
-  } catch {
-    return false;
-  }
+interface GoModReplacement {
+  readonly modulePath: string;
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+interface GoModInfo {
+  readonly modulePath: string | null;
+  readonly replacements: readonly GoModReplacement[];
+}
+
+interface GoModReader {
+  read(dir: string): GoModInfo;
+}
+
+interface GoModJson {
+  readonly Module?: {
+    readonly Path?: string;
+  };
+  readonly Require?: readonly {
+    readonly Path?: string;
+    readonly Version?: string;
+  }[];
+  readonly Replace?: readonly {
+    readonly Old?: {
+      readonly Path?: string;
+      readonly Version?: string;
+    };
+    readonly New?: {
+      readonly Path?: string;
+      readonly Version?: string;
+    };
+  }[];
+}
+
+function createGoModReader(goBinary: string, pluginName: string): GoModReader {
+  const cache = new Map<string, GoModInfo>();
+  return {
+    read(dir) {
+      const resolved = path.resolve(dir);
+      const cached = cache.get(resolved);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const info = readGoModInfo(resolved, goBinary, pluginName);
+      cache.set(resolved, info);
+      return info;
+    },
+  };
+}
+
+function readGoModInfo(
+  dir: string,
+  goBinary: string,
+  pluginName: string,
+): GoModInfo {
+  if (!fs.existsSync(path.join(dir, "go.mod"))) {
+    return emptyGoModInfo();
+  }
+
+  const result = spawnSync(goBinary, ["mod", "edit", "-json"], {
+    cwd: dir,
+    encoding: "utf8",
+    env: goBuildEnv(goBinary),
+    maxBuffer: 1024 * 1024 * 16,
+    windowsHide: true,
+  });
+  if (result.error) {
+    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(goToolchainNotFoundMessage(pluginName));
+    }
+    throw new Error(
+      `ttsc: reading go.mod for plugin "${pluginName}" failed to spawn ${goBinary}: ${result.error.message}`,
+    );
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `ttsc: reading go.mod for plugin "${pluginName}" failed:\n${result.stderr || result.stdout}`,
+    );
+  }
+
+  let json: GoModJson;
+  try {
+    json = JSON.parse(result.stdout) as GoModJson;
+  } catch (error) {
+    throw new Error(
+      `ttsc: reading go.mod for plugin "${pluginName}" returned invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  return {
+    modulePath: json.Module?.Path ?? null,
+    replacements: (json.Replace ?? [])
+      .map(jsonReplacementToGoModReplacement)
+      .filter((replacement) => replacement !== null),
+  };
+}
+
+function emptyGoModInfo(): GoModInfo {
+  return {
+    modulePath: null,
+    replacements: [],
+  };
+}
+
+function jsonReplacementToGoModReplacement(
+  replacement: NonNullable<GoModJson["Replace"]>[number],
+): GoModReplacement | null {
+  const modulePath = replacement.Old?.Path;
+  if (modulePath === undefined) {
+    return null;
+  }
+  return {
+    modulePath,
+  };
+}
+
+function collectOverlayModulePaths(
+  dirs: readonly string[],
+  goModReader: GoModReader,
+): Set<string> {
+  const out = new Set<string>();
+  for (const dir of dirs) {
+    const modulePath = goModReader.read(dir).modulePath;
+    if (modulePath !== null) {
+      out.add(modulePath);
+    }
+  }
+  return out;
+}
+
+function isTtscManagedModulePath(modulePath: string): boolean {
+  return (
+    modulePath === TTSC_GO_MODULE_PATH ||
+    modulePath === TSGO_GO_MODULE_PATH ||
+    modulePath.startsWith("github.com/microsoft/typescript-go/shim/")
+  );
 }
 
 function runGoBuild(
@@ -219,11 +390,7 @@ function runGoBuild(
   });
   if (result.error) {
     if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(
-        `ttsc: building plugin "${pluginName}" failed because the Go toolchain was not found. ` +
-          `Reinstall ttsc with optional dependencies so the bundled Go compiler is present, ` +
-          `or set TTSC_GO_BINARY to an absolute path.`,
-      );
+      throw new Error(goToolchainNotFoundMessage(pluginName));
     }
     throw new Error(
       `ttsc: building plugin "${pluginName}" failed to spawn ${goBinary}: ${result.error.message}`,
@@ -234,6 +401,14 @@ function runGoBuild(
       `ttsc: building plugin "${pluginName}" via "go build" failed:\n${result.stderr || result.stdout}`,
     );
   }
+}
+
+function goToolchainNotFoundMessage(pluginName: string): string {
+  return (
+    `ttsc: building plugin "${pluginName}" failed because the Go toolchain was not found. ` +
+    `Reinstall ttsc with optional dependencies so the bundled Go compiler is present, ` +
+    `or set TTSC_GO_BINARY to an absolute path.`
+  );
 }
 
 function goBuildEnv(goBinary: string): NodeJS.ProcessEnv {

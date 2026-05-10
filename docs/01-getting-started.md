@@ -34,9 +34,7 @@ ttsc-plugin-debugger-strip/
 }
 ```
 
-The `files` field is not optional. Your Go source must ship in the npm tarball because `ttsc` builds it on the consumer machine.
-
-Do not list `ttsc` in the plugin's published `dependencies` or `peerDependencies`.
+The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published plugin manifests keep `ttsc` and `@typescript/native-preview` out of package dependencies; the consumer project supplies the active host and TypeScript-Go runtime.
 
 `ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only from packages listed directly in the nearest consumer `package.json` at or above the selected project. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
 
@@ -79,7 +77,7 @@ require (
 )
 ```
 
-`ttsc` supplies these `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. Add a `require` line for every shim package your plugin imports.
+`ttsc` supplies these `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. Add a `require` line for every shim package your plugin imports. Host-managed module paths stay on the `ttsc` overlay; plugin-specific helper packages live under the plugin's own module path.
 
 ## 4. Implement the Plugin Commands
 
