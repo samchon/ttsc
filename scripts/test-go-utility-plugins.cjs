@@ -16,7 +16,7 @@ for (const name of packageNames) {
   try {
     const goWork = path.join(workdir, "go.work");
     writeGoWork(goWork, packageDir);
-    const result = cp.spawnSync("go", ["test", "./plugin"], {
+    const result = cp.spawnSync("go", ["test", "./test"], {
       cwd: packageDir,
       env: {
         ...process.env,

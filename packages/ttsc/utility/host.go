@@ -13,6 +13,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -108,14 +109,19 @@ func RunTransform(args []string) int {
   if !ok {
     return 2
   }
-  prog, _, _, _, ok := loadUtilityProgram(opts)
+  prog, _, _, sourcePreamble, ok := loadUtilityProgram(opts)
   if !ok {
     return 2
   }
   defer prog.Close()
+  printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
   out := transformResult{TypeScript: map[string]string{}}
   for _, file := range prog.SourceFiles() {
-    out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = file.Text()
+    text := shimprinter.EmitSourceFile(printer, file)
+    if sourcePreamble != "" && !shouldRemoveComments(prog) && !strings.Contains(text, sourcePreamble) {
+      text = driver.ApplySourcePreamble(text, sourcePreamble)
+    }
+    out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
   }
   data, err := json.Marshal(out)
   if err != nil {
