@@ -26,7 +26,7 @@ func runPlatformCommand(t *testing.T, args ...string) (int, string, string) {
 		if err := os.MkdirAll(coverDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		goArgs = append(goArgs, "-cover", "-coverpkg=github.com/samchon/ttsc/packages/ttsc/cmd/platform")
+		goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg=github.com/samchon/ttsc/packages/ttsc/cmd/platform")
 	}
 	cmd := exec.Command("go", append(append(goArgs, "./cmd/platform"), args...)...)
 	cmd.Dir = platformPackageRoot(t)

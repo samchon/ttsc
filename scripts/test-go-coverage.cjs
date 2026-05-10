@@ -233,19 +233,14 @@ function assertFullCoverage(label, coverprofile, options) {
 }
 
 function mergeCoverprofiles(target, profiles) {
-  let mode;
+  const modes = new Set();
   const blocks = new Map();
   for (const profile of profiles) {
     const text = fs.readFileSync(profile, "utf8").trim();
     if (text === "") continue;
     for (const line of text.split(/\r?\n/)) {
       if (line.startsWith("mode: ")) {
-        const next = line.slice("mode: ".length);
-        if (mode === undefined) {
-          mode = next;
-        } else if (mode !== next) {
-          throw new Error(`coverage mode mismatch: ${mode} vs ${next}`);
-        }
+        modes.add(line.slice("mode: ".length));
         continue;
       }
       const match = line.match(/^(.+:\d+\.\d+,\d+\.\d+)\s+(\d+)\s+(\d+)$/);
@@ -257,9 +252,10 @@ function mergeCoverprofiles(target, profiles) {
       blocks.set(key, (blocks.get(key) ?? 0) + count);
     }
   }
-  if (mode === undefined) {
+  if (modes.size === 0) {
     throw new Error("coverage merge received no profiles");
   }
+  const mode = modes.has("atomic") ? "atomic" : [...modes][0];
   const lines = [`mode: ${mode}`];
   for (const [key, count] of [...blocks.entries()].sort(([a], [b]) =>
     a.localeCompare(b),

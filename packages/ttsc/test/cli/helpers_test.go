@@ -66,7 +66,7 @@ func runNativeCommand(t *testing.T, args ...string) (int, string, string) {
 		if err := os.MkdirAll(coverDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		goArgs = append(goArgs, "-cover", "-coverpkg="+nativeCommandCoverPackages())
+		goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
 	}
 	cmd := exec.Command("go", append(append(goArgs, "./cmd/ttsc"), args...)...)
 	cmd.Dir = packageRoot(t)
@@ -103,7 +103,7 @@ func runBuiltNativeCommandInDir(t *testing.T, dir string, args ...string) (int, 
 		if err := os.MkdirAll(coverDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		goArgs = append(goArgs, "-cover", "-coverpkg="+nativeCommandCoverPackages())
+		goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
 	}
 	goArgs = append(goArgs, "./cmd/ttsc")
 
