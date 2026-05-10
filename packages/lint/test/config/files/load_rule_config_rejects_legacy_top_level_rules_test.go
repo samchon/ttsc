@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigRejectsLegacyTopLevelRules verifies load rule config rejects legacy top
-// level rules.
+// TestLoadRuleConfigRejectsLegacyTopLevelRules verifies legacy rules rejection.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are

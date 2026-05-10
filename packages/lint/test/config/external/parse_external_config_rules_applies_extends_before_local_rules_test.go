@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules verifies parse external config
-// rules applies extends before local rules.
+// TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules verifies extends precedence.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

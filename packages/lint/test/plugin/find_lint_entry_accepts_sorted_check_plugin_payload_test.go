@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestFindLintEntryAcceptsSortedCheckPluginPayload verifies find lint entry accepts sorted
-// check plugin payload.
+// TestFindLintEntryAcceptsSortedCheckPluginPayload verifies sorted plugin payloads.
 //
 // The lint sidecar receives plugin metadata as serialized JSON from ttsc. These tests verify
 // that payload decoding and lint-entry selection remain stable even when other check or

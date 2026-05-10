@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigAcceptsInlineConfigObject verifies load rule config accepts inline config
-// object.
+// TestLoadRuleConfigAcceptsInlineConfigObject verifies inline config loading.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are

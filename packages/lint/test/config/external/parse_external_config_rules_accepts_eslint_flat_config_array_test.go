@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigRulesAcceptsESLintFlatConfigArray verifies parse external config rules
-// accepts ESLint flat config array.
+// TestParseExternalConfigRulesAcceptsESLintFlatConfigArray verifies ESLint flat config arrays.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

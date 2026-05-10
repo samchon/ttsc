@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigRulesAcceptsESLintSeverityTuples verifies parse external config rules
-// accepts ESLint severity tuples.
+// TestParseExternalConfigRulesAcceptsESLintSeverityTuples verifies ESLint severity tuples.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

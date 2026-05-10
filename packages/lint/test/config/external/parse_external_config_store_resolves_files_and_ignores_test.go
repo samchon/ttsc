@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigStoreResolvesFilesAndIgnores verifies parse external config store
-// resolves files and ignores.
+// TestParseExternalConfigStoreResolvesFilesAndIgnores verifies file and ignore matching.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

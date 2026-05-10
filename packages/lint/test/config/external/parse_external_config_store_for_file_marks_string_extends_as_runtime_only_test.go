@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly verifies parse external
-// config store for file marks string extends as runtime only.
+// TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly verifies runtime markers.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

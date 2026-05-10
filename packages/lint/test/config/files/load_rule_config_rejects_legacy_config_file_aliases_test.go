@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigRejectsLegacyConfigFileAliases verifies load rule config rejects legacy
-// config file aliases.
+// TestLoadRuleConfigRejectsLegacyConfigFileAliases verifies legacy config alias rejection.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are

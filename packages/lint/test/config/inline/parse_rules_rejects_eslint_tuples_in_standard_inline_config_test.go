@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestParseRulesRejectsESLintTuplesInStandardInlineConfig verifies parse rules rejects ESLint
-// tuples in standard inline config.
+// TestParseRulesRejectsESLintTuplesInStandardInlineConfig verifies tuple rejection.
 //
 // Inline lint config is the native plugin contract carried inside the ttsc plugin entry. These
 // tests verify severity parsing before any external ESLint-style config file is considered.

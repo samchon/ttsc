@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigStoreForFileRequiresRuntimeFields verifies parse external config store
-// for file requires runtime fields.
+// TestParseExternalConfigStoreForFileRequiresRuntimeFields verifies runtime-only fields.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

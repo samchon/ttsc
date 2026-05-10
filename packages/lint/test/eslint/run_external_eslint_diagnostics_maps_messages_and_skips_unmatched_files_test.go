@@ -50,7 +50,7 @@ func TestRunExternalESLintDiagnosticsMapsMessagesAndSkipsUnmatchedFiles(t *testi
 	}
 	fakeNode := filepath.Join(root, "fake-node")
 	writeFile(t, fakeNode, "#!/bin/sh\ncat <<'JSON'\n"+string(output)+"\nJSON\n")
-	if err := chmodExecutable(fakeNode); err != nil {
+	if err := os.Chmod(fakeNode, 0o755); err != nil {
 		t.Fatalf("chmod fake node: %v", err)
 	}
 	t.Setenv("TTSC_NODE_BINARY", fakeNode)
@@ -72,8 +72,4 @@ func TestRunExternalESLintDiagnosticsMapsMessagesAndSkipsUnmatchedFiles(t *testi
 	if diags[0].Pos() != 0 || diags[0].End() != 1 {
 		t.Fatalf("fallback range mismatch: [%d,%d)", diags[0].Pos(), diags[0].End())
 	}
-}
-
-func chmodExecutable(path string) error {
-	return os.Chmod(path, 0o755)
 }

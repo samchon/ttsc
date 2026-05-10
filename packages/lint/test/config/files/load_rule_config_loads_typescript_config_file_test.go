@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigLoadsTypeScriptConfigFile verifies load rule config loads TypeScript
-// config file.
+// TestLoadRuleConfigLoadsTypeScriptConfigFile verifies TypeScript config loading.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are
