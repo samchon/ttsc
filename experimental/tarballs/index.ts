@@ -26,21 +26,29 @@ function build(target) {
   }
 
   console.log("Building package (tgz):", target.name);
-  cp.execSync("pnpm pack", {
-    cwd: target.dir,
-    stdio: "inherit",
-  });
+  const out = path.join(outputDir, `${target.tarballName}.tgz`);
+  fs.rmSync(out, { force: true });
 
-  const file = fs
-    .readdirSync(target.dir)
-    .find((entry) => entry.endsWith(".tgz"));
-  if (!file) {
+  const result = cp.spawnSync("pnpm", ["pack", "--out", out], {
+    cwd: target.dir,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    if (result.stdout.length > 0) process.stdout.write(result.stdout);
+    if (result.stderr.length > 0) process.stderr.write(result.stderr);
+    const cause =
+      result.signal === null
+        ? `status ${result.status}`
+        : `signal ${result.signal}`;
+    throw new Error(`pnpm pack failed for ${target.name}: ${cause}`);
+  }
+  if (!fs.existsSync(out)) {
     throw new Error(`package tarball was not created: ${target.name}`);
   }
-  fs.copyFileSync(
-    path.join(target.dir, file),
-    path.join(outputDir, `${target.tarballName}.tgz`),
-  );
 }
 
 function clearOutputDirectory() {
