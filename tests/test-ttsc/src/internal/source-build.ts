@@ -8,7 +8,10 @@ import {
   computeCacheKey,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 
-function createFakeGoBinary(root: string): string {
+function createFakeGoBinary(
+  root: string,
+  opts: { executable?: boolean } = {},
+): string {
   const script = path.join(root, "fake-go.cjs");
   fs.writeFileSync(
     script,
@@ -95,7 +98,7 @@ function createFakeGoBinary(root: string): string {
     `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
     "utf8",
   );
-  fs.chmodSync(command, 0o755);
+  fs.chmodSync(command, opts.executable === false ? 0o644 : 0o755);
   return command;
 }
 

@@ -27,6 +27,7 @@ export function buildSourcePlugin(opts: {
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = opts.overlayDirs ?? findTtscOverlayDirs();
   const goBinary = resolveGoCompiler();
+  ensureExecutableGoToolchain(goBinary);
   const key = computeCacheKey({
     dir,
     entry,
