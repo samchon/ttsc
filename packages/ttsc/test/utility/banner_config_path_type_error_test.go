@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerConfigPathTypeError verifies the banner `config` option must
 // be a non-empty string path.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid TypeScript project.
 // 2. Configure banner with a non-string `config` value.
 // 3. Assert utility check rejects the malformed option.

@@ -17,7 +17,7 @@ export type TtscTransformResult = Exclude<
 >;
 
 export interface TtscTransformAlias {
-  find: string | RegExp;
+  find: string;
   replacement: string;
 }
 
@@ -99,10 +99,7 @@ export async function transformTtsc(
 
 export function stripQuery(id: string): string {
   const query = id.search(/[?#]/);
-  const clean = query === -1 ? id : id.slice(0, query);
-  return clean.endsWith("?__rslib_entry__")
-    ? clean.slice(0, -"?__rslib_entry__".length)
-    : clean;
+  return query === -1 ? id : id.slice(0, query);
 }
 
 export function isDeclarationFile(id: string): boolean {
@@ -497,7 +494,7 @@ function isAlias(value: unknown): value is TtscTransformAlias {
     value !== null &&
     "find" in value &&
     "replacement" in value &&
-    (typeof value.find === "string" || value.find instanceof RegExp) &&
+    typeof value.find === "string" &&
     typeof value.replacement === "string"
   );
 }

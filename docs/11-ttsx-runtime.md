@@ -37,7 +37,7 @@ npx ttsx --project tsconfig.runtime.json src/index.ts
 | ------------------------ | ------------------------------------------------------- |
 | `-P, --project <file>`   | Use an explicit `tsconfig.json`.                        |
 | `--cwd <dir>`            | Resolve the entrypoint and project from this directory. |
-| `--cache-dir <dir>`      | Override the compiled JavaScript cache directory.       |
+| `--cache-dir <dir>`      | Override the runtime and source-plugin cache root.      |
 | `--binary <path>`        | Use an explicit TypeScript-Go binary.                   |
 | `-r, --require <module>` | Preload a module before the entrypoint.                 |
 | `-h, --help`             | Show help.                                              |
@@ -49,4 +49,4 @@ npx ttsx --project tsconfig.runtime.json src/index.ts
 
 ## Cache
 
-`ttsx` writes compiled JavaScript to its runtime cache. Use `--cache-dir` for an explicit location, or `npx ttsc clean` when you need to clear source-plugin build cache entries used by the shared host.
+`ttsx` writes compiled JavaScript and source-plugin binaries under its cache root for the current run. Use `--cache-dir` for an explicit location, or `npx ttsc clean` when you need to clear source-plugin build cache entries used by the shared host.

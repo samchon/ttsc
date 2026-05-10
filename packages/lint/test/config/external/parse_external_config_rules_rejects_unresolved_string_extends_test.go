@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigRulesRejectsUnresolvedStringExtends verifies parse external config
-// rules rejects unresolved string extends.
+// TestParseExternalConfigRulesRejectsUnresolvedStringExtends verifies string extends rejection.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

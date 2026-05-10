@@ -12,6 +12,10 @@ import (
 // TestUtilityPathsRewritesImportSpecifiers verifies the public utility sidecar
 // can run the paths plugin through a real project build.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with TypeScript `paths` mappings and a source import.
 // 2. Run the utility build entrypoint with the `@ttsc/paths` plugin.
 // 3. Assert emitted JavaScript uses a relative output specifier.

@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"testing"
@@ -8,6 +8,9 @@ import (
 
 // TestDriverRewriteSetCountsNonNilSources verifies RewriteSet ignores invalid
 // rewrites and counts valid source-associated patches.
+//
+// Rewrite collectors can skip individual call sites, so the set must tolerate
+// nil files while still preserving valid source-associated entries.
 //
 // 1. Add a rewrite without a source file and confirm it is ignored.
 // 2. Load a real project and add one source-associated rewrite.

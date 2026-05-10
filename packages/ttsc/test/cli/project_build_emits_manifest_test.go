@@ -11,6 +11,10 @@ import (
 // TestCLIProjectBuildEmitsManifest verifies the native build command writes
 // JavaScript and the optional emitted-file manifest together.
 //
+// The manifest path is only meaningful when the build reaches the emit callback.
+// This scenario keeps the JavaScript output, verbose stream, and manifest JSON
+// tied to the same real project build.
+//
 // 1. Create a small project with `outDir`.
 // 2. Run the real CLI through the build front door.
 // 3. Assert emitted JavaScript, verbose output, and manifest contents.

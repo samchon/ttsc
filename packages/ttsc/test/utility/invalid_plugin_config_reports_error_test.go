@@ -10,6 +10,10 @@ import (
 // TestUtilityInvalidPluginConfigReportsError verifies first-party utility
 // plugin configuration errors fail before emit.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid TypeScript project.
 // 2. Run the utility check entrypoint with an invalid strip statement pattern.
 // 3. Assert the command-sidecar path returns a non-zero status and message.

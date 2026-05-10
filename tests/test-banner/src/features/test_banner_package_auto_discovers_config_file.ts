@@ -21,7 +21,7 @@ export const test_banner_package_auto_discovers_config_file = () => {
   });
   fs.writeFileSync(
     path.join(root, "package.json"),
-    JSON.stringify({ dependencies: { "@ttsc/banner": "0.8.1" } }),
+    JSON.stringify({ dependencies: { "@ttsc/banner": "*" } }),
   );
   TestBanner.seedPackage(root);
 

@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"
@@ -12,6 +12,9 @@ import (
 
 // TestDriverEmitFileRewritesSingleSource verifies the one-file emit facade
 // applies the same rewrite pipeline as whole-program emit.
+//
+// The fixture is project-shaped because EmitFile depends on tsconfig parsing,
+// source-file identity, and real TypeScript-Go output paths.
 //
 // 1. Load a project with two source files.
 // 2. Register a rewrite for the selected source only.

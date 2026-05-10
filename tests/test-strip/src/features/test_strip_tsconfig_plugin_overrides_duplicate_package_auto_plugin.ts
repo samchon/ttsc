@@ -33,7 +33,7 @@ export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin 
     );
     fs.writeFileSync(
       path.join(root, "package.json"),
-      JSON.stringify({ devDependencies: { "@ttsc/strip": "0.8.1" } }),
+      JSON.stringify({ devDependencies: { "@ttsc/strip": "*" } }),
     );
     TestStrip.seedPackage(root);
 

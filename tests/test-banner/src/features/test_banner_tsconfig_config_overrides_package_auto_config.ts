@@ -36,7 +36,7 @@ export const test_banner_tsconfig_config_overrides_package_auto_config = () => {
   );
   fs.writeFileSync(
     path.join(root, "package.json"),
-    JSON.stringify({ devDependencies: { "@ttsc/banner": "0.8.1" } }),
+    JSON.stringify({ devDependencies: { "@ttsc/banner": "*" } }),
   );
   TestBanner.seedPackage(root);
 

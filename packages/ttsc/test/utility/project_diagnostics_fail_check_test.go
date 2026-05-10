@@ -10,6 +10,10 @@ import (
 // TestUtilityProjectDiagnosticsFailCheck verifies utility check fails on real
 // TypeScript semantic diagnostics after plugin configuration succeeds.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a syntactically valid project with a type error.
 // 2. Run utility check with no first-party plugin errors.
 // 3. Assert TypeScript diagnostics produce a non-zero command status.

@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerScriptConfigError verifies script config loader failures are
 // surfaced with the banner plugin context.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with a throwing banner.config.cjs.
 // 2. Run the banner plugin through utility check.
 // 3. Assert stderr includes the loader failure text.

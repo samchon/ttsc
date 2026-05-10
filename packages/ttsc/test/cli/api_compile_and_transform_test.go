@@ -8,6 +8,9 @@ import (
 
 // TestCLIAPICompileAndTransform verifies the native JSON command adapters.
 //
+// The API commands expose compiler results as JSON for the JavaScript wrapper.
+// They must preserve project-relative keys while avoiding writes to disk.
+//
 //  1. Materialize a compilable project with one TypeScript source file.
 //  2. Run `api-compile` through the real `cmd/ttsc` front door.
 //  3. Run `api-transform` and assert the source-text DTO uses project-relative

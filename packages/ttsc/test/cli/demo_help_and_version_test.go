@@ -8,6 +8,10 @@ import (
 // TestCLIDemoHelpAndVersion verifies lightweight command front doors that do
 // not require a project.
 //
+// Help and version should terminate before project discovery, while demo should
+// still reach the native predicate generator. Keeping the three lightweight
+// front doors together makes the command smoke contract visible in one place.
+//
 // 1. Run help and version aliases through the real command binary.
 // 2. Run the demo command for a representative native backend output.
 // 3. Assert each command exits cleanly with the advertised text.

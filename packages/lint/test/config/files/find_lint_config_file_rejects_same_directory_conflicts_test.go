@@ -6,8 +6,7 @@ import (
 	"testing"
 )
 
-// TestFindLintConfigFileRejectsSameDirectoryConflicts verifies find lint config file rejects
-// same directory conflicts.
+// TestFindLintConfigFileRejectsSameDirectoryConflicts verifies conflict rejection.
 //
 // Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
 // config in a nearer package folder. These tests use real temporary paths to validate that

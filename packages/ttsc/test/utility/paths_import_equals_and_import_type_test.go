@@ -12,6 +12,10 @@ import (
 // TestUtilityPathsImportEqualsAndImportType verifies paths rewriting visits
 // import-equals and import-type module specifiers.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project using `import = require` and `import("...")` types.
 // 2. Run a utility build with the paths plugin.
 // 3. Assert emitted JavaScript uses a relative require path.

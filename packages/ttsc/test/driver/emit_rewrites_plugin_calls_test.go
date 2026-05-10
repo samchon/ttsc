@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"

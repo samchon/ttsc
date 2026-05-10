@@ -15,7 +15,8 @@
     "package:next": "bash next.bash",
     "package:tgz": "node --experimental-strip-types experimental/tarballs/index.ts",
     "release": "bumpp -r",
-    "test": "pnpm run build:current && pnpm run test:typecheck && node scripts/test-go-transformer.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-utility-plugins.cjs && pnpm run test:features",
+    "test": "pnpm run build:current && pnpm run test:typecheck && pnpm run test:features",
+    "coverage:go": "node scripts/test-go-coverage.cjs",
     "test:features": "pnpm --filter \"./tests/test-*\" -r start",
     "test:typecheck": "node scripts/test-typecheck.cjs"
   },

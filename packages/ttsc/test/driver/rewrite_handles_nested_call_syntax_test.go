@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"
@@ -12,6 +12,9 @@ import (
 
 // TestDriverRewriteHandlesNestedCallSyntax verifies emit-time call matching
 // skips strings, template literals, comments, and regex literals inside args.
+//
+// This project fixture exercises the public rewrite path rather than the
+// scanner helper directly, so source-to-output matching is included.
 //
 // 1. Compile a plugin call with nested syntax in its argument list.
 // 2. Register a namespace-aware rewrite for that call.

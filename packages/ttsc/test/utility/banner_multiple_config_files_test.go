@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerMultipleConfigFiles verifies discovery rejects ambiguous
 // banner config files in the same directory.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with two supported banner.config.* files.
 // 2. Run the banner plugin without an explicit config path.
 // 3. Assert discovery fails instead of picking one file nondeterministically.

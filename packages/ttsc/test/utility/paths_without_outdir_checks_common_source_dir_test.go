@@ -9,6 +9,10 @@ import (
 // TestUtilityPathsWithoutOutDirChecksCommonSourceDir verifies the paths plugin
 // can prepare a project without rootDir/outDir and still pass check mode.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create two source files under a shared directory without outDir.
 // 2. Run utility check with the paths plugin.
 // 3. Assert setup succeeds, covering common source directory inference.

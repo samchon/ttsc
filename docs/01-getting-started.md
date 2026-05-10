@@ -200,7 +200,7 @@ func parseOptions(command string, args []string) (options, bool) {
 	_ = fs.String("plugins-json", "", "ttsc plugin metadata")
 	_ = fs.Bool("quiet", true, "suppress summary")
 	_ = fs.Bool("verbose", false, "print summary")
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(filterHostArgs(args, fs)); err != nil {
 		return options{}, false
 	}
 
@@ -228,6 +228,44 @@ func parseOptions(command string, args []string) (options, bool) {
 		outDir:   *outDir,
 		tsconfig: *tsconfig,
 	}, true
+}
+
+func filterHostArgs(args []string, fs *flag.FlagSet) []string {
+	out := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name, hasValue, ok := flagName(arg)
+		if !ok {
+			out = append(out, arg)
+			continue
+		}
+		if fs.Lookup(name) == nil {
+			if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				i++
+			}
+			continue
+		}
+		out = append(out, arg)
+		if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			out = append(out, args[i+1])
+			i++
+		}
+	}
+	return out
+}
+
+func flagName(arg string) (string, bool, bool) {
+	if !strings.HasPrefix(arg, "-") || arg == "-" || arg == "--" {
+		return "", false, false
+	}
+	name := strings.TrimLeft(arg, "-")
+	if name == "" {
+		return "", false, false
+	}
+	if idx := strings.IndexByte(name, '='); idx >= 0 {
+		return name[:idx], true, true
+	}
+	return name, false, true
 }
 
 func loadProgram(opts options) (*driver.Program, bool) {

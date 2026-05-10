@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd verifies find lint config file uses
-// tsconfig directory when outside cwd.
+// TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd verifies tsconfig-based discovery.
 //
 // Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
 // config in a nearer package folder. These tests use real temporary paths to validate that

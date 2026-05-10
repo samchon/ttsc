@@ -12,6 +12,10 @@ import (
 // TestUtilityPathsRewritesRuntimeModuleCalls verifies paths rewriting covers
 // runtime module specifier forms beyond static imports.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project using require, dynamic import, and export specifiers.
 // 2. Run the utility build entrypoint with the paths plugin.
 // 3. Assert emitted JavaScript no longer contains the tsconfig alias.

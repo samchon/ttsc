@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestFindLintConfigFileDiscoversNearestAncestor verifies find lint config file discovers
-// nearest ancestor.
+// TestFindLintConfigFileDiscoversNearestAncestor verifies ancestor discovery.
 //
 // Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
 // config in a nearer package folder. These tests use real temporary paths to validate that

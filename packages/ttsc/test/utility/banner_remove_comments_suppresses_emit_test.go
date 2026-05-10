@@ -12,6 +12,10 @@ import (
 // TestUtilityBannerRemoveCommentsSuppressesEmit verifies banner output obeys
 // TypeScript's removeComments compiler option.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with removeComments enabled and a banner plugin.
 // 2. Run a real utility build with emit forced on.
 // 3. Assert emitted JavaScript does not reinsert the banner after tsgo strips it.

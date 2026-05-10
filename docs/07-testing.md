@@ -42,9 +42,10 @@ Unit tests should cover:
 
 References:
 
-- [`tests/utility-plugins/banner/plugin/banner_test.go`](../tests/utility-plugins/banner/plugin/banner_test.go)
-- [`tests/utility-plugins/strip/plugin/strip_test.go`](../tests/utility-plugins/strip/plugin/strip_test.go)
-- [`tests/utility-plugins/paths/plugin/paths_test.go`](../tests/utility-plugins/paths/plugin/paths_test.go)
+- [`packages/ttsc/utility/host_test.go`](../packages/ttsc/utility/host_test.go)
+- [`packages/banner/test`](../packages/banner/test/)
+- [`packages/strip/test`](../packages/strip/test/)
+- [`packages/paths/test`](../packages/paths/test/)
 
 ## End-to-End Tests
 
@@ -135,3 +136,20 @@ Avoid whole-file snapshots unless the exact output is the contract. Compiler boi
 If your plugin imports a shim symbol, add an end-to-end case that exercises that exact code path. When `ttsc` bumps TypeScript-Go, a moved symbol should fail in CI, not in a user's install.
 
 For this repository's full test matrix and release smoke checks, see [Workspace Release](./12-workspace-release.md).
+
+## Go Coverage Audit
+
+Go logic coverage can be audited with:
+
+```bash
+pnpm run coverage:go
+```
+
+The audit covers behavioral Go packages and fixture sidecars:
+
+- `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
+- `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
+- `packages/lint/plugin`
+- `tests/go-transformer`
+
+Generated shim re-export files under `packages/ttsc/shim` are not counted as logic.

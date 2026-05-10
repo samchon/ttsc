@@ -9,6 +9,10 @@ import (
 // TestCLIReportsDiagnosticsWithoutEmit verifies API diagnostics remain
 // machine-readable when the project has a semantic error.
 //
+// API callers need diagnostics in stdout even when compilation fails. The
+// command should return a failing status while preserving machine-readable JSON
+// instead of moving the compiler diagnostics only to stderr.
+//
 // 1. Create a strict project with a known type mismatch.
 // 2. Execute `api-transform`, which should still serialize a JSON result.
 // 3. Assert the exit code fails while diagnostics stay in stdout for callers.

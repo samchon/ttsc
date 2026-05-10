@@ -12,6 +12,10 @@ import (
 // TestUtilityStripEmbeddedStatements verifies the strip plugin handles
 // single-statement control-flow bodies, not just top-level statements.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with debugger and configured calls inside control flow.
 // 2. Run a utility build with the strip plugin defaults.
 // 3. Assert emitted JavaScript has no stripped debug statements left.

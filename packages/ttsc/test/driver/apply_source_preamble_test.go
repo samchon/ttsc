@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"testing"
@@ -8,6 +8,9 @@ import (
 
 // TestDriverApplySourcePreamble verifies generated preambles preserve file
 // leaders that must stay at byte zero.
+//
+// The helper is intentionally tested directly because it is part of the public
+// driver contract used by source-preamble plugin output.
 //
 // 1. Apply a preamble to plain source, BOM-prefixed source, and hashbang source.
 // 2. Assert BOM/hashbang ordering remains intact.

@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigDiscoversPlainLintConfig verifies load rule config discovers plain lint
-// config.
+// TestLoadRuleConfigDiscoversPlainLintConfig verifies discovered config loading.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are

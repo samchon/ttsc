@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// TestLoadRuleConfigLoadsJavaScriptConfigFile verifies load rule config loads JavaScript
-// config file.
+// TestLoadRuleConfigLoadsJavaScriptConfigFile verifies JavaScript config loading.
 //
 // LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
 // tests materialize temporary config files so path resolution and legacy-key rejection are

@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseRulesAcceptsLegacyNumericSeverities verifies parse rules accepts legacy numeric
-// severities.
+// TestParseRulesAcceptsLegacyNumericSeverities verifies numeric severities.
 //
 // Inline lint config is the native plugin contract carried inside the ttsc plugin entry. These
 // tests verify severity parsing before any external ESLint-style config file is considered.

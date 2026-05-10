@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerMissingConfigReportsError verifies the banner plugin fails
 // clearly when neither inline text nor a config file exists.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid project with no banner config file.
 // 2. Run the utility check entrypoint with `@ttsc/banner`.
 // 3. Assert the command returns a configuration error instead of succeeding.

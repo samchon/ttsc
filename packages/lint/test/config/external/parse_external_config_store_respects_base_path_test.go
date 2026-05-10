@@ -4,8 +4,7 @@ import (
 	"testing"
 )
 
-// TestParseExternalConfigStoreRespectsBasePath verifies parse external config store respects
-// base path.
+// TestParseExternalConfigStoreRespectsBasePath verifies base path matching.
 //
 // External config parsing accepts ESLint-style flat config data and reduces it into the lint
 // engine rule model. These tests cover file matching, ignores, extends reduction, and

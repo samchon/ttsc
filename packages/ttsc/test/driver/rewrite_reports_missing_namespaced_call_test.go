@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"
@@ -10,6 +10,9 @@ import (
 
 // TestDriverRewriteReportsMissingNamespacedCall verifies failed rewrites report
 // the full root, namespace, and method being searched.
+//
+// The error text is part of the native plugin debugging contract when a
+// collected call no longer appears in the emitted JavaScript.
 //
 // 1. Load a project with one plugin call.
 // 2. Register a rewrite for a different namespaced method.

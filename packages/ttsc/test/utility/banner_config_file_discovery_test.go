@@ -11,6 +11,10 @@ import (
 // TestUtilityBannerConfigFileDiscovery verifies the utility host can discover
 // and load JavaScript banner config files beside the project tsconfig.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with `banner.config.cjs` and no inline banner text.
 // 2. Run the utility transform entrypoint with the banner plugin.
 // 3. Assert the discovered config text is injected into transformed source.
