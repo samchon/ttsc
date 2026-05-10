@@ -64,11 +64,14 @@ export function loadProjectPlugins(options: {
     projectRoot: project.root,
     tsconfig: project.path,
   };
-  const plugins = entries.map((entry) =>
+  const plugins = composePluginSources(
+    entries,
+    entries.map((entry) =>
     loadPluginEntry(
       entry.config,
       { ...context, plugin: entry.config },
       entry.baseDir,
+    ),
     ),
   );
 
@@ -98,6 +101,36 @@ export function loadProjectPlugins(options: {
     nativePlugins: orderNativePlugins(nativePlugins),
     project,
   };
+}
+
+function composePluginSources(
+  entries: readonly ProjectPluginEntry[],
+  plugins: readonly ITtscPlugin[],
+): ITtscPlugin[] {
+  const aggregates = plugins
+    .map((plugin, index) => ({ index, plugin }))
+    .filter(({ plugin }) => Array.isArray(plugin.composes));
+  if (aggregates.length === 0) {
+    return [...plugins];
+  }
+  return plugins.map((plugin, index) => {
+    const transform = entries[index]?.config.transform;
+    const aggregate = aggregates.find(
+      ({ index: aggregateIndex, plugin: aggregatePlugin }) =>
+        aggregateIndex !== index &&
+        aggregatePlugin.composes!.some(
+          (alias) =>
+            alias === plugin.name ||
+            (typeof transform === "string" && alias === transform),
+        ),
+    );
+    return aggregate === undefined
+      ? plugin
+      : {
+          ...plugin,
+          source: aggregate.plugin.source,
+        };
+  });
 }
 
 export function hasProjectPluginEntries(

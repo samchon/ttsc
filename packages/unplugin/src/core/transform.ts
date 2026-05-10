@@ -51,6 +51,9 @@ export async function transformTtsc(
   if (isDeclarationFile(file)) {
     return undefined;
   }
+  if (pluginsAreDisabled(options.plugins)) {
+    return undefined;
+  }
 
   const tsconfig = resolveTsconfig(file, options.project);
   const tsconfigDir = path.dirname(tsconfig);
@@ -104,6 +107,12 @@ export function stripQuery(id: string): string {
 
 export function isDeclarationFile(id: string): boolean {
   return id.endsWith(".d.ts") || id.endsWith(".d.mts") || id.endsWith(".d.cts");
+}
+
+function pluginsAreDisabled(
+  plugins: ResolvedTtscUnpluginOptions["plugins"],
+): boolean {
+  return plugins === false || (Array.isArray(plugins) && plugins.length === 0);
 }
 
 export function createTransformResult(

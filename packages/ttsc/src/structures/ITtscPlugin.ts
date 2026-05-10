@@ -46,6 +46,17 @@ export interface ITtscPlugin {
   source: string;
 
   /**
+   * Other transform plugin names or transform specifiers that this native
+   * sidecar can execute in the same compiler pass.
+   *
+   * Package auto-discovery may find multiple transform packages that must share
+   * one emit host. When one descriptor lists another entry here, ttsc keeps the
+   * original plugin config in `--plugins-json` but points the composed entry at
+   * this descriptor's native source so both entries resolve to one binary.
+   */
+  composes?: string[];
+
+  /**
    * Pipeline stage implemented by the sidecar.
    *
    * Omit this field for normal compiler-transform plugins. The only explicit

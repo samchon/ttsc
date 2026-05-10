@@ -3,9 +3,37 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { TtscCompiler } from "../../../../packages/ttsc/lib/index.js";
+import {
+  TtscCompiler as BaseTtscCompiler,
+  type ITtscCompilerContext,
+} from "../../../../packages/ttsc/lib/index.js";
 import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 import { TestProject } from "@ttsc/testing";
+
+const SHARED_COMPILER_CACHE_DIR = fs.mkdtempSync(
+  path.join(os.tmpdir(), "ttsc-compiler-api-cache-"),
+);
+process.on("exit", () => {
+  try {
+    fs.rmSync(SHARED_COMPILER_CACHE_DIR, { recursive: true, force: true });
+  } catch {}
+});
+
+class TtscCompiler extends BaseTtscCompiler {
+  public constructor(context: ITtscCompilerContext = {}) {
+    super(
+      context.cacheDir
+        ? context
+        : {
+            ...context,
+            env: {
+              TTSC_CACHE_DIR: SHARED_COMPILER_CACHE_DIR,
+              ...context.env,
+            },
+          },
+    );
+  }
+}
 
 const ttscPackageRoot = path.join(
   TestProject.WORKSPACE_ROOT,

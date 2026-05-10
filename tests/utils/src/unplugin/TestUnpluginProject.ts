@@ -33,6 +33,7 @@ export namespace TestUnpluginProject {
   // transformTtsc() runs in-process, so seed the same tsgo override that the
   // spawn-based helpers pass explicitly through child-process environments.
   process.env.TTSC_TSGO_BINARY ??= resolveTsgoBinary();
+  let sharedCacheDir: string | undefined;
 
   /**
    * Create a temporary project that transforms `goUpper("...")` through a Go
@@ -40,6 +41,7 @@ export namespace TestUnpluginProject {
    * probe adapter-specific behavior without duplicating fixture setup.
    */
   export function createProject(options: ICreateProjectOptions = {}) {
+    ensureSharedCacheDir();
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-unplugin-"));
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     fs.writeFileSync(
@@ -78,6 +80,21 @@ export namespace TestUnpluginProject {
     writePluginEntry(root);
     writeGoPlugin(root);
     return root;
+  }
+
+  function ensureSharedCacheDir(): void {
+    if (process.env.TTSC_CACHE_DIR !== undefined) {
+      return;
+    }
+    sharedCacheDir ??= fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-unplugin-cache-"),
+    );
+    process.env.TTSC_CACHE_DIR = sharedCacheDir;
+    process.once("exit", () => {
+      try {
+        fs.rmSync(sharedCacheDir!, { recursive: true, force: true });
+      } catch {}
+    });
   }
 
   /** Absolute path to the generated TypeScript entrypoint. */

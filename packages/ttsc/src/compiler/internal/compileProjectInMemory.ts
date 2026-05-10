@@ -29,7 +29,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
   const tsconfig = project.path;
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
-    cacheDir: options.cacheDir,
+    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     packageRoot: packageRootDir(),
   });
   const res = spawnSync(
