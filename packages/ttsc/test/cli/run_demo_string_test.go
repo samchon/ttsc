@@ -25,4 +25,3 @@ func TestCLIRunDemoString(t *testing.T) {
 		t.Fatalf("demo string mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
 }
-

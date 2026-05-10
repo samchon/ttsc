@@ -25,4 +25,3 @@ func TestCLIRunUnknownCommandExits2(t *testing.T) {
 		t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
 }
-

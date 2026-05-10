@@ -25,4 +25,3 @@ func TestCLIRunDemoUnknownTypeExits2(t *testing.T) {
 		t.Fatalf("demo unknown type mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
 }
-

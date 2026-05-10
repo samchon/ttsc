@@ -9,6 +9,10 @@ import (
 // TestCLIReportsDiagnosticsWithoutEmit verifies API diagnostics remain
 // machine-readable when the project has a semantic error.
 //
+// This command-level regression runs through the native host boundary instead
+// of a production-package test file. The assertions keep CLI behavior tied
+// to observable status, streams, or emitted files.
+//
 // 1. Create a strict project with a known type mismatch.
 // 2. Execute `api-transform`, which should still serialize a JSON result.
 // 3. Assert the exit code fails while diagnostics stay in stdout for callers.

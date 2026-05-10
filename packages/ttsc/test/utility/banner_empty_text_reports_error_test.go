@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerEmptyTextReportsError verifies inline banner text must be a
 // non-empty string.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid project.
 // 2. Configure `@ttsc/banner` with whitespace-only text.
 // 3. Assert utility check reports the banner configuration error.

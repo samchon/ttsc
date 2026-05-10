@@ -32,4 +32,3 @@ func TestCLIRunDemoEveryAtomic(t *testing.T) {
 		}
 	}
 }
-

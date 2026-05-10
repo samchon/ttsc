@@ -10,6 +10,10 @@ import (
 // TestUtilityStripInvalidCallPatternReportsError verifies strip call patterns
 // reject unsupported wildcard placement.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid TypeScript project.
 // 2. Configure strip with an invalid middle wildcard call pattern.
 // 3. Assert utility check reports a plugin configuration error.

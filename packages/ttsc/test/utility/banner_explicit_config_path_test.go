@@ -11,6 +11,10 @@ import (
 // TestUtilityBannerExplicitConfigPath verifies banner config paths are resolved
 // relative to the selected tsconfig file, not blindly from process cwd.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a nested tsconfig with a sibling banner config file.
 // 2. Run the utility transform entrypoint with an explicit `config` value.
 // 3. Assert the resolved config text is injected into the nested source file.

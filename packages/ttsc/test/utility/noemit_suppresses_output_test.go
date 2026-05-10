@@ -11,6 +11,10 @@ import (
 // TestUtilityNoEmitSuppressesOutput verifies the utility build entrypoint
 // honors `--noEmit` even when plugin configuration is present.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid project with an outDir.
 // 2. Run utility build with `--noEmit`.
 // 3. Assert the command succeeds without writing JavaScript output.

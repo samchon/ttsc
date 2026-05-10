@@ -26,4 +26,3 @@ func TestCLIRunHelpVariants(t *testing.T) {
 		}
 	}
 }
-

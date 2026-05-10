@@ -22,7 +22,11 @@ try {
 }
 
 function runTtscCoverage() {
+  const unitProfile = path.join(coverageRoot, "ttsc-unit.out");
+  const commandCoverDir = path.join(coverageRoot, "ttsc-command");
+  const commandProfile = path.join(coverageRoot, "ttsc-command.out");
   const coverprofile = path.join(coverageRoot, "ttsc.out");
+  fs.mkdirSync(commandCoverDir, { recursive: true });
   run(
     "go",
     [
@@ -34,10 +38,23 @@ function runTtscCoverage() {
       "./utility",
       "-covermode=atomic",
       "-coverpkg=./cmd/platform,./cmd/ttsc,./driver,./utility",
-      `-coverprofile=${coverprofile}`,
+      `-coverprofile=${unitProfile}`,
     ],
+    {
+      cwd: ttscDir,
+      env: {
+        ...goEnv(),
+        TTSC_NATIVE_COMMAND_COVERDIR: commandCoverDir,
+        TTSC_PLATFORM_COMMAND_COVERDIR: commandCoverDir,
+      },
+    },
+  );
+  run(
+    "go",
+    ["tool", "covdata", "textfmt", `-i=${commandCoverDir}`, `-o=${commandProfile}`],
     { cwd: ttscDir, env: goEnv() },
   );
+  mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
   assertFullCoverage("packages/ttsc", coverprofile, { cwd: ttscDir });
 }
 
@@ -158,6 +175,43 @@ function assertFullCoverage(label, coverprofile, options) {
     throw new Error(`${label}: Go logic coverage is ${match[1]}%, expected 100%`);
   }
   console.log(`${label}: Go logic coverage 100.0%`);
+}
+
+function mergeCoverprofiles(target, profiles) {
+  let mode;
+  const blocks = new Map();
+  for (const profile of profiles) {
+    const text = fs.readFileSync(profile, "utf8").trim();
+    if (text === "") continue;
+    for (const line of text.split(/\r?\n/)) {
+      if (line.startsWith("mode: ")) {
+        const next = line.slice("mode: ".length);
+        if (mode === undefined) {
+          mode = next;
+        } else if (mode !== next) {
+          throw new Error(`coverage mode mismatch: ${mode} vs ${next}`);
+        }
+        continue;
+      }
+      const match = line.match(/^(.+:\d+\.\d+,\d+\.\d+)\s+(\d+)\s+(\d+)$/);
+      if (match === null) {
+        throw new Error(`invalid coverage line: ${line}`);
+      }
+      const key = `${match[1]} ${match[2]}`;
+      const count = Number(match[3]);
+      blocks.set(key, (blocks.get(key) ?? 0) + count);
+    }
+  }
+  if (mode === undefined) {
+    throw new Error("coverage merge received no profiles");
+  }
+  const lines = [`mode: ${mode}`];
+  for (const [key, count] of [...blocks.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    lines.push(`${key} ${count}`);
+  }
+  fs.writeFileSync(target, `${lines.join("\n")}\n`, "utf8");
 }
 
 function run(command, args, options) {

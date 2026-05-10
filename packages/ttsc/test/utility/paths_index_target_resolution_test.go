@@ -12,6 +12,10 @@ import (
 // TestUtilityPathsIndexTargetResolution verifies paths rewriting can resolve a
 // directory index target from a package-style alias.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with outDir, rootDir, and an index.ts alias target.
 // 2. Import a path alias whose target is an index.ts file.
 // 3. Assert emitted JavaScript uses the relative index output path.

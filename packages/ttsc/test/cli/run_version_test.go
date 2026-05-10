@@ -29,4 +29,3 @@ func TestCLIRunVersion(t *testing.T) {
 		}
 	}
 }
-

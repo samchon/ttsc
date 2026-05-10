@@ -1,6 +1,7 @@
 package ttsc_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -20,8 +21,18 @@ func platformPackageRoot(t *testing.T) string {
 
 func runPlatformCommand(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
-	cmd := exec.Command("go", append([]string{"run", "./cmd/platform"}, args...)...)
+	goArgs := []string{"run"}
+	if coverDir := os.Getenv("TTSC_PLATFORM_COMMAND_COVERDIR"); coverDir != "" {
+		if err := os.MkdirAll(coverDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		goArgs = append(goArgs, "-cover", "-coverpkg=github.com/samchon/ttsc/packages/ttsc/cmd/platform")
+	}
+	cmd := exec.Command("go", append(append(goArgs, "./cmd/platform"), args...)...)
 	cmd.Dir = platformPackageRoot(t)
+	if coverDir := os.Getenv("TTSC_PLATFORM_COMMAND_COVERDIR"); coverDir != "" {
+		cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
+	}
 	out, err := cmd.Output()
 	stderr := ""
 	if exit, ok := err.(*exec.ExitError); ok {

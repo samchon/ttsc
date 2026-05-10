@@ -8,6 +8,10 @@ import (
 // TestCLIDemoHelpAndVersion verifies lightweight command front doors that do
 // not require a project.
 //
+// This command-level regression runs through the native host boundary instead
+// of a production-package test file. The assertions keep CLI behavior tied
+// to observable status, streams, or emitted files.
+//
 // 1. Run help and version aliases through the real command binary.
 // 2. Run the demo command for a representative native backend output.
 // 3. Assert each command exits cleanly with the advertised text.

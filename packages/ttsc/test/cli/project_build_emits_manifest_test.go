@@ -11,6 +11,10 @@ import (
 // TestCLIProjectBuildEmitsManifest verifies the native build command writes
 // JavaScript and the optional emitted-file manifest together.
 //
+// This command-level regression runs through the native host boundary instead
+// of a production-package test file. The assertions keep CLI behavior tied
+// to observable status, streams, or emitted files.
+//
 // 1. Create a small project with `outDir`.
 // 2. Run the real CLI through the build front door.
 // 3. Assert emitted JavaScript, verbose output, and manifest contents.

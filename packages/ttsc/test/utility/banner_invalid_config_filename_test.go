@@ -10,6 +10,10 @@ import (
 // TestUtilityBannerInvalidConfigFilename verifies explicit banner config paths
 // must use the supported banner.config.* filename contract.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a valid project and a wrongly named config file.
 // 2. Point the banner plugin at that explicit file.
 // 3. Assert the loader rejects the filename before executing it.

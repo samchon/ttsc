@@ -12,6 +12,10 @@ import (
 // TestUtilityPathsMtsExtensionRewrite verifies paths rewriting preserves the
 // emitted `.mjs` extension for `.mts` sources.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create an ES module project with `.mts` source files.
 // 2. Run a utility build with the paths plugin.
 // 3. Assert the emitted import points at the `.mjs` output file.

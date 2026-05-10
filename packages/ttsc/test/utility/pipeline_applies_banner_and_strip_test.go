@@ -13,6 +13,10 @@ import (
 // TestUtilityPipelineAppliesBannerAndStrip verifies the public utility sidecar
 // path used by first-party Go plugins.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Build a real project containing source text for banner and strip plugins.
 // 2. Run check, transform, and build through exported utility entrypoints.
 // 3. Assert transformed source and emitted JavaScript reflect the plugin stack.

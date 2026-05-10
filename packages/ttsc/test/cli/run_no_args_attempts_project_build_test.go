@@ -25,4 +25,3 @@ func TestCLIRunNoArgsAttemptsProjectBuild(t *testing.T) {
 		t.Fatalf("no-args ttsc must build the project, not print help: stdout=%q stderr=%q", stdout, stderr)
 	}
 }
-

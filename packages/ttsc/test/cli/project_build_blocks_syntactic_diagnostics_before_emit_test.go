@@ -46,4 +46,3 @@ const = ;
 		t.Fatalf("expected no emitted JS, stat err=%v", err)
 	}
 }
-

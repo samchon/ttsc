@@ -13,6 +13,10 @@ import (
 // TestUtilityBannerTypeScriptConfigFile verifies the banner loader can execute
 // TypeScript config files through the ttsx runtime path.
 //
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
+//
 // 1. Create a project with `banner.config.ts` exporting an async default.
 // 2. Point the loader at the local ttsx launcher and tsgo binary.
 // 3. Assert the TypeScript config value reaches transformed source text.
