@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"testing"
@@ -9,10 +9,12 @@ import (
 // TestDriverReportsInvalidProjectConfig verifies tsconfig diagnostics stay
 // observable through the public driver facade.
 //
-//  1. Create a project with an invalid compiler option.
-//  2. Load the project through `driver.LoadProgram`.
-//  3. Assert that config diagnostics are returned without a partially-open
-//     program leaking to the caller.
+// The fixture stays at the tsconfig boundary because invalid project options
+// should stop before a Program or checker lease is opened.
+//
+// 1. Create a project with an invalid compiler option.
+// 2. Load the project through driver.LoadProgram.
+// 3. Assert config diagnostics are returned without a partial program.
 func TestDriverReportsInvalidProjectConfig(t *testing.T) {
 	root := t.TempDir()
 

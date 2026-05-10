@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"os"
@@ -11,6 +11,9 @@ import (
 
 // TestDriverLoadProgramOutDirOverride verifies LoadProgramOptions.OutDir
 // controls raw emit output even when tsconfig does not specify outDir.
+//
+// The test observes the default writer path through real output files so the
+// option override is checked at the same boundary the command uses.
 //
 // 1. Load a real project with ForceEmit and an OutDir override.
 // 2. Emit through the default writer.

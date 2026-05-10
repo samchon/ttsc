@@ -370,7 +370,7 @@ This recognizes:
 
 It does not treat `obj["log"]()` or optional chaining as the same shape. Add those cases only when your plugin needs them.
 
-Reference: [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go).
+Reference: [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go) for `stripRewriter`, `callExpressionName`, and statement filtering.
 
 ## Recognizing Imports and Module Specifiers
 
@@ -417,7 +417,7 @@ func clamp(value, min, max int) int {
 }
 ```
 
-Reference: [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go).
+Reference: [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go) for `pathsRewriter`, module-specifier walking, and source-to-output path mapping.
 
 ## TypeScript Type Syntax
 
@@ -612,8 +612,8 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 Read these in order:
 
 1. [`packages/banner`](../packages/banner/) - source JSDoc preamble insertion.
-2. [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go) - source AST statement filtering.
-3. [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go) - parse tsconfig, load Program, rewrite specifiers.
+2. [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go) - first-party banner, strip, and paths transform host.
+3. [`packages/ttsc/test/utility`](../packages/ttsc/test/utility/) - utility transform behavior tests.
 4. [`tests/projects/go-source-plugin-checker`](../tests/projects/go-source-plugin-checker/) - Program/Checker bootstrap.
 5. [`tests/projects/go-source-plugin-properties`](../tests/projects/go-source-plugin-properties/) - interface AST walk.
 6. [`packages/lint/plugin`](../packages/lint/plugin/) - full diagnostics engine.

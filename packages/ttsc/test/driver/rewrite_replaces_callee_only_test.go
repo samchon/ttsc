@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"
@@ -12,6 +12,9 @@ import (
 
 // TestDriverRewriteReplacesCalleeOnly verifies rewrites can replace just the
 // callee prefix while preserving the original argument list.
+//
+// This covers the non-consuming rewrite mode used when generated output should
+// wrap or redirect the original runtime arguments.
 //
 // 1. Compile a plugin call with one runtime argument.
 // 2. Register a rewrite with ConsumeParens disabled.

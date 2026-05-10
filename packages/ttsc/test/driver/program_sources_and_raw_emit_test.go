@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"path/filepath"
@@ -12,6 +12,9 @@ import (
 
 // TestDriverProgramSourcesAndRawEmit verifies public program inspection and
 // unmodified TypeScript-Go emit through the driver facade.
+//
+// This keeps the read-only Program facade behavior covered separately from the
+// rewrite pipeline, including declaration filtering.
 //
 // 1. Load a project containing one source file and one declaration file.
 // 2. Assert public source enumeration filters declarations.

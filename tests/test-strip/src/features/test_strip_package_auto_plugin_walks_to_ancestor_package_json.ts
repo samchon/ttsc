@@ -18,7 +18,7 @@ export const test_strip_package_auto_plugin_walks_to_ancestor_package_json =
   () => {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({
-        dependencies: { "@ttsc/strip": "0.8.1" },
+        dependencies: { "@ttsc/strip": "*" },
       }),
       "packages/app/tsconfig.json": JSON.stringify({
         compilerOptions: {

@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"os"
@@ -10,6 +10,9 @@ import (
 
 // TestDriverDefaultWriteFileCreatesParentDirectory verifies the default emit
 // writer can materialize nested output paths.
+//
+// This covers the normal disk writer path used when callers do not provide a
+// custom TypeScript-Go WriteFile callback.
 //
 // 1. Pick a nested output file path in a temporary directory.
 // 2. Write through the public DefaultWriteFile helper.

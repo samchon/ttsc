@@ -28,7 +28,7 @@ export const test_strip_package_auto_uses_default_config = () => {
   });
   fs.writeFileSync(
     path.join(root, "package.json"),
-    JSON.stringify({ dependencies: { "@ttsc/strip": "0.8.1" } }),
+    JSON.stringify({ dependencies: { "@ttsc/strip": "*" } }),
   );
   TestStrip.seedPackage(root);
 

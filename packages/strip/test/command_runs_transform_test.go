@@ -7,8 +7,7 @@ import (
 	"testing"
 )
 
-// TestCommandRunsTransform verifies the strip sidecar removes configured calls in transform
-// output.
+// TestCommandRunsTransform verifies strip transform output.
 //
 // The strip sidecar is tested through its package wrapper because hosts care about emitted
 // JavaScript with selected statements removed. These scenarios keep command dispatch, project

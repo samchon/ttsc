@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"strings"
@@ -9,6 +9,9 @@ import (
 
 // TestDriverPublicGuardPaths verifies exported driver helpers fail safely for
 // nil or manually-assembled inputs.
+//
+// These guards are command-facing fallback behavior, so the test avoids real
+// compiler state and checks the stable public error/string results directly.
 //
 // 1. Exercise diagnostic helpers without a shim diagnostic anchor.
 // 2. Exercise nil Program inspection and emit entrypoints.

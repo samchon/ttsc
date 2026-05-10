@@ -1,4 +1,4 @@
-package ttsc_test
+package driver_test
 
 import (
 	"bytes"
@@ -10,6 +10,9 @@ import (
 
 // TestDriverDiagnosticShapes verifies public diagnostic helpers that plugins
 // use to integrate with the native checker pipeline.
+//
+// The assertions keep the plugin-facing lint diagnostic DTO and plain fallback
+// renderer stable without reaching into shim-private types.
 //
 // 1. Load a source file so lint diagnostics can be anchored to real text.
 // 2. Shape warning and error diagnostics through the public constructor.

@@ -25,7 +25,7 @@ export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_f
     const root = setupLintProject("lint-violations");
     fs.writeFileSync(
       path.join(root, "package.json"),
-      JSON.stringify({ dependencies: { "@ttsc/lint": "0.8.1" } }),
+      JSON.stringify({ dependencies: { "@ttsc/lint": "*" } }),
     );
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),

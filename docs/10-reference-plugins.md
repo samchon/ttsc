@@ -16,12 +16,12 @@ Each package has a JavaScript descriptor factory and a Go plugin module:
 ```text
 packages/<name>/
 |- package.json
-|- src/index.cjs        # simple descriptor factory
-|- src/index.ts         # typed package surface, compiled to lib/index.js
+|- src/index.cjs        # simple descriptor factory, when no typed surface is needed
+|- src/index.ts         # typed package surface, compiled to lib/index.js when present
 |- go.mod
 `- plugin/
-   |- main.go
-   `- <name>.go
+   |- main.go           # native sidecar entrypoint
+   `- <name>.go         # package-local helper file or wrapper
 ```
 
 For a package with no public TypeScript types, the descriptor factory can live in `src/index.cjs`:
@@ -90,8 +90,9 @@ Read:
 
 - [`packages/banner/src/index.ts`](../packages/banner/src/index.ts)
 - [`packages/banner/plugin/main.go`](../packages/banner/plugin/main.go)
-- [`packages/banner/plugin/banner.go`](../packages/banner/plugin/banner.go)
-- [`tests/utility-plugins/banner/plugin/banner_test.go`](../tests/utility-plugins/banner/plugin/banner_test.go)
+- [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go)
+- [`packages/banner/test`](../packages/banner/test/)
+- [`packages/ttsc/test/utility`](../packages/ttsc/test/utility/)
 
 Use this as the template for simple source comment transforms.
 
@@ -101,14 +102,10 @@ Path: [`packages/strip`](../packages/strip/)
 
 Purpose: remove configured call-expression statements and `debugger` statements from TypeScript source AST before emit.
 
-Consumer `package.json`:
+Install:
 
-```json
-{
-  "devDependencies": {
-    "@ttsc/strip": "^0.8.1"
-  }
-}
+```bash
+npm install -D @ttsc/strip
 ```
 
 With no plugin options, `@ttsc/strip` removes `console.log`, `console.debug`, `assert.*`, and `debugger`. Add a `compilerOptions.plugins[]` entry when the project needs a different call or statement list.
@@ -136,8 +133,10 @@ SourceFile
 Read:
 
 - [`packages/strip/src/index.cjs`](../packages/strip/src/index.cjs)
-- [`packages/strip/plugin/strip.go`](../packages/strip/plugin/strip.go)
-- [`tests/utility-plugins/strip/plugin/strip_test.go`](../tests/utility-plugins/strip/plugin/strip_test.go)
+- [`packages/strip/plugin/main.go`](../packages/strip/plugin/main.go)
+- [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go)
+- [`packages/strip/test`](../packages/strip/test/)
+- [`packages/ttsc/test/utility`](../packages/ttsc/test/utility/)
 
 Then compare the AST discussion in [AST and Checker](./03-tsgo.md#recognizing-calls).
 
@@ -147,14 +146,10 @@ Path: [`packages/paths`](../packages/paths/)
 
 Purpose: rewrite source module specifiers that match `compilerOptions.paths` into relative output paths. Declaration emit follows the same source AST rewrite.
 
-Consumer `package.json`:
+Install:
 
-```json
-{
-  "devDependencies": {
-    "@ttsc/paths": "^0.8.1"
-  }
-}
+```bash
+npm install -D @ttsc/paths
 ```
 
 Consumer `tsconfig.json`:
@@ -198,9 +193,11 @@ emitted specifier "@lib/message"
 Read:
 
 - [`packages/paths/src/index.cjs`](../packages/paths/src/index.cjs)
-- [`packages/paths/plugin/paths.go`](../packages/paths/plugin/paths.go)
-- [`tests/utility-plugins/paths/plugin/paths_test.go`](../tests/utility-plugins/paths/plugin/paths_test.go)
-- [`tests/test-utility-plugins/src/features/utility-plugins`](../tests/test-utility-plugins/src/features/utility-plugins/)
+- [`packages/paths/plugin/main.go`](../packages/paths/plugin/main.go)
+- [`packages/ttsc/utility/host.go`](../packages/ttsc/utility/host.go)
+- [`packages/paths/test`](../packages/paths/test/)
+- [`packages/ttsc/test/utility`](../packages/ttsc/test/utility/)
+- [`tests/test-paths/src/features`](../tests/test-paths/src/features/)
 
 Then compare [AST and Checker](./03-tsgo.md#recognizing-imports-and-module-specifiers).
 
@@ -210,14 +207,10 @@ Path: [`packages/lint`](../packages/lint/)
 
 Purpose: report ESLint-style diagnostics from TypeScript-Go's Program and Checker path.
 
-Consumer `package.json`:
+Install:
 
-```json
-{
-  "devDependencies": {
-    "@ttsc/lint": "^0.8.1"
-  }
-}
+```bash
+npm install -D @ttsc/lint
 ```
 
 When `config` is not written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
@@ -311,4 +304,4 @@ Behavior:
 - `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.
 - TypeScript-Go emits JavaScript, declarations, and maps.
 
-Pinned by: `utility plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/test-utility-plugins/src/features/utility-plugins/test_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](../tests/test-utility-plugins/src/features/utility-plugins/test_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts).
+Pinned by: `ttsc first-party plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](../tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts).
