@@ -147,7 +147,7 @@ pnpm run test:go
 
 The gate covers behavioral Go packages and fixture sidecars:
 
-- `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, and `packages/ttsc/utility`
+- `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
 - `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
 - `packages/lint/plugin`
 - `tests/go-transformer`

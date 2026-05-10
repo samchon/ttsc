@@ -6,7 +6,7 @@ import (
 )
 
 // TestUtilityResolveBannerTextRejectsEmptyObjectText verifies inline banner
-// text validation rejects whitespace-only values.
+// text validation rejects a whitespace-only `text` field in object config.
 //
 // Inline config bypasses file discovery, so this branch is the direct guard
 // against accepting a banner plugin entry that cannot produce visible preamble

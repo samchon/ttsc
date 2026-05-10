@@ -12,14 +12,12 @@ import (
 // behavior and the main configuration error branches.
 //
 // Empty strip config expands to the package defaults, while malformed call and
-// statement patterns must fail before AST mutation begins. The relocated test
-// observes those branches through the public utility sidecar instead of the
-// production package directory.
+// statement patterns must fail before AST mutation begins. This package-level
+// utility test observes those branches through the public sidecar entrypoints.
 //
-// This scenario keeps both success and validation intent from the old unit
-// coverage. The transformed source assertion proves the default call and
-// statement patterns are active, while the command errors prove bad patterns
-// still stop configuration.
+// The transformed source assertion proves the default call and statement
+// patterns are active, while the command errors prove bad patterns still stop
+// configuration before a project can emit.
 //
 // 1. Transform a project with empty strip config and verify default removals.
 // 2. Configure an unsupported statement pattern and assert a config error.

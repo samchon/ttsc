@@ -33,7 +33,8 @@ func TestUtilityPathsRewriterResolvesIndexAndModuleExtensions(t *testing.T) {
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/index": ["./src/modules/index.ts"],
+      "@lib/*": ["./src/modules/*.mts"]
     }
   },
   "files": ["src/consumer/main.mts", "src/modules/index.ts", "src/modules/esm.mts"]

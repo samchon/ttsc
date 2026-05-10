@@ -10,9 +10,9 @@ import (
 // TestCLIProjectBuildBlocksSemanticDiagnostics verifies project builds stop
 // before emit when TypeScript reports semantic errors.
 //
-// This command-level regression runs through the native host boundary instead
-// of a production-package test file. The assertions keep CLI behavior tied
-// to observable status, streams, or emitted files.
+// The fixture contains valid syntax with an invalid assignment, so the failure
+// must come from the semantic checker rather than parsing or config loading.
+// Forced emit should still stop before any JavaScript file is written.
 //
 // 1. Create a strict project with a known assignment error.
 // 2. Run the build command with `--emit`.

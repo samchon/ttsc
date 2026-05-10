@@ -12,9 +12,9 @@ import (
 // TestUtilityPathsCtsExtensionRewrite verifies paths rewriting maps `.cts`
 // source targets to `.cjs` emitted module specifiers.
 //
-// The paths utility predicts output filenames before TypeScript writes them.
-// CommonJS TypeScript module files use the `.cts` source suffix and need the
-// matching `.cjs` runtime specifier after rewriting.
+// This utility regression runs through the package-level host fixture rather
+// than a production-package test file. The assertions keep plugin behavior
+// tied to observable transform output or diagnostics.
 //
 // 1. Create a NodeNext project with a path alias to a `.cts` source file.
 // 2. Emit with the paths utility plugin.
@@ -32,7 +32,7 @@ func TestUtilityPathsCtsExtensionRewrite(t *testing.T) {
     "outDir": "bin",
     "rootDir": "src",
     "paths": {
-      "@server/*": ["./src/server/*"]
+      "@server/*": ["./src/server/*.cts"]
     }
   },
   "files": ["src/main.cts", "src/server/config.cts"]

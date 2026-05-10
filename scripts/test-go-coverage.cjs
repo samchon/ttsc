@@ -24,6 +24,7 @@ try {
 function runTtscCoverage() {
   const unitProfile = path.join(coverageRoot, "ttsc-unit.out");
   const commandCoverDir = path.join(coverageRoot, "ttsc-command");
+  const commandMergedDir = path.join(coverageRoot, "ttsc-command-merged");
   const commandProfile = path.join(coverageRoot, "ttsc-command.out");
   const coverprofile = path.join(coverageRoot, "ttsc.out");
   fs.mkdirSync(commandCoverDir, { recursive: true });
@@ -34,10 +35,11 @@ function runTtscCoverage() {
       "./cmd/platform",
       "./cmd/ttsc",
       "./driver",
+      "./internal/cwd",
       "./test/...",
       "./utility",
       "-covermode=atomic",
-      "-coverpkg=./cmd/platform,./cmd/ttsc,./driver,./utility",
+      "-coverpkg=./cmd/platform,./cmd/ttsc,./driver,./internal/cwd,./utility",
       `-coverprofile=${unitProfile}`,
     ],
     {
@@ -49,13 +51,52 @@ function runTtscCoverage() {
       },
     },
   );
-  run(
-    "go",
-    ["tool", "covdata", "textfmt", `-i=${commandCoverDir}`, `-o=${commandProfile}`],
-    { cwd: ttscDir, env: goEnv() },
-  );
+  convertCommandCoverage(commandCoverDir, commandMergedDir, commandProfile, {
+    cwd: ttscDir,
+    env: goEnv(),
+    label: "packages/ttsc command coverage",
+    requiredPaths: ["/cmd/platform/", "/cmd/ttsc/"],
+  });
   mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
   assertFullCoverage("packages/ttsc", coverprofile, { cwd: ttscDir });
+}
+
+function convertCommandCoverage(inputDir, mergedDir, coverprofile, options) {
+  assertCovdataPresent(inputDir, options.label);
+  fs.rmSync(mergedDir, { recursive: true, force: true });
+  fs.mkdirSync(mergedDir, { recursive: true });
+  run(
+    "go",
+    ["tool", "covdata", "merge", `-i=${inputDir}`, `-o=${mergedDir}`],
+    { cwd: options.cwd, env: options.env },
+  );
+  run(
+    "go",
+    ["tool", "covdata", "textfmt", `-i=${mergedDir}`, `-o=${coverprofile}`],
+    { cwd: options.cwd, env: options.env },
+  );
+  assertCoverprofileIncludes(coverprofile, options.label, options.requiredPaths);
+}
+
+function assertCovdataPresent(dir, label) {
+  const files = fs.readdirSync(dir);
+  if (!files.some((file) => file.startsWith("covmeta."))) {
+    throw new Error(`${label}: missing covmeta files from black-box go run`);
+  }
+  if (!files.some((file) => file.startsWith("covcounters."))) {
+    throw new Error(`${label}: missing covcounter files from black-box go run`);
+  }
+}
+
+function assertCoverprofileIncludes(coverprofile, label, requiredPaths) {
+  const lines = readCoverprofileBlocks(coverprofile);
+  for (const requiredPath of requiredPaths) {
+    if (!lines.some((line) => line.includes(requiredPath))) {
+      throw new Error(
+        `${label}: missing black-box coverage block for ${requiredPath}`,
+      );
+    }
+  }
 }
 
 function runUtilityPluginCoverage(name) {
