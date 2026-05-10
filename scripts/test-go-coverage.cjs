@@ -55,7 +55,7 @@ function runTtscCoverage() {
     cwd: ttscDir,
     env: goEnv(),
     label: "packages/ttsc command coverage",
-    requiredPaths: ["/cmd/platform/", "/cmd/ttsc/"],
+    requiredPaths: ["cmd/platform/", "cmd/ttsc/"],
   });
   mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
   assertFullCoverage("packages/ttsc", coverprofile, { cwd: ttscDir });
@@ -84,7 +84,7 @@ function assertCovdataPresent(dir, label) {
     throw new Error(`${label}: missing covmeta files from black-box go run`);
   }
   if (!files.some((file) => file.startsWith("covcounters."))) {
-    throw new Error(`${label}: missing covcounter files from black-box go run`);
+    throw new Error(`${label}: missing covcounters files from black-box go run`);
   }
 }
 
@@ -97,6 +97,20 @@ function assertCoverprofileIncludes(coverprofile, label, requiredPaths) {
       );
     }
   }
+}
+
+function readCoverprofileBlocks(coverprofile) {
+  const text = fs.readFileSync(coverprofile, "utf8").trim();
+  if (text === "") return [];
+  const blocks = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith("mode: ")) continue;
+    if (!/^.+:\d+\.\d+,\d+\.\d+\s+\d+\s+\d+$/.test(line)) {
+      throw new Error(`invalid coverage line: ${line}`);
+    }
+    blocks.push(line);
+  }
+  return blocks;
 }
 
 function runUtilityPluginCoverage(name) {

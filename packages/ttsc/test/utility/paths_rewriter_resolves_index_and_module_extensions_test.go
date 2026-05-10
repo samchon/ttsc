@@ -13,7 +13,7 @@ import (
 // resolution across index files and module-specific source extensions.
 //
 // The rewriter maps TypeScript source files to emitted JavaScript names. It
-// must resolve directory index targets and preserve `.mts` to `.mjs` output
+// must resolve index targets and preserve `.mts` to `.mjs` output
 // mapping when source imports use path aliases.
 //
 // This scenario converts the private rewriter unit into a public utility build
