@@ -1,6 +1,9 @@
 package ttsc_test
 
-import "testing"
+import (
+  "slices"
+  "testing"
+)
 
 // TestUtilityFilterHostArgsKeepsUtilityFlagsAndDropsHostOnlyFlags verifies
 // basic host argument filtering.
@@ -17,35 +20,23 @@ import "testing"
 // 2. Filter the host arguments through the utility helper.
 // 3. Assert only the utility-visible arguments before `--` remain.
 func TestUtilityFilterHostArgsKeepsUtilityFlagsAndDropsHostOnlyFlags(t *testing.T) {
-	got := utilityFilterHostArgs([]string{
-		"--cwd", "/workspace/project",
-		"--cache-dir", ".ttsc",
-		"--emit",
-		"--binary=/tmp/tsgo",
-		"--plugins-json", "[]",
-		"src/main.ts",
-		"--",
-		"--cwd", "ignored",
-	})
-	want := []string{
-		"--cwd", "/workspace/project",
-		"--emit",
-		"--plugins-json", "[]",
-		"src/main.ts",
-	}
-	if !sameStrings(got, want) {
-		t.Fatalf("filtered args mismatch:\nwant: %#v\n got: %#v", want, got)
-	}
-}
-
-func sameStrings(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for i := range left {
-		if left[i] != right[i] {
-			return false
-		}
-	}
-	return true
+  got := utilityFilterHostArgs([]string{
+    "--cwd", "/workspace/project",
+    "--cache-dir", ".ttsc",
+    "--emit",
+    "--binary=/tmp/tsgo",
+    "--plugins-json", "[]",
+    "src/main.ts",
+    "--",
+    "--cwd", "ignored",
+  })
+  want := []string{
+    "--cwd", "/workspace/project",
+    "--emit",
+    "--plugins-json", "[]",
+    "src/main.ts",
+  }
+  if !slices.Equal(got, want) {
+    t.Fatalf("filtered args mismatch:\nwant: %#v\n got: %#v", want, got)
+  }
 }

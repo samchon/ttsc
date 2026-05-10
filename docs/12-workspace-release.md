@@ -20,9 +20,19 @@ pnpm --dir packages/ttsc go:vet
 ```
 
 The root `pnpm test` script builds the current platform package, type-checks the
-test workspace, runs the Go transformer/lint/utility-plugin checks, then runs
-the `tests/test-*` feature packages. Production package manifests do not own
-test scripts; test execution is centralized under `tests`.
+test workspace, then runs the `tests/test-*` feature packages. Production
+package manifests do not own test scripts; test execution is centralized under
+`tests`.
+
+Go-specific maintenance uses separate commands:
+
+```bash
+pnpm --dir packages/ttsc go:vet
+pnpm run coverage:go
+node scripts/test-go-transformer.cjs
+node scripts/test-go-lint.cjs
+node scripts/test-go-utility-plugins.cjs
+```
 
 ## Tarball Smoke
 
