@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -19,9 +19,7 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the unknown-type diagnostic.
 func TestCommandDemoRejectsUnknownType(t *testing.T) {
-	code, stdout, stderr := capturePlatformOutput(t, func() int {
-		return run([]string{"demo", "--type=symbol"})
-	})
+	code, stdout, stderr := runPlatformCommand(t, "demo", "--type=symbol")
 	if code != 2 || stdout != "" ||
 		!strings.Contains(stderr, `unknown --type value "symbol"`) ||
 		!strings.Contains(stderr, "string|number|boolean|bigint|any") {

@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -20,9 +20,7 @@ import (
 // 3. Assert successful status and version metadata text.
 func TestCommandPrintsVersion(t *testing.T) {
 	for _, argument := range []string{"-v", "--version", "version"} {
-		code, stdout, stderr := capturePlatformOutput(t, func() int {
-			return run([]string{argument})
-		})
+		code, stdout, stderr := runPlatformCommand(t, argument)
 		if code != 0 || stderr != "" ||
 			!strings.Contains(stdout, "ttsc platform helper") ||
 			!strings.Contains(stdout, "commit") ||

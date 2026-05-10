@@ -1,20 +1,23 @@
-package main
+package ttsc_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestDemoArrowSupportsAtomicTypes verifies every demo predicate branch.
 //
-// demoArrow is the helper behind the command's synthetic JavaScript output. It
-// owns the supported atomic type table, including the empty string fallback used
-// when a caller leaves --type at its default path.
+// The platform test package exercises the installed helper as an external
+// command. Each supported atom must still flow through the command parser into
+// the predicate table and produce deterministic JavaScript.
 //
-// This scenario covers each successful switch branch without involving flag
-// parsing. Keeping the helper check direct makes failures point to the predicate
-// map rather than the command wrapper.
+// This scenario covers every successful demo branch through `go run
+// ./cmd/platform`. That keeps the tests out of the production package while
+// still preserving the same behavior coverage.
 //
-// 1. Ask demoArrow for every supported atomic type and the empty fallback.
-// 2. Compare each returned JavaScript predicate exactly.
-// 3. Assert that none of the supported branches returns an error.
+// 1. Invoke the demo command for every supported atomic type.
+// 2. Compare each returned JavaScript predicate text.
+// 3. Assert each supported branch exits successfully without stderr.
 func TestDemoArrowSupportsAtomicTypes(t *testing.T) {
 	cases := map[string]string{
 		"any":     "(input) => true",
@@ -25,12 +28,13 @@ func TestDemoArrowSupportsAtomicTypes(t *testing.T) {
 		"":        `(input) => "string" === typeof input`,
 	}
 	for input, expected := range cases {
-		actual, err := demoArrow(input)
-		if err != nil {
-			t.Fatalf("demoArrow(%q) returned error: %v", input, err)
+		args := []string{"demo"}
+		if input != "" {
+			args = append(args, "--type="+input)
 		}
-		if actual != expected {
-			t.Fatalf("demoArrow(%q) = %q, want %q", input, actual, expected)
+		code, stdout, stderr := runPlatformCommand(t, args...)
+		if code != 0 || stderr != "" || !strings.Contains(stdout, expected) {
+			t.Fatalf("demo branch %q mismatch: code=%d stdout=%q stderr=%q", input, code, stdout, stderr)
 		}
 	}
 }

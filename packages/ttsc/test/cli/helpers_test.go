@@ -66,7 +66,7 @@ func runNativeCommand(t *testing.T, args ...string) (int, string, string) {
 		if err := os.MkdirAll(coverDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		goArgs = append(goArgs, "-cover", "-coverpkg=./cmd/ttsc,./driver,./utility")
+		goArgs = append(goArgs, "-cover", "-coverpkg="+nativeCommandCoverPackages())
 	}
 	cmd := exec.Command("go", append(append(goArgs, "./cmd/ttsc"), args...)...)
 	cmd.Dir = packageRoot(t)
@@ -86,6 +86,59 @@ func runNativeCommand(t *testing.T, args ...string) (int, string, string) {
 		t.Fatalf("go run ./cmd/ttsc failed before exit code: %v", err)
 	}
 	return 0, string(out), stderr
+}
+
+// runBuiltNativeCommandInDir builds the native command and executes it from a
+// caller-provided working directory. Use this for branches that depend on the
+// child process cwd rather than an explicit `--cwd` flag.
+func runBuiltNativeCommandInDir(t *testing.T, dir string, args ...string) (int, string, string) {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "ttsc")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+
+	goArgs := []string{"build", "-o", bin}
+	if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
+		if err := os.MkdirAll(coverDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		goArgs = append(goArgs, "-cover", "-coverpkg="+nativeCommandCoverPackages())
+	}
+	goArgs = append(goArgs, "./cmd/ttsc")
+
+	build := exec.Command("go", goArgs...)
+	build.Dir = packageRoot(t)
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build ./cmd/ttsc failed: %v\n%s", err, output)
+	}
+
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
+		cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
+	}
+	out, err := cmd.Output()
+	stderr := ""
+	if exit, ok := err.(*exec.ExitError); ok {
+		stderr = string(exit.Stderr)
+		return exit.ExitCode(), string(out), stderr
+	}
+	if err != nil {
+		t.Fatalf("built ttsc failed before exit code: %v", err)
+	}
+	return 0, string(out), stderr
+}
+
+// nativeCommandCoverPackages lists the packages charged to command-frontdoor
+// coverage when TTSC_NATIVE_COMMAND_COVERDIR asks these black-box tests to emit
+// native Go coverage profiles.
+func nativeCommandCoverPackages() string {
+	return strings.Join([]string{
+		"github.com/samchon/ttsc/packages/ttsc/cmd/ttsc",
+		"github.com/samchon/ttsc/packages/ttsc/driver",
+		"github.com/samchon/ttsc/packages/ttsc/utility",
+	}, ",")
 }
 
 // goRunExitStatus recovers the wrapped program exit code from `go run`.

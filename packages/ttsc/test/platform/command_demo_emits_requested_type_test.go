@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -19,9 +19,7 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert successful status and the emitted number predicate.
 func TestCommandDemoEmitsRequestedType(t *testing.T) {
-	code, stdout, stderr := capturePlatformOutput(t, func() int {
-		return run([]string{"demo", "--type=number"})
-	})
+	code, stdout, stderr := runPlatformCommand(t, "demo", "--type=number")
 	if code != 0 || stderr != "" ||
 		!strings.Contains(stdout, "// demo<number>") ||
 		!strings.Contains(stdout, `"number" === typeof input`) {

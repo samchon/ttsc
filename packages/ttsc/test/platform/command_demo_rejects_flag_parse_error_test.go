@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -19,9 +19,7 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the flag parser diagnostic.
 func TestCommandDemoRejectsFlagParseError(t *testing.T) {
-	code, stdout, stderr := capturePlatformOutput(t, func() int {
-		return run([]string{"demo", "--type"})
-	})
+	code, stdout, stderr := runPlatformCommand(t, "demo", "--type")
 	if code != 2 || stdout != "" || !strings.Contains(stderr, "flag needs an argument") {
 		t.Fatalf("demo flag parse mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}

@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -20,9 +20,7 @@ import (
 // 3. Assert command-error status and the JavaScript CLI refusal message.
 func TestCommandRefusesCompilerCommands(t *testing.T) {
 	for _, command := range []string{"build", "check"} {
-		code, stdout, stderr := capturePlatformOutput(t, func() int {
-			return run([]string{command})
-		})
+		code, stdout, stderr := runPlatformCommand(t, command)
 		if code != 2 || stdout != "" ||
 			!strings.Contains(stderr, command+" is provided by the JavaScript ttsc CLI") ||
 			!strings.Contains(stderr, "@typescript/native-preview") {

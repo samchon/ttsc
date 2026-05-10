@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -20,9 +20,7 @@ import (
 // 3. Assert successful status and the demo usage line.
 func TestCommandPrintsHelpAliases(t *testing.T) {
 	for _, argument := range []string{"-h", "--help", "help"} {
-		code, stdout, stderr := capturePlatformOutput(t, func() int {
-			return run([]string{argument})
-		})
+		code, stdout, stderr := runPlatformCommand(t, argument)
 		if code != 0 || stderr != "" || !strings.Contains(stdout, "ttsc demo --type=string") {
 			t.Fatalf("help alias %q mismatch: code=%d stdout=%q stderr=%q", argument, code, stdout, stderr)
 		}

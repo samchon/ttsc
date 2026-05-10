@@ -53,4 +53,3 @@ export function marker(input: unknown): string {
 		t.Fatalf("expected emitted JS: %v", err)
 	}
 }
-

@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -19,9 +19,7 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert a successful status and platform helper usage text.
 func TestCommandPrintsHelpWithoutArgs(t *testing.T) {
-	code, stdout, stderr := capturePlatformOutput(t, func() int {
-		return run(nil)
-	})
+	code, stdout, stderr := runPlatformCommand(t)
 	if code != 0 || stderr != "" || !strings.Contains(stdout, "ttsc platform helper.") {
 		t.Fatalf("empty command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}

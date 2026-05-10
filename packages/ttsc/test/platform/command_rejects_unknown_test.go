@@ -1,4 +1,4 @@
-package main
+package ttsc_test
 
 import (
 	"strings"
@@ -18,9 +18,7 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the unknown-command diagnostic.
 func TestCommandRejectsUnknown(t *testing.T) {
-	code, stdout, stderr := capturePlatformOutput(t, func() int {
-		return run([]string{"compile"})
-	})
+	code, stdout, stderr := runPlatformCommand(t, "compile")
 	if code != 2 || stdout != "" ||
 		!strings.Contains(stderr, `unknown command "compile"`) ||
 		!strings.Contains(stderr, `run "ttsc --help" through the JavaScript CLI`) {
