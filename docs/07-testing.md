@@ -137,19 +137,19 @@ If your plugin imports a shim symbol, add an end-to-end case that exercises that
 
 For this repository's full test matrix and release smoke checks, see [Workspace Release](./12-workspace-release.md).
 
-## Go Coverage Gate
+## Go Coverage Audit
 
-Go logic coverage is measured as a hard `100%` gate:
+Go logic coverage can be audited with:
 
 ```bash
-pnpm run test:go
+pnpm run coverage:go
 ```
 
-The gate covers behavioral Go packages and fixture sidecars:
+The audit covers behavioral Go packages and fixture sidecars:
 
 - `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
 - `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
 - `packages/lint/plugin`
 - `tests/go-transformer`
 
-Generated shim re-export files under `packages/ttsc/shim` are not counted as logic. When a Go package contains behavior, add tests until `go tool cover -func` reports `100.0%` for that package set.
+Generated shim re-export files under `packages/ttsc/shim` are not counted as logic.

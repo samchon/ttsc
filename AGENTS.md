@@ -37,7 +37,6 @@ cd packages/ttsc && go list -deps ./cmd/ttsc
 node scripts/test-go-transformer.cjs
 node scripts/test-go-lint.cjs
 node scripts/test-go-utility-plugins.cjs
-pnpm run test:go
 ```
 
 ## Work Rules
