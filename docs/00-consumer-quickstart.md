@@ -52,7 +52,7 @@ npx ttsc --noEmit
 
 ## Bundlers
 
-Use `@ttsc/unplugin` when Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns the build:
+Use `@ttsc/unplugin` when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns the build:
 
 ```bash
 npm install -D @ttsc/unplugin

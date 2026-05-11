@@ -65,7 +65,7 @@ Add `lint.config.ts`, or reuse an existing `eslint.config.ts`, next to your proj
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { TtscLintConfig } from "@ttsc/lint/config";
 
 export default {
   "no-var": "error",
