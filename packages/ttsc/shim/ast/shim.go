@@ -1,3 +1,11 @@
+// gen_shims:hand-maintained
+//
+// This shim file mixes generated re-exports with hand-written `go:linkname`
+// declarations (see GetSourceFileOfNode / GetNodeAtPosition below). gen_shims
+// detects the marker on the first line and skips this file. Remove the marker
+// only if you are intentionally regenerating and willing to re-add the
+// hand-maintained content.
+
 package ast
 
 import (

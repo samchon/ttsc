@@ -70,6 +70,7 @@ export function createTtscPlugin(
 interface ITtscPlugin {
   name: string;
   source: string;
+  composes?: string[];
   stage?: "transform" | "check";
 }
 ```
@@ -78,6 +79,7 @@ Field rules:
 
 - `name`: non-empty display name.
 - `source`: Go command package directory or `go.mod` file. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
+- `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle. First-party utility plugin names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear here; they have their own auto-composition path through the shared compiler host.
 - `stage`: plugin kind. Omit for `"transform"`.
 
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain and TypeScript-Go shim overlay, then caches the resulting executable.
@@ -111,6 +113,28 @@ Transform entries can share one compiler host when they resolve to the same nati
 ```
 
 Distinct third-party compiler hosts cannot be chained blindly, because each one would need to own `Program` creation and emit. If several transform modes must cooperate, expose them from one native binary and dispatch by explicit mode or option fields in the `--plugins-json` payload.
+
+### Composing across binaries
+
+Third-party plugins that want to share one compiler host can opt in through the `composes` field on their descriptor:
+
+```ts
+module.exports = {
+  name: "my-aggregate-plugin",
+  source: path.resolve(__dirname, "go-plugin"),
+  stage: "transform",
+  composes: ["my-feature-a", "my-feature-b"],
+};
+```
+
+When ttsc loads the descriptors of `my-feature-a` and `my-feature-b` from the project's `compilerOptions.plugins`, it reroutes their build target to the aggregate's `source`. All three names remain in the `--plugins-json` payload so the aggregate sidecar can dispatch by `name`. The aggregate must implement the dispatch logic itself; ttsc only redirects the binary.
+
+Rules enforced at load time:
+
+- Composition is one hop only. ttsc does not transitively follow `composes` arrays of composed plugins.
+- Cycles (two plugins listing each other) are rejected with an explicit error.
+- First-party utility names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear in `composes`. They are composed automatically through the shared compiler host hosted by `packages/ttsc/utility/host.go`.
+- The aggregate's own descriptor still needs a real `source` directory; ttsc never composes a plugin into nothing.
 
 ## Plugin Config Keys
 

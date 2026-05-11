@@ -1,3 +1,11 @@
+// gen_shims:hand-maintained
+//
+// This shim file mixes generated re-exports with hand-written `go:linkname`
+// declarations targeting unexported `*Checker` methods that the @ttsc/lint
+// engine relies on. gen_shims detects the marker on the first line and skips
+// this file. Remove the marker only if you are intentionally regenerating and
+// willing to re-add the hand-maintained content.
+
 package checker
 
 import (

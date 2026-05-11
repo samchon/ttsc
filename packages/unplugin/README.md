@@ -11,7 +11,7 @@
 
 Bundler adapter for `ttsc` plugins.
 
-Use it when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns the build but the project still needs `ttsc` plugins.
+Use it when Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns the build but the project still needs `ttsc` plugins.
 
 ## Setup
 

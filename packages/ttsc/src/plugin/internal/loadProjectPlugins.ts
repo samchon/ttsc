@@ -10,6 +10,7 @@ import type { TtscPluginStage } from "../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import { buildSourcePlugin } from "./buildSourcePlugin";
+import { FIRST_PARTY_UTILITY_PLUGIN_NAMES } from "../../compiler/internal/sharedHostHelpers";
 
 type TtscPluginFactory<T = ITtscProjectPluginConfig> = (
   context: ITtscPluginFactoryContext<T>,
@@ -67,11 +68,11 @@ export function loadProjectPlugins(options: {
   const plugins = composePluginSources(
     entries,
     entries.map((entry) =>
-    loadPluginEntry(
-      entry.config,
-      { ...context, plugin: entry.config },
-      entry.baseDir,
-    ),
+      loadPluginEntry(
+        entry.config,
+        { ...context, plugin: entry.config },
+        entry.baseDir,
+      ),
     ),
   );
 
@@ -113,17 +114,71 @@ function composePluginSources(
   if (aggregates.length === 0) {
     return [...plugins];
   }
+  for (const { plugin } of aggregates) {
+    for (const target of plugin.composes!) {
+      if (typeof target !== "string" || target.trim() === "") {
+        throw new Error(
+          `ttsc: plugin "${plugin.name}" has an invalid "composes" target; ` +
+            `targets must be non-empty plugin names or transform specifiers`,
+        );
+      }
+    }
+  }
+  // First-party utility plugin names are never legal composes targets for
+  // user / third-party plugins. The first-party shared compiler host has its
+  // own opt-in path through the manifest-pinned whitelist in
+  // `sharedHostHelpers.ts::isFirstPartyUtilityTransformPlugin`. Letting any
+  // descriptor borrow the binary of `@ttsc/banner` etc. would bypass that
+  // pin and turn `composes` into a supply-chain redirect vector.
+  for (const { plugin } of aggregates) {
+    for (const target of plugin.composes!) {
+      if (FIRST_PARTY_UTILITY_PLUGIN_NAMES.has(target)) {
+        throw new Error(
+          `ttsc: plugin "${plugin.name}" cannot compose first-party utility "${target}"; ` +
+            `first-party utility plugins are composed automatically through their shared compiler host`,
+        );
+      }
+    }
+  }
+  // Composition is intentionally one hop only: A.composes=[B] sends B to A's
+  // binary, but if B.composes=[C] then C uses B's original source and does NOT
+  // cascade to A. Detect cycles (A.composes=[B] && B.composes=[A]) and throw,
+  // otherwise the silent reswap below would mis-route both plugins.
+  for (const { index: i, plugin: a } of aggregates) {
+    for (const { index: j, plugin: b } of aggregates) {
+      if (i === j) continue;
+      const aTransform = entries[i]?.config.transform;
+      const bTransform = entries[j]?.config.transform;
+      const aComposesB = a.composes!.some((alias) =>
+        matchesPluginAlias(alias, b, bTransform),
+      );
+      const bComposesA = b.composes!.some((alias) =>
+        matchesPluginAlias(alias, a, aTransform),
+      );
+      if (aComposesB && bComposesA) {
+        throw new Error(
+          `ttsc: plugin composes cycle detected between "${a.name}" and "${b.name}"; ` +
+            `each plugin lists the other in its "composes" array — composition is one hop only, not transitive`,
+        );
+      }
+    }
+  }
   return plugins.map((plugin, index) => {
     const transform = entries[index]?.config.transform;
-    const aggregate = aggregates.find(
+    const matchingAggregates = aggregates.filter(
       ({ index: aggregateIndex, plugin: aggregatePlugin }) =>
         aggregateIndex !== index &&
-        aggregatePlugin.composes!.some(
-          (alias) =>
-            alias === plugin.name ||
-            (typeof transform === "string" && alias === transform),
+        aggregatePlugin.composes!.some((alias) =>
+          matchesPluginAlias(alias, plugin, transform),
         ),
     );
+    if (matchingAggregates.length > 1) {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" is composed by multiple aggregate plugins; ` +
+          `each plugin entry can be redirected to only one aggregate native host`,
+      );
+    }
+    const aggregate = matchingAggregates[0];
     return aggregate === undefined
       ? plugin
       : {
@@ -131,6 +186,17 @@ function composePluginSources(
           source: aggregate.plugin.source,
         };
   });
+}
+
+function matchesPluginAlias(
+  alias: string,
+  plugin: ITtscPlugin,
+  transform: ITtscProjectPluginConfig["transform"],
+): boolean {
+  return (
+    alias === plugin.name ||
+    (typeof transform === "string" && alias === transform)
+  );
 }
 
 export function hasProjectPluginEntries(

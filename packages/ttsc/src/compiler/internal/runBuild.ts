@@ -12,6 +12,7 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
+import { assertSharedHostCompatibility } from "./sharedHostHelpers";
 
 /** Merge spawn env without clobbering unrelated vars. */
 function mergeEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -106,7 +107,7 @@ export function runBuild(
 
     if (options.emit === false) {
       if (compilers.length !== 0) {
-        assertCompilerHostCompatibility(compilers);
+        assertSharedHostCompatibility(compilers, "emit");
         return appendBuildOutput(
           checked,
           buildWithNativeCompilerPlugins(options, execution, compilers),
@@ -120,7 +121,7 @@ export function runBuild(
 
     let result: TtscBuildResult;
     if (compilers.length !== 0) {
-      assertCompilerHostCompatibility(compilers);
+      assertSharedHostCompatibility(compilers, "emit");
       result = appendBuildOutput(
         checked,
         buildWithNativeCompilerPlugins(options, execution, compilers),
@@ -392,61 +393,6 @@ export function appendBuildOutput(
     stdout: left.stdout + right.stdout,
     stderr: left.stderr + right.stderr,
   });
-}
-
-function assertCompilerHostCompatibility(
-  plugins: readonly ITtscLoadedNativePlugin[],
-): void {
-  const binaries = [...new Set(plugins.map((plugin) => plugin.binary))];
-  if (binaries.length <= 1) {
-    return;
-  }
-  if (plugins.every(isFirstPartyUtilityTransformPlugin)) {
-    return;
-  }
-  throw new Error(
-    "ttsc: multiple compiler native backends cannot share one emit pass; " +
-      "compose transform libraries through one aggregate native host",
-  );
-}
-
-function isFirstPartyUtilityTransformPlugin(
-  plugin: ITtscLoadedNativePlugin,
-): boolean {
-  if (plugin.stage !== "transform") return false;
-  if (!firstPartyUtilityPluginNames.has(plugin.name)) return false;
-  const manifest = readNearestPackageManifest(plugin.source);
-  return manifest?.name === plugin.name;
-}
-
-const firstPartyUtilityPluginNames = new Set([
-  "@ttsc/banner",
-  "@ttsc/paths",
-  "@ttsc/strip",
-]);
-
-function readNearestPackageManifest(
-  source: string,
-): { name?: unknown } | undefined {
-  try {
-    let current = fs.statSync(source).isDirectory()
-      ? source
-      : path.dirname(source);
-    for (let i = 0; i < 4; i += 1) {
-      const manifest = path.join(current, "package.json");
-      if (fs.existsSync(manifest)) {
-        return JSON.parse(fs.readFileSync(manifest, "utf8")) as {
-          name?: unknown;
-        };
-      }
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      current = parent;
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
 }
 
 function resolveExecutionContext(

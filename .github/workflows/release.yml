@@ -16,6 +16,10 @@ jobs:
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: packages/ttsc/go.sum
       - uses: pnpm/action-setup@v4
       - name: Install dependencies
         run: pnpm install

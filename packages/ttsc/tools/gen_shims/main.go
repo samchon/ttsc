@@ -429,18 +429,38 @@ func main() {
     shimHeaderBuilder.WriteString("\n")
 
     shimGoPath := path.Join(shimDirPath, "shim.go")
-    file, err := os.Create(shimGoPath)
-    if err != nil {
-      log.Fatalf("gen_shims: opening %v for write: %v", shimGoPath, err)
+    if isHandMaintained(shimGoPath) {
+      fmt.Fprintf(os.Stderr, "gen_shims: skipping %s (hand-maintained marker present; remove '// gen_shims:hand-maintained' to regenerate)\n", shimGoPath)
+    } else {
+      file, err := os.Create(shimGoPath)
+      if err != nil {
+        log.Fatalf("gen_shims: opening %v for write: %v", shimGoPath, err)
+      }
+      file.WriteString(shimHeaderBuilder.String())
+      file.WriteString(shimBuilder.String())
+      if err := file.Close(); err != nil {
+        log.Fatalf("gen_shims: closing %v: %v", shimGoPath, err)
+      }
+      fmt.Fprintf(os.Stdout, "gen_shims: wrote %s (%d bytes)\n", shimGoPath, len(shimBuilder.String()))
     }
-    file.WriteString(shimHeaderBuilder.String())
-    file.WriteString(shimBuilder.String())
-    if err := file.Close(); err != nil {
-      log.Fatalf("gen_shims: closing %v: %v", shimGoPath, err)
-    }
-    fmt.Fprintf(os.Stdout, "gen_shims: wrote %s (%d bytes)\n", shimGoPath, len(shimBuilder.String()))
 
     shimHeaderBuilder.Reset()
     shimBuilder.Reset()
   }
+}
+
+// isHandMaintained reports whether the given shim file opts out of regeneration
+// by carrying the magic marker `// gen_shims:hand-maintained` within its first
+// 200 bytes. Hand-maintained shim files combine generated re-exports with
+// `go:linkname` declarations or other content that gen_shims cannot reproduce;
+// silently overwriting them would break consumers (e.g. @ttsc/lint).
+func isHandMaintained(shimGoPath string) bool {
+  file, err := os.Open(shimGoPath)
+  if err != nil {
+    return false
+  }
+  defer file.Close()
+  buf := make([]byte, 200)
+  n, _ := file.Read(buf)
+  return strings.Contains(string(buf[:n]), "gen_shims:hand-maintained")
 }
