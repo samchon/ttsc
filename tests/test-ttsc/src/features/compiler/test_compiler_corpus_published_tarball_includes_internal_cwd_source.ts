@@ -12,9 +12,8 @@ interface NpmPackEntry {
 /**
  * Verifies compiler corpus: published tarball includes internal/cwd source.
  *
- * Locks `packages/ttsc/package.json#files` against the orphan-source
- * regression discovered in the 6-agent review (REC-P0-1). The Go command
- * package `cmd/ttsc/api_compile.go` and `api_transform.go` import
+ * Locks `packages/ttsc/package.json#files` against orphan-source regressions.
+ * The Go command package `cmd/ttsc/api_compile.go` and `api_transform.go` import
  * `github.com/samchon/ttsc/packages/ttsc/internal/cwd`. Without `internal`
  * in the published files array the consumer-side tarball cannot rebuild
  * the native compiler host because the import target is missing on disk.
@@ -53,6 +52,6 @@ export const test_compiler_corpus_published_tarball_includes_internal_cwd_source
       .filter((file): file is string => file !== null);
     assert.ok(
       paths.includes("internal/cwd/cwd.go"),
-      `published tarball is missing internal/cwd/cwd.go (REC-P0-1 regression). present files:\n${paths.join("\n")}`,
+      `published tarball is missing internal/cwd/cwd.go. present files:\n${paths.join("\n")}`,
     );
   };
