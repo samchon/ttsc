@@ -47,6 +47,14 @@ Configure those fields under `compilerOptions`:
 
 An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration output follows the same source rewrite.
 
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+
 ## References
 
 Inspired by [`typescript-transform-paths`](https://github.com/LeDDGroup/typescript-transform-paths).

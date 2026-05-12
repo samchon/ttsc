@@ -58,3 +58,11 @@ Add a direct plugin config only when the project needs a different strip list:
   },
 }
 ```
+
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.

@@ -282,6 +282,14 @@ const options: TtscUnpluginOptions = {
 - `compilerOptions`: temporary override layered on the selected project config.
 - `plugins`: direct `ttsc` plugin list override, or `false` to disable plugins.
 
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+
 ## References
 
 Inspired by [`@ryoppippi/unplugin-typia`](https://github.com/ryoppippi/unplugin-typia).

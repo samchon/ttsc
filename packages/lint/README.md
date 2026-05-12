@@ -261,3 +261,11 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.

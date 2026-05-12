@@ -162,6 +162,14 @@ Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
 - [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
 - [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
 
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+
 ## References
 
 - TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)

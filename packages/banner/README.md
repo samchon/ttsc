@@ -76,3 +76,11 @@ Existing inline text config remains supported:
 ```
 
 The plugin formats every banner line inside a JSDoc block and adds `@packageDocumentation`. The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
+
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
