@@ -31,21 +31,26 @@ func run(args []string) int {
     fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|build|transform|version)")
     return 2
   }
+  switch args[0] {
+  case "-v", "--version", "version":
+    // Don't pay contributor-registration cost for the version banner.
+    fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
+    return 0
+  case "check", "build", "transform":
+  default:
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
+    return 2
+  }
   // Wire contributor rules into the engine's dispatch table after every
   // package init has settled. See contrib_adapter.go for the rationale.
   registerContributors()
   switch args[0] {
-  case "-v", "--version", "version":
-    fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
-    return 0
   case "check":
     return RunCheck(args[1:])
   case "build":
     return RunBuild(args[1:])
   case "transform":
     return RunTransform(args[1:])
-  default:
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
-    return 2
   }
+  return 2
 }

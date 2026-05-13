@@ -182,12 +182,25 @@ function composePluginSources(
       );
     }
     const aggregate = matchingAggregates[0];
-    return aggregate === undefined
-      ? plugin
-      : {
-          ...plugin,
-          source: aggregate.plugin.source,
-        };
+    if (aggregate === undefined) {
+      return plugin;
+    }
+    // A composed plugin's source is rerouted to the aggregate's binary,
+    // so its own `contributors` would link into a different host than
+    // it was authored against. The "one binary" guarantee in the
+    // protocol doc holds only when the composed plugin defers entirely
+    // to the aggregate; reject early instead of silently producing two
+    // diverging binaries.
+    if (plugin.contributors && plugin.contributors.length > 0) {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" is composed by "${aggregate.plugin.name}" but declares its own "contributors"; ` +
+          `move the contributors onto the aggregate plugin or drop the composes redirect`,
+      );
+    }
+    return {
+      ...plugin,
+      source: aggregate.plugin.source,
+    };
   });
 }
 
@@ -564,6 +577,18 @@ function validatePluginContributors(
         `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an existing directory: ${source}`,
       );
     }
+    // Pre-flight check that the directory actually carries a buildable
+    // contributor package. Without this, an accidentally-empty directory
+    // (or a directory containing only `_test.go` files, which `go build`
+    // silently skips) reaches the synthesized blank-import step and Go's
+    // compile error surfaces with a scratch-tempdir path that doesn't
+    // name the contributor entry. Catching it here lets us name the
+    // entry the user actually authored.
+    if (!hasBuildableGoSource(source)) {
+      throw new Error(
+        `ttsc: plugin "${plugin.name}" contributors[${index}].source must contain at least one non-test ".go" file: ${source}`,
+      );
+    }
     out.push({ name, source: resolveRealPath(source) });
   }
   return out;
@@ -571,6 +596,23 @@ function validatePluginContributors(
 
 function isPluginStage(value: string): value is TtscPluginStage {
   return value === "transform" || value === "check";
+}
+
+function hasBuildableGoSource(dir: string): boolean {
+  // `go build` consumes `.go` files but silently ignores `_test.go`. A
+  // contributor whose source dir holds only test files would compile to
+  // an empty package and surface as an opaque scratch-tempdir error;
+  // require at least one production `.go` file so the validator can
+  // name the contributor entry instead.
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return false;
+  }
+  return entries.some(
+    (name) => name.endsWith(".go") && !name.endsWith("_test.go"),
+  );
 }
 
 function resolvePluginRequest(specifier: string, projectRoot: string): string {

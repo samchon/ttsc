@@ -32,8 +32,8 @@ func TestLoadRuleConfigRejectsLegacyConfigFileAliases(t *testing.T) {
     if err == nil {
       t.Fatalf("expected %s to be rejected", key)
     }
-    if !strings.Contains(err.Error(), "use \"config\"") {
-      t.Fatalf("error should point to config-only contract, got %v", err)
+    if !strings.Contains(err.Error(), "use \"extends\"") {
+      t.Fatalf("error should suggest the supported \"extends\" field, got %v", err)
     }
   }
 }

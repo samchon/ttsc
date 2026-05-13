@@ -173,9 +173,11 @@ ttsc's plugin builder then:
 Constraints enforced at load time:
 
 - Contributors ship Go source as a **package**, not a Go module. A contributor with its own `go.mod` is rejected. The host plugin's `go.mod` supplies every transitive Go dependency, which also closes the supply-chain hole where a contributor could otherwise pull in arbitrary Go modules at build time.
-- `contributor.name` must match `/^[a-z][a-z0-9_]*$/` (it forms the final import-path suffix and must be a valid Go identifier).
+- `contributor.name` must match `/^[a-z][a-z0-9_]*$/` (it forms the final import-path suffix and must be a valid Go identifier). The lint factory derives this by mapping the user-facing namespace's hyphens to underscores — namespace `react-hooks` becomes contributor name `react_hooks`. The Go source's `package` declaration must match the post-transform name.
 - `contributor.source` must be an absolute path to an existing directory.
 - Contributor names must be unique within one plugin build.
+- The host plugin's source must not already ship a `contrib/` directory or a `ttsc_contributions.go` file at its entry root; both are scratch-space reserved for the build pipeline.
+- A composed plugin (one redirected by another's `composes`) cannot declare its own `contributors` — move them onto the aggregate, or drop the `composes` redirect.
 
 The cache key derivation for a plugin with N contributors is `ttsc + tsgo + platform + entry + Σ(contributor source hashes) + plugin source hash + overlay source hashes`, so consumers with the same logical set of contributors share one cached binary regardless of declaration order.
 

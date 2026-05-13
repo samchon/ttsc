@@ -10,8 +10,9 @@ export interface ITtscPluginContributor {
    * Sub-package name.
    *
    * Forms the final import path together with the host plugin's Go module path;
-   * must be a valid Go identifier (lowercase letters, digits, underscores) and
-   * unique within one plugin build.
+   * must match `/^[a-z][a-z0-9_]*$/` — a lowercase ASCII letter followed by
+   * lowercase letters, digits, or underscores — and be unique within one
+   * plugin build.
    */
   name: string;
 

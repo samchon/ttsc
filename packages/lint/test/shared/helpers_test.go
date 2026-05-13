@@ -268,13 +268,15 @@ func seedLintProject(t *testing.T, source string) string {
 //
 // The command package receives its rules through --plugins-json, not by reading
 // package.json. Tests use this helper to keep the sidecar protocol explicit.
+// The inner `rules` key matches the current tsconfig schema; the deprecated
+// `config` shape lives only in legacy-path tests.
 func lintManifest(t *testing.T, rules map[string]string) string {
   t.Helper()
   data, err := json.Marshal([]map[string]any{{
     "name":  "@ttsc/lint",
     "stage": "check",
     "config": map[string]any{
-      "config": rules,
+      "rules": rules,
     },
   }})
   if err != nil {

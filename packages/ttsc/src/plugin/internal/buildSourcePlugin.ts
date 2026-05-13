@@ -142,8 +142,18 @@ function mergeContributors(opts: {
     );
   }
   fs.mkdirSync(contribRoot, { recursive: true });
+  // Sort contributors by name so the synthesized `ttsc_contributions.go`
+  // emits blank imports in a deterministic order independent of
+  // declaration order. The cache key is already sort-stable
+  // (`computeCacheKey` sorts contributors by name), so without this
+  // matching sort the SAME cache key could correspond to two distinct
+  // binaries whose `init()` sequence across contributors differs by
+  // import order.
+  const sortedContributors = [...opts.contributors].sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
   const imports: string[] = [];
-  for (const contributor of opts.contributors) {
+  for (const contributor of sortedContributors) {
     if (fs.existsSync(path.join(contributor.source, "go.mod"))) {
       throw new Error(
         `ttsc: plugin "${opts.pluginName}" contributor "${contributor.name}" must ship Go ` +

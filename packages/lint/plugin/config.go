@@ -1,15 +1,27 @@
 package main
 
 import (
+  "context"
   "encoding/json"
   "fmt"
   "os"
   "os/exec"
   "path/filepath"
+  "runtime"
   "sort"
   "strings"
   "sync"
+  "time"
 )
+
+// configLoaderTimeout caps every `ttsx`/`node -e` subprocess that
+// evaluates a user-supplied lint config. The JS factory imposes the
+// same 60 s budget on its mirroring spawnSync; without the Go-side cap
+// a runaway user config would hang `ttsc-lint` forever, while
+// `ttsc`/`pnpm` upstream of it stays responsive. 60 s is generous
+// enough for cold ttsx starts on CI runners and tight enough to keep
+// user-visible feedback under a minute.
+const configLoaderTimeout = 60 * time.Second
 
 // Severity is the `error | warning | off` ladder.
 type Severity int
@@ -641,7 +653,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, err
   }
   if discovered == "" {
-    return nil, fmt.Errorf("@ttsc/lint: \"rules\" or \"extends\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered")
+    return nil, fmt.Errorf("@ttsc/lint: \"rules\" or \"extends\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered (searched upward from %s)", cwd)
   }
   return loadExternalConfigResolver(discovered)
 }
@@ -699,7 +711,11 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
       }
     }
     if len(matches) > 1 {
-      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s; set \"extends\" explicitly", dir)
+      names := make([]string, 0, len(matches))
+      for _, m := range matches {
+        names = append(names, filepath.Base(m))
+      }
+      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s (%s); set \"extends\" explicitly", dir, strings.Join(names, ", "))
     }
     if len(matches) == 1 {
       return matches[0], nil
@@ -899,9 +915,14 @@ function isNativePluginValue(entry) {
   if node == "" {
     node = "node"
   }
-  cmd := exec.Command(node, "-e", script, location)
+  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  defer cancel()
+  cmd := exec.CommandContext(ctx, node, "-e", script, location)
   output, err := cmd.Output()
   if err != nil {
+    if ctx.Err() == context.DeadlineExceeded {
+      return nil, fmt.Errorf("@ttsc/lint: load config file %s: timed out after %s", location, configLoaderTimeout)
+    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))
@@ -959,10 +980,15 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   }
   args = append(args, loader)
 
-  cmd := ttsxCommand(args...)
+  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  defer cancel()
+  cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
   output, err := cmd.Output()
   if err != nil {
+    if ctx.Err() == context.DeadlineExceeded {
+      return nil, fmt.Errorf("@ttsc/lint: load TypeScript config file %s: timed out after %s", location, configLoaderTimeout)
+    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))
@@ -1200,6 +1226,14 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
 }
 
 func ttsxCommand(args ...string) *exec.Cmd {
+  return ttsxCommandContext(context.Background(), args...)
+}
+
+// ttsxCommandContext is the timeout-aware variant. Callers that
+// evaluate user-supplied config should wrap their context with
+// `context.WithTimeout(parent, configLoaderTimeout)` so a runaway
+// `ttsx` subprocess can never hang the lint binary indefinitely.
+func ttsxCommandContext(ctx context.Context, args ...string) *exec.Cmd {
   ttsx := os.Getenv("TTSC_TTSX_BINARY")
   if ttsx == "" {
     ttsx = "ttsx"
@@ -1209,9 +1243,9 @@ func ttsxCommand(args ...string) *exec.Cmd {
     if node == "" {
       node = "node"
     }
-    return exec.Command(node, append([]string{ttsx}, args...)...)
+    return exec.CommandContext(ctx, node, append([]string{ttsx}, args...)...)
   }
-  return exec.Command(ttsx, args...)
+  return exec.CommandContext(ctx, ttsx, args...)
 }
 
 func shouldRunTtsxThroughNode(binary string) bool {
@@ -1244,8 +1278,32 @@ func linkNearestNodeModules(tempDir, sourceDir string) error {
     return nil
   }
   link := filepath.Join(tempDir, "node_modules")
-  if err := os.Symlink(nodeModules, link); err != nil {
-    return fmt.Errorf("@ttsc/lint: link config node_modules %s: %w", nodeModules, err)
+  err := os.Symlink(nodeModules, link)
+  if err == nil {
+    return nil
+  }
+  // Windows: a true symbolic link needs SeCreateSymbolicLinkPrivilege
+  // (admin or Developer Mode). The JS side uses fs.symlink with the
+  // `"junction"` type to dodge that restriction; here we shell out to
+  // `mklink /J` to create an equivalent directory junction. Junctions
+  // only work for absolute directory targets, which matches the input.
+  if runtime.GOOS == "windows" {
+    jerr := createWindowsJunction(link, nodeModules)
+    if jerr == nil {
+      return nil
+    }
+    err = fmt.Errorf("%w (junction fallback: %v)", err, jerr)
+  }
+  return fmt.Errorf("@ttsc/lint: link config node_modules %s: %w", nodeModules, err)
+}
+
+func createWindowsJunction(link, target string) error {
+  // `cmd /c mklink /J link target` is the standard recipe and works
+  // without elevated privileges. Both arguments must be absolute paths
+  // with native separators, which they already are here.
+  cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target)
+  if out, err := cmd.CombinedOutput(); err != nil {
+    return fmt.Errorf("mklink /J failed: %v: %s", err, strings.TrimSpace(string(out)))
   }
   return nil
 }

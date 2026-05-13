@@ -277,7 +277,7 @@ A contributor package has three parts:
     export default plugin;
     ```
 
-2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`:
+2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`. The Go package name is the user-facing namespace with hyphens replaced by underscores (`react-hooks` → `package react_hooks`); the namespace itself accepts `/^[a-z][a-z0-9_-]*$/`:
 
     ```go
     package demo

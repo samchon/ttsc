@@ -15,8 +15,8 @@ import type { ITtscPlugin } from "./structures/ITtscPlugin";
  * Pure pass-through at runtime — the function exists to teach TypeScript the
  * const-narrowing the user would otherwise have to spell out.
  */
-export function defineTtscPlugin<T extends ITtscPlugin>(plugin: T): T;
-export function defineTtscPlugin<TContext, T extends ITtscPlugin>(
+export function defineTtscPlugin<const T extends ITtscPlugin>(plugin: T): T;
+export function defineTtscPlugin<TContext, const T extends ITtscPlugin>(
   factory: (context: TContext) => T,
 ): (context: TContext) => T;
 export function defineTtscPlugin(

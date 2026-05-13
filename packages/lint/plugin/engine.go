@@ -178,7 +178,14 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
       continue
     }
     eng.enabled[name] = displaySeverities.Severity(name)
+    // Dedup kinds per rule so a contributor that accidentally lists the
+    // same Kind twice in `Visits()` doesn't end up firing twice per node.
+    seen := make(map[shimast.Kind]struct{})
     for _, kind := range rule.Visits() {
+      if _, dup := seen[kind]; dup {
+        continue
+      }
+      seen[kind] = struct{}{}
       eng.rules[kind] = append(eng.rules[kind], rule)
     }
   }
@@ -268,11 +275,15 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   }
 
   statements := file.Statements
-  if statements == nil {
-    return collected
+  if statements != nil {
+    for _, stmt := range statements.Nodes {
+      walk(stmt)
+    }
   }
-  for _, stmt := range statements.Nodes {
-    walk(stmt)
-  }
+  // Apply inline-disable filtering even for files with no statement
+  // list. A SourceFile-level rule that fires on a `// ttsc-lint-disable`
+  // comment must still honor the directive; early-returning before
+  // the filter would silently leak those findings into the diagnostic
+  // stream.
   return filterInlineDisabledFindings(file, collected)
 }

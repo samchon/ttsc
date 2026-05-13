@@ -135,7 +135,7 @@ function resolveInlineContributors(
   for (const [namespace, specifier] of Object.entries(declared)) {
     if (!NAMESPACE_PATTERN.test(namespace)) {
       throw new Error(
-        `@ttsc/lint: contributor namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_]*$/`,
+        `@ttsc/lint: contributor namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_-]*$/`,
       );
     }
     if (typeof specifier !== "string" || specifier.length === 0) {
@@ -281,8 +281,13 @@ function readSeverityConfig(
 
   if (hasNewRules) {
     if (typeof rules !== "object" || rules === null || Array.isArray(rules)) {
+      const actual = Array.isArray(rules)
+        ? "array"
+        : rules === null
+          ? "null"
+          : typeof rules;
       throw new Error(
-        `@ttsc/lint: "rules" must be a rule severity map, got ${typeof rules}`,
+        `@ttsc/lint: "rules" must be a rule severity map, got ${actual}`,
       );
     }
     return { hasInlineRules: true, extendsPath: undefined };
@@ -343,14 +348,15 @@ function findLintConfigFile(
 function tsconfigBaseDir(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): string {
+  const cwd = context.cwd ?? context.projectRoot;
   if (context.tsconfig) {
     return path.dirname(
       path.isAbsolute(context.tsconfig)
         ? context.tsconfig
-        : path.join(context.cwd, context.tsconfig),
+        : path.join(cwd, context.tsconfig),
     );
   }
-  return path.resolve(context.cwd ?? context.projectRoot);
+  return path.resolve(cwd);
 }
 
 function readConfigPluginEntries(
@@ -390,7 +396,7 @@ function readJsonConfigPlugins(
     .map(([namespace, value]): ConfigPluginEntry => {
       if (!NAMESPACE_PATTERN.test(namespace)) {
         throw new Error(
-          `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_]*$/`,
+          `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_-]*$/`,
         );
       }
       if (typeof value !== "string" || value.length === 0) {
@@ -609,7 +615,7 @@ function readTtsxConfigPlugins(
       // through `createRequire().resolve` would fail.
       if (!NAMESPACE_PATTERN.test(entry.namespace)) {
         throw new Error(
-          `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(entry.namespace)} must match /^[a-z][a-z0-9_]*$/`,
+          `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(entry.namespace)} must match /^[a-z][a-z0-9_-]*$/`,
         );
       }
       if (typeof entry.source !== "string" || entry.source.length === 0) {
@@ -672,7 +678,7 @@ function normalizePluginValue(
 ): ConfigPluginEntry {
   if (!NAMESPACE_PATTERN.test(namespace)) {
     throw new Error(
-      `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_]*$/`,
+      `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_-]*$/`,
     );
   }
   if (typeof value === "string") {
