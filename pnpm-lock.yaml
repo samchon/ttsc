@@ -182,6 +182,21 @@ importers:
         specifier: ^7.1.12
         version: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(yaml@2.8.3)
 
+  tests/lint-contributor-demo:
+    devDependencies:
+      '@ttsc/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.6.0
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260512.1
+      rimraf:
+        specifier: catalog:utils
+        version: 6.1.3
+
   tests/test-banner:
     devDependencies:
       '@ttsc/banner':
@@ -337,6 +352,9 @@ importers:
       eslint:
         specifier: ^10.3.0
         version: 10.3.0(jiti@2.6.1)
+      lint-contributor-demo:
+        specifier: workspace:*
+        version: link:../lint-contributor-demo
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc

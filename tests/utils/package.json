@@ -14,6 +14,7 @@
     "@types/node": "catalog:utils",
     "@typescript/native-preview": "catalog:tsgo",
     "eslint": "^10.3.0",
+    "lint-contributor-demo": "workspace:*",
     "ttsc": "workspace:*",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2"

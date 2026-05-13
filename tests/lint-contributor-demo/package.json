@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "lint-contributor-demo",
+  "version": "0.10.2",
+  "description": "Test-only contributor plugin for @ttsc/lint exercising the contributors descriptor field.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "rimraf lib && tsgo"
+  },
+  "devDependencies": {
+    "@ttsc/lint": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "rimraf": "catalog:utils"
+  }
+}
