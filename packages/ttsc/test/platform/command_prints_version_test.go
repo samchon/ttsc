@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandPrintsVersion verifies the platform helper reports build metadata.
@@ -19,13 +19,13 @@ import (
 // 2. Capture stdout and stderr for every alias.
 // 3. Assert successful status and version metadata text.
 func TestCommandPrintsVersion(t *testing.T) {
-	for _, argument := range []string{"-v", "--version", "version"} {
-		code, stdout, stderr := runPlatformCommand(t, argument)
-		if code != 0 || stderr != "" ||
-			!strings.Contains(stdout, "ttsc platform helper") ||
-			!strings.Contains(stdout, "commit") ||
-			!strings.Contains(stdout, "go ") {
-			t.Fatalf("version alias %q mismatch: code=%d stdout=%q stderr=%q", argument, code, stdout, stderr)
-		}
-	}
+  for _, argument := range []string{"-v", "--version", "version"} {
+    code, stdout, stderr := runPlatformCommand(t, argument)
+    if code != 0 || stderr != "" ||
+      !strings.Contains(stdout, "ttsc platform helper") ||
+      !strings.Contains(stdout, "commit") ||
+      !strings.Contains(stdout, "go ") {
+      t.Fatalf("version alias %q mismatch: code=%d stdout=%q stderr=%q", argument, code, stdout, stderr)
+    }
+  }
 }

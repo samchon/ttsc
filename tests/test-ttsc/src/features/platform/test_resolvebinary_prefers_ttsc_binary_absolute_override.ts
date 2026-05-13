@@ -3,8 +3,8 @@ import { assert, resolveBinary } from "../../internal/platform";
 /**
  * Verifies resolveBinary prefers TTSC_BINARY absolute override.
  *
- * This ttsc platform scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc platform scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.

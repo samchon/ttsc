@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLICommandVersionAliases verifies every version spelling reports native
@@ -16,17 +16,17 @@ import (
 // 2. Assert every alias exits successfully.
 // 3. Assert the banner includes the ttsc name, commit field, and Go runtime.
 func TestCLICommandVersionAliases(t *testing.T) {
-	for _, flag := range []string{"-v", "--version", "version"} {
-		t.Run(flag, func(t *testing.T) {
-			code, out, errOut := runNativeCommand(t, flag)
-			if code != 0 {
-				t.Fatalf("%s version alias failed: code=%d stdout=%q stderr=%q", flag, code, out, errOut)
-			}
-			for _, expected := range []string{"ttsc ", "commit", "go "} {
-				if !strings.Contains(out, expected) {
-					t.Fatalf("%s version output missing %q:\n%s", flag, expected, out)
-				}
-			}
-		})
-	}
+  for _, flag := range []string{"-v", "--version", "version"} {
+    t.Run(flag, func(t *testing.T) {
+      code, out, errOut := runNativeCommand(t, flag)
+      if code != 0 {
+        t.Fatalf("%s version alias failed: code=%d stdout=%q stderr=%q", flag, code, out, errOut)
+      }
+      for _, expected := range []string{"ttsc ", "commit", "go "} {
+        if !strings.Contains(out, expected) {
+          t.Fatalf("%s version output missing %q:\n%s", flag, expected, out)
+        }
+      }
+    })
+  }
 }

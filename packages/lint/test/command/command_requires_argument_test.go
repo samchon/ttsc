@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRequiresArgument verifies the lint sidecar rejects an empty command line.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the real process streams written by run.
 // 3. Assert the command-error status and required-command diagnostic.
 func TestCommandRequiresArgument(t *testing.T) {
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run(nil)
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
-		t.Fatalf("empty command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run(nil)
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
+    t.Fatalf("empty command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

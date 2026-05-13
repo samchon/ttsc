@@ -2,9 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
-import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 const PROCESS_CACHE_KEY = String(process.pid);

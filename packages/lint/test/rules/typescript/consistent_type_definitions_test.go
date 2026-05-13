@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusConsistentTypeDefinitions(t *testing.T) {
-	assertRuleCorpusCase(t, "consistent-type-definitions.ts", "// expect: consistent-type-definitions error\ntype Shape = {\n  name: string;\n};\n\nJSON.stringify({} as Shape);\n")
+  assertRuleCorpusCase(t, "consistent-type-definitions.ts", "// expect: consistent-type-definitions error\ntype Shape = {\n  name: string;\n};\n\nJSON.stringify({} as Shape);\n")
 }

@@ -1,6 +1,5 @@
-import path from "node:path";
-
 import { TestExecutor } from "@ttsc/testing";
+import path from "node:path";
 
 TestExecutor.main({
   location: path.join(process.cwd(), "src", "features"),

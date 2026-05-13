@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoExtraNonNullAssertion(t *testing.T) {
-	assertRuleCorpusCase(t, "no-extra-non-null-assertion.ts", "function f(x: number | null) {\n  // expect: no-extra-non-null-assertion error\n  return x!!;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-extra-non-null-assertion.ts", "function f(x: number | null) {\n  // expect: no-extra-non-null-assertion error\n  return x!!;\n}\nJSON.stringify(f);\n")
 }

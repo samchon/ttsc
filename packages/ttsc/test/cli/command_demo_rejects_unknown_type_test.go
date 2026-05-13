@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLICommandDemoRejectsUnknownType verifies invalid demo type names fail
@@ -16,11 +16,11 @@ import (
 // 2. Assert the native command exits with code 2.
 // 3. Assert stderr names the bad demo type flag.
 func TestCLICommandDemoRejectsUnknownType(t *testing.T) {
-	code, out, errOut := runNativeCommand(t, "demo", "--type=object")
-	if code != 2 {
-		t.Fatalf("unknown demo type should fail: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
-	if !strings.Contains(errOut, "unknown --type") {
-		t.Fatalf("unknown demo type diagnostic missing flag name: %q", errOut)
-	}
+  code, out, errOut := runNativeCommand(t, "demo", "--type=object")
+  if code != 2 {
+    t.Fatalf("unknown demo type should fail: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
+  if !strings.Contains(errOut, "unknown --type") {
+    t.Fatalf("unknown demo type diagnostic missing flag name: %q", errOut)
+  }
 }

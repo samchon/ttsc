@@ -1,9 +1,9 @@
 package ttsc_test
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 // TestCLICommandCheckAliasSuppressesEmit verifies `ttsc check` forces the
@@ -17,8 +17,8 @@ import (
 // 2. Execute the `check` alias through the native command.
 // 3. Assert the command succeeds and leaves the outDir empty.
 func TestCLICommandCheckAliasSuppressesEmit(t *testing.T) {
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
@@ -27,14 +27,14 @@ func TestCLICommandCheckAliasSuppressesEmit(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export const value = 1;
+  writeProjectFile(t, root, "index.ts", `export const value = 1;
 `)
 
-	code, out, errOut := runNativeCommand(t, "check", "--cwd", root)
-	if code != 0 {
-		t.Fatalf("check alias failed: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
-	if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
-		t.Fatalf("check alias should not emit JavaScript: %v", err)
-	}
+  code, out, errOut := runNativeCommand(t, "check", "--cwd", root)
+  if code != 0 {
+    t.Fatalf("check alias failed: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
+  if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
+    t.Fatalf("check alias should not emit JavaScript: %v", err)
+  }
 }

@@ -1,10 +1,10 @@
 package driver_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverRewriteIgnoresClosingParenInsideLineComment verifies line comments
@@ -17,17 +17,17 @@ import (
 // 2. Register a consuming rewrite for the plugin call.
 // 3. Assert the emitted JavaScript is patched once the real call closes.
 func TestDriverRewriteIgnoresClosingParenInsideLineComment(t *testing.T) {
-	js := emitIndexWithRewrite(t, "declare const plugin: { make(...args: unknown[]): string };\n"+
-		"export const out = plugin.make(\n"+
-		"  1, // )\n"+
-		"  2\n"+
-		");\n", driver.Rewrite{
-		RootName:      "plugin",
-		Method:        "make",
-		Replacement:   `"replacement"`,
-		ConsumeParens: true,
-	})
-	if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
-		t.Fatalf("line comment rewrite mismatch:\n%s", js)
-	}
+  js := emitIndexWithRewrite(t, "declare const plugin: { make(...args: unknown[]): string };\n"+
+    "export const out = plugin.make(\n"+
+    "  1, // )\n"+
+    "  2\n"+
+    ");\n", driver.Rewrite{
+    RootName:      "plugin",
+    Method:        "make",
+    Replacement:   `"replacement"`,
+    ConsumeParens: true,
+  })
+  if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
+    t.Fatalf("line comment rewrite mismatch:\n%s", js)
+  }
 }

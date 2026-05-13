@@ -3,10 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../TtscCompiler";
+import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
-import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 

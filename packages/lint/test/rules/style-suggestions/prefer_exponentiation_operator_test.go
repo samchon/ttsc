@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferExponentiationOperator(t *testing.T) {
-	assertRuleCorpusCase(t, "prefer-exponentiation-operator.ts", "// expect: prefer-exponentiation-operator error\nconst a = Math.pow(2, 3);\nJSON.stringify(a);\n")
+  assertRuleCorpusCase(t, "prefer-exponentiation-operator.ts", "// expect: prefer-exponentiation-operator error\nconst a = Math.pow(2, 3);\nJSON.stringify(a);\n")
 }

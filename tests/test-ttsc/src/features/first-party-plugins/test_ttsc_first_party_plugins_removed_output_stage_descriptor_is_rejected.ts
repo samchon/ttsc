@@ -1,14 +1,17 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
 
 /**
- * Verifies ttsc first-party plugins: removed output stage descriptor is rejected.
+ * Verifies ttsc first-party plugins: removed output stage descriptor is
+ * rejected.
  *
- * This first-party plugin scenario stays in the compiler package because it verifies shared host behavior across package boundaries.
+ * This first-party plugin scenario stays in the compiler package because it
+ * verifies shared host behavior across package boundaries.
  *
  * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads one or more first-party plugin descriptors.
+ * 2. Execute the real ttsc path that loads one or more first-party plugin
+ *    descriptors.
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsc_first_party_plugins_removed_output_stage_descriptor_is_rejected =

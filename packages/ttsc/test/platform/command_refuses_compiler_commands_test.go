@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRefusesCompilerCommands verifies build and check stay outside the helper.
@@ -19,12 +19,12 @@ import (
 // 2. Capture stdout and stderr for each command.
 // 3. Assert command-error status and the JavaScript CLI refusal message.
 func TestCommandRefusesCompilerCommands(t *testing.T) {
-	for _, command := range []string{"build", "check"} {
-		code, stdout, stderr := runPlatformCommand(t, command)
-		if code != 2 || stdout != "" ||
-			!strings.Contains(stderr, command+" is provided by the JavaScript ttsc CLI") ||
-			!strings.Contains(stderr, "@typescript/native-preview") {
-			t.Fatalf("%s refusal mismatch: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
-		}
-	}
+  for _, command := range []string{"build", "check"} {
+    code, stdout, stderr := runPlatformCommand(t, command)
+    if code != 2 || stdout != "" ||
+      !strings.Contains(stderr, command+" is provided by the JavaScript ttsc CLI") ||
+      !strings.Contains(stderr, "@typescript/native-preview") {
+      t.Fatalf("%s refusal mismatch: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
+    }
+  }
 }

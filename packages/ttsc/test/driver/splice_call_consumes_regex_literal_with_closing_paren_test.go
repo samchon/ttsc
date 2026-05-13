@@ -13,9 +13,9 @@ import "testing"
 // 2. Consume the call parentheses through the driver rewrite helper.
 // 3. Assert only the intended call text is replaced.
 func TestDriverSpliceCallConsumesRegexLiteralWithClosingParen(t *testing.T) {
-	got := spliceForTest(t, `const out = plugin.make(/\)/, "ok");`)
-	want := `const out = replacement;`
-	if got != want {
-		t.Fatalf("unexpected rewrite:\nwant: %s\n got: %s", want, got)
-	}
+  got := spliceForTest(t, `const out = plugin.make(/\)/, "ok");`)
+  want := `const out = replacement;`
+  if got != want {
+    t.Fatalf("unexpected rewrite:\nwant: %s\n got: %s", want, got)
+  }
 }

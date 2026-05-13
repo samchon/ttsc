@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsConflictingEmitFlags verifies mutually exclusive emit flags.
@@ -19,10 +19,10 @@ import (
 // 2. Capture the command-frontdoor stderr output.
 // 3. Assert the command-error status and mutual-exclusion diagnostic.
 func TestCommandRejectsConflictingEmitFlags(t *testing.T) {
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{"check", "--emit", "--noEmit"})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "mutually exclusive") {
-		t.Fatalf("flag conflict mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"check", "--emit", "--noEmit"})
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "mutually exclusive") {
+    t.Fatalf("flag conflict mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

@@ -1,9 +1,9 @@
+import { TestLint, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { TestLint, TestProject } from "@ttsc/testing";
 
 const TSGO_BINARY = TestProject.TSGO_BINARY;
 const TTSX_BIN = TestProject.TTSX_BIN;

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly verifies runtime markers.
@@ -18,22 +18,22 @@ import (
 // 2. Parse it through the external config reducer or store builder.
 // 3. Assert resolved rules, ignored files, or runtime-required flags.
 func TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly(t *testing.T) {
-	store, err := parseExternalConfigStoreForFile(map[string]any{
-		"extends": []any{"eslint/recommended"},
-		"rules": map[string]any{
-			"no-var": "error",
-		},
-	}, "/project")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !store.WantsESLintRuntime() {
-		t.Fatal("string extends should request ESLint runtime")
-	}
-	if !store.RequiresESLintRuntime() {
-		t.Fatal("string extends should require ESLint runtime")
-	}
-	if store.Flatten().Severity("no-var") != SeverityError {
-		t.Fatalf("local rules should still be available for fallback diagnostics, got %+v", store.Flatten())
-	}
+  store, err := parseExternalConfigStoreForFile(map[string]any{
+    "extends": []any{"eslint/recommended"},
+    "rules": map[string]any{
+      "no-var": "error",
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if !store.WantsESLintRuntime() {
+    t.Fatal("string extends should request ESLint runtime")
+  }
+  if !store.RequiresESLintRuntime() {
+    t.Fatal("string extends should require ESLint runtime")
+  }
+  if store.Flatten().Severity("no-var") != SeverityError {
+    t.Fatalf("local rules should still be available for fallback diagnostics, got %+v", store.Flatten())
+  }
 }

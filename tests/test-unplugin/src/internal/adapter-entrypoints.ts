@@ -1,8 +1,8 @@
-import { createRequire } from "node:module";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 const REQUIRE_FROM_TEST = createRequire(
   path.join(

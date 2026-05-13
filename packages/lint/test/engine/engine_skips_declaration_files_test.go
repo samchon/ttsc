@@ -1,8 +1,8 @@
 package main
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"testing"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestEngineSkipsDeclarationFiles verifies engine skips declaration files.
@@ -20,13 +20,13 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineSkipsDeclarationFiles(t *testing.T) {
-	// Declaration files should not be linted (they're library typings).
-	// The engine filters them by IsDeclarationFile.
-	file := parseTS(t, "var a = 1;")
-	file.IsDeclarationFile = true
-	engine := NewEngine(RuleConfig{"no-var": SeverityError})
-	findings := engine.Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 0 {
-		t.Errorf("declaration files must be skipped; got %d findings", len(findings))
-	}
+  // Declaration files should not be linted (they're library typings).
+  // The engine filters them by IsDeclarationFile.
+  file := parseTS(t, "var a = 1;")
+  file.IsDeclarationFile = true
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Errorf("declaration files must be skipped; got %d findings", len(findings))
+  }
 }

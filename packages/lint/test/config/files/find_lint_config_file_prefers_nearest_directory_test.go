@@ -1,8 +1,8 @@
 package main
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestFindLintConfigFilePrefersNearestDirectory verifies nearest directory preference.
@@ -19,17 +19,17 @@ import (
 // 2. Run the discovery or explicit-path resolver helper.
 // 3. Assert the selected path or the conflict diagnostic.
 func TestFindLintConfigFilePrefersNearestDirectory(t *testing.T) {
-	dir := t.TempDir()
-	nested := filepath.Join(dir, "packages", "app")
-	writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
-	writeFile(t, filepath.Join(nested, "ttsc-lint.config.cjs"), "module.exports = {};")
-	writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
+  dir := t.TempDir()
+  nested := filepath.Join(dir, "packages", "app")
+  writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
+  writeFile(t, filepath.Join(nested, "ttsc-lint.config.cjs"), "module.exports = {};")
+  writeFile(t, filepath.Join(nested, "tsconfig.json"), "{}")
 
-	discovered, err := findLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
-	if err != nil {
-		t.Fatalf("findLintConfigFile: %v", err)
-	}
-	if discovered != filepath.Join(nested, "ttsc-lint.config.cjs") {
-		t.Fatalf("unexpected discovery path: %s", discovered)
-	}
+  discovered, err := findLintConfigFile(dir, filepath.Join("packages", "app", "tsconfig.json"))
+  if err != nil {
+    t.Fatalf("findLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(nested, "ttsc-lint.config.cjs") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
 }

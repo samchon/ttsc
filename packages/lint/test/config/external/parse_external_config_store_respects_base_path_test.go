@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestParseExternalConfigStoreRespectsBasePath verifies base path matching.
@@ -18,25 +18,25 @@ import (
 // 2. Parse it through the external config reducer or store builder.
 // 3. Assert resolved rules, ignored files, or runtime-required flags.
 func TestParseExternalConfigStoreRespectsBasePath(t *testing.T) {
-	store, err := parseExternalConfigStore([]any{
-		map[string]any{
-			"basePath": "packages/app",
-			"files":    []any{"**/*.ts"},
-			"rules": map[string]any{
-				"no-var": "error",
-			},
-		},
-	}, "/project")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+  store, err := parseExternalConfigStore([]any{
+    map[string]any{
+      "basePath": "packages/app",
+      "files":    []any{"**/*.ts"},
+      "rules": map[string]any{
+        "no-var": "error",
+      },
+    },
+  }, "/project")
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
 
-	matched := store.ResolveRules("/project/packages/app/src/main.ts")
-	if matched.Rules.Severity("no-var") != SeverityError {
-		t.Fatalf("basePath file should match no-var, got %+v", matched.Rules)
-	}
-	outside := store.ResolveRules("/project/packages/other/src/main.ts")
-	if outside.Rules.Severity("no-var") != SeverityOff {
-		t.Fatalf("outside basePath should not match no-var, got %+v", outside.Rules)
-	}
+  matched := store.ResolveRules("/project/packages/app/src/main.ts")
+  if matched.Rules.Severity("no-var") != SeverityError {
+    t.Fatalf("basePath file should match no-var, got %+v", matched.Rules)
+  }
+  outside := store.ResolveRules("/project/packages/other/src/main.ts")
+  if outside.Rules.Severity("no-var") != SeverityOff {
+    t.Fatalf("outside basePath should not match no-var, got %+v", outside.Rules)
+  }
 }

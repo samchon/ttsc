@@ -443,7 +443,6 @@ func hasESLintRuntimeFields(value map[string]any) bool {
   for _, key := range []string{
     "languageOptions",
     "linterOptions",
-    "plugins",
     "processor",
     "settings",
   } {
@@ -451,7 +450,49 @@ func hasESLintRuntimeFields(value map[string]any) bool {
       return true
     }
   }
+  if plugins, ok := value["plugins"]; ok {
+    if !isNativePluginMap(plugins) {
+      return true
+    }
+  }
   return false
+}
+
+// isNativePluginMap reports whether every entry in a flat-config
+// `plugins` map points at a ttsc-lint native contributor object
+// (carrying a non-empty string `source` field). Native contributors are
+// compiled into the lint binary at build time and require no JS ESLint
+// runtime; only mixed or pure-ESLint plugin maps require the runtime
+// fallback.
+func isNativePluginMap(value any) bool {
+  dict, ok := value.(map[string]any)
+  if !ok {
+    return false
+  }
+  if len(dict) == 0 {
+    return true
+  }
+  for _, entry := range dict {
+    if !isNativePluginValue(entry) {
+      return false
+    }
+  }
+  return true
+}
+
+func isNativePluginValue(entry any) bool {
+  if entry == nil {
+    return false
+  }
+  switch typed := entry.(type) {
+  case string:
+    return false
+  case map[string]any:
+    source, ok := typed["source"].(string)
+    return ok && source != ""
+  default:
+    return false
+  }
 }
 
 func normalizeExternalRuleName(name string) string {
@@ -753,13 +794,31 @@ function isESLintConfigObject(value) {
 }
 
 function hasESLintRuntimeFields(value) {
-  return [
-    "languageOptions",
-    "linterOptions",
-    "plugins",
-    "processor",
-    "settings",
-  ].some((key) => Object.prototype.hasOwnProperty.call(value, key));
+  for (const key of ["languageOptions", "linterOptions", "processor", "settings"]) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "plugins")) {
+    if (!isNativePluginMap(value.plugins)) return true;
+  }
+  return false;
+}
+
+function isNativePluginMap(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const entries = Object.values(value);
+  if (entries.length === 0) return true;
+  for (const entry of entries) {
+    if (!isNativePluginValue(entry)) return false;
+  }
+  return true;
+}
+
+function isNativePluginValue(entry) {
+  if (typeof entry === "string") return false;
+  if (entry === null || typeof entry !== "object") return false;
+  return typeof entry.source === "string" && entry.source.length > 0;
 }
 `
   node := os.Getenv("TTSC_NODE_BINARY")
@@ -990,13 +1049,38 @@ function isESLintConfigObject(value: Record<string, unknown>): boolean {
 }
 
 function hasESLintRuntimeFields(value: Record<string, unknown>): boolean {
-  return [
-    "languageOptions",
-    "linterOptions",
-    "plugins",
-    "processor",
-    "settings",
-  ].some((key) => hasOwn(value, key));
+  for (const key of ["languageOptions", "linterOptions", "processor", "settings"]) {
+    if (hasOwn(value, key)) return true;
+  }
+  if (hasOwn(value, "plugins")) {
+    const plugins = value.plugins;
+    if (!isNativePluginMap(plugins)) return true;
+  }
+  return false;
+}
+
+// isNativePluginMap reports whether every entry of a plugins map points
+// at a ttsc-lint native contributor (an object with a string "source"
+// field). Native plugins are compiled into the lint binary at build
+// time, so their presence does NOT require the JavaScript ESLint
+// runtime; only mixed or pure-ESLint plugin maps do.
+function isNativePluginMap(value: unknown): boolean {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const entries = Object.values(value as Record<string, unknown>);
+  if (entries.length === 0) return true;
+  for (const entry of entries) {
+    if (!isNativePluginValue(entry)) return false;
+  }
+  return true;
+}
+
+function isNativePluginValue(entry: unknown): boolean {
+  if (typeof entry === "string") return false;
+  if (entry === null || typeof entry !== "object") return false;
+  const source = (entry as { source?: unknown }).source;
+  return typeof source === "string" && source.length > 0;
 }
 `, importLiteral)
 }

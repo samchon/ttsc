@@ -1,9 +1,9 @@
 package paths_test
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 // TestCommandRunsCheck verifies the paths sidecar can run a no-emit project check.
@@ -20,16 +20,16 @@ import (
 // 2. Run check through the package command wrapper.
 // 3. Assert success and verify no output directory was written.
 func TestCommandRunsCheck(t *testing.T) {
-	// Scenario setup: the shared fixture includes an alias import and target so
-	// program loading sees the same configuration used by build mode.
-	root := seedPathsProject(t)
-	// Check assertion: paths has no diagnostics in a valid project, and --quiet
-	// should keep the command-frontdoor output empty.
-	code, stdout, stderr := runPlugin(t, "check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
-	if code != 0 || stdout != "" || stderr != "" {
-		t.Fatalf("check branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
-	if _, err := os.Stat(filepath.Join(root, "dist")); !os.IsNotExist(err) {
-		t.Fatalf("check branch wrote output directory: %v", err)
-	}
+  // Scenario setup: the shared fixture includes an alias import and target so
+  // program loading sees the same configuration used by build mode.
+  root := seedPathsProject(t)
+  // Check assertion: paths has no diagnostics in a valid project, and --quiet
+  // should keep the command-frontdoor output empty.
+  code, stdout, stderr := runPlugin(t, "check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
+  if code != 0 || stdout != "" || stderr != "" {
+    t.Fatalf("check branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  if _, err := os.Stat(filepath.Join(root, "dist")); !os.IsNotExist(err) {
+    t.Fatalf("check branch wrote output directory: %v", err)
+  }
 }

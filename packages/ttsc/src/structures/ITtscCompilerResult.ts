@@ -3,8 +3,8 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
 /**
  * Result of a ttsc TypeScript-Go compilation operation.
  *
- * Represents the possible outcomes of {@link TtscCompiler.compile}, which can
- * be either a successful compilation, a compilation that completed with
+ * Represents the possible outcomes of {@link TtscCompiler.compile}, which can be
+ * either a successful compilation, a compilation that completed with
  * diagnostics, or an unexpected host error during the compilation process.
  *
  * This type follows the legacy `embed-typescript` result model, but stores all
@@ -25,18 +25,14 @@ export namespace ITtscCompilerResult {
    * Represents a successful ttsc compilation result.
    *
    * This interface is returned when TypeScript-Go completes without
-   * diagnostics, containing every text output captured from the native
-   * compiler host's `WriteFile` callback.
+   * diagnostics, containing every text output captured from the native compiler
+   * host's `WriteFile` callback.
    */
   export interface ISuccess {
-    /**
-     * Indicates that the compilation was successful.
-     */
+    /** Indicates that the compilation was successful. */
     type: "success";
 
-    /**
-     * Non-fatal diagnostics reported during compilation.
-     */
+    /** Non-fatal diagnostics reported during compilation. */
     diagnostics?: ITtscCompilerDiagnostic[];
 
     /**
@@ -59,14 +55,10 @@ export namespace ITtscCompilerResult {
    * diagnostics.
    */
   export interface IFailure {
-    /**
-     * Indicates that compilation completed with diagnostics.
-     */
+    /** Indicates that compilation completed with diagnostics. */
     type: "failure";
 
-    /**
-     * Array of diagnostic messages describing the compilation issues.
-     */
+    /** Array of diagnostic messages describing the compilation issues. */
     diagnostics: ITtscCompilerDiagnostic[];
 
     /**
@@ -86,14 +78,10 @@ export namespace ITtscCompilerResult {
    * {@link IFailure}; this variant is reserved for host-level exceptions.
    */
   export interface IException {
-    /**
-     * Indicates that an unexpected host error occurred.
-     */
+    /** Indicates that an unexpected host error occurred. */
     type: "exception";
 
-    /**
-     * The error that was thrown while preparing or running the compiler host.
-     */
+    /** The error that was thrown while preparing or running the compiler host. */
     error: unknown;
   }
 }

@@ -7,69 +7,69 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
-	"fmt"
-	"os"
+  "encoding/json"
+  "flag"
+  "fmt"
+  "os"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
-	cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
 )
 
 type apiTransformResult struct {
-	// TypeScript contains every non-library source file visible through the
-	// Program facade, keyed the same way api-compile keys emitted files.
-	Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
-	TypeScript  map[string]string      `json:"typescript"`
+  // TypeScript contains every non-library source file visible through the
+  // Program facade, keyed the same way api-compile keys emitted files.
+  Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
+  TypeScript  map[string]string      `json:"typescript"`
 }
 
 func runAPITransform(args []string) int {
-	fs := flag.NewFlagSet("api-transform", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
-	cwdOverride := fs.String("cwd", "", "override the working directory")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
+  fs := flag.NewFlagSet("api-transform", flag.ContinueOnError)
+  fs.SetOutput(stderr)
+  tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
+  cwdOverride := fs.String("cwd", "", "override the working directory")
+  if err := fs.Parse(args); err != nil {
+    return 2
+  }
 
-	cwd, err := cwdutil.Resolve(*cwdOverride, os.Getwd)
-	if err != nil {
-		fmt.Fprintf(stderr, "ttsc: %v\n", err)
-		return 2
-	}
+  cwd, err := cwdutil.Resolve(*cwdOverride, os.Getwd)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc: %v\n", err)
+    return 2
+  }
 
-	prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-		ForceNoEmit: true,
-	})
-	if err != nil {
-		fmt.Fprintf(stderr, "ttsc api-transform: %v\n", err)
-		return 2
-	}
-	typescript := map[string]string{}
-	if prog != nil {
-		defer prog.Close()
-		for _, file := range prog.SourceFiles() {
-			typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
-		}
-		diags = append(diags, prog.Diagnostics()...)
-	}
+  prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
+    ForceNoEmit: true,
+  })
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc api-transform: %v\n", err)
+    return 2
+  }
+  typescript := map[string]string{}
+  if prog != nil {
+    defer prog.Close()
+    for _, file := range prog.SourceFiles() {
+      typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
+    }
+    diags = append(diags, prog.Diagnostics()...)
+  }
 
-	result := apiTransformResult{
-		Diagnostics: make([]apiCompileDiagnostic, 0, len(diags)),
-		TypeScript:  typescript,
-	}
-	for _, diag := range diags {
-		result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))
-	}
+  result := apiTransformResult{
+    Diagnostics: make([]apiCompileDiagnostic, 0, len(diags)),
+    TypeScript:  typescript,
+  }
+  for _, diag := range diags {
+    result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))
+  }
 
-	data, err := json.Marshal(result)
-	if err != nil {
-		fmt.Fprintf(stderr, "ttsc api-transform: result marshal failed: %v\n", err)
-		return 3
-	}
-	fmt.Fprintln(stdout, string(data))
-	if driver.CountErrors(diags) > 0 {
-		return 2
-	}
-	return 0
+  data, err := json.Marshal(result)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc api-transform: result marshal failed: %v\n", err)
+    return 3
+  }
+  fmt.Fprintln(stdout, string(data))
+  if driver.CountErrors(diags) > 0 {
+    return 2
+  }
+  return 0
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoMisusedNew(t *testing.T) {
-	assertRuleCorpusCase(t, "no-misused-new.ts", "interface I {\n  // expect: no-misused-new error\n  constructor(): void;\n}\ndeclare const i: I;\nJSON.stringify(i);\n")
+  assertRuleCorpusCase(t, "no-misused-new.ts", "interface I {\n  // expect: no-misused-new error\n  constructor(): void;\n}\ndeclare const i: I;\nJSON.stringify(i);\n")
 }

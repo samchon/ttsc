@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestLoadConfigFileRejectsUnsupportedExtension verifies config extension validation.
@@ -19,15 +19,15 @@ import (
 // 2. Load it through the generic config loader.
 // 3. Assert the unsupported-extension diagnostic is returned.
 func TestLoadConfigFileRejectsUnsupportedExtension(t *testing.T) {
-	dir := t.TempDir()
-	location := filepath.Join(dir, "lint.config.yaml")
-	writeFile(t, location, "rules: {}\n")
+  dir := t.TempDir()
+  location := filepath.Join(dir, "lint.config.yaml")
+  writeFile(t, location, "rules: {}\n")
 
-	_, err := loadConfigFile(location)
-	if err == nil {
-		t.Fatal("expected unsupported config extension to fail")
-	}
-	if !strings.Contains(err.Error(), "unsupported config file extension") {
-		t.Fatalf("error should mention unsupported extension, got %v", err)
-	}
+  _, err := loadConfigFile(location)
+  if err == nil {
+    t.Fatal("expected unsupported config extension to fail")
+  }
+  if !strings.Contains(err.Error(), "unsupported config file extension") {
+    t.Fatalf("error should mention unsupported extension, got %v", err)
+  }
 }

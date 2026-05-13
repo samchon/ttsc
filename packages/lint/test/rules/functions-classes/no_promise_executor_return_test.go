@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoPromiseExecutorReturn(t *testing.T) {
-	assertRuleCorpusCase(t, "no-promise-executor-return.ts", "// expect: no-promise-executor-return error\nnew Promise((resolve) => resolve(1));\n")
+  assertRuleCorpusCase(t, "no-promise-executor-return.ts", "// expect: no-promise-executor-return error\nnew Promise((resolve) => resolve(1));\n")
 }

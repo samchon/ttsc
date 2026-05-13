@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLICommandRejectsUnknown verifies unsupported command words fail before
@@ -16,11 +16,11 @@ import (
 // 2. Assert the command exits with code 2.
 // 3. Assert stderr identifies the unknown command and mentions help.
 func TestCLICommandRejectsUnknown(t *testing.T) {
-	code, out, errOut := runNativeCommand(t, "fly-to-mars")
-	if code != 2 {
-		t.Fatalf("unknown command should fail: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
-	if !strings.Contains(errOut, "unknown command") || !strings.Contains(errOut, "--help") {
-		t.Fatalf("unknown command diagnostic missing expected text: %q", errOut)
-	}
+  code, out, errOut := runNativeCommand(t, "fly-to-mars")
+  if code != 2 {
+    t.Fatalf("unknown command should fail: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
+  if !strings.Contains(errOut, "unknown command") || !strings.Contains(errOut, "--help") {
+    t.Fatalf("unknown command diagnostic missing expected text: %q", errOut)
+  }
 }

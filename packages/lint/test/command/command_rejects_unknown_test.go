@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsUnknown verifies the lint sidecar rejects unknown subcommands.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the run front door's stdout and stderr streams.
 // 3. Assert the unknown-command diagnostic and command-error status.
 func TestCommandRejectsUnknown(t *testing.T) {
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{"wat"})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
-		t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"wat"})
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+    t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

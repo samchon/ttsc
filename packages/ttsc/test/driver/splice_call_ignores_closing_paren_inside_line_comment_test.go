@@ -13,9 +13,9 @@ import "testing"
 // 2. Include a closing parenthesis character in that line comment.
 // 3. Assert the replacement consumes the complete call expression.
 func TestDriverSpliceCallIgnoresClosingParenInsideLineComment(t *testing.T) {
-	got := spliceForTest(t, "const out = plugin.make(\n  1, // )\n  2\n);")
-	want := `const out = replacement;`
-	if got != want {
-		t.Fatalf("unexpected rewrite:\nwant: %s\n got: %s", want, got)
-	}
+  got := spliceForTest(t, "const out = plugin.make(\n  1, // )\n  2\n);")
+  want := `const out = replacement;`
+  if got != want {
+    t.Fatalf("unexpected rewrite:\nwant: %s\n got: %s", want, got)
+  }
 }

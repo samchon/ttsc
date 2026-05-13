@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 // TestUtilityStripInvalidCallPatternReportsError verifies strip call patterns
@@ -18,11 +18,11 @@ import (
 // 2. Configure strip with an invalid middle wildcard call pattern.
 // 3. Assert utility check reports a plugin configuration error.
 func TestUtilityStripInvalidCallPatternReportsError(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Scenario setup: no TypeScript diagnostics should interfere with the
-	// parseCallPattern validation branch.
-	writeProjectFile(t, root, "tsconfig.json", `{
+  // Scenario setup: no TypeScript diagnostics should interfere with the
+  // parseCallPattern validation branch.
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020"
@@ -30,18 +30,18 @@ func TestUtilityStripInvalidCallPatternReportsError(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export const value = 1;
+  writeProjectFile(t, root, "index.ts", `export const value = 1;
 `)
 
-	// Error assertion: only trailing wildcards are supported by the strip call
-	// matcher, so a middle wildcard must stop configuration.
-	code, out, errOut := captureUtilityOutput(t, func() int {
-		return utility.RunCheck([]string{
-			"--cwd", root,
-			"--plugins-json", `[{"name":"@ttsc/strip","config":{"calls":["assert.*.fail"]}}]`,
-		})
-	})
-	if code != 2 || out != "" || !strings.Contains(errOut, "wildcard is only supported") {
-		t.Fatalf("RunCheck mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
+  // Error assertion: only trailing wildcards are supported by the strip call
+  // matcher, so a middle wildcard must stop configuration.
+  code, out, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunCheck([]string{
+      "--cwd", root,
+      "--plugins-json", `[{"name":"@ttsc/strip","config":{"calls":["assert.*.fail"]}}]`,
+    })
+  })
+  if code != 2 || out != "" || !strings.Contains(errOut, "wildcard is only supported") {
+    t.Fatalf("RunCheck mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
 }

@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunDemoEveryAtomic verifies every supported native demo predicate.
@@ -19,16 +19,16 @@ import (
 // 2. Capture stdout and stderr for each command.
 // 3. Assert successful status and the expected predicate fragment.
 func TestCLIRunDemoEveryAtomic(t *testing.T) {
-	cases := map[string]string{
-		"boolean": `"boolean" === typeof input`,
-		"number":  `"number" === typeof input`,
-		"bigint":  `"bigint" === typeof input`,
-		"any":     `(input) => true`,
-	}
-	for typ, expected := range cases {
-		code, stdout, stderr := runNativeCommand(t, "demo", "--type="+typ)
-		if code != 0 || stderr != "" || !strings.Contains(stdout, expected) {
-			t.Fatalf("demo --type=%s mismatch: code=%d stdout=%q stderr=%q", typ, code, stdout, stderr)
-		}
-	}
+  cases := map[string]string{
+    "boolean": `"boolean" === typeof input`,
+    "number":  `"number" === typeof input`,
+    "bigint":  `"bigint" === typeof input`,
+    "any":     `(input) => true`,
+  }
+  for typ, expected := range cases {
+    code, stdout, stderr := runNativeCommand(t, "demo", "--type="+typ)
+    if code != 0 || stderr != "" || !strings.Contains(stdout, expected) {
+      t.Fatalf("demo --type=%s mismatch: code=%d stdout=%q stderr=%q", typ, code, stdout, stderr)
+    }
+  }
 }

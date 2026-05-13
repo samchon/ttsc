@@ -15,15 +15,15 @@ import "testing"
 // 2. Format an unknown numeric severity.
 // 3. Assert each string matches the command/config vocabulary.
 func TestSeverityStringFormatsValues(t *testing.T) {
-	cases := map[Severity]string{
-		SeverityOff:    "off",
-		SeverityWarn:   "warning",
-		SeverityError:  "error",
-		Severity(9999): "unknown",
-	}
-	for severity, expected := range cases {
-		if actual := severity.String(); actual != expected {
-			t.Fatalf("%v.String(): want %q, got %q", int(severity), expected, actual)
-		}
-	}
+  cases := map[Severity]string{
+    SeverityOff:    "off",
+    SeverityWarn:   "warning",
+    SeverityError:  "error",
+    Severity(9999): "unknown",
+  }
+  for severity, expected := range cases {
+    if actual := severity.String(); actual != expected {
+      t.Fatalf("%v.String(): want %q, got %q", int(severity), expected, actual)
+    }
+  }
 }

@@ -7,9 +7,9 @@ import {
 /**
  * Verifies lint config file: nearest eslint.config is discovered and executed.
  *
- * This lint config scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * This lint config scenario is isolated as one exported TypeScript feature so
+ * failures identify the exact package contract under test without a shared
+ * smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.
  * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.

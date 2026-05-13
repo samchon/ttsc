@@ -1,11 +1,11 @@
-import assert from "node:assert/strict";
 import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
 
 /**
  * Verifies ttsx rewrites extensionless ESM directory index imports.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
+ * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
+ * feature so failures identify the exact package contract under test without a
  * shared smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.

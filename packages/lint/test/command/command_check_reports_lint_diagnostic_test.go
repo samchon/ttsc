@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandCheckReportsLintDiagnostic verifies check renders native lint findings.
@@ -19,15 +19,15 @@ import (
 // 2. Run the check command with a plugin JSON rule map enabling no-var.
 // 3. Assert the command fails and stderr contains the rendered lint rule.
 func TestCommandCheckReportsLintDiagnostic(t *testing.T) {
-	root := seedLintProject(t, "var legacy = 1;\nJSON.stringify(legacy);\n")
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t, map[string]string{"no-var": "error"}),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[no-var]") {
-		t.Fatalf("check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  root := seedLintProject(t, "var legacy = 1;\nJSON.stringify(legacy);\n")
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t, map[string]string{"no-var": "error"}),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[no-var]") {
+    t.Fatalf("check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

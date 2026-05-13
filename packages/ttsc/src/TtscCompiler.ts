@@ -15,23 +15,22 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
 /**
  * Programmatic compiler host for the `ttsc` TypeScript-Go pipeline.
  *
- * `TtscCompiler` is the root JavaScript API exported by the `ttsc` package.
- * It represents one resolved project context: a working directory, an optional
- * project config path, an optional native toolchain override, an environment,
- * a cache root, and a plugin list. Those values are captured by the
- * constructor and are intentionally not replaceable per method call.
+ * `TtscCompiler` is the root JavaScript API exported by the `ttsc` package. It
+ * represents one resolved project context: a working directory, an optional
+ * project config path, an optional native toolchain override, an environment, a
+ * cache root, and a plugin list. Those values are captured by the constructor
+ * and are intentionally not replaceable per method call.
  *
  * The class exposes only the operations that make sense for an embedded
  * compiler host:
  *
  * - {@link TtscCompiler.prepare}: build configured Go source plugins into the
  *   cache before a later compile.
- * - {@link TtscCompiler.clean}: remove the cache owned by this compiler
- *   context.
+ * - {@link TtscCompiler.clean}: remove the cache owned by this compiler context.
  * - {@link TtscCompiler.compile}: compile the configured project and return a
  *   structured result instead of terminal text.
- * - {@link TtscCompiler.transform}: transform the configured project and
- *   return an embed-style transformation result.
+ * - {@link TtscCompiler.transform}: transform the configured project and return an
+ *   embed-style transformation result.
  */
 export class TtscCompiler {
   private readonly context: ITtscCompilerContext;
@@ -106,14 +105,14 @@ export class TtscCompiler {
    *
    * The public API does not write emitted files into the caller's project tree.
    * For projects without plugins, ttsc uses its native TypeScript-Go host's
-   * `WriteFile` callback to capture output in memory. For projects with
-   * native plugins, ttsc runs the plugin pipeline against a temporary output
+   * `WriteFile` callback to capture output in memory. For projects with native
+   * plugins, ttsc runs the plugin pipeline against a temporary output
    * directory, reads the generated text artifacts, and removes the temporary
    * directory before returning.
    *
-   * The result uses an `embed-typescript`-style discriminated union:
-   * `success` for clean compiles, `failure` for normal compiler diagnostics,
-   * and `exception` for host setup or process failures.
+   * The result uses an `embed-typescript`-style discriminated union: `success`
+   * for clean compiles, `failure` for normal compiler diagnostics, and
+   * `exception` for host setup or process failures.
    *
    * @returns Structured compilation result containing diagnostics or output.
    */
@@ -127,8 +126,8 @@ export class TtscCompiler {
    * This is the source-to-source API for plugin authors. It must not return
    * JavaScript emit, declaration files, or source maps; those artifacts belong
    * to {@link TtscCompiler.compile}. A transform sidecar is expected to write
-   * JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to stdout.
-   * When no transform sidecar is configured, ttsc returns the TypeScript files
+   * JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to stdout. When
+   * no transform sidecar is configured, ttsc returns the TypeScript files
    * loaded by the TypeScript-Go Program together with normal diagnostics.
    *
    * The returned shape mirrors `embed-typescript`'s transformation API:

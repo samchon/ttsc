@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestCLIProjectBuildBlocksSemanticDiagnostics verifies project builds stop
@@ -18,11 +18,11 @@ import (
 // 2. Run the build command with `--emit`.
 // 3. Assert the diagnostic is printed and no JavaScript is written.
 func TestCLIProjectBuildBlocksSemanticDiagnostics(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Scenario setup: using a semantic type mismatch exercises the checker path,
-	// not only the config parser or syntax parser.
-	writeProjectFile(t, root, "tsconfig.json", `{
+  // Scenario setup: using a semantic type mismatch exercises the checker path,
+  // not only the config parser or syntax parser.
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
@@ -32,20 +32,20 @@ func TestCLIProjectBuildBlocksSemanticDiagnostics(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `const value: string = 123;
+  writeProjectFile(t, root, "index.ts", `const value: string = 123;
 console.log(value);
 `)
 
-	// Failure assertion: the command must reject before WriteFile can create the
-	// configured output path.
-	code, _, errOut := runNativeCommand(t, "build", "--cwd", root, "--emit")
-	if code != 2 {
-		t.Fatalf("semantic build should fail: code=%d stderr=%q", code, errOut)
-	}
-	if !strings.Contains(errOut, "Type 'number' is not assignable to type 'string'") {
-		t.Fatalf("semantic diagnostic missing expected message: %q", errOut)
-	}
-	if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
-		t.Fatalf("semantic failure should not emit JavaScript: %v", err)
-	}
+  // Failure assertion: the command must reject before WriteFile can create the
+  // configured output path.
+  code, _, errOut := runNativeCommand(t, "build", "--cwd", root, "--emit")
+  if code != 2 {
+    t.Fatalf("semantic build should fail: code=%d stderr=%q", code, errOut)
+  }
+  if !strings.Contains(errOut, "Type 'number' is not assignable to type 'string'") {
+    t.Fatalf("semantic diagnostic missing expected message: %q", errOut)
+  }
+  if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
+    t.Fatalf("semantic failure should not emit JavaScript: %v", err)
+  }
 }

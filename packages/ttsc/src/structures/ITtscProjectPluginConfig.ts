@@ -6,7 +6,7 @@
  * or plugin packages expose through `package.json`. ttsc deliberately keeps it
  * open-ended because plugin packages own their own config fields.
  *
- * ttsc interprets only two properties:
+ * Ttsc interprets only two properties:
  *
  * - `transform`: the JavaScript module specifier used to load the plugin
  *   descriptor or factory.
@@ -42,7 +42,7 @@ export interface ITtscProjectPluginConfig {
   /**
    * Plugin-specific config passed through unchanged to the native sidecar.
    *
-   * ttsc does not validate these fields. Plugin packages should document their
+   * Ttsc does not validate these fields. Plugin packages should document their
    * own config contract and validate it inside their factory or Go sidecar.
    */
   [key: string]: unknown;

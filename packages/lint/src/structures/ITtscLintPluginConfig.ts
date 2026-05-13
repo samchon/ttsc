@@ -17,6 +17,26 @@ export interface ITtscLintPluginConfig {
    */
   config?: string | TtscLintConfig;
 
+  /**
+   * Contributor lint plugins to compile into the `@ttsc/lint` binary.
+   *
+   * Each entry maps a namespace (rule-name prefix) to an npm specifier or
+   * relative path. The factory resolves the package, reads its exported
+   * `ITtscLintPlugin` descriptor, and forwards the Go source directory to
+   * ttsc's plugin builder via the `contributors` field.
+   *
+   * ```jsonc
+   * {
+   *   "transform": "@ttsc/lint",
+   *   "plugins": {
+   *     "demo": "ttsc-lint-plugin-demo"
+   *   },
+   *   "config": { "demo/no-todo-comment": "error" }
+   * }
+   * ```
+   */
+  plugins?: Record<string, string>;
+
   /** Extra plugin-owned fields are passed through unchanged. */
   [key: string]: unknown;
 }

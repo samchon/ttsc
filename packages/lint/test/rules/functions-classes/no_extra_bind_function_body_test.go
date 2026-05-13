@@ -15,7 +15,7 @@ import "testing"
 // 2. Enable no-extra-bind through the same corpus helper.
 // 3. Assert the native Engine reports the annotated diagnostic.
 func TestRuleNoExtraBindFunctionBody(t *testing.T) {
-	assertRuleCorpusCase(t, "no-extra-bind-function-body.ts", `const obj = {};
+  assertRuleCorpusCase(t, "no-extra-bind-function-body.ts", `const obj = {};
 // expect: no-extra-bind error
 const f = function () { return 1; }.bind(obj);
 JSON.stringify(f);

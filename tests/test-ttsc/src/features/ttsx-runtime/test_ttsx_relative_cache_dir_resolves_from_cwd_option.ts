@@ -1,14 +1,14 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies ttsx relative cache dir resolves from cwd option.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
+ * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
+ * feature so failures identify the exact package contract under test without a
  * shared smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.

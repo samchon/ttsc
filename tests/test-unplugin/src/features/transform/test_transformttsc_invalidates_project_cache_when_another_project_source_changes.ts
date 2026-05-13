@@ -1,10 +1,11 @@
 import { assertTransformCacheInvalidatesOnProjectSourceChange } from "../../internal/transform-compiler-options";
 
 /**
- * Verifies transformTtsc invalidates project cache when another project source changes.
+ * Verifies transformTtsc invalidates project cache when another project source
+ * changes.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
+ * This unplugin transform scenario is isolated as one exported TypeScript
+ * feature so failures identify the exact package contract under test without a
  * shared smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.

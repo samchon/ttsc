@@ -88,7 +88,7 @@ export interface ITtscCompilerContext {
    *   directly installed package markers.
    * - `false`: ignore project config plugins and package markers for this
    *   compiler instance.
-   * - array: use these plugin entries instead of project config entries and
+   * - Array: use these plugin entries instead of project config entries and
    *   package markers.
    *
    * Plugin entries are resolved once per operation from this instance context.

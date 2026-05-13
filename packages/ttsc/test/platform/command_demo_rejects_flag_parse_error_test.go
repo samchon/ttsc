@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandDemoRejectsFlagParseError verifies malformed demo flags fail early.
@@ -19,8 +19,8 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the flag parser diagnostic.
 func TestCommandDemoRejectsFlagParseError(t *testing.T) {
-	code, stdout, stderr := runPlatformCommand(t, "demo", "--type")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "flag needs an argument") {
-		t.Fatalf("demo flag parse mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runPlatformCommand(t, "demo", "--type")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "flag needs an argument") {
+    t.Fatalf("demo flag parse mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

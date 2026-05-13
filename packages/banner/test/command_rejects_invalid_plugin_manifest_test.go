@@ -1,8 +1,8 @@
 package banner_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsInvalidPluginManifest rejects malformed banner plugin manifests.
@@ -18,12 +18,12 @@ import (
 // 2. Capture each command's status and streams through the real wrapper.
 // 3. Assert every command returns the utility failure status and invalid-manifest diagnostic.
 func TestCommandRejectsInvalidPluginManifest(t *testing.T) {
-	// Failure assertion: parsePluginEntries runs before project loading, keeping
-	// the scenario narrow and stable across TypeScript fixture changes.
-	for _, command := range []string{"build", "transform", "check"} {
-		code, stdout, stderr := runPlugin(t, command, "--plugins-json={")
-		if code != 2 || stdout != "" || !strings.Contains(stderr, "ttsc utility: invalid --plugins-json") {
-			t.Fatalf("%s invalid manifest mismatch: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
-		}
-	}
+  // Failure assertion: parsePluginEntries runs before project loading, keeping
+  // the scenario narrow and stable across TypeScript fixture changes.
+  for _, command := range []string{"build", "transform", "check"} {
+    code, stdout, stderr := runPlugin(t, command, "--plugins-json={")
+    if code != 2 || stdout != "" || !strings.Contains(stderr, "ttsc utility: invalid --plugins-json") {
+      t.Fatalf("%s invalid manifest mismatch: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
+    }
+  }
 }

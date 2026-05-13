@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestUtilityResolveBannerTextRejectsEmptyObjectText verifies inline banner
@@ -20,10 +20,10 @@ import (
 // 2. Capture the returned validation error.
 // 3. Assert the error reports the non-empty string requirement.
 func TestUtilityResolveBannerTextRejectsEmptyObjectText(t *testing.T) {
-	_, err := utilityResolveBannerText(map[string]any{
-		"text": "  ",
-	}, t.TempDir(), "tsconfig.json")
-	if err == nil || !strings.Contains(err.Error(), "non-empty string") {
-		t.Fatalf("expected non-empty string error, got %v", err)
-	}
+  _, err := utilityResolveBannerText(map[string]any{
+    "text": "  ",
+  }, t.TempDir(), "tsconfig.json")
+  if err == nil || !strings.Contains(err.Error(), "non-empty string") {
+    t.Fatalf("expected non-empty string error, got %v", err)
+  }
 }

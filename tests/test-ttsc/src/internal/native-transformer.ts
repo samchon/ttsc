@@ -1,8 +1,8 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
 
 const TTSC_BIN = TestProject.TTSC_BIN;
 const WORKSPACE_ROOT = TestProject.WORKSPACE_ROOT;

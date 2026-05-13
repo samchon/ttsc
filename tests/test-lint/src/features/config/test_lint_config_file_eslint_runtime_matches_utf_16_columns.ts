@@ -3,9 +3,9 @@ import { assertESLintRuntimeParity } from "../../internal/config-file";
 /**
  * Verifies lint config file: ESLint runtime matches UTF-16 columns.
  *
- * This lint config scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * This lint config scenario is isolated as one exported TypeScript feature so
+ * failures identify the exact package contract under test without a shared
+ * smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.
  * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.

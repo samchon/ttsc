@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunDemoUnknownTypeExits2 verifies unsupported demo type names fail as
@@ -20,8 +20,8 @@ import (
 // 2. Capture stdout and stderr from the command process.
 // 3. Assert status 2 and the unknown-type diagnostic.
 func TestCLIRunDemoUnknownTypeExits2(t *testing.T) {
-	code, stdout, stderr := runNativeCommand(t, "demo", "--type=object")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown --type") {
-		t.Fatalf("demo unknown type mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runNativeCommand(t, "demo", "--type=object")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown --type") {
+    t.Fatalf("demo unknown type mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

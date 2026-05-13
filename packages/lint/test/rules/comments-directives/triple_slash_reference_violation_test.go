@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusTripleSlashReferenceViolation(t *testing.T) {
-	assertRuleCorpusCase(t, "triple-slash-reference/violation.ts", "// expect: triple-slash-reference error\n/// <reference path=\"./other-fixture.d.ts\" />\nconst x = 1;\nJSON.stringify(x);\n")
+  assertRuleCorpusCase(t, "triple-slash-reference/violation.ts", "// expect: triple-slash-reference error\n/// <reference path=\"./other-fixture.d.ts\" />\nconst x = 1;\nJSON.stringify(x);\n")
 }

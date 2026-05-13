@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestLoadJSONConfigFileRejectsInvalidJSON verifies JSON config parse errors are surfaced.
@@ -19,15 +19,15 @@ import (
 // 2. Load it through the JSON config loader directly.
 // 3. Assert the diagnostic reports a config-file parse failure.
 func TestLoadJSONConfigFileRejectsInvalidJSON(t *testing.T) {
-	dir := t.TempDir()
-	location := filepath.Join(dir, "lint.config.json")
-	writeFile(t, location, `{"no-var": "error",`)
+  dir := t.TempDir()
+  location := filepath.Join(dir, "lint.config.json")
+  writeFile(t, location, `{"no-var": "error",`)
 
-	_, err := loadJSONConfigFile(location)
-	if err == nil {
-		t.Fatal("expected invalid JSON to fail")
-	}
-	if !strings.Contains(err.Error(), "parse config file") {
-		t.Fatalf("error should mention JSON parse context, got %v", err)
-	}
+  _, err := loadJSONConfigFile(location)
+  if err == nil {
+    t.Fatal("expected invalid JSON to fail")
+  }
+  if !strings.Contains(err.Error(), "parse config file") {
+    t.Fatalf("error should mention JSON parse context, got %v", err)
+  }
 }

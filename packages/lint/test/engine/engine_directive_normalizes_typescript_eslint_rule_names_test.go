@@ -1,8 +1,8 @@
 package main
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"testing"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestEngineDirectiveNormalizesTypeScriptESLintRuleNames verifies engine directive normalizes
@@ -21,14 +21,14 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineDirectiveNormalizesTypeScriptESLintRuleNames(t *testing.T) {
-	engine := NewEngine(RuleConfig{"no-explicit-any": SeverityError})
-	file := parseTS(t, `
+  engine := NewEngine(RuleConfig{"no-explicit-any": SeverityError})
+  file := parseTS(t, `
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const skipped: any = 1;
     const reported: any = 2;
   `)
-	findings := engine.Run([]*shimast.SourceFile{file}, nil)
-	if got := len(findings); got != 1 {
-		t.Fatalf("want 1 unsuppressed finding, got %d: %v", got, findingRules(findings))
-	}
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 1 {
+    t.Fatalf("want 1 unsuppressed finding, got %d: %v", got, findingRules(findings))
+  }
 }

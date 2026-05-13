@@ -4,8 +4,8 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * Result of a TypeScript source-to-source transformation operation.
  *
  * This mirrors `embed-typescript`'s `IEmbedTypeScriptTransformation` model.
- * Unlike {@link ITtscCompilerResult}, this contract is not an emit contract:
- * the `typescript` map must contain TypeScript source text, not generated
+ * Unlike {@link ITtscCompilerResult}, this contract is not an emit contract: the
+ * `typescript` map must contain TypeScript source text, not generated
  * JavaScript, declaration files, or source maps.
  */
 export type ITtscCompilerTransformation =

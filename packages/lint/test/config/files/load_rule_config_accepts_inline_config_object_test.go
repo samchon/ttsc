@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestLoadRuleConfigAcceptsInlineConfigObject verifies inline config loading.
@@ -18,17 +18,17 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigAcceptsInlineConfigObject(t *testing.T) {
-	cfg, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{
-			"config": map[string]any{
-				"no-var": "error",
-			},
-		},
-	}, t.TempDir(), "tsconfig.json")
-	if err != nil {
-		t.Fatalf("LoadRuleConfig: %v", err)
-	}
-	if cfg.Severity("no-var") != SeverityError {
-		t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
-	}
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{
+      "config": map[string]any{
+        "no-var": "error",
+      },
+    },
+  }, t.TempDir(), "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
 }

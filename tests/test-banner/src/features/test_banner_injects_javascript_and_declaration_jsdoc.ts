@@ -1,14 +1,17 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
+
 import { TestBanner } from "../internal/TestBanner";
 
 /**
- * Verifies the @ttsc/banner plugin: banner injects JavaScript and declaration JSDoc.
+ * Verifies the @ttsc/banner plugin: banner injects JavaScript and declaration
+ * JSDoc.
  *
- * This banner feature is isolated as one exported TypeScript test so failures identify the exact package contract without a shared smoke wrapper.
+ * This banner feature is isolated as one exported TypeScript test so failures
+ * identify the exact package contract without a shared smoke wrapper.
  *
  * 1. Materialize the project fixture or module graph required by the case.
  * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.

@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsUnknown verifies unsupported platform commands fail clearly.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the unknown-command diagnostic.
 func TestCommandRejectsUnknown(t *testing.T) {
-	code, stdout, stderr := runPlatformCommand(t, "compile")
-	if code != 2 || stdout != "" ||
-		!strings.Contains(stderr, `unknown command "compile"`) ||
-		!strings.Contains(stderr, `run "ttsc --help" through the JavaScript CLI`) {
-		t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runPlatformCommand(t, "compile")
+  if code != 2 || stdout != "" ||
+    !strings.Contains(stderr, `unknown command "compile"`) ||
+    !strings.Contains(stderr, `run "ttsc --help" through the JavaScript CLI`) {
+    t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

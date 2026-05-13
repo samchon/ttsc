@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLICommandRejectsMissingProjectArgument verifies project aliases require
@@ -16,15 +16,15 @@ import (
 // 2. Assert each invocation exits with code 2.
 // 3. Assert stderr tells the user that a path argument is required.
 func TestCLICommandRejectsMissingProjectArgument(t *testing.T) {
-	for _, flag := range []string{"-p", "--project"} {
-		t.Run(flag, func(t *testing.T) {
-			code, out, errOut := runNativeCommand(t, flag)
-			if code != 2 {
-				t.Fatalf("%s without path should fail: code=%d stdout=%q stderr=%q", flag, code, out, errOut)
-			}
-			if !strings.Contains(errOut, "requires a path argument") {
-				t.Fatalf("%s diagnostic missing required-path text: %q", flag, errOut)
-			}
-		})
-	}
+  for _, flag := range []string{"-p", "--project"} {
+    t.Run(flag, func(t *testing.T) {
+      code, out, errOut := runNativeCommand(t, flag)
+      if code != 2 {
+        t.Fatalf("%s without path should fail: code=%d stdout=%q stderr=%q", flag, code, out, errOut)
+      }
+      if !strings.Contains(errOut, "requires a path argument") {
+        t.Fatalf("%s diagnostic missing required-path text: %q", flag, errOut)
+      }
+    })
+  }
 }

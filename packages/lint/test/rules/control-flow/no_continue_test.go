@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoContinue(t *testing.T) {
-	assertRuleCorpusCase(t, "no-continue.ts", "for (let i = 0; i < 3; i++) {\n  // expect: no-continue error\n  if (i === 1) continue;\n  console.log(i);\n}\n")
+  assertRuleCorpusCase(t, "no-continue.ts", "for (let i = 0; i < 3; i++) {\n  // expect: no-continue error\n  if (i === 1) continue;\n  console.log(i);\n}\n")
 }

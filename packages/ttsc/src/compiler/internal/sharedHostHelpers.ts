@@ -10,12 +10,12 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
  * plugin must declare itself with one of these names AND its source path must
  * resolve to a `package.json` whose `name` field matches.
  *
- * This whitelist exists because `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip`
- * are AST-only mutators that operate on the same `*shimast.SourceFile` graph
- * and do not own emit. They are composed through `packages/ttsc/utility/host.go`,
- * so any one of their binaries can host the shared run. Third-party plugins
- * cannot participate in this fast path; they must opt into composition through
- * the explicit `ITtscPlugin.composes` field.
+ * This whitelist exists because `@ttsc/banner`, `@ttsc/paths`, and
+ * `@ttsc/strip` are AST-only mutators that operate on the same
+ * `*shimast.SourceFile` graph and do not own emit. They are composed through
+ * `packages/ttsc/utility/host.go`, so any one of their binaries can host the
+ * shared run. Third-party plugins cannot participate in this fast path; they
+ * must opt into composition through the explicit `ITtscPlugin.composes` field.
  */
 export const FIRST_PARTY_UTILITY_PLUGIN_NAMES: ReadonlySet<string> = new Set([
   "@ttsc/banner",
@@ -42,8 +42,8 @@ export function isFirstPartyUtilityTransformPlugin(
 /**
  * Walks upward from `source` (a directory or file path) up to four parent
  * levels searching for the nearest `package.json`. Returns the parsed manifest
- * object on success, or `undefined` when no manifest is found or parsing
- * fails. The depth bound mirrors the pre-existing inline implementations in
+ * object on success, or `undefined` when no manifest is found or parsing fails.
+ * The depth bound mirrors the pre-existing inline implementations in
  * `runBuild.ts` and `transformProjectInMemory.ts`.
  */
 export function readNearestPackageManifest(
@@ -77,10 +77,10 @@ export function readNearestPackageManifest(
  *
  * Two callers exist with subtly different error wording: the build path
  * (`runBuild.ts`) reports "multiple compiler native backends cannot share one
- * emit pass" while the source-to-source path
- * (`transformProjectInMemory.ts`) reports "cannot share one source-to-source
- * pass". The `pass` argument selects the appropriate phrase so the error
- * message remains diagnostic-grade instead of generic.
+ * emit pass" while the source-to-source path (`transformProjectInMemory.ts`)
+ * reports "cannot share one source-to-source pass". The `pass` argument selects
+ * the appropriate phrase so the error message remains diagnostic-grade instead
+ * of generic.
  */
 export function assertSharedHostCompatibility(
   plugins: readonly ITtscLoadedNativePlugin[],

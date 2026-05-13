@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoScriptUrl(t *testing.T) {
-	assertRuleCorpusCase(t, "no-script-url.ts", "// expect: no-script-url error\nconst u: string = \"javascript:alert(1)\";\nJSON.stringify(u);\n")
+  assertRuleCorpusCase(t, "no-script-url.ts", "// expect: no-script-url error\nconst u: string = \"javascript:alert(1)\";\nJSON.stringify(u);\n")
 }

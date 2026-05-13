@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestParseExternalConfigRulesRejectsUnresolvedStringExtends verifies string extends rejection.
@@ -19,13 +19,13 @@ import (
 // 2. Parse it through the external config reducer or store builder.
 // 3. Assert resolved rules, ignored files, or runtime-required flags.
 func TestParseExternalConfigRulesRejectsUnresolvedStringExtends(t *testing.T) {
-	_, err := parseExternalConfigRules(map[string]any{
-		"extends": []any{"eslint:recommended"},
-	})
-	if err == nil {
-		t.Fatal("expected string extends to be rejected")
-	}
-	if !strings.Contains(err.Error(), "config.extends[0] must be an object or flat config array") {
-		t.Fatalf("error should explain unsupported unresolved extends, got %v", err)
-	}
+  _, err := parseExternalConfigRules(map[string]any{
+    "extends": []any{"eslint:recommended"},
+  })
+  if err == nil {
+    t.Fatal("expected string extends to be rejected")
+  }
+  if !strings.Contains(err.Error(), "config.extends[0] must be an object or flat config array") {
+    t.Fatalf("error should explain unsupported unresolved extends, got %v", err)
+  }
 }

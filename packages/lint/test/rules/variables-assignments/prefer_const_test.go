@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferConst(t *testing.T) {
-	assertRuleCorpusCase(t, "prefer-const.ts", "// expect: prefer-const error\nlet stable = 1;\nlet changing = 1;\nchanging = 2;\n\nfor (let i = 0; i < 2; i++) {\n  JSON.stringify(i);\n}\n\n// expect: prefer-const error\nfor (let item of [1, 2]) {\n  JSON.stringify(item);\n}\n\nJSON.stringify([stable, changing]);\n")
+  assertRuleCorpusCase(t, "prefer-const.ts", "// expect: prefer-const error\nlet stable = 1;\nlet changing = 1;\nchanging = 2;\n\nfor (let i = 0; i < 2; i++) {\n  JSON.stringify(i);\n}\n\n// expect: prefer-const error\nfor (let item of [1, 2]) {\n  JSON.stringify(item);\n}\n\nJSON.stringify([stable, changing]);\n")
 }

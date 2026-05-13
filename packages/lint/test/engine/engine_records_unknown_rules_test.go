@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestEngineRecordsUnknownRules verifies engine records unknown rules.
@@ -19,18 +19,18 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineRecordsUnknownRules(t *testing.T) {
-	engine := NewEngine(RuleConfig{
-		"never-existed": SeverityError,
-		"no-var":        SeverityError,
-	})
-	unknown := engine.UnknownRules()
-	if len(unknown) != 1 || unknown[0] != "never-existed" {
-		t.Fatalf("want [never-existed], got %v", unknown)
-	}
-	if _, ok := engine.EnabledRules()["never-existed"]; ok {
-		t.Errorf("unknown rule should not be enabled")
-	}
-	if _, ok := engine.EnabledRules()["no-var"]; !ok {
-		t.Errorf("known rule should still be enabled")
-	}
+  engine := NewEngine(RuleConfig{
+    "never-existed": SeverityError,
+    "no-var":        SeverityError,
+  })
+  unknown := engine.UnknownRules()
+  if len(unknown) != 1 || unknown[0] != "never-existed" {
+    t.Fatalf("want [never-existed], got %v", unknown)
+  }
+  if _, ok := engine.EnabledRules()["never-existed"]; ok {
+    t.Errorf("unknown rule should not be enabled")
+  }
+  if _, ok := engine.EnabledRules()["no-var"]; !ok {
+    t.Errorf("known rule should still be enabled")
+  }
 }

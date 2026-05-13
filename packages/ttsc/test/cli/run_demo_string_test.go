@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunDemoString verifies the demo command emits the default string
@@ -19,9 +19,9 @@ import (
 // 2. Capture stdout and stderr from the command process.
 // 3. Assert successful status and string predicate output.
 func TestCLIRunDemoString(t *testing.T) {
-	code, stdout, stderr := runNativeCommand(t, "demo", "--type=string")
-	want := `(input) => "string" === typeof input`
-	if code != 0 || stderr != "" || !strings.Contains(stdout, want) || !strings.Contains(stdout, "demo<string>") {
-		t.Fatalf("demo string mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runNativeCommand(t, "demo", "--type=string")
+  want := `(input) => "string" === typeof input`
+  if code != 0 || stderr != "" || !strings.Contains(stdout, want) || !strings.Contains(stdout, "demo<string>") {
+    t.Fatalf("demo string mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

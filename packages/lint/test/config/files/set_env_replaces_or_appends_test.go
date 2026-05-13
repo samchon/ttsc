@@ -15,12 +15,12 @@ import "testing"
 // 2. Append a missing NEXT entry to the same slice.
 // 3. Assert ordering and values stay stable.
 func TestSetEnvReplacesOrAppends(t *testing.T) {
-	replaced := setEnv([]string{"A=1", "KEY=old"}, "KEY", "new")
-	if len(replaced) != 2 || replaced[1] != "KEY=new" {
-		t.Fatalf("replace mismatch: %v", replaced)
-	}
-	appended := setEnv(replaced, "NEXT", "value")
-	if len(appended) != 3 || appended[2] != "NEXT=value" {
-		t.Fatalf("append mismatch: %v", appended)
-	}
+  replaced := setEnv([]string{"A=1", "KEY=old"}, "KEY", "new")
+  if len(replaced) != 2 || replaced[1] != "KEY=new" {
+    t.Fatalf("replace mismatch: %v", replaced)
+  }
+  appended := setEnv(replaced, "NEXT", "value")
+  if len(appended) != 3 || appended[2] != "NEXT=value" {
+    t.Fatalf("append mismatch: %v", appended)
+  }
 }

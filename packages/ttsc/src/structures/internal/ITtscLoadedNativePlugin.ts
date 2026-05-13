@@ -1,3 +1,4 @@
+import type { ITtscPluginContributor } from "../ITtscPluginContributor";
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 import type { TtscPluginStage } from "../TtscPluginStage";
 
@@ -7,6 +8,8 @@ export interface ITtscLoadedNativePlugin {
   binary: string;
   /** Original tsconfig plugin entry passed unchanged to the sidecar. */
   config: ITtscProjectPluginConfig;
+  /** Contributor Go sources statically linked into the binary, if any. */
+  contributors?: readonly ITtscPluginContributor[];
   /** Stable plugin name used in diagnostics and native manifests. */
   name: string;
   /** Go source directory selected by the plugin descriptor. */

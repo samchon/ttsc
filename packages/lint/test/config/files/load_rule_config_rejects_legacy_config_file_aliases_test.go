@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestLoadRuleConfigRejectsLegacyConfigFileAliases verifies legacy config alias rejection.
@@ -20,20 +20,20 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigRejectsLegacyConfigFileAliases(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
 
-	for _, key := range []string{"configFile", "configPath"} {
-		_, err := LoadRuleConfig(&PluginEntry{
-			Config: map[string]any{
-				key: "./ttsc-lint.config.json",
-			},
-		}, dir, "tsconfig.json")
-		if err == nil {
-			t.Fatalf("expected %s to be rejected", key)
-		}
-		if !strings.Contains(err.Error(), "use \"config\"") {
-			t.Fatalf("error should point to config-only contract, got %v", err)
-		}
-	}
+  for _, key := range []string{"configFile", "configPath"} {
+    _, err := LoadRuleConfig(&PluginEntry{
+      Config: map[string]any{
+        key: "./ttsc-lint.config.json",
+      },
+    }, dir, "tsconfig.json")
+    if err == nil {
+      t.Fatalf("expected %s to be rejected", key)
+    }
+    if !strings.Contains(err.Error(), "use \"config\"") {
+      t.Fatalf("error should point to config-only contract, got %v", err)
+    }
+  }
 }

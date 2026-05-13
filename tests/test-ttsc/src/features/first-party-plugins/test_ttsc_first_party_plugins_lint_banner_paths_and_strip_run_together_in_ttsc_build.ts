@@ -1,17 +1,21 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
+
 import { TestFirstPartyPlugins } from "../../internal/TestFirstPartyPlugins";
 
 /**
- * Verifies ttsc first-party plugins: lint, banner, paths, and strip run together in ttsc build.
+ * Verifies ttsc first-party plugins: lint, banner, paths, and strip run
+ * together in ttsc build.
  *
- * This first-party plugin scenario stays in the compiler package because it verifies shared host behavior across package boundaries.
+ * This first-party plugin scenario stays in the compiler package because it
+ * verifies shared host behavior across package boundaries.
  *
  * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads one or more first-party plugin descriptors.
+ * 2. Execute the real ttsc path that loads one or more first-party plugin
+ *    descriptors.
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build =

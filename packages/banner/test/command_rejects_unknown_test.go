@@ -1,8 +1,8 @@
 package banner_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsUnknown verifies the banner sidecar rejects unknown subcommands.
@@ -20,10 +20,10 @@ import (
 // 2. Capture the sidecar exit status and stderr.
 // 3. Assert the command-error status and unknown-command diagnostic.
 func TestCommandRejectsUnknown(t *testing.T) {
-	// Command assertion: `output` used to be a tempting stage name, but this
-	// native sidecar only accepts check, transform, build, and version.
-	code, stdout, stderr := runPlugin(t, "output")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
-		t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: `output` used to be a tempting stage name, but this
+  // native sidecar only accepts check, transform, build, and version.
+  code, stdout, stderr := runPlugin(t, "output")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+    t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

@@ -1,8 +1,8 @@
 package banner_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandPrintsVersion verifies the banner sidecar exposes its version commands.
@@ -20,12 +20,12 @@ import (
 // 2. Observe stdout and stderr exactly as the host would see them.
 // 3. Assert a successful status and the @ttsc/banner banner text.
 func TestCommandPrintsVersion(t *testing.T) {
-	// Version assertion: wrappers use these paths to check binary identity
-	// without paying the cost of compiler or plugin setup.
-	for _, command := range []string{"version", "-v", "--version"} {
-		code, stdout, stderr := runPlugin(t, command)
-		if code != 0 || !strings.Contains(stdout, "@ttsc/banner 0.0.1") || stderr != "" {
-			t.Fatalf("version branch mismatch for %s: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
-		}
-	}
+  // Version assertion: wrappers use these paths to check binary identity
+  // without paying the cost of compiler or plugin setup.
+  for _, command := range []string{"version", "-v", "--version"} {
+    code, stdout, stderr := runPlugin(t, command)
+    if code != 0 || !strings.Contains(stdout, "@ttsc/banner 0.0.1") || stderr != "" {
+      t.Fatalf("version branch mismatch for %s: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
+    }
+  }
 }

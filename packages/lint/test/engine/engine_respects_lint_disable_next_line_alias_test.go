@@ -1,8 +1,8 @@
 package main
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"testing"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestEngineRespectsLintDisableNextLineAlias verifies engine respects lint disable next line
@@ -21,15 +21,15 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineRespectsLintDisableNextLineAlias(t *testing.T) {
-	engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
-	file := parseTS(t, `
+  engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
+  file := parseTS(t, `
     debugger;
     // lint-disable-next-line no-debugger
     debugger;
     debugger;
   `)
-	findings := engine.Run([]*shimast.SourceFile{file}, nil)
-	if got := len(findings); got != 2 {
-		t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
-	}
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
 }

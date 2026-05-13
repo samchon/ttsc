@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestCommandTransformOutputsRequestedFile verifies transform emits one source file.
@@ -19,16 +19,16 @@ import (
 // 2. Run transform with --file pointing at that source.
 // 3. Assert stdout contains the emitted JavaScript for the requested file.
 func TestCommandTransformOutputsRequestedFile(t *testing.T) {
-	root := seedLintProject(t, "export const value = 1;\n")
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"transform",
-			"--cwd", root,
-			"--file", filepath.Join(root, "src", "main.ts"),
-			"--plugins-json", lintManifest(t, map[string]string{"no-var": "off"}),
-		})
-	})
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "exports.value") {
-		t.Fatalf("transform mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  root := seedLintProject(t, "export const value = 1;\n")
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "transform",
+      "--cwd", root,
+      "--file", filepath.Join(root, "src", "main.ts"),
+      "--plugins-json", lintManifest(t, map[string]string{"no-var": "off"}),
+    })
+  })
+  if code != 0 || stderr != "" || !strings.Contains(stdout, "exports.value") {
+    t.Fatalf("transform mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

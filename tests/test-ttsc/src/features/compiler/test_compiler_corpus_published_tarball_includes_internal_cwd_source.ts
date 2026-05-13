@@ -13,10 +13,11 @@ interface NpmPackEntry {
  * Verifies compiler corpus: published tarball includes internal/cwd source.
  *
  * Locks `packages/ttsc/package.json#files` against orphan-source regressions.
- * The Go command package `cmd/ttsc/api_compile.go` and `api_transform.go` import
- * `github.com/samchon/ttsc/packages/ttsc/internal/cwd`. Without `internal`
- * in the published files array the consumer-side tarball cannot rebuild
- * the native compiler host because the import target is missing on disk.
+ * The Go command package `cmd/ttsc/api_compile.go` and `api_transform.go`
+ * import `github.com/samchon/ttsc/packages/ttsc/internal/cwd`. Without
+ * `internal` in the published files array the consumer-side tarball cannot
+ * rebuild the native compiler host because the import target is missing on
+ * disk.
  *
  * 1. Run `npm pack --dry-run --json` against packages/ttsc.
  * 2. Parse the JSON manifest and collect the file paths npm would publish.

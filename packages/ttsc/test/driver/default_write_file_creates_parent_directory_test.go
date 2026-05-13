@@ -1,11 +1,11 @@
 package driver_test
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverDefaultWriteFileCreatesParentDirectory verifies the default emit
@@ -18,19 +18,19 @@ import (
 // 2. Write through the public DefaultWriteFile helper.
 // 3. Assert parent directories and file contents were created.
 func TestDriverDefaultWriteFileCreatesParentDirectory(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Write assertion: command-side emit callers rely on this helper when no
-	// custom WriteFile callback is supplied.
-	file := filepath.Join(root, "deep", "out", "index.js")
-	if err := driver.DefaultWriteFile(file, "exports.value = 1;\n"); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "exports.value = 1;\n" {
-		t.Fatalf("unexpected file contents: %q", data)
-	}
+  // Write assertion: command-side emit callers rely on this helper when no
+  // custom WriteFile callback is supplied.
+  file := filepath.Join(root, "deep", "out", "index.js")
+  if err := driver.DefaultWriteFile(file, "exports.value = 1;\n"); err != nil {
+    t.Fatal(err)
+  }
+  data, err := os.ReadFile(file)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if string(data) != "exports.value = 1;\n" {
+    t.Fatalf("unexpected file contents: %q", data)
+  }
 }

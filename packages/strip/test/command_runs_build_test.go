@@ -1,9 +1,9 @@
 package strip_test
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestCommandRunsBuild verifies the strip sidecar removes configured calls during build emit.
@@ -19,19 +19,19 @@ import (
 // 2. Execute build with --emit and a strip manifest.
 // 3. Assert the emitted file dropped the configured call but kept ordinary code.
 func TestCommandRunsBuild(t *testing.T) {
-	// Scenario setup: build mode needs outDir/rootDir so the emitted JavaScript
-	// path is stable and easy to assert.
-	root := seedStripProject(t, true)
-	// Build assertion: --quiet keeps stdout empty, while the emitted JS verifies
-	// that the native command reached the shared strip transform.
-	code, stdout, stderr := runPlugin(t, "build", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+stripManifest(t), "--emit", "--quiet")
-	if code != 0 || stdout != "" || stderr != "" {
-		t.Fatalf("build branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
-	js := readFile(t, filepath.Join(root, "dist", "main.js"))
-	// Output assertion: both default strip targets from the fixture should be
-	// absent from runtime output.
-	if strings.Contains(js, "debugger") || strings.Contains(js, "console.log") {
-		t.Fatalf("build output was not stripped:\n%s", js)
-	}
+  // Scenario setup: build mode needs outDir/rootDir so the emitted JavaScript
+  // path is stable and easy to assert.
+  root := seedStripProject(t, true)
+  // Build assertion: --quiet keeps stdout empty, while the emitted JS verifies
+  // that the native command reached the shared strip transform.
+  code, stdout, stderr := runPlugin(t, "build", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+stripManifest(t), "--emit", "--quiet")
+  if code != 0 || stdout != "" || stderr != "" {
+    t.Fatalf("build branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  js := readFile(t, filepath.Join(root, "dist", "main.js"))
+  // Output assertion: both default strip targets from the fixture should be
+  // absent from runtime output.
+  if strings.Contains(js, "debugger") || strings.Contains(js, "console.log") {
+    t.Fatalf("build output was not stripped:\n%s", js)
+  }
 }

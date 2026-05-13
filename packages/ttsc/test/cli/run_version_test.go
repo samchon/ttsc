@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunVersion verifies version aliases report native build metadata.
@@ -19,13 +19,13 @@ import (
 // 2. Capture the command stdout and stderr streams.
 // 3. Assert exit status zero and the expected metadata fragments.
 func TestCLIRunVersion(t *testing.T) {
-	for _, flag := range []string{"-v", "--version", "version"} {
-		code, stdout, stderr := runNativeCommand(t, flag)
-		if code != 0 ||
-			!strings.Contains(stdout, "ttsc ") ||
-			!strings.Contains(stdout, "commit") ||
-			!strings.Contains(stdout, "go") {
-			t.Fatalf("version alias %q mismatch: code=%d stdout=%q stderr=%q", flag, code, stdout, stderr)
-		}
-	}
+  for _, flag := range []string{"-v", "--version", "version"} {
+    code, stdout, stderr := runNativeCommand(t, flag)
+    if code != 0 ||
+      !strings.Contains(stdout, "ttsc ") ||
+      !strings.Contains(stdout, "commit") ||
+      !strings.Contains(stdout, "go") {
+      t.Fatalf("version alias %q mismatch: code=%d stdout=%q stderr=%q", flag, code, stdout, stderr)
+    }
+  }
 }

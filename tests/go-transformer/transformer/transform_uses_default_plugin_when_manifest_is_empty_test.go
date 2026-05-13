@@ -1,8 +1,8 @@
 package transformer
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestTransformUsesDefaultPluginWhenManifestIsEmpty verifies default behavior.
@@ -15,11 +15,11 @@ import (
 // 2. Let the transformer select its default operation.
 // 3. Assert the emitted code contains the uppercased string literal.
 func TestTransformUsesDefaultPluginWhenManifestIsEmpty(t *testing.T) {
-	result, err := Transform(`export const message: string = goUpper("hello");`, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(result.Code, `"HELLO"`) {
-		t.Fatalf("expected default uppercase plugin, got:\n%s", result.Code)
-	}
+  result, err := Transform(`export const message: string = goUpper("hello");`, nil)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !strings.Contains(result.Code, `"HELLO"`) {
+    t.Fatalf("expected default uppercase plugin, got:\n%s", result.Code)
+  }
 }

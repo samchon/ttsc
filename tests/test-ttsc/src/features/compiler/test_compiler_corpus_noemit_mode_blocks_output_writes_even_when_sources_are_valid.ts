@@ -21,10 +21,11 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: noEmit mode blocks output writes even when sources are valid.
+ * Verifies compiler corpus: noEmit mode blocks output writes even when sources
+ * are valid.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
+ * This ttsc compiler corpus scenario is isolated as one exported TypeScript
+ * feature so failures identify the exact package contract under test without a
  * shared smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.

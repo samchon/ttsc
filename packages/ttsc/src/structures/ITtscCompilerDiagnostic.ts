@@ -11,11 +11,11 @@
  */
 export interface ITtscCompilerDiagnostic {
   /**
-   * The filename where the diagnostic originated, or null if not
-   * file-specific.
+   * The filename where the diagnostic originated, or null if not file-specific.
    *
    * Global diagnostics such as invalid compiler options or host-level failures
-   * are reported with `null` because they are not tied to a single source file.
+   * are reported with `null` because they are not tied to a single source
+   * file.
    */
   file: string | null;
 

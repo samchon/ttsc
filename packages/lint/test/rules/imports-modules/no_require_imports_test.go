@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoRequireImports(t *testing.T) {
-	assertRuleCorpusCase(t, "no-require-imports.ts", "// expect: no-require-imports error\nconst fs = require(\"fs\");\nJSON.stringify(fs);\n")
+  assertRuleCorpusCase(t, "no-require-imports.ts", "// expect: no-require-imports error\nconst fs = require(\"fs\");\nJSON.stringify(fs);\n")
 }

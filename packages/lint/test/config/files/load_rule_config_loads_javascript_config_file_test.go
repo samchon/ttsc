@@ -1,8 +1,8 @@
 package main
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestLoadRuleConfigLoadsJavaScriptConfigFile verifies JavaScript config loading.
@@ -19,25 +19,25 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigLoadsJavaScriptConfigFile(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), `module.exports = {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), `module.exports = {
     "no-console": "warn",
     "no-debugger": "error",
   };`)
 
-	cfg, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{
-			"config": "./ttsc-lint.config.cjs",
-		},
-	}, dir, "tsconfig.json")
-	if err != nil {
-		t.Fatalf("LoadRuleConfig: %v", err)
-	}
-	if cfg.Severity("no-console") != SeverityWarn {
-		t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
-	}
-	if cfg.Severity("no-debugger") != SeverityError {
-		t.Errorf("no-debugger: want error, got %v", cfg.Severity("no-debugger"))
-	}
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{
+      "config": "./ttsc-lint.config.cjs",
+    },
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-console") != SeverityWarn {
+    t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
+  }
+  if cfg.Severity("no-debugger") != SeverityError {
+    t.Errorf("no-debugger: want error, got %v", cfg.Severity("no-debugger"))
+  }
 }

@@ -8,10 +8,11 @@ import {
 /**
  * Verifies plugin corpus: composes rejects cycle between two plugins.
  *
- * Locks the cycle-detection branch added in `loadProjectPlugins.ts::composePluginSources`.
- * Composition is one hop only; reciprocal `composes` arrays would silently
- * reswap the binaries of both plugins, so ttsc throws an explicit error
- * instead of routing to the wrong binary.
+ * Locks the cycle-detection branch added in
+ * `loadProjectPlugins.ts::composePluginSources`. Composition is one hop only;
+ * reciprocal `composes` arrays would silently reswap the binaries of both
+ * plugins, so ttsc throws an explicit error instead of routing to the wrong
+ * binary.
  *
  * 1. Two plugin descriptors each list the other in `composes`.
  * 2. Run ttsc.

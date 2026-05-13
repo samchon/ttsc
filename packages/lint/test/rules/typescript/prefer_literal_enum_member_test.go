@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferLiteralEnumMember(t *testing.T) {
-	assertRuleCorpusCase(t, "prefer-literal-enum-member.ts", "const base = 1;\n\nenum Value {\n  Fixed = 1,\n  // expect: prefer-literal-enum-member error\n  Computed = base + 1,\n}\n")
+  assertRuleCorpusCase(t, "prefer-literal-enum-member.ts", "const base = 1;\n\nenum Value {\n  Fixed = 1,\n  // expect: prefer-literal-enum-member error\n  Computed = base + 1,\n}\n")
 }

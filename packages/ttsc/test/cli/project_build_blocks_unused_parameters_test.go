@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestCLIProjectBuildBlocksUnusedParameters verifies no-unused diagnostics stop
@@ -18,8 +18,8 @@ import (
 // 2. Execute `build --emit` through the native command.
 // 3. Assert the unused diagnostic is printed and no JavaScript is emitted.
 func TestCLIProjectBuildBlocksUnusedParameters(t *testing.T) {
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
@@ -30,20 +30,20 @@ func TestCLIProjectBuildBlocksUnusedParameters(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export function run(unused: string): number {
+  writeProjectFile(t, root, "index.ts", `export function run(unused: string): number {
   return 1;
 }
 `)
 
-	code, _, errOut := runNativeCommand(t, "build", "--cwd", root, "--emit")
-	if code != 2 {
-		t.Fatalf("unused-parameter build should fail: code=%d stderr=%q", code, errOut)
-	}
-	if !strings.Contains(errOut, "'unused' is declared but its value is never read") &&
-		!strings.Contains(errOut, "'unused' is declared but never used") {
-		t.Fatalf("unused-parameter diagnostic missing expected message: %q", errOut)
-	}
-	if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
-		t.Fatalf("unused-parameter failure should not emit JavaScript: %v", err)
-	}
+  code, _, errOut := runNativeCommand(t, "build", "--cwd", root, "--emit")
+  if code != 2 {
+    t.Fatalf("unused-parameter build should fail: code=%d stderr=%q", code, errOut)
+  }
+  if !strings.Contains(errOut, "'unused' is declared but its value is never read") &&
+    !strings.Contains(errOut, "'unused' is declared but never used") {
+    t.Fatalf("unused-parameter diagnostic missing expected message: %q", errOut)
+  }
+  if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
+    t.Fatalf("unused-parameter failure should not emit JavaScript: %v", err)
+  }
 }

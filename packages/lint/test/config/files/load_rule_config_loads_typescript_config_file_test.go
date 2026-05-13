@@ -1,8 +1,8 @@
 package main
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestLoadRuleConfigLoadsTypeScriptConfigFile verifies TypeScript config loading.
@@ -19,22 +19,22 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "ttsc-lint.config.ts"), `const config: Record<string, string> = {
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "ttsc-lint.config.ts"), `const config: Record<string, string> = {
     "no-explicit-any": "error",
   };
   export default config;`)
 
-	cfg, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{
-			"config": "./ttsc-lint.config.ts",
-		},
-	}, dir, "tsconfig.json")
-	if err != nil {
-		t.Fatalf("LoadRuleConfig: %v", err)
-	}
-	if cfg.Severity("no-explicit-any") != SeverityError {
-		t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
-	}
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{
+      "config": "./ttsc-lint.config.ts",
+    },
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-explicit-any") != SeverityError {
+    t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
+  }
 }

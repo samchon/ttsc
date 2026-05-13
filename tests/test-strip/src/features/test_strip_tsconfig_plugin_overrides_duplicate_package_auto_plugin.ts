@@ -1,17 +1,21 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
+
 import { TestStrip } from "../internal/TestStrip";
 
 /**
- * Verifies the @ttsc/strip plugin: tsconfig plugin wins over duplicate package auto plugin.
+ * Verifies the @ttsc/strip plugin: tsconfig plugin wins over duplicate package
+ * auto plugin.
  *
- * This strip feature is isolated as one exported TypeScript test so failures identify the exact package contract without a shared smoke wrapper.
+ * This strip feature is isolated as one exported TypeScript test so failures
+ * identify the exact package contract without a shared smoke wrapper.
  *
  * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/strip from package or tsconfig plugin options.
+ * 2. Execute the real ttsc path that loads @ttsc/strip from package or tsconfig
+ *    plugin options.
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin =

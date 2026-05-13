@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoLossOfPrecision(t *testing.T) {
-	assertRuleCorpusCase(t, "no-loss-of-precision.ts", "// expect: no-loss-of-precision error\nconst big = 9007199254740993;\nJSON.stringify(big);\n")
+  assertRuleCorpusCase(t, "no-loss-of-precision.ts", "// expect: no-loss-of-precision error\nconst big = 9007199254740993;\nJSON.stringify(big);\n")
 }

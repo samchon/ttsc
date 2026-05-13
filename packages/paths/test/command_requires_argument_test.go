@@ -1,8 +1,8 @@
 package paths_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRequiresArgument verifies the paths sidecar rejects an empty command line.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the wrapped go run status and stderr.
 // 3. Assert the command-error status and required-command message.
 func TestCommandRequiresArgument(t *testing.T) {
-	// Command assertion: this is the guard that catches host-side invocation
-	// mistakes before project loading begins.
-	code, stdout, stderr := runPlugin(t)
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
-		t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: this is the guard that catches host-side invocation
+  // mistakes before project loading begins.
+  code, stdout, stderr := runPlugin(t)
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
+    t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

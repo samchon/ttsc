@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusEqeqeq(t *testing.T) {
-	assertRuleCorpusCase(t, "eqeqeq.ts", "function f(a: any, b: any) {\n  // expect: eqeqeq error\n  return a == b;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "eqeqeq.ts", "function f(a: any, b: any) {\n  // expect: eqeqeq error\n  return a == b;\n}\nJSON.stringify(f);\n")
 }

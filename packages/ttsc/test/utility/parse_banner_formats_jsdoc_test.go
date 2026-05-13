@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestUtilityParseBannerFormatsAndSanitizesJSDoc verifies banner text
@@ -20,19 +20,19 @@ import (
 // 2. Inspect the generated JSDoc preamble.
 // 3. Assert normalized lines, sanitized terminators, and a closed block.
 func TestUtilityParseBannerFormatsAndSanitizesJSDoc(t *testing.T) {
-	banner, err := utilityParseBanner(map[string]any{
-		"text": "first\r\nsecond */\n\n",
-	}, t.TempDir(), "tsconfig.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(banner, " * first\n * second * /\n") {
-		t.Fatalf("banner was not normalized and sanitized:\n%s", banner)
-	}
-	if strings.Contains(banner, "second */") {
-		t.Fatalf("banner must not preserve raw JSDoc terminator:\n%s", banner)
-	}
-	if !strings.HasSuffix(banner, "*/\n") {
-		t.Fatalf("banner must end with a closed JSDoc block:\n%s", banner)
-	}
+  banner, err := utilityParseBanner(map[string]any{
+    "text": "first\r\nsecond */\n\n",
+  }, t.TempDir(), "tsconfig.json")
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !strings.Contains(banner, " * first\n * second * /\n") {
+    t.Fatalf("banner was not normalized and sanitized:\n%s", banner)
+  }
+  if strings.Contains(banner, "second */") {
+    t.Fatalf("banner must not preserve raw JSDoc terminator:\n%s", banner)
+  }
+  if !strings.HasSuffix(banner, "*/\n") {
+    t.Fatalf("banner must end with a closed JSDoc block:\n%s", banner)
+  }
 }

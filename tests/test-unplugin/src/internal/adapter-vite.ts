@@ -1,5 +1,5 @@
-import path from "node:path";
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import path from "node:path";
 
 const { build: viteBuild } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite");
 

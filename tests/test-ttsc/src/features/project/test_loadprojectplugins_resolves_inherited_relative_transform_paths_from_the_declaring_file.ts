@@ -7,10 +7,11 @@ import {
 } from "../../internal/project";
 
 /**
- * Verifies loadProjectPlugins resolves inherited relative transform paths from the declaring file.
+ * Verifies loadProjectPlugins resolves inherited relative transform paths from
+ * the declaring file.
  *
- * This ttsc project config scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc project config scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.

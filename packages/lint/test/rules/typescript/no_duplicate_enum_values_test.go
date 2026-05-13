@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDuplicateEnumValues(t *testing.T) {
-	assertRuleCorpusCase(t, "no-duplicate-enum-values.ts", "enum E {\n  A = 1,\n  B = 2,\n  // expect: no-duplicate-enum-values error\n  C = 1,\n}\nJSON.stringify(E.A);\n")
+  assertRuleCorpusCase(t, "no-duplicate-enum-values.ts", "enum E {\n  A = 1,\n  B = 2,\n  // expect: no-duplicate-enum-values error\n  C = 1,\n}\nJSON.stringify(E.A);\n")
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestLoadRuleConfigDiscoversPlainLintConfig verifies discovered config loading.
@@ -19,19 +19,19 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "lint.config.json"), `{
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.json"), `{
     "no-var": "error"
   }`)
 
-	cfg, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{},
-	}, dir, "tsconfig.json")
-	if err != nil {
-		t.Fatalf("LoadRuleConfig: %v", err)
-	}
-	if cfg.Severity("no-var") != SeverityError {
-		t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
-	}
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{},
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  }
 }

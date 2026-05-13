@@ -1,8 +1,7 @@
+import { TestLint } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-
-import { TestLint } from "@ttsc/testing";
 
 const casesRoot = path.join(process.cwd(), "src", "cases");
 

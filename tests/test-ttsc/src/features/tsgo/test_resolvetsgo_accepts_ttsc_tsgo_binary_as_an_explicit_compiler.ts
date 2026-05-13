@@ -8,8 +8,8 @@ import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/
 /**
  * Verifies resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler.
  *
- * This ttsc tsgo resolver scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc tsgo resolver scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.

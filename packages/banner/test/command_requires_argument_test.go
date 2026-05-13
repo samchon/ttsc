@@ -1,8 +1,8 @@
 package banner_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRequiresArgument verifies the banner sidecar rejects an empty command line.
@@ -20,10 +20,10 @@ import (
 // 2. Recover the wrapped program status from go run.
 // 3. Assert the usage diagnostic and command-error exit code.
 func TestCommandRequiresArgument(t *testing.T) {
-	// Command assertion: this is the front-door guard for malformed invocations
-	// from a wrapper script or an incorrectly constructed plugin descriptor.
-	code, stdout, stderr := runPlugin(t)
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
-		t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: this is the front-door guard for malformed invocations
+  // from a wrapper script or an incorrectly constructed plugin descriptor.
+  code, stdout, stderr := runPlugin(t)
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
+    t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

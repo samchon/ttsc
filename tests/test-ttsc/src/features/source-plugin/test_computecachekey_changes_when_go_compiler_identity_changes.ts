@@ -9,8 +9,8 @@ import {
 /**
  * Verifies computeCacheKey changes when Go compiler identity changes.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc source plugin scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.

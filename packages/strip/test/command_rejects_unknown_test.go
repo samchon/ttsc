@@ -1,8 +1,8 @@
 package strip_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsUnknown verifies the strip sidecar rejects unknown subcommands.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the wrapper-level diagnostic.
 // 3. Assert the command-error status and unknown-command message.
 func TestCommandRejectsUnknown(t *testing.T) {
-	// Command assertion: the sidecar intentionally accepts only check,
-	// transform, build, and version.
-	code, stdout, stderr := runPlugin(t, "output")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
-		t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: the sidecar intentionally accepts only check,
+  // transform, build, and version.
+  code, stdout, stderr := runPlugin(t, "output")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+    t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

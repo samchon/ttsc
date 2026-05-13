@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusConsistentTypeImportsViolation(t *testing.T) {
-	assertRuleCorpusCase(t, "consistent-type-imports/violation.ts", "// expect: consistent-type-imports error\nimport { Foo } from \"./types-fixture\";\nconst x: Foo | null = null;\nJSON.stringify(x);\n")
+  assertRuleCorpusCase(t, "consistent-type-imports/violation.ts", "// expect: consistent-type-imports error\nimport { Foo } from \"./types-fixture\";\nconst x: Foo | null = null;\nJSON.stringify(x);\n")
 }

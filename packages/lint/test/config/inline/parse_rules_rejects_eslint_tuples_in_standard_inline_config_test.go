@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestParseRulesRejectsESLintTuplesInStandardInlineConfig verifies tuple rejection.
@@ -18,13 +18,13 @@ import (
 // 2. Parse it through the native severity normalizer.
 // 3. Assert accepted severities or the explicit contract error.
 func TestParseRulesRejectsESLintTuplesInStandardInlineConfig(t *testing.T) {
-	_, err := ParseRules(map[string]any{
-		"no-var": []any{"error", map[string]any{"ignore": true}},
-	})
-	if err == nil {
-		t.Fatal("expected standard inline config to reject ESLint tuple values")
-	}
-	if !strings.Contains(err.Error(), "severity must be one of") {
-		t.Fatalf("error should explain standard severity contract, got %v", err)
-	}
+  _, err := ParseRules(map[string]any{
+    "no-var": []any{"error", map[string]any{"ignore": true}},
+  })
+  if err == nil {
+    t.Fatal("expected standard inline config to reject ESLint tuple values")
+  }
+  if !strings.Contains(err.Error(), "severity must be one of") {
+    t.Fatalf("error should explain standard severity contract, got %v", err)
+  }
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"testing"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine verifies engine directive without
@@ -21,17 +21,17 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
-	engine := NewEngine(RuleConfig{
-		"no-var":      SeverityError,
-		"no-debugger": SeverityError,
-	})
-	file := parseTS(t, `
+  engine := NewEngine(RuleConfig{
+    "no-var":      SeverityError,
+    "no-debugger": SeverityError,
+  })
+  file := parseTS(t, `
     // eslint-disable-next-line
     var skipped = 1; debugger;
     var reported = 2; debugger;
   `)
-	findings := engine.Run([]*shimast.SourceFile{file}, nil)
-	if got := len(findings); got != 2 {
-		t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
-	}
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
 }

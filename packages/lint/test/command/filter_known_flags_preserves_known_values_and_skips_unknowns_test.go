@@ -1,8 +1,8 @@
 package main
 
 import (
-	"reflect"
-	"testing"
+  "reflect"
+  "testing"
 )
 
 // TestFilterKnownFlagsPreservesKnownValuesAndSkipsUnknowns verifies host flag filtering.
@@ -18,22 +18,22 @@ import (
 // 2. Filter it against the check/build flag contract.
 // 3. Assert known values and positional arguments are preserved in order.
 func TestFilterKnownFlagsPreservesKnownValuesAndSkipsUnknowns(t *testing.T) {
-	got := filterKnownFlags([]string{
-		"--emit",
-		"--future", "drop-me",
-		"--cwd", "/repo",
-		"--plugins-json={}",
-		"--unknown=value",
-		"positional.ts",
-		"--outDir", "dist",
-	}, map[string]bool{
-		"cwd":          true,
-		"emit":         false,
-		"outDir":       true,
-		"plugins-json": true,
-	})
-	want := []string{"--emit", "--cwd", "/repo", "--plugins-json={}", "positional.ts", "--outDir", "dist"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("filtered flags mismatch: want %v, got %v", want, got)
-	}
+  got := filterKnownFlags([]string{
+    "--emit",
+    "--future", "drop-me",
+    "--cwd", "/repo",
+    "--plugins-json={}",
+    "--unknown=value",
+    "positional.ts",
+    "--outDir", "dist",
+  }, map[string]bool{
+    "cwd":          true,
+    "emit":         false,
+    "outDir":       true,
+    "plugins-json": true,
+  })
+  want := []string{"--emit", "--cwd", "/repo", "--plugins-json={}", "positional.ts", "--outDir", "dist"}
+  if !reflect.DeepEqual(got, want) {
+    t.Fatalf("filtered flags mismatch: want %v, got %v", want, got)
+  }
 }

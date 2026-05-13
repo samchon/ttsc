@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunUnknownCommandExits2 verifies unknown command labels fail as usage
@@ -20,8 +20,8 @@ import (
 // 2. Capture stdout and stderr from the command process.
 // 3. Assert status 2 and an unknown-command diagnostic.
 func TestCLIRunUnknownCommandExits2(t *testing.T) {
-	code, stdout, stderr := runNativeCommand(t, "fly-to-mars")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
-		t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runNativeCommand(t, "fly-to-mars")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+    t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

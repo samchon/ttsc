@@ -1,8 +1,7 @@
+import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
-import { TestProject } from "@ttsc/testing";
 
 export namespace TestPaths {
   const PACKAGE_NAME = "paths";

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestLoadRuleConfigRejectsLegacyTopLevelRules verifies legacy rules rejection.
@@ -20,20 +20,20 @@ import (
 // 2. Load the rule config through the package helper used by command execution.
 // 3. Assert resolved severities or the precise rejection message.
 func TestLoadRuleConfigRejectsLegacyTopLevelRules(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
 
-	_, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{
-			"rules": map[string]any{
-				"no-var": "off",
-			},
-		},
-	}, dir, "tsconfig.json")
-	if err == nil {
-		t.Fatal("expected top-level rules to be rejected")
-	}
-	if !strings.Contains(err.Error(), "use \"config\"") {
-		t.Fatalf("error should point to config-only contract, got %v", err)
-	}
+  _, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{
+      "rules": map[string]any{
+        "no-var": "off",
+      },
+    },
+  }, dir, "tsconfig.json")
+  if err == nil {
+    t.Fatal("expected top-level rules to be rejected")
+  }
+  if !strings.Contains(err.Error(), "use \"config\"") {
+    t.Fatalf("error should point to config-only contract, got %v", err)
+  }
 }

@@ -1,8 +1,8 @@
 package paths_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandPrintsVersion verifies the paths sidecar exposes its version commands.
@@ -19,12 +19,12 @@ import (
 // 2. Capture stdout and stderr without a project fixture.
 // 3. Assert successful status and the @ttsc/paths banner text.
 func TestCommandPrintsVersion(t *testing.T) {
-	// Version assertion: these paths are intentionally independent of tsconfig
-	// and plugin manifest parsing.
-	for _, command := range []string{"version", "-v", "--version"} {
-		code, stdout, stderr := runPlugin(t, command)
-		if code != 0 || !strings.Contains(stdout, "@ttsc/paths 0.0.1") || stderr != "" {
-			t.Fatalf("version branch mismatch for %s: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
-		}
-	}
+  // Version assertion: these paths are intentionally independent of tsconfig
+  // and plugin manifest parsing.
+  for _, command := range []string{"version", "-v", "--version"} {
+    code, stdout, stderr := runPlugin(t, command)
+    if code != 0 || !strings.Contains(stdout, "@ttsc/paths 0.0.1") || stderr != "" {
+      t.Fatalf("version branch mismatch for %s: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
+    }
+  }
 }

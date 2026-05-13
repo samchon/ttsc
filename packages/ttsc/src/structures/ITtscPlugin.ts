@@ -1,3 +1,4 @@
+import type { ITtscPluginContributor } from "./ITtscPluginContributor";
 import type { TtscPluginStage } from "./TtscPluginStage";
 
 /**
@@ -28,7 +29,7 @@ export interface ITtscPlugin {
   /**
    * Go command package directory, or a `go.mod` file, that ttsc lazily builds.
    *
-   * ttsc accepts source only. It does not accept a prebuilt binary path: the
+   * Ttsc accepts source only. It does not accept a prebuilt binary path: the
    * package-local Go compiler builds this source into the ttsc plugin cache on
    * demand.
    *
@@ -65,14 +66,37 @@ export interface ITtscPlugin {
    * @default "transform"
    */
   stage?: TtscPluginStage;
-}
 
-export function defineTtscPlugin<T extends ITtscPlugin>(plugin: T): T;
-export function defineTtscPlugin<TContext, T extends ITtscPlugin>(
-  factory: (context: TContext) => T,
-): (context: TContext) => T;
-export function defineTtscPlugin(
-  value: ITtscPlugin | ((context: unknown) => ITtscPlugin),
-): ITtscPlugin | ((context: unknown) => ITtscPlugin) {
-  return value;
+  /**
+   * Additional Go source packages to statically link into this plugin's binary
+   * at build time ("plugin-within-plugin" composition).
+   *
+   * Each contributor's Go source directory is copied into the scratch build
+   * tree as a sub-package of this plugin's module and reached by a synthesized
+   * blank import. The contributor's `init()` runs before the host binary's
+   * `main`, registering whatever state the host expects to find at startup
+   * (e.g. lint rules through `github.com/samchon/ttsc/packages/lint/rule`).
+   *
+   * Differs from `composes`:
+   *
+   * - `composes` is horizontal — many plugin entries dispatch to one binary by
+   *   name. Each entry is still a top-level `compilerOptions.plugins[]` citizen
+   *   with its own lifecycle slot.
+   * - `contributors` is vertical — one binary statically links additional Go
+   *   sources that never appear as top-level plugin entries. The contributing
+   *   npm packages are discovered through the host plugin's own config file
+   *   (e.g. `lint.config.ts` for `@ttsc/lint`).
+   *
+   * Constraints:
+   *
+   * - Contributors ship Go source as a package (no `go.mod`); the host plugin's
+   *   module supplies every transitive Go dependency. This is also a
+   *   supply-chain feature — contributors cannot pull in arbitrary Go modules
+   *   at build time.
+   * - Contributor source paths must be absolute (the host plugin's JS factory
+   *   typically resolves them through `require.resolve`).
+   * - Contributor names are used as the sub-package import suffix and must be
+   *   unique within a single plugin build.
+   */
+  contributors?: ITtscPluginContributor[];
 }

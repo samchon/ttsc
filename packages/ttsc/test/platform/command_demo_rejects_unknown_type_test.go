@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandDemoRejectsUnknownType verifies demo reports unsupported atoms.
@@ -19,10 +19,10 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the unknown-type diagnostic.
 func TestCommandDemoRejectsUnknownType(t *testing.T) {
-	code, stdout, stderr := runPlatformCommand(t, "demo", "--type=symbol")
-	if code != 2 || stdout != "" ||
-		!strings.Contains(stderr, `unknown --type value "symbol"`) ||
-		!strings.Contains(stderr, "string|number|boolean|bigint|any") {
-		t.Fatalf("demo unknown type mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runPlatformCommand(t, "demo", "--type=symbol")
+  if code != 2 || stdout != "" ||
+    !strings.Contains(stderr, `unknown --type value "symbol"`) ||
+    !strings.Contains(stderr, "string|number|boolean|bigint|any") {
+    t.Fatalf("demo unknown type mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

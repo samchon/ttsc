@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestCLIProjectBuildBlocksUnusedParametersBeforeEmit verifies unused
@@ -22,8 +22,8 @@ import (
 // 2. Build with forced emit through the native command.
 // 3. Assert the unused parameter diagnostic appears and no JS is emitted.
 func TestCLIProjectBuildBlocksUnusedParametersBeforeEmit(t *testing.T) {
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
@@ -34,20 +34,20 @@ func TestCLIProjectBuildBlocksUnusedParametersBeforeEmit(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export function run(unused: string): number {
+  writeProjectFile(t, root, "index.ts", `export function run(unused: string): number {
   return 1;
 }
 `)
 
-	code, _, stderr := runNativeCommand(t, "build", "--cwd", root, "--emit")
-	if code != 2 {
-		t.Fatalf("expected exit 2, got %d stderr=%q", code, stderr)
-	}
-	if !strings.Contains(stderr, "'unused' is declared but its value is never read") &&
-		!strings.Contains(stderr, "'unused' is declared but never used") {
-		t.Fatalf("expected unused parameter diagnostic, got %q", stderr)
-	}
-	if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
-		t.Fatalf("expected no emitted JS, stat err=%v", err)
-	}
+  code, _, stderr := runNativeCommand(t, "build", "--cwd", root, "--emit")
+  if code != 2 {
+    t.Fatalf("expected exit 2, got %d stderr=%q", code, stderr)
+  }
+  if !strings.Contains(stderr, "'unused' is declared but its value is never read") &&
+    !strings.Contains(stderr, "'unused' is declared but never used") {
+    t.Fatalf("expected unused parameter diagnostic, got %q", stderr)
+  }
+  if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
+    t.Fatalf("expected no emitted JS, stat err=%v", err)
+  }
 }

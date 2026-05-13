@@ -1,10 +1,10 @@
 package driver_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverRewriteSkipsIdentifierPrefix verifies root matching starts at a
@@ -17,17 +17,17 @@ import (
 // 2. Register a consuming rewrite for the plugin root.
 // 3. Assert only the standalone plugin call is replaced.
 func TestDriverRewriteSkipsIdentifierPrefix(t *testing.T) {
-	js := emitIndexWithRewrite(t, `declare const notplugin: { make(input: string): string };
+  js := emitIndexWithRewrite(t, `declare const notplugin: { make(input: string): string };
 declare const plugin: { make(input: string): string };
 export const kept = notplugin.make("kept");
 export const value = plugin.make("target");
 `, driver.Rewrite{
-		RootName:      "plugin",
-		Method:        "make",
-		Replacement:   `"target"`,
-		ConsumeParens: true,
-	})
-	if !strings.Contains(js, `notplugin.make("kept")`) || !strings.Contains(js, `"target"`) {
-		t.Fatalf("identifier-prefix rewrite mismatch:\n%s", js)
-	}
+    RootName:      "plugin",
+    Method:        "make",
+    Replacement:   `"target"`,
+    ConsumeParens: true,
+  })
+  if !strings.Contains(js, `notplugin.make("kept")`) || !strings.Contains(js, `"target"`) {
+    t.Fatalf("identifier-prefix rewrite mismatch:\n%s", js)
+  }
 }

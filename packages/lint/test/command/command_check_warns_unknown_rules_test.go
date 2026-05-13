@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandCheckWarnsUnknownRules verifies unknown rules are reported but ignored.
@@ -18,15 +18,15 @@ import (
 // 2. Run check with a plugin JSON map containing an unknown rule.
 // 3. Assert success plus the unknown-rule warning on stderr.
 func TestCommandCheckWarnsUnknownRules(t *testing.T) {
-	root := seedLintProject(t, "export const value = 1;\n")
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t, map[string]string{"never-existed": "error"}),
-		})
-	})
-	if code != 0 || stdout != "" || !strings.Contains(stderr, "ignoring unknown rule") {
-		t.Fatalf("unknown-rule warning mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  root := seedLintProject(t, "export const value = 1;\n")
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t, map[string]string{"never-existed": "error"}),
+    })
+  })
+  if code != 0 || stdout != "" || !strings.Contains(stderr, "ignoring unknown rule") {
+    t.Fatalf("unknown-rule warning mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

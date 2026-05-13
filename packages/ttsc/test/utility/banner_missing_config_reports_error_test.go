@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 // TestUtilityBannerMissingConfigReportsError verifies the banner plugin fails
@@ -18,11 +18,11 @@ import (
 // 2. Run the utility check entrypoint with `@ttsc/banner`.
 // 3. Assert the command returns a configuration error instead of succeeding.
 func TestUtilityBannerMissingConfigReportsError(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Scenario setup: a valid tsconfig keeps the failure focused on banner
-	// configuration resolution rather than TypeScript project parsing.
-	writeProjectFile(t, root, "tsconfig.json", `{
+  // Scenario setup: a valid tsconfig keeps the failure focused on banner
+  // configuration resolution rather than TypeScript project parsing.
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020"
@@ -30,18 +30,18 @@ func TestUtilityBannerMissingConfigReportsError(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export const value = 1;
+  writeProjectFile(t, root, "index.ts", `export const value = 1;
 `)
 
-	// Error assertion: RunCheck must reject the plugin setup before loading a
-	// program with an empty preamble.
-	code, out, errOut := captureUtilityOutput(t, func() int {
-		return utility.RunCheck([]string{
-			"--cwd", root,
-			"--plugins-json", `[{"name":"@ttsc/banner"}]`,
-		})
-	})
-	if code != 2 || out != "" || !strings.Contains(errOut, "banner.config") {
-		t.Fatalf("RunCheck mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
+  // Error assertion: RunCheck must reject the plugin setup before loading a
+  // program with an empty preamble.
+  code, out, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunCheck([]string{
+      "--cwd", root,
+      "--plugins-json", `[{"name":"@ttsc/banner"}]`,
+    })
+  })
+  if code != 2 || out != "" || !strings.Contains(errOut, "banner.config") {
+    t.Fatalf("RunCheck mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
 }

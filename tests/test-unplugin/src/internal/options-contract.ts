@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { TestUnpluginRuntime } from "@ttsc/testing";
+import assert from "node:assert/strict";
 
 async function assertResolveOptionsKeepsOnlyPublicContract() {
   const { resolveOptions } = await TestUnpluginRuntime.loadUnpluginApi();

@@ -1,12 +1,12 @@
 package ttsc_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 // TestUtilityStripEmbeddedStatements verifies the strip plugin handles
@@ -20,11 +20,11 @@ import (
 // 2. Run a utility build with the strip plugin defaults.
 // 3. Assert emitted JavaScript has no stripped debug statements left.
 func TestUtilityStripEmbeddedStatements(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Scenario setup: unbraced branches exercise filterEmbeddedStatement, which
-	// replaces removed statements with synthesized empty statements.
-	writeProjectFile(t, root, "tsconfig.json", `{
+  // Scenario setup: unbraced branches exercise filterEmbeddedStatement, which
+  // replaces removed statements with synthesized empty statements.
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
@@ -34,7 +34,7 @@ func TestUtilityStripEmbeddedStatements(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `declare const assert: { fail(message: string): void };
+  writeProjectFile(t, root, "index.ts", `declare const assert: { fail(message: string): void };
 export function run(flag: boolean): number {
   if (flag) console.log("if");
   else debugger;
@@ -46,26 +46,26 @@ export function run(flag: boolean): number {
 }
 `)
 
-	// Build assertion: no stripped call names or debugger statements should
-	// remain after AST filtering and TypeScript emit.
-	code, out, errOut := captureUtilityOutput(t, func() int {
-		return utility.RunBuild([]string{
-			"--cwd", root,
-			"--emit",
-			"--plugins-json", `[{"name":"@ttsc/strip"}]`,
-		})
-	})
-	if code != 0 {
-		t.Fatalf("RunBuild failed: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
-	js, err := os.ReadFile(filepath.Join(root, "bin", "index.js"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(js)
-	for _, forbidden := range []string{"console.log", "console.debug", "assert.fail", "debugger"} {
-		if strings.Contains(text, forbidden) {
-			t.Fatalf("strip plugin left %s in emitted JavaScript:\n%s", forbidden, text)
-		}
-	}
+  // Build assertion: no stripped call names or debugger statements should
+  // remain after AST filtering and TypeScript emit.
+  code, out, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunBuild([]string{
+      "--cwd", root,
+      "--emit",
+      "--plugins-json", `[{"name":"@ttsc/strip"}]`,
+    })
+  })
+  if code != 0 {
+    t.Fatalf("RunBuild failed: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
+  js, err := os.ReadFile(filepath.Join(root, "bin", "index.js"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  text := string(js)
+  for _, forbidden := range []string{"console.log", "console.debug", "assert.fail", "debugger"} {
+    if strings.Contains(text, forbidden) {
+      t.Fatalf("strip plugin left %s in emitted JavaScript:\n%s", forbidden, text)
+    }
+  }
 }

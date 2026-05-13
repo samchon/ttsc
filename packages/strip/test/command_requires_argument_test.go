@@ -1,8 +1,8 @@
 package strip_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRequiresArgument verifies the strip sidecar rejects an empty command line.
@@ -18,10 +18,10 @@ import (
 // 2. Capture stdout, stderr, and the wrapped exit status.
 // 3. Assert the required-command diagnostic and command-error status.
 func TestCommandRequiresArgument(t *testing.T) {
-	// Command assertion: this prevents an empty argv from falling through to
-	// project loading or manifest parsing.
-	code, stdout, stderr := runPlugin(t)
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
-		t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: this prevents an empty argv from falling through to
+  // project loading or manifest parsing.
+  code, stdout, stderr := runPlugin(t)
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "command required") {
+    t.Fatalf("no-args branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

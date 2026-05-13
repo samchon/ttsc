@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandDemoEmitsRequestedType verifies the demo command emits a predicate.
@@ -19,10 +19,10 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert successful status and the emitted number predicate.
 func TestCommandDemoEmitsRequestedType(t *testing.T) {
-	code, stdout, stderr := runPlatformCommand(t, "demo", "--type=number")
-	if code != 0 || stderr != "" ||
-		!strings.Contains(stdout, "// demo<number>") ||
-		!strings.Contains(stdout, `"number" === typeof input`) {
-		t.Fatalf("demo success mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := runPlatformCommand(t, "demo", "--type=number")
+  if code != 0 || stderr != "" ||
+    !strings.Contains(stdout, "// demo<number>") ||
+    !strings.Contains(stdout, `"number" === typeof input`) {
+    t.Fatalf("demo success mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

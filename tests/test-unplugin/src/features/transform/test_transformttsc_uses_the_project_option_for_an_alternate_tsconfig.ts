@@ -3,8 +3,8 @@ import { assertTransformUsesProjectOption } from "../../internal/transform-proje
 /**
  * Verifies transformTtsc uses the project option for an alternate tsconfig.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a
+ * This unplugin transform scenario is isolated as one exported TypeScript
+ * feature so failures identify the exact package contract under test without a
  * shared smoke wrapper or package-level switch statement.
  *
  * 1. Materialize the project fixture or module graph required by the case.

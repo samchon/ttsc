@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusRadix(t *testing.T) {
-	assertRuleCorpusCase(t, "radix.ts", "// expect: radix error\nconst n = parseInt(\"42\");\nJSON.stringify(n);\n")
+  assertRuleCorpusCase(t, "radix.ts", "// expect: radix error\nconst n = parseInt(\"42\");\nJSON.stringify(n);\n")
 }

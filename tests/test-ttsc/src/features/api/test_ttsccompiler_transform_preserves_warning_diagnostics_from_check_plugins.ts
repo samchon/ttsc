@@ -1,19 +1,20 @@
 import {
   TtscCompiler,
   assert,
+  createProject,
   expectArrayValue,
   expectRecordValue,
-  createProject,
   tsgo,
   writeWarningCheckPlugin,
 } from "../../internal/compiler";
 
 /**
- * Verifies TtscCompiler.transform preserves warning diagnostics from check plugins.
+ * Verifies TtscCompiler.transform preserves warning diagnostics from check
+ * plugins.
  *
- * This ttsc API scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * This ttsc API scenario is owned by a tests package instead of the production
+ * package manifest, so package.json stays focused on build and publish
+ * contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.
  * 2. Invoke the package API or internal resolver path being pinned.

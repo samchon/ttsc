@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDynamicDelete(t *testing.T) {
-	assertRuleCorpusCase(t, "no-dynamic-delete.ts", "const key = \"name\";\nconst box: Record<string, string> = { name: \"ttsc\" };\n\n// expect: no-dynamic-delete error\ndelete box[key];\ndelete box[\"name\"];\n")
+  assertRuleCorpusCase(t, "no-dynamic-delete.ts", "const key = \"name\";\nconst box: Record<string, string> = { name: \"ttsc\" };\n\n// expect: no-dynamic-delete error\ndelete box[key];\ndelete box[\"name\"];\n")
 }

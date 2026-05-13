@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 // TestFindLintConfigFileRejectsSameDirectoryConflicts verifies conflict rejection.
@@ -20,16 +20,16 @@ import (
 // 2. Run the discovery or explicit-path resolver helper.
 // 3. Assert the selected path or the conflict diagnostic.
 func TestFindLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
-	writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), "module.exports = {};")
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "eslint.config.mjs"), "export default [];")
+  writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), "module.exports = {};")
 
-	_, err := findLintConfigFile(dir, "tsconfig.json")
-	if err == nil {
-		t.Fatal("expected conflicting lint config files to fail")
-	}
-	if !strings.Contains(err.Error(), "multiple lint config files found") {
-		t.Fatalf("error should explain conflict, got %v", err)
-	}
+  _, err := findLintConfigFile(dir, "tsconfig.json")
+  if err == nil {
+    t.Fatal("expected conflicting lint config files to fail")
+  }
+  if !strings.Contains(err.Error(), "multiple lint config files found") {
+    t.Fatalf("error should explain conflict, got %v", err)
+  }
 }

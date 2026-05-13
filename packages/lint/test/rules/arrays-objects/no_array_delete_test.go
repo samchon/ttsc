@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoArrayDelete(t *testing.T) {
-	assertRuleCorpusCase(t, "no-array-delete.ts", "const arr: number[] = [1, 2, 3];\n// expect: no-array-delete error\ndelete arr[0];\nJSON.stringify(arr);\n")
+  assertRuleCorpusCase(t, "no-array-delete.ts", "const arr: number[] = [1, 2, 3];\n// expect: no-array-delete error\ndelete arr[0];\nJSON.stringify(arr);\n")
 }

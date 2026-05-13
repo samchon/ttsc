@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestDemoArrowSupportsAtomicTypes verifies every demo predicate branch.
@@ -19,22 +19,22 @@ import (
 // 2. Compare each returned JavaScript predicate text.
 // 3. Assert each supported branch exits successfully without stderr.
 func TestDemoArrowSupportsAtomicTypes(t *testing.T) {
-	cases := map[string]string{
-		"any":     "(input) => true",
-		"boolean": `(input) => "boolean" === typeof input`,
-		"number":  `(input) => "number" === typeof input`,
-		"bigint":  `(input) => "bigint" === typeof input`,
-		"string":  `(input) => "string" === typeof input`,
-		"":        `(input) => "string" === typeof input`,
-	}
-	for input, expected := range cases {
-		args := []string{"demo"}
-		if input != "" {
-			args = append(args, "--type="+input)
-		}
-		code, stdout, stderr := runPlatformCommand(t, args...)
-		if code != 0 || stderr != "" || !strings.Contains(stdout, expected) {
-			t.Fatalf("demo branch %q mismatch: code=%d stdout=%q stderr=%q", input, code, stdout, stderr)
-		}
-	}
+  cases := map[string]string{
+    "any":     "(input) => true",
+    "boolean": `(input) => "boolean" === typeof input`,
+    "number":  `(input) => "number" === typeof input`,
+    "bigint":  `(input) => "bigint" === typeof input`,
+    "string":  `(input) => "string" === typeof input`,
+    "":        `(input) => "string" === typeof input`,
+  }
+  for input, expected := range cases {
+    args := []string{"demo"}
+    if input != "" {
+      args = append(args, "--type="+input)
+    }
+    code, stdout, stderr := runPlatformCommand(t, args...)
+    if code != 0 || stderr != "" || !strings.Contains(stdout, expected) {
+      t.Fatalf("demo branch %q mismatch: code=%d stdout=%q stderr=%q", input, code, stdout, stderr)
+    }
+  }
 }

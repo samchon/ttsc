@@ -15,24 +15,24 @@ import "testing"
 // 2. Read the metadata methods used by Engine and external runtime dispatch.
 // 3. Assert enabled rules exclude off values and runtime flags are preserved.
 func TestConfigStoreMetadataMethods(t *testing.T) {
-	store := &ConfigStore{
-		externalConfigPath:    "/project/eslint.config.js",
-		eslintRuntime:         true,
-		eslintRuntimeRequired: true,
-		entries: []ConfigEntry{
-			{Rules: RuleConfig{"no-var": SeverityError, "no-console": SeverityWarn, "off-rule": SeverityOff}},
-			{IgnoreOnly: true, Rules: RuleConfig{"ignored": SeverityError}},
-		},
-	}
-	active := store.ActiveRuleNames()
-	if len(active) != 2 || active[0] != "no-console" || active[1] != "no-var" {
-		t.Fatalf("active rules mismatch: %v", active)
-	}
-	enabled := store.EnabledRuleConfig()
-	if enabled.Severity("no-var") != SeverityError || enabled.Severity("no-console") != SeverityWarn || enabled.Severity("off-rule") != SeverityOff {
-		t.Fatalf("enabled rule config mismatch: %+v", enabled)
-	}
-	if store.ExternalConfigPath() != "/project/eslint.config.js" || !store.WantsESLintRuntime() || !store.RequiresESLintRuntime() {
-		t.Fatalf("runtime metadata mismatch")
-	}
+  store := &ConfigStore{
+    externalConfigPath:    "/project/eslint.config.js",
+    eslintRuntime:         true,
+    eslintRuntimeRequired: true,
+    entries: []ConfigEntry{
+      {Rules: RuleConfig{"no-var": SeverityError, "no-console": SeverityWarn, "off-rule": SeverityOff}},
+      {IgnoreOnly: true, Rules: RuleConfig{"ignored": SeverityError}},
+    },
+  }
+  active := store.ActiveRuleNames()
+  if len(active) != 2 || active[0] != "no-console" || active[1] != "no-var" {
+    t.Fatalf("active rules mismatch: %v", active)
+  }
+  enabled := store.EnabledRuleConfig()
+  if enabled.Severity("no-var") != SeverityError || enabled.Severity("no-console") != SeverityWarn || enabled.Severity("off-rule") != SeverityOff {
+    t.Fatalf("enabled rule config mismatch: %+v", enabled)
+  }
+  if store.ExternalConfigPath() != "/project/eslint.config.js" || !store.WantsESLintRuntime() || !store.RequiresESLintRuntime() {
+    t.Fatalf("runtime metadata mismatch")
+  }
 }

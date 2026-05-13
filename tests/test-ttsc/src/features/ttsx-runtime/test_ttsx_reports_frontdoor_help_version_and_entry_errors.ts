@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
 
 /**
  * Verifies ttsx reports front-door help, version, and entry errors directly.

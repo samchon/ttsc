@@ -31,6 +31,9 @@ func run(args []string) int {
     fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|build|transform|version)")
     return 2
   }
+  // Wire contributor rules into the engine's dispatch table after every
+  // package init has settled. See contrib_adapter.go for the rationale.
+  registerContributors()
   switch args[0] {
   case "-v", "--version", "version":
     fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)

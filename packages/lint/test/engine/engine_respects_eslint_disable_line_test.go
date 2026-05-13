@@ -1,8 +1,8 @@
 package main
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"testing"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestEngineRespectsESLintDisableLine verifies engine respects ESLint disable line.
@@ -20,14 +20,14 @@ import (
 // 2. Run the engine with the exact rule severities needed by the branch.
 // 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
 func TestEngineRespectsESLintDisableLine(t *testing.T) {
-	engine := NewEngine(RuleConfig{"no-var": SeverityError})
-	file := parseTS(t, `
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  file := parseTS(t, `
     var before = 1;
     var skipped = 2; // eslint-disable-line no-var
     var after = 3;
   `)
-	findings := engine.Run([]*shimast.SourceFile{file}, nil)
-	if got := len(findings); got != 2 {
-		t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
-	}
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if got := len(findings); got != 2 {
+    t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
+  }
 }

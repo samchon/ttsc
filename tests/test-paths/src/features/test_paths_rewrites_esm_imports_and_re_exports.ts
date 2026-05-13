@@ -1,17 +1,20 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
+
 import { TestPaths } from "../internal/TestPaths";
 
 /**
  * Verifies the @ttsc/paths plugin: paths rewrites ESM imports and re-exports.
  *
- * This paths feature is isolated as one exported TypeScript test so failures identify the exact package contract without a shared smoke wrapper.
+ * This paths feature is isolated as one exported TypeScript test so failures
+ * identify the exact package contract without a shared smoke wrapper.
  *
  * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/paths under the temporary project tsconfig.
+ * 2. Execute the real ttsc path that loads @ttsc/paths under the temporary project
+ *    tsconfig.
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_paths_rewrites_esm_imports_and_re_exports = () => {

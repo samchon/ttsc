@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusUseIsnan(t *testing.T) {
-	assertRuleCorpusCase(t, "use-isnan.ts", "function f(x: number) {\n  // expect: use-isnan error\n  return x === NaN;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "use-isnan.ts", "function f(x: number) {\n  // expect: use-isnan error\n  return x === NaN;\n}\nJSON.stringify(f);\n")
 }

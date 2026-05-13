@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestParseRulesAcceptsLegacyNumericSeverities verifies numeric severities.
@@ -17,15 +17,15 @@ import (
 // 2. Parse it through the native severity normalizer.
 // 3. Assert accepted severities or the explicit contract error.
 func TestParseRulesAcceptsLegacyNumericSeverities(t *testing.T) {
-	cfg, err := ParseRules(map[string]any{
-		"a": float64(0),
-		"b": float64(1),
-		"c": float64(2),
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Severity("a") != SeverityOff || cfg.Severity("b") != SeverityWarn || cfg.Severity("c") != SeverityError {
-		t.Errorf("numeric severities not parsed correctly: %+v", cfg)
-	}
+  cfg, err := ParseRules(map[string]any{
+    "a": float64(0),
+    "b": float64(1),
+    "c": float64(2),
+  })
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if cfg.Severity("a") != SeverityOff || cfg.Severity("b") != SeverityWarn || cfg.Severity("c") != SeverityError {
+    t.Errorf("numeric severities not parsed correctly: %+v", cfg)
+  }
 }

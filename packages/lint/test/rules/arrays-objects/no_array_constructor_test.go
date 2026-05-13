@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoArrayConstructor(t *testing.T) {
-	assertRuleCorpusCase(t, "no-array-constructor.ts", "// expect: no-array-constructor error\nconst a = new Array();\nJSON.stringify(a);\n")
+  assertRuleCorpusCase(t, "no-array-constructor.ts", "// expect: no-array-constructor error\nconst a = new Array();\nJSON.stringify(a);\n")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoObjectConstructor(t *testing.T) {
-	assertRuleCorpusCase(t, "no-object-constructor.ts", "// expect: no-object-constructor error\nconst o = new Object();\nJSON.stringify(o);\n")
+  assertRuleCorpusCase(t, "no-object-constructor.ts", "// expect: no-object-constructor error\nconst o = new Object();\nJSON.stringify(o);\n")
 }

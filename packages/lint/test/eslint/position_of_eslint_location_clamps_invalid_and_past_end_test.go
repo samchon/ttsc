@@ -15,13 +15,13 @@ import "testing"
 // 2. Convert a column beyond the end of a normal line.
 // 3. Convert a column beyond a carriage return on the same line.
 func TestPositionOfESLintLocationClampsInvalidAndPastEnd(t *testing.T) {
-	if got := positionOfESLintLocation("alpha", 0, 0); got != 0 {
-		t.Fatalf("invalid location should clamp to start, got %d", got)
-	}
-	if got := positionOfESLintLocation("alpha\nbeta", 2, 99); got != len("alpha\nbeta") {
-		t.Fatalf("past-end column should clamp to text end, got %d", got)
-	}
-	if got := positionOfESLintLocation("alpha\rbeta", 1, 99); got != len("alpha") {
-		t.Fatalf("carriage return should stop same-line scan, got %d", got)
-	}
+  if got := positionOfESLintLocation("alpha", 0, 0); got != 0 {
+    t.Fatalf("invalid location should clamp to start, got %d", got)
+  }
+  if got := positionOfESLintLocation("alpha\nbeta", 2, 99); got != len("alpha\nbeta") {
+    t.Fatalf("past-end column should clamp to text end, got %d", got)
+  }
+  if got := positionOfESLintLocation("alpha\rbeta", 1, 99); got != len("alpha") {
+    t.Fatalf("carriage return should stop same-line scan, got %d", got)
+  }
 }

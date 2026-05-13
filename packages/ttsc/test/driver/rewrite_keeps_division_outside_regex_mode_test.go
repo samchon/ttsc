@@ -1,10 +1,10 @@
 package driver_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverRewriteKeepsDivisionOutsideRegexMode verifies division operators do
@@ -17,17 +17,17 @@ import (
 // 2. Register a consuming rewrite for the plugin call.
 // 3. Assert the division expression does not prevent the call replacement.
 func TestDriverRewriteKeepsDivisionOutsideRegexMode(t *testing.T) {
-	js := emitIndexWithRewrite(t, `declare const plugin: { make(...args: unknown[]): string };
+  js := emitIndexWithRewrite(t, `declare const plugin: { make(...args: unknown[]): string };
 declare const total: number;
 declare const divisor: number;
 export const out = plugin.make(total / divisor, 2);
 `, driver.Rewrite{
-		RootName:      "plugin",
-		Method:        "make",
-		Replacement:   `"replacement"`,
-		ConsumeParens: true,
-	})
-	if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
-		t.Fatalf("division rewrite mismatch:\n%s", js)
-	}
+    RootName:      "plugin",
+    Method:        "make",
+    Replacement:   `"replacement"`,
+    ConsumeParens: true,
+  })
+  if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
+    t.Fatalf("division rewrite mismatch:\n%s", js)
+  }
 }

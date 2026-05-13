@@ -9,8 +9,8 @@ import {
 /**
  * Verifies readProjectConfig accepts JSONC comments and trailing commas.
  *
- * This ttsc project config scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc project config scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Prepare the isolated project, resolver input, or plugin source fixture.

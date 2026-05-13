@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
@@ -115,7 +115,10 @@ export namespace TestLint {
     linkNodeModules?: string[];
   }
 
-  /** Temporary project handle returned when a test needs manual lifecycle control. */
+  /**
+   * Temporary project handle returned when a test needs manual lifecycle
+   * control.
+   */
   export interface IRunLintProject {
     tmpdir: string;
     cleanup(): void;
@@ -139,10 +142,12 @@ export namespace TestLint {
   }
 
   /**
-   * Create a temporary lint project and link the workspace lint package into it.
+   * Create a temporary lint project and link the workspace lint package into
+   * it.
    *
    * Some config tests need to mutate files or run multiple commands, so this
-   * lower-level helper returns a cleanup handle instead of running immediately.
+   * lower-level helper returns a cleanup handle instead of running
+   * immediately.
    */
   export function createProject(options: IRunLintOptions): IRunLintProject {
     const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
@@ -285,8 +290,16 @@ export namespace TestLint {
 
   /**
    * Parse the renderer's stderr into structured records.
+   *
    * @param {string} stderr
-   * @returns {Array<{file:string,line:number,column:number,severity:"warn"|"error",rule:string,message:string}>}
+   * @returns {{
+   *   file: string;
+   *   line: number;
+   *   column: number;
+   *   severity: "warn" | "error";
+   *   rule: string;
+   *   message: string;
+   * }[]}
    */
   export function parseDiagnostics(stderr: string): ILintDiagnostic[] {
     const stripped = stderr.replace(ANSI_PATTERN, "");
@@ -317,11 +330,12 @@ export namespace TestLint {
   }
 
   /**
-   * Read `// expect: <rule> <severity>` comments and return the line each
-   * one anchors to (the next non-comment, non-blank line after the
-   * annotation). Mirrors the ttsc plugin corpus expectation format.
+   * Read `// expect: <rule> <severity>` comments and return the line each one
+   * anchors to (the next non-comment, non-blank line after the annotation).
+   * Mirrors the ttsc plugin corpus expectation format.
+   *
    * @param {string} source
-   * @returns {Array<{rule:string,severity:"warn"|"error",line:number}>}
+   * @returns {{ rule: string; severity: "warn" | "error"; line: number }[]}
    */
   export function parseExpectations(source: string): ILintExpectation[] {
     const lines = source.split(/\r?\n/);
@@ -357,10 +371,12 @@ export namespace TestLint {
     return expected;
   }
 
-  /** Build a `rules` map for tsconfig from the expectations parsed out
-   *  of a fixture file. Every rule that appears in `// expect:`
-   *  annotations is enabled at its annotated severity; everything else
-   *  is implicitly off (the default for unconfigured rules). */
+  /**
+   * Build a `rules` map for tsconfig from the expectations parsed out of a
+   * fixture file. Every rule that appears in `// expect:` annotations is
+   * enabled at its annotated severity; everything else is implicitly off (the
+   * default for unconfigured rules).
+   */
   export function rulesFromExpectations(
     expected: ILintExpectation[],
   ): Record<string, LintSeverity> {

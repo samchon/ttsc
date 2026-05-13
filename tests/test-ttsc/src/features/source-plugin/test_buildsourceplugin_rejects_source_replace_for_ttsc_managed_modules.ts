@@ -8,10 +8,11 @@ import {
 } from "../../internal/source-build";
 
 /**
- * Verifies buildSourcePlugin rejects go.mod replacements for ttsc-managed modules.
+ * Verifies buildSourcePlugin rejects go.mod replacements for ttsc-managed
+ * modules.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of
- * the production package manifest, so package.json stays focused on build and
+ * This ttsc source plugin scenario is owned by a tests package instead of the
+ * production package manifest, so package.json stays focused on build and
  * publish contracts while the feature file documents the behavior under test.
  *
  * 1. Create a source plugin whose go.mod tries to replace a TypeScript-Go shim

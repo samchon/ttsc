@@ -1,8 +1,8 @@
 package strip_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsFlagShapedCommand rejects strip flag-shaped commands.
@@ -18,10 +18,10 @@ import (
 // 2. Capture stdout, stderr, and the wrapped process status.
 // 3. Assert the wrapper reports an unknown command with command-error status.
 func TestCommandRejectsFlagShapedCommand(t *testing.T) {
-	// Command assertion: the wrapper should reject the malformed command before
-	// delegating to utility flag parsing.
-	code, stdout, stderr := runPlugin(t, "--bogus")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, `unknown command "--bogus"`) {
-		t.Fatalf("flag-shaped command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: the wrapper should reject the malformed command before
+  // delegating to utility flag parsing.
+  code, stdout, stderr := runPlugin(t, "--bogus")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, `unknown command "--bogus"`) {
+    t.Fatalf("flag-shaped command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

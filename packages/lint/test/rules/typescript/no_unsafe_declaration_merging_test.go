@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUnsafeDeclarationMerging(t *testing.T) {
-	assertRuleCorpusCase(t, "no-unsafe-declaration-merging.ts", "class Merged {\n  value = 1;\n}\n\n// expect: no-unsafe-declaration-merging error\ninterface Merged {\n  other: string;\n}\n")
+  assertRuleCorpusCase(t, "no-unsafe-declaration-merging.ts", "class Merged {\n  value = 1;\n}\n\n// expect: no-unsafe-declaration-merging error\ninterface Merged {\n  other: string;\n}\n")
 }

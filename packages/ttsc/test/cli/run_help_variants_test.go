@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCLIRunHelpVariants verifies help aliases print the same command surface.
@@ -19,10 +19,10 @@ import (
 // 2. Capture the command stdout and stderr streams.
 // 3. Assert exit status zero and help text that lists demo.
 func TestCLIRunHelpVariants(t *testing.T) {
-	for _, flag := range []string{"-h", "--help", "help"} {
-		code, stdout, stderr := runNativeCommand(t, flag)
-		if code != 0 || !strings.Contains(stdout, "demo") {
-			t.Fatalf("help alias %q mismatch: code=%d stdout=%q stderr=%q", flag, code, stdout, stderr)
-		}
-	}
+  for _, flag := range []string{"-h", "--help", "help"} {
+    code, stdout, stderr := runNativeCommand(t, flag)
+    if code != 0 || !strings.Contains(stdout, "demo") {
+      t.Fatalf("help alias %q mismatch: code=%d stdout=%q stderr=%q", flag, code, stdout, stderr)
+    }
+  }
 }

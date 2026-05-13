@@ -1,12 +1,12 @@
 package driver_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverLoadProgramOutDirOverride verifies LoadProgramOptions.OutDir
@@ -19,11 +19,11 @@ import (
 // 2. Emit through the default writer.
 // 3. Assert JavaScript appears under the requested output directory.
 func TestDriverLoadProgramOutDirOverride(t *testing.T) {
-	root := t.TempDir()
+  root := t.TempDir()
 
-	// Scenario setup: tsconfig intentionally omits outDir so the only output
-	// location should come from LoadProgramOptions.OutDir.
-	writeProjectFile(t, root, "tsconfig.json", `{
+  // Scenario setup: tsconfig intentionally omits outDir so the only output
+  // location should come from LoadProgramOptions.OutDir.
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020"
@@ -31,30 +31,30 @@ func TestDriverLoadProgramOutDirOverride(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export const value = 1;
+  writeProjectFile(t, root, "index.ts", `export const value = 1;
 `)
 
-	// Emit assertion: nil WriteFile selects driver.DefaultWriteFile, so this also
-	// covers the command-side default disk writer path.
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceEmit: true,
-		OutDir:    "custom",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected config diagnostics: %#v", diags)
-	}
-	defer prog.Close()
-	if _, emitDiags, err := prog.EmitAllRaw(nil); err != nil || len(emitDiags) != 0 {
-		t.Fatalf("EmitAllRaw mismatch: err=%v diagnostics=%#v", err, emitDiags)
-	}
-	js, err := os.ReadFile(filepath.Join(root, "custom", "index.js"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(js), "exports.value") {
-		t.Fatalf("override output missing JavaScript body:\n%s", js)
-	}
+  // Emit assertion: nil WriteFile selects driver.DefaultWriteFile, so this also
+  // covers the command-side default disk writer path.
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceEmit: true,
+    OutDir:    "custom",
+  })
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected config diagnostics: %#v", diags)
+  }
+  defer prog.Close()
+  if _, emitDiags, err := prog.EmitAllRaw(nil); err != nil || len(emitDiags) != 0 {
+    t.Fatalf("EmitAllRaw mismatch: err=%v diagnostics=%#v", err, emitDiags)
+  }
+  js, err := os.ReadFile(filepath.Join(root, "custom", "index.js"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !strings.Contains(string(js), "exports.value") {
+    t.Fatalf("override output missing JavaScript body:\n%s", js)
+  }
 }

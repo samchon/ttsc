@@ -10,10 +10,11 @@ import {
  *
  * Locks the first-party-target rejection branch added in
  * `loadProjectPlugins.ts::composePluginSources`. First-party utility plugins
- * (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have their own auto-composition
- * path through the manifest-pinned shared compiler host. Letting a third-party
- * descriptor list one of those names in `composes` would bypass the
- * manifest pin and turn `composes` into a supply-chain redirect vector.
+ * (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) have their own
+ * auto-composition path through the manifest-pinned shared compiler host.
+ * Letting a third-party descriptor list one of those names in `composes` would
+ * bypass the manifest pin and turn `composes` into a supply-chain redirect
+ * vector.
  *
  * 1. A third-party descriptor lists `@ttsc/banner` in its `composes` array.
  * 2. Run ttsc.

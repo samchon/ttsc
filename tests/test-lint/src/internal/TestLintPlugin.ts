@@ -1,7 +1,6 @@
+import { TestProject } from "@ttsc/testing";
 import { createRequire } from "node:module";
 import path from "node:path";
-
-import { TestProject } from "@ttsc/testing";
 
 const REQUIRE_FROM_TEST = createRequire(
   path.join(TestProject.WORKSPACE_ROOT, "tests", "test-lint", "package.json"),

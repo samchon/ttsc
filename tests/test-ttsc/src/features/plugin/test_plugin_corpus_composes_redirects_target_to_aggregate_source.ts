@@ -13,12 +13,12 @@ import {
 /**
  * Verifies plugin corpus: composes redirects target to aggregate source.
  *
- * Happy-path lock for `loadProjectPlugins.ts::composePluginSources`. The
- * target descriptor deliberately points at a missing source directory; the
- * project can compile only if ttsc redirects that target to the aggregate's Go
- * source before validating and building native plugins. Both plugin configs
- * remain in `--plugins-json`, so the aggregate sidecar still applies the
- * target's suffix operation.
+ * Happy-path lock for `loadProjectPlugins.ts::composePluginSources`. The target
+ * descriptor deliberately points at a missing source directory; the project can
+ * compile only if ttsc redirects that target to the aggregate's Go source
+ * before validating and building native plugins. Both plugin configs remain in
+ * `--plugins-json`, so the aggregate sidecar still applies the target's suffix
+ * operation.
  */
 export const test_plugin_corpus_composes_redirects_target_to_aggregate_source =
   () => {

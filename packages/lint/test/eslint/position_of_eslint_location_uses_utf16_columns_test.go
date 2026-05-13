@@ -15,10 +15,10 @@ import "testing"
 // 2. Convert a location after an astral-plane character.
 // 3. Assert both offsets point at the expected byte positions.
 func TestPositionOfESLintLocationUsesUTF16Columns(t *testing.T) {
-	if got := positionOfESLintLocation("a\nbeta", 2, 1); got != 2 {
-		t.Fatalf("line offset mismatch: got %d", got)
-	}
-	if got := positionOfESLintLocation("a😀b", 1, 4); got != len("a😀") {
-		t.Fatalf("utf16 offset mismatch: got %d", got)
-	}
+  if got := positionOfESLintLocation("a\nbeta", 2, 1); got != 2 {
+    t.Fatalf("line offset mismatch: got %d", got)
+  }
+  if got := positionOfESLintLocation("a😀b", 1, 4); got != len("a😀") {
+    t.Fatalf("utf16 offset mismatch: got %d", got)
+  }
 }

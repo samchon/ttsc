@@ -1,9 +1,9 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "@ttsc/testing";
 
 const INTERNAL_DIR = path.join(
   TestProject.WORKSPACE_ROOT,

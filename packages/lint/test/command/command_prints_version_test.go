@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandPrintsVersion verifies the lint sidecar exposes command metadata.
@@ -18,10 +18,10 @@ import (
 // 2. Capture stdout and stderr exactly as the host would.
 // 3. Assert successful status and the @ttsc/lint version banner.
 func TestCommandPrintsVersion(t *testing.T) {
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{"version"})
-	})
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "@ttsc/lint") {
-		t.Fatalf("version mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"version"})
+  })
+  if code != 0 || stderr != "" || !strings.Contains(stdout, "@ttsc/lint") {
+    t.Fatalf("version mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

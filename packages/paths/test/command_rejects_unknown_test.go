@@ -1,8 +1,8 @@
 package paths_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandRejectsUnknown verifies the paths sidecar rejects unknown subcommands.
@@ -18,10 +18,10 @@ import (
 // 2. Observe the wrapper-level stderr text.
 // 3. Assert the command-error status and unknown-command diagnostic.
 func TestCommandRejectsUnknown(t *testing.T) {
-	// Command assertion: output-stage sidecars are not supported for this
-	// package; only check, transform, build, and version are valid.
-	code, stdout, stderr := runPlugin(t, "output")
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
-		t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  // Command assertion: output-stage sidecars are not supported for this
+  // package; only check, transform, build, and version are valid.
+  code, stdout, stderr := runPlugin(t, "output")
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+    t.Fatalf("unknown branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

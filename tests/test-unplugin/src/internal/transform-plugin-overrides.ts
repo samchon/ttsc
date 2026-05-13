@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import assert from "node:assert/strict";
 
 async function assertTransformAppliesOrderedPluginOverrides() {
   const { resolveOptions, transformTtsc } =

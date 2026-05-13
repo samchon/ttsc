@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoPlusplus(t *testing.T) {
-	assertRuleCorpusCase(t, "no-plusplus.ts", "let i = 0;\n// expect: no-plusplus error\ni++;\nJSON.stringify(i);\n")
+  assertRuleCorpusCase(t, "no-plusplus.ts", "let i = 0;\n// expect: no-plusplus error\ni++;\nJSON.stringify(i);\n")
 }

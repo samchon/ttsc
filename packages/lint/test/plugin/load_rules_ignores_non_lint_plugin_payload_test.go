@@ -15,14 +15,14 @@ import "testing"
 // 2. Load rules through the command helper.
 // 3. Assert the resulting resolver has no enabled rules.
 func TestLoadRulesIgnoresNonLintPluginPayload(t *testing.T) {
-	rules, err := loadRules(`[
+  rules, err := loadRules(`[
     {"name":"@ttsc/banner","stage":"transform","config":{}},
     {"name":"disabled","stage":"check","config":{"enabled":false}}
   ]`, t.TempDir(), "tsconfig.json")
-	if err != nil {
-		t.Fatalf("loadRules: %v", err)
-	}
-	if enabled := rules.EnabledRuleConfig(); len(enabled) != 0 {
-		t.Fatalf("non-lint payload should not enable rules, got %+v", enabled)
-	}
+  if err != nil {
+    t.Fatalf("loadRules: %v", err)
+  }
+  if enabled := rules.EnabledRuleConfig(); len(enabled) != 0 {
+    t.Fatalf("non-lint payload should not enable rules, got %+v", enabled)
+  }
 }

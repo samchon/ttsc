@@ -12,7 +12,10 @@ import { buildNativeCompiler } from "./buildNativeCompiler";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { runBuild } from "./runBuild";
 
-/** Compile a project and capture emitted files without writing to the project tree. */
+/**
+ * Compile a project and capture emitted files without writing to the project
+ * tree.
+ */
 export function compileProjectInMemory(options: ITtscCompilerContext): {
   output: Record<string, string>;
   result: TtscBuildResult;

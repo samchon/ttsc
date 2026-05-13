@@ -13,8 +13,8 @@ import "testing"
 // 2. Execute the CLI with `--cwd` as the first argument.
 // 3. Assert the command succeeds through the build lane.
 func TestCLICommandAcceptsFlagShapedBuildAlias(t *testing.T) {
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020"
@@ -22,11 +22,11 @@ func TestCLICommandAcceptsFlagShapedBuildAlias(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-	writeProjectFile(t, root, "index.ts", `export const value = 1;
+  writeProjectFile(t, root, "index.ts", `export const value = 1;
 `)
 
-	code, out, errOut := runNativeCommand(t, "--cwd", root, "--noEmit")
-	if code != 0 {
-		t.Fatalf("flag-shaped build alias failed: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
+  code, out, errOut := runNativeCommand(t, "--cwd", root, "--noEmit")
+  if code != 0 {
+    t.Fatalf("flag-shaped build alias failed: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
 }

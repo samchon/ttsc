@@ -1,8 +1,8 @@
 package ttsc_test
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestUtilityFindBannerConfigFileUsesTsconfigDirectoryWhenOutsideCwd verifies
@@ -20,19 +20,19 @@ import (
 // 2. Discover the banner config using the wrapper tsconfig path.
 // 3. Assert the wrapper-side config wins over the cwd-side config.
 func TestUtilityFindBannerConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
-	cwd := t.TempDir()
-	writeProjectFile(t, cwd, "banner.config.cjs", `module.exports = { text: "cwd banner" };
+  cwd := t.TempDir()
+  writeProjectFile(t, cwd, "banner.config.cjs", `module.exports = { text: "cwd banner" };
 `)
-	wrapper := t.TempDir()
-	writeProjectFile(t, wrapper, "banner.config.cjs", `module.exports = { text: "wrapper banner" };
+  wrapper := t.TempDir()
+  writeProjectFile(t, wrapper, "banner.config.cjs", `module.exports = { text: "wrapper banner" };
 `)
-	writeProjectFile(t, wrapper, "tsconfig.json", "{}")
+  writeProjectFile(t, wrapper, "tsconfig.json", "{}")
 
-	discovered, err := utilityFindBannerConfigFile(cwd, filepath.Join(wrapper, "tsconfig.json"))
-	if err != nil {
-		t.Fatalf("findBannerConfigFile: %v", err)
-	}
-	if discovered != filepath.Join(wrapper, "banner.config.cjs") {
-		t.Fatalf("unexpected discovery path: %s", discovered)
-	}
+  discovered, err := utilityFindBannerConfigFile(cwd, filepath.Join(wrapper, "tsconfig.json"))
+  if err != nil {
+    t.Fatalf("findBannerConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(wrapper, "banner.config.cjs") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
 }

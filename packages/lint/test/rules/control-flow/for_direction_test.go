@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusForDirection(t *testing.T) {
-	assertRuleCorpusCase(t, "for-direction.ts", "// expect: for-direction error\nfor (let i = 0; i < 10; i--) {}\n")
+  assertRuleCorpusCase(t, "for-direction.ts", "// expect: for-direction error\nfor (let i = 0; i < 10; i--) {}\n")
 }

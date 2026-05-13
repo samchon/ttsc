@@ -1,8 +1,8 @@
 package main
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestFindLintConfigFileDiscoversPlainLintConfig verifies plain lint config discovery.
@@ -19,15 +19,15 @@ import (
 // 2. Run the discovery or explicit-path resolver helper.
 // 3. Assert the selected path or the conflict diagnostic.
 func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "lint.config.ts"), "export default {};")
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "lint.config.ts"), "export default {};")
 
-	discovered, err := findLintConfigFile(dir, "tsconfig.json")
-	if err != nil {
-		t.Fatalf("findLintConfigFile: %v", err)
-	}
-	if discovered != filepath.Join(dir, "lint.config.ts") {
-		t.Fatalf("unexpected discovery path: %s", discovered)
-	}
+  discovered, err := findLintConfigFile(dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("findLintConfigFile: %v", err)
+  }
+  if discovered != filepath.Join(dir, "lint.config.ts") {
+    t.Fatalf("unexpected discovery path: %s", discovered)
+  }
 }

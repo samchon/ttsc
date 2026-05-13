@@ -1,14 +1,14 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 import {
   TtscCompiler as BaseTtscCompiler,
   type ITtscCompilerContext,
 } from "../../../../packages/ttsc/lib/index.js";
-import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
-import { TestProject } from "@ttsc/testing";
 
 const SHARED_COMPILER_CACHE_DIR = fs.mkdtempSync(
   path.join(os.tmpdir(), "ttsc-compiler-api-cache-"),

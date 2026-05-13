@@ -1,7 +1,7 @@
 package main
 
 import (
-	"testing"
+  "testing"
 )
 
 // TestParseRulesNilTreatedAsEmpty verifies parse rules nil treated as empty.
@@ -17,11 +17,11 @@ import (
 // 2. Parse it through the native severity normalizer.
 // 3. Assert accepted severities or the explicit contract error.
 func TestParseRulesNilTreatedAsEmpty(t *testing.T) {
-	cfg, err := ParseRules(nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(cfg) != 0 {
-		t.Errorf("want empty config, got %v", cfg)
-	}
+  cfg, err := ParseRules(nil)
+  if err != nil {
+    t.Fatalf("unexpected error: %v", err)
+  }
+  if len(cfg) != 0 {
+    t.Errorf("want empty config, got %v", cfg)
+  }
 }

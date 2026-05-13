@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoNestedTernary(t *testing.T) {
-	assertRuleCorpusCase(t, "no-nested-ternary.ts", "function f(a: any, b: any, c: any, d: any, e: any) {\n  // expect: no-nested-ternary error\n  return a ? b : c ? d : e;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-nested-ternary.ts", "function f(a: any, b: any, c: any, d: any, e: any) {\n  // expect: no-nested-ternary error\n  return a ? b : c ? d : e;\n}\nJSON.stringify(f);\n")
 }

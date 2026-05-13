@@ -1,13 +1,14 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { TestProject } from "@ttsc/testing";
 import { TestPaths } from "../internal/TestPaths";
 
 /**
- * Verifies the @ttsc/paths plugin: NodeNext output extensions come from tsconfig.
+ * Verifies the @ttsc/paths plugin: NodeNext output extensions come from
+ * tsconfig.
  *
  * This project-shaped case keeps module-kind extension rewriting in the paths
  * package instead of hiding it inside a Go-only unit test. The temporary files

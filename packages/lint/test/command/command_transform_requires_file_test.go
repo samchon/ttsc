@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestCommandTransformRequiresFile verifies transform rejects a missing source file.
@@ -18,10 +18,10 @@ import (
 // 2. Capture stderr from the command front door.
 // 3. Assert the command-error status and required-file diagnostic.
 func TestCommandTransformRequiresFile(t *testing.T) {
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{"transform"})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "--file is required") {
-		t.Fatalf("transform missing file mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"transform"})
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "--file is required") {
+    t.Fatalf("transform missing file mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

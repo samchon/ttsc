@@ -14,11 +14,11 @@ import "testing"
 // 2. Decode it through ParsePlugins.
 // 3. Assert it returns no entries and no error.
 func TestParsePluginsBlankPayloadReturnsNil(t *testing.T) {
-	entries, err := ParsePlugins(" \n\t ")
-	if err != nil {
-		t.Fatalf("ParsePlugins: %v", err)
-	}
-	if entries != nil {
-		t.Fatalf("blank payload should return nil entries, got %+v", entries)
-	}
+  entries, err := ParsePlugins(" \n\t ")
+  if err != nil {
+    t.Fatalf("ParsePlugins: %v", err)
+  }
+  if entries != nil {
+    t.Fatalf("blank payload should return nil entries, got %+v", entries)
+  }
 }
