@@ -185,17 +185,20 @@ function resolveConfigFileContributors(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
   inlineNames: readonly string[],
 ): TtscPluginContributor[] {
-  const inlineConfig = (context.plugin as { config?: unknown }).config;
-  // Inline tsconfig `config` carries a rules object directly — no
-  // lint.config.* file involved. Skip discovery in that case so we don't
-  // pull in plugins from an unrelated file.
-  if (typeof inlineConfig === "object" && inlineConfig !== null) {
+  // Read the new `rules` / `extends` fields with a one-time fallback to
+  // the legacy `config` field. The legacy fallback warns once per
+  // ttsc invocation so existing tsconfigs keep working through the
+  // deprecation window without crashing CI.
+  const { hasInlineRules, extendsPath } = readSeverityConfig(context);
+  if (hasInlineRules) {
+    // Inline rules → no lint.config.* file involved. Skip discovery so
+    // we don't pull in plugins from an unrelated file.
     return [];
   }
 
   const configPath =
-    typeof inlineConfig === "string" && inlineConfig.length > 0
-      ? path.resolve(tsconfigBaseDir(context), inlineConfig)
+    extendsPath !== undefined
+      ? path.resolve(tsconfigBaseDir(context), extendsPath)
       : findLintConfigFile(context);
   if (!configPath || !fs.existsSync(configPath)) return [];
 
@@ -208,6 +211,79 @@ function resolveConfigFileContributors(
     out.push({ name: entry.namespace, source: entry.source });
   }
   return out;
+}
+
+let legacyConfigWarningEmitted = false;
+
+/**
+ * Resolves the inline-rule vs file-path split between the new
+ * `rules` / `extends` fields and the legacy `config` field.
+ *
+ * - `rules` (object) wins over `extends`: the sidecar surfaces a loud
+ *   error if both are present, but the JS factory only needs the
+ *   discovery decision (inline → skip file walk).
+ * - `extends` (string) routes the file walk to a fixed path.
+ * - `config` (legacy) maps to the equivalent new field with a one-time
+ *   deprecation warning to stderr.
+ * - Mixing legacy and new keys is rejected outright so users don't end
+ *   up with silent precedence surprises.
+ */
+function readSeverityConfig(
+  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+): { hasInlineRules: boolean; extendsPath: string | undefined } {
+  const entry = context.plugin as Record<string, unknown>;
+  const rules = entry.rules;
+  const extendsRaw = entry.extends;
+  const legacy = entry.config;
+  const hasNewRules = rules !== undefined;
+  const hasExtends = extendsRaw !== undefined;
+  const hasLegacy = legacy !== undefined;
+
+  if (hasLegacy && (hasNewRules || hasExtends)) {
+    throw new Error(
+      `@ttsc/lint: tsconfig plugin entry mixes legacy "config" with the new "rules"/"extends" fields; remove "config" (deprecated)`,
+    );
+  }
+  if (hasNewRules && hasExtends) {
+    throw new Error(
+      `@ttsc/lint: "rules" and "extends" cannot be combined on a single plugin entry; put base rules in the "extends" file and inline overrides in lint.config.ts itself`,
+    );
+  }
+
+  if (hasNewRules) {
+    if (typeof rules !== "object" || rules === null || Array.isArray(rules)) {
+      throw new Error(
+        `@ttsc/lint: "rules" must be a rule severity map, got ${typeof rules}`,
+      );
+    }
+    return { hasInlineRules: true, extendsPath: undefined };
+  }
+  if (hasExtends) {
+    if (typeof extendsRaw !== "string" || extendsRaw.length === 0) {
+      throw new Error(
+        `@ttsc/lint: "extends" must be a non-empty string path`,
+      );
+    }
+    return { hasInlineRules: false, extendsPath: extendsRaw };
+  }
+  if (hasLegacy) {
+    if (!legacyConfigWarningEmitted) {
+      legacyConfigWarningEmitted = true;
+      process.stderr.write(
+        '@ttsc/lint: tsconfig plugin entry "config" is deprecated; use "rules" for inline severity maps or "extends" for a config file path.\n',
+      );
+    }
+    if (typeof legacy === "object" && legacy !== null && !Array.isArray(legacy)) {
+      return { hasInlineRules: true, extendsPath: undefined };
+    }
+    if (typeof legacy === "string" && legacy.length > 0) {
+      return { hasInlineRules: false, extendsPath: legacy };
+    }
+    throw new Error(
+      `@ttsc/lint: legacy "config" must be a non-empty string path or a rule severity map, got ${typeof legacy}`,
+    );
+  }
+  return { hasInlineRules: false, extendsPath: undefined };
 }
 
 function findLintConfigFile(

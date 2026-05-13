@@ -72,6 +72,12 @@ interface ITtscPlugin {
   source: string;
   composes?: string[];
   stage?: "transform" | "check";
+  contributors?: ITtscPluginContributor[];
+}
+
+interface ITtscPluginContributor {
+  name: string;
+  source: string;
 }
 ```
 
@@ -81,6 +87,7 @@ Field rules:
 - `source`: Go command package directory or `go.mod` file. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle. First-party utility plugin names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear here; they have their own auto-composition path through the shared compiler host.
 - `stage`: plugin kind. Omit for `"transform"`.
+- `contributors`: optional list of additional Go source packages to statically link into this plugin's binary at build time. Each entry's `source` is copied into the scratch build tree as `<scratch>/contrib/<name>/`, and a synthesized blank import in the entry package triggers the contributor's `init()` before `main`. See [Contributors](#contributors) below.
 
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain and TypeScript-Go shim overlay, then caches the resulting executable.
 
@@ -135,6 +142,42 @@ Rules enforced at load time:
 - Cycles (two plugins listing each other) are rejected with an explicit error.
 - First-party utility names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear in `composes`. They are composed automatically through the shared compiler host hosted by `packages/ttsc/utility/host.go`.
 - The aggregate's own descriptor still needs a real `source` directory; ttsc never composes a plugin into nothing.
+
+## Contributors
+
+`composes` is horizontal — it lets multiple top-level plugin entries dispatch to one binary by name. `contributors` is vertical — it lets one binary statically link **additional Go sources that never appear as `compilerOptions.plugins[]` entries**. The contributing npm packages are discovered through the host plugin's own configuration (for `@ttsc/lint`, that is `lint.config.ts`'s `plugins` map).
+
+A host plugin populates `contributors` from its factory:
+
+```ts
+import path from "node:path";
+
+module.exports = (context) => ({
+  name: "@ttsc/lint",
+  source: path.resolve(__dirname, "plugin"),
+  stage: "check",
+  contributors: [
+    { name: "demo", source: "/abs/path/to/lint-contributor-demo/rules" },
+  ],
+});
+```
+
+ttsc's plugin builder then:
+
+1. Copies the host plugin's source to a scratch directory.
+2. Copies each contributor's `source` into `<scratch>/contrib/<contributor.name>/`.
+3. Synthesizes a `ttsc_contributions.go` next to the host's entry package with one blank import per contributor: `import _ "<host-module-path>/contrib/<name>"`.
+4. Hashes every contributor source directory into the binary cache key (so swapping a contributor invalidates the cache).
+5. Runs `go build`. The resulting binary has every contributor's `init()` already executed by the time `main` starts.
+
+Constraints enforced at load time:
+
+- Contributors ship Go source as a **package**, not a Go module. A contributor with its own `go.mod` is rejected. The host plugin's `go.mod` supplies every transitive Go dependency, which also closes the supply-chain hole where a contributor could otherwise pull in arbitrary Go modules at build time.
+- `contributor.name` must match `/^[a-z][a-z0-9_]*$/` (it forms the final import-path suffix and must be a valid Go identifier).
+- `contributor.source` must be an absolute path to an existing directory.
+- Contributor names must be unique within one plugin build.
+
+The cache key derivation for a plugin with N contributors is `ttsc + tsgo + platform + entry + Σ(contributor source hashes) + plugin source hash + overlay source hashes`, so consumers with the same logical set of contributors share one cached binary regardless of declaration order.
 
 ## Plugin Config Keys
 

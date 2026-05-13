@@ -256,6 +256,77 @@ Read:
 
 Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
 
+### Authoring a Lint Rule Contributor
+
+`@ttsc/lint` exposes a public Go module — `github.com/samchon/ttsc/packages/lint/rule` — that third-party packages import to register rules. ttsc's plugin builder statically links the contributor's Go source into `@ttsc/lint`'s binary via the protocol-level `contributors` field (see [Protocol: Contributors](./02-protocol.md#contributors)), so contributor rules share the same single AST walk and diagnostic stream as the built-in corpus.
+
+A contributor package has three parts:
+
+1. **JS descriptor** (`lib/index.js`, built from `src/index.ts`) — exports an `ITtscLintPlugin` object pointing at the Go source directory:
+
+    ```ts
+    import path from "node:path";
+    import type { ITtscLintPlugin } from "@ttsc/lint";
+
+    const plugin = {
+      meta: { name: "ttsc-lint-plugin-demo", version: "1.0.0", namespace: "demo" },
+      rules: ["no-todo-comment"] as const,
+      source: path.resolve(__dirname, "..", "rules"),
+    } satisfies ITtscLintPlugin;
+
+    export default plugin;
+    ```
+
+2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`:
+
+    ```go
+    package demo
+
+    import (
+      shimast "github.com/microsoft/typescript-go/shim/ast"
+      "github.com/samchon/ttsc/packages/lint/rule"
+    )
+
+    func init() { rule.Register(noTodoComment{}) }
+
+    type noTodoComment struct{}
+
+    func (noTodoComment) Name() string             { return "demo/no-todo-comment" }
+    func (noTodoComment) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+    func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+      // ctx.File, ctx.Checker, ctx.Severity available
+      // ctx.Report(node, msg) or ctx.ReportRange(pos, end, msg)
+    }
+    ```
+
+3. **User registration** — either inline in tsconfig (`plugins: { demo: "ttsc-lint-plugin-demo" }`) or as an ESLint-flat-config plugin object inside `lint.config.ts`:
+
+    ```ts
+    import demoPlugin from "ttsc-lint-plugin-demo";
+    import { defineConfig } from "@ttsc/lint";
+
+    export default defineConfig([
+      {
+        plugins: { demo: demoPlugin },
+        rules: { "demo/no-todo-comment": "error" },
+      },
+    ]);
+    ```
+
+What to learn:
+
+- Public rule registration without entering `package main`.
+- AST surface symmetry — contributor rules use the same `shim/ast` / `shim/checker` / `shim/scanner` packages first-party plugins consume.
+- Build-time source merging through ttsc's plugin builder, with the cache key including each contributor's source hash.
+- Two discovery surfaces in `@ttsc/lint`'s JS factory: inline `plugins` map on the tsconfig entry, and flat-config `plugins` field inside a `lint.config.ts` / `eslint.config.ts` (evaluated through ttsx).
+
+Read:
+
+- [`packages/lint/rule/rule.go`](../packages/lint/rule/rule.go) — the public Go surface (Rule, Context, Severity, Register).
+- [`packages/lint/plugin/contrib_adapter.go`](../packages/lint/plugin/contrib_adapter.go) — host-side adapter that wraps `rule.Rule` into the engine's internal `Rule`.
+- [`tests/lint-contributor-demo`](../tests/lint-contributor-demo/) — the canonical reference contributor used by the e2e tests.
+- [`tests/test-lint/src/features/contributor`](../tests/test-lint/src/features/contributor/) — end-to-end coverage for both discovery surfaces.
+
 ## Combined Project
 
 ```jsonc

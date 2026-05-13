@@ -75,7 +75,10 @@ export default {
 } satisfies TtscLintConfig;
 ```
 
-Use `compilerOptions.plugins` only when the project needs inline config or an explicit config file path.
+Use `compilerOptions.plugins` only when the project needs inline rules or an explicit config file path. Two ESLint-flat-config-shaped fields:
+
+- `rules` — inline severity map applied to the project.
+- `extends` — relative path to a standalone lint config file whose rules should be inherited.
 
 ```jsonc
 {
@@ -83,12 +86,25 @@ Use `compilerOptions.plugins` only when the project needs inline config or an ex
     "plugins": [
       {
         "transform": "@ttsc/lint",
-        "config": {
+        "rules": {
           "no-var": "error",
           "prefer-const": "error",
           "no-explicit-any": "warning",
           "no-console": "off",
         },
+      },
+    ],
+  },
+}
+```
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "extends": "./lint.config.ts",
       },
     ],
   },
@@ -109,6 +125,40 @@ npx ttsx src/index.ts
 ### Config Files
 
 By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.
+
+### Third-Party Rule Plugins
+
+Third-party packages can contribute Go-implemented lint rules that compile into the same `@ttsc/lint` binary and report through the same diagnostic stream as the built-ins. Two declaration surfaces:
+
+```jsonc
+// tsconfig.json — inline declaration
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "plugins": { "demo": "ttsc-lint-plugin-demo" },
+        "config": { "demo/no-todo-comment": "error" },
+      },
+    ],
+  },
+}
+```
+
+```ts
+// lint.config.ts — ESLint flat-config style
+import demoPlugin from "ttsc-lint-plugin-demo";
+import { defineConfig } from "@ttsc/lint";
+
+export default defineConfig([
+  {
+    plugins: { demo: demoPlugin },
+    rules: { "demo/no-todo-comment": "error" },
+  },
+]);
+```
+
+ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in [`docs/10-reference-plugins.md`](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#authoring-a-lint-rule-contributor).
 
 ## Scope
 

@@ -547,10 +547,22 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
   }
 }
 
-// LoadConfigResolver resolves one plugin entry into the engine-facing config
-// model. Inline `config` remains the native flat rule map. External config
-// files may carry ESLint flat-config-style file globs, ignores, object
-// extends, and rule severity tuples.
+// LoadConfigResolver resolves one plugin entry into the engine-facing
+// config model.
+//
+// Two equivalent input shapes are accepted:
+//
+//   - `rules` (inline severity map) + `extends` (config file path) —
+//     the canonical fields mirroring ESLint flat-config vocabulary.
+//   - `config` (legacy) — accepts the same string-or-map values but
+//     emits a one-time stderr deprecation notice. Removed in a future
+//     minor.
+//
+// `rules` and `extends` are mutually exclusive on a single plugin
+// entry; mixing legacy `config` with either new field is rejected.
+// `configFile` and `configPath` remain reserved keywords surfaced with
+// a hint pointing at `extends`, in case a user mistakenly reaches for
+// either spelling.
 func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResolver, error) {
   if entry == nil {
     return RuleConfig{}, nil
@@ -559,35 +571,75 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
   if inline == nil {
     inline = map[string]any{}
   }
-  for _, key := range []string{"rules", "configFile", "configPath"} {
+  for _, key := range []string{"configFile", "configPath"} {
     if _, ok := inline[key]; ok {
-      return nil, fmt.Errorf("@ttsc/lint: %q is not supported; use \"config\"", key)
+      return nil, fmt.Errorf("@ttsc/lint: %q is not supported; use \"extends\"", key)
     }
   }
 
-  value, ok := inline["config"]
-  if !ok {
-    discovered, err := findLintConfigFile(cwd, tsconfigPath)
-    if err != nil {
-      return nil, err
-    }
-    if discovered == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"config\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered")
-    }
-    return loadExternalConfigResolver(discovered)
+  rulesValue, hasRules := inline["rules"]
+  extendsValue, hasExtends := inline["extends"]
+  legacyValue, hasLegacy := inline["config"]
+
+  if hasLegacy && (hasRules || hasExtends) {
+    return nil, fmt.Errorf("@ttsc/lint: tsconfig plugin entry mixes legacy \"config\" with the new \"rules\"/\"extends\" fields; remove \"config\" (deprecated)")
   }
-  switch typed := value.(type) {
-  case string:
-    if strings.TrimSpace(typed) == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"config\" must not be empty")
+  if hasRules && hasExtends {
+    return nil, fmt.Errorf("@ttsc/lint: \"rules\" and \"extends\" cannot be combined on a single plugin entry; put base rules in the \"extends\" file and inline overrides in lint.config.ts itself")
+  }
+
+  if hasRules {
+    rulesMap, ok := rulesValue.(map[string]any)
+    if !ok {
+      return nil, fmt.Errorf("@ttsc/lint: \"rules\" must be a rule severity map, got %T", rulesValue)
     }
-    location := resolveConfigFilePath(typed, cwd, tsconfigPath)
+    return ParseRules(rulesMap)
+  }
+  if hasExtends {
+    extendsStr, ok := extendsValue.(string)
+    if !ok {
+      return nil, fmt.Errorf("@ttsc/lint: \"extends\" must be a string path, got %T", extendsValue)
+    }
+    if strings.TrimSpace(extendsStr) == "" {
+      return nil, fmt.Errorf("@ttsc/lint: \"extends\" must not be empty")
+    }
+    location := resolveConfigFilePath(extendsStr, cwd, tsconfigPath)
     return loadExternalConfigResolver(location)
-  case map[string]any:
-    return ParseRules(typed)
-  default:
-    return nil, fmt.Errorf("@ttsc/lint: \"config\" must be a string path or object, got %T", value)
   }
+  if hasLegacy {
+    emitLegacyConfigDeprecation()
+    switch typed := legacyValue.(type) {
+    case string:
+      if strings.TrimSpace(typed) == "" {
+        return nil, fmt.Errorf("@ttsc/lint: legacy \"config\" must not be empty")
+      }
+      location := resolveConfigFilePath(typed, cwd, tsconfigPath)
+      return loadExternalConfigResolver(location)
+    case map[string]any:
+      return ParseRules(typed)
+    default:
+      return nil, fmt.Errorf("@ttsc/lint: legacy \"config\" must be a string path or object, got %T", legacyValue)
+    }
+  }
+
+  discovered, err := findLintConfigFile(cwd, tsconfigPath)
+  if err != nil {
+    return nil, err
+  }
+  if discovered == "" {
+    return nil, fmt.Errorf("@ttsc/lint: \"rules\" or \"extends\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered")
+  }
+  return loadExternalConfigResolver(discovered)
+}
+
+var legacyConfigDeprecationEmitted bool
+
+func emitLegacyConfigDeprecation() {
+  if legacyConfigDeprecationEmitted {
+    return
+  }
+  legacyConfigDeprecationEmitted = true
+  fmt.Fprintln(os.Stderr, "@ttsc/lint: tsconfig plugin entry \"config\" is deprecated; use \"rules\" for inline severity maps or \"extends\" for a config file path.")
 }
 
 func loadExternalConfigResolver(location string) (RuleResolver, error) {

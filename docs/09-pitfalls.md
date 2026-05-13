@@ -115,7 +115,7 @@ This works when a check plugin runs before one transform sidecar that owns the s
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/lint", "config": { "no-var": "error" } },
+      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
       { "transform": "my-source-transform" },
     ],
   },

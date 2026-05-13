@@ -16,13 +16,13 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"sort"
+  "fmt"
+  "os"
+  "sort"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // registerContributors wraps every contributor rule registered through
@@ -34,24 +34,24 @@ import (
 // with a stderr warning. The host prefers a deterministic, debuggable
 // outcome over panicking inside startup.
 func registerContributors() {
-	contributors := rule.Registered()
-	sort.SliceStable(contributors, func(i, j int) bool {
-		return contributors[i].Name() < contributors[j].Name()
-	})
-	for _, contributor := range contributors {
-		name := contributor.Name()
-		if name == "" {
-			fmt.Fprintln(os.Stderr, "@ttsc/lint: contributor rule with empty name ignored")
-			continue
-		}
-		if LookupRule(name) != nil {
-			fmt.Fprintf(os.Stderr,
-				"@ttsc/lint: contributor rule %q collides with an existing rule; dropping contributor entry\n",
-				name)
-			continue
-		}
-		Register(contributorAdapter{inner: contributor})
-	}
+  contributors := rule.Registered()
+  sort.SliceStable(contributors, func(i, j int) bool {
+    return contributors[i].Name() < contributors[j].Name()
+  })
+  for _, contributor := range contributors {
+    name := contributor.Name()
+    if name == "" {
+      fmt.Fprintln(os.Stderr, "@ttsc/lint: contributor rule with empty name ignored")
+      continue
+    }
+    if LookupRule(name) != nil {
+      fmt.Fprintf(os.Stderr,
+        "@ttsc/lint: contributor rule %q collides with an existing rule; dropping contributor entry\n",
+        name)
+      continue
+    }
+    Register(contributorAdapter{inner: contributor})
+  }
 }
 
 // contributorAdapter wraps a public `rule.Rule` so the engine's
@@ -61,35 +61,35 @@ func registerContributors() {
 // public `rule.Context` and the engine's internal `Context` share the
 // same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
-	inner rule.Rule
+  inner rule.Rule
 }
 
-func (a contributorAdapter) Name() string             { return a.inner.Name() }
-func (a contributorAdapter) Visits() []shimast.Kind   { return a.inner.Visits() }
+func (a contributorAdapter) Name() string           { return a.inner.Name() }
+func (a contributorAdapter) Visits() []shimast.Kind { return a.inner.Visits() }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
-	if ctx == nil {
-		return
-	}
-	pubCtx := rule.NewContext(
-		ctx.File,
-		ctx.Checker,
-		rule.Severity(ctx.Severity),
-		contextReporter{ctx: ctx},
-	)
-	a.inner.Check(pubCtx, node)
+  if ctx == nil {
+    return
+  }
+  pubCtx := rule.NewContext(
+    ctx.File,
+    ctx.Checker,
+    rule.Severity(ctx.Severity),
+    contextReporter{ctx: ctx},
+  )
+  a.inner.Check(pubCtx, node)
 }
 
 // contextReporter forwards `rule.Reporter` calls back to the host's
 // existing collect pipeline. Trivial because the public and internal
 // reporter signatures both speak `*shimast.Node`.
 type contextReporter struct {
-	ctx *Context
+  ctx *Context
 }
 
 func (r contextReporter) Report(node *shimast.Node, message string) {
-	r.ctx.Report(node, message)
+  r.ctx.Report(node, message)
 }
 
 func (r contextReporter) ReportRange(pos, end int, message string) {
-	r.ctx.ReportRange(pos, end, message)
+  r.ctx.ReportRange(pos, end, message)
 }
