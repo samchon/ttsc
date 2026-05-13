@@ -386,14 +386,26 @@ function collectPluginObjects(value: unknown): Array<Record<string, unknown>> {
 function extractPluginSource(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   if (!isObject(value)) return undefined;
-  const source = (value as { source?: unknown }).source;
+  // ESM-from-CJS interop wraps CJS modules' \`exports.default\` so the
+  // plugin object can land under a \`.default\` indirection. Walk a few
+  // hops so contributors authored as \`export default plugin\` and
+  // contributors authored as plain \`module.exports = plugin\` both
+  // resolve identically.
+  let current: Record<string, unknown> = value;
+  for (let i = 0; i < 4; i++) {
+    if (typeof current.source === "string") break;
+    const next = current.default;
+    if (!isObject(next)) break;
+    current = next;
+  }
+  const source = current.source;
   return typeof source === "string" ? source : undefined;
 }
 `;
 
 function readTtsxConfigPlugins(
   configPath: string,
-  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+  _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-cfg-"));
   try {

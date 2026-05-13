@@ -1079,8 +1079,23 @@ function isNativePluginMap(value: unknown): boolean {
 function isNativePluginValue(entry: unknown): boolean {
   if (typeof entry === "string") return false;
   if (entry === null || typeof entry !== "object") return false;
-  const source = (entry as { source?: unknown }).source;
-  return typeof source === "string" && source.length > 0;
+  // ESM-from-CJS interop wraps CJS modules' "exports.default" so a
+  // contributor authored as "export default plugin" lands under a
+  // ".default" indirection. Walk a few hops so both "export default"
+  // and plain "module.exports = plugin" contributors register as
+  // native here.
+  let current = entry as Record<string, unknown>;
+  for (let i = 0; i < 4; i++) {
+    if (typeof current.source === "string" && (current.source as string).length > 0) {
+      return true;
+    }
+    const next = current.default;
+    if (next === null || typeof next !== "object" || Array.isArray(next)) {
+      return false;
+    }
+    current = next as Record<string, unknown>;
+  }
+  return false;
 }
 `, importLiteral)
 }
