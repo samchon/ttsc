@@ -69,7 +69,11 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   assert.match(dts, /export \* from "\.\/structures\/index"/);
   assert.doesNotMatch(dts, /from "ttsc"/);
   assert.equal(manifest.exports["./config"], undefined);
-  assert.match(pluginConfigDts, /import type { TtscLintConfig }/);
+  // The legacy `config?: string | TtscLintRuleMap` field narrows to the
+  // rule-map shape (the new `rules` / `extends` fields cover the wider
+  // forms), so `ITtscLintPluginConfig` imports the map type — not the
+  // union `TtscLintConfig` — from `./TtscLintRuleMap`.
+  assert.match(pluginConfigDts, /import type { TtscLintRuleMap }/);
   assert.doesNotMatch(pluginConfigDts, /from "ttsc"/);
   assert.match(pluginConfigDts, /export interface ITtscLintPluginConfig/);
   assert.doesNotMatch(dts, /configFile/);

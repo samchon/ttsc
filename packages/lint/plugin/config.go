@@ -1,6 +1,7 @@
 package main
 
 import (
+  "bytes"
   "context"
   "encoding/json"
   "fmt"
@@ -499,7 +500,14 @@ func isNativePluginValue(entry any) bool {
   }
   switch typed := entry.(type) {
   case string:
-    return false
+    // A non-empty string is a native npm specifier (matching the JS
+    // factory's `normalizePluginValue` contract for `.js`/`.cjs`/`.ts`
+    // configs and the JSON-only `readJsonConfigPlugins` path). The JS
+    // factory resolves the specifier at load time and bakes the
+    // contributor into the binary, so the Go sidecar should not flip
+    // `eslintRuntimeRequired` for a file that already declared a
+    // native specifier.
+    return typed != ""
   case map[string]any:
     // Walk ESM-from-CJS `.default` indirection so a contributor authored
     // as `export default plugin` registers as native here, matching the
@@ -776,6 +784,11 @@ func loadJSONConfigFile(location string) (any, error) {
   if err != nil {
     return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
   }
+  // Strip a leading UTF-8 BOM so files saved by Windows editors round
+  // trip through `json.Unmarshal` without an opaque "invalid character"
+  // failure. Mirrors the equivalent JS-side guard in
+  // `packages/lint/src/index.ts::readJsonConfigPlugins`.
+  body = bytes.TrimPrefix(body, []byte{0xEF, 0xBB, 0xBF})
   var out any
   if err := json.Unmarshal(body, &out); err != nil {
     return nil, fmt.Errorf("@ttsc/lint: parse config file %s: %w", location, err)
@@ -792,8 +805,26 @@ const { pathToFileURL } = require("node:url");
 
 (async () => {
   const mod = await import(pathToFileURL(process.argv[1]).href);
-  const candidate = mod.default ?? mod.config ?? mod;
-  const value = typeof candidate === "function" ? await candidate() : candidate;
+  let current = mod;
+  let allowNamedConfig = true;
+  // Match the 8-hop walk used by the TypeScript loader at
+  // ` + "`" + `typeScriptConfigLoaderSource` + "`" + ` so doubly-wrapped CJS/ESM
+  // interop (e.g. ` + "`" + `{default:{default:config}}` + "`" + `) is resolved
+  // consistently across .js/.cjs/.mjs and .ts/.cts/.mts loaders.
+  for (let i = 0; i < 8; i++) {
+    if (current !== null && typeof current === "object" && Object.prototype.hasOwnProperty.call(current, "default")) {
+      current = current.default;
+      allowNamedConfig = false;
+      continue;
+    }
+    if (allowNamedConfig && current !== null && typeof current === "object" && Object.prototype.hasOwnProperty.call(current, "config")) {
+      current = current.config;
+      allowNamedConfig = false;
+      continue;
+    }
+    break;
+  }
+  const value = typeof current === "function" ? await current() : current;
   if (value === null || typeof value !== "object") {
     throw new Error("config file must export an object or flat config array");
   }
@@ -896,7 +927,9 @@ function isNativePluginMap(value) {
 }
 
 function isNativePluginValue(entry) {
-  if (typeof entry === "string") return false;
+  // A non-empty string is a native specifier — JS factory resolves it
+  // at load time, so the loader must not flip the ESLint-runtime flag.
+  if (typeof entry === "string") return entry.length > 0;
   if (entry === null || typeof entry !== "object") return false;
   let current = entry;
   for (let i = 0; i < 4; i++) {
@@ -1177,7 +1210,9 @@ function isNativePluginMap(value: unknown): boolean {
 }
 
 function isNativePluginValue(entry: unknown): boolean {
-  if (typeof entry === "string") return false;
+  // A non-empty string is a native specifier — see the matching Go-side
+  // and JS-loader implementations.
+  if (typeof entry === "string") return entry.length > 0;
   if (entry === null || typeof entry !== "object") return false;
   // ESM-from-CJS interop wraps CJS modules' "exports.default" so a
   // contributor authored as "export default plugin" lands under a
@@ -1201,16 +1236,27 @@ function isNativePluginValue(entry: unknown): boolean {
 }
 
 func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
+  // Mirror the JS-factory loader's lenient settings (see the matching
+  // tsconfig synthesis in `packages/lint/src/index.ts::readTtsxConfigPlugins`).
+  // Both sides evaluate the SAME user-authored lint config; without
+  // matching strictness, a config that loads fine through the JS
+  // factory could be rejected by the Go sidecar (or vice versa) on
+  // identical input. The loader is extracting data, not validating
+  // user code, so `strict: false` + `allowJs: true` + `noImplicitAny:
+  // false` is the right baseline.
   content := map[string]any{
     "compilerOptions": map[string]any{
       "allowImportingTsExtensions":      true,
+      "allowJs":                         true,
+      "checkJs":                         false,
       "module":                          "ESNext",
       "moduleResolution":                "bundler",
+      "noImplicitAny":                   false,
       "outDir":                          filepath.ToSlash(filepath.Join(outDir, "out")),
       "rewriteRelativeImportExtensions": true,
       "rootDir":                         "/",
       "skipLibCheck":                    true,
-      "strict":                          true,
+      "strict":                          false,
       "target":                          "ES2022",
     },
     "files": []string{

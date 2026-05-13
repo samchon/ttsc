@@ -1,4 +1,3 @@
-import type { TtscLintConfig } from "./TtscLintConfig";
 import type { TtscLintRuleMap } from "./TtscLintRuleMap";
 
 /** `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`. */
@@ -72,8 +71,14 @@ export interface ITtscLintPluginConfig {
    *   file path. The sidecar maps a legacy `config` entry onto the appropriate
    *   new field and emits a one-time stderr deprecation notice. Removed in a
    *   future minor.
+   *
+   *   The legacy shape is intentionally narrower than `rules`/`extends`: a
+   *   string (file path) or a flat rule-name → severity map. The Go-side
+   *   parser only accepts those two shapes; widening the TS type to the new
+   *   `TtscLintConfig` union would silently let `config: [{ rules: {...} }]`
+   *   pass type-checking and fail at runtime.
    */
-  config?: string | TtscLintConfig;
+  config?: string | TtscLintRuleMap;
 
   /** Extra plugin-owned fields are passed through unchanged. */
   [key: string]: unknown;

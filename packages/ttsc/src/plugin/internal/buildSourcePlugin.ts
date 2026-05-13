@@ -11,6 +11,26 @@ const TSGO_GO_MODULE_PATH = "github.com/microsoft/typescript-go";
 
 const PRUNE_DIRS = new Set(["node_modules", ".git", ".ttsc"]);
 const GENERATED_WORKSPACE_FILES = new Set(["go.work", "go.work.sum"]);
+
+// Go env vars that change the produced binary. Hashed into the plugin
+// build cache key so cross-compile target / build tags / cgo toggle
+// don't collide with the native-platform key.
+const GO_BUILD_ENV_KEYS: readonly string[] = [
+  "GOOS",
+  "GOARCH",
+  "GOAMD64",
+  "GOARM",
+  "GO386",
+  "GOMIPS",
+  "GOMIPS64",
+  "GOPPC64",
+  "GORISCV64",
+  "GOWASM",
+  "GOFLAGS",
+  "GOEXPERIMENT",
+  "CGO_ENABLED",
+  "GOTOOLCHAIN",
+];
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 const CONTRIB_DIRNAME = "contrib";
 
@@ -164,9 +184,10 @@ function mergeContributors(opts: {
     const target = path.join(contribRoot, contributor.name);
     if (fs.existsSync(target)) {
       // Defensive: validatePluginContributors already rejects duplicate
-      // names and shouldPruneDirectory excludes `contrib/` from the
-      // host source copy, so reaching this branch implies an upstream
-      // contract break. Fail loud rather than overwrite.
+      // names, and the contribRoot-existence guard above blocks the
+      // host plugin from pre-shipping a `contrib/` directory. Reaching
+      // this branch implies an upstream contract break. Fail loud
+      // rather than overwrite.
       throw new Error(
         `ttsc: plugin "${opts.pluginName}" contributor "${contributor.name}" target ${target} already exists; ` +
           `contributor names must be unique within one plugin build`,
@@ -764,6 +785,17 @@ export function computeCacheKey(inputs: {
   if (inputs.goBinary !== undefined) {
     hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary)}\n`);
   }
+  // Hash the Go env vars that change `go build`'s output (cross-compile
+  // target, build tags, cgo toggle, etc.). Without this, a user setting
+  // `GOOS=linux GOARCH=arm64` on a darwin host would write a Linux-arm64
+  // binary into the same cache slot as the native build, and the next
+  // native invocation would spawn an unrunnable artifact.
+  for (const key of GO_BUILD_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && value !== "") {
+      hash.update(`${key}=${value}\n`);
+    }
+  }
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir);
@@ -831,7 +863,14 @@ function shouldPruneDirectory(name: string): boolean {
 }
 
 function shouldOmitSourceFile(name: string): boolean {
-  return GENERATED_WORKSPACE_FILES.has(name);
+  if (GENERATED_WORKSPACE_FILES.has(name)) return true;
+  // npm-pack tarballs and macOS/Windows editor sidecars are local
+  // build artifacts that drift independently of the Go source. They
+  // would otherwise enter the cache key and bust the cached binary on
+  // every unrelated `npm pack` or editor save.
+  if (name.endsWith(".tgz") || name.endsWith(".tar.gz")) return true;
+  if (name === ".DS_Store" || name === "Thumbs.db") return true;
+  return false;
 }
 
 function isHashableFile(name: string): boolean {

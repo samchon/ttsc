@@ -131,7 +131,12 @@ function resolveInlineContributors(
     );
   }
   const out: TtscPluginContributor[] = [];
-  const seen = new Set<string>();
+  // Track the post-`goSubpackageName` form so `a-b` and `a_b` are
+  // caught as colliding aliases before they reach the downstream
+  // contributor validator's opaque `duplicate name "a_b"` error.
+  // (`Object.entries` cannot itself surface duplicate string keys, so
+  // a verbatim-namespace guard is unreachable.)
+  const seenGoNames = new Map<string, string>();
   for (const [namespace, specifier] of Object.entries(declared)) {
     if (!NAMESPACE_PATTERN.test(namespace)) {
       throw new Error(
@@ -143,23 +148,20 @@ function resolveInlineContributors(
         `@ttsc/lint: contributor ${JSON.stringify(namespace)} must point at a non-empty package specifier or path`,
       );
     }
-    // Reject duplicate namespaces BEFORE incurring the require cost.
-    // `Object.entries` on JSON.parse output can't actually surface
-    // duplicates (last-wins on parse), but explicit declarations from
-    // factory callers could; the guard keeps the contract honest and
-    // the error message clean.
-    if (seen.has(namespace)) {
+    const goName = goSubpackageName(namespace);
+    const earlier = seenGoNames.get(goName);
+    if (earlier !== undefined) {
       throw new Error(
-        `@ttsc/lint: contributor namespace ${JSON.stringify(namespace)} declared more than once`,
+        `@ttsc/lint: contributor namespaces ${JSON.stringify(earlier)} and ${JSON.stringify(namespace)} both map to Go sub-package ${JSON.stringify(goName)}; pick one form (hyphens collapse to underscores for the Go identifier)`,
       );
     }
-    seen.add(namespace);
+    seenGoNames.set(goName, namespace);
     const plugin = loadContributorPluginViaRequire(
       specifier,
       context,
       namespace,
     );
-    out.push({ name: goSubpackageName(namespace), source: plugin.source });
+    out.push({ name: goName, source: plugin.source });
   }
   return out;
 }
@@ -233,12 +235,19 @@ function resolveConfigFileContributors(
   if (!configPath || !fs.existsSync(configPath)) return [];
 
   const entries = readConfigPluginEntries(configPath, context);
+  // Dedup against the Go-subpackage form (post hyphen→underscore
+  // transform). The inline arm has already applied `goSubpackageName`
+  // when it produced `inlineNames`, so comparing on the original
+  // hyphenated namespace would always miss for hyphenated namespaces
+  // and emit a colliding contributor that `validatePluginContributors`
+  // later rejects as a duplicate name.
   const occupied = new Set(inlineNames);
   const out: TtscPluginContributor[] = [];
   for (const entry of entries) {
-    if (occupied.has(entry.namespace)) continue; // tsconfig inline wins
-    occupied.add(entry.namespace);
-    out.push({ name: goSubpackageName(entry.namespace), source: entry.source });
+    const goName = goSubpackageName(entry.namespace);
+    if (occupied.has(goName)) continue; // tsconfig inline wins
+    occupied.add(goName);
+    out.push({ name: goName, source: entry.source });
   }
   return out;
 }
@@ -381,7 +390,11 @@ function readJsonConfigPlugins(
 ): ConfigPluginEntry[] {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    // Strip a leading UTF-8 BOM so files saved by Windows editors
+    // (Notepad++, some VS Code setups) round-trip through `JSON.parse`
+    // without an opaque "Unexpected token" failure.
+    const text = fs.readFileSync(configPath, "utf8").replace(/^\uFEFF/, "");
+    parsed = JSON.parse(text);
   } catch (error) {
     throw new Error(
       `@ttsc/lint: failed to parse lint config ${configPath}: ${

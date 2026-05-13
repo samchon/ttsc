@@ -23,8 +23,13 @@ import (
 // 2. Parse a source file that contains one node of that Kind.
 // 3. Run the engine and assert exactly one finding (not two).
 func TestEngineDedupesDuplicateKindsInVisits(t *testing.T) {
+  // Defensive: `Register` panics on duplicates, so a `go test -count=N`
+  // re-run would crash before `defer` could clean up. Drop any prior
+  // entry first and schedule the cleanup via `t.Cleanup` so it fires
+  // for panics + Fatal alike.
+  delete(registered.rules, "dedupe-visits-test/rule")
+  t.Cleanup(func() { delete(registered.rules, "dedupe-visits-test/rule") })
   Register(&duplicateKindsTestRule{})
-  defer delete(registered.rules, "dedupe-visits-test/rule")
 
   engine := NewEngine(RuleConfig{
     "dedupe-visits-test/rule": SeverityError,
