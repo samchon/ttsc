@@ -238,9 +238,13 @@ function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
 }
 
 function pruneOrphanPendingBinaries(binaryPath: string): void {
+  // Only sweep pending files owned by THIS process. Concurrent ttsc
+  // invocations (two `ttsc --watch` shells against the same project)
+  // may have their own `<binary>.<their-pid>.*.tmp` mid-flight, and
+  // deleting them would race their renameSync into ENOENT.
   try {
     const dir = path.dirname(binaryPath);
-    const prefix = `${path.basename(binaryPath)}.`;
+    const prefix = `${path.basename(binaryPath)}.${process.pid}.`;
     for (const name of fs.readdirSync(dir)) {
       if (name.startsWith(prefix) && name.endsWith(".tmp")) {
         fs.rmSync(path.join(dir, name), { force: true });
