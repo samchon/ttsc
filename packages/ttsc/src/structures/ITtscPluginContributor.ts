@@ -14,6 +14,7 @@ export interface ITtscPluginContributor {
    * unique within one plugin build.
    */
   name: string;
+
   /**
    * Absolute path to the contributor's Go source directory.
    *

@@ -12,11 +12,10 @@ export interface ITtscLintPluginConfig {
   /**
    * Inline rule severity map applied to the project.
    *
-   * Mirrors the `rules` field of an ESLint flat-config entry. When set,
-   * the sidecar uses this map directly and does NOT consult any
-   * `lint.config.*` file (use `extends` for that). Combine with
-   * `plugins` to register contributor rule namespaces in the same
-   * entry.
+   * Mirrors the `rules` field of an ESLint flat-config entry. When set, the
+   * sidecar uses this map directly and does NOT consult any `lint.config.*`
+   * file (use `extends` for that). Combine with `plugins` to register
+   * contributor rule namespaces in the same entry.
    *
    * ```jsonc
    * {
@@ -28,13 +27,13 @@ export interface ITtscLintPluginConfig {
   rules?: TtscLintRuleMap;
 
   /**
-   * Path to a standalone lint config file whose rules should be applied
-   * to this project. Relative paths are resolved from the tsconfig
-   * directory. Accepts the usual `lint.config.*` / `ttsc-lint.config.*`
-   * / `eslint.config.*` extensions.
+   * Path to a standalone lint config file whose rules should be applied to this
+   * project. Relative paths are resolved from the tsconfig directory. Accepts
+   * the usual `lint.config.*` / `ttsc-lint.config.*` / `eslint.config.*`
+   * extensions.
    *
-   * Mirrors the `extends` field of an ESLint flat-config entry —
-   * "inherit this file's configuration".
+   * Mirrors the `extends` field of an ESLint flat-config entry — "inherit this
+   * file's configuration".
    *
    * ```jsonc
    * {
@@ -43,18 +42,18 @@ export interface ITtscLintPluginConfig {
    * }
    * ```
    *
-   * `rules` and `extends` are mutually exclusive on a single plugin
-   * entry; the sidecar surfaces a loud error when both are set.
+   * `rules` and `extends` are mutually exclusive on a single plugin entry; the
+   * sidecar surfaces a loud error when both are set.
    */
   extends?: string;
 
   /**
    * Contributor lint plugins to compile into the `@ttsc/lint` binary.
    *
-   * Each entry maps a namespace (rule-name prefix) to an npm specifier
-   * or relative path. The factory resolves the package, reads its
-   * exported `ITtscLintPlugin` descriptor, and forwards the Go source
-   * directory to ttsc's plugin builder via the `contributors` field.
+   * Each entry maps a namespace (rule-name prefix) to an npm specifier or
+   * relative path. The factory resolves the package, reads its exported
+   * `ITtscLintPlugin` descriptor, and forwards the Go source directory to
+   * ttsc's plugin builder via the `contributors` field.
    *
    * ```jsonc
    * {
@@ -69,10 +68,10 @@ export interface ITtscLintPluginConfig {
   /**
    * Inline rule map or path to a standalone lint config file.
    *
-   * @deprecated Use `rules` for inline severity maps or `extends` for a
-   *   config file path. The sidecar maps a legacy `config` entry onto
-   *   the appropriate new field and emits a one-time stderr deprecation
-   *   notice. Removed in a future minor.
+   * @deprecated Use `rules` for inline severity maps or `extends` for a config
+   *   file path. The sidecar maps a legacy `config` entry onto the appropriate
+   *   new field and emits a one-time stderr deprecation notice. Removed in a
+   *   future minor.
    */
   config?: string | TtscLintConfig;
 

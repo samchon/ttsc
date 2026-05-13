@@ -213,20 +213,19 @@ function resolveConfigFileContributors(
   return out;
 }
 
-let legacyConfigWarningEmitted = false;
-
 /**
- * Resolves the inline-rule vs file-path split between the new
- * `rules` / `extends` fields and the legacy `config` field.
+ * Resolves the inline-rule vs file-path split between the new `rules` /
+ * `extends` fields and the legacy `config` field.
  *
- * - `rules` (object) wins over `extends`: the sidecar surfaces a loud
- *   error if both are present, but the JS factory only needs the
- *   discovery decision (inline → skip file walk).
+ * - `rules` (object) routes the discovery loop away from any `lint.config.*` file
+ *   — the inline map is authoritative.
  * - `extends` (string) routes the file walk to a fixed path.
- * - `config` (legacy) maps to the equivalent new field with a one-time
- *   deprecation warning to stderr.
- * - Mixing legacy and new keys is rejected outright so users don't end
- *   up with silent precedence surprises.
+ * - `config` (legacy) silently maps onto the equivalent new field. The
+ *   user-facing deprecation notice is emitted by the Go sidecar so that a
+ *   single ttsc invocation prints exactly one warning regardless of how many
+ *   entry points (JS factory, Go binary) parse the same key.
+ * - Mixing legacy and new keys, or mixing `rules` with `extends`, is rejected
+ *   outright so users don't end up with silent precedence surprises.
  */
 function readSeverityConfig(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
@@ -260,20 +259,16 @@ function readSeverityConfig(
   }
   if (hasExtends) {
     if (typeof extendsRaw !== "string" || extendsRaw.length === 0) {
-      throw new Error(
-        `@ttsc/lint: "extends" must be a non-empty string path`,
-      );
+      throw new Error(`@ttsc/lint: "extends" must be a non-empty string path`);
     }
     return { hasInlineRules: false, extendsPath: extendsRaw };
   }
   if (hasLegacy) {
-    if (!legacyConfigWarningEmitted) {
-      legacyConfigWarningEmitted = true;
-      process.stderr.write(
-        '@ttsc/lint: tsconfig plugin entry "config" is deprecated; use "rules" for inline severity maps or "extends" for a config file path.\n',
-      );
-    }
-    if (typeof legacy === "object" && legacy !== null && !Array.isArray(legacy)) {
+    if (
+      typeof legacy === "object" &&
+      legacy !== null &&
+      !Array.isArray(legacy)
+    ) {
       return { hasInlineRules: true, extendsPath: undefined };
     }
     if (typeof legacy === "string" && legacy.length > 0) {

@@ -8,19 +8,19 @@ import {
  * Verifies contributor discovery through a flat-config `lint.config.ts`
  * `plugins` field, not just the tsconfig plugin entry.
  *
- * Pins the second contributor discovery surface added in the same commit
- * as the host's `contributors` field: when the user authors plugins the
- * ESLint-flat-config way (`plugins: { demo: demoPlugin }` next to
- * `rules`), `@ttsc/lint`'s factory must spawn ttsx to evaluate the .ts
- * config, walk every entry's `plugins` map, and forward the resolved
- * source paths to ttsc's plugin builder.
+ * Pins the second contributor discovery surface added in the same commit as the
+ * host's `contributors` field: when the user authors plugins the
+ * ESLint-flat-config way (`plugins: { demo: demoPlugin }` next to `rules`),
+ * `@ttsc/lint`'s factory must spawn ttsx to evaluate the .ts config, walk every
+ * entry's `plugins` map, and forward the resolved source paths to ttsc's plugin
+ * builder.
  *
- * 1. Materialize a fixture whose tsconfig only references `@ttsc/lint`
- *    (no `plugins` field) but points at an external `lint.config.ts`.
- * 2. The `lint.config.ts` imports the demo plugin object and lists it
- *    under `plugins: { demo: demoPlugin }` of a flat-config entry.
- * 3. Run ttsc; assert the demo rule fires the same way it does when the
- *    plugin is declared inline in tsconfig.
+ * 1. Materialize a fixture whose tsconfig only references `@ttsc/lint` (no
+ *    `plugins` field) but points at an external `lint.config.ts`.
+ * 2. The `lint.config.ts` imports the demo plugin object and lists it under
+ *    `plugins: { demo: demoPlugin }` of a flat-config entry.
+ * 3. Run ttsc; assert the demo rule fires the same way it does when the plugin is
+ *    declared inline in tsconfig.
  */
 export const test_lint_contributor_plugin_discovered_from_lint_config_ts =
   () => {

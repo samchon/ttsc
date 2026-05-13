@@ -10,9 +10,8 @@
 // `rule.Register(noTodoComment{})`. The literal tuple is `as const` so
 // the host's `TtscLintConfig` type can suggest valid
 // `demo/no-todo-comment` keys in the user's `rules` map.
-import path from "node:path";
-
 import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
 
 const plugin = {
   meta: {
