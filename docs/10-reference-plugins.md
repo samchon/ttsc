@@ -213,7 +213,7 @@ Install:
 npm install -D @ttsc/lint
 ```
 
-When `config` is not written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
+When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
 What to learn:
 

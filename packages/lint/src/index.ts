@@ -29,7 +29,24 @@ type TtscPluginFactoryContext<TConfig> = {
   tsconfig: string;
 };
 
-const NAMESPACE_PATTERN = /^[a-z][a-z0-9_]*$/;
+// Namespace becomes the rule-name prefix (`<ns>/<rule>`). Mirrors ESLint
+// plugin namespace conventions: lowercase ASCII, digits, hyphens, and
+// underscores; leading character must be alphabetic so the prefix never
+// collides with a rule name that itself starts with a digit. Hyphens
+// are encoded into underscores for the Go sub-package name (see
+// `goSubpackageName`); the user-facing prefix keeps the original form.
+const NAMESPACE_PATTERN = /^[a-z][a-z0-9_-]*$/;
+
+/**
+ * Map a user-facing namespace (`react-hooks`) to a Go-valid sub-package
+ * name (`react_hooks`). Required because ttsc's plugin builder uses the
+ * `name` field as a directory and import-path suffix, both of which must
+ * satisfy Go's stricter `[a-z][a-z0-9_]*` identifier rules. The function
+ * is total over namespaces that already passed `NAMESPACE_PATTERN`.
+ */
+function goSubpackageName(namespace: string): string {
+  return namespace.replace(/-/g, "_");
+}
 
 const LINT_CONFIG_FILENAMES = [
   "lint.config.ts",
@@ -126,18 +143,23 @@ function resolveInlineContributors(
         `@ttsc/lint: contributor ${JSON.stringify(namespace)} must point at a non-empty package specifier or path`,
       );
     }
-    const plugin = loadContributorPluginViaRequire(
-      specifier,
-      context,
-      namespace,
-    );
+    // Reject duplicate namespaces BEFORE incurring the require cost.
+    // `Object.entries` on JSON.parse output can't actually surface
+    // duplicates (last-wins on parse), but explicit declarations from
+    // factory callers could; the guard keeps the contract honest and
+    // the error message clean.
     if (seen.has(namespace)) {
       throw new Error(
         `@ttsc/lint: contributor namespace ${JSON.stringify(namespace)} declared more than once`,
       );
     }
     seen.add(namespace);
-    out.push({ name: namespace, source: plugin.source });
+    const plugin = loadContributorPluginViaRequire(
+      specifier,
+      context,
+      namespace,
+    );
+    out.push({ name: goSubpackageName(namespace), source: plugin.source });
   }
   return out;
 }
@@ -146,11 +168,19 @@ function loadContributorPluginViaRequire(
   specifier: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
   namespace: string,
+  anchorFile?: string,
 ): ITtscLintPlugin {
-  const requestRoot = path.resolve(context.cwd ?? context.projectRoot);
-  const requireFromProject = createRequire(
-    path.join(requestRoot, "__lint_contributor_resolve__.cjs"),
-  );
+  // Resolve relative paths and node_modules lookups from the file that
+  // declared the specifier, when one is available — `lint.config.json`
+  // / `lint.config.cjs` reach this code with their own path on disk,
+  // and ttsc's tsconfig plugin entry falls back to the project root.
+  const anchor =
+    anchorFile ??
+    path.join(
+      path.resolve(context.cwd ?? context.projectRoot),
+      "__lint_contributor_resolve__.cjs",
+    );
+  const requireFromProject = createRequire(anchor);
   let resolved: string;
   try {
     resolved = requireFromProject.resolve(specifier);
@@ -208,7 +238,7 @@ function resolveConfigFileContributors(
   for (const entry of entries) {
     if (occupied.has(entry.namespace)) continue; // tsconfig inline wins
     occupied.add(entry.namespace);
-    out.push({ name: entry.namespace, source: entry.source });
+    out.push({ name: goSubpackageName(entry.namespace), source: entry.source });
   }
   return out;
 }
@@ -368,7 +398,12 @@ function readJsonConfigPlugins(
           `@ttsc/lint: lint config ${configPath} plugin ${JSON.stringify(namespace)} must point at a package specifier string`,
         );
       }
-      const plugin = loadContributorPluginViaRequire(value, context, namespace);
+      const plugin = loadContributorPluginViaRequire(
+        value,
+        context,
+        namespace,
+        configPath,
+      );
       return { namespace, source: plugin.source };
     });
 }
@@ -535,11 +570,20 @@ function readTtsxConfigPlugins(
       env,
       encoding: "utf8",
       maxBuffer: 1024 * 1024 * 16,
+      // 60s cap so a runaway top-level await / infinite loop in the
+      // user's lint config can't hang the entire ttsc invocation.
+      timeout: 60_000,
       windowsHide: true,
     });
     if (result.error) {
       throw new Error(
         `@ttsc/lint: failed to spawn ttsx for ${configPath}: ${result.error.message}`,
+      );
+    }
+    if (result.signal) {
+      throw new Error(
+        `@ttsc/lint: ttsx evaluation of ${configPath} was killed by signal ${result.signal} ` +
+          `(likely the 60s timeout). Simplify the config or move heavy work out of top-level.`,
       );
     }
     if (result.status !== 0) {

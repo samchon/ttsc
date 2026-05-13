@@ -159,7 +159,7 @@ export namespace TestLint {
       writeFixtureProject(
         tmpdir,
         source,
-        pluginConfig ?? { config: rules ?? {} },
+        pluginConfig ?? { rules: rules ?? {} },
       );
       if (extraSources) {
         for (const [relPath, content] of Object.entries(extraSources) as [

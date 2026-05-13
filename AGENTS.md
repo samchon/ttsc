@@ -17,9 +17,10 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 - `packages/lint`: `@ttsc/lint` with its own native engine.
 - `packages/unplugin`: bundler adapters.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK).
-- `tests/projects`: project-shaped fixtures.
-- `tests/test-*`: feature-test packages.
+- `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
+- `tests/test-*`: feature-test packages (run via `pnpm test:features`).
 - `tests/utils`: shared helpers (`@ttsc/testing`).
+- `tests/<plugin-name>`: workspace packages that need to be `require.resolve`-able from a fixture's `node_modules` (e.g. `tests/lint-contributor-demo`). Built by `scripts/build-current.cjs` before tests run.
 - `docs`, `config`, `scripts`: guide docs, shared tsconfig, workspace scripts.
 
 ## Commands

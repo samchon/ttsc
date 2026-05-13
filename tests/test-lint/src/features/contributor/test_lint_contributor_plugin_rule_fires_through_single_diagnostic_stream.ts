@@ -40,7 +40,7 @@ export const test_lint_contributor_plugin_rule_fires_through_single_diagnostic_s
       source,
       pluginConfig: {
         plugins: { demo: "lint-contributor-demo" },
-        config: { "demo/no-todo-comment": "error" },
+        rules: { "demo/no-todo-comment": "error" },
       },
       linkNodeModules: ["lint-contributor-demo"],
     });

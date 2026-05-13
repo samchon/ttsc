@@ -8,6 +8,7 @@ import (
   "path/filepath"
   "sort"
   "strings"
+  "sync"
 )
 
 // Severity is the `error | warning | off` ladder.
@@ -488,8 +489,21 @@ func isNativePluginValue(entry any) bool {
   case string:
     return false
   case map[string]any:
-    source, ok := typed["source"].(string)
-    return ok && source != ""
+    // Walk ESM-from-CJS `.default` indirection so a contributor authored
+    // as `export default plugin` registers as native here, matching the
+    // JS factory's `extractPluginSource` behavior.
+    current := typed
+    for i := 0; i < 4; i++ {
+      if source, ok := current["source"].(string); ok && source != "" {
+        return true
+      }
+      next, ok := current["default"].(map[string]any)
+      if !ok {
+        return false
+      }
+      current = next
+    }
+    return false
   default:
     return false
   }
@@ -632,14 +646,12 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
   return loadExternalConfigResolver(discovered)
 }
 
-var legacyConfigDeprecationEmitted bool
+var legacyConfigDeprecationOnce sync.Once
 
 func emitLegacyConfigDeprecation() {
-  if legacyConfigDeprecationEmitted {
-    return
-  }
-  legacyConfigDeprecationEmitted = true
-  fmt.Fprintln(os.Stderr, "@ttsc/lint: tsconfig plugin entry \"config\" is deprecated; use \"rules\" for inline severity maps or \"extends\" for a config file path.")
+  legacyConfigDeprecationOnce.Do(func() {
+    fmt.Fprintln(os.Stderr, "@ttsc/lint: tsconfig plugin entry \"config\" is deprecated; use \"rules\" for inline severity maps or \"extends\" for a config file path.")
+  })
 }
 
 func loadExternalConfigResolver(location string) (RuleResolver, error) {
@@ -687,7 +699,7 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
       }
     }
     if len(matches) > 1 {
-      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s; set \"config\" explicitly", dir)
+      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s; set \"extends\" explicitly", dir)
     }
     if len(matches) == 1 {
       return matches[0], nil
@@ -870,7 +882,17 @@ function isNativePluginMap(value) {
 function isNativePluginValue(entry) {
   if (typeof entry === "string") return false;
   if (entry === null || typeof entry !== "object") return false;
-  return typeof entry.source === "string" && entry.source.length > 0;
+  let current = entry;
+  for (let i = 0; i < 4; i++) {
+    if (typeof current.source === "string" && current.source.length > 0) {
+      return true;
+    }
+    if (current.default === null || typeof current.default !== "object") {
+      return false;
+    }
+    current = current.default;
+  }
+  return false;
 }
 `
   node := os.Getenv("TTSC_NODE_BINARY")

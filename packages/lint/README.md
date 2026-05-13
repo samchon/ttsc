@@ -65,7 +65,7 @@ Add `lint.config.ts`, or reuse an existing `eslint.config.ts`, next to your proj
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint/config";
+import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
   "no-var": "error",
@@ -138,7 +138,7 @@ Third-party packages can contribute Go-implemented lint rules that compile into 
       {
         "transform": "@ttsc/lint",
         "plugins": { "demo": "ttsc-lint-plugin-demo" },
-        "config": { "demo/no-todo-comment": "error" },
+        "rules": { "demo/no-todo-comment": "error" },
       },
     ],
   },

@@ -129,6 +129,18 @@ function mergeContributors(opts: {
     );
   }
   const contribRoot = path.join(opts.scratchDir, CONTRIB_DIRNAME);
+  // Refuse to merge when the host plugin's own source already owns a
+  // `contrib/` directory. We'd otherwise silently merge contributor
+  // files into a pre-populated host package and ship a hybrid binary
+  // whose contents nobody declared. Loud failure is the only safe
+  // option — the host plugin must rename its directory or the
+  // contributor system must use a different sub-package root.
+  if (fs.existsSync(contribRoot)) {
+    throw new Error(
+      `ttsc: plugin "${opts.pluginName}" already ships a ${CONTRIB_DIRNAME}/ directory in its source; ` +
+        `contributor merge would silently overwrite. Rename the host plugin's directory to a different name.`,
+    );
+  }
   fs.mkdirSync(contribRoot, { recursive: true });
   const imports: string[] = [];
   for (const contributor of opts.contributors) {
@@ -140,6 +152,16 @@ function mergeContributors(opts: {
       );
     }
     const target = path.join(contribRoot, contributor.name);
+    if (fs.existsSync(target)) {
+      // Defensive: validatePluginContributors already rejects duplicate
+      // names and shouldPruneDirectory excludes `contrib/` from the
+      // host source copy, so reaching this branch implies an upstream
+      // contract break. Fail loud rather than overwrite.
+      throw new Error(
+        `ttsc: plugin "${opts.pluginName}" contributor "${contributor.name}" target ${target} already exists; ` +
+          `contributor names must be unique within one plugin build`,
+      );
+    }
     fs.cpSync(contributor.source, target, {
       recursive: true,
       filter: (src) => {
@@ -153,7 +175,18 @@ function mergeContributors(opts: {
   }
   const entryDir = path.resolve(opts.scratchDir, opts.entry);
   fs.mkdirSync(entryDir, { recursive: true });
-  writeContributionsFile(path.join(entryDir, CONTRIBUTIONS_FILE_NAME), imports);
+  const contributionsPath = path.join(entryDir, CONTRIBUTIONS_FILE_NAME);
+  // Same reasoning as the contribRoot guard: when entry resolves to the
+  // module root (`entry === "."`), entryDir == scratchDir and a
+  // pre-existing `ttsc_contributions.go` from the host plugin's own
+  // source would be silently overwritten by the generator below.
+  if (fs.existsSync(contributionsPath)) {
+    throw new Error(
+      `ttsc: plugin "${opts.pluginName}" already ships ${CONTRIBUTIONS_FILE_NAME} in its entry package; ` +
+        `that filename is reserved for the contributor blank-import generator. Rename the host's file.`,
+    );
+  }
+  writeContributionsFile(contributionsPath, imports);
 }
 
 function writeContributionsFile(filePath: string, imports: string[]): void {
@@ -195,6 +228,26 @@ function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
       return;
     }
     throw error;
+  } finally {
+    // Best-effort sweep of any leftover `.tmp` siblings from a prior
+    // crash between copyFileSync and renameSync. Same-directory pending
+    // names guarantee the rename stays a same-filesystem atomic op, so
+    // we accept the GC cost rather than move pending files to os.tmpdir.
+    pruneOrphanPendingBinaries(binaryPath);
+  }
+}
+
+function pruneOrphanPendingBinaries(binaryPath: string): void {
+  try {
+    const dir = path.dirname(binaryPath);
+    const prefix = `${path.basename(binaryPath)}.`;
+    for (const name of fs.readdirSync(dir)) {
+      if (name.startsWith(prefix) && name.endsWith(".tmp")) {
+        fs.rmSync(path.join(dir, name), { force: true });
+      }
+    }
+  } catch {
+    // Best-effort; never mask the underlying publish outcome.
   }
 }
 

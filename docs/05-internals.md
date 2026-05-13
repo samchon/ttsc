@@ -29,7 +29,7 @@ The cache key includes:
 The cache key does not include:
 
 - consumer TypeScript source files;
-- plugin options such as lint `config`, `banner`, or `calls`;
+- plugin options such as lint `rules` / `extends`, `banner`, or `calls`;
 - CLI flags such as `--emit` or `--outDir`;
 
 README, JSON, schema, and other data files inside the plugin source directory do affect the cache key. This keeps `//go:embed` and other file-backed plugin data aligned with the built binary. Local workspace changes to `ttsc`'s Go host or shim overlay also invalidate the source plugin cache automatically.

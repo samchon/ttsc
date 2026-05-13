@@ -30,7 +30,7 @@ export const test_lint_contributor_plugin_discovered_from_lint_config_ts =
       name: "contributor-demo-lint-config-ts",
       source,
       pluginConfig: {
-        config: "./lint.config.ts",
+        extends: "./lint.config.ts",
       },
       extraSources: {
         "lint.config.ts": `import demoPlugin from "lint-contributor-demo";
