@@ -28,10 +28,11 @@
   },
   "files": [
     "README.md",
-    "lib",
-    "src",
     "go.mod",
-    "plugin"
+    "lib",
+    "plugin",
+    "rule",
+    "src"
   ],
   "devDependencies": {
     "@typescript/native-preview": "catalog:tsgo",
