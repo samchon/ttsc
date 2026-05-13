@@ -8,56 +8,61 @@
 //
 // The host (`@ttsc/lint`) walks this registry during engine bootstrap and
 // adapts each contributor rule onto the same dispatch table that drives
-// the built-in rules. Contributors do NOT import `@ttsc/lint`'s internal
-// `package main`; this `rule` package is the only public surface.
+// the built-in rules.
+//
+// Contributors operate on the same shim AST the host's first-party
+// plugins use (`github.com/microsoft/typescript-go/shim/ast` and friends)
+// — there is no facade layer in between. The shim packages are the
+// publicly maintained boundary ttsc already exposes; adding another
+// wrapper here would duplicate that maintenance burden without earning
+// any extra stability. Contributors get the full AST surface the host
+// has, so authoring a contributor rule and authoring a built-in rule are
+// the same exercise.
 //
 // Example contributor:
 //
 //	package myrules
 //
-//	import "github.com/samchon/ttsc/packages/lint/rule"
+//	import (
+//	    shimast "github.com/microsoft/typescript-go/shim/ast"
+//	    "github.com/samchon/ttsc/packages/lint/rule"
+//	)
 //
 //	func init() { rule.Register(noTodoComment{}) }
 //
 //	type noTodoComment struct{}
 //
-//	func (noTodoComment) Name() string         { return "demo/no-todo-comment" }
-//	func (noTodoComment) Visits() []rule.Kind  { return []rule.Kind{rule.KindSourceFile} }
-//	func (noTodoComment) Check(ctx *rule.Context, _ *rule.Node) {
-//	    // ctx.File.Text(), ctx.ReportRange(...) / ctx.Report(node, ...)
+//	func (noTodoComment) Name() string             { return "demo/no-todo-comment" }
+//	func (noTodoComment) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+//	func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+//	    // ctx.File, ctx.Checker, ctx.Severity available; ctx.Report(node, msg)
+//	    // or ctx.ReportRange(pos, end, msg) push a finding through the engine.
 //	}
-//
-// The Kind enum and the Node/File wrappers in this package are the
-// stable surface. The underlying shim types remain reachable via
-// `Node.Inner()` / `File.Inner()` for power users who need typed
-// accessors; doing so opts out of the package's stability promise.
 package rule
 
 import (
+	shimast "github.com/microsoft/typescript-go/shim/ast"
 	shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// Severity mirrors the engine's three-level severity ladder. The constants
-// are kept value-compatible with the engine's internal `Severity` type so
-// the adapter layer can cast safely.
+// Severity mirrors the engine's three-level severity ladder. The
+// constants are kept value-compatible with the engine's internal
+// `Severity` type so the adapter layer can cast safely.
 type Severity int
 
 const (
 	// SeverityOff means the rule is disabled. Engine skips dispatch.
 	SeverityOff Severity = iota
-	// SeverityWarn produces a warning diagnostic (does not change exit code).
+	// SeverityWarn produces a warning diagnostic (does not change exit
+	// code).
 	SeverityWarn
 	// SeverityError produces an error diagnostic and fails the command.
 	SeverityError
 )
 
-// Rule is the contract every contributor rule satisfies.
-//
-// Mirrors the internal host interface so the host can dispatch via a
-// thin adapter without re-implementing the engine. The signatures use
-// `rule.Kind` (aliased to `shim/ast.Kind`) and the `rule.Node` /
-// `rule.File` wrappers, which insulate contributors from shim
-// restructuring inside ttsc.
+// Rule is the contract every contributor rule satisfies. Mirrors the
+// internal host interface so the host can dispatch via a thin adapter
+// without re-implementing the engine.
 type Rule interface {
 	// Name is the identifier users put in their `rules` map.
 	// Conventionally namespaced as "<plugin-namespace>/<rule-name>" to
@@ -66,11 +71,11 @@ type Rule interface {
 
 	// Visits returns the AST kinds the rule cares about. The engine only
 	// dispatches to rules that registered for the visited node's kind.
-	Visits() []Kind
+	Visits() []shimast.Kind
 
-	// Check is invoked once per relevant node. Use `ctx.Report` to emit
-	// findings.
-	Check(ctx *Context, node *Node)
+	// Check is invoked once per relevant node. Use `ctx.Report` /
+	// `ctx.ReportRange` to emit findings.
+	Check(ctx *Context, node *shimast.Node)
 }
 
 // Reporter is the engine-supplied callback that records a finding. The
@@ -78,42 +83,39 @@ type Rule interface {
 // contributor rule.
 type Reporter interface {
 	// Report records a finding at the given node's source range.
-	Report(node *Node, message string)
+	Report(node *shimast.Node, message string)
 	// ReportRange records a finding at an explicit byte range inside the
-	// current file. Use this when the rule wants to highlight a sub-token.
+	// current file. Use this when the rule wants to highlight a
+	// sub-token.
 	ReportRange(pos, end int, message string)
 }
 
-// Context is the per-(file, rule) handle the engine passes to `Check`. The
-// embedded `Reporter` is supplied by the host when constructing the
-// context; contributors should treat it as engine plumbing and call
-// `Report` / `ReportRange` directly through this Context.
+// Context is the per-(file, rule) handle the engine passes to `Check`.
+// The `Reporter` is supplied by the host when constructing the context;
+// contributors call `ctx.Report` / `ctx.ReportRange` directly through
+// this Context rather than touching the reporter.
 type Context struct {
-	// File is the source file currently being walked. Always non-nil when
-	// `Check` is invoked.
-	File *File
+	// File is the source file currently being walked. Always non-nil
+	// when `Check` is invoked.
+	File *shimast.SourceFile
 
 	// Checker is the host's tsgo type checker. Available for type-aware
 	// rules; nil-safe enough that AST-only rules can ignore it.
-	//
-	// `*shimchecker.Checker` is left unwrapped because the public shim
-	// already curates the surface; wrapping it again would only duplicate
-	// the maintenance burden without insulating contributors from useful
-	// API additions.
 	Checker *shimchecker.Checker
 
 	// Severity is the rule's resolved severity for this file. Already
-	// filtered by the engine — rules do not need to check for SeverityOff.
+	// filtered by the engine — rules do not need to check for
+	// SeverityOff.
 	Severity Severity
 
 	reporter Reporter
 }
 
 // NewContext constructs a Context for the engine to pass into a
-// contributor rule's `Check`. Reserved for host code; contributors should
-// not need to call this.
+// contributor rule's `Check`. Reserved for host code; contributors
+// should not need to call this.
 func NewContext(
-	file *File,
+	file *shimast.SourceFile,
 	checker *shimchecker.Checker,
 	severity Severity,
 	reporter Reporter,
@@ -129,7 +131,7 @@ func NewContext(
 // Report records a finding at the given node's source range. Silently
 // ignored when severity is `off` (defensive — the engine already filters
 // by severity before invoking Check) or when no reporter is attached.
-func (c *Context) Report(node *Node, message string) {
+func (c *Context) Report(node *shimast.Node, message string) {
 	if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
 		return
 	}
@@ -148,9 +150,9 @@ func (c *Context) ReportRange(pos, end int, message string) {
 var registry []Rule
 
 // Register adds a contributor rule to the global registry. Called from a
-// contributor package's `init()`. Duplicate names are NOT checked here —
-// the host's adapter layer surfaces collisions with a clearer error than a
-// raw panic.
+// contributor package's `init()`. Duplicate names are NOT checked here
+// — the host's adapter layer surfaces collisions with a clearer error
+// than a raw panic.
 func Register(r Rule) {
 	if r == nil {
 		panic("rule: Register called with nil rule")

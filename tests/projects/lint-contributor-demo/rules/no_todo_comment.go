@@ -14,15 +14,19 @@
 //      user setting `"demo/no-todo-comment": "error"` in `lint.config.ts`
 //      sees the same diagnostic stream as built-in rules emit.
 //
-// Notice that this file imports only `github.com/samchon/ttsc/packages/lint/rule`
-// — no `shim/ast` dependency. The facade types (`rule.Kind`, `rule.Node`,
-// `rule.File`, `rule.Context`) carry every accessor the rule needs, and
-// `node.Inner()` is available as an escape hatch when a contributor
-// genuinely needs a typed shim accessor.
+// Notice that this file imports `github.com/microsoft/typescript-go/shim/...`
+// directly — the rule package does NOT add another wrapper layer on top
+// of shim. Contributors and built-ins consume the same AST surface
+// (`shim/ast`, `shim/scanner`, etc.) that other first-party ttsc plugins
+// already depend on. The shim is the publicly maintained boundary; no
+// duplicate facade in between.
 package demo
 
 import (
 	"strings"
+
+	shimast "github.com/microsoft/typescript-go/shim/ast"
+	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 
 	"github.com/samchon/ttsc/packages/lint/rule"
 )
@@ -31,57 +35,46 @@ func init() {
 	rule.Register(noTodoComment{})
 }
 
-// noTodoComment flags `TODO` and `FIXME` markers inside line comments.
-//
-// Intentionally minimal: walks the source file once, scans the text for
-// the literal markers, and reports each occurrence with a range pointing
-// at the marker itself. Mirrors `@ttsc/lint`'s built-in `no-debugger`
-// shape so the test case stays readable.
+// noTodoComment flags `TODO` and `FIXME` markers inside line and block
+// comments. Uses `shim/scanner` to tokenize the source file — the same
+// path `@ttsc/lint`'s built-in `parseLintInlineDirectives` walks — so
+// the contributor inherits the compiler's exact notion of "what is a
+// comment" instead of guessing with substring matches.
 type noTodoComment struct{}
 
 func (noTodoComment) Name() string { return "demo/no-todo-comment" }
 
-func (noTodoComment) Visits() []rule.Kind {
-	return []rule.Kind{rule.KindSourceFile}
+func (noTodoComment) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindSourceFile}
 }
 
-func (noTodoComment) Check(ctx *rule.Context, _ *rule.Node) {
+func (noTodoComment) Check(ctx *rule.Context, _ *shimast.Node) {
 	if ctx == nil || ctx.File == nil {
 		return
 	}
-	text := ctx.File.Text()
-	scanCommentMarkers(text, "TODO", func(start, end int) {
-		ctx.ReportRange(start, end, "TODO comment is not allowed.")
-	})
-	scanCommentMarkers(text, "FIXME", func(start, end int) {
-		ctx.ReportRange(start, end, "FIXME comment is not allowed.")
-	})
+	scanner := shimscanner.NewScanner()
+	scanner.SetText(ctx.File.Text())
+	scanner.SetSkipTrivia(false)
+	for {
+		kind := scanner.Scan()
+		if kind == shimast.KindEndOfFile {
+			return
+		}
+		if kind != shimast.KindSingleLineCommentTrivia &&
+			kind != shimast.KindMultiLineCommentTrivia {
+			continue
+		}
+		token := scanner.TokenText()
+		start := scanner.TokenStart()
+		reportMarker(ctx, token, start, "TODO", "TODO comment is not allowed.")
+		reportMarker(ctx, token, start, "FIXME", "FIXME comment is not allowed.")
+	}
 }
 
-// scanCommentMarkers walks `text` and invokes `report` for every line
-// comment that contains `marker`. The reported range covers just the
-// marker token so the rendered diagnostic underline is short.
-//
-// Deliberately not a regex: the test fixture stays free of `regexp` import
-// to mirror the small surface a real AST-only rule would touch, and so
-// the contributor's compile-time dependency footprint stays trivial.
-func scanCommentMarkers(text, marker string, report func(start, end int)) {
-	for i := 0; i < len(text)-1; i++ {
-		if text[i] != '/' || text[i+1] != '/' {
-			continue
-		}
-		end := i + 2
-		for end < len(text) && text[end] != '\n' {
-			end++
-		}
-		line := text[i:end]
-		offset := strings.Index(line, marker)
-		if offset < 0 {
-			i = end
-			continue
-		}
-		start := i + offset
-		report(start, start+len(marker))
-		i = end
+func reportMarker(ctx *rule.Context, token string, tokenStart int, marker, message string) {
+	offset := strings.Index(token, marker)
+	if offset < 0 {
+		return
 	}
+	ctx.ReportRange(tokenStart+offset, tokenStart+offset+len(marker), message)
 }

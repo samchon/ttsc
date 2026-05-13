@@ -13,12 +13,6 @@
 // registration to have already completed. Instead, `registerContributors`
 // is invoked explicitly from `main.run` after all built-in `init` calls
 // have settled, which makes the collision check meaningful.
-//
-// Type bridging: contributor rules speak the public `rule.Kind` /
-// `rule.Node` / `rule.File` types. The engine internally uses
-// `shimast.Kind` / `*shimast.Node` / `*shimast.SourceFile`. The adapter
-// wraps shim nodes when invoking `Check` and unwraps them when the
-// rule's report callback fires.
 package main
 
 import (
@@ -60,61 +54,40 @@ func registerContributors() {
 	}
 }
 
-// contributorAdapter wraps a public `rule.Rule` so the engine's `Register`
-// accepts it. Forward `Name` directly; convert `Visits` from `[]rule.Kind`
-// (alias of `[]shimast.Kind`) to the engine's native slice; bridge `Check`
-// by wrapping the engine's `*shimast.Node` and source file into the
-// public `*rule.Node` / `*rule.File` wrappers before invoking the inner
-// rule.
+// contributorAdapter wraps a public `rule.Rule` so the engine's
+// `Register` accepts it. Forward `Name` and `Visits` directly; bridge
+// `Check` by constructing a `rule.Context` whose `Reporter` calls back
+// into the engine's existing `Context.Report` / `ReportRange`. The
+// public `rule.Context` and the engine's internal `Context` share the
+// same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
 	inner rule.Rule
 }
 
-func (a contributorAdapter) Name() string { return a.inner.Name() }
-
-func (a contributorAdapter) Visits() []shimast.Kind {
-	facade := a.inner.Visits()
-	if len(facade) == 0 {
-		return nil
-	}
-	// `rule.Kind` is a type alias for `shimast.Kind`; the slice element
-	// types match, but we still copy through a typed slice so a future
-	// switch from alias to named type would surface here as a build
-	// break instead of a silent layout difference.
-	out := make([]shimast.Kind, len(facade))
-	for i, k := range facade {
-		out[i] = k
-	}
-	return out
-}
-
+func (a contributorAdapter) Name() string             { return a.inner.Name() }
+func (a contributorAdapter) Visits() []shimast.Kind   { return a.inner.Visits() }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
-	if ctx == nil || node == nil {
+	if ctx == nil {
 		return
 	}
-	pubFile := rule.WrapFile(ctx.File)
-	pubNode := rule.WrapNode(node, ctx.File)
 	pubCtx := rule.NewContext(
-		pubFile,
+		ctx.File,
 		ctx.Checker,
 		rule.Severity(ctx.Severity),
 		contextReporter{ctx: ctx},
 	)
-	a.inner.Check(pubCtx, pubNode)
+	a.inner.Check(pubCtx, node)
 }
 
 // contextReporter forwards `rule.Reporter` calls back to the host's
-// existing collect pipeline. Unwraps `*rule.Node` to `*shimast.Node`
-// because the engine's `Context.Report` already speaks shim types.
+// existing collect pipeline. Trivial because the public and internal
+// reporter signatures both speak `*shimast.Node`.
 type contextReporter struct {
 	ctx *Context
 }
 
-func (r contextReporter) Report(node *rule.Node, message string) {
-	if node == nil {
-		return
-	}
-	r.ctx.Report(node.Inner(), message)
+func (r contextReporter) Report(node *shimast.Node, message string) {
+	r.ctx.Report(node, message)
 }
 
 func (r contextReporter) ReportRange(pos, end int, message string) {
