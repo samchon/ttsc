@@ -21,6 +21,7 @@ type eslintRuntimeProvider interface {
 
 type eslintRuntimeOutput struct {
   Missing bool                `json:"missing"`
+  Fixed   int                 `json:"fixed"`
   Results []eslintRuntimeFile `json:"results"`
 }
 
@@ -126,11 +127,69 @@ func runExternalESLintDiagnostics(
 }
 
 func runExternalESLint(cwd, configPath, fileListJSON string) (*eslintRuntimeOutput, error) {
+  return runExternalESLintWithMode(cwd, configPath, fileListJSON, false)
+}
+
+func runExternalESLintFixes(
+  resolver RuleResolver,
+  cwd string,
+  files []*shimast.SourceFile,
+) (int, error) {
+  provider, ok := resolver.(eslintRuntimeProvider)
+  if !ok || !provider.WantsESLintRuntime() {
+    return 0, nil
+  }
+  configPath := provider.ExternalConfigPath()
+  if configPath == "" {
+    return 0, nil
+  }
+
+  fileNames := make([]string, 0, len(files))
+  for _, file := range files {
+    if file == nil || file.IsDeclarationFile {
+      continue
+    }
+    name := file.FileName()
+    if !filepath.IsAbs(name) {
+      name = filepath.Join(cwd, name)
+    }
+    if abs, err := filepath.Abs(name); err == nil {
+      name = abs
+    }
+    fileNames = append(fileNames, name)
+  }
+  if len(fileNames) == 0 {
+    return 0, nil
+  }
+
+  payload, err := json.Marshal(fileNames)
+  if err != nil {
+    return 0, fmt.Errorf("@ttsc/lint: encode ESLint file list: %w", err)
+  }
+
+  output, err := runExternalESLintWithMode(cwd, configPath, string(payload), true)
+  if err != nil {
+    return 0, err
+  }
+  if output.Missing {
+    if provider.RequiresESLintRuntime() {
+      return 0, fmt.Errorf("@ttsc/lint: ESLint runtime is required by %s; install eslint in the project or replace runtime-only config features", configPath)
+    }
+    return 0, nil
+  }
+  return output.Fixed, nil
+}
+
+func runExternalESLintWithMode(cwd, configPath, fileListJSON string, fix bool) (*eslintRuntimeOutput, error) {
   node := os.Getenv("TTSC_NODE_BINARY")
   if node == "" {
     node = "node"
   }
-  cmd := exec.Command(node, "-e", externalESLintRunnerScript, cwd, configPath, fileListJSON)
+  mode := "check"
+  if fix {
+    mode = "fix"
+  }
+  cmd := exec.Command(node, "-e", externalESLintRunnerScript, cwd, configPath, fileListJSON, mode)
   cmd.Env = nodeConfigLoaderEnv(configPath)
   cmd.Dir = cwd
   raw, err := cmd.Output()
@@ -196,6 +255,7 @@ const path = require("node:path");
   const cwd = process.argv[1];
   const configPath = process.argv[2];
   const files = JSON.parse(process.argv[3]);
+  const shouldFix = process.argv[4] === "fix";
   const requireFromProject = createRequire(path.join(cwd, "package.json"));
   let eslintPath;
   try {
@@ -220,12 +280,26 @@ const path = require("node:path");
   const eslint = new ESLintCtor({
     cwd,
     overrideConfigFile: configPath,
+    fix: shouldFix,
     ignore: true,
     warnIgnored: false,
   });
   const results = await eslint.lintFiles(files);
+  if (shouldFix) {
+    const outputFixes =
+      ESLintCtor.outputFixes ||
+      eslintModule.ESLint?.outputFixes ||
+      eslintModule.default?.ESLint?.outputFixes;
+    if (typeof outputFixes !== "function") {
+      throw new Error("installed eslint package does not expose ESLint.outputFixes");
+    }
+    await outputFixes.call(ESLintCtor, results);
+  }
   process.stdout.write(JSON.stringify({
     missing: false,
+    fixed: shouldFix
+      ? results.filter((result) => typeof result.output === "string").length
+      : 0,
     results: results.map((result) => ({
       filePath: result.filePath,
       messages: result.messages.map((message) => ({

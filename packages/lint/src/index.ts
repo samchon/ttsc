@@ -38,11 +38,11 @@ type TtscPluginFactoryContext<TConfig> = {
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
 /**
- * Map a user-facing namespace (`react-hooks`) to a Go-valid sub-package
- * name (`react_hooks`). Required because ttsc's plugin builder uses the
- * `name` field as a directory and import-path suffix, both of which must
- * satisfy Go's stricter `[a-z][a-z0-9_]*` identifier rules. The function
- * is total over namespaces that already passed `NAMESPACE_PATTERN`.
+ * Map a user-facing namespace (`react-hooks`) to a Go-valid sub-package name
+ * (`react_hooks`). Required because ttsc's plugin builder uses the `name` field
+ * as a directory and import-path suffix, both of which must satisfy Go's
+ * stricter `[a-z][a-z0-9_]*` identifier rules. The function is total over
+ * namespaces that already passed `NAMESPACE_PATTERN`.
  */
 function goSubpackageName(namespace: string): string {
   return namespace.replace(/-/g, "_");

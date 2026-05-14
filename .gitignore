@@ -10,12 +10,15 @@ coverage/
 
 # Local caches and package archives
 .cache/
-.claude/
-.codex/
 .turbo/
 *.tgz
 *.tsbuildinfo
 *.log
+
+# AI assistant data
+.claude/
+.codex/
+.discussions/
 
 # Local Go workspace overlays
 go.work

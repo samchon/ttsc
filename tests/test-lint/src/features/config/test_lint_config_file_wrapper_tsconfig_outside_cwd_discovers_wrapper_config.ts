@@ -69,7 +69,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
         result.diagnostics.map((d) => [d.messageText, d.category]),
         [
           [
-            "[no-var] Unexpected var, use let or const instead.\n  ~~~~~~~~~~~~~~",
+            "[no-var] Unexpected var, use let or const instead.\n  ~~~",
             "error",
           ],
         ],

@@ -284,3 +284,55 @@ func lintManifest(t *testing.T, rules map[string]string) string {
   }
   return string(data)
 }
+
+// assertFixSnapshot runs one rule's findings through the native fix applier.
+//
+// Fixer tests need the real file-writing path, not just in-memory edit
+// selection, because RunFix reloads a fresh Program from disk after every pass.
+//
+// 1. Materialize a real source file and parse it through the shim parser.
+// 2. Run one enabled rule and apply collected text edits to disk.
+// 3. Compare the rewritten source exactly.
+func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
+  t.Helper()
+  got, fixed := runFixSnapshot(t, ruleName, source)
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+}
+
+// assertNoFixSnapshot verifies a reported rule does not offer automatic edits.
+func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
+  t.Helper()
+  got, fixed := runFixSnapshot(t, ruleName, source)
+  if fixed != 0 {
+    t.Fatalf("%s: expected no applied fixes, got %d", ruleName, fixed)
+  }
+  if got != source {
+    t.Fatalf("%s source should remain unchanged:\nwant %q\ngot  %q", ruleName, source, got)
+  }
+}
+
+func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  return string(got), fixed
+}

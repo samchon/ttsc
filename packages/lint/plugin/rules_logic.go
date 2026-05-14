@@ -119,10 +119,62 @@ func (eqeqeq) Check(ctx *Context, node *shimast.Node) {
   }
   switch expr.OperatorToken.Kind {
   case shimast.KindEqualsEqualsToken:
-    ctx.ReportRange(expr.OperatorToken.Pos(), expr.OperatorToken.End(), "Expected '===' and instead saw '=='.")
+    reportEqeqeq(ctx, expr.OperatorToken, expr, "Expected '===' and instead saw '=='.", "===")
   case shimast.KindExclamationEqualsToken:
-    ctx.ReportRange(expr.OperatorToken.Pos(), expr.OperatorToken.End(), "Expected '!==' and instead saw '!='.")
+    reportEqeqeq(ctx, expr.OperatorToken, expr, "Expected '!==' and instead saw '!='.", "!==")
   }
+}
+
+func reportEqeqeq(ctx *Context, operator *shimast.Node, expr *shimast.BinaryExpression, message, replacement string) {
+  pos, end := tokenRange(ctx.File, operator)
+  if pos < 0 {
+    pos, end = operator.Pos(), operator.End()
+  }
+  if isEqeqeqAutoFixSafe(expr) {
+    ctx.ReportRangeFix(
+      pos,
+      end,
+      message,
+      TextEdit{Pos: pos, End: end, Text: replacement},
+    )
+    return
+  }
+  ctx.ReportRange(pos, end, message)
+}
+
+func isEqeqeqAutoFixSafe(expr *shimast.BinaryExpression) bool {
+  if expr == nil {
+    return false
+  }
+  left := stripParens(expr.Left)
+  right := stripParens(expr.Right)
+  if left == nil || right == nil {
+    return false
+  }
+  if left.Kind == shimast.KindTypeOfExpression || right.Kind == shimast.KindTypeOfExpression {
+    return true
+  }
+  leftKind := comparableLiteralKind(left)
+  return leftKind != "" && leftKind == comparableLiteralKind(right)
+}
+
+func comparableLiteralKind(node *shimast.Node) string {
+  if node == nil {
+    return ""
+  }
+  switch node.Kind {
+  case shimast.KindStringLiteral:
+    return "string"
+  case shimast.KindNumericLiteral:
+    return "number"
+  case shimast.KindBigIntLiteral:
+    return "bigint"
+  case shimast.KindTrueKeyword, shimast.KindFalseKeyword:
+    return "boolean"
+  case shimast.KindNullKeyword:
+    return "object"
+  }
+  return ""
 }
 
 // use-isnan: `x === NaN` is always false. Use `Number.isNaN(x)`.

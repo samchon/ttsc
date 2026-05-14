@@ -215,6 +215,8 @@ npm install -D @ttsc/lint
 
 When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
+Run `ttsc fix` (or `ttsc --fix`) to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
+
 What to learn:
 
 - Reporting diagnostics before emit.
@@ -222,6 +224,7 @@ What to learn:
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
 - Token-oriented diagnostic ranges with `shim/scanner`.
+- Autofix text edits for selected native rules and ESLint runtime delegation.
 - Rendering lint diagnostics beside TypeScript-Go diagnostics.
 
 Core architecture:
@@ -233,6 +236,11 @@ compile.go
   runs compiler diagnostics
   runs lint Engine
   renders diagnostics
+
+fix.go
+  applies native text edits
+  delegates ESLint runtime fixes
+  reloads Program before final diagnostics
 
 engine.go
   maps Kind -> active rules
@@ -251,6 +259,7 @@ Read:
 - [`packages/lint/plugin/host.go`](../packages/lint/plugin/host.go)
 - [`packages/lint/plugin/engine.go`](../packages/lint/plugin/engine.go)
 - [`packages/lint/plugin/compile.go`](../packages/lint/plugin/compile.go)
+- [`packages/lint/plugin/fix.go`](../packages/lint/plugin/fix.go)
 - [`packages/lint/plugin`](../packages/lint/plugin/)
 - [`tests/test-lint/src/cases`](../tests/test-lint/src/cases/)
 
@@ -326,6 +335,40 @@ Read:
 - [`packages/lint/plugin/contrib_adapter.go`](../packages/lint/plugin/contrib_adapter.go) — host-side adapter that wraps `rule.Rule` into the engine's internal `Rule`.
 - [`tests/lint-contributor-demo`](../tests/lint-contributor-demo/) — the canonical reference contributor used by the e2e tests.
 - [`tests/test-lint/src/features/contributor`](../tests/test-lint/src/features/contributor/) — end-to-end coverage for both discovery surfaces.
+
+### Emitting Autofixes
+
+A contributor rule can attach source-text edits to a finding by calling `ctx.ReportFix` (single edit) or `ctx.ReportRangeFix` (explicit pos/end). The host applies edits between the cascading native passes and the final no-emit check; if the host build did not opt into fix mode the edits are silently dropped and only the diagnostic is rendered — see `rule.ReportFix` GoDoc for the silent-fallback contract. Do not rely on edits being applied; design the rule so the diagnostic alone is useful.
+
+```go
+package demo
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+func init() { rule.Register(noTodoComment{}) }
+
+type noTodoComment struct{}
+
+func (noTodoComment) Name() string           { return "demo/no-todo-comment" }
+func (noTodoComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+  // Resolve pos/end from a shim/scanner trivia walk over ctx.File.Text();
+  // see tests/lint-contributor-demo/rules/no_todo_comment.go for the runnable form.
+  ctx.ReportFix(node, "drop TODO comment", rule.TextEdit{
+    Pos:  pos,
+    End:  end,
+    Text: "",
+  })
+}
+```
+
+See [`tests/lint-contributor-demo/rules/no_todo_comment.go`](../tests/lint-contributor-demo/rules/no_todo_comment.go) for a real contributor that computes the byte range via `shim/scanner` trivia tokenization.
+
+Edits within a single finding must not overlap; ordering inside the slice does not matter, and an empty `Text` deletes the range. The host discards the whole set if any edit is malformed, so prefer one tight edit per finding over speculative multi-edit batches.
 
 ## Combined Project
 

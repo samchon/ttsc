@@ -12,6 +12,11 @@ export interface TtscBuildOptions extends TtscCommonOptions {
    * - `undefined`: follow the resolved tsconfig exactly.
    */
   emit?: boolean;
+  /**
+   * Invoke fix-capable check-stage plugins before the final no-emit check.
+   * Source files may be rewritten; JavaScript/declaration emit stays disabled.
+   */
+  fix?: boolean;
   /** Per-call TypeScript-Go `outDir` override. */
   outDir?: string;
   /** Suppress summary banners from ttsc/native sidecars. Defaults to `true`. */
