@@ -84,10 +84,25 @@ type Rule interface {
 type Reporter interface {
   // Report records a finding at the given node's source range.
   Report(node *shimast.Node, message string)
+  // ReportFix records a finding at the given node's source range with
+  // byte-range text edits that can be applied by the host's fix command.
+  ReportFix(node *shimast.Node, message string, edits ...TextEdit)
   // ReportRange records a finding at an explicit byte range inside the
   // current file. Use this when the rule wants to highlight a
   // sub-token.
   ReportRange(pos, end int, message string)
+  // ReportRangeFix records an explicit-range finding with byte-range
+  // text edits that can be applied by the host's fix command.
+  ReportRangeFix(pos, end int, message string, edits ...TextEdit)
+}
+
+// TextEdit is one byte-range replacement offered by an autofixable finding.
+// Positions use the same byte offsets as shim AST nodes and must point inside
+// the current source file.
+type TextEdit struct {
+  Pos  int
+  End  int
+  Text string
 }
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
@@ -132,19 +147,31 @@ func NewContext(
 // ignored when severity is `off` (defensive — the engine already filters
 // by severity before invoking Check) or when no reporter is attached.
 func (c *Context) Report(node *shimast.Node, message string) {
+  c.ReportFix(node, message)
+}
+
+// ReportFix records a finding at the given node's source range with optional
+// autofix edits. Silently ignored when severity is off or no reporter exists.
+func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
   }
-  c.reporter.Report(node, message)
+  c.reporter.ReportFix(node, message, edits...)
 }
 
 // ReportRange records a finding at an explicit byte range inside the
 // current file.
 func (c *Context) ReportRange(pos, end int, message string) {
+  c.ReportRangeFix(pos, end, message)
+}
+
+// ReportRangeFix records a finding at an explicit byte range with optional
+// autofix edits.
+func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
   }
-  c.reporter.ReportRange(pos, end, message)
+  c.reporter.ReportRangeFix(pos, end, message, edits...)
 }
 
 var registry []Rule

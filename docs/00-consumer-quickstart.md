@@ -48,6 +48,7 @@ Then run the same command:
 
 ```bash
 npx ttsc --noEmit
+npx ttsc fix
 ```
 
 ## Bundlers

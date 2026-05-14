@@ -34,6 +34,8 @@ export function runTtsc(
         return runCompatibleBuild(rest, false);
       case "check":
         return runCompatibleBuild(rest, true);
+      case "fix":
+        return runCompatibleBuild(["--fix", ...rest], true);
       case "clean":
         return runClean(rest);
       case "prepare":
@@ -73,13 +75,24 @@ function runCompatibleBuild(
   checkOnly: boolean,
 ): number {
   const options = normalizeBuildOptions(parseBuildArgs(argv, checkOnly));
+  if (options.fix) {
+    options.emit = false;
+  }
   if (options.watch) {
+    if (options.fix) {
+      throw new Error("ttsc: fix does not support watch mode");
+    }
     return runWatch(options, checkOnly);
   }
   if (options.files.length !== 0) {
+    if (options.fix) {
+      throw new Error("ttsc: fix requires a project, not single-file mode");
+    }
     return runSingleFile(options);
   }
-  const result = runBuild(checkOnly ? { ...options, emit: false } : options);
+  const result = runBuild(
+    checkOnly || options.fix ? { ...options, emit: false } : options,
+  );
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
@@ -268,6 +281,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
   const files: string[] = [];
+  let fix = false;
   let outDir: string | undefined;
   let preserveWatchOutput = false;
   let quiet = true;
@@ -280,6 +294,10 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     switch (current) {
       case "--emit":
         emit = true;
+        break;
+      case "--fix":
+        fix = true;
+        emit = false;
         break;
       case "--noEmit":
         emit = false;
@@ -325,6 +343,9 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
           tsconfig = current.slice("--tsconfig=".length);
         } else if (current.startsWith("--project=")) {
           tsconfig = current.slice("--project=".length);
+        } else if (current.startsWith("--fix=")) {
+          fix = current.slice("--fix=".length) !== "false";
+          if (fix) emit = false;
         } else if (current.startsWith("--preserveWatchOutput=")) {
           preserveWatchOutput =
             current.slice("--preserveWatchOutput=".length) !== "false";
@@ -348,6 +369,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     cwd,
     emit,
     files,
+    fix,
     outDir,
     preserveWatchOutput,
     quiet,
@@ -366,6 +388,7 @@ function printHelp(): void {
       "  ttsc -p tsconfig.json",
       "  ttsc --watch",
       "  ttsc --noEmit",
+      "  ttsc fix",
       "  ttsc prepare [options]",
       "  ttsc clean [options]",
       "  ttsc version",
@@ -376,6 +399,7 @@ function printHelp(): void {
       "  --tsconfig <file>      Resolve project settings from this tsconfig",
       "  --cwd <dir>            Resolve project-relative paths from this directory",
       "  --emit                 Force emitted files during build",
+      "  --fix                  Run fix-capable check plugins and rewrite source files",
       "  --noEmit               Force analysis-only build with no file writes",
       "  -w, --watch            Rebuild when project files change",
       "  --preserveWatchOutput  Do not clear the screen between watch rebuilds",
@@ -393,6 +417,7 @@ function printHelp(): void {
       "Compatibility aliases:",
       "  ttsc build [options]       Same project build lane as `ttsc [options]`.",
       "  ttsc check [options]       Same as `ttsc --noEmit [options]`.",
+      "  ttsc fix [options]         Apply check-plugin fixes, then run `ttsc --noEmit`.",
       "  ttsc prepare [options]     Build configured source-plugin binaries into cache.",
       "  ttsc clean [options]       Delete local source-plugin cache directories.",
     ].join("\n"),

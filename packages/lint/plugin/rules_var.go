@@ -14,6 +14,16 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if shimast.IsVar(stmt.DeclarationList) {
+    start := keywordStart(ctx.File, stmt.DeclarationList, "var")
+    if start >= 0 {
+      ctx.ReportRangeFix(
+        start,
+        start+len("var"),
+        "Unexpected var, use let or const instead.",
+        TextEdit{Pos: start, End: start + len("var"), Text: "let"},
+      )
+      return
+    }
     ctx.Report(node, "Unexpected var, use let or const instead.")
   }
 }
@@ -29,8 +39,9 @@ func (preferConst) Name() string           { return "prefer-const" }
 func (preferConst) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (preferConst) Check(ctx *Context, node *shimast.Node) {
   type candidate struct {
-    name string
-    node *shimast.Node
+    name     string
+    node     *shimast.Node
+    listNode *shimast.Node
   }
   var candidates []candidate
   assigned := map[string]bool{}
@@ -53,7 +64,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
       if !isConstEligibleLetDeclaration(child, decl) {
         return
       }
-      candidates = append(candidates, candidate{name: name, node: child})
+      candidates = append(candidates, candidate{name: name, node: child, listNode: listNode})
     case shimast.KindBinaryExpression:
       expr := child.AsBinaryExpression()
       if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) {
@@ -87,9 +98,29 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
 
   for _, c := range candidates {
     if !assigned[c.name] {
-      ctx.Report(c.node, "Use const instead of let.")
+      start := -1
+      if isSingleDeclarationList(c.listNode) {
+        start = keywordStart(ctx.File, c.listNode, "let")
+      }
+      if start >= 0 {
+        ctx.ReportFix(
+          c.node,
+          "Use const instead of let.",
+          TextEdit{Pos: start, End: start + len("let"), Text: "const"},
+        )
+      } else {
+        ctx.Report(c.node, "Use const instead of let.")
+      }
     }
   }
+}
+
+func isSingleDeclarationList(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  list := node.AsVariableDeclarationList()
+  return list != nil && list.Declarations != nil && len(list.Declarations.Nodes) == 1
 }
 
 func isConstEligibleLetDeclaration(node *shimast.Node, decl *shimast.VariableDeclaration) bool {

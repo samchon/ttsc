@@ -26,6 +26,57 @@ func nodeText(file *shimast.SourceFile, node *shimast.Node) string {
   return strings.TrimRight(src[pos:end], " \t\r\n")
 }
 
+// keywordStart returns the source offset of a declaration keyword such as
+// `var` or `let` at the start of a node after leading trivia.
+func keywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
+  if file == nil || node == nil || keyword == "" {
+    return -1
+  }
+  src := file.Text()
+  pos := shimscanner.SkipTrivia(src, node.Pos())
+  end := pos + len(keyword)
+  if pos < 0 || end > len(src) {
+    return -1
+  }
+  if strings.HasPrefix(src[pos:], keyword) && (end == len(src) || !isIdentifierPart(src[end])) {
+    return pos
+  }
+  limit := node.End()
+  if limit > len(src) {
+    limit = len(src)
+  }
+  for i := pos; i+len(keyword) <= limit && i < pos+32; i++ {
+    end = i + len(keyword)
+    if strings.HasPrefix(src[i:], keyword) &&
+      (i == 0 || !isIdentifierPart(src[i-1])) &&
+      (end == len(src) || !isIdentifierPart(src[end])) {
+      return i
+    }
+  }
+  return -1
+}
+
+func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
+  if file == nil || node == nil {
+    return -1, -1
+  }
+  src := file.Text()
+  pos := shimscanner.SkipTrivia(src, node.Pos())
+  end := node.End()
+  if pos < 0 || pos > len(src) || end < pos || end > len(src) {
+    return -1, -1
+  }
+  return pos, end
+}
+
+func isIdentifierPart(ch byte) bool {
+  return (ch >= 'a' && ch <= 'z') ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= '0' && ch <= '9') ||
+    ch == '_' ||
+    ch == '$'
+}
+
 // identifierText returns the lexical name of an Identifier node, or "" if
 // the node isn't an Identifier.
 func identifierText(node *shimast.Node) string {

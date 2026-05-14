@@ -62,6 +62,16 @@ type Finding struct {
   Pos      int
   End      int
   Message  string
+  Fix      []TextEdit
+}
+
+// TextEdit is one byte-range replacement offered by an autofixable finding.
+// Positions use the same byte offsets as shim AST nodes and must point inside
+// the finding's source file.
+type TextEdit struct {
+  Pos  int
+  End  int
+  Text string
 }
 
 // Report records a finding at the given node's source range. The pos is
@@ -71,6 +81,11 @@ type Finding struct {
 // configured severity is `off` (defensive — the engine already filters
 // by severity before calling Check, but Report is the final gate).
 func (c *Context) Report(node *shimast.Node, message string) {
+  c.ReportFix(node, message)
+}
+
+// ReportFix records a node-scoped finding with optional autofix edits.
+func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c.Severity == SeverityOff || node == nil {
     return
   }
@@ -85,6 +100,7 @@ func (c *Context) Report(node *shimast.Node, message string) {
     Pos:      pos,
     End:      node.End(),
     Message:  message,
+    Fix:      cloneTextEdits(edits),
   })
 }
 
@@ -92,6 +108,11 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // current file. Use this when the rule wants to highlight a sub-token of
 // a node (e.g. an operator inside a BinaryExpression).
 func (c *Context) ReportRange(pos, end int, message string) {
+  c.ReportRangeFix(pos, end, message)
+}
+
+// ReportRangeFix records an explicit-range finding with optional autofix edits.
+func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c.Severity == SeverityOff || c.File == nil {
     return
   }
@@ -105,7 +126,17 @@ func (c *Context) ReportRange(pos, end int, message string) {
     Pos:      pos,
     End:      end,
     Message:  message,
+    Fix:      cloneTextEdits(edits),
   })
+}
+
+func cloneTextEdits(edits []TextEdit) []TextEdit {
+  if len(edits) == 0 {
+    return nil
+  }
+  out := make([]TextEdit, len(edits))
+  copy(out, edits)
+  return out
 }
 
 // registry stores the package-global rule list keyed by name. Tests can

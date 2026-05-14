@@ -90,6 +90,29 @@ func (r contextReporter) Report(node *shimast.Node, message string) {
   r.ctx.Report(node, message)
 }
 
+func (r contextReporter) ReportFix(node *shimast.Node, message string, edits ...rule.TextEdit) {
+  r.ctx.ReportFix(node, message, toInternalTextEdits(edits)...)
+}
+
 func (r contextReporter) ReportRange(pos, end int, message string) {
   r.ctx.ReportRange(pos, end, message)
+}
+
+func (r contextReporter) ReportRangeFix(pos, end int, message string, edits ...rule.TextEdit) {
+  r.ctx.ReportRangeFix(pos, end, message, toInternalTextEdits(edits)...)
+}
+
+func toInternalTextEdits(edits []rule.TextEdit) []TextEdit {
+  if len(edits) == 0 {
+    return nil
+  }
+  out := make([]TextEdit, len(edits))
+  for i, edit := range edits {
+    out[i] = TextEdit{
+      Pos:  edit.Pos,
+      End:  edit.End,
+      Text: edit.Text,
+    }
+  }
+  return out
 }

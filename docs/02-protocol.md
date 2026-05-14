@@ -98,9 +98,15 @@ Public stages are deliberately small:
 | Stage                   | Host behavior                                    | Binary commands               |
 | ----------------------- | ------------------------------------------------ | ----------------------------- |
 | omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build` |
-| `"check"`               | reports diagnostics before emit                  | `check`                       |
+| `"check"`               | reports diagnostics before emit                  | `check`; optional `fix`       |
 
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
+
+When the user runs `ttsc fix` or `ttsc --fix`, `ttsc` invokes check-stage
+plugins with the `fix` command and keeps JavaScript/declaration emit disabled.
+Fix-capable plugins should rewrite source files, reload any compiler state they
+need, and report remaining diagnostics through the same renderer contract as
+`check`. Plugins that do not implement fixes may reject the command.
 
 ## Composition
 

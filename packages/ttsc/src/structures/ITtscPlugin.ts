@@ -61,7 +61,9 @@ export interface ITtscPlugin {
    * Pipeline stage implemented by the sidecar.
    *
    * Omit this field for normal compiler-transform plugins. The only explicit
-   * non-transform stage is `"check"`.
+   * non-transform stage is `"check"`. Check-stage plugins receive `check`
+   * during normal builds and may implement `fix` for `ttsc fix` / `ttsc
+   * --fix`.
    *
    * @default "transform"
    */

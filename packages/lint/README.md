@@ -122,6 +122,24 @@ npx ttsx src/index.ts
 - Under `ttsx`, lint errors stop the program before your entrypoint runs.
 - Lint warnings are printed without changing the exit code.
 
+### Fix
+
+Run `ttsc fix` to apply supported autofixes and then run the same no-emit
+typecheck + lint pass:
+
+```bash
+npx ttsc fix
+# equivalent flag form
+npx ttsc --fix
+```
+
+Native `@ttsc/lint` fixers currently cover `no-var`, single-declaration
+`prefer-const`, and ESLint-safe `eqeqeq` cases (`typeof` comparisons and
+same-type literal comparisons). When a supported `eslint.config.*` file runs
+through an installed ESLint runtime, `ttsc fix` delegates to ESLint's own fixers
+and then reloads the TypeScript-Go Program before reporting any remaining
+diagnostics.
+
 ### Config Files
 
 By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.
@@ -162,7 +180,7 @@ ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/l
 
 ## Scope
 
-Diagnostic-only today: no autofix and no bundled recommended preset.
+No bundled recommended preset yet. Rules remain off until you enable them.
 
 ## Rules
 

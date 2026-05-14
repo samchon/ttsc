@@ -215,6 +215,8 @@ npm install -D @ttsc/lint
 
 When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
+Run `ttsc fix` (or `ttsc --fix`) to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
+
 What to learn:
 
 - Reporting diagnostics before emit.
@@ -222,6 +224,7 @@ What to learn:
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
 - Token-oriented diagnostic ranges with `shim/scanner`.
+- Autofix text edits for selected native rules and ESLint runtime delegation.
 - Rendering lint diagnostics beside TypeScript-Go diagnostics.
 
 Core architecture:
@@ -233,6 +236,11 @@ compile.go
   runs compiler diagnostics
   runs lint Engine
   renders diagnostics
+
+fix.go
+  applies native text edits
+  delegates ESLint runtime fixes
+  reloads Program before final diagnostics
 
 engine.go
   maps Kind -> active rules
@@ -251,6 +259,7 @@ Read:
 - [`packages/lint/plugin/host.go`](../packages/lint/plugin/host.go)
 - [`packages/lint/plugin/engine.go`](../packages/lint/plugin/engine.go)
 - [`packages/lint/plugin/compile.go`](../packages/lint/plugin/compile.go)
+- [`packages/lint/plugin/fix.go`](../packages/lint/plugin/fix.go)
 - [`packages/lint/plugin`](../packages/lint/plugin/)
 - [`tests/test-lint/src/cases`](../tests/test-lint/src/cases/)
 

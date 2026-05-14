@@ -298,7 +298,7 @@ function createNativeCheckArgs(
   options: TtscBuildOptions,
 ): string[] {
   const args = [
-    "check",
+    options.fix === true ? "fix" : "check",
     "--tsconfig=" + execution.tsconfig,
     "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
     "--cwd=" + execution.projectRoot,
