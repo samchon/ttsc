@@ -140,6 +140,15 @@ through an installed ESLint runtime, `ttsc fix` delegates to ESLint's own fixers
 and then reloads the TypeScript-Go Program before reporting any remaining
 diagnostics.
 
+`ttsc fix` is a one-shot project pass: it does not combine with `--watch`,
+single-file mode, or `--emit`. The launcher rejects those combinations with an
+explicit error. Applied fixes are written to disk before the recheck runs, so
+source files stay modified even when `ttsc fix` exits non-zero on remaining
+type errors or un-fixable lint violations.
+
+Run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to enforce
+zero remaining errors.
+
 ### Config Files
 
 By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.

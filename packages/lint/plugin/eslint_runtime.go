@@ -134,14 +134,14 @@ func runExternalESLintFixes(
   resolver RuleResolver,
   cwd string,
   files []*shimast.SourceFile,
-) (int, bool, error) {
+) (int, error) {
   provider, ok := resolver.(eslintRuntimeProvider)
   if !ok || !provider.WantsESLintRuntime() {
-    return 0, false, nil
+    return 0, nil
   }
   configPath := provider.ExternalConfigPath()
   if configPath == "" {
-    return 0, false, nil
+    return 0, nil
   }
 
   fileNames := make([]string, 0, len(files))
@@ -159,25 +159,25 @@ func runExternalESLintFixes(
     fileNames = append(fileNames, name)
   }
   if len(fileNames) == 0 {
-    return 0, true, nil
+    return 0, nil
   }
 
   payload, err := json.Marshal(fileNames)
   if err != nil {
-    return 0, false, fmt.Errorf("@ttsc/lint: encode ESLint file list: %w", err)
+    return 0, fmt.Errorf("@ttsc/lint: encode ESLint file list: %w", err)
   }
 
   output, err := runExternalESLintWithMode(cwd, configPath, string(payload), true)
   if err != nil {
-    return 0, false, err
+    return 0, err
   }
   if output.Missing {
     if provider.RequiresESLintRuntime() {
-      return 0, false, fmt.Errorf("@ttsc/lint: ESLint runtime is required by %s; install eslint in the project or replace runtime-only config features", configPath)
+      return 0, fmt.Errorf("@ttsc/lint: ESLint runtime is required by %s; install eslint in the project or replace runtime-only config features", configPath)
     }
-    return 0, false, nil
+    return 0, nil
   }
-  return output.Fixed, true, nil
+  return output.Fixed, nil
 }
 
 func runExternalESLintWithMode(cwd, configPath, fileListJSON string, fix bool) (*eslintRuntimeOutput, error) {

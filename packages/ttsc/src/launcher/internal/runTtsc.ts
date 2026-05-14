@@ -80,7 +80,9 @@ function runCompatibleBuild(
   }
   if (options.watch) {
     if (options.fix) {
-      throw new Error("ttsc: fix does not support watch mode");
+      throw new Error(
+        "ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks",
+      );
     }
     return runWatch(options, checkOnly);
   }
@@ -280,6 +282,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let cacheDir: string | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
+  let emitForced = false;
   const files: string[] = [];
   let fix = false;
   let outDir: string | undefined;
@@ -294,6 +297,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     switch (current) {
       case "--emit":
         emit = true;
+        emitForced = true;
         break;
       case "--fix":
         fix = true;
@@ -363,6 +367,9 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
         break;
     }
   }
+  if (fix && emitForced) {
+    throw new Error("ttsc: --fix and --emit are mutually exclusive");
+  }
   return {
     binary,
     cacheDir,
@@ -399,7 +406,8 @@ function printHelp(): void {
       "  --tsconfig <file>      Resolve project settings from this tsconfig",
       "  --cwd <dir>            Resolve project-relative paths from this directory",
       "  --emit                 Force emitted files during build",
-      "  --fix                  Run fix-capable check plugins and rewrite source files",
+      "  --fix                  Run fix-capable check plugins and rewrite source files.",
+      "                         Incompatible with --watch, --emit, single-file mode.",
       "  --noEmit               Force analysis-only build with no file writes",
       "  -w, --watch            Rebuild when project files change",
       "  --preserveWatchOutput  Do not clear the screen between watch rebuilds",

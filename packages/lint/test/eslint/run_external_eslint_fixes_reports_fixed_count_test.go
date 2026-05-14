@@ -16,7 +16,7 @@ import (
 //
 // 1. Create a fake Node executable that returns an ESLint fix payload.
 // 2. Run the external ESLint fix bridge for one source file.
-// 3. Assert the bridge ran and reported the fixed file count.
+// 3. Assert the bridge reports the fixed file count.
 func TestRunExternalESLintFixesReportsFixedCount(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "eslint.config.js")
@@ -30,11 +30,11 @@ func TestRunExternalESLintFixesReportsFixedCount(t *testing.T) {
 
   store := &ConfigStore{externalConfigPath: config, eslintRuntime: true}
   file := parseTSFile(t, filepath.Join(root, "src", "main.ts"), "var value = 1;\n")
-  fixed, ran, err := runExternalESLintFixes(store, root, []*shimast.SourceFile{file})
+  fixed, err := runExternalESLintFixes(store, root, []*shimast.SourceFile{file})
   if err != nil {
     t.Fatalf("runExternalESLintFixes: %v", err)
   }
-  if !ran || fixed != 2 {
-    t.Fatalf("fix bridge mismatch: ran=%v fixed=%d", ran, fixed)
+  if fixed != 2 {
+    t.Fatalf("fix bridge mismatch: fixed=%d", fixed)
   }
 }

@@ -9,6 +9,10 @@ import (
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 )
 
+// maxFixPasses bounds the native cascade after the one-shot ESLint runtime
+// pass. Real-world cascades (no-var → prefer-const → eqeqeq …) settle in a
+// handful of passes; the cap exists so a buggy rule that re-reports its own
+// edit cannot loop forever.
 const maxFixPasses = 10
 
 // RunFix implements `@ttsc/lint fix` — apply autofixes, then report any
@@ -45,7 +49,7 @@ func runFix(opts *subcommandOpts) int {
   }()
 
   totalFixes := 0
-  if fixed, _, err := runExternalESLintFixes(rules, opts.cwd, prog.userSourceFiles()); err != nil {
+  if fixed, err := runExternalESLintFixes(rules, opts.cwd, prog.userSourceFiles()); err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   } else if fixed > 0 {
@@ -145,8 +149,14 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
     bucket.edits = append(bucket.edits, finding.Fix...)
   }
 
+  paths := make([]string, 0, len(byFile))
+  for p := range byFile {
+    paths = append(paths, p)
+  }
+  sort.Strings(paths)
   total := 0
-  for _, bucket := range byFile {
+  for _, p := range paths {
+    bucket := byFile[p]
     fixed, err := applyTextEditsToFile(bucket.path, bucket.text, bucket.edits)
     if err != nil {
       return total, err

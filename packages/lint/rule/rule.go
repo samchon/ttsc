@@ -90,6 +90,10 @@ type Reporter interface {
   ReportRange(pos, end int, message string)
 }
 
+// fixReporter is the optional extension a host implements to receive
+// autofix edits alongside a finding. The public `rule.Context` type-asserts
+// against this shape so any host whose reporter exposes both methods opts
+// into fix support without depending on the unexported interface name.
 type fixReporter interface {
   ReportFix(node *shimast.Node, message string, edits ...TextEdit)
   ReportRangeFix(pos, end int, message string, edits ...TextEdit)
@@ -98,6 +102,13 @@ type fixReporter interface {
 // TextEdit is one byte-range replacement offered by an autofixable finding.
 // Positions use the same byte offsets as shim AST nodes and must point inside
 // the current source file.
+//
+// When a rule reports several edits in one call, the host applies them as a
+// set: edits must not overlap each other, order in the slice does not matter,
+// and an empty `Text` deletes the range. The host may discard the whole set
+// if any edit is malformed (negative or out-of-file offsets, overlapping
+// ranges). Rules that need separate independent fixes should emit each as its
+// own `ReportFix` / `ReportRangeFix` call.
 type TextEdit struct {
   Pos  int
   End  int
@@ -155,6 +166,7 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // ReportFix records a finding at the given node's source range with optional
 // autofix edits. Older hosts that do not implement fix reporting receive the
 // diagnostic without edits.
+// Treat edits as best-effort: design the rule so the diagnostic alone is useful.
 func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -183,6 +195,7 @@ func (c *Context) ReportRange(pos, end int, message string) {
 // ReportRangeFix records a finding at an explicit byte range with optional
 // autofix edits. Older hosts that do not implement fix reporting receive the
 // diagnostic without edits.
+// Treat edits as best-effort: design the rule so the diagnostic alone is useful.
 func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
