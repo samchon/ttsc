@@ -217,7 +217,8 @@ function copyPrunedGoRoot(sourceRoot, targetRoot) {
 
 function copyRecursive(current, target, rootDir) {
   const rel = path.relative(rootDir, current).replace(/\\/g, "/");
-  const stat = fs.lstatSync(current);
+  const linkStat = fs.lstatSync(current);
+  const stat = linkStat.isSymbolicLink() ? fs.statSync(current) : linkStat;
   if (stat.isDirectory()) {
     if (!shouldCopyGoPath(rel, true)) return;
     fs.mkdirSync(target, { recursive: true });
@@ -308,6 +309,14 @@ function verifyEmbeddedGoToolchain() {
     throw new Error(
       `build-platform-package: bundled Go compiler missing after copy: ${embeddedGo}`,
     );
+  }
+  for (const rel of ["src/fmt", "src/encoding/json"]) {
+    const required = path.join(bundledGoDir, rel);
+    if (!fs.existsSync(required)) {
+      throw new Error(
+        `build-platform-package: bundled Go compiler missing standard library source: ${required}`,
+      );
+    }
   }
 }
 

@@ -18,10 +18,10 @@ import (
 // engine wiring time, not in the rule itself, so both built-in and
 // contributor rules are covered transparently.
 //
-// 1. Register a custom rule whose `Visits()` returns the same Kind
-//    twice.
-// 2. Parse a source file that contains one node of that Kind.
-// 3. Run the engine and assert exactly one finding (not two).
+//  1. Register a custom rule whose `Visits()` returns the same Kind
+//     twice.
+//  2. Parse a source file that contains one node of that Kind.
+//  3. Run the engine and assert exactly one finding (not two).
 func TestEngineDedupesDuplicateKindsInVisits(t *testing.T) {
   // Defensive: `Register` panics on duplicates, so a `go test -count=N`
   // re-run would crash before `defer` could clean up. Drop any prior

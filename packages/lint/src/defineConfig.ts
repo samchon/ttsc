@@ -29,24 +29,22 @@ import type { TtscLintPlugins } from "./structures/TtscLintPlugins";
  * The function is a pure pass-through at runtime. The generic gymnastics below
  * gather every `plugins` map across the array of config entries into one
  * intersected `TtscLintPlugins` shape that gets threaded back into the
- * `TtscLintConfig<P>` constraint. Without this, the default `P =
- * Record<string, ITtscLintPlugin>` widens `PluginRuleNames<P>` to
- * `${string}/${string}` and `{ "no-varXXX": "error" }`-style typos pass
- * through unchecked.
+ * `TtscLintConfig<P>` constraint. Without this, the default `P = Record<string,
+ * ITtscLintPlugin>` widens `PluginRuleNames<P>` to `${string}/${string}` and `{
+ * "no-varXXX": "error" }`-style typos pass through unchecked.
  */
-export function defineConfig<
-  const T extends TtscLintConfig<GatherPlugins<T>>,
->(config: T): T {
+export function defineConfig<const T extends TtscLintConfig<GatherPlugins<T>>>(
+  config: T,
+): T {
   return config;
 }
 
 /**
  * Walks the input type to collect every plugin map declared across entries.
  * Single entries yield the entry's `plugins`; arrays intersect every entry's
- * `plugins` so each entry's rule-name union remains valid for the whole
- * array. The intersection (vs. union) is load-bearing — TypeScript's
- * `keyof (A | B)` collapses to `never`, which would reject every namespaced
- * rule name.
+ * `plugins` so each entry's rule-name union remains valid for the whole array.
+ * The intersection (vs. union) is load-bearing — TypeScript's `keyof (A | B)`
+ * collapses to `never`, which would reject every namespaced rule name.
  */
 type GatherPlugins<T> = T extends { plugins?: infer P }
   ? P extends TtscLintPlugins

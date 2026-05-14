@@ -72,9 +72,9 @@ export interface ITtscLintPluginConfig {
    *   new field and emits a one-time stderr deprecation notice. Removed in a
    *   future minor.
    *
-   *   The legacy shape is intentionally narrower than `rules`/`extends`: a
-   *   string (file path) or a flat rule-name → severity map. The Go-side
-   *   parser only accepts those two shapes; widening the TS type to the new
+   *   The legacy shape is intentionally narrower than `rules`/`extends`: a string
+   *   (file path) or a flat rule-name → severity map. The Go-side parser only
+   *   accepts those two shapes; widening the TS type to the new
    *   `TtscLintConfig` union would silently let `config: [{ rules: {...} }]`
    *   pass type-checking and fail at runtime.
    */
