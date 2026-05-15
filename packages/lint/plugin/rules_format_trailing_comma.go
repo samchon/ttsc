@@ -268,15 +268,26 @@ func lastParameterIsRest(list *shimast.NodeList) bool {
 }
 
 // findCloseTokenAfter returns the byte offset of the first `target`
-// punctuation byte at or after `start` that is not inside a comment or
-// string. Returns -1 when the token is not found. The scanner only ever
-// looks at structural characters because shim AST nodes already
-// pre-trimmed leading trivia.
+// punctuation byte immediately after `start`, allowing only whitespace
+// and comments in between. Any other byte means the caller's expected
+// close token is not the next non-trivia token, and the function returns
+// -1.
+//
+// The strict "trivia-only" contract is load-bearing for the sole caller
+// `considerFunctionParameterComma`. An unparenthesized arrow parameter
+// `a => …` has no opening paren, so a looser scanner would walk past
+// `=>` and the body and land on some unrelated `)` (e.g. the close of
+// an outer call), causing the rule to insert a spurious `,` after the
+// parameter and produce a syntax error like `a, =>`. Bailing on any
+// non-trivia byte cleanly suppresses the rule in those cases.
 func findCloseTokenAfter(src string, start int, target byte) int {
   for i := start; i < len(src); i++ {
     c := src[i]
     if c == target {
       return i
+    }
+    if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+      continue
     }
     if c == '/' && i+1 < len(src) {
       if src[i+1] == '/' {
@@ -296,6 +307,7 @@ func findCloseTokenAfter(src string, start int, target byte) int {
         continue
       }
     }
+    return -1
   }
   return -1
 }
