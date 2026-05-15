@@ -353,6 +353,42 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   }
 }
 
+// assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
+// through the native fix applier and snapshots the rewritten source.
+// Mirrors `assertFixSnapshot`; option-gated sibling of
+// `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
+// because that path uses the default `NewEngine` rather than
+// `NewEngineWithResolver`, so the resolver wiring is inlined here.
+func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  resolver := InlineRuleResolver{
+    Rules:   RuleConfig{ruleName: SeverityError},
+    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
+  }
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, string(got))
+  }
+}
+
 // assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
 // the input when configured with the given options JSON. Mirrors
 // `assertRuleSkipsSource`; used for option-gated skip arms (e.g.

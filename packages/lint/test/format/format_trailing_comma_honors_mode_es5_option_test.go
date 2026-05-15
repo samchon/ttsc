@@ -1,13 +1,6 @@
 package main
 
-import (
-  "encoding/json"
-  "os"
-  "path/filepath"
-  "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
+import "testing"
 
 // TestFormatTrailingCommaHonorsModeES5Option verifies the ES5 branch.
 //
@@ -28,34 +21,11 @@ import (
 //  3. Assert the array gains a trailing comma but the parameter list
 //     does not.
 func TestFormatTrailingCommaHonorsModeES5Option(t *testing.T) {
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
   source := "const xs = [\n  1,\n  2\n];\n" +
     "function f(\n  a: number,\n  b: number\n): number { return a + b; }\n" +
     "f(1, 2);\n"
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-
-  resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/trailing-comma": SeverityError},
-    Options: RuleOptionsMap{
-      "format/trailing-comma": json.RawMessage(`{"mode":"es5"}`),
-    },
-  }
-  findings := NewEngineWithResolver(resolver).
-    Run([]*shimast.SourceFile{file}, nil)
-  if _, err := applyFindingFixes(root, findings); err != nil {
-    t.Fatalf("applyFindingFixes: %v", err)
-  }
-  got, err := os.ReadFile(filePath)
-  if err != nil {
-    t.Fatalf("ReadFile: %v", err)
-  }
-  // Array gains comma; function parameter list does not.
   want := "const xs = [\n  1,\n  2,\n];\n" +
     "function f(\n  a: number,\n  b: number\n): number { return a + b; }\n" +
     "f(1, 2);\n"
-  if string(got) != want {
-    t.Fatalf("formatted source mismatch:\nwant %q\ngot  %q", want, string(got))
-  }
+  assertFixSnapshotWithOptions(t, "format/trailing-comma", source, `{"mode":"es5"}`, want)
 }
