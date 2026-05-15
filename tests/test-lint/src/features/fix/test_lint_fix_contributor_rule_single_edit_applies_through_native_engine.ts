@@ -19,7 +19,7 @@ import path from "node:path";
  * 1. Copy `fixtures/fix-projects/contributor-fixes` into a temp project.
  * 2. Symlink both `@ttsc/lint` and `lint-contributor-demo` into the temp project's
  *    `node_modules` so the host's plugin resolver finds them.
- * 3. Run `ttsc --fix` and assert the rewritten source matches the fixture's
+ * 3. Run `ttsc fix` and assert the rewritten source matches the fixture's
  *    `expected/main.ts`, while the on-disk fixture stays untouched.
  */
 export const test_lint_fix_contributor_rule_single_edit_applies_through_native_engine =
@@ -53,7 +53,7 @@ export const test_lint_fix_contributor_rule_single_edit_applies_through_native_e
 
       const result = TestProject.spawn(
         TestProject.TTSC_BIN,
-        ["--cwd", root, "--fix"],
+        ["fix", "--cwd", root],
         {
           cwd: root,
           env: {

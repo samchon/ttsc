@@ -191,6 +191,16 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
 // considerTrailingComma reports a fix when the bracket-delimited list is
 // multi-line and missing its trailing comma. `closeBracketPos` points at
 // the closing punctuation byte itself (e.g. the `]` of an array literal).
+//
+// "Multi-line" means the close bracket sits on a different line from the
+// last element's end — not just "the list contains a newline somewhere".
+// Prettier's `trailingComma: "all"` omits the comma whenever the close
+// bracket is adjacent to the last element on the same line, even if the
+// element itself is internally multi-line. The canonical shape is
+// `JSON.stringify({ ... })` where the object argument spans many lines
+// but `}` and `)` collapse onto one line; inserting `,)` there would be
+// stylistically wrong and, for parameter rest-paths nearby, can shift
+// later diagnostics.
 func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos int) {
   if list == nil || len(list.Nodes) == 0 {
     return
@@ -203,7 +213,7 @@ func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos
   if closeBracketPos < 0 || closeBracketPos >= len(src) {
     return
   }
-  if !rangeSpansMultipleLines(src, list.Pos(), closeBracketPos) {
+  if !rangeSpansMultipleLines(src, last.End(), closeBracketPos) {
     return
   }
   if rangeHasTrailingComma(src, last.End(), closeBracketPos) {
