@@ -6,9 +6,13 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *
  * Accepts either a bare severity literal or a `[severity, options]`
  * tuple. The options slot's type is *picked per rule name* via
- * `TtscLintRuleOptionsMap` — so a user typing
- * `["format/sort-imports", "error", { importOrder: [...] }]` gets exact
- * autocomplete and typo detection on the options object.
+ * `TtscLintRuleOptionsMap` — so a user writing
+ *
+ *     "format/sort-imports": ["error", { importOrder: [...] }]
+ *
+ * inside `TtscLintRuleMap` gets exact autocomplete and typo detection
+ * on the options object. The rule name is the object key; the
+ * `[severity, options]` tuple is the value.
  *
  * Rules that do not appear in `TtscLintRuleOptionsMap` accept only the
  * severity literal (or the bare `[severity]` tuple): the conditional

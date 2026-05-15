@@ -40,7 +40,8 @@ export type TtscLintRuleMap<
     | readonly [TtscLintSeverity]
     | readonly [TtscLintSeverity, TtscLintRuleOptionsMap[K]];
 } & {
-  [K in
-    | Exclude<TtscLintRule, keyof TtscLintRuleOptionsMap>
-    | PluginRuleNames<P>]?: TtscLintSeverity | readonly [TtscLintSeverity];
+  [K in Exclude<
+    TtscLintRule | PluginRuleNames<P>,
+    keyof TtscLintRuleOptionsMap
+  >]?: TtscLintSeverity | readonly [TtscLintSeverity];
 };

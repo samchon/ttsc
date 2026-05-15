@@ -113,6 +113,16 @@ export function runBuild(
           buildWithNativeCompilerPlugins(options, execution, compilers),
         );
       }
+      if (options.format === true) {
+        // Format mode is write-only by contract: the sidecar already
+        // rewrote source files and reported nothing. Running tsgo
+        // --noEmit afterwards would surface unrelated type errors as if
+        // they were format failures, breaking the documented "ttsc
+        // format never reports diagnostics" guarantee. Callers that
+        // want a recheck after format should run `ttsc check` as a
+        // separate pass.
+        return checked;
+      }
       return appendBuildOutput(
         checked,
         runTsgo(execution, ["--noEmit"], options),

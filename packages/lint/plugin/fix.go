@@ -60,10 +60,15 @@ func runFix(opts *subcommandOpts) int {
     }
   }
 
+  // `ttsc fix` applies edits from BOTH lint-class rules and
+  // format-class rules. The dual `ttsc format` subcommand exists for
+  // the format-only path; fix is the "run everything" entry point so
+  // users don't have to chain two invocations. The engine emits both
+  // kinds of findings in one pass — no filtering needed here.
   for pass := 0; pass < maxFixPasses; pass++ {
     engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
-    fixed, err := applyFindingFixes(opts.cwd, filterLintFindings(findings))
+    fixed, err := applyFindingFixes(opts.cwd, findings)
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 3

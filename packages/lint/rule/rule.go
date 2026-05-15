@@ -41,6 +41,8 @@
 package rule
 
 import (
+  "encoding/json"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
@@ -80,8 +82,8 @@ type Rule interface {
 
 // FormatRule is an optional marker contributors implement when a rule
 // belongs to the "format" category instead of the default "lint"
-// category. Format rules contribute to `ttsc --format` runs (their
-// edits get applied) and are excluded from `ttsc --fix`. Lint rules
+// category. Format rules contribute to `ttsc format` runs (their
+// edits get applied) and are excluded from `ttsc fix`. Lint rules
 // (rules that do not implement FormatRule) are the inverse.
 //
 // `IsFormat` exists as a structural marker, not a runtime toggle:
@@ -161,6 +163,13 @@ type Context struct {
   // SeverityOff.
   Severity Severity
 
+  // Options is the raw JSON blob the user wrote in the second slot of
+  // their `[severity, options]` rule configuration tuple. Nil when the
+  // rule was configured with a bare severity literal. Contributors that
+  // accept options decode the blob into their own struct via
+  // `(*Context).DecodeOptions`.
+  Options json.RawMessage
+
   reporter Reporter
 }
 
@@ -171,14 +180,30 @@ func NewContext(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
   severity Severity,
+  options json.RawMessage,
   reporter Reporter,
 ) *Context {
   return &Context{
     File:     file,
     Checker:  checker,
     Severity: severity,
+    Options:  options,
     reporter: reporter,
   }
+}
+
+// DecodeOptions unmarshals the rule's options blob into `out`. Returns
+// nil with no side effect when the rule was configured with severity
+// alone, so contributors can write:
+//
+//   var opts myRuleOptions
+//   _ = ctx.DecodeOptions(&opts)
+//   // opts now holds either the user's settings or the zero value.
+func (c *Context) DecodeOptions(out interface{}) error {
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
 }
 
 // Report records a finding at the given node's source range. Silently

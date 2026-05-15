@@ -158,6 +158,11 @@ When a supported `eslint.config.*` file runs through an installed ESLint runtime
 `ttsc fix` delegates to ESLint's own fixers and then reloads the TypeScript-Go
 Program before reporting any remaining diagnostics.
 
+`ttsc fix` also applies every enabled format-class rule's edits — see
+the Format section below — so a single `ttsc fix` pass settles both lint
+and formatter rewrites. Run `ttsc format` only when you want the
+format-class edits *without* the lint cascade.
+
 `ttsc fix` is a one-shot project pass: it does not combine with `--watch`,
 single-file mode, or `--emit`. The launcher rejects those combinations with an
 explicit error. Applied fixes are written to disk before the recheck runs, so
@@ -190,7 +195,10 @@ Built-in format rules:
 | `format/sort-imports` | Group external/relative imports and alphabetize each group + named specifiers. |
 | `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). MVP rewrites tag synonyms (`@return`, `@arg`, `@desc`) to canonical names; future passes will fold in tag sorting and column alignment. |
 
-Enable format rules the same way as lint rules:
+Enable format rules the same way as lint rules. Each format rule
+accepts an optional second tuple slot with rule-specific options; the
+TypeScript types pick the right shape per rule key so the inner object
+autocompletes against `TtscLintRuleOptions`.
 
 ```ts
 // lint.config.ts
@@ -199,19 +207,27 @@ import type { TtscLintConfig } from "@ttsc/lint";
 export default {
   rules: {
     "format/semi": "warning",
-    "format/quotes": "warning",
-    "format/trailing-comma": "warning",
-    "format/sort-imports": "warning",
+    "format/quotes": ["warning", { prefer: "double" }],
+    "format/trailing-comma": ["warning", { mode: "all" }],
+    "format/sort-imports": [
+      "warning",
+      {
+        importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
+        importOrderSeparation: true,
+        importOrderSortSpecifiers: true,
+      },
+    ],
     "format/jsdoc": "warning",
   },
 } satisfies TtscLintConfig;
 ```
 
-`ttsc format` and `ttsc fix` are separate subcommands: each applies edits
-only from its own rule category. Run them as separate passes — fix first
-to settle lint rewrites, format second to settle formatter edits. Like
-`ttsc fix`, `ttsc format` rejects `--watch`, single-file mode, and
-`--emit`.
+`ttsc fix` is the "run everything" entry point — it applies edits from
+both lint-class and format-class rules in one pass, so you don't need
+to chain a separate `ttsc format` afterwards. `ttsc format` exists for
+the format-only path: when you want to reshape source without touching
+lint rewrites, run it on its own. Both subcommands reject `--watch`,
+single-file mode, and `--emit`.
 
 `warning` is the recommended severity for format rules. They produce a
 diagnostic in `ttsc check` so CI sees unformatted code, but they do not

@@ -95,11 +95,12 @@ export namespace TtscLintRuleOptions {
   /** `format/jsdoc` options. */
   export interface JSDoc {
     /**
-     * Rewrite known tag synonyms (`@return` → `@returns`, `@arg` →
-     * `@param`, etc.) to their canonical name. Additional entries layer
-     * on top of the built-in synonym table.
+     * Extra `from → to` tag rewrites layered on top of the built-in
+     * synonym table (`@return → @returns`, `@arg → @param`, etc.).
+     * User-supplied entries win on key collision, so a `{"return":
+     * "RETURN"}` entry overrides the built-in default for `@return`.
      *
-     * @default true (built-in table)
+     * @default {} (use built-in table unchanged)
      */
     tagSynonyms?: Record<string, string>;
 

@@ -364,6 +364,9 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
     if len(tuple) > 2 {
       return SeverityOff, nil, fmt.Errorf("severity tuple must be [severity] or [severity, options], got %d elements", len(tuple))
     }
+    if tuple[1] == nil {
+      return sev, nil, nil
+    }
     encoded, err := json.Marshal(tuple[1])
     if err != nil {
       return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
@@ -520,18 +523,6 @@ func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleCon
     return nil, err
   }
   return out, nil
-}
-
-func parseExternalRuleMap(raw any, path string) (RuleConfig, error) {
-  out := RuleConfig{}
-  if err := collectExternalRuleMap(out, raw, path); err != nil {
-    return nil, err
-  }
-  return out, nil
-}
-
-func collectExternalRuleMap(out RuleConfig, raw any, path string) error {
-  return collectExternalRuleMapWithOptions(out, nil, raw, path)
 }
 
 // collectExternalRuleMapWithOptions also records the rule's options blob
@@ -1513,16 +1504,13 @@ func setEnv(env []string, key, value string) []string {
   return append(env, prefix+value)
 }
 
-func parseExternalSeverity(v any) (Severity, error) {
-  sev, _, err := parseExternalRuleEntry(v)
-  return sev, err
-}
-
 // parseExternalRuleEntry mirrors parseRuleEntry for ESLint-style config
-// inputs. ESLint accepts tuples with more than two elements (`["error",
-// "double", { avoidEscape: true }]`); for forward-compat we keep
-// everything after the severity slot as a JSON array so rules can decode
-// whichever positions they care about.
+// inputs. The contract is identical to the inline path: severity
+// literal, `[severity]`, or `[severity, options]`. Tuples longer than
+// two elements are rejected because no built-in rule's option struct
+// models positional ESLint args, so silently encoding the tail as a
+// JSON array would land in `DecodeOptions` and fall back to defaults
+// — a silent fallback the standard parser deliberately avoids.
 func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
   if tuple, ok := v.([]any); ok {
     if len(tuple) == 0 {
@@ -1535,14 +1523,13 @@ func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
     if len(tuple) == 1 {
       return sev, nil, nil
     }
-    if len(tuple) == 2 {
-      encoded, err := json.Marshal(tuple[1])
-      if err != nil {
-        return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
-      }
-      return sev, encoded, nil
+    if len(tuple) > 2 {
+      return SeverityOff, nil, fmt.Errorf("severity tuple must be [severity] or [severity, options], got %d elements", len(tuple))
     }
-    encoded, err := json.Marshal(tuple[1:])
+    if tuple[1] == nil {
+      return sev, nil, nil
+    }
+    encoded, err := json.Marshal(tuple[1])
     if err != nil {
       return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
     }

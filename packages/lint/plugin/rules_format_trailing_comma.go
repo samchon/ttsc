@@ -112,6 +112,9 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     }
     considerTrailingComma(ctx, named.Elements, node.End()-1)
   case shimast.KindTupleType:
+    if mode == "es5" {
+      return // tuple types are type-level; ES5 mode is runtime-only
+    }
     tup := node.AsTupleTypeNode()
     if tup == nil {
       return

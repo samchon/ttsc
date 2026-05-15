@@ -89,6 +89,7 @@ func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
     ctx.File,
     ctx.Checker,
     rule.Severity(ctx.Severity),
+    ctx.Options,
     contextReporter{ctx: ctx},
   )
   a.inner.Check(pubCtx, node)

@@ -387,7 +387,7 @@ The host's fix-aware reporter implements `rule.FixReporter`, which the public `C
 
 ### Tagging a Format Rule
 
-Lint rules participate in `ttsc fix`; format rules participate in `ttsc format`. The two CLI flags are mutually exclusive and each applies edits only from its own rule category. Opt into the format category by implementing the optional `rule.FormatRule` marker:
+Lint rules participate in `ttsc fix`; format rules participate in `ttsc format`. The two subcommands are mutually exclusive and each applies edits only from its own rule category. Opt into the format category by implementing the optional `rule.FormatRule` marker:
 
 ```go
 package demo

@@ -64,6 +64,14 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
     if !hasSemi {
       return
     }
+    if !preferNeverSafeKind(node.Kind) {
+      // Dropping the `;` after a class field or a type alias can
+      // change parse — e.g. `class A { x: number; [k](): void {} }`
+      // would reparse `[k]` as a computed index access on `number`.
+      // Keep the terminator on those kinds even in prefer:"never"
+      // mode.
+      return
+    }
     pos := end - 1
     if pos < 0 {
       pos = 0
@@ -93,6 +101,32 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
     "Missing semicolon.",
     TextEdit{Pos: end, End: end, Text: ";"},
   )
+}
+
+// preferNeverSafeKind reports whether stripping the trailing semicolon
+// is safe for `kind`. Statement kinds end at a line break or `}` in
+// practice; declaration-style kinds (PropertyDeclaration,
+// TypeAliasDeclaration) live next to other class/module members where
+// the explicit terminator disambiguates the next token. The
+// prefer:"never" branch refuses to touch those.
+func preferNeverSafeKind(kind shimast.Kind) bool {
+  switch kind {
+  case
+    shimast.KindVariableStatement,
+    shimast.KindExpressionStatement,
+    shimast.KindReturnStatement,
+    shimast.KindThrowStatement,
+    shimast.KindBreakStatement,
+    shimast.KindContinueStatement,
+    shimast.KindDoStatement,
+    shimast.KindDebuggerStatement,
+    shimast.KindImportDeclaration,
+    shimast.KindImportEqualsDeclaration,
+    shimast.KindExportDeclaration,
+    shimast.KindExportAssignment:
+    return true
+  }
+  return false
 }
 
 func init() {

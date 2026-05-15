@@ -19,7 +19,7 @@ import (
 // 3. Assert the diagnostic falls back to ReportRange instead of requiring a new method.
 func TestPublicRuleContextAcceptsLegacyReporter(t *testing.T) {
   reporter := &legacyReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportRangeFix(1, 2, "message", rule.TextEdit{Pos: 1, End: 2, Text: "x"})
   if reporter.ranges != 1 {
     t.Fatalf("legacy reporter should receive ReportRange fallback, got %d", reporter.ranges)
