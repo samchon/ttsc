@@ -11,13 +11,16 @@ import (
 
 // TestFormatTrailingCommaHonorsModeES5Option verifies the ES5 branch.
 //
-// Prettier's `trailingComma: "es5"` adds commas only to array and
-// object literals — the constructs ES5 itself accepts. Function
-// parameters, function calls, tuple types, and named imports are all
-// skipped because ES5 grammar disallowed trailing commas there. This
-// scenario pins each excluded kind: a multi-line function with
-// parameters that would otherwise gain a trailing comma stays unchanged,
-// while a multi-line array literal in the same file does gain one.
+// Prettier's `trailingComma: "es5"` adds commas only where ES5 grammar
+// accepted them: array literals, object literals, and named imports /
+// exports (prettier defaults `shouldPrintComma`'s level to `"es5"` for
+// named specifiers — confirmed in prettier 3.x source at
+// `src/language-js/print/module.js`). Function parameters, function
+// calls, `new` arguments, and tuple types are all skipped. This
+// scenario pins the function-parameter exclusion: a multi-line
+// function with parameters that would otherwise gain a trailing comma
+// stays unchanged, while a multi-line array literal in the same file
+// does gain one.
 //
 //  1. Parse a file mixing a multi-line array and a multi-line function
 //     declaration, with `mode: "es5"` configured.
