@@ -15,11 +15,11 @@ import (
 // declarations (via `leadingTriviaIsAllWhitespace`); this scenario
 // pins the per-specifier analog so the cohort policy is consistent.
 //
-// 1. Parse an import whose named-specifier list carries an inline
-//    block comment between two specifiers.
-// 2. Run format/sort-imports.
-// 3. Assert zero findings — the rule must NOT propose an edit that
-//    would silently drop the comment.
+//  1. Parse an import whose named-specifier list carries an inline
+//     block comment between two specifiers.
+//  2. Run format/sort-imports.
+//  3. Assert zero findings — the rule must NOT propose an edit that
+//     would silently drop the comment.
 func TestFormatSortImportsPreservesCommentsBetweenSpecifiers(t *testing.T) {
   source := "import { b /* pin */, a } from \"./local\";\n" +
     "console.log(a, b);\n"

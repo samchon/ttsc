@@ -15,11 +15,11 @@ import "testing"
 // had — value functions were covered, type-level function literals
 // were not.
 //
-// 1. Parse a source file with one type alias whose body is a
-//    multi-line function type literal.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    last parameter.
+//  1. Parse a source file with one type alias whose body is a
+//     multi-line function type literal.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     last parameter.
 func TestFormatTrailingCommaInsertsAfterLastFunctionTypeParameter(t *testing.T) {
   assertFixSnapshot(
     t,

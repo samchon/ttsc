@@ -16,11 +16,11 @@ import "testing"
 // `list.Pos()..closeBracketPos` from regressing silently — the slow e2e
 // fixture would catch it, but only after a full launcher spawn.
 //
-// 1. Parse a source file with one multi-line call whose sole argument is a
-//    multi-line object literal whose closing `}` shares a line with `)`.
-// 2. Run the engine with format/trailing-comma enabled.
-// 3. Assert zero findings — neither the call nor the already-terminated
-//    object literal contribute an edit.
+//  1. Parse a source file with one multi-line call whose sole argument is a
+//     multi-line object literal whose closing `}` shares a line with `)`.
+//  2. Run the engine with format/trailing-comma enabled.
+//  3. Assert zero findings — neither the call nor the already-terminated
+//     object literal contribute an edit.
 func TestFormatTrailingCommaSkipsCallWhenCloseParenSharesLineWithLastArgument(t *testing.T) {
   assertRuleSkipsSource(
     t,

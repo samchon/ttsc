@@ -16,10 +16,10 @@ import "testing"
 // drift would wedge the rule visibly instead of producing a syntactically
 // valid but stylistically wrong rewrite.
 //
-// 1. Parse a source file with one multi-line array whose last element carries
-//    a trailing `// trailing` comment.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file places the comma BEFORE the line comment.
+//  1. Parse a source file with one multi-line array whose last element carries
+//     a trailing `// trailing` comment.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file places the comma BEFORE the line comment.
 func TestFormatTrailingCommaPlacesCommaBeforeTrailingLineComment(t *testing.T) {
   assertFixSnapshot(
     t,

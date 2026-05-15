@@ -13,11 +13,11 @@ import "testing"
 // `trailingComma: "all"`. Pinning the call-signature path keeps the
 // peer arm regression-safe.
 //
-// 1. Parse a source file with one interface containing a multi-line
-//    bare call signature.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    last parameter.
+//  1. Parse a source file with one interface containing a multi-line
+//     bare call signature.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     last parameter.
 func TestFormatTrailingCommaInsertsAfterLastCallSignatureParameter(t *testing.T) {
   assertFixSnapshot(
     t,

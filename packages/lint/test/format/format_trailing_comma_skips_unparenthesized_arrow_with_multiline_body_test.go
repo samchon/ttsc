@@ -17,11 +17,11 @@ import "testing"
 // since both arrive at `considerFunctionParameterComma` through the same
 // `KindArrowFunction` dispatch arm.
 //
-// 1. Parse a source file with one unparenthesized-arrow whose body contains
-//    a `)` on a later line.
-// 2. Run the engine with format/trailing-comma enabled.
-// 3. Assert zero findings — the inner call already carries its own trailing
-//    comma, so silence on the arrow's parameter list is the entire signal.
+//  1. Parse a source file with one unparenthesized-arrow whose body contains
+//     a `)` on a later line.
+//  2. Run the engine with format/trailing-comma enabled.
+//  3. Assert zero findings — the inner call already carries its own trailing
+//     comma, so silence on the arrow's parameter list is the entire signal.
 func TestFormatTrailingCommaSkipsUnparenthesizedArrowWithMultilineBody(t *testing.T) {
   assertRuleSkipsSource(
     t,

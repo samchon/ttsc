@@ -45,11 +45,12 @@ func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
 // at the start of `node` (after leading trivia). Returns -1 if not found.
 //
 // Use this to anchor TextEdits that swap a leading keyword:
-//   start := astutil.KeywordStart(file, node, "let")
-//   if start >= 0 {
-//     ctx.ReportFix(node, "use const",
-//       rule.TextEdit{Pos: start, End: start + len("let"), Text: "const"})
-//   }
+//
+//  start := astutil.KeywordStart(file, node, "let")
+//  if start >= 0 {
+//    ctx.ReportFix(node, "use const",
+//      rule.TextEdit{Pos: start, End: start + len("let"), Text: "const"})
+//  }
 func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
   if file == nil || node == nil || keyword == "" {
     return -1

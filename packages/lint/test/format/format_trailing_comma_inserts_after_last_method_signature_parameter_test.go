@@ -15,11 +15,11 @@ import "testing"
 // the interface-side surface regression-safe alongside the
 // `KindMethodDeclaration` peer.
 //
-// 1. Parse a source file with one interface containing a multi-line
-//    method signature.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    last parameter.
+//  1. Parse a source file with one interface containing a multi-line
+//     method signature.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     last parameter.
 func TestFormatTrailingCommaInsertsAfterLastMethodSignatureParameter(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -15,10 +15,10 @@ import "testing"
 // existing trailing-comma test exercises only a single list per fixture.
 // Pinning the two-array shape guarantees the splice order is preserved.
 //
-// 1. Parse a source file with two multi-line array literals, neither
-//    carrying a trailing comma.
-// 2. Apply the rule's findings through the disk-backed fixer.
-// 3. Assert both lists gain trailing commas at the correct positions.
+//  1. Parse a source file with two multi-line array literals, neither
+//     carrying a trailing comma.
+//  2. Apply the rule's findings through the disk-backed fixer.
+//  3. Assert both lists gain trailing commas at the correct positions.
 func TestFormatTrailingCommaInsertsAfterLastElementInMultipleLists(t *testing.T) {
   assertFixSnapshot(
     t,

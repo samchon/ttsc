@@ -16,11 +16,11 @@ import "testing"
 // from a future tsgo `nodePos()` semantic drift that would silently widen
 // the skip beyond same-line close-bracket shapes.
 //
-// 1. Parse a source file with one multi-line array literal whose last
-//    element is followed by an inline block comment and `]` on the same
-//    line.
-// 2. Run the engine with format/trailing-comma enabled.
-// 3. Assert zero findings.
+//  1. Parse a source file with one multi-line array literal whose last
+//     element is followed by an inline block comment and `]` on the same
+//     line.
+//  2. Run the engine with format/trailing-comma enabled.
+//  3. Assert zero findings.
 func TestFormatTrailingCommaSkipsInlineBlockCommentBeforeCloseBracket(t *testing.T) {
   assertRuleSkipsSource(
     t,

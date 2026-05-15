@@ -147,4 +147,5 @@ export type TtscLintRule =
   | "format/quotes"
   | "format/trailing-comma"
   | "format/sort-imports"
-  | "format/jsdoc";
+  | "format/jsdoc"
+  | "format/print-width";

@@ -11,10 +11,10 @@ import "testing"
 // short-circuits on the es5 guard. Pinning the skip protects the peer of
 // the method-parameter test.
 //
-// 1. Parse a source file with one class whose constructor parameter list
-//    spans multiple lines.
-// 2. Run the engine with `mode: "es5"` configured.
-// 3. Assert zero findings.
+//  1. Parse a source file with one class whose constructor parameter list
+//     spans multiple lines.
+//  2. Run the engine with `mode: "es5"` configured.
+//  3. Assert zero findings.
 func TestFormatTrailingCommaHonorsModeEs5SkipsConstructorParameter(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

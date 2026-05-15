@@ -13,10 +13,10 @@ import "testing"
 // both plain and parameter-property forms. Pinning the constructor arm keeps
 // the dispatch peer regression-safe.
 //
-// 1. Parse a source file with one class whose constructor parameter list spans
-//    multiple lines.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the last parameter.
+//  1. Parse a source file with one class whose constructor parameter list spans
+//     multiple lines.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the last parameter.
 func TestFormatTrailingCommaInsertsAfterLastConstructorParameter(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -13,10 +13,10 @@ import "testing"
 // `lastParameterIsRest`/`len == 0` short-circuit paths in
 // `considerFunctionParameterComma`.
 //
-// 1. Parse a source file with one class whose setter parameter spans multiple
-//    lines.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the parameter.
+//  1. Parse a source file with one class whose setter parameter spans multiple
+//     lines.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the parameter.
 func TestFormatTrailingCommaInsertsAfterLastSetAccessorParameter(t *testing.T) {
   assertFixSnapshot(
     t,

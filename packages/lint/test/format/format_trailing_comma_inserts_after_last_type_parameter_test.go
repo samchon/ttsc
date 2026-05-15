@@ -15,10 +15,10 @@ import "testing"
 // the asymmetric type-argument case (`foo<A, B>(…)` call site) which
 // prettier intentionally leaves alone.
 //
-// 1. Parse a source file with one multi-line generic function declaration.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    last type parameter.
+//  1. Parse a source file with one multi-line generic function declaration.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     last type parameter.
 func TestFormatTrailingCommaInsertsAfterLastTypeParameter(t *testing.T) {
   assertFixSnapshot(
     t,

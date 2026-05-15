@@ -54,14 +54,13 @@ CI that already runs `ttsc` blocks on lint with no extra wiring.
 
 ## Setup
 
-Install `ttsc` and TypeScript-Go, then the lint plugin:
+Install the plugin alongside `ttsc` and TypeScript-Go:
 
 ```bash
-npm install -D ttsc @typescript/native-preview
-npm install -D @ttsc/lint
+npm install -D ttsc @typescript/native-preview @ttsc/lint
 ```
 
-Add `lint.config.ts`, or reuse an existing `eslint.config.ts`, next to your project config. If no config file or inline config is found, the compile fails.
+Add a `lint.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // lint.config.ts
@@ -77,113 +76,47 @@ export default {
 } satisfies TtscLintConfig;
 ```
 
-Use `compilerOptions.plugins` only when the project needs inline rules or an explicit config file path. Two ESLint-flat-config-shaped fields:
-
-- `rules` — inline severity map applied to the project.
-- `extends` — relative path to a standalone lint config file whose rules should be inherited.
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "rules": {
-          "no-var": "error",
-          "prefer-const": "error",
-          "no-explicit-any": "warning",
-          "no-console": "off",
-        },
-      },
-    ],
-  },
-}
-```
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "extends": "./lint.config.ts",
-      },
-    ],
-  },
-}
-```
-
-Then run your normal `ttsc` or `ttsx`:
+Run your normal `ttsc` or `ttsx`:
 
 ```bash
 npx ttsc
 npx ttsx src/index.ts
 ```
 
-- Lint errors fail the command.
-- Under `ttsx`, lint errors stop the program before your entrypoint runs.
-- Lint warnings are printed without changing the exit code.
+Errors fail the command; warnings print without affecting the exit code. Under `ttsx`, errors stop the program before your entrypoint runs.
+
+> Alternate config surfaces — inline `compilerOptions.plugins[].rules`, `extends` paths, and `eslint.config.*` reuse — are described in [Config Files](#config-files) below.
 
 ### Fix
-
-Run `ttsc fix` to apply supported autofixes and then run the same no-emit
-typecheck + lint pass:
 
 ```bash
 npx ttsc fix
 ```
 
-Native `@ttsc/lint` fixers currently cover:
+Applies every autofix the enabled rules offer (lint *and* format), writes the result to disk, then runs the usual no-emit typecheck + lint pass.
 
-- `no-var`, single-declaration `prefer-const`, and ESLint-safe `eqeqeq`
-  cases (`typeof` comparisons and same-type literal comparisons).
-- `no-wrapper-object-types` (rewrites `String`/`Number`/`Boolean`/`Symbol`/`BigInt`
-  to the primitive form; `Object` stays detection-only).
-- `prefer-as-const` (rewrites `value as "literal"` to `value as const`).
-- `no-useless-rename` (drops `{ x as x }` / `{ x: x }` tails on
-  import/export specifiers and binding elements).
-- `object-shorthand` (`{ x: x }` → `{ x }`).
-- `no-extra-non-null-assertion` (`a!!` → `a!`).
-- `no-unnecessary-type-constraint` (drops ` extends any`/`unknown`).
-- `prefer-namespace-keyword` (`module Foo {}` → `namespace Foo {}`).
-- `no-useless-escape` (deletes redundant `\` inside string and regex
-  literals; ASCII-only).
-- `no-import-type-side-effects` (hoists inline `type` modifiers onto
-  the import clause; emits multiple non-overlapping edits per finding —
-  the canonical multi-edit fixer in the corpus).
-- `await-thenable` (deletes `await` keyword when the operand is neither
-  a Promise nor a thenable — first type-aware fixer).
+Native fixers currently cover:
 
-When a supported `eslint.config.*` file runs through an installed ESLint runtime,
-`ttsc fix` delegates to ESLint's own fixers and then reloads the TypeScript-Go
-Program before reporting any remaining diagnostics.
+- `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`.
+- `no-wrapper-object-types` (`String`/`Number`/`Boolean`/`Symbol`/`BigInt` → primitive; `Object` stays detection-only).
+- `prefer-as-const`, `no-useless-rename`, `object-shorthand`, `no-extra-non-null-assertion`.
+- `no-unnecessary-type-constraint`, `prefer-namespace-keyword`, `no-useless-escape`.
+- `no-import-type-side-effects` (hoists inline `type` modifiers).
+- `await-thenable` (type-aware — drops `await` on non-thenable operands).
 
-`ttsc fix` also applies every enabled format-class rule's edits — see
-the Format section below — so a single `ttsc fix` pass settles both lint
-and formatter rewrites. Run `ttsc format` only when you want the
-format-class edits *without* the lint cascade.
+If your project uses `eslint.config.*` with an installed ESLint runtime, `ttsc fix` delegates to ESLint's own fixers and reloads the Program before reporting remaining diagnostics.
 
-`ttsc fix` is a one-shot project pass: it does not combine with `--watch`,
-single-file mode, or `--emit`. The launcher rejects those combinations with an
-explicit error. Applied fixes are written to disk before the recheck runs, so
-source files stay modified even when `ttsc fix` exits non-zero on remaining
-type errors or un-fixable lint violations.
+`ttsc fix` is a one-shot project pass and rejects `--watch`, single-file mode, and `--emit`. Fixes are written to disk before the recheck runs, so source stays modified even when the command exits non-zero on remaining errors.
 
-Run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to enforce
-zero remaining errors.
+Recommended flow: run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to gate on zero remaining errors.
 
 ### Format
-
-Run `ttsc format` to apply formatter-class edits (semicolons, quote
-style, trailing commas, import ordering, JSDoc tag normalization).
-Write-only by contract: the lint sidecar applies format-rule edits to
-disk and prints nothing; the launcher skips its trailing TypeScript-Go
-pass entirely, so format never surfaces type errors. Run `ttsc check`
-(or `ttsc fix`) separately when you want type errors back.
 
 ```bash
 npx ttsc format
 ```
+
+Applies the format-class rules and exits silently. `ttsc fix` does the same plus the lint cascade; pick `format` when you want to reshape source without lint rewrites.
 
 Built-in format rules:
 
@@ -192,13 +125,11 @@ Built-in format rules:
 | `format/semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | Convert single-quoted strings to double quotes when safe. |
 | `format/trailing-comma` | Add trailing commas to multi-line lists. |
-| `format/sort-imports` | Group external/relative imports and alphabetize each group + named specifiers. |
-| `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). MVP rewrites tag synonyms (`@return`, `@arg`, `@desc`) to canonical names; future passes will fold in tag sorting and column alignment. |
+| `format/sort-imports` | Group external/relative imports and alphabetize each group + its specifiers. |
+| `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). MVP rewrites tag synonyms (`@return`, `@arg`, `@desc`) to canonical names. |
+| `format/print-width` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the configured column budget. See [docs/13-format-print-width.md](https://github.com/samchon/ttsc/blob/master/docs/13-format-print-width.md). |
 
-Enable format rules the same way as lint rules. Each format rule
-accepts an optional second tuple slot with rule-specific options; the
-TypeScript types pick the right shape per rule key so the inner object
-autocompletes against `TtscLintRuleOptions`.
+Enable them like any other rule. The optional second tuple slot carries per-rule options typed against `TtscLintRuleOptions`:
 
 ```ts
 // lint.config.ts
@@ -218,49 +149,51 @@ export default {
       },
     ],
     "format/jsdoc": "warning",
+    "format/print-width": ["warning", { printWidth: 80 }],
   },
 } satisfies TtscLintConfig;
 ```
 
-`ttsc fix` is the "run everything" entry point — it applies edits from
-both lint-class and format-class rules in one pass, so you don't need
-to chain a separate `ttsc format` afterwards. `ttsc format` exists for
-the format-only path: when you want to reshape source without touching
-lint rewrites, run it on its own. Both subcommands reject `--watch`,
-single-file mode, and `--emit`.
-
-`warning` is the recommended severity for format rules. They produce a
-diagnostic in `ttsc check` so CI sees unformatted code, but they do not
-fail the build — formatting drift is a noisy nuisance, not a correctness
-defect. Raising the severity to `error` is supported when a project
-wants `ttsc check` to gate on formatting too; `off` (or omitting the rule)
-disables both the diagnostic and `ttsc format`'s rewrite for that rule.
-
-Caveat for `error` severity: only enable it on format rules whose
-fixers can fully settle the diagnostic they emit. If a rule reports
-findings the fixer cannot resolve (the MVP of `format/jsdoc` only
-rewrites tag synonyms, for example), an `error`-severity `ttsc fix`
-exits non-zero with the diagnostic still standing. Stick with
-`warning` for rules whose fixer coverage may lag the diagnostic
-surface.
+Use `warning` for format rules: they surface unformatted code in `ttsc check` without failing the build. Raise to `error` only for rules whose fixer fully settles every diagnostic it emits — an unresolvable finding under `error` severity makes `ttsc fix` exit non-zero.
 
 ### Config Files
 
-`@ttsc/lint` looks for a config file next to the selected `tsconfig.json` and walks upward through ancestor directories until one of these names is found (first match wins, multiple files in one directory is an error):
+`@ttsc/lint` discovers config from one of three surfaces, in order:
 
-- `lint.config.{json,js,mjs,cjs,ts,mts,cts}`
-- `ttsc-lint.config.{json,js,mjs,cjs,ts,mts,cts}`
-- `eslint.config.{js,mjs,cjs,ts,mts,cts}` (existing ESLint flat-config compatibility)
+1. **Inline `tsconfig.json` rules** — most local, overrides everything else for that plugin entry.
 
-`.ts` configs are loaded directly — no compile step is required because ttsc executes the file through `ttsx`.
+   ```jsonc
+   {
+     "compilerOptions": {
+       "plugins": [
+         {
+           "transform": "@ttsc/lint",
+           "rules": { "no-var": "error", "prefer-const": "error" },
+         },
+       ],
+     },
+   }
+   ```
 
-Precedence when more than one config surface is present:
+2. **`extends` path** — relative path to a standalone config file.
 
-1. Inline `compilerOptions.plugins[].rules` in `tsconfig.json` is the most local form. When present, it acts as the entire rule set for that plugin entry.
-2. `compilerOptions.plugins[].extends` accepts a path to a config file relative to the `tsconfig.json` and replaces auto-discovery for that entry.
-3. Otherwise auto-discovery walks upward from the `tsconfig.json` directory and uses the first matching file.
+   ```jsonc
+   {
+     "compilerOptions": {
+       "plugins": [
+         { "transform": "@ttsc/lint", "extends": "./lint.config.ts" },
+       ],
+     },
+   }
+   ```
 
-`rules` and `extends` cannot be combined on a single plugin entry — pick one. Skip both when you want auto-discovery to take over.
+3. **Auto-discovery** — walks upward from the `tsconfig.json` directory and uses the first match:
+
+   - `lint.config.{json,js,mjs,cjs,ts,mts,cts}`
+   - `ttsc-lint.config.{json,js,mjs,cjs,ts,mts,cts}`
+   - `eslint.config.{js,mjs,cjs,ts,mts,cts}` (flat-config compatibility)
+
+`.ts` configs load directly through `ttsx` — no compile step required. `rules` and `extends` cannot be combined on a single plugin entry; pick one or rely on auto-discovery.
 
 ### Third-Party Rule Plugins
 

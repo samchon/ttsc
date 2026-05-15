@@ -12,10 +12,10 @@ import "testing"
 // early at the per-specifier loop; this test pins that gate against a
 // future refactor.
 //
-// 1. Parse an import declaration with one type-modified specifier and
-//    one plain specifier.
-// 2. Run the rule under the engine.
-// 3. Assert zero findings — the gate must hold.
+//  1. Parse an import declaration with one type-modified specifier and
+//     one plain specifier.
+//  2. Run the rule under the engine.
+//  3. Assert zero findings — the gate must hold.
 func TestFixNoImportTypeSideEffectsSkipsMixedImport(t *testing.T) {
   assertRuleSkipsSource(
     t,

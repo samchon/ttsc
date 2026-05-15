@@ -13,10 +13,10 @@ import "testing"
 // coverage silently, and class methods are the most common shape after
 // top-level functions.
 //
-// 1. Parse a source file with one class containing a method whose parameter
-//    list spans multiple lines.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the last parameter.
+//  1. Parse a source file with one class containing a method whose parameter
+//     list spans multiple lines.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the last parameter.
 func TestFormatTrailingCommaInsertsAfterLastMethodParameter(t *testing.T) {
   assertFixSnapshot(
     t,

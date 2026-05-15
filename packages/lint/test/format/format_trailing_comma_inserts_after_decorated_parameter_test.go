@@ -11,11 +11,11 @@ import "testing"
 // case keeps the modifier-stacking invariant under a TS-specific shape
 // that the existing parameter tests do not cover.
 //
-// 1. Parse a source file with one class method whose last parameter
-//    carries a decorator and spans across the line break.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    decorated parameter.
+//  1. Parse a source file with one class method whose last parameter
+//     carries a decorator and spans across the line break.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     decorated parameter.
 func TestFormatTrailingCommaInsertsAfterDecoratedParameter(t *testing.T) {
   assertFixSnapshot(
     t,

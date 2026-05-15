@@ -90,6 +90,42 @@ export namespace TtscLintRuleOptions {
     importOrderCaseInsensitive?: boolean;
   }
 
+  /** `format/print-width` options. */
+  export interface PrintWidth {
+    /**
+     * Maximum column width before broken-form layout is chosen. Mirrors
+     * prettier's `printWidth`.
+     *
+     * @default 80
+     */
+    printWidth?: number;
+
+    /**
+     * Indentation increment in columns. Mirrors prettier's `tabWidth`.
+     *
+     * @default 2
+     */
+    tabWidth?: number;
+
+    /**
+     * Emit indentation as tab characters rather than spaces. Mirrors
+     * prettier's `useTabs`. Continuation alignment beyond the tab
+     * boundary still falls back to spaces, matching dprint's
+     * "indent with tabs, align with spaces" convention.
+     *
+     * @default false
+     */
+    useTabs?: boolean;
+
+    /**
+     * Line-terminator emitted on every newline the printer inserts.
+     * Mirrors prettier's `endOfLine` `"lf"` and `"crlf"` modes.
+     *
+     * @default "lf"
+     */
+    endOfLine?: "lf" | "crlf";
+  }
+
   /** `format/jsdoc` options. */
   export interface JSDoc {
     /**
@@ -122,4 +158,5 @@ export interface TtscLintRuleOptionsMap {
   "format/trailing-comma": TtscLintRuleOptions.TrailingComma;
   "format/sort-imports": TtscLintRuleOptions.SortImports;
   "format/jsdoc": TtscLintRuleOptions.JSDoc;
+  "format/print-width": TtscLintRuleOptions.PrintWidth;
 }

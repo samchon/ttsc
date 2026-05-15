@@ -15,11 +15,11 @@ import "testing"
 // round-2 fix uses `shimscanner.SkipTrivia` to land on the first
 // token byte, which honors comments as trivia.
 //
-// 1. Parse a source file whose specifiers carry leading block comments
-//    containing the word `type` plus inline `type` modifiers.
-// 2. Apply the fix through the disk-backed fixer.
-// 3. Assert the comments survive verbatim and the hoist produced the
-//    canonical `import type { Foo, Bar }` shape.
+//  1. Parse a source file whose specifiers carry leading block comments
+//     containing the word `type` plus inline `type` modifiers.
+//  2. Apply the fix through the disk-backed fixer.
+//  3. Assert the comments survive verbatim and the hoist produced the
+//     canonical `import type { Foo, Bar }` shape.
 func TestFixNoImportTypeSideEffectsPreservesLeadingComment(t *testing.T) {
   assertFixSnapshot(
     t,

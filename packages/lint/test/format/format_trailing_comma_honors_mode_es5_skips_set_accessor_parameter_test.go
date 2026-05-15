@@ -13,10 +13,10 @@ import "testing"
 // (the getter takes zero parameters and has no positive insert case to
 // pin separately).
 //
-// 1. Parse a source file with one class whose setter parameter spans
-//    multiple lines.
-// 2. Run the engine with `mode: "es5"` configured.
-// 3. Assert zero findings.
+//  1. Parse a source file with one class whose setter parameter spans
+//     multiple lines.
+//  2. Run the engine with `mode: "es5"` configured.
+//  3. Assert zero findings.
 func TestFormatTrailingCommaHonorsModeEs5SkipsSetAccessorParameter(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

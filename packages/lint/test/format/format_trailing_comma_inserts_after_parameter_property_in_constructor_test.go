@@ -16,11 +16,11 @@ import "testing"
 // (`public readonly`, `private`) end-to-end so a future refactor that
 // mis-handled modifier spans would surface here.
 //
-// 1. Parse a source file with one class whose constructor declares two
-//    multi-line parameter properties with mixed modifiers.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file contains the trailing comma after the
-//    last parameter property.
+//  1. Parse a source file with one class whose constructor declares two
+//     multi-line parameter properties with mixed modifiers.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file contains the trailing comma after the
+//     last parameter property.
 func TestFormatTrailingCommaInsertsAfterParameterPropertyInConstructor(t *testing.T) {
   assertFixSnapshot(
     t,
