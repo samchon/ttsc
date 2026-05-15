@@ -19,7 +19,7 @@ import (
 // 3. Assert the plain Report path fired once and FixReporter was bypassed.
 func TestPublicRuleContextReportFixFallsBackWhenNoEdits(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportFix(newDummyNode(t), "msg")
   if reporter.reports != 1 {
     t.Fatalf("Report should fire once for zero-edit ReportFix, got %d", reporter.reports)

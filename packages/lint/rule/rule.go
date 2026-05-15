@@ -41,6 +41,8 @@
 package rule
 
 import (
+  "encoding/json"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
@@ -76,6 +78,23 @@ type Rule interface {
   // Check is invoked once per relevant node. Use `ctx.Report` /
   // `ctx.ReportRange` to emit findings.
   Check(ctx *Context, node *shimast.Node)
+}
+
+// FormatRule is an optional marker contributors implement when a rule
+// belongs to the "format" category instead of the default "lint"
+// category. `ttsc fix` is the run-everything entry point and applies
+// edits from BOTH lint-class and format-class rules. `ttsc format` is
+// the format-only convenience: it filters to FormatRule findings so
+// lint-class rewrites are skipped. Lint rules (rules that do not
+// implement FormatRule) participate only in `ttsc fix` (and in
+// diagnostics during `ttsc check`).
+//
+// `IsFormat` exists as a structural marker, not a runtime toggle:
+// returning `false` is equivalent to not implementing the interface at
+// all, and the host treats either form the same way.
+type FormatRule interface {
+  Rule
+  IsFormat() bool
 }
 
 // Reporter is the engine-supplied callback that records a finding. The
@@ -147,6 +166,13 @@ type Context struct {
   // SeverityOff.
   Severity Severity
 
+  // Options is the raw JSON blob the user wrote in the second slot of
+  // their `[severity, options]` rule configuration tuple. Nil when the
+  // rule was configured with a bare severity literal. Contributors that
+  // accept options decode the blob into their own struct via
+  // `(*Context).DecodeOptions`.
+  Options json.RawMessage
+
   reporter Reporter
 }
 
@@ -157,14 +183,30 @@ func NewContext(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
   severity Severity,
+  options json.RawMessage,
   reporter Reporter,
 ) *Context {
   return &Context{
     File:     file,
     Checker:  checker,
     Severity: severity,
+    Options:  options,
     reporter: reporter,
   }
+}
+
+// DecodeOptions unmarshals the rule's options blob into `out`. Returns
+// nil with no side effect when the rule was configured with severity
+// alone, so contributors can write:
+//
+//  var opts myRuleOptions
+//  _ = ctx.DecodeOptions(&opts)
+//  // opts now holds either the user's settings or the zero value.
+func (c *Context) DecodeOptions(out interface{}) error {
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
 }
 
 // Report records a finding at the given node's source range. Silently

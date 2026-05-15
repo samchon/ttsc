@@ -24,7 +24,7 @@ import (
 // 3. Assert the legacy `Report` path fired once and no panic occurred.
 func TestPublicRuleContextLegacyReporterDropsFixEdits(t *testing.T) {
   reporter := &legacyOnlyReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportFix(newDummyNode(t), "msg", rule.TextEdit{Pos: 0, End: 1, Text: ""})
   if reporter.reports != 1 {
     t.Fatalf("legacy Report should fire once on ReportFix downgrade, got %d", reporter.reports)

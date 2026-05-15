@@ -106,6 +106,21 @@ export function runBuild(
     }
 
     if (options.emit === false) {
+      if (options.format === true) {
+        // Format mode is write-only by contract: the lint sidecar
+        // already rewrote source files and reported nothing. Running
+        // tsgo --noEmit OR a transform compiler afterwards would either
+        // surface unrelated type errors as if they were format failures
+        // (tsgo path) or apply transform-stage rewrites on top of the
+        // formatted source (transform path), both of which break the
+        // documented "ttsc format only formats" guarantee. The
+        // short-circuit fires before either branch so format mode is a
+        // single concern regardless of how many compilers the project
+        // configures. Callers that want a recheck or a transform pass
+        // after format should run `ttsc check` / `ttsc build` as a
+        // separate invocation.
+        return checked;
+      }
       if (compilers.length !== 0) {
         assertSharedHostCompatibility(compilers, "emit");
         return appendBuildOutput(
@@ -141,6 +156,21 @@ export function runBuild(
     }
 
     return result;
+  }
+
+  if (options.format === true) {
+    // Format mode is write-only by contract — see the matching
+    // short-circuit in the with-native-plugins branch above. When no
+    // native plugin is loaded there is nothing for `ttsc format` to
+    // rewrite, so emit an empty success result rather than falling
+    // through to a tsgo pass that would surface unrelated type errors
+    // as if they were format failures.
+    return {
+      diagnostics: [],
+      status: 0,
+      stdout: "",
+      stderr: "",
+    };
   }
 
   if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
@@ -298,7 +328,7 @@ function createNativeCheckArgs(
   options: TtscBuildOptions,
 ): string[] {
   const args = [
-    options.fix === true ? "fix" : "check",
+    nativeCheckSubcommand(options),
     "--tsconfig=" + execution.tsconfig,
     "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
     "--cwd=" + execution.projectRoot,
@@ -312,6 +342,18 @@ function createNativeCheckArgs(
     args.push("--quiet");
   }
   return args;
+}
+
+/**
+ * Decide which native plugin subcommand the lint sidecar should run for the
+ * current `runBuild` invocation. The launcher selects exactly one of `fix` /
+ * `format` / `check` via subcommand dispatch, so at most one of the
+ * `options.fix` / `options.format` booleans is true.
+ */
+function nativeCheckSubcommand(options: TtscBuildOptions): string {
+  if (options.format === true) return "format";
+  if (options.fix === true) return "fix";
+  return "check";
 }
 
 function serializeNativePlugins(

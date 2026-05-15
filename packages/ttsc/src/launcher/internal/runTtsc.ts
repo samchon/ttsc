@@ -15,7 +15,7 @@ export function runTtsc(
 ): number {
   try {
     if (argv.length === 0) {
-      return runCompatibleBuild([], false);
+      return runCompatibleBuild([], "build");
     }
 
     const [command, ...rest] = argv as [string, ...string[]];
@@ -31,11 +31,13 @@ export function runTtsc(
         process.stdout.write(`${getCompilerVersionText()}\n`);
         return 0;
       case "build":
-        return runCompatibleBuild(rest, false);
+        return runCompatibleBuild(rest, "build");
       case "check":
-        return runCompatibleBuild(rest, true);
+        return runCompatibleBuild(rest, "check");
       case "fix":
-        return runCompatibleBuild(["--fix", ...rest], true);
+        return runCompatibleBuild(rest, "fix");
+      case "format":
+        return runCompatibleBuild(rest, "format");
       case "clean":
         return runClean(rest);
       case "prepare":
@@ -44,10 +46,10 @@ export function runTtsc(
         return delegateToNative(argv);
       case "-p":
       case "--project":
-        return runCompatibleBuild(argv, false);
+        return runCompatibleBuild(argv, "build");
       default:
         if (isBuildAlias(command)) {
-          return runCompatibleBuild(argv, false);
+          return runCompatibleBuild(argv, "build");
         }
         process.stderr.write(
           `ttsc: unknown command ${JSON.stringify(command)}\n`,
@@ -70,31 +72,48 @@ function isBuildAlias(command: string): boolean {
   );
 }
 
-function runCompatibleBuild(
-  argv: readonly string[],
-  checkOnly: boolean,
-): number {
+type TtscMode = "build" | "check" | "fix" | "format";
+
+function runCompatibleBuild(argv: readonly string[], mode: TtscMode): number {
+  const checkOnly = mode !== "build";
   const options = normalizeBuildOptions(parseBuildArgs(argv, checkOnly));
-  if (options.fix) {
+  if (mode === "fix") {
+    if (options.emit === true) {
+      throw new Error("ttsc: fix and --emit are mutually exclusive");
+    }
+    options.fix = true;
+    options.emit = false;
+  }
+  if (mode === "format") {
+    if (options.emit === true) {
+      throw new Error("ttsc: format and --emit are mutually exclusive");
+    }
+    options.format = true;
     options.emit = false;
   }
   if (options.watch) {
-    if (options.fix) {
+    if (mode === "fix") {
       throw new Error(
         "ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks",
+      );
+    }
+    if (mode === "format") {
+      throw new Error(
+        "ttsc: format does not support watch mode; use ttsc --noEmit --watch for incremental checks",
       );
     }
     return runWatch(options, checkOnly);
   }
   if (options.files.length !== 0) {
-    if (options.fix) {
+    if (mode === "fix") {
       throw new Error("ttsc: fix requires a project, not single-file mode");
+    }
+    if (mode === "format") {
+      throw new Error("ttsc: format requires a project, not single-file mode");
     }
     return runSingleFile(options);
   }
-  const result = runBuild(
-    checkOnly || options.fix ? { ...options, emit: false } : options,
-  );
+  const result = runBuild(checkOnly ? { ...options, emit: false } : options);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
@@ -282,9 +301,9 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let cacheDir: string | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
-  let emitForced = false;
   const files: string[] = [];
   let fix = false;
+  let format = false;
   let outDir: string | undefined;
   let preserveWatchOutput = false;
   let quiet = true;
@@ -297,11 +316,6 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     switch (current) {
       case "--emit":
         emit = true;
-        emitForced = true;
-        break;
-      case "--fix":
-        fix = true;
-        emit = false;
         break;
       case "--noEmit":
         emit = false;
@@ -347,9 +361,6 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
           tsconfig = current.slice("--tsconfig=".length);
         } else if (current.startsWith("--project=")) {
           tsconfig = current.slice("--project=".length);
-        } else if (current.startsWith("--fix=")) {
-          fix = current.slice("--fix=".length) !== "false";
-          if (fix) emit = false;
         } else if (current.startsWith("--preserveWatchOutput=")) {
           preserveWatchOutput =
             current.slice("--preserveWatchOutput=".length) !== "false";
@@ -367,9 +378,6 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
         break;
     }
   }
-  if (fix && emitForced) {
-    throw new Error("ttsc: --fix and --emit are mutually exclusive");
-  }
   return {
     binary,
     cacheDir,
@@ -377,6 +385,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     emit,
     files,
     fix,
+    format,
     outDir,
     preserveWatchOutput,
     quiet,
@@ -396,6 +405,7 @@ function printHelp(): void {
       "  ttsc --watch",
       "  ttsc --noEmit",
       "  ttsc fix",
+      "  ttsc format",
       "  ttsc prepare [options]",
       "  ttsc clean [options]",
       "  ttsc version",
@@ -406,8 +416,6 @@ function printHelp(): void {
       "  --tsconfig <file>      Resolve project settings from this tsconfig",
       "  --cwd <dir>            Resolve project-relative paths from this directory",
       "  --emit                 Force emitted files during build",
-      "  --fix                  Run fix-capable check plugins and rewrite source files.",
-      "                         Incompatible with --watch, --emit, single-file mode.",
       "  --noEmit               Force analysis-only build with no file writes",
       "  -w, --watch            Rebuild when project files change",
       "  --preserveWatchOutput  Do not clear the screen between watch rebuilds",
@@ -422,10 +430,11 @@ function printHelp(): void {
       "  Plugin modules are descriptors for ordered native transformer backends.",
       "  JS transformOutput/transformSource functions are not part of the public contract.",
       "",
-      "Compatibility aliases:",
+      "Subcommands:",
       "  ttsc build [options]       Same project build lane as `ttsc [options]`.",
       "  ttsc check [options]       Same as `ttsc --noEmit [options]`.",
-      "  ttsc fix [options]         Apply check-plugin fixes, then run `ttsc --noEmit`.",
+      "  ttsc fix [options]         Apply check-plugin lint + format edits, then run `ttsc check`.",
+      "  ttsc format [options]      Apply check-plugin format-class edits only (write-only, no type check).",
       "  ttsc prepare [options]     Build configured source-plugin binaries into cache.",
       "  ttsc clean [options]       Delete local source-plugin cache directories.",
     ].join("\n"),

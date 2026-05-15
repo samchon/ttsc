@@ -19,7 +19,7 @@ import (
 // 3. Assert no reporter method fired and no panic occurred.
 func TestPublicRuleContextReportFixSkipsNilNode(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportFix(nil, "msg", rule.TextEdit{Pos: 0, End: 1, Text: "x"})
   if reporter.reports != 0 || reporter.ranges != 0 ||
     reporter.fixCalls != 0 || reporter.rangeFixCall != 0 {

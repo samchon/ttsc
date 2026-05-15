@@ -215,7 +215,7 @@ npm install -D @ttsc/lint
 
 When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
-Run `ttsc fix` (or `ttsc --fix`) to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
+Run `ttsc fix` to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
 
 What to learn:
 
@@ -384,6 +384,87 @@ The API is intentionally narrow in round 1 / round 2 — `IdentifierText`, `Stri
 #### `rule.FixReporter` — host-side reporter shape
 
 The host's fix-aware reporter implements `rule.FixReporter`, which the public `Context.ReportFix` / `ReportRangeFix` discover via a type assertion. **Contributor rules do not implement this interface.** When unit-testing a contributor rule with a fake `rule.Reporter`, declare `var _ rule.FixReporter = &myReporter{}` in the test to compile-check that the fake supports the fix path; Go interface satisfaction is all-or-nothing, so a fake that implements only `ReportFix` and not `ReportRangeFix` will silently fall through to the legacy `Report` path.
+
+### Reading User Options
+
+A user can configure your rule with an `[severity, options]` tuple. The options blob arrives on `ctx.Options` as a `json.RawMessage`; decode it into a struct that you control:
+
+```go
+type noMarkerCommentOptions struct {
+  Markers []string `json:"markers"`
+}
+
+func (noMarkerComment) Check(ctx *rule.Context, node *shimast.Node) {
+  var opts noMarkerCommentOptions
+  _ = ctx.DecodeOptions(&opts)
+  if len(opts.Markers) == 0 {
+    opts.Markers = []string{"TODO", "FIXME"} // defaults
+  }
+  // ...inspect ctx.File.Text() against opts.Markers...
+}
+```
+
+`DecodeOptions` is a thin `json.Unmarshal` wrapper that returns `nil` (no error, struct untouched) when the user configured the rule with a bare severity literal. The pattern above — declare struct, call `DecodeOptions`, apply defaults — is the same one the built-in `format/*` rules use.
+
+#### Per-rule option typing on the TypeScript side
+
+When a consumer writes `["error", { markers: ["TODO"] }]` in their `lint.config.ts`, TypeScript needs to know that `"demo/no-marker-comment"` accepts an object with a `markers: string[]` field. The public `TtscLintRuleOptionsMap` interface is *declaration-mergeable* — augment it from your plugin package's entry point so user configs autocomplete and reject typos:
+
+```ts
+// ttsc-lint-plugin-demo/src/index.ts
+import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
+
+const plugin: ITtscLintPlugin = {
+  meta: {
+    name: "ttsc-lint-plugin-demo",
+    version: "1.0.0",
+    namespace: "demo",
+  },
+  rules: ["no-marker-comment"] as const,
+  source: path.resolve(__dirname, "..", "rules"),
+};
+
+declare module "@ttsc/lint" {
+  interface TtscLintRuleOptionsMap {
+    "demo/no-marker-comment": {
+      /** Comment markers to flag. Defaults to TODO / FIXME. */
+      markers?: readonly string[];
+    };
+  }
+}
+
+export default plugin;
+```
+
+The key in `TtscLintRuleOptionsMap` must exactly equal the rule name (`"<namespace>/<rule>"`) that the Go side reports through `Rule.Name()`, and the field names in the interface must match the JSON tags on the Go struct (`Markers []string \`json:"markers"\``). The two layers are otherwise independent — the TS interface controls editor autocomplete; the Go struct controls runtime decoding.
+
+### Tagging a Format Rule
+
+`ttsc fix` is the run-everything entry point — its cascade applies edits from every enabled rule, lint-class and format-class together. `ttsc format` is the format-only convenience: it filters to format-class rule edits so lint rewrites are skipped. Opt into the format category by implementing the optional `rule.FormatRule` marker so the `format` subcommand can pick your rule out of the engine's full finding stream:
+
+```go
+package demo
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+func init() { rule.Register(demoTrimTrailingSpace{}) }
+
+type demoTrimTrailingSpace struct{}
+
+func (demoTrimTrailingSpace) Name() string                          { return "demo/trim-trailing-space" }
+func (demoTrimTrailingSpace) IsFormat() bool                        { return true }
+func (demoTrimTrailingSpace) Visits() []shimast.Kind                { return []shimast.Kind{shimast.KindSourceFile} }
+func (demoTrimTrailingSpace) Check(ctx *rule.Context, node *shimast.Node) {
+  // Emit ReportFix / ReportRangeFix with formatter-class edits.
+}
+```
+
+`IsFormat` is a structural marker — returning `false` is equivalent to omitting the interface entirely, and the host treats either form the same way. Diagnostics from format-tagged rules still respect the severity ladder when reported through `ttsc check`, so a project can pair a developer-local `ttsc format` with a CI `ttsc check` that fails on any unformatted file.
 
 ## Combined Project
 

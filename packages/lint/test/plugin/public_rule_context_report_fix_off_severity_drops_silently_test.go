@@ -20,7 +20,7 @@ import (
 // 3. Assert no reporter callback fired.
 func TestPublicRuleContextReportFixOffSeverityDropsSilently(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityOff, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityOff, nil, reporter)
   ctx.ReportFix(newDummyNode(t), "msg", rule.TextEdit{Pos: 0, End: 1, Text: ""})
   ctx.ReportRangeFix(1, 4, "msg", rule.TextEdit{Pos: 1, End: 4, Text: ""})
   if reporter.reports != 0 || reporter.ranges != 0 ||

@@ -8,4 +8,5 @@ export * from "./TtscLintPlugins";
 export * from "./TtscLintRule";
 export * from "./TtscLintRuleEntry";
 export * from "./TtscLintRuleMap";
+export * from "./TtscLintRuleOptions";
 export * from "./TtscLintSeverity";

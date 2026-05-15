@@ -19,8 +19,25 @@ const plugin = {
     version: "0.10.2",
     namespace: "demo",
   },
-  rules: ["no-todo-comment", "capitalize-exports"] as const,
+  rules: ["no-todo-comment", "capitalize-exports", "no-marker-comment"] as const,
   source: path.resolve(__dirname, "..", "rules"),
 } satisfies ITtscLintPlugin;
+
+// `demo/no-marker-comment` accepts a `{ markers: string[] }` options
+// blob. Augmenting `TtscLintRuleOptionsMap` here is what unlocks the
+// `[severity, options]` tuple form in user configs — the autocomplete
+// for `markers` flows from this interface declaration into the
+// `TtscLintRuleMap` mapped type the user writes against. The Go
+// rule's option struct (`noMarkerCommentOptions` in
+// `rules/no_marker_comment.go`) uses matching JSON tags so the wire
+// payload decodes cleanly on the host side.
+declare module "@ttsc/lint" {
+  interface TtscLintRuleOptionsMap {
+    "demo/no-marker-comment": {
+      /** Comment substrings to flag. Defaults to `["TODO", "FIXME"]`. */
+      markers?: readonly string[];
+    };
+  }
+}
 
 export default plugin;

@@ -21,7 +21,7 @@ import (
 // 3. Assert the FixReporter.ReportRangeFix path fired once with the edit intact.
 func TestPublicRuleContextReportRangeFixForwardsToFixReporter(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   edit := rule.TextEdit{Pos: 3, End: 5, Text: "xy"}
   ctx.ReportRangeFix(3, 5, "msg", edit)
   if reporter.ranges != 0 {

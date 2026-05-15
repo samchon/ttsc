@@ -62,6 +62,26 @@ func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   return file
 }
 
+// parseTSXFile parses one virtual TSX file with a caller-selected path.
+// Mirrors parseTSFile but uses ScriptKindTSX so JSX nodes
+// (KindJsxElement, KindJsxAttribute, …) appear in the AST.
+//
+//  1. Keep the filename absolute because the tsgo parser rejects relatives.
+//  2. Parse as TSX so JSX-only kinds are recognized instead of becoming
+//     parse errors or alternative-grammar tokens.
+//  3. Fail the current scenario immediately if parsing returns no SourceFile.
+func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
+  t.Helper()
+  opts := shimast.SourceFileParseOptions{
+    FileName: fileName,
+  }
+  file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTSX)
+  if file == nil {
+    t.Fatalf("parser returned nil source file")
+  }
+  return file
+}
+
 // assertRuleCorpusCase runs one annotated fixture through the native rule engine.
 //
 // The TypeScript feature corpus already exercises these files end-to-end through
@@ -328,6 +348,63 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   writeFile(t, filePath, source)
   file := parseTSFile(t, filePath, source)
   findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
+  }
+}
+
+// assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
+// through the native fix applier and snapshots the rewritten source.
+// Mirrors `assertFixSnapshot`; option-gated sibling of
+// `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
+// because that path uses the default `NewEngine` rather than
+// `NewEngineWithResolver`, so the resolver wiring is inlined here.
+func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  resolver := InlineRuleResolver{
+    Rules:   RuleConfig{ruleName: SeverityError},
+    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
+  }
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, string(got))
+  }
+}
+
+// assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
+// the input when configured with the given options JSON. Mirrors
+// `assertRuleSkipsSource`; used for option-gated skip arms (e.g.
+// `format/trailing-comma` under `mode: "es5"`) so per-case tests do not have
+// to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
+func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  resolver := InlineRuleResolver{
+    Rules:   RuleConfig{ruleName: SeverityError},
+    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
+  }
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
   }

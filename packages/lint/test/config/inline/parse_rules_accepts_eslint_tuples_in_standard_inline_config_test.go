@@ -1,0 +1,59 @@
+package main
+
+import (
+  "encoding/json"
+  "testing"
+)
+
+// TestParseRulesAcceptsESLintTuplesInStandardInlineConfig verifies tuple support.
+//
+// Inline lint config now accepts ESLint-style `[severity, options]` tuples
+// alongside bare severity literals. The two slots are captured into the
+// RuleConfig severity map and the RuleOptionsMap options blob respectively,
+// so rule implementations can decode their per-rule option struct from the
+// stored JSON.
+//
+// 1. Build an inline rules map mixing a bare severity and a tuple form.
+// 2. Parse it through `ParseRulesWithOptions`.
+// 3. Assert severity and options are routed to the correct collection.
+func TestParseRulesAcceptsESLintTuplesInStandardInlineConfig(t *testing.T) {
+  cfg, opts, err := ParseRulesWithOptions(map[string]any{
+    "no-var": "error",
+    "format/sort-imports": []any{
+      "warning",
+      map[string]any{
+        "importOrder":           []any{"<THIRD_PARTY_MODULES>", "^[./]"},
+        "importOrderSeparation": true,
+      },
+    },
+  })
+  if err != nil {
+    t.Fatalf("ParseRulesWithOptions: %v", err)
+  }
+  if cfg["no-var"] != SeverityError {
+    t.Fatalf("no-var severity: want error, got %v", cfg["no-var"])
+  }
+  if cfg["format/sort-imports"] != SeverityWarn {
+    t.Fatalf("format/sort-imports severity: want warning, got %v", cfg["format/sort-imports"])
+  }
+  if _, exists := opts["no-var"]; exists {
+    t.Fatalf("severity-only rule must not have an options blob recorded")
+  }
+  raw, ok := opts["format/sort-imports"]
+  if !ok {
+    t.Fatalf("tuple rule must produce an options blob")
+  }
+  var decoded struct {
+    ImportOrder           []string `json:"importOrder"`
+    ImportOrderSeparation bool     `json:"importOrderSeparation"`
+  }
+  if err := json.Unmarshal(raw, &decoded); err != nil {
+    t.Fatalf("options blob is not valid JSON: %v", err)
+  }
+  if len(decoded.ImportOrder) != 2 || decoded.ImportOrder[0] != "<THIRD_PARTY_MODULES>" {
+    t.Fatalf("importOrder did not round-trip: %+v", decoded)
+  }
+  if !decoded.ImportOrderSeparation {
+    t.Fatalf("importOrderSeparation did not round-trip")
+  }
+}

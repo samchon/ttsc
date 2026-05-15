@@ -19,7 +19,7 @@ import (
 // 3. Assert ReportRange fired and FixReporter.ReportRangeFix did not.
 func TestPublicRuleContextReportRangeFixFallsBackWhenNoEdits(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportRangeFix(1, 4, "msg")
   if reporter.ranges != 1 {
     t.Fatalf("ReportRange should fire once for zero-edit call, got %d", reporter.ranges)

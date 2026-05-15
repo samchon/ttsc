@@ -1,15 +1,52 @@
 import type { PluginRuleNames } from "./PluginRuleNames";
 import type { TtscLintPlugins } from "./TtscLintPlugins";
 import type { TtscLintRule } from "./TtscLintRule";
-import type { TtscLintRuleEntry } from "./TtscLintRuleEntry";
+import type { TtscLintRuleOptionsMap } from "./TtscLintRuleOptions";
+import type { TtscLintSeverity } from "./TtscLintSeverity";
 
 /**
  * Rule-name → severity or severity-tuple map.
  *
- * Rule names are the union of every built-in name plus every contributor
- * plugin's `${namespace}/${rule}` pair. The `(string & {})` widener is
- * intentionally absent: typos in rule names produce type errors.
+ * Built from two independent mapped types intersected together:
+ *
+ * - Rules listed in `TtscLintRuleOptionsMap` accept `severity`, `[severity]`, or
+ *   `[severity, options]`, with the options type picked per rule key.
+ * - Every other built-in rule plus any contributor plugin rule accepts `severity`
+ *   or `[severity]`.
+ *
+ * Splitting the two halves (instead of folding them into one mapped type with a
+ * conditional value) keeps TypeScript's contextual typing intact inside the
+ * options object literal: typing
+ *
+ * ```ts
+ * rules: {
+ *   "format/sort-imports": ["warning", { importOrder: [...] }],
+ *   "no-var":              "error",
+ * }
+ * ```
+ *
+ * Yields exact autocomplete on `importOrder`, `importOrderSeparation`, etc.,
+ * while `no-var` rejects any tuple beyond a bare severity.
+ *
+ * The `(string & {})` widener is intentionally absent: typos in rule names
+ * produce a `TS2353` excess-property error when the literal is checked in
+ * isolation (e.g. one negative-case-per-const). When the literal also carries
+ * other shape-incompatible entries — e.g. `prefre` typo on `format/quotes` next
+ * to the rule-name typo — TS sometimes elides the rule-name error after
+ * reporting the option-key error first. The test at
+ * `tests/test-lint/.../test_lib_index_d_ts_rule_options_autocomplete_per_rule.ts`
+ * splits each negative case into its own const to keep every branch
+ * load-bearing.
  */
-export type TtscLintRuleMap<P extends TtscLintPlugins = TtscLintPlugins> = {
-  [K in TtscLintRule | PluginRuleNames<P>]?: TtscLintRuleEntry;
-};
+export type TtscLintRuleMap<P extends TtscLintPlugins = Record<string, never>> =
+  {
+    [K in keyof TtscLintRuleOptionsMap]?:
+      | TtscLintSeverity
+      | readonly [TtscLintSeverity]
+      | readonly [TtscLintSeverity, TtscLintRuleOptionsMap[K]];
+  } & {
+    [K in Exclude<
+      TtscLintRule | PluginRuleNames<P>,
+      keyof TtscLintRuleOptionsMap
+    >]?: TtscLintSeverity | readonly [TtscLintSeverity];
+  };

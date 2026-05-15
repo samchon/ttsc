@@ -18,6 +18,9 @@
 package main
 
 import (
+  "encoding/json"
+  "fmt"
+  "os"
   "sort"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -43,18 +46,66 @@ type Rule interface {
   Check(ctx *Context, node *shimast.Node)
 }
 
+// FormatRule is an optional marker interface that tags a Rule as a
+// formatter. `ttsc fix` is the run-everything entry point — it applies
+// edits from BOTH lint-class rules and FormatRule rules. `ttsc format`
+// is the format-only convenience: it filters to FormatRule findings so
+// lint-class rewrites are skipped. The marker exists so the format
+// filter can pick the right half; fix needs no filter.
+//
+// FormatRule.IsFormat must return true unconditionally — the method
+// exists as a structural marker, not a runtime toggle. Returning false
+// is treated by the engine as "not a format rule" and is equivalent to
+// not implementing the interface at all.
+type FormatRule interface {
+  Rule
+  IsFormat() bool
+}
+
+// isFormatRule reports whether `r` opts into the format category.
+func isFormatRule(r Rule) bool {
+  fr, ok := r.(FormatRule)
+  return ok && fr.IsFormat()
+}
+
 // Context is the per-(file, rule) handle the engine passes to `Check`.
+//
+// `Options` is the raw JSON blob the user wrote in their rule
+// configuration's second tuple slot (`["warning", { ... }]`). It is nil
+// when the rule was configured with a bare severity literal. Rules that
+// accept options decode the blob into their own struct via
+// `(*Context).DecodeOptions` and fall back to defaults on nil.
 type Context struct {
   File     *shimast.SourceFile
   Checker  *shimchecker.Checker
   Severity Severity
+  Options  json.RawMessage
 
-  rule    Rule
-  collect func(*Finding)
+  rule     Rule
+  isFormat bool
+  collect  func(*Finding)
+}
+
+// DecodeOptions unmarshals the rule's options blob into `out`. Returns
+// nil with no side effect when the rule was configured with severity
+// alone, so callers can write
+//
+//  var opts myRuleOptions
+//  ctx.DecodeOptions(&opts)
+//  // opts now holds either the user's settings or the zero value.
+func (c *Context) DecodeOptions(out interface{}) error {
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
 }
 
 // Finding is one rule-emitted diagnostic before it gets converted into a
-// driver Diagnostic.
+// driver Diagnostic. `IsFormat` mirrors the dispatching rule's category
+// so the `format` subcommand's filter can route findings without
+// re-querying the registry. The `fix` subcommand applies findings from
+// both categories — no filter — because `ttsc fix` is the
+// run-everything entry point.
 type Finding struct {
   Rule     string
   Severity Severity
@@ -63,6 +114,7 @@ type Finding struct {
   End      int
   Message  string
   Fix      []TextEdit
+  IsFormat bool
 }
 
 // TextEdit is one byte-range replacement offered by an autofixable finding.
@@ -101,6 +153,7 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     End:      node.End(),
     Message:  message,
     Fix:      cloneTextEdits(edits),
+    IsFormat: c.isFormat,
   })
 }
 
@@ -127,6 +180,7 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
     End:      end,
     Message:  message,
     Fix:      cloneTextEdits(edits),
+    IsFormat: c.isFormat,
   })
 }
 
@@ -272,10 +326,12 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
           File:     file,
           Checker:  checker,
           Severity: severity,
+          Options:  e.config.RuleOptions(rule.Name()),
           rule:     rule,
+          isFormat: isFormatRule(rule),
           collect:  collect,
         }
-        rule.Check(ctx, node)
+        runRuleCheck(rule, ctx, node, collect)
       }
     }
     node.ForEachChild(func(child *shimast.Node) bool {
@@ -298,10 +354,12 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
         File:     file,
         Checker:  checker,
         Severity: severity,
+        Options:  e.config.RuleOptions(rule.Name()),
         rule:     rule,
+        isFormat: isFormatRule(rule),
         collect:  collect,
       }
-      rule.Check(ctx, file.AsNode())
+      runRuleCheck(rule, ctx, file.AsNode(), collect)
     }
   }
 
@@ -317,4 +375,49 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // the filter would silently leak those findings into the diagnostic
   // stream.
   return filterInlineDisabledFindings(file, collected)
+}
+
+// runRuleCheck invokes a rule's `Check` with a `recover()` barrier so a
+// panicking rule does not abort the entire `ttsc fix` / `ttsc check`
+// run. Built-in rules are not expected to panic, but contributor rules
+// crossing into the public `rule.Context` adapter can be authored by
+// anyone; protecting the engine is the only way to bound the blast
+// radius of one bad rule. The recovered panic is surfaced as a
+// SeverityError finding tagged with the rule's name so the user sees
+// the failure in the normal diagnostic stream.
+func runRuleCheck(rule Rule, ctx *Context, node *shimast.Node, collect func(*Finding)) {
+  defer func() {
+    r := recover()
+    if r == nil {
+      return
+    }
+    if ctx == nil || ctx.File == nil {
+      // Without source context there is nowhere to anchor the
+      // diagnostic. Surface to stderr so the panic is at least
+      // visible to the operator.
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: rule %q panicked: %v\n", rule.Name(), r)
+      return
+    }
+    pos := 0
+    end := 1
+    if node != nil {
+      pos = node.Pos()
+      end = node.End()
+    }
+    if end <= pos {
+      end = pos + 1
+    }
+    collect(&Finding{
+      Rule:     rule.Name(),
+      Severity: SeverityError,
+      Pos:      pos,
+      End:      end,
+      Message: fmt.Sprintf(
+        "Rule %q panicked while checking this node: %v. Report this to the rule's author; ttsc skipped the rule on this file.",
+        rule.Name(), r,
+      ),
+      File: ctx.File,
+    })
+  }()
+  rule.Check(ctx, node)
 }

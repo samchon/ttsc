@@ -60,6 +60,12 @@ func runFix(opts *subcommandOpts) int {
     }
   }
 
+  // `ttsc fix` applies edits from BOTH lint-class rules and
+  // format-class rules. The dual `ttsc format` subcommand exists for
+  // the format-only path; fix is the "run everything" entry point so
+  // users don't have to chain two invocations. The engine emits both
+  // kinds of findings in one pass — no filtering needed here.
+  cascadeConverged := false
   for pass := 0; pass < maxFixPasses; pass++ {
     engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
@@ -69,6 +75,7 @@ func runFix(opts *subcommandOpts) int {
       return 3
     }
     if fixed == 0 {
+      cascadeConverged = true
       break
     }
     totalFixes += fixed
@@ -76,6 +83,17 @@ func runFix(opts *subcommandOpts) int {
     if code != 0 {
       return code
     }
+  }
+  if !cascadeConverged {
+    // A non-converged exit means at least one rule kept emitting
+    // edits on every pass — typically a buggy fixer that doesn't
+    // settle the diagnostic it produces. The remaining findings still
+    // surface below as ordinary diagnostics, and the exit code below
+    // is bumped to 2 so a CI gate like `ttsc fix && echo ok` does not
+    // silently accept the buggy-fixer state.
+    fmt.Fprintf(os.Stderr,
+      "@ttsc/lint: fix cascade did not converge after %d passes; remaining diagnostics are reported below\n",
+      maxFixPasses)
   }
 
   engine := NewEngineWithResolver(rules)
@@ -87,7 +105,14 @@ func runFix(opts *subcommandOpts) int {
   if !externalRan {
     warnUnknownRules(os.Stderr, engine.UnknownRules())
   }
-  if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
+  errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd)
+  if errCount > 0 {
+    return 2
+  }
+  if !cascadeConverged {
+    // Diagnostics may all be warnings (or empty) yet the cascade did
+    // not settle — surface the failure as exit 2 so the warning above
+    // is not lost in a shell `&& echo ok` pipeline.
     return 2
   }
   if opts.verbose && totalFixes > 0 {

@@ -95,16 +95,25 @@ Field rules:
 
 Public stages are deliberately small:
 
-| Stage                   | Host behavior                                    | Binary commands               |
-| ----------------------- | ------------------------------------------------ | ----------------------------- |
-| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build` |
-| `"check"`               | reports diagnostics before emit                  | `check`; optional `fix`       |
+| Stage                   | Host behavior                                    | Binary commands                       |
+| ----------------------- | ------------------------------------------------ | ------------------------------------- |
+| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build`         |
+| `"check"`               | reports diagnostics before emit                  | `check`; optional `fix`, `format`     |
 
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
-When the user runs `ttsc fix` or `ttsc --fix`, `ttsc` invokes check-stage
-plugins with the `fix` subcommand and keeps JavaScript/declaration emit
-disabled. See [CLI Commands → `fix`](#fix) for the subcommand contract.
+When the user runs `ttsc fix`, `ttsc` invokes check-stage plugins with
+the `fix` subcommand and keeps JavaScript/declaration emit disabled.
+`fix` is the run-everything entry point: edits from every enabled rule
+flow through it, lint-class and format-class together. See
+[CLI Commands → `fix`](#fix) for the subcommand contract.
+
+When the user runs `ttsc format`, `ttsc` invokes the same check-stage
+plugins with the `format` subcommand. `ttsc format` is the format-only
+convenience that filters to format-class rule edits so lint rewrites
+are skipped — pick this subcommand when you want to reshape source
+without applying lint rewrites. See [CLI Commands → `format`](#format)
+for the subcommand contract.
 
 ## Composition
 
@@ -242,8 +251,8 @@ my-plugin fix \
   --plugins-json='[...]'
 ```
 
-Optional for check-stage plugins. Invoked when the user runs `ttsc fix` or
-`ttsc --fix`. Apply autofixes to source files in place, then render any
+Optional for check-stage plugins. Invoked when the user runs `ttsc fix`.
+Apply autofixes to source files in place, then render any
 remaining diagnostics through the same renderer contract as `check`. Emit
 stays disabled — fix plugins must not write JavaScript or declaration output.
 
@@ -251,6 +260,31 @@ Plugins that do not support fixes should exit `2` with a stderr message of the
 form `<plugin-name>: fix not supported`. The host surfaces that as a build
 failure. Plugins that support fixes but find nothing to apply exit `0` with
 empty stderr.
+
+### `format`
+
+```bash
+my-plugin format \
+  --cwd=/project \
+  --tsconfig=/project/tsconfig.json \
+  --plugins-json='[...]'
+```
+
+Optional for check-stage plugins. Invoked when the user runs `ttsc
+format`. Apply formatter-class edits (whitespace, punctuation,
+ordering) to source files in place. Write-only by contract: format
+subcommands must not print diagnostics and must keep JavaScript /
+declaration emit disabled.
+
+The split between `fix` and `format` is the apply-time filter, not a
+plugin boundary. A check-stage plugin may host both lint and format
+rules in one binary: `fix` applies every category's edits; `format`
+filters to format-class only. The two subcommands share the engine
+and the protocol; only the post-engine filter differs.
+
+Plugins that do not support format should exit `2` with a stderr message
+of the form `<plugin-name>: format not supported`. Plugins that support
+format but find nothing to apply exit `0` with empty stderr.
 
 ### `transform`
 
