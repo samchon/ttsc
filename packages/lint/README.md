@@ -248,9 +248,9 @@ surface.
 
 `@ttsc/lint` looks for a config file next to the selected `tsconfig.json` and walks upward through ancestor directories until one of these names is found (first match wins, multiple files in one directory is an error):
 
-- `lint.config.{ts,mts,cts,js,mjs,cjs,json}`
-- `ttsc-lint.config.{ts,mts,cts,js,mjs,cjs,json}`
-- `eslint.config.{ts,mts,cts,js,mjs,cjs}` (existing ESLint flat-config compatibility)
+- `lint.config.{json,js,mjs,cjs,ts,mts,cts}`
+- `ttsc-lint.config.{json,js,mjs,cjs,ts,mts,cts}`
+- `eslint.config.{js,mjs,cjs,ts,mts,cts}` (existing ESLint flat-config compatibility)
 
 `.ts` configs are loaded directly — no compile step is required because ttsc executes the file through `ttsx`.
 

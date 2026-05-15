@@ -141,6 +141,14 @@ func rewriteJSDocTags(ctx *Context, src string, block jsdocBlock, synonyms map[s
       continue
     }
     tag := src[tagStart:tagEnd]
+    // `@example` opens a region of free-form sample code that may
+    // include literal `@param` / `@return` etc. as part of the demo.
+    // Rewriting those would corrupt the example. Fast-forward past
+    // the example body to the next top-level tag.
+    if tag == "example" {
+      i = endOfJSDocExampleBody(src, block, tagEnd) - 1
+      continue
+    }
     canonical, ok := synonyms[tag]
     if !ok || canonical == tag {
       i = tagEnd - 1
@@ -154,6 +162,32 @@ func rewriteJSDocTags(ctx *Context, src string, block jsdocBlock, synonyms map[s
     )
     i = tagEnd - 1
   }
+}
+
+// endOfJSDocExampleBody returns the byte offset of the next top-level
+// tag (an `@` at line start, optionally after `*` and whitespace) at or
+// after `start`, or `block.bodyEnd` when none exists. Used to skip the
+// free-form body of an `@example` block when rewriting tag synonyms.
+func endOfJSDocExampleBody(src string, block jsdocBlock, start int) int {
+  for i := start; i < block.bodyEnd; i++ {
+    if src[i] != '\n' {
+      continue
+    }
+    // Find the first non-whitespace, non-`*` byte on the next line.
+    j := i + 1
+    for j < block.bodyEnd {
+      c := src[j]
+      if c == ' ' || c == '\t' || c == '\r' || c == '*' {
+        j++
+        continue
+      }
+      break
+    }
+    if j < block.bodyEnd && src[j] == '@' {
+      return j
+    }
+  }
+  return block.bodyEnd
 }
 
 func isJSDocTagByte(b byte) bool {

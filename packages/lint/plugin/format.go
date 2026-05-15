@@ -49,6 +49,7 @@ func runFormat(opts *subcommandOpts) int {
   }()
 
   totalFixes := 0
+  cascadeConverged := false
   for pass := 0; pass < maxFormatPasses; pass++ {
     engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
@@ -58,6 +59,7 @@ func runFormat(opts *subcommandOpts) int {
       return 3
     }
     if fixed == 0 {
+      cascadeConverged = true
       break
     }
     totalFixes += fixed
@@ -65,6 +67,15 @@ func runFormat(opts *subcommandOpts) int {
     if code != 0 {
       return code
     }
+  }
+  if !cascadeConverged {
+    // Format runs are write-only by contract, so a non-converged exit
+    // leaves the user's files in a partially-formatted state with no
+    // diagnostic surface to expose the cause. Emit an explicit signal
+    // so they know to run again or investigate the offending rule.
+    fmt.Fprintf(os.Stderr,
+      "@ttsc/lint: format cascade did not converge after %d passes; rerun or check for a non-idempotent format rule\n",
+      maxFormatPasses)
   }
 
   if opts.verbose && totalFixes > 0 {

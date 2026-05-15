@@ -65,6 +65,7 @@ func runFix(opts *subcommandOpts) int {
   // the format-only path; fix is the "run everything" entry point so
   // users don't have to chain two invocations. The engine emits both
   // kinds of findings in one pass — no filtering needed here.
+  cascadeConverged := false
   for pass := 0; pass < maxFixPasses; pass++ {
     engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
@@ -74,6 +75,7 @@ func runFix(opts *subcommandOpts) int {
       return 3
     }
     if fixed == 0 {
+      cascadeConverged = true
       break
     }
     totalFixes += fixed
@@ -81,6 +83,16 @@ func runFix(opts *subcommandOpts) int {
     if code != 0 {
       return code
     }
+  }
+  if !cascadeConverged {
+    // A non-converged exit means at least one rule kept emitting
+    // edits on every pass — typically a buggy fixer that doesn't
+    // settle the diagnostic it produces. The remaining findings still
+    // surface below as ordinary diagnostics, but the user needs an
+    // explicit signal that the fix cascade hit its safety cap.
+    fmt.Fprintf(os.Stderr,
+      "@ttsc/lint: fix cascade did not converge after %d passes; remaining diagnostics are reported below\n",
+      maxFixPasses)
   }
 
   engine := NewEngineWithResolver(rules)

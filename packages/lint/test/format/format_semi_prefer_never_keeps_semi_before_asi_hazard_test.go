@@ -19,11 +19,11 @@ import (
 // next line, so it conservatively keeps the terminator instead of
 // stripping it.
 //
-// 1. Parse a two-statement source where the second statement starts
-//    with `[`.
-// 2. Run format/semi configured `prefer: "never"`.
-// 3. Assert zero findings — the hazard guard kept the first `;` in
-//    place.
+//  1. Parse a two-statement source where the second statement starts
+//     with `[`.
+//  2. Run format/semi configured `prefer: "never"`.
+//  3. Assert zero findings — the hazard guard kept the first `;` in
+//     place.
 func TestFormatSemiPreferNeverKeepsSemiBeforeASIHazard(t *testing.T) {
   source := "const a = 1;\n" +
     "[1, 2].forEach((n) => n);\n"

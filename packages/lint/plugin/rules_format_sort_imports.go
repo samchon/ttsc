@@ -75,8 +75,16 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
   // Block-level reorder runs only when the rule can do it safely:
   // two or more contiguous imports with no comment trivia between
   // them (comments anchor to specific imports and moving them would
-  // mis-attach the user's intent).
-  if len(imports) >= 2 && leadingTriviaIsAllWhitespace(src, imports) {
+  // mis-attach the user's intent), AND no side-effect-only imports
+  // in the block. A side-effect import (`import "./polyfill"`) runs
+  // its module's top-level code for its observable effect; sorting it
+  // across a sibling import that depends on the polyfill being
+  // initialized first would silently change runtime behavior. The
+  // rule conservatively refuses to sort the entire block in that
+  // case.
+  if len(imports) >= 2 &&
+    leadingTriviaIsAllWhitespace(src, imports) &&
+    !containsSideEffectImport(imports) {
     first := imports[0]
     last := imports[len(imports)-1]
     replaceStart := shimscanner.SkipTrivia(src, first.Pos())
@@ -194,6 +202,27 @@ func matchGroup(groups []sortImportsGroup, specifier string) int {
     return thirdPartyIdx
   }
   return len(groups) // sentinel "no match"
+}
+
+// containsSideEffectImport reports whether any import in the contiguous
+// block has no import clause (i.e. is a side-effect-only `import "x"`).
+// These imports are evaluated for their top-level effect; their order
+// relative to other imports may carry meaning the rule cannot reason
+// about, so the safety policy is to refuse to sort.
+func containsSideEffectImport(imports []*shimast.Node) bool {
+  for _, decl := range imports {
+    if decl == nil {
+      continue
+    }
+    imp := decl.AsImportDeclaration()
+    if imp == nil {
+      continue
+    }
+    if imp.ImportClause == nil {
+      return true
+    }
+  }
+  return false
 }
 
 // collectLeadingImports walks the file's statement list and returns the

@@ -17,11 +17,11 @@ import (
 // keeping the rest of the user's synonym table intact, so a single
 // typo doesn't poison every JSDoc block in the project.
 //
-// 1. Configure the rule with a malformed `tagSynonyms` value alongside
-//    a valid one.
-// 2. Run format/jsdoc on a source containing both candidate tags.
-// 3. Assert only the valid synonym fires; the malformed entry leaves
-//    its tag alone.
+//  1. Configure the rule with a malformed `tagSynonyms` value alongside
+//     a valid one.
+//  2. Run format/jsdoc on a source containing both candidate tags.
+//  3. Assert only the valid synonym fires; the malformed entry leaves
+//     its tag alone.
 func TestFormatJSDocRejectsMalformedTagSynonymValue(t *testing.T) {
   source := "/** @return number\n * @property name */\nexport const value = 1;\n"
   file := parseTS(t, source)
