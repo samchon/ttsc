@@ -45,10 +45,11 @@ type Rule interface {
 }
 
 // FormatRule is an optional marker interface that tags a Rule as a
-// formatter. Rules implementing FormatRule contribute to `--format` runs
-// and are *excluded* from `--fix` runs; lint-class rules (which do not
-// implement this interface) are the inverse. The split keeps the two CLI
-// flags from accidentally munging each other's territory.
+// formatter. `ttsc fix` is the run-everything entry point — it applies
+// edits from BOTH lint-class rules and FormatRule rules. `ttsc format`
+// is the format-only convenience: it filters to FormatRule findings so
+// lint-class rewrites are skipped. The marker exists so the format
+// filter can pick the right half; fix needs no filter.
 //
 // FormatRule.IsFormat must return true unconditionally — the method
 // exists as a structural marker, not a runtime toggle. Returning false
@@ -99,8 +100,8 @@ func (c *Context) DecodeOptions(out interface{}) error {
 
 // Finding is one rule-emitted diagnostic before it gets converted into a
 // driver Diagnostic. `IsFormat` mirrors the dispatching rule's category
-// so downstream `--fix` and `--format` filters can sort findings without
-// re-querying the registry.
+// so the `--format` filter can route findings without re-querying the
+// registry. `--fix` no longer filters; both categories apply.
 type Finding struct {
   Rule     string
   Severity Severity

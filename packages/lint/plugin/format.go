@@ -74,25 +74,14 @@ func runFormat(opts *subcommandOpts) int {
 }
 
 // filterFormatFindings keeps only findings produced by FormatRule
-// implementations. The dual of `filterLintFindings`: each subcommand
-// applies edits from its own rule category and ignores the other.
+// implementations. `RunFormat` calls this so the format-only
+// subcommand never applies lint-class edits. `RunFix`, by contrast,
+// applies every finding regardless of category — fix is the
+// run-everything entry point.
 func filterFormatFindings(findings []*Finding) []*Finding {
   out := make([]*Finding, 0, len(findings))
   for _, finding := range findings {
     if finding != nil && finding.IsFormat {
-      out = append(out, finding)
-    }
-  }
-  return out
-}
-
-// filterLintFindings keeps only findings produced by non-format Rule
-// implementations. `RunFix` calls this to avoid silently applying
-// format-rule edits whenever a project has both kinds of rules enabled.
-func filterLintFindings(findings []*Finding) []*Finding {
-  out := make([]*Finding, 0, len(findings))
-  for _, finding := range findings {
-    if finding != nil && !finding.IsFormat {
       out = append(out, finding)
     }
   }

@@ -15,9 +15,11 @@
  *  - `format/trailing-comma` mirrors prettier `trailingComma`.
  *  - `format/sort-imports`   mirrors
  *    `@trivago/prettier-plugin-sort-imports` (`importOrder`,
- *    `importOrderSeparation`, `importOrderSortSpecifiers`).
- *  - `format/jsdoc`          mirrors `prettier-plugin-jsdoc` (`tsdoc`,
- *    `tagSynonyms`, `sortTags`).
+ *    `importOrderSeparation`, `importOrderSortSpecifiers`,
+ *    `importOrderCaseInsensitive`).
+ *  - `format/jsdoc`          mirrors `prettier-plugin-jsdoc`
+ *    (`tagSynonyms` layered onto the built-in synonym table,
+ *    `sortTags` reserved for a future pass).
  *
  * Future option additions go here so the TypeScript autocomplete updates
  * in one place. The Go side reads these as `json.RawMessage` and each

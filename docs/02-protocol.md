@@ -107,9 +107,12 @@ the `fix` subcommand and keeps JavaScript/declaration emit disabled. See
 [CLI Commands → `fix`](#fix) for the subcommand contract.
 
 When the user runs `ttsc format`, `ttsc` invokes the same check-stage
-plugins with the `format` subcommand. Format and fix are distinct
-subcommands: each runs only the edits from its own rule category. See
-[CLI Commands → `format`](#format) for the subcommand contract.
+plugins with the `format` subcommand. `ttsc fix` is the
+run-everything entry point — it applies edits from every enabled
+rule, lint-class and format-class together. `ttsc format` is the
+format-only convenience: it filters to format-class rule edits so
+lint rewrites are skipped. See [CLI Commands → `format`](#format) for
+the subcommand contract.
 
 ## Composition
 
@@ -272,10 +275,11 @@ ordering) to source files in place. Write-only by contract: format
 subcommands must not print diagnostics and must keep JavaScript /
 declaration emit disabled.
 
-The split between `fix` and `format` is by rule category, not by plugin.
-A check-stage plugin may host both lint and format rules in one binary;
-the `fix` and `format` subcommands run the same engine but apply edits
-from their own category only.
+The split between `fix` and `format` is the apply-time filter, not a
+plugin boundary. A check-stage plugin may host both lint and format
+rules in one binary: `fix` applies every category's edits; `format`
+filters to format-class only. The two subcommands share the engine
+and the protocol; only the post-engine filter differs.
 
 Plugins that do not support format should exit `2` with a stderr message
 of the form `<plugin-name>: format not supported`. Plugins that support

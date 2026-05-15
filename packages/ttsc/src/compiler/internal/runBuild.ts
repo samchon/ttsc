@@ -153,6 +153,21 @@ export function runBuild(
     return result;
   }
 
+  if (options.format === true) {
+    // Format mode is write-only by contract — see the matching
+    // short-circuit in the with-native-plugins branch above. When no
+    // native plugin is loaded there is nothing for `ttsc format` to
+    // rewrite, so emit an empty success result rather than falling
+    // through to a tsgo pass that would surface unrelated type errors
+    // as if they were format failures.
+    return {
+      diagnostics: [],
+      status: 0,
+      stdout: "",
+      stderr: "",
+    };
+  }
+
   if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
     const checked = runTsgo(execution, ["--noEmit"], options);
     if (checked.status !== 0) {

@@ -29,9 +29,9 @@ import type { TtscLintPlugins } from "./structures/TtscLintPlugins";
  * The function is a pure pass-through at runtime. The generic gymnastics below
  * gather every `plugins` map across the array of config entries into one
  * intersected `TtscLintPlugins` shape that gets threaded back into the
- * `TtscLintConfig<P>` constraint. Without this, the default `P = Record<string,
- * ITtscLintPlugin>` widens `PluginRuleNames<P>` to `${string}/${string}` and `{
- * "no-varXXX": "error" }`-style typos pass through unchecked.
+ * `TtscLintConfig<P>` constraint. Without this, `TtscLintConfig`'s default
+ * `P = Record<string, never>` rules out every namespaced rule name and
+ * `{ "import/no-cycle": "error" }` would be flagged as a typo.
  */
 export function defineConfig<const T extends TtscLintConfig<GatherPlugins<T>>>(
   config: T,
@@ -45,6 +45,14 @@ export function defineConfig<const T extends TtscLintConfig<GatherPlugins<T>>>(
  * `plugins` so each entry's rule-name union remains valid for the whole array.
  * The intersection (vs. union) is load-bearing — TypeScript's `keyof (A | B)`
  * collapses to `never`, which would reject every namespaced rule name.
+ *
+ * Plugins declared exclusively inside an `extends` chain are NOT collected:
+ * recursing into `T extends { extends?: infer E } ? GatherPlugins<E> : {}`
+ * blows TypeScript's instantiation budget (`extends` is itself a
+ * `TtscLintConfigEntry` tree). Authors should declare each plugin's `plugins`
+ * map on the outermost entry where its rules are configured. The runtime
+ * resolver still picks up plugins from `extends` entries; only the
+ * autocomplete domain is bounded.
  */
 type GatherPlugins<T> = T extends { plugins?: infer P }
   ? P extends TtscLintPlugins

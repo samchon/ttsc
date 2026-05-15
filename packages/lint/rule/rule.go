@@ -82,9 +82,12 @@ type Rule interface {
 
 // FormatRule is an optional marker contributors implement when a rule
 // belongs to the "format" category instead of the default "lint"
-// category. Format rules contribute to `ttsc format` runs (their
-// edits get applied) and are excluded from `ttsc fix`. Lint rules
-// (rules that do not implement FormatRule) are the inverse.
+// category. `ttsc fix` is the run-everything entry point and applies
+// edits from BOTH lint-class and format-class rules. `ttsc format` is
+// the format-only convenience: it filters to FormatRule findings so
+// lint-class rewrites are skipped. Lint rules (rules that do not
+// implement FormatRule) participate only in `ttsc fix` (and in
+// diagnostics during `ttsc check`).
 //
 // `IsFormat` exists as a structural marker, not a runtime toggle:
 // returning `false` is equivalent to not implementing the interface at

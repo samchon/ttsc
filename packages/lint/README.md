@@ -236,6 +236,14 @@ defect. Raising the severity to `error` is supported when a project
 wants `ttsc check` to gate on formatting too; `off` (or omitting the rule)
 disables both the diagnostic and `ttsc format`'s rewrite for that rule.
 
+Caveat for `error` severity: only enable it on format rules whose
+fixers can fully settle the diagnostic they emit. If a rule reports
+findings the fixer cannot resolve (the MVP of `format/jsdoc` only
+rewrites tag synonyms, for example), an `error`-severity `ttsc fix`
+exits non-zero with the diagnostic still standing. Stick with
+`warning` for rules whose fixer coverage may lag the diagnostic
+surface.
+
 ### Config Files
 
 By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.
