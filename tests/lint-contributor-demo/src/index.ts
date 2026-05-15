@@ -19,7 +19,7 @@ const plugin = {
     version: "0.10.2",
     namespace: "demo",
   },
-  rules: ["no-todo-comment"] as const,
+  rules: ["no-todo-comment", "capitalize-exports"] as const,
   source: path.resolve(__dirname, "..", "rules"),
 } satisfies ITtscLintPlugin;
 

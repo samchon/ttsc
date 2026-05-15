@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true,
+    "rootDir": "src",
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "plugins": { "demo": "lint-contributor-demo" },
+        "rules": {
+          "demo/capitalize-exports": "error"
+        }
+      }
+    ]
+  },
+  "include": ["src"]
+}

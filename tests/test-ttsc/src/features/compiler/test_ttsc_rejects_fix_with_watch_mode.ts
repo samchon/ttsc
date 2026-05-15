@@ -10,8 +10,8 @@ import {
  *
  * Watch mode rebuilds on file changes, so combining it with a one-shot
  * source-rewriting pass would loop the watcher against its own edits. The
- * launcher refuses the combination before any plugin spawns; this test pins
- * the user-facing error message and exit path.
+ * launcher refuses the combination before any plugin spawns; this test pins the
+ * user-facing error message and exit path.
  *
  * 1. Materialize a minimal tsconfig project.
  * 2. Run `ttsc --fix --watch` through the real launcher.

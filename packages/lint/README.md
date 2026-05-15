@@ -133,12 +133,30 @@ npx ttsc fix
 npx ttsc --fix
 ```
 
-Native `@ttsc/lint` fixers currently cover `no-var`, single-declaration
-`prefer-const`, and ESLint-safe `eqeqeq` cases (`typeof` comparisons and
-same-type literal comparisons). When a supported `eslint.config.*` file runs
-through an installed ESLint runtime, `ttsc fix` delegates to ESLint's own fixers
-and then reloads the TypeScript-Go Program before reporting any remaining
-diagnostics.
+Native `@ttsc/lint` fixers currently cover:
+
+- `no-var`, single-declaration `prefer-const`, and ESLint-safe `eqeqeq`
+  cases (`typeof` comparisons and same-type literal comparisons).
+- `no-wrapper-object-types` (rewrites `String`/`Number`/`Boolean`/`Symbol`/`BigInt`
+  to the primitive form; `Object` stays detection-only).
+- `prefer-as-const` (rewrites `value as "literal"` to `value as const`).
+- `no-useless-rename` (drops `{ x as x }` / `{ x: x }` tails on
+  import/export specifiers and binding elements).
+- `object-shorthand` (`{ x: x }` → `{ x }`).
+- `no-extra-non-null-assertion` (`a!!` → `a!`).
+- `no-unnecessary-type-constraint` (drops ` extends any`/`unknown`).
+- `prefer-namespace-keyword` (`module Foo {}` → `namespace Foo {}`).
+- `no-useless-escape` (deletes redundant `\` inside string and regex
+  literals; ASCII-only).
+- `no-import-type-side-effects` (hoists inline `type` modifiers onto
+  the import clause; emits multiple non-overlapping edits per finding —
+  the canonical multi-edit fixer in the corpus).
+- `await-thenable` (deletes `await` keyword when the operand is neither
+  a Promise nor a thenable — first type-aware fixer).
+
+When a supported `eslint.config.*` file runs through an installed ESLint runtime,
+`ttsc fix` delegates to ESLint's own fixers and then reloads the TypeScript-Go
+Program before reporting any remaining diagnostics.
 
 `ttsc fix` is a one-shot project pass: it does not combine with `--watch`,
 single-file mode, or `--emit`. The launcher rejects those combinations with an
@@ -187,6 +205,8 @@ export default defineConfig([
 
 ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in [`docs/10-reference-plugins.md`](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#authoring-a-lint-rule-contributor).
 
+Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [Emitting Autofixes](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#emitting-autofixes) section for the full contract and an example.
+
 ## Scope
 
 No bundled recommended preset yet. Rules remain off until you enable them.
@@ -210,12 +230,14 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 
 - [`adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
+- [`await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable (type-aware).
 - [`ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
 - [`ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
 - [`consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
 - [`consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
 - [`consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.
 - [`consistent-type-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-imports/violation.ts): uses `import type` when imported names are type-only.
+- [`default-param-last`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/default-param-last.ts): keeps parameters with default values at the end of the list.
 - [`dot-notation`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/dot-notation.ts): prefers dot property access when a string-literal key is a valid identifier.
 - [`eqeqeq`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/eqeqeq.ts): requires strict equality operators.
 - [`for-direction`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/for-direction.ts): catches loop counters updated in the wrong direction.
@@ -258,6 +280,7 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`no-extra-non-null-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-non-null-assertion.ts): rejects repeated non-null assertions.
 - [`no-fallthrough`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-fallthrough.ts): rejects unmarked `switch` fallthrough.
 - [`no-func-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-func-assign.ts): rejects reassignment of function declarations.
+- [`no-import-type-side-effects`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-import-type-side-effects/violation.ts): hoists inline `type` modifiers into a single `import type` declaration.
 - [`no-inferrable-types`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-inferrable-types.ts): rejects type annotations TypeScript can infer.
 - [`no-inner-declarations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-inner-declarations.ts): rejects function declarations nested in blocks.
 - [`no-irregular-whitespace`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-irregular-whitespace.ts): rejects irregular whitespace.
@@ -268,6 +291,7 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`no-loss-of-precision`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-loss-of-precision.ts): rejects number literals that lose precision.
 - [`no-misleading-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misleading-character-class.ts): rejects misleading regex character classes.
 - [`no-misused-new`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misused-new.ts): rejects constructor-like signatures in interfaces.
+- [`no-mixed-enums`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-mixed-enums.ts): rejects enums that mix numeric and string members.
 - [`no-multi-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-multi-assign.ts): rejects chained assignments.
 - [`no-multi-str`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-multi-str.ts): rejects multiline string escapes.
 - [`no-namespace`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-namespace.ts): rejects non-ambient namespaces.
@@ -315,6 +339,7 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`no-useless-computed-key`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-computed-key.ts): rejects unnecessary computed property keys.
 - [`no-useless-concat`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-concat.ts): rejects unnecessary string concatenation.
 - [`no-useless-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-constructor.ts): rejects empty constructors with no parameters.
+- [`no-useless-escape`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-escape.ts): rejects backslash escapes that have no effect inside strings or regexes.
 - [`no-useless-rename`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-rename.ts): rejects import/export/destructure renames to the same name.
 - [`no-var`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-var.ts): rejects `var`.
 - [`no-with`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-with.ts): rejects `with` statements.

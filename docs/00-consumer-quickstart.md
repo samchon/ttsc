@@ -44,7 +44,7 @@ Add `lint.config.json` when the plugin requires one:
 }
 ```
 
-Run `--noEmit` to type-check and report lint findings. Run `ttsc fix` to rewrite source files in place using built-in autofixers (`no-var`, `prefer-const`, `eqeqeq`), then re-check:
+Run `--noEmit` to type-check and report lint findings. Run `ttsc fix` to rewrite source files in place using the built-in autofixers (see the [@ttsc/lint Fix section](https://github.com/samchon/ttsc/tree/master/packages/lint#fix) for the current list), then re-check:
 
 ```bash
 npx ttsc --noEmit

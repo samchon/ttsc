@@ -90,25 +90,39 @@ type Reporter interface {
   ReportRange(pos, end int, message string)
 }
 
-// fixReporter is the optional extension a host implements to receive
+// FixReporter is the optional extension a host implements to receive
 // autofix edits alongside a finding. The public `rule.Context` type-asserts
 // against this shape so any host whose reporter exposes both methods opts
-// into fix support without depending on the unexported interface name.
-type fixReporter interface {
+// into fix support without depending on a private interface name.
+//
+// Contributor rules do NOT implement this interface — it is the host-side
+// counterpart to `Context.ReportFix` / `Context.ReportRangeFix`. A
+// contributor authoring a fake reporter for unit tests can declare
+// `var _ rule.FixReporter = &myReporter{}` to compile-check that the fake
+// satisfies the fix surface. Go interface satisfaction is all-or-nothing:
+// a fake that wants the fix path must implement BOTH `ReportFix` and
+// `ReportRangeFix`.
+type FixReporter interface {
   ReportFix(node *shimast.Node, message string, edits ...TextEdit)
   ReportRangeFix(pos, end int, message string, edits ...TextEdit)
 }
 
 // TextEdit is one byte-range replacement offered by an autofixable finding.
 // Positions use the same byte offsets as shim AST nodes and must point inside
-// the current source file.
+// the current source file. An empty `Text` deletes the range; positions are
+// in lexer byte order, not visual order, so a UTF-8 multi-byte sequence must
+// be replaced as a whole.
 //
-// When a rule reports several edits in one call, the host applies them as a
-// set: edits must not overlap each other, order in the slice does not matter,
-// and an empty `Text` deletes the range. The host may discard the whole set
-// if any edit is malformed (negative or out-of-file offsets, overlapping
-// ranges). Rules that need separate independent fixes should emit each as its
-// own `ReportFix` / `ReportRangeFix` call.
+// Application policy: a rule may emit several `TextEdit`s in one
+// `ReportFix` / `ReportRangeFix` call, in any order. The host treats the
+// per-pass edit set as a candidate list. Within a single fix pass, edits
+// must not overlap each other; when two edits cover overlapping ranges
+// (either from one rule emitting multiple edits in one call, or from two
+// different rules in the same pass), the host applies the earliest-starting
+// / shortest edit and silently drops the rest. There is no diagnostic for
+// dropped edits, and the host does not currently report when a comment
+// falls inside a deletion range. Design fixes so each finding emits one
+// contiguous TextEdit covering the entire replacement region.
 type TextEdit struct {
   Pos  int
   End  int
@@ -175,7 +189,7 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     c.reporter.Report(node, message)
     return
   }
-  fixer, ok := c.reporter.(fixReporter)
+  fixer, ok := c.reporter.(FixReporter)
   if !ok {
     c.reporter.Report(node, message)
     return
@@ -204,7 +218,7 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
     c.reporter.ReportRange(pos, end, message)
     return
   }
-  fixer, ok := c.reporter.(fixReporter)
+  fixer, ok := c.reporter.(FixReporter)
   if !ok {
     c.reporter.ReportRange(pos, end, message)
     return

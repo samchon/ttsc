@@ -56,6 +56,46 @@ func keywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
   return -1
 }
 
+// findKeyword scans [pos, end) for a keyword token whose lexeme is
+// `keyword`. Returns the byte offset of the keyword's first character,
+// or -1 if not found. Unlike keywordStart this is unbounded by a node's
+// leading-trivia start, so it can locate `module` inside a
+// ModuleDeclaration or insert points like the end of `import`.
+//
+// The match is identifier-aware: a hit must be preceded and followed by
+// a non-identifier byte so that e.g. searching for `import` does not
+// match the `import` prefix of `importStr`.
+func findKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
+  if file == nil || keyword == "" {
+    return -1
+  }
+  src := file.Text()
+  if pos < 0 {
+    pos = 0
+  }
+  if end > len(src) {
+    end = len(src)
+  }
+  limit := end - len(keyword)
+  for i := pos; i <= limit; i++ {
+    if src[i] != keyword[0] {
+      continue
+    }
+    tail := i + len(keyword)
+    if src[i:tail] != keyword {
+      continue
+    }
+    if i > 0 && isIdentifierPart(src[i-1]) {
+      continue
+    }
+    if tail < len(src) && isIdentifierPart(src[tail]) {
+      continue
+    }
+    return i
+  }
+  return -1
+}
+
 func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   if file == nil || node == nil {
     return -1, -1

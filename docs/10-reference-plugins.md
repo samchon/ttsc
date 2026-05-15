@@ -366,9 +366,24 @@ func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
 }
 ```
 
-See [`tests/lint-contributor-demo/rules/no_todo_comment.go`](../tests/lint-contributor-demo/rules/no_todo_comment.go) for a real contributor that computes the byte range via `shim/scanner` trivia tokenization.
+See [`tests/lint-contributor-demo/rules/no_todo_comment.go`](../tests/lint-contributor-demo/rules/no_todo_comment.go) for the original diagnostic-only contributor and [`tests/lint-contributor-demo/rules/capitalize_exports.go`](../tests/lint-contributor-demo/rules/capitalize_exports.go) for the first contributor that emits a real `ReportRangeFix` covered end-to-end by [`tests/test-lint/src/features/fix/test_lint_fix_contributor_rule_single_edit_applies_through_native_engine.ts`](../tests/test-lint/src/features/fix/test_lint_fix_contributor_rule_single_edit_applies_through_native_engine.ts).
 
-Edits within a single finding must not overlap; ordering inside the slice does not matter, and an empty `Text` deletes the range. The host discards the whole set if any edit is malformed, so prefer one tight edit per finding over speculative multi-edit batches.
+Within a single fix pass, edits must not overlap; ordering inside the slice does not matter, and an empty `Text` deletes the range. When two edits in the same pass cover overlapping ranges (within one finding or across two rules), the host keeps the earliest-starting / shortest edit and silently drops the rest — there is no diagnostic for dropped edits today. Prefer one contiguous edit per finding over speculative multi-edit batches; `no-import-type-side-effects` is the canonical multi-edit example because the inserts and per-specifier deletes are guaranteed non-overlapping.
+
+#### `rule/astutil` — byte-oriented helpers for contributor fixers
+
+The `github.com/samchon/ttsc/packages/lint/rule/astutil` package exposes the same byte-range helpers that `@ttsc/lint`'s built-in rules use:
+
+- `NodeText(file, node)` — node source with leading trivia stripped, for splicing into a replacement string.
+- `KeywordStart(file, node, "var")` — offset of the leading keyword token of a node, anchoring the keyword-swap shape.
+- `FindKeyword(file, pos, end, "import")` — identifier-aware keyword scan over an arbitrary byte range; matches do not cross identifier boundaries (`import` ≠ the `import` prefix of `importMap`). Note: the scan is byte-only and not comment-aware; for contributor fixers that need to locate a token inside a node, prefer combining `shim/scanner`'s `SkipTrivia` with a manual `byte` check, the way `no-import-type-side-effects` does.
+- `TokenRange(file, node)` — `[pos, end)` with leading trivia skipped, for "replace the whole node" edits.
+
+The API is intentionally narrow in round 1 / round 2 — `IdentifierText`, `StripParens`, `HasModifier`, and a function-like body walker are the most likely next additions; in the meantime contributor rules can implement them inline.
+
+#### `rule.FixReporter` — host-side reporter shape
+
+The host's fix-aware reporter implements `rule.FixReporter`, which the public `Context.ReportFix` / `ReportRangeFix` discover via a type assertion. **Contributor rules do not implement this interface.** When unit-testing a contributor rule with a fake `rule.Reporter`, declare `var _ rule.FixReporter = &myReporter{}` in the test to compile-check that the fake supports the fix path; Go interface satisfaction is all-or-nothing, so a fake that implements only `ReportFix` and not `ReportRangeFix` will silently fall through to the legacy `Report` path.
 
 ## Combined Project
 

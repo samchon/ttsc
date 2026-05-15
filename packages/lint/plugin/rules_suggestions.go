@@ -891,26 +891,59 @@ func (noUselessRename) Check(ctx *Context, node *shimast.Node) {
     if spec == nil || spec.PropertyName == nil {
       return
     }
-    if identifierText(spec.PropertyName) == identifierText(spec.Name()) {
-      ctx.Report(node, "Import { x as x } is redundant.")
+    if sameIdentifierRename(spec.PropertyName, spec.Name()) {
+      reportUselessRenameFix(ctx, node, spec.PropertyName, spec.Name(), "Import { x as x } is redundant.")
     }
   case shimast.KindExportSpecifier:
     spec := node.AsExportSpecifier()
     if spec == nil || spec.PropertyName == nil {
       return
     }
-    if identifierText(spec.PropertyName) == identifierText(spec.Name()) {
-      ctx.Report(node, "Export { x as x } is redundant.")
+    if sameIdentifierRename(spec.PropertyName, spec.Name()) {
+      reportUselessRenameFix(ctx, node, spec.PropertyName, spec.Name(), "Export { x as x } is redundant.")
     }
   case shimast.KindBindingElement:
     el := node.AsBindingElement()
     if el == nil || el.PropertyName == nil {
       return
     }
-    if identifierText(el.PropertyName) == identifierText(el.Name()) {
-      ctx.Report(node, "Destructuring rename to the same name is redundant.")
+    if sameIdentifierRename(el.PropertyName, el.Name()) {
+      reportUselessRenameFix(ctx, node, el.PropertyName, el.Name(), "Destructuring rename to the same name is redundant.")
     }
   }
+}
+
+// sameIdentifierRename gates the rename-tail collapse on both sides being
+// real Identifier nodes that lex to the same text. Without the kind guard
+// a `{ "foo" as "bar" }` pair would compare via `identifierText` ➜ `""`
+// on both sides, collapse to `"" == ""`, and the fix would delete
+// ` as "bar"` — rebinding the local symbol. Both sides must be
+// KindIdentifier (the redundant rename shape ESLint targets).
+func sameIdentifierRename(propertyName, name *shimast.Node) bool {
+  if propertyName == nil || name == nil {
+    return false
+  }
+  if propertyName.Kind != shimast.KindIdentifier || name.Kind != shimast.KindIdentifier {
+    return false
+  }
+  return identifierText(propertyName) == identifierText(name)
+}
+
+// reportUselessRenameFix deletes the rename tail (`<separator> name`) so
+// `{ x as x }` collapses to `{ x }` and `{ x: x }` to `{ x }`. The
+// separator (` as ` for import/export, `: ` for binding) lives between
+// the propertyName's end and the name's start; deleting up to name's End
+// removes it without touching surrounding tokens.
+func reportUselessRenameFix(ctx *Context, node, propertyName, name *shimast.Node, message string) {
+  if propertyName == nil || name == nil {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: propertyName.End(), End: name.End(), Text: ""},
+  )
 }
 
 // object-shorthand: `{ x: x }` → `{ x }`.
@@ -928,9 +961,18 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   if keyName == "" || valueName == "" {
     return
   }
-  if keyName == valueName {
-    ctx.Report(node, "Expected property shorthand.")
+  if keyName != valueName {
+    return
   }
+  // Delete `: <value>` so `{ x: x }` becomes `{ x }`. The range starts
+  // at the end of the property name and ends at the end of the
+  // initializer; any whitespace between `:` and the value is part of
+  // that range.
+  ctx.ReportFix(
+    node,
+    "Expected property shorthand.",
+    TextEdit{Pos: prop.Name().End(), End: prop.Initializer.End(), Text: ""},
+  )
 }
 
 // operator-assignment: `x = x + 1` → `x += 1`.

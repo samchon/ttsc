@@ -77,6 +77,66 @@ func (noDuplicateEnumValues) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// no-mixed-enums: forbid enums that mix numeric and string member shapes.
+// A single enum with `{ A, B = "two" }` produces broken reverse mappings
+// and surprising assignability. typescript-eslint recommended:
+// https://typescript-eslint.io/rules/no-mixed-enums/
+type noMixedEnums struct{}
+
+func (noMixedEnums) Name() string { return "no-mixed-enums" }
+func (noMixedEnums) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindEnumDeclaration}
+}
+func (noMixedEnums) Check(ctx *Context, node *shimast.Node) {
+  decl := node.AsEnumDeclaration()
+  if decl == nil || decl.Members == nil {
+    return
+  }
+  // Classify each member as numeric or string. Implicit members
+  // (no initializer) count as numeric — that is what tsgo materializes.
+  // The rule fires when both categories appear in the same enum body.
+  var hasNumeric, hasString bool
+  type classification struct {
+    member *shimast.Node
+    isStr  bool
+  }
+  members := make([]classification, 0, len(decl.Members.Nodes))
+  for _, member := range decl.Members.Nodes {
+    if member == nil {
+      continue
+    }
+    em := member.AsEnumMember()
+    if em == nil {
+      continue
+    }
+    isStr := false
+    if em.Initializer != nil {
+      switch em.Initializer.Kind {
+      case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+        isStr = true
+      }
+    }
+    if isStr {
+      hasString = true
+    } else {
+      hasNumeric = true
+    }
+    members = append(members, classification{member: member, isStr: isStr})
+  }
+  if !(hasNumeric && hasString) {
+    return
+  }
+  // Report each member whose category disagrees with the first member's
+  // category. ESLint's rule pins to the *second* observed category; we
+  // do the same by treating the first member as authoritative.
+  firstIsStr := members[0].isStr
+  for _, m := range members[1:] {
+    if m.isStr != firstIsStr {
+      ctx.Report(m.member, "Mixing string and number enum values is not allowed.")
+    }
+  }
+}
+
 // no-extra-non-null-assertion: `a!!` / `a!?.b` collapses two assertions.
 type noExtraNonNullAssertion struct{}
 
@@ -89,9 +149,24 @@ func (noExtraNonNullAssertion) Check(ctx *Context, node *shimast.Node) {
   if parent == nil {
     return
   }
-  if parent.Kind == shimast.KindNonNullExpression {
-    ctx.Report(node, "Forbidden extra non-null assertion.")
+  if parent.Kind != shimast.KindNonNullExpression {
+    return
   }
+  message := "Forbidden extra non-null assertion."
+  // The outer NonNullExpression spans `a!!`; the redundant `!` is the
+  // last byte before the outer's End. Deleting [parent.End()-1, parent.End())
+  // collapses `a!!` to `a!` while preserving any source already after the
+  // outer expression.
+  pos := parent.End() - 1
+  if pos < 0 || pos >= len(ctx.File.Text()) || ctx.File.Text()[pos] != '!' {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: pos, End: pos + 1, Text: ""},
+  )
 }
 
 // no-non-null-asserted-optional-chain: `foo?.bar!` — the chain produces
@@ -314,7 +389,17 @@ func (preferNamespaceKeyword) Check(ctx *Context, node *shimast.Node) {
   if decl.Keyword != shimast.KindModuleKeyword {
     return
   }
-  ctx.Report(node, "Use 'namespace' instead of 'module' to declare custom TypeScript modules.")
+  message := "Use 'namespace' instead of 'module' to declare custom TypeScript modules."
+  start := keywordStart(ctx.File, node, "module")
+  if start < 0 {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: start, End: start + len("module"), Text: "namespace"},
+  )
 }
 
 // triple-slash-reference: `/// <reference path="..." />` directives.
@@ -658,6 +743,7 @@ var _ = struct{}{}
 func init() {
   Register(noConfusingNonNullAssertion{})
   Register(noDuplicateEnumValues{})
+  Register(noMixedEnums{})
   Register(noExtraNonNullAssertion{})
   Register(noNonNullAssertedOptionalChain{})
   Register(noMisusedNew{})

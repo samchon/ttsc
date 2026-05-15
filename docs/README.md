@@ -13,6 +13,7 @@ These guides cover `ttsc` consumers, `ttsx` runtime users, bundler users, and pl
 | Bundler user                                 | [`@ttsc/unplugin`](../packages/unplugin/)                                       |
 | Transform plugin author                      | [Getting Started](./01-getting-started.md)                                      |
 | Check or lint plugin author                  | [Protocol](./02-protocol.md) and [Reference Plugins](./10-reference-plugins.md) |
+| Lint rule contributor (`@ttsc/lint` plugin)  | [Reference Plugins § Authoring a Lint Rule Contributor](./10-reference-plugins.md#authoring-a-lint-rule-contributor) |
 | Workspace maintainer or releaser             | [Workspace Release](./12-workspace-release.md)                                  |
 
 ## Reading Order

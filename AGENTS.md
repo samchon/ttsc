@@ -14,7 +14,7 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 
 - `packages/ttsc`: JS launcher/API, Go host (`cmd`, `driver`, `internal`, `utility`), and `shim/` for TypeScript-Go internals.
 - `packages/{banner,paths,strip}`: first-party utility plugins sharing `packages/ttsc/utility/host.go`.
-- `packages/lint`: `@ttsc/lint` with its own native engine.
+- `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK).
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.

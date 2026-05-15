@@ -549,6 +549,14 @@ func (noObjCalls) Check(ctx *Context, node *shimast.Node) {
 // hasAsyncModifier returns whether a function-like node carries the
 // `async` keyword. Used by no-async-promise-executor.
 func hasAsyncModifier(node *shimast.Node) bool {
+  return hasModifier(node, shimast.KindAsyncKeyword)
+}
+
+// hasModifier returns whether a node's modifier list contains a token of
+// the given kind. Generic over modifier kinds (async, static, abstract,
+// override, public/private/protected, readonly) so individual rules don't
+// have to re-implement the loop.
+func hasModifier(node *shimast.Node, kind shimast.Kind) bool {
   if node == nil {
     return false
   }
@@ -557,7 +565,7 @@ func hasAsyncModifier(node *shimast.Node) bool {
     return false
   }
   for _, m := range mods.Nodes {
-    if m != nil && m.Kind == shimast.KindAsyncKeyword {
+    if m != nil && m.Kind == kind {
       return true
     }
   }

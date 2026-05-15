@@ -189,7 +189,17 @@ func (preferAsConst) Check(ctx *Context, node *shimast.Node) {
   if !literalsMatchSourceText(ctx.File, expr, literalType.Literal) {
     return
   }
-  ctx.Report(node, "Expected `as const` instead of `as` literal type.")
+  message := "Expected `as const` instead of `as` literal type."
+  pos, end := tokenRange(ctx.File, typeNode)
+  if pos < 0 {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: pos, End: end, Text: "const"},
+  )
 }
 
 func literalsMatchSourceText(file *shimast.SourceFile, lhs, rhs *shimast.Node) bool {

@@ -149,9 +149,22 @@ func (noUnnecessaryTypeConstraint) Check(ctx *Context, node *shimast.Node) {
   if param == nil || param.Constraint == nil {
     return
   }
-  if param.Constraint.Kind == shimast.KindAnyKeyword || param.Constraint.Kind == shimast.KindUnknownKeyword {
-    ctx.Report(param.Constraint, "Constraining a type parameter to any or unknown is unnecessary.")
+  if param.Constraint.Kind != shimast.KindAnyKeyword && param.Constraint.Kind != shimast.KindUnknownKeyword {
+    return
   }
+  message := "Constraining a type parameter to any or unknown is unnecessary."
+  // Delete the entire ` extends any|unknown` clause by spanning from the
+  // end of the parameter's name to the end of the constraint node.
+  name := param.Name()
+  if name == nil {
+    ctx.Report(param.Constraint, message)
+    return
+  }
+  ctx.ReportFix(
+    param.Constraint,
+    message,
+    TextEdit{Pos: name.End(), End: param.Constraint.End(), Text: ""},
+  )
 }
 
 // no-unsafe-function-type: `Function` accepts any callable shape.
@@ -180,10 +193,92 @@ func (noWrapperObjectTypes) Check(ctx *Context, node *shimast.Node) {
   if ref == nil {
     return
   }
-  switch identifierText(ref.TypeName) {
-  case "String", "Number", "Boolean", "Symbol", "BigInt", "Object":
-    ctx.Report(node, "Use primitive type keywords instead of wrapper object types.")
+  name := identifierText(ref.TypeName)
+  primitive, ok := wrapperPrimitive(name)
+  if !ok {
+    return
   }
+  message := "Use primitive type keywords instead of wrapper object types."
+  // Shadow guard: if the user has declared `type String = …`,
+  // `interface String { … }`, or `class String { … }` at file scope,
+  // their `String` is NOT the global wrapper and a rewrite to `string`
+  // would change the type. Pre-existing detection issue, but the fix
+  // would silently corrupt the type — bail to detection-only when a
+  // shadowing declaration exists in the same file.
+  if fileShadowsWrapperName(ctx.File, name) {
+    return
+  }
+  // `Object` maps to `object` in ESLint's fix, but the semantics shift
+  // enough (boxed object vs lower-case object type) that we surface the
+  // diagnostic without a fix and leave the rewrite to the author.
+  if name == "Object" {
+    ctx.Report(node, message)
+    return
+  }
+  pos, end := tokenRange(ctx.File, ref.TypeName)
+  if pos < 0 {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: pos, End: end, Text: primitive},
+  )
+}
+
+// fileShadowsWrapperName reports whether the source file declares its own
+// `String`/`Number`/`Boolean`/`Symbol`/`BigInt`/`Object` at top level via
+// `type`, `interface`, or `class`. Walks SourceFile.Statements once; no
+// memoization because the rule already runs once per TypeReference and
+// the average statement count per file dominates the cost over the inner
+// loop.
+func fileShadowsWrapperName(file *shimast.SourceFile, name string) bool {
+  if file == nil || file.Statements == nil {
+    return false
+  }
+  for _, stmt := range file.Statements.Nodes {
+    if stmt == nil {
+      continue
+    }
+    var declName *shimast.Node
+    switch stmt.Kind {
+    case shimast.KindTypeAliasDeclaration:
+      if alias := stmt.AsTypeAliasDeclaration(); alias != nil {
+        declName = alias.Name()
+      }
+    case shimast.KindInterfaceDeclaration:
+      if iface := stmt.AsInterfaceDeclaration(); iface != nil {
+        declName = iface.Name()
+      }
+    case shimast.KindClassDeclaration:
+      if cls := stmt.AsClassDeclaration(); cls != nil {
+        declName = cls.Name()
+      }
+    }
+    if declName != nil && identifierText(declName) == name {
+      return true
+    }
+  }
+  return false
+}
+
+func wrapperPrimitive(name string) (string, bool) {
+  switch name {
+  case "String":
+    return "string", true
+  case "Number":
+    return "number", true
+  case "Boolean":
+    return "boolean", true
+  case "Symbol":
+    return "symbol", true
+  case "BigInt":
+    return "bigint", true
+  case "Object":
+    return "object", true
+  }
+  return "", false
 }
 
 // no-useless-constructor: an empty constructor with no parameters is noise.

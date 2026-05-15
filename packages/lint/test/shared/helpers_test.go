@@ -316,6 +316,23 @@ func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
   }
 }
 
+// assertRuleSkipsSource asserts the rule emits zero findings for the input.
+// Distinguished from `assertNoFixSnapshot`: the latter requires at least one
+// finding (and asserts no fix is applied); this helper is for cases where the
+// rule must not fire at all — used for round-2 regression coverage of fixers
+// that previously fired on the wrong shape and corrupted source.
+func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
+  }
+}
+
 func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
   t.Helper()
   root := t.TempDir()

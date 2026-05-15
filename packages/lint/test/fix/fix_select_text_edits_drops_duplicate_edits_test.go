@@ -10,10 +10,10 @@ import "testing"
 // shape or replaces the map with a position-only set must not change the
 // surviving-edit count under identical inputs.
 //
-// 1. Build three edits where the first two are byte-identical and the third
-//    targets a disjoint range.
-// 2. Run `selectTextEdits` against a synthetic source length.
-// 3. Assert exactly two edits survive and both ranges are accounted for.
+//  1. Build three edits where the first two are byte-identical and the third
+//     targets a disjoint range.
+//  2. Run `selectTextEdits` against a synthetic source length.
+//  3. Assert exactly two edits survive and both ranges are accounted for.
 func TestFixSelectTextEditsDropsDuplicateEdits(t *testing.T) {
   duplicate := TextEdit{Pos: 0, End: 3, Text: "let"}
   edits := []TextEdit{
