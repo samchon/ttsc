@@ -88,8 +88,9 @@ func runFix(opts *subcommandOpts) int {
     // A non-converged exit means at least one rule kept emitting
     // edits on every pass — typically a buggy fixer that doesn't
     // settle the diagnostic it produces. The remaining findings still
-    // surface below as ordinary diagnostics, but the user needs an
-    // explicit signal that the fix cascade hit its safety cap.
+    // surface below as ordinary diagnostics, and the exit code below
+    // is bumped to 2 so a CI gate like `ttsc fix && echo ok` does not
+    // silently accept the buggy-fixer state.
     fmt.Fprintf(os.Stderr,
       "@ttsc/lint: fix cascade did not converge after %d passes; remaining diagnostics are reported below\n",
       maxFixPasses)
@@ -104,7 +105,14 @@ func runFix(opts *subcommandOpts) int {
   if !externalRan {
     warnUnknownRules(os.Stderr, engine.UnknownRules())
   }
-  if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
+  errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd)
+  if errCount > 0 {
+    return 2
+  }
+  if !cascadeConverged {
+    // Diagnostics may all be warnings (or empty) yet the cascade did
+    // not settle — surface the failure as exit 2 so the warning above
+    // is not lost in a shell `&& echo ok` pipeline.
     return 2
   }
   if opts.verbose && totalFixes > 0 {

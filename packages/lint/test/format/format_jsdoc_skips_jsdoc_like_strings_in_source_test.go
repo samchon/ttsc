@@ -16,10 +16,10 @@ import (
 // scanner's `MultiLineCommentTrivia` ranges so only real comments are
 // processed.
 //
-// 1. Parse a source where the only `/**` byte sequence lives inside a
-//    string literal.
-// 2. Run format/jsdoc.
-// 3. Assert zero findings — the rule must not touch user data.
+//  1. Parse a source where the only `/**` byte sequence lives inside a
+//     string literal.
+//  2. Run format/jsdoc.
+//  3. Assert zero findings — the rule must not touch user data.
 func TestFormatJSDocSkipsJSDocLikeStringsInSource(t *testing.T) {
   source := "export const s = \"/** @return number */\";\n" +
     "export const t = `/** @arg x */`;\n" +

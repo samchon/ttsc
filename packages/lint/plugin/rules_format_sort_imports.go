@@ -204,6 +204,31 @@ func matchGroup(groups []sortImportsGroup, specifier string) int {
   return len(groups) // sentinel "no match"
 }
 
+// specifierListHasCommentTrivia returns true when the source between
+// adjacent specifiers contains any byte that is not whitespace,
+// comma, or whitespace-equivalent. A `/* x */` or `// x` inside the
+// list anchors the rule into a no-op — sorting would re-emit the
+// specifier texts joined with `", "` and silently drop the comment.
+func specifierListHasCommentTrivia(src string, specifiers []*shimast.Node) bool {
+  for i := 1; i < len(specifiers); i++ {
+    prev := specifiers[i-1]
+    curr := specifiers[i]
+    if prev == nil || curr == nil {
+      continue
+    }
+    start := prev.End()
+    end := shimscanner.SkipTrivia(src, curr.Pos())
+    for j := start; j < end; j++ {
+      c := src[j]
+      if c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == ',' {
+        continue
+      }
+      return true
+    }
+  }
+  return false
+}
+
 // containsSideEffectImport reports whether any import in the contiguous
 // block has no import clause (i.e. is a side-effect-only `import "x"`).
 // These imports are evaluated for their top-level effect; their order
@@ -340,6 +365,12 @@ type specifierEntry struct {
 // is out of alphabetical order. Type-only specifiers participate in the
 // same sort key as value specifiers — prettier's plugin-sort-imports
 // matches this behavior.
+//
+// Safety policy: comment trivia between specifiers anchors the rule
+// into a no-op. The rule rejoins specifier text with `", "`, which
+// would discard any `/* x */` comment carried inside the list. The
+// block-level sort applies the same policy via
+// `leadingTriviaIsAllWhitespace`; this is the per-specifier analog.
 func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseInsensitive bool) {
   imp := decl.AsImportDeclaration()
   if imp == nil || imp.ImportClause == nil {
@@ -358,6 +389,9 @@ func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseInsensitive 
   }
   src := ctx.File.Text()
   specifiers := named.Elements.Nodes
+  if specifierListHasCommentTrivia(src, specifiers) {
+    return
+  }
 
   entries := make([]specifierEntry, 0, len(specifiers))
   for _, spec := range specifiers {

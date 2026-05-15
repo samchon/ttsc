@@ -19,6 +19,8 @@ package main
 
 import (
   "encoding/json"
+  "fmt"
+  "os"
   "sort"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -329,7 +331,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
           isFormat: isFormatRule(rule),
           collect:  collect,
         }
-        rule.Check(ctx, node)
+        runRuleCheck(rule, ctx, node, collect)
       }
     }
     node.ForEachChild(func(child *shimast.Node) bool {
@@ -357,7 +359,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
         isFormat: isFormatRule(rule),
         collect:  collect,
       }
-      rule.Check(ctx, file.AsNode())
+      runRuleCheck(rule, ctx, file.AsNode(), collect)
     }
   }
 
@@ -373,4 +375,49 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // the filter would silently leak those findings into the diagnostic
   // stream.
   return filterInlineDisabledFindings(file, collected)
+}
+
+// runRuleCheck invokes a rule's `Check` with a `recover()` barrier so a
+// panicking rule does not abort the entire `ttsc fix` / `ttsc check`
+// run. Built-in rules are not expected to panic, but contributor rules
+// crossing into the public `rule.Context` adapter can be authored by
+// anyone; protecting the engine is the only way to bound the blast
+// radius of one bad rule. The recovered panic is surfaced as a
+// SeverityError finding tagged with the rule's name so the user sees
+// the failure in the normal diagnostic stream.
+func runRuleCheck(rule Rule, ctx *Context, node *shimast.Node, collect func(*Finding)) {
+  defer func() {
+    r := recover()
+    if r == nil {
+      return
+    }
+    if ctx == nil || ctx.File == nil {
+      // Without source context there is nowhere to anchor the
+      // diagnostic. Surface to stderr so the panic is at least
+      // visible to the operator.
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: rule %q panicked: %v\n", rule.Name(), r)
+      return
+    }
+    pos := 0
+    end := 1
+    if node != nil {
+      pos = node.Pos()
+      end = node.End()
+    }
+    if end <= pos {
+      end = pos + 1
+    }
+    collect(&Finding{
+      Rule:     rule.Name(),
+      Severity: SeverityError,
+      Pos:      pos,
+      End:      end,
+      Message: fmt.Sprintf(
+        "Rule %q panicked while checking this node: %v. Report this to the rule's author; ttsc skipped the rule on this file.",
+        rule.Name(), r,
+      ),
+      File: ctx.File,
+    })
+  }()
+  rule.Check(ctx, node)
 }

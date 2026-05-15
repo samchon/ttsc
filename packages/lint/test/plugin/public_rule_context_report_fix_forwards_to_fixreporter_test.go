@@ -26,7 +26,7 @@ import (
 //    the diagnostic-only `Report` method.
 func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
   reporter := &captureReporter{}
-  ctx := rule.NewContext(nil, nil, rule.SeverityError, reporter)
+  ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   node := newDummyNode(t)
   edits := []rule.TextEdit{
     {Pos: 0, End: 1, Text: "a"},

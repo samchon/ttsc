@@ -14,11 +14,11 @@ import (
 // source file the user can't compile. The fixer detects the rest
 // element via `DotDotDotToken` and bails before emitting the edit.
 //
-// 1. Parse a multi-line function declaration whose last parameter is
-//    a rest parameter without a trailing comma.
-// 2. Run format/trailing-comma with mode:"all".
-// 3. Assert zero findings — the rule must NOT propose an edit that
-//    would render the source unparseable.
+//  1. Parse a multi-line function declaration whose last parameter is
+//     a rest parameter without a trailing comma.
+//  2. Run format/trailing-comma with mode:"all".
+//  3. Assert zero findings — the rule must NOT propose an edit that
+//     would render the source unparseable.
 func TestFormatTrailingCommaSkipsRestParameter(t *testing.T) {
   source := "function f(\n" +
     "  a: string,\n" +

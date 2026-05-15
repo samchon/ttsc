@@ -72,10 +72,13 @@ func runFormat(opts *subcommandOpts) int {
     // Format runs are write-only by contract, so a non-converged exit
     // leaves the user's files in a partially-formatted state with no
     // diagnostic surface to expose the cause. Emit an explicit signal
-    // so they know to run again or investigate the offending rule.
+    // and a non-zero exit code so a CI gate like
+    // `ttsc format && echo done` does not silently accept the
+    // non-idempotent state.
     fmt.Fprintf(os.Stderr,
       "@ttsc/lint: format cascade did not converge after %d passes; rerun or check for a non-idempotent format rule\n",
       maxFormatPasses)
+    return 2
   }
 
   if opts.verbose && totalFixes > 0 {
