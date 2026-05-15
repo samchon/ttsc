@@ -14,7 +14,13 @@ import (
 //   - CallExpression / NewExpression   `foo(a, b)` / `new Foo(a, b)`
 //   - NamedImports / NamedExports      `import { a, b } from "x"`
 //   - TupleType                        `[A, B]` at the type level
-//   - Function parameter lists         `function foo(a, b) {}` etc.
+//   - Function parameter lists         `function foo(a, b) {}` etc.,
+//     including interface call/construct/method signatures and
+//     `(a, b) => …` / `new (a, b) => …` function/constructor type
+//     literals.
+//   - Type-parameter declaration lists `<T, U>` at the declaration site
+//     (prettier omits trailing commas on type-argument call sites such
+//     as `foo<A, B>(…)`; see prettier PR #10353).
 //
 // Out of scope on purpose:
 //
@@ -60,6 +66,12 @@ func (formatTrailingComma) Visits() []shimast.Kind {
     shimast.KindConstructor,
     shimast.KindGetAccessor,
     shimast.KindSetAccessor,
+    shimast.KindMethodSignature,
+    shimast.KindCallSignature,
+    shimast.KindConstructSignature,
+    shimast.KindFunctionType,
+    shimast.KindConstructorType,
+    shimast.KindTypeParameter,
   }
 }
 
@@ -191,6 +203,68 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindMethodSignature:
+    if mode == "es5" {
+      return
+    }
+    sig := node.AsMethodSignatureDeclaration()
+    if sig == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, sig.Parameters)
+  case shimast.KindCallSignature:
+    if mode == "es5" {
+      return
+    }
+    sig := node.AsCallSignatureDeclaration()
+    if sig == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, sig.Parameters)
+  case shimast.KindConstructSignature:
+    if mode == "es5" {
+      return
+    }
+    sig := node.AsConstructSignatureDeclaration()
+    if sig == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, sig.Parameters)
+  case shimast.KindFunctionType:
+    if mode == "es5" {
+      return
+    }
+    ft := node.AsFunctionTypeNode()
+    if ft == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, ft.Parameters)
+  case shimast.KindConstructorType:
+    if mode == "es5" {
+      return
+    }
+    ct := node.AsConstructorTypeNode()
+    if ct == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, ct.Parameters)
+  case shimast.KindTypeParameter:
+    if mode == "es5" {
+      return // type parameters postdate ES5; prettier es5 skips them
+    }
+    if node.Parent == nil {
+      return
+    }
+    list := node.Parent.TypeParameterList()
+    if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
+      return
+    }
+    src := ctx.File.Text()
+    closePos := findCloseTokenAfter(src, list.End(), '>')
+    if closePos < 0 {
+      return
+    }
+    considerTrailingComma(ctx, list, closePos)
   }
 }
 
