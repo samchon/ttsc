@@ -6,12 +6,11 @@ import "testing"
 // multi-line `new Foo(...)` argument lists.
 //
 // `new` expressions share the call-argument shape but go through a separate
-// `KindNewExpression` dispatch arm with an `ne.Arguments == nil` short-circuit
-// for the `new Foo` (no-parens) form. Pinning the positive insert here keeps
-// that arm regression-safe alongside the `KindCallExpression` peer — a future
-// refactor that consolidated the two could otherwise miss the `Arguments` nil
-// guard and silently stop inserting for the most common multi-line `new`
-// shape.
+// `KindNewExpression` dispatch arm. This test pins the non-nil-arguments
+// path so a future refactor that consolidated the two arms cannot silently
+// stop inserting for multi-line `new Foo(...)`; the `ne.Arguments == nil`
+// short-circuit for `new Foo` (no parens) is a sibling concern that
+// remains unpinned because no positive insert applies there.
 //
 // 1. Parse a source file with one multi-line `new` expression.
 // 2. Apply the rule's finding through the disk-backed fixer.
