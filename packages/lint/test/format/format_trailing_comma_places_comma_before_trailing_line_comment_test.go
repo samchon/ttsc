@@ -2,9 +2,9 @@ package main
 
 import "testing"
 
-// TestFormatTrailingCommaInsertsAfterLastElementWithTrailingLineComment verifies
-// the rule inserts the trailing comma BEFORE a trailing `//` comment on the
-// last element of a multi-line list.
+// TestFormatTrailingCommaPlacesCommaBeforeTrailingLineComment verifies
+// the rule inserts the trailing comma BEFORE a trailing `//` line comment
+// on the last element of a multi-line list, not after it.
 //
 // `node.End()` excludes trailing trivia, so `last.End()` lands right after the
 // element's last code byte regardless of whether a `//` comment follows on the
@@ -20,7 +20,7 @@ import "testing"
 //    a trailing `// trailing` comment.
 // 2. Apply the rule's finding through the disk-backed fixer.
 // 3. Assert the rewritten file places the comma BEFORE the line comment.
-func TestFormatTrailingCommaInsertsAfterLastElementWithTrailingLineComment(t *testing.T) {
+func TestFormatTrailingCommaPlacesCommaBeforeTrailingLineComment(t *testing.T) {
   assertFixSnapshot(
     t,
     "format/trailing-comma",
