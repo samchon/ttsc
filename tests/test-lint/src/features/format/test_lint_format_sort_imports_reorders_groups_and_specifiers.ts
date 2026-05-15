@@ -9,13 +9,11 @@ import path from "node:path";
  * end-to-end.
  *
  * The fixture intentionally shuffles external and relative imports, plus an
- * out-of-order specifier list (`{ writeFileSync, readFileSync }`). One
- * launcher run must produce the canonical layout: external block sorted,
- * relative block sorted below a blank line, and each named specifier set
- * alphabetized.
+ * out-of-order specifier list (`{ writeFileSync, readFileSync }`). One launcher
+ * run must produce the canonical layout: external block sorted, relative block
+ * sorted below a blank line, and each named specifier set alphabetized.
  *
- * 1. Copy `fixtures/format-projects/format-sort-imports` into a temp
- *    project.
+ * 1. Copy `fixtures/format-projects/format-sort-imports` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */

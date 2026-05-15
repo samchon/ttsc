@@ -1,10 +1,11 @@
 /**
  * Build a greeting.
  *
- * @arg name The recipient.
- * @argument greeting The greeting prefix.
- * @return The combined greeting.
- * @desc Legacy description tag.
+ * Legacy description tag.
+ *
+ * @param name The recipient.
+ * @param greeting The greeting prefix.
+ * @returns The combined greeting.
  */
 export function greet(name: string, greeting: string): string {
   return greeting + name;

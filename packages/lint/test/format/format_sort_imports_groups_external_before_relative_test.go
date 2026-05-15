@@ -11,10 +11,10 @@ import "testing"
 // scenario pins the group order, the alphabetical sort within each group,
 // and the blank-line separator between groups in one shot.
 //
-// 1. Parse a source file with mixed external and relative imports in
-//    intentionally shuffled order.
-// 2. Apply the rule's finding through the disk-backed fixer.
-// 3. Assert the rewritten file matches the canonical layout.
+//  1. Parse a source file with mixed external and relative imports in
+//     intentionally shuffled order.
+//  2. Apply the rule's finding through the disk-backed fixer.
+//  3. Assert the rewritten file matches the canonical layout.
 func TestFormatSortImportsGroupsExternalBeforeRelative(t *testing.T) {
   source := "import { reduce } from \"./local-b\";\n" +
     "import zebra from \"zebra\";\n" +

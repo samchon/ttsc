@@ -8,10 +8,10 @@ import path from "node:path";
  * Verifies lint format quotes: rewrites convertible single-quoted literals.
  *
  * The fixture mixes convertible single quotes (plain, escaped apostrophe,
- * empty) with one literal whose conversion would add escapes
- * (`'say "hi"'`). The end-to-end run must rewrite the convertible literals
- * and leave the preserved one alone, locking the escape-cost tie-breaker
- * against regression at the launcher boundary.
+ * empty) with one literal whose conversion would add escapes (`'say "hi"'`).
+ * The end-to-end run must rewrite the convertible literals and leave the
+ * preserved one alone, locking the escape-cost tie-breaker against regression
+ * at the launcher boundary.
  *
  * 1. Copy `fixtures/format-projects/format-quotes` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.

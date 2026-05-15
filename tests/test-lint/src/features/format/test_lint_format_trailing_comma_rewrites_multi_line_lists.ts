@@ -8,9 +8,8 @@ import path from "node:path";
  * Verifies lint format trailing-comma: rewrites multi-line lists end-to-end.
  *
  * The fixture mixes arrays, objects, function parameters, and nested call
- * arguments to exercise every dispatch branch in one pass. The single-line
- * call at the bottom is the negative anchor: the launcher run must not
- * touch it.
+ * arguments to exercise every dispatch branch in one pass. The single-line call
+ * at the bottom is the negative anchor: the launcher run must not touch it.
  *
  * 1. Copy `fixtures/format-projects/format-trailing-comma` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.

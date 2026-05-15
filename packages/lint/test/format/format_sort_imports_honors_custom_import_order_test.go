@@ -20,10 +20,10 @@ import (
 // with one blank line between groups. This pins the trivago-compat
 // option path through the engine.
 //
-// 1. Parse a source file with mixed import classes.
-// 2. Apply the rule with a custom `importOrder` matching trivago's
-//    workspace config (third-party, then `@api/*`, then relative).
-// 3. Assert the rewritten file has the imports laid out per the spec.
+//  1. Parse a source file with mixed import classes.
+//  2. Apply the rule with a custom `importOrder` matching trivago's
+//     workspace config (third-party, then `@api/*`, then relative).
+//  3. Assert the rewritten file has the imports laid out per the spec.
 func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")
@@ -47,13 +47,16 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   // settle (block first, specifiers second). The Go-side test does a
   // single Run; the engine returns whatever fires this iteration. The
   // assertion below tolerates either resolution order.
-  for pass := 0; pass < 4; pass++ {
+  const maxPasses = 4
+  converged := false
+  for pass := 0; pass < maxPasses; pass++ {
     findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
     fixed, err := applyFindingFixes(root, findings)
     if err != nil {
       t.Fatalf("applyFindingFixes: %v", err)
     }
     if fixed == 0 {
+      converged = true
       break
     }
     raw, err := os.ReadFile(filePath)
@@ -61,6 +64,14 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
       t.Fatalf("ReadFile: %v", err)
     }
     file = parseTSFile(t, filePath, string(raw))
+  }
+  if !converged {
+    // A non-converged exit means the rule kept rewriting on every pass.
+    // Either the test fixture grew complexity the rule cannot settle, or
+    // the rule itself regressed into a re-emit loop. Either way we want a
+    // loud failure instead of a misleading green when the loop falls
+    // through with edits still pending.
+    t.Fatalf("format/sort-imports did not converge within %d passes", maxPasses)
   }
   got, err := os.ReadFile(filePath)
   if err != nil {

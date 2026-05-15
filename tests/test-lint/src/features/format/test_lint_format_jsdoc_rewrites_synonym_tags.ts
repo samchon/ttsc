@@ -13,8 +13,7 @@ import path from "node:path";
  * test catches any regression in the byte-level rewrite path that the unit
  * tests can miss (line endings, trivia handling).
  *
- * 1. Copy `fixtures/format-projects/format-jsdoc` into a temp
- *    project.
+ * 1. Copy `fixtures/format-projects/format-jsdoc` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */

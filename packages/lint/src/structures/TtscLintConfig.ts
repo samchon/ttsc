@@ -21,9 +21,7 @@ import type { TtscLintRuleMap } from "./TtscLintRuleMap";
  * autocomplete as `BuiltInRule | "<ns>/<rule>"` where the namespace-rule
  * combinations come from each plugin's `rules` tuple.
  */
-export type TtscLintConfig<
-  P extends TtscLintPlugins = Record<string, never>,
-> =
+export type TtscLintConfig<P extends TtscLintPlugins = Record<string, never>> =
   | TtscLintRuleMap<P>
   | TtscLintConfigEntry<P>
   | readonly TtscLintConfigEntry<P>[];

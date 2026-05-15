@@ -38,20 +38,20 @@ func TestIsFormatRuleDetectsMarkerInterface(t *testing.T) {
 
 type synthFormatRule struct{}
 
-func (synthFormatRule) Name() string                          { return "synth/format" }
-func (synthFormatRule) IsFormat() bool                        { return true }
-func (synthFormatRule) Visits() []shimast.Kind                { return nil }
-func (synthFormatRule) Check(*Context, *shimast.Node)         {}
+func (synthFormatRule) Name() string                  { return "synth/format" }
+func (synthFormatRule) IsFormat() bool                { return true }
+func (synthFormatRule) Visits() []shimast.Kind        { return nil }
+func (synthFormatRule) Check(*Context, *shimast.Node) {}
 
 type synthLintRule struct{}
 
-func (synthLintRule) Name() string                          { return "synth/lint" }
-func (synthLintRule) Visits() []shimast.Kind                { return nil }
-func (synthLintRule) Check(*Context, *shimast.Node)         {}
+func (synthLintRule) Name() string                  { return "synth/lint" }
+func (synthLintRule) Visits() []shimast.Kind        { return nil }
+func (synthLintRule) Check(*Context, *shimast.Node) {}
 
 type synthFormatRuleFalse struct{}
 
-func (synthFormatRuleFalse) Name() string                          { return "synth/format-false" }
-func (synthFormatRuleFalse) IsFormat() bool                        { return false }
-func (synthFormatRuleFalse) Visits() []shimast.Kind                { return nil }
-func (synthFormatRuleFalse) Check(*Context, *shimast.Node)         {}
+func (synthFormatRuleFalse) Name() string                  { return "synth/format-false" }
+func (synthFormatRuleFalse) IsFormat() bool                { return false }
+func (synthFormatRuleFalse) Visits() []shimast.Kind        { return nil }
+func (synthFormatRuleFalse) Check(*Context, *shimast.Node) {}

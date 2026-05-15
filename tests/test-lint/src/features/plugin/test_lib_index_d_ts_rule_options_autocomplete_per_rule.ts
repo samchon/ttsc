@@ -4,18 +4,18 @@ import assert from "node:assert/strict";
 /**
  * Verifies lib/index.d.ts surfaces per-rule option autocomplete.
  *
- * The `TtscLintRuleEntry<R>` mapped type is supposed to pick its second
- * tuple slot from `TtscLintRuleOptionsMap[R]`. This compile-time test
- * exercises three contracts:
+ * The `TtscLintRuleEntry<R>` mapped type is supposed to pick its second tuple
+ * slot from `TtscLintRuleOptionsMap[R]`. This compile-time test exercises three
+ * contracts:
  *
- *  - A bare severity literal is accepted for any rule (lint or format).
- *  - `[severity, options]` typed against the matching rule key compiles
- *    and the options object is structurally checked.
- *  - A lint-only rule (`no-var`) accepts only severity / `[severity]`.
+ * - A bare severity literal is accepted for any rule (lint or format).
+ * - `[severity, options]` typed against the matching rule key compiles and the
+ *   options object is structurally checked.
+ * - A lint-only rule (`no-var`) accepts only severity / `[severity]`.
  *
  * The function runs at runtime as a sanity check that `satisfies
- * TtscLintConfig` does not regress; the real assertion happens during
- * `pnpm run test:typecheck`.
+ * TtscLintConfig` does not regress; the real assertion happens during `pnpm run
+ * test:typecheck`.
  *
  * 1. Construct configs exercising each tuple shape.
  * 2. Verify the runtime objects deep-equal the expected literal.

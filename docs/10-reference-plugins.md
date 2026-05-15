@@ -398,7 +398,7 @@ func (noMarkerComment) Check(ctx *rule.Context, node *shimast.Node) {
   var opts noMarkerCommentOptions
   _ = ctx.DecodeOptions(&opts)
   if len(opts.Markers) == 0 {
-    opts.Markers = []string{"TODO", "FIXME", "XXX"} // defaults
+    opts.Markers = []string{"TODO", "FIXME"} // defaults
   }
   // ...inspect ctx.File.Text() against opts.Markers...
 }
@@ -423,7 +423,7 @@ const plugin: ITtscLintPlugin = {
 declare module "@ttsc/lint" {
   interface TtscLintRuleOptionsMap {
     "demo/no-marker-comment": {
-      /** Comment markers to flag. Defaults to TODO / FIXME / XXX. */
+      /** Comment markers to flag. Defaults to TODO / FIXME. */
       markers?: readonly string[];
     };
   }

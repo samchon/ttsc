@@ -15,10 +15,10 @@ import (
 // `leadingTriviaIsAllWhitespace` guard is the load-bearing predicate;
 // this scenario pins it.
 //
-// 1. Parse a source file with a comment between two imports.
-// 2. Run the engine with format/sort-imports enabled.
-// 3. Assert no block-level reorder finding fires (specifier-level findings
-//    may still fire for the same file, but the block reorder must not).
+//  1. Parse a source file with a comment between two imports.
+//  2. Run the engine with format/sort-imports enabled.
+//  3. Assert no block-level reorder finding fires (specifier-level findings
+//     may still fire for the same file, but the block reorder must not).
 func TestFormatSortImportsPreservesCommentsBetweenImports(t *testing.T) {
   source := "import zebra from \"zebra\";\n" +
     "// pinned by dependency injection wiring\n" +

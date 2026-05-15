@@ -24,8 +24,8 @@ type formatQuotesOptions struct {
   Prefer string `json:"prefer"`
 }
 
-func (formatQuotes) Name() string     { return "format/quotes" }
-func (formatQuotes) IsFormat() bool   { return true }
+func (formatQuotes) Name() string   { return "format/quotes" }
+func (formatQuotes) IsFormat() bool { return true }
 
 func (formatQuotes) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindStringLiteral}
@@ -76,9 +76,16 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// convertDoubleQuotedToSingle is the inverse of convertSingleQuotedToDouble.
-// Returns (value, false) when single-quoted form would need strictly more
-// escapes than the source.
+// convertDoubleQuotedToSingle walks the inner text of a double-quoted
+// literal and returns the single-quoted equivalent, plus an `ok`
+// boolean. `ok=false` means converting would require strictly more
+// escapes than the source (prettier's tie-breaker rule), so the
+// caller should leave the literal alone.
+//
+// Conversion is escape-aware:
+//   - `\"` becomes a bare `"` (no longer needs escaping).
+//   - Bare `'` becomes `\'` (now must be escaped).
+//   - Every other escape sequence (`\n`, `\\`, `\u{…}`) survives intact.
 func convertDoubleQuotedToSingle(inner string) (string, bool) {
   escapedDouble, unescapedSingle := countDoubleEscapes(inner)
   if unescapedSingle > escapedDouble {
@@ -112,6 +119,9 @@ func convertDoubleQuotedToSingle(inner string) (string, bool) {
   return b.String(), true
 }
 
+// countDoubleEscapes returns the number of `\"` sequences and bare `'`
+// bytes inside a double-quoted literal's text. Pairs with
+// countSingleEscapes.
 func countDoubleEscapes(inner string) (escapedDouble, unescapedSingle int) {
   for i := 0; i < len(inner); {
     if inner[i] == '\\' && i+1 < len(inner) {
@@ -140,7 +150,7 @@ func countDoubleEscapes(inner string) (escapedDouble, unescapedSingle int) {
 //   - Bare `"` becomes `\"` (now must be escaped).
 //   - Every other escape sequence (`\n`, `\\`, `\u{…}`) survives intact.
 func convertSingleQuotedToDouble(inner string) (string, bool) {
-  escapedSingle, unescapedDouble := countQuoteEscapes(inner)
+  escapedSingle, unescapedDouble := countSingleEscapes(inner)
   if unescapedDouble > escapedSingle {
     return "", false
   }
@@ -172,7 +182,11 @@ func convertSingleQuotedToDouble(inner string) (string, bool) {
   return b.String(), true
 }
 
-func countQuoteEscapes(inner string) (escapedSingle, unescapedDouble int) {
+// countSingleEscapes returns the number of `\'` sequences and bare `"`
+// bytes inside a single-quoted literal's text. Pairs with
+// countDoubleEscapes; the names describe what they count (the quote kind
+// that's been escape-prefixed).
+func countSingleEscapes(inner string) (escapedSingle, unescapedDouble int) {
   for i := 0; i < len(inner); {
     if inner[i] == '\\' && i+1 < len(inner) {
       if inner[i+1] == '\'' {

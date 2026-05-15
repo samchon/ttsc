@@ -17,10 +17,10 @@ import (
 // only thing standing between this contract and the rule firing on
 // every multi-line literal anyway.
 //
-// 1. Parse a file with a multi-line array literal that would otherwise
-//    trigger the rule.
-// 2. Run the engine with `mode: "none"` configured.
-// 3. Assert zero findings.
+//  1. Parse a file with a multi-line array literal that would otherwise
+//     trigger the rule.
+//  2. Run the engine with `mode: "none"` configured.
+//  3. Assert zero findings.
 func TestFormatTrailingCommaModeNoneDisablesRule(t *testing.T) {
   source := "const xs = [\n  1,\n  2,\n  3\n];\n"
   file := parseTS(t, source)

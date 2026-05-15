@@ -13,10 +13,10 @@ import (
 // format loop's cap. The rule must produce zero findings on a file whose
 // imports and specifiers are already canonical.
 //
-// 1. Parse a source file with sorted external + relative groups and a
-//    blank-line separator.
-// 2. Run the engine with format/sort-imports enabled.
-// 3. Assert zero findings.
+//  1. Parse a source file with sorted external + relative groups and a
+//     blank-line separator.
+//  2. Run the engine with format/sort-imports enabled.
+//  3. Assert zero findings.
 func TestFormatSortImportsSkipsAlreadySortedFiles(t *testing.T) {
   source := "import alpha from \"alpha\";\n" +
     "import zebra from \"zebra\";\n" +

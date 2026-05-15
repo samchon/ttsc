@@ -16,10 +16,10 @@ const thirdPartyModulesPlaceholder = "<THIRD_PARTY_MODULES>"
 
 // formatSortImportsOptions mirrors `TtscLintRuleOptions.SortImports`.
 type formatSortImportsOptions struct {
-  ImportOrder               []string `json:"importOrder"`
-  ImportOrderSeparation     *bool    `json:"importOrderSeparation"`
-  ImportOrderSortSpecifiers *bool    `json:"importOrderSortSpecifiers"`
-  ImportOrderCaseInsensitive bool    `json:"importOrderCaseInsensitive"`
+  ImportOrder                []string `json:"importOrder"`
+  ImportOrderSeparation      *bool    `json:"importOrderSeparation"`
+  ImportOrderSortSpecifiers  *bool    `json:"importOrderSortSpecifiers"`
+  ImportOrderCaseInsensitive bool     `json:"importOrderCaseInsensitive"`
 }
 
 // defaultImportOrder mirrors the two-group MVP scheme used when the user
@@ -31,15 +31,19 @@ var defaultImportOrder = []string{thirdPartyModulesPlaceholder, `^\.`}
 
 // format/sort-imports orders the file's top-level import declarations into
 // canonical groups and alphabetizes each group. Compatible-by-spirit with
-// `@trivago/prettier-plugin-sort-imports`, but the MVP runs on a hard-coded
+// `@trivago/prettier-plugin-sort-imports`. Groups are user-configurable via
+// the `importOrder` option; when omitted, the rule falls back to a
 // two-group scheme:
 //
-//   1. External modules (specifier does not start with `.`).
-//   2. Relative modules (specifier starts with `.`).
+//  1. External modules (specifier does not start with `.`).
+//  2. Relative modules (specifier starts with `.`).
 //
-// Groups are separated by exactly one blank line. Within each group,
-// declarations are sorted by their module-specifier text (ASCII order).
-// Named specifiers inside each declaration are alphabetized too.
+// Groups are separated by exactly one blank line (or omitted when
+// `importOrderSeparation: false`). Within each group, declarations are
+// sorted by their module-specifier text (ASCII order, or case-insensitive
+// when `importOrderCaseInsensitive: true`). Named specifiers inside each
+// declaration are alphabetized when `importOrderSortSpecifiers` is true
+// (the default).
 //
 // Safety policy: if any byte between the contiguous imports is not
 // whitespace, the rule bails. Comments anchored to specific imports would
@@ -51,8 +55,8 @@ var defaultImportOrder = []string{thirdPartyModulesPlaceholder, `^\.`}
 // participate in the same group based on their module specifier.
 type formatSortImports struct{}
 
-func (formatSortImports) Name() string     { return "format/sort-imports" }
-func (formatSortImports) IsFormat() bool   { return true }
+func (formatSortImports) Name() string   { return "format/sort-imports" }
+func (formatSortImports) IsFormat() bool { return true }
 func (formatSortImports) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -68,25 +72,25 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
     return
   }
   imports := collectLeadingImports(statements.Nodes)
-  if len(imports) >= 2 {
-    if !leadingTriviaIsAllWhitespace(src, imports) {
-      // Preserve user-attached comments by declining to sort.
-    } else {
-      first := imports[0]
-      last := imports[len(imports)-1]
-      replaceStart := shimscanner.SkipTrivia(src, first.Pos())
-      replaceEnd := last.End()
-      original := src[replaceStart:replaceEnd]
-      rebuilt := buildSortedImportBlock(src, imports, opts)
-      if rebuilt != original {
-        ctx.ReportRangeFix(
-          replaceStart,
-          replaceEnd,
-          "Imports must be sorted into canonical groups.",
-          TextEdit{Pos: replaceStart, End: replaceEnd, Text: rebuilt},
-        )
-        return
-      }
+  // Block-level reorder runs only when the rule can do it safely:
+  // two or more contiguous imports with no comment trivia between
+  // them (comments anchor to specific imports and moving them would
+  // mis-attach the user's intent).
+  if len(imports) >= 2 && leadingTriviaIsAllWhitespace(src, imports) {
+    first := imports[0]
+    last := imports[len(imports)-1]
+    replaceStart := shimscanner.SkipTrivia(src, first.Pos())
+    replaceEnd := last.End()
+    original := src[replaceStart:replaceEnd]
+    rebuilt := buildSortedImportBlock(src, imports, opts)
+    if rebuilt != original {
+      ctx.ReportRangeFix(
+        replaceStart,
+        replaceEnd,
+        "Imports must be sorted into canonical groups.",
+        TextEdit{Pos: replaceStart, End: replaceEnd, Text: rebuilt},
+      )
+      return
     }
   }
   if !opts.sortSpecifiers {
@@ -101,15 +105,15 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
 // during one Check call. All option defaults are applied here so the
 // rest of the rule code does not branch on nil-ness.
 type resolvedSortImportsOptions struct {
-  groups           []sortImportsGroup
-  separation       bool
-  sortSpecifiers   bool
-  caseInsensitive  bool
+  groups          []sortImportsGroup
+  separation      bool
+  sortSpecifiers  bool
+  caseInsensitive bool
 }
 
 type sortImportsGroup struct {
-  raw       string
-  pattern   *regexp.Regexp
+  raw        string
+  pattern    *regexp.Regexp
   thirdParty bool
 }
 

@@ -103,16 +103,17 @@ Public stages are deliberately small:
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
 When the user runs `ttsc fix`, `ttsc` invokes check-stage plugins with
-the `fix` subcommand and keeps JavaScript/declaration emit disabled. See
+the `fix` subcommand and keeps JavaScript/declaration emit disabled.
+`fix` is the run-everything entry point: edits from every enabled rule
+flow through it, lint-class and format-class together. See
 [CLI Commands → `fix`](#fix) for the subcommand contract.
 
 When the user runs `ttsc format`, `ttsc` invokes the same check-stage
-plugins with the `format` subcommand. `ttsc fix` is the
-run-everything entry point — it applies edits from every enabled
-rule, lint-class and format-class together. `ttsc format` is the
-format-only convenience: it filters to format-class rule edits so
-lint rewrites are skipped. See [CLI Commands → `format`](#format) for
-the subcommand contract.
+plugins with the `format` subcommand. `ttsc format` is the format-only
+convenience that filters to format-class rule edits so lint rewrites
+are skipped — pick this subcommand when you want to reshape source
+without applying lint rewrites. See [CLI Commands → `format`](#format)
+for the subcommand contract.
 
 ## Composition
 

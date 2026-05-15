@@ -21,10 +21,10 @@ import (
 // PropertyDeclaration in the same fixture and asserts the asymmetric
 // rewrite.
 //
-// 1. Parse a file with both a statement and a class field, both ending
-//    in `;`, with `prefer: "never"` configured.
-// 2. Apply the rule's findings through the disk-backed fixer.
-// 3. Assert the statement loses its `;` but the class field keeps it.
+//  1. Parse a file with both a statement and a class field, both ending
+//     in `;`, with `prefer: "never"` configured.
+//  2. Apply the rule's findings through the disk-backed fixer.
+//  3. Assert the statement loses its `;` but the class field keeps it.
 func TestFormatSemiHonorsPreferNeverOption(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")

@@ -1,26 +1,23 @@
-const numbers = [
-  1,
-  2,
-  3
-];
+const numbers = [1, 2, 3];
 
 const settings = {
   retries: 3,
-  timeout: 1000
+  timeout: 1000,
 };
 
-function describe(
-  label: string,
-  payload: { name: string; value: number }
-) {
+function describe(label: string, payload: { name: string; value: number }) {
   return JSON.stringify(
     {
       label,
-      payload
+      payload,
     },
     null,
-    2
+    2,
   );
 }
 
-JSON.stringify({ numbers, settings, sample: describe("a", { name: "x", value: 1 }) });
+JSON.stringify({
+  numbers,
+  settings,
+  sample: describe("a", { name: "x", value: 1 }),
+});

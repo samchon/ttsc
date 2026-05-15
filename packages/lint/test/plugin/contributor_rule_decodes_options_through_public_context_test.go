@@ -21,11 +21,11 @@ import (
 // internal Context into the public Context — otherwise contributor
 // rules silently see nil options and fall back to defaults.
 //
-// 1. Register a synthetic contributor rule that decodes a `Mode` option
-//    and asserts the decoded value.
-// 2. Run the engine with an InlineRuleResolver that supplies the
-//    options blob the contributor expects.
-// 3. Confirm the rule observed the user's option, not the zero value.
+//  1. Register a synthetic contributor rule that decodes a `Mode` option
+//     and asserts the decoded value.
+//  2. Run the engine with an InlineRuleResolver that supplies the
+//     options blob the contributor expects.
+//  3. Confirm the rule observed the user's option, not the zero value.
 func TestContributorRuleDecodesOptionsThroughPublicContext(t *testing.T) {
   recorder := &optionRecorder{}
   rule.Register(&optionConsumingContributor{recorder: recorder})
@@ -55,8 +55,10 @@ type optionConsumingContributor struct {
   recorder *optionRecorder
 }
 
-func (o *optionConsumingContributor) Name() string             { return "demo/option-consumer" }
-func (o *optionConsumingContributor) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+func (o *optionConsumingContributor) Name() string { return "demo/option-consumer" }
+func (o *optionConsumingContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
 func (o *optionConsumingContributor) Check(ctx *rule.Context, _ *shimast.Node) {
   var opts struct {
     Mode string `json:"mode"`

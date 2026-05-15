@@ -199,9 +199,9 @@ func NewContext(
 // nil with no side effect when the rule was configured with severity
 // alone, so contributors can write:
 //
-//   var opts myRuleOptions
-//   _ = ctx.DecodeOptions(&opts)
-//   // opts now holds either the user's settings or the zero value.
+//  var opts myRuleOptions
+//  _ = ctx.DecodeOptions(&opts)
+//  // opts now holds either the user's settings or the zero value.
 func (c *Context) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil

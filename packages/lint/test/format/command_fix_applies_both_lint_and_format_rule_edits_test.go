@@ -15,10 +15,10 @@ import (
 // invocation. The intentional asymmetry — fix is a superset of format
 // — is documented in the README's Fix section.
 //
-// 1. Seed a project with one lint-class violation (no-var) and one
-//    format-class violation (format/semi).
-// 2. Run the fix subcommand with both rules enabled.
-// 3. Assert both kinds of edits land and the final exit code is zero.
+//  1. Seed a project with one lint-class violation (no-var) and one
+//     format-class violation (format/semi).
+//  2. Run the fix subcommand with both rules enabled.
+//  3. Assert both kinds of edits land and the final exit code is zero.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   code, stdout, stderr := captureCommandOutput(t, func() int {

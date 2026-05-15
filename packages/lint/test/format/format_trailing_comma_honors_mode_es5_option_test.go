@@ -19,11 +19,11 @@ import (
 // parameters that would otherwise gain a trailing comma stays unchanged,
 // while a multi-line array literal in the same file does gain one.
 //
-// 1. Parse a file mixing a multi-line array and a multi-line function
-//    declaration, with `mode: "es5"` configured.
-// 2. Apply the rule's findings.
-// 3. Assert the array gains a trailing comma but the parameter list
-//    does not.
+//  1. Parse a file mixing a multi-line array and a multi-line function
+//     declaration, with `mode: "es5"` configured.
+//  2. Apply the rule's findings.
+//  3. Assert the array gains a trailing comma but the parameter list
+//     does not.
 func TestFormatTrailingCommaHonorsModeES5Option(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")

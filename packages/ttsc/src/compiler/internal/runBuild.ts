@@ -341,9 +341,9 @@ function createNativeCheckArgs(
 
 /**
  * Decide which native plugin subcommand the lint sidecar should run for the
- * current `runBuild` invocation. The launcher selects exactly one of
- * `fix` / `format` / `check` via subcommand dispatch, so at most one of
- * the `options.fix` / `options.format` booleans is true.
+ * current `runBuild` invocation. The launcher selects exactly one of `fix` /
+ * `format` / `check` via subcommand dispatch, so at most one of the
+ * `options.fix` / `options.format` booleans is true.
  */
 function nativeCheckSubcommand(options: TtscBuildOptions): string {
   if (options.format === true) return "format";

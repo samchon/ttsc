@@ -12,10 +12,10 @@ import "testing"
 // filter is intentionally absent. Testing the format filter alone with
 // a mixed synthetic input pins the routing contract.
 //
-// 1. Build a mixed finding slice with format and lint entries plus a
-//    nil sentinel.
-// 2. Run `filterFormatFindings`.
-// 3. Assert only format-tagged findings survive and nils are dropped.
+//  1. Build a mixed finding slice with format and lint entries plus a
+//     nil sentinel.
+//  2. Run `filterFormatFindings`.
+//  3. Assert only format-tagged findings survive and nils are dropped.
 func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
   findings := []*Finding{
     {Rule: "no-var", IsFormat: false},

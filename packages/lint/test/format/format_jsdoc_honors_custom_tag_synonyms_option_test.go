@@ -17,10 +17,10 @@ import (
 // without losing the standard `@return` → `@returns` rewrite. This pins
 // the merge semantics.
 //
-// 1. Configure a custom synonym not in the default table.
-// 2. Run the rule against a block exercising both the custom synonym and
-//    a default one.
-// 3. Assert both rewrites land.
+//  1. Configure a custom synonym not in the default table.
+//  2. Run the rule against a block exercising both the custom synonym and
+//     a default one.
+//  3. Assert both rewrites land.
 func TestFormatJSDocHonorsCustomTagSynonymsOption(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")
