@@ -353,6 +353,27 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   }
 }
 
+// assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
+// the input when configured with the given options JSON. Mirrors
+// `assertRuleSkipsSource`; used for option-gated skip arms (e.g.
+// `format/trailing-comma` under `mode: "es5"`) so per-case tests do not have
+// to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
+func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", "main.ts")
+  writeFile(t, filePath, source)
+  file := parseTSFile(t, filePath, source)
+  resolver := InlineRuleResolver{
+    Rules:   RuleConfig{ruleName: SeverityError},
+    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
+  }
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
+  }
+}
+
 func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
   t.Helper()
   root := t.TempDir()

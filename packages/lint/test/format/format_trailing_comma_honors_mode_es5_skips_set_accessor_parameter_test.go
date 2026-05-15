@@ -1,11 +1,6 @@
 package main
 
-import (
-  "encoding/json"
-  "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
+import "testing"
 
 // TestFormatTrailingCommaHonorsModeEs5SkipsSetAccessorParameter verifies
 // the rule emits no findings on a multi-line setter parameter under
@@ -23,17 +18,10 @@ import (
 // 2. Run the engine with `mode: "es5"` configured.
 // 3. Assert zero findings.
 func TestFormatTrailingCommaHonorsModeEs5SkipsSetAccessorParameter(t *testing.T) {
-  source := "class Box {\n  private _value = 0;\n  set value(\n    next: number\n  ) {\n    this._value = next;\n  }\n}\nBox;\n"
-  file := parseTS(t, source)
-  resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/trailing-comma": SeverityError},
-    Options: RuleOptionsMap{
-      "format/trailing-comma": json.RawMessage(`{"mode":"es5"}`),
-    },
-  }
-  findings := NewEngineWithResolver(resolver).
-    Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 0 {
-    t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)
-  }
+  assertRuleSkipsSourceWithOptions(
+    t,
+    "format/trailing-comma",
+    "class Box {\n  private _value = 0;\n  set value(\n    next: number\n  ) {\n    this._value = next;\n  }\n}\nBox;\n",
+    `{"mode":"es5"}`,
+  )
 }

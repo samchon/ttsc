@@ -1,10 +1,6 @@
 package main
 
-import (
-  "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
+import "testing"
 
 // TestFormatTrailingCommaSkipsUnparenthesizedArrowWithMultilineBody verifies
 // the rule does not insert a trailing comma after the parameter of an
@@ -27,11 +23,9 @@ import (
 // 3. Assert zero findings — the inner call already carries its own trailing
 //    comma, so silence on the arrow's parameter list is the entire signal.
 func TestFormatTrailingCommaSkipsUnparenthesizedArrowWithMultilineBody(t *testing.T) {
-  source := "declare function foo(x: number): number;\nconst f = a => {\n  return foo(\n    a,\n  );\n};\nf;\n"
-  file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
-    Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 0 {
-    t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)
-  }
+  assertRuleSkipsSource(
+    t,
+    "format/trailing-comma",
+    "declare function foo(x: number): number;\nconst f = a => {\n  return foo(\n    a,\n  );\n};\nf;\n",
+  )
 }

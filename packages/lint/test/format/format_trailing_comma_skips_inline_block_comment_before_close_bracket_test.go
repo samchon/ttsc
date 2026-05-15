@@ -1,10 +1,6 @@
 package main
 
-import (
-  "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
+import "testing"
 
 // TestFormatTrailingCommaSkipsInlineBlockCommentBeforeCloseBracket verifies
 // the rule leaves the trailing comma off when a block comment sits between
@@ -26,11 +22,9 @@ import (
 // 2. Run the engine with format/trailing-comma enabled.
 // 3. Assert zero findings.
 func TestFormatTrailingCommaSkipsInlineBlockCommentBeforeCloseBracket(t *testing.T) {
-  source := "const xs = [\n  1,\n  2/* note */];\n"
-  file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
-    Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 0 {
-    t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)
-  }
+  assertRuleSkipsSource(
+    t,
+    "format/trailing-comma",
+    "const xs = [\n  1,\n  2/* note */];\n",
+  )
 }
