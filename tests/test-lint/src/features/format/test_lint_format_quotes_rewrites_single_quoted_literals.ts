@@ -14,7 +14,7 @@ import path from "node:path";
  * against regression at the launcher boundary.
  *
  * 1. Copy `fixtures/format-projects/format-quotes` into a temp project.
- * 2. Run `ttsc --format` through the real launcher with `@ttsc/lint` linked.
+ * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
 export const test_lint_format_quotes_rewrites_single_quoted_literals = () => {
@@ -39,7 +39,7 @@ export const test_lint_format_quotes_rewrites_single_quoted_literals = () => {
 
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
-      ["--cwd", root, "--format"],
+      ["format", "--cwd", root],
       {
         cwd: root,
         env: {

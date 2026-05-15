@@ -19,9 +19,11 @@ export interface TtscBuildOptions extends TtscCommonOptions {
   fix?: boolean;
   /**
    * Invoke format-capable check-stage plugins. Source files may be rewritten
-   * with formatter-class edits (whitespace, punctuation, ordering); diagnostics
-   * are not reported and JavaScript/declaration emit stays disabled. Mutually
-   * exclusive with `--watch`, `--emit`, and single-file mode.
+   * with formatter-class edits (whitespace, punctuation, ordering);
+   * diagnostics are not reported and JavaScript/declaration emit stays
+   * disabled. The launcher selects this through the `ttsc format`
+   * subcommand and rejects combination with watch mode, single-file mode,
+   * or an explicit `--emit`.
    */
   format?: boolean;
   /** Per-call TypeScript-Go `outDir` override. */

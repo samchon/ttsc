@@ -24,9 +24,7 @@ export const test_ttsc_reports_help_text_for_public_commands = () => {
   assert.match(result.stdout, /standalone compiler adapter and plugin host/);
   assert.match(result.stdout, /ttsc prepare \[options\]/);
   assert.match(result.stdout, /ttsc clean \[options\]/);
+  assert.match(result.stdout, /ttsc fix \[options\]/);
+  assert.match(result.stdout, /ttsc format \[options\]/);
   assert.match(result.stdout, /Plugin contract:/);
-  assert.match(
-    result.stdout,
-    /Incompatible with --watch, --emit, single-file mode\./,
-  );
 };

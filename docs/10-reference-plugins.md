@@ -215,7 +215,7 @@ npm install -D @ttsc/lint
 
 When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
 
-Run `ttsc fix` (or `ttsc --fix`) to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
+Run `ttsc fix` to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
 
 What to learn:
 

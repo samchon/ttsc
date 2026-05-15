@@ -9,7 +9,7 @@
       {
         "transform": "@ttsc/lint",
         "rules": {
-          "format/jsdoc-normalize-tag-name": "error"
+          "format/jsdoc": "error"
         }
       }
     ]

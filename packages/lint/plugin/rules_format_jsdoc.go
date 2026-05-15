@@ -4,10 +4,13 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// format/jsdoc-normalize-tag-name rewrites JSDoc tag synonyms onto their
-// canonical name. Matches prettier-plugin-jsdoc's "tag synonyms"
-// normalization. The synonym table covers the same names trivago's
-// upstream rule documents:
+// format/jsdoc rewrites JSDoc blocks toward the prettier-plugin-jsdoc
+// canonical shape. The MVP implementation handles tag-synonym
+// normalization; future passes will fold in tag sorting, @param column
+// alignment, and description wrapping under the same rule name so
+// projects pick up new behaviors by upgrading rather than by enabling
+// additional rules. The synonym table covers the same names
+// prettier-plugin-jsdoc documents:
 //
 //   - @return        →  @returns
 //   - @arg, @argument →  @param
@@ -21,11 +24,19 @@ import (
 // `/** ... */` blocks; it deliberately avoids relying on the JSDoc AST
 // because comment attachment is a moving target across TypeScript
 // versions.
-type formatJSDocNormalizeTagName struct{}
+type formatJSDoc struct{}
 
-func (formatJSDocNormalizeTagName) Name() string     { return "format/jsdoc-normalize-tag-name" }
-func (formatJSDocNormalizeTagName) IsFormat() bool   { return true }
-func (formatJSDocNormalizeTagName) Visits() []shimast.Kind {
+// formatJSDocOptions mirrors `TtscLintRuleOptions.JSDoc`. The
+// `tagSynonyms` map layers on top of the built-in synonym table so
+// projects can add custom aliases without losing the defaults.
+type formatJSDocOptions struct {
+  TagSynonyms map[string]string `json:"tagSynonyms"`
+  SortTags    bool              `json:"sortTags"`
+}
+
+func (formatJSDoc) Name() string     { return "format/jsdoc" }
+func (formatJSDoc) IsFormat() bool   { return true }
+func (formatJSDoc) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 
@@ -39,14 +50,31 @@ var jsdocTagSynonyms = map[string]string{
   "method":   "function",
 }
 
-func (formatJSDocNormalizeTagName) Check(ctx *Context, node *shimast.Node) {
+func (formatJSDoc) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil {
     return
   }
+  var opts formatJSDocOptions
+  _ = ctx.DecodeOptions(&opts)
+  synonyms := jsdocTagSynonyms
+  if len(opts.TagSynonyms) > 0 {
+    synonyms = make(map[string]string, len(jsdocTagSynonyms)+len(opts.TagSynonyms))
+    for k, v := range jsdocTagSynonyms {
+      synonyms[k] = v
+    }
+    for k, v := range opts.TagSynonyms {
+      synonyms[k] = v
+    }
+  }
   src := ctx.File.Text()
   for _, block := range findJSDocBlocks(src) {
-    rewriteJSDocTags(ctx, src, block, jsdocTagSynonyms)
+    rewriteJSDocTags(ctx, src, block, synonyms)
   }
+  // `sortTags` is reserved for a follow-up that pulls in the
+  // prettier-plugin-jsdoc canonical order. The flag is parsed today so
+  // the type surface freezes, but the implementation lands in a future
+  // pass — projects that opt in get a no-op until then.
+  _ = opts.SortTags
 }
 
 // jsdocBlock captures one `/** ... */` block's byte span. `bodyStart`
@@ -125,5 +153,5 @@ func isJSDocTagByte(b byte) bool {
 }
 
 func init() {
-  Register(formatJSDocNormalizeTagName{})
+  Register(formatJSDoc{})
 }

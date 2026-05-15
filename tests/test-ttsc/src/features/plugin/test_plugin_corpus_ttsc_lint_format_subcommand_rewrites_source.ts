@@ -14,10 +14,9 @@ import {
  * Verifies plugin corpus: @ttsc/lint format subcommand rewrites source files.
  *
  * The launcher must route the positional `format` subcommand to check-stage
- * plugins with the `format` binary command — distinct from `fix`. This test
- * walks the same code path as the `--format` flag form, but through the
- * subcommand alias, so a regression in the `case "format":` switch arm
- * surfaces immediately.
+ * plugins with the `format` binary command — distinct from `fix`. A
+ * regression in the `case "format":` switch arm surfaces immediately
+ * through this scenario.
  *
  * 1. Materialize a project with one missing-semi violation.
  * 2. Run `ttsc format` through the real launcher and source-plugin cache.

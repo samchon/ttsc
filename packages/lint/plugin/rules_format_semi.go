@@ -4,17 +4,25 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// format/semi enforces trailing semicolons on statements that participate
-// in ASI. Mirrors prettier's `semi: true` default — *not* a tunable.
-// Re-using the rule pulls projects that previously delegated to prettier
-// onto a single source of truth without forcing them to keep prettier
-// installed.
+// format/semi controls trailing-semicolon style on ASI statements.
+// Mirrors prettier's `semi` option:
+//
+//   - `prefer: "always"` (default) inserts a missing terminator.
+//   - `prefer: "never"`  strips a trailing terminator from the same
+//     statement kinds.
 //
 // The rule scans only statement kinds where TypeScript inserts an
 // optional semicolon. Body-shaped declarations (functions, classes,
 // namespaces, enums) and control-flow statements (if/for/while/try)
 // are out of scope because they parse correctly without a terminator.
 type formatSemi struct{}
+
+// formatSemiOptions is the Go mirror of `TtscLintRuleOptions.Semi`. The
+// JSON tag matches the TypeScript field name so users get the same key
+// in both layers.
+type formatSemiOptions struct {
+  Prefer string `json:"prefer"`
+}
 
 func (formatSemi) Name() string     { return "format/semi" }
 func (formatSemi) IsFormat() bool   { return true }
@@ -42,12 +50,33 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
   }
+  var opts formatSemiOptions
+  _ = ctx.DecodeOptions(&opts)
+  preferNever := opts.Prefer == "never"
+
   src := ctx.File.Text()
   end := node.End()
   if end <= 0 || end > len(src) {
     return
   }
-  if src[end-1] == ';' {
+  hasSemi := src[end-1] == ';'
+  if preferNever {
+    if !hasSemi {
+      return
+    }
+    pos := end - 1
+    if pos < 0 {
+      pos = 0
+    }
+    ctx.ReportRangeFix(
+      pos,
+      end,
+      "Unexpected trailing semicolon.",
+      TextEdit{Pos: end - 1, End: end, Text: ""},
+    )
+    return
+  }
+  if hasSemi {
     return
   }
   // Diagnostic anchors on the last character of the statement so the

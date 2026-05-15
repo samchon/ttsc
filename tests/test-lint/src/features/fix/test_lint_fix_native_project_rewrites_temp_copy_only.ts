@@ -7,13 +7,13 @@ import path from "node:path";
 /**
  * Verifies lint fix: native project fixture rewrites only the temp copy.
  *
- * Locks the observable `ttsc --fix` behavior against a checked-in project
+ * Locks the observable `ttsc fix` behavior against a checked-in project
  * fixture. The source fixture must stay immutable; the command runs against a
  * writable copy so the test can inspect real file changes without damaging the
  * repository baseline.
  *
  * 1. Copy `fixtures/fix-projects/native-fixes` into a temp project.
- * 2. Run `ttsc --fix` through the real launcher with `@ttsc/lint` linked.
+ * 2. Run `ttsc fix` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the temp source matches `expected/main.ts` and the fixture source is
  *    unchanged.
  */
@@ -43,7 +43,7 @@ export const test_lint_fix_native_project_rewrites_temp_copy_only = () => {
 
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
-      ["--cwd", root, "--fix"],
+      ["fix", "--cwd", root],
       {
         cwd: root,
         env: {

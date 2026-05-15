@@ -17,5 +17,5 @@ import "testing"
 func TestFormatJSDocNormalizeRewritesReturnToReturns(t *testing.T) {
   source := "/**\n * @return The user-facing message.\n */\nexport function greet(): string { return \"hi\"; }\n"
   expected := "/**\n * @returns The user-facing message.\n */\nexport function greet(): string { return \"hi\"; }\n"
-  assertFixSnapshot(t, "format/jsdoc-normalize-tag-name", source, expected)
+  assertFixSnapshot(t, "format/jsdoc", source, expected)
 }

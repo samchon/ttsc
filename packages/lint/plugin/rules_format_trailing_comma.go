@@ -28,6 +28,11 @@ import (
 // target high enough.
 type formatTrailingComma struct{}
 
+// formatTrailingCommaOptions mirrors `TtscLintRuleOptions.TrailingComma`.
+type formatTrailingCommaOptions struct {
+  Mode string `json:"mode"`
+}
+
 func (formatTrailingComma) Name() string   { return "format/trailing-comma" }
 func (formatTrailingComma) IsFormat() bool { return true }
 
@@ -54,6 +59,15 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
   }
+  var opts formatTrailingCommaOptions
+  _ = ctx.DecodeOptions(&opts)
+  mode := opts.Mode
+  if mode == "" {
+    mode = "all"
+  }
+  if mode == "none" {
+    return
+  }
   switch node.Kind {
   case shimast.KindArrayLiteralExpression:
     arr := node.AsArrayLiteralExpression()
@@ -68,12 +82,18 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     }
     considerTrailingComma(ctx, obj.Properties, node.End()-1)
   case shimast.KindCallExpression:
+    if mode == "es5" {
+      return // prettier's es5 mode skips call arguments
+    }
     call := node.AsCallExpression()
     if call == nil {
       return
     }
     considerTrailingComma(ctx, call.Arguments, node.End()-1)
   case shimast.KindNewExpression:
+    if mode == "es5" {
+      return
+    }
     ne := node.AsNewExpression()
     if ne == nil || ne.Arguments == nil {
       return
@@ -98,42 +118,63 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     }
     considerTrailingComma(ctx, tup.Elements, node.End()-1)
   case shimast.KindFunctionDeclaration:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsFunctionDeclaration()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindFunctionExpression:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsFunctionExpression()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindArrowFunction:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsArrowFunction()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindMethodDeclaration:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsMethodDeclaration()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindConstructor:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsConstructorDeclaration()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindGetAccessor:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsGetAccessorDeclaration()
     if fn == nil {
       return
     }
     considerFunctionParameterComma(ctx, fn.Parameters)
   case shimast.KindSetAccessor:
+    if mode == "es5" {
+      return
+    }
     fn := node.AsSetAccessorDeclaration()
     if fn == nil {
       return

@@ -8,7 +8,7 @@ import type { TtscLintRuleMap } from "./TtscLintRuleMap";
  * after the extends chain.
  */
 export interface TtscLintConfigEntry<
-  P extends TtscLintPlugins = TtscLintPlugins,
+  P extends TtscLintPlugins = Record<string, never>,
 > {
   /** Globs that select the files this entry applies to. */
   files?: string | readonly string[];

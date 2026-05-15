@@ -16,7 +16,7 @@ import path from "node:path";
  *
  * 1. Copy `fixtures/format-projects/format-sort-imports` into a temp
  *    project.
- * 2. Run `ttsc --format` through the real launcher with `@ttsc/lint` linked.
+ * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
 export const test_lint_format_sort_imports_reorders_groups_and_specifiers =
@@ -42,7 +42,7 @@ export const test_lint_format_sort_imports_reorders_groups_and_specifiers =
 
       const result = TestProject.spawn(
         TestProject.TTSC_BIN,
-        ["--cwd", root, "--format"],
+        ["format", "--cwd", root],
         {
           cwd: root,
           env: {

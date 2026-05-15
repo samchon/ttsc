@@ -6,15 +6,15 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc rejects --format when a positional file is passed.
+ * Verifies ttsc rejects `format` when a positional file is passed.
  *
  * Format mode needs the full tsconfig program so check-stage plugins can
  * resolve the source files they intend to rewrite. Single-file mode bypasses
  * tsconfig discovery, so the launcher refuses to mix them before spawning any
- * plugin. The constraint mirrors `--fix` exactly.
+ * plugin. The constraint mirrors `fix` exactly.
  *
  * 1. Materialize a tsconfig project with one source file.
- * 2. Run `ttsc --format src/main.ts` through the real launcher.
+ * 2. Run `ttsc format src/main.ts` through the real launcher.
  * 3. Assert non-zero exit and the documented refusal message on stderr.
  */
 export const test_ttsc_rejects_format_in_single_file_mode = () => {
@@ -33,7 +33,7 @@ export const test_ttsc_rejects_format_in_single_file_mode = () => {
     "src/main.ts": `export const value = 1;\n`,
   });
 
-  const result = spawn(ttscBin, ["--format", "src/main.ts", "--cwd", root], {
+  const result = spawn(ttscBin, ["format", "src/main.ts", "--cwd", root], {
     cwd: root,
   });
 

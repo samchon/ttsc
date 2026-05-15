@@ -18,7 +18,7 @@ Type errors and lint violations appear in one `ttsc` run.
 Given this file:
 
 ```typescript
-// src/lint.ts
+// src/index.ts
 var x: number = 3;
 let y: number = 4;
 const z: string = 5;
@@ -30,22 +30,22 @@ Run `ttsc` with `@ttsc/lint` enabled (see [Setup](#setup)):
 
 ```bash
 $ pnpm ttsc
-src/lint.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+src/index.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
 3 const z: string = 5;
         ~
 
-src/lint.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
 
 2 let y: number = 4;
       ~~~~~~~~~~~~~
 
-src/lint.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
 
 1 var x: number = 3;
   ~~~~~~~~~~~~~~~~~~
 
-Found 3 errors in the same file, starting at: src/lint.ts:3
+Found 3 errors in the same file, starting at: src/index.ts:3
 ```
 
 Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out together, in the same `error TSxxxxx` shape.
@@ -68,10 +68,12 @@ Add `lint.config.ts`, or reuse an existing `eslint.config.ts`, next to your proj
 import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
-  "no-var": "error",
-  "prefer-const": "error",
-  "no-explicit-any": "warning",
-  "no-console": "off",
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-explicit-any": "warning",
+    "no-console": "off",
+  },
 } satisfies TtscLintConfig;
 ```
 
@@ -129,8 +131,6 @@ typecheck + lint pass:
 
 ```bash
 npx ttsc fix
-# equivalent flag form
-npx ttsc --fix
 ```
 
 Native `@ttsc/lint` fixers currently cover:
@@ -178,8 +178,6 @@ afterwards, so type errors in the project surface like a normal `ttsc
 
 ```bash
 npx ttsc format
-# equivalent flag form
-npx ttsc --format
 ```
 
 Built-in format rules:
@@ -190,7 +188,7 @@ Built-in format rules:
 | `format/quotes` | Convert single-quoted strings to double quotes when safe. |
 | `format/trailing-comma` | Add trailing commas to multi-line lists. |
 | `format/sort-imports` | Group external/relative imports and alphabetize each group + named specifiers. |
-| `format/jsdoc-normalize-tag-name` | Rewrite JSDoc tag synonyms (`@return`, `@arg`, `@desc`) to canonical names. |
+| `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). MVP rewrites tag synonyms (`@return`, `@arg`, `@desc`) to canonical names; future passes will fold in tag sorting and column alignment. |
 
 Enable format rules the same way as lint rules:
 
@@ -199,23 +197,28 @@ Enable format rules the same way as lint rules:
 import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
-  "format/semi": "error",
-  "format/quotes": "error",
-  "format/trailing-comma": "error",
-  "format/sort-imports": "error",
-  "format/jsdoc-normalize-tag-name": "error",
+  rules: {
+    "format/semi": "warning",
+    "format/quotes": "warning",
+    "format/trailing-comma": "warning",
+    "format/sort-imports": "warning",
+    "format/jsdoc": "warning",
+  },
 } satisfies TtscLintConfig;
 ```
 
-`ttsc format` and `ttsc fix` are mutually exclusive flags: each runs only
-the edits from its own rule category. Run them as separate passes — fix
-first to settle lint rewrites, format second to settle formatter edits.
-Like `ttsc fix`, `ttsc format` rejects `--watch`, single-file mode, and
+`ttsc format` and `ttsc fix` are separate subcommands: each applies edits
+only from its own rule category. Run them as separate passes — fix first
+to settle lint rewrites, format second to settle formatter edits. Like
+`ttsc fix`, `ttsc format` rejects `--watch`, single-file mode, and
 `--emit`.
 
-Setting a format rule's severity to `error` or `warning` also makes
-`ttsc check` report it as a compiler error or warning — useful as the CI
-gate that pairs with a developer-local `ttsc format`.
+`warning` is the recommended severity for format rules. They produce a
+diagnostic in `ttsc check` so CI sees unformatted code, but they do not
+fail the build — formatting drift is a noisy nuisance, not a correctness
+defect. Raising the severity to `error` is supported when a project
+wants `ttsc check` to gate on formatting too; `off` (or omitting the rule)
+disables both the diagnostic and `ttsc format`'s rewrite for that rule.
 
 ### Config Files
 

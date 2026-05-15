@@ -6,17 +6,17 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc rejects --format combined with --watch.
+ * Verifies ttsc rejects `format` combined with --watch.
  *
  * Watch mode rebuilds on file changes, so combining it with a one-shot
  * source-rewriting pass would loop the watcher against its own edits. The
  * launcher refuses the combination before any plugin spawns; this test pins
- * the user-facing error message and exit path. Mirrors the `--fix --watch`
+ * the user-facing error message and exit path. Mirrors the `fix --watch`
  * rejection so any future relaxation of one constraint visibly diverges from
  * the other.
  *
  * 1. Materialize a minimal tsconfig project.
- * 2. Run `ttsc --format --watch` through the real launcher.
+ * 2. Run `ttsc format --watch` through the real launcher.
  * 3. Assert non-zero exit and the documented refusal message on stderr.
  */
 export const test_ttsc_rejects_format_with_watch_mode = () => {
@@ -35,7 +35,7 @@ export const test_ttsc_rejects_format_with_watch_mode = () => {
     "src/main.ts": `export const value = 1;\n`,
   });
 
-  const result = spawn(ttscBin, ["--format", "--watch", "--cwd", root], {
+  const result = spawn(ttscBin, ["format", "--watch", "--cwd", root], {
     cwd: root,
   });
 

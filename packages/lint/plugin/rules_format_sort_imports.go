@@ -1,12 +1,33 @@
 package main
 
 import (
+  "regexp"
   "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
+
+// thirdPartyModulesPlaceholder is the bucket that absorbs any import
+// whose specifier doesn't match an explicit `importOrder` regex. Mirrors
+// `@trivago/prettier-plugin-sort-imports`.
+const thirdPartyModulesPlaceholder = "<THIRD_PARTY_MODULES>"
+
+// formatSortImportsOptions mirrors `TtscLintRuleOptions.SortImports`.
+type formatSortImportsOptions struct {
+  ImportOrder               []string `json:"importOrder"`
+  ImportOrderSeparation     *bool    `json:"importOrderSeparation"`
+  ImportOrderSortSpecifiers *bool    `json:"importOrderSortSpecifiers"`
+  ImportOrderCaseInsensitive bool    `json:"importOrderCaseInsensitive"`
+}
+
+// defaultImportOrder mirrors the two-group MVP scheme used when the user
+// supplies no explicit `importOrder`. External modules first
+// (`<THIRD_PARTY_MODULES>`), relative imports second (`^\.`). The order
+// matches the implicit behavior the rule shipped with before options
+// landed, so omitting `importOrder` produces the same output.
+var defaultImportOrder = []string{thirdPartyModulesPlaceholder, `^\.`}
 
 // format/sort-imports orders the file's top-level import declarations into
 // canonical groups and alphabetizes each group. Compatible-by-spirit with
@@ -40,6 +61,7 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil {
     return
   }
+  opts := loadSortImportsOptions(ctx)
   src := ctx.File.Text()
   statements := ctx.File.Statements
   if statements == nil {
@@ -50,15 +72,12 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
     if !leadingTriviaIsAllWhitespace(src, imports) {
       // Preserve user-attached comments by declining to sort.
     } else {
-      // Where to splice: from the first import's actual token start
-      // (after any file-scope leading comments) to the last import's
-      // end position.
       first := imports[0]
       last := imports[len(imports)-1]
       replaceStart := shimscanner.SkipTrivia(src, first.Pos())
       replaceEnd := last.End()
       original := src[replaceStart:replaceEnd]
-      rebuilt := buildSortedImportBlock(src, imports)
+      rebuilt := buildSortedImportBlock(src, imports, opts)
       if rebuilt != original {
         ctx.ReportRangeFix(
           replaceStart,
@@ -70,13 +89,107 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
       }
     }
   }
-  // Specifier-level pass: sort named import specifiers within each
-  // declaration. This pass runs independently of the block-level pass
-  // so a file that is already sorted at the declaration level can still
-  // benefit from internal specifier ordering.
-  for _, decl := range collectLeadingImports(statements.Nodes) {
-    reportNamedSpecifierSort(ctx, decl)
+  if !opts.sortSpecifiers {
+    return
   }
+  for _, decl := range collectLeadingImports(statements.Nodes) {
+    reportNamedSpecifierSort(ctx, decl, opts.caseInsensitive)
+  }
+}
+
+// resolvedSortImportsOptions is the normalized snapshot the rule uses
+// during one Check call. All option defaults are applied here so the
+// rest of the rule code does not branch on nil-ness.
+type resolvedSortImportsOptions struct {
+  groups           []sortImportsGroup
+  separation       bool
+  sortSpecifiers   bool
+  caseInsensitive  bool
+}
+
+type sortImportsGroup struct {
+  raw       string
+  pattern   *regexp.Regexp
+  thirdParty bool
+}
+
+func loadSortImportsOptions(ctx *Context) resolvedSortImportsOptions {
+  var raw formatSortImportsOptions
+  _ = ctx.DecodeOptions(&raw)
+  order := raw.ImportOrder
+  if len(order) == 0 {
+    order = defaultImportOrder
+  }
+  groups := make([]sortImportsGroup, 0, len(order))
+  for _, pat := range order {
+    if pat == thirdPartyModulesPlaceholder {
+      groups = append(groups, sortImportsGroup{raw: pat, thirdParty: true})
+      continue
+    }
+    compiled, err := regexp.Compile(pat)
+    if err != nil {
+      // Bad regex: skip the group rather than failing the entire run.
+      // The diagnostic surface for misconfigured rules is intentionally
+      // limited; users see "no match" behavior instead of a crash.
+      continue
+    }
+    groups = append(groups, sortImportsGroup{raw: pat, pattern: compiled})
+  }
+  if len(groups) == 0 {
+    // Empty `importOrder` collapses to the third-party catchall so the
+    // rule still produces a deterministic ordering.
+    groups = []sortImportsGroup{{raw: thirdPartyModulesPlaceholder, thirdParty: true}}
+  }
+  // Ensure a third-party catchall exists; if the user omitted it,
+  // append one so unmatched specifiers don't land in a phantom group.
+  if !hasThirdPartyGroup(groups) {
+    groups = append(groups, sortImportsGroup{raw: thirdPartyModulesPlaceholder, thirdParty: true})
+  }
+  separation := true
+  if raw.ImportOrderSeparation != nil {
+    separation = *raw.ImportOrderSeparation
+  }
+  sortSpecifiers := true
+  if raw.ImportOrderSortSpecifiers != nil {
+    sortSpecifiers = *raw.ImportOrderSortSpecifiers
+  }
+  return resolvedSortImportsOptions{
+    groups:          groups,
+    separation:      separation,
+    sortSpecifiers:  sortSpecifiers,
+    caseInsensitive: raw.ImportOrderCaseInsensitive,
+  }
+}
+
+func hasThirdPartyGroup(groups []sortImportsGroup) bool {
+  for _, g := range groups {
+    if g.thirdParty {
+      return true
+    }
+  }
+  return false
+}
+
+// matchGroup returns the index of the first group that claims `specifier`.
+// Non-third-party groups are checked in order; the third-party catchall
+// absorbs anything that did not match an earlier explicit pattern.
+func matchGroup(groups []sortImportsGroup, specifier string) int {
+  thirdPartyIdx := -1
+  for i, g := range groups {
+    if g.thirdParty {
+      if thirdPartyIdx < 0 {
+        thirdPartyIdx = i
+      }
+      continue
+    }
+    if g.pattern != nil && g.pattern.MatchString(specifier) {
+      return i
+    }
+  }
+  if thirdPartyIdx >= 0 {
+    return thirdPartyIdx
+  }
+  return len(groups) // sentinel "no match"
 }
 
 // collectLeadingImports walks the file's statement list and returns the
@@ -113,42 +226,47 @@ func leadingTriviaIsAllWhitespace(src string, imports []*shimast.Node) bool {
 
 // buildSortedImportBlock returns the canonical group/sort representation of
 // the contiguous import declarations.
-func buildSortedImportBlock(src string, imports []*shimast.Node) string {
+func buildSortedImportBlock(src string, imports []*shimast.Node, opts resolvedSortImportsOptions) string {
   type entry struct {
-    isRelative bool
-    specifier  string
-    text       string
+    group     int
+    specifier string
+    sortKey   string
+    text      string
   }
   entries := make([]entry, 0, len(imports))
   for _, decl := range imports {
     spec := moduleSpecifierText(decl)
     text := importStatementText(src, decl)
+    sortKey := spec
+    if opts.caseInsensitive {
+      sortKey = strings.ToLower(spec)
+    }
     entries = append(entries, entry{
-      isRelative: isRelativeModuleSpecifier(spec),
-      specifier:  spec,
-      text:       text,
+      group:     matchGroup(opts.groups, spec),
+      specifier: spec,
+      sortKey:   sortKey,
+      text:      text,
     })
   }
   sort.SliceStable(entries, func(i, j int) bool {
-    if entries[i].isRelative != entries[j].isRelative {
-      // External first, relative second.
-      return !entries[i].isRelative
+    if entries[i].group != entries[j].group {
+      return entries[i].group < entries[j].group
     }
-    return entries[i].specifier < entries[j].specifier
+    return entries[i].sortKey < entries[j].sortKey
   })
 
   var b strings.Builder
-  prevRelative := entries[0].isRelative
+  prevGroup := entries[0].group
   for i, e := range entries {
     if i > 0 {
-      if e.isRelative != prevRelative {
+      if e.group != prevGroup && opts.separation {
         b.WriteString("\n\n")
       } else {
         b.WriteString("\n")
       }
     }
     b.WriteString(e.text)
-    prevRelative = e.isRelative
+    prevGroup = e.group
   }
   return b.String()
 }
@@ -177,10 +295,6 @@ func moduleSpecifierText(decl *shimast.Node) string {
   return stringLiteralText(imp.ModuleSpecifier)
 }
 
-func isRelativeModuleSpecifier(specifier string) bool {
-  return strings.HasPrefix(specifier, ".")
-}
-
 // specifierEntry is the sortable pair captured for each named import
 // specifier: the identifier used as the sort key and the literal source
 // text that gets re-emitted in canonical order.
@@ -193,7 +307,7 @@ type specifierEntry struct {
 // is out of alphabetical order. Type-only specifiers participate in the
 // same sort key as value specifiers — prettier's plugin-sort-imports
 // matches this behavior.
-func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node) {
+func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseInsensitive bool) {
   imp := decl.AsImportDeclaration()
   if imp == nil || imp.ImportClause == nil {
     return
@@ -227,8 +341,12 @@ func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node) {
     }
     start := shimscanner.SkipTrivia(src, spec.Pos())
     end := spec.End()
+    key := name
+    if caseInsensitive {
+      key = strings.ToLower(name)
+    }
     entries = append(entries, specifierEntry{
-      key:  name,
+      key:  key,
       text: src[start:end],
     })
   }

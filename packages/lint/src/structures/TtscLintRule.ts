@@ -140,4 +140,11 @@ export type TtscLintRule =
   | "use-isnan"
   | "valid-typeof"
   | "vars-on-top"
-  | "yoda";
+  | "yoda"
+  // Format rules — applied by `ttsc format`. Severity also controls
+  // whether `ttsc check` surfaces unformatted code as a diagnostic.
+  | "format/semi"
+  | "format/quotes"
+  | "format/trailing-comma"
+  | "format/sort-imports"
+  | "format/jsdoc";

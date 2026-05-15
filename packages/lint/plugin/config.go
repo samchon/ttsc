@@ -83,6 +83,13 @@ func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 // rule name (e.g. "no-var").
 type RuleConfig map[string]Severity
 
+// RuleOptionsMap captures the rule-specific options blob, keyed by rule
+// name. Severity-only rules never appear here. The values are the raw
+// JSON the user wrote in the second tuple slot of an ESLint-style
+// `["error", { ... }]` setting; each rule decodes the blob into its own
+// option struct on demand.
+type RuleOptionsMap map[string]json.RawMessage
+
 // ResolvedRuleConfig is the rule map that applies to one source file.
 // `Ignored` means an external ESLint-style ignore-only config matched the
 // file and the engine should skip linting it entirely.
@@ -95,6 +102,10 @@ type RuleResolver interface {
   ResolveRules(fileName string) ResolvedRuleConfig
   ActiveRuleNames() []string
   EnabledRuleConfig() RuleConfig
+  // RuleOptions returns the raw JSON options for `name`, or nil when the
+  // rule was configured with a severity alone. Returns nil for unknown
+  // rule names too — rules treat that as "use defaults".
+  RuleOptions(name string) json.RawMessage
 }
 
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
@@ -115,11 +126,57 @@ func (c RuleConfig) EnabledRuleConfig() RuleConfig {
   return out
 }
 
+// RuleOptions on a bare RuleConfig is always nil — this form is the
+// severity-only path used by Go unit tests and the legacy inline-rules
+// surface that predates option support.
+func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
+
+// InlineRuleResolver pairs a severity map with an options map for
+// tsconfig-inline rule blocks. The fields are public so tests can
+// construct one without going through ParseRulesWithOptions.
+type InlineRuleResolver struct {
+  Rules   RuleConfig
+  Options RuleOptionsMap
+}
+
+func (r InlineRuleResolver) ResolveRules(string) ResolvedRuleConfig {
+  return ResolvedRuleConfig{Rules: r.Rules}
+}
+
+func (r InlineRuleResolver) ActiveRuleNames() []string {
+  return r.Rules.ActiveRuleNames()
+}
+
+func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
+  return r.Rules.EnabledRuleConfig()
+}
+
+func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
+  if r.Options == nil {
+    return nil
+  }
+  return r.Options[name]
+}
+
 type ConfigStore struct {
   entries               []ConfigEntry
   externalConfigPath    string
   eslintRuntime         bool
   eslintRuntimeRequired bool
+  // options is a flat rule-name → JSON map. Options are not scoped by
+  // `files` / `ignores`: a rule's behavior is a single project-wide
+  // configuration even when its severity is per-file. The simplification
+  // matches prettier-style options (one setting per project) while
+  // keeping severity layering intact.
+  options RuleOptionsMap
+}
+
+// RuleOptions implements RuleResolver.RuleOptions on ConfigStore.
+func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
+  if s == nil {
+    return nil
+  }
+  return s.options[name]
 }
 
 type ConfigEntry struct {
@@ -256,22 +313,65 @@ func (e ConfigEntry) matchesIgnores(fileName string) bool {
 // Anything else returns an error (no silent fallback — typos in a rule
 // severity should be loud).
 func ParseRules(raw any) (RuleConfig, error) {
+  cfg, _, err := ParseRulesWithOptions(raw)
+  return cfg, err
+}
+
+// ParseRulesWithOptions accepts either a severity literal or a
+// `[severity, options]` tuple per rule and returns the severity map
+// alongside an options map keyed by rule name. The options map only
+// contains entries for rules whose configuration was the tuple form.
+func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   if raw == nil {
-    return RuleConfig{}, nil
+    return RuleConfig{}, RuleOptionsMap{}, nil
   }
   dict, ok := raw.(map[string]any)
   if !ok {
-    return nil, fmt.Errorf("@ttsc/lint: \"config\" must be an object, got %T", raw)
+    return nil, nil, fmt.Errorf("@ttsc/lint: \"config\" must be an object, got %T", raw)
   }
-  out := make(RuleConfig, len(dict))
+  cfg := make(RuleConfig, len(dict))
+  opts := make(RuleOptionsMap)
   for name, value := range dict {
-    sev, err := parseSeverity(value)
+    sev, raw, err := parseRuleEntry(value)
     if err != nil {
-      return nil, fmt.Errorf("@ttsc/lint: rule %q: %w", name, err)
+      return nil, nil, fmt.Errorf("@ttsc/lint: rule %q: %w", name, err)
     }
-    out[name] = sev
+    cfg[name] = sev
+    if len(raw) > 0 {
+      opts[name] = raw
+    }
   }
-  return out, nil
+  return cfg, opts, nil
+}
+
+// parseRuleEntry splits an ESLint-shaped rule entry into its severity
+// and (optional) options payload. Bare severity literals produce a nil
+// options blob; `[severity]` (no options) does the same; `[severity,
+// options]` re-serializes the options to JSON so each rule can decode it
+// into its own struct later.
+func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
+  if tuple, ok := value.([]any); ok {
+    if len(tuple) == 0 {
+      return SeverityOff, nil, fmt.Errorf("severity tuple must not be empty")
+    }
+    sev, err := parseSeverity(tuple[0])
+    if err != nil {
+      return SeverityOff, nil, err
+    }
+    if len(tuple) == 1 {
+      return sev, nil, nil
+    }
+    if len(tuple) > 2 {
+      return SeverityOff, nil, fmt.Errorf("severity tuple must be [severity] or [severity, options], got %d elements", len(tuple))
+    }
+    encoded, err := json.Marshal(tuple[1])
+    if err != nil {
+      return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
+    }
+    return sev, encoded, nil
+  }
+  sev, err := parseSeverity(value)
+  return sev, nil, err
 }
 
 func parseExternalConfigRules(raw any) (RuleConfig, error) {
@@ -346,7 +446,7 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
         return err
       }
       if rules, ok := typed["rules"]; ok {
-        parsed, err := parseExternalRuleMap(rules, path+".rules")
+        parsed, err := parseExternalRuleMapInto(rules, path+".rules", store)
         if err != nil {
           return err
         }
@@ -367,7 +467,7 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
       }
       return nil
     }
-    parsed, err := parseExternalRuleMap(typed, path)
+    parsed, err := parseExternalRuleMapInto(typed, path, store)
     if err != nil {
       return err
     }
@@ -408,6 +508,20 @@ func collectExternalExtends(store *ConfigStore, raw any, baseDir, path string, a
   }
 }
 
+// parseExternalRuleMapInto parses the rules map and folds any
+// option blobs into `store.options`. Used by entry-creation paths so
+// the store ends with a unified options map for RuleResolver consumers.
+func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleConfig, error) {
+  out := RuleConfig{}
+  if store.options == nil {
+    store.options = RuleOptionsMap{}
+  }
+  if err := collectExternalRuleMapWithOptions(out, store.options, raw, path); err != nil {
+    return nil, err
+  }
+  return out, nil
+}
+
 func parseExternalRuleMap(raw any, path string) (RuleConfig, error) {
   out := RuleConfig{}
   if err := collectExternalRuleMap(out, raw, path); err != nil {
@@ -417,16 +531,27 @@ func parseExternalRuleMap(raw any, path string) (RuleConfig, error) {
 }
 
 func collectExternalRuleMap(out RuleConfig, raw any, path string) error {
+  return collectExternalRuleMapWithOptions(out, nil, raw, path)
+}
+
+// collectExternalRuleMapWithOptions also records the rule's options blob
+// when the entry is a `[severity, options]` tuple. `opts` may be nil
+// when the caller does not need option capture (legacy paths).
+func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw any, path string) error {
   dict, ok := raw.(map[string]any)
   if !ok {
     return fmt.Errorf("@ttsc/lint: %s must be a rules object, got %T", path, raw)
   }
   for name, value := range dict {
-    sev, err := parseExternalSeverity(value)
+    sev, ruleOpts, err := parseExternalRuleEntry(value)
     if err != nil {
       return fmt.Errorf("@ttsc/lint: rule %q: %w", name, err)
     }
-    out[normalizeExternalRuleName(name)] = sev
+    canonical := normalizeExternalRuleName(name)
+    out[canonical] = sev
+    if opts != nil && len(ruleOpts) > 0 {
+      opts[canonical] = ruleOpts
+    }
   }
   return nil
 }
@@ -627,7 +752,11 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     if !ok {
       return nil, fmt.Errorf("@ttsc/lint: \"rules\" must be a rule severity map, got %T", rulesValue)
     }
-    return ParseRules(rulesMap)
+    cfg, opts, err := ParseRulesWithOptions(rulesMap)
+    if err != nil {
+      return nil, err
+    }
+    return InlineRuleResolver{Rules: cfg, Options: opts}, nil
   }
   if hasExtends {
     extendsStr, ok := extendsValue.(string)
@@ -650,7 +779,11 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       location := resolveConfigFilePath(typed, cwd, tsconfigPath)
       return loadExternalConfigResolver(location)
     case map[string]any:
-      return ParseRules(typed)
+      cfg, opts, err := ParseRulesWithOptions(typed)
+      if err != nil {
+        return nil, err
+      }
+      return InlineRuleResolver{Rules: cfg, Options: opts}, nil
     default:
       return nil, fmt.Errorf("@ttsc/lint: legacy \"config\" must be a string path or object, got %T", legacyValue)
     }
@@ -1381,13 +1514,42 @@ func setEnv(env []string, key, value string) []string {
 }
 
 func parseExternalSeverity(v any) (Severity, error) {
+  sev, _, err := parseExternalRuleEntry(v)
+  return sev, err
+}
+
+// parseExternalRuleEntry mirrors parseRuleEntry for ESLint-style config
+// inputs. ESLint accepts tuples with more than two elements (`["error",
+// "double", { avoidEscape: true }]`); for forward-compat we keep
+// everything after the severity slot as a JSON array so rules can decode
+// whichever positions they care about.
+func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
   if tuple, ok := v.([]any); ok {
     if len(tuple) == 0 {
-      return SeverityOff, fmt.Errorf("severity tuple must not be empty")
+      return SeverityOff, nil, fmt.Errorf("severity tuple must not be empty")
     }
-    return parseSeverity(tuple[0])
+    sev, err := parseSeverity(tuple[0])
+    if err != nil {
+      return SeverityOff, nil, err
+    }
+    if len(tuple) == 1 {
+      return sev, nil, nil
+    }
+    if len(tuple) == 2 {
+      encoded, err := json.Marshal(tuple[1])
+      if err != nil {
+        return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
+      }
+      return sev, encoded, nil
+    }
+    encoded, err := json.Marshal(tuple[1:])
+    if err != nil {
+      return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
+    }
+    return sev, encoded, nil
   }
-  return parseSeverity(v)
+  sev, err := parseSeverity(v)
+  return sev, nil, err
 }
 
 func parseSeverity(v any) (Severity, error) {

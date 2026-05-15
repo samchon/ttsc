@@ -13,9 +13,9 @@ import path from "node:path";
  * test catches any regression in the byte-level rewrite path that the unit
  * tests can miss (line endings, trivia handling).
  *
- * 1. Copy `fixtures/format-projects/format-jsdoc-normalize` into a temp
+ * 1. Copy `fixtures/format-projects/format-jsdoc` into a temp
  *    project.
- * 2. Run `ttsc --format` through the real launcher with `@ttsc/lint` linked.
+ * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
 export const test_lint_format_jsdoc_normalize_rewrites_synonym_tags = () => {
@@ -23,7 +23,7 @@ export const test_lint_format_jsdoc_normalize_rewrites_synonym_tags = () => {
     process.cwd(),
     "fixtures",
     "format-projects",
-    "format-jsdoc-normalize",
+    "format-jsdoc",
   );
   const expectedSource = fs.readFileSync(
     path.join(fixture, "expected", "main.ts"),
@@ -40,7 +40,7 @@ export const test_lint_format_jsdoc_normalize_rewrites_synonym_tags = () => {
 
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
-      ["--cwd", root, "--format"],
+      ["format", "--cwd", root],
       {
         cwd: root,
         env: {

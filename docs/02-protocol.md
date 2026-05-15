@@ -102,16 +102,14 @@ Public stages are deliberately small:
 
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
-When the user runs `ttsc fix` or `ttsc --fix`, `ttsc` invokes check-stage
-plugins with the `fix` subcommand and keeps JavaScript/declaration emit
-disabled. See [CLI Commands → `fix`](#fix) for the subcommand contract.
+When the user runs `ttsc fix`, `ttsc` invokes check-stage plugins with
+the `fix` subcommand and keeps JavaScript/declaration emit disabled. See
+[CLI Commands → `fix`](#fix) for the subcommand contract.
 
-When the user runs `ttsc format` or `ttsc --format`, `ttsc` invokes the
-same check-stage plugins with the `format` subcommand. Format and fix
-are mutually exclusive: each runs only the edits from its own rule
-category, so the launcher rejects the combination before any plugin
-spawns. See [CLI Commands → `format`](#format) for the subcommand
-contract.
+When the user runs `ttsc format`, `ttsc` invokes the same check-stage
+plugins with the `format` subcommand. Format and fix are distinct
+subcommands: each runs only the edits from its own rule category. See
+[CLI Commands → `format`](#format) for the subcommand contract.
 
 ## Composition
 
@@ -249,8 +247,8 @@ my-plugin fix \
   --plugins-json='[...]'
 ```
 
-Optional for check-stage plugins. Invoked when the user runs `ttsc fix` or
-`ttsc --fix`. Apply autofixes to source files in place, then render any
+Optional for check-stage plugins. Invoked when the user runs `ttsc fix`.
+Apply autofixes to source files in place, then render any
 remaining diagnostics through the same renderer contract as `check`. Emit
 stays disabled — fix plugins must not write JavaScript or declaration output.
 
@@ -268,8 +266,8 @@ my-plugin format \
   --plugins-json='[...]'
 ```
 
-Optional for check-stage plugins. Invoked when the user runs `ttsc format`
-or `ttsc --format`. Apply formatter-class edits (whitespace, punctuation,
+Optional for check-stage plugins. Invoked when the user runs `ttsc
+format`. Apply formatter-class edits (whitespace, punctuation,
 ordering) to source files in place. Write-only by contract: format
 subcommands must not print diagnostics and must keep JavaScript /
 declaration emit disabled.

@@ -13,7 +13,7 @@ import path from "node:path";
  * touch it.
  *
  * 1. Copy `fixtures/format-projects/format-trailing-comma` into a temp project.
- * 2. Run `ttsc --format` through the real launcher with `@ttsc/lint` linked.
+ * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
 export const test_lint_format_trailing_comma_rewrites_multi_line_lists = () => {
@@ -38,7 +38,7 @@ export const test_lint_format_trailing_comma_rewrites_multi_line_lists = () => {
 
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
-      ["--cwd", root, "--format"],
+      ["format", "--cwd", root],
       {
         cwd: root,
         env: {

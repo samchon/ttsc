@@ -62,8 +62,8 @@ export interface ITtscPlugin {
    *
    * Omit this field for normal compiler-transform plugins. The only explicit
    * non-transform stage is `"check"`. Check-stage plugins receive `check`
-   * during normal builds and may implement `fix` for `ttsc fix` / `ttsc
-   * --fix`.
+   * during normal builds and may implement `fix` for `ttsc fix` and
+   * `format` for `ttsc format`.
    *
    * @default "transform"
    */

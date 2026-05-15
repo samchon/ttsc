@@ -6,15 +6,23 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// format/quotes normalizes string-literal quote style to double quotes,
-// matching prettier's `singleQuote: false` default. Single-quoted
-// literals convert to double-quoted iff conversion does not require
-// strictly more escapes than the source form — the same heuristic
-// prettier uses to avoid `'"'` ⇄ `"\""` thrashing.
+// format/quotes normalizes string-literal quote style. Mirrors
+// prettier's `singleQuote` option:
+//
+//   - `prefer: "double"` (default) converts single-quoted literals to
+//     double-quoted when the escape cost is equal or better.
+//   - `prefer: "single"` does the reverse.
+//
+// In both directions the escape-cost tie-breaker holds: if conversion
+// would strictly increase the escape count, the literal is left alone.
 //
 // Template literals, no-substitution template literals, and JSX text
 // nodes use distinct AST kinds and are intentionally out of scope.
 type formatQuotes struct{}
+
+type formatQuotesOptions struct {
+  Prefer string `json:"prefer"`
+}
 
 func (formatQuotes) Name() string     { return "format/quotes" }
 func (formatQuotes) IsFormat() bool   { return true }
@@ -27,12 +35,32 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
   }
+  var opts formatQuotesOptions
+  _ = ctx.DecodeOptions(&opts)
+  preferSingle := opts.Prefer == "single"
+
   pos, end := tokenRange(ctx.File, node)
   if pos < 0 || end-pos < 2 {
     return
   }
   src := ctx.File.Text()
   raw := src[pos:end]
+  if preferSingle {
+    if raw[0] != '"' || raw[len(raw)-1] != '"' {
+      return
+    }
+    converted, ok := convertDoubleQuotedToSingle(raw[1 : len(raw)-1])
+    if !ok || converted == raw {
+      return
+    }
+    ctx.ReportRangeFix(
+      pos,
+      end,
+      "Strings must use single quotes.",
+      TextEdit{Pos: pos, End: end, Text: converted},
+    )
+    return
+  }
   if raw[0] != '\'' || raw[len(raw)-1] != '\'' {
     return
   }
@@ -46,6 +74,59 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
     "Strings must use double quotes.",
     TextEdit{Pos: pos, End: end, Text: converted},
   )
+}
+
+// convertDoubleQuotedToSingle is the inverse of convertSingleQuotedToDouble.
+// Returns (value, false) when single-quoted form would need strictly more
+// escapes than the source.
+func convertDoubleQuotedToSingle(inner string) (string, bool) {
+  escapedDouble, unescapedSingle := countDoubleEscapes(inner)
+  if unescapedSingle > escapedDouble {
+    return "", false
+  }
+  var b strings.Builder
+  b.Grow(len(inner) + 2)
+  b.WriteByte('\'')
+  for i := 0; i < len(inner); {
+    if inner[i] == '\\' && i+1 < len(inner) {
+      if inner[i+1] == '"' {
+        b.WriteByte('"')
+        i += 2
+        continue
+      }
+      b.WriteByte(inner[i])
+      b.WriteByte(inner[i+1])
+      i += 2
+      continue
+    }
+    if inner[i] == '\'' {
+      b.WriteByte('\\')
+      b.WriteByte('\'')
+      i++
+      continue
+    }
+    b.WriteByte(inner[i])
+    i++
+  }
+  b.WriteByte('\'')
+  return b.String(), true
+}
+
+func countDoubleEscapes(inner string) (escapedDouble, unescapedSingle int) {
+  for i := 0; i < len(inner); {
+    if inner[i] == '\\' && i+1 < len(inner) {
+      if inner[i+1] == '"' {
+        escapedDouble++
+      }
+      i += 2
+      continue
+    }
+    if inner[i] == '\'' {
+      unescapedSingle++
+    }
+    i++
+  }
+  return escapedDouble, unescapedSingle
 }
 
 // convertSingleQuotedToDouble walks the inner text of a single-quoted

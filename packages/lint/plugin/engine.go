@@ -18,6 +18,7 @@
 package main
 
 import (
+  "encoding/json"
   "sort"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -65,14 +66,35 @@ func isFormatRule(r Rule) bool {
 }
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
+//
+// `Options` is the raw JSON blob the user wrote in their rule
+// configuration's second tuple slot (`["warning", { ... }]`). It is nil
+// when the rule was configured with a bare severity literal. Rules that
+// accept options decode the blob into their own struct via
+// `(*Context).DecodeOptions` and fall back to defaults on nil.
 type Context struct {
   File     *shimast.SourceFile
   Checker  *shimchecker.Checker
   Severity Severity
+  Options  json.RawMessage
 
   rule     Rule
   isFormat bool
   collect  func(*Finding)
+}
+
+// DecodeOptions unmarshals the rule's options blob into `out`. Returns
+// nil with no side effect when the rule was configured with severity
+// alone, so callers can write
+//
+//   var opts myRuleOptions
+//   ctx.DecodeOptions(&opts)
+//   // opts now holds either the user's settings or the zero value.
+func (c *Context) DecodeOptions(out interface{}) error {
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
 }
 
 // Finding is one rule-emitted diagnostic before it gets converted into a
@@ -299,6 +321,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
           File:     file,
           Checker:  checker,
           Severity: severity,
+          Options:  e.config.RuleOptions(rule.Name()),
           rule:     rule,
           isFormat: isFormatRule(rule),
           collect:  collect,
@@ -326,6 +349,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
         File:     file,
         Checker:  checker,
         Severity: severity,
+        Options:  e.config.RuleOptions(rule.Name()),
         rule:     rule,
         isFormat: isFormatRule(rule),
         collect:  collect,
