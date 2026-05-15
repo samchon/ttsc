@@ -7,9 +7,12 @@ import path from "node:path";
 /**
  * Verifies lint format trailing-comma: rewrites multi-line lists end-to-end.
  *
- * The fixture mixes arrays, objects, function parameters, and nested call
- * arguments to exercise every dispatch branch in one pass. The single-line call
- * at the bottom is the negative anchor: the launcher run must not touch it.
+ * The fixture mixes a single-line array, a multi-line object, a multi-line
+ * nested call inside a function declaration, and a multi-line `JSON.stringify`
+ * whose closing `})` hugs onto one line. The single-line array at the top is
+ * the negative anchor for the no-newlines short-circuit; the hugged
+ * `JSON.stringify({...})` at the bottom is the cde3507 regression anchor —
+ * its `}` and `)` collapse onto one line, so the rule must abstain.
  *
  * 1. Copy `fixtures/format-projects/format-trailing-comma` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
