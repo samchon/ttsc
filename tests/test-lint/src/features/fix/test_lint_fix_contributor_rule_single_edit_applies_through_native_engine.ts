@@ -14,7 +14,7 @@ import path from "node:path";
  * structurally complete but unexercised end-to-end. A regression in any step
  * would either drop the edit silently or apply it to the wrong file; this test
  * pins the contract that a contributor-emitted TextEdit rewrites the source on
- * disk under `ttsc --fix`.
+ * disk under `ttsc fix`.
  *
  * 1. Copy `fixtures/fix-projects/contributor-fixes` into a temp project.
  * 2. Symlink both `@ttsc/lint` and `lint-contributor-demo` into the temp project's
