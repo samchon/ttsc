@@ -9,10 +9,11 @@ import path from "node:path";
  *
  * The fixture mixes a single-line array, a multi-line object, a multi-line
  * nested call inside a function declaration, and a multi-line `JSON.stringify`
- * whose closing `})` hugs onto one line. The single-line array at the top is
- * the negative anchor for the no-newlines short-circuit; the hugged
- * `JSON.stringify({...})` at the bottom is the cde3507 regression anchor —
- * its `}` and `)` collapse onto one line, so the rule must abstain.
+ * whose closing `}` and `)` collapse onto a single line. The single-line array
+ * is the negative anchor for the no-newlines short-circuit; the
+ * `JSON.stringify({...})` call is the close-paren-shares-line regression anchor
+ * — its `}` and `)` end up on the same line as the rule's would-be insertion
+ * point, so the rule must abstain.
  *
  * 1. Copy `fixtures/format-projects/format-trailing-comma` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.

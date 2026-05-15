@@ -28,6 +28,12 @@ import (
 // insert one even when the rest parameter is the multi-line list's last
 // element. The same restriction applies to rest binding patterns, which
 // the rule does not visit at all.
+//
+// Unparenthesized arrow parameters (`a => …`) are also skipped: there is
+// no parameter-list paren to anchor the comma against, and ECMAScript has
+// no place to insert one. `findCloseTokenAfter` bails on the first
+// non-trivia byte after the parameter's `End()` (the `=>` token), so the
+// rule abstains without emitting an edit.
 type formatTrailingComma struct{}
 
 // formatTrailingCommaOptions mirrors `TtscLintRuleOptions.TrailingComma`.
