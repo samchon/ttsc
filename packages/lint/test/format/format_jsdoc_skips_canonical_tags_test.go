@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatJSDocNormalizeSkipsCanonicalTags verifies the rule is idempotent.
+// TestFormatJSDocSkipsCanonicalTags verifies the rule is idempotent.
 //
 // A JSDoc block that already uses `@returns`, `@param`, `@description`, etc.
 // must not produce any finding. Otherwise the formatter would burn passes
@@ -16,7 +16,7 @@ import (
 // 1. Parse a source file with only canonical JSDoc tags.
 // 2. Run the engine with format/jsdoc enabled.
 // 3. Assert zero findings.
-func TestFormatJSDocNormalizeSkipsCanonicalTags(t *testing.T) {
+func TestFormatJSDocSkipsCanonicalTags(t *testing.T) {
   source := "/**\n * @param name The name.\n * @returns The greeting.\n * @description Builds a greeting.\n */\nexport function greet(name: string): string { return name; }\n"
   file := parseTS(t, source)
   findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).

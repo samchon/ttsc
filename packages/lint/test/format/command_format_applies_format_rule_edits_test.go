@@ -9,10 +9,11 @@ import (
 // TestCommandFormatAppliesFormatRuleEdits verifies the format command writes
 // edits from FormatRule implementations and leaves lint-class rules alone.
 //
-// The split between fix and format is the load-bearing contract: a user who
-// runs `ttsc --format` expects only formatter-class edits, not lint rewrites.
-// This scenario enables a format rule and a lint rule on the same project
-// and asserts the file changes mirror the format rule's edit set only.
+// `ttsc format` is the format-only convenience subcommand: a user who runs
+// it expects formatter-class edits without lint rewrites (the dual
+// `ttsc fix` subcommand applies both kinds). This scenario enables a
+// format rule and a lint rule on the same project and asserts the file
+// changes mirror the format rule's edit set only.
 //
 // 1. Seed a project with a no-var violation and a missing-semi violation.
 // 2. Run the format subcommand with both rules enabled.

@@ -174,12 +174,12 @@ zero remaining errors.
 
 ### Format
 
-Run `ttsc format` to apply formatter-class edits (semicolons, quote style,
-trailing commas, import ordering, JSDoc tag normalization). The lint
-sidecar itself is write-only — it never prints lint diagnostics during
-format mode. The launcher still runs a final no-emit TypeScript-Go pass
-afterwards, so type errors in the project surface like a normal `ttsc
---noEmit`.
+Run `ttsc format` to apply formatter-class edits (semicolons, quote
+style, trailing commas, import ordering, JSDoc tag normalization).
+Write-only by contract: the lint sidecar applies format-rule edits to
+disk and prints nothing; the launcher skips its trailing TypeScript-Go
+pass entirely, so format never surfaces type errors. Run `ttsc check`
+(or `ttsc fix`) separately when you want type errors back.
 
 ```bash
 npx ttsc format

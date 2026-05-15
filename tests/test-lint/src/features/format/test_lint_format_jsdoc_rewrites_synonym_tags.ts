@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Verifies lint format jsdoc-normalize: rewrites synonym tags to canonical.
+ * Verifies lint format/jsdoc: rewrites synonym tags to canonical.
  *
  * The fixture contains every synonym pair the rule's table covers: `@arg`,
  * `@argument`, `@return`, `@desc`. One launcher run must collapse them onto
@@ -18,7 +18,7 @@ import path from "node:path";
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
-export const test_lint_format_jsdoc_normalize_rewrites_synonym_tags = () => {
+export const test_lint_format_jsdoc_rewrites_synonym_tags = () => {
   const fixture = path.join(
     process.cwd(),
     "fixtures",

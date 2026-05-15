@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatJSDocNormalizeSkipsInlineAtText verifies the rule does not
+// TestFormatJSDocSkipsInlineAtText verifies the rule does not
 // rewrite `@`-prefixed words that are part of prose.
 //
 // Prose like `Email me at @return-handler@example.com` should never have
@@ -18,7 +18,7 @@ import (
 // 1. Parse a source file with an inline `@return` inside prose.
 // 2. Run the engine with format/jsdoc enabled.
 // 3. Assert zero findings.
-func TestFormatJSDocNormalizeSkipsInlineAtText(t *testing.T) {
+func TestFormatJSDocSkipsInlineAtText(t *testing.T) {
   source := "/**\n * Mailto: user@return-handler@example.com\n */\nexport const x = 1;\n"
   file := parseTS(t, source)
   findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).

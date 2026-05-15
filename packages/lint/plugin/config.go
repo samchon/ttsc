@@ -367,6 +367,15 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
     if tuple[1] == nil {
       return sev, nil, nil
     }
+    if _, ok := tuple[1].(map[string]any); !ok {
+      // ESLint accepts string-typed positional options as a shorthand
+      // (e.g. `["error", "single"]` for the `quotes` rule). ttsc does
+      // not: every option struct in TtscLintRuleOptions is an object,
+      // and silently encoding a non-object slot would land in
+      // DecodeOptions as a decode error that every rule discards. Fail
+      // loudly so users discover the proper `["error", { … }]` form.
+      return SeverityOff, nil, fmt.Errorf("severity tuple's options slot must be an object, got %T", tuple[1])
+    }
     encoded, err := json.Marshal(tuple[1])
     if err != nil {
       return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
@@ -1528,6 +1537,9 @@ func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
     }
     if tuple[1] == nil {
       return sev, nil, nil
+    }
+    if _, ok := tuple[1].(map[string]any); !ok {
+      return SeverityOff, nil, fmt.Errorf("severity tuple's options slot must be an object, got %T", tuple[1])
     }
     encoded, err := json.Marshal(tuple[1])
     if err != nil {

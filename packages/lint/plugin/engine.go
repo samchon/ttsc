@@ -100,8 +100,10 @@ func (c *Context) DecodeOptions(out interface{}) error {
 
 // Finding is one rule-emitted diagnostic before it gets converted into a
 // driver Diagnostic. `IsFormat` mirrors the dispatching rule's category
-// so the `--format` filter can route findings without re-querying the
-// registry. `--fix` no longer filters; both categories apply.
+// so the `format` subcommand's filter can route findings without
+// re-querying the registry. The `fix` subcommand applies findings from
+// both categories — no filter — because `ttsc fix` is the
+// run-everything entry point.
 type Finding struct {
   Rule     string
   Severity Severity
