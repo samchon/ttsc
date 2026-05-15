@@ -16,8 +16,13 @@ import (
 // In both directions the escape-cost tie-breaker holds: if conversion
 // would strictly increase the escape count, the literal is left alone.
 //
-// Template literals, no-substitution template literals, and JSX text
-// nodes use distinct AST kinds and are intentionally out of scope.
+// JSX attribute initializers (`<div className="foo" />`) are skipped on
+// purpose. Prettier exposes a separate `jsxSingleQuote` option for that
+// surface and never rewrites JSX attributes via `singleQuote`; the
+// JSX-grammar-canonical form is double quotes and rewriting to single
+// quotes corrupts working code. Template literals, no-substitution
+// template literals, and JSX text nodes use distinct AST kinds and are
+// also intentionally out of scope.
 type formatQuotes struct{}
 
 type formatQuotesOptions struct {
@@ -33,6 +38,12 @@ func (formatQuotes) Visits() []shimast.Kind {
 
 func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
+    return
+  }
+  // JSX attribute initializers parse as plain StringLiteral but are
+  // grammatically required to use double quotes in the standard JSX
+  // form. Prettier mirrors that and never touches them via singleQuote.
+  if parent := node.Parent; parent != nil && parent.Kind == shimast.KindJsxAttribute {
     return
   }
   var opts formatQuotesOptions

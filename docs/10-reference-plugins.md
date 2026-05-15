@@ -413,11 +413,16 @@ When a consumer writes `["error", { markers: ["TODO"] }]` in their `lint.config.
 ```ts
 // ttsc-lint-plugin-demo/src/index.ts
 import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
 
 const plugin: ITtscLintPlugin = {
-  meta: { name: "ttsc-lint-plugin-demo", namespace: "demo" },
+  meta: {
+    name: "ttsc-lint-plugin-demo",
+    version: "1.0.0",
+    namespace: "demo",
+  },
   rules: ["no-marker-comment"] as const,
-  source: /* … */,
+  source: path.resolve(__dirname, "..", "rules"),
 };
 
 declare module "@ttsc/lint" {

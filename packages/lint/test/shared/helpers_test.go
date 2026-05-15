@@ -62,6 +62,26 @@ func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   return file
 }
 
+// parseTSXFile parses one virtual TSX file with a caller-selected path.
+// Mirrors parseTSFile but uses ScriptKindTSX so JSX nodes
+// (KindJsxElement, KindJsxAttribute, …) appear in the AST.
+//
+//  1. Keep the filename absolute because the tsgo parser rejects relatives.
+//  2. Parse as TSX so JSX-only kinds are recognized instead of becoming
+//     parse errors or alternative-grammar tokens.
+//  3. Fail the current scenario immediately if parsing returns no SourceFile.
+func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
+  t.Helper()
+  opts := shimast.SourceFileParseOptions{
+    FileName: fileName,
+  }
+  file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTSX)
+  if file == nil {
+    t.Fatalf("parser returned nil source file")
+  }
+  return file
+}
+
 // assertRuleCorpusCase runs one annotated fixture through the native rule engine.
 //
 // The TypeScript feature corpus already exercises these files end-to-end through

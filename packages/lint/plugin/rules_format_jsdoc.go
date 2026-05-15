@@ -63,6 +63,14 @@ func (formatJSDoc) Check(ctx *Context, node *shimast.Node) {
       synonyms[k] = v
     }
     for k, v := range opts.TagSynonyms {
+      // Reject empty canonicals or canonicals carrying non-identifier
+      // bytes — the fixer would otherwise emit malformed JSDoc like
+      // `@` or `@my tag`. Silently dropping the bad entry is the right
+      // failure mode: the rule already runs on every file in a project
+      // and a single typo'd entry should not poison every block.
+      if v == "" || !isValidJSDocTagName(v) {
+        continue
+      }
       synonyms[k] = v
     }
   }
@@ -150,6 +158,22 @@ func rewriteJSDocTags(ctx *Context, src string, block jsdocBlock, synonyms map[s
 
 func isJSDocTagByte(b byte) bool {
   return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+// isValidJSDocTagName reports whether `name` is a non-empty sequence of
+// JSDoc tag bytes (ASCII letters). The rule rejects user-supplied
+// canonical names that fall outside this shape so the fix output stays
+// well-formed.
+func isValidJSDocTagName(name string) bool {
+  if name == "" {
+    return false
+  }
+  for i := 0; i < len(name); i++ {
+    if !isJSDocTagByte(name[i]) {
+      return false
+    }
+  }
+  return true
 }
 
 func init() {

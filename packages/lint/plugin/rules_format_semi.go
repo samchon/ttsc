@@ -72,6 +72,13 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
       // mode.
       return
     }
+    if nextStatementHasASIHazard(src, end) {
+      // Stripping `;` here would let ASI fail. Prettier defends with a
+      // leading-`;` on the next statement; this rule conservatively
+      // refuses to strip rather than synthesizing an edit on a node
+      // it didn't visit.
+      return
+    }
     pos := end - 1
     if pos < 0 {
       pos = 0
@@ -101,6 +108,55 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
     "Missing semicolon.",
     TextEdit{Pos: end, End: end, Text: ";"},
   )
+}
+
+// nextStatementHasASIHazard reports whether the next non-trivia byte
+// after `end` starts a token that would re-associate with the prior
+// expression if the trailing `;` is removed. Prettier handles this by
+// inserting a defensive leading `;` on the next line; this rule's
+// fixer is single-node, so the safer move is to keep the explicit
+// terminator.
+//
+// Hazard tokens per the ASI spec:
+//
+//   - `[`  — bracket access continues an expression
+//   - `(`  — call expression continues
+//   - “ ` “ — tagged template literal continues
+//   - `+`, `-`, `*`, `/` — binary operator continues
+//   - `,`  — comma operator continues
+func nextStatementHasASIHazard(src string, end int) bool {
+  for i := end; i < len(src); i++ {
+    c := src[i]
+    if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+      continue
+    }
+    if c == '/' && i+1 < len(src) {
+      if src[i+1] == '/' {
+        for i < len(src) && src[i] != '\n' {
+          i++
+        }
+        continue
+      }
+      if src[i+1] == '*' {
+        i += 2
+        for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+          i++
+        }
+        if i+1 < len(src) {
+          i++ // step past '*/'
+        }
+        continue
+      }
+      // bare `/` starts a regex literal or division — hazard.
+      return true
+    }
+    switch c {
+    case '[', '(', '`', '+', '-', '*', ',':
+      return true
+    }
+    return false
+  }
+  return false
 }
 
 // preferNeverSafeKind reports whether stripping the trailing semicolon

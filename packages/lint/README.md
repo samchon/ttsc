@@ -246,7 +246,21 @@ surface.
 
 ### Config Files
 
-By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.
+`@ttsc/lint` looks for a config file next to the selected `tsconfig.json` and walks upward through ancestor directories until one of these names is found (first match wins, multiple files in one directory is an error):
+
+- `lint.config.{ts,mts,cts,js,mjs,cjs,json}`
+- `ttsc-lint.config.{ts,mts,cts,js,mjs,cjs,json}`
+- `eslint.config.{ts,mts,cts,js,mjs,cjs}` (existing ESLint flat-config compatibility)
+
+`.ts` configs are loaded directly — no compile step is required because ttsc executes the file through `ttsx`.
+
+Precedence when more than one config surface is present:
+
+1. Inline `compilerOptions.plugins[].rules` in `tsconfig.json` is the most local form. When present, it acts as the entire rule set for that plugin entry.
+2. `compilerOptions.plugins[].extends` accepts a path to a config file relative to the `tsconfig.json` and replaces auto-discovery for that entry.
+3. Otherwise auto-discovery walks upward from the `tsconfig.json` directory and uses the first matching file.
+
+`rules` and `extends` cannot be combined on a single plugin entry — pick one. Skip both when you want auto-discovery to take over.
 
 ### Third-Party Rule Plugins
 
@@ -302,6 +316,8 @@ Rules are off until you enable them:
 ```
 
 Rule severities are `"error"`, `"warning"`, and `"off"`.
+
+Format rules (`format/semi`, `format/quotes`, `format/trailing-comma`, `format/sort-imports`, `format/jsdoc`) are listed separately in the [Format](#format) section above with their per-rule option shapes. The catalog below covers lint-class rules only.
 
 The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
 
