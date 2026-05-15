@@ -43,18 +43,42 @@ type Rule interface {
   Check(ctx *Context, node *shimast.Node)
 }
 
+// FormatRule is an optional marker interface that tags a Rule as a
+// formatter. Rules implementing FormatRule contribute to `--format` runs
+// and are *excluded* from `--fix` runs; lint-class rules (which do not
+// implement this interface) are the inverse. The split keeps the two CLI
+// flags from accidentally munging each other's territory.
+//
+// FormatRule.IsFormat must return true unconditionally — the method
+// exists as a structural marker, not a runtime toggle. Returning false
+// is treated by the engine as "not a format rule" and is equivalent to
+// not implementing the interface at all.
+type FormatRule interface {
+  Rule
+  IsFormat() bool
+}
+
+// isFormatRule reports whether `r` opts into the format category.
+func isFormatRule(r Rule) bool {
+  fr, ok := r.(FormatRule)
+  return ok && fr.IsFormat()
+}
+
 // Context is the per-(file, rule) handle the engine passes to `Check`.
 type Context struct {
   File     *shimast.SourceFile
   Checker  *shimchecker.Checker
   Severity Severity
 
-  rule    Rule
-  collect func(*Finding)
+  rule     Rule
+  isFormat bool
+  collect  func(*Finding)
 }
 
 // Finding is one rule-emitted diagnostic before it gets converted into a
-// driver Diagnostic.
+// driver Diagnostic. `IsFormat` mirrors the dispatching rule's category
+// so downstream `--fix` and `--format` filters can sort findings without
+// re-querying the registry.
 type Finding struct {
   Rule     string
   Severity Severity
@@ -63,6 +87,7 @@ type Finding struct {
   End      int
   Message  string
   Fix      []TextEdit
+  IsFormat bool
 }
 
 // TextEdit is one byte-range replacement offered by an autofixable finding.
@@ -101,6 +126,7 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     End:      node.End(),
     Message:  message,
     Fix:      cloneTextEdits(edits),
+    IsFormat: c.isFormat,
   })
 }
 
@@ -127,6 +153,7 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
     End:      end,
     Message:  message,
     Fix:      cloneTextEdits(edits),
+    IsFormat: c.isFormat,
   })
 }
 
@@ -273,6 +300,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
           Checker:  checker,
           Severity: severity,
           rule:     rule,
+          isFormat: isFormatRule(rule),
           collect:  collect,
         }
         rule.Check(ctx, node)
@@ -299,6 +327,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
         Checker:  checker,
         Severity: severity,
         rule:     rule,
+        isFormat: isFormatRule(rule),
         collect:  collect,
       }
       rule.Check(ctx, file.AsNode())

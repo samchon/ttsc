@@ -17,6 +17,13 @@ export interface TtscBuildOptions extends TtscCommonOptions {
    * Source files may be rewritten; JavaScript/declaration emit stays disabled.
    */
   fix?: boolean;
+  /**
+   * Invoke format-capable check-stage plugins. Source files may be rewritten
+   * with formatter-class edits (whitespace, punctuation, ordering); diagnostics
+   * are not reported and JavaScript/declaration emit stays disabled. Mutually
+   * exclusive with `--watch`, `--emit`, and single-file mode.
+   */
+  format?: boolean;
   /** Per-call TypeScript-Go `outDir` override. */
   outDir?: string;
   /** Suppress summary banners from ttsc/native sidecars. Defaults to `true`. */

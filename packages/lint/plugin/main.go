@@ -1,12 +1,15 @@
 // Command @ttsc/lint is the native backend for the `@ttsc/lint` plugin.
 //
-// The plugin host (ttsc / ttsx) spawns this binary with one of four
+// The plugin host (ttsc / ttsx) spawns this binary with one of five
 // subcommands:
 //
 //   - `version` / `-v` / `--version` — print the binary banner.
 //   - `check` — typecheck + lint without emit. Failure exit code if any
 //     error-severity diagnostic fires.
-//   - `fix` — apply autofixes, then typecheck + lint without emit.
+//   - `fix` — apply lint-rule autofixes, then typecheck + lint without
+//     emit.
+//   - `format` — apply format-rule edits only. Write-only: no diagnostic
+//     output, no typecheck recheck.
 //   - `build` — typecheck + lint, then run the standard tsgo emit pipeline
 //     so JS files land on disk.
 //   - `transform --file=PATH` — single-file emit with the same lint pass.
@@ -29,7 +32,7 @@ func main() {
 
 func run(args []string) int {
   if len(args) == 0 {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|build|transform|version)")
+    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|format|build|transform|version)")
     return 2
   }
   switch args[0] {
@@ -37,7 +40,7 @@ func run(args []string) int {
     // Don't pay contributor-registration cost for the version banner.
     fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
     return 0
-  case "check", "fix", "build", "transform":
+  case "check", "fix", "format", "build", "transform":
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
@@ -50,6 +53,8 @@ func run(args []string) int {
     return RunCheck(args[1:])
   case "fix":
     return RunFix(args[1:])
+  case "format":
+    return RunFormat(args[1:])
   case "build":
     return RunBuild(args[1:])
   case "transform":

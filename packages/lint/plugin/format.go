@@ -1,0 +1,100 @@
+package main
+
+import (
+  "fmt"
+  "os"
+)
+
+// maxFormatPasses bounds the format cascade for the same reason
+// `maxFixPasses` does in fix.go: a rule that re-reports its own edit
+// could otherwise loop forever. Format rules touch surface details
+// (quotes, semicolons, trailing commas, import order) so a real-world
+// cascade settles in a handful of passes; the cap is the safety net,
+// not the expected steady state.
+const maxFormatPasses = 10
+
+// RunFormat implements `@ttsc/lint format` — apply format-rule edits
+// only. Write-only by contract: no diagnostic output, no typecheck
+// recheck. Mirrors RunFix in flag handling so the host launcher can
+// forward the same option shape.
+func RunFormat(args []string) int {
+  opts, err := parseSubcommandFlags("format", args)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  if opts.emit {
+    fmt.Fprintln(os.Stderr, "@ttsc/lint format: --emit is not supported")
+    return 2
+  }
+  opts.noEmit = true
+  return runFormat(opts)
+}
+
+func runFormat(opts *subcommandOpts) int {
+  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+
+  prog, code := loadFixProgram(opts)
+  if code != 0 {
+    return code
+  }
+  defer func() {
+    if prog != nil {
+      prog.close()
+    }
+  }()
+
+  totalFixes := 0
+  for pass := 0; pass < maxFormatPasses; pass++ {
+    engine := NewEngineWithResolver(rules)
+    findings := engine.Run(prog.userSourceFiles(), prog.checker)
+    fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
+    if err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 3
+    }
+    if fixed == 0 {
+      break
+    }
+    totalFixes += fixed
+    prog, code = reloadFixProgram(prog, opts)
+    if code != 0 {
+      return code
+    }
+  }
+
+  if opts.verbose && totalFixes > 0 {
+    fmt.Fprintf(os.Stdout, "@ttsc/lint: formatted=%d edits\n", totalFixes)
+  }
+  return 0
+}
+
+// filterFormatFindings keeps only findings produced by FormatRule
+// implementations. The dual of `filterLintFindings`: each subcommand
+// applies edits from its own rule category and ignores the other.
+func filterFormatFindings(findings []*Finding) []*Finding {
+  out := make([]*Finding, 0, len(findings))
+  for _, finding := range findings {
+    if finding != nil && finding.IsFormat {
+      out = append(out, finding)
+    }
+  }
+  return out
+}
+
+// filterLintFindings keeps only findings produced by non-format Rule
+// implementations. `RunFix` calls this to avoid silently applying
+// format-rule edits whenever a project has both kinds of rules enabled.
+func filterLintFindings(findings []*Finding) []*Finding {
+  out := make([]*Finding, 0, len(findings))
+  for _, finding := range findings {
+    if finding != nil && !finding.IsFormat {
+      out = append(out, finding)
+    }
+  }
+  return out
+}

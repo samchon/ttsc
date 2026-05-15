@@ -78,6 +78,20 @@ type Rule interface {
   Check(ctx *Context, node *shimast.Node)
 }
 
+// FormatRule is an optional marker contributors implement when a rule
+// belongs to the "format" category instead of the default "lint"
+// category. Format rules contribute to `ttsc --format` runs (their
+// edits get applied) and are excluded from `ttsc --fix`. Lint rules
+// (rules that do not implement FormatRule) are the inverse.
+//
+// `IsFormat` exists as a structural marker, not a runtime toggle:
+// returning `false` is equivalent to not implementing the interface at
+// all, and the host treats either form the same way.
+type FormatRule interface {
+  Rule
+  IsFormat() bool
+}
+
 // Reporter is the engine-supplied callback that records a finding. The
 // host implements this and passes it to `NewContext` when invoking a
 // contributor rule.

@@ -63,7 +63,7 @@ func runFix(opts *subcommandOpts) int {
   for pass := 0; pass < maxFixPasses; pass++ {
     engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
-    fixed, err := applyFindingFixes(opts.cwd, findings)
+    fixed, err := applyFindingFixes(opts.cwd, filterLintFindings(findings))
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 3

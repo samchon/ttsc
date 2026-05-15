@@ -385,6 +385,33 @@ The API is intentionally narrow in round 1 / round 2 — `IdentifierText`, `Stri
 
 The host's fix-aware reporter implements `rule.FixReporter`, which the public `Context.ReportFix` / `ReportRangeFix` discover via a type assertion. **Contributor rules do not implement this interface.** When unit-testing a contributor rule with a fake `rule.Reporter`, declare `var _ rule.FixReporter = &myReporter{}` in the test to compile-check that the fake supports the fix path; Go interface satisfaction is all-or-nothing, so a fake that implements only `ReportFix` and not `ReportRangeFix` will silently fall through to the legacy `Report` path.
 
+### Tagging a Format Rule
+
+Lint rules participate in `ttsc fix`; format rules participate in `ttsc format`. The two CLI flags are mutually exclusive and each applies edits only from its own rule category. Opt into the format category by implementing the optional `rule.FormatRule` marker:
+
+```go
+package demo
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+func init() { rule.Register(demoTrimTrailingSpace{}) }
+
+type demoTrimTrailingSpace struct{}
+
+func (demoTrimTrailingSpace) Name() string                          { return "demo/trim-trailing-space" }
+func (demoTrimTrailingSpace) IsFormat() bool                        { return true }
+func (demoTrimTrailingSpace) Visits() []shimast.Kind                { return []shimast.Kind{shimast.KindSourceFile} }
+func (demoTrimTrailingSpace) Check(ctx *rule.Context, node *shimast.Node) {
+  // Emit ReportFix / ReportRangeFix with formatter-class edits.
+}
+```
+
+`IsFormat` is a structural marker — returning `false` is equivalent to omitting the interface entirely, and the host treats either form the same way. Diagnostics from format-tagged rules still respect the severity ladder when reported through `ttsc check`, so a project can pair a developer-local `ttsc format` with a CI `ttsc check` that fails on any unformatted file.
+
 ## Combined Project
 
 ```jsonc

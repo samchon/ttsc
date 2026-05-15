@@ -167,6 +167,56 @@ type errors or un-fixable lint violations.
 Run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to enforce
 zero remaining errors.
 
+### Format
+
+Run `ttsc format` to apply formatter-class edits (semicolons, quote style,
+trailing commas, import ordering, JSDoc tag normalization). The lint
+sidecar itself is write-only — it never prints lint diagnostics during
+format mode. The launcher still runs a final no-emit TypeScript-Go pass
+afterwards, so type errors in the project surface like a normal `ttsc
+--noEmit`.
+
+```bash
+npx ttsc format
+# equivalent flag form
+npx ttsc --format
+```
+
+Built-in format rules:
+
+| Rule | Effect |
+| --- | --- |
+| `format/semi` | Insert trailing semicolons on ASI-terminated statements. |
+| `format/quotes` | Convert single-quoted strings to double quotes when safe. |
+| `format/trailing-comma` | Add trailing commas to multi-line lists. |
+| `format/sort-imports` | Group external/relative imports and alphabetize each group + named specifiers. |
+| `format/jsdoc-normalize-tag-name` | Rewrite JSDoc tag synonyms (`@return`, `@arg`, `@desc`) to canonical names. |
+
+Enable format rules the same way as lint rules:
+
+```ts
+// lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint";
+
+export default {
+  "format/semi": "error",
+  "format/quotes": "error",
+  "format/trailing-comma": "error",
+  "format/sort-imports": "error",
+  "format/jsdoc-normalize-tag-name": "error",
+} satisfies TtscLintConfig;
+```
+
+`ttsc format` and `ttsc fix` are mutually exclusive flags: each runs only
+the edits from its own rule category. Run them as separate passes — fix
+first to settle lint rewrites, format second to settle formatter edits.
+Like `ttsc fix`, `ttsc format` rejects `--watch`, single-file mode, and
+`--emit`.
+
+Setting a format rule's severity to `error` or `warning` also makes
+`ttsc check` report it as a compiler error or warning — useful as the CI
+gate that pairs with a developer-local `ttsc format`.
+
 ### Config Files
 
 By default, `@ttsc/lint` reads config files such as `lint.config.ts` or `eslint.config.ts` next to the selected `tsconfig.json`.

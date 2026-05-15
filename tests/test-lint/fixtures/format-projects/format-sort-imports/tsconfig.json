@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true,
+    "rootDir": "src",
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "rules": {
+          "format/sort-imports": "error"
+        }
+      }
+    ]
+  },
+  "include": ["src"]
+}

@@ -298,7 +298,7 @@ function createNativeCheckArgs(
   options: TtscBuildOptions,
 ): string[] {
   const args = [
-    options.fix === true ? "fix" : "check",
+    nativeCheckSubcommand(options),
     "--tsconfig=" + execution.tsconfig,
     "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
     "--cwd=" + execution.projectRoot,
@@ -312,6 +312,17 @@ function createNativeCheckArgs(
     args.push("--quiet");
   }
   return args;
+}
+
+/**
+ * Decide which native plugin subcommand the lint sidecar should run for the
+ * current `runBuild` invocation. The launcher rejects `--fix --format` before
+ * reaching here, so at most one of the two flags is true.
+ */
+function nativeCheckSubcommand(options: TtscBuildOptions): string {
+  if (options.format === true) return "format";
+  if (options.fix === true) return "fix";
+  return "check";
 }
 
 function serializeNativePlugins(

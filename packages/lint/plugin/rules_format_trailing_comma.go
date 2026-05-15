@@ -1,0 +1,289 @@
+package main
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// format/trailing-comma adds trailing commas to multi-line lists. Mirrors
+// prettier's `trailingComma: "all"` default — *not* a tunable.
+//
+// Scope (intentionally narrower than the closing-brace surface of TS):
+//
+//   - ArrayLiteralExpression           `[a, b]`
+//   - ObjectLiteralExpression          `{ a: 1 }`
+//   - CallExpression / NewExpression   `foo(a, b)` / `new Foo(a, b)`
+//   - NamedImports / NamedExports      `import { a, b } from "x"`
+//   - TupleType                        `[A, B]` at the type level
+//   - Function parameter lists         `function foo(a, b) {}` etc.
+//
+// Out of scope on purpose:
+//
+//   - Destructuring binding patterns. The last element may be a rest
+//     pattern, where a trailing comma is a syntax error.
+//   - JSX attribute lists. Prettier does not apply trailing commas there
+//     either.
+//
+// All target sources are TS ES2017+, so even rest *parameters* can take
+// a trailing comma without ASI hazard. The launcher's tsconfig pins the
+// target high enough.
+type formatTrailingComma struct{}
+
+func (formatTrailingComma) Name() string   { return "format/trailing-comma" }
+func (formatTrailingComma) IsFormat() bool { return true }
+
+func (formatTrailingComma) Visits() []shimast.Kind {
+  return []shimast.Kind{
+    shimast.KindArrayLiteralExpression,
+    shimast.KindObjectLiteralExpression,
+    shimast.KindCallExpression,
+    shimast.KindNewExpression,
+    shimast.KindNamedImports,
+    shimast.KindNamedExports,
+    shimast.KindTupleType,
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+    shimast.KindConstructor,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+  }
+}
+
+func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
+  if ctx == nil || ctx.File == nil || node == nil {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindArrayLiteralExpression:
+    arr := node.AsArrayLiteralExpression()
+    if arr == nil {
+      return
+    }
+    considerTrailingComma(ctx, arr.Elements, node.End()-1)
+  case shimast.KindObjectLiteralExpression:
+    obj := node.AsObjectLiteralExpression()
+    if obj == nil {
+      return
+    }
+    considerTrailingComma(ctx, obj.Properties, node.End()-1)
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    if call == nil {
+      return
+    }
+    considerTrailingComma(ctx, call.Arguments, node.End()-1)
+  case shimast.KindNewExpression:
+    ne := node.AsNewExpression()
+    if ne == nil || ne.Arguments == nil {
+      return
+    }
+    considerTrailingComma(ctx, ne.Arguments, node.End()-1)
+  case shimast.KindNamedImports:
+    named := node.AsNamedImports()
+    if named == nil {
+      return
+    }
+    considerTrailingComma(ctx, named.Elements, node.End()-1)
+  case shimast.KindNamedExports:
+    named := node.AsNamedExports()
+    if named == nil {
+      return
+    }
+    considerTrailingComma(ctx, named.Elements, node.End()-1)
+  case shimast.KindTupleType:
+    tup := node.AsTupleTypeNode()
+    if tup == nil {
+      return
+    }
+    considerTrailingComma(ctx, tup.Elements, node.End()-1)
+  case shimast.KindFunctionDeclaration:
+    fn := node.AsFunctionDeclaration()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindFunctionExpression:
+    fn := node.AsFunctionExpression()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindArrowFunction:
+    fn := node.AsArrowFunction()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindMethodDeclaration:
+    fn := node.AsMethodDeclaration()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindConstructor:
+    fn := node.AsConstructorDeclaration()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindGetAccessor:
+    fn := node.AsGetAccessorDeclaration()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  case shimast.KindSetAccessor:
+    fn := node.AsSetAccessorDeclaration()
+    if fn == nil {
+      return
+    }
+    considerFunctionParameterComma(ctx, fn.Parameters)
+  }
+}
+
+// considerTrailingComma reports a fix when the bracket-delimited list is
+// multi-line and missing its trailing comma. `closeBracketPos` points at
+// the closing punctuation byte itself (e.g. the `]` of an array literal).
+func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos int) {
+  if list == nil || len(list.Nodes) == 0 {
+    return
+  }
+  last := list.Nodes[len(list.Nodes)-1]
+  if last == nil {
+    return
+  }
+  src := ctx.File.Text()
+  if closeBracketPos < 0 || closeBracketPos >= len(src) {
+    return
+  }
+  if !rangeSpansMultipleLines(src, list.Pos(), closeBracketPos) {
+    return
+  }
+  if rangeHasTrailingComma(src, last.End(), closeBracketPos) {
+    return
+  }
+  ctx.ReportRangeFix(
+    last.End()-1,
+    last.End(),
+    "Missing trailing comma.",
+    TextEdit{Pos: last.End(), End: last.End(), Text: ","},
+  )
+}
+
+// considerFunctionParameterComma reuses the same trailing-comma logic for
+// a parameter list. The closing `)` lives between the parameter list's
+// End() and the next non-trivia byte; rather than carry token positions
+// around, the scanner walks forward in source until it finds the close
+// paren.
+func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
+  if list == nil || len(list.Nodes) == 0 {
+    return
+  }
+  src := ctx.File.Text()
+  closePos := findCloseTokenAfter(src, list.End(), ')')
+  if closePos < 0 {
+    return
+  }
+  considerTrailingComma(ctx, list, closePos)
+}
+
+// findCloseTokenAfter returns the byte offset of the first `target`
+// punctuation byte at or after `start` that is not inside a comment or
+// string. Returns -1 when the token is not found. The scanner only ever
+// looks at structural characters because shim AST nodes already
+// pre-trimmed leading trivia.
+func findCloseTokenAfter(src string, start int, target byte) int {
+  for i := start; i < len(src); i++ {
+    c := src[i]
+    if c == target {
+      return i
+    }
+    if c == '/' && i+1 < len(src) {
+      if src[i+1] == '/' {
+        for i < len(src) && src[i] != '\n' {
+          i++
+        }
+        continue
+      }
+      if src[i+1] == '*' {
+        i += 2
+        for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+          i++
+        }
+        if i+1 < len(src) {
+          i++ // step past '*/'
+        }
+        continue
+      }
+    }
+  }
+  return -1
+}
+
+// rangeSpansMultipleLines reports whether the source between two byte
+// offsets contains at least one `\n`.
+func rangeSpansMultipleLines(src string, a, b int) bool {
+  if a > b {
+    a, b = b, a
+  }
+  if a < 0 {
+    a = 0
+  }
+  if b > len(src) {
+    b = len(src)
+  }
+  for i := a; i < b; i++ {
+    if src[i] == '\n' {
+      return true
+    }
+  }
+  return false
+}
+
+// rangeHasTrailingComma scans the source between the last item's end and
+// the close bracket. Returns true if a `,` is the first non-whitespace,
+// non-comment byte. Comments after the trailing comma still count as
+// "comma present".
+func rangeHasTrailingComma(src string, start, end int) bool {
+  if start < 0 {
+    start = 0
+  }
+  if end > len(src) {
+    end = len(src)
+  }
+  for i := start; i < end; {
+    c := src[i]
+    if c == ',' {
+      return true
+    }
+    if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+      i++
+      continue
+    }
+    if c == '/' && i+1 < end {
+      if src[i+1] == '/' {
+        for i < end && src[i] != '\n' {
+          i++
+        }
+        continue
+      }
+      if src[i+1] == '*' {
+        i += 2
+        for i+1 < end && !(src[i] == '*' && src[i+1] == '/') {
+          i++
+        }
+        if i+1 < end {
+          i += 2
+        }
+        continue
+      }
+    }
+    return false
+  }
+  return false
+}
+
+func init() {
+  Register(formatTrailingComma{})
+}

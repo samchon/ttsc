@@ -50,6 +50,10 @@ func registerContributors() {
         name)
       continue
     }
+    if fr, ok := contributor.(rule.FormatRule); ok && fr.IsFormat() {
+      Register(formatContributorAdapter{contributorAdapter{inner: contributor}})
+      continue
+    }
     Register(contributorAdapter{inner: contributor})
   }
 }
@@ -63,6 +67,17 @@ func registerContributors() {
 type contributorAdapter struct {
   inner rule.Rule
 }
+
+// formatContributorAdapter is the FormatRule-tagged variant of
+// contributorAdapter. Wrapping the lint-only adapter (rather than
+// duplicating its method set) keeps the marker addition trivial and
+// guarantees the host's `isFormatRule` check fires through the standard
+// type assertion path.
+type formatContributorAdapter struct {
+  contributorAdapter
+}
+
+func (formatContributorAdapter) IsFormat() bool { return true }
 
 func (a contributorAdapter) Name() string           { return a.inner.Name() }
 func (a contributorAdapter) Visits() []shimast.Kind { return a.inner.Visits() }
