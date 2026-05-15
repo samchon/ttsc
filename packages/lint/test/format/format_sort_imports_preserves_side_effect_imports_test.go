@@ -16,10 +16,10 @@ import (
 // rule's safety policy matches the comment-trivia bail: refuse to
 // reorder the block when correctness can't be locally proven.
 //
-// 1. Parse a source with mixed side-effect and value imports in an
-//    order the lexical sort would change.
-// 2. Run format/sort-imports.
-// 3. Assert zero findings — the block stays in source order.
+//  1. Parse a source with mixed side-effect and value imports in an
+//     order the lexical sort would change.
+//  2. Run format/sort-imports.
+//  3. Assert zero findings — the block stays in source order.
 func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
   source := "import \"./polyfill\";\n" +
     "import { reduce } from \"./local-a\";\n" +

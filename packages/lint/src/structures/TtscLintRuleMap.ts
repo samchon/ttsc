@@ -29,7 +29,14 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * while `no-var` rejects any tuple beyond a bare severity.
  *
  * The `(string & {})` widener is intentionally absent: typos in rule names
- * produce type errors.
+ * produce a `TS2353` excess-property error when the literal is checked in
+ * isolation (e.g. one negative-case-per-const). When the literal also carries
+ * other shape-incompatible entries — e.g. `prefre` typo on `format/quotes` next
+ * to the rule-name typo — TS sometimes elides the rule-name error after
+ * reporting the option-key error first. The test at
+ * `tests/test-lint/.../test_lib_index_d_ts_rule_options_autocomplete_per_rule.ts`
+ * splits each negative case into its own const to keep every branch
+ * load-bearing.
  */
 export type TtscLintRuleMap<P extends TtscLintPlugins = Record<string, never>> =
   {

@@ -23,9 +23,11 @@ import (
 //   - JSX attribute lists. Prettier does not apply trailing commas there
 //     either.
 //
-// All target sources are TS ES2017+, so even rest *parameters* can take
-// a trailing comma without ASI hazard. The launcher's tsconfig pins the
-// target high enough.
+// Rest parameters (`...rest`) are explicitly skipped: ECMAScript forbids
+// a trailing comma after a rest element (TS1013), so the rule must not
+// insert one even when the rest parameter is the multi-line list's last
+// element. The same restriction applies to rest binding patterns, which
+// the rule does not visit at all.
 type formatTrailingComma struct{}
 
 // formatTrailingCommaOptions mirrors `TtscLintRuleOptions.TrailingComma`.
@@ -220,8 +222,16 @@ func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos
 // End() and the next non-trivia byte; rather than carry token positions
 // around, the scanner walks forward in source until it finds the close
 // paren.
+//
+// Rest parameters short-circuit the insert: `function f(a, ...rest,)` is
+// a TS1013 syntax error. The rule peeks the last element's
+// DotDotDotToken and bails when set, since the rest must remain the
+// terminal element with no following comma.
 func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
   if list == nil || len(list.Nodes) == 0 {
+    return
+  }
+  if lastParameterIsRest(list) {
     return
   }
   src := ctx.File.Text()
@@ -230,6 +240,21 @@ func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
     return
   }
   considerTrailingComma(ctx, list, closePos)
+}
+
+// lastParameterIsRest reports whether the parameter list ends with a
+// rest element (`...rest`). ECMAScript syntax disallows a trailing
+// comma after a rest element; the rule must not insert one.
+func lastParameterIsRest(list *shimast.NodeList) bool {
+  last := list.Nodes[len(list.Nodes)-1]
+  if last == nil {
+    return false
+  }
+  param := last.AsParameterDeclaration()
+  if param == nil {
+    return false
+  }
+  return param.DotDotDotToken != nil
 }
 
 // findCloseTokenAfter returns the byte offset of the first `target`

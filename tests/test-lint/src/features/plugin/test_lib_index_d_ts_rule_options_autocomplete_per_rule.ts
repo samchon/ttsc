@@ -64,22 +64,45 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
     },
   };
 
-  // Negative cases TypeScript actually enforces through the intersection
-  // of mapped types. Two related-but-distinct typo classes survive at
-  // the type level: excess properties inside an options object, and
-  // length mismatches on tuples whose value type is `severity | [severity]`
-  // only (the lint-rule half of `TtscLintRuleMap`).
+  // Negative cases TypeScript enforces through the intersection-of-
+  // mapped-types pattern. Each lives in its own const so TS evaluates
+  // them independently — bundling four broken cases into one object
+  // literal makes TS skip the first excess-property error once other
+  // assignment errors fire on later entries, masking the rule-name
+  // typo branch and leaving its `@ts-expect-error` directive unused.
+  // Splitting the cases keeps each branch load-bearing.
   //
-  // Rule-name typos (e.g. `"format/Quotes"`) currently slip past TS's
-  // excess-property check for intersection-of-mapped-types — a known
-  // limitation in TS's check rules. The `(string & {})` widener is
-  // intentionally absent so the IDE still autocompletes valid keys; the
-  // runtime config validator (`packages/lint/plugin/config.go`)
-  // surfaces an unknown-rule diagnostic on actual misuses.
-  const negativeCases: TtscLintConfig = {
+  // - Rule-name typo (`format/Quotes` with capital Q) — excess property
+  //   on the rules-object.
+  // - Option-key typo (`prefre` for `prefer`) — excess property on the
+  //   tuple's options slot.
+  // - Cross-rule option leakage (`mode` on `format/sort-imports`) — the
+  //   options slot is keyed per rule; sort-imports's option shape has
+  //   no `mode` field.
+  // - Lint-only rule with options (`no-var: ["error", {...}]`) — the
+  //   second half of `TtscLintRuleMap` types lint rules as
+  //   `severity | [severity]`, so a length-2 tuple has no matching
+  //   union branch.
+  const ruleNameTypo: TtscLintConfig = {
+    rules: {
+      // @ts-expect-error — rule names are case-sensitive; "format/Quotes" is not a known key.
+      "format/Quotes": "error",
+    },
+  };
+  const optionKeyTypo: TtscLintConfig = {
     rules: {
       // @ts-expect-error — `prefre` is a typo of `prefer`; excess property check on the tuple's options slot fires.
       "format/quotes": ["error", { prefre: "double" }],
+    },
+  };
+  const crossRuleShape: TtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `mode` belongs to format/trailing-comma; format/sort-imports's option shape rejects it.
+      "format/sort-imports": ["error", { mode: "all" }],
+    },
+  };
+  const lintRuleWithOptions: TtscLintConfig = {
+    rules: {
       // @ts-expect-error — `no-var` is a lint rule with `severity | [severity]` only; a length-2 tuple is rejected.
       "no-var": ["error", { ignore: true }],
     },
@@ -87,5 +110,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
 
   assert.ok(config);
   assert.ok(bareTuple);
-  assert.ok(negativeCases);
+  assert.ok(ruleNameTypo);
+  assert.ok(optionKeyTypo);
+  assert.ok(crossRuleShape);
+  assert.ok(lintRuleWithOptions);
 };

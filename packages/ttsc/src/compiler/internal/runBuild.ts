@@ -106,22 +106,27 @@ export function runBuild(
     }
 
     if (options.emit === false) {
+      if (options.format === true) {
+        // Format mode is write-only by contract: the lint sidecar
+        // already rewrote source files and reported nothing. Running
+        // tsgo --noEmit OR a transform compiler afterwards would either
+        // surface unrelated type errors as if they were format failures
+        // (tsgo path) or apply transform-stage rewrites on top of the
+        // formatted source (transform path), both of which break the
+        // documented "ttsc format only formats" guarantee. The
+        // short-circuit fires before either branch so format mode is a
+        // single concern regardless of how many compilers the project
+        // configures. Callers that want a recheck or a transform pass
+        // after format should run `ttsc check` / `ttsc build` as a
+        // separate invocation.
+        return checked;
+      }
       if (compilers.length !== 0) {
         assertSharedHostCompatibility(compilers, "emit");
         return appendBuildOutput(
           checked,
           buildWithNativeCompilerPlugins(options, execution, compilers),
         );
-      }
-      if (options.format === true) {
-        // Format mode is write-only by contract: the sidecar already
-        // rewrote source files and reported nothing. Running tsgo
-        // --noEmit afterwards would surface unrelated type errors as if
-        // they were format failures, breaking the documented "ttsc
-        // format never reports diagnostics" guarantee. Callers that
-        // want a recheck after format should run `ttsc check` as a
-        // separate pass.
-        return checked;
       }
       return appendBuildOutput(
         checked,

@@ -2,6 +2,7 @@ package main
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // format/jsdoc rewrites JSDoc blocks toward the prettier-plugin-jsdoc
@@ -92,31 +93,45 @@ type jsdocBlock struct {
   bodyStart, bodyEnd int
 }
 
+// findJSDocBlocks enumerates JSDoc blocks via the tsgo scanner so the
+// rule operates on real `MultiLineCommentTrivia` ranges. A naive
+// byte-level scan for `/**` would mistakenly match `/**` sequences that
+// appear inside string literals or template literals (e.g.
+// `const s = "/** @return */";`), corrupting user data when the rule
+// rewrote the embedded "tag" bytes. Using the scanner guarantees that
+// only real comments enter the rule.
 func findJSDocBlocks(src string) []jsdocBlock {
   out := make([]jsdocBlock, 0)
-  for i := 0; i < len(src); i++ {
-    if !(i+2 < len(src) && src[i] == '/' && src[i+1] == '*' && src[i+2] == '*') {
-      continue
-    }
-    // Skip `/**/` — that's an empty block, no tags possible.
-    if i+3 < len(src) && src[i+3] == '/' {
-      i += 3
-      continue
-    }
-    j := i + 3
-    for j+1 < len(src) && !(src[j] == '*' && src[j+1] == '/') {
-      j++
-    }
-    if j+1 >= len(src) {
+  scanner := shimscanner.NewScanner()
+  scanner.SetText(src)
+  scanner.SetSkipTrivia(false)
+  for {
+    kind := scanner.Scan()
+    if kind == shimast.KindEndOfFile {
       break
     }
+    if kind != shimast.KindMultiLineCommentTrivia {
+      continue
+    }
+    start := scanner.TokenStart()
+    end := scanner.TokenEnd()
+    if end-start < 5 {
+      // Shorter than `/** */`, can't contain tags.
+      continue
+    }
+    if !(src[start] == '/' && src[start+1] == '*' && src[start+2] == '*') {
+      continue
+    }
+    // Skip `/**/` — an empty doc block has no tags to rewrite.
+    if end-start == 4 && src[start+3] == '/' {
+      continue
+    }
     out = append(out, jsdocBlock{
-      start:     i,
-      end:       j + 2,
-      bodyStart: i + 3,
-      bodyEnd:   j,
+      start:     start,
+      end:       end,
+      bodyStart: start + 3,
+      bodyEnd:   end - 2,
     })
-    i = j + 1
   }
   return out
 }

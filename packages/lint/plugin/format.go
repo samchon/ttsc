@@ -85,14 +85,18 @@ func runFormat(opts *subcommandOpts) int {
 }
 
 // filterFormatFindings keeps only findings produced by FormatRule
-// implementations. `RunFormat` calls this so the format-only
-// subcommand never applies lint-class edits. `RunFix`, by contrast,
-// applies every finding regardless of category — fix is the
-// run-everything entry point.
+// implementations that also carry at least one autofix edit.
+// `RunFormat` calls this so the format-only subcommand never applies
+// lint-class edits, and so a contributor format rule that reports a
+// fixable diagnostic via bare `ctx.Report` (no edits attached) does
+// not silently disappear — format mode is write-only, so a no-edit
+// finding has nothing to do here. `RunFix`, by contrast, applies
+// every finding regardless of category — fix is the run-everything
+// entry point.
 func filterFormatFindings(findings []*Finding) []*Finding {
   out := make([]*Finding, 0, len(findings))
   for _, finding := range findings {
-    if finding != nil && finding.IsFormat {
+    if finding != nil && finding.IsFormat && len(finding.Fix) > 0 {
       out = append(out, finding)
     }
   }

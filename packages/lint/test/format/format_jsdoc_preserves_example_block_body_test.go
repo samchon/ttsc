@@ -16,10 +16,10 @@ import (
 // sample. The rule fast-forwards past the example body to the next
 // top-level `@` at line start.
 //
-// 1. Parse a JSDoc block containing one synonym outside `@example`
-//    (must be rewritten) and one synonym inside (must be preserved).
-// 2. Run format/jsdoc.
-// 3. Assert exactly one finding — the synonym outside the example.
+//  1. Parse a JSDoc block containing one synonym outside `@example`
+//     (must be rewritten) and one synonym inside (must be preserved).
+//  2. Run format/jsdoc.
+//  3. Assert exactly one finding — the synonym outside the example.
 func TestFormatJSDocPreservesExampleBlockBody(t *testing.T) {
   source := "/**\n" +
     " * Outer description.\n" +

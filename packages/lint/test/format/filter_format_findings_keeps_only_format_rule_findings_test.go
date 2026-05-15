@@ -7,22 +7,28 @@ import "testing"
 //
 // `RunFormat` is the only caller of `filterFormatFindings`: it
 // short-circuits the engine's mixed finding stream to the format-rule
-// subset so `ttsc format` never applies lint-class edits. `RunFix` does
-// not filter — fix is the run-everything entry point — so the inverse
-// filter is intentionally absent. Testing the format filter alone with
-// a mixed synthetic input pins the routing contract.
+// subset with attached edits so `ttsc format` never applies lint-class
+// edits AND never drops a fixable format finding silently. `RunFix`
+// does not filter — fix is the run-everything entry point — so the
+// inverse filter is intentionally absent. Testing the format filter
+// alone with a mixed synthetic input pins both criteria.
 //
-//  1. Build a mixed finding slice with format and lint entries plus a
-//     nil sentinel.
+//  1. Build a mixed finding slice covering format-with-fix,
+//     format-without-fix, lint-with-fix, lint-without-fix, plus a nil
+//     sentinel.
 //  2. Run `filterFormatFindings`.
-//  3. Assert only format-tagged findings survive and nils are dropped.
+//  3. Assert only format-tagged findings that also carry at least one
+//     fix survive; nils and lint findings are dropped, and a format
+//     finding with no fix is also dropped (format mode is write-only).
 func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
+  withFix := []TextEdit{{Pos: 0, End: 1, Text: ""}}
   findings := []*Finding{
-    {Rule: "no-var", IsFormat: false},
-    {Rule: "format/semi", IsFormat: true},
+    {Rule: "no-var", IsFormat: false, Fix: withFix},
+    {Rule: "format/semi", IsFormat: true, Fix: withFix},
     nil,
-    {Rule: "format/quotes", IsFormat: true},
+    {Rule: "format/quotes", IsFormat: true, Fix: withFix},
     {Rule: "eqeqeq", IsFormat: false},
+    {Rule: "format/no-fix-rule", IsFormat: true}, // format but no edits
   }
   bucket := filterFormatFindings(findings)
   if len(bucket) != 2 {
@@ -34,6 +40,9 @@ func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
     }
     if !f.IsFormat {
       t.Fatalf("filter leaked a lint finding: %+v", f)
+    }
+    if len(f.Fix) == 0 {
+      t.Fatalf("filter leaked a no-fix finding: %+v", f)
     }
   }
 }
