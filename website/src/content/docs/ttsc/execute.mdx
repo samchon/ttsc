@@ -1,0 +1,88 @@
+# Execute (ttsx)
+
+`ttsx` runs a TypeScript file directly — like `tsx` or `ts-node`, but it type-checks first and applies your plugins.
+
+## Run a file
+
+```bash
+npx ttsx src/index.ts
+```
+
+`ttsx`:
+
+1. Resolves `tsconfig.json` from the current directory (or `-P path/to/tsconfig.json`).
+2. Type-checks the project, including every plugin you've configured.
+3. If the check passes, executes the script natively.
+
+Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
+
+## Pass arguments to the script
+
+Use `--` to separate `ttsx` flags from the script's own args:
+
+```bash
+npx ttsx src/server.ts -- --port 3000 --watch
+```
+
+Everything after `--` is passed through to `process.argv` unchanged.
+
+## Preload modules
+
+Same as Node's `--require`:
+
+```bash
+npx ttsx -r ./preload.ts src/index.ts
+npx ttsx -r dotenv/config src/index.ts
+```
+
+Repeatable: `-r a -r b` preloads `a` then `b`.
+
+## Pick a tsconfig
+
+```bash
+npx ttsx -P tsconfig.scripts.json src/seed.ts
+```
+
+## Flags
+
+| Flag | Meaning |
+| ---- | ------- |
+| `-P, --project <file>`   | Use an explicit `tsconfig.json`. |
+| `--cwd <dir>`            | Resolve the entrypoint and project from this directory. |
+| `--cache-dir <dir>`      | Override the runtime and source-plugin cache root. |
+| `--binary <path>`        | Use an explicit TypeScript-Go binary. |
+| `-r, --require <module>` | Preload a module before the entrypoint. Repeatable. |
+| `-h, --help`             | Show help. |
+| `-v, --version`          | Print the runner version. |
+
+## When ttsx vs ttsc
+
+| Task | Use |
+| ---- | --- |
+| One-off script, fast feedback | `ttsx src/script.ts` |
+| Build for deployment | `ttsc` |
+| Run inside CI to gate on types | `ttsc --noEmit` |
+| Run inside CI to gate on types **and** execute tests | `ttsx test/index.ts` |
+
+## ttsx vs tsx vs ts-node
+
+| | `tsx` | `ts-node` | `ttsx` |
+|-|------|-----------|--------|
+| Transpile speed | Fast | Slow | Fast |
+| Type-checks before running | No | No (by default) | Yes |
+| Plugin support | No | Custom transformers | First-class |
+| TypeScript-Go runtime | No | No | Yes |
+
+If you currently use `tsx`: switching is one command; ergonomics are the same.
+
+## Plugins and cache
+
+`ttsx` uses the same `tsconfig.json` and installed `ttsc` plugins as `ttsc`. Check plugins can stop the run before the entrypoint starts. Transform plugins run before the cached JavaScript is executed.
+
+`ttsx` writes compiled JavaScript and source-plugin binaries under its cache root for the current run. Use `--cache-dir` for an explicit location, or `npx ttsc clean` to clear the source-plugin build cache used by the shared host.
+
+## See also
+
+- [TTSC · `ttsc` CLI](/docs/ttsc/compile) — the type-check / build front of the same pipeline.
+- [Plugins](/docs/plugins) — what runs alongside the compile.
+- [Troubleshooting](/docs/troubleshooting) — runner errors.

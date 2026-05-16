@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#22d3ee" stroke-linecap="round" stroke-linejoin="round" aria-label="ttsc">
+  <!-- Favicon: same shape as logo-mark, bolder strokes, no surrounding border.
+       Optimized for 16px-32px rendering. -->
+  <path d="M8 7 L17 16 L8 25" stroke-width="4"/>
+  <path d="M14 17 L18 21 L25 12" stroke-width="4"/>
+</svg>

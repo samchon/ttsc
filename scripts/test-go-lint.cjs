@@ -1,23 +1,23 @@
 // Run the engine + config Go tests for the lint package.
 //
 // Tests live under `packages/lint/test/` and are copied next to the package's
-// Go plugin sources in a scratch module. The rule corpus is still exercised
-// end-to-end from `tests/test-lint/src/features/rules/test_*.ts`; these Go
-// tests cover engine/config internals with package-local ownership.
+// Go linthost library sources in a scratch module. The rule corpus is still
+// exercised end-to-end from `tests/test-lint/src/features/rules/test_*.ts`;
+// these Go tests cover engine/config internals with package-local ownership.
 //
 // This runner mirrors the materialization `packages/ttsc/src/source-build.ts`
 // performs at compile time:
 //
 //   1. Copy `packages/lint/` into a scratch tmpdir.
-//   2. Copy every Go file under `packages/lint/test/` into scratch/plugin.
+//   2. Copy every Go file under `packages/lint/test/` into scratch/linthost.
 //      The source tree is categorized for review, but the files are flattened
-//      in scratch because they intentionally test unexported package-main
-//      internals next to the plugin sources.
+//      in scratch because they intentionally test unexported linthost-package
+//      internals next to the library sources.
 //   3. Write a go.work that `use`s every in-tree shim, the lint
 //      package itself, and the ttsc package (the latter is required so
 //      Go workspace mode can resolve the multi-module placeholder
 //      versions the shims declare).
-//   4. Run `go test ./plugin` in the scratch dir.
+//   4. Run `go test ./linthost` in the scratch dir.
 
 const cp = require("node:child_process");
 const { createRequire } = require("node:module");
@@ -42,7 +42,7 @@ try {
     recursive: true,
     filter: (src) => !skip.has(path.basename(src)),
   });
-  copyGoTestsFlat(lintTestsDir, path.join(scratch, "plugin"));
+  copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
 
   // Discover every in-tree module the workspace needs to satisfy:
   //   - the lint package (whose tests we're running),
@@ -60,7 +60,7 @@ try {
     "utf8",
   );
 
-  const result = cp.spawnSync("go", ["test", "./plugin"], {
+  const result = cp.spawnSync("go", ["test", "./linthost"], {
     cwd: scratch,
     env: {
       ...process.env,

@@ -1,0 +1,78 @@
+# Strip debug code
+
+*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
+
+`@ttsc/strip` removes configured function calls and `debugger` statements from the emit. It's not a minifier or tree-shaker — it removes **exactly** the patterns you list, nothing else.
+
+## Install
+
+```bash
+npm install -D @ttsc/strip
+```
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "@ttsc/strip" }]
+  }
+}
+```
+
+With no extra configuration, the defaults are:
+
+- `console.log`
+- `console.debug`
+- `assert.*`
+- `debugger`
+
+So `console.log(...)` and `debugger;` disappear from your emit by default.
+
+## Custom patterns
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/strip",
+        "calls": ["logger.debug", "metrics.devOnly", "assert.*"],
+        "statements": ["debugger"]
+      }
+    ]
+  }
+}
+```
+
+- `calls` — statement-level calls. Supports a `.\*` wildcard at the end (e.g. `assert.*` matches `assert.equal`, `assert.deepStrictEqual`, …).
+- `statements` — bare statements. Currently supports `debugger`.
+
+## What "statement-level" means
+
+The plugin only strips calls that are the entire statement:
+
+```ts
+console.log("debug");        // ← removed
+const result = compute();
+console.log(result);         // ← removed
+
+const data = console.log("x"); // ← NOT removed (the call is an expression)
+```
+
+This is intentional — silently changing expressions can break code that depends on the call's return value, however unusual that is.
+
+## Use cases
+
+- **Production builds** — strip `console.log` and `debugger`, keep `console.warn` and `console.error`.
+- **Test code in published artifacts** — strip `assert.*` from the package emit if your library uses `node:assert` internally.
+- **Feature-flag tooling** — wrap dev-only code in `metrics.devOnly(...)` calls that get stripped in prod.
+
+## When not to use this
+
+If you want a real minifier (dead-code elimination, mangling, ...), use Terser or esbuild via [@ttsc/unplugin](/docs/ttsc/bundler). `@ttsc/strip` is the targeted "remove these specific patterns" pass.
+
+## See also
+
+- [Plugins](/docs/plugins) — the plugin index.
+- [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
+- [Plugin Development](/docs/plugin-development) — write your own.

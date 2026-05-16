@@ -1,0 +1,175 @@
+# Rules
+
+*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
+
+The full catalog by category. Each rule maps to an ESLint name where one exists. Severity in `lint.config.ts` is one of `"error"` (fails the build), `"warning"` (prints, exit code 0), `"off"` (skipped).
+
+If you're skimming: the `error`-severity defaults at the bottom of this page are what most projects end up with.
+
+> **Authoritative source:** the canonical rule-name union lives at [`packages/lint/src/structures/TtscLintRule.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/TtscLintRule.ts). This page documents what each rule does and when to keep it on.
+
+## Variable declarations
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-var` | Reject `var`. Use `let` or `const`. Autofixable. |
+| `prefer-const` | When a `let` is never reassigned, demand `const`. Autofixable for single declarations. |
+
+## Equality and comparison
+
+| Rule | Effect |
+| ---- | ------ |
+| `eqeqeq` | Reject `==` and `!=`. Autofixable when both operands are typed. |
+| `no-self-compare` | Reject `x === x` and friends. |
+| `no-self-assign` | Reject `x = x`, including destructured forms. |
+
+## Suggestions
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-explicit-any` | Reject `any` annotations. Typically `"warning"` during migrations. |
+| `prefer-as-const` | Reject `as Literal` when `as const` would do. Autofixable. |
+| `object-shorthand` | Reject `{ foo: foo }`. Autofixable. |
+| `no-useless-rename` | Reject `{ x: x }` in destructuring. Autofixable. |
+| `no-extra-non-null-assertion` | Reject `x!!`. Autofixable. |
+| `no-unnecessary-type-constraint` | Reject `<T extends unknown>` and similar. Autofixable. |
+| `prefer-namespace-keyword` | Use `namespace` not `module`. Autofixable. |
+
+## Strings and literals
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-useless-escape` | Reject `\.` and friends when not required. Autofixable. |
+| `no-octal` | Reject octal literals. |
+| `no-octal-escape` | Reject `\08`-style escapes. |
+| `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
+
+## Wrapper objects and prototypes
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-wrapper-object-types` | Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. |
+| `no-proto` | Reject `obj.__proto__`. |
+| `no-prototype-builtins` | Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. |
+
+## Loops
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-constant-condition` | Reject `while (true)` and other constant test expressions. |
+| `for-direction` | `for (i = 0; i < 10; i--)` → fail. |
+| `prefer-for-of` | Prefer `for..of` when the index is unused. |
+
+## Imports and exports
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-import-type-side-effects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
+| `consistent-type-imports` | Prefer `import type {}` when imports are types-only. |
+| `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
+
+## Promises and async
+
+| Rule | Effect |
+| ---- | ------ |
+| `await-thenable` | Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). |
+| `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
+| `no-promise-executor-return` | Reject `return` inside a Promise executor. |
+
+## Throw and control flow
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-throw-literal` | `throw "boom"` → fail. Use `throw new Error(...)`. |
+| `no-fallthrough` | Reject `switch` case fall-through without an explicit comment. |
+| `no-unsafe-finally` | Reject `return` / `throw` inside a `finally`. |
+
+## Parameters
+
+| Rule | Effect |
+| ---- | ------ |
+| `default-param-last` | `(req, opt = 1, req2)` → fail. |
+| `no-dupe-args` | Function declared with two parameters of the same name. |
+
+## Duplicates
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-dupe-keys` | `{ a: 1, a: 2 }`. |
+| `no-duplicate-case` | Same case label twice in a `switch`. |
+| `no-dupe-else-if` | `if (a) ... else if (a) ...`. |
+
+## Miscellaneous
+
+| Rule | Effect |
+| ---- | ------ |
+| `no-debugger` | Reject `debugger`. |
+| `no-empty` | Reject `if (x) {}`, `while (x) {}`, etc. |
+| `no-empty-function` | Reject `function f() {}`. |
+| `no-with` | Reject `with (...)`. |
+| `no-multi-assign` | Reject `a = b = 0` chains. |
+
+## Format
+
+The format rules (`format/*`) cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
+
+## A common starter set
+
+Most projects start here. Add and remove as you go.
+
+```ts
+// lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    // Variables
+    "no-var": "error",
+    "prefer-const": "error",
+
+    // Comparison
+    "eqeqeq": "error",
+    "no-self-compare": "error",
+
+    // Suggestions
+    "no-explicit-any": "warning",
+    "prefer-as-const": "error",
+    "object-shorthand": "error",
+    "no-useless-rename": "error",
+
+    // Imports
+    "no-import-type-side-effects": "error",
+    "consistent-type-imports": "error",
+
+    // Misc safety
+    "no-debugger": "error",
+    "no-throw-literal": "error",
+    "await-thenable": "error",
+
+    // Format (see /docs/lint/format)
+    "format/semi": "error",
+    "format/quotes": ["error", { prefer: "double" }],
+    "format/trailing-comma": "error",
+    "format/print-width": ["error", { printWidth: 80 }],
+  },
+} satisfies TtscLintConfig;
+```
+
+## Autofix coverage at a glance
+
+`ttsc fix` autofixes a subset. Native fixers cover:
+
+- `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`
+- `no-wrapper-object-types` (primitives only; `Object` is detection-only)
+- `prefer-as-const`, `no-useless-rename`, `object-shorthand`, `no-extra-non-null-assertion`
+- `no-unnecessary-type-constraint`, `prefer-namespace-keyword`, `no-useless-escape`
+- `no-import-type-side-effects` (hoists inline `type` modifiers)
+- `await-thenable` (type-aware — drops `await` on non-thenable operands)
+- Every format rule
+
+With an `eslint.config.*` file and ESLint installed, `ttsc fix` delegates non-native fixers to ESLint, then reloads the program.
+
+## See also
+
+- [Format rules](/docs/lint/format) — the `format/*` subset (including `format/print-width`).
+- [`ttsc fix` & `ttsc format`](/docs/lint/fix) — the autofix workflow.

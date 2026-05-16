@@ -1,4 +1,4 @@
-package main
+package linthost
 
 import (
   "encoding/json"

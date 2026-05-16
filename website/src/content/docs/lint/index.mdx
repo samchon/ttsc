@@ -1,0 +1,41 @@
+# @ttsc/lint
+
+Lint as compile errors. Format as a write operation. One plugin, one config file, one command pipeline.
+
+```text
+$ npx ttsc --noEmit
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var x = 3;
+  ~~~~~~~~~
+```
+
+A lint rule. Reported as `error TS11966`. The same `error TSxxxxx` shape your editor already underlines, your CI already gates on, and your IDE already takes you to with one click. No second tool, no second config, no second CI step.
+
+## The shape of the chapter
+
+This is a big section. Here's the order:
+
+1. [Setup](/docs/lint/setup) — install, register the plugin, write `lint.config.ts`. Five minutes.
+2. [Rules](/docs/lint/rules) — the rule catalog by category. What each rule does, when to keep it `"error"`, when to keep it `"warning"`.
+3. [Format rules](/docs/lint/format) — the `format/*` subset. Quotes, semis, trailing commas, the Wadler-style print-width reflow — the Prettier surface.
+4. [`ttsc fix` & `ttsc format`](/docs/lint/fix) — the autofix workflow. What writes back, what doesn't, what to commit.
+
+If you only have five minutes: read [Setup](/docs/lint/setup), copy the `lint.config.ts` starter from there, run `ttsc fix` once, and let the diagnostics tell you the rest.
+
+## What you get
+
+- **140 rules**, grouped by category. Most have ESLint-equivalent names. Severity per rule (`error` / `warning` / `off`).
+- **A format subset** (`format/*`) that covers Prettier's territory — semis, quotes, trailing commas, a print-width reflow. Replaces Prettier.
+- **`ttsc fix`** — applies every available autofix (lint and format) in one pass, writes results to disk, re-checks. CI then gates on the unmodified `ttsc --noEmit`.
+- **`ttsc format`** — the format-only version of fix, for projects that want reshape without lint rewrites.
+- **ESLint interop** — if `eslint.config.*` and an ESLint runtime are present, `ttsc fix` delegates to ESLint's own fixers for rules the native engine doesn't implement, then reloads. Useful during phased migrations.
+
+## What you don't get (yet)
+
+- **All ESLint plugins**. The native rule set covers the common JS/TS rules — `no-var`, `eqeqeq`, `no-explicit-any`, `prefer-const`, and 130-some more. It does **not** cover `eslint-plugin-react-hooks`, `eslint-plugin-import`, `eslint-plugin-jsx-a11y`, or other plugin-shipped rule packages. For those, keep ESLint installed alongside; ttsc will delegate.
+- **Custom rule authoring inside `@ttsc/lint`** is plugin-author territory. See [Plugin Development · Reference plugin tour](/docs/plugin-development/reference/reference-plugins) for how `@ttsc/lint` is itself written.
+
+## Next
+
+→ [Setup](/docs/lint/setup)

@@ -1,0 +1,85 @@
+# Setup
+
+Two packages, one tsconfig, and you're running `ttsc`. No global binary, no system Go, no PATH surgery.
+
+## Requirements
+
+- **Node.js** 18 or later.
+- A TypeScript project — anything with a `tsconfig.json` works.
+
+## Install
+
+```bash
+npm install -D ttsc @typescript/native-preview
+```
+
+`pnpm` / `yarn` / `bun` work the same way. Substitute `add` for `install`.
+
+`@typescript/native-preview` is the **TypeScript-Go preview** that `ttsc` runs on. It ships separately because the TypeScript team versions it independently. Pin it in your project; `ttsc` discovers it through `node_modules`.
+
+## Minimal tsconfig
+
+If you don't already have one:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
+```
+
+## First build
+
+```ts
+// src/index.ts
+function greet(name: string): string {
+  return `hello, ${name} — running on ttsc`;
+}
+
+console.log(greet("world"));
+```
+
+```bash
+npx ttsc            # build + emit to dist/
+npx ttsc --noEmit   # type-check only (CI form)
+npx ttsc --watch    # watch mode
+node dist/index.js  # run the emit
+```
+
+That's it. From here you can:
+
+- **Run a script directly** — `npx ttsx src/index.ts`. Type-checks then executes. See [Compile · Execute](/docs/ttsc/execute).
+- **Add a plugin** — start with [@ttsc/lint](/docs/lint) for lint-as-compile-errors, or [typia](/docs/plugins/typia) for runtime validators.
+- **Wire your editor** — install the VSCode extension below.
+
+## Editor (VSCode)
+
+The VSCode extension wires VSCode's TypeScript experience to `ttscserver`, so plugin diagnostics (lint, typia, your own plugins) appear live in the editor — not just at build time.
+
+> **Not yet on Marketplace.** Today: build `packages/vscode-ttsc` from the workspace (`pnpm --filter @ttsc/vscode package`) and `code --install-extension` the produced `.vsix`. Marketplace publication is tracked for v1.
+
+The extension auto-discovers `ttscserver` from your project's local `node_modules`; no global install is needed.
+
+What it adds:
+
+- `@ttsc/lint` violations underline as you type, with quick-fixes for autofixable rules.
+- Plugin code actions appear in the lightbulb menu.
+- Plugin-defined commands show up in the Command Palette.
+
+If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
+
+→ Full editor surface: [TTSC · Language Server](/docs/ttsc/lsp)
+
+## See also
+
+- [Troubleshooting](/docs/troubleshooting) — when something doesn't behave.
+- [FAQ](/docs/faq) — common questions about `ttsc`, `ttsx`, and the playground.
+- [TTSC · `ttsc` CLI reference](/docs/ttsc/compile) — every flag and subcommand.

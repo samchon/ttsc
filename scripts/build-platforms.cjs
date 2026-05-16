@@ -9,6 +9,7 @@ run(["--filter", "ttsc", "build"]);
 run(["--filter", "@ttsc/banner", "build"]);
 run(["--filter", "@ttsc/lint", "build"]);
 run(["--filter", "@ttsc/unplugin", "build"]);
+run(["--filter", "@ttsc/wasm", "build"]);
 
 for (const platformDir of listPlatformPackageDirs()) {
   console.log(`Building platform package: ${path.basename(platformDir)}`);

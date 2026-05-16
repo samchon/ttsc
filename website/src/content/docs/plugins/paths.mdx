@@ -1,0 +1,71 @@
+# Path aliases
+
+*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
+
+If your `tsconfig.json` uses `compilerOptions.paths` (e.g. `@/*` → `./src/*`), the emit will contain those alias paths verbatim — and they won't resolve at runtime. `@ttsc/paths` rewrites them into relative imports during compile.
+
+## The problem
+
+```ts
+// src/main.ts (source)
+import { value } from "@lib/value";
+```
+
+After a plain `ttsc` build:
+
+```js
+// dist/main.js (broken)
+import { value } from "@lib/value"; // ← Node can't resolve this
+```
+
+## The fix
+
+```bash
+npm install -D @ttsc/paths
+```
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lib/*": ["./src/modules/*"]
+    },
+    "plugins": [{ "transform": "@ttsc/paths" }]
+  }
+}
+```
+
+Now the emit is:
+
+```js
+// dist/main.js
+import { value } from "./modules/value.js";
+```
+
+## What it does and doesn't do
+
+- Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses.
+- Rewrites both `.js` emit and `.d.ts` declarations.
+- No separate plugin config.
+- Does *not* add `.js` extensions where they weren't already implied — Node's `NodeNext` / `Bundler` resolution should match your `module` setting.
+- Does *not* change source files — only the emit.
+
+## Common alternatives (and why this is simpler)
+
+- `tsc-alias` — post-build script. Works, but it's a second pass. `@ttsc/paths` runs inside the compile.
+- Path remapping at runtime via `tsconfig-paths/register` — adds runtime cost and a startup step. `@ttsc/paths` produces normal relative imports.
+- Custom bundler config — if a bundler owns your build, that's fine. `@ttsc/paths` is for projects that ship as plain Node packages.
+
+## Inspired by
+
+[`typescript-transform-paths`](https://github.com/LeDDGroup/typescript-transform-paths). Same goal, different compiler.
+
+## See also
+
+- [Plugins](/docs/plugins) — the plugin index.
+- [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
+- [Plugin Development](/docs/plugin-development) — write your own.
