@@ -10,6 +10,7 @@ These guides cover `ttsc` consumers, `ttsx` runtime users, bundler users, and pl
 | -------------------------------------------- | ------------------------------------------------------------------------------- |
 | Application developer using `ttsc` or `ttsx` | [Consumer Quickstart](./00-consumer-quickstart.md)                              |
 | Runtime user replacing `tsx` or `ts-node`    | [ttsx Runtime](./11-ttsx-runtime.md)                                            |
+| Editor user (LSP via ttscserver)             | [ttscserver Guide](./15-ttscserver.md) and [VSCode Extension](./16-vscode-extension.md) |
 | Bundler user                                 | [`@ttsc/unplugin`](../packages/unplugin/)                                       |
 | Transform plugin author                      | [Getting Started](./01-getting-started.md)                                      |
 | Check or lint plugin author                  | [Protocol](./02-protocol.md) and [Reference Plugins](./10-reference-plugins.md) |

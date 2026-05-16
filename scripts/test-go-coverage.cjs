@@ -34,12 +34,13 @@ function runTtscCoverage() {
       "test",
       "./cmd/platform",
       "./cmd/ttsc",
+      "./cmd/ttscserver",
       "./driver",
       "./internal/cwd",
       "./test/...",
       "./utility",
       "-covermode=atomic",
-      "-coverpkg=./cmd/platform,./cmd/ttsc,./driver,./internal/cwd,./utility",
+      "-coverpkg=./cmd/platform,./cmd/ttsc,./cmd/ttscserver,./driver,./internal/cwd,./utility",
       `-coverprofile=${unitProfile}`,
     ],
     {
@@ -55,7 +56,7 @@ function runTtscCoverage() {
     cwd: ttscDir,
     env: goEnv(),
     label: "packages/ttsc command coverage",
-    requiredPaths: ["cmd/platform/", "cmd/ttsc/"],
+    requiredPaths: ["cmd/platform/", "cmd/ttsc/", "cmd/ttscserver/"],
   });
   mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
   assertFullCoverage("packages/ttsc", coverprofile, { cwd: ttscDir });

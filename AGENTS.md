@@ -2,21 +2,23 @@
 
 ### 1.1. Product Contract
 
-`ttsc` is a standalone TypeScript-Go compiler, runtime, and plugin host. It ships two CLIs and a plugin protocol:
+`ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships three CLIs and a plugin protocol:
 
 - `ttsc` — build, check, watch, and source-to-source transform on top of `@typescript/native-preview`.
 - `ttsx` — run a TypeScript entrypoint after a real type-check (a typed `tsx`/`ts-node`).
+- `ttscserver` — Language Server Protocol host: embeds tsgo's `internal/lsp.Server` and proxies JSON-RPC traffic so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers merge into the same stream the editor consumes.
 - Plugins — Go sidecars that share TypeScript-Go's AST/Checker. `ttsc` builds plugin source on demand and caches the binary.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
 
 ### 1.2. Layout
 
-- `packages/ttsc`: JS launcher/API, Go host (`cmd`, `driver`, `internal`, `utility`), and `shim/` for TypeScript-Go internals.
+- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `driver/lsp_*.go` is the byte-level LSP proxy embedded by ttscserver and `driver.PluginSource` is the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode-ttsc`).
 - `packages/{banner,paths,strip}`: first-party utility plugins sharing `packages/ttsc/utility/host.go`.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
-- `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK).
+- `packages/vscode-ttsc`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.
+- `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
 - `tests/test-*`: feature-test packages (run via `pnpm test:features`).
 - `tests/utils`: shared helpers (`@ttsc/testing`).
