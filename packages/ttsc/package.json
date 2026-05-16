@@ -6,6 +6,7 @@
   "types": "src/index.ts",
   "bin": {
     "ttsc": "lib/launcher/ttsc.js",
+    "ttscserver": "lib/launcher/ttscserver.js",
     "ttsx": "lib/launcher/ttsx.js"
   },
   "exports": {

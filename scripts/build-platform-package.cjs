@@ -18,6 +18,10 @@ const root = path.resolve(cwd, "../..");
 const source = path.join(root, "packages", "ttsc");
 const outDir = path.join(cwd, "bin");
 const outFile = path.join(outDir, npmOs === "win32" ? "ttsc.exe" : "ttsc");
+const serverFile = path.join(
+  outDir,
+  npmOs === "win32" ? "ttscserver.exe" : "ttscserver",
+);
 const bundledGoDir = path.join(outDir, "go");
 
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -42,10 +46,24 @@ cp.execFileSync(buildGo, ["build", "-o", outFile, "./cmd/platform"], {
   stdio: "inherit",
 });
 
+console.log(`Building ${manifest.name} -> ${path.relative(root, serverFile)}`);
+cp.execFileSync(buildGo, ["build", "-o", serverFile, "./cmd/ttscserver"], {
+  cwd: source,
+  env: {
+    ...process.env,
+    CGO_ENABLED: "0",
+    GOARCH: goarch,
+    GOOS: goos,
+    PATH: pathValue,
+  },
+  stdio: "inherit",
+});
+
 embedGoToolchain();
 
 if (npmOs !== "win32") {
   fs.chmodSync(outFile, 0o755);
+  fs.chmodSync(serverFile, 0o755);
 }
 
 function resolveBuildGo() {
