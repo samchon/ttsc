@@ -18,12 +18,12 @@ import (
 // of the unexported assertion site at `rule.go::ReportFix` cannot silently
 // downgrade the call to the diagnostic-only path.
 //
-// 1. Build a fake reporter implementing Reporter + FixReporter and capture every
-//    invocation.
-// 2. Call `ctx.ReportFix` with two non-overlapping edits through a public
-//    rule.Context.
-// 3. Assert the fixReporter received both edits in order with no fallback to
-//    the diagnostic-only `Report` method.
+//  1. Build a fake reporter implementing Reporter + FixReporter and capture every
+//     invocation.
+//  2. Call `ctx.ReportFix` with two non-overlapping edits through a public
+//     rule.Context.
+//  3. Assert the fixReporter received both edits in order with no fallback to
+//     the diagnostic-only `Report` method.
 func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
   reporter := &captureReporter{}
   ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)

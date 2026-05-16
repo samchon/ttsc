@@ -457,8 +457,43 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
       if err != nil {
         return err
       }
-      if rules, ok := typed["rules"]; ok {
-        parsed, err := parseExternalRuleMapInto(rules, path+".rules", store)
+      rulesValue, hasRules := typed["rules"]
+      formatValue, hasFormat := typed["format"]
+      if hasRules || hasFormat {
+        // Expand the format block (if any) into a rules-shaped map,
+        // then overlay any explicit `rules` entries. `rules`-wins
+        // semantics match the inline path; the conflict-resolution
+        // table is identical regardless of which surface a user
+        // chose.
+        var formatRulesRaw map[string]any
+        if hasFormat {
+          fmtMap, ok := formatValue.(map[string]any)
+          if !ok {
+            return fmt.Errorf("@ttsc/lint: %s.format must be an object, got %T", path, formatValue)
+          }
+          expanded, err := expandFormatBlock(fmtMap)
+          if err != nil {
+            return err
+          }
+          formatRulesRaw = expanded
+        }
+        var rulesMap map[string]any
+        if hasRules {
+          // `parseExternalRuleMapInto` accepts the raw map directly.
+          // Coerce here to feed the same merge pipeline as the
+          // inline path.
+          typedMap, ok := rulesValue.(map[string]any)
+          if !ok {
+            return fmt.Errorf("@ttsc/lint: %s.rules must be a rule severity map, got %T", path, rulesValue)
+          }
+          rulesMap = typedMap
+        }
+        merged := mergeRuleMaps(formatRulesRaw, rulesMap)
+        if len(merged) == 0 {
+          // `format: { severity: "off" }` and no rules — drop entry.
+          return nil
+        }
+        parsed, err := parseExternalRuleMapInto(merged, path+".rules", store)
         if err != nil {
           return err
         }
@@ -561,6 +596,7 @@ func isESLintConfigObject(value map[string]any) bool {
     "basePath",
     "extends",
     "files",
+    "format",
     "ignores",
     "languageOptions",
     "linterOptions",
@@ -739,20 +775,63 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
   rulesValue, hasRules := inline["rules"]
   extendsValue, hasExtends := inline["extends"]
   legacyValue, hasLegacy := inline["config"]
+  formatValue, hasFormat := inline["format"]
 
-  if hasLegacy && (hasRules || hasExtends) {
-    return nil, fmt.Errorf("@ttsc/lint: tsconfig plugin entry mixes legacy \"config\" with the new \"rules\"/\"extends\" fields; remove \"config\" (deprecated)")
+  if hasLegacy && (hasRules || hasExtends || hasFormat) {
+    sibling := ""
+    switch {
+    case hasFormat && !hasRules && !hasExtends:
+      sibling = "format"
+    case hasExtends && !hasRules && !hasFormat:
+      sibling = "extends"
+    case hasRules && !hasExtends && !hasFormat:
+      sibling = "rules"
+    default:
+      sibling = "rules/extends/format"
+    }
+    return nil, fmt.Errorf("@ttsc/lint: tsconfig plugin entry mixes legacy \"config\" with the new %q field; remove \"config\" (deprecated)", sibling)
   }
   if hasRules && hasExtends {
     return nil, fmt.Errorf("@ttsc/lint: \"rules\" and \"extends\" cannot be combined on a single plugin entry; put base rules in the \"extends\" file and inline overrides in lint.config.ts itself")
   }
+  if hasFormat && hasExtends {
+    return nil, fmt.Errorf("@ttsc/lint: \"format\" and \"extends\" cannot be combined on a single plugin entry; put format options inside the extends-target lint.config.ts instead")
+  }
 
-  if hasRules {
-    rulesMap, ok := rulesValue.(map[string]any)
+  // Expand the format block (if any) into a rules-shaped map. The
+  // returned map is empty when `format.severity === "off"` so the
+  // downstream merge with `rules` still produces the right result.
+  var formatRulesRaw map[string]any
+  if hasFormat {
+    formatMap, ok := formatValue.(map[string]any)
     if !ok {
-      return nil, fmt.Errorf("@ttsc/lint: \"rules\" must be a rule severity map, got %T", rulesValue)
+      return nil, fmt.Errorf("@ttsc/lint: \"format\" must be an object, got %T", formatValue)
     }
-    cfg, opts, err := ParseRulesWithOptions(rulesMap)
+    expanded, err := expandFormatBlock(formatMap)
+    if err != nil {
+      return nil, err
+    }
+    formatRulesRaw = expanded
+  }
+
+  if hasRules || hasFormat {
+    // Merge format defaults with inline rule overrides; the `rules`
+    // entry wins on key collisions (more explicit surface).
+    var rulesMap map[string]any
+    if hasRules {
+      typed, ok := rulesValue.(map[string]any)
+      if !ok {
+        return nil, fmt.Errorf("@ttsc/lint: \"rules\" must be a rule severity map, got %T", rulesValue)
+      }
+      rulesMap = typed
+    }
+    merged := mergeRuleMaps(formatRulesRaw, rulesMap)
+    if len(merged) == 0 {
+      // `format: { severity: "off" }` with no `rules` field — no
+      // rules to register.
+      return InlineRuleResolver{Rules: RuleConfig{}, Options: RuleOptionsMap{}}, nil
+    }
+    cfg, opts, err := ParseRulesWithOptions(merged)
     if err != nil {
       return nil, err
     }

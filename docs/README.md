@@ -14,7 +14,7 @@ These guides cover `ttsc` consumers, `ttsx` runtime users, bundler users, and pl
 | Transform plugin author                      | [Getting Started](./01-getting-started.md)                                      |
 | Check or lint plugin author                  | [Protocol](./02-protocol.md) and [Reference Plugins](./10-reference-plugins.md) |
 | Lint rule contributor (`@ttsc/lint` plugin)  | [Reference Plugins § Authoring a Lint Rule Contributor](./10-reference-plugins.md#authoring-a-lint-rule-contributor) |
-| `@ttsc/lint` user enabling line reflow       | [format/print-width Guide](./13-format-print-width.md)                          |
+| `@ttsc/lint` user setting up formatting      | [Prettier migration cheat sheet](./14-prettier-migration.md) and [format/print-width Guide](./13-format-print-width.md) |
 | Workspace maintainer or releaser             | [Workspace Release](./12-workspace-release.md)                                  |
 
 ## Reading Order

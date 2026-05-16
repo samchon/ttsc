@@ -47,8 +47,8 @@ func TestEngineRecoversFromRulePanic(t *testing.T) {
 
 type panickingRule struct{}
 
-func (panickingRule) Name() string             { return "test/panic-bomb" }
-func (panickingRule) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+func (panickingRule) Name() string           { return "test/panic-bomb" }
+func (panickingRule) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (panickingRule) Check(_ *Context, _ *shimast.Node) {
   panic("synthetic panic for engine-recovery test")
 }

@@ -3,9 +3,9 @@ package main
 import (
   "testing"
 
+  "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
-  "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )
@@ -18,10 +18,10 @@ import (
 // trivia. A regression in the SkipTrivia call would silently include
 // preceding comments / whitespace and corrupt every fix that uses it.
 //
-// 1. Parse a source file with a comment between a `var` and its
-//    declaration list.
-// 2. Call NodeText on the VariableStatement.
-// 3. Assert the returned text starts with `var` (trivia stripped).
+//  1. Parse a source file with a comment between a `var` and its
+//     declaration list.
+//  2. Call NodeText on the VariableStatement.
+//  3. Assert the returned text starts with `var` (trivia stripped).
 func TestAstutilNodeTextStripsLeadingTrivia(t *testing.T) {
   source := "\n/* hi */ var x = 1;\n"
   file := shimparser.ParseSourceFile(

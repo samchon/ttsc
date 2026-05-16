@@ -1,3 +1,4 @@
+import type { TtscLintFormatConfig } from "./TtscLintFormatConfig";
 import type { TtscLintRuleMap } from "./TtscLintRuleMap";
 
 /** `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`. */
@@ -63,6 +64,23 @@ export interface ITtscLintPluginConfig {
    * ```
    */
   plugins?: Record<string, string>;
+
+  /**
+   * Prettier-style flat configuration for the `format/*` rules. Sibling of
+   * `rules`. See {@link TtscLintFormatConfig} for the full surface.
+   *
+   * ```jsonc
+   * {
+   *   "transform": "@ttsc/lint",
+   *   "format": { "printWidth": 100, "singleQuote": true }
+   * }
+   * ```
+   *
+   * Combines with `rules` (per-rule overrides win on collision). Cannot be
+   * combined with `extends` on the same plugin entry — put format options
+   * inside the extends-target lint.config.ts instead.
+   */
+  format?: TtscLintFormatConfig;
 
   /**
    * Inline rule map or path to a standalone lint config file.

@@ -8,13 +8,17 @@ import type { TtscLintRuleMap } from "./TtscLintRuleMap";
  * Three accepted forms, listed in expected order of preference:
  *
  * 1. **Flat-config array** — mirrors ESLint flat config exactly. Each entry can
- *    scope its rules by `files` / `ignores`, declare a `plugins` map of
- *    contributors, and configure `rules`. Multiple entries layer in order.
+ *    scope by `files` / `ignores`, declare a `plugins` map of contributors,
+ *    configure `rules`, and configure formatting through the Prettier-style
+ *    {@link TtscLintFormatConfig | `format`} block. Multiple entries layer in
+ *    order.
  * 2. **Single config object** — same shape as one flat-config entry. Useful when
- *    the project has no per-file scoping.
+ *    the project has no per-file scoping. Pass `format: { … }` here for the
+ *    smallest "describe my style" config.
  * 3. **Rules-only map** — historical shape kept for backward compat with
  *    single-file projects. `{"no-var":"error"}` is interpreted as `[{rules:
- *    {"no-var":"error"}}]`.
+ *    {"no-var":"error"}}]`. The shorthand intentionally has no slot for the
+ *    `format` block — use form (1) or (2) to enable formatting.
  *
  * The generic parameter `P` lets `defineConfig` capture the literal plugin
  * object types declared in `plugins`. When non-empty, rule-name keys

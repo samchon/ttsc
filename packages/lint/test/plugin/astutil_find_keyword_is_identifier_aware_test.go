@@ -3,9 +3,9 @@ package main
 import (
   "testing"
 
+  "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
-  "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )
@@ -17,11 +17,11 @@ import (
 // would let searches for `import` match the prefix of `importMap` and
 // route fixes to the wrong byte offset.
 //
-// 1. Parse a source containing both `import` (keyword) and `importMap`
-//    (identifier sharing the prefix).
-// 2. Call FindKeyword over the entire file looking for "import".
-// 3. Assert the returned offset is the keyword's position, not the
-//    identifier prefix.
+//  1. Parse a source containing both `import` (keyword) and `importMap`
+//     (identifier sharing the prefix).
+//  2. Call FindKeyword over the entire file looking for "import".
+//  3. Assert the returned offset is the keyword's position, not the
+//     identifier prefix.
 func TestAstutilFindKeywordIsIdentifierAware(t *testing.T) {
   source := "const importMap = {};\nimport \"x\";\n"
   file := shimparser.ParseSourceFile(

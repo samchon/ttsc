@@ -3,9 +3,9 @@ package main
 import (
   "testing"
 
+  "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
-  "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )

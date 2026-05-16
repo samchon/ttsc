@@ -118,43 +118,46 @@ npx ttsc format
 
 Applies the format-class rules and exits silently. `ttsc fix` does the same plus the lint cascade; pick `format` when you want to reshape source without lint rewrites.
 
-Built-in format rules:
-
-| Rule | Effect |
-| --- | --- |
-| `format/semi` | Insert trailing semicolons on ASI-terminated statements. |
-| `format/quotes` | Convert single-quoted strings to double quotes when safe. |
-| `format/trailing-comma` | Add trailing commas to multi-line lists. |
-| `format/sort-imports` | Group external/relative imports and alphabetize each group + its specifiers. |
-| `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). MVP rewrites tag synonyms (`@return`, `@arg`, `@desc`) to canonical names. |
-| `format/print-width` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the configured column budget. See [docs/13-format-print-width.md](https://github.com/samchon/ttsc/blob/master/docs/13-format-print-width.md). |
-
-Enable them like any other rule. The optional second tuple slot carries per-rule options typed against `TtscLintRuleOptions`:
+Configure formatting with a Prettier-style `format` block — keys mirror `.prettierrc`:
 
 ```ts
 // lint.config.ts
 import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
-  rules: {
-    "format/semi": "warning",
-    "format/quotes": ["warning", { prefer: "double" }],
-    "format/trailing-comma": ["warning", { mode: "all" }],
-    "format/sort-imports": [
-      "warning",
-      {
-        importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
-        importOrderSeparation: true,
-        importOrderSortSpecifiers: true,
-      },
-    ],
-    "format/jsdoc": "warning",
-    "format/print-width": ["warning", { printWidth: 80 }],
+  rules: { "no-var": "error" },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+    importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
   },
 } satisfies TtscLintConfig;
 ```
 
-Use `warning` for format rules: they surface unformatted code in `ttsc check` without failing the build. Raise to `error` only for rules whose fixer fully settles every diagnostic it emits — an unresolvable finding under `error` severity makes `ttsc fix` exit non-zero.
+Presence (even empty `format: {}`) enables the always-on rules at Prettier defaults. Setting `importOrder` enables `format/sort-imports`; setting `jsdoc: true` (or an options object) enables `format/jsdoc`. Omit the `format` block entirely to keep every format rule off — same as today's opt-in default.
+
+| Rule | Driven by | Effect |
+| --- | --- | --- |
+| `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
+| `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
+| `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
+| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. See [docs/13-format-print-width.md](https://github.com/samchon/ttsc/blob/master/docs/13-format-print-width.md). |
+| `format/sort-imports` | `importOrder*` | Group external/relative imports and alphabetize each group + its specifiers. |
+| `format/jsdoc` | `jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+
+`format.severity` (default `"warning"`) sets the diagnostic level for every format rule in `ttsc check`. `severity: "off"` disables every format rule AND skips its rewrite under `ttsc format` — a one-line CI escape hatch.
+
+To override a single rule's severity or options, drop a sibling `rules` entry — `rules` wins on conflict:
+
+```ts
+export default {
+  format: { semi: true },
+  rules: { "format/semi": "error" },  // bump severity for this one rule only
+} satisfies TtscLintConfig;
+```
+
+Migrating from a `.prettierrc`? See [docs/14-prettier-migration.md](https://github.com/samchon/ttsc/blob/master/docs/14-prettier-migration.md) for the field-by-field cheat sheet and the list of Prettier knobs `@ttsc/lint` does not yet support.
 
 ### Config Files
 
