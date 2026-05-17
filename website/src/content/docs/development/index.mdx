@@ -8,33 +8,33 @@ This chapter is organized in three tiers:
 
 Background you need before authoring.
 
-→ [Concepts overview](/docs/plugin-development/concepts)
+→ [Concepts overview](/docs/development/concepts)
 
-- [Plugin protocol](/docs/plugin-development/concepts/protocol) — the npm package contract and binary subcommands every `ttsc` plugin implements.
-- [AST & Checker](/docs/plugin-development/concepts/tsgo) — how TypeScript-Go exposes the AST and Checker to Go plugins.
+- [Plugin protocol](/docs/development/concepts/protocol) — the npm package contract and binary subcommands every `ttsc` plugin implements.
+- [AST & Checker](/docs/development/concepts/tsgo) — how TypeScript-Go exposes the AST and Checker to Go plugins.
 
 ## Authoring
 
 The build-and-publish path.
 
-→ [Authoring overview](/docs/plugin-development/authoring)
+→ [Authoring overview](/docs/development/authoring)
 
-- [Getting started](/docs/plugin-development/authoring/getting-started) — smallest useful transform plugin, end to end.
-- [Recipes](/docs/plugin-development/authoring/recipes) — focused patterns you can copy.
-- [Testing](/docs/plugin-development/authoring/testing) — Go unit tests + end-to-end `ttsc` fixtures.
-- [Publishing](/docs/plugin-development/authoring/publishing) — npm package shape and pre-publish checks.
-- [Local development](/docs/plugin-development/authoring/local-dev) — `go.work`, `gopls`, `go test`, pnpm notes.
+- [Getting started](/docs/development/authoring/getting-started) — smallest useful transform plugin, end to end.
+- [Recipes](/docs/development/authoring/recipes) — focused patterns you can copy.
+- [Testing](/docs/development/authoring/testing) — Go unit tests + end-to-end `ttsc` fixtures.
+- [Publishing](/docs/development/authoring/publishing) — npm package shape and pre-publish checks.
+- [Local development](/docs/development/authoring/local-dev) — `go.work`, `gopls`, `go test`, pnpm notes.
 
 ## Reference
 
 Deeper material — read as needed.
 
-→ [Reference overview](/docs/plugin-development/reference)
+→ [Reference overview](/docs/development/reference)
 
-- [Architecture](/docs/plugin-development/reference/architecture) — source-plugin build cache and Go toolchain resolution.
-- [Reference plugin tour](/docs/plugin-development/reference/reference-plugins) — guided walkthrough of `banner`, `strip`, `paths`, and `lint`, by difficulty.
-- [Pitfalls](/docs/plugin-development/reference/pitfalls) — common first-hour failures.
-- [Workspace release](/docs/plugin-development/reference/workspace-release) — repository build, test, and release flow.
+- [Architecture](/docs/development/reference/architecture) — source-plugin build cache and Go toolchain resolution.
+- [Reference plugin tour](/docs/development/reference/reference-plugins) — guided walkthrough of `banner`, `strip`, `paths`, and `lint`, by difficulty.
+- [Pitfalls](/docs/development/reference/pitfalls) — common first-hour failures.
+- [Workspace release](/docs/development/reference/workspace-release) — repository build, test, and release flow.
 
 ## How a plugin works, in one paragraph
 

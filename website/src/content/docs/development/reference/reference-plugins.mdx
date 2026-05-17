@@ -138,7 +138,7 @@ Read:
 - [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/)
 - [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
 
-Then compare the AST discussion in [AST and Checker](/docs/plugin-development/concepts/tsgo#recognizing-calls).
+Then compare the AST discussion in [AST and Checker](/docs/development/concepts/tsgo#recognizing-calls).
 
 ## `@ttsc/paths`
 
@@ -199,7 +199,7 @@ Read:
 - [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
 - [`tests/test-paths/src/features`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/)
 
-Then compare [AST and Checker](/docs/plugin-development/concepts/tsgo#recognizing-imports-and-module-specifiers).
+Then compare [AST and Checker](/docs/development/concepts/tsgo#recognizing-imports-and-module-specifiers).
 
 ## `@ttsc/lint`
 
@@ -268,7 +268,7 @@ Use this design only when you need source diagnostics or semantic analysis. For 
 
 ### Authoring a Lint Rule Contributor
 
-`@ttsc/lint` exposes a public Go module — `github.com/samchon/ttsc/packages/lint/rule` — that third-party packages import to register rules. ttsc's plugin builder statically links the contributor's Go source into `@ttsc/lint`'s binary via the protocol-level `contributors` field (see [Protocol: Contributors](/docs/plugin-development/concepts/protocol#contributors)), so contributor rules share the same single AST walk and diagnostic stream as the built-in corpus.
+`@ttsc/lint` exposes a public Go module — `github.com/samchon/ttsc/packages/lint/rule` — that third-party packages import to register rules. ttsc's plugin builder statically links the contributor's Go source into `@ttsc/lint`'s binary via the protocol-level `contributors` field (see [Protocol: Contributors](/docs/development/concepts/protocol#contributors)), so contributor rules share the same single AST walk and diagnostic stream as the built-in corpus.
 
 A contributor package has three parts:
 
@@ -519,6 +519,6 @@ Pinned by: `ttsc first-party plugins: lint, banner, paths, and strip run togethe
 
 ## See also
 
-- [Architecture](/docs/plugin-development/reference/architecture) — the build/cache pipeline behind every plugin.
-- [Pitfalls](/docs/plugin-development/reference/pitfalls) — failure modes specific to plugin authoring.
+- [Architecture](/docs/development/reference/architecture) — the build/cache pipeline behind every plugin.
+- [Pitfalls](/docs/development/reference/pitfalls) — failure modes specific to plugin authoring.
 - [@ttsc/banner](/docs/plugins/banner) — the simplest published reference plugin; consumer-side wiring is one entry in `compilerOptions.plugins`.

@@ -45,7 +45,7 @@ Honest list:
 
 - **You ship a library targeting many TS versions.** `ttsc` follows `@typescript/native-preview` — the **TypeScript-Go** preview track, not legacy 5.x. If you must compile under TS 4.x in CI, stick with `tsc` until TypeScript-Go is your minimum.
 - **You don't want plugins.** Then `tsc` and `tsx` already do the job.
-- **You have a custom transformer that uses TypeScript 5.x compiler internals.** Plugins for `ttsc` are Go programs that read the TypeScript-Go AST. Porting may be straightforward, but it's a port. Start with [Plugin Development](/docs/plugin-development/authoring/getting-started) if you need to.
+- **You have a custom transformer that uses TypeScript 5.x compiler internals.** Plugins for `ttsc` are Go programs that read the TypeScript-Go AST. Porting may be straightforward, but it's a port. Start with [Plugin Development](/docs/development/authoring/getting-started) if you need to.
 
 ## Ready?
 

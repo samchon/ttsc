@@ -96,7 +96,7 @@ export default function TtscLandingPluginsMovie() {
           </p>
           <p className="text-sm text-neutral-400 mt-5">
             <a
-              href="/docs/plugin-development"
+              href="/docs/development"
               className="underline decoration-neutral-700 underline-offset-4 hover:text-white hover:decoration-white transition-colors"
             >
               Write your own plugin →

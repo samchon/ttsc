@@ -12,7 +12,7 @@ const meta: MetaRecord = {
   wasm: "Wasm Module",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
-  "plugin-development": "Plugin Development",
+  development: "Plugin Development",
 
   "-- appendix": { type: "separator", title: "🔗 Appendix" },
   troubleshooting: "Troubleshooting",

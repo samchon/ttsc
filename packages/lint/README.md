@@ -120,7 +120,7 @@ Other npm packages can ship lint rules that compile into the same `@ttsc/lint` b
 }
 ```
 
-Authoring instructions and the public Go API live in the [Reference Plugins guide](https://ttsc.dev/docs/plugin-development/reference/reference-plugins#authoring-a-lint-rule-contributor).
+Authoring instructions and the public Go API live in the [Reference Plugins guide](https://ttsc.dev/docs/development/reference/reference-plugins#authoring-a-lint-rule-contributor).
 
 ## Sponsors
 
