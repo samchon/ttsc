@@ -24,7 +24,7 @@ const FEATURES: Feature[] = [
   {
     num: "02",
     title: "@ttsc/lint — the linter and formatter",
-    subtitle: "Replaces eslint and prettier · 140+ rules",
+    subtitle: "Replaces prettier and eslint · 140+ rules",
     description:
       "Lint violations and format diffs come out of the same compile pass, as error TSxxxxx. The format subset covers Prettier's territory (quotes, semis, trailing commas, print-width reflow). ttsc fix writes the corrections back.",
     footer: "ESLint feel · Prettier reflow · 1 pass",

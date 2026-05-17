@@ -12,7 +12,7 @@ Applies every autofix the enabled rules offer — **lint and format together** �
 
 What it does, in order:
 
-1. Loads `tsconfig.json` + `lint.config.ts`.
+1. Loads `lint.config.ts`.
 2. Type-checks the project.
 3. Runs every enabled rule. For each rule with an autofix, the fixer produces edits.
 4. Applies non-overlapping edits to source files.
@@ -39,17 +39,6 @@ npx ttsc --noEmit      # gates on zero remaining errors
 - `ttsc fix` is a one-shot project pass. It rejects `--watch`, single-file mode, and `--emit`.
 - It does not attempt to fix type errors (it's not a type-correction tool).
 - For rules without autofixers, it reports the diagnostic and moves on.
-
-### ESLint delegation
-
-If your project has an `eslint.config.*` file and ESLint is installed in `node_modules`, `ttsc fix` will:
-
-1. Run the native autofixers first.
-2. Spawn ESLint to apply ESLint's own fixers for rules `@ttsc/lint` doesn't natively implement.
-3. Re-check the rewritten code.
-4. Report remaining diagnostics.
-
-Useful during phased migrations from ESLint — keep both engines installed, retire ESLint rules one by one as native equivalents land.
 
 ## `ttsc format`
 
