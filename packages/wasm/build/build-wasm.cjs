@@ -24,7 +24,7 @@ const packageRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 const shimSrc = path.join(ttscDir, "shim");
-const vendorDir = path.join(packageRoot, "vendor");
+const vendorDir = path.join(packageRoot, "shim-vendor");
 const vendorShimDir = path.join(vendorDir, "shim");
 const outDir = path.join(packageRoot, "dist");
 const wasmOut = path.join(outDir, "ttsc.wasm");
@@ -123,7 +123,7 @@ function buildWasm() {
   );
 }
 
-// Mirror packages/ttsc/shim/* into packages/wasm/vendor/shim/* so the
+// Mirror packages/ttsc/shim/* into packages/wasm/shim-vendor/shim/* so the
 // published @ttsc/wasm tarball is self-contained: consumers extending the
 // wasm binary against the @ttsc/wasm Go module no longer need a sibling
 // `packages/ttsc/shim/` working tree. The vendored copy is checked in so
@@ -159,7 +159,7 @@ function copyTree(src, dst) {
   }
 }
 
-// Rewrite go.mod so the published copy points at ./vendor/shim/* instead of
+// Rewrite go.mod so the published copy points at ./shim-vendor/shim/* instead of
 // ../ttsc/shim/*. The `replace github.com/samchon/ttsc/packages/ttsc => ...`
 // line is dropped: consumers of the published tarball who want to compile
 // their own wasm binary must supply that module themselves (documented in
@@ -178,13 +178,13 @@ function rewritePublishedGoMod() {
     ) {
       continue;
     }
-    // Rewrite each shim replace from ../ttsc/shim/X to ./vendor/shim/X.
+    // Rewrite each shim replace from ../ttsc/shim/X to ./shim-vendor/shim/X.
     const shimMatch = trimmed.match(
       /^(github\.com\/microsoft\/typescript-go\/shim\/[A-Za-z0-9_/]+)\s+=>\s+\.\.\/ttsc\/shim\/([A-Za-z0-9_/]+)$/,
     );
     if (shimMatch) {
       const indent = line.match(/^\s*/)[0];
-      out.push(`${indent}${shimMatch[1]} => ./vendor/shim/${shimMatch[2]}`);
+      out.push(`${indent}${shimMatch[1]} => ./shim-vendor/shim/${shimMatch[2]}`);
       continue;
     }
     out.push(line);

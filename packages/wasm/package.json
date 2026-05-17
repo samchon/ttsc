@@ -11,7 +11,7 @@
     "host",
     "cmd",
     "build",
-    "vendor",
+    "shim-vendor",
     "go.mod",
     "go.sum",
     "README.md"

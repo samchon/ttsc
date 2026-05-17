@@ -69,11 +69,11 @@ jobs:
           test -f packages/wasm/dist/ttsc.wasm
           test -f packages/wasm/dist/wasm_exec.js
           test -f packages/wasm/dist/go.mod
-          test -d packages/wasm/vendor/shim
+          test -d packages/wasm/shim-vendor/shim
 
       - name: Tarball smoke (pack + inspect)
         run: |
           cd packages/wasm
           pnpm pack --pack-destination /tmp
-          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q vendor/shim/ast/shim.go
+          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q shim-vendor/shim/ast/shim.go
           tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q dist/ttsc.wasm

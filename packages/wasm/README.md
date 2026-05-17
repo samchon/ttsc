@@ -113,7 +113,7 @@ The host installs `globalThis[apiName].plugin({ name, command, ...opts })` that 
 
 The published `@ttsc/wasm` tarball ships:
 
-- A rewritten root `go.mod` whose `replace` directives point at `./vendor/shim/*` (vendored at pack time from `packages/ttsc/shim/`).
+- A rewritten root `go.mod` whose `replace` directives point at `./shim-vendor/shim/*` (vendored at pack time from `packages/ttsc/shim/`).
 - The full `host/`, `cmd/`, `build/` Go source so consumers can `go build -tags '...'` their own wasm against your host helper.
 - `dist/ttsc.wasm` + `dist/wasm_exec.js` — the no-plugin sanity binary and the Go runtime loader.
 
