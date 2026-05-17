@@ -34,7 +34,9 @@ jobs:
             exit 1
           fi
       - name: Assert @ttsc/lint tarball ships linthost/
-        run: pnpm --filter @ttsc/lint pack --pack-destination /tmp && tar -tzf /tmp/ttsc-lint-*.tgz | grep -q linthost/
+        run: |
+          (cd packages/lint && pnpm pack --pack-destination /tmp)
+          tar -tzf /tmp/ttsc-lint-*.tgz | grep -q linthost/
       - name: Publish to npm
         run: pnpm run package:latest --no-git-checks --provenance
   wasm-smoke:
