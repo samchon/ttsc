@@ -13,9 +13,9 @@ Two packages, one tsconfig, and you're running `ttsc`. No global binary, no syst
 npm install -D ttsc @typescript/native-preview
 ```
 
-`pnpm` / `yarn` / `bun` work the same way. Substitute `add` for `install`.
+`pnpm` / `yarn` / `bun` work the same way (substitute `add` for `install`).
 
-`@typescript/native-preview` is the **TypeScript-Go preview** that `ttsc` runs on. It ships separately because the TypeScript team versions it independently. Pin it in your project; `ttsc` discovers it through `node_modules`.
+`@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package — pin it in your project and `ttsc` picks it up from `node_modules`.
 
 ## Minimal tsconfig
 
@@ -62,11 +62,9 @@ That's it. From here you can:
 
 ## Editor (VSCode)
 
-The VSCode extension wires VSCode's TypeScript experience to `ttscserver`, so plugin diagnostics (lint, typia, your own plugins) appear live in the editor — not just at build time.
+The VSCode extension surfaces plugin diagnostics (lint, typia, your own plugins) live in the editor instead of only at build time.
 
-> **Not yet on Marketplace.** Today: build `packages/vscode-ttsc` from the workspace (`pnpm --filter @ttsc/vscode package`) and `code --install-extension` the produced `.vsix`. Marketplace publication is tracked for v1.
-
-The extension auto-discovers `ttscserver` from your project's local `node_modules`; no global install is needed.
+> **Not yet on Marketplace.** For now: build `packages/vscode-ttsc` from the workspace (`pnpm --filter @ttsc/vscode package`) and `code --install-extension` the produced `.vsix`. Marketplace publication is tracked for v1.
 
 What it adds:
 
@@ -75,8 +73,6 @@ What it adds:
 - Plugin-defined commands show up in the Command Palette.
 
 If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
-
-→ Full editor surface: [TTSC · Language Server](/docs/ttsc/lsp)
 
 ## See also
 

@@ -71,7 +71,7 @@ Two checks:
 
 ## VSCode doesn't show lint diagnostics live.
 
-You need the [VSCode extension](/docs/setup#editor-vscode). The vanilla TypeScript language service doesn't know about plugins; `ttscserver` is what merges plugin diagnostics into the editor stream. The extension is **not yet on Marketplace** — build `packages/vscode-ttsc` from the workspace and `code --install-extension` the produced `.vsix`.
+You need the [VSCode extension](/docs/setup#editor-vscode). The vanilla TypeScript language service doesn't know about plugins; the extension is what surfaces plugin diagnostics in the editor stream. **Not yet on Marketplace** — build `packages/vscode-ttsc` from the workspace and `code --install-extension` the produced `.vsix`.
 
 After install, look at the **Output → ttsc** panel for the server log if diagnostics still don't appear.
 

@@ -1,7 +1,5 @@
 # Path aliases
 
-*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
-
 If your `tsconfig.json` uses `compilerOptions.paths` (e.g. `@/*` → `./src/*`), the emit will contain those alias paths verbatim — and they won't resolve at runtime. `@ttsc/paths` rewrites them into relative imports during compile.
 
 ## The problem

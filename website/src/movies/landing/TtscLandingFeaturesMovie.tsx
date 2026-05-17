@@ -48,11 +48,11 @@ const FEATURES: Feature[] = [
   },
   {
     num: "05",
-    title: "Editor-aware via ttscserver",
-    subtitle: "Plugin diagnostics in your editor",
+    title: "Editor-aware out of the box",
+    subtitle: "Plugin diagnostics live in your editor",
     description:
-      "ttscserver embeds TypeScript-Go's LSP and proxies plugin diagnostics, code actions, and commands. Build the VSCode extension from packages/vscode-ttsc — Marketplace tracked for v1.",
-    footer: "LSP host · Plugin code actions",
+      "Install the VSCode extension and lint, typia, and your own plugin diagnostics underline as you type — same diagnostics the build emits. Build packages/vscode-ttsc from the workspace; Marketplace tracked for v1.",
+    footer: "Live diagnostics · Plugin code actions",
   },
   {
     num: "06",

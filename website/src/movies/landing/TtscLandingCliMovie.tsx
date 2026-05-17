@@ -38,19 +38,6 @@ const CLIS: CliCard[] = [
     ],
     href: "/docs/ttsc/execute",
   },
-  {
-    command: "ttscserver",
-    tagline: "LSP for ttsc plugins.",
-    description:
-      "Embeds TypeScript-Go's LSP and proxies plugin diagnostics, code actions, and commands into your editor — through a single stream.",
-    example: "code --install-extension <built-vsix>",
-    bullets: [
-      "Editor sees plugin diagnostics live",
-      "Plugin code actions & commands",
-      "Build `packages/vscode-ttsc`; Marketplace tracked for v1",
-    ],
-    href: "/docs/ttsc/lsp",
-  },
 ];
 
 export default function TtscLandingCliMovie() {
@@ -59,21 +46,21 @@ export default function TtscLandingCliMovie() {
       <div className="relative max-w-6xl mx-auto">
         <FadeIn className="max-w-2xl mb-16">
           <p className="text-xs font-medium tracking-[0.3em] uppercase text-neutral-600 mb-5">
-            Three CLIs · one toolchain
+            Two CLIs · one toolchain
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Build it, run it,
+            Build it
             <br />
-            <span className="text-neutral-500">teach your editor about it.</span>
+            <span className="text-neutral-500">and run it.</span>
           </h2>
           <p className="text-base text-neutral-500 leading-relaxed">
             Same plugin contract across the entire toolchain — what your build
-            sees, your runtime sees, and your editor sees.
+            sees, your runtime sees.
           </p>
         </FadeIn>
 
         <FadeIn delay={120}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {CLIS.map((cli) => (
               <a
                 key={cli.command}

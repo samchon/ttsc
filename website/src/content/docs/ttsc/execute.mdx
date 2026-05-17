@@ -77,9 +77,9 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 ## Plugins and cache
 
-`ttsx` uses the same `tsconfig.json` and installed `ttsc` plugins as `ttsc`. Check plugins can stop the run before the entrypoint starts. Transform plugins run before the cached JavaScript is executed.
+`ttsx` uses the same `tsconfig.json` and plugins as `ttsc`. If a lint or check plugin reports an error, the script never runs. Transform plugins rewrite the code before it executes.
 
-`ttsx` writes compiled JavaScript and source-plugin binaries under its cache root for the current run. Use `--cache-dir` for an explicit location, or `npx ttsc clean` to clear the source-plugin build cache used by the shared host.
+Compiled JavaScript is cached so the second run of the same script is fast. Use `--cache-dir` to override the location, or `npx ttsc clean` to wipe the cache.
 
 ## See also
 

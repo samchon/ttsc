@@ -2,7 +2,7 @@
 
 ![banner of ttsc](/og.jpg)
 
-`ttsc` is a TypeScript-Go toolchain. It's a drop-in for `tsc` built on `@typescript/native-preview`, and it lets plugins like `@ttsc/lint` and `typia` participate in the same pass — so what your editor sees, your build sees, your runtime sees, and CI sees.
+`ttsc` is a TypeScript-Go toolchain. It runs on `@typescript/native-preview` and works as a drop-in for `tsc`. Plugins like `@ttsc/lint` and `typia` run in the same pass, so your editor, your build, your runtime, and CI all see the same diagnostics.
 
 ```bash
 npm install -D ttsc @typescript/native-preview
@@ -17,18 +17,17 @@ Same `tsconfig.json` you already have. Same flags as `tsc`.
 | -- | ---- |
 | `ttsc` | The compiler. Build, type-check, watch, fix, format. |
 | `ttsx` | TypeScript runner with a real type-check. The typed replacement for `tsx` / `ts-node`. |
-| `ttscserver` | Language server. Plugin diagnostics appear live in your editor. |
 | `@ttsc/unplugin` | Same plugin pass embedded inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next, and Bun. |
 | `@ttsc/lint` | The lint engine. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
 | `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS controllers + SDK (`nestia`). |
 
 ## Reading paths
 
-- **"I just want to use it."** → [Why ttsc](/docs/why), then [Setup](/docs/setup).
+- **"I just want to use it."** → [Setup](/docs/setup).
 - **"I want lint and format as part of my build."** → [@ttsc/lint](/docs/lint). This section is large; the chapter index is the right starting point.
 - **"I want to use typia, nestia, or another third-party plugin."** → install the plugin per its own docs (e.g. [typia.io](https://typia.io)); the wiring is one line in `compilerOptions.plugins`, same as any other `ttsc` plugin.
 - **"I want a CLI reference."** → [TTSC · `ttsc` CLI reference](/docs/ttsc/compile).
-- **"I want to write my own plugin."** → [Plugin Development](/docs/development). This is the audience-walled section for plugin authors.
+- **"I want to write my own plugin."** → [Plugin Development](/docs/development). Plugin-author territory; consumers don't need it.
 - **"Something broke."** → [Troubleshooting](/docs/troubleshooting) or [FAQ](/docs/faq).
 
 ## Try it without installing
@@ -37,4 +36,4 @@ Same `tsconfig.json` you already have. Same flags as `tsc`.
 
 ## Status
 
-v1 and still moving. Treat `ttsc` as a build-time dependency in your `package.json`; do **not** declare it as a peer dependency yet.
+v1 and still moving. Install `ttsc` as a normal devDependency. If you publish a library, don't list `ttsc` as a peer dependency yet — keep it build-time only.

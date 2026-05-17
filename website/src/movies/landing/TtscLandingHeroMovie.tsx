@@ -85,12 +85,6 @@ export default function TtscLandingHeroMovie() {
               Open the playground
             </a>
             <a
-              href="/docs/why"
-              className="px-8 py-3 text-neutral-300 font-medium text-sm rounded-full transition-all duration-200 hover:text-white border border-neutral-800 hover:border-neutral-600"
-            >
-              Why ttsc
-            </a>
-            <a
               href="https://github.com/samchon/ttsc"
               target="_blank"
               rel="noopener noreferrer"
@@ -110,7 +104,7 @@ export default function TtscLandingHeroMovie() {
         <FadeIn delay={460}>
           <div className="mt-20 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 border border-neutral-800/60 rounded-2xl overflow-hidden bg-neutral-950/70">
             {[
-              { value: "3", label: "CLIs (ttsc · ttsx · ttscserver)" },
+              { value: "2", label: "CLIs (ttsc · ttsx)" },
               { value: "4", label: "First-party plugins" },
               { value: "140", label: "Lint rules" },
               { value: "9", label: "Bundlers supported" },
