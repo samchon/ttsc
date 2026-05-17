@@ -52,6 +52,17 @@ Rewrite source files in place with the `@ttsc/lint` format rules:
 npx ttsc format
 ```
 
+### Editor
+
+Install the VS Code extension to see lint and plugin diagnostics live as you type:
+
+```bash
+npm install -D @ttsc/vscode
+npx ttsc-vscode
+```
+
+See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements, settings, and uninstall.
+
 ### Bundlers
 
 Use `@ttsc/unplugin` when a bundler owns your build.
@@ -158,7 +169,7 @@ console.log(matched); // true
 `ttsc` ships a few small utility plugins in this repository.
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): reports lint violations as TypeScript compile errors.
+- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
