@@ -1,0 +1,64 @@
+name: website
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/website.yml"
+      - "config/**"
+      - "packages/**"
+      - "website/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  pull_request:
+    paths:
+      - ".github/workflows/website.yml"
+      - "config/**"
+      - "packages/**"
+      - "website/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            packages/wasm/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The website's `build:compiler` step links against
+      # `packages/wasm/dist/wasm_exec.js` and consumes `@ttsc/wasm`'s host
+      # helper, so the wasm package must be built before `next build`.
+      - name: Build @ttsc/wasm
+        run: pnpm --filter @ttsc/wasm build
+
+      - name: Build Website
+        working-directory: website
+        run: pnpm run build
+
+      - name: Deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: ./website/out
