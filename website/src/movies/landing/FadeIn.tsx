@@ -4,40 +4,38 @@ import { useEffect, useRef, useState } from "react";
 
 interface FadeInProps {
   children: React.ReactNode;
-  className?: string;
   delay?: number;
+  className?: string;
 }
 
-export default function FadeIn({
-  children,
-  className = "",
-  delay = 0,
-}: FadeInProps) {
+export default function FadeIn({ children, delay = 0, className = "" }: FadeInProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
+          setTimeout(() => setVisible(true), delay);
           observer.unobserve(entry.target);
         }
       },
       { threshold: 0.1 },
     );
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [delay]);
 
   return (
     <div
       ref={ref}
       className={className}
       style={{
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? "translateY(0)" : "translateY(20px)",
-        transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(12px)",
+        transition: "opacity 0.6s ease, transform 0.6s ease",
       }}
     >
       {children}
