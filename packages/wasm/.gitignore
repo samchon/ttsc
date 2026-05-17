@@ -6,4 +6,5 @@ lib/
 shim-vendor/
 
 # Native sanity binary built by `go build ./cmd/ttsc-wasm` outside the wasm cross-compile path.
-ttsc-wasm
+# Root-anchored so it does NOT match the cmd/ttsc-wasm/ source directory.
+/ttsc-wasm
