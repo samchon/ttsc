@@ -7,9 +7,9 @@ const meta: MetaRecord = {
 
   "-- features": { type: "separator", title: "📖 Features" },
   ttsc: "TTSC",
-  lint: "Lint",
+  lint: "Lint & Prettier",
   plugins: "Other Plugins",
-  wasm: "Wasm",
+  wasm: "Wasm Module",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
   "plugin-development": "Plugin Development",
