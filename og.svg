@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" aria-label="ttsc — TypeScript-Go toolchain">
+  <!-- Open Graph card: dark canvas, mark on the left, wordmark + tagline on the right.
+       Renders as SVG; can be rasterized to PNG by the build if needed. -->
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+
+  <!-- subtle grid (compiler-y feel) -->
+  <g stroke="#1a1a1a" stroke-width="1">
+    <path d="M0 158 H1200 M0 316 H1200 M0 474 H1200"/>
+    <path d="M300 0 V630 M600 0 V630 M900 0 V630"/>
+  </g>
+
+  <!-- accent rule -->
+  <rect x="80" y="80" width="80" height="4" fill="#22d3ee"/>
+
+  <!-- mark, 320x320 centered vertically on the left -->
+  <g transform="translate(80 175) scale(1.25)" stroke="#22d3ee" fill="none">
+    <rect x="8" y="8" width="240" height="240" rx="40" ry="40" stroke-width="6" opacity="0.18"/>
+    <path d="M70 64 L150 128 L70 192" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M118 138 L150 170 L206 102" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- wordmark + tagline -->
+  <g font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace">
+    <text x="480" y="305" font-size="156" font-weight="800" letter-spacing="-6" fill="#ffffff">ttsc</text>
+    <text x="484" y="370" font-size="28" font-weight="500" letter-spacing="0" fill="#22d3ee">TypeScript-Go toolchain</text>
+    <text x="484" y="412" font-size="26" font-weight="400" letter-spacing="0" fill="#a3a3a3">for compiler-powered plugins</text>
+  </g>
+
+  <!-- footer URL -->
+  <text x="80" y="570"
+        font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace"
+        font-size="22" font-weight="500" fill="#525252">ttsc.dev</text>
+  <text x="1120" y="570"
+        text-anchor="end"
+        font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace"
+        font-size="22" font-weight="500" fill="#525252">github.com/samchon/ttsc</text>
+</svg>
