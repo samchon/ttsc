@@ -64,40 +64,31 @@ const enqueue = <T>(fn: () => Promise<T>): Promise<T> => {
   return next;
 };
 
+// Both tsconfigs register typia's transform so the wasm-side typia plugin
+// can pick up its feature flags from the project. They only differ in
+// `module`: ESM for the "Compiled JS" preview, CommonJS for the Execute
+// sandbox (whose `new Function("require, module, exports, console", code)`
+// driver needs CJS).
+const baseCompilerOptions = {
+  target: "ESNext",
+  moduleResolution: "Bundler",
+  esModuleInterop: true,
+  forceConsistentCasingInFileNames: true,
+  strict: true,
+  skipLibCheck: true,
+  experimentalDecorators: true,
+  outDir: "dist",
+  rootDir: "src",
+  plugins: [{ transform: "typia/lib/transform" }],
+};
+
 const tsconfigJSON = JSON.stringify({
-  compilerOptions: {
-    target: "ESNext",
-    module: "ESNext",
-    moduleResolution: "Bundler",
-    esModuleInterop: true,
-    forceConsistentCasingInFileNames: true,
-    strict: true,
-    skipLibCheck: true,
-    experimentalDecorators: true,
-    outDir: "dist",
-    rootDir: "src",
-  },
+  compilerOptions: { ...baseCompilerOptions, module: "ESNext" },
   include: ["src"],
 });
 
-// projectFilesForBundle's tsconfig is identical except `module: "CommonJS"`
-// so the emitted JS uses `require`/`exports`/`module.exports` — which the
-// playground's `new Function("require, module, exports, console", code)`
-// sandbox can drive without an ESM loader.
 const tsconfigCJSJSON = JSON.stringify({
-  compilerOptions: {
-    target: "ESNext",
-    module: "CommonJS",
-    moduleResolution: "Bundler",
-    esModuleInterop: true,
-    forceConsistentCasingInFileNames: true,
-    strict: true,
-    skipLibCheck: true,
-    experimentalDecorators: true,
-    outDir: "dist",
-    rootDir: "src",
-    plugins: [{ transform: "typia/lib/transform" }],
-  },
+  compilerOptions: { ...baseCompilerOptions, module: "CommonJS" },
   include: ["src"],
 });
 
@@ -164,14 +155,31 @@ const pickEmittedJS = (
 };
 
 const runCompile = (props: IRunOptions): Promise<ICompilerService.IResult> =>
-  enqueue(() => runCompileImpl(props));
+  enqueue(() => buildWithTypia(props, projectFiles));
 
-const runCompileImpl = async (
+const runBundle = (props: IRunOptions): Promise<ICompilerService.IResult> =>
+  enqueue(() => buildWithTypia(props, projectFilesForBundle));
+
+// Both the "Compiled JS" preview and the Execute sandbox share the same
+// transform-then-build pipeline. They only differ in tsconfig: ESM for the
+// preview, CommonJS for Execute (whose sandbox driver needs CJS).
+//
+// `runBundle` used to call `runCompileImpl` after writing the transformed
+// source back to MemFS — which silently re-wrote the original (untransformed)
+// source AND swapped the tsconfig back to ESM. That meant Execute was
+// running un-typia'd ESM through a CJS-shaped harness. Unifying both paths
+// here keeps the typia output visible in the preview and actually run by
+// Execute.
+const buildWithTypia = async (
   props: IRunOptions,
+  files: (source: string) => Record<string, string>,
 ): Promise<ICompilerService.IResult> => {
   try {
     const { api, host } = await getBoot();
-    writeProject(host, projectFiles(props.source));
+    writeProject(host, files(props.source));
+    if (props.options?.typia !== false) {
+      await applyTypiaTransform(api, host);
+    }
     const raw = await api.build({ cwd: WORK_DIR, tsconfig: TSCONFIG_PATH });
     if (raw.code !== 0 && !raw.result) {
       return {
@@ -211,21 +219,15 @@ const runCompileImpl = async (
   }
 };
 
-const runBundle = (props: IRunOptions): Promise<ICompilerService.IResult> =>
-  enqueue(() => runBundleImpl(props));
-
-const runBundleImpl = async (
-  props: IRunOptions,
-): Promise<ICompilerService.IResult> => {
-  // "bundle" runs typia's transform across the project, rewrites the source
-  // files back into MemFS, then runs a CJS build so the emitted JS uses
-  // require/exports — which `new Function("require, module, exports,
-  // console", code)` can drive without an ESM loader. If typia produces no
-  // rewrite (the user didn't use `typia.is`/`typia.assert`/...) we still
-  // emit CJS so the Execute path is consistent.
+// Run typia's source-to-source transform across the project and write the
+// rewritten TS back into MemFS so the subsequent `api.build` sees it.
+// Swallows errors so the user still gets the compile diagnostics if typia
+// itself blows up.
+const applyTypiaTransform = async (
+  api: IBootResult["api"],
+  host: IBootResult["host"],
+): Promise<void> => {
   try {
-    const { api, host } = await getBoot();
-    writeProject(host, projectFilesForBundle(props.source));
     const transformRaw = await api.plugin({
       name: "typia",
       command: "transform",
@@ -233,18 +235,15 @@ const runBundleImpl = async (
       tsconfig: TSCONFIG_PATH,
       output: "ts",
     });
-    if (transformRaw.code === 0 && transformRaw.stdout) {
-      const transformed = safeParseTypiaTransform(transformRaw.stdout);
-      if (transformed) {
-        for (const [rel, text] of Object.entries(transformed.typescript)) {
-          host.writeFile(joinUnder(WORK_DIR, rel), text);
-        }
-      }
+    if (transformRaw.code !== 0 || !transformRaw.stdout) return;
+    const transformed = safeParseTypiaTransform(transformRaw.stdout);
+    if (!transformed) return;
+    for (const [rel, text] of Object.entries(transformed.typescript)) {
+      host.writeFile(joinUnder(WORK_DIR, rel), text);
     }
   } catch {
-    // fall through — the user still sees compile diagnostics
+    // user still sees compile diagnostics from the subsequent build
   }
-  return runCompileImpl(props);
 };
 
 interface ITypiaTransformOutput {
