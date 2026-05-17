@@ -23,10 +23,10 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ### Install
 
-Install the native TypeScript preview package with `ttsc`:
+Install `ttsc`, `@ttsc/lint`, and the native TypeScript preview package:
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
 ### Commands
@@ -37,12 +37,13 @@ Run TypeScript directly with `ttsx` (CLI command):
 npx ttsx src/index.ts
 ```
 
-Build, check, or watch the project with `ttsc`:
+Build, check, watch, or format the project with `ttsc`:
 
 ```bash
 npx ttsc
 npx ttsc --noEmit
 npx ttsc --watch
+npx ttsc format
 ```
 
 ### Bundlers
