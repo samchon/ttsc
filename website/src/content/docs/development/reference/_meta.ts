@@ -3,8 +3,8 @@ import type { MetaRecord } from "nextra";
 const meta: MetaRecord = {
   index: "Overview",
   architecture: "Architecture",
+  "driver-api": "Driver API",
   "reference-plugins": "Reference plugin tour",
   pitfalls: "Pitfalls",
-  "workspace-release": "Workspace release",
 };
 export default meta;

@@ -7,7 +7,17 @@ This repository ships four package-shaped plugins. Study them in this order:
 3. `@ttsc/paths`
 4. `@ttsc/lint`
 
-The order is by implementation difficulty. `strip` is easier than `paths`: `strip` only needs the source AST in front of it; `paths` needs tsconfig and Program data to map aliases through the final output layout.
+The order is by *consumer-facing* implementation difficulty. `strip` is easier than `paths`: `strip` only needs the source AST in front of it; `paths` needs tsconfig and Program data to map aliases through the final output layout.
+
+> **Where the real logic lives.** The Go sidecars for `@ttsc/banner`, `@ttsc/strip`, and `@ttsc/paths` (`packages/{banner,strip,paths}/plugin/main.go`) are each **~36-line dispatchers**. The actual banner-preamble, strip-rewriter, and paths-rewriter logic lives in **one shared file**, `packages/ttsc/utility/host.go` (~1300 LOC), which is co-hosted across the three plugins under the first-party allowlist in `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`. When you open a sidecar to "learn the strip plugin," you are reading the dispatcher; the strip-specific code is the `stripRewriter` block inside `utility/host.go`. `@ttsc/lint` is different — its real engine is `packages/lint/linthost/`.
+>
+> **Third-party plugins follow `tests/projects/go-source-plugin-checker/` instead** — a `plugin/main.go` that calls `driver.LoadProgram` directly. The 36-line first-party shim only works for the three allowlisted utility plugins (`utility.RunBuild` / `RunTransform` / `RunCheck` hard-code the names) and is not a public template.
+
+## First-party shared compiler host
+
+The first-party utility plugins (`@ttsc/banner`, `@ttsc/strip`, `@ttsc/paths`) share `packages/ttsc/utility/host.go` so they can cooperate inside one compiler pass. The JS-side gate at `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts` checks every active plugin's `name` and manifest against a closed allowlist (`FIRST_PARTY_UTILITY_PLUGIN_NAMES = { "@ttsc/banner", "@ttsc/paths", "@ttsc/strip" }`) before allowing co-hosting; any third-party plugin in the same `compilerOptions.plugins[]` mix forces a separate spawn and triggers `assertSharedHostCompatibility` (see [Pitfalls → Combining Plugins](/docs/development/reference/pitfalls#combining-plugins)).
+
+This is why a third-party plugin that imports `utility.RunBuild` / `RunTransform` / `RunCheck` compiles but silently no-ops — the helpers dispatch only on first-party plugin names. **Don't teach `utility.Run*`; call `driver.LoadProgram` directly.** See [Reference → Driver API](/docs/development/reference/driver-api) for the supported façade.
 
 ## Shared Package Shape
 
@@ -223,7 +233,7 @@ What to learn:
 - Program/Checker bootstrap for diagnostics.
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
-- Token-oriented diagnostic ranges with `shim/scanner`.
+- Token-oriented diagnostic ranges with `shimscanner.SkipTrivia(file.Text(), node.Pos())` — used by every `linthost/rules_*.go` file; the canonical idiom across the chapter.
 - Autofix text edits for selected native rules and ESLint runtime delegation.
 - Rendering lint diagnostics beside TypeScript-Go diagnostics.
 
@@ -287,7 +297,7 @@ A contributor package has three parts:
     export default plugin;
     ```
 
-2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`. The Go package name is the user-facing namespace with hyphens replaced by underscores (`react-hooks` → `package react_hooks`); the namespace itself accepts `/^[a-z][a-z0-9_-]*$/`:
+2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`. Contributors are intentionally constrained to **packages, not modules**, so they link into the host module's dependency graph and cannot pull in arbitrary transitive dependencies the host did not approve. This is explicit anti-supply-chain hardening: a contributor that ships its own `go.mod` is rejected with the error in [Pitfalls → Contributor ships its own `go.mod`](/docs/development/reference/pitfalls#contributor-merge-failures). If you need an external dependency, declare it in the host plugin's `go.mod`; contributors share that dependency graph. The Go package name is the user-facing namespace with hyphens replaced by underscores (`react-hooks` → `package react_hooks`); the namespace itself accepts `/^[a-z][a-z0-9_-]*$/`:
 
     ```go
     package demo

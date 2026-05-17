@@ -2,16 +2,24 @@
 
 For plugin authors — people writing **new** `ttsc` plugins. If you just want to use existing plugins like `@ttsc/lint` or `typia`, you don't need this section — wire the plugin into `compilerOptions.plugins` per its own README and skip ahead.
 
+> **Reading order for first-time authors:**
+> (1) [Concepts overview](/docs/development/concepts) — the two-halves model, vocabulary, stages, auto-discovery (5 min).
+> (2) [Authoring → Getting started](/docs/development/authoring/getting-started) — the Hello plugin: bootstrap, printer round-trip, no mutation.
+> (3) [Reference → Pitfalls](/docs/development/reference/pitfalls) — skim before you build so the common first-hour failures are recognizable.
+> (4) [Authoring → End-to-end transform](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation.
+> (5) [Authoring → Testing](/docs/development/authoring/testing) and [Publishing](/docs/development/authoring/publishing) — after your first plugin runs.
+> Skip [Reference → Architecture](/docs/development/reference/architecture) on the first pass; come back when you need to debug a build.
+
 This chapter is organized in three tiers:
 
 ## Concepts
 
 Background you need before authoring.
 
-→ [Concepts overview](/docs/development/concepts)
+→ [Concepts overview](/docs/development/concepts) — two-halves model, stage/subcommand matrix, auto-discovery rule, AST-vs-Checker decision tree, glossary.
 
-- [Plugin protocol](/docs/development/concepts/protocol) — the npm package contract and binary subcommands every `ttsc` plugin implements.
-- [AST & Checker](/docs/development/concepts/tsgo) — how TypeScript-Go exposes the AST and Checker to Go plugins.
+- [Plugin protocol](/docs/development/concepts/protocol) — the npm package contract, binary subcommands, `--plugins-json` shape, `composes`/`contributors`, exit codes.
+- [AST & Checker](/docs/development/concepts/tsgo) — how TypeScript-Go exposes the AST and Checker to Go plugins. `driver.LoadProgram`, printer round-trip, the leaf-text synthesize-flag invariant.
 
 ## Authoring
 
@@ -19,11 +27,12 @@ The build-and-publish path.
 
 → [Authoring overview](/docs/development/authoring)
 
-- [Getting started](/docs/development/authoring/getting-started) — smallest useful transform plugin, end to end.
-- [Recipes](/docs/development/authoring/recipes) — focused patterns you can copy.
-- [Testing](/docs/development/authoring/testing) — Go unit tests + end-to-end `ttsc` fixtures.
-- [Publishing](/docs/development/authoring/publishing) — npm package shape and pre-publish checks.
-- [Local development](/docs/development/authoring/local-dev) — `go.work`, `gopls`, `go test`, pnpm notes.
+- [Getting started](/docs/development/authoring/getting-started) — the Hello plugin: bootstrap, printer round-trip, no AST mutation.
+- [End-to-end transform](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation (`debugger` removal).
+- [Editor setup](/docs/development/authoring/local-dev) — `go.work`, `gopls`, pnpm notes. Set up before you import a shim.
+- [Recipes](/docs/development/authoring/recipes) — copyable patterns (auto-discovery, lint diagnostics, leaf-text mutation, toolchain re-spawn).
+- [Testing](/docs/development/authoring/testing) — Go unit + e2e fixtures, AGENTS.md §2.2 shape, `tests/projects/` exemplar.
+- [Publishing](/docs/development/authoring/publishing) — npm package shape, `peerDependencies`, Pre-Publish Check CI recipe.
 
 ## Reference
 
@@ -31,35 +40,37 @@ Deeper material — read as needed.
 
 → [Reference overview](/docs/development/reference)
 
-- [Architecture](/docs/development/reference/architecture) — source-plugin build cache and Go toolchain resolution.
+- [Architecture](/docs/development/reference/architecture) — source-plugin build cache, cache-key inputs, build environment, Go toolchain resolution.
+- [Driver API](/docs/development/reference/driver-api) — the Go façade plugin authors should call (`LoadProgram`, `Program`, `NewLintDiagnostic`, `EmitAllRaw`, `RewriteSet`, `ApplySourcePreamble`).
 - [Reference plugin tour](/docs/development/reference/reference-plugins) — guided walkthrough of `banner`, `strip`, `paths`, and `lint`, by difficulty.
-- [Pitfalls](/docs/development/reference/pitfalls) — common first-hour failures.
-- [Workspace release](/docs/development/reference/workspace-release) — repository build, test, and release flow.
+- [Pitfalls](/docs/development/reference/pitfalls) — common first-hour failures with exact host error strings.
+
+→ Maintainer-facing release flow lives under [Contributing → Workspace release](/docs/contributing/workspace-release).
 
 ## How a plugin works, in one paragraph
 
-A `ttsc` plugin is an npm package with two halves: a **JS descriptor** that lives in the consumer's `node_modules` and tells `ttsc` what the plugin does, and a **Go transform** that holds the actual logic. The Go transform reads the TypeScript-Go AST, queries the Checker, then either reports diagnostics or rewrites emit. It compiles once into a binary the first time it's used, and the binary is cached. Plugins run **everywhere** `ttsc` runs — CLI, `ttsx`, `ttscserver`, every `@ttsc/unplugin` bundler adapter. One contract, one config (`tsconfig.json`'s `compilerOptions.plugins`).
+A `ttsc` plugin is an npm package with two halves: a **JS descriptor** that lives in the consumer's `node_modules` and tells `ttsc` what the plugin does, and a **Go sidecar** that holds the actual logic. The Go sidecar reads the TypeScript-Go AST, queries the Checker, then either reports diagnostics or rewrites emit. It compiles once into a binary the first time it is used, and the binary is **cached** by ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, and the Go build environment. Plugins run **everywhere** `ttsc` runs — CLI, `ttsx`, `ttscserver`, every `@ttsc/unplugin` bundler adapter. One contract, one config (`tsconfig.json`'s `compilerOptions.plugins`); a `package.json#ttsc.plugin` field on a directly-listed dependency adds **auto-discovery** as a package-side fallback. See [Concepts](/docs/development/concepts) for the canonical vocabulary.
 
 ## Real code to read
 
-Each first-party plugin is small enough to read end-to-end. Start with `banner`.
+Each first-party plugin is small enough to read end-to-end — but note the three transform sidecars are 36-line dispatchers over a shared `packages/ttsc/utility/host.go`, gated by a first-party allowlist. Start with `banner` for consumer behavior; for the third-party plugin shape, see `tests/projects/go-source-plugin-checker/`.
 
-- [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner) — smallest transform plugin.
-- [`packages/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip) — source transform with statement removal.
-- [`packages/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths) — transform with tsconfig parsing and Program-backed path resolution.
-- [`packages/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint) — diagnostics plugin with Program/Checker access.
+- [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner) — smallest transform plugin (shared-host dispatcher).
+- [`packages/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip) — source transform with statement removal (shared-host dispatcher).
+- [`packages/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths) — transform with tsconfig parsing and Program-backed path resolution (shared-host dispatcher).
+- [`packages/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint) — diagnostics plugin with Program/Checker access; real third-party-shaped plugin.
 
-Test fixtures that bootstrap a Program for you:
+Test fixtures that bootstrap a Program for you (these are the shape third-party plugins follow):
 
 - [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker) — minimal Program/Checker setup.
 - [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties) — AST traversal fixture.
 
 ## Status
 
-v1 protocol, still moving. Don't publish `ttsc` as a peer dependency yet — treat it as a build-time-only dependency.
+v1 protocol, still moving. Don't publish `ttsc` as a peer dependency yet — treat it as a build-time-only dependency. The driver surface (`packages/ttsc/driver/`) is the closest thing to a stable plugin SDK; symbols documented in [Reference → Driver API](/docs/development/reference/driver-api) survive a normal release cycle.
 
 ## Requirements
 
-- Node.js 18+
-- Go 1.22+ (for `go test` / `go vet`)
+- Node.js 18+ — install from [nodejs.org/download](https://nodejs.org/en/download) if you don't have it.
+- Go 1.22+ for direct `go test` / `go vet` against your plugin — install from [go.dev/dl](https://go.dev/dl/). `ttsc`'s bundled toolchain (shipped in the platform package) is what actually builds plugins on consumer machines; a system Go is only needed for local-dev workflows. The first-party plugins (and the `go.mod` examples in this chapter) target `go 1.26` because that is the bundled SDK; the bundled toolchain satisfies the `go` directive regardless of your system Go version.
 - A consumer test fixture with `ttsc` and `@typescript/native-preview` installed.

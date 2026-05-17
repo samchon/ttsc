@@ -1,42 +1,44 @@
-# Getting Started: Smallest Useful Transform Plugin
+# Getting Started: Hello Plugin
 
-This page builds a source transform plugin that removes `debugger` statements from TypeScript AST before TypeScript-Go emits JavaScript and declarations.
+This page builds the smallest plugin that proves the `ttsc` plumbing works: a `transform`-stage sidecar that walks every TypeScript source file, prints it back through tsgo's printer, and returns the JSON envelope to the host. No AST mutation, no Checker — just the bootstrap.
 
-After this works, compare it with the shipped [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip/) and [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) plugins.
+> **Stuck on the first build?** Jump to [Pitfalls](/docs/development/reference/pitfalls) before debugging. The most common first-hour failures (cache, pnpm linker, missing platform package, `name` mismatch) are catalogued there.
+
+When this Hello plugin runs end to end, move on to [End-to-end source-transform plugin](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation (`debugger` removal) and the bug fixes that come with it.
 
 ## 1. Create the Package
 
 ```text
-ttsc-plugin-debugger-strip/
-|- package.json
-|- plugin.cjs
-`- go-plugin/
-   |- go.mod
-   `- main.go
+ttsc-plugin-hello/
+├── package.json
+├── plugin.cjs
+└── plugin/
+    ├── go.mod
+    └── main.go
 ```
 
 `package.json`:
 
 ```json
 {
-  "name": "ttsc-plugin-debugger-strip",
+  "name": "ttsc-plugin-hello",
   "version": "0.1.0",
   "main": "plugin.cjs",
   "ttsc": {
     "plugin": {
-      "transform": "ttsc-plugin-debugger-strip"
+      "transform": "ttsc-plugin-hello"
     }
   },
-  "files": ["plugin.cjs", "go-plugin"],
+  "files": ["plugin.cjs", "plugin"],
   "engines": {
     "node": ">=18"
   }
 }
 ```
 
-The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published plugin manifests keep `ttsc` and `@typescript/native-preview` out of package dependencies; the consumer project supplies the active host and TypeScript-Go runtime.
+The `files` field includes the Go source because `ttsc` builds it on the consumer machine. **The `name` field is load-bearing.** `ttsc`'s auto-discovery matches the consumer's `dependencies` / `devDependencies` entry string against this `name` exactly — if they differ, ttsc loads nothing and silently emits unchanged.
 
-`ttsc.plugin` is a package-level auto-discovery marker. `ttsc` reads it only from packages listed directly in the nearest consumer `package.json` at or above the selected project. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
+`ttsc.plugin` is the auto-discovery marker. `ttsc` reads it only from packages listed directly in the nearest consumer `package.json`. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority. See [Concepts → Auto-discovery vs explicit plugin entries](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
 
 ## 2. Write the Descriptor
 
@@ -45,311 +47,193 @@ The `files` field includes the Go source because `ttsc` builds it on the consume
 ```js
 const path = require("node:path");
 
-module.exports = function createDebuggerStripPlugin() {
+module.exports = function createHelloPlugin() {
   return {
-    name: "ttsc-plugin-debugger-strip",
-    source: path.resolve(__dirname, "go-plugin"),
+    name: "ttsc-plugin-hello",
+    source: path.resolve(__dirname, "plugin"),
     stage: "transform",
   };
 };
 ```
 
-Important fields:
-
-- `name`: human-readable plugin name for errors and logs.
-- `source`: Go command package directory.
-- `stage: "transform"`: participate in the TypeScript-Go transform path.
-
-There is no `output` stage. Generated JavaScript text is not the plugin API.
+- `name` — human-readable name shown in errors and logs.
+- `source` — Go command package directory. Absolute, derived from `__dirname`.
+- `stage: "transform"` — participate in the AST transform path. The host will spawn `transform` and `build` subcommands.
 
 ## 3. Write the Go Module
 
-`go-plugin/go.mod`:
+`plugin/go.mod`:
 
 ```text
-module ttsc-plugin-debugger-strip
+module ttsc-plugin-hello
 
 go 1.26
 
 require (
-	github.com/samchon/ttsc/packages/ttsc v0.0.0
-	github.com/microsoft/typescript-go/shim/ast v0.0.0
+    github.com/samchon/ttsc/packages/ttsc v0.0.0
+    github.com/microsoft/typescript-go/shim/printer v0.0.0
 )
 ```
 
-`ttsc` supplies these `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. Add a `require` line for every shim package your plugin imports. Host-managed module paths stay on the `ttsc` overlay; plugin-specific helper packages live under the plugin's own module path.
+`ttsc` supplies the `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. The `go 1.26` directive matches the bundled toolchain that ships with `ttsc`; you do not need a system Go install at that version because the bundled SDK satisfies the directive at build time. For local editor support (`gopls`, `go test` directly), see [Local development](/docs/development/authoring/local-dev).
 
 ## 4. Implement the Plugin Commands
 
-`go-plugin/main.go`:
+`plugin/main.go`:
 
 ```go
 package main
 
 import (
-	"encoding/json"
-	"flag"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+    "encoding/json"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+    shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+    "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-type options struct {
-	cwd      string
-	emit     bool
-	noEmit   bool
-	outDir   string
-	tsconfig string
-}
-
 type transformResult struct {
-	Diagnostics []any             `json:"diagnostics,omitempty"`
-	TypeScript  map[string]string `json:"typescript"`
+    Diagnostics []any             `json:"diagnostics,omitempty"`
+    TypeScript  map[string]string `json:"typescript"`
 }
 
 func main() {
-	os.Exit(run(os.Args[1:]))
-}
-
-func run(args []string) int {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "ttsc-plugin-debugger-strip: command required")
-		return 2
-	}
-	switch args[0] {
-	case "version", "-v", "--version":
-		fmt.Fprintln(os.Stdout, "ttsc-plugin-debugger-strip 0.1.0")
-		return 0
-	case "check":
-		return 0
-	case "transform":
-		return runTransform(args[1:])
-	case "build":
-		return runBuild(args[1:])
-	default:
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: unknown command %q\n", args[0])
-		return 2
-	}
-}
-
-func runBuild(args []string) int {
-	opts, ok := parseOptions("build", args)
-	if !ok {
-		return 2
-	}
-	prog, ok := loadProgram(opts)
-	if !ok {
-		return 2
-	}
-	defer prog.Close()
-	stripProgram(prog)
-	if opts.noEmit {
-		return 0
-	}
-	_, emitDiags, err := prog.EmitAllRaw(nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: emit failed: %v\n", err)
-		return 3
-	}
-	for _, diag := range emitDiags {
-		fmt.Fprintln(os.Stderr, diag.String())
-	}
-	if len(emitDiags) > 0 {
-		return 2
-	}
-	return 0
+    if len(os.Args) < 2 {
+        fmt.Fprintln(os.Stderr, "ttsc-plugin-hello: command required")
+        os.Exit(2)
+    }
+    switch os.Args[1] {
+    case "version", "-v", "--version":
+        fmt.Println("ttsc-plugin-hello 0.1.0")
+    case "check":
+        // Transform-stage plugins receive "check" with no-op semantics.
+    case "transform":
+        os.Exit(runTransform(os.Args[2:]))
+    case "build":
+        os.Exit(runBuild(os.Args[2:]))
+    default:
+        fmt.Fprintf(os.Stderr, "ttsc-plugin-hello: unknown command %q\n", os.Args[1])
+        os.Exit(2)
+    }
 }
 
 func runTransform(args []string) int {
-	opts, ok := parseOptions("transform", args)
-	if !ok {
-		return 2
-	}
-	prog, ok := loadProgram(opts)
-	if !ok {
-		return 2
-	}
-	defer prog.Close()
-	stripProgram(prog)
-	out := transformResult{TypeScript: map[string]string{}}
-	for _, file := range prog.SourceFiles() {
-		out.TypeScript[outputKey(opts.cwd, file.FileName())] = file.Text()
-	}
-	data, err := json.Marshal(out)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: transform marshal failed: %v\n", err)
-		return 3
-	}
-	fmt.Fprintln(os.Stdout, string(data))
-	return 0
+    cwd, tsconfig := readFlags(args)
+    prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "ttsc-plugin-hello: %v\n", err)
+        return 2
+    }
+    defer prog.Close()
+
+    printer := shimprinter.NewPrinter(
+        shimprinter.PrinterOptions{},
+        shimprinter.PrintHandlers{},
+        nil,
+    )
+    out := transformResult{TypeScript: map[string]string{}}
+    for _, file := range prog.SourceFiles() {
+        if file == nil || file.IsDeclarationFile {
+            continue
+        }
+        out.TypeScript[outputKey(cwd, file.FileName())] = shimprinter.EmitSourceFile(printer, file)
+    }
+    data, err := json.Marshal(out)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "ttsc-plugin-hello: marshal failed: %v\n", err)
+        return 3
+    }
+    fmt.Println(string(data))
+    return 0
 }
 
-func parseOptions(command string, args []string) (options, bool) {
-	fs := flag.NewFlagSet(command, flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	cwd := fs.String("cwd", "", "project directory")
-	emit := fs.Bool("emit", false, "force emit")
-	noEmit := fs.Bool("noEmit", false, "force no emit")
-	outDir := fs.String("outDir", "", "emit directory override")
-	tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
-	_ = fs.String("plugins-json", "", "ttsc plugin metadata")
-	_ = fs.Bool("quiet", true, "suppress summary")
-	_ = fs.Bool("verbose", false, "print summary")
-	if err := fs.Parse(filterHostArgs(args, fs)); err != nil {
-		return options{}, false
-	}
-
-	root := *cwd
-	if root == "" {
-		var err error
-		root, err = os.Getwd()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return options{}, false
-		}
-	}
-	if !filepath.IsAbs(root) {
-		abs, err := filepath.Abs(root)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return options{}, false
-		}
-		root = abs
-	}
-	return options{
-		cwd:      filepath.Clean(root),
-		emit:     *emit,
-		noEmit:   *noEmit,
-		outDir:   *outDir,
-		tsconfig: *tsconfig,
-	}, true
+func runBuild(args []string) int {
+    cwd, tsconfig := readFlags(args)
+    prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "ttsc-plugin-hello: %v\n", err)
+        return 2
+    }
+    defer prog.Close()
+    if _, emitDiags, err := prog.EmitAllRaw(nil); err != nil {
+        fmt.Fprintf(os.Stderr, "ttsc-plugin-hello: emit failed: %v\n", err)
+        return 3
+    } else if len(emitDiags) > 0 {
+        for _, d := range emitDiags {
+            fmt.Fprintln(os.Stderr, d.String())
+        }
+        return 2
+    }
+    return 0
 }
 
-func filterHostArgs(args []string, fs *flag.FlagSet) []string {
-	out := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		name, hasValue, ok := flagName(arg)
-		if !ok {
-			out = append(out, arg)
-			continue
-		}
-		if fs.Lookup(name) == nil {
-			if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-				i++
-			}
-			continue
-		}
-		out = append(out, arg)
-		if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-			out = append(out, args[i+1])
-			i++
-		}
-	}
-	return out
-}
-
-func flagName(arg string) (string, bool, bool) {
-	if !strings.HasPrefix(arg, "-") || arg == "-" || arg == "--" {
-		return "", false, false
-	}
-	name := strings.TrimLeft(arg, "-")
-	if name == "" {
-		return "", false, false
-	}
-	if idx := strings.IndexByte(name, '='); idx >= 0 {
-		return name[:idx], true, true
-	}
-	return name, false, true
-}
-
-func loadProgram(opts options) (*driver.Program, bool) {
-	prog, parseDiags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
-		ForceEmit:   opts.emit,
-		ForceNoEmit: opts.noEmit,
-		OutDir:      opts.outDir,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ttsc-plugin-debugger-strip: %v\n", err)
-		return nil, false
-	}
-	if len(parseDiags) > 0 {
-		driver.WritePrettyDiagnostics(os.Stderr, parseDiags, opts.cwd)
-		prog.Close()
-		return nil, false
-	}
-	if diags := prog.Diagnostics(); len(diags) > 0 {
-		driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
-		prog.Close()
-		return nil, false
-	}
-	return prog, true
-}
-
-func stripProgram(prog *driver.Program) {
-	for _, file := range prog.SourceFiles() {
-		removeDebuggers(file.Statements)
-	}
+// readFlags is a minimal parser: it reads --cwd and --tsconfig in equals form
+// and ignores every other host flag. The end-to-end page upgrades this to a
+// table-driven version that handles space-form values too.
+func readFlags(args []string) (cwd, tsconfig string) {
+    tsconfig = "tsconfig.json"
+    for _, a := range args {
+        switch {
+        case strings.HasPrefix(a, "--cwd="):
+            cwd = strings.TrimPrefix(a, "--cwd=")
+        case strings.HasPrefix(a, "--tsconfig="):
+            tsconfig = strings.TrimPrefix(a, "--tsconfig=")
+        }
+    }
+    if cwd == "" {
+        cwd, _ = os.Getwd()
+    }
+    if !filepath.IsAbs(tsconfig) {
+        tsconfig = filepath.Join(cwd, tsconfig)
+    }
+    return cwd, tsconfig
 }
 
 func outputKey(cwd, fileName string) string {
-	rel, err := filepath.Rel(cwd, fileName)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return filepath.ToSlash(fileName)
-	}
-	return filepath.ToSlash(rel)
-}
-
-func removeDebuggers(list *shimast.NodeList) {
-	if list == nil || len(list.Nodes) == 0 {
-		return
-	}
-	out := list.Nodes[:0]
-	for _, stmt := range list.Nodes {
-		if stmt.Kind == shimast.KindDebuggerStatement {
-			continue
-		}
-		removeDebuggersFromChildren(stmt)
-		out = append(out, stmt)
-	}
-	list.Nodes = out
-}
-
-func removeDebuggersFromChildren(node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	if node.CanHaveStatements() {
-		removeDebuggers(node.StatementList())
-	}
-	node.ForEachChild(func(child *shimast.Node) bool {
-		removeDebuggersFromChildren(child)
-		return false
-	})
+    rel, err := filepath.Rel(cwd, fileName)
+    if err != nil || strings.HasPrefix(rel, "..") {
+        return filepath.ToSlash(fileName)
+    }
+    return filepath.ToSlash(rel)
 }
 ```
 
 What matters:
 
-- The plugin changes TypeScript AST, not emitted text.
-- `driver.LoadProgram` lets TypeScript-Go parse and typecheck the real project.
-- `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map printing after the AST mutation.
-- Optional flags are accepted even when unused. Future `ttsc` minors may add more optional flags.
+- The plugin calls `driver.LoadProgram` — the canonical bootstrap. See [Reference → Driver API](/docs/development/reference/driver-api).
+- `shimprinter.EmitSourceFile` renders each `*SourceFile` back to text. This is the *only* way to surface AST changes through the `transform` subcommand — the host treats the value at each `typescript[path]` as opaque text and does not re-render.
+- `defer prog.Close()` releases the leased checker back to the pool. Without it, subsequent loads stall.
+- `runBuild` uses `prog.EmitAllRaw(nil)` to let tsgo own JavaScript, declaration, and source-map printing.
+- The `version` subcommand is a smoke verb (`go run ./plugin version`); the host never invokes it.
+- The `default` case rejects unknown commands with exit 2 — including `fix` / `format`, which the host only spawns on `stage: "check"` plugins.
 
 ## 5. Use It
 
 Consumer install:
 
 ```bash
-npm i -D ttsc @typescript/native-preview /path/to/ttsc-plugin-debugger-strip
+npm i -D ttsc @typescript/native-preview /path/to/ttsc-plugin-hello
 ```
 
-Consumer `tsconfig.json`:
+Consumer `package.json`:
+
+```json
+{
+  "name": "hello-consumer",
+  "private": true,
+  "devDependencies": {
+    "ttsc": "^0.11.0",
+    "@typescript/native-preview": "^0.4.0",
+    "ttsc-plugin-hello": "0.1.0"
+  }
+}
+```
+
+Consumer `tsconfig.json` — use the explicit form so the wiring is unambiguous:
 
 ```jsonc
 {
@@ -359,16 +243,17 @@ Consumer `tsconfig.json`:
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
+    "plugins": [{ "transform": "ttsc-plugin-hello" }]
   },
-  "include": ["src"],
+  "include": ["src"]
 }
 ```
+
+Auto-discovery via the consumer's `package.json#dependencies` works too (see [Recipes → Auto-discovery](/docs/development/authoring/recipes#auto-discovery)), but the explicit form mirrors every fixture under `tests/projects/` and removes one silent-no-load failure mode for first-time authors.
 
 Consumer `src/main.ts`:
 
 ```ts
-debugger;
-
 export const value = 1;
 ```
 
@@ -378,8 +263,16 @@ Run:
 npx ttsc --emit
 ```
 
-The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes. The emitted `dist/main.js` should contain `value` but not the `debugger` statement.
+The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes. `dist/main.js` should contain `export const value = 1` rendered through tsgo.
 
-## Next Step
+## 6. Verify with a Test
 
-For production-quality versions of this shape, read [`packages/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip/) and [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/). For copyable helper patterns, use [Recipes](/docs/development/authoring/recipes). If the build fails, check [Pitfalls](/docs/development/reference/pitfalls). For deeper AST and checker work, continue to [AST and Checker](/docs/development/concepts/tsgo).
+End the cycle with a real test that asserts on observable output — every regression in this repo follows the [AGENTS.md §2.2 testing shape](/docs/development/authoring/testing#doc-comment--one-case-per-file). One Go unit test for the pure transform logic, one end-to-end test that spawns `ttsc` against a fixture. See [Testing](/docs/development/authoring/testing) for the full pattern.
+
+## Next
+
+→ [End-to-end source-transform plugin](/docs/development/authoring/end-to-end) — the next exercise: the same shape with `debugger` removal via real AST mutation.
+
+→ [Recipes](/docs/development/authoring/recipes) — copyable patterns (auto-discovery, `driver.NewLintDiagnostic`, leaf-text mutation invariant, re-spawning `ttsx` / `tsgo`).
+
+→ [AST & Checker](/docs/development/concepts/tsgo) — when you need to inspect node kinds, walk the tree, or query types.

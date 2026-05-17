@@ -1,26 +1,58 @@
 # Recipes
 
-Short patterns for common plugin work. There is no high-level Go helper package yet; these snippets are the current reusable surface.
+Short patterns for common plugin work. Copy what fits; ignore the rest. For the canonical bootstrap call into `driver.LoadProgram` see [Getting started](/docs/development/authoring/getting-started); for the curated Go-side surface see [Reference → Driver API](/docs/development/reference/driver-api).
 
 ## Read Options from `--plugins-json`
 
 ```go
 type PluginEntry struct {
-	Config map[string]any `json:"config"`
-	Name   string         `json:"name"`
-	Stage  string         `json:"stage"`
+    Config map[string]any `json:"config"`
+    Name   string         `json:"name"`
+    Stage  string         `json:"stage"`
 }
 
 func parsePlugins(text string) ([]PluginEntry, error) {
-	var entries []PluginEntry
-	if err := json.Unmarshal([]byte(text), &entries); err != nil {
-		return nil, err
-	}
-	return entries, nil
+    var entries []PluginEntry
+    if err := json.Unmarshal([]byte(text), &entries); err != nil {
+        return nil, err
+    }
+    return entries, nil
 }
 ```
 
-The `Config` map is the original tsconfig plugin entry. Plugin-owned options such as `mode`, `calls`, or `text` live inside `Config`, not beside `name` and `stage`.
+The `Config` map is the consumer's tsconfig entry passed through verbatim — every key the consumer wrote, including ttsc-owned `transform` and `enabled` (ignore those; ttsc owns them). Plugin-owned options such as `mode`, `calls`, or `text` live inside `Config`, not beside `name` and `stage`.
+
+The array is deterministically ordered: all check-stage entries first, then all transform-stage entries, each in their tsconfig order. A plugin that needs to know its position can rely on this.
+
+## Auto-discovery
+
+A consumer can enable a plugin two ways:
+
+```jsonc
+// Explicit — wins over auto-discovery for the same package.
+// Use this in fixtures, tests, and any case where the wiring should be unambiguous.
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "my-ttsc-plugin" }]
+  }
+}
+```
+
+```jsonc
+// Auto-discovery — ttsc reads the plugin's package.json#ttsc.plugin
+// when the package appears in the consumer's dependencies / devDependencies.
+{
+  "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } }
+}
+```
+
+Three rules to copy-paste:
+
+1. **Explicit wins.** A `compilerOptions.plugins[]` entry with the same `transform` overrides the auto-discovered entry.
+2. **`name` must match the dependency string.** Auto-discovery matches the consumer's `dependencies` / `devDependencies` entry against your plugin's `package.json` `name` field exactly. If they differ, ttsc loads nothing and silently emits unchanged.
+3. **Only directly-listed packages.** ttsc reads `ttsc.plugin` only from packages listed directly in the nearest consumer `package.json` at or above the selected project — transitive dependencies do not auto-discover.
+
+Source: `packages/ttsc/src/plugin/internal/loadProjectPlugins.ts::discoverPackagePluginEntries`.
 
 ## Typed Config
 
@@ -28,15 +60,15 @@ For structured options, marshal the config map back into a typed struct:
 
 ```go
 type Config struct {
-	Text   string   `json:"text"`
-	Calls  []string `json:"calls"`
+    Text  string   `json:"text"`
+    Calls []string `json:"calls"`
 }
 
 func decodeConfig(raw map[string]any) (Config, error) {
-	var cfg Config
-	bytes, _ := json.Marshal(raw)
-	err := json.Unmarshal(bytes, &cfg)
-	return cfg, err
+    var cfg Config
+    bytes, _ := json.Marshal(raw)
+    err := json.Unmarshal(bytes, &cfg)
+    return cfg, err
 }
 ```
 
@@ -48,41 +80,41 @@ One binary can support several modes:
 
 ```go
 func runModes(value string, plugins []PluginEntry) (string, error) {
-	var (
-		prefix    *PluginEntry
-		uppercase bool
-		suffix    *PluginEntry
-	)
-	for _, plugin := range plugins {
-		mode := stringOption(plugin.Config, "mode")
-		switch mode {
-		case "prefix":
-			entry := plugin
-			prefix = &entry
-		case "uppercase":
-			uppercase = true
-		case "suffix":
-			entry := plugin
-			suffix = &entry
-		default:
-			return "", fmt.Errorf("unsupported mode %q", mode)
-		}
-	}
-	if prefix != nil {
-		value = stringOption(prefix.Config, "prefix") + value
-	}
-	if uppercase {
-		value = strings.ToUpper(value)
-	}
-	if suffix != nil {
-		value += stringOption(suffix.Config, "suffix")
-	}
-	return value, nil
+    var (
+        prefix    *PluginEntry
+        uppercase bool
+        suffix    *PluginEntry
+    )
+    for _, plugin := range plugins {
+        mode := stringOption(plugin.Config, "mode")
+        switch mode {
+        case "prefix":
+            entry := plugin
+            prefix = &entry
+        case "uppercase":
+            uppercase = true
+        case "suffix":
+            entry := plugin
+            suffix = &entry
+        default:
+            return "", fmt.Errorf("unsupported mode %q", mode)
+        }
+    }
+    if prefix != nil {
+        value = stringOption(prefix.Config, "prefix") + value
+    }
+    if uppercase {
+        value = strings.ToUpper(value)
+    }
+    if suffix != nil {
+        value += stringOption(suffix.Config, "suffix")
+    }
+    return value, nil
 }
 
 func stringOption(config map[string]any, key string) string {
-	value, _ := config[key].(string)
-	return value
+    value, _ := config[key].(string)
+    return value
 }
 ```
 
@@ -95,7 +127,7 @@ Declare a transform plugin descriptor:
 ```js
 module.exports = {
   name: "my-transform-plugin",
-  source: path.resolve(__dirname, "go-plugin"),
+  source: path.resolve(__dirname, "plugin"),
   stage: "transform",
 };
 ```
@@ -103,12 +135,12 @@ module.exports = {
 Accept the transform-stage command set:
 
 ```bash
-my-plugin check --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
+my-plugin check     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 my-plugin transform --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
-my-plugin build --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
+my-plugin build     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
 ```
 
-`check` may be a no-op for pure transforms. `transform` writes the transformed TypeScript JSON used by in-memory callers and bundler adapters. `build` loads the project, mutates TypeScript source AST, then lets TypeScript-Go print JavaScript, declarations, and source maps.
+`check` is a no-op for pure transforms. `transform` writes the transformed TypeScript JSON used by in-memory callers and bundler adapters; render each `*SourceFile` through `shimprinter.EmitSourceFile` so the AST mutation surfaces in the output (the host treats the value as opaque text). `build` loads the project, mutates TypeScript source AST, then lets TypeScript-Go print JavaScript, declarations, and source maps through `prog.EmitAllRaw(nil)`.
 
 ## Check Plugin
 
@@ -117,7 +149,7 @@ Use `stage: "check"` for diagnostics before emit:
 ```js
 module.exports = {
   name: "my-check-plugin",
-  source: path.resolve(__dirname, "go-plugin"),
+  source: path.resolve(__dirname, "plugin"),
   stage: "check",
 };
 ```
@@ -125,10 +157,105 @@ module.exports = {
 Implement:
 
 ```bash
-my-plugin check --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
+my-plugin check  --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'
+my-plugin fix    --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'  # optional
+my-plugin format --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'  # optional
 ```
 
-Exit non-zero when error-severity diagnostics exist.
+Exit non-zero when error-severity diagnostics exist. If you do not implement `fix` or `format`, exit non-zero with a stderr message — the host treats every non-zero exit as failure (there is no specific phrase it recognizes).
+
+## Pretty diagnostics with `driver.NewLintDiagnostic`
+
+For check-stage plugins, the canonical 3-line lint-style diagnostic flow:
+
+```go
+import (
+    "os"
+
+    "github.com/samchon/ttsc/packages/ttsc/driver"
+)
+
+func runCheck(opts options) int {
+    prog, _, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{})
+    if err != nil {
+        return 2
+    }
+    defer prog.Close()
+
+    var diags []driver.Diagnostic
+    for _, file := range prog.SourceFiles() {
+        // ...walk the file, identify the offending node, then:
+        diags = append(diags, driver.NewLintDiagnostic(
+            file, node.Pos(), node.End(),
+            /*code*/ 9001, driver.SeverityError,
+            "[my-plugin/no-debugger] debugger statements are forbidden",
+        ))
+    }
+    exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    if driver.CountErrors(diags) > 0 {
+        return 1
+    }
+    return exitCode
+}
+```
+
+`driver.NewLintDiagnostic` wraps `(pos, end)` into a `Diagnostic` with the file's path. `driver.CountErrors` counts `SeverityError` entries. `driver.WritePrettyDiagnostics` renders to any `io.Writer` using the same colorful format `ttsc` itself uses. See [Reference → Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics).
+
+For diagnostic ranges that point at the first significant token (not leading trivia), use `shimscanner.SkipTrivia(file.Text(), node.Pos())` instead of `node.Pos()`. This is the idiom every rule in `packages/lint/linthost/` uses.
+
+## Mutating leaf-text nodes
+
+For structural mutations (filtering `Statements.Nodes`, swapping children), `shimprinter.EmitSourceFile` round-trips cleanly without further work.
+
+**For leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`), the printer reads original source text through `getTextOfNode` whenever the node is non-synthesized and has a parent. A naive `lit.AsStringLiteral().Text = "x"` silently vanishes: the printer reads the *old* span via `scanner.GetSourceTextOfNodeFromSourceFile` and ignores your `.Text`.
+
+The fix is two lines that detach the node from its parse-tree source span:
+
+```go
+// Source: packages/ttsc/utility/host.go::pathsRewriter (the @ttsc/paths leaf-text path)
+lit.AsStringLiteral().Text = rewritten
+lit.Flags |= shimast.NodeFlagsSynthesized
+lit.Loc   = shimcore.UndefinedTextRange()
+```
+
+Structural mutations do **not** need this — the printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/ttsc/utility/host.go::stripRewriter`) round-trips without the synthesize stamp.
+
+See [AST & Checker → Mutating leaf text](/docs/development/concepts/tsgo#mutating-leaf-text-synthesize--reset-loc) for the underlying mechanism.
+
+## Re-spawn `ttsx` or `tsgo` from a plugin
+
+`ttsc` injects three env vars into every plugin process so plugins can re-enter the toolchain without resolving paths themselves:
+
+| Var                  | Resolves to                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `TTSC_NODE_BINARY`   | Absolute path to the Node binary that launched `ttsc`.        |
+| `TTSC_TSGO_BINARY`   | Absolute path to the resolved `tsgo` native binary.           |
+| `TTSC_TTSX_BINARY`   | Absolute path to the `ttsx` launcher.                          |
+
+Sources: `packages/ttsc/src/launcher/internal/runBuild.ts` and `packages/ttsc/src/compiler/internal/transformProjectInMemory.ts`.
+
+Use case: a fix-stage plugin that re-runs typecheck after its own rewrite, or a generator that wants to `ttsx` a `.ts` config file:
+
+```go
+import (
+    "os"
+    "os/exec"
+)
+
+func reTypecheck(cwd string) error {
+    tsgo := os.Getenv("TTSC_TSGO_BINARY")
+    if tsgo == "" {
+        return fmt.Errorf("TTSC_TSGO_BINARY not set (running outside ttsc?)")
+    }
+    cmd := exec.Command(tsgo, "--noEmit")
+    cmd.Dir = cwd
+    cmd.Stdout = os.Stderr
+    cmd.Stderr = os.Stderr
+    return cmd.Run()
+}
+```
+
+Always guard for empty values — if a third-party harness spawns the plugin binary directly (without going through `ttsc`), the var will be missing.
 
 ## Text Edits
 
@@ -136,7 +263,7 @@ Collect edits as offsets, then apply in reverse order:
 
 ```go
 sort.SliceStable(edits, func(i, j int) bool {
-	return edits[i].start > edits[j].start
+    return edits[i].start > edits[j].start
 })
 ```
 
@@ -157,6 +284,8 @@ Write errors to stderr and exit non-zero:
 fmt.Fprintf(os.Stderr, "my-plugin: %s: invalid config\n", tsconfig)
 return 2
 ```
+
+Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does not catch or symbolize them. Wrap rule bodies in `recover()` if you need graceful per-rule reporting — see `packages/lint/linthost/engine.go`.
 
 ## Source Maps
 

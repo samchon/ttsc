@@ -2,7 +2,9 @@
 
 This is the deep plugin-author chapter. Read it when your plugin needs to understand TypeScript source, walk AST nodes, inspect declarations, query types, or produce diagnostics tied to source ranges.
 
-For a small source-AST transform, start with [Getting Started](/docs/development/authoring/getting-started). For the four shipped examples, read [Reference Plugins](/docs/development/reference/reference-plugins).
+> This page covers the *implementation* — how to bootstrap a Program, walk the AST, call the Checker, and emit diagnostics. If you haven't yet decided whether you need the Checker at all, see [Concepts → Do I need the Checker?](/docs/development/concepts#do-i-need-the-checker) first.
+
+For a small source-AST transform, start with [Getting Started](/docs/development/authoring/getting-started). For the four shipped examples, read [Reference plugins](/docs/development/reference/reference-plugins). For the curated Go-side surface, see [Reference → Driver API](/docs/development/reference/driver-api).
 
 ## Choosing the Right Level
 
@@ -28,12 +30,13 @@ Plugin source imports the shim:
 
 ```go
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-	shimcore "github.com/microsoft/typescript-go/shim/core"
-	shimparser "github.com/microsoft/typescript-go/shim/parser"
-	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+    shimast "github.com/microsoft/typescript-go/shim/ast"
+    shimchecker "github.com/microsoft/typescript-go/shim/checker"
+    shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+    shimcore "github.com/microsoft/typescript-go/shim/core"
+    shimparser "github.com/microsoft/typescript-go/shim/parser"
+    shimprinter "github.com/microsoft/typescript-go/shim/printer"
+    shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 ```
 
@@ -45,157 +48,83 @@ module my-plugin
 go 1.26
 
 require (
-	github.com/microsoft/typescript-go/shim/ast v0.0.0
-	github.com/microsoft/typescript-go/shim/checker v0.0.0
-	github.com/microsoft/typescript-go/shim/compiler v0.0.0
-	github.com/microsoft/typescript-go/shim/core v0.0.0
-	github.com/microsoft/typescript-go/shim/parser v0.0.0
-	github.com/microsoft/typescript-go/shim/scanner v0.0.0
+    github.com/microsoft/typescript-go/shim/ast v0.0.0
+    github.com/microsoft/typescript-go/shim/checker v0.0.0
+    github.com/microsoft/typescript-go/shim/compiler v0.0.0
+    github.com/microsoft/typescript-go/shim/core v0.0.0
+    github.com/microsoft/typescript-go/shim/parser v0.0.0
+    github.com/microsoft/typescript-go/shim/printer v0.0.0
+    github.com/microsoft/typescript-go/shim/scanner v0.0.0
 )
 ```
 
-`v0.0.0` is intentional. The modules are supplied by `ttsc`'s generated `go.work` overlay at build time. For local editor support, create your own `go.work`; see [Local Development](/docs/development/authoring/local-dev).
+`v0.0.0` is intentional. The modules are supplied by `ttsc`'s generated `go.work` overlay at build time. For local editor support, create your own `go.work`; see [Editor setup](/docs/development/authoring/local-dev).
 
-Useful shim modules:
+Useful shim sub-packages:
 
-| Shim                    | Use                                                                        |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`     |
-| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text     |
-| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers |
-| `shim/tsoptions`        | parse `tsconfig.json`                                                      |
-| `shim/compiler`         | create Program, emit, diagnostics                                          |
-| `shim/checker`          | query symbols and types                                                    |
-| `shim/diagnosticwriter` | render compiler-like diagnostics                                           |
-| `shim/bundled`          | TypeScript lib files for Program creation                                  |
+| Shim                    | Use                                                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`                                                            |
+| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text                                                            |
+| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers                                                        |
+| `shim/printer`          | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand.            |
+| `shim/tsoptions`        | parse `tsconfig.json`                                                                                                             |
+| `shim/tspath`           | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
+| `shim/compiler`         | low-level Program creation. Most plugins should call `driver.LoadProgram` instead.                                                |
+| `shim/checker`          | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`.                                         |
+| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                     |
+| `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                   |
+| `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.           |
+| `shim/lsp`              | embedded `lsp.Server` for `ttscserver` hosts — not for plugin authors. Listed here so you know to skip it.                        |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
-## Program Bootstrap
+## Bootstrap with the driver
 
-A Program gives you the project graph. A Checker gives you semantic meaning over that graph.
-
-The canonical bootstrap has five steps:
-
-1. Wrap the OS filesystem with `bundled.WrapFS`.
-2. Create a compiler host with `bundled.LibPath()`.
-3. Parse the consumer's tsconfig with `tsoptions.GetParsedCommandLineOfConfigFile`.
-4. Create a `shimcompiler.Program`.
-5. Acquire a Checker and defer its release function.
+The canonical bootstrap is `driver.LoadProgram`. It returns a `*driver.Program` that already owns the parsed config, the leased `*shimchecker.Checker`, the compiler host, and the VFS — and folds in `ForceEmit` / `ForceNoEmit` / `OutDir` / `SourcePreamble` overrides:
 
 ```go
-import (
-	"context"
-	"fmt"
-	"path/filepath"
+import "github.com/samchon/ttsc/packages/ttsc/driver"
 
-	"github.com/microsoft/typescript-go/shim/bundled"
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-	shimcore "github.com/microsoft/typescript-go/shim/core"
-	"github.com/microsoft/typescript-go/shim/tsoptions"
-	"github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
-	"github.com/microsoft/typescript-go/shim/vfs/osvfs"
-)
-
-type loadedProgram struct {
-	cwd     string
-	program *shimcompiler.Program
-	checker *shimchecker.Checker
-	release func()
+prog, parseDiags, err := driver.LoadProgram(cwd, "tsconfig.json", driver.LoadProgramOptions{})
+if err != nil { /* fatal: tsconfig parse error */ }
+if len(parseDiags) > 0 {
+    driver.WritePrettyDiagnostics(os.Stderr, parseDiags, cwd)
+    return 2
 }
+defer prog.Close() // releases the leased Checker
 
-func loadProgram(cwd, tsconfigPath string) (*loadedProgram, []*shimast.Diagnostic, error) {
-	if !filepath.IsAbs(cwd) {
-		abs, err := filepath.Abs(cwd)
-		if err != nil {
-			return nil, nil, err
-		}
-		cwd = abs
-	}
-	if !filepath.IsAbs(tsconfigPath) {
-		tsconfigPath = filepath.Join(cwd, tsconfigPath)
-	}
-
-	fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-	host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
-
-	parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
-		tsconfigPath,
-		&shimcore.CompilerOptions{},
-		nil,
-		host,
-		nil,
-	)
-	if parsed == nil {
-		return nil, nil, fmt.Errorf("tsconfig parse returned nil for %s", tsconfigPath)
-	}
-	if len(parseDiags) > 0 {
-		return nil, parseDiags, nil
-	}
-	if len(parsed.Errors) > 0 {
-		return nil, parsed.Errors, nil
-	}
-
-	program := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
-		Config:                      parsed,
-		SingleThreaded:              shimcore.TSTrue,
-		Host:                        host,
-		UseSourceOfProjectReference: true,
-	})
-	if program == nil {
-		return nil, nil, fmt.Errorf("compiler.NewProgram returned nil")
-	}
-
-	checker, release := program.GetTypeChecker(context.Background())
-	return &loadedProgram{
-		cwd:     cwd,
-		program: program,
-		checker: checker,
-		release: release,
-	}, nil, nil
-}
+for _, file := range prog.SourceFiles() { /* file is non-declaration only */ }
+diags := prog.Diagnostics()     // pre-deduped, unused-overload-signature noise filtered
+checker := prog.Checker         // ready to query
 ```
 
-Always call `defer loaded.release()` after a successful load. TypeScript-Go leases checker resources internally.
+`prog.SourceFiles()` filters declaration files for you. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()` — without it the checker pool fills up and subsequent loads stall.
 
-Reference code:
+Every shipped third-party-shaped consumer in this repo uses this path:
 
-- [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) - production-grade Program loader.
-- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) - compact bootstrap fixture.
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the first-party transform host (`loadUtilityProgram`).
+- [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) — production diagnostics engine.
+- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact Program/Checker fixture.
+
+For the full driver surface (rewrites, emit, source preambles, LSP host), see [Reference → Driver API](/docs/development/reference/driver-api).
 
 ## Finding the Target File
 
-`program.SourceFiles()` returns every file in the Program: user files, declaration files, and library files. Normalize paths before comparing.
+`prog.SourceFiles()` returns every user file in the Program (declaration files are filtered). Normalize paths before comparing:
 
 ```go
-func findSourceFile(program *shimcompiler.Program, target string) *shimast.SourceFile {
-	want := filepath.ToSlash(target)
-	for _, file := range program.SourceFiles() {
-		if file == nil {
-			continue
-		}
-		if filepath.ToSlash(file.FileName()) == want {
-			return file
-		}
-	}
-	return nil
-}
-```
-
-For project-wide analysis, filter declaration files:
-
-```go
-func userSourceFiles(program *shimcompiler.Program) []*shimast.SourceFile {
-	out := []*shimast.SourceFile{}
-	for _, file := range program.SourceFiles() {
-		if file == nil || file.IsDeclarationFile {
-			continue
-		}
-		out = append(out, file)
-	}
-	return out
+func findSourceFile(prog *driver.Program, target string) *shimast.SourceFile {
+    want := filepath.ToSlash(target)
+    for _, file := range prog.SourceFiles() {
+        if file == nil {
+            continue
+        }
+        if filepath.ToSlash(file.FileName()) == want {
+            return file
+        }
+    }
+    return nil
 }
 ```
 
@@ -212,10 +141,10 @@ Core access pattern:
 
 ```go
 if node.Kind == shimast.KindCallExpression {
-	call := node.AsCallExpression()
-	if call != nil {
-		// call.Expression, call.Arguments, ...
-	}
+    call := node.AsCallExpression()
+    if call != nil {
+        // call.Expression, call.Arguments, ...
+    }
 }
 ```
 
@@ -227,8 +156,9 @@ Important `Node` data:
 - `node.Pos()`: start offset, often including leading trivia.
 - `node.End()`: end offset.
 - `node.Parent`: parent node when available.
-- `node.Symbol()`: bound symbol for declarations.
+- `node.Symbol()`: bound symbol for declarations — **nil for non-declaration nodes**, see [Pitfalls](/docs/development/reference/pitfalls#ast-and-checker).
 - `node.ForEachChild(fn)`: visit child nodes.
+- `node.Text()`: source text for identifier/literal-like kinds. **Panics on unhandled kinds** — branch on `node.Kind` first.
 
 Important `SourceFile` data:
 
@@ -244,21 +174,21 @@ For top-level declarations:
 
 ```go
 func collectInterfaces(file *shimast.SourceFile) map[string]*shimast.InterfaceDeclaration {
-	out := map[string]*shimast.InterfaceDeclaration{}
-	if file == nil || file.Statements == nil {
-		return out
-	}
-	for _, stmt := range file.Statements.Nodes {
-		if stmt == nil || stmt.Kind != shimast.KindInterfaceDeclaration {
-			continue
-		}
-		decl := stmt.AsInterfaceDeclaration()
-		if decl == nil || decl.Name() == nil {
-			continue
-		}
-		out[decl.Name().Text()] = decl
-	}
-	return out
+    out := map[string]*shimast.InterfaceDeclaration{}
+    if file == nil || file.Statements == nil {
+        return out
+    }
+    for _, stmt := range file.Statements.Nodes {
+        if stmt == nil || stmt.Kind != shimast.KindInterfaceDeclaration {
+            continue
+        }
+        decl := stmt.AsInterfaceDeclaration()
+        if decl == nil || decl.Name() == nil {
+            continue
+        }
+        out[decl.Name().Text()] = decl
+    }
+    return out
 }
 ```
 
@@ -266,46 +196,40 @@ For full-tree traversal:
 
 ```go
 func walk(node *shimast.Node, visit func(*shimast.Node)) {
-	if node == nil {
-		return
-	}
-	visit(node)
-	node.ForEachChild(func(child *shimast.Node) bool {
-		walk(child, visit)
-		return false // keep visiting siblings
-	})
+    if node == nil {
+        return
+    }
+    visit(node)
+    node.ForEachChild(func(child *shimast.Node) bool {
+        walk(child, visit)
+        return false // keep visiting siblings
+    })
 }
 
 func walkFile(file *shimast.SourceFile, visit func(*shimast.Node)) {
-	if file == nil || file.Statements == nil {
-		return
-	}
-	for _, stmt := range file.Statements.Nodes {
-		walk(stmt, visit)
-	}
+    if file == nil || file.Statements == nil {
+        return
+    }
+    for _, stmt := range file.Statements.Nodes {
+        walk(stmt, visit)
+    }
 }
 ```
 
-`@ttsc/lint` uses this shape and dispatches rules by `node.Kind`; see [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go).
+`@ttsc/lint` uses this shape and dispatches rules by `node.Kind`; see [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go). Note that the engine builds a `map[Kind]bool` from each rule's `Visits()` — duplicate kinds are silently deduplicated, see [Pitfalls](/docs/development/reference/pitfalls#ast-and-checker).
 
 ## Text Ranges and Trivia
 
-`node.Pos()` may include leading whitespace and comments. For diagnostics or source slices, often skip trivia:
+`node.Pos()` includes leading whitespace and comments. For diagnostic ranges, advance past trivia with `SkipTrivia`:
 
 ```go
-func nodeTokenText(file *shimast.SourceFile, node *shimast.Node) string {
-	if file == nil || node == nil {
-		return ""
-	}
-	text := file.Text()
-	start := shimscanner.SkipTrivia(text, node.Pos())
-	end := node.End()
-	if start < 0 || start >= end || end > len(text) {
-		return ""
-	}
-	return strings.TrimRight(text[start:end], " \t\r\n")
-}
+// Canonical token-start. Used everywhere in packages/lint/linthost/ —
+// ast_helpers.go, engine.go, every rules_format_*.go.
+start := shimscanner.SkipTrivia(file.Text(), node.Pos())
+end := node.End()
 ```
+
+`Node.Pos()` is the position *before* leading trivia; `SkipTrivia` walks past whitespace and comment trivia and returns the first significant token's offset. `GetTokenPosOfNode` is also valid but no production code in this repo uses it for diagnostic ranges — prefer `SkipTrivia` for consistency.
 
 For line/column diagnostics:
 
@@ -315,13 +239,7 @@ _ = line
 _ = col
 ```
 
-For token-level diagnostics, prefer:
-
-```go
-pos := shimscanner.GetTokenPosOfNode(node, file, false)
-```
-
-The lint plugin's helpers are good examples:
+Helpers worth borrowing from the lint plugin:
 
 - [`packages/lint/linthost/ast_helpers.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/ast_helpers.go)
 - `nodeText`
@@ -335,34 +253,34 @@ A call expression has a callee in `call.Expression` and arguments in `call.Argum
 
 ```go
 func callName(expr *shimast.Node) (string, bool) {
-	if expr == nil || expr.Kind != shimast.KindCallExpression {
-		return "", false
-	}
-	call := expr.AsCallExpression()
-	return dottedName(call.Expression)
+    if expr == nil || expr.Kind != shimast.KindCallExpression {
+        return "", false
+    }
+    call := expr.AsCallExpression()
+    return dottedName(call.Expression)
 }
 
 func dottedName(node *shimast.Node) (string, bool) {
-	if node == nil {
-		return "", false
-	}
-	switch node.Kind {
-	case shimast.KindIdentifier:
-		return node.Text(), true
-	case shimast.KindPropertyAccessExpression:
-		access := node.AsPropertyAccessExpression()
-		left, ok := dottedName(access.Expression)
-		if !ok || access.Name() == nil {
-			return "", false
-		}
-		return left + "." + access.Name().Text(), true
-	default:
-		return "", false
-	}
+    if node == nil {
+        return "", false
+    }
+    switch node.Kind {
+    case shimast.KindIdentifier:
+        return node.Text(), true
+    case shimast.KindPropertyAccessExpression:
+        access := node.AsPropertyAccessExpression()
+        left, ok := dottedName(access.Expression)
+        if !ok || access.Name() == nil {
+            return "", false
+        }
+        return left + "." + access.Name().Text(), true
+    default:
+        return "", false
+    }
 }
 ```
 
-This recognizes:
+`node.Text()` is safe inside the `case shimast.KindIdentifier:` branch because the kind check above filters out the panic-prone shapes. This recognizes:
 
 - `console.log`
 - `assert.equal`
@@ -388,32 +306,32 @@ The common operation is: find a string literal node, compute the literal text ra
 
 ```go
 func stringLiteralRange(text string, node *shimast.Node) (int, int, byte, bool) {
-	start := clamp(node.Pos(), 0, len(text))
-	end := clamp(node.End(), start, len(text))
-	for start < end && text[start] != '"' && text[start] != '\'' {
-		start++
-	}
-	if start >= end {
-		return 0, 0, 0, false
-	}
-	quote := text[start]
-	for end > start+1 && text[end-1] != quote {
-		end--
-	}
-	if end <= start+1 {
-		return 0, 0, 0, false
-	}
-	return start, end, quote, true
+    start := clamp(node.Pos(), 0, len(text))
+    end := clamp(node.End(), start, len(text))
+    for start < end && text[start] != '"' && text[start] != '\'' {
+        start++
+    }
+    if start >= end {
+        return 0, 0, 0, false
+    }
+    quote := text[start]
+    for end > start+1 && text[end-1] != quote {
+        end--
+    }
+    if end <= start+1 {
+        return 0, 0, 0, false
+    }
+    return start, end, quote, true
 }
 
 func clamp(value, min, max int) int {
-	if value < min {
-		return min
-	}
-	if value > max {
-		return max
-	}
-	return value
+    if value < min {
+        return min
+    }
+    if value > max {
+        return max
+    }
+    return value
 }
 ```
 
@@ -440,21 +358,21 @@ Lexical interface property extraction:
 
 ```go
 func propertyNames(decl *shimast.InterfaceDeclaration) []string {
-	if decl == nil || decl.Members == nil {
-		return nil
-	}
-	out := []string{}
-	for _, member := range decl.Members.Nodes {
-		if member == nil || member.Kind != shimast.KindPropertySignature {
-			continue
-		}
-		prop := member.AsPropertySignatureDeclaration()
-		if prop == nil || prop.Name() == nil {
-			continue
-		}
-		out = append(out, prop.Name().Text())
-	}
-	return out
+    if decl == nil || decl.Members == nil {
+        return nil
+    }
+    out := []string{}
+    for _, member := range decl.Members.Nodes {
+        if member == nil || member.Kind != shimast.KindPropertySignature {
+            continue
+        }
+        prop := member.AsPropertySignatureDeclaration()
+        if prop == nil || prop.Name() == nil {
+            continue
+        }
+        out = append(out, prop.Name().Text())
+    }
+    return out
 }
 ```
 
@@ -464,7 +382,70 @@ Reference: [`tests/projects/go-source-plugin-properties/go-plugin/main.go`](http
 
 ## Checker Basics
 
-The Checker answers semantic questions. The shim currently exposes focused helpers, including:
+The Checker answers semantic questions.
+
+**The shim's `Checker` is a Go type alias for tsgo's internal `*Checker`** (see `packages/ttsc/shim/checker/shim.go`, which declares `type Checker = innerchecker.Checker`). Every exported method on the inner checker is callable directly on `ctx.Checker` or `prog.Checker`: `GetTypeAtLocation(node)`, `GetPropertyOfType(t, name)`, `GetSignaturesOfType(t, kind)`, `GetReturnTypeOfSignature(sig)`, `GetAwaitedType(t)`, and so on. The `Checker_*` wrappers below exist to reach *un*exported tsgo helpers via `go:linkname`; reach for them only when the direct method form is missing. The repo's most type-aware rule, [`packages/lint/linthost/rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go), uses zero `Checker_*` wrappers and is the canonical model.
+
+The AST-to-Checker flow usually looks like this:
+
+1. Find a node in the AST.
+2. Get a symbol from the node or resolve a name through the Checker.
+3. Get a `*checker.Type` from the symbol or node.
+4. Query properties, type arguments, flags, or index info.
+
+### Common Checker patterns
+
+Each pattern below cites the production-rule call site so you can read the working form.
+
+**Signatures.**
+
+```go
+sigs := checker.GetSignaturesOfType(t, shimchecker.SignatureKindCall)
+if len(sigs) > 0 {
+    ret := checker.GetReturnTypeOfSignature(sigs[0])
+    _ = checker.GetParameterType(sigs[0], 0)
+    _ = checker.GetTypePredicateOfSignature(sigs[0])
+    _ = ret
+}
+```
+
+Used by `rules_promise.go` to detect callable `.then` shapes.
+
+**Contextual types.**
+
+```go
+ctx := checker.GetContextualType(expr, 0)
+// Adjacent: GetContextualTypeForObjectLiteralElement, GetContextualTypeForArgumentAtIndex.
+```
+
+Used when the surrounding expression carries type information the node itself does not.
+
+**Narrowing.**
+
+```go
+narrowed := checker.GetNarrowedTypeOfSymbol(sym, location)
+// Adjacent: GetFlowTypeOfReference(reference, declaredType) for flow-sensitive types.
+```
+
+**Type predicates / assertions.**
+
+```go
+if checker.IsTypeAssignableTo(a, b) { /* ... */ }
+// Adjacent: IsTypeSubtypeOf, GetTypePredicateOfSignature.
+```
+
+**Awaited / promise.**
+
+```go
+awaited := checker.GetPromisedTypeOfPromise(t, nil)
+// Adjacent: GetAwaitedType(t).
+```
+
+Used by `rules_promise.go` to validate `await expr` for non-thenable expressions.
+
+### Long-tail wrappers: `Checker_*`
+
+When a tsgo method you need is *un*exported, the shim provides a `Checker_*` wrapper that reaches it via `go:linkname`. Today this includes:
 
 - `Checker_getPropertiesOfType(checker, typ)`
 - `Checker_getApparentProperties(checker, typ)`
@@ -479,65 +460,74 @@ The Checker answers semantic questions. The shim currently exposes focused helpe
 - `IsTupleType(typ)`
 - `Type_getTypeNameSymbol(typ)`
 
-AST-to-Checker flow usually looks like this:
+If you need an unexported method that is not yet shimmed, prefer the direct-method form on a related exported alternative; failing that, file a shim addition.
 
-1. Find a node in the AST.
-2. Get a symbol from the node or resolve a name through the Checker.
-3. Get a `*checker.Type` from the symbol.
-4. Query properties, type arguments, flags, or index info.
-
-Example outline:
+### Worked example: await-thenable
 
 ```go
-func apparentPropertyNames(checker *shimchecker.Checker, declNode *shimast.Node) []string {
-	if checker == nil || declNode == nil || declNode.Kind != shimast.KindInterfaceDeclaration {
-		return nil
-	}
-	symbol := declNode.Symbol()
-	if symbol == nil {
-		return nil
-	}
-	typ := shimchecker.Checker_getTypeOfSymbol(checker, symbol)
-	props := shimchecker.Checker_getApparentProperties(checker, typ)
-
-	out := make([]string, 0, len(props))
-	for _, prop := range props {
-		if prop == nil {
-			continue
-		}
-		out = append(out, prop.Name)
-	}
-	return out
+// Detect: await expr where expr's type has no callable `.then` member.
+func isThenable(checker *shimchecker.Checker, expr *shimast.Node) bool {
+    t := checker.GetTypeAtLocation(expr)
+    thenSym := checker.GetPropertyOfType(t, "then")
+    if thenSym == nil {
+        return false
+    }
+    thenT := checker.GetTypeOfSymbol(thenSym)
+    sigs := checker.GetSignaturesOfType(thenT, shimchecker.SignatureKindCall)
+    return len(sigs) > 0
 }
 ```
 
-Use `GetApparentProperties` for user-facing object shape. It includes more of what developers expect from `extends` and merged declarations than a direct AST member walk.
+Source: [`packages/lint/linthost/rules_promise.go::awaitableType`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). The example exercises three Checker categories (`GetTypeAtLocation`, `GetPropertyOfType`, `GetSignaturesOfType`) on real production code.
 
-Current caveat: the shim does not expose a simple `GetTypeFromTypeNode` helper. For a `<T>` type argument you often either:
+## Mutating leaf text: synthesize + reset Loc
 
-- inspect the type node syntactically when syntax is enough;
-- resolve an entity name with `Checker_resolveEntityName`;
-- follow symbols from declarations already in the Program;
-- request a shim addition if the plugin needs a missing Checker method.
+For structural mutations — filtering `Statements.Nodes`, swapping children — `shimprinter.EmitSourceFile` round-trips cleanly. The printer iterates statement lists directly without reading source spans.
+
+**For leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`), the printer reads original source text through `getTextOfNode` when the node is non-synthesized and has a parent. That means a naive `lit.AsStringLiteral().Text = "x"` silently vanishes: the printer reads the *old* span via `scanner.GetSourceTextOfNodeFromSourceFile` and ignores your `.Text`.
+
+```go
+// Before mutating identifier, string-literal, or numeric-literal text,
+// detach the node from its parse-tree source span. Otherwise the printer
+// reads the OLD source via getTextOfNode and the rewrite vanishes.
+lit.AsStringLiteral().Text = rewritten
+lit.Flags |= shimast.NodeFlagsSynthesized
+lit.Loc   = shimcore.UndefinedTextRange()
+```
+
+Source: [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) for the `@ttsc/paths` rewriter (leaf-text pattern) and the `@ttsc/strip` `filterStatements` body (structural pattern). See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the recipe form.
 
 ## Building Diagnostics
 
-For plugin diagnostics, report source ranges that point at the offending token, not the whole statement when possible.
+For lint-style diagnostics through the driver, the path is three lines:
 
-Lint-style flow:
+```go
+var diags []driver.Diagnostic
+diags = append(diags, driver.NewLintDiagnostic(
+    file, start, end,
+    /*code*/ 9001, driver.SeverityError,
+    "[my-rule] explanation here",
+))
+exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+if driver.CountErrors(diags) > 0 { os.Exit(1) }
+```
 
-1. Walk user source files.
-2. Collect findings as `(file, pos, end, rule, severity, message)`.
-3. Convert them to `shim/diagnosticwriter` lint diagnostics.
-4. Render them together with TypeScript-Go diagnostics.
+`driver.NewLintDiagnostic` wraps `(pos, end)` into a `Diagnostic` with the file's path. `driver.CountErrors` counts `SeverityError` entries. `driver.WritePrettyDiagnostics` renders to any `io.Writer` using the same colorful format `ttsc` itself uses. See [Reference → Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics).
 
-Reference files:
+If your plugin exits non-zero, write clear diagnostics to stderr. `ttsc` surfaces stderr directly. Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does not catch them.
 
-- [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go)
-- [`packages/lint/linthost/compile.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/compile.go)
-- [`packages/ttsc/shim/diagnosticwriter/lint.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/shim/diagnosticwriter/lint.go)
+### Raw form (without the driver)
 
-If your plugin exits non-zero, write clear diagnostics to stderr. `ttsc` surfaces stderr directly.
+For plugins that bypass `driver.LoadProgram`, the raw pipeline is:
+
+```go
+diags := shimcompiler.GetDiagnosticsOfAnyProgram(program)
+diags = append(diags, lintFindings...)
+diags = shimcompiler.SortAndDeduplicateDiagnostics(diags)
+shimdiagnosticwriter.FormatMixedDiagnostics(os.Stderr, diags, cwd)
+```
+
+Use only when you skipped `driver.LoadProgram`. Reference: [`packages/lint/linthost/compile.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/compile.go) and [`packages/ttsc/shim/diagnosticwriter/lint.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/shim/diagnosticwriter/lint.go).
 
 ## Text Edits
 
@@ -547,9 +537,9 @@ Edit type:
 
 ```go
 type textEdit struct {
-	start int
-	end   int
-	text  string
+    start int
+    end   int
+    text  string
 }
 ```
 
@@ -557,20 +547,20 @@ Apply from the end of the file to the start:
 
 ```go
 func applyTextEdits(text string, edits []textEdit) string {
-	sort.SliceStable(edits, func(i, j int) bool {
-		if edits[i].start == edits[j].start {
-			return edits[i].end > edits[j].end
-		}
-		return edits[i].start > edits[j].start
-	})
-	out := text
-	for _, edit := range edits {
-		if edit.start < 0 || edit.end < edit.start || edit.end > len(out) {
-			continue
-		}
-		out = out[:edit.start] + edit.text + out[edit.end:]
-	}
-	return out
+    sort.SliceStable(edits, func(i, j int) bool {
+        if edits[i].start == edits[j].start {
+            return edits[i].end > edits[j].end
+        }
+        return edits[i].start > edits[j].start
+    })
+    out := text
+    for _, edit := range edits {
+        if edit.start < 0 || edit.end < edit.start || edit.end > len(out) {
+            continue
+        }
+        out = out[:edit.start] + edit.text + out[edit.end:]
+    }
+    return out
 }
 ```
 
@@ -584,10 +574,10 @@ A standalone tool can parse a single JS or TS text file without loading a full P
 
 ```go
 func parseJS(fileName, text string) *shimast.SourceFile {
-	opts := shimast.SourceFileParseOptions{
-		FileName: filepath.ToSlash(fileName),
-	}
-	return shimparser.ParseSourceFile(opts, text, shimcore.ScriptKindJS)
+    opts := shimast.SourceFileParseOptions{
+        FileName: filepath.ToSlash(fileName),
+    }
+    return shimparser.ParseSourceFile(opts, text, shimcore.ScriptKindJS)
 }
 ```
 
@@ -600,20 +590,97 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 - Comparing raw paths without `filepath.ToSlash`.
 - Slicing `file.Text()[node.Pos():node.End()]` and accidentally including comments/whitespace.
 - Calling `AsX()` and assuming it cannot be nil.
-- Walking declaration files when you meant user code.
+- Walking declaration files when you meant user code (use `prog.SourceFiles()`; it filters them).
 - Treating a type node as a resolved type.
 - Editing text when an AST mutation would express the same change.
 - Editing text from the start of the file toward the end.
-- Reporting diagnostics at statement start instead of token start.
-- Trying to use Checker data before acquiring and deferring the release callback.
+- Reporting diagnostics at statement start instead of token start (use `SkipTrivia`).
+- Trying to use Checker data before acquiring and deferring the release callback (`defer prog.Close()`).
+- Calling `node.Text()` without a `node.Kind` guard — panics on unhandled kinds.
+- Dereferencing `node.Symbol()` without a nil check — non-declaration nodes return nil.
+- Mutating a leaf-text node's `.Text` without stamping `NodeFlagsSynthesized` and resetting `Loc`.
+- Listing the same `Kind` twice in `Visits()` — silently deduped.
+
+For the full failure catalogue with error strings, see [Reference → Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+
+## If you cannot use the driver
+
+For plugins that need a custom checker pool, an in-memory-only Program (no `tsconfig.json`), or that swap the compiler host entirely, drop down to the raw shim:
+
+```go
+import (
+    "context"
+    "fmt"
+    "path/filepath"
+
+    "github.com/microsoft/typescript-go/shim/bundled"
+    shimast "github.com/microsoft/typescript-go/shim/ast"
+    shimchecker "github.com/microsoft/typescript-go/shim/checker"
+    shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+    shimcore "github.com/microsoft/typescript-go/shim/core"
+    "github.com/microsoft/typescript-go/shim/tsoptions"
+    "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
+    "github.com/microsoft/typescript-go/shim/vfs/osvfs"
+)
+
+type loadedProgram struct {
+    cwd     string
+    program *shimcompiler.Program
+    checker *shimchecker.Checker
+    release func()
+}
+
+func loadProgramRaw(cwd, tsconfigPath string) (*loadedProgram, []*shimast.Diagnostic, error) {
+    if !filepath.IsAbs(cwd) {
+        abs, err := filepath.Abs(cwd)
+        if err != nil { return nil, nil, err }
+        cwd = abs
+    }
+    if !filepath.IsAbs(tsconfigPath) {
+        tsconfigPath = filepath.Join(cwd, tsconfigPath)
+    }
+
+    fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+    host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
+
+    parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
+        tsconfigPath, &shimcore.CompilerOptions{}, nil, host, nil,
+    )
+    if parsed == nil { return nil, nil, fmt.Errorf("tsconfig parse returned nil for %s", tsconfigPath) }
+    if len(parseDiags) > 0 { return nil, parseDiags, nil }
+    if len(parsed.Errors) > 0 { return nil, parsed.Errors, nil }
+
+    program := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
+        Config:                      parsed,
+        SingleThreaded:              shimcore.TSTrue,
+        Host:                        host,
+        UseSourceOfProjectReference: true,
+    })
+    if program == nil { return nil, nil, fmt.Errorf("compiler.NewProgram returned nil") }
+
+    checker, release := program.GetTypeChecker(context.Background())
+    return &loadedProgram{
+        cwd:     cwd,
+        program: program,
+        checker: checker,
+        release: release,
+    }, nil, nil
+}
+```
+
+Always call `defer release()` after a successful raw load. TypeScript-Go leases checker resources internally.
+
+Reference for the raw bootstrap:
+
+- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact fixture.
 
 ## Study Path
 
 Read these in order:
 
-1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) - source JSDoc preamble insertion.
-2. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) - first-party banner, strip, and paths transform host.
-3. [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) - utility transform behavior tests.
-4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) - Program/Checker bootstrap.
-5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) - interface AST walk.
-6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/) - full diagnostics engine.
+1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) — source JSDoc preamble insertion (consumer behavior).
+2. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the first-party banner/strip/paths transform host (where the real logic lives; the three sidecars are 36-line dispatchers).
+3. [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) — utility transform behavior tests.
+4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) — Program/Checker bootstrap.
+5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) — interface AST walk.
+6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/) — full diagnostics engine.

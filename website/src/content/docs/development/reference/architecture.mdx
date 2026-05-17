@@ -10,27 +10,32 @@ When `ttsc` sees a plugin `source` descriptor:
 2. Hash the plugin source and host versions.
 3. Reuse the cached binary on hit.
 4. Copy source into a scratch directory on miss.
-5. Generate a `go.work` overlay pointing at `ttsc` and its shims.
-6. Run `go build -o plugin <entry>`.
+5. Generate a `go.work` overlay pointing at `ttsc` and its shims, plus (when the plugin's `go.mod` does not declare `github.com/samchon/ttsc/packages/ttsc`) a synthesized `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => <workspace overlay>` block. The `replace` block is the seam that lets a plugin's bare `require github.com/samchon/ttsc/packages/ttsc v0.0.0` resolve to the workspace `ttsc` source at build time.
+6. Run `go build -o .ttsc-plugin <entry>` in the scratch directory. The leading-dot placeholder name makes the in-progress binary easy to spot in `go build` stderr; step 7 renames it to `plugin` (or `plugin.exe` on Windows) as it moves into the cache.
 7. Move the binary into the cache.
-8. Invoke the binary with `check`, `transform`, or `build`.
+8. Invoke the binary with `check`, `transform`, `build`, `fix`, or `format`.
 
 ## Cache Key Inputs
 
-The cache key includes:
+The cache key for a built plugin binary is `sha256` of, in order:
 
-- `ttsc` package version.
-- resolved `@typescript/native-preview` version.
-- platform and architecture.
-- resolved source entry.
-- files under the plugin source directory, except skipped generated/cache directories and editor backup files ending in `~`.
-- the same hashable files under the local `ttsc` and shim overlay directories used for the generated `go.work`.
+1. `ttsc=${ttscVersion}`
+2. `tsgo=${tsgoVersion}` — the resolved `@typescript/native-preview` version.
+3. `platform=${process.platform}/${process.arch}`
+4. `entry=${absolute plugin entry path}`
+5. `go=${resolveGoCompilerIdentity(goBinary)}` — the resolved Go binary's absolute path, stat, and `go version` text.
+6. Every set env var in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`.
+7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
+8. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
+9. Contributor source-directory hashes, sorted by contributor name.
 
-The cache key does not include:
+The Go-binary identity (5) and `GO_BUILD_ENV_KEYS` (6) are the load-bearing reason `GOOS=linux GOARCH=arm64 ttsc` does not poison the native-platform cache slot.
+
+The cache key does **not** include:
 
 - consumer TypeScript source files;
 - plugin options such as lint `rules` / `extends`, `banner`, or `calls`;
-- CLI flags such as `--emit` or `--outDir`;
+- CLI flags such as `--emit` or `--outDir`.
 
 README, JSON, schema, and other data files inside the plugin source directory do affect the cache key. This keeps `//go:embed` and other file-backed plugin data aligned with the built binary. Local workspace changes to `ttsc`'s Go host or shim overlay also invalidate the source plugin cache automatically.
 
@@ -49,22 +54,53 @@ Override:
 TTSC_CACHE_DIR=/tmp/ttsc-cache npx ttsc --emit
 ```
 
-Clean:
+Clean — removes **all** cache locations: `node_modules/.ttsc`, `.ttsc`, the explicit `--cache-dir`, and `${TTSC_CACHE_DIR}/plugins` if set:
 
 ```bash
 npx ttsc clean
 ```
 
+## Build environment
+
+The plugin builder reads three groups of environment variables. All three influence the cache key when set; the `TTSC_*_BINARY` trio is also injected into the plugin's own process so plugins can re-spawn ttsc helpers.
+
+### Cache-key inputs: `GO_BUILD_ENV_KEYS`
+
+These 14 Go build env vars fold into the cache key when non-empty, so cross-compile targets and build-tag tweaks never collide with the native build slot:
+
+```text
+GOOS GOARCH GOAMD64 GOARM GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64
+GOWASM GOFLAGS GOEXPERIMENT CGO_ENABLED GOTOOLCHAIN
+```
+
+Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` constant; the cache-key loop folds each non-empty value into the hash).
+
+### Injected into the plugin process: `TTSC_*_BINARY`
+
+Before spawning a plugin, `ttsc` sets three env vars in the child environment so the plugin can re-spawn the ttsc toolchain without resolving paths itself:
+
+- `TTSC_NODE_BINARY` — absolute path of the Node binary that launched `ttsc`.
+- `TTSC_TSGO_BINARY` — resolved tsgo native binary used by this `ttsc` invocation.
+- `TTSC_TTSX_BINARY` — resolved `ttsx` launcher.
+
+A plugin that wants to re-spawn `ttsx` or `tsgo` (for example to type-check a generated file) should call these vars rather than re-resolving from `$PATH`. They guarantee the same host the consumer ran. Sources: `runBuild.ts` and `transformProjectInMemory.ts`. See [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin) for usage.
+
+### `GOROOT` is auto-injected only when unset
+
+When the resolved Go binary is the bundled SDK shipped by `@ttsc/{platform}-{arch}`, `ttsc` infers `GOROOT` from the binary's parent directory and injects it into the build env — but **only if `process.env.GOROOT` is empty**. A stale `GOROOT` exported by a shell rc file from a different Go install will be honored as-is and silently bind the bundled compiler to the wrong stdlib. If a freshly-installed plugin build fails with errors like `runtime/runtime0.go: no such file or directory`, `unset GOROOT` before re-running.
+
 ## Go Toolchain Resolution
 
-`ttsc` resolves Go in this order:
+`ttsc` resolves the Go compiler in this order — first match wins:
 
-1. `TTSC_GO_BINARY`, when set.
-2. the installed `@ttsc/{platform}-{arch}` package's bundled Go SDK.
-3. local workspace fallback under `ttsc/native/go`.
-4. `go` on `PATH`.
+1. `TTSC_GO_BINARY`, when set to a non-empty path.
+2. The installed `@ttsc/{platform}-{arch}` package's bundled Go SDK, resolved via `createRequire` against `@ttsc/{platform}-{arch}/bin/go/bin/go`.
+3. The workspace-development fallback `<repo>/packages/ttsc-{platform}-{arch}/bin/go/bin/go`.
+4. The legacy local-workspace fallback `<repo>/native/go/bin/go`.
+5. `$HOME/go-sdk/go/bin/go` — the convention used by `scripts/build-platform-package.cjs` and by maintainers who bootstrap a bundled-Go layout without going through the platform package.
+6. Literal `"go"` — a `$PATH` lookup; the development fallback.
 
-Published consumer installs should use the bundled Go SDK. `go` on `PATH` is mainly a development fallback.
+Published consumer installs should land on step 2. Steps 3–5 exist for development workflows; step 6 should only fire when none of the above are present.
 
 ## Debugging Build Failures
 
@@ -72,7 +108,7 @@ If `go build` fails, `ttsc` prints the Go stderr:
 
 ```text
 ttsc: building plugin "my-plugin" via "go build" failed:
-go-plugin/main.go:42:8: undefined: shimast.Something
+.ttsc-plugin/main.go:42:8: undefined: shimast.Something
 ```
 
 Check:
@@ -81,7 +117,8 @@ Check:
 - missing source files in the npm tarball;
 - wrong source directory or package entry;
 - stale cache, fixed with `npx ttsc clean`;
-- pnpm local dev layout, fixed in [Local Development](/docs/development/authoring/local-dev).
+- pnpm local dev layout, fixed in [Editor setup](/docs/development/authoring/local-dev);
+- on POSIX, `ttsc` `chmod 0755`s the bundled `go` binary and every file under `pkg/tool/` before invoking it; a sandbox or read-only mount that blocks chmod will surface here as a Go spawn failure.
 
 ## Concurrency
 
@@ -90,5 +127,6 @@ Concurrent `ttsc` processes may build the same missing key at the same time. Scr
 ## See also
 
 - [Reference plugins](/docs/development/reference/reference-plugins) — first-party plugins as worked examples.
-- [Pitfalls](/docs/development/reference/pitfalls) — failure modes specific to plugin authoring.
+- [Pitfalls](/docs/development/reference/pitfalls) — failure modes specific to plugin authoring (including the `goToolchainNotFoundMessage` exact text).
+- [Driver API](/docs/development/reference/driver-api) — the Go façade plugin authors should call.
 - [Plugin Protocol](/docs/development/concepts/protocol) — the wire contract.

@@ -1,6 +1,8 @@
 # Plugin Protocol Reference
 
-This page is the contract between `ttsc` and a plugin package.
+This page is the contract between `ttsc` and a plugin package. It is one page on purpose — `composes`, `contributors`, factory generics, and the wire JSON are all validated in one pipeline, and splitting them would force forward references between two co-canonical files. Most readers can start with the **Minimum contract** section (descriptor, the five subcommands, `--plugins-json`, exit codes); skip composes / contributors / factory generics on the first read.
+
+> Looking for the two-halves model, vocabulary, or the stage/subcommand matrix? Start at [Concepts](/docs/development/concepts).
 
 ## Manifest
 
@@ -95,10 +97,10 @@ Field rules:
 
 Public stages are deliberately small:
 
-| Stage                   | Host behavior                                    | Binary commands                       |
-| ----------------------- | ------------------------------------------------ | ------------------------------------- |
-| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build`         |
-| `"check"`               | reports diagnostics before emit                  | `check`; optional `fix`, `format`     |
+| Stage                   | Host behavior                                    | Subcommands the host invokes                                  |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build`                                 |
+| `"check"`               | reports diagnostics before emit                  | `check`; opt-in `fix`, `format`                               |
 
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
@@ -114,6 +116,8 @@ convenience that filters to format-class rule edits so lint rewrites
 are skipped — pick this subcommand when you want to reshape source
 without applying lint rewrites. See [CLI Commands → `format`](#format)
 for the subcommand contract.
+
+**Transform-stage plugins do not see `fix` or `format`.** The host only spawns those subcommands against `stage: "check"` plugins; a transform-stage plugin's `default` branch will never receive them.
 
 ## Composition
 
@@ -134,6 +138,19 @@ Transform entries can share one compiler host when they resolve to the same nati
 
 Distinct third-party compiler hosts cannot be chained blindly, because each one would need to own `Program` creation and emit. If several transform modes must cooperate, expose them from one native binary and dispatch by explicit mode or option fields in the `--plugins-json` payload.
 
+### Combining plugins from different vendors
+
+Before the host invokes any transform plugin, `assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) checks the resolved plugin binaries. If more than one distinct binary is active and they are not all first-party utility plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`), the host aborts with one of:
+
+```text
+ttsc: multiple compiler native backends cannot share one emit pass;
+      compose transform libraries through one aggregate native host
+ttsc: multiple transform native backends cannot share one source-to-source pass;
+      compose transform libraries through one aggregate native host
+```
+
+The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. To combine third-party transform libraries from different vendors (`typia` + `nestia`-style), pick one aggregate plugin and list the others in its `composes: [...]` array. See [Reference → Pitfalls](/docs/development/reference/pitfalls#combining-plugins) for the full failure catalogue.
+
 ### Composing across binaries
 
 Third-party plugins that want to share one compiler host can opt in through the `composes` field on their descriptor:
@@ -151,10 +168,14 @@ When ttsc loads the descriptors of `my-feature-a` and `my-feature-b` from the pr
 
 Rules enforced at load time:
 
-- Composition is one hop only. ttsc does not transitively follow `composes` arrays of composed plugins.
-- Cycles (two plugins listing each other) are rejected with an explicit error.
-- First-party utility names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear in `composes`. They are composed automatically through the shared compiler host hosted by `packages/ttsc/utility/host.go`.
-- The aggregate's own descriptor still needs a real `source` directory; ttsc never composes a plugin into nothing.
+- **One hop only.** ttsc does not transitively follow `composes` arrays of composed plugins. `A.composes = ["B"]` sends B to A's binary; if `B.composes = ["C"]` then C is sent to B's original binary, not A's.
+- **Cycle rejected.** Two plugins each listing the other in `composes` is a hard error (`plugin composes cycle detected between "<A>" and "<B>"`).
+- **Multi-aggregate rejected.** A plugin claimed by two different aggregates is a hard error (`plugin "<name>" is composed by multiple aggregate plugins`).
+- **Empty-string target rejected.** Each entry in `composes` must be a non-empty string matching the target's `name` or its tsconfig `transform` specifier.
+- **First-party utility names refused.** `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` cannot appear in `composes`. They are composed automatically through the shared compiler host hosted by `packages/ttsc/utility/host.go`.
+- **No void aggregates.** The aggregate's own descriptor still needs a real `source` directory; ttsc never composes a plugin into nothing.
+
+See [Reference → Pitfalls](/docs/development/reference/pitfalls#composition-failures) for the exact error strings and recovery steps.
 
 ## Contributors
 
@@ -185,12 +206,16 @@ ttsc's plugin builder then:
 
 Constraints enforced at load time:
 
-- Contributors ship Go source as a **package**, not a Go module. A contributor with its own `go.mod` is rejected. The host plugin's `go.mod` supplies every transitive Go dependency, which also closes the supply-chain hole where a contributor could otherwise pull in arbitrary Go modules at build time.
-- `contributor.name` must match `/^[a-z][a-z0-9_]*$/` (it forms the final import-path suffix and must be a valid Go identifier). The lint factory derives this by mapping the user-facing namespace's hyphens to underscores — namespace `react-hooks` becomes contributor name `react_hooks`. The Go source's `package` declaration must match the post-transform name.
-- `contributor.source` must be an absolute path to an existing directory.
-- Contributor names must be unique within one plugin build.
-- The host plugin's source must not already ship a `contrib/` directory or a `ttsc_contributions.go` file at its entry root; both are scratch-space reserved for the build pipeline.
-- A composed plugin (one redirected by another's `composes`) cannot declare its own `contributors` — move them onto the aggregate, or drop the `composes` redirect.
+- **Package, not module.** Contributors ship Go source as a package. A contributor with its own `go.mod` is rejected at build time, not silently pruned — embed the contributor's source as a sub-package, not a separate Go module. The host plugin's `go.mod` supplies every transitive Go dependency, which also closes the supply-chain hole where a contributor could otherwise pull in arbitrary Go modules at build time.
+- **At least one non-test `.go` file.** A contributor directory with only `*_test.go` files (or no `.go` files at all) is rejected at load time. Test fixtures alone are not a contributor.
+- **Host plugin must have a resolvable Go module path.** The aggregate plugin's source directory must resolve to a `go.mod` module path (or be co-located with one through the workspace overlay); the builder errors out if it cannot derive one.
+- **Name regex.** `contributor.name` must match `/^[a-z][a-z0-9_]*$/` (it forms the final import-path suffix and must be a valid Go identifier). The lint factory derives this by mapping the user-facing namespace's hyphens to underscores — namespace `react-hooks` becomes contributor name `react_hooks`. The Go source's `package` declaration must match the post-transform name.
+- **Absolute source path.** `contributor.source` must be an absolute path to an existing directory.
+- **Unique names per build.** Contributor names must be unique within one plugin build.
+- **Reserved scratch paths.** The host plugin's source must not already ship a `contrib/` directory or a `ttsc_contributions.go` file at its entry root; both are scratch-space reserved for the build pipeline.
+- **Not on composed plugins.** A composed plugin (one redirected by another's `composes`) cannot declare its own `contributors` — move them onto the aggregate, or drop the `composes` redirect.
+
+See [Reference → Pitfalls](/docs/development/reference/pitfalls#contributor-merge-failures) for the exact rejection error strings.
 
 The cache key derivation for a plugin with N contributors is `ttsc + tsgo + platform + entry + Σ(contributor source hashes) + plugin source hash + overlay source hashes`, so consumers with the same logical set of contributors share one cached binary regardless of declaration order.
 
@@ -219,7 +244,9 @@ Disabled entries are not resolved, built, or included in `--plugins-json`.
 
 ## CLI Commands
 
-The built Go binary receives subcommands. Unknown flags should be ignored so future `ttsc` minors can add optional flags.
+The built Go binary receives subcommands. Unknown flags should be ignored so future `ttsc` minors can add optional flags. The host emits flags in **equals form** when spawning plugin binaries (`--cwd=/abs/path`, `--tsconfig=/abs/path`, `--plugins-json=[...]`); space-form (`--cwd /abs/path`) appears only in tsgo's own arg list and never reaches a plugin. Go's `flag.NewFlagSet` accepts both forms; hand-rolled parsers should accept equals-form at minimum.
+
+> `ttsc` never spawns the `version` / `-v` / `--version` subcommand on a plugin process. First-party plugins implement it as a smoke verb for `go run ./plugin version`; third-party plugins may but are not required to.
 
 ### `version`
 
@@ -229,7 +256,7 @@ my-plugin -v
 my-plugin --version
 ```
 
-Print a human-readable version and exit `0`.
+Print a human-readable version and exit `0`. Smoke verb only — the host never invokes it.
 
 ### `check`
 
@@ -256,10 +283,7 @@ Apply autofixes to source files in place, then render any
 remaining diagnostics through the same renderer contract as `check`. Emit
 stays disabled — fix plugins must not write JavaScript or declaration output.
 
-Plugins that do not support fixes should exit `2` with a stderr message of the
-form `<plugin-name>: fix not supported`. The host surfaces that as a build
-failure. Plugins that support fixes but find nothing to apply exit `0` with
-empty stderr.
+A check-stage plugin that does not implement `fix` should exit non-zero with a human-readable stderr message; the host prints stderr verbatim and aborts the pipeline. `ttsc` does **not** parse any specific phrase. The `@ttsc/lint` plugin uses the convention `<plugin-name>: fix not supported` and exits `2`, but this is a project convention, not a host contract — any non-zero exit suffices. Plugins that support fixes but find nothing to apply exit `0` with empty stderr.
 
 ### `format`
 
@@ -282,9 +306,7 @@ rules in one binary: `fix` applies every category's edits; `format`
 filters to format-class only. The two subcommands share the engine
 and the protocol; only the post-engine filter differs.
 
-Plugins that do not support format should exit `2` with a stderr message
-of the form `<plugin-name>: format not supported`. Plugins that support
-format but find nothing to apply exit `0` with empty stderr.
+A check-stage plugin that does not implement `format` should exit non-zero with a human-readable stderr message; the host does not parse any specific phrase. The `@ttsc/lint` convention of `<plugin-name>: format not supported` and exit `2` is a project convention only. Plugins that support format but find nothing to apply exit `0` with empty stderr.
 
 ### `transform`
 
@@ -305,6 +327,10 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
   }
 }
 ```
+
+Each value in `typescript` is written to disk **verbatim** — the host does not re-parse or re-render. If your plugin mutated the AST, you must run a printer over the file before placing its text in the map; the canonical path is `shimprinter.NewPrinter(...)` → `shimprinter.EmitSourceFile(printer, file)`. Returning `file.Text()` after AST mutation will silently round-trip the original source. See `packages/ttsc/utility/host.go::RunTransform` for the reference implementation.
+
+For leaf-text mutations (string-literal, identifier, numeric-literal `.Text`), the printer reads original source text via `getTextOfNode` when the node is non-synthesized and has a parent — see [AST & Checker → Mutating leaf text](/docs/development/concepts/tsgo#mutating-leaf-text-synthesize--reset-loc) for the synthesize-flag invariant the rewrite must follow.
 
 ### `build`
 
@@ -336,9 +362,11 @@ Project-wide transform build. Run diagnostics and write TypeScript-Go outputs.
 ]
 ```
 
-`config` is the original tsconfig plugin entry. Read user options there.
+`config` is the consumer's `compilerOptions.plugins[i]` entry passed through **verbatim**, modulo JSON normalization — every key the consumer wrote, including ttsc-owned `transform` and `enabled`, will appear. Plugins should ignore `transform` and `enabled`: ttsc owns them. (`enabled: false` plugins are filtered before serialization, so plugins will only ever see `enabled: true` or absent — but should not depend on it.) Read user options from any other key in `config`.
 
 When multiple entries resolve to the same binary, `ttsc` sends them together. Select the entry you need by `name`, `mode`, or plugin-owned option fields.
+
+**Plugin order.** The array is deterministically ordered: all `check`-stage plugins first, in their tsconfig order, then all `transform`-stage plugins, in their tsconfig order. A plugin that needs to know its position in the pipeline can rely on this rule (see `packages/ttsc/src/plugin/internal/loadProjectPlugins.ts::orderNativePlugins`).
 
 ## Exit and Output
 
@@ -348,6 +376,8 @@ When multiple entries resolve to the same binary, `ttsc` sends them together. Se
 - `stderr` is shown to users; format errors for humans.
 - `transform` stdout must be the JSON shape above.
 - `build` writes project outputs through TypeScript-Go emit.
+
+**Unrecovered Go panics in a plugin process surface as a normal exit-2 with the panic stack on stderr.** The host prints stderr verbatim and propagates exit code 2 as ttsc's own exit code; it does not catch, symbolize, or aggregate plugin panics. Wrap rule bodies in `recover()` if you need graceful per-rule reporting — see `packages/lint/linthost/engine.go` for the reference pattern.
 
 ## Compatibility Rules
 
@@ -361,6 +391,8 @@ So plugin binaries should ignore unknown flags and unknown JSON fields.
 
 ## See also
 
-- [Plugin Development · TS-Go concepts](/docs/development/concepts/tsgo) — Program / Checker / VFS.
-- [Plugin Development · Authoring](/docs/development/authoring) — the 5-step authoring walkthrough.
-- [Plugin Development · Reference](/docs/development/reference) — architecture and pitfalls.
+- [Concepts](/docs/development/concepts) — two-halves model, stages/subcommands, vocabulary.
+- [AST & Checker](/docs/development/concepts/tsgo) — Program, Checker, printer, leaf-text mutation invariant.
+- [Reference → Driver API](/docs/development/reference/driver-api) — the Go façade plugin authors should call.
+- [Reference → Architecture](/docs/development/reference/architecture) — cache, build environment, Go toolchain resolution.
+- [Reference → Pitfalls](/docs/development/reference/pitfalls) — `composes` / `contributors` / Go toolchain failure catalogue.
