@@ -9,158 +9,49 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
+A TypeScript-Go toolchain.
 
-- **`ttsc`**: build, check, and transform.
-- **`ttsx`**: execute TypeScript with type checking.
-  - native TypeScript-Go execution instead of transpile-only runners.
-  - type checking that `tsx` does not provide.
-- **plugin support**: compiler-powered libraries, such as `typia`.
-  - `@ttsc/lint`: lint violations as TS compile errors.
+`ttsc` replaces `tsc`. Pair it with `@ttsc/lint` and it also replaces `prettier` and `eslint` — type errors, lint violations, and format diffs all come out as `error TSxxxxx` in one compile run, blocking the same CI step.
 
-## Setup
-
-### Install
-
-Install the native TypeScript preview package with `ttsc`:
+## Quick start
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
-### Commands
+Register `@ttsc/lint` in your `tsconfig.json`:
 
-Run TypeScript directly with `ttsx` (CLI command):
-
-```bash
-npx ttsx src/index.ts
-```
-
-Build, check, or watch the project with `ttsc`:
-
-```bash
-npx ttsc
-npx ttsc --noEmit
-npx ttsc --watch
-```
-
-### Bundlers
-
-Use `@ttsc/unplugin` when a bundler owns your build.
-
-It runs `ttsc` plugins inside supported bundlers.
-
-```bash
-npm install -D ttsc @typescript/native-preview
-npm install -D @ttsc/unplugin
-```
-
-Minimal Vite setup:
-
-```ts
-// vite.config.ts
-import ttsc from "@ttsc/unplugin/vite";
-import { defineConfig } from "vite";
-
-export default defineConfig({
-  plugins: [ttsc()],
-});
-```
-
-Supported bundlers:
-
-- Vite
-- Rollup
-- Rolldown
-- esbuild
-- Webpack
-- Rspack
-- Next.js
-- Farm
-- Bun
-
-See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
-
-## Plugins
-
-Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs.
-
-```bash
-# compile
-npx ttsc
-
-# execute
-npx ttsx src/index.ts
-```
-
-### Transform Example
-
-A transform uses TypeScript types to generate JavaScript before runtime.
-
-```ts
-import typia, { tags } from "typia";
-import { v4 } from "uuid";
-
-const matched: boolean = typia.is<IMember>({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
-
-interface IMember {
-  id: string & tags.Format<"uuid">;
-  email: string & tags.Format<"email">;
-  age: number &
-    tags.Type<"uint32"> &
-    tags.ExclusiveMinimum<19> &
-    tags.Maximum<100>;
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "@ttsc/lint" }]
+  }
 }
 ```
 
-The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time:
+Same flags you already pass to `tsc`:
 
-```js
-import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
-import typia from "typia";
-import { v4 } from "uuid";
-const matched = (() => {
-  const _io0 = (input) =>
-    "string" === typeof input.id &&
-    __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
-    "string" === typeof input.email &&
-    __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
-    "number" === typeof input.age &&
-    __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
-    19 < input.age &&
-    input.age <= 100;
-  return (input) => "object" === typeof input && null !== input && _io0(input);
-})()({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
+```bash
+npx ttsc                 # type-check + lint + format diagnostics
+npx ttsc fix             # autofix every fixable rule, then re-check
+npx ttsx src/index.ts    # run TS with a real type-check
 ```
 
-### List of Plugins
+Full guides: [ttsc.dev](https://ttsc.dev/docs).
 
-`ttsc` ships a few small utility plugins in this repository.
+## What's in the box
 
-- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): reports lint violations as TypeScript compile errors.
-- [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
-- [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
-- [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
+| | What it does |
+| -- | -- |
+| **`ttsc`** | Compiler. Drop-in for `tsc` — build, check, watch, fix, format. |
+| **`ttsx`** | Run a TS entrypoint after a real type-check. Drop-in for `tsx` / `ts-node`. |
+| **`@ttsc/lint`** | 140+ lint and format rules. Diagnostics surface as TS compile errors. |
+| **`@ttsc/unplugin`** | Same plugin pass inside Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Farm, Bun. |
+| **`@ttsc/wasm`** | The same compiler, in the browser. |
+| **First-party plugins** | [`@ttsc/banner`](https://ttsc.dev/docs/plugins/banner), [`@ttsc/paths`](https://ttsc.dev/docs/plugins/paths), [`@ttsc/strip`](https://ttsc.dev/docs/plugins/strip). |
+| **Ecosystem** | [`typia`](https://ttsc.dev/docs/plugins/typia) (runtime validators, JSON tools, LLM tooling) and [`nestia`](https://nestia.io) (NestJS routes, OpenAPI, SDK). |
 
-Plugin authors should start from the [`Guide Documents`](https://ttsc.dev/docs).
-
-Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
-
-- [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
-- [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
+Editor integration ships out of the box — install the VSCode extension and plugin diagnostics appear live.
 
 ## Sponsors
 
