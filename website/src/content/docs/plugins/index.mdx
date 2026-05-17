@@ -1,0 +1,28 @@
+# Plugin Ecosystem
+
+`ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and the VS Code extension sees them. Diagnostics flow through the same stream as type errors.
+
+## First-party utility plugins
+
+Small plugins shipped from this repo:
+
+- [`@ttsc/banner`](/docs/plugins/banner) — adds a fixed `@packageDocumentation` JSDoc banner to every emitted file.
+- [`@ttsc/paths`](/docs/plugins/paths) — rewrites `compilerOptions.paths` aliases into relative imports in the emit.
+- [`@ttsc/strip`](/docs/plugins/strip) — removes `console.log`, `debugger`, and other configured patterns from the emit.
+
+For lint and format, see the dedicated [Lint & Prettier](/docs/lint) chapter.
+
+## Third-party plugins
+
+External transforms that ship through the same plugin protocol:
+
+- [`typia`](https://typia.io) — runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs — all generated from your TypeScript types.
+- [`nestia`](https://nestia.io) — NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
+
+Each ships on its own release schedule with its own docs. Install per its own instructions.
+
+PRs adding plugins to this list are welcome — the bar is "installs and works on a current `ttsc` release."
+
+## Writing your own
+
+→ [Plugin Development](/docs/development) — the audience-walled section for plugin authors.
