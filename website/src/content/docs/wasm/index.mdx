@@ -2,7 +2,7 @@
 
 *`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
 
-`@ttsc/wasm` is the in-browser runtime for `ttsc`. It packages the same Go-backed engine the CLI ships with — built for `GOOS=js GOARCH=wasm` — alongside a JS boot helper and an in-memory filesystem bridge. Use it to embed a `ttsc` playground in your own site, or to extend the wasm with your plugins.
+`@ttsc/wasm` is `ttsc` running in the browser. It packages the same compiler the CLI ships with (compiled to WebAssembly), plus a JS helper and an in-memory filesystem so the editor never has to round-trip a server. Use it to embed a `ttsc` playground in your own site, or to extend it with your plugins.
 
 > **API stability: experimental until v1.0.** Public signatures (`Plugin.Run`, the `host.Expose` argv shape, the JS `ITtscApi` surface, the linker-symbol `-ldflags "-X ..."` contract) may change between minor releases.
 

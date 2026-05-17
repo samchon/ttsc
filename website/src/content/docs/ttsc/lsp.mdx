@@ -1,6 +1,6 @@
 # Language Server
 
-`ttscserver` is the LSP host. Install it through the [VSCode extension](/docs/setup#editor-vscode) (not yet on Marketplace — build `packages/vscode-ttsc` and `code --install-extension` the `.vsix`; Marketplace tracked for v1) and your editor sees lint diagnostics, plugin code actions, and plugin-defined commands as you type — same things `ttsc` would surface at build time, but live.
+`ttscserver` is the language server. Install it through the [VSCode extension](/docs/setup#editor-vscode) (not yet on Marketplace — build `packages/vscode-ttsc` and `code --install-extension` the `.vsix`; Marketplace tracked for v1) and your editor sees lint diagnostics, plugin code actions, and plugin-defined commands as you type — same things `ttsc` would surface at build time, but live.
 
 ```bash
 npx ttscserver --stdio   # plain LSP server over stdio

@@ -2,13 +2,13 @@
 
 ## Is `ttsc` a fork of TypeScript?
 
-No. `ttsc` is a separate binary built on top of `@typescript/native-preview` (the official TypeScript-Go preview). It uses the upstream compiler and adds a plugin host around it.
+No. `ttsc` is a separate binary built on top of `@typescript/native-preview` (the official TypeScript-Go preview). It uses the upstream compiler and adds a plugin model around it.
 
 ## How does this differ from `ttypescript` / `ts-patch`?
 
 `ttypescript` and `ts-patch` patch the TypeScript JavaScript compiler to enable transformer plugins. They work, but they're patches — they have to chase every TS release.
 
-`ttsc` is its own compiler. The plugin host is part of the binary, not a hot patch over someone else's. The plugin protocol is Go-based and stable across TypeScript-Go updates.
+`ttsc` is its own compiler. Plugins run inside the binary, not as hot patches over someone else's compiler. The plugin contract is stable across TypeScript-Go updates.
 
 ## Do I need Go installed?
 
@@ -39,7 +39,7 @@ Both are independent projects that ship as `ttsc` plugins. `typia` produces runt
 
 ## Is the playground running my code on a server?
 
-No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `playground.wasm` — the same Go-backed `ttsc` engine the CLI uses, compiled for `GOOS=js GOARCH=wasm`. Your source never leaves the tab.
+No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `playground.wasm` — the same `ttsc` engine the CLI uses, compiled to WebAssembly. Your source never leaves the tab.
 
 ## Can I publish my own plugin?
 

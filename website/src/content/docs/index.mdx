@@ -2,7 +2,7 @@
 
 ![banner of ttsc](/og.jpg)
 
-`ttsc` is a TypeScript compiler with a plugin host. It's a drop-in for `tsc` built on `@typescript/native-preview` (TypeScript-Go), and it lets plugins like `typia` and `@ttsc/lint` participate in the build pass — so what your editor sees, your build sees, your runtime sees, and CI sees.
+`ttsc` is a TypeScript-Go toolchain. It's a drop-in for `tsc` built on `@typescript/native-preview`, and it lets plugins like `@ttsc/lint` and `typia` participate in the same pass — so what your editor sees, your build sees, your runtime sees, and CI sees.
 
 ```bash
 npm install -D ttsc @typescript/native-preview
@@ -17,7 +17,7 @@ Same `tsconfig.json` you already have. Same flags as `tsc`.
 | -- | ---- |
 | `ttsc` | The compiler. Build, type-check, watch, fix, format. |
 | `ttsx` | TypeScript runner with a real type-check. The typed replacement for `tsx` / `ts-node`. |
-| `ttscserver` | LSP host. Plugin diagnostics appear live in your editor. |
+| `ttscserver` | Language server. Plugin diagnostics appear live in your editor. |
 | `@ttsc/unplugin` | Same plugin pass embedded inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next, and Bun. |
 | `@ttsc/lint` | The lint engine. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
 | `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS controllers + SDK (`nestia`). |
