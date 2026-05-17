@@ -12,7 +12,7 @@ export default function TtscLandingCtaMovie() {
             Build it today.
           </h2>
           <p className="text-base text-neutral-500 mb-12">
-            <code className="font-mono text-neutral-300">npm install -D ttsc @typescript/native-preview</code>
+            <code className="font-mono text-neutral-300">npm install -D ttsc @ttsc/lint @typescript/native-preview</code>
             <br />
             That{`’`}s it. Setup is one page.
           </p>

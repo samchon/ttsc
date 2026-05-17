@@ -23,12 +23,12 @@ const FIRST_PARTY: PluginCard[] = [
   },
   {
     name: "@ttsc/lint",
-    tagline: "Lint as compile errors",
+    tagline: "Replaces eslint and prettier",
     description:
-      "ESLint-style engine with 140 rules, including a Wadler-style format/print-width line reflow. Diagnostics appear in the same stream as type errors.",
+      "140+ lint rules plus a built-in formatter. Lint violations come out of the compile pass as error TSxxxxx; the formatter applies via ttsc format.",
     example: `npm install -D @ttsc/lint`,
     href: "/docs/lint",
-    badge: "Diagnostics",
+    badge: "Diagnostics + Format",
   },
   {
     name: "@ttsc/paths",
@@ -81,18 +81,19 @@ export default function TtscLandingPluginsMovie() {
       <div className="relative max-w-6xl mx-auto">
         <FadeIn className="max-w-2xl mb-16">
           <p className="text-xs font-medium tracking-[0.3em] uppercase text-neutral-600 mb-5">
-            Plugin host
+            The plugin lineup
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Plugins ship Go.
+            One <code className="font-mono">npm install</code>{" "}
             <br />
-            <span className="text-neutral-500">You ship TypeScript.</span>
+            <span className="text-neutral-500">for every compile-time tool.</span>
           </h2>
           <p className="text-base text-neutral-500 leading-relaxed">
-            Plugin descriptors live in JS so you{`’`}re using ttsc with{" "}
-            <code className="font-mono text-neutral-300">npm install</code>. The
-            transform logic itself is Go — sharing TypeScript-Go{`’`}s AST and
-            Checker — so it stays fast.
+            Plugins are npm packages that run as part of every{" "}
+            <code className="font-mono text-neutral-300">ttsc</code> build, every{" "}
+            <code className="font-mono text-neutral-300">ttsx</code> run, and the
+            VSCode extension. Diagnostics flow through the same stream as type
+            errors.
           </p>
           <p className="text-sm text-neutral-400 mt-5">
             <a

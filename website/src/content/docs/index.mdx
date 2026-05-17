@@ -2,38 +2,40 @@
 
 ![banner of ttsc](/og.jpg)
 
-A TypeScript-Go toolchain. Two packages, one compile pass.
+A TypeScript-Go toolchain.
 
-- **`ttsc`** is the compiler. Drop-in for `tsc` — build, check, watch, fix, format.
-- **`@ttsc/lint`** is the linter and formatter. 140+ rules. Violations come out as `error TSxxxxx`, indistinguishable from a type error.
+- **`ttsc`** — the compiler. Drop-in for `tsc`. Build, check, watch.
+- **`@ttsc/lint`** — replaces `eslint` and `prettier`. Lint violations come out of the compile pass as `error TSxxxxx`; the built-in formatter applies via `ttsc format`.
+- **`ttsx`** — runs a TypeScript entrypoint after a real type-check. Drop-in for `tsx` / `ts-node`.
+- **`@ttsc/vscode`** — VS Code extension. Lint underlines and plugin diagnostics live in your editor.
 
-Together they replace `tsc + eslint + prettier`. Type errors, lint violations, and format diffs all surface in one `ttsc` run and block the same CI step.
+Same `tsconfig.json` you already have. Same flags as `tsc`. Five minutes of setup.
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
 npx ttsc --noEmit
 ```
 
-Same `tsconfig.json` you already have. Same flags as `tsc`.
-
 ## The shape of the project
 
 | | What |
 | -- | ---- |
 | `ttsc` | The compiler. Build, type-check, watch, fix, format. |
-| `@ttsc/lint` | The linter and formatter. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
-| `ttsx` | TypeScript runner with a real type-check. The typed replacement for `tsx` / `ts-node`. |
-| `@ttsc/unplugin` | Same plugin pass embedded inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next, and Bun. |
-| `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS controllers + SDK (`nestia`). |
+| `@ttsc/lint` | Linter (140+ rules) + Prettier-style formatter. Lint as compile errors; format via `ttsc format`. |
+| `ttsx` | TypeScript runner with a real type-check. Typed replacement for `tsx` / `ts-node`. |
+| `@ttsc/vscode` | VS Code extension. Lint and plugin diagnostics live as you type. |
+| `@ttsc/unplugin` | Same plugin pass inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next.js, Bun. |
+| `@ttsc/wasm` | The same compiler, in the browser. Build playgrounds with your own plugins linked in. |
+| `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS routes, OpenAPI, SDK (`nestia`). |
 
 ## Reading paths
 
-- **"I just want to use it."** → [Setup](/docs/setup).
-- **"I want lint and format as part of my build."** → [@ttsc/lint](/docs/lint). This section is large; the chapter index is the right starting point.
-- **"I want to use typia, nestia, or another third-party plugin."** → install the plugin per its own docs (e.g. [typia.io](https://typia.io)); the wiring is one line in `compilerOptions.plugins`, same as any other `ttsc` plugin.
-- **"I want a CLI reference."** → [TTSC · `ttsc` CLI reference](/docs/ttsc/compile).
+- **"I just want to use it."** → [Setup](/docs/setup). Install, write `lint.config.ts`, run `ttsc`.
+- **"I want lint and format as part of my build."** → [Lint & Prettier](/docs/lint).
+- **"I want to use typia, nestia, or another third-party plugin."** → install per its own docs; e.g. [typia.io](https://typia.io).
+- **"I want the CLI reference."** → [TTSC · Compile](/docs/ttsc/compile).
 - **"I want to write my own plugin."** → [Plugin Development](/docs/development). Plugin-author territory; consumers don't need it.
-- **"Something broke."** → [Troubleshooting](/docs/troubleshooting) or [FAQ](/docs/faq).
+- **"Something broke / something is confusing."** → [FAQ](/docs/faq).
 
 ## Try it without installing
 

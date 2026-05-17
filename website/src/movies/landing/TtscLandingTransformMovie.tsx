@@ -163,7 +163,7 @@ export default function TtscLandingTransformMovie() {
       <div className="relative max-w-6xl mx-auto">
         <FadeIn className="max-w-2xl mb-16">
           <p className="text-xs font-medium tracking-[0.3em] uppercase text-neutral-600 mb-5">
-            Compile-powered plugins
+            Transform plugins
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
             Your types,
@@ -171,9 +171,10 @@ export default function TtscLandingTransformMovie() {
             <span className="text-neutral-500">turned into JavaScript.</span>
           </h2>
           <p className="text-base text-neutral-500 leading-relaxed">
-            ttsc plugins read the TypeScript AST and rewrite emit at build time.
-            Drop <code className="font-mono text-neutral-300">typia.is&lt;T&gt;()</code>
-            into your code — the compiler does the runtime check.
+            ttsc plugins rewrite your code at build time. Drop{" "}
+            <code className="font-mono text-neutral-300">typia.is&lt;T&gt;()</code>{" "}
+            into a TypeScript file — the compiler emits the actual runtime check
+            for you. No reflection, no schema duplication, no extra build step.
           </p>
         </FadeIn>
 
