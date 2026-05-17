@@ -2,7 +2,7 @@
   "name": "@ttsc/vscode",
   "displayName": "ttsc",
   "description": "Run ttscserver as a Language Server for TypeScript-Go projects, with lint/format plugin diagnostics merged into VSCode.",
-  "version": "0.11.0-dev.20260518-2",
+  "version": "0.11.0",
   "publisher": "samchon",
   "private": true,
   "license": "MIT",
