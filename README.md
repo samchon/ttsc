@@ -58,7 +58,7 @@ Use `@ttsc/unplugin` when a bundler owns your build.
 It runs `ttsc` plugins inside supported bundlers.
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 npm install -D @ttsc/unplugin
 ```
 
