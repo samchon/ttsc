@@ -5,6 +5,5 @@ const meta: MetaRecord = {
   setup: "Setup",
   format: "Format",
   rules: "Rules",
-  fix: "Fix & format commands",
 };
 export default meta;

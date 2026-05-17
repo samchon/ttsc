@@ -2,9 +2,8 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  compile: "Compile",
-  execute: "Execute",
+  compile: "Compiler (ttsc)",
+  execute: "Execute (ttsx)",
   bundler: "Bundler integration",
-  tsconfig: "tsconfig recipes",
 };
 export default meta;
