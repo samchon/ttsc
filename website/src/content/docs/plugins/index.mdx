@@ -1,8 +1,8 @@
-# Plugins
+# Other Plugins
 
 `ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and `ttscserver` session sees them. You don't import anything in your code — the plugin runs on the compiler pipeline.
 
-This chapter covers the **first-party** plugins. For lint and format, see the separate [@ttsc/lint](/docs/lint) chapter.
+This chapter covers the small `@ttsc/*` first-party utility plugins (banner, paths, strip) plus third-party transforms that ship through the same protocol (typia, nestia). Lint and format live in their own [Lint](/docs/lint) chapter because they're large enough to be a feature surface on their own.
 
 ## The basic shape
 
