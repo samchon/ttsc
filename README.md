@@ -49,7 +49,7 @@ Full guides: [ttsc.dev](https://ttsc.dev/docs).
 | **`@ttsc/unplugin`** | Same plugin pass inside Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Farm, Bun. |
 | **`@ttsc/wasm`** | The same compiler, in the browser. |
 | **First-party plugins** | [`@ttsc/banner`](https://ttsc.dev/docs/plugins/banner), [`@ttsc/paths`](https://ttsc.dev/docs/plugins/paths), [`@ttsc/strip`](https://ttsc.dev/docs/plugins/strip). |
-| **Ecosystem** | [`typia`](https://ttsc.dev/docs/plugins/typia) (runtime validators, JSON tools, LLM tooling) and [`nestia`](https://nestia.io) (NestJS routes, OpenAPI, SDK). |
+| **Ecosystem** | [`typia`](https://typia.io) (runtime validators, JSON tools, LLM tooling) and [`nestia`](https://nestia.io) (NestJS routes, OpenAPI, SDK). |
 
 Editor integration ships out of the box — install the VSCode extension and plugin diagnostics appear live.
 

@@ -9,7 +9,7 @@ const meta: MetaRecord = {
   ttsc: "TTSC",
   lint: "Lint",
   plugins: "Other Plugins",
-  wasm: "Browser Runtime",
+  wasm: "Wasm",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
   "plugin-development": "Plugin Development",

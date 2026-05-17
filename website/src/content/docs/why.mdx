@@ -33,7 +33,7 @@ It type-checks the project, applies every plugin you've configured, and only the
 
 `tsc` doesn't ship a plugin model. `ttypescript` and `ts-patch` are patches over the official compiler — they have to chase every TypeScript release. `ttsc` is **its own compiler**, built on `@typescript/native-preview`, with a plugin model that doesn't depend on patching anything.
 
-In practice that means [`typia`](/docs/plugins/typia) (runtime validators generated from your types) and the rest of the ecosystem run as part of the build, not as a post-build hop:
+In practice that means [`typia`](https://typia.io) (runtime validators generated from your types) and the rest of the ecosystem run as part of the build, not as a post-build hop:
 
 - One pass instead of `tsc && transform && lint`.
 - Diagnostics from plugins look exactly like type errors.
