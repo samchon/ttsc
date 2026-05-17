@@ -37,12 +37,17 @@ Run TypeScript directly with `ttsx` (CLI command):
 npx ttsx src/index.ts
 ```
 
-Build, check, watch, or format the project with `ttsc`:
+Build, check, or watch the project with `ttsc`:
 
 ```bash
 npx ttsc
 npx ttsc --noEmit
 npx ttsc --watch
+```
+
+Rewrite source files in place with the `@ttsc/lint` format rules:
+
+```bash
 npx ttsc format
 ```
 
