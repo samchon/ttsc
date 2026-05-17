@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain.
 
-Paired with `ttsc`, `@ttsc/lint` replaces `eslint` and `prettier`. 140+ rules, format rewriting included. Every diagnostic surfaces as `error TSxxxxx` from a single `ttsc` run — the CI step that already blocks on `tsc` now blocks on lint and format too. No second tool, no second config, no second CI step.
+Paired with `ttsc`, `@ttsc/lint` replaces `eslint` and `prettier`. 140+ lint rules plus a built-in formatter. Lint violations come out of the compile pass as `error TSxxxxx` — the CI step that already blocks on `tsc` blocks on lint too. The formatter writes back via `ttsc format` (warning severity by default; promote any rule to `"error"` if you want format diffs to fail the build too).
 
 ## Demonstration
 
@@ -74,8 +74,18 @@ export default {
     "no-explicit-any": "warning",
     "no-console": "off",
   },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
 } satisfies TtscLintConfig;
 ```
+
+Two top-level keys, on purpose:
+
+- `rules` sets severity for each lint rule. `"error"` fails the build; `"warning"` prints; `"off"` disables.
+- `format` is a Prettier-style block (keys mirror `.prettierrc`) that drives the `format/*` autofixes. Defaults to `severity: "warning"` — applied via `ttsc format`, not gated in `ttsc check`. Promote individual format rules to `"error"` under `rules` if you want format diffs to fail the build.
 
 Run your normal `ttsc` or `ttsx`:
 
