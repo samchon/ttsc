@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/unplugin",
-  "version": "0.11.0-dev.20260518",
+  "version": "0.11.0-dev.20260518-2",
   "description": "Bundler adapters for ttsc plugins.",
   "main": "lib/index.js",
   "module": "lib/index.mjs",
@@ -113,7 +113,7 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/unplugin#readme",
+  "homepage": "https://ttsc.dev",
   "sideEffects": false,
   "packageManager": "pnpm@10.6.4"
 }

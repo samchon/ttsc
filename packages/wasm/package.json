@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/wasm",
-  "version": "0.11.0-dev.20260518",
+  "version": "0.11.0-dev.20260518-2",
   "description": "Build in-browser ttsc playgrounds. Compose ttsc + typescript-go with your own plugins via the Go host helper.",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
@@ -42,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://github.com/samchon/ttsc",
+  "homepage": "https://ttsc.dev",
   "devDependencies": {
     "@types/node": "catalog:utils",
     "@typescript/native-preview": "catalog:tsgo",

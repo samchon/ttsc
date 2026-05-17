@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/lint",
-  "version": "0.11.0-dev.20260518",
+  "version": "0.11.0-dev.20260518-2",
   "description": "Reference ttsc plugin: ESLint-style lint rules hosted in the same Program/Checker as the type-check pass.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -50,5 +50,5 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/lint#readme"
+  "homepage": "https://ttsc.dev"
 }

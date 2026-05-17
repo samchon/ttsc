@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/strip",
-  "version": "0.11.0-dev.20260518",
+  "version": "0.11.0-dev.20260518-2",
   "description": "First-party ttsc plugin that removes configured calls and statements from emitted JavaScript.",
   "main": "src/index.cjs",
   "exports": {
@@ -35,5 +35,5 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://github.com/samchon/ttsc/tree/master/packages/strip#readme"
+  "homepage": "https://ttsc.dev"
 }
