@@ -17,7 +17,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
   - type checking that `tsx` does not provide.
 - **plugin support**: compiler-powered libraries, such as `typia`.
   - `@ttsc/lint`: lint violations as TS compile errors.
-    - also doubles as a `prettier` replacement.
+    - also replaces `prettier` for formatting.
 
 ## Setup
 
