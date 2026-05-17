@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain.
 
-Paired with `ttsc`, `@ttsc/lint` replaces `prettier` and `eslint`. 140+ lint rules plus a built-in formatter. Lint violations come out of the compile pass as `error TSxxxxx` — the CI step that already blocks on `tsc` blocks on lint too. The formatter writes back via `ttsc format` (warning severity by default; promote any rule to `"error"` if you want format diffs to fail the build too).
+Paired with `ttsc`, `@ttsc/lint` replaces `eslint` and `prettier`. 140+ lint rules plus a built-in formatter. Lint violations come out of the compile pass as `error TSxxxxx` — the CI step that already blocks on `tsc` blocks on lint too. The formatter writes back via `ttsc format` (warning severity by default; promote any rule to `"error"` if you want format diffs to fail the build too).
 
 ## Demonstration
 
@@ -63,16 +63,16 @@ Drop a `lint.config.ts` next to your `tsconfig.json`:
 import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
   rules: {
     "no-var": "error",
     "prefer-const": "error",
     "no-explicit-any": "warning",
     "no-console": "off",
-  },
-  format: {
-    printWidth: 100,
-    singleQuote: true,
-    trailingComma: "all",
   },
 } satisfies TtscLintConfig;
 ```

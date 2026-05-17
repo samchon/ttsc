@@ -58,7 +58,7 @@ export default function TtscLandingHeroMovie() {
             >
               TypeScript-Go
             </a>{" "}
-            toolchain that replaces <code className="font-mono text-neutral-200">tsc + prettier + eslint</code>.
+            toolchain that replaces <code className="font-mono text-neutral-200">tsc + eslint + prettier</code>.
             Every diagnostic comes out as <code className="font-mono text-neutral-200">error TSxxxxx</code>,
             from a single compile pass.
           </p>

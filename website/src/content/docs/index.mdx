@@ -7,7 +7,7 @@ A TypeScript-Go toolchain. Two packages, one compile pass.
 - **`ttsc`** is the compiler. Drop-in for `tsc` — build, check, watch, fix, format.
 - **`@ttsc/lint`** is the linter and formatter. 140+ rules. Violations come out as `error TSxxxxx`, indistinguishable from a type error.
 
-Together they replace `tsc + prettier + eslint`. Type errors, lint violations, and format diffs all surface in one `ttsc` run and block the same CI step.
+Together they replace `tsc + eslint + prettier`. Type errors, lint violations, and format diffs all surface in one `ttsc` run and block the same CI step.
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
