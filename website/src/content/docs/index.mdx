@@ -2,10 +2,15 @@
 
 ![banner of ttsc](/og.jpg)
 
-`ttsc` is a TypeScript-Go toolchain. It runs on `@typescript/native-preview` and works as a drop-in for `tsc`. Plugins like `@ttsc/lint` and `typia` run in the same pass, so your editor, your build, your runtime, and CI all see the same diagnostics.
+A TypeScript-Go toolchain. Two packages, one compile pass.
+
+- **`ttsc`** is the compiler. Drop-in for `tsc` — build, check, watch, fix, format.
+- **`@ttsc/lint`** is the linter and formatter. 140+ rules. Violations come out as `error TSxxxxx`, indistinguishable from a type error.
+
+Together they replace `tsc + eslint + prettier`. Type errors, lint violations, and format diffs all surface in one `ttsc` run and block the same CI step.
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 npx ttsc --noEmit
 ```
 
@@ -16,9 +21,9 @@ Same `tsconfig.json` you already have. Same flags as `tsc`.
 | | What |
 | -- | ---- |
 | `ttsc` | The compiler. Build, type-check, watch, fix, format. |
+| `@ttsc/lint` | The linter and formatter. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
 | `ttsx` | TypeScript runner with a real type-check. The typed replacement for `tsx` / `ts-node`. |
 | `@ttsc/unplugin` | Same plugin pass embedded inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next, and Bun. |
-| `@ttsc/lint` | The lint engine. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
 | `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS controllers + SDK (`nestia`). |
 
 ## Reading paths

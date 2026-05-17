@@ -14,37 +14,38 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     num: "01",
-    title: "TypeScript-Go speed",
-    subtitle: "Real native compiler, no V8 cold-start",
+    title: "ttsc — the TypeScript-Go compiler",
+    subtitle: "Drop-in for tsc, built on @typescript/native-preview",
     description:
-      "Built directly on @typescript/native-preview. Same emit, same diagnostics, far less time waiting on tsc.",
-    footer: "Native binary · Type-check + emit in one pass",
+      "Native binary, same tsconfig.json, same flags as tsc. Build, check, watch, fix, format — one toolchain that runs your project end to end.",
+    footer: "Native speed · Same flags as tsc",
     span: true,
   },
   {
     num: "02",
-    title: "Plugins, the compiler way",
-    subtitle: "JS descriptor + Go transform · cached binaries",
+    title: "@ttsc/lint — the linter and formatter",
+    subtitle: "Replaces eslint and prettier · 140+ rules",
     description:
-      "Plugins ship npm packages with a JS descriptor; the Go transform compiles once and is cached. The compiler, runtime, and LSP all see the same plugin.",
-    footer: "tsgo AST · Checker · cached toolchain",
+      "Lint violations and format diffs come out of the same compile pass, as error TSxxxxx. The format subset covers Prettier's territory (quotes, semis, trailing commas, print-width reflow). ttsc fix writes the corrections back.",
+    footer: "ESLint feel · Prettier reflow · 1 pass",
     span: true,
   },
   {
     num: "03",
+    title: "Plugins, the compiler way",
+    subtitle: "JS descriptor + Go transform · cached binaries",
+    description:
+      "Plugins ship as npm packages with a JS descriptor; the Go transform compiles once and is cached. The compiler, runtime, and editor all see the same plugin.",
+    footer: "Cached toolchain · Same plugin everywhere",
+    span: true,
+  },
+  {
+    num: "04",
     title: "ttsx — typed execution",
     subtitle: "Real type-check before run",
     description:
       "Replaces tsx / ts-node with native execution that actually fails on type errors. Preload modules with --require, same as Node.",
     footer: "tsx ergonomics · ts-node correctness",
-  },
-  {
-    num: "04",
-    title: "@ttsc/lint",
-    subtitle: "Lint violations as compile errors",
-    description:
-      "140 rules including a Wadler-style format/print-width that reflows objects, arrays, and call sites. ttsc fix writes the corrections back.",
-    footer: "ESLint feel · Prettier reflow · 1 pass",
   },
   {
     num: "05",

@@ -9,18 +9,15 @@ const TERMINAL_LINES: Array<{
   text: string;
   color?: string;
 }> = [
-  { prompt: "$", text: "npm install -D ttsc @typescript/native-preview" },
-  { text: "  added 4 packages in 1.4s", color: "text-neutral-500" },
-  { prompt: "$", text: "npx ttsx src/index.ts" },
-  { text: "  ✓ type-checked  src/index.ts", color: "text-emerald-400" },
-  { text: "  hello from typescript-go", color: "text-neutral-300" },
+  { prompt: "$", text: "npm install -D ttsc @ttsc/lint @typescript/native-preview" },
+  { text: "  added 5 packages in 1.6s", color: "text-neutral-500" },
   { prompt: "$", text: "npx ttsc --watch" },
   {
-    text: "  ✓ build succeeded · 0 errors · 12 files",
+    text: "  ✓ type-check: 0 errors across 12 files",
     color: "text-emerald-400",
   },
   {
-    text: "  ✓ @ttsc/lint: 0 violations across 12 files",
+    text: "  ✓ @ttsc/lint: 0 violations · format clean",
     color: "text-emerald-400",
   },
   { text: "  watching for changes…", color: "text-neutral-500" },
@@ -36,24 +33,23 @@ export default function TtscLandingHeroMovie() {
       <div className="relative max-w-6xl mx-auto text-center">
         <FadeIn>
           <p className="text-xs font-mono tracking-[0.3em] uppercase text-neutral-500 mb-8">
-            TypeScript-Go · Compiler · Plugin Host
+            TypeScript-Go · ttsc + @ttsc/lint
           </p>
         </FadeIn>
 
         <FadeIn delay={80}>
           <h1 className="text-5xl md:text-7xl lg:text-[6rem] font-bold tracking-[-0.04em] leading-[1] mb-8 text-white">
-            Compile-powered{" "}
+            Type-check, lint, format.{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-neutral-400">
-              TypeScript
+              One pass.
             </span>
-            <br />
-            without the wait.
           </h1>
         </FadeIn>
 
         <FadeIn delay={180}>
           <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed mb-12">
-            <code className="font-mono text-neutral-200">ttsc</code> is a standalone toolchain on{" "}
+            <code className="font-mono text-neutral-200">ttsc</code> +{" "}
+            <code className="font-mono text-neutral-200">@ttsc/lint</code> is a{" "}
             <a
               href="https://github.com/microsoft/typescript-go"
               target="_blank"
@@ -62,8 +58,9 @@ export default function TtscLandingHeroMovie() {
             >
               TypeScript-Go
             </a>{" "}
-            with first-class plugins, type-safe execution, and a lint engine that
-            speaks <em>compile error</em>.
+            toolchain that replaces <code className="font-mono text-neutral-200">tsc + eslint + prettier</code>.
+            Every diagnostic comes out as <code className="font-mono text-neutral-200">error TSxxxxx</code>,
+            from a single compile pass.
           </p>
         </FadeIn>
 

@@ -9,9 +9,9 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-Lint as compile errors.
+A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain.
 
-Type errors and lint violations come out of one `ttsc` run, in the same `error TSxxxxx` shape — so the CI step that already blocks on `tsc` blocks on lint too.
+Paired with `ttsc`, `@ttsc/lint` replaces `eslint` and `prettier`. 140+ rules, format rewriting included. Every diagnostic surfaces as `error TSxxxxx` from a single `ttsc` run — the CI step that already blocks on `tsc` now blocks on lint and format too. No second tool, no second config, no second CI step.
 
 ## Demonstration
 

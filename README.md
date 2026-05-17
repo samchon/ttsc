@@ -1,4 +1,4 @@
-# `ttsc`
+# `ttsc` & `@ttsc/lint`
 
 ![banner of ttsc](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
 
@@ -9,9 +9,12 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-A TypeScript-Go toolchain.
+A TypeScript-Go toolchain. Two packages, one compile pass.
 
-`ttsc` replaces `tsc`. Pair it with `@ttsc/lint` and it also replaces `prettier` and `eslint` — type errors, lint violations, and format diffs all come out as `error TSxxxxx` in one compile run, blocking the same CI step.
+- **`ttsc`** is the compiler. Drop-in for `tsc` — build, check, watch, fix, format.
+- **`@ttsc/lint`** is the linter and formatter. 140+ rules. Violations come out as `error TSxxxxx`, indistinguishable from a type error.
+
+Together they replace `tsc + eslint + prettier`. Type errors, lint violations, and format diffs all surface in one `ttsc` run and block the same CI step.
 
 ## Quick start
 
@@ -43,9 +46,9 @@ Full guides: [ttsc.dev](https://ttsc.dev/docs).
 
 | | What it does |
 | -- | -- |
-| **`ttsc`** | Compiler. Drop-in for `tsc` — build, check, watch, fix, format. |
+| **`ttsc`** | The compiler. Drop-in for `tsc` — build, check, watch, fix, format. |
+| **`@ttsc/lint`** | The linter and formatter. 140+ rules. Diagnostics surface as TS compile errors. |
 | **`ttsx`** | Run a TS entrypoint after a real type-check. Drop-in for `tsx` / `ts-node`. |
-| **`@ttsc/lint`** | 140+ lint and format rules. Diagnostics surface as TS compile errors. |
 | **`@ttsc/unplugin`** | Same plugin pass inside Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Farm, Bun. |
 | **`@ttsc/wasm`** | The same compiler, in the browser. |
 | **First-party plugins** | [`@ttsc/banner`](https://ttsc.dev/docs/plugins/banner), [`@ttsc/paths`](https://ttsc.dev/docs/plugins/paths), [`@ttsc/strip`](https://ttsc.dev/docs/plugins/strip). |
