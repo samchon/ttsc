@@ -4,16 +4,19 @@
   "description": "Run ttscserver as a Language Server for TypeScript-Go projects, with lint/format plugin diagnostics merged into VSCode.",
   "version": "0.11.0",
   "publisher": "samchon",
-  "private": true,
   "license": "MIT",
   "author": "Jeongho Nam",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/samchon/ttsc",
     "directory": "packages/vscode"
   },
   "engines": {
-    "vscode": "^1.94.0"
+    "vscode": "^1.94.0",
+    "node": ">=18"
   },
   "categories": [
     "Programming Languages",
@@ -21,6 +24,16 @@
     "Formatters"
   ],
   "main": "./lib/extension.js",
+  "bin": {
+    "ttsc-vscode": "./bin/install.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "lib",
+    "LICENSE",
+    "README.md"
+  ],
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
@@ -60,9 +73,7 @@
     }
   },
   "scripts": {
-    "build": "rimraf lib && tsgo",
-    "package": "vsce package --no-dependencies --no-yarn",
-    "vscode:prepublish": "pnpm run build"
+    "build": "rimraf lib dist && node build/build.cjs"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
@@ -71,6 +82,8 @@
     "@types/node": "catalog:utils",
     "@types/vscode": "^1.94.0",
     "@typescript/native-preview": "catalog:tsgo",
+    "@vscode/vsce": "^3.6.1",
+    "esbuild": "^0.25.12",
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*"
   }

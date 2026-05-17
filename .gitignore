@@ -6,6 +6,7 @@ lib/
 native/
 dist/
 bin/
+!packages/vscode/bin/
 coverage/
 
 # Local caches and package archives
