@@ -142,7 +142,7 @@ Presence (even empty `format: {}`) enables the always-on rules at Prettier defau
 | `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
-| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. See [docs/13-format-print-width.md](https://github.com/samchon/ttsc/blob/master/docs/13-format-print-width.md). |
+| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. See [the `format/print-width` guide](https://ttsc.dev/docs/lint/format). |
 | `format/sort-imports` | `importOrder*` | Group external/relative imports and alphabetize each group + its specifiers. |
 | `format/jsdoc` | `jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
@@ -157,7 +157,7 @@ export default {
 } satisfies TtscLintConfig;
 ```
 
-Migrating from a `.prettierrc`? See [docs/14-prettier-migration.md](https://github.com/samchon/ttsc/blob/master/docs/14-prettier-migration.md) for the field-by-field cheat sheet and the list of Prettier knobs `@ttsc/lint` does not yet support.
+Migrating from a `.prettierrc`? The [Format rules guide](https://ttsc.dev/docs/lint/format) maps each `.prettierrc` field to its `@ttsc/lint` counterpart and lists the Prettier knobs not yet supported.
 
 ### Config Files
 
@@ -230,9 +230,9 @@ export default defineConfig([
 ]);
 ```
 
-ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in [`docs/10-reference-plugins.md`](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#authoring-a-lint-rule-contributor).
+ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in the [Reference Plugins guide](https://ttsc.dev/docs/plugin-development/reference/reference-plugins#authoring-a-lint-rule-contributor).
 
-Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [Emitting Autofixes](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#emitting-autofixes) section for the full contract and an example.
+Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [Emitting Autofixes](https://ttsc.dev/docs/plugin-development/reference/reference-plugins#emitting-autofixes) section for the full contract and an example.
 
 ## Scope
 
