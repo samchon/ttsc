@@ -9,9 +9,9 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain.
+A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-Paired with `ttsc`, `@ttsc/lint` replaces `eslint` and `prettier`. 140+ lint rules plus a built-in formatter. Lint violations come out of the compile pass as `error TSxxxxx` — the CI step that already blocks on `tsc` blocks on lint too. The formatter writes back via `ttsc format` (warning severity by default; promote any rule to `"error"` if you want format diffs to fail the build too).
+140+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
