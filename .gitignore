@@ -28,3 +28,11 @@ go.work.sum
 .references/
 .wiki/
 experimental/typia/
+
+# Stray native sanity binary from `go build ./cmd/ttsc-wasm` (host build).
+packages/wasm/ttsc-wasm
+
+# Stray native sanity binary from `go build packages/lint/plugin` invoked from repo root.
+/plugin
+# Stray native sanity binary from `go build website/compiler/cmd/playground` invoked from website/compiler.
+website/compiler/playground

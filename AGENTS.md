@@ -13,11 +13,11 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 
 ### 1.2. Layout
 
-- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `driver/lsp_*.go` is the byte-level LSP proxy embedded by ttscserver and `driver.PluginSource` is the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode-ttsc`).
+- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `driver/lsp_*.go` is the byte-level LSP proxy embedded by ttscserver and `driver.PluginSource` is the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode`).
 - `packages/{banner,paths,strip}`: first-party utility plugins sharing `packages/ttsc/utility/host.go`.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
-- `packages/vscode-ttsc`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.
+- `packages/vscode`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
 - `tests/test-*`: feature-test packages (run via `pnpm test:features`).
@@ -139,3 +139,17 @@ In each round, agents build their own knowledge bases from the changed source, d
 At the end of a round, each agent submits its own concrete improvement proposals. Do not require consensus; discussion is for shared understanding, not voting. The lead agent verifies every proposal and applies only changes that are technically sound and relevant.
 
 For the next round, replace the team with six different agents and repeat. Continue while at least one verified proposal is accepted. Stop when no meaningful proposal remains, or when no proposal survives lead-agent validation.
+
+## 5. Pull Request Submission
+
+When the user explicitly asks for a pull request, follow this flow.
+
+1. Branch from the PR target (`master` unless stated otherwise); never commit to the target directly. Name the branch to reflect the change: `feat/<scope>`, `fix/<scope>`, `ci/<scope>`.
+
+2. Group changes into logical commits — one per coherent unit, not a single mega-commit when the diff is large. Use the repository's existing `<type>(<scope>): <subject>` message style.
+
+3. Write the PR body at open: intent, scope, deferred items, test plan. Treat it as the PR's historical intent statement. Do not rewrite the body on every follow-up push — subsequent CI fixes, newly-found design issues, and deferred-item promotions go in `gh pr comment` instead. The comment thread is the PR's chronology.
+
+4. After every push, watch `gh pr checks <PR>` with the Monitor tool until each check settles. Do not poll manually; the notification arrives when transitions complete. On failure, fetch the job log via `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` (returns the full log when `gh run view --log-failed` is empty), diagnose, fix in place, push as a new commit, and let the monitor resume.
+
+5. The agent does not merge, squash-merge, or rebase the target branch. Hand back to the user when all checks pass — or when the user has acknowledged a known-failing check.

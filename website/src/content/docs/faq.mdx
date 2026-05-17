@@ -1,0 +1,61 @@
+# FAQ
+
+## Is `ttsc` a fork of TypeScript?
+
+No. `ttsc` is a separate binary built on top of `@typescript/native-preview` (the official TypeScript-Go preview). It uses the upstream compiler and adds a plugin host around it.
+
+## How does this differ from `ttypescript` / `ts-patch`?
+
+`ttypescript` and `ts-patch` patch the TypeScript JavaScript compiler to enable transformer plugins. They work, but they're patches — they have to chase every TS release.
+
+`ttsc` is its own compiler. The plugin host is part of the binary, not a hot patch over someone else's. The plugin protocol is Go-based and stable across TypeScript-Go updates.
+
+## Do I need Go installed?
+
+No. `ttsc` bundles its own Go toolchain and uses it to compile plugin binaries on first run. Plugin **authors** may want Go locally for `go test` and `go vet` — see [Local Development](/docs/plugin-development/authoring/local-dev). Consumers don't.
+
+## Can I use `ttsc` with my existing `tsc` setup?
+
+Yes. `ttsc` reads `tsconfig.json`, supports the same flags, and emits the same JS. Drop `npx ttsc` in place of `npx tsc` and CI will keep working. Add plugins one at a time as you adopt them.
+
+## Can I use both `tsc` and `ttsc`?
+
+Yes, though it's usually unnecessary. The most common case is keeping `tsc` for a legacy CI matrix while running `ttsc` locally and in newer pipelines. Both produce equivalent emit for the same `tsconfig.json`.
+
+## What about Deno / Bun?
+
+- **Bun** — supported as a bundler integration via `@ttsc/unplugin/bun`. See [Bundlers](/docs/ttsc/bundler).
+- **Deno** — not directly supported. Deno has its own type-check pipeline.
+
+## Does `ttsx` replace `tsx` / `ts-node`?
+
+For most projects, yes. Same ergonomics, real type-check, plugins apply. See [Migration: from tsx / ts-node](/docs/ttsc/execute).
+
+The one place `ttsx` will trip you up: when you actually **wanted** to run code with type errors (rare but happens — e.g., a script that probes incomplete code). Use `tsx` for that.
+
+## What's the relationship to typia and nestia?
+
+Both are independent projects that ship as `ttsc` plugins. `typia` produces runtime validators from your TypeScript types; `nestia` wraps NestJS with `typia`-backed controllers and SDK generation. Neither is part of `ttsc` — they live in their own repos and follow their own release schedules.
+
+## Is the playground running my code on a server?
+
+No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `playground.wasm` — the same Go-backed `ttsc` engine the CLI uses, compiled for `GOOS=js GOARCH=wasm`. Your source never leaves the tab.
+
+## Can I publish my own plugin?
+
+Yes — that's the point of the protocol being public. See [Plugin Development · Publishing](/docs/plugin-development/authoring/publishing).
+
+## Is `ttsc` production-ready?
+
+It's the build tool for `typia` and `nestia`, both of which are. It's still v1 — there are still moving parts, especially around the playground and a few rule edge cases. If you're shipping a library, do not publish `ttsc` as a peer dependency yet; treat it as a build-time dependency.
+
+## Where do I report bugs?
+
+[GitHub Issues](https://github.com/samchon/ttsc/issues). Include `ttsc --version`, your Node version, your `tsconfig.json`, and a minimal reproduction.
+
+## See also
+
+- [Setup](/docs/setup) — get a working `ttsc` install first.
+- [Troubleshooting](/docs/troubleshooting) — common errors and fixes.
+- [Why ttsc](/docs/why) — the design rationale.
+

@@ -17,48 +17,19 @@
 // Diagnostics share the renderer with tsgo's own output, so warnings come
 // out yellow, errors come out red, and the trailing `Found N errors`
 // summary is consistent with `tsc --noEmit`.
+//
+// Behavior lives in the sibling `linthost` library package. This binary is a
+// thin wrapper so out-of-process consumers (the native CLI here) and
+// in-process consumers (the ttsc.dev playground wasm) share the same
+// dispatch surface.
 package main
 
 import (
-  "fmt"
-  "os"
+	"os"
+
+	"github.com/samchon/ttsc/packages/lint/linthost"
 )
 
-const version = "0.0.1"
-
 func main() {
-  os.Exit(run(os.Args[1:]))
-}
-
-func run(args []string) int {
-  if len(args) == 0 {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|format|build|transform|version)")
-    return 2
-  }
-  switch args[0] {
-  case "-v", "--version", "version":
-    // Don't pay contributor-registration cost for the version banner.
-    fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", version)
-    return 0
-  case "check", "fix", "format", "build", "transform":
-  default:
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
-    return 2
-  }
-  // Wire contributor rules into the engine's dispatch table after every
-  // package init has settled. See contrib_adapter.go for the rationale.
-  registerContributors()
-  switch args[0] {
-  case "check":
-    return RunCheck(args[1:])
-  case "fix":
-    return RunFix(args[1:])
-  case "format":
-    return RunFormat(args[1:])
-  case "build":
-    return RunBuild(args[1:])
-  case "transform":
-    return RunTransform(args[1:])
-  }
-  return 2
+	os.Exit(linthost.Main(os.Args[1:]))
 }

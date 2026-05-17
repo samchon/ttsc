@@ -16,12 +16,23 @@ jobs:
   Ubuntu:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Only build + pack the current platform (ttsc-linux-x64) — typia's
+      # overrides below pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
+      # cross-platform matrix takes ~20 min for tarballs we never consume.
+      TTSC_TARBALLS_CURRENT: "1"
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: actions/setup-go@v5
         with:
@@ -30,14 +41,10 @@ jobs:
             packages/ttsc/go.sum
             tests/go-transformer/go.mod
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.4
-
       - name: Install ttsc dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build ttsc tarballs
+      - name: Build ttsc tarballs (current platform only)
         run: pnpm package:tgz
 
       - name: Clone typia next

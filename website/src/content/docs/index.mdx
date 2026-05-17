@@ -1,0 +1,38 @@
+# Introduction
+
+`ttsc` is a TypeScript compiler with a plugin host. It's a drop-in for `tsc` built on `@typescript/native-preview` (TypeScript-Go), and it lets plugins like `typia` and `@ttsc/lint` participate in the build pass — so what your editor sees, your build sees, your runtime sees, and CI sees.
+
+```bash
+npm install -D ttsc @typescript/native-preview
+npx ttsc --noEmit
+```
+
+Same `tsconfig.json` you already have. Same flags as `tsc`.
+
+## The shape of the project
+
+| | What |
+| -- | ---- |
+| `ttsc` | The compiler. Build, type-check, watch, fix, format. |
+| `ttsx` | TypeScript runner with a real type-check. The typed replacement for `tsx` / `ts-node`. |
+| `ttscserver` | LSP host. Plugin diagnostics appear live in your editor. |
+| `@ttsc/unplugin` | Same plugin pass embedded inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Farm, Next, and Bun. |
+| `@ttsc/lint` | The lint engine. 140 rules. Violations come out as `error TSxxxxx` — same shape as type errors. |
+| `typia` / `nestia` | Ecosystem plugins. Runtime validators from your types (`typia`); NestJS controllers + SDK (`nestia`). |
+
+## Reading paths
+
+- **"I just want to use it."** → [Why ttsc](/docs/why), then [Setup](/docs/setup).
+- **"I want lint and format as part of my build."** → [@ttsc/lint](/docs/lint). This section is large; the chapter index is the right starting point.
+- **"I want to use typia, nestia, or another ecosystem plugin."** → [TTSC · Using plugins](/docs/plugins) for the wiring; [TTSC · typia](/docs/plugins/typia) for the canonical example.
+- **"I want a CLI reference."** → [TTSC · `ttsc` CLI reference](/docs/ttsc/compile).
+- **"I want to write my own plugin."** → [Plugin Development](/docs/plugin-development). This is the audience-walled section for plugin authors.
+- **"Something broke."** → [Troubleshooting](/docs/troubleshooting) or [FAQ](/docs/faq).
+
+## Try it without installing
+
+→ [Playground](/playground)
+
+## Status
+
+v1 and still moving. Treat `ttsc` as a build-time dependency in your `package.json`; do **not** declare it as a peer dependency yet.

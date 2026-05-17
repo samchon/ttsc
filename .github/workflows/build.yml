@@ -37,3 +37,43 @@ jobs:
 
       - name: Build Packages
         run: pnpm run build
+
+  wasm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            packages/wasm/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @ttsc/wasm
+        run: pnpm --filter @ttsc/wasm build
+
+      - name: Assert dist artifacts exist
+        run: |
+          test -f packages/wasm/dist/ttsc.wasm
+          test -f packages/wasm/dist/wasm_exec.js
+          test -f packages/wasm/dist/go.mod
+          test -d packages/wasm/shim-vendor/shim
+
+      - name: Tarball smoke (pack + inspect)
+        run: |
+          cd packages/wasm
+          pnpm pack --pack-destination /tmp
+          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q shim-vendor/shim/ast/shim.go
+          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q dist/ttsc.wasm

@@ -28,7 +28,7 @@ Launch VSCode with the extension loaded as an extension under
 development:
 
 ```bash
-code --extensionDevelopmentPath=packages/vscode-ttsc <your-project>
+code --extensionDevelopmentPath=packages/vscode <your-project>
 ```
 
 The extension activates on TypeScript / TSX / JS / JSX files. Look at

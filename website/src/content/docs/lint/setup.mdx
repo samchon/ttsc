@@ -1,0 +1,91 @@
+# Lint Setup
+
+Three steps. Five minutes.
+
+## 1. Install
+
+```bash
+npm install -D @ttsc/lint
+```
+
+`ttsc` and `@typescript/native-preview` are already in your project from the [main Setup chapter](/docs/setup). If not, install them too.
+
+## 2. Register the plugin
+
+In `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "@ttsc/lint" }]
+  }
+}
+```
+
+That's the entire wiring. Every `ttsc` build, `ttsx` run, and `ttscserver` session will now see lint diagnostics.
+
+## 3. Write `lint.config.ts`
+
+Next to `tsconfig.json`:
+
+```ts
+// lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "eqeqeq": "error",
+    "no-explicit-any": "warning",
+
+    "format/semi": "error",
+    "format/quotes": ["error", { prefer: "double" }],
+    "format/trailing-comma": "error",
+    "format/print-width": ["error", { printWidth: 80 }],
+  },
+} satisfies TtscLintConfig;
+```
+
+`"error"` fails the build. `"warning"` prints. `"off"` disables the rule.
+
+Some rules take options as the second tuple element. Each rule's options live on its page in [Rules](/docs/lint/rules) and [Format rules](/docs/lint/format).
+
+## See it
+
+```ts
+// src/index.ts
+var x: number = 3;
+let y: number = 4;
+const z: string = 5;
+
+console.log(x + y + z);
+```
+
+```text
+$ npx ttsc --noEmit
+src/index.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+
+3 const z: string = 5;
+        ~
+
+src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let y: number = 4;
+      ~~~~~~~~~~~~~
+
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var x: number = 3;
+  ~~~~~~~~~~~~~~~~~~
+```
+
+Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out in the same stream. Your CI step that already runs `ttsc` now gates lint too.
+
+## Common starter set
+
+The config in step 3 is what most projects keep. Add and remove as you go. The full catalog is on the [Rules](/docs/lint/rules) and [Format rules](/docs/lint/format) pages.
+
+## Next
+
+→ [Rules](/docs/lint/rules) — the catalog.

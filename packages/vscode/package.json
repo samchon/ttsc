@@ -1,0 +1,77 @@
+{
+  "name": "@ttsc/vscode",
+  "displayName": "ttsc",
+  "description": "Run ttscserver as a Language Server for TypeScript-Go projects, with lint/format plugin diagnostics merged into VSCode.",
+  "version": "0.11.0-dev.20260517",
+  "publisher": "samchon",
+  "private": true,
+  "license": "MIT",
+  "author": "Jeongho Nam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "main": "./lib/extension.js",
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ttsc.lint.fixAll",
+        "title": "ttsc: Apply lint fixes to current file"
+      },
+      {
+        "command": "ttsc.format.document",
+        "title": "ttsc: Format current document"
+      },
+      {
+        "command": "ttsc.server.restart",
+        "title": "ttsc: Restart language server"
+      }
+    ],
+    "configuration": {
+      "title": "ttsc",
+      "properties": {
+        "ttsc.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the ttscserver binary. Leave empty to resolve the binary shipped with the workspace's ttsc dependency."
+        },
+        "ttsc.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Trace LSP messages between VSCode and ttscserver."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "rimraf lib && tsgo",
+    "package": "vsce package --no-dependencies --no-yarn",
+    "vscode:prepublish": "pnpm run build"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@types/vscode": "^1.94.0",
+    "@typescript/native-preview": "catalog:tsgo",
+    "rimraf": "catalog:utils",
+    "ttsc": "workspace:*"
+  }
+}

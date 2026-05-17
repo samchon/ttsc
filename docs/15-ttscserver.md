@@ -53,7 +53,7 @@ Editors should spawn `node node_modules/ttsc/lib/launcher/ttscserver.js`
 (or `npx ttscserver`) with stdio inherited. The launcher resolves the
 native binary from the platform `@ttsc/<os>-<arch>` package.
 
-For VSCode, the workspace ships [`packages/vscode-ttsc`](../packages/vscode-ttsc/)
+For VSCode, the workspace ships [`packages/vscode`](../packages/vscode/)
 which wires `vscode-languageclient` to ttscserver and surfaces the
 ttsc-owned commands in the command palette.
 
@@ -136,7 +136,7 @@ proxy.
 - `packages/ttsc/src/launcher/ttscserver.ts` — JS launcher (resolve + spawn).
 - `packages/ttsc/test/driver/lsp_*_test.go` — Go-side proxy unit tests (frame, envelope, plugin, proxy, server).
 - `packages/ttsc/test/ttscserver/` — black-box command tests (flag parsing, cwd resolution, stdio shutdown).
-- `packages/vscode-ttsc/` — editor extension.
+- `packages/vscode/` — editor extension.
 - `tests/test-ttsc/src/features/ttscserver/` — end-to-end LSP handshake tests.
 
 ## Testing

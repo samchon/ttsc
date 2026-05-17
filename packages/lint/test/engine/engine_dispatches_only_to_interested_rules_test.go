@@ -1,4 +1,4 @@
-package main
+package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"

@@ -1,0 +1,51 @@
+{
+  "name": "@ttsc/wasm",
+  "version": "0.11.0-dev.20260517",
+  "description": "Build in-browser ttsc playgrounds. Compose ttsc + typescript-go with your own plugins via the Go host helper.",
+  "main": "lib/src/index.js",
+  "types": "lib/src/index.d.ts",
+  "files": [
+    "dist",
+    "lib",
+    "src",
+    "host",
+    "cmd",
+    "build",
+    "shim-vendor",
+    "go.mod",
+    "go.sum",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node build/build-wasm.cjs && rimraf lib && tsgo -p .",
+    "build:wasm": "node build/build-wasm.cjs",
+    "build:ts": "rimraf lib && tsgo -p .",
+    "prepack": "node build/pack-prepare.cjs --stash",
+    "postpack": "node build/pack-prepare.cjs --restore"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://github.com/samchon/ttsc",
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "rimraf": "catalog:utils"
+  }
+}

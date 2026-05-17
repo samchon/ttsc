@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "nextra-theme-docs/style.css";
+
+/* ── Landing page: full-bleed canvas ── */
+:has(.ttsc-landing) article {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+:has(.ttsc-landing) main {
+  max-width: 100% !important;
+}
+:has(.ttsc-landing) .nextra-toc {
+  display: none !important;
+}
+:has(.ttsc-landing) .nextra-breadcrumb {
+  display: none !important;
+}
+
+/* ── Playground page: hide Nextra chrome ── */
+.ttsc-playground-page .nextra-sidebar-container,
+.ttsc-playground-page .nextra-sidebar,
+.ttsc-playground-page .nextra-breadcrumb,
+.ttsc-playground-page .nextra-toc,
+.ttsc-playground-page nav.nextra-toc,
+.ttsc-playground-page aside,
+.ttsc-playground-page footer {
+  display: none !important;
+}
+.ttsc-playground-page article {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.ttsc-playground-page main {
+  max-width: 100% !important;
+  margin: 0 !important;
+}
+
+/* ── Hero animations ── */
+@keyframes ttscFadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ttscBlinkCursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

@@ -1,0 +1,83 @@
+# `ttsc fix` & `ttsc format`
+
+*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
+
+Two commands for two workflows. Both write changes back to disk.
+
+## `ttsc fix`
+
+```bash
+npx ttsc fix
+```
+
+Applies every autofix the enabled rules offer — **lint and format together** — writes results back to disk, then re-runs a no-emit type-check + lint pass.
+
+What it does, in order:
+
+1. Loads `tsconfig.json` + `lint.config.ts`.
+2. Builds the TypeScript-Go Program.
+3. Runs every enabled rule. For each rule with an autofix, the fixer produces edits.
+4. Applies non-overlapping edits to source files.
+5. Writes the rewritten files to disk.
+6. Reloads the Program and re-runs the check.
+7. Reports remaining diagnostics (errors that couldn't be autofixed, type errors the autofix didn't address).
+
+Exit code: 0 if no remaining diagnostics, non-zero otherwise. Source files stay modified either way — the fixes are real writes.
+
+### Recommended flow
+
+```bash
+npx ttsc fix           # locally, before committing
+git add -p
+git commit
+# CI runs:
+npx ttsc --noEmit      # gates on zero remaining errors
+```
+
+`ttsc fix` is for **the local developer loop**. CI uses `ttsc --noEmit` and gates on cleanliness — if a `ttsc fix` should have been run and wasn't, CI fails.
+
+### What it cannot do
+
+- `ttsc fix` is a one-shot project pass. It rejects `--watch`, single-file mode, and `--emit`.
+- It does not attempt to fix type errors (it's not a type-correction tool).
+- For rules without autofixers, it reports the diagnostic and moves on.
+
+### ESLint delegation
+
+If your project has an `eslint.config.*` file and ESLint is installed in `node_modules`, `ttsc fix` will:
+
+1. Run the native autofixers first.
+2. Spawn ESLint to apply ESLint's own fixers for rules `@ttsc/lint` doesn't natively implement.
+3. Reload the Program.
+4. Report remaining diagnostics.
+
+Useful during phased migrations from ESLint — keep both engines installed, retire ESLint rules one by one as native equivalents land.
+
+## `ttsc format`
+
+```bash
+npx ttsc format
+```
+
+Same Wadler-style reflow and quote/semi/trailing-comma rewrite as `ttsc fix`, **without** the lint cascade.
+
+Use this when:
+
+- You want to reshape source but not touch any non-format rule.
+- You're comparing the format-only output as a Prettier replacement.
+- You want a fast pre-commit pass that doesn't depend on type-checking.
+
+`ttsc format` skips the post-write re-check. Exit code is 0 unless the format pass itself errored.
+
+## Editor integration
+
+The [VSCode extension](/docs/setup#editor-vscode) surfaces format and lint violations live. For format-on-save, configure the extension's "Format on save" command. `ttsc format` and `ttsc fix` are also fine as pre-commit hooks (via `husky` / `lint-staged`).
+
+## Severity gates
+
+`ttsc fix` rewrites every rule the file's `severity` says is not `"off"`. To temporarily disable all format checks without removing them from `lint.config.ts`, set `format.severity: "off"` — documented in detail under [Format rules → `format.severity`](/docs/lint/format#formatseverity).
+
+## See also
+
+- [Format rules](/docs/lint/format) — the `format/*` rules `ttsc format` applies.
+- [Rules](/docs/lint/rules) — the full rule catalog `ttsc fix` autofixes from.

@@ -4,7 +4,7 @@
 // scripts/test-go-lint.cjs before `go test ./plugin` runs. Keeping the test
 // source under packages/lint/test preserves the package-local test layout while
 // still allowing these cases to inspect unexported engine and config helpers.
-package main
+package linthost
 
 import (
   "encoding/json"

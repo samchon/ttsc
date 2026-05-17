@@ -1,0 +1,53 @@
+# @ttsc/wasm
+
+*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
+
+`@ttsc/wasm` is the in-browser runtime for `ttsc`. It packages the same Go-backed engine the CLI ships with — built for `GOOS=js GOARCH=wasm` — alongside a JS boot helper and an in-memory filesystem bridge. Use it to embed a `ttsc` playground in your own site, or to extend the wasm with your plugins.
+
+> **API stability: experimental until v1.0.** Public signatures (`Plugin.Run`, the `host.Expose` argv shape, the JS `ITtscApi` surface, the linker-symbol `-ldflags "-X ..."` contract) may change between minor releases.
+
+## When to reach for it
+
+- **You want a typia or `@ttsc/lint`-style playground on your docs site.** The same engine the CLI uses, no server round-trip.
+- **You're a plugin author** publishing a transform plugin and you'd like a hosted demo so readers can try `your-plugin` without `npm install`.
+- **You're building a learning surface** (workshops, tutorials) where users edit TypeScript and need real type-checking in-browser without a backend.
+
+## What ships
+
+| Artifact | What it is |
+| --- | --- |
+| `dist/ttsc.wasm` | The no-plugin sanity binary built from `cmd/ttsc-wasm/main_wasm.go`. Exposes `build` / `check` / `transform` only. |
+| `dist/wasm_exec.js` | Go's runtime loader. Required by every `@ttsc/wasm` consumer. |
+| `host/` (Go) | The `host.Expose` helper plugin authors import from their own `main_wasm.go`. |
+| `lib/`, `src/` (TS) | `bootTtsc(...)`, `createMemFS(...)`, typed `ITtscApi` surface. |
+| `vendor/shim/*` | Pack-time vendored copy of `packages/ttsc/shim/`. Required so the published Go module resolves under `node_modules/@ttsc/wasm/`. |
+
+## Minimum viable boot
+
+```ts
+import { bootTtsc } from "@ttsc/wasm";
+
+const { api, host } = await bootTtsc({
+  wasmUrl: "/wasm/ttsc.wasm",      // host this from your static site
+  wasmExecUrl: "/wasm/wasm_exec.js",
+  apiName: "ttsc",
+});
+
+host.writeFile("/work/tsconfig.json", '{"compilerOptions":{"strict":true}}');
+host.writeFile("/work/src/index.ts", "export const x: number = 1;");
+
+const result = await api.build({ cwd: "/work" });
+console.log(result.result);
+```
+
+A Web Worker is **required** — Go's `syscall/js` blocks the runtime while the wasm is alive; running on the main thread freezes the page.
+
+## Going further
+
+For the full surface — building a custom wasm with your plugins linked in, the `-ldflags "-X ..."` version-stamping contract, the published-tarball Go module layout, the native-build sibling — read the [`@ttsc/wasm` README on GitHub](https://github.com/samchon/ttsc/tree/master/packages/wasm#readme).
+
+## See also
+
+- [Plugin Development](/docs/plugin-development) — write the plugin you'd link into a custom wasm.
+- [Plugin Development · TS-Go concepts](/docs/plugin-development/concepts/tsgo) — Program / Checker / VFS background.
+- [Playground](/playground) — the reference consumer built on top of `@ttsc/wasm`.

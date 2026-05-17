@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.pnpm-store
+.DS_Store
+public/compiler/index.js
+public/compiler/*.map
+public/compiler/playground.wasm
+public/compiler/playground.wasm.br
+public/compiler/typia-pack.json
+public/compiler/typia-types.json
+src/compiler/typia-types.json
+src/compiler/external.json
+compiler-dependencies/node_modules
+compiler-dependencies/package-lock.json
+# Native sanity binary built by `go build ./compiler/playground` outside the wasm path.
+compiler/playground

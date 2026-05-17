@@ -1,0 +1,139 @@
+# tsconfig recipes
+
+Common `tsconfig.json` patterns for `ttsc`-based projects.
+
+## Minimum viable
+
+```jsonc
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
+```
+
+## Node library (npm package)
+
+```jsonc
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "plugins": [
+      { "transform": "@ttsc/banner" },
+      { "transform": "@ttsc/lint" },
+      { "transform": "@ttsc/paths" }
+    ]
+  },
+  "include": ["src"]
+}
+```
+
+## Backend service
+
+```jsonc
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "plugins": [
+      { "transform": "@ttsc/lint" },
+      { "transform": "typia/lib/transform" }
+    ]
+  },
+  "include": ["src"]
+}
+```
+
+## Path aliases
+
+```jsonc
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lib/*": ["./src/lib/*"]
+    },
+    "plugins": [{ "transform": "@ttsc/paths" }]
+  }
+}
+```
+
+Detail: [Path aliases](/docs/plugins/paths).
+
+## Production-only strip
+
+Use a separate tsconfig for production builds:
+
+```jsonc
+// tsconfig.prod.json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/lint" },
+      { "transform": "@ttsc/strip" }
+    ]
+  }
+}
+```
+
+```bash
+npx ttsc -p tsconfig.prod.json
+```
+
+## Multiple tsconfigs in one repo
+
+Just one rule of thumb: every tsconfig that should run plugins must list them under `compilerOptions.plugins`. There's no global enable.
+
+If you have `tsconfig.json` (default), `tsconfig.build.json` (CI), and `tsconfig.dev.json` (local), repeat the `plugins` array in each — or use `extends`:
+
+```jsonc
+// tsconfig.base.json (shared)
+{
+  "compilerOptions": {
+    "strict": true,
+    "plugins": [{ "transform": "@ttsc/lint" }]
+  }
+}
+```
+
+```jsonc
+// tsconfig.json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist" },
+  "include": ["src"]
+}
+```
+
+`compilerOptions.plugins` is inherited through `extends`.
+
+## What `ttsc` does **not** read
+
+- `paths` — read by `@ttsc/paths` (if installed), not by `ttsc` itself.
+- `lib` overrides — passed through to TypeScript-Go.
+
+## See also
+
+- [Reference · `ttsc` CLI](/docs/ttsc/compile) — flags that override tsconfig fields.
+- [Using Plugins](/docs/plugins) — how `compilerOptions.plugins` is interpreted.
