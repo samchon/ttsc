@@ -1,39 +1,86 @@
-# @ttsc/vscode
+# `@ttsc/vscode`
 
-VSCode extension that runs the `ttscserver` Language Server for TypeScript-Go
-projects. It surfaces ttsc plugin (lint/format) diagnostics alongside the
-tsgo type-check diagnostics in the same publishDiagnostics stream and
-exposes ttsc-owned code actions and commands.
+![banner of @ttsc/vscode](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
 
-## What it does
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode)
+[![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode)
+[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
+[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
+[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-- Spawns `ttscserver` from the workspace's installed `ttsc` package (or a
-  user-supplied absolute path).
-- Receives merged diagnostics, hovers, completions, definitions from the
-  embedded tsgo LSP server.
-- Adds the ttsc-owned commands `ttsc.lint.fixAll`, `ttsc.format.document`,
-  and `ttsc.server.restart` to the command palette.
+VSCode extension for [`ttsc`](https://ttsc.dev) projects.
 
-## Local install (testing)
+Lint diagnostics, format hints, and plugin code actions appear in your editor live — the same diagnostics `ttsc` would emit at build time, shown as you type.
 
-```bash
-# from the repo root
-pnpm install
-pnpm -F @ttsc/vscode build
-```
+## Requirements
 
-Then in VSCode:
+- **VS Code** 1.94 or later
+- **Node.js** 18 or later
+- **`ttsc` installed in your project** — the extension uses the language server that ships with your project's `ttsc` package
 
 ```bash
-code --extensionDevelopmentPath=packages/vscode <your-project>
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
-The extension activates on any TypeScript / TSX / JS / JSX file inside the
-project. The Output channel "ttsc" shows the language server log.
+## Install
 
-## Configuration
+The extension is not on the VS Code Marketplace yet. For now it ships as an npm package with a one-shot installer:
 
-| Setting | Default | Purpose |
+```bash
+npm install -D @ttsc/vscode
+npx ttsc-vscode
+```
+
+`npx ttsc-vscode` calls `code --install-extension` with the `.vsix` bundled in the npm tarball — VS Code picks it up immediately, no restart needed.
+
+If the `code` CLI isn't on your `PATH`, open VS Code first, run **Shell Command: Install 'code' command in PATH** from the command palette, then re-run `npx ttsc-vscode`. (As a manual fallback, VS Code → Extensions → "…" menu → **Install from VSIX** also works on the file `npx ttsc-vscode` would have used — it lives under `node_modules/@ttsc/vscode/dist/`.)
+
+To uninstall:
+
+```bash
+npx ttsc-vscode uninstall
+```
+
+Marketplace release is tracked for v1; once it lands, the `npx` step goes away.
+
+## What it adds
+
+The extension activates on any TypeScript, JavaScript, TSX, or JSX file inside a project that has `ttsc` installed.
+
+- **Live lint underlines.** Violations from `@ttsc/lint` (and any third-party rule plugins you've installed) appear in the same gutter as TypeScript type errors — same `error TSxxxxx` shape.
+- **Quick fixes** for autofixable rules under the lightbulb menu.
+- **Command palette entries:**
+  - `ttsc: Apply lint fixes to current file`
+  - `ttsc: Format current document`
+  - `ttsc: Restart language server`
+
+The extension's identifier inside VS Code is `samchon.ttsc`.
+
+## Settings
+
+Open VS Code's settings (`Ctrl+,` / `Cmd+,`) and search for `ttsc`, or edit `settings.json` directly:
+
+| Setting | Default | Effect |
 | --- | --- | --- |
-| `ttsc.serverPath` | `""` | Absolute path to the `ttscserver` binary. Empty means resolve from the workspace `ttsc` install. |
-| `ttsc.trace.server` | `"off"` | LSP message tracing — set to `"messages"` or `"verbose"` for debugging. |
+| `ttsc.serverPath` | `""` | Absolute path to a language-server binary. Empty means use the one bundled with the project's `ttsc` install — almost always what you want. |
+| `ttsc.trace.server` | `"off"` | Set to `"messages"` or `"verbose"` to log LSP traffic. The log goes to **View → Output → ttsc**. Useful when diagnostics don't show up. |
+
+## Troubleshooting
+
+If lint underlines don't appear after install:
+
+1. **Check the project has `ttsc`:** `npx ttsc --version`. If this errors, install `ttsc @ttsc/lint @typescript/native-preview` in the project first.
+2. **Read the server log:** open **View → Output**, pick **ttsc** from the dropdown.
+3. **Restart the server:** command palette → `ttsc: Restart language server`.
+4. **Verbose tracing:** set `ttsc.trace.server` to `"verbose"`, repeat step 2.
+
+If `npx ttsc-vscode` errors with `\`code\` CLI not found on PATH`: open VS Code → command palette → **Shell Command: Install 'code' command in PATH**, then retry the install.
+
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
