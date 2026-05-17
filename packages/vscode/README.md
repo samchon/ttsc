@@ -2,12 +2,7 @@
 
 ![banner of @ttsc/vscode](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
-[![NPM Version](https://img.shields.io/npm/v/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode)
-[![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode)
-[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
-[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
-[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
+MIT licensed · [npm](https://www.npmjs.com/package/@ttsc/vscode) · [docs](https://ttsc.dev/docs) · [Discord](https://discord.gg/E94XhzrUCZ)
 
 VSCode extension for [`ttsc`](https://ttsc.dev) projects.
 
@@ -76,11 +71,3 @@ If lint underlines don't appear after install:
 4. **Verbose tracing:** set `ttsc.trace.server` to `"verbose"`, repeat step 2.
 
 If `npx ttsc-vscode` errors with `\`code\` CLI not found on PATH`: open VS Code → command palette → **Shell Command: Install 'code' command in PATH**, then retry the install.
-
-## Sponsors
-
-[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
-
-Thanks for your support.
-
-Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
