@@ -1,85 +1,28 @@
-# Plugins
+# Plugin Ecosystem
 
-`ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and `ttscserver` session sees them. You don't import anything in your code — the plugin runs on the compiler pipeline.
+`ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and the VS Code extension sees them. Diagnostics flow through the same stream as type errors.
 
-This chapter covers the **first-party** plugins. For lint and format, see the separate [@ttsc/lint](/docs/lint) chapter.
+## First-party utility plugins
 
-## The basic shape
+Small plugins shipped from this repo:
 
-Every plugin install is three steps:
+- [`@ttsc/banner`](/docs/plugins/banner) — adds a fixed `@packageDocumentation` JSDoc banner to every emitted file.
+- [`@ttsc/paths`](/docs/plugins/paths) — rewrites `compilerOptions.paths` aliases into relative imports in the emit.
+- [`@ttsc/strip`](/docs/plugins/strip) — removes `console.log`, `debugger`, and other configured patterns from the emit.
 
-1. **Install the package**:
-   ```bash
-   npm install -D @ttsc/banner
-   ```
-2. **Register it in `tsconfig.json`**:
-   ```jsonc
-   {
-     "compilerOptions": {
-       "plugins": [
-         { "transform": "@ttsc/banner" }
-       ]
-     }
-   }
-   ```
-3. **(Some plugins) Add a config file** — e.g. `banner.config.ts`. Each plugin's page tells you which it needs.
+For lint and format, see the dedicated [Lint & Prettier](/docs/lint) chapter.
 
-That's the whole pattern.
+## Third-party plugins
 
-## First-party plugins
+External transforms that ship through the same plugin protocol:
 
-| Plugin | What it adds | Page |
-| ------ | ------------ | ---- |
-| `@ttsc/banner` | JSDoc `@packageDocumentation` banner on every emit. | [@ttsc/banner](/docs/plugins/banner) |
-| `@ttsc/paths` | Rewrites `compilerOptions.paths` aliases into relative imports in the emit. | [@ttsc/paths](/docs/plugins/paths) |
-| `@ttsc/strip` | Strips `console.log`, `debugger`, configured calls from emit. | [@ttsc/strip](/docs/plugins/strip) |
+- [`typia`](https://typia.io) — runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs — all generated from your TypeScript types.
+- [`nestia`](https://nestia.io) — NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
 
-Lint and format are also plugins, but they're big enough to have their own chapter: [@ttsc/lint](/docs/lint).
+Each ships on its own release schedule with its own docs. Install per its own instructions.
 
-## Ecosystem plugins
-
-Outside the `ttsc` repo, following the same protocol:
-
-- [`typia`](/docs/plugins/typia) — Runtime validators, JSON tools, LLM tooling generated from your TypeScript types.
-- [`nestia`](https://nestia.io) — NestJS controllers, OpenAPI documents, SDK generation, E2E test scaffolding.
-
-PRs adding plugins to this list are welcome. The bar is "installs and works on a current `ttsc` release."
-
-## A common starter config
-
-Most projects end up with something like this:
-
-```jsonc
-// tsconfig.json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "plugins": [
-      { "transform": "@ttsc/lint" },
-      { "transform": "@ttsc/paths" }
-    ]
-  },
-  "include": ["src"]
-}
-```
-
-Add `@ttsc/banner` when you ship to npm. Add `@ttsc/strip` for the production build. Add `typia` when you want runtime validators.
-
-## How discovery works
-
-`ttsc` reads `compilerOptions.plugins`. For each entry, the `transform` field is treated as an npm import path. The first time the plugin is used, `ttsc` compiles its Go transform into a binary cached at `node_modules/.ttsc/`. Subsequent runs reuse the cache. Pre-warm with `ttsc prepare`.
-
-## Configuration: file vs inline
-
-Two plugins (`@ttsc/lint`, `@ttsc/banner`) prefer a sibling **config file** because the configuration itself is typed TypeScript. Other plugins accept their options inline in the `compilerOptions.plugins` entry. Each plugin page documents the exact contract.
-
-When in doubt, use the config-file form — your editor will type-check it.
+PRs adding plugins to this list are welcome — the bar is "installs and works on a current `ttsc` release."
 
 ## Writing your own
 
-That's the [Plugin Development](/docs/plugin-development) chapter.
+→ [Plugin Development](/docs/development) — the audience-walled section for plugin authors.

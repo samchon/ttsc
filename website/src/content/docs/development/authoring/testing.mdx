@@ -1,0 +1,285 @@
+# Testing Plugins
+
+Use two layers:
+
+- Go unit tests for pure transform logic.
+- End-to-end tests that run `ttsc` against a fixture project.
+
+## Doc comment + one case per file
+
+Every test in this project — Go unit or TypeScript e2e — is **one assertion per file**, named after what it asserts, opened with a three-part doc comment: a `Verifies …` headline, a short paragraph stating the non-obvious *why*, and a 2–4-step numbered scenario. This is the same shape AGENTS.md §2.2 mandates for the in-repo tests; third-party plugins that adopt it stay copy-pasteable into the project's own test suite.
+
+- **Go unit tests** live in `packages/*/test/` (or `<your-package>/test/`). One `Test*` per file. File name: `<scope>_<assertion>_test.go`.
+- **TypeScript e2e tests** live in `tests/test-*/src/features/` (or the equivalent in your package). Each file exports one `test_<snake_case>` function with a matching filename; `DynamicExecutor` from `@nestia/e2e` discovers them by prefix.
+
+```ts
+/**
+ * Verifies plugin corpus: composes rejects cycle between two plugins.
+ *
+ * Locks the cycle-detection branch in
+ * `loadProjectPlugins.ts::composePluginSources`. Composition is one hop
+ * only; reciprocal `composes` arrays would silently reswap the binaries
+ * of both plugins, so ttsc throws an explicit error instead of routing
+ * to the wrong binary.
+ *
+ * 1. Two plugin descriptors each list the other in `composes`.
+ * 2. Run ttsc.
+ * 3. Assert non-zero exit and `composes cycle detected` in stderr.
+ */
+export const test_plugin_corpus_composes_rejects_cycle_between_two_plugins =
+  () => { /* ... */ };
+```
+
+The Go shape mirrors it:
+
+```go
+// Test_parsebanner_returns_configured_text_from_explicit_config_path
+//
+// Verifies banner config discovery: explicit config wins over banner.config.ts.
+//
+// Locks parseBanner's precedence rule — explicit `config: "./path"` on the
+// plugin entry must shortcircuit before tsconfig-cwd banner.config.ts is
+// loaded; otherwise consumers cannot override the project default.
+//
+// 1. Materialize a fixture with both an explicit config path and a default banner.config.ts.
+// 2. Call parseBanner(map{"config": "./explicit.json"}, cwd, tsconfigPath).
+// 3. Assert the returned banner matches the explicit file, not the default.
+func Test_parsebanner_returns_configured_text_from_explicit_config_path(t *testing.T) { /* ... */ }
+```
+
+## Go Unit Tests
+
+Keep the core logic callable without CLI flags. Use the real shipped signature so the test grep-rolls forward as the codebase evolves:
+
+```go
+// Source: packages/ttsc/utility/host.go::parseBanner
+banner, err := parseBanner(config, cwd, tsconfigPath)
+```
+
+The real signature is `parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error)`. There is no `applyBanner` in the repo — the function name matters because readers grep for it.
+
+Unit tests should cover:
+
+- happy path;
+- invalid config;
+- no-op file kinds;
+- idempotence;
+- AST matching helpers;
+- text edit edge cases.
+
+References:
+
+- [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
+- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/)
+- [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/)
+- [`packages/paths/test`](https://github.com/samchon/ttsc/tree/master/packages/paths/test/)
+
+## End-to-End Tests
+
+An end-to-end test should:
+
+1. copy or create a temporary fixture project;
+2. link/install the plugin under `node_modules`;
+3. run the real `ttsc` launcher;
+4. assert on emitted files, diagnostics, and exit code.
+
+Minimal Node test skeleton, AGENTS.md §2.2 shape:
+
+```ts
+// File: tests/features/test_my_plugin_strips_debugger_statements_from_emit.ts
+import assert from "node:assert/strict";
+import child_process from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+/**
+ * Verifies my-plugin: debugger statements are removed from emit.
+ *
+ * Locks the AST-mutation path — if shimprinter.EmitSourceFile is not
+ * called over the mutated tree, the JSON envelope round-trips the
+ * unmutated source.Text() and the debugger survives the pipeline.
+ *
+ * 1. Materialize a fixture with `debugger; export const x = 1;`.
+ * 2. Run `ttsc --emit` against it.
+ * 3. Assert exit 0 and that `dist/main.js` does not contain `debugger`.
+ */
+export const test_my_plugin_strips_debugger_statements_from_emit = () => {
+  const ttscBin = require.resolve("ttsc/lib/launcher/ttsc.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "my-plugin-"));
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "src/main.ts"), `debugger;\nexport const x = 1;\n`);
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        rootDir: "src",
+        outDir: "dist",
+        plugins: [{ transform: "my-plugin" }],
+      },
+      include: ["src"],
+    }),
+  );
+
+  const result = child_process.spawnSync(
+    process.execPath,
+    [ttscBin, "--cwd", root, "--emit"],
+    { encoding: "utf8", windowsHide: true },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const js = fs.readFileSync(path.join(root, "dist/main.js"), "utf8");
+  assert.doesNotMatch(js, /debugger/);
+};
+```
+
+## Project-shaped fixtures
+
+When a regression depends on a real directory layout — entry discovery, package boundaries, `compilerOptions.plugins[]` resolution — check the fixture into `tests/projects/<name>/` and copy it into a temp dir at test time. The canonical "third-party shape" for project fixtures is what this repo's own `tests/projects/` ships: nine fixtures, every one uses **explicit `compilerOptions.plugins[]`** (no `package.json` auto-discovery), so the wiring is unambiguous.
+
+Worked exemplars in this repo:
+
+- [`tests/projects/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin/) — minimal Go source plugin.
+- [`tests/projects/go-source-plugin-checker/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) — Checker-using plugin.
+- [`tests/projects/go-source-plugin-properties/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) — properties round-trip.
+
+The materialize-into-tempdir pattern is one helper a third-party author can paste without depending on `@ttsc/testing` (which is private to this repo):
+
+```ts
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+/**
+ * Copy a project-shaped fixture into a writable temp directory.
+ * Mirrors `tests/utils/src/TestProject.ts::copyProject`.
+ */
+export function copyProjectTo(fixtureRoot: string): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-fixture-"));
+  copyDirectory(fixtureRoot, root);
+  return root;
+}
+
+function copyDirectory(src: string, dst: string): void {
+  fs.mkdirSync(dst, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dst, entry.name);
+    if (entry.isDirectory()) copyDirectory(from, to);
+    else if (entry.isFile()) fs.copyFileSync(from, to);
+  }
+}
+```
+
+For Checker-using plugins, the bootstrap inside the fixture's `plugin/main.go` should use `driver.LoadProgram` — see [AST & Checker → Bootstrap with the driver](/docs/development/concepts/tsgo#bootstrap-with-the-driver).
+
+## Direct-shell smoke
+
+The `--plugins-json` flag is part of the public protocol (see [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json)). The host serializes the active plugin descriptors as a JSON array — `check` plugins first, then `transform` — and each entry carries `{config, name, stage}`. `config` is the consumer's tsconfig entry passed through verbatim (including any `transform` or `enabled` keys; plugins should ignore those — ttsc owns them).
+
+```json
+[
+  {
+    "config": { "header": "// generated" },
+    "name": "@ttsc/banner",
+    "stage": "transform"
+  }
+]
+```
+
+Smoke from a Go test by shelling your binary directly with a hand-constructed manifest:
+
+```go
+cmd := exec.Command("go", "run", "./plugin", "transform",
+    "--cwd="+projectRoot,
+    "--plugins-json="+string(manifestJSON),
+    "--tsconfig="+filepath.Join(projectRoot, "tsconfig.json"),
+)
+```
+
+The host emits flags in equals form (`--cwd=...`); construct your tests the same way.
+
+## Asserting re-spawn env vars
+
+`ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process--ttsc__binary)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
+
+```go
+// File: <your-package>/test/plugin_receives_ttsc_tsgo_binary_test.go
+//
+// Verifies: the host injects TTSC_TSGO_BINARY into the plugin process.
+//
+// Locks the host-side seam (`runBuild.ts:21,32-34`) so plugins that re-spawn
+// tsgo for a typecheck second-pass have a deterministic path. Regressing this
+// env injection would silently break every plugin that uses os.Getenv to
+// reach the toolchain.
+//
+// 1. Spawn `go run ./plugin transform` against a minimal fixture.
+// 2. Have the plugin write os.Getenv("TTSC_TSGO_BINARY") to stdout.
+// 3. Assert the value is non-empty and points at an executable.
+func Test_plugin_receives_ttsc_tsgo_binary(t *testing.T) { /* ... */ }
+```
+
+For the re-spawn how-to (calling `exec.Command(os.Getenv("TTSC_TSGO_BINARY"), ...)` from inside your plugin), see [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin). This page only documents the assertion shape.
+
+## Cache isolation
+
+Plugin builds are cache-keyed by `ttsc + tsgo + platform + entry + plugin source hash + overlay hashes + the resolved Go binary's identity + every env var in `GO_BUILD_ENV_KEYS` (`GOOS`, `GOARCH`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`, …). Three knobs make tests deterministic:
+
+- **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir will race the publish path.
+
+  ```ts
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-plugin-cache-${workerId}-`));
+  process.env.TTSC_CACHE_DIR = cache;
+  ```
+
+- **Freeze `GOOS` / `GOARCH` to the host.** A developer who exports `GOARCH=arm64` in their shell will rebuild plugins per test run because cross-compile env vars enter the cache key.
+- **Pin `TTSC_GO_BINARY`** to a fixed absolute path. The cache key folds in `resolveGoCompilerIdentity` (resolved path + stat + `go version` text); pinning the binary makes the slot stable across `pnpm install`.
+
+Use a fresh cache when the test asserts first-build behavior.
+
+## What to Assert
+
+For successful builds:
+
+- exit status is `0`;
+- emitted output contains the expected transform result;
+- runtime output still works when relevant;
+- stderr contains only expected cache-build logs.
+
+For failures:
+
+- exit status is non-zero;
+- stderr contains a specific, user-actionable message.
+
+Avoid whole-file snapshots unless the exact output is the contract. Compiler boilerplate can legitimately change.
+
+## TypeScript-Go Drift Tests
+
+If your plugin imports a shim symbol, add an end-to-end case that exercises that exact code path. When `ttsc` bumps TypeScript-Go, a moved symbol should fail in CI, not in a user's install.
+
+For this repository's full test matrix and release smoke checks, see [Contributing → Workspace release](/docs/contributing/workspace-release).
+
+## Go Coverage Audit
+
+Go logic coverage can be audited with:
+
+```bash
+pnpm run coverage:go
+```
+
+This command is a manual Go coverage gate, separate from `pnpm test` and CI's `Run Tests` step. It enforces exact 100% block coverage for the runtime Go logic it measures and fails on profile-generation errors, uncovered blocks, or invalid coverage-profile merges.
+
+The audit covers behavioral Go packages and fixture backends:
+
+- `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
+- `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
+- `packages/lint/linthost` (engine internals; `packages/lint/plugin/main.go` is the thin wrapper)
+- `tests/go-transformer`
+
+Generated shim re-export files and the shim generator under `packages/ttsc/shim` and `packages/ttsc/tools/gen_shims` are drift-managed code, not part of this runtime coverage gate.
+
+## Next
+
+→ [Publishing](/docs/development/authoring/publishing) — package shape, `peerDependencies`, Pre-Publish Check CI recipe.

@@ -1,6 +1,6 @@
 # Setup
 
-Two packages, one tsconfig, and you're running `ttsc`. No global binary, no system Go, no PATH surgery.
+Three packages, one `lint.config.ts`, one VS Code extension. Five minutes.
 
 ## Requirements
 
@@ -10,19 +10,18 @@ Two packages, one tsconfig, and you're running `ttsc`. No global binary, no syst
 ## Install
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
-`pnpm` / `yarn` / `bun` work the same way. Substitute `add` for `install`.
+`pnpm` / `yarn` / `bun` work the same way (substitute `add` for `install`).
 
-`@typescript/native-preview` is the **TypeScript-Go preview** that `ttsc` runs on. It ships separately because the TypeScript team versions it independently. Pin it in your project; `ttsc` discovers it through `node_modules`.
+`@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package — pin it in your project and `ttsc` picks it up from `node_modules`.
 
-## Minimal tsconfig
+## Minimal `tsconfig.json`
 
 If you don't already have one:
 
 ```jsonc
-// tsconfig.json
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -36,6 +35,32 @@ If you don't already have one:
 }
 ```
 
+Same shape as a `tsc` project — `ttsc` reads the same fields.
+
+## Minimal `lint.config.ts`
+
+Drop this next to `tsconfig.json` so `@ttsc/lint` knows which rules to enable:
+
+```ts
+// lint.config.ts
+import type { TtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-explicit-any": "warning",
+  },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies TtscLintConfig;
+```
+
+`rules` sets severity per lint rule. `format` is a Prettier-style block — the keys mirror `.prettierrc`. See [Lint & Prettier](/docs/lint) for the full catalog.
+
 ## First build
 
 ```ts
@@ -48,25 +73,36 @@ console.log(greet("world"));
 ```
 
 ```bash
-npx ttsc            # build + emit to dist/
-npx ttsc --noEmit   # type-check only (CI form)
+npx ttsc            # type-check + lint + emit to dist/
+npx ttsc --noEmit   # type-check + lint only (CI form)
 npx ttsc --watch    # watch mode
+npx ttsc fix        # autofix every fixable lint and format violation
+npx ttsc format     # rewrite source files with the format rules
 node dist/index.js  # run the emit
 ```
 
 That's it. From here you can:
 
-- **Run a script directly** — `npx ttsx src/index.ts`. Type-checks then executes. See [Compile · Execute](/docs/ttsc/execute).
-- **Add a plugin** — start with [@ttsc/lint](/docs/lint) for lint-as-compile-errors, or [typia](/docs/plugins/typia) for runtime validators.
-- **Wire your editor** — install the VSCode extension below.
+- **Run a script directly** — `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
+- **Add a transform plugin** — e.g. [typia](https://typia.io) for runtime validators generated from your types.
+- **Wire your editor** — install the VS Code extension below for live diagnostics.
 
-## Editor (VSCode)
+## Editor (VS Code)
 
-The VSCode extension wires VSCode's TypeScript experience to `ttscserver`, so plugin diagnostics (lint, typia, your own plugins) appear live in the editor — not just at build time.
+The VS Code extension surfaces lint and plugin diagnostics live in the editor instead of only at build time. Same `error TSxxxxx` shape your build emits — as you type.
 
-> **Not yet on Marketplace.** Today: build `packages/vscode-ttsc` from the workspace (`pnpm --filter @ttsc/vscode package`) and `code --install-extension` the produced `.vsix`. Marketplace publication is tracked for v1.
+Not yet on the VS Code Marketplace. For now it ships as an npm package with a one-shot installer:
 
-The extension auto-discovers `ttscserver` from your project's local `node_modules`; no global install is needed.
+```bash
+npm install -D @ttsc/vscode
+npx ttsc-vscode
+```
+
+`npx ttsc-vscode` invokes `code --install-extension` against the `.vsix` bundled inside the package. To uninstall:
+
+```bash
+npx ttsc-vscode uninstall
+```
 
 What it adds:
 
@@ -76,10 +112,10 @@ What it adds:
 
 If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
 
-→ Full editor surface: [TTSC · Language Server](/docs/ttsc/lsp)
+Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
 
 ## See also
 
-- [Troubleshooting](/docs/troubleshooting) — when something doesn't behave.
-- [FAQ](/docs/faq) — common questions about `ttsc`, `ttsx`, and the playground.
-- [TTSC · `ttsc` CLI reference](/docs/ttsc/compile) — every flag and subcommand.
+- [FAQ](/docs/faq) — common questions, gotchas, and migration tips.
+- [TTSC · Compile](/docs/ttsc/compile) — every flag and subcommand.
+- [Lint & Prettier](/docs/lint) — `lint.config.ts`, the rule catalog, and the format block.

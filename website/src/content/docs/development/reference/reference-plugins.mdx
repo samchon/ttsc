@@ -1,0 +1,534 @@
+# Reference Plugins
+
+This repository ships four package-shaped plugins. Study them in this order:
+
+1. `@ttsc/banner`
+2. `@ttsc/strip`
+3. `@ttsc/paths`
+4. `@ttsc/lint`
+
+The order is by *consumer-facing* implementation difficulty. `strip` is easier than `paths`: `strip` only needs the source AST in front of it; `paths` needs tsconfig and Program data to map aliases through the final output layout.
+
+> **Where the real logic lives.** The Go sidecars for `@ttsc/banner`, `@ttsc/strip`, and `@ttsc/paths` (`packages/{banner,strip,paths}/plugin/main.go`) are each **~36-line dispatchers**. The actual banner-preamble, strip-rewriter, and paths-rewriter logic lives in **one shared file**, `packages/ttsc/utility/host.go` (~1300 LOC), which is co-hosted across the three plugins under the first-party allowlist in `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`. When you open a sidecar to "learn the strip plugin," you are reading the dispatcher; the strip-specific code is the `stripRewriter` block inside `utility/host.go`. `@ttsc/lint` is different — its real engine is `packages/lint/linthost/`.
+>
+> **Third-party plugins follow `tests/projects/go-source-plugin-checker/` instead** — a `plugin/main.go` that calls `driver.LoadProgram` directly. The 36-line first-party shim only works for the three allowlisted utility plugins (`utility.RunBuild` / `RunTransform` / `RunCheck` hard-code the names) and is not a public template.
+
+## First-party shared compiler host
+
+The first-party utility plugins (`@ttsc/banner`, `@ttsc/strip`, `@ttsc/paths`) share `packages/ttsc/utility/host.go` so they can cooperate inside one compiler pass. The JS-side gate at `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts` checks every active plugin's `name` and manifest against a closed allowlist (`FIRST_PARTY_UTILITY_PLUGIN_NAMES = { "@ttsc/banner", "@ttsc/paths", "@ttsc/strip" }`) before allowing co-hosting; any third-party plugin in the same `compilerOptions.plugins[]` mix forces a separate spawn and triggers `assertSharedHostCompatibility` (see [Pitfalls → Combining Plugins](/docs/development/reference/pitfalls#combining-plugins)).
+
+This is why a third-party plugin that imports `utility.RunBuild` / `RunTransform` / `RunCheck` compiles but silently no-ops — the helpers dispatch only on first-party plugin names. **Don't teach `utility.Run*`; call `driver.LoadProgram` directly.** See [Reference → Driver API](/docs/development/reference/driver-api) for the supported façade.
+
+## Shared Package Shape
+
+Each package has a JavaScript descriptor factory and a Go plugin module:
+
+```text
+packages/<name>/
+|- package.json
+|- src/index.cjs        # simple descriptor factory, when no typed surface is needed
+|- src/index.ts         # typed package surface, compiled to lib/index.js when present
+|- go.mod
+`- plugin/
+   |- main.go           # native sidecar entrypoint
+   `- <name>.go         # package-local helper file or wrapper
+```
+
+For a package with no public TypeScript types, the descriptor factory can live in `src/index.cjs`:
+
+```js
+const path = require("node:path");
+
+module.exports = function createPlugin() {
+  return {
+    name: "@ttsc/name",
+    source: path.resolve(__dirname, "..", "plugin"),
+    stage: "transform",
+  };
+};
+```
+
+The `plugin` directory is inside the package root, so the source builder finds the package `go.mod` by walking upward.
+
+For a package that exposes config types, put the descriptor in `src/index.ts` and export those types from the same root index.
+
+`@ttsc/banner`, `@ttsc/lint`, `@ttsc/paths`, and `@ttsc/strip` are package-contract examples for plugin authors. Their user-facing READMEs describe install and config files; this chapter focuses on how each package is wired internally.
+
+## `@ttsc/banner`
+
+Path: [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/)
+
+Purpose: add a configured `@packageDocumentation` source JSDoc block so JavaScript and declaration emit both carry the banner.
+
+Consumer config:
+
+```ts
+// banner.config.ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
+export default {
+  text: "License MIT",
+} satisfies TtscBannerConfig;
+```
+
+Use `compilerOptions.plugins` only for inline text or a non-default config path:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/banner",
+        "config": "./config/banner.config.ts",
+      },
+    ],
+  },
+}
+```
+
+If no inline text, explicit `config`, or discovered banner config file exists, the build fails.
+
+What to learn:
+
+- Minimal transform plugin descriptor.
+- Finding the plugin's config from `--plugins-json`.
+- Loading project config from `banner.config.ts`.
+- Formatting user banner text into compiler-owned JSDoc.
+- Clean error messages for invalid config.
+
+Read:
+
+- [`packages/banner/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/banner/src/index.ts)
+- [`packages/banner/plugin/main.go`](https://github.com/samchon/ttsc/tree/master/packages/banner/plugin/main.go)
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go)
+- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/)
+- [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
+
+Use this as the template for simple source comment transforms.
+
+## `@ttsc/strip`
+
+Path: [`packages/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip/)
+
+Purpose: remove configured call-expression statements and `debugger` statements from TypeScript source AST before emit.
+
+Install:
+
+```bash
+npm install -D @ttsc/strip
+```
+
+With no plugin options, `@ttsc/strip` removes `console.log`, `console.debug`, `assert.*`, and `debugger`. Add a `compilerOptions.plugins[]` entry when the project needs a different call or statement list.
+
+What to learn:
+
+- Mutate source `SourceFile.Statements` directly.
+- Walk `SourceFile.Statements` and recurse with `node.ForEachChild`.
+- Match `ExpressionStatement -> CallExpression`.
+- Convert a callee AST into a dotted name such as `console.log`.
+- Remove a whole statement by filtering the parent statement list.
+
+Key AST flow:
+
+```text
+SourceFile
+`- Statements
+   `- ExpressionStatement
+      `- CallExpression
+         `- PropertyAccessExpression
+            |- Identifier(console)
+            `- Identifier(log)
+```
+
+Read:
+
+- [`packages/strip/src/index.cjs`](https://github.com/samchon/ttsc/tree/master/packages/strip/src/index.cjs)
+- [`packages/strip/plugin/main.go`](https://github.com/samchon/ttsc/tree/master/packages/strip/plugin/main.go)
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go)
+- [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/)
+- [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
+
+Then compare the AST discussion in [AST and Checker](/docs/development/concepts/tsgo#recognizing-calls).
+
+## `@ttsc/paths`
+
+Path: [`packages/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths/)
+
+Purpose: rewrite source module specifiers that match `compilerOptions.paths` into relative output paths. Declaration emit follows the same source AST rewrite.
+
+Install:
+
+```bash
+npm install -D @ttsc/paths
+```
+
+Consumer `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "paths": {
+      "@lib/*": ["./src/modules/*"],
+    },
+    "rootDir": "src",
+    "outDir": "dist",
+  },
+}
+```
+
+What to learn:
+
+- Transform plugins can still load tsconfig and Program data.
+- `tsoptions.GetParsedCommandLineOfConfigFile` is the right way to read compiler options.
+- Path alias resolution must use real project source files, not string guessing alone.
+- More-specific path patterns should win before broad wildcard patterns.
+- The plugin must handle module-specifier syntax that can affect emitted JS and declarations:
+  - `import ... from "..."`
+  - `export ... from "..."`
+  - `require("...")`
+  - dynamic `import("...")`
+  - `import("...").T` type queries
+
+Mental model:
+
+```text
+emitted specifier "@lib/message"
+-> match compilerOptions.paths pattern "@lib/*"
+-> candidate source "./src/modules/message.ts"
+-> Program confirms that source file exists
+-> map source path through rootDir/outDir
+-> rewrite to "./modules/message.js"
+```
+
+Read:
+
+- [`packages/paths/src/index.cjs`](https://github.com/samchon/ttsc/tree/master/packages/paths/src/index.cjs)
+- [`packages/paths/plugin/main.go`](https://github.com/samchon/ttsc/tree/master/packages/paths/plugin/main.go)
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go)
+- [`packages/paths/test`](https://github.com/samchon/ttsc/tree/master/packages/paths/test/)
+- [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
+- [`tests/test-paths/src/features`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/)
+
+Then compare [AST and Checker](/docs/development/concepts/tsgo#recognizing-imports-and-module-specifiers).
+
+## `@ttsc/lint`
+
+Path: [`packages/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint/)
+
+Purpose: report ESLint-style diagnostics from TypeScript-Go's Program and Checker path.
+
+Install:
+
+```bash
+npm install -D @ttsc/lint
+```
+
+When neither `rules` (inline severity map) nor `extends` (file path) is written in `tsconfig.json`, use `lint.config.*`, `ttsc-lint.config.*`, or a supported ESLint flat config file (`eslint.config.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, or `.cts`). If no config file exists, the build fails.
+
+Run `ttsc fix` to apply supported lint fixes before the final no-emit check. Native fixers are attached as source-text edits on rule findings; ESLint-backed configs delegate to ESLint's `fix` runtime and then reload the TypeScript-Go Program before diagnostics are rendered.
+
+What to learn:
+
+- Reporting diagnostics before emit.
+- Program/Checker bootstrap for diagnostics.
+- Rule registry keyed by rule name.
+- Rule dispatch by `shimast.Kind`.
+- Token-oriented diagnostic ranges with `shimscanner.SkipTrivia(file.Text(), node.Pos())` — used by every `linthost/rules_*.go` file; the canonical idiom across the chapter.
+- Autofix text edits for selected native rules and ESLint runtime delegation.
+- Rendering lint diagnostics beside TypeScript-Go diagnostics.
+
+Core architecture:
+
+```text
+compile.go
+  parses CLI flags
+  loads Program
+  runs compiler diagnostics
+  runs lint Engine
+  renders diagnostics
+
+fix.go
+  applies native text edits
+  delegates ESLint runtime fixes
+  reloads Program before final diagnostics
+
+engine.go
+  maps Kind -> active rules
+  walks user SourceFiles
+  calls rule.Check(ctx, node)
+
+rules_*.go
+  implement Rule{Name, Visits, Check}
+```
+
+Read:
+
+- [`packages/lint/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/index.ts)
+- [`packages/lint/src/structures`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/)
+- [`packages/lint/linthost/config.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/config.go)
+- [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go)
+- [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go)
+- [`packages/lint/linthost/compile.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/compile.go)
+- [`packages/lint/linthost/fix.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/fix.go)
+- [`packages/lint/plugin/main.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/plugin/main.go) — thin wrapper that dispatches into `linthost`.
+- [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/) — engine directory.
+- [`tests/test-lint/src/cases`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases/)
+
+Use this design only when you need source diagnostics or semantic analysis. For source transforms, prefer the smaller `banner`, `strip`, or `paths` shapes.
+
+### Authoring a Lint Rule Contributor
+
+`@ttsc/lint` exposes a public Go module — `github.com/samchon/ttsc/packages/lint/rule` — that third-party packages import to register rules. ttsc's plugin builder statically links the contributor's Go source into `@ttsc/lint`'s binary via the protocol-level `contributors` field (see [Protocol: Contributors](/docs/development/concepts/protocol#contributors)), so contributor rules share the same single AST walk and diagnostic stream as the built-in corpus.
+
+A contributor package has three parts:
+
+1. **JS descriptor** (`lib/index.js`, built from `src/index.ts`) — exports an `ITtscLintPlugin` object pointing at the Go source directory:
+
+    ```ts
+    import path from "node:path";
+    import type { ITtscLintPlugin } from "@ttsc/lint";
+
+    const plugin = {
+      meta: { name: "ttsc-lint-plugin-demo", version: "1.0.0", namespace: "demo" },
+      rules: ["no-todo-comment"] as const,
+      source: path.resolve(__dirname, "..", "rules"),
+    } satisfies ITtscLintPlugin;
+
+    export default plugin;
+    ```
+
+2. **Go rule package** (`rules/*.go`) — `package <name>`, **no `go.mod`**, registers each rule from `init()`. Contributors are intentionally constrained to **packages, not modules**, so they link into the host module's dependency graph and cannot pull in arbitrary transitive dependencies the host did not approve. This is explicit anti-supply-chain hardening: a contributor that ships its own `go.mod` is rejected with the error in [Pitfalls → Contributor ships its own `go.mod`](/docs/development/reference/pitfalls#contributor-merge-failures). If you need an external dependency, declare it in the host plugin's `go.mod`; contributors share that dependency graph. The Go package name is the user-facing namespace with hyphens replaced by underscores (`react-hooks` → `package react_hooks`); the namespace itself accepts `/^[a-z][a-z0-9_-]*$/`:
+
+    ```go
+    package demo
+
+    import (
+      shimast "github.com/microsoft/typescript-go/shim/ast"
+      "github.com/samchon/ttsc/packages/lint/rule"
+    )
+
+    func init() { rule.Register(noTodoComment{}) }
+
+    type noTodoComment struct{}
+
+    func (noTodoComment) Name() string             { return "demo/no-todo-comment" }
+    func (noTodoComment) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+    func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+      // ctx.File, ctx.Checker, ctx.Severity available
+      // ctx.Report(node, msg) or ctx.ReportRange(pos, end, msg)
+    }
+    ```
+
+3. **User registration** — either inline in tsconfig (`plugins: { demo: "ttsc-lint-plugin-demo" }`) or as an ESLint-flat-config plugin object inside `lint.config.ts`:
+
+    ```ts
+    import demoPlugin from "ttsc-lint-plugin-demo";
+    import { defineConfig } from "@ttsc/lint";
+
+    export default defineConfig([
+      {
+        plugins: { demo: demoPlugin },
+        rules: { "demo/no-todo-comment": "error" },
+      },
+    ]);
+    ```
+
+What to learn:
+
+- Public rule registration without entering `package main`.
+- AST surface symmetry — contributor rules use the same `shim/ast` / `shim/checker` / `shim/scanner` packages first-party plugins consume.
+- Build-time source merging through ttsc's plugin builder, with the cache key including each contributor's source hash.
+- Two discovery surfaces in `@ttsc/lint`'s JS factory: inline `plugins` map on the tsconfig entry, and flat-config `plugins` field inside a `lint.config.ts` / `eslint.config.ts` (evaluated through ttsx).
+
+Read:
+
+- [`packages/lint/rule/rule.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule/rule.go) — the public Go surface (Rule, Context, Severity, Register).
+- [`packages/lint/linthost/contrib_adapter.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/contrib_adapter.go) — host-side adapter that wraps `rule.Rule` into the engine's internal `Rule`.
+- [`tests/lint-contributor-demo`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/) — the canonical reference contributor used by the e2e tests.
+- [`tests/test-lint/src/features/contributor`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/contributor/) — end-to-end coverage for both discovery surfaces.
+
+### Emitting Autofixes
+
+A contributor rule can attach source-text edits to a finding by calling `ctx.ReportFix` (single edit) or `ctx.ReportRangeFix` (explicit pos/end). The host applies edits between the cascading native passes and the final no-emit check; if the host build did not opt into fix mode the edits are silently dropped and only the diagnostic is rendered — see `rule.ReportFix` GoDoc for the silent-fallback contract. Do not rely on edits being applied; design the rule so the diagnostic alone is useful.
+
+```go
+package demo
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+func init() { rule.Register(noTodoComment{}) }
+
+type noTodoComment struct{}
+
+func (noTodoComment) Name() string           { return "demo/no-todo-comment" }
+func (noTodoComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+  // Resolve pos/end from a shim/scanner trivia walk over ctx.File.Text();
+  // see tests/lint-contributor-demo/rules/no_todo_comment.go for the runnable form.
+  ctx.ReportFix(node, "drop TODO comment", rule.TextEdit{
+    Pos:  pos,
+    End:  end,
+    Text: "",
+  })
+}
+```
+
+See [`tests/lint-contributor-demo/rules/no_todo_comment.go`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/rules/no_todo_comment.go) for the original diagnostic-only contributor and [`tests/lint-contributor-demo/rules/capitalize_exports.go`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/rules/capitalize_exports.go) for the first contributor that emits a real `ReportRangeFix` covered end-to-end by [`tests/test-lint/src/features/fix/test_lint_fix_contributor_rule_single_edit_applies_through_native_engine.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/fix/test_lint_fix_contributor_rule_single_edit_applies_through_native_engine.ts).
+
+Within a single fix pass, edits must not overlap; ordering inside the slice does not matter, and an empty `Text` deletes the range. When two edits in the same pass cover overlapping ranges (within one finding or across two rules), the host keeps the earliest-starting / shortest edit and silently drops the rest — there is no diagnostic for dropped edits today. Prefer one contiguous edit per finding over speculative multi-edit batches; `no-import-type-side-effects` is the canonical multi-edit example because the inserts and per-specifier deletes are guaranteed non-overlapping.
+
+#### `rule/astutil` — byte-oriented helpers for contributor fixers
+
+The `github.com/samchon/ttsc/packages/lint/rule/astutil` package exposes the same byte-range helpers that `@ttsc/lint`'s built-in rules use:
+
+- `NodeText(file, node)` — node source with leading trivia stripped, for splicing into a replacement string.
+- `KeywordStart(file, node, "var")` — offset of the leading keyword token of a node, anchoring the keyword-swap shape.
+- `FindKeyword(file, pos, end, "import")` — identifier-aware keyword scan over an arbitrary byte range; matches do not cross identifier boundaries (`import` ≠ the `import` prefix of `importMap`). Note: the scan is byte-only and not comment-aware; for contributor fixers that need to locate a token inside a node, prefer combining `shim/scanner`'s `SkipTrivia` with a manual `byte` check, the way `no-import-type-side-effects` does.
+- `TokenRange(file, node)` — `[pos, end)` with leading trivia skipped, for "replace the whole node" edits.
+
+The API is intentionally narrow in round 1 / round 2 — `IdentifierText`, `StripParens`, `HasModifier`, and a function-like body walker are the most likely next additions; in the meantime contributor rules can implement them inline.
+
+#### `rule.FixReporter` — host-side reporter shape
+
+The host's fix-aware reporter implements `rule.FixReporter`, which the public `Context.ReportFix` / `ReportRangeFix` discover via a type assertion. **Contributor rules do not implement this interface.** When unit-testing a contributor rule with a fake `rule.Reporter`, declare `var _ rule.FixReporter = &myReporter{}` in the test to compile-check that the fake supports the fix path; Go interface satisfaction is all-or-nothing, so a fake that implements only `ReportFix` and not `ReportRangeFix` will silently fall through to the legacy `Report` path.
+
+### Reading User Options
+
+A user can configure your rule with an `[severity, options]` tuple. The options blob arrives on `ctx.Options` as a `json.RawMessage`; decode it into a struct that you control:
+
+```go
+type noMarkerCommentOptions struct {
+  Markers []string `json:"markers"`
+}
+
+func (noMarkerComment) Check(ctx *rule.Context, node *shimast.Node) {
+  var opts noMarkerCommentOptions
+  _ = ctx.DecodeOptions(&opts)
+  if len(opts.Markers) == 0 {
+    opts.Markers = []string{"TODO", "FIXME"} // defaults
+  }
+  // ...inspect ctx.File.Text() against opts.Markers...
+}
+```
+
+`DecodeOptions` is a thin `json.Unmarshal` wrapper that returns `nil` (no error, struct untouched) when the user configured the rule with a bare severity literal. The pattern above — declare struct, call `DecodeOptions`, apply defaults — is the same one the built-in `format/*` rules use.
+
+#### Per-rule option typing on the TypeScript side
+
+When a consumer writes `["error", { markers: ["TODO"] }]` in their `lint.config.ts`, TypeScript needs to know that `"demo/no-marker-comment"` accepts an object with a `markers: string[]` field. The public `TtscLintRuleOptionsMap` interface is *declaration-mergeable* — augment it from your plugin package's entry point so user configs autocomplete and reject typos:
+
+```ts
+// ttsc-lint-plugin-demo/src/index.ts
+import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
+
+const plugin: ITtscLintPlugin = {
+  meta: {
+    name: "ttsc-lint-plugin-demo",
+    version: "1.0.0",
+    namespace: "demo",
+  },
+  rules: ["no-marker-comment"] as const,
+  source: path.resolve(__dirname, "..", "rules"),
+};
+
+declare module "@ttsc/lint" {
+  interface TtscLintRuleOptionsMap {
+    "demo/no-marker-comment": {
+      /** Comment markers to flag. Defaults to TODO / FIXME. */
+      markers?: readonly string[];
+    };
+  }
+}
+
+export default plugin;
+```
+
+The key in `TtscLintRuleOptionsMap` must exactly equal the rule name (`"<namespace>/<rule>"`) that the Go side reports through `Rule.Name()`, and the field names in the interface must match the JSON tags on the Go struct (`Markers []string \`json:"markers"\``). The two layers are otherwise independent — the TS interface controls editor autocomplete; the Go struct controls runtime decoding.
+
+### Tagging a Format Rule
+
+`ttsc fix` is the run-everything entry point — its cascade applies edits from every enabled rule, lint-class and format-class together. `ttsc format` is the format-only convenience: it filters to format-class rule edits so lint rewrites are skipped. Opt into the format category by implementing the optional `rule.FormatRule` marker so the `format` subcommand can pick your rule out of the engine's full finding stream:
+
+```go
+package demo
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+func init() { rule.Register(demoTrimTrailingSpace{}) }
+
+type demoTrimTrailingSpace struct{}
+
+func (demoTrimTrailingSpace) Name() string                          { return "demo/trim-trailing-space" }
+func (demoTrimTrailingSpace) IsFormat() bool                        { return true }
+func (demoTrimTrailingSpace) Visits() []shimast.Kind                { return []shimast.Kind{shimast.KindSourceFile} }
+func (demoTrimTrailingSpace) Check(ctx *rule.Context, node *shimast.Node) {
+  // Emit ReportFix / ReportRangeFix with formatter-class edits.
+}
+```
+
+`IsFormat` is a structural marker — returning `false` is equivalent to omitting the interface entirely, and the host treats either form the same way. Diagnostics from format-tagged rules still respect the severity ladder when reported through `ttsc check`, so a project can pair a developer-local `ttsc format` with a CI `ttsc check` that fails on any unformatted file.
+
+## Combined Project
+
+```jsonc
+{
+  "compilerOptions": {
+    "paths": {
+      "@lib/*": ["./src/modules/*"],
+    },
+    "rootDir": "src",
+    "outDir": "dist",
+    "plugins": [
+      { "transform": "@ttsc/banner", "config": "./banner.config.ts" },
+      {
+        "transform": "@ttsc/strip",
+        "calls": ["console.log", "console.debug", "assert.*"],
+        "statements": ["debugger"],
+      },
+    ],
+  },
+}
+```
+
+`banner.config.ts`:
+
+```ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
+export default {
+  text: "License MIT",
+} satisfies TtscBannerConfig;
+```
+
+`lint.config.json`:
+
+```json
+{
+  "no-var": "error"
+}
+```
+
+Behavior:
+
+- `@ttsc/lint` reports diagnostics before emit. It can use `lint.config.*`, `ttsc-lint.config.*`, supported ESLint flat config files, or direct plugin config.
+- `@ttsc/banner` uses inline text, an explicit `config` path, or a banner config file.
+- `@ttsc/paths` reads `compilerOptions.paths`, `rootDir`, and `outDir`.
+- `@ttsc/strip` uses its defaults unless a direct plugin config overrides them.
+- TypeScript-Go emits JavaScript, declarations, and maps.
+
+Pinned by: `ttsc first-party plugins: lint, banner, paths, and strip run together in ttsc build` in [`tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts).
+
+## See also
+
+- [Architecture](/docs/development/reference/architecture) — the build/cache pipeline behind every plugin.
+- [Pitfalls](/docs/development/reference/pitfalls) — failure modes specific to plugin authoring.
+- [@ttsc/banner](/docs/plugins/banner) — the simplest published reference plugin; consumer-side wiring is one entry in `compilerOptions.plugins`.

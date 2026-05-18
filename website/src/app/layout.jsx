@@ -15,7 +15,7 @@ export const metadata = {
 
 const navbar = (
   <Navbar
-    logo={<img src="/logo.svg" alt="ttsc" height={28} style={{ height: 28 }} />}
+    logo={<span style={{ fontWeight: 700 }}>ttsc</span>}
     projectLink="https://github.com/samchon/ttsc"
     chatLink="https://discord.gg/E94XhzrUCZ"
   />
@@ -39,22 +39,18 @@ export default async function RootLayout(props) {
         {/* ICONS */}
         <link rel="manifest" href="/favicon/site.webmanifest" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href="/favicon/apple-touch-icon.png"
-        />
+        <meta name="theme-color" content="#0a0a0a" />
         {/* OG */}
         <meta name="og:type" content="website" />
         <meta name="og:site_name" content="ttsc" />
         <meta name="og:url" content="https://ttsc.dev" />
-        <meta name="og:image" content="https://ttsc.dev/og.svg" />
+        <meta name="og:image" content="https://ttsc.dev/og.jpg" />
         <meta name="og:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="og:description" content={description} />
         {/* TWITTER */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@SamchonGithub" />
-        <meta name="twitter:image" content="https://ttsc.dev/og.svg" />
+        <meta name="twitter:image" content="https://ttsc.dev/og.jpg" />
         <meta name="twitter:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="twitter:description" content={description} />
       </Head>

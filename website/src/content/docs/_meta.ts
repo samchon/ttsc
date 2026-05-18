@@ -2,20 +2,21 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "🙋🏻‍♂️ Introduction",
-  why: "💡 Why ttsc",
   setup: "📦 Setup",
 
   "-- features": { type: "separator", title: "📖 Features" },
   ttsc: "TTSC",
-  lint: "@ttsc/lint",
-  plugins: "Plugins",
-  wasm: "@ttsc/wasm",
+  lint: "Lint & Prettier",
+  plugins: "Plugin Ecosystem",
+  wasm: "Wasm Module",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
-  "plugin-development": "Plugin Development",
+  development: "Plugin Development",
+
+  "-- contributing": { type: "separator", title: "🛠️ Contributing" },
+  contributing: "Maintainers",
 
   "-- appendix": { type: "separator", title: "🔗 Appendix" },
-  troubleshooting: "Troubleshooting",
   faq: "FAQ",
 };
 export default meta;

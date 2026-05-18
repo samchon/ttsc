@@ -1,0 +1,122 @@
+# Editor Setup (Local Plugin Development)
+
+Consumers do not need Go installed. Plugin authors usually do, because direct `go test`, `go vet`, and gopls feedback are much faster than running `ttsc` for every edit. This page is the second authoring page on purpose — you will want gopls autocomplete the moment you import a shim in [Getting started](/docs/development/authoring/getting-started).
+
+## Basic Loop
+
+For a check plugin that does not import TypeScript-Go shims:
+
+```bash
+go test ./plugin/...
+go vet ./plugin/...
+go build ./plugin
+```
+
+That is enough for simple diagnostics plugins. Transform plugins usually import the `ttsc` driver or TypeScript-Go shims.
+
+## Driver-only plugins
+
+If your plugin only imports `github.com/samchon/ttsc/packages/ttsc/driver` (the Hello plugin shape — see [Getting started](/docs/development/authoring/getting-started)) and does not touch the shims directly, the `go.work` is two lines:
+
+```text
+go 1.26
+
+use (
+    ./plugin
+    ./node_modules/ttsc
+)
+```
+
+Add `npm i -D ttsc` so `node_modules/ttsc` exists locally. Verify:
+
+```bash
+ls node_modules/ttsc/go.mod   # must exist
+```
+
+If it does not, you are hitting pnpm's isolated linker — see [pnpm](#pnpm) below.
+
+## Shim-using plugins
+
+If your plugin imports `github.com/microsoft/typescript-go/shim/...`, add every shim subpackage you use to `go.work`. Listing all is harmless and keeps editor setup simple — here is the complete list under `packages/ttsc/shim/`:
+
+```text
+go 1.26
+
+use (
+    ./plugin
+    ./node_modules/ttsc
+    ./node_modules/ttsc/shim/ast
+    ./node_modules/ttsc/shim/bundled
+    ./node_modules/ttsc/shim/checker
+    ./node_modules/ttsc/shim/compiler
+    ./node_modules/ttsc/shim/core
+    ./node_modules/ttsc/shim/diagnosticwriter
+    ./node_modules/ttsc/shim/lsp
+    ./node_modules/ttsc/shim/parser
+    ./node_modules/ttsc/shim/printer
+    ./node_modules/ttsc/shim/scanner
+    ./node_modules/ttsc/shim/tsoptions
+    ./node_modules/ttsc/shim/tspath
+    ./node_modules/ttsc/shim/vfs
+    ./node_modules/ttsc/shim/vfs/cachedvfs
+    ./node_modules/ttsc/shim/vfs/osvfs
+)
+```
+
+`shim/lsp` is for `ttscserver` host embedders, not plugin authors — list it if you want gopls to resolve cross-references, leave it out otherwise.
+
+## `go.mod`
+
+Every imported shim still needs a `require` line:
+
+```text
+require github.com/microsoft/typescript-go/shim/ast v0.0.0
+```
+
+The `go.work` file tells Go where `v0.0.0` lives locally. The plugin `go.mod` keeps `require` lines for imported host modules, and the installed `ttsc` package owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...`. Printer, AST, and other plugin helper code belongs under the plugin's own module path while importing the `ttsc`-supplied shims.
+
+**`go mod tidy` ordering rule.** Run `go mod tidy` from the plugin directory *after* `go.work` is in place; otherwise `tidy` cannot see the overlay paths and will re-introduce remote-fetch failures.
+
+## pnpm
+
+The `go.work` above assumes `./node_modules/ttsc` exists. With pnpm's isolated linker it may not.
+
+Recommended for plugin development repos:
+
+```ini
+# .npmrc
+node-linker=hoisted
+```
+
+Alternative:
+
+```ini
+public-hoist-pattern[]=ttsc
+```
+
+This affects only your plugin repo's development layout. Published plugins still work in consumer projects with npm, pnpm, yarn, or other package managers.
+
+## Ignore
+
+Commit `go.work`; ignore machine-specific data:
+
+```gitignore
+node_modules/
+go.work.sum
+```
+
+## After a `ttsc` Upgrade
+
+Run:
+
+```bash
+npm update ttsc
+go test ./plugin/...
+go vet ./plugin/...
+```
+
+If TypeScript-Go moved a shim symbol you use, the Go compile error points at the exact call site.
+
+## Next
+
+→ [Recipes](/docs/development/authoring/recipes) — copyable patterns for `--plugins-json`, diagnostics, leaf-text mutations, and toolchain re-spawn.

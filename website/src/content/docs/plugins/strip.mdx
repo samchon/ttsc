@@ -1,7 +1,5 @@
 # Strip debug code
 
-*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
-
 `@ttsc/strip` removes configured function calls and `debugger` statements from the emit. It's not a minifier or tree-shaker — it removes **exactly** the patterns you list, nothing else.
 
 ## Install
@@ -73,6 +71,6 @@ If you want a real minifier (dead-code elimination, mangling, ...), use Terser o
 
 ## See also
 
-- [Plugins](/docs/plugins) — the plugin index.
 - [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
-- [Plugin Development](/docs/plugin-development) — write your own.
+- [@ttsc/paths](/docs/plugins/paths) — rewrite `compilerOptions.paths` aliases in the emit.
+- [Plugin Development](/docs/development) — write your own.

@@ -1,7 +1,5 @@
 # Path aliases
 
-*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
-
 If your `tsconfig.json` uses `compilerOptions.paths` (e.g. `@/*` → `./src/*`), the emit will contain those alias paths verbatim — and they won't resolve at runtime. `@ttsc/paths` rewrites them into relative imports during compile.
 
 ## The problem
@@ -66,6 +64,6 @@ import { value } from "./modules/value.js";
 
 ## See also
 
-- [Plugins](/docs/plugins) — the plugin index.
 - [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
-- [Plugin Development](/docs/plugin-development) — write your own.
+- [@ttsc/strip](/docs/plugins/strip) — strip configured calls and `debugger` from the emit.
+- [Plugin Development](/docs/development) — write your own.

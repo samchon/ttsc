@@ -8,7 +8,7 @@ Day-to-day compiler commands and the full flag reference.
 npx ttsc
 ```
 
-Reads `tsconfig.json` from the current directory, type-checks the project, runs every configured plugin, writes JavaScript + declaration files to `outDir`. Equivalent to `ttsc build`.
+Reads `tsconfig.json` from the current directory, type-checks the project, runs every configured plugin, and writes JavaScript + declaration files to `outDir`. Same as `ttsc build`.
 
 ## Type-check only
 
@@ -40,7 +40,7 @@ npx ttsc prepare                    # pre-build plugin cache (CI warmup)
 npx ttsc clean                      # drop the plugin cache
 ```
 
-`ttsc fix` and `ttsc format` belong to `@ttsc/lint` — see [Fix & format commands](/docs/lint/fix).
+`ttsc fix` and `ttsc format` belong to `@ttsc/lint` — see the [Lint & Prettier overview](/docs/lint) for the autofix workflow.
 
 ## Subcommands
 
@@ -90,5 +90,5 @@ The plugin binary cache lives at `node_modules/.ttsc/` by default. Override with
 ## See also
 
 - [TTSC · `ttsx` runner](/docs/ttsc/execute) — same compile, then runs the result.
-- [Plugins](/docs/plugins) — wiring plugins into the build.
-- [Troubleshooting](/docs/troubleshooting) — common build failures.
+- [Lint & Prettier](/docs/lint) — `ttsc fix` / `ttsc format` and the `lint.config.ts` surface.
+- [FAQ](/docs/faq) — common build failures and migration questions.

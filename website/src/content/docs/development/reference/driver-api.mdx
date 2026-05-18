@@ -1,0 +1,129 @@
+# Driver API
+
+`github.com/samchon/ttsc/packages/ttsc/driver` is the Go façade plugin authors should call instead of building a tsgo `Program` themselves. Every shipped third-party-shaped consumer in this repo — every command under `packages/ttsc/cmd/`, `packages/lint/linthost/host.go`, `packages/wasm/host/api.go`, and the `tests/projects/go-source-plugin*` fixtures — uses it.
+
+This page is the curated, plugin-relevant surface. For the raw shim path (custom checker pool, in-memory-only Program, no `tsconfig.json`), see [AST & Checker → If you cannot use the driver](/docs/development/concepts/tsgo#if-you-cannot-use-the-driver).
+
+## Program lifecycle
+
+```go
+import "github.com/samchon/ttsc/packages/ttsc/driver"
+
+prog, parseDiags, err := driver.LoadProgram(cwd, "tsconfig.json", driver.LoadProgramOptions{
+    ForceEmit:    false,
+    ForceNoEmit:  false,
+    OutDir:       "",
+    SourcePreamble: nil,
+})
+if err != nil { /* parse-time failure */ }
+if len(parseDiags) > 0 { /* tsconfig errors */ }
+defer prog.Close() // releases the leased Checker back to the pool
+
+for _, file := range prog.SourceFiles() { /* walk */ }
+diags := prog.Diagnostics()              // pre-deduped, pre-filtered
+checker := prog.Checker                  // type-aware queries
+```
+
+`LoadProgram`:
+- parses `tsconfig.json` (relative paths resolve against `cwd`).
+- applies `LoadProgramOptions` overrides — `ForceEmit` / `ForceNoEmit` flip the emit decision; `OutDir` overrides the parsed `outDir`; `SourcePreamble` overlays a JSDoc preamble before parsing (the seam `@ttsc/banner` uses).
+- builds the tsgo `Program` through `shim/compiler.NewProgram` and leases a `*shimchecker.Checker` from the pool.
+- returns a `*driver.Program` carrying the parsed config, the host, the FS, and the lease release function.
+
+`Program.SourceFiles()` filters declaration files for you. `Program.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics` and drops the unused-overload-signature noise that tsgo emits internally. **Always `defer prog.Close()`** — without it the checker pool fills up and subsequent loads stall.
+
+## Emit
+
+```go
+// Build-stage: tsgo owns JS, d.ts, and source-map printing.
+emitted, emitDiags, err := prog.EmitAllRaw(nil)
+
+// Transform-stage: render per-file source through the printer to drive
+// downstream callers (bundlers, in-memory transformers).
+text := shimprinter.EmitSourceFile(printer, file)
+```
+
+| Function           | Use it when…                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `EmitAllRaw`       | You want tsgo's full output (JS, d.ts, source maps) with default write-file handling.                              |
+| `EmitAll(rs, fn)`  | You want to layer a `*RewriteSet` over emit and intercept each write through `fn`.                                 |
+| `EmitFile(...)`    | You only need one file's emit (rarely used outside the utility host).                                              |
+| `DefaultWriteFile` | The default `WriteFileFunc` — writes through the program's FS. Pass to `EmitAll` when you don't need interception. |
+
+For the `transform` subcommand, the host treats `typescript[fileName]` as opaque text — see [Plugin protocol → Transform](/docs/development/concepts/protocol#transform). Run a printer before placing AST-mutated source in the map.
+
+## Diagnostics
+
+```go
+// Three-line canonical lint-style flow.
+var diags []driver.Diagnostic
+diags = append(diags, driver.NewLintDiagnostic(
+    file, start, end,
+    /*code*/ 9001, driver.SeverityError,
+    "[my-rule] explanation here",
+))
+exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+if driver.CountErrors(diags) > 0 { os.Exit(1) }
+```
+
+| Symbol                                                | Notes                                                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `NewLintDiagnostic(file, pos, end, code, sev, msg)`   | Wraps the offset pair into a `Diagnostic` with the file's path.                                                    |
+| `Diagnostic`                                          | The struct the host's renderer accepts.                                                                            |
+| `Severity` + `SeverityError` / `SeverityWarning` / `SeverityMessage` | Constants the host's exit-code logic understands.                                                    |
+| `CountErrors(diags []Diagnostic) int`                 | Returns the number of `SeverityError` entries.                                                                     |
+| `WritePrettyDiagnostics(w io.Writer, diags, cwd)`     | Renders to `w` using the same colorful format `ttsc` itself uses.                                                  |
+
+## Rewrites
+
+```go
+rs := driver.NewRewriteSet()
+rs.Rewrite("src/main.ts", driver.RewriteSentinel{
+    Find:    "console.log(",
+    Replace: "// console.log(",
+})
+prog.EmitAll(rs, driver.DefaultWriteFile)
+```
+
+`RewriteSet` is the path the utility host uses for source-text rewrites that happen during emit. Pair with `EmitAll`; pass `DefaultWriteFile` unless you need to intercept.
+
+## Source preambles
+
+```go
+overlayFS := driver.ApplySourcePreamble(prog.FS, "/* @license MIT */", prog.SourceFiles())
+```
+
+`ApplySourcePreamble` is the seam `@ttsc/banner` uses to layer a JSDoc preamble over every source file before emit. See `packages/ttsc/utility/host.go` for the production use.
+
+## Hosting `ttscserver`
+
+These symbols are for embedders of `ttscserver`, **not for plugin authors**. Skip this section unless you are building a `ttsc`-aware editor extension.
+
+```go
+err := driver.RunLSPServer(driver.LSPServerOptions{
+    PluginSource: source,           // your driver.PluginSource impl
+    DenyNpmInstall: false,          // disable inside untrusted workspaces
+    ErrorHandler:  nil,
+})
+```
+
+| Symbol                                                                                                              | Purpose                                                          |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `PluginSource` interface, `NullPluginSource`                                                                        | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
+| `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`, `DenyNpmInstall`                                        | Host-side entry points.                                          |
+| `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit`                              | Wire types in the LSP envelope.                                  |
+
+## Lower-level helpers
+
+Use when `LoadProgram`'s defaults don't fit.
+
+| Symbol                       | Notes                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `DefaultFS()`                | The OS-backed VFS wrapped with the bundled library files.                                          |
+| `DefaultHost(cwd, fs)`       | A tsgo compiler host pre-wired with the FS and the bundled `lib.*.d.ts` paths.                     |
+| `ParseTSConfig(path, host)`  | Parses a `tsconfig.json` without building a Program.                                               |
+| `CreateProgramFromConfig(...)` | Builds a Program from a parsed config without going through `LoadProgram`'s convenience overrides. |
+
+## Stability
+
+The driver surface is the closest thing `ttsc` has to a stable plugin SDK. Symbols listed here have Go doc-comments and are exercised by the in-repo test suite on every CI run. Lower-level shim symbols may move between releases; the driver insulates plugin authors from that churn. When you must reach below the driver, see [AST & Checker](/docs/development/concepts/tsgo) for the supported escape hatches.

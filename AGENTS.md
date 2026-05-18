@@ -23,7 +23,8 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 - `tests/test-*`: feature-test packages (run via `pnpm test:features`).
 - `tests/utils`: shared helpers (`@ttsc/testing`).
 - `tests/<plugin-name>`: workspace packages that need to be `require.resolve`-able from a fixture's `node_modules` (e.g. `tests/lint-contributor-demo`). Built by `scripts/build-current.cjs` before tests run.
-- `docs`, `config`, `scripts`: guide docs, shared tsconfig, workspace scripts.
+- `website`: Nextra-based docs site (`src/content/docs/**/*.mdx`) that is the canonical home for guides — shipped to https://ttsc.dev.
+- `config`, `scripts`: shared tsconfig and workspace scripts.
 
 ### 1.3. Commands
 
@@ -42,7 +43,7 @@ pnpm test
 - Respect existing package boundaries. Don't hardcode consumer-specific behavior into the compiler host.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
-- When code behavior changes, update the matching page under `docs/` in the same change.
+- When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
 
 ### 2.2. Testing
 
@@ -88,13 +89,13 @@ For mechanical ports, migrations, or broad rewrites, preserve the existing algor
 
 README files are for the final reader of that package or directory. Start with what it is, when to use it, installation, the smallest working setup, and the common path.
 
-Keep README language direct and practical. Avoid compiler theory, protocol details, internal architecture, and edge cases unless the reader must know them to use the package. Move deep explanations into `docs/` and link them only as the next step.
+Keep README language direct and practical. Avoid compiler theory, protocol details, internal architecture, and edge cases unless the reader must know them to use the package. Move deep explanations into the website guides and link them only as the next step.
 
 ### 3.2. Guide Documents
 
-Guide documents under `docs/` are the detailed layer. Each guide must name its reader: consumer, package user, bundler user, runtime user, plugin author, or maintainer.
+Guide documents live under `website/src/content/docs/` as MDX, served by Nextra at https://ttsc.dev. They are the detailed layer. Each guide must name its reader: consumer, package user, bundler user, runtime user, plugin author, or maintainer.
 
-Package guides may go deeper than README with full options, recipes, troubleshooting, compatibility notes, and migration details. Plugin-author guides may cover protocol, Go APIs, testing, publishing, and internals. Keep one audience and task per page, and update `docs/README.md` when adding or moving a guide.
+The tree is organized by audience: top-level pages (`setup.mdx`, `why.mdx`, `faq.mdx`, `troubleshooting.mdx`) for cross-cutting tasks, per-package folders (`ttsc/`, `lint/`, `plugins/`, `wasm/`) for package guides, and `development/` for plugin-author guides. Package guides may go deeper than README with full options, recipes, troubleshooting, compatibility notes, and migration details. Plugin-author guides may cover protocol, Go APIs, testing, publishing, and internals. Keep one audience and task per page, and update the matching `_meta.ts` when adding, renaming, or moving a guide.
 
 ### 3.3. AGENTS.md Maintenance
 

@@ -122,4 +122,4 @@ The tarball intentionally drops the `replace github.com/samchon/ttsc/packages/tt
 ## Documents
 
 - The base wasm (`dist/ttsc.wasm`) is the binary `cmd/ttsc-wasm/main_wasm.go` produces. Look there for a minimal example.
-- Plugin authors should also read `docs/wasm-plugin.md` (TBD) for the Go host helper deep-dive.
+- See the [`@ttsc/wasm` guide](https://ttsc.dev/docs/wasm) for the consumer-facing walkthrough. A dedicated Go host helper deep-dive is still TBD.

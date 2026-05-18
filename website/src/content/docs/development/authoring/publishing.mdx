@@ -1,0 +1,163 @@
+# Publishing Plugins
+
+A plugin is one npm package containing a JS descriptor and Go source.
+
+For publishing this repository's `ttsc`, `@ttsc/*`, and platform packages, see [Contributing → Workspace release](/docs/contributing/workspace-release) (maintainer-only).
+
+## `package.json`
+
+```json
+{
+  "name": "my-ttsc-plugin",
+  "version": "0.1.0",
+  "description": "What the plugin does.",
+  "main": "plugin.cjs",
+  "ttsc": {
+    "plugin": {
+      "transform": "my-ttsc-plugin"
+    }
+  },
+  "files": ["plugin.cjs", "plugin"],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["ttsc", "ttsc-plugin", "tsgo"],
+  "license": "MIT"
+}
+```
+
+`ttsc.plugin` is a single object, not an array. One package contributes one auto-discovered plugin entry. If the consumer also writes a `compilerOptions.plugins[]` entry with the same `transform`, the `tsconfig.json` entry wins.
+
+**The `name` field is load-bearing.** ttsc's auto-discovery (`loadProjectPlugins.ts::discoverPackagePluginEntries`) matches the consumer's `dependencies` / `devDependencies` entry string against your plugin's `package.json` `name` exactly. If the consumer writes `"my-ttsc-plugin"` but your `package.json` says `"my-plugin"`, ttsc loads nothing, emits unchanged, and exits 0 — no error, no diagnostic. The `name` must equal the string consumers will install you under.
+
+## Pin against `ttsc`
+
+The plugin protocol is stable across patch releases. Minor releases may add new optional flags (`--quiet`, future additions) which existing plugins accept-and-ignore via `filterHostArgs`. Major releases (0.x → 0.(x+1)) may change `--plugins-json` shape, exit-code conventions, or `LoadProgramOptions` fields. Pin the minor range you tested against:
+
+```json
+"peerDependencies": {
+  "ttsc": ">=0.11.0 <0.12.0",
+  "@typescript/native-preview": "*"
+},
+"peerDependenciesMeta": {
+  "ttsc": { "optional": false },
+  "@typescript/native-preview": { "optional": false }
+}
+```
+
+The consumer project supplies `ttsc` and the active `@typescript/native-preview` runtime; your plugin should not carry them in `dependencies`. Use `peerDependencies` to assert the compatibility window. Update the version range every time you re-test against a new `ttsc` release.
+
+## Required Package Contents
+
+The tarball must include:
+
+- `plugin.cjs` (or the built JS descriptor entry);
+- the Go source directory;
+- `go.mod`;
+- `go.sum`, when present;
+- `README.md` and license.
+
+Verify before publish:
+
+```bash
+npm pack --dry-run
+```
+
+The tarball contains `plugin/main.go`; `ttsc` builds that source on the consumer machine.
+
+## Dependencies
+
+Published plugin packages carry their JS descriptor and Go source, while the consumer project supplies `ttsc` and the active `@typescript/native-preview` runtime.
+
+Plugin `go.mod` files use `require` lines for host modules. `ttsc` owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...` through its build overlay. Plugin-specific wrappers live under the plugin's own Go module.
+
+## Versioning
+
+Practical rule:
+
+| Change                                     | Bump  |
+| ------------------------------------------ | ----- |
+| bug fix                                    | patch |
+| new mode or option                         | minor |
+| removed mode or changed transform contract | major |
+| newly verified `ttsc` compatibility        | minor |
+| dropped old `ttsc` minor support           | major |
+
+Your package version is separate from the `ttsc` plugin protocol.
+
+## Pre-Publish Check
+
+Modeled on the `wasm-smoke` post-publish job at `.github/workflows/release.yml:42-58`. Run before every tag:
+
+```bash
+set -euo pipefail
+
+# 1. Pack the tarball.
+pnpm pack
+TARBALL=$(ls *.tgz | tail -n1)
+
+# 2. Stand up a clean-room consumer.
+WORKDIR=$(mktemp -d)
+cd "$WORKDIR"
+npm init -y >/dev/null
+npm install --no-save "${OLDPWD}/${TARBALL}" ttsc @typescript/native-preview
+
+# 3. Write a smallest reproducible tsconfig and source file.
+cat > tsconfig.json <<'JSON'
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "plugins": [{ "transform": "<your-plugin-name>" }]
+  },
+  "include": ["src"]
+}
+JSON
+mkdir src
+echo 'debugger; export const x = 1;' > src/main.ts
+
+# 4. Build through the published binary and assert on the output.
+npx ttsc --emit
+test -f dist/main.js
+! grep -q "debugger" dist/main.js
+```
+
+The same shape works as a GitHub Actions job. The minimal one:
+
+```yaml
+name: plugin-smoke
+on: [push, pull_request]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with: { node-version: 24.x }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.26" }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm pack --pack-destination /tmp
+      - name: Smoke-install into a clean fixture
+        env:
+          TTSC_GO_BINARY: ${{ steps.go.outputs.go-binary }}
+        run: |
+          # Adapt the Bash recipe above against /tmp/<your-package>-*.tgz
+```
+
+For plugins that import shims or touch paths, test Linux and macOS. Add Windows when you compare path strings or support Windows users.
+
+### CI environment
+
+For GitHub Actions or any CI that runs your test matrix:
+
+- `TTSC_GO_BINARY` — absolute path to the Go binary `ttsc` should use to build plugins from source. Without it `ttsc` resolves through `setup-go` / `$PATH` / the bundled SDK; pinning makes the build cache deterministic. Set in `.github/workflows/test.yml:40-41` for this repo.
+- `TTSC_CACHE_DIR` — per-worker isolation when matrix runs in parallel. See [Testing → Cache isolation](/docs/development/authoring/testing#cache-isolation).
+
+## Next
+
+→ [Testing](/docs/development/authoring/testing) — assert your plugin works before you publish.

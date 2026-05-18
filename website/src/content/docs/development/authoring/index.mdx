@@ -1,0 +1,12 @@
+# Authoring
+
+Six pages that take you from `npm init` to a publishable plugin.
+
+1. [Getting started](/docs/development/authoring/getting-started) — write the smallest Hello plugin: bootstrap, descriptor, printer round-trip, no AST mutation.
+2. [End-to-end transform](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation (`debugger` removal) and the table-driven flag parser.
+3. [Editor setup](/docs/development/authoring/local-dev) — `go.work`, `gopls`, `go test`, pnpm notes. Set up before you import a shim.
+4. [Recipes](/docs/development/authoring/recipes) — focused patterns you can copy (auto-discovery, lint diagnostics, leaf-text mutation invariant, re-spawning `ttsx` / `tsgo`).
+5. [Testing](/docs/development/authoring/testing) — Go unit tests + end-to-end `ttsc` fixtures (one case per file, AGENTS.md §2.2 shape).
+6. [Publishing](/docs/development/authoring/publishing) — npm package shape, `peerDependencies`, Pre-Publish Check CI recipe.
+
+First-pass readers may skip Testing and Publishing; come back after your first plugin runs end-to-end. Before you start, skim [Concepts](/docs/development/concepts). After you ship, see [Reference](/docs/development/reference).

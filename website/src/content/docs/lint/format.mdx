@@ -1,8 +1,6 @@
 # Format rules
 
-*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
-
-The `format/*` subset of `@ttsc/lint` — semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and the Wadler-style print-width reflow. This is what replaces Prettier in a `ttsc` project.
+The `format/*` subset of `@ttsc/lint` — semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and column-aware print-width reflow. This is what replaces Prettier in a `ttsc` project.
 
 ## The `format` block (canonical)
 
@@ -110,7 +108,7 @@ Driven by `format.printWidth`, `format.tabWidth`, `format.useTabs`, `format.endO
 
 #### What it does
 
-The rule looks at each list-shaped node in the file (object literals, array literals, call argument lists, named imports, named exports, …) and renders it in **two candidate layouts**:
+For each list-shaped expression in the file (object literals, array literals, function arguments, named imports, named exports, …), the rule considers two layouts:
 
 - **Flat** — one line, no internal breaks.
 - **Broken** — opening punctuator on the head line, one entry per indented line, closing punctuator on its own line, trailing comma.
@@ -191,5 +189,5 @@ export default {
 
 ## See also
 
-- [`ttsc fix` & `ttsc format`](/docs/lint/fix) — applying format autofixes.
+- [Overview](/docs/lint) — the `ttsc fix` / `ttsc format` command summary lives here.
 - [Rules](/docs/lint/rules) — the full lint-rule catalog.

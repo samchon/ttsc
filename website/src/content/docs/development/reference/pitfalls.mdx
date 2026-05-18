@@ -1,0 +1,310 @@
+# Pitfalls
+
+Common failures and direct fixes. Each entry quotes the actual host error string when there is one, so you can grep the symptom and land on the fix.
+
+> **First-build failing?** Skim this page top to bottom before debugging. Three pitfalls catch the majority of first-hour problems: pnpm linker, missing platform package, plugin `name`-doesn't-match-dependency.
+
+## `source does not exist`
+
+Your tarball missed the Go source or the manifest used a relative runtime path.
+
+Fix `package.json`:
+
+```json
+"files": ["plugin.cjs", "plugin"]
+```
+
+Fix `plugin.cjs`:
+
+```js
+source: path.resolve(__dirname, "plugin");
+```
+
+Verify:
+
+```bash
+npm pack --dry-run
+```
+
+## Shim Import Cannot Resolve
+
+Error:
+
+```text
+no required module provides package github.com/microsoft/typescript-go/shim/ast
+```
+
+Fix `go.mod`:
+
+```text
+require github.com/microsoft/typescript-go/shim/ast v0.0.0
+```
+
+For local editor support, also configure `go.work`; see [Editor setup](/docs/development/authoring/local-dev).
+
+## pnpm Cannot Find `node_modules/ttsc`
+
+For plugin development repos, add one of:
+
+```ini
+node-linker=hoisted
+```
+
+or:
+
+```ini
+public-hoist-pattern[]=ttsc
+```
+
+Then reinstall.
+
+## Bundled Go SDK Missing
+
+Error (verbatim from the host):
+
+```text
+ttsc: building plugin "<name>" failed because the Go toolchain was not found.
+Reinstall ttsc with optional dependencies so the bundled Go compiler is present,
+or set TTSC_GO_BINARY to an absolute path.
+```
+
+`ttsc` looked for the Go compiler in all five resolution slots and found nothing. The most common cause is `npm install --no-optional` (or a lockfile that skipped optional deps), which silently leaves `@ttsc/{platform}-{arch}` un-installed. Reinstall without `--no-optional`, or pin a Go binary by exporting `TTSC_GO_BINARY=/absolute/path/to/go`. See [Architecture → Build environment](/docs/development/reference/architecture#build-environment) for how the resolution falls through.
+
+## Options Are Ignored
+
+You declared `--plugins-json` but never parsed it. The user's tsconfig options live there, not in environment variables.
+
+Parse it and find your entry by `mode` or `name`. The host promises every key the consumer wrote under `compilerOptions.plugins[...]` appears in `config` (including `transform` and `enabled`, which ttsc owns and you should ignore). See [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
+
+## Auto Plugin Did Not Run
+
+`package.json#ttsc.plugin` is read only from packages listed directly in the nearest consumer `package.json` at or above the selected project. The plugin's `package.json` `name` must equal the consumer's dependency string exactly — auto-discovery matches them character for character.
+
+Fix the consumer package:
+
+```json
+{
+  "devDependencies": {
+    "my-ttsc-plugin": "^0.1.0"
+  }
+}
+```
+
+Fix the plugin package:
+
+```json
+{
+  "name": "my-ttsc-plugin",
+  "ttsc": {
+    "plugin": {
+      "transform": "my-ttsc-plugin"
+    }
+  }
+}
+```
+
+If `tsconfig.json` also has a plugin entry with the same `transform`, the `tsconfig.json` entry wins and the auto-discovered entry is skipped.
+
+## Combining Plugins
+
+Multiple explicit plugin entries and package-enabled plugins are supported. The limit is about ownership of the emit pass, not the number of plugin entries.
+
+This works with TypeScript-Go's normal emit path:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "text": "license" },
+      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+    ],
+  },
+}
+```
+
+`@ttsc/banner` and `@ttsc/strip` are first-party transform plugins that share `packages/ttsc/utility/host.go` under a closed allowlist.
+
+This works when a check plugin runs before one transform sidecar that owns the source/emit pass:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "my-source-transform" },
+    ],
+  },
+}
+```
+
+This fails — two unrelated third-party transform binaries cannot share one source-to-source pass:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "source-transform-a" },
+      { "transform": "source-transform-b" },
+    ],
+  },
+}
+```
+
+`assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) aborts the spawn with one of:
+
+```text
+ttsc: multiple compiler native backends cannot share one emit pass;
+      compose transform libraries through one aggregate native host
+ttsc: multiple transform native backends cannot share one source-to-source pass;
+      compose transform libraries through one aggregate native host
+```
+
+The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. The fix is the same: pick one aggregate plugin and list the others in its `composes: [...]` array. See [Composition failures](#composition-failures) below for the per-rule error strings.
+
+## Composition failures
+
+The `composes` validator enforces four invariants. Each rejection has a specific error string you can grep:
+
+**`composes` cycle between two plugins.**
+
+```text
+plugin composes cycle detected between "<A>" and "<B>";
+each plugin lists the other in its "composes" array
+— composition is one hop only, not transitive
+```
+
+Composition is one hop. If A.composes=[B] sends B to A's binary, then B.composes=[A] would send A to B's binary, silently swapping both bindings. `ttsc` refuses. Either drop one direction or merge the plugins. Source: `loadProjectPlugins.ts::composePluginSources`.
+
+**Plugin claimed by multiple aggregates.**
+
+```text
+plugin "<name>" is composed by multiple aggregate plugins;
+each plugin entry can be redirected to only one aggregate native host
+```
+
+A composed plugin's binary is rerouted to the aggregate's binary. Two aggregates would split the routing. Pick one aggregate.
+
+**Empty / non-string `composes` target.**
+
+```text
+plugin "<name>" has an invalid "composes" target;
+targets must be non-empty plugin names or transform specifiers
+```
+
+The validator strips whitespace and rejects empty or non-string entries before resolution. A typo'd entry like `composes: [""]` or `composes: [null]` is the common cause.
+
+**Contributors on a composed plugin.**
+
+```text
+plugin "<name>" is composed by "<aggregate>" but declares its own "contributors";
+move the contributors onto the aggregate plugin or drop the composes redirect
+```
+
+A composed plugin's source is rerouted to the aggregate's binary, so its own contributors would link into a host they were not authored against. Move the contributors to the aggregate.
+
+## Contributor merge failures
+
+The contributor build path enforces three host-shape invariants:
+
+**Contributor ships its own `go.mod`.**
+
+```text
+plugin "<name>" contributor "<contrib>" must ship Go source as a package,
+not a module (go.mod found at <path>/go.mod).
+Remove go.mod so the contributor compiles inside the host module's dependency graph.
+```
+
+Contributors are merged under the host's module so `init()` blank imports work; an independent module would be invisible to the host's dependency graph and would also open a supply-chain surface. Drop the `go.mod` from the contributor package. Source: `buildSourcePlugin.ts::mergeContributors`.
+
+**Host plugin already ships a `contrib/` directory.**
+
+```text
+plugin "<name>" already ships a contrib/ directory in its source;
+contributor merge would silently overwrite.
+Rename the host plugin's directory to a different name.
+```
+
+The contributor merge writes scratch `contrib/<contributor>` under the host module root. Pre-existing host directories at that path are refused rather than overwritten. Rename your directory (`internal/`, `lib/`, anything but `contrib/`).
+
+**Host plugin already ships `ttsc_contributions.go`.**
+
+```text
+plugin "<name>" already ships ttsc_contributions.go in its entry package;
+that filename is reserved for the contributor blank-import generator.
+Rename the host's file.
+```
+
+The filename is reserved by the generator. Rename the host's file to `contributions.go`, `entries.go`, etc.
+
+## AST and Checker
+
+These bite first-time check-plugin authors and are not visible from the AST page alone.
+
+**`node.Text()` panics on unhandled kinds.** `internal/ast/ast.go:296` ends with `panic("Unhandled case in Node.Text: %T")`. Safe only on `Identifier`, `*Literal`, `JsxText`, `TemplateLiteralLikeNode`, and a handful of token-like kinds. For anything else, branch on `node.Kind` first or use `shimscanner.GetSourceTextOfNodeFromSourceFile(file, node, false)`. The `@ttsc/lint` engine wraps every rule in `recover()` (`packages/lint/linthost/engine.go:388`) precisely because this panic is reachable in normal traversal.
+
+**`node.Symbol()` returns nil for non-declaration nodes.** Symbols are attached during binding only for `DeclarationBase` kinds. An `ExpressionStatement`, `BinaryExpression`, or any non-declaration node will return `nil` and a `.Name` deref will crash the plugin. Either branch on `node.Kind` first, or use `ctx.Checker.GetSymbolAtLocation(node)` which is nil-safe and works on references as well as declarations.
+
+**Duplicate `Kind` in `Visits()` is silently deduplicated.** `packages/lint/linthost/engine.go` builds a `map[Kind]bool` from each rule's `Visits()`. Listing `KindCallExpression` twice registers it once — the second instance is dropped without warning. Combine all dispatch logic for one `Kind` in a single handler.
+
+**`let` / `const` / `var` are not on `node.Flags`.** `var x` vs `let x` is stored on the parent `VariableDeclarationList`. Use `shimast.IsLet(decl)`, `shimast.IsConst(decl)`, `shimast.IsVar(decl)`, or `shimast.GetCombinedNodeFlags(decl) & shimast.NodeFlagsLet`.
+
+## Bad Text Ranges
+
+`node.Pos()` includes leading trivia. For token starts use `shimscanner.SkipTrivia` — this is the idiom every rule in `packages/lint/linthost/` uses:
+
+```go
+pos := shimscanner.SkipTrivia(file.Text(), node.Pos())
+end := node.End()
+```
+
+## Windows Path Failures
+
+Normalize before comparing:
+
+```go
+filepath.ToSlash(path)
+```
+
+Do not hard-code the cached binary name as `plugin`; on Windows it is `plugin.exe`.
+
+## Cache Did Not Rebuild
+
+Files inside the plugin source directory affect the plugin binary cache:
+
+```text
+Go source, go.mod / go.sum / go.work, embedded JSON/schema/data files,
+and other package files
+```
+
+Skipped: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, archive files, OS metadata (`.DS_Store`, `Thumbs.db`), and editor backup files ending in `~`. Consumer TypeScript source files and plugin options such as lint `config`, `banner`, or `calls` do not affect the source-plugin binary cache.
+
+The cache also folds in the Go binary's identity and the 14 `GO_BUILD_ENV_KEYS` env vars — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs). Pinning `TTSC_GO_BINARY` to a fixed absolute path makes the slot stable across `pnpm install`.
+
+If you need to force a cold source-plugin build, run:
+
+```bash
+npx ttsc clean
+```
+
+## `version` is a smoke verb
+
+The first-party utility plugins implement `version` as a sanity check (each prints a build-id line) so a maintainer can `go run ./plugin version` to confirm the binary is wired up. `ttsc` itself never invokes `version`. Plugin authors who skip `version` lose the smoke-test path but break nothing on the host side.
+
+## Runtime Output Fails After Manual Emit
+
+The public plugin contract does not provide an output-stage text hook. If a custom sidecar goes beyond source AST mutation and writes CommonJS manually, it must mirror TypeScript-Go's expected boilerplate:
+
+```js
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.name = void 0;
+```
+
+Normal transform plugins avoid this by mutating TypeScript AST and letting TypeScript-Go print the final JavaScript through `shimprinter.EmitSourceFile`.
+
+## See also
+
+- [Architecture](/docs/development/reference/architecture) — what the build pipeline does so you can predict failure modes.
+- [Reference plugins](/docs/development/reference/reference-plugins) — worked examples of the patterns that work.
+- [Driver API](/docs/development/reference/driver-api) — the supported Go façade.
+- [Authoring · Editor setup](/docs/development/authoring/local-dev) — fast iteration without `ttsc`.

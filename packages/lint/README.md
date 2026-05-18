@@ -9,9 +9,9 @@
 [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
 [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-Lint as compile errors.
+A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-Type errors and lint violations appear in one `ttsc` run.
+140+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
@@ -48,25 +48,26 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
 Found 3 errors in the same file, starting at: src/index.ts:3
 ```
 
-Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out together, in the same `error TSxxxxx` shape.
-
-CI that already runs `ttsc` blocks on lint with no extra wiring.
+Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out together. No second tool, no second CI step.
 
 ## Setup
 
-Install the plugin alongside `ttsc` and TypeScript-Go:
-
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/lint
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
-Add a `lint.config.ts` next to your `tsconfig.json`:
+Drop a `lint.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // lint.config.ts
 import type { TtscLintConfig } from "@ttsc/lint";
 
 export default {
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
   rules: {
     "no-var": "error",
     "prefer-const": "error",
@@ -85,175 +86,81 @@ npx ttsx src/index.ts
 
 Errors fail the command; warnings print without affecting the exit code. Under `ttsx`, errors stop the program before your entrypoint runs.
 
-> Alternate config surfaces — inline `compilerOptions.plugins[].rules`, `extends` paths, and `eslint.config.*` reuse — are described in [Config Files](#config-files) below.
+## Fix and format
 
-### Fix
+`ttsc fix` applies every autofix the enabled rules offer — lint and format together — writes results back to disk, then re-runs type-check + lint. `ttsc format` runs the `format/*` subset through the same dataflow.
 
 ```bash
 npx ttsc fix
-```
-
-Applies every autofix the enabled rules offer (lint *and* format), writes the result to disk, then runs the usual no-emit typecheck + lint pass.
-
-Native fixers currently cover:
-
-- `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`.
-- `no-wrapper-object-types` (`String`/`Number`/`Boolean`/`Symbol`/`BigInt` → primitive; `Object` stays detection-only).
-- `prefer-as-const`, `no-useless-rename`, `object-shorthand`, `no-extra-non-null-assertion`.
-- `no-unnecessary-type-constraint`, `prefer-namespace-keyword`, `no-useless-escape`.
-- `no-import-type-side-effects` (hoists inline `type` modifiers).
-- `await-thenable` (type-aware — drops `await` on non-thenable operands).
-
-If your project uses `eslint.config.*` with an installed ESLint runtime, `ttsc fix` delegates to ESLint's own fixers and reloads the Program before reporting remaining diagnostics.
-
-`ttsc fix` is a one-shot project pass and rejects `--watch`, single-file mode, and `--emit`. Fixes are written to disk before the recheck runs, so source stays modified even when the command exits non-zero on remaining errors.
-
-Recommended flow: run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to gate on zero remaining errors.
-
-### Format
-
-```bash
 npx ttsc format
 ```
 
-Applies the format-class rules and exits silently. `ttsc fix` does the same plus the lint cascade; pick `format` when you want to reshape source without lint rewrites.
+`ttsc fix` is a one-shot project pass and rejects `--watch`, single-file mode, and `--emit`. Fixes are written to disk before the recheck runs, so source stays modified even when the command exits non-zero on remaining errors. Recommended flow: run `ttsc fix` locally, commit, then have CI run `ttsc --noEmit` to gate on zero remaining errors.
 
-Configure formatting with a Prettier-style `format` block — keys mirror `.prettierrc`:
+## Configurations
+
+Two top-level keys in `lint.config.ts`:
+
+- `format` is a Prettier-style block that drives the `format/*` autofixes — defaults to `severity: "warning"`, applied through `ttsc format`. Promote individual format rules to `"error"` under `rules` if you want format diffs to fail the build.
+- `rules` sets severity per lint rule. `"error"` fails the build; `"warning"` prints without affecting the exit code; `"off"` disables the rule.
+
+### Format
+
+The `format` block in `lint.config.ts` configures the formatter. Keys mirror `.prettierrc`:
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
-
 export default {
-  rules: { "no-var": "error" },
   format: {
+    severity: "warning",
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
     importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
+    jsdoc: true,
   },
+  rules: { "no-var": "error" },
 } satisfies TtscLintConfig;
 ```
 
-Presence (even empty `format: {}`) enables the always-on rules at Prettier defaults. Setting `importOrder` enables `format/sort-imports`; setting `jsdoc: true` (or an options object) enables `format/jsdoc`. Omit the `format` block entirely to keep every format rule off — same as today's opt-in default.
+Presence of the block (even empty `format: {}`) enables the always-on format rules at Prettier defaults. Each `format` key drives one rule:
 
 | Rule | Driven by | Effect |
 | --- | --- | --- |
 | `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
-| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. See [docs/13-format-print-width.md](https://github.com/samchon/ttsc/blob/master/docs/13-format-print-width.md). |
-| `format/sort-imports` | `importOrder*` | Group external/relative imports and alphabetize each group + its specifiers. |
-| `format/jsdoc` | `jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
+| `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize each group + its specifiers. |
+| `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`format.severity` (default `"warning"`) sets the diagnostic level for every format rule in `ttsc check`. `severity: "off"` disables every format rule AND skips its rewrite under `ttsc format` — a one-line CI escape hatch.
+`format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
 
-To override a single rule's severity or options, drop a sibling `rules` entry — `rules` wins on conflict:
+`format.severity` (default `"warning"`) sets the diagnostic level for every format rule under `ttsc check`. `severity: "off"` disables every format rule **and** skips its rewrite under `ttsc format` — a one-line CI escape hatch.
+
+To bump (or relax) one specific rule, drop a sibling `rules` entry — `rules` wins on conflict:
 
 ```ts
 export default {
-  format: { semi: true },
-  rules: { "format/semi": "error" },  // bump severity for this one rule only
+  format: { semi: true, severity: "warning" },
+  rules: { "format/semi": "error" },  // promote this one to error
 } satisfies TtscLintConfig;
 ```
-
-Migrating from a `.prettierrc`? See [docs/14-prettier-migration.md](https://github.com/samchon/ttsc/blob/master/docs/14-prettier-migration.md) for the field-by-field cheat sheet and the list of Prettier knobs `@ttsc/lint` does not yet support.
-
-### Config Files
-
-`@ttsc/lint` discovers config from one of three surfaces, in order:
-
-1. **Inline `tsconfig.json` rules** — most local, overrides everything else for that plugin entry.
-
-   ```jsonc
-   {
-     "compilerOptions": {
-       "plugins": [
-         {
-           "transform": "@ttsc/lint",
-           "rules": { "no-var": "error", "prefer-const": "error" },
-         },
-       ],
-     },
-   }
-   ```
-
-2. **`extends` path** — relative path to a standalone config file.
-
-   ```jsonc
-   {
-     "compilerOptions": {
-       "plugins": [
-         { "transform": "@ttsc/lint", "extends": "./lint.config.ts" },
-       ],
-     },
-   }
-   ```
-
-3. **Auto-discovery** — walks upward from the `tsconfig.json` directory and uses the first match:
-
-   - `lint.config.{json,js,mjs,cjs,ts,mts,cts}`
-   - `ttsc-lint.config.{json,js,mjs,cjs,ts,mts,cts}`
-   - `eslint.config.{js,mjs,cjs,ts,mts,cts}` (flat-config compatibility)
-
-`.ts` configs load directly through `ttsx` — no compile step required. `rules` and `extends` cannot be combined on a single plugin entry; pick one or rely on auto-discovery.
-
-### Third-Party Rule Plugins
-
-Third-party packages can contribute Go-implemented lint rules that compile into the same `@ttsc/lint` binary and report through the same diagnostic stream as the built-ins. Two declaration surfaces:
-
-```jsonc
-// tsconfig.json — inline declaration
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "plugins": { "demo": "ttsc-lint-plugin-demo" },
-        "rules": { "demo/no-todo-comment": "error" },
-      },
-    ],
-  },
-}
-```
-
-```ts
-// lint.config.ts — ESLint flat-config style
-import demoPlugin from "ttsc-lint-plugin-demo";
-import { defineConfig } from "@ttsc/lint";
-
-export default defineConfig([
-  {
-    plugins: { demo: demoPlugin },
-    rules: { "demo/no-todo-comment": "error" },
-  },
-]);
-```
-
-ttsc copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in [`docs/10-reference-plugins.md`](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#authoring-a-lint-rule-contributor).
-
-Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [Emitting Autofixes](https://github.com/samchon/ttsc/blob/master/docs/10-reference-plugins.md#emitting-autofixes) section for the full contract and an example.
-
-## Scope
-
-No bundled recommended preset yet. Rules remain off until you enable them.
-
-## Rules
+### Rules
 
 Rules are off until you enable them:
 
-```jsonc
-{
-  "no-var": "error",
-  "eqeqeq": "error",
-  "prefer-template": "warning",
-  "no-non-null-assertion": "off",
-}
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "no-var": "error",
+    "eqeqeq": "error",
+    "prefer-template": "warning",
+    "no-non-null-assertion": "off",
+  },
+} satisfies TtscLintConfig;
 ```
-
-Rule severities are `"error"`, `"warning"`, and `"off"`.
-
-Format rules (`format/semi`, `format/quotes`, `format/trailing-comma`, `format/sort-imports`, `format/jsdoc`) are listed separately in the [Format](#format) section above with their per-rule option shapes. The catalog below covers lint-class rules only.
 
 The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
 
@@ -392,6 +299,27 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+
+## Third-party rule plugins
+
+Other npm packages can ship lint rules that compile into the same `@ttsc/lint` binary and report through the same diagnostic stream as built-ins. Declare them in `lint.config.ts`:
+
+```ts
+// lint.config.ts
+import demoPlugin from "ttsc-lint-plugin-demo";
+import { defineConfig } from "@ttsc/lint";
+
+export default defineConfig([
+  {
+    plugins: { demo: demoPlugin },
+    rules: { "demo/no-todo-comment": "error" },
+  },
+]);
+```
+
+`ttsc` copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in the [Reference Plugins guide](https://ttsc.dev/docs/development/reference/reference-plugins#authoring-a-lint-rule-contributor).
+
+Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [Emitting Autofixes](https://ttsc.dev/docs/development/reference/reference-plugins#emitting-autofixes) section for the full contract and an example.
 
 ## Sponsors
 

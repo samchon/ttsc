@@ -41,41 +41,9 @@ If `@ttsc/banner` is installed and no banner config file can be found, the compi
 
 ## Configuration
 
-Use `banner.config.ts` for ordinary projects.
+`banner.config.ts` is the only config surface. The plugin formats every line of `text` inside a JSDoc block and appends `@packageDocumentation`.
 
-Use `compilerOptions.plugins` only when the project needs a different config file path or inline text:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/banner",
-        "config": "./config/banner.config.ts",
-      },
-    ],
-  },
-}
-```
-
-The explicit `config` path resolves from the selected `tsconfig.json` directory.
-
-Existing inline text config remains supported:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/banner",
-        "text": "License MIT (c) 2026 Acme",
-      },
-    ],
-  },
-}
-```
-
-The plugin formats every banner line inside a JSDoc block and adds `@packageDocumentation`. The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
+The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
 
 ## Sponsors
 

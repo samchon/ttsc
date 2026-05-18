@@ -1,32 +1,27 @@
 # TTSC
 
-The compiler, the runtime, the language server, and the bundler adapter — one toolchain, one plugin contract, one source of truth (`tsconfig.json`).
+The compiler, the runtime, and the bundler adapter — one toolchain, one `tsconfig.json`.
 
 ```bash
 npx ttsc           # build · check · watch · fix · format
 npx ttsx file.ts   # run TypeScript with a real type-check
-npx ttscserver     # LSP host for plugin diagnostics in your editor
 ```
 
 ## In this chapter
 
 - [Compile](/docs/ttsc/compile) — `ttsc` build / check / watch / fix / format. Day-to-day commands and the full flag reference.
 - [Execute](/docs/ttsc/execute) — `ttsx`. The typed replacement for `tsx` and `ts-node`.
-- [Language Server](/docs/ttsc/lsp) — `ttscserver`. What the VSCode extension talks to.
 - [Bundler integration](/docs/ttsc/bundler) — `@ttsc/unplugin`. Same plugin pass inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Next.js, Farm, Bun.
-- [tsconfig recipes](/docs/ttsc/tsconfig) — common `tsconfig.json` patterns.
 
-For plugins you can install today — [typia](/docs/plugins/typia), [@ttsc/banner](/docs/plugins/banner), [@ttsc/paths](/docs/plugins/paths), [@ttsc/strip](/docs/plugins/strip) — see the [Plugins](/docs/plugins) chapter. For `@ttsc/lint`, see its own chapter at [@ttsc/lint](/docs/lint).
+For live editor diagnostics, install the VS Code extension as part of [Setup → Editor](/docs/setup#editor-vs-code). For lint and format, see [Lint & Prettier](/docs/lint). For the first-party utility plugins shipped in this repo and the third-party ecosystem (typia, nestia, …), see [Plugin Ecosystem](/docs/plugins).
 
 ## How they fit together
 
-A `ttsc` build is one pass over your project:
+Every `ttsc` build is one pass over your project:
 
 1. Read `tsconfig.json`.
-2. Build the TypeScript-Go Program + Checker.
-3. Run every plugin in `compilerOptions.plugins` order.
-4. Emit JS + `.d.ts` (or skip, with `--noEmit`).
+2. Type-check the project.
+3. Run every configured plugin, in order.
+4. Emit JS + `.d.ts` (or skip with `--noEmit`).
 
-`ttsx` is the same up to step 3, then executes instead of emitting. `ttscserver` is the same up to step 3, then proxies diagnostics over LSP. `@ttsc/unplugin` is the same plugin pass embedded inside a bundler.
-
-You configure plugins **once**, in `tsconfig.json`. Every entry point sees them.
+`ttsx` does steps 1–3, then runs the result instead of emitting. `@ttsc/unplugin` runs the same plugin pass inside a bundler. The VS Code extension does steps 1–3 continuously as you type and surfaces the diagnostics in the editor.

@@ -1,7 +1,5 @@
 # JSDoc banners
 
-*`ttsc` is the standalone TypeScript-Go compiler — see [Setup](/docs/setup) if you haven't installed it yet.*
-
 `@ttsc/banner` adds a fixed `@packageDocumentation` JSDoc banner to the top of every emitted file. Common case: a license / copyright line at the top of your published package.
 
 ## Install
@@ -10,9 +8,9 @@
 npm install -D @ttsc/banner
 ```
 
-## Configure (file form — recommended)
+## Configure
 
-Create `banner.config.ts` next to `tsconfig.json`:
+Drop a `banner.config.ts` next to `tsconfig.json`:
 
 ```ts
 import type { TtscBannerConfig } from "@ttsc/banner";
@@ -20,16 +18,6 @@ import type { TtscBannerConfig } from "@ttsc/banner";
 export default {
   text: "License MIT (c) 2026 Acme",
 } satisfies TtscBannerConfig;
-```
-
-Register the plugin in `tsconfig.json`:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [{ "transform": "@ttsc/banner" }]
-  }
-}
 ```
 
 Run `ttsc`. Every emitted `.js` and `.d.ts` gets:
@@ -42,26 +30,7 @@ Run `ttsc`. Every emitted `.js` and `.d.ts` gets:
  */
 ```
 
-## Configure (inline form)
-
-If you don't want a separate config file:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/banner",
-        "text": "License MIT (c) 2026 Acme"
-      }
-    ]
-  }
-}
-```
-
-## Required configuration
-
-If `@ttsc/banner` is installed but neither `banner.config.ts` nor an inline `text` can be found, the compile fails. This is deliberate — banners are not silently skipped.
+`banner.config.ts` is required: if `@ttsc/banner` is installed but the config file is missing, the compile fails. Banners are never silently skipped.
 
 ## Common use cases
 
@@ -71,6 +40,6 @@ If `@ttsc/banner` is installed but neither `banner.config.ts` nor an inline `tex
 
 ## See also
 
-- [Plugins](/docs/plugins) — the plugin index.
 - [@ttsc/paths](/docs/plugins/paths) — another emit-time plugin.
-- [Plugin Development](/docs/plugin-development) — write your own.
+- [@ttsc/strip](/docs/plugins/strip) — strip configured calls and `debugger` from the emit.
+- [Plugin Development](/docs/development) — write your own.
