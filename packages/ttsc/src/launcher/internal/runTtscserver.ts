@@ -70,7 +70,7 @@ function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
   if (!argv.includes("--stdio")) {
     return process.env;
   }
-  if (process.env.TTSC_TSGO_BINARY || hasOptionValue(argv, "--tsgo")) {
+  if (process.env.TTSC_TSGO_BINARY || hasTsgoOption(argv)) {
     return process.env;
   }
   const tsgo = resolveTsgo({
@@ -83,9 +83,8 @@ function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
   };
 }
 
-function hasOptionValue(argv: readonly string[], option: string): boolean {
-  const index = argv.indexOf(option);
-  return index >= 0 && typeof argv[index + 1] === "string";
+function hasTsgoOption(argv: readonly string[]): boolean {
+  return argv.some((arg) => arg === "--tsgo" || arg.startsWith("--tsgo="));
 }
 
 function formatError(error: unknown): string {
