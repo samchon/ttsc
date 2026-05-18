@@ -60,7 +60,7 @@ Drop a `lint.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   format: {
@@ -74,7 +74,7 @@ export default {
     "no-explicit-any": "warning",
     "no-console": "off",
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 Run your normal `ttsc` or `ttsx`:
@@ -101,7 +101,7 @@ npx ttsc format
 
 Two top-level keys in `lint.config.ts`:
 
-- `format` is a Prettier-style block that drives the `format/*` autofixes — defaults to `severity: "warning"`, applied through `ttsc format`. Promote individual format rules to `"error"` under `rules` if you want format diffs to fail the build.
+- `format` is a Prettier-style block that drives the `format/*` autofixes. Format diagnostics are warnings and do not define compile failure policy.
 - `rules` sets severity per lint rule. `"error"` fails the build; `"warning"` prints without affecting the exit code; `"off"` disables the rule.
 
 ### Format
@@ -112,7 +112,6 @@ The `format` block in `lint.config.ts` configures the formatter. Keys mirror `.p
 // lint.config.ts
 export default {
   format: {
-    severity: "warning",
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
@@ -120,13 +119,16 @@ export default {
     jsdoc: true,
   },
   rules: { "no-var": "error" },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
-Presence of the block (even empty `format: {}`) enables the always-on format rules at Prettier defaults. Each `format` key drives one rule:
+Presence of the block (even empty `format: {}`) configures the always-on format rules at Prettier defaults for `ttsc format`. It does not make `ttsc check` fail on formatting by default; set `format.severity` only if you intentionally want check-time format diagnostics.
+
+Each `format` key drives one rule:
 
 | Rule | Driven by | Effect |
 | --- | --- | --- |
+| all format rules | `severity` (default `"off"`) | Optional check-time diagnostic severity. `ttsc format` still applies configured format rules when this is off. |
 | `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
@@ -134,17 +136,15 @@ Presence of the block (even empty `format: {}`) enables the always-on format rul
 | `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize each group + its specifiers. |
 | `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
+`format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule is available to `ttsc format` as soon as a `format` block is present.
 
-`format.severity` (default `"warning"`) sets the diagnostic level for every format rule under `ttsc check`. `severity: "off"` disables every format rule **and** skips its rewrite under `ttsc format` — a one-line CI escape hatch.
-
-To bump (or relax) one specific rule, drop a sibling `rules` entry — `rules` wins on conflict:
+To disable or override one specific format rule, drop a sibling `rules` entry — `rules` wins on conflict:
 
 ```ts
 export default {
-  format: { semi: true, severity: "warning" },
-  rules: { "format/semi": "error" },  // promote this one to error
-} satisfies TtscLintConfig;
+  format: { severity: "warning", semi: true },
+  rules: { "format/semi": "off" },
+} satisfies ITtscLintConfig;
 ```
 ### Rules
 
@@ -159,7 +159,7 @@ export default {
     "prefer-template": "warning",
     "no-non-null-assertion": "off",
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
@@ -307,14 +307,12 @@ Other npm packages can ship lint rules that compile into the same `@ttsc/lint` b
 ```ts
 // lint.config.ts
 import demoPlugin from "ttsc-lint-plugin-demo";
-import { defineConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
-export default defineConfig([
-  {
-    plugins: { demo: demoPlugin },
-    rules: { "demo/no-todo-comment": "error" },
-  },
-]);
+export default {
+  plugins: { demo: demoPlugin },
+  rules: { "demo/no-todo-comment": "error" },
+} satisfies ITtscLintConfig;
 ```
 
 `ttsc` copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in the [Reference Plugins guide](https://ttsc.dev/docs/development/reference/reference-plugins#authoring-a-lint-rule-contributor).

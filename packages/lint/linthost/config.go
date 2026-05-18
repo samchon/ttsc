@@ -490,7 +490,6 @@ func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path str
         }
         merged := mergeRuleMaps(formatRulesRaw, rulesMap)
         if len(merged) == 0 {
-          // `format: { severity: "off" }` and no rules — drop entry.
           return nil
         }
         parsed, err := parseExternalRuleMapInto(merged, path+".rules", store)
@@ -798,9 +797,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, fmt.Errorf("@ttsc/lint: \"format\" and \"extends\" cannot be combined on a single plugin entry; put format options inside the extends-target lint.config.ts instead")
   }
 
-  // Expand the format block (if any) into a rules-shaped map. The
-  // returned map is empty when `format.severity === "off"` so the
-  // downstream merge with `rules` still produces the right result.
+  // Expand the format block (if any) into a rules-shaped map.
   var formatRulesRaw map[string]any
   if hasFormat {
     formatMap, ok := formatValue.(map[string]any)
@@ -827,8 +824,6 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     }
     merged := mergeRuleMaps(formatRulesRaw, rulesMap)
     if len(merged) == 0 {
-      // `format: { severity: "off" }` with no `rules` field — no
-      // rules to register.
       return InlineRuleResolver{Rules: RuleConfig{}, Options: RuleOptionsMap{}}, nil
     }
     cfg, opts, err := ParseRulesWithOptions(merged)

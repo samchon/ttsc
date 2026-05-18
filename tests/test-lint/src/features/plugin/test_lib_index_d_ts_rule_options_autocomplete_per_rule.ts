@@ -1,13 +1,13 @@
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 import assert from "node:assert/strict";
 
 /**
  * Verifies lib/index.d.ts surfaces per-rule option autocomplete and rejects
  * malformed shapes at compile time.
  *
- * The `TtscLintRuleEntry<R>` mapped type is supposed to pick its second tuple
- * slot from `TtscLintRuleOptionsMap[R]`. This compile-time test exercises both
- * the happy path and the negative branches that make the typing load-bearing.
+ * `TtscLintRuleMap` picks each known format rule's second tuple slot from
+ * `ITtscLintRuleOptionsMap`. This compile-time test exercises both the happy
+ * path and the negative branches that make the typing load-bearing.
  *
  * Happy path:
  *
@@ -17,13 +17,13 @@ import assert from "node:assert/strict";
  *
  * Negative branches pinned with `@ts-expect-error`:
  *
- * - Typo'd rule name (`format/Quotes` with capital Q) is rejected.
+ * - Typo'd built-in rule name (`no-vra`) is rejected.
  * - Typo'd option key (`prefre` for `prefer`) is rejected.
  * - Cross-rule option leakage (`mode` on `format/quotes`) is rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
  *
  * The function runs at runtime as a sanity check that `satisfies
- * TtscLintConfig` does not regress; the real assertion happens during `pnpm run
+ * ITtscLintConfig` does not regress; the real assertion happens during `pnpm run
  * test:typecheck`.
  *
  * 1. Construct configs exercising each tuple shape, both valid and broken.
@@ -33,7 +33,7 @@ import assert from "node:assert/strict";
  *    reports the unused directive itself as an error.
  */
 export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
-  const config: TtscLintConfig = {
+  const config: ITtscLintConfig = {
     rules: {
       "no-var": "error",
       "format/semi": ["warning", { prefer: "always" }],
@@ -57,7 +57,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
     },
   };
 
-  const bareTuple: TtscLintConfig = {
+  const bareTuple: ITtscLintConfig = {
     rules: {
       "format/semi": ["warning"],
       "format/sort-imports": "off",
@@ -72,8 +72,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   // typo branch and leaving its `@ts-expect-error` directive unused.
   // Splitting the cases keeps each branch load-bearing.
   //
-  // - Rule-name typo (`format/Quotes` with capital Q) — excess property
-  //   on the rules-object.
+  // - Built-in rule-name typo (`no-vra`) — excess property on the
+  //   rules-object.
   // - Option-key typo (`prefre` for `prefer`) — excess property on the
   //   tuple's options slot.
   // - Cross-rule option leakage (`mode` on `format/sort-imports`) — the
@@ -83,25 +83,25 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   //   second half of `TtscLintRuleMap` types lint rules as
   //   `severity | [severity]`, so a length-2 tuple has no matching
   //   union branch.
-  const ruleNameTypo: TtscLintConfig = {
+  const ruleNameTypo: ITtscLintConfig = {
     rules: {
-      // @ts-expect-error — rule names are case-sensitive; "format/Quotes" is not a known key.
-      "format/Quotes": "error",
+      // @ts-expect-error — "no-vra" is not a known built-in rule and not a namespaced contributor rule.
+      "no-vra": "error",
     },
   };
-  const optionKeyTypo: TtscLintConfig = {
+  const optionKeyTypo: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `prefre` is a typo of `prefer`; excess property check on the tuple's options slot fires.
       "format/quotes": ["error", { prefre: "double" }],
     },
   };
-  const crossRuleShape: TtscLintConfig = {
+  const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `mode` belongs to format/trailing-comma; format/sort-imports's option shape rejects it.
       "format/sort-imports": ["error", { mode: "all" }],
     },
   };
-  const lintRuleWithOptions: TtscLintConfig = {
+  const lintRuleWithOptions: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `no-var` is a lint rule with `severity | [severity]` only; a length-2 tuple is rejected.
       "no-var": ["error", { ignore: true }],

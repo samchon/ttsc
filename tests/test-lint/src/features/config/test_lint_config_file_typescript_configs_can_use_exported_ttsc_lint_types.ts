@@ -21,12 +21,14 @@ export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint
         config: "./ttsc-lint.config.ts",
       },
       extraSources: {
-        "ttsc-lint.config.ts": `import type { TtscLintConfig } from "@ttsc/lint";
+        "ttsc-lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";
 
       const config = {
-        "no-var": "error",
-        "no-console": "off",
-      } satisfies TtscLintConfig;
+        rules: {
+          "no-var": "error",
+          "no-console": "off",
+        },
+      } satisfies ITtscLintConfig;
 
       export default config;\n`,
       },

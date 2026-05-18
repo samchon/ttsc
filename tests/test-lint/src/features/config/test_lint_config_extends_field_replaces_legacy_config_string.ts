@@ -24,12 +24,14 @@ export const test_lint_config_extends_field_replaces_legacy_config_string =
         extends: "./ttsc-lint.config.ts",
       },
       extraSources: {
-        "ttsc-lint.config.ts": `import type { TtscLintConfig } from "@ttsc/lint";
+        "ttsc-lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";
 
 const config = {
-  "no-var": "off",
-  "no-console": "error",
-} satisfies TtscLintConfig;
+  rules: {
+    "no-var": "off",
+    "no-console": "error",
+  },
+} satisfies ITtscLintConfig;
 
 export default config;
 `,

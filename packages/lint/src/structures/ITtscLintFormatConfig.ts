@@ -9,21 +9,24 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * verbatim. The block is opt-in by presence: a `lint.config.ts` with no
  * `format` field keeps every format rule off, exactly as before.
  *
- * Once present, the block enables a curated set of format rules at
- * Prettier-aligned defaults. Individual rules can be overridden or
- * disabled through the `rules` map (the `rules` entry wins on conflict).
+ * Once present, the block configures a curated set of format rules at
+ * Prettier-aligned defaults. `ttsc format` uses these rules to rewrite source.
+ * `ttsc check` does not report format findings unless `severity` is set to a
+ * non-off value. Individual rules can be overridden or disabled through the
+ * `rules` map (the `rules` entry wins on conflict).
  *
  * @example
- *   import type { TtscLintConfig } from "@ttsc/lint";
+ *   import type { ITtscLintConfig } from "@ttsc/lint";
  *
  *   export default {
  *     rules: { "no-var": "error" },
  *     format: {
+ *       severity: "warning",
  *       printWidth: 100,
  *       singleQuote: true,
  *       importOrder: ["<THIRD_PARTY_MODULES>", "^[./]"],
  *     },
- *   } satisfies TtscLintConfig;
+ *   } satisfies ITtscLintConfig;
  *
  * Deviations from Prettier:
  *  - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
@@ -46,19 +49,18 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *  - `format/sort-imports` — opt-in. Setting `importOrder` enables it.
  *  - `format/jsdoc` — opt-in. Setting `jsdoc` enables it.
  *
- * For per-rule severity overrides, drop a `rules` entry alongside:
- *
- *   format: { semi: true, severity: "warning" },
- *   rules: { "format/semi": "error" },
+ * Format findings produced from this block are off by default. Set `severity`
+ * only when a project intentionally wants check-time format diagnostics.
  */
-export interface TtscLintFormatConfig {
+export interface ITtscLintFormatConfig {
   /**
-   * Severity for every format diagnostic emitted by `ttsc check`. The
-   * same vocabulary as the `rules` map (`"off" | "warn" | "warning" |
-   * "error"` plus numeric 0/1/2). `"off"` disables both the diagnostic
-   * and the `ttsc format` / `ttsc fix` rewrite for every format rule.
+   * Check-time severity for format findings generated from this block.
    *
-   * @default "warning"
+   * The default is `"off"` so formatting policy does not affect compilation
+   * unless the project opts into that behavior. `ttsc format` can still use the
+   * rest of this block to rewrite files.
+   *
+   * @default "off"
    */
   severity?: TtscLintSeverity;
 

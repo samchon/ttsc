@@ -1,4 +1,4 @@
-import type { TtscLintFormatConfig } from "./TtscLintFormatConfig";
+import type { ITtscLintFormatConfig } from "./ITtscLintFormatConfig";
 import type { TtscLintRuleMap } from "./TtscLintRuleMap";
 
 /** `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`. */
@@ -67,7 +67,7 @@ export interface ITtscLintPluginConfig {
 
   /**
    * Prettier-style flat configuration for the `format/*` rules. Sibling of
-   * `rules`. See {@link TtscLintFormatConfig} for the full surface.
+   * `rules`. See {@link ITtscLintFormatConfig} for the full surface.
    *
    * ```jsonc
    * {
@@ -80,7 +80,7 @@ export interface ITtscLintPluginConfig {
    * combined with `extends` on the same plugin entry — put format options
    * inside the extends-target lint.config.ts instead.
    */
-  format?: TtscLintFormatConfig;
+  format?: ITtscLintFormatConfig;
 
   /**
    * Inline rule map or path to a standalone lint config file.
@@ -92,9 +92,9 @@ export interface ITtscLintPluginConfig {
    *
    *   The legacy shape is intentionally narrower than `rules`/`extends`: a string
    *   (file path) or a flat rule-name → severity map. The Go-side parser only
-   *   accepts those two shapes; widening the TS type to the new
-   *   `TtscLintConfig` union would silently let `config: [{ rules: {...} }]`
-   *   pass type-checking and fail at runtime.
+   *   accepts those two shapes; widening the TS type to the full config object
+   *   would silently let unsupported nested shapes pass type-checking and fail
+   *   at runtime.
    */
   config?: string | TtscLintRuleMap;
 

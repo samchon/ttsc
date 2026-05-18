@@ -1,4 +1,4 @@
-import type { TtscLintFormatConfig } from "./TtscLintFormatConfig";
+import type { ITtscLintFormatConfig } from "./structures/ITtscLintFormatConfig";
 
 /**
  * Documented defaults for the `format` block's *always-on* rules
@@ -7,11 +7,11 @@ import type { TtscLintFormatConfig } from "./TtscLintFormatConfig";
  *
  * Exported so users can spread defaults next to overrides:
  *
- *   import { defaultFormat, type TtscLintConfig } from "@ttsc/lint";
+ *   import { defaultFormat, type ITtscLintConfig } from "@ttsc/lint";
  *
  *   export default {
  *     format: { ...defaultFormat, printWidth: 100 },
- *   } satisfies TtscLintConfig;
+ *   } satisfies ITtscLintConfig;
  *
  * The values mirror Prettier 1:1 except for the documented
  * `endOfLine` narrowing (no `"cr"` / `"auto"`).
@@ -22,7 +22,7 @@ import type { TtscLintFormatConfig } from "./TtscLintFormatConfig";
  * unconditionally with a non-empty `format` block.
  */
 export const defaultFormat = Object.freeze({
-  severity: "warning",
+  severity: "off",
   semi: true,
   singleQuote: false,
   trailingComma: "all",
@@ -30,4 +30,4 @@ export const defaultFormat = Object.freeze({
   tabWidth: 2,
   useTabs: false,
   endOfLine: "lf",
-} satisfies TtscLintFormatConfig);
+} satisfies ITtscLintFormatConfig);
