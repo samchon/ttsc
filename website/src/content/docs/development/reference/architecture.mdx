@@ -24,7 +24,7 @@ The cache key for a built plugin binary is `sha256` of, in order:
 3. `platform=${process.platform}/${process.arch}`
 4. `entry=${plugin entry package relative to its go.mod}`
 5. `go=${resolveGoCompilerIdentity(goBinary)}` — the resolved Go binary's file content hash and `go version` text, not the install path.
-6. Every set env var in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`, `GOROOT`.
+6. Every effective Go build env value in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GOARM64`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `GOFIPS140`, `GO_EXTLINK_ENABLED`, `GCCGO`, `GCCGOTOOLDIR`, `CGO_ENABLED`, the cgo compiler/linker variables, `GOTOOLCHAIN`, and `GOROOT` by toolchain-content fingerprint.
 7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
 8. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
 9. Contributor source-directory hashes, sorted by contributor name.
@@ -70,18 +70,25 @@ The default cache is content-addressed and shared across projects on the same ma
 
 ## Build environment
 
-The plugin builder reads three groups of environment variables. All three influence the cache key when set; the `TTSC_*_BINARY` trio is also injected into the plugin's own process so plugins can re-spawn ttsc helpers.
+The plugin builder reads Go's effective build environment for the cache key. It also injects the `TTSC_*_BINARY` trio into each plugin process so plugins can re-spawn ttsc helpers.
 
 ### Cache-key inputs: `GO_BUILD_ENV_KEYS`
 
-These 15 Go build env vars fold into the cache key when non-empty, so cross-compile targets, build-tag tweaks, and explicit toolchain roots never collide with the native build slot:
+These 40 effective Go build env values fold into the cache key when non-empty, so cross-compile targets, build-tag tweaks, cgo compiler/linker choices, FIPS mode, and toolchain roots never collide with the native build slot. `ttsc` reads them through `go env`, so `go env -w` settings are covered too. `GOROOT` is normalized to a toolchain-content fingerprint instead of the install path, preserving pnpm path sharing for identical bundled toolchains.
 
 ```text
-GOOS GOARCH GOAMD64 GOARM GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64
-GOWASM GOFLAGS GOEXPERIMENT CGO_ENABLED GOTOOLCHAIN GOROOT
+GOOS GOARCH GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64
+GORISCV64 GOWASM GOFLAGS GOEXPERIMENT GOFIPS140 GO_EXTLINK_ENABLED
+GCCGO GCCGOTOOLDIR CGO_ENABLED AR CC CXX FC PKG_CONFIG
+CGO_CFLAGS CGO_CFLAGS_ALLOW CGO_CFLAGS_DISALLOW
+CGO_CPPFLAGS CGO_CPPFLAGS_ALLOW CGO_CPPFLAGS_DISALLOW
+CGO_CXXFLAGS CGO_CXXFLAGS_ALLOW CGO_CXXFLAGS_DISALLOW
+CGO_FFLAGS CGO_FFLAGS_ALLOW CGO_FFLAGS_DISALLOW
+CGO_LDFLAGS CGO_LDFLAGS_ALLOW CGO_LDFLAGS_DISALLOW
+GOTOOLCHAIN GOROOT
 ```
 
-Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` constant; the cache-key loop folds each non-empty value into the hash).
+Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` constant; the cache-key loop folds each non-empty effective value into the hash).
 
 ### Injected into the plugin process
 

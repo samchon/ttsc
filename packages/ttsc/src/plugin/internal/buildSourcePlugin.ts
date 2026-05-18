@@ -12,14 +12,15 @@ const TSGO_GO_MODULE_PATH = "github.com/microsoft/typescript-go";
 const PRUNE_DIRS = new Set(["node_modules", ".git", ".ttsc"]);
 const GENERATED_WORKSPACE_FILES = new Set(["go.work", "go.work.sum"]);
 
-// Go env vars that change the produced binary. Hashed into the plugin
-// build cache key so cross-compile target / build tags / cgo toggle
-// don't collide with the native-platform key.
+// Go build environment values that can change the produced binary or decide
+// whether `go build` succeeds. Hashed into the plugin cache key so target,
+// build-tag, cgo, FIPS, and external-link variants never collide.
 const GO_BUILD_ENV_KEYS: readonly string[] = [
   "GOOS",
   "GOARCH",
   "GOAMD64",
   "GOARM",
+  "GOARM64",
   "GO386",
   "GOMIPS",
   "GOMIPS64",
@@ -28,7 +29,31 @@ const GO_BUILD_ENV_KEYS: readonly string[] = [
   "GOWASM",
   "GOFLAGS",
   "GOEXPERIMENT",
+  "GOFIPS140",
+  "GO_EXTLINK_ENABLED",
+  "GCCGO",
+  "GCCGOTOOLDIR",
   "CGO_ENABLED",
+  "AR",
+  "CC",
+  "CXX",
+  "FC",
+  "PKG_CONFIG",
+  "CGO_CFLAGS",
+  "CGO_CFLAGS_ALLOW",
+  "CGO_CFLAGS_DISALLOW",
+  "CGO_CPPFLAGS",
+  "CGO_CPPFLAGS_ALLOW",
+  "CGO_CPPFLAGS_DISALLOW",
+  "CGO_CXXFLAGS",
+  "CGO_CXXFLAGS_ALLOW",
+  "CGO_CXXFLAGS_DISALLOW",
+  "CGO_FFLAGS",
+  "CGO_FFLAGS_ALLOW",
+  "CGO_FFLAGS_DISALLOW",
+  "CGO_LDFLAGS",
+  "CGO_LDFLAGS_ALLOW",
+  "CGO_LDFLAGS_DISALLOW",
   "GOTOOLCHAIN",
   "GOROOT",
 ];
@@ -66,7 +91,7 @@ export function buildSourcePlugin(opts: {
   tsgoVersion: string;
 }): string {
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
-  const overlayDirs = opts.overlayDirs ?? findTtscOverlayDirs();
+  const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
   const goBinary = resolveGoCompiler();
   ensureExecutableGoToolchain(goBinary);
@@ -624,6 +649,7 @@ function goToolchainNotFoundMessage(pluginName: string): string {
 
 function goBuildEnv(goBinary: string): NodeJS.ProcessEnv {
   const env = { ...process.env };
+  env.GOWORK = "auto";
   const goRoot = inferGoRoot(goBinary);
   if (goRoot && !env.GOROOT) {
     env.GOROOT = goRoot;
@@ -841,17 +867,7 @@ export function computeCacheKey(inputs: {
   if (inputs.goBinary !== undefined) {
     hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary)}\n`);
   }
-  // Hash the Go env vars that change `go build`'s output (cross-compile
-  // target, build tags, cgo toggle, etc.). Without this, a user setting
-  // `GOOS=linux GOARCH=arm64` on a darwin host would write a Linux-arm64
-  // binary into the same cache slot as the native build, and the next
-  // native invocation would spawn an unrunnable artifact.
-  for (const key of GO_BUILD_ENV_KEYS) {
-    const value = process.env[key];
-    if (value !== undefined && value !== "") {
-      hash.update(`${key}=${value}\n`);
-    }
-  }
+  hashGoBuildEnvironment(hash, inputs.goBinary, inputs.dir);
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir);
@@ -985,6 +1001,128 @@ function hashFile(file: string): string {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(file));
   return hash.digest("hex");
+}
+
+function hashGoBuildEnvironment(
+  hash: crypto.Hash,
+  goBinary: string | undefined,
+  cwd: string,
+): void {
+  const values = resolveGoBuildEnvironment(goBinary, cwd);
+  for (const key of GO_BUILD_ENV_KEYS) {
+    const value = values.get(key);
+    if (value !== undefined && value !== "") {
+      hash.update(`${key}=${value}\n`);
+    }
+  }
+}
+
+function resolveGoBuildEnvironment(
+  goBinary: string | undefined,
+  cwd: string,
+): Map<string, string> {
+  const values = new Map<string, string>();
+  if (goBinary !== undefined) {
+    const result = spawnSync(goBinary, ["env", "-json", ...GO_BUILD_ENV_KEYS], {
+      cwd,
+      encoding: "utf8",
+      env: goBuildEnv(goBinary),
+      maxBuffer: 1024 * 1024,
+      windowsHide: true,
+    });
+    if (result.error === undefined && result.status === 0) {
+      try {
+        const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+        for (const key of GO_BUILD_ENV_KEYS) {
+          const raw = parsed[key];
+          if (typeof raw === "string" && raw !== "") {
+            values.set(key, normalizeGoBuildEnvValue(key, raw));
+          }
+        }
+      } catch {
+        // Fall back to process.env below; a cache key is still better than
+        // failing before `go build` can produce the actionable error.
+      }
+    }
+  }
+  for (const key of GO_BUILD_ENV_KEYS) {
+    if (values.has(key)) continue;
+    const value = process.env[key];
+    if (value !== undefined && value !== "") {
+      values.set(key, normalizeGoBuildEnvValue(key, value));
+    }
+  }
+  return values;
+}
+
+function normalizeGoBuildEnvValue(key: string, value: string): string {
+  return key === "GOROOT" ? resolveGoRootCacheIdentity(value) : value;
+}
+
+function resolveGoRootCacheIdentity(goRoot: string): string {
+  const resolved = resolveRealPath(goRoot);
+  if (!fs.existsSync(resolved)) {
+    return `missing:${goRoot}`;
+  }
+  const hash = crypto.createHash("sha256");
+  hashGoRootFile(hash, resolved, "VERSION");
+  hashGoRootFile(hash, resolved, "go.env");
+  hashGoRootFile(hash, resolved, "src/internal/goexperiment/flags.go");
+  hashGoRootFile(hash, resolved, "src/runtime/internal/sys/zversion.go");
+  hashGoRootTool(hash, resolved, "compile");
+  hashGoRootTool(hash, resolved, "link");
+  hashGoRootTool(hash, resolved, "asm");
+  hashGoRootTool(hash, resolved, "cgo");
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function hashGoRootFile(
+  hash: crypto.Hash,
+  goRoot: string,
+  relative: string,
+): void {
+  const file = path.join(goRoot, ...relative.split("/"));
+  if (!fs.existsSync(file)) return;
+  hash.update(`f=${relative}\n`);
+  hash.update(fs.readFileSync(file));
+  hash.update("\n");
+}
+
+function hashGoRootTool(
+  hash: crypto.Hash,
+  goRoot: string,
+  toolName: string,
+): void {
+  const executableName =
+    process.platform === "win32" ? `${toolName}.exe` : toolName;
+  const toolRoot = path.join(goRoot, "pkg", "tool");
+  const tools = findGoToolExecutables(toolRoot, executableName);
+  for (const tool of tools) {
+    const relative = path.relative(goRoot, tool).replace(/\\/g, "/");
+    hash.update(`tool=${relative}\n`);
+    hash.update(fs.readFileSync(tool));
+    hash.update("\n");
+  }
+}
+
+function findGoToolExecutables(root: string, executableName: string): string[] {
+  const out: string[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...findGoToolExecutables(full, executableName));
+    } else if (entry.isFile() && entry.name === executableName) {
+      out.push(full);
+    }
+  }
+  out.sort();
+  return out;
 }
 
 function touchCacheEntry(cacheDir: string): void {
