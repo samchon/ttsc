@@ -14,7 +14,7 @@ Drop a `lint.config.ts` next to `tsconfig.json`:
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
@@ -28,12 +28,12 @@ export default {
     singleQuote: true,
     trailingComma: "all",
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 `"error"` fails the build. `"warning"` prints. `"off"` disables the rule.
 
-The `format` block configures the formatter — keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables the always-on format rules at Prettier defaults.
+The `format` block configures the formatter — keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.
 
 ## See it
 

@@ -117,7 +117,7 @@ Most projects start here. Add and remove as you go.
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
@@ -150,7 +150,7 @@ export default {
     "format/trailing-comma": "error",
     "format/print-width": ["error", { printWidth: 80 }],
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 ## Autofix coverage at a glance

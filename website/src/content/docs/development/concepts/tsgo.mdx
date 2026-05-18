@@ -103,7 +103,7 @@ checker := prog.Checker         // ready to query
 
 Every shipped third-party-shaped consumer in this repo uses this path:
 
-- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the first-party transform host (`loadUtilityProgram`).
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the generic linked transform host (`loadUtilityProgram`).
 - [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) — production diagnostics engine.
 - [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact Program/Checker fixture.
 
@@ -288,7 +288,7 @@ func dottedName(node *shimast.Node) (string, bool) {
 
 It does not treat `obj["log"]()` or optional chaining as the same shape. Add those cases only when your plugin needs them.
 
-Reference: [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) for `stripRewriter`, `callExpressionName`, and statement filtering.
+Reference: [`packages/strip/driver/strip.go`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/strip.go) for `stripRewriter`, `callExpressionName`, and statement filtering.
 
 ## Recognizing Imports and Module Specifiers
 
@@ -335,7 +335,7 @@ func clamp(value, min, max int) int {
 }
 ```
 
-Reference: [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) for `pathsRewriter`, module-specifier walking, and source-to-output path mapping.
+Reference: [`packages/paths/driver/paths.go`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go) for `pathsRewriter`, module-specifier walking, and source-to-output path mapping.
 
 ## TypeScript Type Syntax
 
@@ -662,8 +662,8 @@ Reference for the raw bootstrap:
 Read these in order:
 
 1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) — source JSDoc preamble insertion (consumer behavior).
-2. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the first-party banner/strip/paths transform host (where the real logic lives; the three sidecars are 36-line dispatchers).
-3. [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) — utility transform behavior tests.
+2. [`packages/banner/driver`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/), [`packages/strip/driver`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/), and [`packages/paths/driver`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/) — linked transform implementations.
+3. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the generic host that loads linked transforms.
 4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) — Program/Checker bootstrap.
 5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) — interface AST walk.
 6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/) — full diagnostics engine.

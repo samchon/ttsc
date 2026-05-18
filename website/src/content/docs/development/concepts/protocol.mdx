@@ -1,6 +1,6 @@
 # Plugin Protocol Reference
 
-This page is the contract between `ttsc` and a plugin package. It is one page on purpose — `composes`, `contributors`, factory generics, and the wire JSON are all validated in one pipeline, and splitting them would force forward references between two co-canonical files. Most readers can start with the **Minimum contract** section (descriptor, the five subcommands, `--plugins-json`, exit codes); skip composes / contributors / factory generics on the first read.
+This page is the contract between `ttsc` and a plugin package. It is one page on purpose — linked transform packages, `composes`, `contributors`, factory generics, and the wire JSON are all validated in one pipeline, and splitting them would force forward references between two co-canonical files. Most readers can start with the **Minimum contract** section (descriptor, the five subcommands, `--plugins-json`, exit codes); skip linked packages / composes / contributors / factory generics on the first read.
 
 > Looking for the two-halves model, vocabulary, or the stage/subcommand matrix? Start at [Concepts](/docs/development/concepts).
 
@@ -70,7 +70,7 @@ export function createTtscPlugin(
 
 ```ts
 interface ITtscPlugin {
-  name: string;
+  name?: string;
   source: string;
   composes?: string[];
   stage?: "transform" | "check";
@@ -85,9 +85,9 @@ interface ITtscPluginContributor {
 
 Field rules:
 
-- `name`: non-empty display name.
-- `source`: Go command package directory or `go.mod` file. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
-- `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle. First-party utility plugin names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`) cannot appear here; they have their own auto-composition path through the shared compiler host.
+- `name`: optional display label for diagnostics and build messages. Routing is not based on package identity.
+- `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
+- `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
 - `contributors`: optional list of additional Go source packages to statically link into this plugin's binary at build time. Each entry's `source` is copied into the scratch build tree as `<scratch>/contrib/<name>/`, and a synthesized blank import in the entry package triggers the contributor's `init()` before `main`. See [Contributors](#contributors) below.
 
@@ -123,7 +123,12 @@ for the subcommand contract.
 
 Projects can enable multiple plugin entries. `check` entries run before emit and compose with transform entries.
 
-Transform entries can share one compiler host when they resolve to the same native binary. This is how the first-party utility plugins compose:
+Transform entries can share one compiler host in two ways:
+
+- Several entries resolve to the same executable native binary, usually because one descriptor uses `composes`.
+- One or more entries point at non-`main` Go packages. `ttsc` links those packages into the selected executable host. If there is no executable transform host, `ttsc` builds a generic host and links the packages there.
+
+This is how linked transform packages compose:
 
 ```jsonc
 {
@@ -136,11 +141,11 @@ Transform entries can share one compiler host when they resolve to the same nati
 }
 ```
 
-Distinct third-party compiler hosts cannot be chained blindly, because each one would need to own `Program` creation and emit. If several transform modes must cooperate, expose them from one native binary and dispatch by explicit mode or option fields in the `--plugins-json` payload.
+Distinct executable compiler hosts cannot be chained blindly, because each one would need to own `Program` creation and emit. If several transform modes must cooperate, expose them from one native binary, redirect with `composes`, or ship non-`main` linked packages that register against the driver host.
 
 ### Combining plugins from different vendors
 
-Before the host invokes any transform plugin, `assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) checks the resolved plugin binaries. If more than one distinct binary is active and they are not all first-party utility plugins (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`), the host aborts with one of:
+Before the host invokes any transform plugin, `assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) checks the resolved plugin binaries after linked packages are removed from the compiler-owner set. If more than one distinct executable binary remains active, the host aborts with one of:
 
 ```text
 ttsc: multiple compiler native backends cannot share one emit pass;
@@ -149,11 +154,11 @@ ttsc: multiple transform native backends cannot share one source-to-source pass;
       compose transform libraries through one aggregate native host
 ```
 
-The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. To combine third-party transform libraries from different vendors (`typia` + `nestia`-style), pick one aggregate plugin and list the others in its `composes: [...]` array. See [Reference → Pitfalls](/docs/development/reference/pitfalls#combining-plugins) for the full failure catalogue.
+The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. To combine transform libraries from different vendors (`typia` + `nestia`-style), pick one aggregate executable plugin and list the others in its `composes: [...]` array, or make the additional transforms linked packages that implement the driver plugin hooks. See [Reference → Pitfalls](/docs/development/reference/pitfalls#combining-plugins) for the full failure catalogue.
 
 ### Composing across binaries
 
-Third-party plugins that want to share one compiler host can opt in through the `composes` field on their descriptor:
+Executable plugins that want to share one compiler host can opt in through the `composes` field on their descriptor:
 
 ```ts
 module.exports = {
@@ -172,7 +177,6 @@ Rules enforced at load time:
 - **Cycle rejected.** Two plugins each listing the other in `composes` is a hard error (`plugin composes cycle detected between "<A>" and "<B>"`).
 - **Multi-aggregate rejected.** A plugin claimed by two different aggregates is a hard error (`plugin "<name>" is composed by multiple aggregate plugins`).
 - **Empty-string target rejected.** Each entry in `composes` must be a non-empty string matching the target's `name` or its tsconfig `transform` specifier.
-- **First-party utility names refused.** `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` cannot appear in `composes`. They are composed automatically through the shared compiler host hosted by `packages/ttsc/utility/host.go`.
 - **No void aggregates.** The aggregate's own descriptor still needs a real `source` directory; ttsc never composes a plugin into nothing.
 
 See [Reference → Pitfalls](/docs/development/reference/pitfalls#composition-failures) for the exact error strings and recovery steps.

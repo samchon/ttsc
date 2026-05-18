@@ -8,7 +8,7 @@ The recommended way to configure formatting is a Prettier-style `format` block i
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   format: {
@@ -22,10 +22,10 @@ export default {
   rules: {
     "no-var": "error",
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
-Presence of the block (even empty `format: {}`) enables the always-on format rules at Prettier defaults. Each `format` key drives one rule:
+Presence of the block (even empty `format: {}`) configures the format rules at Prettier defaults for `ttsc format`. It does not make `ttsc check` fail on formatting unless you set `format.severity`. Each `format` key drives one rule:
 
 | Rule | Driven by `format` key | Effect |
 | --- | --- | --- |
@@ -40,13 +40,13 @@ Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when
 
 ### `format.severity`
 
-`format.severity` (default `"warning"`) sets the diagnostic level for every format rule in `ttsc check`. It is a property of the `format` block, not an external escape hatch:
+`format.severity` (default `"off"`) sets the diagnostic level for every format rule in `ttsc check`. It is a property of the `format` block, not an external escape hatch:
 
 ```ts
 format: { severity: "off" }
 ```
 
-`"off"` zeros every format rule **and** skips `ttsc format` rewrites — a one-line CI escape hatch during a refactor.
+`"off"` keeps format rules out of `ttsc check`; `ttsc format` still applies the configured formatter. Use this when formatting should be write-only and never block compilation.
 
 ### Per-rule overrides
 
@@ -56,7 +56,7 @@ To bump (or relax) one specific rule, drop a sibling `rules` entry — `rules` w
 export default {
   format: { semi: true, severity: "warning" },
   rules: { "format/semi": "error" },  // promote this one to error
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 ## The individual rules
@@ -169,7 +169,7 @@ The rule-level tuple form still works and is occasionally useful when you need a
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
@@ -178,7 +178,7 @@ export default {
     "format/trailing-comma": "error",
     "format/print-width": ["error", { printWidth: 80 }],
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 ## Rule interactions

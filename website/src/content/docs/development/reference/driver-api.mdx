@@ -13,7 +13,7 @@ prog, parseDiags, err := driver.LoadProgram(cwd, "tsconfig.json", driver.LoadPro
     ForceEmit:    false,
     ForceNoEmit:  false,
     OutDir:       "",
-    SourcePreamble: nil,
+    SourcePreamble: "",
 })
 if err != nil { /* parse-time failure */ }
 if len(parseDiags) > 0 { /* tsconfig errors */ }
@@ -90,10 +90,29 @@ prog.EmitAll(rs, driver.DefaultWriteFile)
 ## Source preambles
 
 ```go
-overlayFS := driver.ApplySourcePreamble(prog.FS, "/* @license MIT */", prog.SourceFiles())
+text = driver.ApplySourcePreamble(text, "/* @license MIT */")
 ```
 
-`ApplySourcePreamble` is the seam `@ttsc/banner` uses to layer a JSDoc preamble over every source file before emit. See `packages/ttsc/utility/host.go` for the production use.
+`ApplySourcePreamble` keeps a BOM or hashbang at the physical start of the file while inserting generated text after it. `@ttsc/banner` computes the preamble through `driver.SourcePreamblePlugin`; the generic host applies it when source text or declaration output needs the banner.
+
+## Linked Plugins
+
+Non-`main` transform packages register with the driver instead of owning a process:
+
+```go
+func init() {
+    driver.RegisterPlugin(plugin{})
+}
+
+type plugin struct{}
+
+func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
+    // mutate prog.SourceFiles()
+    return nil
+}
+```
+
+Implement `SourcePreamble(ctx)` when the plugin needs text before parsing, and `ApplyProgram(prog, ctx)` when it mutates the loaded Program. `ctx.Entry.Config` is the original `compilerOptions.plugins[]` object for this linked entry.
 
 ## Hosting `ttscserver`
 

@@ -57,7 +57,7 @@ One install, one config; the transform fires everywhere TypeScript is compiled.
 
 ## Combine with other ttsc plugins
 
-`typia` composes with `@ttsc/lint`, `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in the same `compilerOptions.plugins[]` array. Lint runs before emit; the utility transforms (banner, paths, strip) share `ttsc`'s first-party compiler host. Two **third-party** transform plugins cannot share one emit pass — if you need typia and another third-party transformer together, see the `composes` field in [Plugin protocol → Combining plugins from different vendors](/docs/development/concepts/protocol#combining-plugins-from-different-vendors).
+`typia` composes with `@ttsc/lint`, `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in the same `compilerOptions.plugins[]` array. Lint runs before emit; linked transforms (banner, paths, strip) ride inside the selected compiler host. Two independent executable transform hosts cannot share one emit pass — if you need typia and another executable transformer together, see the `composes` field in [Plugin protocol → Combining plugins from different vendors](/docs/development/concepts/protocol#combining-plugins-from-different-vendors).
 
 ## Reference
 

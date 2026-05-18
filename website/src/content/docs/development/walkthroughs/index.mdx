@@ -25,7 +25,9 @@ packages/<name>/
 ├── go.mod              ← Go module declaration for the sidecar
 └── plugin/
     ├── main.go         ← Native sidecar entrypoint — the binary ttsc spawns
-    └── <name>.go       ← Package-local helper (or, for the first-party trio, an empty marker)
+    └── <name>.go       ← Package-local helper
+└── driver/
+    └── <name>.go       ← Optional linked transform package
 ```
 
 The JS descriptor lives in `node_modules` on consumer machines and tells `ttsc` *where* the Go source is. The Go sidecar is built once and cached; `ttsc` then spawns it with subcommands like `transform`, `build`, or `check`.
@@ -34,14 +36,14 @@ If anything in that paragraph feels new, read [Concepts → Plugin protocol](/do
 
 ## Where the real logic lives
 
-The Go sidecars at `packages/banner/plugin/main.go`, `packages/strip/plugin/main.go`, and `packages/paths/plugin/main.go` are each **~36-line dispatchers**. When you open `strip/plugin/main.go` to "learn the strip plugin," you are reading the dispatcher; the actual statement-removal code lives in `packages/ttsc/utility/host.go::stripRewriter` — a shared file the three first-party transform plugins all co-host.
+The Go sidecars at `packages/banner/plugin/main.go`, `packages/strip/plugin/main.go`, and `packages/paths/plugin/main.go` are each small dispatchers. When you open `strip/plugin/main.go` to "learn the strip plugin," you are reading the process entrypoint; the statement-removal code lives in `packages/strip/driver/strip.go`.
 
-This co-hosting is a closed first-party concession, not a public template. The JS-side allowlist at `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts::FIRST_PARTY_UTILITY_PLUGIN_NAMES` lets exactly three plugin names — `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip` — share one compiler emit pass. Any third-party plugin in the mix forces a separate spawn and triggers `assertSharedHostCompatibility` (see [Pitfalls → Combining Plugins](/docs/development/reference/pitfalls#combining-plugins)).
+Transform packages can also expose linked Go packages instead of executable command packages. A linked package calls `driver.RegisterPlugin` from `init()` and implements `driver.SourcePreamblePlugin` and/or `driver.ProgramPlugin`; `ttsc` copies it into the selected native host at build time. This is capability-based, not package-name based: any transform descriptor whose `source` resolves to a non-`main` Go package uses the same path.
 
 Practical consequence — flagged again on each walkthrough as it becomes relevant:
 
-- **For learning,** the first-party plugins are the best worked examples in the repo: production-quality code, small enough to read end-to-end. The walkthroughs point you at the right files (`utility/host.go` for the actual logic; `plugin/main.go` for the entrypoint contract every plugin — first-party or not — must satisfy).
-- **For your own plugin,** the third-party seam is [`driver.LoadProgram`](/docs/development/reference/driver-api), not `utility.RunBuild` / `RunTransform` / `RunCheck`. The shared helpers dispatch only on first-party plugin names; a third-party plugin importing them would compile but silently no-op. The canonical third-party fixture is [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker).
+- **For learning,** the shipped plugins are the best worked examples in the repo: production-quality code, small enough to read end-to-end. The walkthroughs point you at the right files (`driver/<name>.go` for linked transform logic; `plugin/main.go` for the entrypoint contract).
+- **For your own plugin,** use [`driver.LoadProgram`](/docs/development/reference/driver-api) when you own an executable host, or export a linked Go package with `driver.RegisterPlugin` when your transform is a library that should ride inside another host. The canonical executable fixture is [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker).
 
 `@ttsc/lint` is different: its real engine lives in `packages/lint/linthost/`, and the sidecar at `packages/lint/plugin/main.go` is a `linthost.Main` one-liner. That setup is reusable — the [lint deep dive](/docs/development/walkthroughs/lint) shows how to copy the pattern when your plugin grows past one file.
 
@@ -56,7 +58,7 @@ Each walkthrough has the same structure:
 5. **Native sidecar entrypoint.** The `main.go` dispatcher, line by line.
 6. **The real logic.** The bulk of the page: a guided read of the actual transform / check code in production.
 7. **Beginner annotations.** Sidebars that explain Go-specific constructs (`flag.NewFlagSet`, pointer receivers, `defer`, etc.) the first time they appear.
-8. **What to copy, what to ignore.** Closing summary of which patterns generalize to third-party plugins and which are first-party-only artefacts.
+8. **What to copy, what to ignore.** Closing summary of which patterns generalize to plugin authors and which are just package-local implementation details.
 
 You do not need to run anything. Open the cited file in your editor, scroll along with the walkthrough, and the patterns stick faster than building a fresh plugin from scratch.
 
@@ -101,9 +103,9 @@ export default {
 } satisfies TtscBannerConfig;
 ```
 
-`@ttsc/lint` runs first as a check-stage plugin and aborts emit on error-severity findings. The three transform-stage plugins then run inside one compiler emit pass: `@ttsc/banner` overlays the source preamble, `@ttsc/strip` filters statements, `@ttsc/paths` rewrites module specifiers. TypeScript-Go owns the final emit of JavaScript, declarations, and source maps.
+`@ttsc/lint` runs first as a check-stage plugin and aborts emit on error-severity findings. The three transform-stage plugins then run inside one compiler emit pass through linked packages: `@ttsc/banner` overlays the source preamble, `@ttsc/strip` filters statements, `@ttsc/paths` rewrites module specifiers. TypeScript-Go owns the final emit of JavaScript, declarations, and source maps.
 
-This exact fixture is locked by [`tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/first-party-plugins/test_ttsc_first_party_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts) — if anything in the walkthroughs ever drifts from the shipped behavior, that test catches it first.
+This exact fixture is locked by [`tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts) — if anything in the walkthroughs ever drifts from the shipped behavior, that test catches it first.
 
 ## See also
 

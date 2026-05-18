@@ -52,7 +52,7 @@ func Test_parsebanner_returns_configured_text_from_explicit_config_path(t *testi
 Keep the core logic callable without CLI flags. Use the real shipped signature so the test grep-rolls forward as the codebase evolves:
 
 ```go
-// Source: packages/ttsc/utility/host.go::parseBanner
+// Source: packages/banner/driver/banner.go::parseBanner
 banner, err := parseBanner(config, cwd, tsconfigPath)
 ```
 
@@ -69,7 +69,6 @@ Unit tests should cover:
 
 References:
 
-- [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/)
 - [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/)
 - [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/)
 - [`packages/paths/test`](https://github.com/samchon/ttsc/tree/master/packages/paths/test/)
@@ -260,7 +259,7 @@ This command is a manual Go coverage gate, separate from `pnpm test` and CI's `R
 The audit covers behavioral Go packages and fixture backends:
 
 - `packages/ttsc/cmd/platform`, `packages/ttsc/cmd/ttsc`, `packages/ttsc/driver`, `packages/ttsc/internal/cwd`, and `packages/ttsc/utility`
-- `packages/banner/plugin`, `packages/paths/plugin`, and `packages/strip/plugin`
+- `packages/banner/plugin`, `packages/banner/driver`, `packages/paths/plugin`, `packages/paths/driver`, `packages/strip/plugin`, and `packages/strip/driver`
 - `packages/lint/linthost` (engine internals; `packages/lint/plugin/main.go` is the thin wrapper)
 - `tests/go-transformer`
 

@@ -1,6 +1,6 @@
 # `@ttsc/banner` — Source Preamble Insertion
 
-`@ttsc/banner` is the simplest first-party plugin. It does one thing: insert a JSDoc `@packageDocumentation` block at the top of every emitted `.js` and `.d.ts` file. Go side-notes are heaviest on this page — subsequent pages assume the vocabulary it introduces.
+`@ttsc/banner` is the simplest shipped transform plugin. It does one thing: insert a JSDoc `@packageDocumentation` block at the top of every emitted `.js` and `.d.ts` file. Go side-notes are heaviest on this page — subsequent pages assume the vocabulary it introduces.
 
 ## What it does for the consumer
 
@@ -57,9 +57,11 @@ packages/banner/
 │       ├── TtscBannerConfig.ts
 │       └── index.ts
 ├── go.mod                    ← Go module declaration for the sidecar
+├── driver/
+│   └── banner.go             ← Linked transform logic
 └── plugin/
     ├── main.go               ← Native sidecar entrypoint — 36 lines
-    └── banner.go             ← A 2-line marker file (see below)
+    └── banner.go             ← Blank-imports the linked driver package
 ```
 
 The Go source ships in the npm tarball thanks to the `files` array in `package.json`:
@@ -70,12 +72,13 @@ The Go source ships in the npm tarball thanks to the `files` array in `package.j
   "lib",
   "src",
   "go.mod",
+  "driver/banner.go",
   "plugin/banner.go",
   "plugin/main.go"
 ]
 ```
 
-`ttsc` builds `plugin/main.go` on the consumer machine the first time the plugin is loaded, then caches the binary. See [Architecture](/docs/development/reference/architecture) for the full cache key.
+The descriptor points at `driver/`, a linked Go package. `ttsc` builds a generic native host plus this package on the consumer machine the first time the plugin is loaded, then caches the binary. See [Architecture](/docs/development/reference/architecture) for the full cache key.
 
 ## The JS descriptor (`src/index.ts`)
 
@@ -105,7 +108,7 @@ export default function createTtscBanner(
 ): TtscPluginDescriptor {
   return {
     name: "@ttsc/banner",
-    source: path.resolve(__dirname, "..", "plugin"),
+    source: path.resolve(__dirname, "..", "driver"),
     stage: "transform",
   };
 }
@@ -113,8 +116,8 @@ export default function createTtscBanner(
 
 Three load-bearing lines:
 
-- `name: "@ttsc/banner"` — shown in errors and used by the host to identify this plugin in `--plugins-json`.
-- `source: path.resolve(__dirname, "..", "plugin")` — absolute path to the Go command-package directory. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `plugin` is the Go source folder.
+- `name: "@ttsc/banner"` — optional diagnostic label. Routing is not based on this value.
+- `source: path.resolve(__dirname, "..", "driver")` — absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
 - `stage: "transform"` — declares this plugin participates in the AST transform path. The host will spawn `transform`, `build`, and `check` subcommands. Omit `stage` and you get the same default.
 
 The factory takes a `TtscPluginFactoryContext` parameter but ignores it — banner has no factory-time decisions to make. Other plugins use it to specialise at descriptor creation time: `context.tsconfig` is the absolute path of the active tsconfig, `context.cwd` is the resolved project directory, and `context.plugin` is the original `compilerOptions.plugins[i]` entry (typed by your plugin's option interface). `@ttsc/lint`'s factory reads `context.plugin.extends` and `context.plugin.plugins` to discover contributor packages; banner has nothing analogous to do.
@@ -140,7 +143,7 @@ Two things worth noting for Go newcomers:
 
 ### Sidebar: what is a `shim/`?
 
-`shim/ast`, `shim/checker`, `shim/compiler`, `shim/printer`, `shim/scanner` (and a few more) are TypeScript-Go's internal AST, type checker, compiler, printer, and scanner packages, re-exported as a narrow boundary under `github.com/microsoft/typescript-go/shim/...`. Plugins import these packages to read the **same** AST that tsgo reads. The full surface is documented at [AST & Checker → Shim Model](/docs/development/concepts/tsgo#shim-model); for now, treat "shim" as ttsc's word for "stable TypeScript-Go API." Banner does not import any shim directly — every shim call lives inside the shared `utility/host.go`. The later walkthroughs use shims explicitly.
+`shim/ast`, `shim/checker`, `shim/compiler`, `shim/printer`, `shim/scanner` (and a few more) are TypeScript-Go's internal AST, type checker, compiler, printer, and scanner packages, re-exported as a narrow boundary under `github.com/microsoft/typescript-go/shim/...`. Plugins import these packages to read the **same** AST that tsgo reads. The full surface is documented at [AST & Checker → Shim Model](/docs/development/concepts/tsgo#shim-model); for now, treat "shim" as ttsc's word for "stable TypeScript-Go API." Banner does not import any shim directly because source-preamble insertion is handled through the `driver.SourcePreamblePlugin` hook. The later walkthroughs use shims explicitly.
 
 ## The sidecar (`plugin/main.go`)
 
@@ -206,7 +209,7 @@ import (
 )
 ```
 
-The `import` block lists every package this file uses. `fmt` and `os` are part of Go's standard library; the third is the shared host that holds the actual banner-rendering logic.
+The `import` block lists every package this file uses. `fmt` and `os` are part of Go's standard library; `utility` is the generic host used by the standalone sidecar entrypoint.
 
 Go convention puts standard-library imports first, then a blank line, then third-party imports. `gofmt` enforces it.
 
@@ -230,7 +233,7 @@ The pattern `os.Exit(run(...))` keeps `main` trivial and pushes the real logic i
 - can be invoked from Go unit tests with different argv slices;
 - still lets every plugin in this monorepo follow the same shape.
 
-Every first-party plugin's `main.go` uses this idiom. Copy it.
+Every shipped plugin's `main.go` uses this idiom. Copy it.
 
 ### Dispatch on the first argument
 
@@ -282,7 +285,7 @@ case "transform": return utility.RunTransform(args[1:])
 case "check":     return utility.RunCheck(args[1:])
 ```
 
-These three functions live in `packages/ttsc/utility/host.go` — the shared first-party host the three transform plugins co-host. The banner-specific code is inside that file, gated by the plugin name `@ttsc/banner` in the dispatch logic.
+These three functions live in `packages/ttsc/utility/host.go` — the generic host used when a linked transform package needs an executable wrapper. The banner-specific code is not in this file; it is registered by `packages/banner/driver/banner.go`.
 
 `args[1:]` drops the subcommand (`args[0]`) and passes the remaining flags. The flag set parsed by `utility.Run*` includes `--cwd`, `--tsconfig`, `--plugins-json`, `--emit`, `--noEmit`, `--outDir`, `--quiet`, `--verbose`. The same flags every plugin in this repo accepts.
 
@@ -291,25 +294,23 @@ These three functions live in `packages/ttsc/utility/host.go` — the shared fir
 ```go
 package main
 
-// Banner transform logic lives in github.com/samchon/ttsc/packages/ttsc/utility.
+import _ "github.com/samchon/ttsc/packages/banner/driver"
 ```
 
-Two lines. The file exists because the Go build infrastructure expects every package directory to have at least one non-test `.go` file beyond `main.go` for the `files` array to make sense; the comment is for the future reader who opens the directory and wonders where the real code went.
-
-When you write your own plugin you do **not** need this marker file. Banner's first-party shape inherits it from a convention internal to this monorepo.
+The standalone `plugin/` command blank-imports `driver/` so the driver's `init()` registration runs before `main`. When `ttsc` links `driver/` into its generic host, this wrapper file is not part of the host build.
 
 ## The actual transform logic — a brief tour
 
-The full transform code lives in [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go). For banner, the relevant slice is:
+The full transform code lives in [`packages/banner/driver/banner.go`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/banner.go). For banner, the relevant slice is:
 
-1. **`parsePluginEntries`** decodes the `--plugins-json` payload into a slice of `pluginEntry { Name, Stage, Config }`.
-2. **`prepareSourcePreamble`** loops over those entries, picks out the ones named `@ttsc/banner`, and calls `parseBanner(entry.Config, cwd, tsconfigPath)` for each. The results are concatenated into one `sourcePreamble` string.
+1. **`init`** calls `driver.RegisterPlugin(plugin{})`, making this package visible to whichever native host links it.
+2. **`SourcePreamble(ctx driver.PluginContext)`** receives the paired project plugin entry and calls `parseBanner(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)`.
 3. **`parseBanner`** delegates to **`resolveBannerText`** for the actual three-source resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
     - `config["text"]` inline string;
     - `config["config"]` path to a `banner.config.*` file;
     - upward filesystem walk from the tsconfig directory looking for any `banner.config.{js,cjs,mjs,ts,mts,cts}`.
-4. **`driver.LoadProgram(cwd, tsconfig, LoadProgramOptions{SourcePreamble: preamble, ...})`** loads the project Program with the preamble injected before parsing. From that point onward, every source file in the Program *already contains* the JSDoc block at offset 0 — the printer round-trips it naturally.
-5. **`makeSourcePreambleWriteFile`** wraps `tsgo`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsgo generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
+4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program *already contains* the JSDoc block at offset 0 — the printer round-trips it naturally.
+5. **`makeSourcePreambleWriteFile`** in the generic host wraps `tsgo`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsgo generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
 
 The pattern is: **prefer source-level transformations over post-emit edits**. By overlaying the preamble at parse time, banner never has to deal with sourcemaps, declaration emit, or formatting variations — tsgo treats the preamble as ordinary source text.
 
@@ -317,7 +318,7 @@ The hairy bit is loading TypeScript config files (`banner.config.ts`). Because t
 
 ### Sidebar: `defer prog.Close()` is a hard rule
 
-`utility.RunBuild` hides the Program lifecycle behind a helper, but the moment you copy this shape with `driver.LoadProgram` (the [supported third-party path](/docs/development/reference/driver-api)), you own the leased Checker. Every `driver.LoadProgram` call must be paired with `defer prog.Close()` on the very next line:
+`utility.RunBuild` hides the Program lifecycle behind a helper, but the moment you copy this shape with `driver.LoadProgram`, you own the leased Checker. Every `driver.LoadProgram` call must be paired with `defer prog.Close()` on the very next line:
 
 ```go
 prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
@@ -335,16 +336,16 @@ The `default` branch in `run` rejects `fix` and `format` with exit 2 because the
 
 **Copy:**
 
-- The `main` → `run` → `switch` shape. Every first-party plugin uses it; so do the canonical third-party fixtures.
+- The `main` → `run` → `switch` shape. Every shipped plugin uses it; so do the canonical fixtures.
 - The "exit 2 on unknown subcommand" convention. The host treats every non-zero exit as failure; 2 is the universally-understood "argument or config problem" code.
 - The "prefix every stderr line with the plugin name" convention.
 - The `--cwd` / `--tsconfig` / `--plugins-json` flag set — these are the host-provided flags every plugin receives (see [Plugin protocol → CLI Commands](/docs/development/concepts/protocol#cli-commands)).
 
 **Do not copy:**
 
-- `utility.RunBuild / RunTransform / RunCheck`. These are hard-coded against the first-party plugin names (`@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`). A third-party plugin that imports them compiles cleanly and silently no-ops — there is no error to grep for. Call [`driver.LoadProgram`](/docs/development/reference/driver-api) directly, the way [`tests/projects/go-source-plugin-checker/plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker) does.
-- The empty `plugin/banner.go` marker file. Third-party plugins do not need it.
-- The dispatch-by-name pattern in `utility/host.go::prepareSourcePreamble`. A third-party plugin owns its own binary; it does not need to filter the `--plugins-json` entries by name to find "its" config. Read `plugins[0].Config` (or the entry whose `Name` matches your own descriptor) directly.
+- The package-specific banner config loader unless your plugin really needs TypeScript config-file execution.
+- The `plugin/banner.go` wrapper when your descriptor points directly at an executable command package.
+- Position-based linked registration unless your descriptor source is a non-`main` package. Executable plugins usually read their own `--plugins-json` payload and call `driver.LoadProgram` directly.
 
 ## Beginner annotations — Go constructs introduced on this page
 
@@ -358,6 +359,6 @@ The `default` branch in `run` rejects `fix` and `format` with exit 2 because the
 
 ## Where to read next
 
-- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/) — Go unit tests for the banner-specific helpers in `utility/host.go`, each one assertion per file.
+- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/) — Go unit tests for the banner-specific helpers in `driver/banner.go`, each one assertion per file.
 - [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) — end-to-end tests that spawn the real binary against fixture projects.
 - [`@ttsc/strip`](/docs/development/walkthroughs/strip) — the next step in this tour. Same `main.go` shape; the real logic is your first AST mutation.
