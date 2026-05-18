@@ -43,7 +43,7 @@ function resolveServerLauncher(): ServerOptions | undefined {
     return {
       command: explicit,
       args: ["--stdio"],
-      options: bases[0] ? { cwd: bases[0] } : undefined,
+      options: serverProcessOptions(bases[0]),
       transport: TransportKind.stdio,
     };
   }
@@ -56,7 +56,7 @@ function resolveServerLauncher(): ServerOptions | undefined {
       return {
         module: launcher,
         args: ["--stdio"],
-        options: { cwd: base },
+        options: serverProcessOptions(base),
         transport: TransportKind.stdio,
       };
     } catch {
@@ -65,6 +65,44 @@ function resolveServerLauncher(): ServerOptions | undefined {
   }
 
   return undefined;
+}
+
+function serverProcessOptions(base?: string) {
+  const tsgo = base ? resolveTsgoBinary(base) : undefined;
+  if (!base && !tsgo) {
+    return undefined;
+  }
+  return {
+    cwd: base,
+    env: tsgo
+      ? {
+          ...process.env,
+          TTSC_TSGO_BINARY: tsgo,
+        }
+      : process.env,
+  };
+}
+
+function resolveTsgoBinary(base: string): string | undefined {
+  try {
+    const packageJson = require.resolve(
+      "@typescript/native-preview/package.json",
+      { paths: [base] },
+    );
+    const packageRoot = path.dirname(packageJson);
+    const platformPackage = `@typescript/native-preview-${process.platform}-${process.arch}`;
+    const platformPackageJson = require.resolve(
+      `${platformPackage}/package.json`,
+      { paths: [packageRoot] },
+    );
+    return path.join(
+      path.dirname(platformPackageJson),
+      "lib",
+      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 /**
