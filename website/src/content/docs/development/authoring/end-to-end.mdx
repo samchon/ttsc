@@ -2,7 +2,7 @@
 
 This page builds on [Getting started](/docs/development/authoring/getting-started). The Hello plugin proved the bootstrap; this one removes `debugger` statements via real AST mutation, runs both the `build` and `transform` subcommands correctly, and shows the table-driven flag parser, the explicit consumer fixture, and the printer round-trip a real transform plugin needs.
 
-After this works, compare with the shipped [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip/) and [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) plugins — note that those sidecars are 36-line dispatchers over a closed first-party helper (`packages/ttsc/utility/host.go`). Third-party plugins use the shape on this page, not the first-party shape. See [Reference plugins → Where the real logic lives](/docs/development/reference/reference-plugins#where-the-real-logic-lives).
+After this works, compare with the friendly walkthroughs of [`@ttsc/banner`](/docs/development/walkthroughs/banner) and [`@ttsc/strip`](/docs/development/walkthroughs/strip) — note that those sidecars are 36-line dispatchers over a closed first-party helper (`packages/ttsc/utility/host.go`). Third-party plugins use the shape on this page, not the first-party shape. See [Walkthroughs → Where the real logic lives](/docs/development/walkthroughs#where-the-real-logic-lives).
 
 ## 1. Create the Package
 
@@ -414,7 +414,7 @@ The JSON written to stdout under `typescript["src/main.ts"]` should contain `exp
 
 ## Next Step
 
-For production-quality versions of this shape, read [`packages/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip/) and [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) — but note they share the first-party utility host (`packages/ttsc/utility/host.go`) and are not a template for third-party plugins.
+For production-quality versions of this shape, read the friendly walkthroughs of [`@ttsc/strip`](/docs/development/walkthroughs/strip) and [`@ttsc/banner`](/docs/development/walkthroughs/banner) — but note they share the first-party utility host (`packages/ttsc/utility/host.go`) and are not a template for third-party plugins. The [`@ttsc/paths` walkthrough](/docs/development/walkthroughs/paths) is the next step up in difficulty, and the [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint) is the right reference once your plugin grows past one file.
 
 → [Recipes](/docs/development/authoring/recipes) — auto-discovery, `driver.NewLintDiagnostic`, leaf-text mutation invariant, re-spawning `ttsx` / `tsgo`.
 

@@ -107,7 +107,7 @@ This works with TypeScript-Go's normal emit path:
 }
 ```
 
-`@ttsc/banner` and `@ttsc/strip` are first-party transform plugins that share `packages/ttsc/utility/host.go` under a closed allowlist.
+`@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` are the three first-party transform plugins that share `packages/ttsc/utility/host.go` under a closed allowlist (`FIRST_PARTY_UTILITY_PLUGIN_NAMES`). Any combination of them composes inside one compiler emit pass; mixing in a third-party transform plugin forces a separate spawn and triggers the abort below.
 
 This works when a check plugin runs before one transform sidecar that owns the source/emit pass:
 
@@ -281,6 +281,6 @@ Normal transform plugins avoid this by mutating TypeScript AST and letting TypeS
 ## See also
 
 - [Architecture](/docs/development/reference/architecture) — what the build pipeline does so you can predict failure modes.
-- [Reference plugins](/docs/development/reference/reference-plugins) — worked examples of the patterns that work.
+- [Walkthroughs](/docs/development/walkthroughs) — worked examples of the patterns that work.
 - [Driver API](/docs/development/reference/driver-api) — the supported Go façade.
 - [Authoring · Editor setup](/docs/development/authoring/local-dev) — fast iteration without `ttsc`.
