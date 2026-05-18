@@ -68,6 +68,7 @@ const GLOBAL_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const GLOBAL_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 const GLOBAL_CACHE_TARGET_BYTES = Math.floor(GLOBAL_CACHE_MAX_BYTES * 0.8);
 const GLOBAL_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
+const GO_ROOT_IDENTITY_CACHE = new Map<string, string>();
 
 /** One contributor's resolved Go source plus its target sub-package name. */
 export interface ITtscBuildContributor {
@@ -1064,65 +1065,84 @@ function resolveGoRootCacheIdentity(goRoot: string): string {
   if (!fs.existsSync(resolved)) {
     return `missing:${goRoot}`;
   }
+  const cached = GO_ROOT_IDENTITY_CACHE.get(resolved);
+  if (cached !== undefined) {
+    return cached;
+  }
   const hash = crypto.createHash("sha256");
-  hashGoRootFile(hash, resolved, "VERSION");
-  hashGoRootFile(hash, resolved, "go.env");
-  hashGoRootFile(hash, resolved, "src/internal/goexperiment/flags.go");
-  hashGoRootFile(hash, resolved, "src/runtime/internal/sys/zversion.go");
-  hashGoRootTool(hash, resolved, "compile");
-  hashGoRootTool(hash, resolved, "link");
-  hashGoRootTool(hash, resolved, "asm");
-  hashGoRootTool(hash, resolved, "cgo");
-  return `sha256:${hash.digest("hex")}`;
-}
-
-function hashGoRootFile(
-  hash: crypto.Hash,
-  goRoot: string,
-  relative: string,
-): void {
-  const file = path.join(goRoot, ...relative.split("/"));
-  if (!fs.existsSync(file)) return;
-  hash.update(`f=${relative}\n`);
-  hash.update(fs.readFileSync(file));
-  hash.update("\n");
-}
-
-function hashGoRootTool(
-  hash: crypto.Hash,
-  goRoot: string,
-  toolName: string,
-): void {
-  const executableName =
-    process.platform === "win32" ? `${toolName}.exe` : toolName;
-  const toolRoot = path.join(goRoot, "pkg", "tool");
-  const tools = findGoToolExecutables(toolRoot, executableName);
-  for (const tool of tools) {
-    const relative = path.relative(goRoot, tool).replace(/\\/g, "/");
-    hash.update(`tool=${relative}\n`);
-    hash.update(fs.readFileSync(tool));
+  for (const file of collectGoRootIdentityFiles(resolved)) {
+    const relative = path.relative(resolved, file).replace(/\\/g, "/");
+    hash.update(`f=${relative}\n`);
+    hash.update(fs.readFileSync(file));
     hash.update("\n");
   }
+  const identity = `sha256:${hash.digest("hex")}`;
+  GO_ROOT_IDENTITY_CACHE.set(resolved, identity);
+  return identity;
 }
 
-function findGoToolExecutables(root: string, executableName: string): string[] {
+function collectGoRootIdentityFiles(root: string): string[] {
   const out: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(root, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    const full = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...findGoToolExecutables(full, executableName));
-    } else if (entry.isFile() && entry.name === executableName) {
-      out.push(full);
-    }
-  }
+  walkGoRootIdentity(root, root, out);
   out.sort();
   return out;
+}
+
+function walkGoRootIdentity(root: string, dir: string, out: string[]): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const file = path.join(dir, entry.name);
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    if (entry.isDirectory()) {
+      if (shouldHashGoRootPath(rel, true)) {
+        walkGoRootIdentity(root, file, out);
+      }
+    } else if (entry.isFile() && shouldHashGoRootPath(rel, false)) {
+      out.push(file);
+    }
+  }
+}
+
+function shouldHashGoRootPath(rel: string, isDir: boolean): boolean {
+  if (rel === "") return true;
+  const parts = rel.split("/");
+  if (parts.includes(".git") || parts.includes("testdata")) return false;
+  if (!isDir && rel.endsWith("_test.go")) return false;
+
+  const first = parts[0]!;
+  if (parts.length === 1) {
+    if (isDir) return ["bin", "pkg", "src", "lib"].includes(first);
+    return ["VERSION", "go.env"].includes(first);
+  }
+  if (first === "bin") {
+    if (isDir) return true;
+    const base = path.basename(rel);
+    return (
+      base === "go" ||
+      base === "go.exe" ||
+      base === "gofmt" ||
+      base === "gofmt.exe"
+    );
+  }
+  if (first === "pkg") {
+    const second = parts[1]!;
+    return second === "tool" || second === "include";
+  }
+  if (first === "src") {
+    if (!isDir && parts.length === 2) {
+      return ["go.mod", "go.sum"].includes(parts[1]!);
+    }
+    return parts[1] !== "cmd";
+  }
+  if (first === "lib") {
+    return parts[1] === "time";
+  }
+  return false;
 }
 
 function touchCacheEntry(cacheDir: string): void {
