@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   child_process,
@@ -28,9 +30,7 @@ export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both
   async () => {
     const rootA = copyProject("go-source-plugin");
     const rootB = copyProject("go-source-plugin");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-race-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-race-");
     const env = {
       ...process.env,
       PATH: goPath(),

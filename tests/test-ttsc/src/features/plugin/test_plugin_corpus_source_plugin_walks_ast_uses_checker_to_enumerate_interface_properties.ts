@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -24,9 +26,7 @@ import {
 export const test_plugin_corpus_source_plugin_walks_ast_uses_checker_to_enumerate_interface_properties =
   () => {
     const root = copyProject("go-source-plugin-properties");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-properties-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-properties-");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: {

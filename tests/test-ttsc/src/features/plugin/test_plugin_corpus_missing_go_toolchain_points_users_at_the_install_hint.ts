@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -30,9 +32,7 @@ export const test_plugin_corpus_missing_go_toolchain_points_users_at_the_install
         // toolchain via TTSC_GO_BINARY.
         PATH: "/nonexistent",
         TTSC_GO_BINARY: "/nonexistent/go-binary-that-does-not-exist",
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-source-plugin-no-go-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-no-go-"),
       },
     });
     assert.notEqual(result.status, 0);

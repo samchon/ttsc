@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -26,9 +28,7 @@ export const test_plugin_corpus_source_plugins_build_with_the_bundled_go_compile
       cwd: root,
       env: {
         PATH: "/nonexistent",
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-source-plugin-bundled-go-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-bundled-go-"),
       },
     });
     assert.equal(result.status, 0, result.stderr);

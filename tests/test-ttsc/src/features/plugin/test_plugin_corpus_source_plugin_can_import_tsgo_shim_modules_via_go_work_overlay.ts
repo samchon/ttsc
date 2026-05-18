@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -24,9 +26,7 @@ import {
 export const test_plugin_corpus_source_plugin_can_import_tsgo_shim_modules_via_go_work_overlay =
   () => {
     const root = copyProject("go-source-plugin-tsgo");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-tsgo-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-tsgo-");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: {

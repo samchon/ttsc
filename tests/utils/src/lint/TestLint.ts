@@ -27,7 +27,6 @@ import { TestProject } from "../TestProject";
 // doesn't match the banner regex is preserved as `result.stderr` so
 // failure messages can include the raw output.
 
-const LINT_SOURCE_DIR = path.join(TestProject.TEST_PACKAGE_ROOT, "src", "lint");
 const TESTING_PACKAGE_ROOT = TestProject.TEST_PACKAGE_ROOT;
 const TTSC_BIN = path.join(
   TestProject.WORKSPACE_ROOT,
@@ -72,15 +71,9 @@ const TSGO_BINARY = (function resolveTsgoBinary() {
 })();
 
 // Plugin builds (Go) take ~1-2s the first time; share the cache dir
-// across the whole test run so subsequent cases reuse the binary.
-const SHARED_CACHE_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "ttsc-lint-e2e-cache-"),
-);
-process.on("exit", () => {
-  try {
-    fs.rmSync(SHARED_CACHE_DIR, { recursive: true, force: true });
-  } catch {}
-});
+// across the whole test run so subsequent cases reuse the binary. The
+// shared TestProject cleanup hook removes it on process exit.
+const SHARED_CACHE_DIR = TestProject.tmpdir("ttsc-lint-e2e-cache-");
 
 export namespace TestLint {
   /** Normalized severities produced by the native lint plugin. */
@@ -152,8 +145,8 @@ export namespace TestLint {
   export function createProject(options: IRunLintOptions): IRunLintProject {
     const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
       options;
-    const tmpdir = fs.mkdtempSync(
-      path.join(os.tmpdir(), `ttsc-lint-case-${sanitizeForFsName(name)}-`),
+    const tmpdir = TestProject.tmpdir(
+      `ttsc-lint-case-${sanitizeForFsName(name)}-`,
     );
     try {
       writeFixtureProject(

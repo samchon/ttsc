@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 /**
@@ -29,7 +28,7 @@ export const test_ttsx_relative_cache_dir_resolves_from_cwd_option = () => {
     }),
     "src/main.ts": `const message: string = "relative-runner-cache";\nconsole.log(message);\n`,
   });
-  const driverCwd = fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-driver-"));
+  const driverCwd = TestProject.tmpdir("ttsx-driver-");
   const cacheDir = ".ttsx-cache";
 
   const result = TestProject.spawn(

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -18,7 +20,7 @@ import {
  * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
  */
 export const test_readprojectconfig_rejects_circular_tsconfig_extends = () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const root = TestProject.tmpdir("ttsc-project-");
   fs.writeFileSync(
     path.join(root, "a.json"),
     JSON.stringify({ extends: "./b.json" }),

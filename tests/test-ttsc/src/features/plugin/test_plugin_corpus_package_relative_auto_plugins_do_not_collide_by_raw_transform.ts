@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   commonJsProject,
@@ -55,9 +57,7 @@ export const test_plugin_corpus_package_relative_auto_plugins_do_not_collide_by_
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-package-relative-plugins-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-package-relative-plugins-"),
       },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);

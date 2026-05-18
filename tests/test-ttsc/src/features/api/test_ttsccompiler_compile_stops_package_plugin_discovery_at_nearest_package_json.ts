@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -25,7 +27,7 @@ import {
  */
 export const test_ttsccompiler_compile_stops_package_plugin_discovery_at_nearest_package_json =
   () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-workspace-"));
+    const workspace = TestProject.tmpdir("ttsc-workspace-");
     const project = path.join(workspace, "packages", "app");
     writeBasicProject(
       project,

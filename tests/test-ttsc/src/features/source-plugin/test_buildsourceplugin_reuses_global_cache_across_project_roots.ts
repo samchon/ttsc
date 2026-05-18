@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -21,7 +23,7 @@ import {
  */
 export const test_buildsourceplugin_reuses_global_cache_across_project_roots =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const cacheHome = path.join(root, "cache-home");
     const first = path.join(root, "project-a", "plugin");
     const second = path.join(root, "project-b", "plugin");

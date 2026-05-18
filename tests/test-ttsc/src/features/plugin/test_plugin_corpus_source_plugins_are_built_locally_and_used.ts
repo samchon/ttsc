@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -23,9 +25,7 @@ import {
 export const test_plugin_corpus_source_plugins_are_built_locally_and_used =
   () => {
     const root = copyProject("go-source-plugin");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-cache-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-cache-");
     const env = {
       PATH: goPath(),
       TTSC_CACHE_DIR: cacheDir,

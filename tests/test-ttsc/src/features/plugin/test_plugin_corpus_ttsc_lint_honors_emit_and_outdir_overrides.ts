@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -47,9 +49,7 @@ export const test_plugin_corpus_ttsc_lint_honors_emit_and_outdir_overrides =
       path.join(root, "src", "main.ts"),
       `export const value: string = "lint-outdir";\n`,
     );
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-lint-outdir-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-lint-outdir-");
 
     const result = spawn(
       ttscBin,

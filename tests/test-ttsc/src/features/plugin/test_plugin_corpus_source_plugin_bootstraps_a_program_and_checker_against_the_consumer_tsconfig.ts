@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -24,9 +26,7 @@ import {
 export const test_plugin_corpus_source_plugin_bootstraps_a_program_and_checker_against_the_consumer_tsconfig =
   () => {
     const root = copyProject("go-source-plugin-checker");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-checker-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-checker-");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: {

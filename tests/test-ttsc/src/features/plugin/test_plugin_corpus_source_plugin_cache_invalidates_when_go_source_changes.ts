@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -24,9 +26,7 @@ import {
 export const test_plugin_corpus_source_plugin_cache_invalidates_when_go_source_changes =
   () => {
     const root = copyProject("go-source-plugin");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-invalidate-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-invalidate-");
     const env = {
       PATH: goPath(),
       TTSC_CACHE_DIR: cacheDir,

@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
@@ -11,8 +10,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  *
  * Locks the mixed-host regression where one linked transform and one executable
  * transform resolved to separate native binaries. The linked source must not
- * become the compiler owner; it is applied inside the selected driver.LoadProgram
- * host.
+ * become the compiler owner; it is applied inside the selected
+ * driver.LoadProgram host.
  *
  * 1. Put `@ttsc/paths` before a custom driver-based transform plugin.
  * 2. Run ttsc so host selection cannot depend on descriptor order.
@@ -186,9 +185,7 @@ export const test_ttsc_utility_plugins_paths_side_loads_into_driver_host =
         cwd: root,
         env: {
           PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-utility-driver-host-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-driver-host-"),
         },
       },
     );

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -22,9 +24,7 @@ import {
  */
 export const test_plugin_corpus_source_path_selects_a_sub_package = () => {
   const root = copyProject("go-source-plugin-entry");
-  const cacheDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-source-plugin-entry-"),
-  );
+  const cacheDir = TestProject.tmpdir("ttsc-source-plugin-entry-");
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

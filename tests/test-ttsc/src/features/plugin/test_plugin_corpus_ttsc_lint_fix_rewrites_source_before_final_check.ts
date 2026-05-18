@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   commonJsProject,
@@ -55,9 +57,7 @@ export const test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-lint-fix-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-fix-"),
         TTSC_GO_BINARY: fs.existsSync(goBinary) ? goBinary : "go",
       },
     });

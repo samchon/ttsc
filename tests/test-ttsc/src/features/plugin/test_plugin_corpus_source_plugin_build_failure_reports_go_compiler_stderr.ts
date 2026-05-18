@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -35,9 +37,7 @@ export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-source-plugin-broken-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-broken-"),
       },
     });
     assert.notEqual(result.status, 0);

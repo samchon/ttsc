@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
@@ -45,7 +44,7 @@ export const test_strip_removes_configured_calls_and_debugger_statements =
         cwd: root,
         env: {
           PATH: TestStrip.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-strip-")),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-strip-"),
         },
       },
     );

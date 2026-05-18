@@ -39,7 +39,7 @@ export const test_lint_fix_contributor_rule_single_edit_applies_through_native_e
       "utf8",
     );
     const root = path.join(
-      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-fix-contrib-")),
+      TestProject.tmpdir("ttsc-lint-fix-contrib-"),
       "project",
     );
 
@@ -58,9 +58,7 @@ export const test_lint_fix_contributor_rule_single_edit_applies_through_native_e
           cwd: root,
           env: {
             PATH: goPath(),
-            TTSC_CACHE_DIR: fs.mkdtempSync(
-              path.join(os.tmpdir(), "ttsc-lint-fix-contrib-cache-"),
-            ),
+            TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-fix-contrib-cache-"),
             TTSC_GO_BINARY: goBinary(),
           },
         },

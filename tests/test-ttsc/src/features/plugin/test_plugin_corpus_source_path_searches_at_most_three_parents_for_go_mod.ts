@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   __dirname,
   assert,
@@ -40,9 +42,7 @@ module.exports = {
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-source-plugin-too-deep-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-too-deep-"),
       },
     });
     assert.notEqual(result.status, 0);

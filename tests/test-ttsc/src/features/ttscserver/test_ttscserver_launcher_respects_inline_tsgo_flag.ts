@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import child_process from "node:child_process";
 import fs from "node:fs";
 import * as os from "node:os";
@@ -21,7 +22,7 @@ import { assert, ttscPackageRoot } from "../../internal/ttscserver";
 export const test_ttscserver_launcher_respects_inline_tsgo_flag = () => {
   const root = ttscPackageRoot();
   const launcher = path.join(root, "lib", "launcher", "ttscserver.js");
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ttscserver-inline-tsgo-"));
+  const cwd = TestProject.tmpdir("ttscserver-inline-tsgo-");
   const record = path.join(cwd, "record.json");
   const fakeTsgo = path.join(cwd, "tsgo");
   fs.writeFileSync(fakeTsgo, "", "utf8");

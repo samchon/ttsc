@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -21,7 +23,7 @@ export const test_buildsourceplugin_makes_go_toolchain_executable_before_metadat
       return;
     }
 
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-mode-"));
+    const root = TestProject.tmpdir("ttsc-go-mode-");
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(

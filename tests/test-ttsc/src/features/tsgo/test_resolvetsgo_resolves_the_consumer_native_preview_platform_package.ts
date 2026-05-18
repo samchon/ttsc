@@ -1,6 +1,6 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
@@ -18,7 +18,7 @@ import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/
  */
 export const test_resolvetsgo_resolves_the_consumer_native_preview_platform_package =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-tsgo-test-"));
+    const root = TestProject.tmpdir("ttsc-tsgo-test-");
     const nativeRoot = path.join(
       root,
       "node_modules",

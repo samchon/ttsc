@@ -30,7 +30,7 @@ export const test_lint_format_sort_imports_reorders_groups_and_specifiers =
       "utf8",
     );
     const root = path.join(
-      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-format-sort-")),
+      TestProject.tmpdir("ttsc-lint-format-sort-"),
       "project",
     );
 
@@ -45,9 +45,7 @@ export const test_lint_format_sort_imports_reorders_groups_and_specifiers =
           cwd: root,
           env: {
             PATH: goPath(),
-            TTSC_CACHE_DIR: fs.mkdtempSync(
-              path.join(os.tmpdir(), "ttsc-lint-format-sort-cache-"),
-            ),
+            TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-sort-cache-"),
             TTSC_GO_BINARY: goBinary(),
           },
         },

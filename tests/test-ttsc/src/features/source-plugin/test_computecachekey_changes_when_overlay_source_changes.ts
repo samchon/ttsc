@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   computeCacheKey,
@@ -18,7 +20,7 @@ import {
  * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
  */
 export const test_computecachekey_changes_when_overlay_source_changes = () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+  const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   const overlay = path.join(root, "overlay");
   fs.mkdirSync(plugin, { recursive: true });

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -20,7 +22,7 @@ import {
  */
 export const test_buildsourceplugin_materializes_standard_go_source_directories =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(

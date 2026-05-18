@@ -23,8 +23,8 @@ import assert from "node:assert/strict";
  * - A lint-only rule (`no-var`) cannot carry an options object.
  *
  * The function runs at runtime as a sanity check that `satisfies
- * ITtscLintConfig` does not regress; the real assertion happens during `pnpm run
- * test:typecheck`.
+ * ITtscLintConfig` does not regress; the real assertion happens during `pnpm
+ * run test:typecheck`.
  *
  * 1. Construct configs exercising each tuple shape, both valid and broken.
  * 2. Verify the runtime objects exist (the happy paths must compile).

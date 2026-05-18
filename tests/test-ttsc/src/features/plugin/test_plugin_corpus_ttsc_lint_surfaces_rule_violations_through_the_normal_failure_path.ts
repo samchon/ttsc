@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -26,9 +28,7 @@ import {
 export const test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path =
   () => {
     const root = setupLintProject("lint-violations");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-lint-violations-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-lint-violations-");
     const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

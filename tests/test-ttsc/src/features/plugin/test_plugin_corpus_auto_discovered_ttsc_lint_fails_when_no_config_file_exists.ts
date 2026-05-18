@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -50,9 +52,7 @@ export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_f
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-auto-lint-missing-config-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-lint-missing-config-"),
       },
     });
     assert.notEqual(result.status, 0, "expected missing lint config to fail");

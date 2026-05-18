@@ -1,5 +1,5 @@
+import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
@@ -36,9 +36,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
         }),
       },
     });
-    const wrapper = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-lint-wrapper-"),
-    );
+    const wrapper = TestProject.tmpdir("ttsc-lint-wrapper-");
     try {
       const tsconfig = path.join(wrapper, "tsconfig.json");
       fs.writeFileSync(

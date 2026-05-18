@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -19,7 +21,7 @@ import {
  */
 export const test_resolveprojectconfig_canonicalizes_symlinked_tsconfig_paths =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+    const root = TestProject.tmpdir("ttsc-project-");
     const real = path.join(root, "real");
     const link = path.join(root, "link");
     fs.mkdirSync(real, { recursive: true });

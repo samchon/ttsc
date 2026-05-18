@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -23,7 +25,7 @@ import {
 export const test_plugin_corpus_relative_cache_dir_resolves_from_cwd_option =
   () => {
     const root = copyProject("go-source-plugin");
-    const driverCwd = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-driver-"));
+    const driverCwd = TestProject.tmpdir("ttsc-driver-");
     const cacheDir = "relative-cache";
 
     const result = spawn(

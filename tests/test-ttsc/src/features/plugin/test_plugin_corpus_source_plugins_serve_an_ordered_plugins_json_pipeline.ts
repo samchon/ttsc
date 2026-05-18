@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   __dirname,
   assert,
@@ -25,9 +27,7 @@ import {
 export const test_plugin_corpus_source_plugins_serve_an_ordered_plugins_json_pipeline =
   () => {
     const root = copyProject("go-source-plugin");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-ordered-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-ordered-");
     // Override plugin.cjs to expose a context-driven manifest factory so we can
     // declare prefix → upper → suffix as ordered entries that all share the
     // same source dir (and therefore the same compiled binary).

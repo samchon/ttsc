@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 import { TestProject } from "../TestProject";
@@ -42,7 +41,7 @@ export namespace TestUnpluginProject {
    */
   export function createProject(options: ICreateProjectOptions = {}) {
     ensureSharedCacheDir();
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-unplugin-"));
+    const root = TestProject.tmpdir("ttsc-unplugin-");
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     fs.writeFileSync(
       mainFile(root),
@@ -86,15 +85,8 @@ export namespace TestUnpluginProject {
     if (process.env.TTSC_CACHE_DIR !== undefined) {
       return;
     }
-    sharedCacheDir ??= fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-unplugin-cache-"),
-    );
+    sharedCacheDir ??= TestProject.tmpdir("ttsc-unplugin-cache-");
     process.env.TTSC_CACHE_DIR = sharedCacheDir;
-    process.once("exit", () => {
-      try {
-        fs.rmSync(sharedCacheDir!, { recursive: true, force: true });
-      } catch {}
-    });
   }
 
   /** Absolute path to the generated TypeScript entrypoint. */

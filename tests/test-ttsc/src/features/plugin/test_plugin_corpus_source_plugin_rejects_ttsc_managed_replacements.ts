@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -25,9 +27,7 @@ import {
 export const test_plugin_corpus_source_plugin_rejects_ttsc_managed_replacements =
   () => {
     const root = copyProject("go-source-plugin-managed-replace");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-managed-replace-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-managed-replace-");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: {

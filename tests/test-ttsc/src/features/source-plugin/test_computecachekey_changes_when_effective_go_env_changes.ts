@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   computeCacheKey,
@@ -21,7 +23,7 @@ import {
  */
 export const test_computecachekey_changes_when_effective_go_env_changes =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(

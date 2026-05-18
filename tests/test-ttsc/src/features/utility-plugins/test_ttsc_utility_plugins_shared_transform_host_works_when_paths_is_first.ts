@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
@@ -60,14 +59,15 @@ export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is
         cwd: root,
         env: {
           PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-utility-paths-first-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-paths-first-"),
         },
       },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stderr, /building linked plugin host "linked-plugin-host"/);
+    assert.match(
+      result.stderr,
+      /building linked plugin host "linked-plugin-host"/,
+    );
     assert.match(result.stderr, /\+ 3 contributor\(s\):/);
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
     const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");

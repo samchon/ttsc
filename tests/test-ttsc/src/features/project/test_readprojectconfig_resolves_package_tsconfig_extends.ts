@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -18,7 +20,7 @@ import {
  * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends = () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+  const root = TestProject.tmpdir("ttsc-project-");
   const preset = path.join(root, "node_modules", "@scope", "tsconfig");
   const project = path.join(root, "project");
   fs.mkdirSync(preset, { recursive: true });

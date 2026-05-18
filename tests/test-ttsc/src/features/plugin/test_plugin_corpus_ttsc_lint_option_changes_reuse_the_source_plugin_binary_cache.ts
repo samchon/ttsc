@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -44,9 +46,7 @@ export const test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin
         }),
       );
     };
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-lint-cache-options-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-lint-cache-options-");
     const env = { PATH: goPath(), TTSC_CACHE_DIR: cacheDir };
 
     writeConfig({ "no-var": "error" });

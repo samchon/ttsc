@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -23,9 +25,7 @@ import {
 export const test_plugin_corpus_ttsx_executes_source_plugin_output_end_to_end =
   () => {
     const root = copyProject("go-source-plugin");
-    const cacheDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-source-plugin-ttsx-"),
-    );
+    const cacheDir = TestProject.tmpdir("ttsc-source-plugin-ttsx-");
     const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

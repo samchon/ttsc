@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   copyProject,
@@ -24,7 +26,7 @@ import {
 export const test_plugin_corpus_ttsx_relative_cache_dir_builds_source_plugin_under_cwd_option =
   () => {
     const root = copyProject("go-source-plugin");
-    const driverCwd = fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-driver-"));
+    const driverCwd = TestProject.tmpdir("ttsx-driver-");
     const cacheDir = ".ttsx-cache";
 
     const result = spawn(

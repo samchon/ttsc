@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -19,7 +21,7 @@ import {
  */
 export const test_buildsourceplugin_rejects_a_source_outside_a_nearby_go_module =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const source = path.join(root, "a", "b", "c", "d", "cmd");
     fs.mkdirSync(source, { recursive: true });
 

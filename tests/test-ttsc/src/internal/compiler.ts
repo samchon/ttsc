@@ -10,14 +10,9 @@ import {
   type ITtscCompilerContext,
 } from "../../../../packages/ttsc/lib/index.js";
 
-const SHARED_COMPILER_CACHE_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "ttsc-compiler-api-cache-"),
+const SHARED_COMPILER_CACHE_DIR = TestProject.tmpdir(
+  "ttsc-compiler-api-cache-",
 );
-process.on("exit", () => {
-  try {
-    fs.rmSync(SHARED_COMPILER_CACHE_DIR, { recursive: true, force: true });
-  } catch {}
-});
 
 class TtscCompiler extends BaseTtscCompiler {
   public constructor(context: ITtscCompilerContext = {}) {
@@ -52,7 +47,7 @@ interface ICompilerApiProjectOptions {
 }
 
 function createProject(options: ICompilerApiProjectOptions = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+  const root = TestProject.tmpdir("ttsc-compiler-api-");
   writeBasicProject(
     root,
     options.source ??
@@ -107,7 +102,7 @@ function writeBasicProject(
 }
 
 function createDottedSourceProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+  const root = TestProject.tmpdir("ttsc-compiler-api-");
   fs.mkdirSync(path.join(root, "..src"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "..src", "main.ts"),

@@ -30,10 +30,7 @@ export const test_lint_format_trailing_comma_rewrites_multi_line_lists = () => {
     path.join(fixture, "expected", "main.ts"),
     "utf8",
   );
-  const root = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-format-tc-")),
-    "project",
-  );
+  const root = path.join(TestProject.tmpdir("ttsc-lint-format-tc-"), "project");
 
   try {
     fs.cpSync(fixture, root, { recursive: true });
@@ -46,9 +43,7 @@ export const test_lint_format_trailing_comma_rewrites_multi_line_lists = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-lint-format-tc-cache-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-tc-cache-"),
           TTSC_GO_BINARY: goBinary(),
         },
       },

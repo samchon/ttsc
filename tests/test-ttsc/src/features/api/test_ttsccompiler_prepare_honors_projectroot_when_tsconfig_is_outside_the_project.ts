@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -24,7 +26,7 @@ import {
  */
 export const test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-compiler-api-"));
+    const root = TestProject.tmpdir("ttsc-compiler-api-");
     const project = path.join(root, "project");
     const config = path.join(root, "config");
     fs.mkdirSync(project, { recursive: true });

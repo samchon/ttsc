@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   __dirname,
   assert,
@@ -60,7 +62,7 @@ export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-check-")),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-check-"),
       },
     });
 

@@ -4,6 +4,29 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+// Every temp dir handed out by this module is tracked here and removed on
+// process exit. Without this, each test case leaks one or more directories
+// under /tmp — across the full suite that runs into thousands of stale dirs
+// (the symptom that surfaced as Go-build ENOSPC when /tmp is a small tmpfs).
+const TRACKED_TEMP_DIRS = new Set<string>();
+let cleanupHookRegistered = false;
+
+function ensureCleanupHook(): void {
+  if (cleanupHookRegistered) return;
+  cleanupHookRegistered = true;
+  process.on("exit", () => {
+    for (const dir of TRACKED_TEMP_DIRS) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // Best-effort: a test that already removed its own dir is fine,
+        // and we don't want cleanup failures to mask the real exit code.
+      }
+    }
+    TRACKED_TEMP_DIRS.clear();
+  });
+}
+
 /**
  * Filesystem and process helpers for tests that must exercise the real
  * workspace toolchain instead of a mocked compiler API.
@@ -55,13 +78,27 @@ export namespace TestProject {
   export const TSGO_BINARY = resolveTsgoBinary();
 
   /**
+   * Create a tracked temp directory under the OS temp root.
+   *
+   * The returned path is removed on process exit so the suite doesn't pile up
+   * stale directories under `/tmp` (each test typically needs a project root
+   * plus a plugin cache dir, and there are hundreds of cases).
+   */
+  export function tmpdir(prefix: string): string {
+    ensureCleanupHook();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    TRACKED_TEMP_DIRS.add(dir);
+    return dir;
+  }
+
+  /**
    * Create an isolated project from an in-memory file map.
    *
-   * Callers own cleanup because many assertions inspect output files after the
-   * command under test exits.
+   * The project directory survives until the test process exits so assertions
+   * can still inspect output files after the command under test returns.
    */
   export function createProject(files: Record<string, string>) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-smoke-"));
+    const root = tmpdir("ttsc-smoke-");
     writeFiles(root, files);
     return root;
   }
@@ -74,7 +111,7 @@ export namespace TestProject {
    */
   export function copyProject(name: string) {
     const source = path.join(PROJECTS_ROOT, name);
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-${name}-`));
+    const root = tmpdir(`ttsc-${name}-`);
     copyDirectory(source, root);
     return root;
   }

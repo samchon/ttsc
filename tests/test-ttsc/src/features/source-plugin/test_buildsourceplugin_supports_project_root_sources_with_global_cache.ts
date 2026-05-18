@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -20,7 +22,7 @@ import {
  */
 export const test_buildsourceplugin_supports_project_root_sources_with_global_cache =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const cacheHome = path.join(root, "cache-home");
     fs.writeFileSync(
       path.join(root, "go.mod"),

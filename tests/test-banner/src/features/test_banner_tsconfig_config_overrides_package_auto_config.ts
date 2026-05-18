@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
@@ -50,9 +49,7 @@ export const test_banner_tsconfig_config_overrides_package_auto_config = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-auto-banner-explicit-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-banner-explicit-"),
       },
     },
   );

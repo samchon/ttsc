@@ -1,14 +1,13 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
 
 /**
- * Verifies ttsc utility plugins: lint, banner, paths, and strip run
- * together in ttsc build.
+ * Verifies ttsc utility plugins: lint, banner, paths, and strip run together in
+ * ttsc build.
  *
  * This scenario stays in the compiler package because it verifies linked host
  * behavior across package boundaries.
@@ -28,14 +27,15 @@ export const test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_
         cwd: root,
         env: {
           PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-utility-combo-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-combo-"),
         },
       },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stderr, /building linked plugin host "linked-plugin-host"/);
+    assert.match(
+      result.stderr,
+      /building linked plugin host "linked-plugin-host"/,
+    );
     assert.match(result.stderr, /\+ 3 contributor\(s\):/);
     assert.match(result.stderr, /building source plugin "@ttsc\/lint"/);
 

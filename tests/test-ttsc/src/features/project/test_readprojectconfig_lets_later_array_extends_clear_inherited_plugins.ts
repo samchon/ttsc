@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -19,7 +21,7 @@ import {
  */
 export const test_readprojectconfig_lets_later_array_extends_clear_inherited_plugins =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+    const root = TestProject.tmpdir("ttsc-project-");
     const shared = path.join(root, "config");
     const project = path.join(root, "project");
     fs.mkdirSync(shared, { recursive: true });

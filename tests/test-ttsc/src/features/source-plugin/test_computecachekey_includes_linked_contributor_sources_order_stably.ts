@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   computeCacheKey,
@@ -20,7 +22,7 @@ import {
  */
 export const test_computecachekey_includes_linked_contributor_sources_order_stably =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-cache-"));
+    const root = TestProject.tmpdir("ttsc-source-cache-");
     const host = writeGoPackage(root, "host", "main", "const Host = 1\n");
     const left = writeGoPackage(root, "left", "left", "const Value = 1\n");
     const right = writeGoPackage(root, "right", "right", "const Value = 2\n");
@@ -47,7 +49,11 @@ export const test_computecachekey_includes_linked_contributor_sources_order_stab
     });
     assert.equal(reordered, first);
 
-    fs.writeFileSync(path.join(right, "value.go"), "package right\nconst Value = 3\n", "utf8");
+    fs.writeFileSync(
+      path.join(right, "value.go"),
+      "package right\nconst Value = 3\n",
+      "utf8",
+    );
     const changed = computeCacheKey({
       contributors: [
         { name: "left", source: left },

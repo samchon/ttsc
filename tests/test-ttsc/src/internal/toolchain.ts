@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
@@ -40,7 +41,7 @@ const nativeBinary = path.join(
 const tsgoBinary = resolveTsgoBinary();
 
 function createProject(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-smoke-"));
+  const root = TestProject.tmpdir("ttsc-smoke-");
   for (const [name, contents] of Object.entries(files) as [string, string][]) {
     const file = path.join(root, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });

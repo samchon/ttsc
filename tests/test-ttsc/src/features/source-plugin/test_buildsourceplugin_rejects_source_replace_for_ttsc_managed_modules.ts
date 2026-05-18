@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -24,7 +26,7 @@ import {
  */
 export const test_buildsourceplugin_rejects_source_replace_for_ttsc_managed_modules =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-replace-"));
+    const root = TestProject.tmpdir("ttsc-source-replace-");
     const source = path.join(root, "plugin");
     const overlay = path.join(root, "overlay", "ttsc");
     const overlayPrinter = path.join(overlay, "shim", "printer");

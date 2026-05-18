@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -21,7 +23,7 @@ import {
  */
 export const test_resolveplugincacheroot_prunes_stale_global_cache_entries =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-cache-gc-"));
+    const root = TestProject.tmpdir("ttsc-cache-gc-");
     const previousCacheHome = process.env.XDG_CACHE_HOME;
     process.env.XDG_CACHE_HOME = path.join(root, "cache-home");
     try {

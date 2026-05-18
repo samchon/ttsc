@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
@@ -51,9 +50,7 @@ export const test_strip_package_auto_plugin_walks_to_ancestor_package_json =
         cwd: project,
         env: {
           PATH: TestStrip.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-ancestor-strip-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-ancestor-strip-"),
         },
       },
     );

@@ -29,7 +29,7 @@ export const test_lint_format_quotes_rewrites_single_quoted_literals = () => {
     "utf8",
   );
   const root = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-format-quotes-")),
+    TestProject.tmpdir("ttsc-lint-format-quotes-"),
     "project",
   );
 
@@ -44,9 +44,7 @@ export const test_lint_format_quotes_rewrites_single_quoted_literals = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-lint-format-quotes-cache-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-quotes-cache-"),
           TTSC_GO_BINARY: goBinary(),
         },
       },

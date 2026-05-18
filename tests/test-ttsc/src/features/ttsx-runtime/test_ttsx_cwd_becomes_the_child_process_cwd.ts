@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 /**
@@ -16,7 +15,7 @@ import path from "node:path";
  * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
  */
 export const test_ttsx_cwd_becomes_the_child_process_cwd = () => {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-smoke-parent-"));
+  const parent = TestProject.tmpdir("ttsc-smoke-parent-");
   const root = path.join(parent, "app");
   fs.mkdirSync(root, { recursive: true });
   for (const [name, contents] of Object.entries({

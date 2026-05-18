@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   buildSourcePlugin,
@@ -19,7 +21,7 @@ import {
  */
 export const test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const root = TestProject.tmpdir("ttsc-source-plugin-");
     const source = path.join(root, "plugin.txt");
     fs.writeFileSync(source, "not a Go package\n", "utf8");
 

@@ -29,7 +29,7 @@ export const test_lint_format_jsdoc_rewrites_synonym_tags = () => {
     "utf8",
   );
   const root = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-format-jsdoc-")),
+    TestProject.tmpdir("ttsc-lint-format-jsdoc-"),
     "project",
   );
 
@@ -44,9 +44,7 @@ export const test_lint_format_jsdoc_rewrites_synonym_tags = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-lint-format-jsdoc-cache-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-jsdoc-cache-"),
           TTSC_GO_BINARY: goBinary(),
         },
       },

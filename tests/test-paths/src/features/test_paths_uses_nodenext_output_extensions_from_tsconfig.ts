@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestPaths } from "../internal/TestPaths";
@@ -66,9 +65,7 @@ export const test_paths_uses_nodenext_output_extensions_from_tsconfig = () => {
       cwd: root,
       env: {
         PATH: TestPaths.goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-paths-nodenext-extensions-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-paths-nodenext-extensions-"),
       },
     },
   );

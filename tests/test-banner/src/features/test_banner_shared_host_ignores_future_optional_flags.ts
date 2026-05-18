@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
@@ -47,9 +46,7 @@ export const test_banner_shared_host_ignores_future_optional_flags = () => {
   const previousPath = process.env.PATH;
   const previousCacheDir = process.env.TTSC_CACHE_DIR;
   process.env.PATH = TestBanner.goPath();
-  process.env.TTSC_CACHE_DIR = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ttsc-banner-future-flag-"),
-  );
+  process.env.TTSC_CACHE_DIR = TestProject.tmpdir("ttsc-banner-future-flag-");
   let loaded;
   try {
     loaded = loadProjectPlugins({

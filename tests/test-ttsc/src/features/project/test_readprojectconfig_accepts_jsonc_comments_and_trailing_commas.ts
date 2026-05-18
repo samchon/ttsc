@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -19,7 +21,7 @@ import {
  */
 export const test_readprojectconfig_accepts_jsonc_comments_and_trailing_commas =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+    const root = TestProject.tmpdir("ttsc-project-");
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       `{

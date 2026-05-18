@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   __dirname,
   assert,
@@ -37,9 +39,7 @@ module.exports = {
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-source-plugin-gomod-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-gomod-"),
       },
     });
     assert.equal(result.status, 0, result.stderr);

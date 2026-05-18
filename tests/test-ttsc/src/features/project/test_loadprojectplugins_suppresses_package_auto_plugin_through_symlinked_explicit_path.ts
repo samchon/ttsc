@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   fs,
@@ -20,7 +22,7 @@ import {
  */
 export const test_loadprojectplugins_suppresses_package_auto_plugin_through_symlinked_explicit_path =
   () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-project-"));
+    const root = TestProject.tmpdir("ttsc-project-");
     const realPackage = path.join(root, "packages", "linked-plugin");
     const project = path.join(root, "project");
     const linkedPackage = path.join(project, "node_modules", "linked-plugin");

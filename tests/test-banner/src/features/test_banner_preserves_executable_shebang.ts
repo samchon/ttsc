@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
@@ -40,9 +39,7 @@ export const test_banner_preserves_executable_shebang = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: fs.mkdtempSync(
-          path.join(os.tmpdir(), "ttsc-banner-shebang-"),
-        ),
+        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-banner-shebang-"),
       },
     },
   );

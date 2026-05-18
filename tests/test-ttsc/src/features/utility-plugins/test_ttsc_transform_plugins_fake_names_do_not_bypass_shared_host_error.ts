@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
@@ -57,9 +56,7 @@ export const test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_er
         cwd: root,
         env: {
           PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: fs.mkdtempSync(
-            path.join(os.tmpdir(), "ttsc-utility-fake-"),
-          ),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-fake-"),
         },
       },
     );
