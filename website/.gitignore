@@ -8,6 +8,7 @@ public/compiler/*.map
 public/compiler/playground.wasm
 public/compiler/playground.wasm.br
 public/compiler/typia-pack.json
+public/compiler/typia-runtime-pack.json
 public/compiler/typia-types.json
 src/compiler/typia-types.json
 src/compiler/external.json

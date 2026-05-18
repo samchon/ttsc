@@ -13,6 +13,10 @@ import {
   PLAYGROUND_DEFAULT_SCRIPT,
   PLAYGROUND_EXAMPLES,
 } from "../../compiler/PlaygroundExamples";
+import {
+  createSandboxRequire,
+  loadTypiaRuntimePack,
+} from "../../compiler/typia-runtime-pack";
 import ConsoleViewer, { type IConsoleMessage } from "./ConsoleViewer";
 import DiagnosticsPanel from "./DiagnosticsPanel";
 import ExamplePicker from "./ExamplePicker";
@@ -242,15 +246,15 @@ export default function PlaygroundShell() {
         table: (...args: unknown[]) => push("table", args),
       };
       // The worker emits CommonJS, so the bundled output uses `require(...)`,
-      // `exports`, and `module.exports`. We wrap it in a function whose
-      // parameters supply each of those, plus a `stubRequire` that resolves
-      // typia from the playground bundle (loaded asynchronously) and throws
-      // for anything else so the user sees the unsupported dependency.
-      const stubRequire = (specifier: string): unknown => {
-        throw new Error(
-          `require("${specifier}") is not available in the playground sandbox`,
-        );
-      };
+      // `exports`, and `module.exports`. The typia transform's emit references
+      // `typia/lib/internal/_isFormatEmail` and friends; load the prebuilt
+      // runtime pack and feed every `require(...)` through it. Unknown
+      // specifiers throw with the original specifier so the user sees the
+      // unsupported dependency.
+      const runtimePack = await loadTypiaRuntimePack();
+      const sandboxRequire = createSandboxRequire(runtimePack, {
+        console: sandboxConsole,
+      });
       const moduleObj: { exports: Record<string, unknown> } = { exports: {} };
       try {
         const wrapped = `(function(require, module, exports, console) {\n${code}\n})`;
@@ -260,7 +264,7 @@ export default function PlaygroundShell() {
           exp: typeof moduleObj.exports,
           c: typeof sandboxConsole,
         ) => void;
-        factory(stubRequire, moduleObj, moduleObj.exports, sandboxConsole);
+        factory(sandboxRequire, moduleObj, moduleObj.exports, sandboxConsole);
       } catch (error) {
         push("error", [error]);
       }

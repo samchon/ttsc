@@ -221,12 +221,15 @@ const buildWithTypia = async (
 
 // Run typia's source-to-source transform across the project and write the
 // rewritten TS back into MemFS so the subsequent `api.build` sees it.
-// Swallows errors so the user still gets the compile diagnostics if typia
-// itself blows up.
+//
+// Returns the plugin's stderr so the caller can surface typia errors in the
+// diagnostics stream when the transform refused to rewrite (e.g. unsupported
+// method). Throw-class errors (plugin spawn / JSON parse) are still swallowed
+// so the user always gets at least the tsgo compile diagnostics back.
 const applyTypiaTransform = async (
   api: IBootResult["api"],
   host: IBootResult["host"],
-): Promise<void> => {
+): Promise<{ stderr: string } | null> => {
   try {
     const transformRaw = await api.plugin({
       name: "typia",
@@ -235,14 +238,17 @@ const applyTypiaTransform = async (
       tsconfig: TSCONFIG_PATH,
       output: "ts",
     });
-    if (transformRaw.code !== 0 || !transformRaw.stdout) return;
+    if (!transformRaw.stdout) {
+      return { stderr: transformRaw.stderr ?? "" };
+    }
     const transformed = safeParseTypiaTransform(transformRaw.stdout);
-    if (!transformed) return;
+    if (!transformed) return { stderr: transformRaw.stderr ?? "" };
     for (const [rel, text] of Object.entries(transformed.typescript)) {
       host.writeFile(joinUnder(WORK_DIR, rel), text);
     }
+    return { stderr: transformRaw.stderr ?? "" };
   } catch {
-    // user still sees compile diagnostics from the subsequent build
+    return null;
   }
 };
 
