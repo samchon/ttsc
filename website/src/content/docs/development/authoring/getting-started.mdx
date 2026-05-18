@@ -36,9 +36,7 @@ ttsc-plugin-hello/
 }
 ```
 
-The `files` field includes the Go source because `ttsc` builds it on the consumer machine. **The `name` field is load-bearing.** `ttsc`'s auto-discovery matches the consumer's `dependencies` / `devDependencies` entry string against this `name` exactly — if they differ, ttsc loads nothing and silently emits unchanged.
-
-`ttsc.plugin` is the auto-discovery marker. `ttsc` reads it only from packages listed directly in the nearest consumer `package.json`. A matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority. See [Concepts → Auto-discovery vs explicit plugin entries](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
+The `files` field includes the Go source because `ttsc` builds it on the consumer machine. The `name` field must equal the string consumers will install you under — see [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries) for the rule and why a mismatch silently no-ops. `ttsc.plugin` is the auto-discovery marker; a matching `compilerOptions.plugins[]` entry in `tsconfig.json` takes priority.
 
 ## 2. Write the Descriptor
 
@@ -249,7 +247,7 @@ Consumer `tsconfig.json` — use the explicit form so the wiring is unambiguous:
 }
 ```
 
-Auto-discovery via the consumer's `package.json#dependencies` works too (see [Recipes → Auto-discovery](/docs/development/authoring/recipes#auto-discovery)), but the explicit form mirrors every fixture under `tests/projects/` and removes one silent-no-load failure mode for first-time authors.
+Auto-discovery via `package.json#dependencies` also works ([Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries)), but the explicit form mirrors every fixture under `tests/projects/`.
 
 Consumer `src/main.ts`:
 

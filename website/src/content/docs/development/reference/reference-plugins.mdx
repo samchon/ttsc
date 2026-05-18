@@ -233,7 +233,7 @@ What to learn:
 - Program/Checker bootstrap for diagnostics.
 - Rule registry keyed by rule name.
 - Rule dispatch by `shimast.Kind`.
-- Token-oriented diagnostic ranges with `shimscanner.SkipTrivia(file.Text(), node.Pos())` — used by every `linthost/rules_*.go` file; the canonical idiom across the chapter.
+- Token-oriented diagnostic ranges via `SkipTrivia` — see [AST & Checker → Text Ranges](/docs/development/concepts/tsgo#text-ranges-and-trivia).
 - Autofix text edits for selected native rules and ESLint runtime delegation.
 - Rendering lint diagnostics beside TypeScript-Go diagnostics.
 

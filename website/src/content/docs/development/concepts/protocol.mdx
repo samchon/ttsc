@@ -217,13 +217,11 @@ Constraints enforced at load time:
 
 See [Reference → Pitfalls](/docs/development/reference/pitfalls#contributor-merge-failures) for the exact rejection error strings.
 
-The cache key derivation for a plugin with N contributors is `ttsc + tsgo + platform + entry + Σ(contributor source hashes) + plugin source hash + overlay source hashes`, so consumers with the same logical set of contributors share one cached binary regardless of declaration order.
+Contributor source hashes fold into the plugin cache key, so consumers with the same logical set of contributors share one cached binary regardless of declaration order. The full cache-key formula (Go binary identity, `GO_BUILD_ENV_KEYS`, overlay hashes) lives in [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs).
 
 ## Plugin Config Keys
 
-`ttsc` reads only `transform` and `enabled` from each user plugin entry. Every other key remains plugin-owned config and is passed through unchanged to the native sidecar.
-
-ts-patch words such as `before`, `after`, or `phase` do not affect `ttsc` execution. If a plugin package chooses to use those names for its own config, they are ordinary plugin data. Package descriptors choose only between the public `"transform"` and `"check"` stages.
+`ttsc` owns `transform` and `enabled`. Every other key on a `compilerOptions.plugins[]` entry is plugin-owned config — passed through unchanged via `--plugins-json` (see [below](#--plugins-json) for the verbatim-passthrough rule). ts-patch words such as `before`, `after`, or `phase` carry no special meaning to `ttsc`. Descriptors choose only between the public `"transform"` and `"check"` stages.
 
 ## Disabled Entries
 
@@ -283,7 +281,7 @@ Apply autofixes to source files in place, then render any
 remaining diagnostics through the same renderer contract as `check`. Emit
 stays disabled — fix plugins must not write JavaScript or declaration output.
 
-A check-stage plugin that does not implement `fix` should exit non-zero with a human-readable stderr message; the host prints stderr verbatim and aborts the pipeline. `ttsc` does **not** parse any specific phrase. The `@ttsc/lint` plugin uses the convention `<plugin-name>: fix not supported` and exits `2`, but this is a project convention, not a host contract — any non-zero exit suffices. Plugins that support fixes but find nothing to apply exit `0` with empty stderr.
+Found nothing to apply? Exit `0` with empty stderr. Do not support `fix`? Exit non-zero with a human-readable stderr message — see [Unsupported `fix`/`format`](#unsupported-fix--format) below.
 
 ### `format`
 
@@ -306,7 +304,9 @@ rules in one binary: `fix` applies every category's edits; `format`
 filters to format-class only. The two subcommands share the engine
 and the protocol; only the post-engine filter differs.
 
-A check-stage plugin that does not implement `format` should exit non-zero with a human-readable stderr message; the host does not parse any specific phrase. The `@ttsc/lint` convention of `<plugin-name>: format not supported` and exit `2` is a project convention only. Plugins that support format but find nothing to apply exit `0` with empty stderr.
+#### Unsupported `fix` / `format`
+
+A check-stage plugin that does not implement `fix` or `format` should exit non-zero with a human-readable stderr message. `ttsc` does **not** parse any specific phrase — the host prints `stderr` verbatim and aborts. The `@ttsc/lint` convention of `<plugin-name>: fix not supported` / `format not supported` and exit `2` is a project convention, not a host contract; any non-zero exit suffices.
 
 ### `transform`
 

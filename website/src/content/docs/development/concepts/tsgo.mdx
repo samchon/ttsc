@@ -156,9 +156,9 @@ Important `Node` data:
 - `node.Pos()`: start offset, often including leading trivia.
 - `node.End()`: end offset.
 - `node.Parent`: parent node when available.
-- `node.Symbol()`: bound symbol for declarations — **nil for non-declaration nodes**, see [Pitfalls](/docs/development/reference/pitfalls#ast-and-checker).
+- `node.Symbol()`: bound symbol for declarations (nil on non-declarations).
 - `node.ForEachChild(fn)`: visit child nodes.
-- `node.Text()`: source text for identifier/literal-like kinds. **Panics on unhandled kinds** — branch on `node.Kind` first.
+- `node.Text()`: source text for identifier/literal-like kinds — branch on `node.Kind` first; panics on other kinds. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) for both nil-Symbol and Text-panic recovery patterns.
 
 Important `SourceFile` data:
 
@@ -480,22 +480,9 @@ func isThenable(checker *shimchecker.Checker, expr *shimast.Node) bool {
 
 Source: [`packages/lint/linthost/rules_promise.go::awaitableType`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). The example exercises three Checker categories (`GetTypeAtLocation`, `GetPropertyOfType`, `GetSignaturesOfType`) on real production code.
 
-## Mutating leaf text: synthesize + reset Loc
+## Mutating the AST
 
-For structural mutations — filtering `Statements.Nodes`, swapping children — `shimprinter.EmitSourceFile` round-trips cleanly. The printer iterates statement lists directly without reading source spans.
-
-**For leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`), the printer reads original source text through `getTextOfNode` when the node is non-synthesized and has a parent. That means a naive `lit.AsStringLiteral().Text = "x"` silently vanishes: the printer reads the *old* span via `scanner.GetSourceTextOfNodeFromSourceFile` and ignores your `.Text`.
-
-```go
-// Before mutating identifier, string-literal, or numeric-literal text,
-// detach the node from its parse-tree source span. Otherwise the printer
-// reads the OLD source via getTextOfNode and the rewrite vanishes.
-lit.AsStringLiteral().Text = rewritten
-lit.Flags |= shimast.NodeFlagsSynthesized
-lit.Loc   = shimcore.UndefinedTextRange()
-```
-
-Source: [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) for the `@ttsc/paths` rewriter (leaf-text pattern) and the `@ttsc/strip` `filterStatements` body (structural pattern). See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the recipe form.
+Structural mutations — filtering `Statements.Nodes`, swapping children — round-trip cleanly through `shimprinter.EmitSourceFile` because the printer iterates statement lists directly without reading source spans. **Leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`) need the synthesize-flag + reset-Loc invariant; see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
 
 ## Building Diagnostics
 
@@ -587,6 +574,8 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 
 ## Common AST Mistakes
 
+The page-level traps:
+
 - Comparing raw paths without `filepath.ToSlash`.
 - Slicing `file.Text()[node.Pos():node.End()]` and accidentally including comments/whitespace.
 - Calling `AsX()` and assuming it cannot be nil.
@@ -594,14 +583,8 @@ Use a Program when you need project-level facts, such as `compilerOptions.paths`
 - Treating a type node as a resolved type.
 - Editing text when an AST mutation would express the same change.
 - Editing text from the start of the file toward the end.
-- Reporting diagnostics at statement start instead of token start (use `SkipTrivia`).
-- Trying to use Checker data before acquiring and deferring the release callback (`defer prog.Close()`).
-- Calling `node.Text()` without a `node.Kind` guard — panics on unhandled kinds.
-- Dereferencing `node.Symbol()` without a nil check — non-declaration nodes return nil.
-- Mutating a leaf-text node's `.Text` without stamping `NodeFlagsSynthesized` and resetting `Loc`.
-- Listing the same `Kind` twice in `Visits()` — silently deduped.
 
-For the full failure catalogue with error strings, see [Reference → Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+The runtime traps — `node.Text()` panic, `node.Symbol()` nil deref, duplicate-`Kind` in `Visits()`, leaf-text mutation without the synthesize flag, missing `defer prog.Close()` — live in [Reference → Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) with the exact error strings.
 
 ## If you cannot use the driver
 
