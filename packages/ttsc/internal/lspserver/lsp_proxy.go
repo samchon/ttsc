@@ -114,7 +114,11 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
 			}
 			continue
 		}
-		if p.handleEditorEnvelope(env, body) {
+		handled, handleErr := p.handleEditorEnvelope(env, body)
+		if handleErr != nil {
+			return handleErr
+		}
+		if handled {
 			continue
 		}
 		if err := WriteFrame(p.upstreamIn, body); err != nil {
@@ -135,11 +139,11 @@ func (p *Proxy) closeUpstreamInput() {
 
 // handleEditorEnvelope returns true if the envelope was fully processed
 // locally (responded to without forwarding upstream).
-func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) bool {
+func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
 	switch env.Method {
 	case methodExecuteCommand:
-		if env.IsRequest() && p.tryExecuteCommand(env) {
-			return true
+		if env.IsRequest() {
+			return p.tryExecuteCommand(env)
 		}
 	case methodCodeAction:
 		if env.IsRequest() {
@@ -152,7 +156,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) bool {
 		// the notification continue to upstream.
 		p.forgetCancelledRequest(env)
 	}
-	return false
+	return false, nil
 }
 
 // forgetCancelledRequest removes any pending codeAction entry whose id
@@ -203,24 +207,23 @@ func (p *Proxy) rememberCodeActionRequest(env Envelope) {
 // command id is registered with the PluginSource. Returns true on a
 // successful local response; false when the command should fall through
 // to upstream tsgo.
-func (p *Proxy) tryExecuteCommand(env Envelope) bool {
+func (p *Proxy) tryExecuteCommand(env Envelope) (bool, error) {
 	var params struct {
 		Command   string            `json:"command"`
 		Arguments []json.RawMessage `json:"arguments,omitempty"`
 	}
 	if err := json.Unmarshal(env.Params, &params); err != nil {
-		return false
+		return false, nil
 	}
 	if !p.ownsCommand(params.Command) {
-		return false
+		return false, nil
 	}
 	edit, err := p.source.ExecuteCommand(params.Command, params.Arguments)
 	if errors.Is(err, ErrCommandNotHandled) {
-		return false
+		return false, nil
 	}
 	if err != nil {
-		p.writeError(env.ID, fmt.Sprintf("ttsc command %q failed: %v", params.Command, err))
-		return true
+		return true, p.writeError(env.ID, fmt.Sprintf("ttsc command %q failed: %v", params.Command, err))
 	}
 	// Cycle 1 returns the WorkspaceEdit inside the executeCommand response
 	// instead of sending workspace/applyEdit as a server→client request.
@@ -228,11 +231,9 @@ func (p *Proxy) tryExecuteCommand(env Envelope) bool {
 	// the edit on its side. Sticking to one direction avoids tracking our
 	// own outgoing request ids in the proxy.
 	if edit == nil {
-		p.writeResult(env.ID, nil)
-		return true
+		return true, p.writeResult(env.ID, nil)
 	}
-	p.writeResult(env.ID, edit)
-	return true
+	return true, p.writeResult(env.ID, edit)
 }
 
 func (p *Proxy) ownsCommand(command string) bool {
