@@ -3,7 +3,7 @@ title: "@ttsc/lint - I made 20x faster TS Lint by building it into typescript-go
 published: false
 description: "One compile pass for type checks and lint — built into typescript-go, ~20x faster than tsc + ESLint in theory."
 tags: typescript, javascript, compilers, tooling
-cover_image: https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg
+cover_image: https://ttsc.dev/og.jpg
 ---
 
 ## TL;DR
@@ -96,7 +96,7 @@ Notice that the lint violations are reported in `error TSxxxxx` format — exact
 
 ## 3. So what is `ttsc`?
 
-![banner of ttsc](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
+![banner of ttsc](https://ttsc.dev/og.jpg)
 
 In one sentence: `ttsc` is **a compiler toolchain that adds a plugin system on top of `typescript-go`**.
 

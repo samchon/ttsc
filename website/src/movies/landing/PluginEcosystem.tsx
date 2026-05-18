@@ -27,17 +27,14 @@ export default function PluginEcosystem() {
     <section className="relative py-24 md:py-32 px-6 bg-neutral-950 overflow-hidden">
       <div className="relative max-w-5xl mx-auto">
         <FadeIn>
-          <SectionEyebrow num="04" label="Plugin ecosystem" />
+          <SectionEyebrow label="Plugins" />
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            npm-installed plugins.{" "}
-            <span className="text-neutral-500">Same compile pass.</span>
+            Add power with{" "}
+            <span className="text-neutral-500">one npm install.</span>
           </h2>
           <p className="text-base text-neutral-400 max-w-2xl leading-relaxed mb-12">
-            Plugins are npm packages that run inside every{" "}
-            <code className="font-mono text-neutral-200">ttsc</code>{" "}
-            build, every <code className="font-mono text-neutral-200">ttsx</code>{" "}
-            run, and the VS Code extension. Diagnostics flow through the
-            same stream as type errors.
+            Plugins are regular npm packages. They run inside your build,
+            your tests, and your editor — no extra setup.
           </p>
         </FadeIn>
 

@@ -1,6 +1,6 @@
 # `@ttsc/vscode`
 
-![banner of @ttsc/vscode](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
+![banner of @ttsc/vscode](https://ttsc.dev/og.jpg)
 
 MIT licensed · [npm](https://www.npmjs.com/package/@ttsc/vscode) · [docs](https://ttsc.dev/docs) · [Discord](https://discord.gg/E94XhzrUCZ)
 

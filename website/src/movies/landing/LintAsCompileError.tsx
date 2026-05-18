@@ -22,18 +22,14 @@ export default function LintAsCompileError() {
     <section className="relative py-24 md:py-32 px-6 bg-neutral-950 overflow-hidden">
       <div className="relative max-w-5xl mx-auto">
         <FadeIn>
-          <SectionEyebrow num="02" label="Lint as compile error" />
+          <SectionEyebrow label="Lint built in" />
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Three diagnostics.{" "}
-            <span className="text-neutral-500">One compile pass.</span>
+            Lint errors look like{" "}
+            <span className="text-neutral-500">type errors.</span>
           </h2>
           <p className="text-base text-neutral-400 max-w-2xl leading-relaxed mb-12">
-            Lint violations from <code className="font-mono text-neutral-200">@ttsc/lint</code>{" "}
-            come out of the same compile pass as type errors, with the same{" "}
-            <code className="font-mono text-cyan-300">error TSxxxxx</code> shape.{" "}
-            The CI step that already blocks on <code className="font-mono text-neutral-200">tsc</code>{" "}
-            now blocks on lint too. No second tool, no second config, no
-            second step.
+            One command catches both. No separate ESLint, no separate
+            Prettier, no extra config. CI sees one log.
           </p>
         </FadeIn>
 
