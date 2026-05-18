@@ -34,7 +34,6 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *    printer does not auto-detect terminators.
  *  - Many Prettier knobs (`bracketSpacing`, `arrowParens`,
  *    `quoteProps`, JSX-specific switches) are not yet implemented.
- *    See `docs/14-prettier-migration.md` for the full gap list.
  *
  * Rule enablement matrix (when the `format` block is present):
  *

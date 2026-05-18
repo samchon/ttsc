@@ -10,14 +10,17 @@ npm install -D @ttsc/banner
 
 ## Configure
 
-Drop a `banner.config.ts` next to `tsconfig.json`:
+Pass the banner text inline on the `compilerOptions.plugins[]` entry:
 
-```ts
-import type { TtscBannerConfig } from "@ttsc/banner";
-
-export default {
-  text: "License MIT (c) 2026 Acme",
-} satisfies TtscBannerConfig;
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "text": "License MIT (c) 2026 Acme" }
+    ]
+  }
+}
 ```
 
 Run `ttsc`. Every emitted `.js` and `.d.ts` gets:
@@ -30,7 +33,17 @@ Run `ttsc`. Every emitted `.js` and `.d.ts` gets:
  */
 ```
 
-`banner.config.ts` is required: if `@ttsc/banner` is installed but the config file is missing, the compile fails. Banners are never silently skipped.
+If you would rather keep the text in its own file, drop a `banner.config.ts` next to `tsconfig.json`:
+
+```ts
+import type { TtscBannerConfig } from "@ttsc/banner";
+
+export default {
+  text: "License MIT (c) 2026 Acme",
+} satisfies TtscBannerConfig;
+```
+
+`@ttsc/banner` resolves the text in this order: the entry's inline `text`, the entry's `config: "./path/to/banner.config.ts"`, then an upward walk for any `banner.config.{js,cjs,mjs,ts,mts,cts}` starting from the tsconfig directory. If none of the three supplies text, the compile fails — banners are never silently skipped.
 
 ## Common use cases
 

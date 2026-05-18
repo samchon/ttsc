@@ -507,11 +507,10 @@ That's the whole matcher — 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
 
 ## Test coverage
 
-The `stripRewriter` is exercised three ways:
+The `stripRewriter` is exercised two ways:
 
-- **Pure Go unit tests** in [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) — one assertion per file in the AGENTS.md §2.2 shape.
-- **Strip-specific Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/) — run the binary through `go run ./plugin` against fixture projects.
-- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/) — spawn the real `ttsc` launcher against `tests/projects/strip-*` and assert on emitted `dist/` files.
+- **Package-local Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/) — run the binary through `go run ./plugin` against fixture projects, one assertion per file in the AGENTS.md §2.2 shape.
+- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/) — spawn the real `ttsc` launcher and assert on emitted `dist/` files.
 
 Pick the strip tests as your template when you write your own — they cover the structural-mutation shape your plugin probably also has.
 

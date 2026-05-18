@@ -173,11 +173,11 @@ func runCheck(opts options) int {
             "[my-plugin/no-debugger] debugger statements are forbidden",
         ))
     }
-    exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
     if driver.CountErrors(diags) > 0 {
         return 1
     }
-    return exitCode
+    return 0
 }
 ```
 

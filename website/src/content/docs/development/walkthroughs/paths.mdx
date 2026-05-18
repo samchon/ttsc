@@ -465,7 +465,7 @@ The pattern generalizes to any plugin that needs to query *project-level* inform
 
 The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/) — every feature test materializes a real project layout under `tests/projects/path-*`, runs the real `ttsc` launcher, and asserts on both the emitted JS and `.d.ts`.
 
-The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/ttsc/test/utility/`.
+The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/paths/driver/` and the end-to-end fixtures above.
 
 ## Where to read next
 

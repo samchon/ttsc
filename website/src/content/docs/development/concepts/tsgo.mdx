@@ -495,11 +495,11 @@ diags = append(diags, driver.NewLintDiagnostic(
     /*code*/ 9001, driver.SeverityError,
     "[my-rule] explanation here",
 ))
-exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
 if driver.CountErrors(diags) > 0 { os.Exit(1) }
 ```
 
-`driver.NewLintDiagnostic` wraps `(pos, end)` into a `Diagnostic` with the file's path. `driver.CountErrors` counts `SeverityError` entries. `driver.WritePrettyDiagnostics` renders to any `io.Writer` using the same colorful format `ttsc` itself uses. See [Reference → Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics).
+`driver.NewLintDiagnostic` wraps `(pos, end)` into a `Diagnostic` with the file's path. `driver.CountErrors` counts the diagnostics that should fail the build (every entry that isn't an explicit `SeverityWarning`). `driver.WritePrettyDiagnostics` renders to any `io.Writer` using the same colorful format `ttsc` itself uses; it returns nothing. See [Reference → Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics).
 
 If your plugin exits non-zero, write clear diagnostics to stderr. `ttsc` surfaces stderr directly. Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does not catch them.
 

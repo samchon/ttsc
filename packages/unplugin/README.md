@@ -186,7 +186,7 @@ export default {
         plugins: [
           {
             transform: "@ttsc/lint",
-            config: { "no-var": "error" },
+            rules: { "no-var": "error" },
           },
           {
             transform: "typia/lib/transform",
@@ -212,7 +212,7 @@ export default {
   plugins: [
     ttsc({
       plugins: [
-        { transform: "@ttsc/lint", config: { "no-var": "error" } },
+        { transform: "@ttsc/lint", rules: { "no-var": "error" } },
         { transform: "typia/lib/transform" },
       ],
     }),
