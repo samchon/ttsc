@@ -1,13 +1,12 @@
 import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
 
 /**
- * Project context passed to `createTtscPlugin()` factories.
+ * Project context passed to plugin descriptor factories.
  *
  * Plugin packages may export a static {@link ITtscPlugin} descriptor when the
- * descriptor never depends on the consuming project. Export a
- * `createTtscPlugin(context)` factory instead when the descriptor needs to
- * inspect the original plugin config, the resolved tsconfig path, or the
- * project root.
+ * descriptor never depends on the consuming project. Export a factory when the
+ * descriptor needs to inspect the original plugin config, the resolved tsconfig
+ * path, or the project root.
  *
  * The factory runs in Node.js while ttsc is loading `compilerOptions.plugins`.
  * It should only create the descriptor. Heavy validation and TypeScript-Go work

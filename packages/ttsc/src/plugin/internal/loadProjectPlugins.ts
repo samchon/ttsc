@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import { FIRST_PARTY_UTILITY_PLUGIN_NAMES } from "../../compiler/internal/sharedHostHelpers";
+import type { ITtscPluginContributor } from "../../structures/ITtscPluginContributor";
 import type { ITtscPlugin } from "../../structures/ITtscPlugin";
 import type { ITtscPluginFactoryContext } from "../../structures/ITtscPluginFactoryContext";
 import type { ITtscProjectPluginConfig } from "../../structures/ITtscProjectPluginConfig";
@@ -11,6 +11,8 @@ import type { TtscPluginStage } from "../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import { buildSourcePlugin } from "./buildSourcePlugin";
+
+const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
 type TtscPluginFactory<T = ITtscProjectPluginConfig> = (
   context: ITtscPluginFactoryContext<T>,
@@ -76,30 +78,105 @@ export function loadProjectPlugins(options: {
     ),
   );
 
-  const nativePlugins: ITtscLoadedNativePlugin[] = [];
   const ttscVersion = readTtscVersion();
   const tsgoVersion = readTsgoVersion(context.projectRoot);
-  plugins.forEach((plugin, index) => {
+  const records = plugins.map((plugin, index) => {
     const stage = resolvePluginStage(plugin);
     validatePluginSource(plugin);
     const contributors = validatePluginContributors(plugin);
-    const binary = buildSourcePlugin({
-      baseDir: context.projectRoot,
-      cacheDir: options.cacheDir,
+    const source = resolvePluginSource(plugin.source, context.projectRoot);
+    const kind = resolveNativeSourceKind(source, plugin, entries[index]!.config, index);
+    if (kind === "linked" && stage !== "transform") {
+      throw new Error(
+        `ttsc: plugin "${pluginLabel(plugin, entries[index]!.config, index)}" source is a linked Go package, but only transform-stage plugins can be linked into a compiler host`,
+      );
+    }
+    const linkedContributorName =
+      kind === "linked" ? `linked_${String(index).padStart(6, "0")}` : undefined;
+    return {
       contributors,
-      pluginName: plugin.name,
-      source: plugin.source,
-      ttscVersion,
-      tsgoVersion,
-    });
-    nativePlugins.push({
-      binary,
       config: entries[index]!.config,
-      contributors,
+      kind,
+      label: pluginLabel(plugin, entries[index]!.config, index),
+      linkedContributorName,
       name: plugin.name,
-      source: plugin.source,
+      source,
       stage,
-    });
+    };
+  });
+  const linkedContributors = records
+    .filter((record) => record.stage === "transform")
+    .flatMap((record) =>
+      record.kind === "linked"
+        ? [{ name: record.linkedContributorName!, source: record.source }]
+        : [],
+    );
+  const transformHosts = records.filter(
+    (record) => record.stage === "transform" && record.kind === "executable",
+  );
+  const hostContributors =
+    linkedContributors.length === 0 ? undefined : linkedContributors;
+  const builtTransformHosts = new Map<object, string>();
+  for (const record of transformHosts) {
+    builtTransformHosts.set(
+      record,
+      buildSourcePlugin({
+        baseDir: context.projectRoot,
+        cacheDir: options.cacheDir,
+        contributors: mergeContributors(record.contributors, hostContributors),
+        pluginName: record.label,
+        source: record.source,
+        ttscVersion,
+        tsgoVersion,
+      }),
+    );
+  }
+  const fallbackDriverHost =
+    transformHosts.length === 0 && linkedContributors.length !== 0
+      ? buildSourcePlugin({
+          baseDir: context.projectRoot,
+          cacheDir: options.cacheDir,
+          contributors: linkedContributors,
+          label: "linked plugin host",
+          pluginName: "linked-plugin-host",
+          source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+          ttscVersion,
+          tsgoVersion,
+        })
+      : undefined;
+  const selectedTransformHost =
+    transformHosts.length === 0
+      ? fallbackDriverHost
+      : builtTransformHosts.get(transformHosts[0]!);
+  const nativePlugins: ITtscLoadedNativePlugin[] = records.map((record) => {
+    const binary =
+      record.stage === "transform" && record.kind === "linked"
+        ? selectedTransformHost
+        : record.stage === "transform"
+          ? builtTransformHosts.get(record)
+          : buildSourcePlugin({
+              baseDir: context.projectRoot,
+              cacheDir: options.cacheDir,
+              contributors: record.contributors,
+              pluginName: record.label,
+              source: record.source,
+              ttscVersion,
+              tsgoVersion,
+            });
+    if (binary === undefined) {
+      throw new Error(
+        `ttsc: plugin "${record.label}" is a linked Go package, but no compiler host is available`,
+      );
+    }
+    return {
+      binary,
+      config: record.config,
+      contributors: record.contributors,
+      kind: record.kind,
+      name: record.name,
+      source: record.source,
+      stage: record.stage,
+    };
   });
   return {
     nativePlugins: orderNativePlugins(nativePlugins),
@@ -123,22 +200,6 @@ function composePluginSources(
         throw new Error(
           `ttsc: plugin "${plugin.name}" has an invalid "composes" target; ` +
             `targets must be non-empty plugin names or transform specifiers`,
-        );
-      }
-    }
-  }
-  // First-party utility plugin names are never legal composes targets for
-  // user / third-party plugins. The first-party shared compiler host has its
-  // own opt-in path through the manifest-pinned whitelist in
-  // `sharedHostHelpers.ts::isFirstPartyUtilityTransformPlugin`. Letting any
-  // descriptor borrow the binary of `@ttsc/banner` etc. would bypass that
-  // pin and turn `composes` into a supply-chain redirect vector.
-  for (const { plugin } of aggregates) {
-    for (const target of plugin.composes!) {
-      if (FIRST_PARTY_UTILITY_PLUGIN_NAMES.has(target)) {
-        throw new Error(
-          `ttsc: plugin "${plugin.name}" cannot compose first-party utility "${target}"; ` +
-            `first-party utility plugins are composed automatically through their shared compiler host`,
         );
       }
     }
@@ -484,11 +545,7 @@ function loadPluginEntry(
 }
 
 function isTtscPlugin(value: unknown): value is ITtscPlugin {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { name?: unknown }).name === "string"
-  );
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function rejectJsTransformFunctions(
@@ -523,8 +580,99 @@ function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
 
 function validatePluginSource(plugin: ITtscPlugin): void {
   if (typeof plugin.source !== "string" || plugin.source.length === 0) {
-    throw new Error(`ttsc: plugin "${plugin.name}" must declare source`);
+    throw new Error(`ttsc: plugin must declare source`);
   }
+}
+
+function pluginLabel(
+  plugin: ITtscPlugin,
+  config: ITtscProjectPluginConfig,
+  index: number,
+): string {
+  if (typeof plugin.name === "string" && plugin.name.length !== 0) {
+    return plugin.name;
+  }
+  if (typeof config.transform === "string" && config.transform.length !== 0) {
+    return config.transform;
+  }
+  return `#${index}`;
+}
+
+function resolvePluginSource(source: string, projectRoot: string): string {
+  return resolveRealPath(
+    path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
+  );
+}
+
+function resolveNativeSourceKind(
+  source: string,
+  plugin: ITtscPlugin,
+  config: ITtscProjectPluginConfig,
+  index: number,
+): "executable" | "linked" {
+  const packageDir = resolveGoPackageDir(source, pluginLabel(plugin, config, index));
+  if (findNearestGoMod(packageDir, GO_MOD_SEARCH_MAX_DEPTH) === null) {
+    throw new Error(
+      `ttsc: plugin "${pluginLabel(plugin, config, index)}" source must be inside a Go module with go.mod within ${GO_MOD_SEARCH_MAX_DEPTH} parent directories: ${source}`,
+    );
+  }
+  const packageName = readGoPackageName(packageDir);
+  if (packageName === null) {
+    throw new Error(
+      `ttsc: plugin "${pluginLabel(plugin, config, index)}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
+    );
+  }
+  return packageName === "main" ? "executable" : "linked";
+}
+
+function findNearestGoMod(from: string, maxDepth: number): string | null {
+  let current = path.resolve(from);
+  let depth = 0;
+  while (true) {
+    const candidate = path.join(current, "go.mod");
+    if (fs.existsSync(candidate)) return candidate;
+    if (depth >= maxDepth) return null;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+    depth += 1;
+  }
+}
+
+function resolveGoPackageDir(source: string, label: string): string {
+  if (!fs.existsSync(source)) {
+    throw new Error(`ttsc: plugin "${label}" source does not exist: ${source}`);
+  }
+  const stat = fs.statSync(source);
+  if (stat.isFile() && path.basename(source) === "go.mod") {
+    return path.dirname(source);
+  }
+  if (stat.isDirectory()) {
+    return source;
+  }
+  throw new Error(
+    `ttsc: plugin "${label}" source must be a Go package directory or go.mod file: ${source}`,
+  );
+}
+
+function readGoPackageName(dir: string): string | null {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (
+      !entry.isFile() ||
+      !entry.name.endsWith(".go") ||
+      entry.name.endsWith("_test.go")
+    ) {
+      continue;
+    }
+    const file = path.join(dir, entry.name);
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const match = /^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b/.exec(line);
+      if (match) {
+        return match[1]!;
+      }
+    }
+  }
+  return null;
 }
 
 const CONTRIBUTOR_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -594,6 +742,14 @@ function validatePluginContributors(
   return out;
 }
 
+function mergeContributors(
+  first: readonly ITtscPluginContributor[] | undefined,
+  second: readonly ITtscPluginContributor[] | undefined,
+): readonly ITtscPluginContributor[] | undefined {
+  const out = [...(first ?? []), ...(second ?? [])];
+  return out.length === 0 ? undefined : out;
+}
+
 function isPluginStage(value: string): value is TtscPluginStage {
   return value === "transform" || value === "check";
 }
@@ -651,7 +807,7 @@ function readTtscVersion(): string {
     return cachedTtscVersion;
   }
   try {
-    const file = path.resolve(__dirname, "..", "..", "..", "package.json");
+    const file = path.join(ttscPackageRoot(), "package.json");
     const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as {
       version?: string;
     };
@@ -660,6 +816,10 @@ function readTtscVersion(): string {
     cachedTtscVersion = "0.0.0";
   }
   return cachedTtscVersion;
+}
+
+function ttscPackageRoot(): string {
+  return path.resolve(__dirname, "..", "..", "..");
 }
 
 function readTsgoVersion(projectRoot: string): string {

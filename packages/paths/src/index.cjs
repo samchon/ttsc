@@ -6,7 +6,7 @@ const path = require("node:path");
 module.exports = function createTtscPaths() {
   return {
     name: "@ttsc/paths",
-    source: path.resolve(__dirname, "..", "plugin"),
+    source: path.resolve(__dirname, "..", "driver"),
     stage: "transform",
   };
 };

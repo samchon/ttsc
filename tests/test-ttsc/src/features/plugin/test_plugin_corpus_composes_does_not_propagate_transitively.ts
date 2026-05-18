@@ -68,5 +68,4 @@ export const test_plugin_corpus_composes_does_not_propagate_transitively =
       /multiple compiler native backends cannot share one emit pass/,
     );
     assert.doesNotMatch(result.stderr, /composes cycle detected/);
-    assert.doesNotMatch(result.stderr, /cannot compose first-party utility/);
   };

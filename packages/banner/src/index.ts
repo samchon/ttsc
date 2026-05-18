@@ -18,12 +18,15 @@ type TtscPluginFactoryContext<TConfig> = {
   tsconfig: string;
 };
 
+/**
+ * @internal
+ */
 export default function createTtscBanner(
   _context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
 ): TtscPluginDescriptor {
   return {
     name: "@ttsc/banner",
-    source: path.resolve(__dirname, "..", "plugin"),
+    source: path.resolve(__dirname, "..", "driver"),
     stage: "transform",
   };
 }

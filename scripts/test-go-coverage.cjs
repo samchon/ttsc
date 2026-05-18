@@ -132,7 +132,7 @@ function runUtilityPluginCoverage(name) {
         "test",
         "./test",
         "-covermode=atomic",
-        "-coverpkg=./plugin",
+        "-coverpkg=./plugin,./driver",
         `-coverprofile=${unitProfile}`,
       ],
       {
@@ -148,7 +148,7 @@ function runUtilityPluginCoverage(name) {
       cwd: packageDir,
       env: { ...goEnv(), GOWORK: goWork },
       label: `packages/${name} command coverage`,
-      requiredPaths: ["plugin/"],
+      requiredPaths: ["plugin/", "driver/"],
     });
     mergeCoverprofiles(coverprofile, [unitProfile, commandProfile]);
     assertFullCoverage(`packages/${name}`, coverprofile, {

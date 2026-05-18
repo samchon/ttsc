@@ -8,5 +8,4 @@
  */
 
 export * from "./TtscCompiler";
-export * from "./defineTtscPlugin";
 export * from "./structures/index";

@@ -7,24 +7,19 @@ import type { TtscPluginStage } from "./TtscPluginStage";
  * A JavaScript plugin entry in `compilerOptions.plugins[]` is only the loading
  * point. After ttsc resolves that JavaScript module, the module must return an
  * `ITtscPlugin` descriptor either directly, as `default`, as `plugin`, or from
- * `createTtscPlugin(context)`.
+ * a descriptor factory.
  *
- * The descriptor tells ttsc which Go command package implements the native
- * sidecar and where that sidecar participates in the TypeScript-Go pipeline.
- * ttsc then builds the Go source lazily with the bundled Go toolchain and
- * passes the original project plugin config to the sidecar through
- * `--plugins-json`.
+ * The descriptor tells ttsc which Go source package implements the native
+ * behavior and where it participates in the TypeScript-Go pipeline. ttsc then
+ * builds the Go source lazily with the bundled Go toolchain and passes the
+ * original project plugin config through `--plugins-json`.
  */
 export interface ITtscPlugin {
   /**
-   * Stable plugin name used in diagnostics, build messages, and native plugin
-   * manifests.
-   *
-   * Keep this stable across releases. Native sidecars and downstream tooling
-   * can use the name to select their own config from the ordered
-   * `--plugins-json` payload.
+   * Optional human-readable label used in diagnostics and build messages.
+   * Routing is never based on this value.
    */
-  name: string;
+  name?: string;
 
   /**
    * Go command package directory, or a `go.mod` file, that ttsc lazily builds.
@@ -101,4 +96,5 @@ export interface ITtscPlugin {
    *   unique within a single plugin build.
    */
   contributors?: ITtscPluginContributor[];
+
 }

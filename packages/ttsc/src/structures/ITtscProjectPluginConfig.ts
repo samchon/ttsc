@@ -34,8 +34,8 @@ export interface ITtscProjectPluginConfig {
    * resolution from that same directory.
    *
    * The loaded JavaScript module must export an {@link ITtscPlugin} descriptor
-   * or a `createTtscPlugin(context)` factory. The Go implementation itself is
-   * declared by the descriptor's {@link ITtscPlugin.source} field.
+   * or descriptor factory. The Go implementation itself is declared by the
+   * descriptor's {@link ITtscPlugin.source} field.
    */
   transform?: string;
 

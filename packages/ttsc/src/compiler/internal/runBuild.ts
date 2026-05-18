@@ -12,7 +12,11 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
-import { assertSharedHostCompatibility } from "./sharedHostHelpers";
+import {
+  assertSharedHostCompatibility,
+  linkedTransformPlugins,
+  selectSharedHostPlugin,
+} from "./sharedHostHelpers";
 
 /** Merge spawn env without clobbering unrelated vars. */
 function mergeEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -27,14 +31,22 @@ function mergeEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 function nativePluginEnv(
   extra: NodeJS.ProcessEnv | undefined,
   execution: ReturnType<typeof resolveExecutionContext>,
+  plugin?: ITtscLoadedNativePlugin,
 ): NodeJS.ProcessEnv {
-  return mergeEnv({
+  const env = mergeEnv({
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? execution.tsgo.binary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??
       path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
     ...extra,
   });
+  if (plugin?.stage === "transform") {
+    const linked = linkedTransformPlugins(execution.nativePlugins);
+    if (linked.length !== 0) {
+      env.TTSC_LINKED_PLUGINS_JSON = serializeNativePlugins(linked);
+    }
+  }
+  return env;
 }
 
 function spawnBinary(
@@ -192,8 +204,9 @@ function buildWithNativeCompilerPlugins(
   execution: ReturnType<typeof resolveExecutionContext>,
   plugins: readonly ITtscLoadedNativePlugin[],
 ): TtscBuildResult {
+  const host = selectSharedHostPlugin(plugins);
   return runNativePluginCommand(
-    plugins[0]!,
+    host,
     createNativeBuildArgs(execution, options, plugins),
     options,
     execution,
@@ -405,7 +418,7 @@ function runNativePluginCommand(
 ): TtscBuildResult {
   const res = spawnBinary(plugin.binary, args, {
     cwd: execution.projectRoot,
-    env: nativePluginEnv(options.env, execution),
+    env: nativePluginEnv(options.env, execution, plugin),
     encoding: "utf8",
   });
   if (res.error) {

@@ -21,6 +21,7 @@
   },
   "files": [
     "README.md",
+    "driver/strip.go",
     "src/index.cjs",
     "go.mod",
     "plugin/main.go",
