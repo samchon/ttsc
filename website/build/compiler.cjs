@@ -87,47 +87,52 @@ const force =
 //   • packages/wasm — the host helper.
 //   • packages/ttsc — the compiler + driver.
 //   • packages/lint/linthost + rule — the lint engine the playground exposes.
-//   • node_modules/.pnpm/typia*/native/adapter — typia's wasm adapter Go.
-// We also fold typia's package.json version into the cache key so a bump
-// (lockfile change) busts cache even if the adapter Go source didn't move.
-const TYPIA_PKG_JSON = path.join(
-  ROOT,
-  "compiler-dependencies",
-  "node_modules",
-  "typia",
-  "package.json",
-);
-let typiaPkgVersion = "unknown";
-try {
-  typiaPkgVersion = JSON.parse(fs.readFileSync(TYPIA_PKG_JSON, "utf8")).version;
-} catch {
-  /* compiler-dependencies may not be installed yet on a fresh checkout */
-}
-const TYPIA_NATIVE_ADAPTER = (() => {
+//   • typia/native/adapter — typia's wasm adapter Go (resolved through the
+//     same go.mod replace the compiler module uses, so the cache key tracks
+//     the EXACT typia install the wasm is compiled against, not a different
+//     install that happens to share a major version).
+//
+// Resolve the typia install in the same priority order go.mod uses (see
+// website/compiler/go.mod `replace github.com/samchon/typia/... =>
+// ../node_modules/typia/native`). website/node_modules wins; pnpm virtual
+// store comes second; compiler-dependencies/ is the last fallback.
+const resolvePackagePathForCacheKey = (packageName) => {
   const candidates = [
-    path.join(ROOT, "compiler-dependencies", "node_modules", "typia", "native", "adapter"),
-    path.join(REPO_ROOT, "node_modules", "typia", "native", "adapter"),
+    path.join(ROOT, "node_modules", ...packageName.split("/")),
   ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  // Fall back: walk node_modules/.pnpm for the first typia/native/adapter.
   const pnpmStore = path.join(REPO_ROOT, "node_modules", ".pnpm");
   if (fs.existsSync(pnpmStore)) {
     for (const entry of fs.readdirSync(pnpmStore)) {
-      const candidate = path.join(
-        pnpmStore,
-        entry,
-        "node_modules",
-        "typia",
-        "native",
-        "adapter",
-      );
-      if (fs.existsSync(candidate)) return candidate;
+      candidates.push(path.join(pnpmStore, entry, "node_modules", ...packageName.split("/")));
     }
   }
+  candidates.push(
+    path.join(ROOT, "compiler-dependencies", "node_modules", ...packageName.split("/")),
+  );
+  for (const c of candidates) {
+    try {
+      const real = fs.realpathSync(c);
+      if (fs.existsSync(path.join(real, "package.json"))) return real;
+    } catch { /* keep trying */ }
+  }
   return null;
-})();
+};
+
+const TYPIA_ROOT = resolvePackagePathForCacheKey("typia");
+let typiaPkgVersion = "unknown";
+if (TYPIA_ROOT) {
+  try {
+    typiaPkgVersion = JSON.parse(fs.readFileSync(path.join(TYPIA_ROOT, "package.json"), "utf8")).version;
+  } catch {
+    /* fresh checkout — leave as "unknown" */
+  }
+}
+const TYPIA_NATIVE_ADAPTER = TYPIA_ROOT
+  ? (() => {
+      const adapter = path.join(TYPIA_ROOT, "native", "adapter");
+      return fs.existsSync(adapter) ? adapter : null;
+    })()
+  : null;
 const wasmSourceMtime = Math.max(
   newestMtime(COMPILER_DIR),
   newestMtime(path.join(REPO_ROOT, "packages", "wasm")),

@@ -139,6 +139,17 @@ export interface IWasmExecFS {
     length: number,
     callback: (err: NodeJS.ErrnoException | null) => void,
   ): void;
+  // pipe2 is what Go's wasm `os.Pipe()` calls. Returns two fds: a read end
+  // and a write end. Used by the playground's host.runWithCapturedIO to
+  // capture plugin stdout/stderr; without it the plugin's typia transform
+  // output (multi-hundred-KB JSON) silently vanishes and Execute fails.
+  pipe2(
+    flags: number,
+    callback: (
+      err: NodeJS.ErrnoException | null,
+      fds: [number, number],
+    ) => void,
+  ): void;
 }
 
 export interface IFileStats {
@@ -241,6 +252,55 @@ export function createMemFS(): IMemFSHost {
   // Reserve 1/2 for stdout/stderr writeSync routing.
   fdTable.set(1, { path: "/dev/stdout", position: 0, isStdout: true });
   fdTable.set(2, { path: "/dev/stderr", position: 0, isStderr: true });
+
+  // Pipe state. fs.pipe2 mints a pair of fds backed by a shared queue;
+  // writes append, reads consume. The state is keyed by fd so a single Map
+  // lookup in read/write/close can detect "this is a pipe end" without
+  // changing the existing fdTable entries.
+  interface IPipeState {
+    buffers: Uint8Array[];
+    pendingReaders: Array<{
+      buffer: Uint8Array;
+      offset: number;
+      length: number;
+      callback: (err: NodeJS.ErrnoException | null, n: number) => void;
+    }>;
+    readFd: number;
+    writeFd: number;
+    writeClosed: boolean;
+  }
+  const pipes = new Map<number, IPipeState>();
+
+  function drainPipeInto(
+    state: IPipeState,
+    buffer: Uint8Array,
+    offset: number,
+    length: number,
+  ): number {
+    let written = 0;
+    while (state.buffers.length > 0 && written < length) {
+      const chunk = state.buffers[0]!;
+      const copyLen = Math.min(chunk.byteLength, length - written);
+      buffer.set(chunk.subarray(0, copyLen), offset + written);
+      written += copyLen;
+      if (copyLen >= chunk.byteLength) state.buffers.shift();
+      else state.buffers[0] = chunk.subarray(copyLen);
+    }
+    return written;
+  }
+
+  function flushPipeReaders(state: IPipeState): void {
+    while (
+      state.pendingReaders.length > 0 &&
+      (state.buffers.length > 0 || state.writeClosed)
+    ) {
+      const reader = state.pendingReaders.shift()!;
+      const n = drainPipeInto(state, reader.buffer, reader.offset, reader.length);
+      // Even at EOF (writeClosed && empty buffers) we satisfy with n=0 which
+      // signals EOF to the Go-side caller.
+      reader.callback(null, n);
+    }
+  }
 
   function ensureParentDirs(p: string): void {
     const segments = normalize(p).split("/").filter(Boolean);
@@ -354,19 +414,72 @@ export function createMemFS(): IMemFSHost {
     },
 
     writeSync(fd, buf) {
-      const text = decoder.decode(buf);
       if (fd === 1) {
-        stdout.buffer += text;
-      } else if (fd === 2) {
-        stderr.buffer += text;
-      } else {
-        stderr.buffer += text;
+        stdout.buffer += decoder.decode(buf);
+        return buf.length;
       }
+      if (fd === 2) {
+        const text = decoder.decode(buf);
+        stderr.buffer += text;
+        // Surface wasm-side stderr to the host console in real-time so plugin
+        // debug prints / Go panics aren't trapped inside the MemFS buffer.
+        // Stripped at end of message for cleaner display.
+        const line = text.replace(/\n$/, "");
+        if (line.length > 0)
+          // eslint-disable-next-line no-console
+          console.error("[wasm]", line);
+        return buf.length;
+      }
+      // Open-file fds (>= 100): append to the underlying file. This is the
+      // path the wasm host's runWithCapturedIO uses to capture plugin
+      // stdout/stderr via /tmp/* temp files (os.Pipe is not implemented on
+      // js/wasm so we mirror its semantics via files).
+      const entry = fdTable.get(fd);
+      if (entry) {
+        const node = nodes.get(entry.path);
+        if (node && node.kind === "file") {
+          const incoming = buf.subarray(0);
+          const existing = node.data;
+          const next = new Uint8Array(existing.byteLength + incoming.byteLength);
+          next.set(existing, 0);
+          next.set(incoming, existing.byteLength);
+          node.data = next;
+          node.mtimeMs = Date.now();
+          entry.position = next.byteLength;
+          return incoming.byteLength;
+        }
+      }
+      // Unknown fd. Fall back to the stderr buffer so the bytes aren't lost
+      // entirely (and surface as a console.error so the regression is
+      // visible to whoever's looking).
+      stderr.buffer += decoder.decode(buf);
+      // eslint-disable-next-line no-console
+      console.error(
+        "[wasm] writeSync to unknown fd " + fd + " (" + buf.byteLength + " bytes); routed to stderr buffer",
+      );
       return buf.length;
     },
 
     write(fd, buf, offset, length, position, callback) {
       try {
+        // Pipe write: snapshot the data (caller may reuse `buf`) and queue.
+        // Synchronously wake any blocked reader so the cooperative wasm
+        // scheduler doesn't deadlock waiting for a future fs roundtrip.
+        const pipeState = pipes.get(fd);
+        if (pipeState) {
+          if (fd !== pipeState.writeFd) {
+            callback(new MemFSError("EBADF", "write"), 0);
+            return;
+          }
+          if (length > 0) {
+            const copy = new Uint8Array(length);
+            copy.set(buf.subarray(offset, offset + length));
+            pipeState.buffers.push(copy);
+            flushPipeReaders(pipeState);
+          }
+          callback(null, length);
+          return;
+        }
         if (position !== null && position !== 0) {
           callback(new MemFSError("ESPIPE", "write"), 0);
           return;
@@ -408,6 +521,16 @@ export function createMemFS(): IMemFSHost {
     },
 
     close(fd, callback) {
+      const pipeState = pipes.get(fd);
+      if (pipeState) {
+        if (fd === pipeState.writeFd) {
+          pipeState.writeClosed = true;
+          flushPipeReaders(pipeState);
+        }
+        pipes.delete(fd);
+        callback(null);
+        return;
+      }
       if (!fdTable.has(fd)) {
         callback(new MemFSError("EBADF", "close"));
         return;
@@ -417,6 +540,26 @@ export function createMemFS(): IMemFSHost {
     },
 
     read(fd, buffer, offset, length, position, callback) {
+      // Pipe read: drain queued chunks; block (defer callback) on empty.
+      // Empty + writeClosed → return 0 (EOF). Position is ignored for pipes.
+      const pipeState = pipes.get(fd);
+      if (pipeState) {
+        if (fd !== pipeState.readFd) {
+          callback(new MemFSError("EBADF", "read"), 0);
+          return;
+        }
+        if (pipeState.buffers.length > 0) {
+          const n = drainPipeInto(pipeState, buffer, offset, length);
+          callback(null, n);
+          return;
+        }
+        if (pipeState.writeClosed) {
+          callback(null, 0);
+          return;
+        }
+        pipeState.pendingReaders.push({ buffer, offset, length, callback });
+        return;
+      }
       const entry = fdTable.get(fd);
       if (!entry) {
         callback(new MemFSError("EBADF", "read"), 0);
@@ -465,6 +608,16 @@ export function createMemFS(): IMemFSHost {
     },
 
     fstat(fd, callback) {
+      // fstat against a pipe end returns a synthetic file-stat. Go's
+      // os.Pipe-backed File uses fstat at construction time to populate
+      // Stat_t; without this it errors and falls back to invalid fds.
+      if (pipes.has(fd)) {
+        callback(
+          null,
+          makeStats({ kind: "file", data: new Uint8Array(), mtimeMs: Date.now() }),
+        );
+        return;
+      }
       const entry = fdTable.get(fd);
       if (!entry) {
         callback(
@@ -546,6 +699,20 @@ export function createMemFS(): IMemFSHost {
     },
     ftruncate(_fd, _length, callback) {
       callback(null);
+    },
+    pipe2(_flags, callback) {
+      const readFd = nextFd++;
+      const writeFd = nextFd++;
+      const state: IPipeState = {
+        buffers: [],
+        pendingReaders: [],
+        readFd,
+        writeFd,
+        writeClosed: false,
+      };
+      pipes.set(readFd, state);
+      pipes.set(writeFd, state);
+      callback(null, [readFd, writeFd]);
     },
   };
 
