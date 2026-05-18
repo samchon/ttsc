@@ -29,12 +29,17 @@ export class TtscserverClient {
   }>;
 
   constructor(binary: string, cwd: string) {
+    const tsgoBinary =
+      process.env.TTSC_TSGO_BINARY ??
+      resolveTsgo({
+        cwd,
+        resolveFrom: path.join(ttscPackageRoot(), "package.json"),
+      }).binary;
     this.child = spawn(binary, ["--stdio", "--cwd", cwd], {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
         ...process.env,
-        TTSC_TSGO_BINARY:
-          process.env.TTSC_TSGO_BINARY ?? resolveTsgo({ cwd }).binary,
+        TTSC_TSGO_BINARY: tsgoBinary,
       },
       windowsHide: true,
     });
@@ -43,7 +48,14 @@ export class TtscserverClient {
     });
     this.child.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
     this.exited = new Promise((resolve) => {
-      this.child.on("close", (code, signal) => resolve({ code, signal }));
+      this.child.on("close", (code, signal) => {
+        this.rejectPending(
+          new Error(
+            `ttscserver exited before response (code=${code}, signal=${signal})`,
+          ),
+        );
+        resolve({ code, signal });
+      });
     });
   }
 
@@ -161,6 +173,13 @@ export class TtscserverClient {
         }
       }
     }
+  }
+
+  private rejectPending(error: Error): void {
+    for (const pending of this.pending.values()) {
+      pending.reject(error);
+    }
+    this.pending.clear();
   }
 }
 
