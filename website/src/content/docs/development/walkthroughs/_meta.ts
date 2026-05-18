@@ -2,9 +2,9 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  concepts: "Concepts",
-  walkthroughs: "Walkthroughs",
-  authoring: "Authoring",
-  reference: "Reference",
+  banner: "@ttsc/banner",
+  strip: "@ttsc/strip",
+  paths: "@ttsc/paths",
+  lint: "@ttsc/lint",
 };
 export default meta;
