@@ -57,6 +57,34 @@ const GO_BUILD_ENV_KEYS: readonly string[] = [
   "GOTOOLCHAIN",
   "GOROOT",
 ];
+const GO_BUILD_COMMAND_ENV_KEYS = new Set([
+  "AR",
+  "CC",
+  "CXX",
+  "FC",
+  "GCCGO",
+  "PKG_CONFIG",
+]);
+const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
+  "CPATH",
+  "C_INCLUDE_PATH",
+  "CPLUS_INCLUDE_PATH",
+  "DYLD_LIBRARY_PATH",
+  "INCLUDE",
+  "LD_LIBRARY_PATH",
+  "LIB",
+  "LIBRARY_PATH",
+  "LIBPATH",
+  "MACOSX_DEPLOYMENT_TARGET",
+  "OBJC_INCLUDE_PATH",
+  "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS",
+  "PKG_CONFIG_ALLOW_SYSTEM_LIBS",
+  "PKG_CONFIG_LIBDIR",
+  "PKG_CONFIG_PATH",
+  "PKG_CONFIG_SYSROOT_DIR",
+  "PKG_CONFIG_TOP_BUILD_DIR",
+  "SDKROOT",
+];
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 const CONTRIB_DIRNAME = "contrib";
 const GLOBAL_CACHE_DIRNAME = "ttsc";
@@ -68,7 +96,6 @@ const GLOBAL_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const GLOBAL_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 const GLOBAL_CACHE_TARGET_BYTES = Math.floor(GLOBAL_CACHE_MAX_BYTES * 0.8);
 const GLOBAL_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
-const GO_ROOT_IDENTITY_CACHE = new Map<string, string>();
 
 /** One contributor's resolved Go source plus its target sub-package name. */
 export interface ITtscBuildContributor {
@@ -869,6 +896,7 @@ export function computeCacheKey(inputs: {
     hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary)}\n`);
   }
   hashGoBuildEnvironment(hash, inputs.goBinary, inputs.dir);
+  hashExternalGoBuildEnvironment(hash);
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir);
@@ -974,7 +1002,7 @@ function resolveExecutableIdentityPath(binary: string): string {
   if (binary.includes(path.sep)) {
     return resolveRealPath(path.resolve(binary));
   }
-  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+  for (const dir of readPathEnvironment().split(path.delimiter)) {
     if (dir.length === 0) continue;
     const candidate = path.join(dir, binary);
     if (fs.existsSync(candidate)) {
@@ -988,6 +1016,10 @@ function resolveExecutableIdentityPath(binary: string): string {
     }
   }
   return binary;
+}
+
+function readPathEnvironment(): string {
+  return process.env.PATH ?? process.env.Path ?? "";
 }
 
 function resolveRealPath(location: string): string {
@@ -1057,17 +1089,57 @@ function resolveGoBuildEnvironment(
 }
 
 function normalizeGoBuildEnvValue(key: string, value: string): string {
-  return key === "GOROOT" ? resolveGoRootCacheIdentity(value) : value;
+  if (key === "GOROOT") {
+    return resolveGoRootCacheIdentity(value);
+  }
+  if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
+    return `${value}\0${resolveCommandCacheIdentity(value)}`;
+  }
+  return value;
+}
+
+function resolveCommandCacheIdentity(command: string): string {
+  const executable = firstCommandToken(command);
+  if (executable === null) {
+    return "command:empty";
+  }
+  const resolved = resolveExecutableIdentityPath(executable);
+  if (!fs.existsSync(resolved)) {
+    return `command:missing:${executable}`;
+  }
+  try {
+    return `command:sha256:${hashFile(resolved)}`;
+  } catch {
+    return `command:unreadable:${resolved}`;
+  }
+}
+
+function firstCommandToken(command: string): string | null {
+  const trimmed = command.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  const quote = trimmed[0];
+  if (quote === "'" || quote === '"') {
+    const end = trimmed.indexOf(quote, 1);
+    return end === -1 ? trimmed.slice(1) : trimmed.slice(1, end);
+  }
+  return trimmed.split(/\s+/)[0] ?? null;
+}
+
+function hashExternalGoBuildEnvironment(hash: crypto.Hash): void {
+  for (const key of EXTERNAL_GO_BUILD_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && value !== "") {
+      hash.update(`${key}=${value}\n`);
+    }
+  }
 }
 
 function resolveGoRootCacheIdentity(goRoot: string): string {
   const resolved = resolveRealPath(goRoot);
   if (!fs.existsSync(resolved)) {
     return `missing:${goRoot}`;
-  }
-  const cached = GO_ROOT_IDENTITY_CACHE.get(resolved);
-  if (cached !== undefined) {
-    return cached;
   }
   const hash = crypto.createHash("sha256");
   for (const file of collectGoRootIdentityFiles(resolved)) {
@@ -1076,9 +1148,7 @@ function resolveGoRootCacheIdentity(goRoot: string): string {
     hash.update(fs.readFileSync(file));
     hash.update("\n");
   }
-  const identity = `sha256:${hash.digest("hex")}`;
-  GO_ROOT_IDENTITY_CACHE.set(resolved, identity);
-  return identity;
+  return `sha256:${hash.digest("hex")}`;
 }
 
 function collectGoRootIdentityFiles(root: string): string[] {

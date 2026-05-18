@@ -91,16 +91,20 @@ export class TtscCompiler {
       return removeExistingDirectories([cacheDir]);
     }
 
-    const envCacheDir =
-      this.context.env?.TTSC_CACHE_DIR ?? process.env.TTSC_CACHE_DIR;
     const projectRoot = this.resolveCleanProjectRoot();
     const legacyTargets = [
       path.join(projectRoot, "node_modules", ".ttsc"),
       path.join(projectRoot, ".ttsc"),
     ];
-    if (envCacheDir) {
+    if (this.context.env?.TTSC_CACHE_DIR) {
       return removeExistingDirectories([
-        path.resolve(envCacheDir, "plugins"),
+        path.resolve(projectRoot, this.context.env.TTSC_CACHE_DIR, "plugins"),
+        ...legacyTargets,
+      ]);
+    }
+    if (process.env.TTSC_CACHE_DIR) {
+      return removeExistingDirectories([
+        path.resolve(process.env.TTSC_CACHE_DIR, "plugins"),
         ...legacyTargets,
       ]);
     }
