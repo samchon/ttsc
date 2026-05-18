@@ -10,18 +10,7 @@ It builds on [`typia`](/docs/plugins/typia): every payload validator, every JSON
 npm install -D ttsc @typescript/native-preview typia @nestia/core @nestia/sdk
 ```
 
-Wire the transformers into `tsconfig.json`:
-
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      { "transform": "typia/lib/transform" },
-      { "transform": "@nestia/core/lib/transform" }
-    ]
-  }
-}
-```
+That's it. Both `typia` and `@nestia/core` ship the `ttsc.plugin` auto-discovery marker, so `ttsc` picks them up the moment they appear in `dependencies` / `devDependencies` — no `compilerOptions.plugins[]` entry needed.
 
 Run `ttsc --emit` (or any `ttsc` / `ttsx` / unplugin bundler). The build replaces `@nestia/core` decorators with type-aware validators and serializers, and the `nestia` CLI consumes the same TypeScript types to generate SDKs and docs.
 
@@ -53,9 +42,9 @@ The runtime decorators (`@TypedBody`, `@TypedRoute.*`, `@TypedParam`, `@TypedQue
 
 ## Why `ttsc`
 
-`@nestia/core` is a TypeScript compiler transformer (it rewrites decorator calls at compile time), and `typia` is too. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts. Wire both transforms into `compilerOptions.plugins[]` and `ttsc` resolves, builds, and caches each sidecar, then routes the TypeScript-Go AST through them in order.
+`@nestia/core` is a TypeScript compiler transformer (it rewrites decorator calls at compile time), and `typia` is too. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts. Both packages are auto-discovered from `package.json` (no `compilerOptions.plugins[]` entry needed) — `ttsc` resolves, builds, and caches each sidecar, then routes the TypeScript-Go AST through them in order.
 
-The full pipeline runs everywhere `ttsc` runs — `ttsc --emit`, `ttsx`, the VS Code extension, every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter. One install, one config; the transforms fire wherever NestJS code is compiled.
+The full pipeline runs everywhere `ttsc` runs — `ttsc --emit`, `ttsx`, the VS Code extension, every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter. One install; the transforms fire wherever NestJS code is compiled.
 
 ## Combine with other ttsc plugins
 

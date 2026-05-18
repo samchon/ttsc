@@ -10,17 +10,9 @@ It is the canonical third-party `ttsc` plugin: same protocol, same `compilerOpti
 npm install -D ttsc @typescript/native-preview typia
 ```
 
-Wire it into `tsconfig.json`:
+That's it. `typia` ships the `ttsc.plugin` auto-discovery marker in its `package.json`, so `ttsc` picks it up the moment you list it in `dependencies` / `devDependencies` — no `compilerOptions.plugins[]` entry needed.
 
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [{ "transform": "typia/lib/transform" }]
-  }
-}
-```
-
-Run `ttsc --emit` (or any `ttsc` / `ttsx` / unplugin bundler that runs `ttsc` plugins). On every build, `typia.*` calls in your code are replaced with optimized, type-aware Go-generated functions.
+Run `ttsc --emit` (or any `ttsc` / `ttsx` / unplugin bundler that runs `ttsc` plugins). On every build, `typia.*` calls in your code are replaced with optimized, type-aware generated functions.
 
 ## What it does
 
@@ -52,7 +44,7 @@ Every transform reads the actual TypeScript type — there is no separate schema
 
 ## Why `ttsc`
 
-`typia` is a TypeScript compiler transformer. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts (along with `ts-patch`). On the `ttsc` side, typia is just another plugin entry in `compilerOptions.plugins[]` — `ttsc` resolves the package, builds and caches typia's compiled sidecar, and routes the TypeScript-Go AST through it before emit.
+`typia` is a TypeScript compiler transformer. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts (along with `ts-patch`). On the `ttsc` side, `typia` is auto-discovered from `package.json` (no `compilerOptions.plugins[]` entry needed) — `ttsc` resolves the package, builds and caches `typia`'s compiled sidecar, and routes the TypeScript-Go AST through it before emit.
 
 `typia` works in every place `ttsc` runs:
 
