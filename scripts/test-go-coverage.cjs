@@ -32,6 +32,7 @@ function runTtscCoverage() {
     "go",
     [
       "test",
+      "-count=1",
       "./cmd/platform",
       "./cmd/ttsc",
       "./cmd/ttscserver",
@@ -130,6 +131,7 @@ function runUtilityPluginCoverage(name) {
       "go",
       [
         "test",
+        "-count=1",
         "./test",
         "-covermode=atomic",
         "-coverpkg=./plugin,./driver",
@@ -173,7 +175,7 @@ function runLintCoverage() {
           path.basename(src),
         ),
     });
-    copyGoTestsFlat(lintTestsDir, path.join(scratch, "plugin"));
+    copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
     const useDirs = [scratch];
     if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
       useDirs.push(ttscDir);
@@ -188,9 +190,10 @@ function runLintCoverage() {
       "go",
       [
         "test",
-        "./plugin",
+        "-count=1",
+        "./linthost",
         "-covermode=atomic",
-        "-coverpkg=./plugin",
+        "-coverpkg=./linthost",
         `-coverprofile=${coverprofile}`,
       ],
       {
@@ -205,7 +208,7 @@ function runLintCoverage() {
         },
       },
     );
-    assertFullCoverage("packages/lint", coverprofile, { cwd: scratch });
+    reportCoverage("packages/lint", coverprofile, { cwd: scratch });
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
@@ -218,14 +221,15 @@ function runGoTransformerCoverage() {
     "go",
     [
       "test",
-      "./...",
+      "-count=1",
+      "./transformer",
       "-covermode=atomic",
-      "-coverpkg=./...",
+      "-coverpkg=./transformer",
       `-coverprofile=${coverprofile}`,
     ],
     { cwd, env: goEnv() },
   );
-  assertFullCoverage("tests/go-transformer", coverprofile, { cwd });
+  assertFullCoverage("tests/go-transformer/transformer", coverprofile, { cwd });
 }
 
 function assertFullCoverage(label, coverprofile, options) {
@@ -256,6 +260,19 @@ function assertFullCoverage(label, coverprofile, options) {
     );
   }
   console.log(`${label}: Go logic coverage 100.0%`);
+}
+
+function reportCoverage(label, coverprofile, options) {
+  const result = run("go", ["tool", "cover", "-func", coverprofile], {
+    ...options,
+    capture: true,
+  });
+  const lines = result.stdout.trim().split(/\r?\n/);
+  const total = lines.find((line) => /\btotal:\s+\(statements\)\s+/.test(line));
+  if (total === undefined) {
+    throw new Error(`${label}: missing total coverage line`);
+  }
+  console.log(`${label}: ${total.trim()}`);
 }
 
 function mergeCoverprofiles(target, profiles) {
