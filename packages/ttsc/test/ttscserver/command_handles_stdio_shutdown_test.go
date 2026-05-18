@@ -1,7 +1,7 @@
 package ttscserver_test
 
 import (
-  "testing"
+	"testing"
 )
 
 // TestTtscserverCommandHandlesStdioShutdown verifies that when the editor
@@ -12,8 +12,8 @@ import (
 // 1. Run ttscserver --stdio with an empty stdin (closed immediately).
 // 2. Assert exit code 0.
 func TestTtscserverCommandHandlesStdioShutdown(t *testing.T) {
-  code, _, errOut := runTtscserverWithStdin(t, "", "--stdio", "--cwd", t.TempDir())
-  if code != 0 {
-    t.Fatalf("expected clean exit, got %d (stderr=%q)", code, errOut)
-  }
+	code, _, errOut := runTtscserverWithStdin(t, "", "--stdio", "--cwd", t.TempDir())
+	if code != 0 {
+		t.Fatalf("expected clean exit, got %d (stderr=%q)", code, errOut)
+	}
 }

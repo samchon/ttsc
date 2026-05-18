@@ -1,9 +1,9 @@
 package driver
 
 import (
-  "encoding/json"
+	"encoding/json"
 
-  "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
+	"github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
 type LSPPosition = lspserver.LSPPosition
@@ -11,10 +11,10 @@ type LSPRange = lspserver.LSPRange
 type LSPDiagnosticSeverity = lspserver.LSPDiagnosticSeverity
 
 const (
-  LSPDiagnosticSeverityError       = lspserver.LSPDiagnosticSeverityError
-  LSPDiagnosticSeverityWarning     = lspserver.LSPDiagnosticSeverityWarning
-  LSPDiagnosticSeverityInformation = lspserver.LSPDiagnosticSeverityInformation
-  LSPDiagnosticSeverityHint        = lspserver.LSPDiagnosticSeverityHint
+	LSPDiagnosticSeverityError       = lspserver.LSPDiagnosticSeverityError
+	LSPDiagnosticSeverityWarning     = lspserver.LSPDiagnosticSeverityWarning
+	LSPDiagnosticSeverityInformation = lspserver.LSPDiagnosticSeverityInformation
+	LSPDiagnosticSeverityHint        = lspserver.LSPDiagnosticSeverityHint
 )
 
 type LSPDiagnostic = lspserver.LSPDiagnostic
@@ -56,5 +56,5 @@ var RunLSPServer = lspserver.RunLSPServer
 var DenyNpmInstall = lspserver.DenyNpmInstall
 
 func idKeyFromRaw(raw json.RawMessage) string {
-  return lspserver.IDKeyFromRaw(raw)
+	return lspserver.IDKeyFromRaw(raw)
 }
