@@ -11,8 +11,8 @@ export default function TtscLandingMovie() {
   return (
     <div className="ttsc-landing text-white bg-neutral-950 min-h-screen">
       <Hero />
-      <LintAsCompileError />
       <RestOfToolchain />
+      <LintAsCompileError />
       <PluginEcosystem />
       <InTheBrowser />
       <Footer />

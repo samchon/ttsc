@@ -8,6 +8,7 @@ const LEARN = [
 
 const USE = [
   { name: "Compiler (ttsc)", href: "/docs/ttsc/compile" },
+  { name: "Runner (ttsx)", href: "/docs/ttsc/execute" },
   { name: "Lint & Prettier", href: "/docs/lint" },
   { name: "Plugin Ecosystem", href: "/docs/plugins" },
   { name: "Playground", href: "/playground" },
@@ -31,7 +32,7 @@ export default function Footer() {
               ttsc
             </p>
             <p className="text-xs text-neutral-500 leading-relaxed">
-              A TypeScript-Go toolchain.
+              TypeScript-Go compiler, runner, lint, and plugin host.
             </p>
             <p className="text-[11px] text-neutral-600 mt-4 font-mono tracking-wider">
               From the author of{" "}

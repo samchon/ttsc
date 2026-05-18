@@ -16,6 +16,9 @@
 :has(.ttsc-landing) .nextra-breadcrumb {
   display: none !important;
 }
+:has(.ttsc-landing) nextjs-portal {
+  display: none !important;
+}
 
 /* ── Playground page: hide Nextra chrome ── */
 .ttsc-playground-page .nextra-sidebar-container,
@@ -50,6 +53,12 @@
 }
 
 @keyframes ttscBlinkCursor {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
