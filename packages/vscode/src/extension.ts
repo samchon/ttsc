@@ -113,9 +113,10 @@ function resolveTsgoBinary(base: string): string | undefined {
  * untitled) are skipped because their `fsPath` is synthetic and would walk the
  * entire filesystem root. Workspace folders come next. If both lists are empty
  * (single file opened with no workspace) the function returns an empty slice so
- * the caller falls through to the bare-module branch; pushing `process.cwd()`
- * is not useful because the VSCode extension-host cwd is `/`, the install dir,
- * or `C:\Windows\System32` depending on platform — never the user's project.
+ * `activate` can report the missing project-local ttsc installation. Pushing
+ * `process.cwd()` is not useful because the VSCode extension-host cwd is `/`,
+ * the install dir, or `C:\Windows\System32` depending on platform, never the
+ * user's project.
  */
 function collectResolutionBases(): string[] {
   const bases: string[] = [];

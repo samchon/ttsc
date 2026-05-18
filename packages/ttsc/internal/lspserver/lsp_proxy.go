@@ -114,7 +114,7 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
 			}
 			continue
 		}
-		handled, handleErr := p.handleEditorEnvelope(env, body)
+		handled, handleErr := p.handleEditorEnvelope(env)
 		if handleErr != nil {
 			return handleErr
 		}
@@ -139,7 +139,7 @@ func (p *Proxy) closeUpstreamInput() {
 
 // handleEditorEnvelope returns true if the envelope was fully processed
 // locally (responded to without forwarding upstream).
-func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
+func (p *Proxy) handleEditorEnvelope(env Envelope) (bool, error) {
 	switch env.Method {
 	case methodExecuteCommand:
 		if env.IsRequest() {

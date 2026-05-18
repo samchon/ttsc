@@ -116,7 +116,7 @@ type PluginSource interface {
 	CodeActions(uri string, rng LSPRange, ctx LSPCodeActionContext) []LSPCodeAction
 
 	// ExecuteCommand handles workspace/executeCommand requests whose
-	// command id ttsc owns (CommandIDs reports the prefix). A nil edit
+	// command id appears in CommandIDs. A nil edit
 	// means the command ran but produced no workspace changes; a non-nil
 	// error surfaces as an LSP error response.
 	ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error)
