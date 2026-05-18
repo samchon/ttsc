@@ -177,19 +177,7 @@ For Checker-using plugins, the bootstrap inside the fixture's `plugin/main.go` s
 
 ## Direct-shell smoke
 
-The `--plugins-json` flag is part of the public protocol (see [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json)). The host serializes the active plugin descriptors as a JSON array — `check` plugins first, then `transform` — and each entry carries `{config, name, stage}`. `config` is the consumer's tsconfig entry passed through verbatim (including any `transform` or `enabled` keys; plugins should ignore those — ttsc owns them).
-
-```json
-[
-  {
-    "config": { "header": "// generated" },
-    "name": "@ttsc/banner",
-    "stage": "transform"
-  }
-]
-```
-
-Smoke from a Go test by shelling your binary directly with a hand-constructed manifest:
+For smoke tests that shell the plugin binary directly with a hand-built `--plugins-json` array (the manifest shape, ordering, and verbatim `config` passthrough are defined in [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json)):
 
 ```go
 cmd := exec.Command("go", "run", "./plugin", "transform",
@@ -199,11 +187,11 @@ cmd := exec.Command("go", "run", "./plugin", "transform",
 )
 ```
 
-The host emits flags in equals form (`--cwd=...`); construct your tests the same way.
+The host emits flags in equals form; construct your tests the same way.
 
 ## Asserting re-spawn env vars
 
-`ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process--ttsc__binary)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
+`ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
 
 ```go
 // File: <your-package>/test/plugin_receives_ttsc_tsgo_binary_test.go
@@ -225,17 +213,17 @@ For the re-spawn how-to (calling `exec.Command(os.Getenv("TTSC_TSGO_BINARY"), ..
 
 ## Cache isolation
 
-Plugin builds are cache-keyed by `ttsc + tsgo + platform + entry + plugin source hash + overlay hashes + the resolved Go binary's identity + every env var in `GO_BUILD_ENV_KEYS` (`GOOS`, `GOARCH`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`, …). Three knobs make tests deterministic:
+Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary's identity — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs) for the full formula. Three knobs make tests deterministic:
 
-- **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir will race the publish path.
+- **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir race the publish path.
 
   ```ts
   const cache = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-plugin-cache-${workerId}-`));
   process.env.TTSC_CACHE_DIR = cache;
   ```
 
-- **Freeze `GOOS` / `GOARCH` to the host.** A developer who exports `GOARCH=arm64` in their shell will rebuild plugins per test run because cross-compile env vars enter the cache key.
-- **Pin `TTSC_GO_BINARY`** to a fixed absolute path. The cache key folds in `resolveGoCompilerIdentity` (resolved path + stat + `go version` text); pinning the binary makes the slot stable across `pnpm install`.
+- **Freeze `GOOS` / `GOARCH` to the host** so a stray `GOARCH=arm64` in a developer's shell does not rebuild plugins.
+- **Pin `TTSC_GO_BINARY`** to a fixed absolute path so the cache slot stays stable across `pnpm install`.
 
 Use a fresh cache when the test asserts first-build behavior.
 
@@ -258,8 +246,6 @@ Avoid whole-file snapshots unless the exact output is the contract. Compiler boi
 ## TypeScript-Go Drift Tests
 
 If your plugin imports a shim symbol, add an end-to-end case that exercises that exact code path. When `ttsc` bumps TypeScript-Go, a moved symbol should fail in CI, not in a user's install.
-
-For this repository's full test matrix and release smoke checks, see [Contributing → Workspace release](/docs/contributing/workspace-release).
 
 ## Go Coverage Audit
 

@@ -45,8 +45,6 @@ Deeper material — read as needed.
 - [Reference plugin tour](/docs/development/reference/reference-plugins) — guided walkthrough of `banner`, `strip`, `paths`, and `lint`, by difficulty.
 - [Pitfalls](/docs/development/reference/pitfalls) — common first-hour failures with exact host error strings.
 
-→ Maintainer-facing release flow lives under [Contributing → Workspace release](/docs/contributing/workspace-release).
-
 ## How a plugin works, in one paragraph
 
 A `ttsc` plugin is an npm package with two halves: a **JS descriptor** that lives in the consumer's `node_modules` and tells `ttsc` what the plugin does, and a **Go sidecar** that holds the actual logic. The Go sidecar reads the TypeScript-Go AST, queries the Checker, then either reports diagnostics or rewrites emit. It compiles once into a binary the first time it is used, and the binary is **cached** by ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, and the Go build environment. Plugins run **everywhere** `ttsc` runs — CLI, `ttsx`, `ttscserver`, every `@ttsc/unplugin` bundler adapter. One contract, one config (`tsconfig.json`'s `compilerOptions.plugins`); a `package.json#ttsc.plugin` field on a directly-listed dependency adds **auto-discovery** as a package-side fallback. See [Concepts](/docs/development/concepts) for the canonical vocabulary.

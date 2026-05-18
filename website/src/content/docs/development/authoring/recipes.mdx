@@ -20,39 +20,21 @@ func parsePlugins(text string) ([]PluginEntry, error) {
 }
 ```
 
-The `Config` map is the consumer's tsconfig entry passed through verbatim — every key the consumer wrote, including ttsc-owned `transform` and `enabled` (ignore those; ttsc owns them). Plugin-owned options such as `mode`, `calls`, or `text` live inside `Config`, not beside `name` and `stage`.
-
-The array is deterministically ordered: all check-stage entries first, then all transform-stage entries, each in their tsconfig order. A plugin that needs to know its position can rely on this.
+The `Config` map carries plugin-owned options (`mode`, `calls`, `text`, …). For the wire contract — verbatim passthrough, deterministic check-first ordering, what to ignore — see [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
 
 ## Auto-discovery
 
-A consumer can enable a plugin two ways:
+The rule and its three invariants (explicit wins; `name` must match dependency string; only directly-listed packages) live in [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries). Two patterns to copy:
 
 ```jsonc
-// Explicit — wins over auto-discovery for the same package.
-// Use this in fixtures, tests, and any case where the wiring should be unambiguous.
-{
-  "compilerOptions": {
-    "plugins": [{ "transform": "my-ttsc-plugin" }]
-  }
-}
+// Explicit — for fixtures, tests, unambiguous wiring.
+{ "compilerOptions": { "plugins": [{ "transform": "my-ttsc-plugin" }] } }
 ```
 
 ```jsonc
-// Auto-discovery — ttsc reads the plugin's package.json#ttsc.plugin
-// when the package appears in the consumer's dependencies / devDependencies.
-{
-  "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } }
-}
+// Auto-discovery — in your plugin's package.json.
+{ "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } } }
 ```
-
-Three rules to copy-paste:
-
-1. **Explicit wins.** A `compilerOptions.plugins[]` entry with the same `transform` overrides the auto-discovered entry.
-2. **`name` must match the dependency string.** Auto-discovery matches the consumer's `dependencies` / `devDependencies` entry against your plugin's `package.json` `name` field exactly. If they differ, ttsc loads nothing and silently emits unchanged.
-3. **Only directly-listed packages.** ttsc reads `ttsc.plugin` only from packages listed directly in the nearest consumer `package.json` at or above the selected project — transitive dependencies do not auto-discover.
-
-Source: `packages/ttsc/src/plugin/internal/loadProjectPlugins.ts::discoverPackagePluginEntries`.
 
 ## Typed Config
 
@@ -199,9 +181,7 @@ func runCheck(opts options) int {
 }
 ```
 
-`driver.NewLintDiagnostic` wraps `(pos, end)` into a `Diagnostic` with the file's path. `driver.CountErrors` counts `SeverityError` entries. `driver.WritePrettyDiagnostics` renders to any `io.Writer` using the same colorful format `ttsc` itself uses. See [Reference → Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics).
-
-For diagnostic ranges that point at the first significant token (not leading trivia), use `shimscanner.SkipTrivia(file.Text(), node.Pos())` instead of `node.Pos()`. This is the idiom every rule in `packages/lint/linthost/` uses.
+See [Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics) for the symbol reference. For token-aligned ranges (skip leading trivia), use `shimscanner.SkipTrivia(file.Text(), node.Pos())` — see [AST & Checker → Text Ranges](/docs/development/concepts/tsgo#text-ranges-and-trivia).
 
 ## Mutating leaf-text nodes
 
@@ -220,19 +200,11 @@ lit.Loc   = shimcore.UndefinedTextRange()
 
 Structural mutations do **not** need this — the printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/ttsc/utility/host.go::stripRewriter`) round-trips without the synthesize stamp.
 
-See [AST & Checker → Mutating leaf text](/docs/development/concepts/tsgo#mutating-leaf-text-synthesize--reset-loc) for the underlying mechanism.
+See [AST & Checker → Mutating the AST](/docs/development/concepts/tsgo#mutating-the-ast) for the underlying mechanism.
 
 ## Re-spawn `ttsx` or `tsgo` from a plugin
 
-`ttsc` injects three env vars into every plugin process so plugins can re-enter the toolchain without resolving paths themselves:
-
-| Var                  | Resolves to                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `TTSC_NODE_BINARY`   | Absolute path to the Node binary that launched `ttsc`.        |
-| `TTSC_TSGO_BINARY`   | Absolute path to the resolved `tsgo` native binary.           |
-| `TTSC_TTSX_BINARY`   | Absolute path to the `ttsx` launcher.                          |
-
-Sources: `packages/ttsc/src/launcher/internal/runBuild.ts` and `packages/ttsc/src/compiler/internal/transformProjectInMemory.ts`.
+`ttsc` injects three env vars into every plugin process so plugins can re-enter the toolchain without resolving paths themselves: `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY`. See [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process) for the full reference.
 
 Use case: a fix-stage plugin that re-runs typecheck after its own rewrite, or a generator that wants to `ttsx` a `.ts` config file:
 
@@ -259,15 +231,13 @@ Always guard for empty values — if a third-party harness spawns the plugin bin
 
 ## Text Edits
 
-Collect edits as offsets, then apply in reverse order:
+Collect edits as offsets, then apply in reverse order so earlier edits do not shift later offsets:
 
 ```go
 sort.SliceStable(edits, func(i, j int) bool {
     return edits[i].start > edits[j].start
 })
 ```
-
-Use `shimscanner.SkipTrivia` when the edit should start at the token, not leading comments or whitespace.
 
 ## Warnings
 

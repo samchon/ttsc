@@ -78,32 +78,17 @@ Parse it and find your entry by `mode` or `name`. The host promises every key th
 
 ## Auto Plugin Did Not Run
 
-`package.json#ttsc.plugin` is read only from packages listed directly in the nearest consumer `package.json` at or above the selected project. The plugin's `package.json` `name` must equal the consumer's dependency string exactly — auto-discovery matches them character for character.
-
-Fix the consumer package:
+Most common cause: the consumer's dependency string does not exactly match the plugin's `package.json` `name`. Three invariants must all hold:
 
 ```json
-{
-  "devDependencies": {
-    "my-ttsc-plugin": "^0.1.0"
-  }
-}
+// consumer/package.json
+"devDependencies": { "my-ttsc-plugin": "^0.1.0" }
+
+// my-ttsc-plugin/package.json
+{ "name": "my-ttsc-plugin", "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } } }
 ```
 
-Fix the plugin package:
-
-```json
-{
-  "name": "my-ttsc-plugin",
-  "ttsc": {
-    "plugin": {
-      "transform": "my-ttsc-plugin"
-    }
-  }
-}
-```
-
-If `tsconfig.json` also has a plugin entry with the same `transform`, the `tsconfig.json` entry wins and the auto-discovered entry is skipped.
+For the full rule (explicit-wins, name-match, direct-list-only), see [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
 
 ## Combining Plugins
 
@@ -250,12 +235,7 @@ These bite first-time check-plugin authors and are not visible from the AST page
 
 ## Bad Text Ranges
 
-`node.Pos()` includes leading trivia. For token starts use `shimscanner.SkipTrivia` — this is the idiom every rule in `packages/lint/linthost/` uses:
-
-```go
-pos := shimscanner.SkipTrivia(file.Text(), node.Pos())
-end := node.End()
-```
+Diagnostic ranges anchored at `node.Pos()` start before leading trivia; use `shimscanner.SkipTrivia(file.Text(), node.Pos())`. See [AST & Checker → Text Ranges and Trivia](/docs/development/concepts/tsgo#text-ranges-and-trivia).
 
 ## Windows Path Failures
 
@@ -276,11 +256,7 @@ Go source, go.mod / go.sum / go.work, embedded JSON/schema/data files,
 and other package files
 ```
 
-Skipped: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, archive files, OS metadata (`.DS_Store`, `Thumbs.db`), and editor backup files ending in `~`. Consumer TypeScript source files and plugin options such as lint `config`, `banner`, or `calls` do not affect the source-plugin binary cache.
-
-The cache also folds in the Go binary's identity and the 14 `GO_BUILD_ENV_KEYS` env vars — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs). Pinning `TTSC_GO_BINARY` to a fixed absolute path makes the slot stable across `pnpm install`.
-
-If you need to force a cold source-plugin build, run:
+For the full cache-key formula and the env vars that enter it (which is why `pnpm install` can invalidate the slot), see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs). To force a cold rebuild:
 
 ```bash
 npx ttsc clean

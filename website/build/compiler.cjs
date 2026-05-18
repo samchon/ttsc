@@ -215,4 +215,13 @@ require("./typia-types.cjs");
 // can't resolve `import typia, { tags } from "typia"`.
 require("./pack-typia-sources.cjs");
 
+// ── 6. Build the typia runtime pack the Execute sandbox uses ──────────────
+// The playground's "Execute" button runs the transformed bundle inside a
+// `new Function(...)` sandbox. The bundle does `require("typia/lib/internal/X")`
+// for the per-feature helpers typia's transform emits (validators, random
+// generators, JSON encoders). Without resolvable modules, every Execute
+// throws. The runtime pack ships the published JS for typia + @typia/* +
+// randexp so the sandbox can resolve those requires.
+require("./pack-typia-runtime.cjs");
+
 log("done.");

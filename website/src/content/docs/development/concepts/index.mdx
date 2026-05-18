@@ -40,9 +40,7 @@ One npm package, one contract, one config (`tsconfig.json`'s `compilerOptions.pl
 | `"transform"` | `build`, `transform`                                     | mutates TypeScript AST before emit                    |
 | `"check"`     | `check`, `fix` (opt-in), `format` (opt-in)               | reports diagnostics; optionally applies edits in-place |
 
-Non-zero exit means failure; the host prints the plugin's `stderr` verbatim and aborts. There is **no** specific phrase the host recognizes — the `@ttsc/lint` convention of `<plugin>: fix not supported` is a project convention, not a host contract.
-
-The `version` / `-v` / `--version` subcommand is a smoke verb the host never invokes; first-party plugins implement it for `go run ./plugin version` sanity checks.
+Non-zero exit means failure; the host prints `stderr` verbatim and aborts. `version` is a smoke verb the host never invokes. For exit-code rules, the verbatim-passthrough rule for `transform`, and what is fictional in older docs (e.g. `<plugin>: fix not supported`), see [Plugin protocol](/docs/development/concepts/protocol).
 
 ## Auto-discovery vs explicit plugin entries
 
@@ -90,7 +88,7 @@ When in doubt, start with `driver.LoadProgram` — the cost is one tsconfig pars
 - **Cache** — the on-disk store of built plugin binaries at `node_modules/.ttsc/plugins/<key>/plugin` (or `.ttsc/plugins/...`, or `$TTSC_CACHE_DIR/plugins/...`). Cache key folds in ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, and the Go build environment. See [Architecture](/docs/development/reference/architecture).
 - **Transform path** — the pipeline `ttsc` runs when a `transform`-stage plugin is active: parse → run plugin AST mutations → run tsgo's printer → emit JS / d.ts / source maps.
 - **Factory context** — the object `ttsc` passes to factory-form descriptors: `{ binary, cwd, plugin, projectRoot, tsconfig }`. The TypeScript surface for advanced descriptors that need to inspect the active host or the consumer's tsconfig entry.
-- **`--plugins-json`** — the JSON array `ttsc` passes to every plugin subcommand. Contains `{ name, stage, config }` per active plugin, ordered check-first then transform.
+- **`--plugins-json`** — the JSON array `ttsc` passes to every plugin subcommand (per-plugin `{name, stage, config}`). Wire shape and ordering: [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
 
 ## Next
 
