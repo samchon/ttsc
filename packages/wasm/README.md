@@ -39,7 +39,11 @@ func main() {
 }
 ```
 
-The native sibling `main.go` is recommended so `go run ./cmd/your-wasm` exercises the same host helpers without the browser MemFS bridge — see `packages/wasm/cmd/ttsc-wasm/main.go` in the repo for a reference layout:
+The native sibling `main.go` is recommended when you want `go run ./cmd/your-wasm`
+to smoke-test the same `host.Plugin` dispatchers without the browser MemFS
+bridge. See `packages/wasm/cmd/ttsc-wasm/main.go` and
+`website/compiler/cmd/playground/main.go` in the repo for reference layouts.
+A minimal custom plugin dispatcher looks like this:
 
 ```go
 //go:build !js
@@ -47,13 +51,25 @@ The native sibling `main.go` is recommended so `go run ./cmd/your-wasm` exercise
 package main
 
 import (
+  "fmt"
   "os"
 
   "github.com/samchon/ttsc/packages/wasm/host"
+  yourplugin "example.com/your/plugin"
 )
 
 func main() {
-  os.Exit(host.Run(os.Args[1:]))
+  plugins := []host.Plugin{yourplugin.New()}
+  if len(os.Args) >= 3 {
+    name, command := os.Args[1], os.Args[2]
+    for _, p := range plugins {
+      if p.Name() == name {
+        os.Exit(p.Run(command, os.Args[3:]))
+      }
+    }
+  }
+  fmt.Fprintln(os.Stderr, "usage: your-wasm <plugin> <command> [args...]")
+  os.Exit(2)
 }
 ```
 
@@ -62,8 +78,14 @@ func main() {
 ```bash
 GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w" \
   -o public/your.wasm ./cmd/your-wasm
-cp node_modules/@ttsc/wasm/dist/wasm_exec.js public/wasm_exec.js
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" public/wasm_exec.js
 ```
+
+Keep `wasm_exec.js` from the same Go toolchain that built your wasm. The
+prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each
+other; custom binaries should copy the loader from their own toolchain. Older
+Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js`
+instead of `lib/wasm`.
 
 ### Stamping version metadata at link time
 
@@ -77,7 +99,7 @@ GOOS=js GOARCH=wasm go build -trimpath \
 
 The `version`, `commit`, and `date` variables in `host/host.go` are all overridable. `globalThis[apiName].version()` reads from them.
 
-4. Boot it from JS (a Web Worker is **required** — Go's `syscall/js` blocks the runtime while the wasm is alive; running on the main thread freezes the page):
+4. Boot it from JS (a Web Worker is **required** — Go's `syscall/js` blocks the runtime while the wasm is alive; running on the main thread freezes the page). Use a classic Worker or a bundler target that still exposes `importScripts`; `bootTtsc` imports `wasm_exec.js` before starting Go.
 
 ```ts
 import { bootTtsc } from "@ttsc/wasm";
@@ -122,4 +144,4 @@ The tarball intentionally drops the `replace github.com/samchon/ttsc/packages/tt
 ## Documents
 
 - The base wasm (`dist/ttsc.wasm`) is the binary `cmd/ttsc-wasm/main_wasm.go` produces. Look there for a minimal example.
-- See the [`@ttsc/wasm` guide](https://ttsc.dev/docs/wasm) for the consumer-facing walkthrough. A dedicated Go host helper deep-dive is still TBD.
+- See the [`@ttsc/wasm` guide](https://ttsc.dev/docs/wasm) for the Worker, MemFS, plugin-host, and troubleshooting walkthrough.

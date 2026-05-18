@@ -17,14 +17,16 @@ const navbar = (
   <Navbar
     logo={<span style={{ fontWeight: 700 }}>ttsc</span>}
     projectLink="https://github.com/samchon/ttsc"
-    chatLink="https://discord.gg/E94XhzrUCZ"
   />
 );
 
 const footer = (
   <Footer>
     <span className="text-xs text-neutral-500">
-      MIT 2026 · <a href="https://github.com/samchon" className="hover:text-white">Jeongho Nam</a>
+      MIT 2026 ·{" "}
+      <a href="https://github.com/samchon" className="hover:text-white">
+        Jeongho Nam
+      </a>
     </span>
   </Footer>
 );

@@ -7,14 +7,14 @@ const CLAIMS = [
     detail: "Up to 10x faster than JavaScript tsc through TypeScript-Go.",
   },
   {
-    value: "type-safe",
-    label: "script execution",
-    detail: "ttsx checks the project before Node receives the entrypoint.",
-  },
-  {
     value: "20x",
     label: "faster lint loop",
     detail: "@ttsc/lint uses the same program and checker, no second parse.",
+  },
+  {
+    value: "type-safe",
+    label: "script execution",
+    detail: "ttsx checks the project before Node receives the entrypoint.",
   },
 ] as const;
 
@@ -68,7 +68,7 @@ export default function Hero() {
                 key={claim.value}
                 className="rounded-lg border border-neutral-800 bg-neutral-950/85 p-4"
               >
-                <p className="font-mono text-3xl font-black leading-none text-cyan-300 md:text-4xl">
+                <p className="whitespace-nowrap font-mono text-[26px] font-black leading-none text-cyan-300 md:text-[30px]">
                   {claim.value}
                 </p>
                 <p className="mt-3 text-sm font-semibold leading-tight text-white">
