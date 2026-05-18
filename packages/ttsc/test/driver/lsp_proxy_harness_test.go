@@ -12,7 +12,7 @@ import (
 )
 
 // proxyHarness wires the byte-level LSP proxy onto in-memory pipes so
-// tests can drive editor traffic, simulate the embedded tsgo server's
+// tests can drive editor traffic, simulate the upstream tsgo server's
 // outgoing traffic, and observe what the proxy chose to forward versus
 // rewrite. Every test owns its own harness via t.Cleanup so closes are
 // deterministic even when an assertion fails mid-frame.
@@ -106,7 +106,7 @@ func (h *proxyHarness) sendEditor(body []byte) {
   }
 }
 
-// sendUpstream writes a frame as if it came from the embedded tsgo
+// sendUpstream writes a frame as if it came from the upstream tsgo
 // server toward the editor.
 func (h *proxyHarness) sendUpstream(body []byte) {
   h.t.Helper()
@@ -154,7 +154,7 @@ func (h *proxyHarness) readWithTimeout(fr *driver.FrameReader, label string) []b
 
 // expectNoUpstreamFrame asserts that no frame is sitting in the upstream
 // buffer within a short window. Used by intercept tests to confirm
-// locally-handled requests do not leak through to the embedded tsgo
+// locally-handled requests do not leak through to the upstream tsgo
 // server. The window is generous enough to absorb goroutine scheduling
 // jitter while keeping failures fast.
 func (h *proxyHarness) expectNoUpstreamFrame(window time.Duration) {

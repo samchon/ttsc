@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import fs from "node:fs";
 import * as path from "node:path";
 
 import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
@@ -38,7 +39,7 @@ export class TtscserverClient {
       windowsHide: true,
     });
     this.child.stderr.on("data", () => {
-      // Drain stderr so the embedded tsgo logs do not block the pipe.
+      // Drain stderr so upstream tsgo logs do not block the pipe.
     });
     this.child.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
     this.exited = new Promise((resolve) => {
@@ -168,7 +169,19 @@ export class TtscserverClient {
  * encode the absolute path themselves.
  */
 export function ttscPackageRoot(): string {
-  return path.resolve(__dirname, "..", "..", "..", "..", "packages", "ttsc");
+  return path.join(findWorkspaceRoot(process.cwd()), "packages", "ttsc");
+}
+
+function findWorkspaceRoot(start: string): string {
+  let dir = path.resolve(start);
+  for (;;) {
+    if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      throw new Error(`Unable to find workspace root from ${start}`);
+    }
+    dir = parent;
+  }
 }
 
 export { assert };

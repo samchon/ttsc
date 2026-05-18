@@ -11,7 +11,7 @@ import (
 // TestLSPProxyForwardsUnownedCommand verifies that the proxy does not
 // intercept commands the plugin source does not claim. tsgo's own
 // workspace commands (refactors, code-action commands) must continue to
-// reach the embedded server unmodified.
+// reach the upstream server unmodified.
 //
 // 1. Configure a source that owns one command id but not another.
 // 2. Send a request for the unowned command.

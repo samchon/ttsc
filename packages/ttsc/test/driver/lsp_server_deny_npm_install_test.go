@@ -7,9 +7,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerDenyNpmInstall covers the NpmInstall callback ttscserver
-// passes to tsgo's LSP. The host must report a clean refusal so tsgo
-// reports the failure back to the editor instead of attempting npm.
+// TestLSPServerDenyNpmInstall covers the legacy NpmInstall callback kept for
+// source compatibility with older in-process LSP embedders. It must keep
+// reporting a clean refusal instead of attempting npm.
 //
 // 1. Invoke DenyNpmInstall with a sample args slice.
 // 2. Assert the returned []byte is nil.

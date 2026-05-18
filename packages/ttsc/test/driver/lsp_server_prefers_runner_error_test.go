@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerPrefersRunnerError pins the contract that the embedded
+// TestLSPServerPrefersRunnerError pins the contract that the upstream
 // tsgo server error wins over the proxy error in the final fold. A
 // future refactor that swapped the order (or replaced the slice with
 // errors.Join without an Is-aware unwrap) would silently flip the

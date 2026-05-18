@@ -43,7 +43,8 @@ func RecoverPanicAs(fn func() error) (err error) {
 // provides the upstream LSP server.
 type LSPServerOptions struct {
   // In is the editor-side reader; ttscserver reads JSON-RPC frames from
-  // it and forwards or handles them.
+  // it and forwards or handles them. RunLSPServer closes it on shutdown
+  // if it also implements io.Closer so blocked frame reads can unblock.
   In io.Reader
   // Out is the editor-side writer; ttscserver writes both upstream
   // responses and locally-synthesized messages to it.
@@ -167,9 +168,12 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   // Watchdog: on cancel, close the writer ends of the upstream pipes so
   // both halves unblock with a clean io.EOF. Closing readers directly
   // would surface as io.ErrClosedPipe and make ttsc's error fold
-  // ambiguous; closing writers preserves the ErrFrameClosed signal.
+  // ambiguous; closing writers preserves the ErrFrameClosed signal. The
+  // editor input is also closed when possible so an upstream process-start
+  // failure cannot leave the editor->upstream pump blocked on stdin.
   go func() {
     <-serverCtx.Done()
+    closeIfCloser(opts.In)
     upstreamInW.Close()
     upstreamOutW.Close()
   }()
@@ -218,4 +222,10 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
 // override tsgo's internal ATA callback.
 func DenyNpmInstall(_ string, args []string) ([]byte, error) {
   return nil, fmt.Errorf("ttscserver: npm install disabled in LSP host (args=%v)", args)
+}
+
+func closeIfCloser(value any) {
+  if closer, ok := value.(io.Closer); ok {
+    _ = closer.Close()
+  }
 }

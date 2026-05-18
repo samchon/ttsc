@@ -8,8 +8,8 @@ import { TtscserverClient, assert } from "../../internal/ttscserver";
  *
  * Editors crash or get killed; the LSP host must not deadlock waiting for
  * shutdown notifications that will never arrive. This pins the
- * driver/lsp_proxy.go fallback that closes the upstream pipe on editor EOF,
- * which in turn lets the embedded tsgo server drain.
+ * internal/lspserver proxy fallback that closes the upstream pipe on editor EOF,
+ * which in turn lets the upstream tsgo process drain.
  *
  * 1. Spawn ttscserver.
  * 2. Close stdin immediately (no initialize, no shutdown).

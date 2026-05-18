@@ -7,11 +7,9 @@ import { TtscserverClient, assert } from "../../internal/ttscserver";
  *
  * Resolves the native binary the same way the JS launcher would (the helper
  * uses `resolveTtscserverBinary` directly) and drives stdio against the
- * resulting process. The launcher's spawn / IO wrapping in `runTtscserver.ts`
- * is intentionally not covered by this case; see the deferred D5 backlog item
- * for a full launcher feature suite. What this test pins is the proxy +
- * embedded tsgo lsp.Server initialize / shutdown handshake and the clean-exit
- * contract editors rely on.
+ * resulting process. Dedicated launcher tests cover argument/env wrapping; this
+ * case pins the proxy + upstream tsgo LSP initialize / shutdown handshake and
+ * the clean-exit contract editors rely on.
  *
  * 1. Spawn ttscserver via the resolved binary path.
  * 2. Send initialize and wait for the server capabilities response.

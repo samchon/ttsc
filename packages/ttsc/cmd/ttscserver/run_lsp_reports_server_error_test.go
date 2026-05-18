@@ -4,7 +4,6 @@ import (
   "bytes"
   "context"
   "errors"
-  "io"
   "strings"
   "testing"
 
@@ -38,5 +37,4 @@ func TestRunLSPReportsServerError(t *testing.T) {
   if !strings.Contains(errBuf.String(), sentinel.Error()) {
     t.Fatalf("expected sentinel on stderr, got: %q", errBuf.String())
   }
-  _ = io.Discard
 }
