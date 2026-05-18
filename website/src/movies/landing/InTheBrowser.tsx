@@ -12,11 +12,11 @@ export default function InTheBrowser() {
         <FadeIn>
           <SectionEyebrow label="Playground" />
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Try it without installing.
+            Test the compiler path before installing.
           </h2>
           <p className="text-base text-neutral-400 max-w-2xl leading-relaxed mb-12">
-            The real compiler runs in your browser. Same errors as the
-            CLI. Nothing leaves the tab.
+            The playground runs locally in the tab, so you can inspect
+            diagnostics and transforms without changing a project.
           </p>
         </FadeIn>
 
@@ -26,7 +26,8 @@ export default function InTheBrowser() {
               Playground
             </p>
             <p className="text-xl md:text-2xl text-neutral-300 mb-2 font-medium">
-              The same <code className="font-mono text-cyan-300">ttsc</code>, in your browser.
+              The same <code className="font-mono text-cyan-300">ttsc</code>, in
+              your browser.
             </p>
             <p className="text-sm text-neutral-500 mb-8">
               Powered by WebAssembly. Your source stays on your machine.

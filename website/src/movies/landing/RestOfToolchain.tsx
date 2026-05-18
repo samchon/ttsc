@@ -6,18 +6,18 @@ import SectionEyebrow from "./SectionEyebrow";
 const CARDS = [
   {
     name: "ttsc",
-    tagline: "Build, check, format",
+    tagline: "Compiler host",
     description:
-      "Type-check your project, run plugins, emit JS and .d.ts. The everyday command.",
+      "Build, check, watch, and emit through TypeScript-Go while plugins share the same program.",
     example: "npx ttsc",
-    href: "/docs/ttsc/compiler",
+    href: "/docs/ttsc/compile",
     accent: true,
   },
   {
     name: "ttsx",
-    tagline: "Run with type-checking",
+    tagline: "Checked runner",
     description:
-      "Like tsx, but it actually type-checks before it runs. Errors stop execution.",
+      "Run a TypeScript entrypoint only after the project type-check succeeds.",
     example: "npx ttsx src/index.ts",
     href: "/docs/ttsc/execute",
   },
@@ -31,9 +31,9 @@ const CARDS = [
   },
   {
     name: "@ttsc/unplugin",
-    tagline: "Works with your bundler",
+    tagline: "Bundler bridge",
     description:
-      "Drop into Vite, Rollup, esbuild, Webpack, Next.js, Bun, and more.",
+      "Use the same plugin pipeline from Vite, Rollup, esbuild, Webpack, Next.js, Bun, and more.",
     example: 'import ttsc from "@ttsc/unplugin/vite";',
     href: "/docs/ttsc/bundler",
   },
@@ -44,15 +44,16 @@ export default function RestOfToolchain() {
     <section className="relative py-24 md:py-32 px-6 bg-neutral-950 overflow-hidden">
       <div className="relative max-w-5xl mx-auto">
         <FadeIn>
-          <SectionEyebrow label="One toolchain" />
+          <SectionEyebrow label="Toolchain" />
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Same config.{" "}
-            <span className="text-neutral-500">Everywhere you run TypeScript.</span>
+            One compiler path,{" "}
+            <span className="text-neutral-500">several ways to use it.</span>
           </h2>
           <p className="text-base text-neutral-400 max-w-2xl leading-relaxed mb-12">
-            CLI, runner, editor, bundler. All four read your{" "}
-            <code className="font-mono text-neutral-200">tsconfig.json</code>{" "}
-            and follow the same rules.
+            Keep your existing{" "}
+            <code className="font-mono text-neutral-200">tsconfig.json</code>.
+            Use <code className="font-mono text-neutral-200">ttsc</code> from
+            the CLI, scripts, editor, or bundler without redefining the project.
           </p>
         </FadeIn>
 

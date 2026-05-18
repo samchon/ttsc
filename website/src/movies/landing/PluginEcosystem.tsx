@@ -6,20 +6,31 @@ import SectionEyebrow from "./SectionEyebrow";
 const ECOSYSTEM = [
   {
     name: "typia",
-    tagline: "Runtime validators · JSON tools · LLM tooling · Protobuf — generated from your TypeScript types.",
+    tagline:
+      "Runtime validators · JSON tools · LLM tooling · Protobuf — generated from your TypeScript types.",
     href: "https://typia.io",
   },
   {
     name: "nestia",
-    tagline: "NestJS routes · OpenAPI documents · SDK generation · E2E test scaffolding, backed by typia.",
+    tagline:
+      "NestJS routes · OpenAPI documents · SDK generation · E2E test scaffolding, backed by typia.",
     href: "https://nestia.io",
   },
 ];
 
 const UTILITY = [
-  { name: "@ttsc/banner", what: "JSDoc `@packageDocumentation` banner on every emit." },
-  { name: "@ttsc/paths", what: "Rewrites `compilerOptions.paths` aliases into relative imports." },
-  { name: "@ttsc/strip", what: "Strips `console.log`, `debugger`, configured calls from emit." },
+  {
+    name: "@ttsc/banner",
+    what: "JSDoc `@packageDocumentation` banner on every emit.",
+  },
+  {
+    name: "@ttsc/paths",
+    what: "Rewrites `compilerOptions.paths` aliases into relative imports.",
+  },
+  {
+    name: "@ttsc/strip",
+    what: "Strips `console.log`, `debugger`, configured calls from emit.",
+  },
 ];
 
 export default function PluginEcosystem() {
@@ -29,12 +40,16 @@ export default function PluginEcosystem() {
         <FadeIn>
           <SectionEyebrow label="Plugins" />
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-[1.1] mb-5">
-            Add power with{" "}
-            <span className="text-neutral-500">one npm install.</span>
+            Let libraries run{" "}
+            <span className="text-neutral-500">inside the compiler.</span>
           </h2>
           <p className="text-base text-neutral-400 max-w-2xl leading-relaxed mb-12">
-            Plugins are regular npm packages. They run inside your build,
-            your tests, and your editor — no extra setup.
+            <code className="font-mono text-neutral-200">ttsc</code> plugins can
+            use the AST and checker before JavaScript is emitted. That is where
+            type-driven tools like{" "}
+            <code className="font-mono text-neutral-200">typia</code> and{" "}
+            <code className="font-mono text-neutral-200">nestia</code> get their
+            leverage.
           </p>
         </FadeIn>
 
@@ -67,7 +82,7 @@ export default function PluginEcosystem() {
         <FadeIn delay={200}>
           <div className="rounded-2xl border border-neutral-800/80 p-7 bg-neutral-950/70">
             <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-neutral-500 mb-5">
-              First-party utility plugins
+              First-party utilities
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {UTILITY.map((u) => (
