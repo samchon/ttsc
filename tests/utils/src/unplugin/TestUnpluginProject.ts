@@ -211,7 +211,7 @@ export namespace TestUnpluginProject {
    *
    * The plugin supports multiple operations so adapter tests can prove plugin
    * ordering, generated tsconfig paths, config path absolutization, and cache
-   * invalidation without depending on a production first-party plugin.
+   * invalidation without depending on a production utility plugin.
    */
   export function writeGoPlugin(root: string): void {
     fs.mkdirSync(path.join(root, "go-plugin"), { recursive: true });
