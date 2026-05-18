@@ -48,8 +48,9 @@ func runTtscserverFromDir(t *testing.T, runDir, stdin string, args ...string) (i
   cmd := exec.Command(bin, args...)
   cmd.Dir = runDir
   cmd.Stdin = strings.NewReader(stdin)
+  cmd.Env = append(os.Environ(), "TTSC_TSGO_BINARY="+tsgoBinaryForCommandTest(t))
   if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
-    cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
+    cmd.Env = append(cmd.Env, "GOCOVERDIR="+coverDir)
   }
   out, err := cmd.Output()
   stderr := ""
@@ -61,6 +62,31 @@ func runTtscserverFromDir(t *testing.T, runDir, stdin string, args ...string) (i
     t.Fatalf("ttscserver failed before exit code: %v", err)
   }
   return 0, string(out), stderr
+}
+
+func tsgoBinaryForCommandTest(t *testing.T) string {
+  t.Helper()
+  if binary := os.Getenv("TTSC_TSGO_BINARY"); binary != "" {
+    return binary
+  }
+  script := `
+const path = require("node:path");
+const root = path.dirname(require.resolve("@typescript/native-preview/package.json", { paths: [process.cwd()] }));
+const platformPackage = "@typescript/native-preview-" + process.platform + "-" + process.arch;
+const platformRoot = path.dirname(require.resolve(platformPackage + "/package.json", { paths: [root] }));
+process.stdout.write(path.join(platformRoot, "lib", process.platform === "win32" ? "tsgo.exe" : "tsgo"));
+`
+  cmd := exec.Command("node", "-e", script)
+  cmd.Dir = packageRoot(t)
+  output, err := cmd.CombinedOutput()
+  if err != nil {
+    t.Fatalf("could not resolve tsgo binary: %v\n%s", err, output)
+  }
+  binary := strings.TrimSpace(string(output))
+  if _, err := os.Stat(binary); err != nil {
+    t.Fatalf("resolved tsgo binary is not usable: %s: %v", binary, err)
+  }
+  return binary
 }
 
 // buildTtscserverBinary builds the ttscserver binary into a temp directory.
@@ -101,7 +127,7 @@ func nativeCommandCoverPackages() string {
     "github.com/samchon/ttsc/packages/ttsc/cmd/ttsc",
     "github.com/samchon/ttsc/packages/ttsc/cmd/ttscserver",
     "github.com/samchon/ttsc/packages/ttsc/driver",
+    "github.com/samchon/ttsc/packages/ttsc/internal/lspserver",
     "github.com/samchon/ttsc/packages/ttsc/utility",
   }, ",")
 }
-

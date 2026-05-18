@@ -1,14 +1,14 @@
-// Command ttscserver is the Go LSP host shipped by ttsc. It embeds
-// TypeScript-Go's LSP server unmodified and proxies traffic between the
-// editor and that server, splicing ttsc-plugin diagnostics, code actions,
-// and ttsc-owned executeCommand handling into the same stream.
+// Command ttscserver is the Go LSP host shipped by ttsc. It wraps the
+// project-selected TypeScript-Go LSP server process and proxies traffic
+// between the editor and that server, splicing ttsc-plugin diagnostics,
+// code actions, and ttsc-owned executeCommand handling into the same stream.
 //
 // The JavaScript launcher (`packages/ttsc/src/launcher/ttscserver.ts`)
 // resolves the native binary and forwards stdio so editors can spawn
 // `ttscserver --stdio` without worrying about platform helper packages.
 //
 // Everything here is deliberately small: flag parsing, version metadata,
-// and a single delegation to driver.RunLSPServer.
+// and a single delegation to lspserver.RunLSPServer.
 package main
 
 import (
@@ -24,7 +24,7 @@ import (
   "syscall"
   "time"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
 // Build metadata; overwritten via -ldflags in release builds.
@@ -43,8 +43,8 @@ var (
 )
 
 // runLSPServer is the seam command tests use to substitute a fake LSP
-// host. Production wires it to driver.RunLSPServer.
-var runLSPServer = driver.RunLSPServer
+// host. Production wires it to lspserver.RunLSPServer.
+var runLSPServer = lspserver.RunLSPServer
 
 // notifyContext is the seam command tests use to substitute a
 // deterministic context (no signal hookup) for the signal-aware default.
@@ -80,6 +80,7 @@ func runLSP(args []string) int {
   fs.SetOutput(stderr)
   stdioFlag := fs.Bool("stdio", false, "communicate with the editor over stdin/stdout")
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
+  tsgoFlag := fs.String("tsgo", "", "absolute tsgo binary path (defaults to TTSC_TSGO_BINARY)")
   progressDelayFlag := fs.Duration("progress-delay", 250*time.Millisecond, "delay before showing tsgo's progress UI")
   if err := fs.Parse(args); err != nil {
     return 2
@@ -102,12 +103,18 @@ func runLSP(args []string) int {
   ctx, stop := notifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
   defer stop()
 
-  err := runLSPServer(ctx, driver.LSPServerOptions{
+  tsgoBinary := strings.TrimSpace(*tsgoFlag)
+  if tsgoBinary == "" {
+    tsgoBinary = strings.TrimSpace(os.Getenv("TTSC_TSGO_BINARY"))
+  }
+
+  err := runLSPServer(ctx, lspserver.LSPServerOptions{
     In:            stdin,
     Out:           stdout,
     Err:           stderr,
     Cwd:           cwd,
-    Source:        driver.NullPluginSource{},
+    TsgoBinary:    tsgoBinary,
+    Source:        lspserver.NullPluginSource{},
     ProgressDelay: *progressDelayFlag,
   })
   if err != nil && !errors.Is(err, context.Canceled) {
@@ -141,14 +148,15 @@ Usage:
 
 Options:
   --stdio              Communicate with the editor over stdin/stdout.
-  --cwd <dir>          Project root passed to the embedded tsgo server.
-  --progress-delay D   Delay before tsgo shows its progress UI (default 250ms).
+  --cwd <dir>          Project root used as the tsgo server working directory.
+  --tsgo <path>        Absolute tsgo binary path (defaults to TTSC_TSGO_BINARY).
+  --progress-delay D   Accepted for compatibility; tsgo currently owns this value.
 
 Typical embedding:
   Editors spawn ttscserver via the JavaScript launcher (resolves the
-  per-platform native binary) and exchange LSP messages over stdio. The
-  embedded tsgo server provides hover/completion/definitions/diagnostics;
-  ttsc merges plugin (lint/format) diagnostics, code actions, and ttsc-
-  owned executeCommand handlers into the same stream.
+  per-platform native binary and passes the project tsgo path) and exchange
+  LSP messages over stdio. The upstream tsgo server provides hover,
+  completion, definitions, and diagnostics; ttsc merges plugin diagnostics,
+  code actions, and ttsc-owned executeCommand handlers into the same stream.
 `))
 }

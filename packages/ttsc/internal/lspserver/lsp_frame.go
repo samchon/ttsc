@@ -1,5 +1,5 @@
 // JSON-RPC Content-Length framing as used by LSP over stdio. ttscserver
-// embeds tsgo's LSP server but sits between it and the editor so it can
+// wraps tsgo's LSP server but sits between it and the editor so it can
 // merge plugin diagnostics into outgoing publishDiagnostics and inject
 // ttsc-owned code actions. Both legs of the proxy work on raw bytes.
 //
@@ -8,7 +8,7 @@
 // by WriteFrame include only Content-Length. That is intentional — the
 // LSP base protocol marks every other header optional and editors in
 // the wild do not require them on server output.
-package driver
+package lspserver
 
 import (
   "bufio"

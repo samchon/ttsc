@@ -4,11 +4,17 @@ const path = require("node:path");
 const zlib = require("node:zlib");
 
 const cwd = process.cwd();
-const manifest = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8"));
-const match = /^@ttsc\/(linux|darwin|win32)-(x64|arm|arm64)$/.exec(manifest.name);
+const manifest = JSON.parse(
+  fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
+);
+const match = /^@ttsc\/(linux|darwin|win32)-(x64|arm|arm64)$/.exec(
+  manifest.name,
+);
 
 if (!match) {
-  throw new Error(`build-platform-package: unsupported package name ${manifest.name}`);
+  throw new Error(
+    `build-platform-package: unsupported package name ${manifest.name}`,
+  );
 }
 
 const [, npmOs, npmArch] = match;
@@ -32,32 +38,41 @@ const pathValue = fs.existsSync(localGoBin)
   ? `${localGoBin}${path.delimiter}${process.env.PATH ?? ""}`
   : process.env.PATH;
 const buildGo = resolveBuildGo();
+const goBuildFlags = ["-trimpath", "-ldflags=-s -w"];
 
 console.log(`Building ${manifest.name} -> ${path.relative(root, outFile)}`);
-cp.execFileSync(buildGo, ["build", "-o", outFile, "./cmd/platform"], {
-  cwd: source,
-  env: {
-    ...process.env,
-    CGO_ENABLED: "0",
-    GOARCH: goarch,
-    GOOS: goos,
-    PATH: pathValue,
+cp.execFileSync(
+  buildGo,
+  ["build", ...goBuildFlags, "-o", outFile, "./cmd/platform"],
+  {
+    cwd: source,
+    env: {
+      ...process.env,
+      CGO_ENABLED: "0",
+      GOARCH: goarch,
+      GOOS: goos,
+      PATH: pathValue,
+    },
+    stdio: "inherit",
   },
-  stdio: "inherit",
-});
+);
 
 console.log(`Building ${manifest.name} -> ${path.relative(root, serverFile)}`);
-cp.execFileSync(buildGo, ["build", "-o", serverFile, "./cmd/ttscserver"], {
-  cwd: source,
-  env: {
-    ...process.env,
-    CGO_ENABLED: "0",
-    GOARCH: goarch,
-    GOOS: goos,
-    PATH: pathValue,
+cp.execFileSync(
+  buildGo,
+  ["build", ...goBuildFlags, "-o", serverFile, "./cmd/ttscserver"],
+  {
+    cwd: source,
+    env: {
+      ...process.env,
+      CGO_ENABLED: "0",
+      GOARCH: goarch,
+      GOOS: goos,
+      PATH: pathValue,
+    },
+    stdio: "inherit",
   },
-  stdio: "inherit",
-});
+);
 
 embedGoToolchain();
 
@@ -82,7 +97,11 @@ function embedGoToolchain() {
     );
   }
   const realGoRoot = goroot ? fs.realpathSync(goroot) : "";
-  const goBinary = path.join(realGoRoot, "bin", npmOs === "win32" ? "go.exe" : "go");
+  const goBinary = path.join(
+    realGoRoot,
+    "bin",
+    npmOs === "win32" ? "go.exe" : "go",
+  );
   if (!realGoRoot || !fs.existsSync(goBinary)) {
     throw new Error(
       `build-platform-package: Go compiler root not found for ${manifest.name}. ` +
@@ -90,7 +109,9 @@ function embedGoToolchain() {
     );
   }
 
-  console.log(`Embedding Go compiler ${realGoRoot} -> ${path.relative(root, bundledGoDir)}`);
+  console.log(
+    `Embedding Go compiler ${realGoRoot} -> ${path.relative(root, bundledGoDir)}`,
+  );
   copyPrunedGoRoot(realGoRoot, bundledGoDir);
   verifyEmbeddedGoToolchain();
   chmodGoExecutables(bundledGoDir);
@@ -114,9 +135,16 @@ function ensureDownloadedGoRoot() {
   const version = process.env.TTSC_GO_VERSION || readGoVersion();
   const archive = goArchiveName(version);
   const cacheRoot = path.join(root, ".cache", "go-sdk", version);
-  const extractDir = path.join(cacheRoot, archive.replace(/\.tar\.gz$|\.zip$/g, ""));
+  const extractDir = path.join(
+    cacheRoot,
+    archive.replace(/\.tar\.gz$|\.zip$/g, ""),
+  );
   const goroot = path.join(extractDir, "go");
-  const goBinary = path.join(goroot, "bin", npmOs === "win32" ? "go.exe" : "go");
+  const goBinary = path.join(
+    goroot,
+    "bin",
+    npmOs === "win32" ? "go.exe" : "go",
+  );
   if (fs.existsSync(goBinary)) {
     return goroot;
   }
@@ -141,7 +169,9 @@ function ensureDownloadedGoRoot() {
     extractZipArchive(archivePath, extractDir);
   }
   if (!fs.existsSync(goBinary)) {
-    throw new Error(`build-platform-package: downloaded Go compiler missing: ${goBinary}`);
+    throw new Error(
+      `build-platform-package: downloaded Go compiler missing: ${goBinary}`,
+    );
   }
   return goroot;
 }
@@ -167,9 +197,7 @@ function goArchiveName(version) {
 function goArchiveTarget() {
   const os = npmOs === "win32" ? "windows" : npmOs;
   const arch =
-    npmArch === "x64" ? "amd64" :
-    npmArch === "arm" ? "armv6l" :
-    npmArch;
+    npmArch === "x64" ? "amd64" : npmArch === "arm" ? "armv6l" : npmArch;
   return `${os}-${arch}`;
 }
 
@@ -181,7 +209,9 @@ function extractZipArchive(archivePath, extractDir) {
 
   for (let i = 0; i < entries; i++) {
     if (data.readUInt32LE(offset) !== 0x02014b50) {
-      throw new Error(`build-platform-package: invalid zip central directory: ${archivePath}`);
+      throw new Error(
+        `build-platform-package: invalid zip central directory: ${archivePath}`,
+      );
     }
     const method = data.readUInt16LE(offset + 10);
     const compressedSize = data.readUInt32LE(offset + 20);
@@ -198,19 +228,25 @@ function extractZipArchive(archivePath, extractDir) {
     if (name.endsWith("/")) continue;
     const target = path.resolve(extractDir, name);
     if (!target.startsWith(path.resolve(extractDir) + path.sep)) {
-      throw new Error(`build-platform-package: refusing zip entry outside target: ${name}`);
+      throw new Error(
+        `build-platform-package: refusing zip entry outside target: ${name}`,
+      );
     }
     if (data.readUInt32LE(localOffset) !== 0x04034b50) {
-      throw new Error(`build-platform-package: invalid zip local header: ${name}`);
+      throw new Error(
+        `build-platform-package: invalid zip local header: ${name}`,
+      );
     }
     const localNameLength = data.readUInt16LE(localOffset + 26);
     const localExtraLength = data.readUInt16LE(localOffset + 28);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
     const compressed = data.subarray(dataStart, dataStart + compressedSize);
     const contents =
-      method === 0 ? compressed :
-      method === 8 ? zlib.inflateRawSync(compressed) :
-      unsupportedZipMethod(method, name);
+      method === 0
+        ? compressed
+        : method === 8
+          ? zlib.inflateRawSync(compressed)
+          : unsupportedZipMethod(method, name);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, contents);
   }
@@ -221,11 +257,15 @@ function findEndOfCentralDirectory(data) {
   for (let i = data.length - 22; i >= min; --i) {
     if (data.readUInt32LE(i) === 0x06054b50) return i;
   }
-  throw new Error("build-platform-package: zip end-of-central-directory record not found");
+  throw new Error(
+    "build-platform-package: zip end-of-central-directory record not found",
+  );
 }
 
 function unsupportedZipMethod(method, name) {
-  throw new Error(`build-platform-package: unsupported zip compression method ${method}: ${name}`);
+  throw new Error(
+    `build-platform-package: unsupported zip compression method ${method}: ${name}`,
+  );
 }
 
 function copyPrunedGoRoot(sourceRoot, targetRoot) {
@@ -241,7 +281,11 @@ function copyRecursive(current, target, rootDir) {
     if (!shouldCopyGoPath(rel, true)) return;
     fs.mkdirSync(target, { recursive: true });
     for (const entry of fs.readdirSync(current)) {
-      copyRecursive(path.join(current, entry), path.join(target, entry), rootDir);
+      copyRecursive(
+        path.join(current, entry),
+        path.join(target, entry),
+        rootDir,
+      );
     }
     return;
   }
@@ -268,7 +312,12 @@ function shouldCopyGoPath(rel, isDir) {
   if (first === "bin") {
     if (isDir) return true;
     const base = path.basename(rel);
-    return base === "go" || base === "go.exe" || base === "gofmt" || base === "gofmt.exe";
+    return (
+      base === "go" ||
+      base === "go.exe" ||
+      base === "gofmt" ||
+      base === "gofmt.exe"
+    );
   }
   if (first === "pkg") {
     return parts[1] === "tool" || parts[1] === "include";

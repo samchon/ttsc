@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import * as path from "node:path";
 
+import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 import { resolveTtscserverBinary } from "../../../../packages/ttsc/lib/launcher/internal/resolveTtscserverBinary.js";
 
 /**
@@ -29,6 +30,11 @@ export class TtscserverClient {
   constructor(binary: string, cwd: string) {
     this.child = spawn(binary, ["--stdio", "--cwd", cwd], {
       stdio: ["pipe", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        TTSC_TSGO_BINARY:
+          process.env.TTSC_TSGO_BINARY ?? resolveTsgo({ cwd }).binary,
+      },
       windowsHide: true,
     });
     this.child.stderr.on("data", () => {

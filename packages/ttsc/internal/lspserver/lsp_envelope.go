@@ -1,4 +1,4 @@
-package driver
+package lspserver
 
 import (
   "bytes"
@@ -77,6 +77,12 @@ func (e Envelope) IsErrorResponse() bool {
 // callers treat as "no entry".
 func (e Envelope) IDKey() string {
   return idKeyFromRaw(e.ID)
+}
+
+// IDKeyFromRaw exposes the shared id-key normalizer to the public driver
+// compatibility layer without exporting the helper from that package.
+func IDKeyFromRaw(raw json.RawMessage) string {
+  return idKeyFromRaw(raw)
 }
 
 // idKeyFromRaw normalizes a raw id payload the same way IDKey does so

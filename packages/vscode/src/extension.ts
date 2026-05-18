@@ -38,15 +38,17 @@ let client: LanguageClient | undefined;
 function resolveServerLauncher(): ServerOptions | undefined {
   const config = workspace.getConfiguration("ttsc");
   const explicit = config.get<string>("serverPath", "").trim();
+  const bases = collectResolutionBases();
   if (explicit && path.isAbsolute(explicit)) {
     return {
       command: explicit,
       args: ["--stdio"],
+      options: bases[0] ? { cwd: bases[0] } : undefined,
       transport: TransportKind.stdio,
     };
   }
 
-  for (const base of collectResolutionBases()) {
+  for (const base of bases) {
     try {
       const launcher = require.resolve("ttsc/lib/launcher/ttscserver.js", {
         paths: [base],
@@ -54,6 +56,7 @@ function resolveServerLauncher(): ServerOptions | undefined {
       return {
         module: launcher,
         args: ["--stdio"],
+        options: { cwd: base },
         transport: TransportKind.stdio,
       };
     } catch {

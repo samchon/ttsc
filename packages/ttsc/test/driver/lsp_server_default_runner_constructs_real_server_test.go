@@ -12,11 +12,11 @@ import (
 )
 
 // TestLSPServerDefaultRunnerConstructsRealServer exercises the production
-// path where defaultUpstreamRunner builds a real tsgo lsp.Server and
+// path where defaultUpstreamRunner starts a real `tsgo --lsp --stdio` process and
 // drives a minimal initialize round-trip through the proxy. Booting the
-// stack and immediately cancelling would still pass with FS=nil or
-// DefaultLibraryPath=""; sending initialize forces tsgo to evaluate
-// those fields, so a regression in the shim wiring turns the test red.
+// stack and immediately cancelling would still pass if the process never
+// answered; sending initialize forces the upstream LSP server to prove it
+// is really running behind the proxy.
 //
 // 1. Call RunLSPServer with a temp directory as Cwd (no runner override).
 // 2. Send a real initialize request.
@@ -37,6 +37,7 @@ func TestLSPServerDefaultRunnerConstructsRealServer(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      TsgoBinary: tsgoBinaryForTest(t),
     })
   }()
 

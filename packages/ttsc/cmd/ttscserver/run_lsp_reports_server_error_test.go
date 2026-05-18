@@ -8,11 +8,11 @@ import (
   "strings"
   "testing"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
 // TestRunLSPReportsServerError pins the non-cancellation error path in
-// runLSP. When RunLSPServer reports a real failure (the embedded server
+// runLSP. When RunLSPServer reports a real failure (the upstream server
 // crashed, an unrecoverable IO error, etc.) the launcher must exit 1
 // and copy the error message to stderr.
 //
@@ -22,7 +22,7 @@ import (
 func TestRunLSPReportsServerError(t *testing.T) {
   sentinel := errors.New("lsp host blew up")
   prev := runLSPServer
-  runLSPServer = func(_ context.Context, _ driver.LSPServerOptions) error {
+  runLSPServer = func(_ context.Context, _ lspserver.LSPServerOptions) error {
     return sentinel
   }
   defer func() { runLSPServer = prev }()

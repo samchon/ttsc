@@ -1,4 +1,4 @@
-package driver
+package lspserver
 
 import (
   "bytes"
@@ -23,17 +23,17 @@ const (
 )
 
 // ProxyOptions wires the byte-level proxy together. ttscserver creates
-// the upstream pipes around an embedded tsgo lsp.Server and hands the
-// proxy editor stdio plus those pipe ends.
+// the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
+// editor stdio plus those pipe ends.
 type ProxyOptions struct {
   EditorIn   io.Reader
   EditorOut  io.Writer
-  UpstreamIn io.Writer // we write here; tsgo lsp.Server reads
-  UpstreamOut io.Reader // tsgo lsp.Server writes here; we read
+  UpstreamIn io.Writer // we write here; the tsgo LSP process reads
+  UpstreamOut io.Reader // the tsgo LSP process writes here; we read
   Source     PluginSource
 }
 
-// Proxy bridges the editor and an upstream tsgo lsp.Server, intercepting
+// Proxy bridges the editor and an upstream tsgo LSP process, intercepting
 // the message types ttsc cares about (publishDiagnostics merge, code
 // action augmentation, executeCommand for ttsc-owned commands).
 type Proxy struct {
@@ -125,7 +125,7 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
 }
 
 // closeUpstreamInput closes the upstream writer (if it is also an
-// io.Closer) so the embedded server reads io.EOF and exits its readLoop.
+// io.Closer) so the upstream process reads io.EOF and exits its read loop.
 // We type-assert because the public ProxyOptions surface promises only
 // io.Writer; RunLSPServer always passes an *io.PipeWriter in practice.
 func (p *Proxy) closeUpstreamInput() {
@@ -245,7 +245,7 @@ func (p *Proxy) ownsCommand(command string) bool {
   return false
 }
 
-// pumpUpstreamToEditor reads frames from the embedded tsgo server,
+// pumpUpstreamToEditor reads frames from the upstream tsgo server,
 // augments publishDiagnostics and codeAction responses, and forwards
 // every other frame untouched. The loop terminates on Read error; ctx
 // propagation happens through pipe closure by RunLSPServer's deferred

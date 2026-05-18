@@ -16,7 +16,7 @@ import (
 //
 // The proxy distinguishes between "stream ended cleanly between frames"
 // (ErrFrameClosed) and "stream ended mid-header" (wrapped error) when
-// deciding whether to forward shutdown to the embedded tsgo server.
+// deciding whether to forward shutdown to the upstream tsgo server.
 //
 // 1. Feed a header line without the terminating empty line.
 // 2. Assert Read returns a wrapped header-read error.

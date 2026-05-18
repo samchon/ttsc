@@ -1,29 +1,26 @@
-package driver
+package lspserver
 
 import (
   "context"
   "errors"
   "fmt"
   "io"
+  "os/exec"
+  "path/filepath"
   "runtime/debug"
   "sync"
   "time"
-
-  "github.com/microsoft/typescript-go/shim/bundled"
-  shimlsp "github.com/microsoft/typescript-go/shim/lsp"
-  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
-// ErrLSPUpstreamPanic wraps a panic recovered from inside the embedded
-// tsgo lsp.Server. Without recovery the host process would die when
-// tsgo crashed; with this wrapper the proxy can surface a typed error
-// to the editor instead.
-var ErrLSPUpstreamPanic = errors.New("ttscserver: embedded tsgo server panicked")
+// ErrLSPUpstreamPanic wraps a panic recovered from inside an upstream
+// runner. The production runner is an external tsgo process, but tests
+// and embedders can still install in-process runners through
+// WithUpstreamRunnerForTest.
+var ErrLSPUpstreamPanic = errors.New("ttscserver: tsgo upstream runner panicked")
 
 // RecoverPanicAs runs fn and converts a panic into an
-// ErrLSPUpstreamPanic-wrapped error. defaultUpstreamRunner uses it and
-// downstream LSP-host embeddings can opt into the same recovery
-// contract; the recovered stack is attached for diagnostics.
+// ErrLSPUpstreamPanic-wrapped error. RunLSPServer uses it around the
+// upstream runner seam; the recovered stack is attached for diagnostics.
 //
 // recover() per the Go spec catches panics but NOT runtime.Goexit, so
 // a Goexit raised from inside fn surfaces as a clean nil return here
@@ -42,8 +39,8 @@ func RecoverPanicAs(fn func() error) (err error) {
 
 // LSPServerOptions wires ttscserver to its three channels of state:
 // editor stdio for the LSP transport, an optional ttsc PluginSource for
-// merging plugin diagnostics into the stream, and a working directory
-// the embedded tsgo server treats as the project root.
+// merging plugin diagnostics into the stream, and the tsgo binary that
+// provides the upstream LSP server.
 type LSPServerOptions struct {
   // In is the editor-side reader; ttscserver reads JSON-RPC frames from
   // it and forwards or handles them.
@@ -55,72 +52,98 @@ type LSPServerOptions struct {
   // log to it directly.
   Err io.Writer
 
-  // Cwd is the project root passed to tsgo's LSP. An empty string
-  // panics inside tsgo, so RunLSPServer validates it up front.
+  // Cwd is the project root used as the upstream tsgo process working
+  // directory. An empty string is rejected before any process starts.
   Cwd string
+  // TsgoBinary is the absolute path to the project-selected
+  // @typescript/native-preview executable.
+  TsgoBinary string
   // Source contributes ttsc plugin diagnostics / code actions /
   // executeCommand handling. Nil falls back to NullPluginSource{}.
   Source PluginSource
-  // ProgressDelay matches tsgo's option for delaying the progress UI;
-  // zero disables the delay.
+  // ProgressDelay is accepted for CLI compatibility. The external tsgo
+  // LSP command does not currently expose a progress-delay flag.
   ProgressDelay time.Duration
 }
 
 // ErrLSPCwdRequired is returned when LSPServerOptions.Cwd is empty.
-// ttsc surfaces a clean error here instead of letting tsgo's panic
-// reach the editor.
+// ttsc surfaces a clean error here instead of starting tsgo from an
+// undefined project directory.
 var ErrLSPCwdRequired = errors.New("ttscserver: cwd is required")
 
-// lspUpstreamRunner is the seam tests use to substitute the embedded
-// tsgo lsp.Server with a controllable fake. Production wires it to the
-// real shim-backed server.
-type lspUpstreamRunner func(ctx context.Context, in io.Reader, out io.Writer, opts LSPServerOptions) error
+// ErrLSPTsgoBinaryRequired is returned when no upstream tsgo executable
+// path was supplied by the JavaScript launcher or native caller.
+var ErrLSPTsgoBinaryRequired = errors.New("ttscserver: tsgo binary is required")
+
+// LSPUpstreamRunner is the seam tests use to substitute the external
+// tsgo process with a controllable fake.
+type LSPUpstreamRunner func(ctx context.Context, in io.Reader, out io.Writer, opts LSPServerOptions) error
 
 // upstreamRunner is replaced in tests via WithUpstreamRunnerForTest.
-var upstreamRunner lspUpstreamRunner = defaultUpstreamRunner
+var upstreamRunner LSPUpstreamRunner = defaultUpstreamRunner
+
+// upstreamValidator checks production-only upstream requirements before any
+// proxy goroutine starts. Test upstream runners replace it with a no-op.
+var upstreamValidator = validateDefaultUpstreamOptions
 
 // WithUpstreamRunnerForTest substitutes the upstream runner used by
 // RunLSPServer. Returns a function the caller defers to restore the
-// production runner. The seam stays in the public API because tests
-// live in driver_test and otherwise have no way to bypass tsgo.
-func WithUpstreamRunnerForTest(runner lspUpstreamRunner) func() {
+// production runner. The seam stays in the public driver API because
+// tests and embedders otherwise have no way to bypass tsgo.
+func WithUpstreamRunnerForTest(runner LSPUpstreamRunner) func() {
   prev := upstreamRunner
+  prevValidator := upstreamValidator
   upstreamRunner = runner
-  return func() { upstreamRunner = prev }
+  upstreamValidator = func(LSPServerOptions) error { return nil }
+  return func() {
+    upstreamRunner = prev
+    upstreamValidator = prevValidator
+  }
+}
+
+func validateDefaultUpstreamOptions(opts LSPServerOptions) error {
+  if opts.TsgoBinary == "" {
+    return ErrLSPTsgoBinaryRequired
+  }
+  if !filepath.IsAbs(opts.TsgoBinary) {
+    return fmt.Errorf("ttscserver: tsgo binary must be absolute: %s", opts.TsgoBinary)
+  }
+  return nil
 }
 
 func defaultUpstreamRunner(ctx context.Context, in io.Reader, out io.Writer, opts LSPServerOptions) error {
-  return RecoverPanicAs(func() error {
-    server := shimlsp.NewServer(&shimlsp.ServerOptions{
-      In:                 shimlsp.ToReader(in),
-      Out:                shimlsp.ToWriter(out),
-      Err:                opts.Err,
-      Cwd:                opts.Cwd,
-      FS:                 DefaultFS(),
-      DefaultLibraryPath: bundled.LibPath(),
-      TypingsLocation:    osvfs.GetGlobalTypingsCacheLocation(),
-      NpmInstall:         DenyNpmInstall,
-      ProgressDelay:      opts.ProgressDelay,
-    })
-    return server.Run(ctx)
-  })
+  cmd := exec.CommandContext(ctx, opts.TsgoBinary, "--lsp", "--stdio")
+  cmd.Dir = opts.Cwd
+  cmd.Stdin = in
+  cmd.Stdout = out
+  cmd.Stderr = opts.Err
+  if err := cmd.Run(); err != nil {
+    if ctx.Err() != nil {
+      return ctx.Err()
+    }
+    return fmt.Errorf("tsgo --lsp --stdio: %w", err)
+  }
+  return nil
 }
 
-// RunLSPServer starts the embedded tsgo lsp.Server and the byte-level
+// RunLSPServer starts an upstream `tsgo --lsp --stdio` process and the byte-level
 // proxy, blocking until either side returns. The first non-graceful
 // error wins; ErrFrameClosed and context cancellation are treated as
 // clean shutdown so editor close sequences do not look like crashes.
 //
 // The lifecycle is:
 //
-//  1. Open two pipes around the embedded server (editor->server, server->editor).
-//  2. Spawn the upstream runner (real tsgo or a test fake) reading/writing those pipes.
+//  1. Open two pipes around the tsgo process (editor->server, server->editor).
+//  2. Spawn the upstream runner (real tsgo process or a test fake) reading/writing those pipes.
 //  3. Run the proxy in parallel.
 //  4. A watchdog cascades context cancellation by closing every pipe so both
 //     halves unblock; the goroutines' own defers close the rest.
 func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   if opts.Cwd == "" {
     return ErrLSPCwdRequired
+  }
+  if err := upstreamValidator(opts); err != nil {
+    return err
   }
   source := opts.Source
   if source == nil {
@@ -159,7 +182,9 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
     defer cancel()
     defer upstreamOutW.Close()
     defer upstreamInR.Close()
-    serverErr = upstreamRunner(serverCtx, upstreamInR, upstreamOutW, opts)
+    serverErr = RecoverPanicAs(func() error {
+      return upstreamRunner(serverCtx, upstreamInR, upstreamOutW, opts)
+    })
   }()
   go func() {
     defer wg.Done()
@@ -188,10 +213,9 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   return nil
 }
 
-// DenyNpmInstall is the NpmInstall callback ttscserver passes to tsgo's
-// LSP. ttsc has its own plugin / cache pipeline; we never want the LSP
-// host running npm under the user's editor. Exposed so other LSP host
-// embeddings can opt into the same behavior without copying the body.
+// DenyNpmInstall is kept for source compatibility with older driver
+// embedders that hosted tsgo in-process. The process wrapper cannot
+// override tsgo's internal ATA callback.
 func DenyNpmInstall(_ string, args []string) ([]byte, error) {
   return nil, fmt.Errorf("ttscserver: npm install disabled in LSP host (args=%v)", args)
 }

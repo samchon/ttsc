@@ -8,6 +8,7 @@ export function resolveTsgo(
     binary?: string;
     cwd?: string;
     env?: NodeJS.ProcessEnv;
+    resolveFrom?: string;
   } = {},
 ) {
   const env = opts.env ?? process.env;
@@ -28,11 +29,13 @@ export function resolveTsgo(
 
   const cwd = path.resolve(opts.cwd ?? process.cwd());
   let packageJson: string;
-  try {
-    packageJson = createRequire(path.join(cwd, "package.json")).resolve(
-      "@typescript/native-preview/package.json",
-    );
-  } catch {
+  packageJson =
+    resolveNativePreviewPackageJson(path.join(cwd, "package.json")) ??
+    (opts.resolveFrom
+      ? resolveNativePreviewPackageJson(opts.resolveFrom)
+      : undefined) ??
+    "";
+  if (!packageJson) {
     throw new Error(
       [
         "ttsc: @typescript/native-preview is required.",
@@ -79,6 +82,16 @@ export function resolveTsgo(
     version:
       typeof manifest.version === "string" ? manifest.version : "unknown",
   };
+}
+
+function resolveNativePreviewPackageJson(from: string): string | undefined {
+  try {
+    return createRequire(from).resolve(
+      "@typescript/native-preview/package.json",
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 function readPackageJson(file: string): Record<string, unknown> {

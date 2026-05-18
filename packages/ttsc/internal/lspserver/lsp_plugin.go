@@ -1,4 +1,4 @@
-package driver
+package lspserver
 
 import "encoding/json"
 

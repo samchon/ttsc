@@ -4,6 +4,11 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
+  "os"
+  "os/exec"
+  "path/filepath"
+  "runtime"
+  "strings"
   "testing"
 )
 
@@ -37,6 +42,39 @@ func chainFrames(frames ...[]byte) []byte {
     out.Write(frame)
   }
   return out.Bytes()
+}
+
+// tsgoBinaryForTest resolves the workspace TypeScript-Go binary for tests that
+// exercise the real upstream LSP process. CI passes TTSC_TSGO_BINARY; local
+// runs fall back to Node's package resolver from packages/ttsc.
+func tsgoBinaryForTest(t *testing.T) string {
+  t.Helper()
+  if binary := os.Getenv("TTSC_TSGO_BINARY"); binary != "" {
+    return binary
+  }
+  _, file, _, ok := runtime.Caller(0)
+  if !ok {
+    t.Fatal("could not resolve test helper path")
+  }
+  packageRoot := filepath.Dir(filepath.Dir(filepath.Dir(file)))
+  script := `
+const path = require("node:path");
+const root = path.dirname(require.resolve("@typescript/native-preview/package.json", { paths: [process.cwd()] }));
+const platformPackage = "@typescript/native-preview-" + process.platform + "-" + process.arch;
+const platformRoot = path.dirname(require.resolve(platformPackage + "/package.json", { paths: [root] }));
+process.stdout.write(path.join(platformRoot, "lib", process.platform === "win32" ? "tsgo.exe" : "tsgo"));
+`
+  cmd := exec.Command("node", "-e", script)
+  cmd.Dir = packageRoot
+  output, err := cmd.CombinedOutput()
+  if err != nil {
+    t.Fatalf("could not resolve tsgo binary: %v\n%s", err, output)
+  }
+  binary := strings.TrimSpace(string(output))
+  if _, err := os.Stat(binary); err != nil {
+    t.Fatalf("resolved tsgo binary is not usable: %s: %v", binary, err)
+  }
+  return binary
 }
 
 // flakyWriter fails the configured byte boundary so write-error paths
