@@ -30,6 +30,7 @@ const GO_BUILD_ENV_KEYS: readonly string[] = [
   "GOEXPERIMENT",
   "CGO_ENABLED",
   "GOTOOLCHAIN",
+  "GOROOT",
 ];
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 const CONTRIB_DIRNAME = "contrib";

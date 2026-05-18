@@ -24,7 +24,7 @@ The cache key for a built plugin binary is `sha256` of, in order:
 3. `platform=${process.platform}/${process.arch}`
 4. `entry=${plugin entry package relative to its go.mod}`
 5. `go=${resolveGoCompilerIdentity(goBinary)}` — the resolved Go binary's file content hash and `go version` text, not the install path.
-6. Every set env var in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`.
+6. Every set env var in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`, `GOROOT`.
 7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
 8. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
 9. Contributor source-directory hashes, sorted by contributor name.
@@ -74,11 +74,11 @@ The plugin builder reads three groups of environment variables. All three influe
 
 ### Cache-key inputs: `GO_BUILD_ENV_KEYS`
 
-These 14 Go build env vars fold into the cache key when non-empty, so cross-compile targets and build-tag tweaks never collide with the native build slot:
+These 15 Go build env vars fold into the cache key when non-empty, so cross-compile targets, build-tag tweaks, and explicit toolchain roots never collide with the native build slot:
 
 ```text
 GOOS GOARCH GOAMD64 GOARM GO386 GOMIPS GOMIPS64 GOPPC64 GORISCV64
-GOWASM GOFLAGS GOEXPERIMENT CGO_ENABLED GOTOOLCHAIN
+GOWASM GOFLAGS GOEXPERIMENT CGO_ENABLED GOTOOLCHAIN GOROOT
 ```
 
 Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` constant; the cache-key loop folds each non-empty value into the hash).
