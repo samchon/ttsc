@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import * as os from "node:os";
 
+import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { resolveTtscserverBinary } from "./resolveTtscserverBinary";
 
 /**
@@ -11,6 +12,7 @@ import { resolveTtscserverBinary } from "./resolveTtscserverBinary";
  * performs only:
  *
  * - Resolve the platform binary,
+ * - Resolve the project TypeScript-Go binary for the native wrapper,
  * - Inject `--stdio` when the first arg is not a meta-command,
  * - Delegate to the binary with inherited stdio so OS-level signals reach the
  *   child via the parent's process group.
@@ -31,9 +33,18 @@ export function runTtscserver(
   ensureExecutable(binary);
 
   const args = needsStdio(argv) ? ["--stdio", ...argv] : [...argv];
+  let env: NodeJS.ProcessEnv;
+  try {
+    env = resolveTtscserverEnv(args);
+  } catch (error) {
+    process.stderr.write(
+      `ttscserver: ${stripTtscPrefix(formatError(error))}\n`,
+    );
+    return 1;
+  }
   const result = spawnSync(binary, args, {
     stdio: "inherit",
-    env: process.env,
+    env,
     windowsHide: true,
   });
   if (result.error) {
@@ -53,6 +64,37 @@ export function runTtscserver(
     return typeof signum === "number" ? 128 + signum : 1;
   }
   return result.status ?? 1;
+}
+
+function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
+  if (!argv.includes("--stdio")) {
+    return process.env;
+  }
+  if (process.env.TTSC_TSGO_BINARY || hasTsgoOption(argv)) {
+    return process.env;
+  }
+  const tsgo = resolveTsgo({
+    cwd: process.cwd(),
+    resolveFrom: __filename,
+  });
+  return {
+    ...process.env,
+    TTSC_TSGO_BINARY: tsgo.binary,
+  };
+}
+
+function hasTsgoOption(argv: readonly string[]): boolean {
+  return argv.some((arg) => arg === "--tsgo" || arg.startsWith("--tsgo="));
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function stripTtscPrefix(message: string): string {
+  return message.startsWith("ttsc: ")
+    ? message.slice("ttsc: ".length)
+    : message;
 }
 
 /**

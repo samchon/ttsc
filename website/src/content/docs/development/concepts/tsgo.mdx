@@ -75,7 +75,7 @@ Useful shim sub-packages:
 | `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                     |
 | `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                   |
 | `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.           |
-| `shim/lsp`              | embedded `lsp.Server` for `ttscserver` hosts — not for plugin authors. Listed here so you know to skip it.                        |
+| `shim/lsp`              | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors.                    |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 

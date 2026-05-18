@@ -38,15 +38,17 @@ let client: LanguageClient | undefined;
 function resolveServerLauncher(): ServerOptions | undefined {
   const config = workspace.getConfiguration("ttsc");
   const explicit = config.get<string>("serverPath", "").trim();
+  const bases = collectResolutionBases();
   if (explicit && path.isAbsolute(explicit)) {
     return {
       command: explicit,
       args: ["--stdio"],
+      options: serverProcessOptions(bases[0]),
       transport: TransportKind.stdio,
     };
   }
 
-  for (const base of collectResolutionBases()) {
+  for (const base of bases) {
     try {
       const launcher = require.resolve("ttsc/lib/launcher/ttscserver.js", {
         paths: [base],
@@ -54,6 +56,7 @@ function resolveServerLauncher(): ServerOptions | undefined {
       return {
         module: launcher,
         args: ["--stdio"],
+        options: serverProcessOptions(base),
         transport: TransportKind.stdio,
       };
     } catch {
@@ -64,6 +67,44 @@ function resolveServerLauncher(): ServerOptions | undefined {
   return undefined;
 }
 
+function serverProcessOptions(base?: string) {
+  const tsgo = base ? resolveTsgoBinary(base) : undefined;
+  if (!base && !tsgo) {
+    return undefined;
+  }
+  return {
+    cwd: base,
+    env: tsgo
+      ? {
+          ...process.env,
+          TTSC_TSGO_BINARY: tsgo,
+        }
+      : process.env,
+  };
+}
+
+function resolveTsgoBinary(base: string): string | undefined {
+  try {
+    const packageJson = require.resolve(
+      "@typescript/native-preview/package.json",
+      { paths: [base] },
+    );
+    const packageRoot = path.dirname(packageJson);
+    const platformPackage = `@typescript/native-preview-${process.platform}-${process.arch}`;
+    const platformPackageJson = require.resolve(
+      `${platformPackage}/package.json`,
+      { paths: [packageRoot] },
+    );
+    return path.join(
+      path.dirname(platformPackageJson),
+      "lib",
+      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Build the list of directories Node's `require.resolve` will walk when looking
  * up `ttsc/lib/launcher/ttscserver.js`. The active document's directory takes
@@ -72,9 +113,10 @@ function resolveServerLauncher(): ServerOptions | undefined {
  * untitled) are skipped because their `fsPath` is synthetic and would walk the
  * entire filesystem root. Workspace folders come next. If both lists are empty
  * (single file opened with no workspace) the function returns an empty slice so
- * the caller falls through to the bare-module branch; pushing `process.cwd()`
- * is not useful because the VSCode extension-host cwd is `/`, the install dir,
- * or `C:\Windows\System32` depending on platform — never the user's project.
+ * `activate` can report the missing project-local ttsc installation. Pushing
+ * `process.cwd()` is not useful because the VSCode extension-host cwd is `/`,
+ * the install dir, or `C:\Windows\System32` depending on platform, never the
+ * user's project.
  */
 function collectResolutionBases(): string[] {
   const bases: string[] = [];

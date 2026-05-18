@@ -6,14 +6,14 @@
 
 - `ttsc` — build, check, watch, and source-to-source transform on top of `@typescript/native-preview`.
 - `ttsx` — run a TypeScript entrypoint after a real type-check (a typed `tsx`/`ts-node`).
-- `ttscserver` — Language Server Protocol host: embeds tsgo's `internal/lsp.Server` and proxies JSON-RPC traffic so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers merge into the same stream the editor consumes.
+- `ttscserver` — Language Server Protocol host: wraps the project-selected `tsgo --lsp --stdio` process and proxies JSON-RPC traffic so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers merge into the same stream the editor consumes.
 - Plugins — Go sidecars that share TypeScript-Go's AST/Checker. `ttsc` builds plugin source on demand and caches the binary.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
 
 ### 1.2. Layout
 
-- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `driver/lsp_*.go` is the byte-level LSP proxy embedded by ttscserver and `driver.PluginSource` is the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode`).
+- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `internal/lspserver` is the byte-level LSP proxy used by ttscserver, while `driver.PluginSource` remains the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode`).
 - `packages/{banner,paths,strip}`: utility transform plugins with package-owned `driver/` logic linked into a generic native host.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.

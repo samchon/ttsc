@@ -38,10 +38,11 @@ function runTtscCoverage() {
       "./cmd/ttscserver",
       "./driver",
       "./internal/cwd",
+      "./internal/lspserver",
       "./test/...",
       "./utility",
       "-covermode=atomic",
-      "-coverpkg=./cmd/platform,./cmd/ttsc,./cmd/ttscserver,./driver,./internal/cwd,./utility",
+      "-coverpkg=./cmd/platform,./cmd/ttsc,./cmd/ttscserver,./driver,./internal/cwd,./internal/lspserver,./utility",
       `-coverprofile=${unitProfile}`,
     ],
     {
@@ -50,6 +51,7 @@ function runTtscCoverage() {
         ...goEnv(),
         TTSC_NATIVE_COMMAND_COVERDIR: commandCoverDir,
         TTSC_PLATFORM_COMMAND_COVERDIR: commandCoverDir,
+        TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? resolveTsgoBinary(),
       },
     },
   );

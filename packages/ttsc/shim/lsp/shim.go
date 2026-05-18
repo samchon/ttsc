@@ -1,34 +1,28 @@
 // gen_shims:hand-maintained
 //
 // Minimal shim of tsgo's internal/lsp package. Hand-written instead of
-// generated so the surface stays narrow: ttscserver embeds the tsgo LSP
-// server unmodified and intercepts traffic at the byte level, so the only
-// types it touches are the opaque Server, its options struct, and the
-// Reader/Writer interfaces that ToReader/ToWriter return. The marker on
-// the first line tells gen_shims to skip this file.
+// generated so the surface stays narrow for custom in-process host
+// experiments. The shipped ttscserver wraps `tsgo --lsp --stdio` as an
+// external process and does not import this package. The marker on the
+// first line tells gen_shims to skip this file.
 package lsp
 
 import (
-  "io"
-  _ "unsafe"
+	"io"
+	_ "unsafe"
 
-  innerlsp "github.com/microsoft/typescript-go/internal/lsp"
+	innerlsp "github.com/microsoft/typescript-go/internal/lsp"
 )
 
-// Server is the opaque LSP server type from tsgo. ttscserver does not poke
-// its internals; it only calls Run and (via wrapped Writer) observes the
-// traffic the server emits.
+// Server is the opaque LSP server type from tsgo.
 type Server = innerlsp.Server
 
 // ServerOptions mirrors the upstream construction parameters. Fields with
-// internal-package types (e.g. ParseCache *project.ParseCache) are left
-// unset by ttscserver, which is safe because every such field is an
-// optional pointer the upstream constructor accepts as nil.
+// internal-package types (e.g. ParseCache *project.ParseCache) can be left
+// unset by callers when upstream accepts nil.
 type ServerOptions = innerlsp.ServerOptions
 
-// Reader / Writer carry framed lsproto.Message values. ttscserver feeds
-// the server through io.Pipe shims of these so it can splice its own
-// JSON-RPC traffic into the same stream the editor speaks.
+// Reader / Writer carry framed lsproto.Message values.
 type Reader = innerlsp.Reader
 type Writer = innerlsp.Writer
 

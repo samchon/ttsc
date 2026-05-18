@@ -51,7 +51,6 @@ use (
     ./node_modules/ttsc/shim/compiler
     ./node_modules/ttsc/shim/core
     ./node_modules/ttsc/shim/diagnosticwriter
-    ./node_modules/ttsc/shim/lsp
     ./node_modules/ttsc/shim/parser
     ./node_modules/ttsc/shim/printer
     ./node_modules/ttsc/shim/scanner
@@ -63,7 +62,7 @@ use (
 )
 ```
 
-`shim/lsp` is for `ttscserver` host embedders, not plugin authors — list it if you want gopls to resolve cross-references, leave it out otherwise.
+`shim/lsp` is intentionally omitted here. `ttscserver` wraps the project's `tsgo --lsp --stdio` process, and plugin authors should not need in-process LSP internals.
 
 ## `go.mod`
 

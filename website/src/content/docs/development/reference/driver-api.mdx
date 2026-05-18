@@ -120,19 +120,26 @@ Implement `SourcePreamble(ctx)` when the plugin needs text before parsing, and `
 
 These symbols are for embedders of `ttscserver`, **not for plugin authors**. Skip this section unless you are building a `ttsc`-aware editor extension.
 
+`ttscserver` is a process wrapper around the project-selected `tsgo --lsp --stdio` binary. Resolve `@typescript/native-preview` in the user project, pass its absolute executable path as `TsgoBinary`, and keep plugin diagnostics/code actions in your `PluginSource`.
+
 ```go
-err := driver.RunLSPServer(driver.LSPServerOptions{
-    PluginSource: source,           // your driver.PluginSource impl
-    DenyNpmInstall: false,          // disable inside untrusted workspaces
-    ErrorHandler:  nil,
+err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
+    In:         os.Stdin,
+    Out:        os.Stdout,
+    Err:        os.Stderr,
+    Cwd:        projectRoot,
+    TsgoBinary: tsgoBinary,
+    Source:     source,             // your driver.PluginSource impl
 })
 ```
 
 | Symbol                                                                                                              | Purpose                                                          |
 | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `PluginSource` interface, `NullPluginSource`                                                                        | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
-| `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`, `DenyNpmInstall`                                        | Host-side entry points.                                          |
+| `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`                                                          | Host-side entry points.                                          |
 | `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit`                              | Wire types in the LSP envelope.                                  |
+
+`DenyNpmInstall` remains for older in-process embedders, but the shipped `ttscserver` no longer embeds tsgo and cannot override tsgo's internal ATA callback.
 
 ## Lower-level helpers
 
