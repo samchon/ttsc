@@ -116,6 +116,29 @@ func readFile(t *testing.T, file string) string {
 	return string(data)
 }
 
+// writeFile writes a fixture file, creating parent directories first.
+func writeFile(t *testing.T, file string, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// writeExecutable writes a launcher fixture with executable mode.
+func writeExecutable(t *testing.T, file string, contents string) string {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte(contents), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return file
+}
+
 // bannerManifest builds the plugin manifest shape that ttsc passes to native
 // plugins through --plugins-json.
 func bannerManifest(t *testing.T, text string) string {

@@ -115,6 +115,17 @@ func readFile(t *testing.T, file string) string {
 	return string(data)
 }
 
+// writeFile writes a fixture file, creating parent directories first.
+func writeFile(t *testing.T, file string, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // pathsManifest returns the descriptor shape ttsc passes to @ttsc/paths.
 func pathsManifest(t *testing.T) string {
 	t.Helper()

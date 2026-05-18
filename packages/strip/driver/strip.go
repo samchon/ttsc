@@ -182,9 +182,6 @@ func (s *stripRewriter) matchesCall(name string) bool {
 
 func parseCallPattern(text string) (callPattern, error) {
 	parts := strings.Split(text, ".")
-	if len(parts) == 0 {
-		return callPattern{}, fmt.Errorf("empty call pattern")
-	}
 	for i, part := range parts {
 		if part == "" {
 			return callPattern{}, fmt.Errorf("invalid call pattern %q", text)

@@ -151,10 +151,7 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
 	if fromOut == "" || targetOut == "" {
 		return specifier, false
 	}
-	rel, err := filepath.Rel(filepath.Dir(fromOut), targetOut)
-	if err != nil {
-		return specifier, false
-	}
+	rel, _ := filepath.Rel(filepath.Dir(fromOut), targetOut)
 	rel = filepath.ToSlash(rel)
 	if !strings.HasPrefix(rel, ".") {
 		rel = "./" + rel

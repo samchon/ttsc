@@ -17,6 +17,11 @@ func init() {
 
 type plugin struct{}
 
+var (
+	linkConfigNodeModules = linkNearestNodeModules
+	writeConfigLoaderFile = os.WriteFile
+)
+
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
 	return parseBanner(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)
 }
@@ -185,11 +190,8 @@ func loadBannerConfigFile(location string) (any, error) {
 	switch ext {
 	case ".js", ".cjs", ".mjs":
 		return loadBannerScriptConfigFile(location)
-	case ".ts", ".cts", ".mts":
-		return loadBannerTypeScriptConfigFile(location)
-	default:
-		return nil, fmt.Errorf("@ttsc/banner: unsupported config file extension %q for %s", ext, location)
 	}
+	return loadBannerTypeScriptConfigFile(location)
 }
 
 func isBannerConfigFileName(name string) bool {
@@ -261,7 +263,7 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	if err := linkNearestNodeModules(tempDir, filepath.Dir(location)); err != nil {
+	if err := linkConfigNodeModules(tempDir, filepath.Dir(location)); err != nil {
 		return nil, err
 	}
 
@@ -271,14 +273,11 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	importLiteral, err := json.Marshal(importSpecifier)
-	if err != nil {
-		return nil, fmt.Errorf("@ttsc/banner: encode config import %s: %w", location, err)
-	}
-	if err := os.WriteFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral))), 0o644); err != nil {
+	importLiteral, _ := json.Marshal(importSpecifier)
+	if err := writeConfigLoaderFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral))), 0o644); err != nil {
 		return nil, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
 	}
-	if err := os.WriteFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
+	if err := writeConfigLoaderFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
 		return nil, fmt.Errorf("@ttsc/banner: write config loader tsconfig: %w", err)
 	}
 
@@ -394,10 +393,7 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
 			filepath.ToSlash(location),
 		},
 	}
-	body, err := json.MarshalIndent(content, "", "  ")
-	if err != nil {
-		panic(err)
-	}
+	body, _ := json.MarshalIndent(content, "", "  ")
 	return string(body)
 }
 
