@@ -7,6 +7,7 @@ import { resolveProjectConfig } from "../../compiler/internal/project/resolvePro
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
+import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourcePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 
@@ -161,13 +162,17 @@ function runClean(argv: readonly string[]): number {
   const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
-  const targets = [
+  const legacyTargets = [
     path.join(projectRoot, "node_modules", ".ttsc"),
     path.join(projectRoot, ".ttsc"),
+  ];
+  const targets = [
     ...(options.cacheDir ? [path.resolve(cwd, options.cacheDir)] : []),
     ...(process.env.TTSC_CACHE_DIR
-      ? [path.resolve(process.env.TTSC_CACHE_DIR, "plugins")]
-      : []),
+      ? [path.resolve(process.env.TTSC_CACHE_DIR, "plugins"), ...legacyTargets]
+      : options.cacheDir
+        ? legacyTargets
+        : defaultPluginCacheCleanTargets(projectRoot)),
   ];
   const removed: string[] = [];
   for (const target of targets) {
@@ -436,7 +441,7 @@ function printHelp(): void {
       "  ttsc fix [options]         Apply check-plugin lint + format edits, then run `ttsc check`.",
       "  ttsc format [options]      Apply check-plugin format-class edits only (write-only, no type check).",
       "  ttsc prepare [options]     Build configured source-plugin binaries into cache.",
-      "  ttsc clean [options]       Delete local source-plugin cache directories.",
+      "  ttsc clean [options]       Delete source-plugin cache directories.",
     ].join("\n"),
   );
   process.stdout.write("\n");

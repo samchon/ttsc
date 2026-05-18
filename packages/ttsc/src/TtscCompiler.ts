@@ -5,6 +5,7 @@ import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemo
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
+import { defaultPluginCacheCleanTargets } from "./plugin/internal/buildSourcePlugin";
 import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
@@ -75,9 +76,9 @@ export class TtscCompiler {
    * Remove compiled cache artifacts for this compiler instance.
    *
    * When the constructor received `cacheDir`, this method removes exactly that
-   * directory. Otherwise it removes the default ttsc cache locations for the
-   * resolved project root, plus the `TTSC_CACHE_DIR/plugins` cache when that
-   * environment variable is active.
+   * directory. When `TTSC_CACHE_DIR` is active, it removes that override's
+   * plugin cache plus legacy project-local caches. Otherwise it removes the
+   * default global plugin cache plus legacy project-local caches.
    *
    * The cache target comes from the constructor context. Create another
    * `TtscCompiler` instance to clean another project or another cache root.
@@ -93,10 +94,18 @@ export class TtscCompiler {
     const envCacheDir =
       this.context.env?.TTSC_CACHE_DIR ?? process.env.TTSC_CACHE_DIR;
     const projectRoot = this.resolveCleanProjectRoot();
-    return removeExistingDirectories([
-      ...(envCacheDir ? [path.resolve(envCacheDir, "plugins")] : []),
+    const legacyTargets = [
       path.join(projectRoot, "node_modules", ".ttsc"),
       path.join(projectRoot, ".ttsc"),
+    ];
+    if (envCacheDir) {
+      return removeExistingDirectories([
+        path.resolve(envCacheDir, "plugins"),
+        ...legacyTargets,
+      ]);
+    }
+    return removeExistingDirectories([
+      ...defaultPluginCacheCleanTargets(projectRoot),
     ]);
   }
 

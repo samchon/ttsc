@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   buildSourcePlugin,
   computeCacheKey,
+  resolvePluginCacheRoot,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 
 function createFakeGoBinary(
@@ -114,5 +115,6 @@ export {
   fs,
   os,
   path,
+  resolvePluginCacheRoot,
   shellQuote,
 };

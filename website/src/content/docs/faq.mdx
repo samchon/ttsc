@@ -49,7 +49,7 @@ No. `ttsc` bundles its own Go toolchain and uses it to compile plugin binaries o
 
 ## Why is the first build slow?
 
-On a fresh install, `ttsc` compiles each plugin binary into a cache the first time you run it. On a typical machine this is under 10 seconds per plugin and happens once per `node_modules`. Pre-warm with `npx ttsc prepare`. Drop the cache with `npx ttsc clean`.
+On a fresh machine, `ttsc` compiles each plugin binary into a shared user-level cache the first time you run it. On a typical machine this is under 10 seconds per plugin and happens once per source-plugin content key, so separate pnpm installs can reuse the same binary. Pre-warm with `npx ttsc prepare`. Drop the cache with `npx ttsc clean`.
 
 ## Does `ttsx` replace `tsx` / `ts-node`?
 

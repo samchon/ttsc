@@ -8,19 +8,20 @@ import {
 } from "../../internal/source-build";
 
 /**
- * Verifies buildSourcePlugin supports project-root sources with local cache.
+ * Verifies buildSourcePlugin supports project-root sources with global cache.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Locks the default source-plugin cache location. Without an explicit cacheDir
+ * or TTSC_CACHE_DIR override, ttsc stores content-addressed binaries in the
+ * user cache instead of a package-local node_modules directory.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Point XDG_CACHE_HOME at an isolated temp directory.
+ * 2. Build a project-root source plugin without an explicit cacheDir.
+ * 3. Assert the binary lands under the global ttsc plugin cache.
  */
-export const test_buildsourceplugin_supports_project_root_sources_with_local_cache =
+export const test_buildsourceplugin_supports_project_root_sources_with_global_cache =
   () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-source-plugin-"));
+    const cacheHome = path.join(root, "cache-home");
     fs.writeFileSync(
       path.join(root, "go.mod"),
       "module example.com/plugin\n\ngo 1.26\n",
@@ -39,7 +40,9 @@ export const test_buildsourceplugin_supports_project_root_sources_with_local_cac
 
     const fakeGo = createFakeGoBinary(root);
     const previousGo = process.env.TTSC_GO_BINARY;
+    const previousCacheHome = process.env.XDG_CACHE_HOME;
     process.env.TTSC_GO_BINARY = fakeGo;
+    process.env.XDG_CACHE_HOME = cacheHome;
     try {
       const binary = buildSourcePlugin({
         baseDir: root,
@@ -51,12 +54,14 @@ export const test_buildsourceplugin_supports_project_root_sources_with_local_cac
         tsgoVersion: "7.0.0-dev",
       });
       assert.equal(
-        binary.startsWith(path.join(root, ".ttsc", "plugins")),
+        binary.startsWith(path.join(cacheHome, "ttsc", "plugins")),
         true,
       );
       assert.equal(fs.existsSync(binary), true);
     } finally {
       if (previousGo === undefined) delete process.env.TTSC_GO_BINARY;
       else process.env.TTSC_GO_BINARY = previousGo;
+      if (previousCacheHome === undefined) delete process.env.XDG_CACHE_HOME;
+      else process.env.XDG_CACHE_HOME = previousCacheHome;
     }
   };

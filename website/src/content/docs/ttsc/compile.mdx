@@ -71,7 +71,7 @@ npx ttsc clean                      # drop the plugin cache
 | `--quiet` | Suppress per-file output (default). |
 | `--verbose` | Print build summary and emitted file paths. |
 | `--binary <path>` | Use a specific tsgo binary instead of the bundled one. |
-| `--cache-dir <dir>` | Plugin binary cache root. Defaults to `node_modules/.ttsc`. |
+| `--cache-dir <dir>` | Plugin binary cache root. Defaults to the shared user-level ttsc cache. |
 
 Settings like `target`, `module`, `strict`, `lib`, `declaration`, `sourceMap`, and other classic `tsc` compilerOptions are read from `tsconfig.json`, not from CLI flags.
 
@@ -85,7 +85,7 @@ Settings like `target`, `module`, `strict`, `lib`, `declaration`, `sourceMap`, a
 
 ## Plugin cache
 
-The plugin binary cache lives at `node_modules/.ttsc/` by default. Override with `--cache-dir`. Safe to delete at any time (`ttsc clean`) — binaries get rebuilt on next use.
+The plugin binary cache lives in a shared user-level ttsc cache by default (`~/.cache/ttsc` on Linux, platform equivalents elsewhere). Override with `--cache-dir` for CI or test isolation. Safe to delete at any time (`ttsc clean`) — binaries get rebuilt on next use. The default cache records last-use timestamps and prunes old entries automatically.
 
 ## See also
 

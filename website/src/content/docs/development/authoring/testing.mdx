@@ -212,7 +212,7 @@ For the re-spawn how-to (calling `exec.Command(os.Getenv("TTSC_TSGO_BINARY"), ..
 
 ## Cache isolation
 
-Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary's identity — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs) for the full formula. Three knobs make tests deterministic:
+Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary's content identity — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs) for the full formula. Three knobs make tests deterministic:
 
 - **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir race the publish path.
 
@@ -222,7 +222,7 @@ Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary'
   ```
 
 - **Freeze `GOOS` / `GOARCH` to the host** so a stray `GOARCH=arm64` in a developer's shell does not rebuild plugins.
-- **Pin `TTSC_GO_BINARY`** to a fixed absolute path so the cache slot stays stable across `pnpm install`.
+- **Pin `TTSC_GO_BINARY`** when the test must use a fake or fixture Go toolchain instead of the bundled one.
 
 Use a fresh cache when the test asserts first-build behavior.
 

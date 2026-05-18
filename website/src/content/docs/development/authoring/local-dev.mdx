@@ -79,22 +79,16 @@ The `go.work` file tells Go where `v0.0.0` lives locally. The plugin `go.mod` ke
 
 ## pnpm
 
-The `go.work` above assumes `./node_modules/ttsc` exists. With pnpm's isolated linker it may not.
+Published plugins and normal consumer builds work with pnpm's isolated linker. `ttsc` resolves descriptors through Node's package resolver and stores source-plugin binaries in the shared user cache, so separate pnpm virtual-store paths can reuse the same native binary when the plugin source content matches.
 
-Recommended for plugin development repos:
+Only manual Go tooling in a plugin development checkout needs the `go.work` file above. If that file points at `./node_modules/ttsc`, make sure your development checkout actually exposes that path. Pnpm's isolated linker may not. Use an absolute replacement to the installed `ttsc` package, or opt into a hoisted development layout:
 
 ```ini
 # .npmrc
 node-linker=hoisted
 ```
 
-Alternative:
-
-```ini
-public-hoist-pattern[]=ttsc
-```
-
-This affects only your plugin repo's development layout. Published plugins still work in consumer projects with npm, pnpm, yarn, or other package managers.
+Hoisting is a local-development convenience for `go test`, `go mod tidy`, and gopls. It is not required for consumers running `ttsc`.
 
 ## Ignore
 

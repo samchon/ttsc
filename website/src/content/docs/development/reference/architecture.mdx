@@ -22,14 +22,14 @@ The cache key for a built plugin binary is `sha256` of, in order:
 1. `ttsc=${ttscVersion}`
 2. `tsgo=${tsgoVersion}` — the resolved `@typescript/native-preview` version.
 3. `platform=${process.platform}/${process.arch}`
-4. `entry=${absolute plugin entry path}`
-5. `go=${resolveGoCompilerIdentity(goBinary)}` — the resolved Go binary's absolute path, stat, and `go version` text.
+4. `entry=${plugin entry package relative to its go.mod}`
+5. `go=${resolveGoCompilerIdentity(goBinary)}` — the resolved Go binary's file content hash and `go version` text, not the install path.
 6. Every set env var in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `CGO_ENABLED`, `GOTOOLCHAIN`.
 7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
 8. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
 9. Contributor source-directory hashes, sorted by contributor name.
 
-The Go-binary identity (5) and `GO_BUILD_ENV_KEYS` (6) are the load-bearing reason `GOOS=linux GOARCH=arm64 ttsc` does not poison the native-platform cache slot.
+The Go-binary identity (5) and `GO_BUILD_ENV_KEYS` (6) are the load-bearing reason `GOOS=linux GOARCH=arm64 ttsc` does not poison the native-platform cache slot. Pathless Go identity also lets pnpm installs with different virtual-store paths share the same cached binary when the bundled compiler content is identical.
 
 The cache key does **not** include:
 
@@ -44,8 +44,10 @@ README, JSON, schema, and other data files inside the plugin source directory do
 Default:
 
 ```text
-<project>/node_modules/.ttsc/plugins/<key>/plugin
-<project>/.ttsc/plugins/<key>/plugin
+Linux:   $XDG_CACHE_HOME/ttsc/plugins/<key>/plugin
+Linux:   ~/.cache/ttsc/plugins/<key>/plugin
+macOS:   ~/Library/Caches/ttsc/plugins/<key>/plugin
+Windows: %LOCALAPPDATA%/ttsc/plugins/<key>/plugin
 ```
 
 Override:
@@ -54,11 +56,17 @@ Override:
 TTSC_CACHE_DIR=/tmp/ttsc-cache npx ttsc --emit
 ```
 
-Clean — removes **all** cache locations: `node_modules/.ttsc`, `.ttsc`, the explicit `--cache-dir`, and `${TTSC_CACHE_DIR}/plugins` if set:
+`--cache-dir` and `TTSC_CACHE_DIR` remain project/test isolation escapes. Relative `--cache-dir` values resolve from the ttsc working directory and store plugin binaries below `<cache-dir>/plugins`.
+
+Clean — removes the active cache location and legacy project-local caches (`node_modules/.ttsc`, `.ttsc`) so projects upgraded from older ttsc releases do not keep stale binaries:
 
 ```bash
 npx ttsc clean
 ```
+
+The default cache is content-addressed and shared across projects on the same machine. It is not tied to a package manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.
+
+`ttsc` updates a small last-used marker whenever a binary is reused. Once per day it opportunistically prunes default-cache entries unused for 30 days and trims the cache by least-recently-used order when the cache grows beyond the size budget. Explicit `--cache-dir` and `TTSC_CACHE_DIR` caches are not garbage-collected automatically because callers usually use them for CI or test isolation.
 
 ## Build environment
 

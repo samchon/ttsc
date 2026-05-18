@@ -33,6 +33,15 @@ const GO_BUILD_ENV_KEYS: readonly string[] = [
 ];
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 const CONTRIB_DIRNAME = "contrib";
+const GLOBAL_CACHE_DIRNAME = "ttsc";
+const PLUGIN_CACHE_DIRNAME = "plugins";
+const CACHE_LAST_USED_FILE = ".last-used";
+const CACHE_GC_MARKER_FILE = ".gc-last-run";
+const GLOBAL_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const GLOBAL_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const GLOBAL_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const GLOBAL_CACHE_TARGET_BYTES = Math.floor(GLOBAL_CACHE_MAX_BYTES * 0.8);
+const GLOBAL_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
 
 /** One contributor's resolved Go source plus its target sub-package name. */
 export interface ITtscBuildContributor {
@@ -74,6 +83,7 @@ export function buildSourcePlugin(opts: {
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
   if (fs.existsSync(binaryPath)) {
+    touchCacheEntry(cacheDir);
     return binaryPath;
   }
   fs.mkdirSync(cacheDir, { recursive: true });
@@ -111,6 +121,7 @@ export function buildSourcePlugin(opts: {
     runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName, goBinary);
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     publishBuiltBinary(builtBinary, binaryPath);
+    touchCacheEntry(cacheDir);
     return binaryPath;
   } finally {
     fs.rmSync(scratchDir, { recursive: true, force: true });
@@ -702,30 +713,63 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
 }
 
-function resolvePluginCacheRoot(
+export function resolvePluginCacheRoot(
   projectRoot: string,
   cacheDir?: string,
 ): string {
   if (cacheDir) {
-    return path.resolve(projectRoot, cacheDir, "plugins");
+    return path.resolve(projectRoot, cacheDir, PLUGIN_CACHE_DIRNAME);
   }
   if (process.env.TTSC_CACHE_DIR) {
-    return path.resolve(process.env.TTSC_CACHE_DIR, "plugins");
+    return path.resolve(process.env.TTSC_CACHE_DIR, PLUGIN_CACHE_DIRNAME);
   }
-  const root = path.resolve(projectRoot);
-  const nodeModules = path.join(root, "node_modules");
-  if (isDirectory(nodeModules)) {
-    return path.join(nodeModules, ".ttsc", "plugins");
-  }
-  return path.join(root, ".ttsc", "plugins");
+  const root = resolveGlobalPluginCacheRoot();
+  maybePruneGlobalPluginCache(root);
+  return root;
 }
 
-function isDirectory(candidate: string): boolean {
-  try {
-    return fs.statSync(candidate).isDirectory();
-  } catch {
-    return false;
+export function resolveGlobalPluginCacheRoot(): string {
+  return path.join(
+    resolveUserCacheRoot(),
+    GLOBAL_CACHE_DIRNAME,
+    PLUGIN_CACHE_DIRNAME,
+  );
+}
+
+export function defaultPluginCacheCleanTargets(projectRoot: string): string[] {
+  return [
+    resolveGlobalPluginCacheRoot(),
+    path.join(projectRoot, "node_modules", ".ttsc"),
+    path.join(projectRoot, ".ttsc"),
+  ];
+}
+
+function resolveUserCacheRoot(): string {
+  const xdg = process.env.XDG_CACHE_HOME;
+  if (xdg && path.isAbsolute(xdg)) {
+    return xdg;
   }
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA;
+    if (local && path.isAbsolute(local)) {
+      return local;
+    }
+    const home = os.homedir();
+    if (home) {
+      return path.join(home, "AppData", "Local");
+    }
+  }
+  if (process.platform === "darwin") {
+    const home = os.homedir();
+    if (home) {
+      return path.join(home, "Library", "Caches");
+    }
+  }
+  const home = os.homedir();
+  if (home) {
+    return path.join(home, ".cache");
+  }
+  return path.join(os.tmpdir(), "ttsc-cache");
 }
 
 function resolveGoCompiler(): string {
@@ -890,22 +934,19 @@ function isHashableFile(name: string): boolean {
 
 function resolveGoCompilerIdentity(goBinary: string): string {
   const resolved = resolveExecutableIdentityPath(goBinary);
+  if (!fs.existsSync(resolved)) {
+    return "missing";
+  }
   const version = spawnSync(goBinary, ["version"], {
     encoding: "utf8",
     windowsHide: true,
   });
   const versionText =
     version.error !== undefined
-      ? version.error.message
+      ? ((version.error as NodeJS.ErrnoException).code ?? version.error.message)
       : `${version.status ?? 0}:${version.stdout}${version.stderr}`;
-  let statText = "";
-  try {
-    const stat = fs.statSync(resolved);
-    statText = `${stat.size}:${stat.mtimeMs}`;
-  } catch {
-    statText = "missing";
-  }
-  return `${goBinary}:${resolved}:${statText}:${versionText}`;
+  const binaryHash = hashFile(resolved);
+  return `sha256:${binaryHash}:${versionText}`;
 }
 
 function resolveExecutableIdentityPath(binary: string): string {
@@ -936,5 +977,158 @@ function resolveRealPath(location: string): string {
     return fs.realpathSync(location);
   } catch {
     return location;
+  }
+}
+
+function hashFile(file: string): string {
+  const hash = crypto.createHash("sha256");
+  hash.update(fs.readFileSync(file));
+  return hash.digest("hex");
+}
+
+function touchCacheEntry(cacheDir: string): void {
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cacheDir, CACHE_LAST_USED_FILE),
+      `${Date.now()}\n`,
+    );
+  } catch {
+    // Cache hits must not fail because metadata touch failed.
+  }
+}
+
+function maybePruneGlobalPluginCache(root: string): void {
+  try {
+    fs.mkdirSync(root, { recursive: true });
+    const marker = path.join(root, CACHE_GC_MARKER_FILE);
+    const now = Date.now();
+    const lastRun = readTimestamp(marker);
+    if (lastRun !== null && now - lastRun < GLOBAL_CACHE_GC_INTERVAL_MS) {
+      return;
+    }
+    fs.writeFileSync(marker, `${now}\n`);
+    pruneGlobalPluginCache(root, now);
+  } catch {
+    // Global cache GC is opportunistic; builds still proceed when it fails.
+  }
+}
+
+function pruneGlobalPluginCache(root: string, now: number): void {
+  const entries = collectGlobalCacheEntries(root, now);
+  for (const entry of entries) {
+    if (now - entry.lastUsedAt <= GLOBAL_CACHE_ENTRY_MAX_AGE_MS) {
+      continue;
+    }
+    removeCacheEntry(entry);
+  }
+
+  const remaining = collectGlobalCacheEntries(root, now);
+  let total = remaining.reduce((sum, entry) => sum + entry.size, 0);
+  if (total <= GLOBAL_CACHE_MAX_BYTES) {
+    return;
+  }
+  for (const entry of remaining.sort((a, b) => a.lastUsedAt - b.lastUsedAt)) {
+    if (total <= GLOBAL_CACHE_TARGET_BYTES) {
+      return;
+    }
+    if (now - entry.lastUsedAt <= GLOBAL_CACHE_PROTECTED_AGE_MS) {
+      continue;
+    }
+    removeCacheEntry(entry);
+    total -= entry.size;
+  }
+}
+
+interface GlobalCacheEntry {
+  dir: string;
+  lastUsedAt: number;
+  size: number;
+}
+
+function collectGlobalCacheEntries(
+  root: string,
+  now: number,
+): GlobalCacheEntry[] {
+  const entries: GlobalCacheEntry[] = [];
+  let dirents: fs.Dirent[];
+  try {
+    dirents = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return entries;
+  }
+  for (const dirent of dirents) {
+    if (!dirent.isDirectory()) {
+      continue;
+    }
+    const dir = path.join(root, dirent.name);
+    const lastUsedAt = readCacheEntryLastUsedAt(dir, now);
+    entries.push({
+      dir,
+      lastUsedAt,
+      size: directorySize(dir),
+    });
+  }
+  return entries;
+}
+
+function readCacheEntryLastUsedAt(dir: string, now: number): number {
+  const touched = readTimestamp(path.join(dir, CACHE_LAST_USED_FILE));
+  if (touched !== null) {
+    return touched;
+  }
+  for (const name of ["plugin", "plugin.exe"]) {
+    try {
+      return fs.statSync(path.join(dir, name)).mtimeMs;
+    } catch {}
+  }
+  try {
+    return fs.statSync(dir).mtimeMs;
+  } catch {
+    return now;
+  }
+}
+
+function readTimestamp(file: string): number | null {
+  try {
+    const text = fs.readFileSync(file, "utf8").trim();
+    const value = Number(text);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  } catch {}
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+function directorySize(dir: string): number {
+  let total = 0;
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return total;
+  }
+  for (const entry of entries) {
+    const file = path.join(dir, entry.name);
+    try {
+      if (entry.isDirectory()) {
+        total += directorySize(file);
+      } else if (entry.isFile()) {
+        total += fs.statSync(file).size;
+      }
+    } catch {}
+  }
+  return total;
+}
+
+function removeCacheEntry(entry: GlobalCacheEntry): void {
+  try {
+    fs.rmSync(entry.dir, { recursive: true, force: true });
+  } catch {
+    // Windows may reject removal while a plugin binary is still running.
   }
 }

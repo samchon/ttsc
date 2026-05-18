@@ -28,18 +28,22 @@ export const test_computecachekey_changes_when_go_compiler_identity_changes =
       "utf8",
     );
     fs.writeFileSync(path.join(plugin, "main.go"), "package main\n", "utf8");
+    const goA = path.join(root, "go-a");
+    const goB = path.join(root, "go-b");
+    fs.writeFileSync(goA, "go compiler a\n", "utf8");
+    fs.writeFileSync(goB, "go compiler b\n", "utf8");
 
     const first = computeCacheKey({
       dir: plugin,
       entry: ".",
-      goBinary: "/opt/go-a/bin/go",
+      goBinary: goA,
       ttscVersion: "1.0.0",
       tsgoVersion: "7.0.0-dev",
     });
     const second = computeCacheKey({
       dir: plugin,
       entry: ".",
-      goBinary: "/opt/go-b/bin/go",
+      goBinary: goB,
       ttscVersion: "1.0.0",
       tsgoVersion: "7.0.0-dev",
     });

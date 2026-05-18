@@ -9,20 +9,22 @@ import {
 } from "../../internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: source plugin default cache is project-local under
- * node_modules.
+ * Verifies plugin corpus: source plugin default cache is global content cache.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The default source-plugin cache must not be tied to one package's
+ * node_modules layout. Pnpm can install the same ttsc/plugin sources through
+ * different virtual-store paths, so ttsc stores content-addressed plugin
+ * binaries in the user cache unless callers request an explicit cache root.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Point the process user-cache root at an isolated temp directory.
+ * 2. Run ttsc against a source-plugin project without TTSC_CACHE_DIR.
+ * 3. Assert the binary lands in the global ttsc cache and not project-local .ttsc
+ *    directories.
  */
-export const test_plugin_corpus_source_plugin_default_cache_is_project_local_under_node_modules =
+export const test_plugin_corpus_source_plugin_default_cache_is_global_content_cache =
   () => {
     const root = setupLintProject("lint-violations");
+    const cacheHome = fs.mkdtempSync(path.join(root, "cache-home-"));
     fs.writeFileSync(
       path.join(root, "src", "main.ts"),
       `export const value: string = "local-cache";\n`,
@@ -44,12 +46,12 @@ export const test_plugin_corpus_source_plugin_default_cache_is_project_local_und
 
     const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
       cwd: root,
-      env: { PATH: goPath() },
+      env: { PATH: goPath(), XDG_CACHE_HOME: cacheHome },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stderr, /building source plugin "@ttsc\/lint"/);
 
-    const pluginCache = path.join(root, "node_modules", ".ttsc", "plugins");
+    const pluginCache = path.join(cacheHome, "ttsc", "plugins");
     const entries = fs
       .readdirSync(pluginCache, { withFileTypes: true })
       .filter(
@@ -67,6 +69,10 @@ export const test_plugin_corpus_source_plugin_default_cache_is_project_local_und
         ),
       ),
       true,
+    );
+    assert.equal(
+      fs.existsSync(path.join(root, "node_modules", ".ttsc")),
+      false,
     );
     assert.equal(fs.existsSync(path.join(root, ".ttsc")), false);
   };
