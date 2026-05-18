@@ -10,11 +10,10 @@
 package host
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"syscall/js"
 	"time"
 )
@@ -278,40 +277,76 @@ func stringProp(obj js.Value, key string) string {
 	return v.String()
 }
 
-// runWithCapturedIO redirects os.Stdout / os.Stderr through in-memory pipes
-// for the duration of `task`. Plugin Run methods write to os.Stdout / os.Stderr
+// runWithCapturedIO redirects os.Stdout / os.Stderr to temp MemFS files for
+// the duration of `task`. Plugin Run methods write to os.Stdout / os.Stderr
 // the same way the native sidecar binaries do; capturing the output lets the
 // JS host render it in a console panel without spawning a subprocess.
+//
+// We use MemFS temp files instead of os.Pipe because Go's js/wasm runtime
+// returns `pipe: not implemented on js` for `syscall.Pipe` — pipes are not
+// supported on the wasm target. The temp-file approach works because the
+// MemFS shim implements file open/write/read.
 func runWithCapturedIO(task func() int) APIResult {
 	prevOut, prevErr := os.Stdout, os.Stderr
-	rOut, wOut, _ := os.Pipe()
-	rErr, wErr, _ := os.Pipe()
-	os.Stdout = wOut
-	os.Stderr = wErr
+	defer func() {
+		os.Stdout = prevOut
+		os.Stderr = prevErr
+	}()
 
-	var outBuf, errBuf bytes.Buffer
-	done := make(chan struct{}, 2)
-	go func() {
-		_, _ = io.Copy(&outBuf, rOut)
-		done <- struct{}{}
-	}()
-	go func() {
-		_, _ = io.Copy(&errBuf, rErr)
-		done <- struct{}{}
-	}()
+	stdoutPath := fmt.Sprintf("/tmp/ttsc-host-capture-%d-%d.stdout", os.Getpid(), captureCounter.Add(1))
+	stderrPath := fmt.Sprintf("/tmp/ttsc-host-capture-%d-%d.stderr", os.Getpid(), captureCounter.Add(1))
+
+	outFile, outErr := os.Create(stdoutPath)
+	errFile, errErr := os.Create(stderrPath)
+	if outErr != nil || errErr != nil {
+		// Fall back to the original streams. Better to lose capture than the
+		// call. The MemFS writeSync shim surfaces the failure to the host
+		// console so the regression is visible.
+		if outErr != nil {
+			fmt.Fprintf(prevErr, "host.runWithCapturedIO: stdout temp file failed: %v\n", outErr)
+		}
+		if errErr != nil {
+			fmt.Fprintf(prevErr, "host.runWithCapturedIO: stderr temp file failed: %v\n", errErr)
+		}
+		if outFile != nil {
+			_ = outFile.Close()
+			_ = os.Remove(stdoutPath)
+		}
+		if errFile != nil {
+			_ = errFile.Close()
+			_ = os.Remove(stderrPath)
+		}
+		return APIResult{Code: task()}
+	}
+
+	os.Stdout = outFile
+	os.Stderr = errFile
 
 	code := task()
 
-	_ = wOut.Close()
-	_ = wErr.Close()
-	<-done
-	<-done
+	// Sync + close BEFORE swapping back, so the plugin's last writes hit the
+	// file before we read it.
+	_ = outFile.Sync()
+	_ = errFile.Sync()
+	_ = outFile.Close()
+	_ = errFile.Close()
+
 	os.Stdout = prevOut
 	os.Stderr = prevErr
 
+	stdoutBytes, _ := os.ReadFile(stdoutPath)
+	stderrBytes, _ := os.ReadFile(stderrPath)
+	_ = os.Remove(stdoutPath)
+	_ = os.Remove(stderrPath)
+
 	return APIResult{
 		Code:   code,
-		Stdout: outBuf.String(),
-		Stderr: errBuf.String(),
+		Stdout: string(stdoutBytes),
+		Stderr: string(stderrBytes),
 	}
 }
+
+// captureCounter avoids temp-file name collisions when plugin dispatches
+// overlap (multiple goroutines could be in runWithCapturedIO concurrently
+// from independent JS callers).
+var captureCounter atomic.Uint64

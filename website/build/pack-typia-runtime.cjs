@@ -26,7 +26,7 @@ const fs = require("fs");
 const path = require("path");
 
 const websiteRoot = path.resolve(__dirname, "..");
-const depsRoot = path.join(websiteRoot, "compiler-dependencies", "node_modules");
+const repoRoot = path.resolve(websiteRoot, "..");
 const outFile = path.join(
   websiteRoot,
   "public",
@@ -34,19 +34,49 @@ const outFile = path.join(
   "typia-runtime-pack.json",
 );
 
+// Resolve packages the same way pack-typia-sources.cjs does so the runtime
+// pack ships JS from the SAME typia install whose source the wasm sees. A
+// version skew between this pack and the source pack would let the Compiled
+// JS preview show typia.is(...) lowered against helpers the sandbox can't
+// resolve.
+function resolvePackageRoot(packageName) {
+  const candidates = [
+    path.join(websiteRoot, "node_modules", ...packageName.split("/")),
+  ];
+  const pnpmStore = path.join(repoRoot, "node_modules", ".pnpm");
+  if (fs.existsSync(pnpmStore)) {
+    for (const entry of fs.readdirSync(pnpmStore)) {
+      const candidate = path.join(pnpmStore, entry, "node_modules", ...packageName.split("/"));
+      candidates.push(candidate);
+    }
+  }
+  candidates.push(
+    path.join(websiteRoot, "compiler-dependencies", "node_modules", ...packageName.split("/")),
+  );
+  for (const c of candidates) {
+    try {
+      const real = fs.realpathSync(c);
+      if (fs.existsSync(path.join(real, "package.json"))) return real;
+    } catch {
+      /* keep trying */
+    }
+  }
+  return candidates[0];
+}
+
 // Each entry packs `<pkgDir>/lib/**/*.js` (or full tree for randexp & friends
 // which don't have a lib/ subdir). Maps & ESM `.mjs` variants are skipped:
 // the sandbox is CJS-only so mjs only adds weight.
 const SOURCES = [
-  { name: "typia", root: path.join(depsRoot, "typia"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/utils", root: path.join(depsRoot, "@typia/utils"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/core", root: path.join(depsRoot, "@typia/core"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/interface", root: path.join(depsRoot, "@typia/interface"), pickDirs: ["lib"], pickRoot: true },
+  { name: "typia", root: resolvePackageRoot("typia"), pickDirs: ["lib"], pickRoot: true },
+  { name: "@typia/utils", root: resolvePackageRoot("@typia/utils"), pickDirs: ["lib"], pickRoot: true },
+  { name: "@typia/core", root: resolvePackageRoot("@typia/core"), pickDirs: ["lib"], pickRoot: true },
+  { name: "@typia/interface", root: resolvePackageRoot("@typia/interface"), pickDirs: ["lib"], pickRoot: true },
   // randexp + its transitive runtime deps (typia.random's regex generators).
-  { name: "randexp", root: path.join(depsRoot, "randexp"), pickDirs: ["lib"], pickRoot: true },
-  { name: "ret", root: path.join(depsRoot, "ret"), pickDirs: ["lib"], pickRoot: true },
-  { name: "drange", root: path.join(depsRoot, "drange"), pickDirs: ["lib"], pickRoot: true },
-  { name: "discontinuous-range", root: path.join(depsRoot, "discontinuous-range"), pickDirs: [], pickRoot: true },
+  { name: "randexp", root: resolvePackageRoot("randexp"), pickDirs: ["lib"], pickRoot: true },
+  { name: "ret", root: resolvePackageRoot("ret"), pickDirs: ["lib"], pickRoot: true },
+  { name: "drange", root: resolvePackageRoot("drange"), pickDirs: ["lib"], pickRoot: true },
+  { name: "discontinuous-range", root: resolvePackageRoot("discontinuous-range"), pickDirs: [], pickRoot: true },
 ];
 
 function walk(dir) {
