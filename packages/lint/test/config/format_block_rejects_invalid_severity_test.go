@@ -5,42 +5,26 @@ import (
   "testing"
 )
 
-// TestFormatBlockRejectsInvalidSeverity verifies the loader surfaces
-// an error at the `format.severity` boundary when the value is not in
-// the documented allow-list.
+// TestFormatBlockRejectsInvalidSeverity verifies that `format.severity` uses
+// the same severity parser as rule entries.
 //
-// Without the boundary check, a typo like `severity: "fatal"` would
-// propagate into every per-rule entry the format block expands and
-// surface as `rule "format/semi": unknown severity "fatal"` — blaming
-// the rule rather than the misspelled key. The strict parse-time
-// check turns the diagnostic into something the user can act on.
+// The field is optional and defaults to off, but once present it is still a
+// user-authored policy knob. Typos must fail at the format-block boundary
+// instead of being ignored and silently falling back to off.
 //
-//  1. Build `format: { severity: "fatal" }`.
-//  2. Call `LoadConfigResolver`.
-//  3. Assert the error mentions `format.severity`.
-//  4. Repeat for an out-of-range numeric severity (`severity: 3`).
+//  1. Build `format: { severity: "maybe" }`.
+//  2. Resolve.
+//  3. Assert the error points at `format.severity`.
 func TestFormatBlockRejectsInvalidSeverity(t *testing.T) {
   _, err := LoadConfigResolver(&PluginEntry{
     Config: map[string]any{
-      "format": map[string]any{"severity": "fatal"},
+      "format": map[string]any{"severity": "maybe"},
     },
   }, "/virtual", "")
   if err == nil {
-    t.Fatal("expected error for severity=\"fatal\", got nil")
+    t.Fatal("expected error for invalid format.severity, got nil")
   }
   if !strings.Contains(err.Error(), "format.severity") {
     t.Errorf("expected error to mention format.severity, got %v", err)
-  }
-
-  _, err = LoadConfigResolver(&PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": float64(3)},
-    },
-  }, "/virtual", "")
-  if err == nil {
-    t.Fatal("expected error for severity=3, got nil")
-  }
-  if !strings.Contains(err.Error(), "format.severity") {
-    t.Errorf("expected numeric severity error to mention format.severity, got %v", err)
   }
 }

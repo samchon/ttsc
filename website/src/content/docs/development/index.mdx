@@ -60,9 +60,9 @@ Deeper material — read as needed.
 
 A `ttsc` plugin is an npm package with two halves: a **JS descriptor** that lives in the consumer's `node_modules` and tells `ttsc` what the plugin does, and a **Go sidecar** that holds the actual logic. The Go sidecar reads the TypeScript-Go AST, queries the Checker, then either reports diagnostics or rewrites emit. It compiles once into a binary the first time it is used, and the binary is **cached** by ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, and the Go build environment. Plugins run **everywhere** `ttsc` runs — CLI, `ttsx`, `ttscserver`, every `@ttsc/unplugin` bundler adapter. One contract, one config (`tsconfig.json`'s `compilerOptions.plugins`); a `package.json#ttsc.plugin` field on a directly-listed dependency adds **auto-discovery** as a package-side fallback. See [Concepts](/docs/development/concepts) for the canonical vocabulary.
 
-## Test fixtures (third-party shape)
+## Test Fixtures
 
-The three first-party transform sidecars are 36-line dispatchers over a shared `packages/ttsc/utility/host.go`, gated by a first-party allowlist — the [Walkthroughs](/docs/development/walkthroughs) explain when this matters. When you want a Program/Checker bootstrap your **third-party** plugin can copy verbatim, look at these fixtures:
+When you want a Program/Checker bootstrap your plugin can copy verbatim, look at these fixtures:
 
 - [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker) — minimal Program/Checker setup.
 - [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties) — AST traversal fixture.
@@ -74,5 +74,5 @@ v1 protocol, still moving. Don't publish `ttsc` as a peer dependency yet — tre
 ## Requirements
 
 - Node.js 18+ — install from [nodejs.org/download](https://nodejs.org/en/download) if you don't have it.
-- Go 1.22+ for direct `go test` / `go vet` against your plugin — install from [go.dev/dl](https://go.dev/dl/). `ttsc`'s bundled toolchain (shipped in the platform package) is what actually builds plugins on consumer machines; a system Go is only needed for local-dev workflows. The first-party plugins (and the `go.mod` examples in this chapter) target `go 1.26` because that is the bundled SDK; the bundled toolchain satisfies the `go` directive regardless of your system Go version.
+- Go 1.22+ for direct `go test` / `go vet` against your plugin — install from [go.dev/dl](https://go.dev/dl/). `ttsc`'s bundled toolchain (shipped in the platform package) is what actually builds plugins on consumer machines; a system Go is only needed for local-dev workflows. The shipped plugins (and the `go.mod` examples in this chapter) target `go 1.26` because that is the bundled SDK; the bundled toolchain satisfies the `go` directive regardless of your system Go version.
 - A consumer test fixture with `ttsc` and `@typescript/native-preview` installed.

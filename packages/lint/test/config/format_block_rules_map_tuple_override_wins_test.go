@@ -7,8 +7,7 @@ import (
 
 // TestFormatBlockRulesMapTupleOverrideWins verifies that an option
 // tuple in the `rules` map fully replaces the matching entry from the
-// `format` block — both severity AND options are taken from the
-// rules entry.
+// `format` block.
 //
 // This pins row 5 of the design spec's conflict-resolution table.
 // The format block expansion produces a tuple-shaped entry per rule;
@@ -17,13 +16,13 @@ import (
 // deep-merged the option blob would silently mix the two surfaces
 // in a way the spec rules out.
 //
-//  1. Build `format: { printWidth: 80 }` (default options).
+//  1. Build `format: { severity: "warning", printWidth: 80 }`.
 //  2. Override via `rules: { "format/print-width": ["error", { "printWidth": 120 }] }`.
 //  3. Assert the resolved options carry `printWidth=120`, not 80.
 func TestFormatBlockRulesMapTupleOverrideWins(t *testing.T) {
   entry := &PluginEntry{
     Config: map[string]any{
-      "format": map[string]any{"printWidth": 80},
+      "format": map[string]any{"severity": "warning", "printWidth": 80},
       "rules": map[string]any{
         "format/print-width": []any{
           "error",

@@ -10,8 +10,10 @@ export interface ITtscLoadedNativePlugin {
   config: ITtscProjectPluginConfig;
   /** Contributor Go sources statically linked into the binary, if any. */
   contributors?: readonly ITtscPluginContributor[];
-  /** Stable plugin name used in diagnostics and native manifests. */
-  name: string;
+  /** Whether this source owns a process or is linked into another host. */
+  kind: "executable" | "linked";
+  /** Optional human label used in diagnostics and native manifests. */
+  name?: string;
   /** Go source directory selected by the plugin descriptor. */
   source: string;
   /** Pipeline stage where the sidecar participates. */

@@ -20,7 +20,20 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/banner
 ```
 
-Add `banner.config.ts` next to your project config:
+Pass the banner text inline on the `compilerOptions.plugins[]` entry:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "text": "License MIT (c) 2026 Acme" }
+    ]
+  }
+}
+```
+
+Or keep the text in a separate file `banner.config.ts` next to your tsconfig:
 
 ```ts
 // banner.config.ts
@@ -37,11 +50,17 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-If `@ttsc/banner` is installed and no banner config file can be found, the compile fails.
+If `@ttsc/banner` is installed and none of the three text sources (inline `text:`, `config:` path, or an auto-discovered `banner.config.*`) yields a banner, the compile fails.
 
 ## Configuration
 
-`banner.config.ts` is the only config surface. The plugin formats every line of `text` inside a JSDoc block and appends `@packageDocumentation`.
+`@ttsc/banner` resolves its text in this order:
+
+1. the entry's inline `text` string;
+2. the entry's `config: "./path/to/banner.config.ts"` path;
+3. an upward walk for any `banner.config.{js,cjs,mjs,ts,mts,cts}` starting from the tsconfig directory.
+
+The plugin formats every line of the resolved text inside a JSDoc block and appends `@packageDocumentation`.
 
 The banner follows TypeScript's normal comment emit policy, so `removeComments: true` removes it.
 

@@ -107,7 +107,7 @@ This works with TypeScript-Go's normal emit path:
 }
 ```
 
-`@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` are the three first-party transform plugins that share `packages/ttsc/utility/host.go` under a closed allowlist (`FIRST_PARTY_UTILITY_PLUGIN_NAMES`). Any combination of them composes inside one compiler emit pass; mixing in a third-party transform plugin forces a separate spawn and triggers the abort below.
+`@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` point at linked non-`main` Go packages. `ttsc` links those packages into the selected native compiler host, or into a generic host when no executable transform host is present. This path is capability-based: any transform descriptor whose source package is non-`main` follows the same rules.
 
 This works when a check plugin runs before one transform sidecar that owns the source/emit pass:
 
@@ -122,7 +122,7 @@ This works when a check plugin runs before one transform sidecar that owns the s
 }
 ```
 
-This fails — two unrelated third-party transform binaries cannot share one source-to-source pass:
+This fails — two unrelated executable transform binaries cannot share one source-to-source pass:
 
 ```jsonc
 {
@@ -144,7 +144,7 @@ ttsc: multiple transform native backends cannot share one source-to-source pass;
       compose transform libraries through one aggregate native host
 ```
 
-The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. The fix is the same: pick one aggregate plugin and list the others in its `composes: [...]` array. See [Composition failures](#composition-failures) below for the per-rule error strings.
+The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. The fix is the same: pick one aggregate executable plugin and list the others in its `composes: [...]` array, or make the additional transforms linked non-`main` packages. See [Composition failures](#composition-failures) below for the per-rule error strings.
 
 ## Composition failures
 
@@ -264,7 +264,7 @@ npx ttsc clean
 
 ## `version` is a smoke verb
 
-The first-party utility plugins implement `version` as a sanity check (each prints a build-id line) so a maintainer can `go run ./plugin version` to confirm the binary is wired up. `ttsc` itself never invokes `version`. Plugin authors who skip `version` lose the smoke-test path but break nothing on the host side.
+The shipped utility plugins implement `version` as a sanity check (each prints a build-id line) so a maintainer can `go run ./plugin version` to confirm the binary is wired up. `ttsc` itself never invokes `version`. Plugin authors who skip `version` lose the smoke-test path but break nothing on the host side.
 
 ## Runtime Output Fails After Manual Emit
 

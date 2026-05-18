@@ -31,7 +31,7 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
       TestLintPlugin.PACKAGE_ROOT,
       "lib",
       "structures",
-      "TtscLintConfig.d.ts",
+      "ITtscLintConfig.d.ts",
     ),
     "utf8",
   );
@@ -71,25 +71,25 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   assert.equal(manifest.exports["./config"], undefined);
   // The legacy `config?: string | TtscLintRuleMap` field narrows to the
   // rule-map shape (the new `rules` / `extends` fields cover the wider
-  // forms), so `ITtscLintPluginConfig` imports the map type — not the
-  // union `TtscLintConfig` — from `./TtscLintRuleMap`.
+  // forms), so `ITtscLintPluginConfig` imports the map type.
   assert.match(pluginConfigDts, /import type { TtscLintRuleMap }/);
   assert.doesNotMatch(pluginConfigDts, /from "ttsc"/);
   assert.match(pluginConfigDts, /export interface ITtscLintPluginConfig/);
   assert.doesNotMatch(dts, /configFile/);
   assert.doesNotMatch(dts, /configPath/);
-  assert.doesNotMatch(dts, /rules\?:/);
-  assert.match(configDts, /export type TtscLintConfig/);
+  assert.match(configDts, /export interface ITtscLintConfig/);
+  assert.doesNotMatch(configDts, /ITtscLintConfig</);
+  assert.match(configDts, /extends\?: string/);
+  assert.match(configDts, /plugins\?: Record<string, ITtscLintPlugin>/);
   assert.match(
     structuresIndexDts,
     /export \* from "\.\/ITtscLintPluginConfig"/,
   );
-  assert.match(structuresIndexDts, /export \* from "\.\/TtscLintConfig"/);
+  assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintConfig"/);
+  assert.doesNotMatch(structuresIndexDts, /TtscLintRuleEntry/);
+  assert.doesNotMatch(structuresIndexDts, /TtscLintPlugins/);
+  assert.doesNotMatch(structuresIndexDts, /PluginRuleNames/);
   assert.match(ruleDts, /export type TtscLintRule/);
   assert.match(severityDts, /export type TtscLintSeverity/);
-  // defineConfig is the const-narrowing helper exported from
-  // `@ttsc/lint`'s public surface so user `lint.config.ts` files can
-  // capture plugin objects' literal `rules` tuples for cross-namespace
-  // rule-name autocomplete.
-  assert.match(dts, /defineConfig/);
+  assert.doesNotMatch(dts, /defineConfig/);
 };

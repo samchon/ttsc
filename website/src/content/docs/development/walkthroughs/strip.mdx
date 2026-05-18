@@ -2,7 +2,7 @@
 
 `@ttsc/strip` deletes `debugger;` statements and call expressions whose callee matches a pattern like `console.log` or `assert.*` from TypeScript source before emit. The package introduces the patterns every "remove a syntactic construct" plugin uses: matching call shapes, filtering `NodeList.Nodes`, recursing into block-bodied statements, and the embedded-statement substitution trick (replacing `if (x) console.log(y)` with `if (x);` rather than `if (x)` — which would be invalid).
 
-If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the `main.go` dispatcher will look familiar — strip's is identical except for the package name. The new material on this page is the rewriter in `utility/host.go`.
+If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the `main.go` dispatcher will look familiar — strip's is identical except for the package name. The new material on this page is the linked rewriter in `driver/strip.go`.
 
 ## What it does for the consumer
 
@@ -61,9 +61,11 @@ packages/strip/
 ├── src/
 │   └── index.cjs        ← JS descriptor (CommonJS, no TypeScript types)
 ├── go.mod
+├── driver/
+│   └── strip.go         ← Linked transform logic
 └── plugin/
     ├── main.go          ← 36-line dispatcher
-    └── strip.go         ← 2-line marker
+    └── strip.go         ← Blank-imports the linked driver package
 ```
 
 Strip has no TypeScript-side configuration types, so the descriptor is a plain CommonJS file — no `lib/`, no compile step.
@@ -79,7 +81,7 @@ const path = require("node:path");
 module.exports = function createTtscStrip() {
   return {
     name: "@ttsc/strip",
-    source: path.resolve(__dirname, "..", "plugin"),
+    source: path.resolve(__dirname, "..", "driver"),
     stage: "transform",
   };
 };
@@ -130,9 +132,9 @@ func run(args []string) int {
 
 Same `run` shape, same exit codes, same subcommand surface as [banner](/docs/development/walkthroughs/banner#the-sidecar-pluginmaingo). The interesting code lives in the shared host.
 
-## The real logic — `stripRewriter` in `utility/host.go`
+## The real logic — `stripRewriter` in `driver/strip.go`
 
-The strip-specific code in [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) is roughly five components. We walk each one in the order they execute at runtime:
+The strip-specific code in [`packages/strip/driver/strip.go`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/strip.go) is roughly five components. We walk each one in the order they execute at runtime:
 
 1. **Parse the config** — turn `--plugins-json`'s `config` object into a `*stripRewriter` value.
 2. **Apply to every source file** — for each `SourceFile` in the Program, filter top-level statements and recurse.
@@ -218,7 +220,7 @@ Go has no `class` keyword and no constructors — you call a function like `pars
 
 ### 2. Apply to every source file
 
-The driver returns the parsed Program. `applySourceTransforms` (also in `utility/host.go`) walks every source file:
+The driver returns the parsed Program. `ApplyProgram` walks every source file:
 
 ```go
 func applySourceTransforms(prog *driver.Program, state transformState) error {
@@ -247,7 +249,7 @@ func (s *stripRewriter) apply(file *shimast.SourceFile) {
 }
 ```
 
-**`s == nil` check.** Defensive. Strip is only constructed when `@ttsc/strip` is in the plugin set, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil — the panic only happens at the first field deref. The body *does* deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
+**`s == nil` check.** Defensive. Strip is constructed by `newStripRewriter`, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil — the panic only happens at the first field deref. The body *does* deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
 
 **`file.Statements`** is a `*shimast.NodeList`. NodeList is a small wrapper: `{ Pos, End, Nodes []*shimast.Node }`. Mutating the slice underneath is how strip removes statements.
 
@@ -500,16 +502,15 @@ That's the whole matcher — 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
 
 **Do not copy:**
 
-- The `switch entry.Name` dispatch in `prepareTransforms`. A third-party plugin owns its own binary; it does not multiplex by name.
-- The default-config injection in `parseStrip`. For a third-party plugin, prefer "error on missing config" or "use sensible defaults at the type level (struct zero value)" rather than mutating the config map. Strip does this because the first-party host has no other hook to attach defaults to.
+- The package-specific default-config injection in `parseStrip` unless your plugin intentionally has default removal patterns.
+- The standalone `plugin/strip.go` wrapper when your descriptor points directly at an executable command package.
 
 ## Test coverage
 
-The `stripRewriter` is exercised three ways:
+The `stripRewriter` is exercised two ways:
 
-- **Pure Go unit tests** in [`packages/ttsc/test/utility`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/utility/) — one assertion per file in the AGENTS.md §2.2 shape.
-- **Strip-specific Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/) — run the binary through `go run ./plugin` against fixture projects.
-- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/) — spawn the real `ttsc` launcher against `tests/projects/strip-*` and assert on emitted `dist/` files.
+- **Package-local Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/) — run the binary through `go run ./plugin` against fixture projects, one assertion per file in the AGENTS.md §2.2 shape.
+- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/) — spawn the real `ttsc` launcher and assert on emitted `dist/` files.
 
 Pick the strip tests as your template when you write your own — they cover the structural-mutation shape your plugin probably also has.
 

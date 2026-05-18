@@ -27,13 +27,9 @@ export const test_lint_config_extends_inside_lint_config_entry_picks_up_base_rul
       source,
       pluginConfig: { extends: "./lint.config.ts" },
       extraSources: {
-        "lint.config.ts": `import { defineConfig } from "@ttsc/lint";
-
-export default defineConfig([
-  {
-    extends: [{ rules: { "no-var": "error" } }],
-  },
-]);
+        "lint.config.ts": `export default {
+  extends: [{ rules: { "no-var": "error" } }],
+};
 `,
       },
     });

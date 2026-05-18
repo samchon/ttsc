@@ -6,8 +6,8 @@ import "testing"
 // 80 columns when no `printWidth` option is supplied.
 //
 // 80 is the Prettier default and the most common project setting; it
-// is what the rule advertises in `TtscLintRuleOptions.PrintWidth.
-// printWidth`. The case feeds an input crafted to be 90 characters
+// is what the rule advertises in `ITtscLintPrintWidthRuleOptions.printWidth`.
+// The case feeds an input crafted to be 90 characters
 // flat — long enough that the default budget must reject it. A
 // regression that defaulted to 0 or omitted the fallback would let
 // the rule pass through unchanged.

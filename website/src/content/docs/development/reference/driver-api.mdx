@@ -13,7 +13,7 @@ prog, parseDiags, err := driver.LoadProgram(cwd, "tsconfig.json", driver.LoadPro
     ForceEmit:    false,
     ForceNoEmit:  false,
     OutDir:       "",
-    SourcePreamble: nil,
+    SourcePreamble: "",
 })
 if err != nil { /* parse-time failure */ }
 if len(parseDiags) > 0 { /* tsconfig errors */ }
@@ -62,7 +62,7 @@ diags = append(diags, driver.NewLintDiagnostic(
     /*code*/ 9001, driver.SeverityError,
     "[my-rule] explanation here",
 ))
-exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
 if driver.CountErrors(diags) > 0 { os.Exit(1) }
 ```
 
@@ -70,30 +70,51 @@ if driver.CountErrors(diags) > 0 { os.Exit(1) }
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `NewLintDiagnostic(file, pos, end, code, sev, msg)`   | Wraps the offset pair into a `Diagnostic` with the file's path.                                                    |
 | `Diagnostic`                                          | The struct the host's renderer accepts.                                                                            |
-| `Severity` + `SeverityError` / `SeverityWarning` / `SeverityMessage` | Constants the host's exit-code logic understands.                                                    |
-| `CountErrors(diags []Diagnostic) int`                 | Returns the number of `SeverityError` entries.                                                                     |
-| `WritePrettyDiagnostics(w io.Writer, diags, cwd)`     | Renders to `w` using the same colorful format `ttsc` itself uses.                                                  |
+| `Severity` + `SeverityError` / `SeverityWarning`      | Constants the host's exit-code logic understands. `SeverityError` fails the build; `SeverityWarning` prints with warning coloring but keeps the exit code at zero. |
+| `CountErrors(diags []Diagnostic) int`                 | Returns the number of diagnostics that should fail the build (every diagnostic except explicit warnings).          |
+| `WritePrettyDiagnostics(w io.Writer, diags, cwd)`     | Renders to `w` using the same colorful format `ttsc` itself uses. No return value.                                 |
 
 ## Rewrites
 
 ```go
 rs := driver.NewRewriteSet()
-rs.Rewrite("src/main.ts", driver.RewriteSentinel{
-    Find:    "console.log(",
-    Replace: "// console.log(",
+rs.Add(driver.Rewrite{
+    File:        file,                 // *ast.SourceFile from prog.SourceFiles()
+    RootName:    "console",
+    Method:      "log",
+    Replacement: "/* console.log */",
 })
 prog.EmitAll(rs, driver.DefaultWriteFile)
 ```
 
-`RewriteSet` is the path the utility host uses for source-text rewrites that happen during emit. Pair with `EmitAll`; pass `DefaultWriteFile` unless you need to intercept.
+`RewriteSet` is the path the engine uses to splice replacements over plugin-owned call expressions in the emitted JavaScript text. Pair with `EmitAll`; pass `DefaultWriteFile` unless you need to intercept. The `RewriteSentinel` constant (`/* @ttsc-rewritten */`) is the idempotency marker inserted at the top of a patched file so re-emitting an already-rewritten file is a no-op.
 
 ## Source preambles
 
 ```go
-overlayFS := driver.ApplySourcePreamble(prog.FS, "/* @license MIT */", prog.SourceFiles())
+text = driver.ApplySourcePreamble(text, "/* @license MIT */")
 ```
 
-`ApplySourcePreamble` is the seam `@ttsc/banner` uses to layer a JSDoc preamble over every source file before emit. See `packages/ttsc/utility/host.go` for the production use.
+`ApplySourcePreamble` keeps a BOM or hashbang at the physical start of the file while inserting generated text after it. `@ttsc/banner` computes the preamble through `driver.SourcePreamblePlugin`; the generic host applies it when source text or declaration output needs the banner.
+
+## Linked Plugins
+
+Non-`main` transform packages register with the driver instead of owning a process:
+
+```go
+func init() {
+    driver.RegisterPlugin(plugin{})
+}
+
+type plugin struct{}
+
+func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
+    // mutate prog.SourceFiles()
+    return nil
+}
+```
+
+Implement `SourcePreamble(ctx)` when the plugin needs text before parsing, and `ApplyProgram(prog, ctx)` when it mutates the loaded Program. `ctx.Entry.Config` is the original `compilerOptions.plugins[]` object for this linked entry.
 
 ## Hosting `ttscserver`
 

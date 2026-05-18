@@ -1,8 +1,10 @@
 package linthost
 
 import (
+  "encoding/json"
   "fmt"
   "os"
+  "sort"
 )
 
 // maxFormatPasses bounds the format cascade for the same reason
@@ -51,7 +53,7 @@ func runFormat(opts *subcommandOpts) int {
   totalFixes := 0
   cascadeConverged := false
   for pass := 0; pass < maxFormatPasses; pass++ {
-    engine := NewEngineWithResolver(rules)
+    engine := NewEngineWithResolver(formatCommandResolver{inner: rules})
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
     fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
     if err != nil {
@@ -85,6 +87,94 @@ func runFormat(opts *subcommandOpts) int {
     fmt.Fprintf(os.Stdout, "@ttsc/lint: formatted=%d edits\n", totalFixes)
   }
   return 0
+}
+
+type formatCommandResolver struct {
+  inner RuleResolver
+}
+
+func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig {
+  resolved := r.inner.ResolveRules(fileName)
+  if resolved.Ignored {
+    return resolved
+  }
+  if resolved.Rules == nil {
+    resolved.Rules = RuleConfig{}
+  }
+  for _, name := range r.formatOptionRuleNames() {
+    if resolved.Rules.Severity(name) == SeverityOff {
+      resolved.Rules[name] = SeverityWarn
+    }
+  }
+  return resolved
+}
+
+func (r formatCommandResolver) ActiveRuleNames() []string {
+  active := map[string]struct{}{}
+  for _, name := range r.inner.ActiveRuleNames() {
+    active[name] = struct{}{}
+  }
+  for _, name := range r.formatOptionRuleNames() {
+    active[name] = struct{}{}
+  }
+  return sortedKeys(active)
+}
+
+func (r formatCommandResolver) EnabledRuleConfig() RuleConfig {
+  enabled := r.inner.EnabledRuleConfig()
+  if enabled == nil {
+    enabled = RuleConfig{}
+  }
+  for _, name := range r.formatOptionRuleNames() {
+    if enabled.Severity(name) == SeverityOff {
+      enabled[name] = SeverityWarn
+    }
+  }
+  return enabled
+}
+
+func (r formatCommandResolver) RuleOptions(name string) json.RawMessage {
+  return r.inner.RuleOptions(name)
+}
+
+func (r formatCommandResolver) formatOptionRuleNames() []string {
+  options := resolverOptions(r.inner)
+  if len(options) == 0 {
+    return nil
+  }
+  names := make([]string, 0, len(options))
+  for name := range options {
+    if isRegisteredFormatRule(name) {
+      names = append(names, name)
+    }
+  }
+  sort.Strings(names)
+  return names
+}
+
+func resolverOptions(resolver RuleResolver) RuleOptionsMap {
+  switch r := resolver.(type) {
+  case InlineRuleResolver:
+    return r.Options
+  case *ConfigStore:
+    return r.options
+  default:
+    return nil
+  }
+}
+
+func isRegisteredFormatRule(name string) bool {
+  rule, ok := registered.rules[name]
+  return ok && isFormatRule(rule)
+}
+
+func sortedKeys(input map[string]struct{}) []string {
+  names := make([]string, 0, len(input))
+  for name := range input {
+    names = append(names, name)
+  }
+  sort.Strings(names)
+  return names
 }
 
 // filterFormatFindings keeps only findings produced by FormatRule

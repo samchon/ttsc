@@ -367,11 +367,22 @@ function writeGoWork(
 ): void {
   const goModReader = createGoModReader(goBinary, pluginName);
   validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
+  const sourceInfo = goModReader.read(scratchDir);
+  const effectiveUseDirs =
+    sourceInfo.modulePath === TTSC_GO_MODULE_PATH
+      ? useDirs.filter((dir) => {
+          const modulePath = goModReader.read(dir).modulePath;
+          return modulePath !== null && !isTtscManagedModulePath(modulePath);
+        })
+      : useDirs;
   const useLines = ["\t."];
-  for (const dir of useDirs) {
+  for (const dir of effectiveUseDirs) {
     useLines.push(`\t${dir.replace(/\\/g, "/")}`);
   }
-  const replaceLines = sourceBuildWorkspaceReplacements(useDirs, goModReader);
+  const replaceLines = sourceBuildWorkspaceReplacements(
+    effectiveUseDirs,
+    goModReader,
+  );
   const replaceBlock =
     replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
   const goWork = `go 1.26\n\nuse (\n${useLines.join("\n")}\n)${replaceBlock}`;

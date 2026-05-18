@@ -5,8 +5,7 @@
 // `lint.config.ts`. Exists so the contributor protocol's per-rule
 // options surface (rule.Context.Options + rule.Context.DecodeOptions)
 // is exercised end-to-end alongside the existing diagnostic-stream
-// demo. See docs/10-reference-plugins.md → "Reading User Options" for
-// the matching documentation.
+// demo.
 package demo
 
 import (

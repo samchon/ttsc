@@ -1,3 +1,3 @@
 package main
 
-// Paths transform logic lives in github.com/samchon/ttsc/packages/ttsc/utility.
+import _ "github.com/samchon/ttsc/packages/paths/driver"

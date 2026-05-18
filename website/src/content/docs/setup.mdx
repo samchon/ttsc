@@ -43,7 +43,7 @@ Drop this next to `tsconfig.json` so `@ttsc/lint` knows which rules to enable:
 
 ```ts
 // lint.config.ts
-import type { TtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
@@ -56,7 +56,7 @@ export default {
     singleQuote: true,
     trailingComma: "all",
   },
-} satisfies TtscLintConfig;
+} satisfies ITtscLintConfig;
 ```
 
 `rules` sets severity per lint rule. `format` is a Prettier-style block — the keys mirror `.prettierrc`. See [Lint & Prettier](/docs/lint) for the full catalog.

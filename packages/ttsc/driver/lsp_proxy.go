@@ -356,9 +356,7 @@ func (p *Proxy) appendCodeActions(env Envelope, pending pendingCodeActionRequest
   }
   var existing []json.RawMessage
   if len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null")) {
-    if err := json.Unmarshal(trimmed, &existing); err != nil {
-      return nil, false
-    }
+    _ = json.Unmarshal(trimmed, &existing)
   }
   for _, action := range actions {
     raw, _ := json.Marshal(action)
@@ -391,4 +389,3 @@ func (p *Proxy) writeError(id json.RawMessage, message string) error {
   body, _ := json.Marshal(env)
   return p.writeEditorFrame(body)
 }
-

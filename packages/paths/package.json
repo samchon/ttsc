@@ -20,6 +20,7 @@
   },
   "files": [
     "README.md",
+    "driver/paths.go",
     "src/index.cjs",
     "go.mod",
     "plugin/main.go",

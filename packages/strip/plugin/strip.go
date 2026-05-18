@@ -1,3 +1,3 @@
 package main
 
-// Strip transform logic lives in github.com/samchon/ttsc/packages/ttsc/utility.
+import _ "github.com/samchon/ttsc/packages/strip/driver"

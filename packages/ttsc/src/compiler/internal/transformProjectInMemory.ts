@@ -16,7 +16,11 @@ import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import { appendBuildOutput, normalizeBuildOutput } from "./runBuild";
-import { assertSharedHostCompatibility } from "./sharedHostHelpers";
+import {
+  assertSharedHostCompatibility,
+  linkedTransformPlugins,
+  selectSharedHostPlugin,
+} from "./sharedHostHelpers";
 
 /** Transform a project and capture TypeScript source output in memory. */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
@@ -126,13 +130,13 @@ function transformProjectWithPlugins(
   }
   assertSharedHostCompatibility(transformers, "source-to-source");
 
-  const plugin = transformers[0]!;
+  const plugin = selectSharedHostPlugin(transformers);
   const res = spawnNative(
     plugin.binary,
     createNativeTransformArgs(project, transformers),
     {
       cwd: project.root,
-      env: nativePluginEnv(options, project.root),
+      env: nativePluginEnv(options, project.root, loaded.nativePlugins, plugin),
     },
   );
   if (res.error) {
@@ -174,7 +178,7 @@ function runNativeChecks(
       createNativeCheckArgs(project, nativePlugins),
       {
         cwd: project.root,
-        env: nativePluginEnv(options, project.root),
+        env: nativePluginEnv(options, project.root, nativePlugins, plugin),
       },
     );
     if (res.error) {
@@ -239,9 +243,11 @@ function serializeNativePlugins(
 function nativePluginEnv(
   options: ITtscCompilerContext,
   projectRoot: string,
+  nativePlugins?: readonly ITtscLoadedNativePlugin[],
+  plugin?: ITtscLoadedNativePlugin,
 ): NodeJS.ProcessEnv {
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo.binary,
@@ -250,6 +256,13 @@ function nativePluginEnv(
       path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
     ...options.env,
   };
+  if (plugin?.stage === "transform") {
+    const linked = linkedTransformPlugins(nativePlugins ?? []);
+    if (linked.length !== 0) {
+      env.TTSC_LINKED_PLUGINS_JSON = serializeNativePlugins(linked);
+    }
+  }
+  return env;
 }
 
 function spawnNative(

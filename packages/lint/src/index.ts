@@ -6,7 +6,7 @@ import path from "node:path";
 
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
 
-export * from "./defineConfig";
+export * from "./defaultFormat";
 export * from "./structures/index";
 
 type TtscPluginContributor = {
@@ -72,22 +72,24 @@ const LINT_CONFIG_FILENAMES = [
 ];
 
 /**
- * Plugin descriptor factory for `@ttsc/lint`.
+ * Plugin descriptor factory consumed by ttsc package discovery.
  *
  * Two discovery surfaces feed the descriptor's `contributors` field:
  *
  * 1. The tsconfig plugin entry's `plugins` map — namespace → npm specifier. Inline
  *    for projects that prefer to keep everything in `tsconfig.json`.
  * 2. The companion `lint.config.{ts,cts,mts,js,cjs,mjs,json}` (or
- *    `eslint.config.*`) file — flat-config-style with an in-memory `plugins: {
+ *    `eslint.config.*`) file — an object with an in-memory `plugins: {
  *    ns: pluginObject }` map. The factory evaluates the config (via ttsx for TS
- *    / ESM sources, `require` for CommonJS, `JSON.parse` for JSON) and walks
- *    every entry's `plugins` field.
+ *    / ESM sources, `require` for CommonJS, `JSON.parse` for JSON) and reads
+ *    the `plugins` field.
  *
  * Contributions from both sources are merged with the tsconfig entry winning on
  * namespace collisions, so a project can opt into a hand-curated subset of an
  * external `lint.config.ts` by overriding specific namespaces in
  * `tsconfig.json`.
+ *
+ * @internal
  */
 export default function createTtscPlugin(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,

@@ -58,16 +58,18 @@ packages/paths/
 ├── src/
 │   └── index.cjs        ← JS descriptor (CommonJS)
 ├── go.mod
+├── driver/
+│   └── paths.go         ← Linked transform logic
 └── plugin/
     ├── main.go          ← 36-line dispatcher
-    └── paths.go         ← 2-line marker
+    └── paths.go         ← Blank-imports the linked driver package
 ```
 
 Identical shape to strip. The descriptor at `src/index.cjs` and the entrypoint at `plugin/main.go` are the same dispatcher you read in the [banner walkthrough](/docs/development/walkthroughs/banner#the-sidecar-pluginmaingo); the only difference is the plugin name string. Skip ahead to the real logic.
 
-## The real logic — `pathsRewriter` in `utility/host.go`
+## The real logic — `pathsRewriter` in `driver/paths.go`
 
-Everything below is in [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go). Six steps:
+Everything below is in [`packages/paths/driver/paths.go`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go). Six steps:
 
 1. **Build the rewriter** from the loaded Program. This is where tsconfig paths, `rootDir`, `outDir`, and the source-file index get cached.
 2. **Sort patterns by specificity** so `@lib/foo/*` wins before `@lib/*` for the same specifier.
@@ -361,7 +363,7 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
 
-`lookupSource` walks four stages, falling through on each miss: literal match in the `sourceFiles` map → stem with any known source extension stripped, re-looked-up → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` appended → stem + `/index.<ext>` for directory-style imports. The exact source is in [`utility/host.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go).
+`lookupSource` walks four stages, falling through on each miss: literal match in the `sourceFiles` map → stem with any known source extension stripped, re-looked-up → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` appended → stem + `/index.<ext>` for directory-style imports. The exact source is in [`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
 
 ### 5. Mapping source to emitted-JS path
 
@@ -435,7 +437,7 @@ When in doubt, set both — the cost is zero and the failure mode is silent.
 
 ## Pulling it together
 
-`pathsRewriter` is the only first-party transform that needs the Program (banner and strip work off source files alone). Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
+`pathsRewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
 
 The pattern generalizes to any plugin that needs to query *project-level* information:
 
@@ -455,15 +457,15 @@ The pattern generalizes to any plugin that needs to query *project-level* inform
 
 **Do not copy:**
 
-- The `optionalPath` / `normalizePath` / `stripKnownSourceExtension` helpers wholesale — they were tuned to match tsgo's exact behavior in `utility/host.go` and contain edge cases (Windows drive prefixes, `.d.ts` vs `.ts`) that are mostly noise to a third-party plugin. Re-derive them as you need them.
-- The `prepareTransforms` dispatch-by-name. As with strip, this is first-party-only.
-- Reading the first `--plugins-json` entry as "yours." The host sends every loaded plugin entry in `--plugins-json`, not just yours — first-party plugins co-host and dispatch by name. A third-party plugin owns its binary, so the entry whose `name` matches **your descriptor's `name`** is the one to read. Indexing `entries[0]` works until the user reorders their tsconfig `plugins` array, at which point the binary picks up another plugin's config without an error. Match by `entry.Name == "<your-plugin-name>"` explicitly. (Ordering is deterministic — `check`-stage first, then `transform`-stage, both in tsconfig order — see [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).)
+- The `optionalPath` / `normalizePath` / `stripKnownSourceExtension` helpers wholesale — they were tuned to match tsgo's exact behavior and contain edge cases (Windows drive prefixes, `.d.ts` vs `.ts`) that are mostly noise to a plugin that does not rewrite module specifiers. Re-derive them as you need them.
+- The standalone `plugin/paths.go` wrapper when your descriptor points directly at an executable command package.
+- Reading by package name. Linked plugins receive the project plugin entry paired with their registration order through `driver.PluginContext`; executable plugins should parse `--plugins-json` according to their own protocol.
 
 ## Test coverage
 
 The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/) — every feature test materializes a real project layout under `tests/projects/path-*`, runs the real `ttsc` launcher, and asserts on both the emitted JS and `.d.ts`.
 
-The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/ttsc/test/utility/`.
+The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/paths/driver/` and the end-to-end fixtures above.
 
 ## Where to read next
 

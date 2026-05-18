@@ -27,6 +27,7 @@
   },
   "files": [
     "README.md",
+    "driver/banner.go",
     "lib",
     "src",
     "go.mod",

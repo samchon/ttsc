@@ -1,7 +1,5 @@
-import type { PluginRuleNames } from "./PluginRuleNames";
-import type { TtscLintPlugins } from "./TtscLintPlugins";
 import type { TtscLintRule } from "./TtscLintRule";
-import type { TtscLintRuleOptionsMap } from "./TtscLintRuleOptions";
+import type { ITtscLintRuleOptionsMap } from "./TtscLintRuleOptions";
 import type { TtscLintSeverity } from "./TtscLintSeverity";
 
 /**
@@ -9,10 +7,12 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *
  * Built from two independent mapped types intersected together:
  *
- * - Rules listed in `TtscLintRuleOptionsMap` accept `severity`, `[severity]`, or
+ * - Rules listed in `ITtscLintRuleOptionsMap` accept `severity`, `[severity]`, or
  *   `[severity, options]`, with the options type picked per rule key.
- * - Every other built-in rule plus any contributor plugin rule accepts `severity`
- *   or `[severity]`.
+ * - Every other built-in rule accepts `severity` or `[severity]`.
+ * - Namespaced contributor plugin rules accept `severity`, `[severity]`, or
+ *   `[severity, unknownOptions]` because the host type surface no longer
+ *   knows contributor rule schemas.
  *
  * Splitting the two halves (instead of folding them into one mapped type with a
  * conditional value) keeps TypeScript's contextual typing intact inside the
@@ -38,15 +38,19 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * splits each negative case into its own const to keep every branch
  * load-bearing.
  */
-export type TtscLintRuleMap<P extends TtscLintPlugins = Record<string, never>> =
+export type TtscLintRuleMap =
   {
-    [K in keyof TtscLintRuleOptionsMap]?:
+    [K in keyof ITtscLintRuleOptionsMap]?:
       | TtscLintSeverity
       | readonly [TtscLintSeverity]
-      | readonly [TtscLintSeverity, TtscLintRuleOptionsMap[K]];
+      | readonly [TtscLintSeverity, ITtscLintRuleOptionsMap[K]];
   } & {
-    [K in Exclude<
-      TtscLintRule | PluginRuleNames<P>,
-      keyof TtscLintRuleOptionsMap
-    >]?: TtscLintSeverity | readonly [TtscLintSeverity];
+    [K in Exclude<TtscLintRule, keyof ITtscLintRuleOptionsMap>]?:
+      | TtscLintSeverity
+      | readonly [TtscLintSeverity];
+  } & {
+    [K in `${string}/${string}`]?:
+      | TtscLintSeverity
+      | readonly [TtscLintSeverity]
+      | readonly [TtscLintSeverity, unknown];
   };

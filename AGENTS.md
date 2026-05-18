@@ -14,7 +14,7 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 ### 1.2. Layout
 
 - `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `driver/lsp_*.go` is the byte-level LSP proxy embedded by ttscserver and `driver.PluginSource` is the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode`).
-- `packages/{banner,paths,strip}`: first-party utility plugins sharing `packages/ttsc/utility/host.go`.
+- `packages/{banner,paths,strip}`: utility transform plugins with package-owned `driver/` logic linked into a generic native host.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
 - `packages/vscode`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.

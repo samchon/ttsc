@@ -173,11 +173,11 @@ func runCheck(opts options) int {
             "[my-plugin/no-debugger] debugger statements are forbidden",
         ))
     }
-    exitCode := driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
     if driver.CountErrors(diags) > 0 {
         return 1
     }
-    return exitCode
+    return 0
 }
 ```
 
@@ -192,13 +192,13 @@ For structural mutations (filtering `Statements.Nodes`, swapping children), `shi
 The fix is two lines that detach the node from its parse-tree source span:
 
 ```go
-// Source: packages/ttsc/utility/host.go::pathsRewriter (the @ttsc/paths leaf-text path)
+// Source: packages/paths/driver/paths.go::pathsRewriter (the @ttsc/paths leaf-text path)
 lit.AsStringLiteral().Text = rewritten
 lit.Flags |= shimast.NodeFlagsSynthesized
 lit.Loc   = shimcore.UndefinedTextRange()
 ```
 
-Structural mutations do **not** need this — the printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/ttsc/utility/host.go::stripRewriter`) round-trips without the synthesize stamp.
+Structural mutations do **not** need this — the printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/strip/driver/strip.go::stripRewriter`) round-trips without the synthesize stamp.
 
 See [AST & Checker → Mutating the AST](/docs/development/concepts/tsgo#mutating-the-ast) for the underlying mechanism.
 

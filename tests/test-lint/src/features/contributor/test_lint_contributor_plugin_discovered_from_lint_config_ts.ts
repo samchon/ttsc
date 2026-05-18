@@ -33,15 +33,13 @@ export const test_lint_contributor_plugin_discovered_from_lint_config_ts =
         extends: "./lint.config.ts",
       },
       extraSources: {
-        "lint.config.ts": `import demoPlugin from "lint-contributor-demo";
-import { defineConfig } from "@ttsc/lint";
+        "lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";
+import demoPlugin from "lint-contributor-demo";
 
-export default defineConfig([
-  {
-    plugins: { demo: demoPlugin },
-    rules: { "demo/no-todo-comment": "error" },
-  },
-]);
+export default {
+  plugins: { demo: demoPlugin },
+  rules: { "demo/no-todo-comment": "error" },
+} satisfies ITtscLintConfig;
 `,
       },
       linkNodeModules: ["lint-contributor-demo"],

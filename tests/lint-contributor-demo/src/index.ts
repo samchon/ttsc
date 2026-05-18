@@ -8,7 +8,7 @@
 // The `rules` array is advisory — actual rule registration happens in
 // the Go `init()` of `rules/no_todo_comment.go` via
 // `rule.Register(noTodoComment{})`. The literal tuple is `as const` so
-// the host's `TtscLintConfig` type can suggest valid
+// the host's `ITtscLintConfig` type can suggest valid
 // `demo/no-todo-comment` keys in the user's `rules` map.
 import type { ITtscLintPlugin } from "@ttsc/lint";
 import path from "node:path";
