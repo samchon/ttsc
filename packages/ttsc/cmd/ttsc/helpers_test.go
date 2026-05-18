@@ -18,11 +18,11 @@ func captureCommand(t *testing.T, fn func() int) (int, string, string) {
 	var out, err bytes.Buffer
 	stdout = &out
 	stderr = &err
-	t.Cleanup(func() {
+	defer func() {
 		stdout = prevOut
 		stderr = prevErr
 		getwd = prevGetwd
-	})
+	}()
 	code := fn()
 	return code, out.String(), err.String()
 }

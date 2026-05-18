@@ -43,6 +43,10 @@ func RunCheck(args []string) int {
 		return 2
 	}
 	defer prog.Close()
+	if err := prog.ApplyLinkedPlugins(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	return 0
 }
 
@@ -95,13 +99,14 @@ func RunTransform(args []string) int {
 		return 2
 	}
 	defer prog.Close()
+	if err := prog.ApplyLinkedPlugins(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
 	out := transformResult{TypeScript: map[string]string{}}
 	for _, file := range prog.SourceFiles() {
 		text := shimprinter.EmitSourceFile(printer, file)
-		if prog.SourcePreamble != "" && !shouldRemoveComments(prog) && !strings.Contains(text, prog.SourcePreamble) {
-			text = driver.ApplySourcePreamble(text, prog.SourcePreamble)
-		}
 		out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
 	}
 	data, _ := json.Marshal(out)
@@ -220,18 +225,10 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
 	}
 	if len(diags) > 0 {
 		driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
-		if prog != nil {
-			_ = prog.Close()
-		}
 		return nil, nil, false
 	}
 	if diags := prog.Diagnostics(); len(diags) > 0 {
 		driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
-		_ = prog.Close()
-		return nil, nil, false
-	}
-	if err := prog.ApplyLinkedPlugins(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		_ = prog.Close()
 		return nil, nil, false
 	}

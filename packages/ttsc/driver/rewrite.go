@@ -92,9 +92,6 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
 	result := p.TSProgram.Emit(context.Background(), shimcompiler.EmitOptions{
 		WriteFile: wf,
 	})
-	if result == nil {
-		return nil, nil, errors.New("driver: Emit returned nil")
-	}
 	return result, convertDiagnostics(result.Diagnostics), nil
 }
 
@@ -145,9 +142,6 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 		TargetSourceFile: target,
 		WriteFile:        wf,
 	})
-	if result == nil {
-		return nil, nil, errors.New("driver: Emit returned nil")
-	}
 	return result, convertDiagnostics(result.Diagnostics), nil
 }
 

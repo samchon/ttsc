@@ -18,6 +18,9 @@ func utilitySetLinkedPluginManifest(input string) func()
 //go:linkname utilityShouldEnsureSourcePreamble github.com/samchon/ttsc/packages/ttsc/utility.shouldEnsureSourcePreamble
 func utilityShouldEnsureSourcePreamble(fileName, text, sourcePreamble string) bool
 
+//go:linkname utilityShouldRemoveComments github.com/samchon/ttsc/packages/ttsc/utility.shouldRemoveComments
+func utilityShouldRemoveComments(prog *driver.Program) bool
+
 //go:linkname utilityAPIOutputKey github.com/samchon/ttsc/packages/ttsc/utility.apiOutputKey
 func utilityAPIOutputKey(cwd, fileName string) string
 

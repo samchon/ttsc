@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -228,14 +227,9 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 		return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
 	}
 	parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, &core.CompilerOptions{}, nil, host, nil)
-	if len(diags) > 0 {
-		return nil, convertDiagnostics(diags), nil
-	}
-	if parsed == nil {
-		return nil, nil, errors.New("tsoptions: parsed command line was nil")
-	}
-	if len(parsed.Errors) > 0 {
-		return nil, convertDiagnostics(parsed.Errors), nil
+	allDiags := append(diags, parsed.Errors...)
+	if len(allDiags) > 0 {
+		return nil, convertDiagnostics(allDiags), nil
 	}
 	return parsed, nil, nil
 }
@@ -243,7 +237,7 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
 	if parsed == nil {
-		return nil, nil, errors.New("driver: nil parsed command line")
+		return nil, nil, fmt.Errorf("driver: nil parsed command line")
 	}
 	opts := shimcompiler.ProgramOptions{
 		Config:                      parsed,
@@ -252,9 +246,6 @@ func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompi
 		UseSourceOfProjectReference: true,
 	}
 	p := shimcompiler.NewProgram(opts)
-	if p == nil {
-		return nil, nil, errors.New("shimcompiler.NewProgram returned nil")
-	}
 	return p, nil, nil
 }
 
@@ -307,13 +298,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
 		overrideOutDir(cwd, parsed, options.OutDir)
 	}
 
-	tsProgram, progDiags, err := CreateProgramFromConfig(parsed, host)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(progDiags) > 0 {
-		return nil, progDiags, nil
-	}
+	tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
 
 	checker, done := tsProgram.GetTypeChecker(context.Background())
 	prog := &Program{
