@@ -347,7 +347,7 @@ What matters:
 - `driver.LoadProgram` lets TypeScript-Go parse and typecheck the real project.
 - `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map printing after the AST mutation (the `build` path).
 - `shimprinter.EmitSourceFile` renders the mutated AST per file for the `transform` path. The host treats the `typescript[path]` value as opaque text — see [Plugin protocol → Transform](/docs/development/concepts/protocol#transform).
-- This sample mutates **statement lists** (structural mutation). For mutations that rewrite the text of leaf nodes (identifiers, string literals, numeric literals), the printer reads the *original* source text via tsgo's `getTextOfNode` and the rewrite silently vanishes — see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the synthesize-flag invariant.
+- This sample mutates **statement lists** (structural mutation). Leaf-text mutations (identifiers, string literals, numeric literals) need a synthesize-flag invariant or the printer silently re-reads the original source — see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
 - Optional flags are accepted even when unused. Future `ttsc` minors may add more optional flags; `filterHostArgs` drops unknown ones safely.
 
 ## 5. Use It

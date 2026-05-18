@@ -13,9 +13,6 @@ const meta: MetaRecord = {
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
   development: "Plugin Development",
 
-  "-- contributing": { type: "separator", title: "🛠️ Contributing" },
-  contributing: "Maintainers",
-
   "-- appendix": { type: "separator", title: "🔗 Appendix" },
   faq: "FAQ",
 };

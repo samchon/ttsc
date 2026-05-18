@@ -191,7 +191,7 @@ The host emits flags in equals form; construct your tests the same way.
 
 ## Asserting re-spawn env vars
 
-`ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process--ttsc__binary)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
+`ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
 
 ```go
 // File: <your-package>/test/plugin_receives_ttsc_tsgo_binary_test.go
@@ -246,8 +246,6 @@ Avoid whole-file snapshots unless the exact output is the contract. Compiler boi
 ## TypeScript-Go Drift Tests
 
 If your plugin imports a shim symbol, add an end-to-end case that exercises that exact code path. When `ttsc` bumps TypeScript-Go, a moved symbol should fail in CI, not in a user's install.
-
-For this repository's full test matrix and release smoke checks, see [Contributing → Workspace release](/docs/contributing/workspace-release).
 
 ## Go Coverage Audit
 

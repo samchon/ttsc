@@ -75,9 +75,9 @@ GOWASM GOFLAGS GOEXPERIMENT CGO_ENABLED GOTOOLCHAIN
 
 Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` constant; the cache-key loop folds each non-empty value into the hash).
 
-### Injected into the plugin process: `TTSC_*_BINARY`
+### Injected into the plugin process
 
-Before spawning a plugin, `ttsc` sets three env vars in the child environment so the plugin can re-spawn the ttsc toolchain without resolving paths itself:
+Before spawning a plugin, `ttsc` sets three env vars (`TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY`) in the child environment so the plugin can re-spawn the ttsc toolchain without resolving paths itself:
 
 - `TTSC_NODE_BINARY` — absolute path of the Node binary that launched `ttsc`.
 - `TTSC_TSGO_BINARY` — resolved tsgo native binary used by this `ttsc` invocation.

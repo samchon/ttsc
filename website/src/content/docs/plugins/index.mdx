@@ -16,10 +16,10 @@ For lint and format, see the dedicated [Lint & Prettier](/docs/lint) chapter.
 
 External transforms that ship through the same plugin protocol:
 
-- [`typia`](https://typia.io) — runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs — all generated from your TypeScript types.
-- [`nestia`](https://nestia.io) — NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
+- [`typia`](/docs/plugins/typia) — runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs — all generated from your TypeScript types.
+- [`nestia`](/docs/plugins/nestia) — NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
 
-Each ships on its own release schedule with its own docs. Install per its own instructions.
+Each ships on its own release schedule with its own docs. The pages above cover "how does it slot into `ttsc`?"; for the full API surface follow the upstream docs (`typia.io`, `nestia.io`).
 
 PRs adding plugins to this list are welcome — the bar is "installs and works on a current `ttsc` release."
 

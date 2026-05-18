@@ -1,0 +1,77 @@
+# nestia
+
+[`nestia`](https://nestia.io) is a `ttsc`-powered toolkit for [NestJS](https://nestjs.com) that turns your TypeScript controllers into **type-safe SDKs, OpenAPI documents, E2E test scaffolding, and migration assets** — generated at build time from the controller's actual TypeScript signatures.
+
+It builds on [`typia`](/docs/plugins/typia): every payload validator, every JSON serializer, every random fixture in a generated SDK uses typia's compile-time transform. `nestia` shares the same `ttsc` plugin protocol and the same `compilerOptions.plugins[]` wiring.
+
+## Install
+
+```bash
+npm install -D ttsc @typescript/native-preview typia @nestia/core @nestia/sdk
+```
+
+Wire the transformers into `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "typia/lib/transform" },
+      { "transform": "@nestia/core/lib/transform" }
+    ]
+  }
+}
+```
+
+Run `ttsc --emit` (or any `ttsc` / `ttsx` / unplugin bundler). The build replaces `@nestia/core` decorators with type-aware validators and serializers, and the `nestia` CLI consumes the same TypeScript types to generate SDKs and docs.
+
+## What it generates
+
+A typical NestJS controller written for nestia:
+
+```ts
+import { TypedBody, TypedRoute } from "@nestia/core";
+import { Controller } from "@nestjs/common";
+
+@Controller("users")
+export class UserController {
+  @TypedRoute.Post()
+  async create(@TypedBody() body: IUser.ICreate): Promise<IUser> {
+    return /* ... */;
+  }
+}
+```
+
+Without any schema duplication you get:
+
+- **Type-safe SDK** — `npx nestia sdk` produces an npm-publishable client; `await sdk.user.create(connection, body)` is fully typed against the controller signature, including narrowed response types.
+- **Swagger / OpenAPI** — `npx nestia swagger` emits OpenAPI 3.1 (and Swagger 2.0) documents derived from the exact controller types, including typia tags (`Format<"email">`, `Maximum<150>`, …).
+- **E2E test stubs** — `npx nestia e2e` scaffolds Jest/E2E test files per route, calling the generated SDK.
+- **Migration assets** — `npx nestia template`, `npx nestia setup` — bootstrap pipelines and Swagger-to-controller migration.
+
+The runtime decorators (`@TypedBody`, `@TypedRoute.*`, `@TypedParam`, `@TypedQuery`, …) replace the standard NestJS pipes with typia-generated validators — 20,000× faster than `class-validator` according to nestia's benchmarks, and impossible to drift from the type because there is no parallel schema.
+
+## Why `ttsc`
+
+`@nestia/core` is a TypeScript compiler transformer (it rewrites decorator calls at compile time), and `typia` is too. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts. Wire both transforms into `compilerOptions.plugins[]` and `ttsc` resolves, builds, and caches each sidecar, then routes the TypeScript-Go AST through them in order.
+
+The full pipeline runs everywhere `ttsc` runs — `ttsc --emit`, `ttsx`, the VS Code extension, every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter. One install, one config; the transforms fire wherever NestJS code is compiled.
+
+## Combine with other ttsc plugins
+
+`nestia` + `typia` compose because both are typia-aware (they share the typia compiler host under the hood). They also compose with `@ttsc/lint`, `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in the same `compilerOptions.plugins[]` array. For combining unrelated third-party transform plugins, see [Plugin protocol → Combining plugins from different vendors](/docs/development/concepts/protocol#combining-plugins-from-different-vendors).
+
+## Reference
+
+`nestia` ships on its own release schedule with extensive docs.
+
+- Documentation: [nestia.io](https://nestia.io)
+- Source: [github.com/samchon/nestia](https://github.com/samchon/nestia)
+- E-Book: [nestia.io/docs/pure](https://nestia.io/docs/pure) — pure-TypeScript backend patterns with nestia.
+- Examples: [github.com/samchon/nestia/tree/master/test](https://github.com/samchon/nestia/tree/master/test) — runnable E2E projects.
+
+## See also
+
+- [`typia`](/docs/plugins/typia) — the runtime-validation transformer nestia builds on.
+- [Plugin Ecosystem overview](/docs/plugins) — the full catalogue.
+- [Plugin Development](/docs/development) — write your own ttsc plugin.

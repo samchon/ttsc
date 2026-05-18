@@ -9,9 +9,11 @@ This repository ships four package-shaped plugins. Study them in this order:
 
 The order is by *consumer-facing* implementation difficulty. `strip` is easier than `paths`: `strip` only needs the source AST in front of it; `paths` needs tsconfig and Program data to map aliases through the final output layout.
 
-> **Where the real logic lives.** The Go sidecars for `@ttsc/banner`, `@ttsc/strip`, and `@ttsc/paths` (`packages/{banner,strip,paths}/plugin/main.go`) are each **~36-line dispatchers**. The actual banner-preamble, strip-rewriter, and paths-rewriter logic lives in **one shared file**, `packages/ttsc/utility/host.go` (~1300 LOC), which is co-hosted across the three plugins under the first-party allowlist in `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`. When you open a sidecar to "learn the strip plugin," you are reading the dispatcher; the strip-specific code is the `stripRewriter` block inside `utility/host.go`. `@ttsc/lint` is different — its real engine is `packages/lint/linthost/`.
->
-> **Third-party plugins follow `tests/projects/go-source-plugin-checker/` instead** — a `plugin/main.go` that calls `driver.LoadProgram` directly. The 36-line first-party shim only works for the three allowlisted utility plugins (`utility.RunBuild` / `RunTransform` / `RunCheck` hard-code the names) and is not a public template.
+## Where the real logic lives
+
+The Go sidecars for `@ttsc/banner`, `@ttsc/strip`, and `@ttsc/paths` (`packages/{banner,strip,paths}/plugin/main.go`) are each **~36-line dispatchers**. The actual banner-preamble, strip-rewriter, and paths-rewriter logic lives in **one shared file**, `packages/ttsc/utility/host.go` (~1300 LOC), which is co-hosted across the three plugins under the first-party allowlist in `packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`. When you open a sidecar to "learn the strip plugin," you are reading the dispatcher; the strip-specific code is the `stripRewriter` block inside `utility/host.go`. `@ttsc/lint` is different — its real engine is `packages/lint/linthost/`.
+
+**Third-party plugins follow `tests/projects/go-source-plugin-checker/` instead** — a `plugin/main.go` that calls `driver.LoadProgram` directly. The 36-line first-party shim only works for the three allowlisted utility plugins (`utility.RunBuild` / `RunTransform` / `RunCheck` hard-code the names) and is not a public template.
 
 ## First-party shared compiler host
 
