@@ -1,6 +1,6 @@
 # `@ttsc/unplugin`
 
-![banner of @ttsc/unplugin](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
+![banner of @ttsc/unplugin](https://ttsc.dev/og.jpg)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
 [![NPM Version](https://img.shields.io/npm/v/@ttsc/unplugin.svg)](https://www.npmjs.com/package/@ttsc/unplugin)

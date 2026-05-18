@@ -1,6 +1,6 @@
 # `@ttsc/banner`
 
-![banner of @ttsc/banner](https://raw.githubusercontent.com/samchon/ttsc/refs/heads/master/assets/og.jpg)
+![banner of @ttsc/banner](https://ttsc.dev/og.jpg)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
 [![NPM Version](https://img.shields.io/npm/v/@ttsc/banner.svg)](https://www.npmjs.com/package/@ttsc/banner)
