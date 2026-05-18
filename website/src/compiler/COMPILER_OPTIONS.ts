@@ -1,11 +1,9 @@
-import ts from "typescript";
-
-export const COMPILER_OPTIONS: ts.CompilerOptions = {
-  target: ts.ScriptTarget.ESNext,
-  module: ts.ModuleKind.ESNext,
+export const COMPILER_OPTIONS = {
+  target: 99,
+  module: 99,
   esModuleInterop: true,
   forceConsistentCasingInFileNames: true,
-  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  moduleResolution: 100,
   strict: true,
   skipLibCheck: true,
   experimentalDecorators: true,

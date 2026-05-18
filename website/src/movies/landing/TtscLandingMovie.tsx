@@ -6,15 +6,17 @@ import InTheBrowser from "./InTheBrowser";
 import LintAsCompileError from "./LintAsCompileError";
 import PluginEcosystem from "./PluginEcosystem";
 import RestOfToolchain from "./RestOfToolchain";
+import Sponsors from "./Sponsors";
 
 export default function TtscLandingMovie() {
   return (
     <div className="ttsc-landing text-white bg-neutral-950 min-h-screen">
       <Hero />
-      <LintAsCompileError />
       <RestOfToolchain />
+      <LintAsCompileError />
       <PluginEcosystem />
       <InTheBrowser />
+      <Sponsors />
       <Footer />
     </div>
   );

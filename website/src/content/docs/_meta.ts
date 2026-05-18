@@ -8,10 +8,10 @@ const meta: MetaRecord = {
   ttsc: "TTSC",
   lint: "Lint & Prettier",
   plugins: "Plugin Ecosystem",
-  wasm: "Wasm Module",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
   development: "Plugin Development",
+  wasm: "WASM Module",
 
   "-- appendix": { type: "separator", title: "🔗 Appendix" },
   faq: "FAQ",
