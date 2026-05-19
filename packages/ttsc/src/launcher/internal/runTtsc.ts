@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../TtscCompiler";
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
@@ -455,7 +456,12 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   }
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const file = path.resolve(cwd, options.files[0]!);
-  const out = resolveSingleFileOut(file, cwd, options.outDir);
+  const out = resolveSingleFileOut({
+    cliOutDir: options.outDir,
+    cwd,
+    file,
+    tsconfig: options.tsconfig,
+  });
   const text = runSingleFileEmit({
     binary: options.binary,
     cwd,
@@ -471,17 +477,99 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   return 0;
 }
 
-function resolveSingleFileOut(
-  file: string,
-  cwd: string,
-  outDir?: string,
-): string {
-  const relative = path.relative(cwd, file);
-  const jsRelative = relative.replace(/\.[cm]?tsx?$/i, ".js");
-  if (outDir) {
-    return path.resolve(cwd, outDir, jsRelative);
+function resolveSingleFileOut(opts: {
+  cliOutDir?: string;
+  cwd: string;
+  file: string;
+  tsconfig?: string;
+}): string {
+  const jsBasename =
+    path.basename(opts.file).replace(/\.[cm]?tsx?$/i, "") +
+    singleFileJsExtension(opts.file);
+
+  // Explicit CLI --outDir wins. Mirrors the CWD-relative source layout under
+  // the requested directory so existing single-file invocations don't shift.
+  if (opts.cliOutDir) {
+    const relative = path.relative(opts.cwd, opts.file);
+    const jsRelative =
+      relative.slice(0, relative.length - path.extname(relative).length) +
+      singleFileJsExtension(opts.file);
+    return path.resolve(opts.cwd, opts.cliOutDir, jsRelative);
   }
-  return file.replace(/\.[cm]?tsx?$/i, ".js");
+
+  // No CLI override: honor tsconfig's outDir so `ttsc src/foo.ts` lands the
+  // emitted JS at `<outDir>/<relative-from-rootDir>.js` instead of dropping
+  // it next to the source file. This matches how project mode emits and how
+  // `tsc <file>` would behave with the same tsconfig.
+  const projectOutDir = readProjectOutDir({
+    cwd: opts.cwd,
+    file: opts.file,
+    tsconfig: opts.tsconfig,
+  });
+  if (projectOutDir !== null) {
+    const fromRoot = path.relative(projectOutDir.rootDir, opts.file);
+    if (fromRoot !== "" && !isOutsideSingleFileLayout(fromRoot)) {
+      const jsRelative =
+        fromRoot.slice(0, fromRoot.length - path.extname(fromRoot).length) +
+        singleFileJsExtension(opts.file);
+      return path.resolve(projectOutDir.outDir, jsRelative);
+    }
+    return path.resolve(projectOutDir.outDir, jsBasename);
+  }
+
+  // Last resort (no tsconfig outDir at all): emit next to the source. This
+  // preserves the legacy `ttsc <file.ts>` → `<file.js>` behavior for projects
+  // that intentionally don't configure outDir.
+  return opts.file.replace(/\.[cm]?tsx?$/i, singleFileJsExtension(opts.file));
+}
+
+function readProjectOutDir(opts: {
+  cwd: string;
+  file: string;
+  tsconfig?: string;
+}): { outDir: string; rootDir: string } | null {
+  try {
+    const project = readProjectConfig({
+      cwd: opts.cwd,
+      file: opts.file,
+      tsconfig: opts.tsconfig,
+    });
+    const outDir = project.compilerOptions.outDir;
+    if (typeof outDir !== "string" || outDir.length === 0) {
+      return null;
+    }
+    const rawRoot = project.compilerOptions.rootDir;
+    const rootDir =
+      typeof rawRoot === "string" && rawRoot.length !== 0
+        ? path.isAbsolute(rawRoot)
+          ? rawRoot
+          : path.resolve(project.root, rawRoot)
+        : project.root;
+    return { outDir, rootDir };
+  } catch {
+    // Missing or unreadable tsconfig: fall back to the legacy behavior so
+    // `ttsc <file>` still works outside a configured project.
+    return null;
+  }
+}
+
+function isOutsideSingleFileLayout(relative: string): boolean {
+  return (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  );
+}
+
+function singleFileJsExtension(file: string): string {
+  switch (path.extname(file).toLowerCase()) {
+    case ".mts":
+      return ".mjs";
+    case ".cts":
+      return ".cjs";
+    default:
+      return ".js";
+  }
 }
 
 function runWatch(
