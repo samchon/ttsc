@@ -10,17 +10,11 @@ import (
 //go:linkname spliceCall github.com/samchon/ttsc/packages/ttsc/driver.spliceCall
 func spliceCall(text string, rewrite driver.Rewrite, searchFrom int) (string, int, bool, error)
 
-//go:linkname commonSuffixSegments github.com/samchon/ttsc/packages/ttsc/driver.commonSuffixSegments
-func commonSuffixSegments(a, b string) int
-
 //go:linkname insertSentinel github.com/samchon/ttsc/packages/ttsc/driver.insertSentinel
 func insertSentinel(text string) string
 
 //go:linkname joinRootAndNamespaces github.com/samchon/ttsc/packages/ttsc/driver.joinRootAndNamespaces
 func joinRootAndNamespaces(rewrite driver.Rewrite) string
-
-//go:linkname indexAtCallStart github.com/samchon/ttsc/packages/ttsc/driver.indexAtCallStart
-func indexAtCallStart(text, needle string, searchFrom int) int
 
 //go:linkname matchParen github.com/samchon/ttsc/packages/ttsc/driver.matchParen
 func matchParen(text string, pos int) (int, bool)

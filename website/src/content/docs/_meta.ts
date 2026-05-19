@@ -3,6 +3,7 @@ import type { MetaRecord } from "nextra";
 const meta: MetaRecord = {
   index: "🙋🏻‍♂️ Introduction",
   setup: "📦 Setup",
+  benchmarks: "📊 Benchmarks",
 
   "-- features": { type: "separator", title: "📖 Features" },
   ttsc: "TTSC",

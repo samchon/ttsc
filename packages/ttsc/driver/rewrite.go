@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/microsoft/typescript-go/shim/ast"
@@ -195,51 +197,95 @@ func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]i
 	return out, nil
 }
 
+// findSourceForOutput recovers which registered source file produced a given
+// emitted output, using the source paths in rs.byPath as the universe.
+//
+// The match is anchored on the source's path relative to the common directory
+// shared by all registered sources. The output's stem must end with that exact
+// relative path (with a leading "/" boundary unless the source sits at the
+// common directory root). This is stricter than a generic suffix match: a
+// barrel file like `lib/api/x/index.js` will not accidentally collide with an
+// unrelated `src/.../y/index.ts` that happens to share the basename. The bug
+// surfaced when typia ran across shopping-backend's nestia-generated barrel
+// files; the looser match steered the rewriter at the wrong source and threw
+// `driver: could not locate typia.random(…) call in …`.
+//
+// Ambiguous matches (two or more registered sources with the same tail) return
+// no match so the caller treats the output as having no rewrites.
 func findSourceForOutput(outputName string, rs *RewriteSet) (string, bool) {
-	outSlash := strings.TrimSuffix(filepath.ToSlash(outputName), filepath.Ext(outputName))
-	var best string
-	bestScore := 0
-	for path := range rs.byPath {
-		srcStem := strings.TrimSuffix(filepath.ToSlash(path), filepath.Ext(path))
-		score := commonSuffixSegments(srcStem, outSlash)
-		if score > bestScore {
-			best = path
-			bestScore = score
+	if len(rs.byPath) == 0 {
+		return "", false
+	}
+	outStem := strings.TrimSuffix(filepath.ToSlash(outputName), filepath.Ext(outputName))
+	commonDir := commonSourceDirectoryFor(rs)
+	var matched string
+	hits := 0
+	for srcPath := range rs.byPath {
+		tail := sourceTail(srcPath, commonDir)
+		if tail == "" {
+			continue
+		}
+		if outStem == tail || strings.HasSuffix(outStem, "/"+tail) {
+			matched = srcPath
+			hits++
 		}
 	}
-	return best, bestScore > 0
+	if hits != 1 {
+		return "", false
+	}
+	return matched, true
 }
 
-func commonSuffixSegments(a, b string) int {
-	as := strings.Split(a, "/")
-	bs := strings.Split(b, "/")
-	n := len(as)
-	if len(bs) < n {
-		n = len(bs)
+// commonSourceDirectoryFor returns the deepest directory (with trailing "/")
+// shared by every source path in rs.byPath. When rs has a single source this is
+// just that source's directory.
+func commonSourceDirectoryFor(rs *RewriteSet) string {
+	var dirs [][]string
+	for srcPath := range rs.byPath {
+		dirs = append(dirs, strings.Split(filepath.ToSlash(filepath.Dir(srcPath)), "/"))
 	}
-	shared := 0
-	for i := 1; i <= n; i++ {
-		if as[len(as)-i] != bs[len(bs)-i] {
+	if len(dirs) == 0 {
+		return ""
+	}
+	common := dirs[0]
+	for _, other := range dirs[1:] {
+		n := len(common)
+		if len(other) < n {
+			n = len(other)
+		}
+		shared := 0
+		for i := 0; i < n; i++ {
+			if common[i] != other[i] {
+				break
+			}
+			shared++
+		}
+		common = common[:shared]
+		if len(common) == 0 {
 			break
 		}
-		shared++
 	}
-	return shared
+	if len(common) == 0 {
+		return ""
+	}
+	return strings.Join(common, "/") + "/"
+}
+
+// sourceTail returns the source stem (extension dropped) without the common
+// directory prefix. The leading "/" is also stripped so callers can match it as
+// a suffix segment.
+func sourceTail(srcPath, commonDir string) string {
+	stem := strings.TrimSuffix(filepath.ToSlash(srcPath), filepath.Ext(srcPath))
+	if commonDir != "" && strings.HasPrefix(stem, commonDir) {
+		return stem[len(commonDir):]
+	}
+	return strings.TrimPrefix(stem, "/")
 }
 
 func spliceCall(text string, r Rewrite, searchFrom int) (string, int, bool, error) {
 	aliases := candidateRoots(r.RootName)
-	tail := needleTail(r)
-	idx := -1
-	needleLen := 0
-	for _, cand := range aliases {
-		candNeedle := cand + tail
-		if i := indexAtCallStart(text, candNeedle, searchFrom); i >= 0 {
-			idx = i
-			needleLen = len(candNeedle) - 1
-			break
-		}
-	}
+	pattern := callRegexFor(aliases, r.Namespaces, r.Method)
+	idx, needleLen := findCallMatch(text, pattern, searchFrom)
 	if idx < 0 {
 		return text, searchFrom, false, nil
 	}
@@ -254,6 +300,75 @@ func spliceCall(text string, r Rewrite, searchFrom int) (string, int, bool, erro
 	}
 	replaced := text[:idx] + r.Replacement + text[idx+needleLen:]
 	return replaced, idx + len(r.Replacement), true, nil
+}
+
+// callRegexFor compiles the loose-match needle pattern used by spliceCall.
+//
+// tsgo's emitter preserves source line breaks in property-access chains, so a
+// source-side `typia.misc\n  .literals<T>()` lands in the output as
+// `typia_1.default.misc\n  .literals()`. A literal needle would miss it; the
+// pattern instead allows any whitespace (spaces, tabs, newlines) between
+// segments, around the trailing dot before the method, and before the opening
+// paren. Group 1 captures the trailing `(` so callers can compute the call
+// site's text length precisely (regexes can't return per-byte segment widths
+// otherwise).
+//
+// Results are cached by candidate-aliases × namespaces × method because the
+// same rewrite descriptor is re-checked once per emitted file in incremental
+// watch builds.
+func callRegexFor(aliases, namespaces []string, method string) *regexp.Regexp {
+	key := strings.Join(aliases, "|") + "\x00" + strings.Join(namespaces, ".") + "\x00" + method
+	if cached, ok := callRegexCache.Load(key); ok {
+		return cached.(*regexp.Regexp)
+	}
+	rootAlternation := make([]string, 0, len(aliases))
+	for _, alias := range aliases {
+		rootAlternation = append(rootAlternation, regexp.QuoteMeta(alias))
+	}
+	var b strings.Builder
+	b.WriteString(`(?:`)
+	b.WriteString(strings.Join(rootAlternation, `|`))
+	b.WriteString(`)`)
+	for _, ns := range namespaces {
+		b.WriteString(`\s*\.\s*`)
+		b.WriteString(regexp.QuoteMeta(ns))
+	}
+	b.WriteString(`\s*\.\s*`)
+	b.WriteString(regexp.QuoteMeta(method))
+	b.WriteString(`\s*(\()`)
+	// MustCompile is safe because every contributing string was QuoteMeta'd
+	// and the surrounding template is a fixed regex grammar.
+	re := regexp.MustCompile(b.String())
+	callRegexCache.Store(key, re)
+	return re
+}
+
+var callRegexCache sync.Map
+
+// findCallMatch scans `text` from `searchFrom` for the next call expression
+// matched by the loose-match `pattern`, applying the same "must start outside
+// an identifier" rule as the old literal indexAtCallStart so generated locals
+// like `mytypia.foo(` don't shadow `typia.foo(`. Returns the start byte of the
+// match and the length up to (but not including) the captured `(`.
+func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, int) {
+	start := searchFrom
+	if start < 0 {
+		start = 0
+	}
+	for start <= len(text) {
+		loc := pattern.FindStringSubmatchIndex(text[start:])
+		if loc == nil {
+			return -1, 0
+		}
+		matchStart := start + loc[0]
+		parenStart := start + loc[2]
+		if matchStart > 0 && isIdentifierPart(rune(text[matchStart-1])) {
+			start = matchStart + 1
+			continue
+		}
+		return matchStart, parenStart - matchStart
+	}
+	return -1, 0
 }
 
 func candidateRoots(root string) []string {
@@ -279,29 +394,6 @@ func needleTail(r Rewrite) string {
 		return "." + r.Method + "("
 	}
 	return "." + strings.Join(r.Namespaces, ".") + "." + r.Method + "("
-}
-
-func indexAtCallStart(text, needle string, searchFrom int) int {
-	start := searchFrom
-	if start < 0 {
-		start = 0
-	}
-	for {
-		hit := strings.Index(text[start:], needle)
-		if hit < 0 {
-			return -1
-		}
-		pos := start + hit
-		if pos == 0 {
-			return pos
-		}
-		prev := rune(text[pos-1])
-		if isIdentifierPart(prev) {
-			start = pos + 1
-			continue
-		}
-		return pos
-	}
 }
 
 func isIdentifierPart(r rune) bool {

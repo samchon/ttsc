@@ -19,14 +19,8 @@ import (
  * 3. Assert each helper returns the safe fallback instead of panicking.
  */
 func TestDriverRewriteScannerEdgeBranches(t *testing.T) {
-	if got := commonSuffixSegments("src/a/b", "b"); got != 1 {
-		t.Fatalf("short rhs suffix mismatch: %d", got)
-	}
 	if got := joinRootAndNamespaces(driver.Rewrite{RootName: "plugin"}); got != "plugin" {
 		t.Fatalf("root-only join mismatch: %q", got)
-	}
-	if got := indexAtCallStart("plugin.make()", "plugin.make(", -3); got != 0 {
-		t.Fatalf("negative search start did not clamp to zero: %d", got)
 	}
 	if _, ok := matchParen("not-a-call", 0); ok {
 		t.Fatal("matchParen accepted a non-paren start")
