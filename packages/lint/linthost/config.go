@@ -98,9 +98,20 @@ type ResolvedRuleConfig struct {
   Ignored bool
 }
 
+// RuleResolver is the engine-facing view of a resolved lint configuration.
+// Implementations include RuleConfig (severity-only, no options), InlineRuleResolver
+// (tsconfig inline rules + optional per-rule options), and *ConfigStore (external
+// flat-config file, with per-file glob resolution and a unified options map).
 type RuleResolver interface {
+  // ResolveRules returns the effective severity map for the given source file.
+  // Implementations that support `files`/`ignores` patterns apply them here;
+  // flat RuleConfig always returns all rules unchanged.
   ResolveRules(fileName string) ResolvedRuleConfig
+  // ActiveRuleNames returns the sorted names of every rule that is not SeverityOff
+  // in at least one config entry. Used to build the engine's dispatch table.
   ActiveRuleNames() []string
+  // EnabledRuleConfig returns the project-wide severity map for rules that are
+  // not SeverityOff. Where multiple entries disagree, SeverityError wins.
   EnabledRuleConfig() RuleConfig
   // RuleOptions returns the raw JSON options for `name`, or nil when the
   // rule was configured with a severity alone. Returns nil for unknown
@@ -108,14 +119,20 @@ type RuleResolver interface {
   RuleOptions(name string) json.RawMessage
 }
 
+// ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
+// so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{Rules: c}
 }
 
+// ActiveRuleNames implements RuleResolver. Returns rule names whose severity
+// is not SeverityOff, sorted for deterministic engine dispatch-table construction.
 func (c RuleConfig) ActiveRuleNames() []string {
   return sortedRuleNames(c, func(sev Severity) bool { return sev != SeverityOff })
 }
 
+// EnabledRuleConfig implements RuleResolver. Returns a copy containing only the
+// non-off entries; used to populate engine state and diagnostic reporting.
 func (c RuleConfig) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   for name, sev := range c {
@@ -139,18 +156,25 @@ type InlineRuleResolver struct {
   Options RuleOptionsMap
 }
 
+// ResolveRules implements RuleResolver. Inline rules have no glob scoping;
+// the full map applies to every file.
 func (r InlineRuleResolver) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{Rules: r.Rules}
 }
 
+// ActiveRuleNames implements RuleResolver by delegating to the inner RuleConfig.
 func (r InlineRuleResolver) ActiveRuleNames() []string {
   return r.Rules.ActiveRuleNames()
 }
 
+// EnabledRuleConfig implements RuleResolver by delegating to the inner RuleConfig.
 func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
   return r.Rules.EnabledRuleConfig()
 }
 
+// RuleOptions implements RuleResolver. Returns the raw JSON options blob for
+// `name`, or nil when the rule was configured without options or the name is
+// unknown.
 func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   if r.Options == nil {
     return nil
@@ -158,6 +182,11 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   return r.Options[name]
 }
 
+// ConfigStore holds the parsed representation of an external flat-config file.
+// It implements RuleResolver with per-file glob scoping: ResolveRules walks the
+// entries in declaration order and the last matching entry wins. Options are
+// intentionally NOT per-file — one project-wide options map is kept so rule
+// behavior is uniform across the codebase even when severity varies by glob.
 type ConfigStore struct {
   entries               []ConfigEntry
   externalConfigPath    string
@@ -179,6 +208,10 @@ func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   return s.options[name]
 }
 
+// ConfigEntry is one block of a flat-config array. BaseDir anchors glob
+// resolution; Files and Ignores are the ESLint-style pattern lists. IgnoreOnly
+// marks entries that carry only `ignores` (no `files`, no `rules`) — these
+// are evaluated first in ResolveRules and short-circuit the walk when matched.
 type ConfigEntry struct {
   BaseDir    string
   Files      []string
@@ -187,6 +220,10 @@ type ConfigEntry struct {
   IgnoreOnly bool
 }
 
+// ResolveRules implements RuleResolver. Ignore-only entries are checked first;
+// if one matches, the file is marked Ignored and linting is skipped entirely.
+// Otherwise the entries are walked in declaration order and the last matching
+// entry wins (later entries shadow earlier ones for the same rule name).
 func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   if s == nil {
     return ResolvedRuleConfig{Rules: RuleConfig{}}
@@ -208,6 +245,10 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   return ResolvedRuleConfig{Rules: out}
 }
 
+// ActiveRuleNames implements RuleResolver. Returns the sorted union of all rule
+// names that are not SeverityOff across every non-ignore-only config entry,
+// regardless of which files they apply to. The engine uses this to build the
+// per-rule dispatch table before file iteration begins.
 func (s *ConfigStore) ActiveRuleNames() []string {
   if s == nil {
     return nil
@@ -226,6 +267,9 @@ func (s *ConfigStore) ActiveRuleNames() []string {
   return sortedRuleNames(active, func(Severity) bool { return true })
 }
 
+// EnabledRuleConfig implements RuleResolver. Returns the project-wide severity
+// map for non-off rules. Where multiple entries configure the same rule,
+// SeverityError is sticky — it cannot be downgraded by a later warning entry.
 func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   if s == nil {
@@ -247,6 +291,10 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
   return out
 }
 
+// Flatten returns the unconstrained union of all non-ignore-only entries,
+// including SeverityOff rules. Used by LoadRuleConfig (legacy callers that
+// expect a plain RuleConfig) and by parseExternalConfigRules. Later entries
+// shadow earlier ones for the same rule name.
 func (s *ConfigStore) Flatten() RuleConfig {
   out := RuleConfig{}
   if s == nil {
@@ -263,6 +311,9 @@ func (s *ConfigStore) Flatten() RuleConfig {
   return out
 }
 
+// ExternalConfigPath returns the absolute path of the config file that was
+// loaded into this store, or the empty string for stores built from inline
+// tsconfig plugin entries.
 func (s *ConfigStore) ExternalConfigPath() string {
   if s == nil {
     return ""
@@ -270,6 +321,11 @@ func (s *ConfigStore) ExternalConfigPath() string {
   return s.externalConfigPath
 }
 
+// WantsESLintRuntime reports whether the config uses any ESLint-native feature
+// (languageOptions, linterOptions, processor, settings, or a non-native plugin
+// map) OR whether the config file itself is an eslint.config.* file. The latter
+// check covers pure-ttsc ESLint-named configs that happen not to use runtime
+// fields.
 func (s *ConfigStore) WantsESLintRuntime() bool {
   if s == nil {
     return false
@@ -281,6 +337,10 @@ func (s *ConfigStore) WantsESLintRuntime() bool {
   return strings.HasPrefix(base, "eslint.config.")
 }
 
+// RequiresESLintRuntime reports whether the config contains fields that cannot
+// be evaluated without the JS ESLint runtime (e.g. non-native plugins, runtime
+// language options). Unlike WantsESLintRuntime it does NOT fire for the
+// eslint.config.* naming convention alone.
 func (s *ConfigStore) RequiresESLintRuntime() bool {
   if s == nil {
     return false
@@ -386,6 +446,9 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
   return sev, nil, err
 }
 
+// parseExternalConfigRules is a convenience wrapper used by legacy callers
+// (e.g. tests) that only need a flat RuleConfig from an already-deserialized
+// config value. Glob scoping and options are discarded.
 func parseExternalConfigRules(raw any) (RuleConfig, error) {
   store, err := parseExternalConfigStore(raw, "")
   if err != nil {
@@ -394,14 +457,24 @@ func parseExternalConfigRules(raw any) (RuleConfig, error) {
   return store.Flatten(), nil
 }
 
+// parseExternalConfigStore parses `raw` without allowing runtime-only string
+// extends. Used by unit tests and paths that do not load from a real file.
 func parseExternalConfigStore(raw any, configDir string) (*ConfigStore, error) {
   return parseExternalConfigStoreWithRuntimeMode(raw, configDir, false)
 }
 
+// parseExternalConfigStoreForFile parses `raw` with allowRuntimeOnly=true,
+// which lets string-typed `extends` entries set eslintRuntimeRequired instead
+// of returning an error. Called by loadExternalConfigResolver after a config
+// file is read from disk.
 func parseExternalConfigStoreForFile(raw any, configDir string) (*ConfigStore, error) {
   return parseExternalConfigStoreWithRuntimeMode(raw, configDir, true)
 }
 
+// parseExternalConfigStoreWithRuntimeMode is the shared implementation for the
+// two public parse variants. allowRuntimeOnly controls whether a bare string
+// extends value is accepted (sets eslintRuntimeRequired) or rejected with an
+// error.
 func parseExternalConfigStoreWithRuntimeMode(raw any, configDir string, allowRuntimeOnly bool) (*ConfigStore, error) {
   store := &ConfigStore{}
   if err := collectExternalConfigEntries(store, raw, configDir, "config", allowRuntimeOnly); err != nil {
@@ -590,6 +663,9 @@ func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw 
   return nil
 }
 
+// isESLintConfigObject reports whether `value` looks like an ESLint flat-config
+// object (has at least one recognized top-level key). Used to distinguish
+// flat-config objects from bare rules maps during config parsing.
 func isESLintConfigObject(value map[string]any) bool {
   for _, key := range []string{
     "basePath",
@@ -613,6 +689,9 @@ func isESLintConfigObject(value map[string]any) bool {
   return false
 }
 
+// hasESLintRuntimeFields reports whether `value` contains keys that require the
+// JS ESLint runtime to evaluate: languageOptions, linterOptions, processor,
+// settings, or a plugins map that is not purely native contributors.
 func hasESLintRuntimeFields(value map[string]any) bool {
   for _, key := range []string{
     "languageOptions",
@@ -689,11 +768,17 @@ func isNativePluginValue(entry any) bool {
   }
 }
 
+// normalizeExternalRuleName strips the standard typescript-eslint namespace
+// prefixes so that rules like "@typescript-eslint/no-explicit-any" and the
+// bare "no-explicit-any" key both resolve to the same engine-internal name.
 func normalizeExternalRuleName(name string) string {
   name = strings.TrimPrefix(name, "@typescript-eslint/")
   return strings.TrimPrefix(name, "typescript-eslint/")
 }
 
+// parsePatternList coerces a raw config value to a string slice for use as a
+// `files` or `ignores` pattern list. Accepts a bare string (single-pattern
+// shorthand) or a string array. Empty patterns are rejected eagerly.
 func parsePatternList(raw any, path string) ([]string, error) {
   if raw == nil {
     return nil, nil
@@ -881,6 +966,9 @@ func emitLegacyConfigDeprecation() {
   })
 }
 
+// loadExternalConfigResolver loads and parses an external config file at
+// `location` into a *ConfigStore and returns it as a RuleResolver. The store's
+// externalConfigPath is set so callers can query WantsESLintRuntime.
 func loadExternalConfigResolver(location string) (RuleResolver, error) {
   raw, err := loadConfigFile(location)
   if err != nil {
@@ -943,6 +1031,9 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
   }
 }
 
+// resolveConfigFilePath resolves a user-supplied config path to an absolute
+// path. Absolute paths are returned unchanged; relative paths are joined to the
+// tsconfig directory (or cwd when no tsconfig is set).
 func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
@@ -950,6 +1041,10 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   return filepath.Join(tsconfigBaseDir(cwd, tsconfigPath), configPath)
 }
 
+// discoveryConfigBaseDir returns the directory from which auto-discovery walks
+// upward when no explicit config path is provided. Prefer the tsconfig
+// directory over cwd so that nested package configs are found relative to the
+// tsconfig that triggered the lint run.
 func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
@@ -961,6 +1056,9 @@ func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
   return cwd
 }
 
+// tsconfigBaseDir returns the directory that contains the tsconfig file, or
+// cwd when tsconfigPath is empty. Used as the base for relative config paths
+// supplied in the tsconfig plugin entry.
 func tsconfigBaseDir(cwd, tsconfigPath string) string {
   if tsconfigPath == "" {
     return cwd
@@ -972,6 +1070,9 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
   return filepath.Dir(resolvedTsconfig)
 }
 
+// loadConfigFile loads and deserializes a lint config file at `location`.
+// The file format is determined by extension: .json is parsed natively;
+// .js/.cjs/.mjs run through a Node subprocess; .ts/.cts/.mts run through ttsx.
 func loadConfigFile(location string) (any, error) {
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
@@ -986,6 +1087,8 @@ func loadConfigFile(location string) (any, error) {
   }
 }
 
+// loadJSONConfigFile reads and JSON-parses a lint config file. A leading UTF-8
+// BOM is stripped before parsing so files saved by Windows editors are accepted.
 func loadJSONConfigFile(location string) (any, error) {
   body, err := os.ReadFile(location)
   if err != nil {
@@ -1006,6 +1109,11 @@ func loadJSONConfigFile(location string) (any, error) {
   return out, nil
 }
 
+// loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
+// Node subprocess that dynamic-imports the file, resolves the exported config
+// through the same 8-hop default/config unwrap used by the TS loader, and
+// serializes the result as JSON to stdout. The subprocess has a
+// configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
   const script = `
 const { pathToFileURL } = require("node:url");
@@ -1182,6 +1290,11 @@ function isNativePluginValue(entry) {
   return out, nil
 }
 
+// loadTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
+// an ephemeral loader script and tsconfig into a temp directory, symlinking the
+// nearest node_modules, then running `ttsx` with a configLoaderTimeout deadline.
+// The loader script imports the config file, resolves it through the same
+// unwrap chain used by loadScriptConfigFile, and writes JSON to stdout.
 func loadTypeScriptConfigFile(location string) (any, error) {
   tempDir, err := os.MkdirTemp("", "ttsc-lint-config-")
   if err != nil {
@@ -1248,6 +1361,9 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   return out, nil
 }
 
+// isConfigContainer reports whether `value` is a top-level config container
+// (an object or flat-config array). Scalar values are rejected so users get a
+// clear error instead of an opaque parse failure downstream.
 func isConfigContainer(value any) bool {
   switch value.(type) {
   case []any, map[string]any:
@@ -1257,6 +1373,10 @@ func isConfigContainer(value any) bool {
   }
 }
 
+// relativeImportSpecifier computes the ESM import specifier for `location`
+// relative to `fromDir`. The result always starts with "./" or "../" so it is
+// treated as a relative path by the ESM loader rather than as a bare package
+// name.
 func relativeImportSpecifier(fromDir, location string) (string, error) {
   relative, err := filepath.Rel(fromDir, location)
   if err != nil {
@@ -1269,6 +1389,11 @@ func relativeImportSpecifier(fromDir, location string) (string, error) {
   return "./" + relative, nil
 }
 
+// typeScriptConfigLoaderSource returns the TypeScript source of the ephemeral
+// loader script that ttsx executes to evaluate a TypeScript lint config file.
+// `importLiteral` is a JSON-encoded relative import path (e.g. `"./lint.config.ts"`)
+// that is spliced directly into the `import * as` statement, so it must
+// already be a valid JSON string (produced by json.Marshal).
 func typeScriptConfigLoaderSource(importLiteral string) string {
   return fmt.Sprintf(`import * as importedConfig from %s;
 
@@ -1442,6 +1567,10 @@ function isNativePluginValue(entry: unknown): boolean {
 `, importLiteral)
 }
 
+// typeScriptConfigLoaderTsconfig generates the JSON content of the ephemeral
+// tsconfig that compiles the loader script. Settings mirror the JS-factory
+// loader's lenient baseline so identical user configs evaluate the same way
+// from both the JS and Go sides.
 func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
   // Mirror the JS-factory loader's lenient settings (see the matching
   // tsconfig synthesis in `packages/lint/src/index.ts::readTtsxConfigPlugins`).
@@ -1478,6 +1607,8 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
   return string(body)
 }
 
+// ttsxCommand returns a ttsx exec.Cmd bound to a background context. Use
+// ttsxCommandContext when a deadline is needed (e.g. config file loading).
 func ttsxCommand(args ...string) *exec.Cmd {
   return ttsxCommandContext(context.Background(), args...)
 }
@@ -1501,6 +1632,9 @@ func ttsxCommandContext(ctx context.Context, args ...string) *exec.Cmd {
   return exec.CommandContext(ctx, ttsx, args...)
 }
 
+// shouldRunTtsxThroughNode reports whether the resolved ttsx binary is a
+// script (JS or TS extension) rather than a compiled native executable.
+// Scripts must be executed via `node <binary> <args>` instead of directly.
 func shouldRunTtsxThroughNode(binary string) bool {
   switch strings.ToLower(filepath.Ext(binary)) {
   case ".js", ".cjs", ".mjs", ".ts", ".cts", ".mts":
@@ -1510,6 +1644,10 @@ func shouldRunTtsxThroughNode(binary string) bool {
   }
 }
 
+// nodeConfigLoaderEnv builds the environment for a Node.js config-loader
+// subprocess. It prepends the nearest node_modules directory to NODE_PATH so
+// that imports in .js/.cjs/.mjs config files resolve correctly even when the
+// subprocess's cwd differs from the config file's location.
 func nodeConfigLoaderEnv(location string) []string {
   env := os.Environ()
   parts := make([]string, 0, 2)
@@ -1525,6 +1663,11 @@ func nodeConfigLoaderEnv(location string) []string {
   return setEnv(env, "NODE_PATH", strings.Join(parts, string(os.PathListSeparator)))
 }
 
+// linkNearestNodeModules creates a node_modules symlink (or Windows junction)
+// inside `tempDir` that points at the nearest node_modules directory found
+// upward from `sourceDir`. This lets the TypeScript config loader resolve
+// imports from the user's project without copying the entire module tree.
+// If no node_modules directory exists, the function is a no-op.
 func linkNearestNodeModules(tempDir, sourceDir string) error {
   nodeModules := findNearestNodeModules(sourceDir)
   if nodeModules == "" {
@@ -1550,6 +1693,10 @@ func linkNearestNodeModules(tempDir, sourceDir string) error {
   return fmt.Errorf("@ttsc/lint: link config node_modules %s: %w", nodeModules, err)
 }
 
+// createWindowsJunction creates a directory junction at `link` pointing at
+// `target` using `cmd /c mklink /J`. Junctions do not require elevated
+// privileges (unlike symlinks on Windows), making them the right fallback when
+// os.Symlink fails.
 func createWindowsJunction(link, target string) error {
   // `cmd /c mklink /J link target` is the standard recipe and works
   // without elevated privileges. Both arguments must be absolute paths
@@ -1561,6 +1708,9 @@ func createWindowsJunction(link, target string) error {
   return nil
 }
 
+// findNearestNodeModules walks upward from `start` and returns the first
+// node_modules directory found, or the empty string if the filesystem root is
+// reached without a match.
 func findNearestNodeModules(start string) string {
   dir := filepath.Clean(start)
   for {
@@ -1576,6 +1726,9 @@ func findNearestNodeModules(start string) string {
   }
 }
 
+// setEnv updates an existing key=value entry in `env` (in-place) or appends
+// a new one. It is intentionally a pure-slice helper — no os.Setenv side
+// effects — so callers can pass it directly to exec.Cmd.Env.
 func setEnv(env []string, key, value string) []string {
   prefix := key + "="
   for i, entry := range env {
@@ -1625,6 +1778,10 @@ func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
   return sev, nil, err
 }
 
+// parseSeverity converts a raw config value to a Severity. Accepts the string
+// literals "off", "warn"/"warning", "error" and the numeric equivalents 0, 1,
+// 2 (the ESLint convention). Any other value is a hard error — there is no
+// silent fallback so typos are surfaced immediately.
 func parseSeverity(v any) (Severity, error) {
   switch x := v.(type) {
   case string:
@@ -1651,6 +1808,9 @@ func parseSeverity(v any) (Severity, error) {
   return SeverityOff, fmt.Errorf("severity must be one of: off | warn | warning | error | 0 | 1 | 2, got %T", v)
 }
 
+// sortedRuleNames returns the sorted slice of rule names from `config` for
+// which `include` returns true. Sorting ensures deterministic dispatch-table
+// ordering so test output and diagnostic ordering are stable across runs.
 func sortedRuleNames(config RuleConfig, include func(Severity) bool) []string {
   names := make([]string, 0, len(config))
   for name, sev := range config {
@@ -1662,6 +1822,12 @@ func sortedRuleNames(config RuleConfig, include func(Severity) bool) []string {
   return names
 }
 
+// matchAnyPattern reports whether `fileName` matches at least one of the
+// provided glob patterns. If baseDir is non-empty, both paths are made
+// absolute before computing a relative path so that glob patterns rooted at
+// the config file's directory match correctly regardless of the process cwd.
+// Files outside the base directory never match (the relative path would start
+// with "..").
 func matchAnyPattern(baseDir string, patterns []string, fileName string) bool {
   rel := filepath.ToSlash(fileName)
   if baseDir != "" {
@@ -1689,6 +1855,10 @@ func matchAnyPattern(baseDir string, patterns []string, fileName string) bool {
   return false
 }
 
+// normalizeGlobPattern normalizes a user-supplied glob pattern to forward
+// slashes and strips a leading "./". Patterns that contain no slash are treated
+// as basename-only globs by prepending "**/" so that `*.ts` matches any
+// TypeScript file regardless of directory depth, matching ESLint's behavior.
 func normalizeGlobPattern(pattern string) string {
   pattern = filepath.ToSlash(pattern)
   pattern = strings.TrimPrefix(pattern, "./")
@@ -1698,6 +1868,10 @@ func normalizeGlobPattern(pattern string) string {
   return pattern
 }
 
+// matchGlob tests whether `name` matches `pattern` using the ESLint-compatible
+// glob semantics implemented by matchGlobParts. Both strings are trimmed of
+// leading/trailing slashes before splitting on "/" so that empty segments do
+// not appear in the part slices.
 func matchGlob(pattern, name string) bool {
   pattern = strings.Trim(pattern, "/")
   name = strings.Trim(name, "/")
@@ -1712,6 +1886,10 @@ func matchGlob(pattern, name string) bool {
   return matchGlobParts(patternParts, nameParts)
 }
 
+// matchGlobParts recursively matches path segments against pattern segments.
+// A "**" segment matches zero or more path segments (greedy: tries zero first,
+// then each successive prefix) so that `**/*.ts` matches both `a.ts` and
+// `dir/a.ts`.
 func matchGlobParts(patternParts, nameParts []string) bool {
   if len(patternParts) == 0 {
     return len(nameParts) == 0

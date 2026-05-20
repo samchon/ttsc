@@ -1,25 +1,24 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine verifies engine directive without
-// rules disables all rules on target line.
+// TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine verifies that an
+// `eslint-disable-next-line` directive with no rule list suppresses every enabled rule
+// on the following line.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// When the rule list is absent the directive parser must set the suppression scope to
+// the universal wildcard so ALL rules are skipped for that target line. This is the
+// "blanket disable" branch — distinct from the named-rule branch tested elsewhere.
+// Getting this wrong means a bare disable comment still lets specific rules fire.
 //
-// This scenario focuses on engine directive without rules disables all rules on target line. It
-// keeps rule execution observable through findings so the test can distinguish dispatch
-// behavior from config loading and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+//  1. Enable two rules (no-var and no-debugger) and parse two lines: a suppressed line
+//     and an unsuppressed line, each with both offending constructs.
+//  2. Run the engine.
+//  3. Assert exactly two findings (one per rule on the non-suppressed line).
 func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "no-var":      SeverityError,

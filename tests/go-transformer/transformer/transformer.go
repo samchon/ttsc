@@ -28,6 +28,9 @@ type Plugin struct {
   Name      string
 }
 
+// Transform applies the ordered plugin operations to source and returns emitted
+// CommonJS JavaScript. It returns an error if source does not contain the
+// synthetic goUpper call or if any plugin operation is unrecognized.
 func Transform(source string, plugins []Plugin) (Result, error) {
   match := goUpperCall.FindStringSubmatch(source)
   if match == nil {
@@ -66,6 +69,9 @@ func Transform(source string, plugins []Plugin) (Result, error) {
   return Result{Code: builder.String()}, nil
 }
 
+// stringConfig reads a string value from a plugin config map. It returns an
+// empty string when config is nil, the key is absent, or the value is not a
+// string.
 func stringConfig(config map[string]any, key string) string {
   if config == nil {
     return ""

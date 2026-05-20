@@ -1,3 +1,11 @@
+// Miscellaneous AST-only rules that cover the gap between the core ESLint
+// "Possible Problems" list and the @typescript-eslint strict/stylistic
+// presets: empty static blocks, setter returns, unused labels, dynamic
+// delete, nullish-coalescing with non-null assertions, unnecessary type
+// constraints, unsafe built-in types, wrapper object types, useless
+// constructors, non-literal enum members, type-assertion style, type
+// definition style, dot notation, and unsafe declaration merging.
+// Each rule is registered in init() at the bottom of the file.
 package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -35,6 +43,9 @@ func (noSetterReturn) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Setter should not return a value.")
 }
 
+// isInsideDirectSetter reports whether node is lexically nested inside a
+// SetAccessor without an intervening function boundary. "Direct" means the
+// return value would actually be a setter return, not a nested callback's.
 func isInsideDirectSetter(node *shimast.Node) bool {
   for p := node.Parent; p != nil; p = p.Parent {
     if p.Kind == shimast.KindSetAccessor {
@@ -99,6 +110,9 @@ func (noDynamicDelete) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Do not delete dynamically computed property keys.")
 }
 
+// isStaticPropertyKey reports whether node is a literal key that can
+// appear in a delete expression without triggering no-dynamic-delete:
+// string literals, no-substitution template literals, and numeric literals.
 func isStaticPropertyKey(node *shimast.Node) bool {
   node = stripParens(node)
   if node == nil {
@@ -263,6 +277,9 @@ func fileShadowsWrapperName(file *shimast.SourceFile, name string) bool {
   return false
 }
 
+// wrapperPrimitive maps a boxed object type name (e.g. "String") to its
+// primitive keyword equivalent (e.g. "string"). Returns ("", false) for
+// names that are not recognized wrapper types.
 func wrapperPrimitive(name string) (string, bool) {
   switch name {
   case "String":
@@ -365,6 +382,9 @@ func (dotNotation) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Use dot notation instead of a string literal property access.")
 }
 
+// isSimpleIdentifierName reports whether value is a valid bare identifier
+// (ASCII letters, digits, underscore, dollar sign; digits not first). Used
+// by dot-notation to decide whether bracket access can become dot access.
 func isSimpleIdentifierName(value string) bool {
   if value == "" {
     return false

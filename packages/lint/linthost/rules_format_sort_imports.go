@@ -173,6 +173,8 @@ func loadSortImportsOptions(ctx *Context) resolvedSortImportsOptions {
   }
 }
 
+// hasThirdPartyGroup reports whether at least one group in the list is the
+// third-party catchall. Used to decide whether a sentinel needs to be appended.
 func hasThirdPartyGroup(groups []sortImportsGroup) bool {
   for _, g := range groups {
     if g.thirdParty {
@@ -449,6 +451,8 @@ func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseInsensitive 
   )
 }
 
+// joinSortedSpecifiers returns the specifier texts joined with ", " in their
+// already-sorted order. The caller owns the sort; this is a formatting step only.
 func joinSortedSpecifiers(entries []specifierEntry) string {
   texts := make([]string, len(entries))
   for i, e := range entries {

@@ -5,19 +5,16 @@ import (
   "testing"
 )
 
-// TestResolveConfigFilePathUsesTsconfigDirectory verifies tsconfig-relative paths.
+// TestResolveConfigFilePathUsesTsconfigDirectory verifies that an explicit relative config path
+// is resolved against the tsconfig's directory rather than cwd.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// When a plugin entry specifies `config: "./lint.config.json"`, the path is relative to the
+// tsconfig file that the plugin entry belongs to. Resolving it against cwd instead would fail
+// for any workspace package whose tsconfig sits in a subdirectory different from cwd.
 //
-// This scenario focuses on resolve config file path uses tsconfig directory. It keeps path
-// resolution behavior independent from rule parsing so discovery regressions are caught at the
-// source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Create two distinct temp dirs: one for cwd and one for the wrapper tsconfig.
+// 2. Call resolveConfigFilePath with a relative path and the wrapper tsconfig location.
+// 3. Assert the result is joined with the tsconfig directory, not cwd.
 func TestResolveConfigFilePathUsesTsconfigDirectory(t *testing.T) {
   dir := t.TempDir()
   wrapper := filepath.Join(t.TempDir(), "tsconfig.json")

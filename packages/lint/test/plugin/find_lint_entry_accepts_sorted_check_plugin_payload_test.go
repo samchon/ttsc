@@ -4,18 +4,19 @@ import (
   "testing"
 )
 
-// TestFindLintEntryAcceptsSortedCheckPluginPayload verifies sorted plugin payloads.
+// TestFindLintEntryAcceptsSortedCheckPluginPayload verifies that FindLintEntry
+// locates the @ttsc/lint descriptor when the payload contains unrelated check
+// and transform plugins listed before and after it.
 //
-// The lint sidecar receives plugin metadata as serialized JSON from ttsc. These tests verify
-// that payload decoding and lint-entry selection remain stable even when other check or
-// transform plugins are present.
+// ttsc serialises the full plugin manifest and passes it to the lint sidecar
+// via --plugins-json. The lint binary uses FindLintEntry to select its own
+// descriptor; if the function were position-sensitive or skipped non-lint check
+// entries, multi-plugin projects would produce "no lint entry" errors.
 //
-// This scenario focuses on find lint entry accepts sorted check plugin payload. It protects the
-// package protocol before rule config parsing starts.
-//
-// 1. Build the serialized plugin payload for the branch.
-// 2. Decode it and locate the @ttsc/lint entry.
-// 3. Assert entry selection, stage preservation, or malformed JSON errors.
+//  1. Build a payload with a leading check plugin, @ttsc/lint in the middle,
+//     and a transform plugin at the end.
+//  2. Decode via ParsePlugins and then FindLintEntry.
+//  3. Assert the returned entry is @ttsc/lint, not nil or one of the others.
 func TestFindLintEntryAcceptsSortedCheckPluginPayload(t *testing.T) {
   const blob = `[
     {"name": "other-check", "stage": "check", "config": {}},

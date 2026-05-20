@@ -34,6 +34,9 @@ func main() {
   os.Exit(run(os.Args[1:]))
 }
 
+// run dispatches CLI arguments for the platform helper binary. With no
+// arguments it prints the help text. build/check print an explanatory error
+// directing users to the JavaScript launcher instead of failing silently.
 func run(args []string) int {
   if len(args) == 0 {
     printHelp(stdout)
@@ -91,6 +94,9 @@ Usage:
 `))
 }
 
+// runDemo implements the demo sub-command, printing a synthetic JavaScript
+// arrow function for the requested atomic type. Smoke tests in CI invoke this
+// to verify the binary executes correctly.
 func runDemo(args []string) int {
   fs := flag.NewFlagSet("demo", flag.ContinueOnError)
   fs.SetOutput(stderr)
@@ -110,6 +116,9 @@ func runDemo(args []string) int {
   return 0
 }
 
+// demoArrow returns a JavaScript arrow-function expression for the named
+// atomic TypeScript type. It is the platform-helper counterpart of the same
+// function in cmd/ttsc, kept separate to avoid a shared-binary dependency.
 func demoArrow(name string) (string, error) {
   switch strings.ToLower(name) {
   case "any":

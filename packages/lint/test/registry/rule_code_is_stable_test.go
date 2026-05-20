@@ -4,18 +4,20 @@ import (
   "testing"
 )
 
-// TestRuleCodeIsStable verifies rule code is stable.
+// TestRuleCodeIsStable verifies that RuleCode returns the same numeric code across
+// repeated calls for the same rule name, that codes fall in the reserved [9000, 18000)
+// banner range, and that two distinct rule names do not hash-collide.
 //
-// The rule registry is a public surface for documentation, diagnostics, and stable numeric
-// diagnostic codes. Registry tests keep that metadata deterministic independently from
-// individual rule behavior.
+// Diagnostic codes are exposed in editor UIs and suppression directives; a code change
+// across builds breaks saved suppressions and CI filters. RuleCode is based on FNV-1a
+// 32-bit hashed into the banner band, so it is deterministic for a given name but must
+// still be explicitly verified against the band boundaries. The two-name collision check
+// uses names known not to share an FNV-1a code; if a future hash change introduces a
+// collision this test fails before the change ships.
 //
-// This scenario focuses on rule code is stable. It protects consumers that compare rule lists
-// or diagnostic codes across runs.
-//
-// 1. Read the package-level registry metadata.
-// 2. Normalize the expected ordering or code range.
-// 3. Assert deterministic ordering, headline rule presence, and stable rule codes.
+// 1. Call RuleCode("no-var") twice and assert both results are equal.
+// 2. Assert the code falls within [9000, 18000).
+// 3. Assert RuleCode("no-var") and RuleCode("no-debugger") differ.
 func TestRuleCodeIsStable(t *testing.T) {
   // The hashed rule code must be deterministic across runs and inside
   // the (9000, 18000) banner range.

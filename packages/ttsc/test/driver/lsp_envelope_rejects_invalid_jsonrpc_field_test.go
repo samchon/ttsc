@@ -13,10 +13,10 @@ import (
 // — the pump forwards the original bytes verbatim to upstream so the
 // peer can produce its own JSON-RPC error response.
 //
-// 1. Parse an envelope whose jsonrpc is "1.0".
-// 2. Assert ErrInvalidJSONRPC is returned.
-// 3. Parse an envelope with the field absent — should succeed (we stay
-//    permissive for editors that omit jsonrpc).
+//  1. Parse an envelope whose jsonrpc is "1.0".
+//  2. Assert ErrInvalidJSONRPC is returned.
+//  3. Parse an envelope with the field absent — should succeed (we stay
+//     permissive for editors that omit jsonrpc).
 func TestLSPEnvelopeRejectsInvalidJSONRPCField(t *testing.T) {
   if _, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"1.0","method":"x"}`)); !errors.Is(err, driver.ErrInvalidJSONRPC) {
     t.Fatalf("expected ErrInvalidJSONRPC, got %v", err)

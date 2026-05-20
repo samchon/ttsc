@@ -253,10 +253,15 @@ func (noLoneBlocks) Check(ctx *Context, node *shimast.Node) {
   switch parent.Kind {
   case shimast.KindBlock, shimast.KindSourceFile, shimast.KindModuleBlock:
   default:
+    // Block is the body of a control-flow statement (if/for/while/…) —
+    // those braces are not lone; only report blocks nested inside another
+    // statement list (another Block, SourceFile, or ModuleBlock).
     return
   }
-  // Skip blocks that are themselves a function/method body — those
-  // are tracked by isFunctionLikeKind on the parent.
+  // isFunctionLikeKind returns false for all three parent kinds above
+  // (Block/SourceFile/ModuleBlock are never function-like), so this guard
+  // is a no-op. It is left in place to document intent: if the switch were
+  // ever widened to admit function-body containers, this guard would fire.
   if isFunctionLikeKind(parent) {
     return
   }
@@ -783,8 +788,13 @@ func isProductiveExpression(node *shimast.Node) bool {
     shimast.KindPrefixUnaryExpression,
     shimast.KindPostfixUnaryExpression,
     shimast.KindTaggedTemplateExpression:
-    // These can have side effects. The narrower checks
-    // (no-cond-assign, no-bitwise) handle the suspicious shapes.
+    // Most of these kinds are unconditionally productive (call, new, await,
+    // yield, delete, tagged template). The inner switch narrows the two kinds
+    // that can be non-productive: a BinaryExpression is only productive when
+    // it is an assignment, and a PrefixUnaryExpression is only productive when
+    // it is ++ or --. KindPostfixUnaryExpression is always productive (++ and
+    // -- are the only postfix operators). All un-matched cases reach the
+    // outer `return true` below.
     switch expr.Kind {
     case shimast.KindBinaryExpression:
       bin := expr.AsBinaryExpression()

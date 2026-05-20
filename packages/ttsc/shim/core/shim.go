@@ -1,17 +1,34 @@
+// Package core re-exports the subset of typescript-go's internal/core types
+// and constants that plugins and the ttsc driver need. It provides compiler
+// options, script-kind discrimination, tri-state booleans, and text-range
+// primitives without exposing the full internal surface.
 package core
 
 import innercore "github.com/microsoft/typescript-go/internal/core"
 
+// CompilerOptions holds the parsed tsconfig compiler options passed to the
+// TypeScript-Go program host.
 type CompilerOptions = innercore.CompilerOptions
+
+// Tristate is a three-valued boolean: TSFalse, TSTrue, or TSUnknown. Used by
+// CompilerOptions fields that can be explicitly unset.
 type Tristate = innercore.Tristate
+
+// TextPos is a zero-based byte offset into a source file's text.
 type TextPos = innercore.TextPos
+
+// TextRange is a half-open [Pos, End) byte range inside a source file.
 type TextRange = innercore.TextRange
+
+// ScriptKind identifies the syntactic flavour of a source file.
 type ScriptKind = innercore.ScriptKind
 
 const (
+  // TSFalse and TSTrue are the explicit-false and explicit-true Tristate values.
   TSFalse = innercore.TSFalse
   TSTrue  = innercore.TSTrue
 
+  // ScriptKind* constants enumerate the file flavours typescript-go recognises.
   ScriptKindUnknown  = innercore.ScriptKindUnknown
   ScriptKindJS       = innercore.ScriptKindJS
   ScriptKindJSX      = innercore.ScriptKindJSX

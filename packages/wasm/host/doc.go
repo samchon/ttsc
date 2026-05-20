@@ -3,20 +3,20 @@
 //
 // A consumer wasm looks like this:
 //
-//	//go:build js
-//	package main
+//  //go:build js
+//  package main
 //
-//	import (
-//	  "github.com/samchon/ttsc/packages/wasm/host"
-//	  yourplugin "example.com/your/plugin"
-//	)
+//  import (
+//    "github.com/samchon/ttsc/packages/wasm/host"
+//    yourplugin "example.com/your/plugin"
+//  )
 //
-//	func main() {
-//	  host.Expose("yourApi", host.Config{
-//	    Plugins: []host.Plugin{yourplugin.New()},
-//	  })
-//	  select {}
-//	}
+//  func main() {
+//    // Expose never returns; it installs the JS API and blocks forever.
+//    host.Expose("yourApi", host.Config{
+//      Plugins: []host.Plugin{yourplugin.New()},
+//    })
+//  }
 //
 // Expose binds `globalThis[name]` to an object that exposes ttsc's base
 // project commands (build, check, transform, version) plus a `plugin(name,

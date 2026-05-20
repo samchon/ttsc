@@ -177,44 +177,68 @@ const (
   ModifierFlagsReadonly  = innerast.ModifierFlagsReadonly
 )
 
+// NewNodeFactory creates an AST node factory with the supplied creation hooks.
+// Pass a zero-value NodeFactoryHooks to get the default factory behaviour.
 func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
   return innerast.NewNodeFactory(options)
 }
 
+// NewNodeVisitor creates a visitor that calls visit for each node encountered
+// during a tree walk, delegating node recreation to factory using hooks.
 func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options NodeVisitorHooks) *NodeVisitor {
   return innerast.NewNodeVisitor(visit, factory, options)
 }
 
+// IsFunctionLike reports whether node is any function-like construct
+// (function declaration, arrow function, method, constructor, accessor, etc.).
 func IsFunctionLike(node *Node) bool {
   return innerast.IsFunctionLike(node)
 }
 
+// IsPropertyAssignment reports whether node is a key:value pair inside an
+// object literal expression.
 func IsPropertyAssignment(node *Node) bool {
   return innerast.IsPropertyAssignment(node)
 }
 
+// IsPropertyDeclaration reports whether node is a class property declaration.
 func IsPropertyDeclaration(node *Node) bool {
   return innerast.IsPropertyDeclaration(node)
 }
 
+// IsModuleBlock reports whether node is the body block of a namespace or
+// module declaration.
 func IsModuleBlock(node *Node) bool {
   return innerast.IsModuleBlock(node)
 }
 
+// IsStringLiteral reports whether node is a string literal token.
 func IsStringLiteral(node *Node) bool {
   return innerast.IsStringLiteral(node)
 }
 
+// IsPropertyAccessExpression reports whether node is a dotted member access
+// (e.g. `a.b`).
 func IsPropertyAccessExpression(node *Node) bool {
   return innerast.IsPropertyAccessExpression(node)
 }
 
+// IsElementAccessExpression reports whether node is a bracket member access
+// (e.g. `a[b]`).
 func IsElementAccessExpression(node *Node) bool {
   return innerast.IsElementAccessExpression(node)
 }
 
+// GetSourceFileOfNode walks up the parent chain to return the SourceFile that
+// owns the given node. Linked from the internal package via go:linkname because
+// the function is unexported there.
+//
 //go:linkname GetSourceFileOfNode github.com/microsoft/typescript-go/internal/ast.GetSourceFileOfNode
 func GetSourceFileOfNode(node *innerast.Node) *innerast.SourceFile
 
+// GetNodeAtPosition returns the deepest AST node whose range covers position
+// in file. When includeJSDoc is true the search descends into JSDoc sub-trees.
+// Linked from the internal package via go:linkname.
+//
 //go:linkname GetNodeAtPosition github.com/microsoft/typescript-go/internal/ast.GetNodeAtPosition
 func GetNodeAtPosition(file *innerast.SourceFile, position int, includeJSDoc bool) *innerast.Node

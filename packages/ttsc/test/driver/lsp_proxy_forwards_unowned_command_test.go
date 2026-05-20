@@ -1,11 +1,11 @@
 package driver_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"testing"
+  "bytes"
+  "encoding/json"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestLSPProxyForwardsUnownedCommand verifies that the proxy does not
@@ -17,18 +17,18 @@ import (
 // 2. Send a request for the unowned command.
 // 3. Assert the request reaches upstream verbatim.
 func TestLSPProxyForwardsUnownedCommand(t *testing.T) {
-	source := &stubSource{
-		commands: []string{"ttsc.lint.fix"},
-		execute: func(string, []json.RawMessage) (*driver.LSPWorkspaceEdit, error) {
-			t.Fatal("execute should not be called for unowned command")
-			return nil, nil
-		},
-	}
-	h := newProxyHarness(t, source)
+  source := &stubSource{
+    commands: []string{"ttsc.lint.fix"},
+    execute: func(string, []json.RawMessage) (*driver.LSPWorkspaceEdit, error) {
+      t.Fatal("execute should not be called for unowned command")
+      return nil, nil
+    },
+  }
+  h := newProxyHarness(t, source)
 
-	request := []byte(`{"jsonrpc":"2.0","id":1,"method":"workspace/executeCommand","params":{"command":"tsgo.refactor.extract"}}`)
-	h.sendEditor(request)
-	if got := h.recvUpstream(); !bytes.Equal(got, request) {
-		t.Fatalf("upstream mismatch:\n%s", got)
-	}
+  request := []byte(`{"jsonrpc":"2.0","id":1,"method":"workspace/executeCommand","params":{"command":"tsgo.refactor.extract"}}`)
+  h.sendEditor(request)
+  if got := h.recvUpstream(); !bytes.Equal(got, request) {
+    t.Fatalf("upstream mismatch:\n%s", got)
+  }
 }

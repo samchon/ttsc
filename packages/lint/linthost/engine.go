@@ -184,6 +184,10 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
   })
 }
 
+// cloneTextEdits returns a shallow copy of `edits` so that the caller's
+// variadic slice cannot be mutated through the stored Finding. Returns nil
+// when the input is empty, keeping the Finding.Fix field nil rather than
+// a zero-length slice.
 func cloneTextEdits(edits []TextEdit) []TextEdit {
   if len(edits) == 0 {
     return nil

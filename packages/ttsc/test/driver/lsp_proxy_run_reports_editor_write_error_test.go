@@ -15,10 +15,10 @@ import (
 // and its augmented-frame forward path. Both must surface a write error
 // when the editor closes its read end mid-session.
 //
-// 1. Build a proxy with EditorOut closed on the editor side.
-// 2. Send a malformed upstream frame so the pump takes the parse-error
-//    branch into the failing write.
-// 3. Assert the proxy returns a wrapped io.ErrClosedPipe error.
+//  1. Build a proxy with EditorOut closed on the editor side.
+//  2. Send a malformed upstream frame so the pump takes the parse-error
+//     branch into the failing write.
+//  3. Assert the proxy returns a wrapped io.ErrClosedPipe error.
 func TestLSPProxyRunReportsEditorWriteError(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

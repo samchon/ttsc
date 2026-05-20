@@ -56,6 +56,10 @@ package linthost
 // The doc tree is built by helper constructors (Text, Line, Group, …)
 // below. Constructors take their children as variadic or slice
 // arguments so call sites read like a layout DSL.
+
+// DocKind is the discriminant tag for a Doc node. Only the variant
+// fields relevant to that kind are populated; all others stay at their
+// zero value.
 type DocKind uint8
 
 const (

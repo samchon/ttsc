@@ -6,19 +6,17 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigRejectsLegacyConfigFileAliases verifies legacy config alias rejection.
+// TestLoadRuleConfigRejectsLegacyConfigFileAliases verifies that the old `configFile` and
+// `configPath` keys in a PluginEntry.Config are rejected with an actionable error.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// These aliases predate the `extends` key and were removed when the config contract was
+// stabilized. Silently ignoring them would leave users with no lint rules applied and no
+// diagnostic to explain why. The error must point at the supported `extends` field so users
+// can migrate without consulting the changelog.
 //
-// This scenario focuses on load rule config rejects legacy config file aliases. It ensures the
-// lint package accepts only the supported config contract while still loading JSON, JavaScript,
-// and TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. For each legacy key, call LoadRuleConfig with that key set in Config.
+// 2. Assert an error is returned for every legacy key.
+// 3. Assert each error message mentions "use \"extends\"".
 func TestLoadRuleConfigRejectsLegacyConfigFileAliases(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

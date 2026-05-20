@@ -4,19 +4,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigStoreRespectsBasePath verifies base path matching.
+// TestParseExternalConfigStoreRespectsBasePath verifies that a `basePath` key restricts glob
+// matching to the named subdirectory of the project root.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// When a flat-config entry declares `basePath: "packages/app"`, its `files` patterns must only
+// match source files rooted under that directory. A regression that ignored basePath would apply
+// the entry's rules to every file in the project. This test uses two files — one inside and one
+// outside basePath — to confirm the boundary is enforced at the ResolveRules call site.
 //
-// This scenario focuses on parse external config store respects base path. It protects the
-// boundary between native fallback rules and cases that must delegate to an installed ESLint
-// runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a one-entry flat-config array with basePath, files glob, and a rule.
+// 2. Parse through parseExternalConfigStore.
+// 3. Assert the in-scope file gets the rule and the out-of-scope file does not.
 func TestParseExternalConfigStoreRespectsBasePath(t *testing.T) {
   store, err := parseExternalConfigStore([]any{
     map[string]any{

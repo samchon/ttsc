@@ -4,19 +4,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigStoreForFileRequiresRuntimeFields verifies runtime-only fields.
+// TestParseExternalConfigStoreForFileRequiresRuntimeFields verifies that ESLint-specific
+// structural fields like `languageOptions.parser` and `plugins` trigger the runtime-required flag.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// These fields reference live JavaScript objects that cannot be serialized or interpreted by the
+// native engine. When they appear in the config, the store must be marked as requiring ESLint
+// runtime execution so the command path delegates to the installed ESLint instead of running the
+// native engine alone.
 //
-// This scenario focuses on parse external config store for file requires runtime fields. It
-// protects the boundary between native fallback rules and cases that must delegate to an
-// installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a config object with languageOptions.parser and a plugins map.
+// 2. Parse through parseExternalConfigStoreForFile.
+// 3. Assert both WantsESLintRuntime and RequiresESLintRuntime are true.
 func TestParseExternalConfigStoreForFileRequiresRuntimeFields(t *testing.T) {
   store, err := parseExternalConfigStoreForFile(map[string]any{
     "languageOptions": map[string]any{

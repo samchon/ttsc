@@ -83,8 +83,9 @@ func (noEmptyPattern) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// isFunctionLikeKind reports whether the node represents a function-like
-// host whose body is the relevant scope for the empty check.
+// isFunctionLikeKind reports whether n represents a function-like AST node
+// (declaration, expression, arrow, method, accessor, or constructor). Used
+// to detect scope boundaries by rules_empty, rules_finally, and others.
 func isFunctionLikeKind(n *shimast.Node) bool {
   if n == nil {
     return false

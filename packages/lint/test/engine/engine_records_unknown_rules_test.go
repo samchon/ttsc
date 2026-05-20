@@ -4,20 +4,18 @@ import (
   "testing"
 )
 
-// TestEngineRecordsUnknownRules verifies engine records unknown rules.
+// TestEngineRecordsUnknownRules verifies that rules not present in the registry are
+// tracked in UnknownRules() and excluded from EnabledRules(), while valid rules remain.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// When a config references a rule name that was never registered, the engine must not
+// silently drop it — it must surface the unrecognized name so the renderer can emit a
+// diagnostic. At the same time, the unknown rule must not pollute the enabled-rule map
+// because that would cause nil-rule dispatches. This pins both the segregation invariant
+// and the non-contamination of the known-rule path.
 //
-// This scenario focuses on engine records unknown rules. It keeps rule execution observable
-// through findings so the test can distinguish dispatch behavior from config loading and output
-// rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Build an engine with one unknown rule name and one registered rule name.
+// 2. Call UnknownRules() and EnabledRules().
+// 3. Assert the unknown name is isolated and the known rule is still active.
 func TestEngineRecordsUnknownRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "never-existed": SeverityError,

@@ -4,18 +4,17 @@ import (
   "testing"
 )
 
-// TestParseRulesAcceptsStringSeverities verifies parse rules accepts string severities.
+// TestParseRulesAcceptsStringSeverities verifies that all supported string severity aliases
+// are correctly mapped and that unrecognized rule names default to SeverityOff.
 //
-// Inline lint config is the native plugin contract carried inside the ttsc plugin entry. These
-// tests verify severity parsing before any external ESLint-style config file is considered.
+// The inline config accepts four string forms: "off", "warn", "warning", and "error". "warning"
+// is a ttsc-specific alias for "warn" that does not exist in ESLint, so both must map to
+// SeverityWarn. Unconfigured rules must default to SeverityOff so callers can safely ask for
+// any rule's effective severity without checking for key presence.
 //
-// This scenario focuses on parse rules accepts string severities. It protects the strict
-// inline-config shape so unsupported values fail loudly instead of being interpreted as ESLint
-// flat-config tuples.
-//
-// 1. Build the inline rules object used by the host payload.
-// 2. Parse it through the native severity normalizer.
-// 3. Assert accepted severities or the explicit contract error.
+// 1. Build a rules map with all four severity strings and one unconfigured rule key.
+// 2. Parse through ParseRules.
+// 3. Assert each string maps to the correct Severity and the missing rule returns SeverityOff.
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
   cfg, err := ParseRules(map[string]any{
     "no-var":          "error",

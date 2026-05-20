@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigLoadsJavaScriptConfigFile verifies JavaScript config loading.
+// TestLoadRuleConfigLoadsJavaScriptConfigFile verifies that an explicit `config` path pointing
+// to a .cjs file is loaded via the Node subprocess config loader.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// JavaScript config files (CJS or ESM) cannot be parsed natively; they require a Node child
+// process. LoadRuleConfig must route .js/.cjs/.mjs extensions through the Node loader rather
+// than the JSON parser. A regression that sent a .cjs path to the JSON parser would fail with a
+// syntax error instead of evaluating the module.
 //
-// This scenario focuses on load rule config loads JavaScript config file. It ensures the lint
-// package accepts only the supported config contract while still loading JSON, JavaScript, and
-// TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Write tsconfig.json and a .cjs config file exporting a rules object.
+// 2. Call LoadRuleConfig with `config: "./ttsc-lint.config.cjs"`.
+// 3. Assert both rules from the CJS module are resolved correctly.
 func TestLoadRuleConfigLoadsJavaScriptConfigFile(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

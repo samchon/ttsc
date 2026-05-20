@@ -1,24 +1,22 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineSkipsOffRules verifies engine skips off rules.
+// TestEngineSkipsOffRules verifies that rules configured with SeverityOff are not wired
+// into the engine's dispatch table and produce zero findings.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// SeverityOff is the explicit opt-out value. It must behave identically to omitting a
+// rule from the config altogether — the rule must not appear in EnabledRules() and must
+// not fire. This pins the severity-filter in NewEngine so a refactor that changes the
+// sentinel from 0 to some other value still needs to update the filter consistently.
 //
-// This scenario focuses on engine skips off rules. It keeps rule execution observable through
-// findings so the test can distinguish dispatch behavior from config loading and output
-// rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Build an engine with no-var configured as SeverityOff.
+// 2. Assert EnabledRules() is empty (no active rules).
+// 3. Parse a source file with a var statement and assert zero findings.
 func TestEngineSkipsOffRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "no-var": SeverityOff,

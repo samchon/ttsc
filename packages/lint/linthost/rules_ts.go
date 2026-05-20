@@ -1,3 +1,7 @@
+// Core TypeScript-specific lint rules: direct ports of the most commonly
+// enabled @typescript-eslint/recommended and @typescript-eslint/stylistic
+// rules that require only AST inspection (no checker or scope analysis).
+// Each rule is registered in the package init function at the bottom.
 package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -83,6 +87,10 @@ func (noInferrableTypes) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(typeNode, "Type annotation here is unnecessary.")
 }
 
+// isInferrablePair reports whether typeNode is a type annotation that
+// TypeScript would have inferred automatically from the initializer init.
+// Only covers the scalar literal kinds: string, number, boolean, bigint,
+// null, and undefined.
 func isInferrablePair(typeNode, init *shimast.Node) bool {
   switch typeNode.Kind {
   case shimast.KindStringKeyword:
@@ -101,6 +109,8 @@ func isInferrablePair(typeNode, init *shimast.Node) bool {
   return false
 }
 
+// isUnaryNumeric reports whether node is a unary +/- applied to a numeric
+// literal (e.g. `-1`, `+0`). Used by isInferrablePair for the number case.
 func isUnaryNumeric(node *shimast.Node) bool {
   if node == nil || node.Kind != shimast.KindPrefixUnaryExpression {
     return false
@@ -202,6 +212,9 @@ func (preferAsConst) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
+// literalsMatchSourceText reports whether lhs and rhs are both literal
+// expressions whose source text is identical. Used by prefer-as-const to
+// detect `x as "foo"` where "foo" matches x's literal value.
 func literalsMatchSourceText(file *shimast.SourceFile, lhs, rhs *shimast.Node) bool {
   if lhs == nil || rhs == nil {
     return false

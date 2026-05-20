@@ -110,6 +110,8 @@ func (noEmptyCharacterClass) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// hasEmptyCharClass reports whether the regex source text src contains an
+// empty character class (`[]` or `[^]`). Respects backslash escapes.
 func hasEmptyCharClass(src string) bool {
   // Walk the regex literal source manually, respecting escapes.
   for i := 0; i < len(src); i++ {
@@ -143,6 +145,10 @@ func (noMisleadingCharacterClass) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// regexHasSurrogatePair reports whether the regex source text src contains
+// a non-BMP character (code point >= U+10000) inside a character class
+// without the `u` flag. Such characters are stored as surrogate pairs in
+// the source and the class will only match one half of the pair.
 func regexHasSurrogatePair(src string) bool {
   // Strip the trailing flags so we don't misread the `u` flag — it
   // suppresses this rule.
@@ -188,6 +194,10 @@ func (noLossOfPrecision) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// numericLiteralLosesPrecision reports whether the decimal integer literal
+// text exceeds Number.MAX_SAFE_INTEGER (2^53 - 1). Non-decimal literals
+// (hex, octal, binary) and literals with exponents or decimal points are
+// exempt because their precision loss is caller-visible and intentional.
 func numericLiteralLosesPrecision(text string) bool {
   // Strip underscore separators, exponents, decimal/hex/oct/binary
   // markers — for the simple-base-10 integer case the round-trip
@@ -204,7 +214,8 @@ func numericLiteralLosesPrecision(text string) bool {
   if trimmed == "" {
     return false
   }
-  // 2^53 = 9007199254740992; anything larger as an integer literal loses precision.
+  // Number.MAX_SAFE_INTEGER is 2^53-1 = 9007199254740991; 2^53 itself
+  // (9007199254740992) is the first integer that float64 cannot round-trip.
   const maxSafe = "9007199254740992"
   if len(trimmed) < len(maxSafe) {
     return false
@@ -351,6 +362,9 @@ func (noControlRegex) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// regexContainsControl reports whether the regex source text src contains a
+// literal control character (U+0000–U+001F, excluding \t, \n, \r) or a
+// \xNN / \uNNNN escape that resolves to a control character.
 func regexContainsControl(src string) bool {
   for i := 0; i < len(src); i++ {
     c := src[i]
@@ -382,6 +396,8 @@ func regexContainsControl(src string) bool {
   return false
 }
 
+// hexDigit converts an ASCII hex byte ('0'-'9', 'a'-'f', 'A'-'F') to its
+// integer value. Returns -1 for non-hex bytes.
 func hexDigit(b byte) int {
   switch {
   case b >= '0' && b <= '9':
@@ -412,6 +428,10 @@ func (noIrregularWhitespace) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isIrregularWhitespace reports whether rune r is a non-standard whitespace
+// character that the TypeScript parser accepts but is almost certainly a
+// copy-paste artifact: vertical tab, form feed, non-breaking space, and the
+// various Unicode space and line separator code points.
 func isIrregularWhitespace(r rune) bool {
   switch r {
   case '\v', '\f',
@@ -458,6 +478,9 @@ func (noFallthrough) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isTerminating reports whether stmt is a statement that unconditionally
+// transfers control out of the current block: break, continue, return,
+// throw, or a block whose last statement is terminating.
 func isTerminating(stmt *shimast.Node) bool {
   if stmt == nil {
     return false

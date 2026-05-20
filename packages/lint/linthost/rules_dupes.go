@@ -49,18 +49,17 @@ func (noDupeKeys) Check(ctx *Context, node *shimast.Node) {
   if obj == nil || obj.Properties == nil {
     return
   }
-  seen := make(map[string]*shimast.Node, len(obj.Properties.Nodes))
+  seen := make(map[string]bool, len(obj.Properties.Nodes))
   for _, prop := range obj.Properties.Nodes {
     key := propertyKey(ctx.File, prop)
     if key == "" {
       continue
     }
-    if first, ok := seen[key]; ok {
+    if seen[key] {
       ctx.Report(prop, "Duplicate key '"+key+"'.")
-      _ = first
       continue
     }
-    seen[key] = prop
+    seen[key] = true
   }
 }
 
@@ -153,6 +152,10 @@ func propertyKey(file *shimast.SourceFile, prop *shimast.Node) string {
   return ""
 }
 
+// staticPropertyKey extracts a comparable string key from a property name node.
+// Identifiers, string/numeric literals, and computed names with a literal
+// payload all produce a stable string. Other computed names (dynamic
+// expressions) return "" so the caller skips them without false positives.
 func staticPropertyKey(file *shimast.SourceFile, name *shimast.Node) string {
   if name == nil {
     return ""

@@ -5,18 +5,18 @@ import (
   "testing"
 )
 
-// TestAllRuleNamesIsSorted verifies all rule names is sorted.
+// TestAllRuleNamesIsSorted verifies that AllRuleNames returns rule names in lexicographic
+// order and that the set contains the headline rules advertised in the README.
 //
-// The rule registry is a public surface for documentation, diagnostics, and stable numeric
-// diagnostic codes. Registry tests keep that metadata deterministic independently from
-// individual rule behavior.
+// The rule list is consumed by documentation generators, diagnostic formatters, and
+// anywhere the registry is iterated. An unsorted list produces non-deterministic output
+// that changes each time a rule is added. Sorting at registration time, rather than at
+// call time, is a performance choice that must be validated here. The headline check
+// confirms that registration wiring is not accidentally excluded from a build tag.
 //
-// This scenario focuses on all rule names is sorted. It protects consumers that compare rule
-// lists or diagnostic codes across runs.
-//
-// 1. Read the package-level registry metadata.
-// 2. Normalize the expected ordering or code range.
-// 3. Assert deterministic ordering, headline rule presence, and stable rule codes.
+// 1. Call AllRuleNames() and build a sorted copy of the result.
+// 2. Compare element by element; fail on the first mismatch.
+// 3. Verify that no-var, no-explicit-any, no-non-null-assertion, and eqeqeq are present.
 func TestAllRuleNamesIsSorted(t *testing.T) {
   names := AllRuleNames()
   sorted := append([]string(nil), names...)

@@ -22,6 +22,9 @@ func (noTemplateCurlyInString) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// hasTemplatePlaceholder reports whether `text` contains a `${...}`
+// sequence — i.e. at least one `${` followed by a closing `}`. A lone
+// `${` with no matching brace is not flagged.
 func hasTemplatePlaceholder(text string) bool {
   if !strings.Contains(text, "${") {
     return false
@@ -57,6 +60,9 @@ func (noMultiStr) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// hasBackslashLineContinuation reports whether `src` contains a backslash
+// immediately followed by a newline (`\n` or `\r`), which is the raw-source
+// signature of a backslash line-continuation inside a string literal.
 func hasBackslashLineContinuation(src string) bool {
   for i := 0; i < len(src)-1; i++ {
     if src[i] == '\\' {
@@ -89,6 +95,9 @@ func (noUselessConcat) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isStringLikeLiteral reports whether `node` is a string literal or a
+// no-substitution template literal — the two kinds that can be trivially
+// concatenated with `+`.
 func isStringLikeLiteral(node *shimast.Node) bool {
   if node == nil {
     return false
@@ -115,6 +124,7 @@ func (noOctal) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isAsciiDigit reports whether b is an ASCII decimal digit (0–9).
 func isAsciiDigit(b byte) bool { return b >= '0' && b <= '9' }
 
 func init() {

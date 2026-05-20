@@ -4,19 +4,18 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigStoreResolvesFilesAndIgnores verifies file and ignore matching.
+// TestParseExternalConfigStoreResolvesFilesAndIgnores verifies that per-file scoping and global
+// ignores are respected when resolving rules for individual source paths.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// The store must apply config entries whose `files` glob matches the requested path while
+// treating entries with `ignores` only (no `files`) as global ignore patterns. A regression
+// that applied all entries unconditionally would disable "no-console" for non-test files and
+// fail to ignore generated files. This test uses three absolute source paths to cover all three
+// entry types in one pass.
 //
-// This scenario focuses on parse external config store resolves files and ignores. It protects
-// the boundary between native fallback rules and cases that must delegate to an installed
-// ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a flat-config array with a base entry, a test-file override, and an ignores entry.
+// 2. Parse through parseExternalConfigStore.
+// 3. Assert each source path resolves to the expected rules and ignored state.
 func TestParseExternalConfigStoreResolvesFilesAndIgnores(t *testing.T) {
   store, err := parseExternalConfigStore([]any{
     map[string]any{

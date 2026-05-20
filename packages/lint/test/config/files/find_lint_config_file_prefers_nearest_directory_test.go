@@ -5,19 +5,16 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFilePrefersNearestDirectory verifies nearest directory preference.
+// TestFindLintConfigFilePrefersNearestDirectory verifies that a config file in the tsconfig's
+// own directory is chosen over a config in a parent directory.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// Monorepo packages may override the root ESLint config with a package-level config. The walk
+// must stop as soon as it finds any recognized config in the current directory before ascending.
+// A regression that continued past a match would silently apply the wrong (outer) config.
 //
-// This scenario focuses on find lint config file prefers nearest directory. It keeps path
-// resolution behavior independent from rule parsing so discovery regressions are caught at the
-// source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Place an eslint.config.mjs at the root and a ttsc-lint.config.cjs inside packages/app.
+// 2. Call findLintConfigFile with tsconfig=packages/app/tsconfig.json.
+// 3. Assert the nearer packages/app config is selected over the root config.
 func TestFindLintConfigFilePrefersNearestDirectory(t *testing.T) {
   dir := t.TempDir()
   nested := filepath.Join(dir, "packages", "app")

@@ -56,13 +56,28 @@ var packagesToShim = []string{
   "vfs/osvfs",
 }
 
+// ExtraShim is the schema for the per-shim-directory `extra-shim.json` file.
+// It lets maintainers extend the generated output beyond what gen_shims can
+// derive automatically from the public API surface.
 type ExtraShim struct {
-  ExtraFunctions  []string
-  ExtraMethods    map[string][]string
-  ExtraFields     map[string][]string
+  // ExtraFunctions lists unexported function names that should be shimmed via
+  // go:linkname in addition to the exported ones gen_shims discovers itself.
+  ExtraFunctions []string
+  // ExtraMethods maps type name → method names for unexported or
+  // otherwise-unlinkable methods that should be forwarded.
+  ExtraMethods map[string][]string
+  // ExtraFields maps type name → field names whose values should be exposed
+  // through unsafe pointer casts (used when go:linkname cannot reach them).
+  ExtraFields map[string][]string
+  // IgnoreFunctions lists exported function names that gen_shims should skip
+  // entirely, typically because the caller supplies a hand-written alternative.
   IgnoreFunctions []string
 }
 
+// signatureHasUnexportedType reports whether any parameter of the function
+// signature refers to an unexported named type (optionally through a pointer).
+// Such functions cannot be linked safely because the shim package cannot
+// reference the unexported type by name.
 func signatureHasUnexportedType(t types.Signature) bool {
   if params := t.Params(); params != nil {
     for v := range params.Variables() {
@@ -128,6 +143,9 @@ func main() {
       extraShim.IgnoreFunctions = []string{}
     }
 
+    // importedPackages tracks every package import the generated file needs.
+    // true  = referenced by name (needs a named import).
+    // false = only needed for its side-effects (blank import "_").
     importedPackages := map[string]bool{}
     importPackage := func(path string, directly bool) {
       if directly {
@@ -137,12 +155,21 @@ func main() {
       }
     }
 
+    // qualifierOnlyPackageName records a direct import for every package the
+    // type-string references and returns just the package short name, producing
+    // output like `ast.Node` instead of a full path.
     var qualifierOnlyPackageName types.Qualifier = func(p *types.Package) string {
       importPackage(p.Path(), true)
       return p.Name()
     }
+    // qualifierEmptyPackageName omits the package qualifier entirely; used when
+    // writing the receiver type inside a go:linkname directive where the package
+    // prefix must not appear.
     var qualifierEmptyPackageName types.Qualifier = func(p *types.Package) string { return "" }
 
+    // emitGoLinknameDirective appends a `//go:linkname localName pkg.Func`
+    // pragma line to shimBuilder, registering unsafe and the source package as
+    // blank imports so the linker can resolve the symbol.
     emitGoLinknameDirective := func(localName string, fn *types.Func) {
       importPackage("unsafe", false)
       importPackage(pkg.Types.Path(), false)
@@ -161,6 +188,9 @@ func main() {
       shimBuilder.WriteByte('\n')
     }
 
+    // emitLinkedFunction emits a go:linkname directive and a matching func
+    // declaration for fn. Generic functions (TypeParams != nil) and functions
+    // with unexported parameter types are skipped (returns false).
     emitLinkedFunction := func(fn *types.Func) bool {
       if fn.Signature().TypeParams() != nil {
         return false
@@ -221,10 +251,9 @@ func main() {
         shimBuilder.WriteString("\n")
       }
 
-      switch object.(type) {
+      switch typedObj := object.(type) {
       case *types.TypeName:
-        typeName := object.(*types.TypeName)
-        t := typeName.Type()
+        t := typedObj.Type()
         named, isNamed := t.(*types.Named)
         if isNamed {
           _, nameWithTypeParams, _ := strings.Cut(types.TypeString(named, qualifierOnlyPackageName), ".")
@@ -297,6 +326,10 @@ func main() {
           matchedExtraFields[name] = true
           mirrorStructName := "extra_" + name
 
+          // emitExtraStruct emits a mirror struct (`extra_<Name>`) whose field
+          // layout matches the unexported original so that unsafe.Pointer casts
+          // in the generated accessor functions are safe. Unexported pointer
+          // fields whose element type is also unexported are recursively mirrored.
           var emitExtraStruct func(name string, s *types.Struct)
           emitExtraStruct = func(name string, s *types.Struct) {
             shimBuilder.WriteString("type extra_")
@@ -384,12 +417,14 @@ func main() {
         printReexport("var")
       case *types.Func:
         if !slices.Contains(extraShim.IgnoreFunctions, name) {
-          funcType := object.(*types.Func)
-          emitLinkedFunction(funcType)
+          emitLinkedFunction(typedObj)
         }
       }
     }
 
+    // Verify that every extra function/method requested in extra-shim.json was
+    // actually found in the package. A missing symbol means the json file is
+    // stale relative to the upstream typescript-go API.
     exit := false
     for fnName, found := range matchedExtraFunctions {
       if found {

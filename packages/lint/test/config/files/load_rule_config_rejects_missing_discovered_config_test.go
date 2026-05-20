@@ -6,19 +6,16 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigRejectsMissingDiscoveredConfig verifies missing config rejection.
+// TestLoadRuleConfigRejectsMissingDiscoveredConfig verifies that passing an empty Config map
+// without any lint config file present produces a clear error rather than a silent empty config.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// An empty config map triggers auto-discovery; if no lint.config.* or eslint.config.* file
+// exists, the engine would run with zero rules and silently pass every project. The error must
+// mention both "config" and "lint.config" so users understand what file to create.
 //
-// This scenario focuses on load rule config rejects missing discovered config. It ensures the
-// lint package accepts only the supported config contract while still loading JSON, JavaScript,
-// and TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Write only a tsconfig.json in the temp dir (no lint config file).
+// 2. Call LoadRuleConfig with an empty Config map.
+// 3. Assert an error is returned containing both "config" and "lint.config".
 func TestLoadRuleConfigRejectsMissingDiscoveredConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

@@ -25,6 +25,15 @@ func (noUnsafeFinally) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Unsafe usage of "+keyword+".")
 }
 
+// walkToFinally walks the parent chain from node upward looking for a
+// `finally` block. It returns the Block node that IS the finally clause when
+// found, or nil when the search exits through a function boundary (making any
+// control-flow transfer target something outside the finally block) or when no
+// finally block is found at all.
+//
+// A `break` or `continue` that targets an inner loop or switch INSIDE the
+// finally block is safe — it does not escape the finally — so the walk stops
+// early and returns nil in that case.
 func walkToFinally(node *shimast.Node) *shimast.Node {
   cur := node.Parent
   for cur != nil {
@@ -58,6 +67,8 @@ func walkToFinally(node *shimast.Node) *shimast.Node {
   return nil
 }
 
+// keywordOfControl returns the control-flow keyword string for the given
+// statement node, used to build the diagnostic message text.
 func keywordOfControl(node *shimast.Node) string {
   switch node.Kind {
   case shimast.KindReturnStatement:

@@ -1,25 +1,24 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineDispatchesOnlyToInterestedRules verifies engine dispatches only to interested
-// rules.
+// TestEngineDispatchesOnlyToInterestedRules verifies that the engine routes AST nodes
+// only to rules that registered for the corresponding Kind, and that each rule fires
+// exactly once per matching node.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The core engine contract is per-Kind dispatch: each rule declares which node kinds it
+// cares about via Visits(), and NewEngine wires a kind → []Rule mapping. If a rule were
+// also invoked on unregistered kinds it would either fire spuriously or panic on an
+// unsupported node cast. This test uses two rules with non-overlapping kind sets on one
+// source file to confirm independent dispatch counts.
 //
-// This scenario focuses on engine dispatches only to interested rules. It keeps rule execution
-// observable through findings so the test can distinguish dispatch behavior from config loading
-// and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Build an engine with no-var (KindVariableStatement) and no-debugger (KindDebuggerStatement).
+// 2. Parse a file with two var declarations and one debugger statement.
+// 3. Assert three total findings split 2 and 1 across the two rules.
 func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   // Build an engine with two rules enabled. The walker should call
   // each rule only on the kinds it registered for.

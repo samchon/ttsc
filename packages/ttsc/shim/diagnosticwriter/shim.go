@@ -1,3 +1,7 @@
+// Package diagnosticwriter re-exports the subset of typescript-go's
+// internal/diagnosticwriter surface that the ttsc driver uses. It provides
+// FormatASTDiagnosticsWithColorAndContext for rendering pure tsgo diagnostics
+// and delegates the mixed lint+tsgo rendering path to the adjacent lint.go.
 package diagnosticwriter
 
 import (

@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigLoadsTypeScriptConfigFile verifies TypeScript config loading.
+// TestLoadRuleConfigLoadsTypeScriptConfigFile verifies that a .ts config file is executed via
+// the Node subprocess loader (tsx/ts-node) and its default export is used as the rule map.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// TypeScript config files require a Node child process with TypeScript support. LoadRuleConfig
+// must recognize .ts, .mts, and .cts extensions and route them through the same Node loader
+// path as JavaScript files. A regression that sent a .ts path to the JSON parser would fail
+// before even running the TypeScript compiler.
 //
-// This scenario focuses on load rule config loads TypeScript config file. It ensures the lint
-// package accepts only the supported config contract while still loading JSON, JavaScript, and
-// TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Write tsconfig.json and a .ts config file exporting a typed rules record.
+// 2. Call LoadRuleConfig with `config: "./ttsc-lint.config.ts"`.
+// 3. Assert the exported rule resolves to SeverityError.
 func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

@@ -4,19 +4,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly verifies runtime markers.
+// TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly verifies that a string in
+// `extends` causes the resulting ConfigStore to require ESLint runtime execution.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// The native engine cannot resolve string module references (e.g. "eslint/recommended") without
+// Node, so the store must be marked both WantsESLintRuntime and RequiresESLintRuntime. However,
+// the local rules should still be stored so the command can produce partial native diagnostics
+// while delegating extends resolution to the runtime.
 //
-// This scenario focuses on parse external config store for file marks string extends as runtime
-// only. It protects the boundary between native fallback rules and cases that must delegate to
-// an installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a config object with a string extends entry and a local rule.
+// 2. Parse through parseExternalConfigStoreForFile.
+// 3. Assert both runtime flags are set and the local rule is accessible.
 func TestParseExternalConfigStoreForFileMarksStringExtendsAsRuntimeOnly(t *testing.T) {
   store, err := parseExternalConfigStoreForFile(map[string]any{
     "extends": []any{"eslint/recommended"},

@@ -1,25 +1,25 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineDirectiveNormalizesTypeScriptESLintRuleNames verifies engine directive normalizes
-// TypeScript ESLint rule names.
+// TestEngineDirectiveNormalizesTypeScriptESLintRuleNames verifies that the engine accepts
+// the `@typescript-eslint/` prefix in directive comments and maps it to the native
+// bare rule name.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// ESLint users often write `// eslint-disable-next-line @typescript-eslint/no-explicit-any`
+// while the native registry only knows `no-explicit-any`. The directive parser must strip
+// the prefix before looking up the suppression set; without normalization the suppression
+// silently has no effect, and the finding leaks through. This test pins the name-mapping
+// branch in the directive scanner.
 //
-// This scenario focuses on engine directive normalizes TypeScript ESLint rule names. It keeps
-// rule execution observable through findings so the test can distinguish dispatch behavior from
-// config loading and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+//  1. Enable `no-explicit-any` and parse two lines — one with a prefixed disable directive,
+//     one without.
+//  2. Run the engine.
+//  3. Assert only the directive-covered line is suppressed; the other line still fires.
 func TestEngineDirectiveNormalizesTypeScriptESLintRuleNames(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-explicit-any": SeverityError})
   file := parseTS(t, `

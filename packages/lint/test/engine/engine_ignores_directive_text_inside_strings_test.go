@@ -1,25 +1,23 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineIgnoresDirectiveTextInsideStrings verifies engine ignores directive text inside
-// strings.
+// TestEngineIgnoresDirectiveTextInsideStrings verifies that eslint-disable text embedded
+// in a string literal is not treated as a suppression directive.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The directive scanner operates on the raw source text, not on the AST comment list.
+// Without a check that the matched position falls inside a comment token, a string value
+// like `"// eslint-disable-next-line no-var"` would suppress the next real statement.
+// This pins the comment-boundary guard in the directive extractor so a refactor that
+// removes the guard reactivates a real regression.
 //
-// This scenario focuses on engine ignores directive text inside strings. It keeps rule
-// execution observable through findings so the test can distinguish dispatch behavior from
-// config loading and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Parse a source file where a string literal contains a disable directive.
+// 2. Run the no-var engine.
+// 3. Assert the var statement on the following line is still reported.
 func TestEngineIgnoresDirectiveTextInsideStrings(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-var": SeverityError})
   file := parseTS(t, `

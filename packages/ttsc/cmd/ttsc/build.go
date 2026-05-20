@@ -8,15 +8,15 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
-	"fmt"
-	"os"
-	"path/filepath"
+  "encoding/json"
+  "flag"
+  "fmt"
+  "os"
+  "path/filepath"
 
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // runBuild implements the `ttsc` project-build lane. Two modes:
@@ -25,110 +25,113 @@ import (
 //   - --emit: also run tsgo's emit pipeline, patching every recognized native
 //     consumer call in the resulting .js files.
 func runBuild(args []string) int {
-	fs := flag.NewFlagSet("build", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
-	cwdOverride := fs.String("cwd", "", "override the working directory (defaults to process cwd)")
-	quiet := fs.Bool("quiet", true, "suppress the per-call diagnostic summary")
-	verbose := fs.Bool("verbose", false, "print the per-call diagnostic summary")
-	emit := fs.Bool("emit", false, "force emitted .js files (runs tsgo + ttsc rewrite)")
-	noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
-	outDir := fs.String("outDir", "", "override compilerOptions.outDir for this build")
-	manifestPath := fs.String("manifest", "", "write emitted file list as JSON to this path")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	if *emit && *noEmit {
-		fmt.Fprintln(stderr, "ttsc: --emit and --noEmit are mutually exclusive")
-		return 2
-	}
-	if *verbose {
-		*quiet = false
-	}
+  fs := flag.NewFlagSet("build", flag.ContinueOnError)
+  fs.SetOutput(stderr)
+  tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
+  cwdOverride := fs.String("cwd", "", "override the working directory (defaults to process cwd)")
+  quiet := fs.Bool("quiet", true, "suppress the per-call diagnostic summary")
+  verbose := fs.Bool("verbose", false, "print the per-call diagnostic summary")
+  emit := fs.Bool("emit", false, "force emitted .js files (runs tsgo + ttsc rewrite)")
+  noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
+  outDir := fs.String("outDir", "", "override compilerOptions.outDir for this build")
+  manifestPath := fs.String("manifest", "", "write emitted file list as JSON to this path")
+  if err := fs.Parse(args); err != nil {
+    return 2
+  }
+  if *emit && *noEmit {
+    fmt.Fprintln(stderr, "ttsc: --emit and --noEmit are mutually exclusive")
+    return 2
+  }
+  if *verbose {
+    *quiet = false
+  }
 
-	cwd := *cwdOverride
-	if cwd == "" {
-		var err error
-		cwd, err = getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "ttsc: could not get working directory: %v\n", err)
-			return 2
-		}
-	}
+  cwd := *cwdOverride
+  if cwd == "" {
+    var err error
+    cwd, err = getwd()
+    if err != nil {
+      fmt.Fprintf(stderr, "ttsc: could not get working directory: %v\n", err)
+      return 2
+    }
+  }
 
-	prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-		ForceEmit:   *emit,
-		ForceNoEmit: *noEmit,
-		OutDir:      *outDir,
-	})
-	if err != nil {
-		fmt.Fprintf(stderr, "ttsc: %v\n", err)
-		return 2
-	}
-	if len(diags) > 0 {
-		driver.WritePrettyDiagnostics(stderr, diags, cwd)
-		return 2
-	}
-	defer prog.Close()
-	if diags := prog.Diagnostics(); len(diags) > 0 {
-		driver.WritePrettyDiagnostics(stderr, diags, cwd)
-		return 2
-	}
+  prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
+    ForceEmit:   *emit,
+    ForceNoEmit: *noEmit,
+    OutDir:      *outDir,
+  })
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc: %v\n", err)
+    return 2
+  }
+  if len(diags) > 0 {
+    driver.WritePrettyDiagnostics(stderr, diags, cwd)
+    return 2
+  }
+  defer prog.Close()
+  if diags := prog.Diagnostics(); len(diags) > 0 {
+    driver.WritePrettyDiagnostics(stderr, diags, cwd)
+    return 2
+  }
 
-	rewrites := driver.NewRewriteSet()
-	shouldEmit := !prog.ParsedConfig.ParsedConfig.CompilerOptions.NoEmit.IsTrue()
-	if !*quiet {
-		fmt.Fprintf(stdout, "// ttsc: tsconfig=%s cwd=%s sites=%d emit=%v\n", *tsconfigPath, cwd, 0, shouldEmit)
-	}
+  rewrites := driver.NewRewriteSet()
+  // shouldEmit reflects the resolved tsconfig noEmit flag. The flag lives
+  // three levels deep in the parsed config because TypeScript-Go mirrors the
+  // tsconfig object structure verbatim, with a tri-state bool per option.
+  shouldEmit := !prog.ParsedConfig.ParsedConfig.CompilerOptions.NoEmit.IsTrue()
+  if !*quiet {
+    fmt.Fprintf(stdout, "// ttsc: tsconfig=%s cwd=%s sites=%d emit=%v\n", *tsconfigPath, cwd, 0, shouldEmit)
+  }
 
-	if shouldEmit {
-		// Emit is callback-driven in TypeScript-Go. ttsc keeps that shape and
-		// wraps only the final WriteFile step so native rewrites and custom output
-		// capture share the same path.
-		writeFile := shimcompiler.WriteFile(
-			func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-				return driver.DefaultWriteFile(fileName, text)
-			},
-		)
-		res, eDiags, err := prog.EmitAll(rewrites, writeFile)
-		if err != nil {
-			fmt.Fprintf(stderr, "ttsc: emit failed: %v\n", err)
-			return 3
-		}
-		for _, d := range eDiags {
-			fmt.Fprintln(stderr, "  -", d.String())
-		}
-		if driver.CountErrors(eDiags) > 0 {
-			return 2
-		}
-		if !*quiet {
-			fmt.Fprintf(stdout, "// ttsc: emitted=%d files\n", len(res.EmittedFiles))
-			for _, f := range res.EmittedFiles {
-				rel := f
-				if abs, err := filepath.Rel(cwd, f); err == nil {
-					rel = abs
-				}
-				fmt.Fprintln(stdout, "  +", rel)
-			}
-		}
-		if *manifestPath != "" {
-			// The manifest is intentionally just the emitted file list. Higher
-			// layers already know the project and tsconfig, and tests compare this
-			// array as the build contract.
-			data, _ := json.Marshal(res.EmittedFiles)
-			if err := os.MkdirAll(filepath.Dir(*manifestPath), 0o755); err != nil {
-				fmt.Fprintf(stderr, "ttsc: manifest mkdir failed: %v\n", err)
-				return 3
-			}
-			if err := os.WriteFile(*manifestPath, data, 0o644); err != nil {
-				fmt.Fprintf(stderr, "ttsc: manifest write failed: %v\n", err)
-				return 3
-			}
-		}
-	}
+  if shouldEmit {
+    // Emit is callback-driven in TypeScript-Go. ttsc keeps that shape and
+    // wraps only the final WriteFile step so native rewrites and custom output
+    // capture share the same path.
+    writeFile := shimcompiler.WriteFile(
+      func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+        return driver.DefaultWriteFile(fileName, text)
+      },
+    )
+    res, eDiags, err := prog.EmitAll(rewrites, writeFile)
+    if err != nil {
+      fmt.Fprintf(stderr, "ttsc: emit failed: %v\n", err)
+      return 3
+    }
+    for _, d := range eDiags {
+      fmt.Fprintln(stderr, "  -", d.String())
+    }
+    if driver.CountErrors(eDiags) > 0 {
+      return 2
+    }
+    if !*quiet {
+      fmt.Fprintf(stdout, "// ttsc: emitted=%d files\n", len(res.EmittedFiles))
+      for _, f := range res.EmittedFiles {
+        rel := f
+        if abs, err := filepath.Rel(cwd, f); err == nil {
+          rel = abs
+        }
+        fmt.Fprintln(stdout, "  +", rel)
+      }
+    }
+    if *manifestPath != "" {
+      // The manifest is intentionally just the emitted file list. Higher
+      // layers already know the project and tsconfig, and tests compare this
+      // array as the build contract.
+      data, _ := json.Marshal(res.EmittedFiles)
+      if err := os.MkdirAll(filepath.Dir(*manifestPath), 0o755); err != nil {
+        fmt.Fprintf(stderr, "ttsc: manifest mkdir failed: %v\n", err)
+        return 3
+      }
+      if err := os.WriteFile(*manifestPath, data, 0o644); err != nil {
+        fmt.Fprintf(stderr, "ttsc: manifest write failed: %v\n", err)
+        return 3
+      }
+    }
+  }
 
-	if !*quiet {
-		fmt.Fprintf(stdout, "// ttsc: recognized=%d total=%d rewrites=%d\n", 0, 0, rewrites.Len())
-	}
-	return 0
+  if !*quiet {
+    fmt.Fprintf(stdout, "// ttsc: recognized=%d total=%d rewrites=%d\n", 0, 0, rewrites.Len())
+  }
+  return 0
 }

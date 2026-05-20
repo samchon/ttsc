@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd verifies tsconfig-based discovery.
+// TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd verifies that when the tsconfig
+// path points outside cwd, discovery roots its walk at the tsconfig's directory, not cwd.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// Wrapper tsconfigs (e.g. a root tsconfig that references a package tsconfig via `extends`) are
+// often stored in a separate temp directory. If discovery walked from cwd it would pick up the
+// wrong config. The test uses two distinct temp dirs — one for cwd and one for the wrapper — to
+// confirm that the tsconfig directory takes priority.
 //
-// This scenario focuses on find lint config file uses tsconfig directory when outside cwd. It
-// keeps path resolution behavior independent from rule parsing so discovery regressions are
-// caught at the source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Place lint.config.json files in both the cwd directory and the wrapper tsconfig directory.
+// 2. Call findLintConfigFile with cwd=dir and tsconfig=wrapperDir/tsconfig.json.
+// 3. Assert the config co-located with the wrapper tsconfig is returned.
 func TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

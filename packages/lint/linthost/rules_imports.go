@@ -67,13 +67,11 @@ func (noImportTypeSideEffects) Check(ctx *Context, node *shimast.Node) {
   }
   src := ctx.File.Text()
   for _, spec := range named.Elements.Nodes {
-    // Locate the `type` keyword token at the head of the specifier by
-    // first skipping leading trivia (whitespace + comments). A naive
-    // `findKeyword` would search the byte range linearly and could
-    // match `type` *inside* a leading block comment such as
-    // `/* type alias */`, deleting the comment text and corrupting
-    // the source. SkipTrivia honors the lexer's notion of trivia, so
-    // the post-skip position is the actual first token byte.
+    // Locate the `type` keyword token at the head of each specifier by
+    // skipping leading trivia (whitespace + comments). A naive
+    // findKeyword scan would risk matching `type` inside a block comment
+    // such as `/* type alias */`, corrupting the source. SkipTrivia
+    // anchors the scan at the actual first token byte.
     typePos := shimscanner.SkipTrivia(src, spec.Pos())
     if typePos < 0 || typePos+len("type") > len(src) {
       continue

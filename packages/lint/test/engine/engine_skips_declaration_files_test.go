@@ -1,24 +1,23 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineSkipsDeclarationFiles verifies engine skips declaration files.
+// TestEngineSkipsDeclarationFiles verifies that the engine produces zero findings for
+// files whose IsDeclarationFile flag is set.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// Declaration files (`.d.ts`) are generated type stubs — linting them would produce
+// spurious warnings on patterns that are idiomatic in type-only output (e.g. `var`
+// declarations that represent CommonJS exports). The engine's per-file guard must check
+// IsDeclarationFile before walking the AST; if the guard is absent, every `.d.ts`
+// processed by the native sidecar emits noise.
 //
-// This scenario focuses on engine skips declaration files. It keeps rule execution observable
-// through findings so the test can distinguish dispatch behavior from config loading and output
-// rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Parse a source file containing a `var` statement.
+// 2. Set IsDeclarationFile to true on the parsed SourceFile.
+// 3. Run the no-var engine and assert zero findings.
 func TestEngineSkipsDeclarationFiles(t *testing.T) {
   // Declaration files should not be linted (they're library typings).
   // The engine filters them by IsDeclarationFile.

@@ -1,24 +1,24 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineRespectsESLintDisableNextLine verifies engine respects ESLint disable next line.
+// TestEngineRespectsESLintDisableNextLine verifies that `eslint-disable-next-line`
+// suppresses findings on exactly the first non-comment line after the directive.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The directive must not bleed beyond a single target line; if the suppression interval
+// were unbounded it would silence every finding that follows. The trailing `-- deliberate
+// fixture` text in the directive also exercises the comment-parsing branch that strips
+// everything after ` -- `, ensuring optional inline descriptions do not break rule
+// extraction.
 //
-// This scenario focuses on engine respects ESLint disable next line. It keeps rule execution
-// observable through findings so the test can distinguish dispatch behavior from config loading
-// and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+//  1. Parse four lines: one before the directive, the directive itself, one suppressed,
+//     one after.
+//  2. Run the no-var engine.
+//  3. Assert exactly two findings (before and after); the suppressed line is silent.
 func TestEngineRespectsESLintDisableNextLine(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-var": SeverityError})
   file := parseTS(t, `

@@ -98,9 +98,10 @@ func verbatim(ctx *PrintContext, node *shimast.Node) Doc {
   return Text(ctx.Source[start:end])
 }
 
-// verbatimRange is the position-only sibling of verbatim — useful when
-// the printer needs to copy a sub-range that does not correspond to a
-// single AST node (e.g. tokens between two siblings).
+// verbatimRange returns a Text doc holding src[start:end] verbatim.
+// It is the position-only sibling of verbatim: use it when the sub-range
+// to copy does not correspond to a single AST node (e.g. `<T>` tokens
+// that surround a type-argument NodeList).
 func verbatimRange(src string, start, end int) Doc {
   if start < 0 || end < start || end > len(src) {
     return Doc{}
@@ -108,8 +109,9 @@ func verbatimRange(src string, start, end int) Doc {
   return Text(src[start:end])
 }
 
-// indentUnit returns one indentation step's worth of columns. Each
-// per-node printer uses this for its own list nesting.
+// indentUnit returns the number of columns in one indentation step,
+// derived from PrintOptions.TabWidth. Falls back to 2 when TabWidth
+// is not set, matching the Prettier default.
 func (ctx *PrintContext) indentUnit() int {
   if ctx.Opts.TabWidth > 0 {
     return ctx.Opts.TabWidth

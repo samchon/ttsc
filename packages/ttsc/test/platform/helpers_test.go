@@ -10,6 +10,10 @@ import (
   "testing"
 )
 
+// platformPackageRoot returns the `packages/ttsc` module root from this
+// black-box test package. Platform command tests run from there so
+// `go run ./cmd/platform` sees the same module graph as a developer running
+// the helper binary by hand.
 func platformPackageRoot(t *testing.T) string {
   t.Helper()
   _, file, _, ok := runtime.Caller(0)
@@ -19,6 +23,9 @@ func platformPackageRoot(t *testing.T) string {
   return filepath.Dir(filepath.Dir(filepath.Dir(file)))
 }
 
+// runPlatformCommand executes the platform helper binary through its CLI entry
+// point via `go run ./cmd/platform`. This keeps platform tests black-box:
+// only exit code, stdout, and stderr are observed.
 func runPlatformCommand(t *testing.T, args ...string) (int, string, string) {
   t.Helper()
   goArgs := []string{"run"}
@@ -48,6 +55,9 @@ func runPlatformCommand(t *testing.T, args ...string) (int, string, string) {
   return 0, string(out), stderr
 }
 
+// goRunExitStatus recovers the wrapped program exit code from `go run`.
+// The Go tool exits with status 1 for any non-zero program status and appends
+// `exit status N` to stderr, so platform command tests need this small unwrap.
 func goRunExitStatus(stderr string) (int, bool) {
   for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
     line = strings.TrimSpace(line)

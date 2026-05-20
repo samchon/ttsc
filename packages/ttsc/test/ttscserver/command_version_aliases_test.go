@@ -5,12 +5,15 @@ import (
   "testing"
 )
 
-// TestTtscserverCommandVersionAliases verifies the version banners. Editors
-// frequently log this string for support reports, so every spelling must
-// resolve to the same line.
+// TestTtscserverCommandVersionAliases verifies every version spelling
+// reports the same banner.
 //
-// 1. Run ttscserver -v, --version, version.
-// 2. Assert each alias exits 0 and prints a "ttscserver <ver>" banner.
+// Editors frequently log this output for support reports, so all aliases
+// must resolve to the same banner. A spelling that diverged would produce
+// inconsistent diagnostic metadata across editor configurations.
+//
+// 1. Run ttscserver -v, --version, and version.
+// 2. Assert each alias exits 0 and prints the ttscserver version banner.
 func TestTtscserverCommandVersionAliases(t *testing.T) {
   for _, flag := range []string{"-v", "--version", "version"} {
     t.Run(flag, func(t *testing.T) {

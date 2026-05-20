@@ -8,10 +8,10 @@
 package lsp
 
 import (
-	"io"
-	_ "unsafe"
+  "io"
+  _ "unsafe"
 
-	innerlsp "github.com/microsoft/typescript-go/internal/lsp"
+  innerlsp "github.com/microsoft/typescript-go/internal/lsp"
 )
 
 // Server is the opaque LSP server type from tsgo.

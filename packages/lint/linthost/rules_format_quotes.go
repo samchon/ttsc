@@ -25,6 +25,9 @@ import (
 // also intentionally out of scope.
 type formatQuotes struct{}
 
+// formatQuotesOptions mirrors `TtscLintRuleOptions.Quotes`. Prefer accepts
+// `"double"` (the default, enforces double quotes) or `"single"` (enforces
+// single quotes). Any other value is treated as the default.
 type formatQuotesOptions struct {
   Prefer string `json:"prefer"`
 }

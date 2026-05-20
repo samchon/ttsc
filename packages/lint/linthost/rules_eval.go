@@ -36,6 +36,9 @@ func (noScriptURL) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isJavaScriptURL reports whether text starts with the "javascript:" scheme
+// (case-insensitively, ASCII only). The manual loop avoids importing strings
+// just for strings.ToLower and keeps the hot path allocation-free.
 func isJavaScriptURL(text string) bool {
   const prefix = "javascript:"
   if len(text) < len(prefix) {

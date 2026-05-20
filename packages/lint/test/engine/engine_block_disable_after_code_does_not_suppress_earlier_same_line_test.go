@@ -1,25 +1,25 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineBlockDisableAfterCodeDoesNotSuppressEarlierSameLine verifies engine block disable
-// after code does not suppress earlier same line.
+// TestEngineBlockDisableAfterCodeDoesNotSuppressEarlierSameLine verifies that a
+// block-disable comment placed after code on the same line does not retroactively
+// suppress findings from earlier tokens on that line.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The directive parser builds a sorted interval tree keyed on token start positions.
+// A `/* eslint-disable */` comment mid-line must open the disabled range only from
+// that comment's own position forward; findings anchored to tokens before the comment
+// byte-offset must not be suppressed. This pins the ordering invariant in the interval
+// lookup so a future refactor cannot accidentally treat mid-line disables as
+// beginning-of-line disables.
 //
-// This scenario focuses on engine block disable after code does not suppress earlier same line.
-// It keeps rule execution observable through findings so the test can distinguish dispatch
-// behavior from config loading and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Parse a line where `var reported = 1` precedes an `eslint-disable` block comment.
+// 2. Run the no-var engine on that source.
+// 3. Assert exactly one finding — the earlier token is reported, the later line is suppressed.
 func TestEngineBlockDisableAfterCodeDoesNotSuppressEarlierSameLine(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-var": SeverityError})
   file := parseTS(t, `

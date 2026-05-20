@@ -4,19 +4,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigRulesAcceptsESLintFlatConfigArray verifies ESLint flat config arrays.
+// TestParseExternalConfigRulesAcceptsESLintFlatConfigArray verifies that an array of flat-config
+// objects is reduced to a merged rule set where later entries override earlier ones.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// When an external config file exports an array, each element may constrain its scope via
+// `files` and `ignores`. parseExternalConfigRules must flatten the array in order so that a
+// second element turning "no-console" off overrides the first element's "warn". A regression
+// that reversed the merge order would silently enable rules the user had overridden.
 //
-// This scenario focuses on parse external config rules accepts ESLint flat config array. It
-// protects the boundary between native fallback rules and cases that must delegate to an
-// installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a three-element flat-config array: base rules, a file-scoped override, an ignore entry.
+// 2. Parse it through parseExternalConfigRules.
+// 3. Assert "no-var" stays error, "no-console" is off (overridden), and "no-explicit-any" is error.
 func TestParseExternalConfigRulesAcceptsESLintFlatConfigArray(t *testing.T) {
   cfg, err := parseExternalConfigRules([]any{
     map[string]any{

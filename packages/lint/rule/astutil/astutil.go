@@ -68,6 +68,9 @@ func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
   if limit > len(src) {
     limit = len(src)
   }
+  // Scan at most 32 bytes past the trivia-adjusted start. Declaration keywords
+  // ("var", "let", "const", etc.) always appear within the first few bytes of
+  // a node's token range; the cap avoids runaway scanning on malformed nodes.
   for i := pos; i+len(keyword) <= limit && i < pos+32; i++ {
     end = i + len(keyword)
     if strings.HasPrefix(src[i:], keyword) &&
@@ -139,6 +142,15 @@ func TokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   return pos, end
 }
 
+// isIdentifierPart reports whether the ASCII byte ch can appear inside a
+// JavaScript/TypeScript identifier (letters, digits, underscore, dollar sign).
+// Used to detect word boundaries when searching for keyword tokens so that
+// a search for "let" does not match "letters".
+// Note: this is a byte-level check; non-ASCII identifier characters (e.g.
+// Unicode letters) are treated as non-identifier bytes, which is conservative
+// — the keyword boundary check may produce a false positive only for source
+// files that use non-ASCII characters immediately adjacent to a keyword,
+// an extremely rare pattern in practice.
 func isIdentifierPart(ch byte) bool {
   return (ch >= 'a' && ch <= 'z') ||
     (ch >= 'A' && ch <= 'Z') ||

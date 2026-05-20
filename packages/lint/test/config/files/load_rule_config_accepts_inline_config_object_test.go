@@ -4,19 +4,16 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigAcceptsInlineConfigObject verifies inline config loading.
+// TestLoadRuleConfigAcceptsInlineConfigObject verifies that a PluginEntry with a nested
+// `config` object (rather than a file path) is accepted as the inline config form.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// Some hosts embed the full rule map directly in the plugin descriptor's `Config` field under
+// the `config` key. LoadRuleConfig must treat that as a direct rule object, bypassing file
+// discovery. Without this path, embedded configs would fail with a missing-file error.
 //
-// This scenario focuses on load rule config accepts inline config object. It ensures the lint
-// package accepts only the supported config contract while still loading JSON, JavaScript, and
-// TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Build a PluginEntry whose Config carries `config: { "no-var": "error" }`.
+// 2. Call LoadRuleConfig with a temp dir and a tsconfig name.
+// 3. Assert no-var resolves to SeverityError without touching the filesystem.
 func TestLoadRuleConfigAcceptsInlineConfigObject(t *testing.T) {
   cfg, err := LoadRuleConfig(&PluginEntry{
     Config: map[string]any{

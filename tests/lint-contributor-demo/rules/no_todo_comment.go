@@ -23,16 +23,16 @@
 package demo
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 func init() {
-	rule.Register(noTodoComment{})
+  rule.Register(noTodoComment{})
 }
 
 // noTodoComment flags `TODO` and `FIXME` markers inside line and block
@@ -45,36 +45,36 @@ type noTodoComment struct{}
 func (noTodoComment) Name() string { return "demo/no-todo-comment" }
 
 func (noTodoComment) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 
 func (noTodoComment) Check(ctx *rule.Context, _ *shimast.Node) {
-	if ctx == nil || ctx.File == nil {
-		return
-	}
-	scanner := shimscanner.NewScanner()
-	scanner.SetText(ctx.File.Text())
-	scanner.SetSkipTrivia(false)
-	for {
-		kind := scanner.Scan()
-		if kind == shimast.KindEndOfFile {
-			return
-		}
-		if kind != shimast.KindSingleLineCommentTrivia &&
-			kind != shimast.KindMultiLineCommentTrivia {
-			continue
-		}
-		token := scanner.TokenText()
-		start := scanner.TokenStart()
-		reportMarker(ctx, token, start, "TODO", "TODO comment is not allowed.")
-		reportMarker(ctx, token, start, "FIXME", "FIXME comment is not allowed.")
-	}
+  if ctx == nil || ctx.File == nil {
+    return
+  }
+  scanner := shimscanner.NewScanner()
+  scanner.SetText(ctx.File.Text())
+  scanner.SetSkipTrivia(false)
+  for {
+    kind := scanner.Scan()
+    if kind == shimast.KindEndOfFile {
+      return
+    }
+    if kind != shimast.KindSingleLineCommentTrivia &&
+      kind != shimast.KindMultiLineCommentTrivia {
+      continue
+    }
+    token := scanner.TokenText()
+    start := scanner.TokenStart()
+    reportMarker(ctx, token, start, "TODO", "TODO comment is not allowed.")
+    reportMarker(ctx, token, start, "FIXME", "FIXME comment is not allowed.")
+  }
 }
 
 func reportMarker(ctx *rule.Context, token string, tokenStart int, marker, message string) {
-	offset := strings.Index(token, marker)
-	if offset < 0 {
-		return
-	}
-	ctx.ReportRange(tokenStart+offset, tokenStart+offset+len(marker), message)
+  offset := strings.Index(token, marker)
+  if offset < 0 {
+    return
+  }
+  ctx.ReportRange(tokenStart+offset, tokenStart+offset+len(marker), message)
 }

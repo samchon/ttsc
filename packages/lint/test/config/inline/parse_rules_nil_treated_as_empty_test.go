@@ -4,18 +4,17 @@ import (
   "testing"
 )
 
-// TestParseRulesNilTreatedAsEmpty verifies parse rules nil treated as empty.
+// TestParseRulesNilTreatedAsEmpty verifies that a nil rules map is accepted and returns an
+// empty RuleConfig rather than an error.
 //
-// Inline lint config is the native plugin contract carried inside the ttsc plugin entry. These
-// tests verify severity parsing before any external ESLint-style config file is considered.
+// The host serializes the plugin entry's rules field from JSON; a missing `rules` key
+// deserializes to a nil map[string]any. ParseRules must handle nil gracefully so callers do not
+// need to guard against the nil case before calling. Returning an error for nil would break
+// every plugin entry that omits the rules key.
 //
-// This scenario focuses on parse rules nil treated as empty. It protects the strict
-// inline-config shape so unsupported values fail loudly instead of being interpreted as ESLint
-// flat-config tuples.
-//
-// 1. Build the inline rules object used by the host payload.
-// 2. Parse it through the native severity normalizer.
-// 3. Assert accepted severities or the explicit contract error.
+// 1. Call ParseRules(nil).
+// 2. Assert no error is returned.
+// 3. Assert the returned RuleConfig has zero entries.
 func TestParseRulesNilTreatedAsEmpty(t *testing.T) {
   cfg, err := ParseRules(nil)
   if err != nil {

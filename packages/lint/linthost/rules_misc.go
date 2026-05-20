@@ -2,8 +2,10 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-// radix: `parseInt(x)` without an explicit radix can hit the legacy
-// "leading 0 means octal" trap. ESLint default mode requires the radix.
+// radix: `parseInt(x)` without an explicit radix argument can trigger
+// implementation-defined octal parsing in older environments. ESLint's
+// default "always" mode requires the second argument and rejects values
+// outside the valid bases {2, 8, 10, 16}.
 // https://eslint.org/docs/latest/rules/radix
 type radix struct{}
 

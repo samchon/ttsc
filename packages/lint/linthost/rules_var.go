@@ -31,7 +31,8 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // prefer-const: flag `let` declarations whose binding is never reassigned.
 // This follows ESLint's core rule for the common AST-local cases. It is
 // intentionally conservative: destructuring and declaration-only `let`
-// variables are skipped until the lint host grows full scope/data-flow state.
+// variables (those without an initializer and not in a for-of/for-in
+// header) are skipped until the lint host grows full scope/data-flow state.
 // ESLint canonical: https://eslint.org/docs/latest/rules/prefer-const
 type preferConst struct{}
 
@@ -115,6 +116,10 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isSingleDeclarationList reports whether the VariableDeclarationList node
+// declares exactly one binding, which is required before the `let` keyword
+// can safely be rewritten to `const` (a multi-binding list shares a single
+// keyword, so replacing just one binding's keyword is not valid).
 func isSingleDeclarationList(node *shimast.Node) bool {
   if node == nil {
     return false
@@ -123,6 +128,14 @@ func isSingleDeclarationList(node *shimast.Node) bool {
   return list != nil && list.Declarations != nil && len(list.Declarations.Nodes) == 1
 }
 
+// isConstEligibleLetDeclaration reports whether a `let` VariableDeclaration
+// node is eligible for prefer-const analysis. A declaration is eligible when:
+//   - it has an initializer (the value is set immediately), or
+//   - it is the loop variable of a for-in or for-of statement (e.g. `for (let k of m)`).
+//
+// For-statement initializers (`for (let i = 0; …)`) are eligible only when
+// the declaration list is a single binding; the loop index is a well-known
+// reassignment target so multi-binding for-statement lists are excluded.
 func isConstEligibleLetDeclaration(node *shimast.Node, decl *shimast.VariableDeclaration) bool {
   if decl.Initializer != nil {
     if node.Parent != nil && node.Parent.Parent != nil && node.Parent.Parent.Kind == shimast.KindForStatement {

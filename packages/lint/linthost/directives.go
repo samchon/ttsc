@@ -1,3 +1,10 @@
+// Inline-disable directive parser and filter for the lint engine.
+//
+// Supports both `eslint-disable` and `lint-disable` comment families in
+// four forms: `disable`, `enable`, `disable-line`, and
+// `disable-next-line`. Rule lists are comma- or space-separated; an
+// empty list disables all rules. The `--` description separator (ESLint
+// convention) is also recognized and stripped before parsing rule names.
 package linthost
 
 import (
@@ -7,36 +14,61 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
+// lintDirectiveKind classifies the four comment forms the parser recognizes.
 type lintDirectiveKind int
 
 const (
+  // lintDirectiveDisable activates suppression from the comment position until
+  // a matching `enable` is seen (or end of file).
   lintDirectiveDisable lintDirectiveKind = iota
+  // lintDirectiveEnable cancels a prior `disable` for the named rules (or all
+  // rules when no rule list is given).
   lintDirectiveEnable
+  // lintDirectiveDisableLine suppresses findings on the same source line as
+  // the directive comment.
   lintDirectiveDisableLine
+  // lintDirectiveDisableNextLine suppresses findings on the line immediately
+  // following the directive comment.
   lintDirectiveDisableNextLine
 )
 
+// lintDirective is the parsed representation of one directive comment.
 type lintDirective struct {
   kind  lintDirectiveKind
   rules lintDirectiveRules
 }
 
+// lintDirectiveRules holds the rule scope of a directive. When `all` is
+// true the directive applies to every rule; otherwise only the named rules
+// in `rules` are affected.
 type lintDirectiveRules struct {
   all   bool
   rules map[string]struct{}
 }
 
+// lintDirectiveEvent is one enable/disable transition recorded in source
+// order. `pos` is the byte offset of the comment. `on` is true for a
+// disable event and false for an enable event.
 type lintDirectiveEvent struct {
   pos   int
   rules lintDirectiveRules
   on    bool
 }
 
+// lintInlineDirectives accumulates the per-file directive information
+// extracted by parseLintInlineDirectives. `lines` maps a zero-based line
+// number to any disable-line / disable-next-line directives on that line.
+// `events` is the ordered list of range-style disable/enable transitions.
 type lintInlineDirectives struct {
   lines  map[int][]lintDirectiveRules
   events []lintDirectiveEvent
 }
 
+// lintDisableState tracks the cumulative suppress/allow state as
+// lintDirectiveEvents are replayed in order up to a finding's position.
+// `all` means every rule is suppressed. `rules` is the set of individually
+// suppressed rules. `enabledInAll` is the set of rules that were
+// re-enabled via `eslint-enable <rule>` while `all` was active.
 type lintDisableState struct {
   all          bool
   rules        map[string]struct{}
@@ -60,6 +92,9 @@ func filterInlineDisabledFindings(file *shimast.SourceFile, findings []*Finding)
   return filtered
 }
 
+// parseLintInlineDirectives scans all comment tokens in `file` for
+// recognized directive markers and returns a structured summary of the
+// per-line and range-style suppressions found.
 func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
   directives := &lintInlineDirectives{
     lines: make(map[int][]lintDirectiveRules),
@@ -111,10 +146,16 @@ scan:
   return directives
 }
 
+// empty reports whether no directives were found in the file, allowing the
+// caller to skip the filtering step entirely.
 func (d *lintInlineDirectives) empty() bool {
   return d == nil || (len(d.lines) == 0 && len(d.events) == 0)
 }
 
+// suppresses reports whether the directive set causes `finding` to be
+// suppressed. It checks the per-line map first (disable-line and
+// disable-next-line directives), then replays the ordered event list to
+// compute the range-style disable/enable state at the finding's position.
 func (d *lintInlineDirectives) suppresses(file *shimast.SourceFile, finding *Finding) bool {
   if d == nil || finding == nil || file == nil {
     return false
@@ -135,6 +176,10 @@ func (d *lintInlineDirectives) suppresses(file *shimast.SourceFile, finding *Fin
   return state.matches(finding.Rule)
 }
 
+// apply updates the disable state by folding in one directive event.
+// Disable events add rules; enable events remove them. When the event
+// targets all rules (`event.rules.all`), the entire state is replaced
+// rather than merged.
 func (s *lintDisableState) apply(event lintDirectiveEvent) {
   if event.on {
     if event.rules.all {
@@ -169,6 +214,9 @@ func (s *lintDisableState) apply(event lintDirectiveEvent) {
   }
 }
 
+// matches reports whether `rule` is currently suppressed given this state.
+// The name is normalized before lookup so that `@typescript-eslint/` prefixes
+// do not prevent a match.
 func (s lintDisableState) matches(rule string) bool {
   normalized := normalizeDirectiveRuleName(rule)
   if _, ok := s.rules[normalized]; ok {
@@ -181,6 +229,9 @@ func (s lintDisableState) matches(rule string) bool {
   return !enabled
 }
 
+// matches reports whether this rule-set covers `rule`. Returns true when the
+// directive targeted all rules or when `rule` (normalized) appears in the
+// named set.
 func (r lintDirectiveRules) matches(rule string) bool {
   if r.all {
     return true
@@ -189,6 +240,9 @@ func (r lintDirectiveRules) matches(rule string) bool {
   return ok
 }
 
+// parseLintDirectiveComment strips comment delimiters from `raw` and
+// delegates to parseLintDirectiveLine. Returns (zero, false) when the
+// comment does not contain a recognized directive marker.
 func parseLintDirectiveComment(raw string) (lintDirective, bool) {
   text := stripCommentDelimiters(raw)
   if directive, ok := parseLintDirectiveLine(text); ok {
@@ -197,6 +251,9 @@ func parseLintDirectiveComment(raw string) (lintDirective, bool) {
   return lintDirective{}, false
 }
 
+// stripCommentDelimiters removes `//` and `/* … */` syntax from `raw` and
+// returns the trimmed inner text. Handles JSDoc-style `* ` prefix on the
+// first content line.
 func stripCommentDelimiters(raw string) string {
   switch {
   case strings.HasPrefix(raw, "//"):
@@ -216,6 +273,9 @@ func stripCommentDelimiters(raw string) string {
   }
 }
 
+// parseLintDirectiveLine matches `text` against all recognized directive
+// markers in declaration order (longest suffix first to avoid prefix
+// ambiguity). Returns the first match found or (zero, false) if none match.
 func parseLintDirectiveLine(text string) (lintDirective, bool) {
   for _, prefix := range []string{"eslint", "lint"} {
     for _, form := range []struct {
@@ -241,6 +301,9 @@ func parseLintDirectiveLine(text string) (lintDirective, bool) {
   return lintDirective{}, false
 }
 
+// directivePayload returns the text after `marker` in `text` when `text`
+// starts with `marker` followed by whitespace or end of string. The
+// returned payload is trimmed of leading/trailing whitespace.
 func directivePayload(text, marker string) (string, bool) {
   if !strings.HasPrefix(text, marker) {
     return "", false
@@ -252,6 +315,9 @@ func directivePayload(text, marker string) (string, bool) {
   return strings.TrimSpace(rest), true
 }
 
+// parseDirectiveRules converts the payload (the text after the directive
+// marker) into a lintDirectiveRules value. The `--` separator strips an
+// optional human-readable description. An empty rule list means "all rules".
 func parseDirectiveRules(payload string) lintDirectiveRules {
   payload = stripDirectiveDescription(payload)
   payload = strings.ReplaceAll(payload, ",", " ")
@@ -272,6 +338,10 @@ func parseDirectiveRules(payload string) lintDirectiveRules {
   return lintDirectiveRules{rules: rules}
 }
 
+// stripDirectiveDescription returns the portion of `payload` before the
+// first ` -- ` token (ESLint's description separator). The separator must
+// be surrounded by whitespace or be at a string boundary to avoid
+// stripping `--` from rule names like `no--foo`.
 func stripDirectiveDescription(payload string) string {
   for i := 0; i < len(payload)-1; i++ {
     if payload[i] != '-' || payload[i+1] != '-' {
@@ -287,6 +357,8 @@ func stripDirectiveDescription(payload string) string {
   return payload
 }
 
+// normalizeDirectiveRuleName strips the common ESLint namespace prefixes so
+// both `@typescript-eslint/no-var` and `no-var` resolve to the same key.
 func normalizeDirectiveRuleName(name string) string {
   name = strings.TrimSpace(name)
   name = strings.TrimPrefix(name, "@typescript-eslint/")

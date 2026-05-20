@@ -25,8 +25,11 @@ func (noSparseArrays) Check(ctx *Context, node *shimast.Node) {
 }
 
 // no-array-constructor: forbid `new Array(0)` / `Array(1, 2, 3)` (use
-// array literals). The 1-arg numeric form is also banned because its
-// behavior depends on the runtime — see ESLint defaults.
+// array literals). The single-argument form is intentionally excluded from
+// the ban: `Array(n)` is commonly used to pre-allocate a sparse array by
+// length, and banning it would generate noise on existing idiomatic code.
+// The typed form `new Array<string>()` is also excluded — a type argument
+// signals intentional use and the caller takes responsibility.
 // https://eslint.org/docs/latest/rules/no-array-constructor
 type noArrayConstructor struct{}
 

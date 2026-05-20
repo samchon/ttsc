@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFileDiscoversSupportedESLintFlatConfigExtensions verifies ESLint config discovery.
+// TestFindLintConfigFileDiscoversSupportedESLintFlatConfigExtensions verifies that all six
+// recognized eslint.config.* extensions are individually accepted by the discovery walk.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// The six extensions are: .js, .mjs, .cjs, .ts, .mts, .cts. Discovery must recognize each to
+// match the subset of extensions that ESLint's own flat-config loader accepts. A regression that
+// dropped any extension would leave projects using that format without auto-discovery. Each
+// sub-test exercises one extension in isolation to make regressions easy to pinpoint.
 //
-// This scenario focuses on find lint config file discovers supported ESLint flat config
-// extensions. It keeps path resolution behavior independent from rule parsing so discovery
-// regressions are caught at the source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. For each extension, write a tsconfig.json and an eslint.config.<ext> in a fresh temp dir.
+// 2. Call findLintConfigFile.
+// 3. Assert the eslint.config.<ext> file is the discovered path.
 func TestFindLintConfigFileDiscoversSupportedESLintFlatConfigExtensions(t *testing.T) {
   for _, name := range []string{
     "eslint.config.js",

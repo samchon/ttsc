@@ -4,19 +4,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigRulesAcceptsESLintSeverityTuples verifies ESLint severity tuples.
+// TestParseExternalConfigRulesAcceptsESLintSeverityTuples verifies that [severity, options]
+// tuples and scoped rule prefixes are parsed correctly from an ESLint flat config object.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// ESLint rules may be specified as bare severities or as [severity, options] tuples with numeric
+// or string severity values. Scoped names like "@typescript-eslint/no-explicit-any" must strip
+// the scope prefix to match the engine's plain name. A regression that dropped the options slot
+// or left the prefix would produce wrong severities or miss the rule entirely.
 //
-// This scenario focuses on parse external config rules accepts ESLint severity tuples. It
-// protects the boundary between native fallback rules and cases that must delegate to an
-// installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a flat-config rules object with tuple forms, numeric severity, and a scoped name.
+// 2. Parse it through parseExternalConfigRules.
+// 3. Assert all four rules resolve to the expected severity.
 func TestParseExternalConfigRulesAcceptsESLintSeverityTuples(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
     "no-var":                             []any{"error", map[string]any{"ignore": true}},

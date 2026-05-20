@@ -31,6 +31,10 @@ func (noSelfAssign) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isAssignableLeftHand reports whether node can appear as the left-hand side
+// of a plain assignment expression. Only simple identifier and member-access
+// shapes are checked here; complex destructuring patterns are excluded because
+// a textual equality test would produce too many false negatives.
 func isAssignableLeftHand(node *shimast.Node) bool {
   if node == nil {
     return false
@@ -67,6 +71,8 @@ func (noSelfCompare) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isComparisonOperator reports whether kind is one of the eight standard
+// comparison operators: ==, ===, !=, !==, <, >, <=, >=.
 func isComparisonOperator(kind shimast.Kind) bool {
   switch kind {
   case

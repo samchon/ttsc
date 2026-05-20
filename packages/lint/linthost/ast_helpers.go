@@ -96,6 +96,10 @@ func findKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
   return -1
 }
 
+// tokenRange returns the half-open byte range [pos, end) of `node` with
+// leading trivia stripped, mirroring what ReportFix would anchor to.
+// Returns (-1, -1) when either argument is nil or the computed range is
+// out of bounds.
 func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   if file == nil || node == nil {
     return -1, -1
@@ -109,6 +113,10 @@ func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   return pos, end
 }
 
+// isIdentifierPart reports whether `ch` can appear inside a JavaScript
+// identifier — used as a word-boundary guard by keyword search helpers.
+// Handles only ASCII; multibyte Unicode identifier parts are treated as
+// non-identifier (conservative; callers only need ASCII keyword tokens).
 func isIdentifierPart(ch byte) bool {
   return (ch >= 'a' && ch <= 'z') ||
     (ch >= 'A' && ch <= 'Z') ||
@@ -272,6 +280,11 @@ func walkDescendants(node *shimast.Node, visit func(*shimast.Node)) {
   })
 }
 
+// bindingIdentifierNames collects the declared identifier names from a
+// binding pattern. For a simple Identifier node it returns a single-element
+// slice. For ObjectBindingPattern and ArrayBindingPattern it walks the
+// descendants and returns all embedded Identifier texts. Returns nil for
+// unrecognized node kinds.
 func bindingIdentifierNames(node *shimast.Node) []string {
   if node == nil {
     return nil
@@ -294,6 +307,10 @@ func bindingIdentifierNames(node *shimast.Node) []string {
   return names
 }
 
+// isLiteralLike reports whether `node` (after stripping parentheses) is a
+// compile-time constant expression: a bare literal or a unary `+`/`-`
+// applied to a numeric or bigint literal. Used by rules that flag
+// constant-valued operands (e.g. `no-constant-condition`).
 func isLiteralLike(node *shimast.Node) bool {
   node = stripParens(node)
   if node == nil {

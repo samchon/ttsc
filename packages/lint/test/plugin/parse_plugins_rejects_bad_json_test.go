@@ -5,18 +5,18 @@ import (
   "testing"
 )
 
-// TestParsePluginsRejectsBadJSON verifies parse plugins rejects bad json.
+// TestParsePluginsRejectsBadJSON verifies ParsePlugins returns an error when
+// the payload is not valid JSON.
 //
-// The lint sidecar receives plugin metadata as serialized JSON from ttsc. These tests verify
-// that payload decoding and lint-entry selection remain stable even when other check or
-// transform plugins are present.
+// The native sidecar receives --plugins-json from ttsc over a subprocess
+// argument. A corrupted or truncated argument must not silently fall through
+// to an empty rule set; the error message must also mention "plugins-json" so
+// the user can tell the failure came from the plugin manifest rather than from
+// rule config.
 //
-// This scenario focuses on parse plugins rejects bad json. It protects the package protocol
-// before rule config parsing starts.
-//
-// 1. Build the serialized plugin payload for the branch.
-// 2. Decode it and locate the @ttsc/lint entry.
-// 3. Assert entry selection, stage preservation, or malformed JSON errors.
+// 1. Pass the non-JSON string "not-json" to ParsePlugins.
+// 2. Assert a non-nil error is returned.
+// 3. Assert the error message contains "invalid --plugins-json".
 func TestParsePluginsRejectsBadJSON(t *testing.T) {
   if _, err := ParsePlugins("not-json"); err == nil {
     t.Error("expected error for malformed JSON")

@@ -1,8 +1,8 @@
-// Bulk implementation of @typescript-eslint rules that work off the
-// AST alone (no checker, no scope analysis). The set is curated to
-// match the rules `eslint-plugin-typescript`'s recommended preset relies
-// on most heavily — the rest of that plugin's catalog is type-aware and
-// out of scope for v0.
+// Extended @typescript-eslint rules that work off the AST alone (no
+// checker, no scope analysis). Rules here complement the core set in
+// rules_ts.go; the split is by recommendation tier — this file covers
+// rules that appear in typescript-eslint strict, stylistic, or as
+// commonly-requested extras. Each rule is registered in init() below.
 package linthost
 
 import (
@@ -187,6 +187,10 @@ func (noNonNullAssertedOptionalChain) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// containsOptionalChain reports whether node or any of its left-hand
+// sub-expressions uses the optional-chaining operator (?.). Only descends
+// into PropertyAccessExpression, ElementAccessExpression, and
+// CallExpression chains — stops at any other node kind.
 func containsOptionalChain(node *shimast.Node) bool {
   if node == nil {
     return false
@@ -333,6 +337,8 @@ func (preferForOf) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Prefer a 'for-of' loop instead of a 'for' loop with this simple iteration.")
 }
 
+// isCounterIncrement reports whether node is a prefix or postfix `++`
+// applied to the identifier named counter. Used by prefer-for-of.
 func isCounterIncrement(node *shimast.Node, counter string) bool {
   switch node.Kind {
   case shimast.KindPostfixUnaryExpression:
@@ -501,6 +507,11 @@ func (consistentTypeImports) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "All imports in the declaration are only used as types. Use `import type`.")
 }
 
+// allUsesAreTypeOnly reports whether every reference to any of the given
+// names in the subtree rooted at root occurs inside a type-only position
+// (TypeReferenceNode, TypeAliasDeclaration, InterfaceDeclaration, etc.).
+// A reference inside another ImportDeclaration is skipped entirely.
+// Returns false as soon as a value-position reference is found.
 func allUsesAreTypeOnly(root *shimast.Node, names []string) bool {
   want := map[string]bool{}
   for _, n := range names {
@@ -675,6 +686,9 @@ func (adjacentOverloadSignatures) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// containerMembers returns the direct child member/statement list of a
+// container node (interface, type literal, class, module block, or source
+// file). Returns nil for node kinds that don't have member lists.
 func containerMembers(node *shimast.Node) []*shimast.Node {
   switch node.Kind {
   case shimast.KindInterfaceDeclaration:
@@ -711,6 +725,12 @@ func containerMembers(node *shimast.Node) []*shimast.Node {
   return nil
 }
 
+// overloadName extracts the canonical name and kind of an overloadable
+// member node. Returns (name, kind, true) for method signatures, method
+// declarations, function declarations, call signatures, and construct
+// signatures; otherwise returns ("", 0, false). Call and construct
+// signatures use a synthesized name that includes the kind string so
+// they compare equal only to other signatures of the same shape.
 func overloadName(m *shimast.Node) (string, shimast.Kind, bool) {
   if m == nil {
     return "", 0, false
@@ -736,9 +756,6 @@ func overloadName(m *shimast.Node) (string, shimast.Kind, bool) {
   }
   return "", 0, false
 }
-
-// no-this-alias-helper: shared helpers for ts rules above.
-var _ = struct{}{}
 
 func init() {
   Register(noConfusingNonNullAssertion{})

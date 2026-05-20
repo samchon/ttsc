@@ -1,6 +1,6 @@
 // Command @ttsc/lint is the native backend for the `@ttsc/lint` plugin.
 //
-// The plugin host (ttsc / ttsx) spawns this binary with one of five
+// The plugin host (ttsc / ttsx) spawns this binary with one of six
 // subcommands:
 //
 //   - `version` / `-v` / `--version` — print the binary banner.
@@ -25,11 +25,11 @@
 package main
 
 import (
-	"os"
+  "os"
 
-	"github.com/samchon/ttsc/packages/lint/linthost"
+  "github.com/samchon/ttsc/packages/lint/linthost"
 )
 
 func main() {
-	os.Exit(linthost.Main(os.Args[1:]))
+  os.Exit(linthost.Main(os.Args[1:]))
 }

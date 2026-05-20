@@ -4,19 +4,16 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules verifies extends precedence.
+// TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules verifies that the `extends` array
+// is fully reduced first and then local `rules` can override individual entries.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// The precedence rule is: extends entries provide the base, local rules win. A regression that
+// applied extends after local rules would silently undo per-project overrides. This also pins
+// nested flat-config arrays inside extends, which must be recursively flattened before merging.
 //
-// This scenario focuses on parse external config rules applies extends before local rules. It
-// protects the boundary between native fallback rules and cases that must delegate to an
-// installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a config object whose `extends` array contains both an object and a flat-config array.
+// 2. Parse it through parseExternalConfigRules with a local `rules` override.
+// 3. Assert the local override wins and the extends-only rule is preserved at its extends severity.
 func TestParseExternalConfigRulesAppliesExtendsBeforeLocalRules(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
     "extends": []any{

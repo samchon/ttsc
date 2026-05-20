@@ -64,6 +64,15 @@ func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
 // reference to globalPromise, and `GetPropertyOfType` filters `then` as
 // a partial member, so without iterating constituents the rule would
 // fire on legitimate code.
+// isAwaitable reports whether t is safe to await. A type is awaitable when:
+//   - its flags include Any, Unknown, or Never (these escape static strictness);
+//   - it is a Promise (GetPromisedTypeOfPromise returns non-nil); or
+//   - it is thenable (has a callable `then` property).
+//
+// For union and intersection types the function recurses into constituents: if
+// ANY constituent is awaitable the whole type is considered awaitable. This is
+// necessary because GetPromisedTypeOfPromise returns nil on composite types
+// like `Promise<X> | number` even though the expression can legally be awaited.
 func isAwaitable(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {
     return false
@@ -91,6 +100,9 @@ func isAwaitable(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   return isThenableType(checker, t)
 }
 
+// isThenableType reports whether t has a callable `then` property, which is
+// the runtime-observable contract for "thenable" in the ES spec. The check
+// intentionally mirrors what the JS engine uses at await-time.
 func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {
     return false

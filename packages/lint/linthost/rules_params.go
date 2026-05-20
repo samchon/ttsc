@@ -24,9 +24,12 @@ func (defaultParamLast) Check(ctx *Context, node *shimast.Node) {
   if len(params) == 0 {
     return
   }
-  // Walk right-to-left; once we see a parameter without an Initializer
-  // (and not a rest parameter), every earlier parameter that DOES have
-  // an Initializer is misordered.
+  // Walk right-to-left: the first non-default-like parameter sets the
+  // boundary; any default-like parameter to its LEFT is mis-ordered.
+  // "Default-like" includes both initializer-bearing params (`a = 1`)
+  // and optional params (`a?: T`): both let callers elide the argument,
+  // so placing them before a required param forces callers to write
+  // `undefined` explicitly — which defeats the point of both forms.
   sawNonDefaultAfter := false
   for i := len(params) - 1; i >= 0; i-- {
     p := params[i]
@@ -38,16 +41,9 @@ func (defaultParamLast) Check(ctx *Context, node *shimast.Node) {
       continue
     }
     if decl.DotDotDotToken != nil {
-      // Rest parameters are always last by grammar; they don't
-      // participate in the default-position check.
+      // Rest parameters must be last by grammar; skip them.
       continue
     }
-    // typescript-eslint canonical treats both default-initialized and
-    // optional (`a?: T`) parameters as default-like for ordering: both
-    // permit callers to elide the argument, so a non-optional / non-
-    // default parameter after either one forces the caller to spell
-    // `undefined`. The round-1 implementation only checked Initializer;
-    // round 2 adds the QuestionToken branch.
     isDefaultLike := decl.Initializer != nil || decl.QuestionToken != nil
     if !isDefaultLike {
       sawNonDefaultAfter = true

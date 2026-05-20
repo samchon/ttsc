@@ -1,9 +1,13 @@
+// Package ttsc_test exposes unexported utility and driver symbols to the
+// utility test suite via go:linkname. The blank imports on driver and utility
+// ensure both packages are linked into the test binary so the linkname
+// directives below resolve at link time.
 package ttsc_test
 
 import (
-	"github.com/samchon/ttsc/packages/ttsc/driver"
-	_ "github.com/samchon/ttsc/packages/ttsc/utility"
-	_ "unsafe"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  _ "github.com/samchon/ttsc/packages/ttsc/utility"
+  _ "unsafe"
 )
 
 //go:linkname utilityFilterHostArgs github.com/samchon/ttsc/packages/ttsc/utility.filterHostArgs
@@ -28,5 +32,5 @@ func utilityAPIOutputKey(cwd, fileName string) string
 var driverPluginRegistry []any
 
 func resetLinkedPluginRegistry() {
-	driverPluginRegistry = nil
+  driverPluginRegistry = nil
 }

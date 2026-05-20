@@ -5,19 +5,16 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFileDiscoversNearestAncestor verifies ancestor discovery.
+// TestFindLintConfigFileDiscoversNearestAncestor verifies that when no config file exists in
+// the tsconfig directory itself, discovery climbs up to the nearest ancestor that contains one.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// Monorepo packages frequently share a root ESLint config but have per-package tsconfigs. The
+// walk must start from the tsconfig's directory and ascend, not from cwd. A regression that
+// walked from cwd upward would fail for packages whose tsconfig lives outside cwd.
 //
-// This scenario focuses on find lint config file discovers nearest ancestor. It keeps path
-// resolution behavior independent from rule parsing so discovery regressions are caught at the
-// source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Place an eslint.config.mjs at the repo root and a tsconfig inside packages/app.
+// 2. Call findLintConfigFile with cwd=root and tsconfig=packages/app/tsconfig.json.
+// 3. Assert the root eslint.config.mjs is discovered.
 func TestFindLintConfigFileDiscoversNearestAncestor(t *testing.T) {
   dir := t.TempDir()
   nested := filepath.Join(dir, "packages", "app")

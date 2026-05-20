@@ -12,8 +12,9 @@ func (noDebugger) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Unexpected `debugger` statement.")
 }
 
-// no-with: forbid `with` statements (already disallowed in strict mode,
-// but lint catches it before the parse error).
+// no-with: forbid `with` statements. `with` is disallowed in strict mode
+// at the parser level, but TypeScript source files may not use strict mode
+// explicitly; the lint rule catches it uniformly regardless of mode.
 // https://eslint.org/docs/latest/rules/no-with
 type noWith struct{}
 

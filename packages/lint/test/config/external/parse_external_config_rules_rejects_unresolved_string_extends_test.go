@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigRulesRejectsUnresolvedStringExtends verifies string extends rejection.
+// TestParseExternalConfigRulesRejectsUnresolvedStringExtends verifies that a string in the
+// `extends` array (e.g. "eslint:recommended") is rejected with an instructive error.
 //
-// External config parsing accepts ESLint-style flat config data and reduces it into the lint
-// engine rule model. These tests cover file matching, ignores, extends reduction, and
-// runtime-only markers before the command path loads a real project.
+// String extends are unresolved module references that require ESLint's resolver. The native
+// parser can only inline pre-resolved objects and arrays; accepting a string would silently
+// ignore entire rule sets. The error message must name the allowed shapes so users know whether
+// to resolve the string first or switch to parseExternalConfigStoreForFile for the runtime path.
 //
-// This scenario focuses on parse external config rules rejects unresolved string extends. It
-// protects the boundary between native fallback rules and cases that must delegate to an
-// installed ESLint runtime.
-//
-// 1. Create the external config object or array for the branch.
-// 2. Parse it through the external config reducer or store builder.
-// 3. Assert resolved rules, ignored files, or runtime-required flags.
+// 1. Build a config object with `extends: ["eslint:recommended"]`.
+// 2. Parse through parseExternalConfigRules.
+// 3. Assert an error containing the supported element shapes.
 func TestParseExternalConfigRulesRejectsUnresolvedStringExtends(t *testing.T) {
   _, err := parseExternalConfigRules(map[string]any{
     "extends": []any{"eslint:recommended"},

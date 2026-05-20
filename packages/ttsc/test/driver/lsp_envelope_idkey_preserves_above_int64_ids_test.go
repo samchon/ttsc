@@ -13,13 +13,13 @@ import (
 // proxy correctness bug for peers that mint ids from a counter past
 // MaxInt64.
 //
-// 1. Decode two envelopes whose integer ids differ only above the
-//    safe-float boundary (9999999999999999998 vs 9999999999999999999).
-// 2. Assert each IDKey returns the exact decimal literal so a
-//    regression that returned distinct-but-arbitrary bytes (e.g.
-//    hex.EncodeToString or a per-call counter) would still fail.
-// 3. Decode a third envelope whose id is well below MaxInt64; assert it
-//    canonicalises through the Int64 arm to its decimal form.
+//  1. Decode two envelopes whose integer ids differ only above the
+//     safe-float boundary (9999999999999999998 vs 9999999999999999999).
+//  2. Assert each IDKey returns the exact decimal literal so a
+//     regression that returned distinct-but-arbitrary bytes (e.g.
+//     hex.EncodeToString or a per-call counter) would still fail.
+//  3. Decode a third envelope whose id is well below MaxInt64; assert it
+//     canonicalises through the Int64 arm to its decimal form.
 func TestLSPEnvelopeIDKeyPreservesAboveInt64IDs(t *testing.T) {
   a, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"2.0","id":9999999999999999998,"method":"x"}`))
   if err != nil {

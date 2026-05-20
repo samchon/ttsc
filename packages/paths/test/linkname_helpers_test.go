@@ -1,3 +1,7 @@
+// linkname_helpers_test.go exposes unexported symbols from the paths driver to
+// this external test package via go:linkname. The declarations mirror private
+// types and functions exactly so rewriter unit tests can reach driver internals
+// without crossing module boundaries.
 package paths_test
 
 import (

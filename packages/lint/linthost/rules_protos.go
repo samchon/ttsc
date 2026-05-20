@@ -2,8 +2,9 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-// no-iterator: `obj.__iterator__` is a non-standard SpiderMonkey-era
-// access. Use `Symbol.iterator` instead.
+// no-iterator: accessing `obj.__iterator__` is a non-standard SpiderMonkey-era
+// extension that predates `Symbol.iterator`. Modern code should use
+// `Symbol.iterator` and the iterable protocol instead.
 // https://eslint.org/docs/latest/rules/no-iterator
 type noIterator struct{}
 

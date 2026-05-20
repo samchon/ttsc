@@ -108,6 +108,8 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   }, nil, nil
 }
 
+// close releases the type checker acquired by loadProgram. Safe to call on
+// a nil receiver and idempotent after the first call.
 func (p *program) close() {
   if p == nil {
     return
@@ -162,6 +164,8 @@ func (p *program) findSourceFile(target string) *shimast.SourceFile {
   return nil
 }
 
+// forceEmit clears the NoEmit and EmitDeclarationOnly flags so the
+// program emits JavaScript even when the tsconfig says otherwise.
 func forceEmit(parsed *tsoptions.ParsedCommandLine) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return
@@ -171,6 +175,9 @@ func forceEmit(parsed *tsoptions.ParsedCommandLine) {
   options.EmitDeclarationOnly = shimcore.TSFalse
 }
 
+// forceNoEmit sets the NoEmit flag regardless of what the tsconfig
+// specifies. Used by fix and check subcommands that must not write output
+// files as a side effect of type-checking.
 func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return
@@ -178,6 +185,10 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
   parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
 }
 
+// overrideOutDir replaces the parsed config's OutDir with `outDir`.
+// Relative outDir values are resolved against `cwd`; absolute paths are
+// used as-is. Paths are converted to forward slashes for tsgo
+// compatibility.
 func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return

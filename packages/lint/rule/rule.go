@@ -21,30 +21,30 @@
 //
 // Example contributor:
 //
-//	package myrules
+//  package myrules
 //
-//	import (
-//	    shimast "github.com/microsoft/typescript-go/shim/ast"
-//	    "github.com/samchon/ttsc/packages/lint/rule"
-//	)
+//  import (
+//      shimast "github.com/microsoft/typescript-go/shim/ast"
+//      "github.com/samchon/ttsc/packages/lint/rule"
+//  )
 //
-//	func init() { rule.Register(noTodoComment{}) }
+//  func init() { rule.Register(noTodoComment{}) }
 //
-//	type noTodoComment struct{}
+//  type noTodoComment struct{}
 //
-//	func (noTodoComment) Name() string             { return "demo/no-todo-comment" }
-//	func (noTodoComment) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
-//	func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
-//	    // ctx.File, ctx.Checker, ctx.Severity available; ctx.Report(node, msg)
-//	    // or ctx.ReportRange(pos, end, msg) push a finding through the engine.
-//	}
+//  func (noTodoComment) Name() string             { return "demo/no-todo-comment" }
+//  func (noTodoComment) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+//  func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
+//      // ctx.File, ctx.Checker, ctx.Severity available; ctx.Report(node, msg)
+//      // or ctx.ReportRange(pos, end, msg) push a finding through the engine.
+//  }
 package rule
 
 import (
-	"encoding/json"
+  "encoding/json"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // Severity mirrors the engine's three-level severity ladder. The
@@ -53,31 +53,31 @@ import (
 type Severity int
 
 const (
-	// SeverityOff means the rule is disabled. Engine skips dispatch.
-	SeverityOff Severity = iota
-	// SeverityWarn produces a warning diagnostic (does not change exit
-	// code).
-	SeverityWarn
-	// SeverityError produces an error diagnostic and fails the command.
-	SeverityError
+  // SeverityOff means the rule is disabled. Engine skips dispatch.
+  SeverityOff Severity = iota
+  // SeverityWarn produces a warning diagnostic (does not change exit
+  // code).
+  SeverityWarn
+  // SeverityError produces an error diagnostic and fails the command.
+  SeverityError
 )
 
 // Rule is the contract every contributor rule satisfies. Mirrors the
 // internal host interface so the host can dispatch via a thin adapter
 // without re-implementing the engine.
 type Rule interface {
-	// Name is the identifier users put in their `rules` map.
-	// Conventionally namespaced as "<plugin-namespace>/<rule-name>" to
-	// avoid colliding with built-in rule names.
-	Name() string
+  // Name is the identifier users put in their `rules` map.
+  // Conventionally namespaced as "<plugin-namespace>/<rule-name>" to
+  // avoid colliding with built-in rule names.
+  Name() string
 
-	// Visits returns the AST kinds the rule cares about. The engine only
-	// dispatches to rules that registered for the visited node's kind.
-	Visits() []shimast.Kind
+  // Visits returns the AST kinds the rule cares about. The engine only
+  // dispatches to rules that registered for the visited node's kind.
+  Visits() []shimast.Kind
 
-	// Check is invoked once per relevant node. Use `ctx.Report` /
-	// `ctx.ReportRange` to emit findings.
-	Check(ctx *Context, node *shimast.Node)
+  // Check is invoked once per relevant node. Use `ctx.Report` /
+  // `ctx.ReportRange` to emit findings.
+  Check(ctx *Context, node *shimast.Node)
 }
 
 // FormatRule is an optional marker contributors implement when a rule
@@ -93,20 +93,20 @@ type Rule interface {
 // returning `false` is equivalent to not implementing the interface at
 // all, and the host treats either form the same way.
 type FormatRule interface {
-	Rule
-	IsFormat() bool
+  Rule
+  IsFormat() bool
 }
 
 // Reporter is the engine-supplied callback that records a finding. The
 // host implements this and passes it to `NewContext` when invoking a
 // contributor rule.
 type Reporter interface {
-	// Report records a finding at the given node's source range.
-	Report(node *shimast.Node, message string)
-	// ReportRange records a finding at an explicit byte range inside the
-	// current file. Use this when the rule wants to highlight a
-	// sub-token.
-	ReportRange(pos, end int, message string)
+  // Report records a finding at the given node's source range.
+  Report(node *shimast.Node, message string)
+  // ReportRange records a finding at an explicit byte range inside the
+  // current file. Use this when the rule wants to highlight a
+  // sub-token.
+  ReportRange(pos, end int, message string)
 }
 
 // FixReporter is the optional extension a host implements to receive
@@ -122,8 +122,8 @@ type Reporter interface {
 // a fake that wants the fix path must implement BOTH `ReportFix` and
 // `ReportRangeFix`.
 type FixReporter interface {
-	ReportFix(node *shimast.Node, message string, edits ...TextEdit)
-	ReportRangeFix(pos, end int, message string, edits ...TextEdit)
+  ReportFix(node *shimast.Node, message string, edits ...TextEdit)
+  ReportRangeFix(pos, end int, message string, edits ...TextEdit)
 }
 
 // TextEdit is one byte-range replacement offered by an autofixable finding.
@@ -143,9 +143,9 @@ type FixReporter interface {
 // falls inside a deletion range. Design fixes so each finding emits one
 // contiguous TextEdit covering the entire replacement region.
 type TextEdit struct {
-	Pos  int
-	End  int
-	Text string
+  Pos  int
+  End  int
+  Text string
 }
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
@@ -153,70 +153,70 @@ type TextEdit struct {
 // contributors call `ctx.Report` / `ctx.ReportRange` directly through
 // this Context rather than touching the reporter.
 type Context struct {
-	// File is the source file currently being walked. Always non-nil
-	// when `Check` is invoked.
-	File *shimast.SourceFile
+  // File is the source file currently being walked. Always non-nil
+  // when `Check` is invoked.
+  File *shimast.SourceFile
 
-	// Checker is the host's tsgo type checker. Available for type-aware
-	// rules; nil-safe enough that AST-only rules can ignore it.
-	Checker *shimchecker.Checker
+  // Checker is the host's tsgo type checker. Available for type-aware
+  // rules; nil-safe enough that AST-only rules can ignore it.
+  Checker *shimchecker.Checker
 
-	// Severity is the rule's resolved severity for this file. Already
-	// filtered by the engine — rules do not need to check for
-	// SeverityOff.
-	Severity Severity
+  // Severity is the rule's resolved severity for this file. Already
+  // filtered by the engine — rules do not need to check for
+  // SeverityOff.
+  Severity Severity
 
-	// Options is the raw JSON blob the user wrote in the second slot of
-	// their `[severity, options]` rule configuration tuple. Nil when the
-	// rule was configured with a bare severity literal. Contributors that
-	// accept options decode the blob into their own struct via
-	// `(*Context).DecodeOptions`.
-	Options json.RawMessage
+  // Options is the raw JSON blob the user wrote in the second slot of
+  // their `[severity, options]` rule configuration tuple. Nil when the
+  // rule was configured with a bare severity literal. Contributors that
+  // accept options decode the blob into their own struct via
+  // `(*Context).DecodeOptions`.
+  Options json.RawMessage
 
-	reporter Reporter
+  reporter Reporter
 }
 
 // NewContext constructs a Context for the engine to pass into a
 // contributor rule's `Check`. Reserved for host code; contributors
 // should not need to call this.
 func NewContext(
-	file *shimast.SourceFile,
-	checker *shimchecker.Checker,
-	severity Severity,
-	options json.RawMessage,
-	reporter Reporter,
+  file *shimast.SourceFile,
+  checker *shimchecker.Checker,
+  severity Severity,
+  options json.RawMessage,
+  reporter Reporter,
 ) *Context {
-	return &Context{
-		File:     file,
-		Checker:  checker,
-		Severity: severity,
-		Options:  options,
-		reporter: reporter,
-	}
+  return &Context{
+    File:     file,
+    Checker:  checker,
+    Severity: severity,
+    Options:  options,
+    reporter: reporter,
+  }
 }
 
 // DecodeOptions unmarshals the rule's options blob into `out`. Returns
 // nil with no side effect when the rule was configured with severity
 // alone, so contributors can write:
 //
-//	var opts myRuleOptions
-//	_ = ctx.DecodeOptions(&opts)
-//	// opts now holds either the user's settings or the zero value.
+//  var opts myRuleOptions
+//  _ = ctx.DecodeOptions(&opts)
+//  // opts now holds either the user's settings or the zero value.
 func (c *Context) DecodeOptions(out interface{}) error {
-	if c == nil || len(c.Options) == 0 {
-		return nil
-	}
-	return json.Unmarshal(c.Options, out)
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
 }
 
 // Report records a finding at the given node's source range. Silently
 // ignored when severity is `off` (defensive — the engine already filters
 // by severity before invoking Check) or when no reporter is attached.
 func (c *Context) Report(node *shimast.Node, message string) {
-	if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
-		return
-	}
-	c.reporter.Report(node, message)
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
+    return
+  }
+  c.reporter.Report(node, message)
 }
 
 // ReportFix records a finding at the given node's source range with optional
@@ -224,28 +224,28 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // diagnostic without edits.
 // Treat edits as best-effort: design the rule so the diagnostic alone is useful.
 func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
-	if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
-		return
-	}
-	if len(edits) == 0 {
-		c.reporter.Report(node, message)
-		return
-	}
-	fixer, ok := c.reporter.(FixReporter)
-	if !ok {
-		c.reporter.Report(node, message)
-		return
-	}
-	fixer.ReportFix(node, message, edits...)
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
+    return
+  }
+  if len(edits) == 0 {
+    c.reporter.Report(node, message)
+    return
+  }
+  fixer, ok := c.reporter.(FixReporter)
+  if !ok {
+    c.reporter.Report(node, message)
+    return
+  }
+  fixer.ReportFix(node, message, edits...)
 }
 
 // ReportRange records a finding at an explicit byte range inside the
 // current file.
 func (c *Context) ReportRange(pos, end int, message string) {
-	if c == nil || c.reporter == nil || c.Severity == SeverityOff {
-		return
-	}
-	c.reporter.ReportRange(pos, end, message)
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+    return
+  }
+  c.reporter.ReportRange(pos, end, message)
 }
 
 // ReportRangeFix records a finding at an explicit byte range with optional
@@ -253,19 +253,19 @@ func (c *Context) ReportRange(pos, end int, message string) {
 // diagnostic without edits.
 // Treat edits as best-effort: design the rule so the diagnostic alone is useful.
 func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
-	if c == nil || c.reporter == nil || c.Severity == SeverityOff {
-		return
-	}
-	if len(edits) == 0 {
-		c.reporter.ReportRange(pos, end, message)
-		return
-	}
-	fixer, ok := c.reporter.(FixReporter)
-	if !ok {
-		c.reporter.ReportRange(pos, end, message)
-		return
-	}
-	fixer.ReportRangeFix(pos, end, message, edits...)
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+    return
+  }
+  if len(edits) == 0 {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  fixer, ok := c.reporter.(FixReporter)
+  if !ok {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  fixer.ReportRangeFix(pos, end, message, edits...)
 }
 
 var registry []Rule
@@ -275,17 +275,17 @@ var registry []Rule
 // — the host's adapter layer surfaces collisions with a clearer error
 // than a raw panic.
 func Register(r Rule) {
-	if r == nil {
-		panic("rule: Register called with nil rule")
-	}
-	registry = append(registry, r)
+  if r == nil {
+    panic("rule: Register called with nil rule")
+  }
+  registry = append(registry, r)
 }
 
 // Registered returns every contributor rule registered via `Register`.
 // Called once by the host during engine bootstrap. The returned slice is
 // a defensive copy so the host cannot mutate the registry.
 func Registered() []Rule {
-	out := make([]Rule, len(registry))
-	copy(out, registry)
-	return out
+  out := make([]Rule, len(registry))
+  copy(out, registry)
+  return out
 }

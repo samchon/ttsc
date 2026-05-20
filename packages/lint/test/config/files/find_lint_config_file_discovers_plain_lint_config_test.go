@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFileDiscoversPlainLintConfig verifies plain lint config discovery.
+// TestFindLintConfigFileDiscoversPlainLintConfig verifies that the native lint.config.* family
+// is recognized when co-located with tsconfig.json.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// Projects that don't use ESLint may configure ttsc/lint via a plain lint.config.json or .ts
+// file. Discovery must recognize these names as candidates without requiring any eslint.config.*
+// prefix. A regression that only matched eslint.* names would leave native-only configs silently
+// unconfigured.
 //
-// This scenario focuses on find lint config file discovers plain lint config. It keeps path
-// resolution behavior independent from rule parsing so discovery regressions are caught at the
-// source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Write tsconfig.json and lint.config.ts in the same directory.
+// 2. Call findLintConfigFile.
+// 3. Assert lint.config.ts is the discovered path.
 func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

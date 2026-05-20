@@ -5,19 +5,16 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigDiscoversPlainLintConfig verifies discovered config loading.
+// TestLoadRuleConfigDiscoversPlainLintConfig verifies the discovery path when the PluginEntry
+// has no explicit config value: LoadRuleConfig should find the nearest lint.config.* file.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// When a host passes an empty Config map, there is no inline object and no file path to use.
+// LoadRuleConfig must fall back to findLintConfigFile discovery rather than fail. This path is
+// the default for projects that keep config separate from the plugin descriptor.
 //
-// This scenario focuses on load rule config discovers plain lint config. It ensures the lint
-// package accepts only the supported config contract while still loading JSON, JavaScript, and
-// TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Write tsconfig.json and lint.config.json in a temp dir.
+// 2. Call LoadRuleConfig with an empty Config map.
+// 3. Assert the discovered config's rule is resolved correctly.
 func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

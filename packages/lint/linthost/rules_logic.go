@@ -1,3 +1,8 @@
+// Correctness and equality rules — a focused set from ESLint's "Possible
+// Problems" and "Suggestions" categories that catch logic errors rather than
+// style issues: redundant boolean casts, unsafe negations, loose equality,
+// NaN comparisons, constant conditions, and assignment-in-condition.
+// AST-only, no scope analysis.
 package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -71,6 +76,12 @@ func isInBooleanContext(node *shimast.Node) bool {
   return false
 }
 
+// skipParents walks up through any wrapping ParenthesizedExpression nodes and
+// returns the outermost parenthesized wrapper. This is the inverse of
+// stripParens: where stripParens descends into the canonical inner expression,
+// skipParents climbs up to the outermost paren so that structural parent
+// comparisons (e.g. "is this expression the test of an if?") resolve against
+// the node the parser actually attached as a child, not the inner form.
 func skipParents(node *shimast.Node) *shimast.Node {
   for node != nil && node.Parent != nil && node.Parent.Kind == shimast.KindParenthesizedExpression {
     node = node.Parent

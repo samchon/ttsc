@@ -256,6 +256,9 @@ func hasReflowAncestor(node *shimast.Node) bool {
   return false
 }
 
+// isReflowKind reports whether `k` is one of the node kinds the
+// format/print-width rule visits. Kept in sync with Visits() so
+// hasReflowAncestor does not need to call Visits() at runtime.
 func isReflowKind(k shimast.Kind) bool {
   switch k {
   case shimast.KindObjectLiteralExpression,

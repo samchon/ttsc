@@ -13,23 +13,31 @@ import (
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 )
 
+// eslintRuntimeProvider is the optional interface that a RuleResolver
+// implementation may satisfy to enable the external ESLint subprocess path.
+// ConfigStore implements all three methods; other resolvers that do not
+// implement this interface silently bypass the ESLint runtime.
 type eslintRuntimeProvider interface {
   ExternalConfigPath() string
   WantsESLintRuntime() bool
   RequiresESLintRuntime() bool
 }
 
+// eslintRuntimeOutput is the top-level JSON object written to stdout by
+// the embedded externalESLintRunnerScript.
 type eslintRuntimeOutput struct {
   Missing bool                `json:"missing"`
   Fixed   int                 `json:"fixed"`
   Results []eslintRuntimeFile `json:"results"`
 }
 
+// eslintRuntimeFile mirrors one entry from ESLint's LintResult array.
 type eslintRuntimeFile struct {
   FilePath string                 `json:"filePath"`
   Messages []eslintRuntimeMessage `json:"messages"`
 }
 
+// eslintRuntimeMessage mirrors one entry from ESLint's LintMessage array.
 type eslintRuntimeMessage struct {
   RuleID    string `json:"ruleId"`
   Severity  int    `json:"severity"`
@@ -40,6 +48,13 @@ type eslintRuntimeMessage struct {
   EndColumn int    `json:"endColumn"`
 }
 
+// runExternalESLintDiagnostics delegates to the project's installed ESLint
+// binary (via the embedded JS runner) and converts the JSON output into
+// LintDiagnostic values anchored to their source positions. Returns
+// (nil, false, nil) when the resolver does not want the ESLint runtime,
+// (nil, true, nil) when no source files qualify, and (diags, true, nil)
+// on success. The bool return is "ran ESLint" — callers use it to skip
+// native-rule diagnostics when ESLint was the sole configured source.
 func runExternalESLintDiagnostics(
   resolver RuleResolver,
   cwd string,
@@ -98,14 +113,17 @@ func runExternalESLintDiagnostics(
     }
     for _, msg := range result.Messages {
       if msg.Severity == 0 {
+        // ESLint severity 0 means "off" — skip silently.
         continue
       }
       ruleID := strings.TrimSpace(msg.RuleID)
       if ruleID == "" {
+        // ESLint can emit messages without a ruleId for parse errors.
         ruleID = "eslint"
       }
       category := shimdw.LintCategoryWarning
       if msg.Severity >= 2 {
+        // severity 2 = error; values above 2 are treated as error too.
         category = shimdw.LintCategoryError
       }
       pos := positionOfESLintLocation(file.Text(), msg.Line, msg.Column)
@@ -126,10 +144,14 @@ func runExternalESLintDiagnostics(
   return diagnostics, true, nil
 }
 
+// runExternalESLint invokes ESLint in check (read-only) mode.
 func runExternalESLint(cwd, configPath, fileListJSON string) (*eslintRuntimeOutput, error) {
   return runExternalESLintWithMode(cwd, configPath, fileListJSON, false)
 }
 
+// runExternalESLintFixes invokes ESLint in fix mode and returns the number of
+// files that were actually modified. The fix runner calls ESLint.outputFixes
+// inside the JS subprocess, which writes changes directly to disk.
 func runExternalESLintFixes(
   resolver RuleResolver,
   cwd string,
@@ -180,6 +202,10 @@ func runExternalESLintFixes(
   return output.Fixed, nil
 }
 
+// runExternalESLintWithMode spawns a Node.js subprocess that runs the embedded
+// externalESLintRunnerScript. When fix is true the runner calls
+// ESLint.outputFixes and returns the count of modified files; when false it
+// returns diagnostics only and leaves files untouched.
 func runExternalESLintWithMode(cwd, configPath, fileListJSON string, fix bool) (*eslintRuntimeOutput, error) {
   node := os.Getenv("TTSC_NODE_BINARY")
   if node == "" {
@@ -210,6 +236,11 @@ func runExternalESLintWithMode(cwd, configPath, fileListJSON string, fix bool) (
   return &output, nil
 }
 
+// positionOfESLintLocation converts a 1-based (line, column) position from
+// ESLint's output — where column is a UTF-16 code-unit offset — into a
+// zero-based byte offset into text. This matches how tsgo positions source
+// spans: lines are 1-based, columns are UTF-16 units (so a supplementary
+// codepoint counts as 2). Returns len(text) when the position is past EOF.
 func positionOfESLintLocation(text string, line, column int) int {
   if line <= 0 {
     line = 1

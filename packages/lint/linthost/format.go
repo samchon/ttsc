@@ -33,6 +33,8 @@ func RunFormat(args []string) int {
   return runFormat(opts)
 }
 
+// runFormat is the internal implementation of RunFormat. It drives the
+// cascade loop and applies format-rule edits until convergence.
 func runFormat(opts *subcommandOpts) int {
   rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
@@ -89,10 +91,17 @@ func runFormat(opts *subcommandOpts) int {
   return 0
 }
 
+// formatCommandResolver wraps a RuleResolver and ensures every format-class
+// rule referenced in the loaded plugin options is activated at warn severity,
+// even if the user's config omitted it. This lets `ttsc format` format files
+// without requiring explicit rule declarations in the project config.
 type formatCommandResolver struct {
   inner RuleResolver
 }
 
+// ResolveRules implements RuleResolver. It delegates to the inner resolver
+// and then upgrades format-rule entries from off to warn so they are applied
+// even when the project config omits them.
 func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig {
   resolved := r.inner.ResolveRules(fileName)
   if resolved.Ignored {
@@ -109,6 +118,8 @@ func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig 
   return resolved
 }
 
+// ActiveRuleNames implements RuleResolver. Returns the union of the inner
+// resolver's active rules and every format-option rule that is registered.
 func (r formatCommandResolver) ActiveRuleNames() []string {
   active := map[string]struct{}{}
   for _, name := range r.inner.ActiveRuleNames() {
@@ -120,6 +131,8 @@ func (r formatCommandResolver) ActiveRuleNames() []string {
   return sortedKeys(active)
 }
 
+// EnabledRuleConfig implements RuleResolver. Merges the inner config with
+// the format-option rules so callers see the full active set.
 func (r formatCommandResolver) EnabledRuleConfig() RuleConfig {
   enabled := r.inner.EnabledRuleConfig()
   if enabled == nil {
@@ -133,10 +146,14 @@ func (r formatCommandResolver) EnabledRuleConfig() RuleConfig {
   return enabled
 }
 
+// RuleOptions implements RuleResolver by delegating directly to the inner resolver.
 func (r formatCommandResolver) RuleOptions(name string) json.RawMessage {
   return r.inner.RuleOptions(name)
 }
 
+// formatOptionRuleNames returns the sorted list of rule names from the inner
+// resolver's options that are registered as format rules. These are the rules
+// that formatCommandResolver promotes from off to warn.
 func (r formatCommandResolver) formatOptionRuleNames() []string {
   options := resolverOptions(r.inner)
   if len(options) == 0 {
@@ -152,6 +169,9 @@ func (r formatCommandResolver) formatOptionRuleNames() []string {
   return names
 }
 
+// resolverOptions extracts the raw options map from a resolver whose concrete
+// type exposes one. Returns nil for resolver types that don't carry per-rule
+// options (e.g. bare RuleConfig).
 func resolverOptions(resolver RuleResolver) RuleOptionsMap {
   switch r := resolver.(type) {
   case InlineRuleResolver:
@@ -163,11 +183,14 @@ func resolverOptions(resolver RuleResolver) RuleOptionsMap {
   }
 }
 
+// isRegisteredFormatRule reports whether `name` is both registered in the
+// global rule registry and tagged as a format rule via the FormatRule marker.
 func isRegisteredFormatRule(name string) bool {
   rule, ok := registered.rules[name]
   return ok && isFormatRule(rule)
 }
 
+// sortedKeys returns the sorted slice of keys from a string-keyed set.
 func sortedKeys(input map[string]struct{}) []string {
   names := make([]string, 0, len(input))
   for name := range input {

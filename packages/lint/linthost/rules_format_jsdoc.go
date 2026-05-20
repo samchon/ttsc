@@ -136,6 +136,10 @@ func findJSDocBlocks(src string) []jsdocBlock {
   return out
 }
 
+// rewriteJSDocTags scans one JSDoc block and emits a fix for each tag that has
+// a canonical synonym. Tags preceded by a byte other than `*`, whitespace, or a
+// newline are treated as inline `@foo` references (not top-level tags) and are
+// left alone. Tags inside `@example` bodies are also skipped.
 func rewriteJSDocTags(ctx *Context, src string, block jsdocBlock, synonyms map[string]string) {
   for i := block.bodyStart; i < block.bodyEnd; i++ {
     if src[i] != '@' {
@@ -205,6 +209,9 @@ func endOfJSDocExampleBody(src string, block jsdocBlock, start int) int {
   return block.bodyEnd
 }
 
+// isJSDocTagByte reports whether `b` is an ASCII letter that may appear in a
+// JSDoc tag name. Tags are purely alphabetic: digits, hyphens, and underscores
+// terminate a tag name.
 func isJSDocTagByte(b byte) bool {
   return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }

@@ -5,19 +5,17 @@ import (
   "testing"
 )
 
-// TestLoadRuleConfigLoadsJSONConfigFile verifies load rule config loads json config file.
+// TestLoadRuleConfigLoadsJSONConfigFile verifies that an explicit `config` path pointing to
+// a .json file is loaded natively and its severities are parsed correctly.
 //
-// LoadRuleConfig bridges plugin JSON, discovered config files, and explicit config paths. These
-// tests materialize temporary config files so path resolution and legacy-key rejection are
-// checked with real filesystem behavior.
+// JSON config loading is the zero-subprocess path: no Node child process is spawned, making it
+// the fastest option for CI. LoadRuleConfig must route .json extensions through the native JSON
+// loader and correctly handle string severity aliases like "warning" (a non-ESLint form that
+// maps to SeverityWarn).
 //
-// This scenario focuses on load rule config loads json config file. It ensures the lint package
-// accepts only the supported config contract while still loading JSON, JavaScript, and
-// TypeScript config files through the documented path.
-//
-// 1. Create the temporary tsconfig and lint config files required by the branch.
-// 2. Load the rule config through the package helper used by command execution.
-// 3. Assert resolved severities or the precise rejection message.
+// 1. Write tsconfig.json and a ttsc-lint.config.json with two rules.
+// 2. Call LoadRuleConfig with `config: "./ttsc-lint.config.json"`.
+// 3. Assert both rules resolve to the expected severities including the "warning" alias.
 func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

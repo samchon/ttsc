@@ -1,25 +1,22 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineRespectsLintDisableNextLineAlias verifies engine respects lint disable next line
-// alias.
+// TestEngineRespectsLintDisableNextLineAlias verifies that the `lint-disable-next-line`
+// short-form alias is recognized as an equivalent of `eslint-disable-next-line`.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The directive scanner must match both prefix spellings so users writing project-local
+// aliases (without the `eslint-` prefix) get the same suppression behavior. If only the
+// `eslint-` prefix is recognized, files using the alias will silently leak findings
+// despite having explicit suppression comments.
 //
-// This scenario focuses on engine respects lint disable next line alias. It keeps rule
-// execution observable through findings so the test can distinguish dispatch behavior from
-// config loading and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Parse three debugger statements; the middle one is preceded by `lint-disable-next-line`.
+// 2. Run the no-debugger engine.
+// 3. Assert exactly two findings; the alias-suppressed statement is silent.
 func TestEngineRespectsLintDisableNextLineAlias(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
   file := parseTS(t, `

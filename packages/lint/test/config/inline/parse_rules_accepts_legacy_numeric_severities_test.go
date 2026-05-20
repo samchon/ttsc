@@ -4,18 +4,17 @@ import (
   "testing"
 )
 
-// TestParseRulesAcceptsLegacyNumericSeverities verifies numeric severities.
+// TestParseRulesAcceptsLegacyNumericSeverities verifies that ESLint-style numeric severities
+// (0=off, 1=warn, 2=error) are accepted alongside the string forms.
 //
-// Inline lint config is the native plugin contract carried inside the ttsc plugin entry. These
-// tests verify severity parsing before any external ESLint-style config file is considered.
+// The native JSON protocol carries the plugin entry's rules map as deserialized `any` values.
+// JSON numbers arrive as float64, so the parser must normalize float64(0/1/2) rather than
+// comparing against integer literals. Dropping this path would break any host that sends numeric
+// severities, which is legal in both ESLint flat config and the ttsc plugin descriptor.
 //
-// This scenario focuses on parse rules accepts legacy numeric severities. It protects the
-// strict inline-config shape so unsupported values fail loudly instead of being interpreted as
-// ESLint flat-config tuples.
-//
-// 1. Build the inline rules object used by the host payload.
-// 2. Parse it through the native severity normalizer.
-// 3. Assert accepted severities or the explicit contract error.
+// 1. Build a rules map with float64(0), float64(1), and float64(2) as values.
+// 2. Parse through ParseRules.
+// 3. Assert each maps to SeverityOff, SeverityWarn, and SeverityError respectively.
 func TestParseRulesAcceptsLegacyNumericSeverities(t *testing.T) {
   cfg, err := ParseRules(map[string]any{
     "a": float64(0),

@@ -168,6 +168,9 @@ type subcommandOpts struct {
   outDir      string
 }
 
+// parseSubcommandFlags parses the shared flag set used by the `check`,
+// `build`, and `fix`/`format` subcommands. Unknown flags are silently
+// stripped by `filterKnownFlags` before the standard FlagSet sees them.
 func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   fs := flag.NewFlagSet(name, flag.ContinueOnError)
   fs.SetOutput(os.Stderr)
@@ -210,6 +213,9 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   }, nil
 }
 
+// runProject is the shared body of RunCheck and RunBuild. It loads the
+// program, collects diagnostics, renders them, and optionally emits
+// JavaScript output when the config allows it.
 func runProject(opts *subcommandOpts) int {
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceEmit:   opts.emit,
@@ -273,6 +279,9 @@ func runProject(opts *subcommandOpts) int {
   return 0
 }
 
+// loadRules decodes `--plugins-json`, locates the `@ttsc/lint` entry, and
+// returns its resolved RuleResolver. Returns an empty RuleConfig (no rules
+// enabled) when the lint entry is absent from the plugin manifest.
 func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   entries, err := ParsePlugins(pluginsJSON)
   if err != nil {
@@ -288,12 +297,21 @@ func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   return LoadConfigResolver(entry, cwd, tsconfigPath)
 }
 
+// warnUnknownRules writes one warning line per name in `unknown` to `w`.
+// Called after engine construction when no external ESLint process handled
+// the run (the external runner surfaces its own unknown-rule warnings).
 func warnUnknownRules(w io.Writer, unknown []string) {
   for _, name := range unknown {
     fmt.Fprintf(w, "@ttsc/lint: ignoring unknown rule %q\n", name)
   }
 }
 
+// filterKnownFlags strips flags from `args` that are not present in `known`.
+// The `known` map value is true when the flag takes a separate value token
+// (e.g. `--tsconfig tsconfig.json`) and false for boolean flags. Unknown
+// flags are silently dropped along with their value token when present.
+// This lets the host forward a superset of flags without confusing the
+// standard library's FlagSet.
 func filterKnownFlags(args []string, known map[string]bool) []string {
   out := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
@@ -353,6 +371,10 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
   return astDiags, nativeDiags, false, nil
 }
 
+// mergeNativeAndExternalDiagnostics combines native lint findings with
+// external ESLint diagnostics. Any native diagnostic whose rule name also
+// appears in the external set is dropped to avoid duplicate reporting —
+// the external runner's output is authoritative for rules it covered.
 func mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags []*shimdw.LintDiagnostic) []*shimdw.LintDiagnostic {
   if len(nativeDiags) == 0 {
     return externalDiags
@@ -377,6 +399,9 @@ func mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags []*shimdw.Lint
   return append(out, externalDiags...)
 }
 
+// lintDiagnosticRule extracts the rule name from the `[rule-name]` prefix
+// that `collectDiagnostics` injects into every lint diagnostic message.
+// Returns "" when the message does not follow the expected format.
 func lintDiagnosticRule(diag *shimdw.LintDiagnostic) string {
   if diag == nil {
     return ""
@@ -392,6 +417,9 @@ func lintDiagnosticRule(diag *shimdw.LintDiagnostic) string {
   return message[1:end]
 }
 
+// canonicalLintRule trims ESLint namespace prefixes from `rule` so that
+// `no-var`, `@typescript-eslint/no-var`, and `typescript-eslint/no-var`
+// all compare equal during deduplication.
 func canonicalLintRule(rule string) string {
   rule = strings.TrimSpace(rule)
   rule = strings.TrimPrefix(rule, "@typescript-eslint/")
@@ -417,6 +445,9 @@ func RuleCode(name string) int32 {
 // that prefer the lowercase form.
 func ruleCode(name string) int32 { return RuleCode(name) }
 
+// resolveCwd returns an absolute working directory. When `override` is
+// non-empty it is made absolute; otherwise the process working directory
+// is returned.
 func resolveCwd(override string) (string, error) {
   if override != "" {
     abs, err := filepath.Abs(override)
@@ -432,6 +463,9 @@ func resolveCwd(override string) (string, error) {
   return wd, nil
 }
 
+// isJavaScriptOutput reports whether `name` has a JavaScript output
+// extension (.js, .mjs, or .cjs). Used to filter the emit callback so
+// that `RunTransform` captures only the JS output for the target file.
 func isJavaScriptOutput(name string) bool {
   switch strings.ToLower(filepath.Ext(name)) {
   case ".js", ".mjs", ".cjs":
@@ -441,6 +475,9 @@ func isJavaScriptOutput(name string) bool {
   }
 }
 
+// defaultWriteFile creates all parent directories and writes `text` to
+// `name` with mode 0644. Used as the WriteFile callback in `runProject`
+// when the user requested emit.
 func defaultWriteFile(name string, text string) error {
   if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
     return err

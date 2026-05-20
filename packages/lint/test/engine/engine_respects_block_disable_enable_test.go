@@ -1,24 +1,23 @@
 package linthost
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestEngineRespectsBlockDisableEnable verifies engine respects block disable enable.
+// TestEngineRespectsBlockDisableEnable verifies that `eslint-disable` / `eslint-enable`
+// block comment pairs correctly bracket a suppression region across multiple lines.
 //
-// The lint engine walks tsgo SourceFiles and dispatches nodes only to enabled rules. Engine
-// tests use parsed virtual TypeScript files so directive suppression, declaration-file
-// filtering, and unknown-rule tracking are verified without shelling out to the command
-// wrapper.
+// The directive interval builder must record distinct open and close events for the same
+// rule so that code before the disable and after the enable still fires. Without both
+// halves, a disable-only implementation silences everything after the comment, and an
+// enable-without-matching-disable would re-open a rule that was never disabled.
+// This pins the open/close pairing and the resume-after-enable semantics.
 //
-// This scenario focuses on engine respects block disable enable. It keeps rule execution
-// observable through findings so the test can distinguish dispatch behavior from config loading
-// and output rendering.
-//
-// 1. Parse a virtual TypeScript source file that isolates the engine branch.
-// 2. Run the engine with the exact rule severities needed by the branch.
-// 3. Assert the produced findings, skipped findings, or unknown-rule ledger.
+// 1. Parse three var statements: one before, one inside, one after a disable/enable pair.
+// 2. Run the no-var engine.
+// 3. Assert exactly two findings (before and after); the inner statement is suppressed.
 func TestEngineRespectsBlockDisableEnable(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-var": SeverityError})
   file := parseTS(t, `

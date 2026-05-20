@@ -57,6 +57,10 @@ func (forDirection) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// updateDirection returns the direction (+1 for incrementing, -1 for
+// decrementing, 0 for unknown) that the incrementor expression moves the
+// named counter variable. Only simple patterns are recognised: i++, i--,
+// ++i, --i, i += N, and i -= N. Compound or computed expressions return 0.
 func updateDirection(node *shimast.Node, counter string) int {
   if node == nil || counter == "" {
     return 0

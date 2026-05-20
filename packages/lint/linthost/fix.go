@@ -1,3 +1,11 @@
+// Autofix orchestration for the `@ttsc/lint fix` subcommand.
+//
+// RunFix drives the fix cascade: it applies ESLint runtime fixes first
+// (one pass, external process), then repeatedly runs the native lint
+// engine and applies any emitted TextEdit suggestions until no more
+// fixable findings remain or maxFixPasses is reached. After the cascade
+// settles, it runs a final diagnostic pass so remaining issues are
+// surfaced in the normal error stream.
 package linthost
 
 import (
@@ -121,6 +129,8 @@ func runFix(opts *subcommandOpts) int {
   return 0
 }
 
+// loadFixProgram loads the TypeScript program for a fix/format pass with
+// NoEmit forced on. Returns (nil, 2) when loading or config parsing fails.
 func loadFixProgram(opts *subcommandOpts) (*program, int) {
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceNoEmit: true,
@@ -137,6 +147,9 @@ func loadFixProgram(opts *subcommandOpts) (*program, int) {
   return prog, 0
 }
 
+// reloadFixProgram closes `current` and loads a fresh program from disk.
+// Used between cascade passes so the engine sees edits applied in the
+// previous pass rather than stale in-memory AST nodes.
 func reloadFixProgram(current *program, opts *subcommandOpts) (*program, int) {
   if current != nil {
     current.close()
@@ -144,12 +157,19 @@ func reloadFixProgram(current *program, opts *subcommandOpts) (*program, int) {
   return loadFixProgram(opts)
 }
 
+// fileFixes groups all pending TextEdit suggestions for a single file.
+// `text` is the source content at the time the findings were collected;
+// byte offsets in `edits` are relative to this snapshot.
 type fileFixes struct {
   path  string
   text  string
   edits []TextEdit
 }
 
+// applyFindingFixes groups all fixable findings by file, resolves each
+// file path to an absolute form, then applies the edit batches in
+// deterministic order (sorted by path). Returns the total number of edits
+// written to disk.
 func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
   byFile := map[string]*fileFixes{}
   for _, finding := range findings {
@@ -191,6 +211,10 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
   return total, nil
 }
 
+// applyTextEditsToFile selects the non-overlapping edits from `edits`, applies
+// them to `source` in reverse order (right-to-left) to preserve earlier
+// offsets, and writes the result to `path`. Returns the number of edits
+// applied, or 0 when no edits survive selection.
 func applyTextEditsToFile(path, source string, edits []TextEdit) (int, error) {
   selected := selectTextEdits(len(source), edits)
   if len(selected) == 0 {
@@ -210,6 +234,11 @@ func applyTextEditsToFile(path, source string, edits []TextEdit) (int, error) {
   return len(selected), nil
 }
 
+// selectTextEdits filters and sorts `edits` into a non-overlapping
+// application sequence. Out-of-bounds edits and exact duplicates are
+// removed first; the remainder is sorted by start position then end
+// position (left to right). A greedy scan then keeps the earliest-starting
+// edit and drops any that overlap with it, producing a disjoint set.
 func selectTextEdits(sourceLen int, edits []TextEdit) []TextEdit {
   if len(edits) == 0 {
     return nil

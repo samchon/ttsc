@@ -4,18 +4,19 @@ import (
   "testing"
 )
 
-// TestParsePluginsRoundTrip verifies parse plugins round trip.
+// TestParsePluginsRoundTrip verifies the full JSON decode path from a
+// --plugins-json payload through rule-config parsing.
 //
-// The lint sidecar receives plugin metadata as serialized JSON from ttsc. These tests verify
-// that payload decoding and lint-entry selection remain stable even when other check or
-// transform plugins are present.
+// This is the end-to-end happy path that every lint invocation relies on:
+// ParsePlugins must faithfully preserve entry fields (name, stage, config),
+// FindLintEntry must return the @ttsc/lint entry, and ParseRules must produce
+// the correct severity for the embedded rule config. A regression at any seam
+// — dropped fields, re-keyed JSON, misrouted stage string — would silently
+// produce an empty rule set with no error reported.
 //
-// This scenario focuses on parse plugins round trip. It protects the package protocol before
-// rule config parsing starts.
-//
-// 1. Build the serialized plugin payload for the branch.
-// 2. Decode it and locate the @ttsc/lint entry.
-// 3. Assert entry selection, stage preservation, or malformed JSON errors.
+//  1. Build a single-entry @ttsc/lint payload with `"no-var": "error"`.
+//  2. Parse, locate the entry, and decode the rule config.
+//  3. Assert entry.Stage is "check" and Severity("no-var") is SeverityError.
 func TestParsePluginsRoundTrip(t *testing.T) {
   const blob = `[
     {"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}}

@@ -117,6 +117,9 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) Doc {
 // Type-argument byte-range helpers. The shim's NodeList.End() points
 // past the last argument; the surrounding `<` and `>` are not part of
 // the list's range, so we have to scan around it.
+
+// callTypeArgsStart returns the byte offset of the `<` that opens the
+// type-argument list of a CallExpression. Returns -1 when absent.
 func callTypeArgsStart(ctx *PrintContext, call *shimast.CallExpression) int {
   if call.TypeArguments == nil || len(call.TypeArguments.Nodes) == 0 {
     return -1
@@ -136,6 +139,8 @@ func callTypeArgsStart(ctx *PrintContext, call *shimast.CallExpression) int {
   return -1
 }
 
+// callTypeArgsEnd returns the byte offset one past the closing `>` of a
+// CallExpression's type-argument list. Returns -1 when absent.
 func callTypeArgsEnd(ctx *PrintContext, call *shimast.CallExpression) int {
   if call.TypeArguments == nil {
     return -1
@@ -149,6 +154,8 @@ func callTypeArgsEnd(ctx *PrintContext, call *shimast.CallExpression) int {
   return end
 }
 
+// newTypeArgsStart returns the byte offset of the `<` that opens the
+// type-argument list of a NewExpression. Returns -1 when absent.
 func newTypeArgsStart(ctx *PrintContext, ne *shimast.NewExpression) int {
   if ne.TypeArguments == nil || len(ne.TypeArguments.Nodes) == 0 {
     return -1
@@ -166,6 +173,8 @@ func newTypeArgsStart(ctx *PrintContext, ne *shimast.NewExpression) int {
   return -1
 }
 
+// newTypeArgsEnd returns the byte offset one past the closing `>` of a
+// NewExpression's type-argument list. Returns -1 when absent.
 func newTypeArgsEnd(ctx *PrintContext, ne *shimast.NewExpression) int {
   if ne.TypeArguments == nil {
     return -1

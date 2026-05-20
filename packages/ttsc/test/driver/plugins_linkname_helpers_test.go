@@ -1,12 +1,12 @@
 package driver_test
 
 import (
-	"encoding/json"
+  "encoding/json"
 
-	"github.com/microsoft/typescript-go/shim/ast"
+  "github.com/microsoft/typescript-go/shim/ast"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
-	_ "unsafe"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  _ "unsafe"
 )
 
 //go:linkname driverPluginRegistry github.com/samchon/ttsc/packages/ttsc/driver.pluginRegistry
@@ -25,5 +25,5 @@ func driverIsUnusedOverloadSignatureTypeParameterDiagnostic(d *ast.Diagnostic) b
 func driverApplyRewrites(outputName, text string, rs *driver.RewriteSet, cursors map[string]int) (string, error)
 
 func resetLinkedPluginRegistry() {
-	driverPluginRegistry = nil
+  driverPluginRegistry = nil
 }

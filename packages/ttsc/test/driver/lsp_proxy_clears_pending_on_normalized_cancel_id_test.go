@@ -14,12 +14,12 @@ import (
 // peers that disagree on numeric encoding leak pending entries across
 // every cancelled codeAction request.
 //
-// 1. Configure a source whose CodeActions would augment the response.
-// 2. Send codeAction request id=1 and drain it upstream.
-// 3. Send $/cancelRequest id=1.0.
-// 4. Send the matching upstream response id=1.
-// 5. Assert the editor receives the response unmodified — the cancel
-//    must have cleared the pending entry despite the different shape.
+//  1. Configure a source whose CodeActions would augment the response.
+//  2. Send codeAction request id=1 and drain it upstream.
+//  3. Send $/cancelRequest id=1.0.
+//  4. Send the matching upstream response id=1.
+//  5. Assert the editor receives the response unmodified — the cancel
+//     must have cleared the pending entry despite the different shape.
 func TestLSPProxyClearsPendingOnNormalizedCancelID(t *testing.T) {
   source := &stubSource{actions: []driver.LSPCodeAction{{Title: "should-not-appear"}}}
   h := newProxyHarness(t, source)

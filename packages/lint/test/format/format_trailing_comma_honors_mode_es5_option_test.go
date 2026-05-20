@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// TestFormatTrailingCommaHonorsModeES5Option verifies the ES5 branch.
+// TestFormatTrailingCommaHonorsModeES5Option verifies `mode: "es5"` adds
+// trailing commas only to ES5-legal list positions.
 //
 // Prettier's `trailingComma: "es5"` adds commas only where ES5 grammar
 // accepted them: array literals, object literals, and named imports /

@@ -73,6 +73,12 @@ const templateValidEscapes = "`'\"\\bfnrtv0xuU$\n\r"
 // — it never deletes a backslash whose meaning could be context-sensitive).
 const regexValidEscapes = "^$\\.*+?()[]{}|/-\n\r"
 
+// reportStringEscapes walks the raw source bytes of a string or template
+// literal and reports each backslash whose following character is not in
+// `whitelist`. `base` is the source offset of `raw[0]` so reported ranges
+// translate to absolute file positions. The function issues an autofix
+// (delete the backslash) for ASCII escapes; multi-byte sequences are
+// reported without a fix to avoid corrupting UTF-8.
 func reportStringEscapes(ctx *Context, raw string, base int, whitelist string) {
   if len(raw) < 2 {
     return
@@ -117,6 +123,9 @@ func reportStringEscapes(ctx *Context, raw string, base int, whitelist string) {
   }
 }
 
+// reportRegexEscapes walks the pattern body of a regex literal and reports
+// backslashes that escape non-special characters. `base` is the source offset
+// of `raw[0]`. Character-class context (`[…]`) widens the legal set slightly.
 func reportRegexEscapes(ctx *Context, raw string, base int) {
   if len(raw) < 3 || raw[0] != '/' {
     return
@@ -166,6 +175,9 @@ func reportRegexEscapes(ctx *Context, raw string, base int) {
   }
 }
 
+// isUselessStringEscape reports whether a backslash before `ch` is redundant
+// inside a string or template literal. The `whitelist` contains the characters
+// that are valid escape targets for the specific literal kind (string vs template).
 func isUselessStringEscape(ch byte, whitelist string) bool {
   // Whitespace + control chars are escape sequences too.
   if ch < 0x20 {
@@ -181,6 +193,9 @@ func isUselessStringEscape(ch byte, whitelist string) bool {
   return true
 }
 
+// isUselessRegexEscape reports whether a backslash before `ch` is redundant
+// in a regex pattern. `inClass` is true when the escape occurs inside a `[…]`
+// character class, which widens the set of meaningful escapes.
 func isUselessRegexEscape(ch byte, inClass bool) bool {
   if ch < 0x20 {
     return false

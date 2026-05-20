@@ -6,19 +6,16 @@ import (
   "testing"
 )
 
-// TestFindLintConfigFileRejectsSameDirectoryConflicts verifies conflict rejection.
+// TestFindLintConfigFileRejectsSameDirectoryConflicts verifies that multiple recognized config
+// files in the same directory produce an error instead of silently picking one.
 //
-// Config discovery is directory-sensitive because projects may wrap tsconfig files or keep lint
-// config in a nearer package folder. These tests use real temporary paths to validate that
-// search order and conflict detection match the host contract.
+// Choosing arbitrarily between eslint.config.mjs and ttsc-lint.config.cjs in the same directory
+// would apply a config the user didn't intend. The explicit conflict error forces the user to
+// remove the ambiguity rather than relying on undocumented selection order.
 //
-// This scenario focuses on find lint config file rejects same directory conflicts. It keeps
-// path resolution behavior independent from rule parsing so discovery regressions are caught at
-// the source.
-//
-// 1. Materialize the directory layout and candidate config files.
-// 2. Run the discovery or explicit-path resolver helper.
-// 3. Assert the selected path or the conflict diagnostic.
+// 1. Write both eslint.config.mjs and ttsc-lint.config.cjs in the same temp directory.
+// 2. Call findLintConfigFile.
+// 3. Assert the error contains "multiple lint config files found".
 func TestFindLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

@@ -1,10 +1,10 @@
 package ttsc_test
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 // TestUtilityBuildRejectsConflictingEmitFlags verifies emit intent validation.
@@ -18,10 +18,10 @@ import (
 // 2. Capture the command-style stdout and stderr streams.
 // 3. Assert the usage failure reports a mutual-exclusion diagnostic.
 func TestUtilityBuildRejectsConflictingEmitFlags(t *testing.T) {
-	code, out, errOut := captureUtilityOutput(t, func() int {
-		return utility.RunBuild([]string{"--emit", "--noEmit"})
-	})
-	if code != 2 || out != "" || !strings.Contains(errOut, "mutually exclusive") {
-		t.Fatalf("conflicting emit flags mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
-	}
+  code, out, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunBuild([]string{"--emit", "--noEmit"})
+  })
+  if code != 2 || out != "" || !strings.Contains(errOut, "mutually exclusive") {
+    t.Fatalf("conflicting emit flags mismatch: code=%d stdout=%q stderr=%q", code, out, errOut)
+  }
 }
