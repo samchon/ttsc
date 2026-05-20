@@ -11,13 +11,16 @@ import {
 /**
  * Verifies resolveProjectConfig canonicalizes symlinked tsconfig paths.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * The plugin cache key and `pluginBaseDirs` entries must be derived from real
+ * (canonical) paths so that two projects pointing at the same shared config
+ * through different symlink paths share cache entries. Without canonicalization
+ * two symlinks to the same file would produce different cache keys and compile
+ * the plugin twice.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a real directory `real/` with a tsconfig and a symlink `link/ →
+ *    real/`.
+ * 2. Invoke `resolveProjectConfig` with the symlinked tsconfig path.
+ * 3. Assert the returned path equals `fs.realpathSync(real/tsconfig.json)`.
  */
 export const test_resolveprojectconfig_canonicalizes_symlinked_tsconfig_paths =
   () => {

@@ -18,13 +18,16 @@ import {
  * Verifies plugin corpus: concurrent ttsc invocations on a cold cache both
  * succeed.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The source-plugin build path writes to a shared content-addressed cache using
+ * a scratch-then-rename strategy. Two simultaneous cold builds must not corrupt
+ * each other — one may win the rename race while the other detects the
+ * completed entry and proceeds without rebuilding.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture to two independent temp directories and
+ *    point both at the same empty cache directory.
+ * 2. Launch both ttsc processes simultaneously via `child_process.spawn` and await
+ *    their completion in parallel.
+ * 3. Assert both processes exit zero and each emits `"PLUGIN"` in its JS output.
  */
 export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both_succeed =
   async () => {

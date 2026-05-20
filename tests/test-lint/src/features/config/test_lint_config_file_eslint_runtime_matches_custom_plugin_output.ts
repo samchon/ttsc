@@ -1,15 +1,19 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches custom plugin output.
+ * Verifies that a custom inline ESLint plugin (with `options` and `settings`)
+ * produces the same diagnostics through ttsc's ESLint runtime as it does
+ * through the ESLint API directly.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the rule-option and settings-forwarding paths in the runtime bridge. The
+ * custom rule reads `context.options[0].label` and `context.settings.
+ * localSource`; if either is dropped during bridging the message text will
+ * differ from the parity baseline.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a custom plugin rule that uses per-rule options
+ *    and flat-config `settings`.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal.
  */
 export const test_lint_config_file_eslint_runtime_matches_custom_plugin_output =
   async () => {

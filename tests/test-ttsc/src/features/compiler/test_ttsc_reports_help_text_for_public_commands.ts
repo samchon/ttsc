@@ -6,16 +6,16 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc reports public command help without touching a project.
+ * Verifies ttsc reports the complete public command help text.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `--help` output is the user-facing contract for every supported
+ * sub-command. Pins the presence of the four main commands (`prepare`, `clean`,
+ * `fix`, `format`) and the plugin-contract section so documentation drift or
+ * accidental command removal is caught before a release.
  *
- * 1. Execute the built ttsc launcher with `--help`.
- * 2. Assert that the command exits successfully.
- * 3. Assert that the advertised commands include the build, prepare, and clean
- *    front doors users rely on for the standalone host.
+ * 1. Run the real `ttsc` launcher with `--help` from the workspace root.
+ * 2. Assert exit 0 and the tagline on stdout.
+ * 3. Assert each public command name and the `Plugin contract:` section appear.
  */
 export const test_ttsc_reports_help_text_for_public_commands = () => {
   const result = spawn(ttscBin, ["--help"], { cwd: workspaceRoot });

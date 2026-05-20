@@ -9,13 +9,18 @@ import { TestStrip } from "../internal/TestStrip";
  * Verifies the @ttsc/strip plugin: tsconfig plugin wins over duplicate package
  * auto plugin.
  *
- * This strip feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * When `@ttsc/strip` is present in both a tsconfig plugin entry and in
+ * `package.json` dependencies, the loader must deduplicate and use only the
+ * tsconfig entry's config. Without deduplication the plugin would run twice —
+ * once with the explicit config and once with the default config — which could
+ * strip calls the user explicitly chose to keep.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/strip from package or tsconfig
- *    plugin options.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project whose tsconfig configures the plugin to strip only
+ *    `console.warn`, while `package.json` also lists `@ttsc/strip` (default
+ *    config would additionally strip `console.log`).
+ * 2. Run `ttsc --emit`.
+ * 3. Assert `console.log("keep-log")` is present in the output and `console.warn`
+ *    is absent — confirming only the tsconfig config ran.
  */
 export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin =
   () => {

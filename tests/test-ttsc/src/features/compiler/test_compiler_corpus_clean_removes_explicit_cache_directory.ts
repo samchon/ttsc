@@ -34,15 +34,18 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: clean removes explicit cache directory.
+ * Verifies compiler corpus: clean removes an explicit `--cache-dir` directory.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `--cache-dir` is passed to `ttsc clean`, the command must remove that
+ * specific directory and report it in stdout, rather than targeting the default
+ * global or local plugin cache. Pins the explicit-cache-dir code path so CI
+ * scripts that pass a known path can verify cleanup without relying on the
+ * default cache-home heuristic.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project and seed a fake binary inside `--cache-dir/plugins/a/`.
+ * 2. Run `ttsc clean --cache-dir <path>`.
+ * 3. Assert exit 0, stdout mentions the custom cache path, and the directory is
+ *    gone.
  */
 export const test_compiler_corpus_clean_removes_explicit_cache_directory =
   (): void => {

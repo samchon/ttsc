@@ -5,15 +5,21 @@ import path from "node:path";
 import { TestLintPlugin } from "../../internal/TestLintPlugin";
 
 /**
- * Verifies lib/index.d.ts exposes typed lint config files.
+ * Verifies that `lib/index.d.ts` re-exports the public config interfaces and
+ * does not leak internal or `ttsc`-private symbols.
  *
- * This lint plugin descriptor scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Pins the public surface of `@ttsc/lint`'s declaration file: consumers need
+ * `ITtscLintConfig`, `ITtscLintPluginConfig`, `TtscLintRule`, and
+ * `TtscLintSeverity` but must not see `configFile`, `configPath`,
+ * `defineConfig`, `TtscLintRuleEntry`, `TtscLintPlugins`, or `PluginRuleNames`.
+ * Without this test, adding or removing an export in `structures/index.d.ts` or
+ * in the barrel would silently break or bloat the public API.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Read `lib/index.d.ts`, `lib/structures/ITtscLintConfig.d.ts`,
+ *    `lib/structures/ITtscLintPluginConfig.d.ts`, and related files.
+ * 2. Assert that the barrel re-exports `./structures/index` and does not import
+ *    from `"ttsc"`.
+ * 3. Assert presence and absence of specific fields/exports in each file.
  */
 export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   const manifest = JSON.parse(

@@ -11,13 +11,14 @@ import {
 /**
  * Verifies buildSourcePlugin rejects non-directory and non-go.mod sources.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Plugin descriptors may accidentally point `source` at a file rather than a Go
+ * package directory or a `go.mod` file. The builder must validate the path
+ * early and throw a descriptive error rather than passing an invalid path to
+ * `go build`.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a plain text file as the source path.
+ * 2. Call `buildSourcePlugin` with that file path.
+ * 3. Assert it throws an error matching `Go package directory or go.mod file`.
  */
 export const test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources =
   () => {

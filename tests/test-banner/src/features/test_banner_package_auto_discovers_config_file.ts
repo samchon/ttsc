@@ -9,12 +9,18 @@ import { TestBanner } from "../internal/TestBanner";
  * Verifies the @ttsc/banner plugin: package ttsc.plugin auto-discovers banner
  * config files.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * When `@ttsc/banner` is listed in `package.json` dependencies (with no
+ * matching tsconfig plugin entry), the banner plugin is registered
+ * automatically and its config is read from a `banner.config.*` file found in
+ * the project root. This pins the happy-path of the auto-discovery flow so a
+ * regression in config-file lookup breaks loudly here rather than in an
+ * end-user project.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a CommonJS project with a `banner.config.cjs` file and a
+ *    `package.json` that lists `@ttsc/banner` as a dependency.
+ * 2. Run `ttsc --emit` without any tsconfig plugin configuration.
+ * 3. Assert the emitted `.js` file contains exactly one auto-discovered banner
+ *    block with the text from `banner.config.cjs`.
  */
 export const test_banner_package_auto_discovers_config_file = () => {
   const root = TestProject.commonJsProject({

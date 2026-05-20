@@ -14,13 +14,14 @@ import {
 /**
  * Verifies plugin corpus: ttsx executes source plugin output end-to-end.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `ttsx` is the typed runtime: it builds the project (including source plugins)
+ * and then executes the entry-point file. This test confirms the full chain —
+ * source plugin compilation, JS transform, type-check, and Node execution —
+ * produces the expected printed output without an intermediate build step.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture.
+ * 2. Run `ttsx --cwd <root> src/main.ts` (no prior cache).
+ * 3. Assert zero exit and stdout trimmed to `"PLUGIN"`.
  */
 export const test_plugin_corpus_ttsx_executes_source_plugin_output_end_to_end =
   () => {

@@ -6,13 +6,14 @@ import path from "node:path";
 /**
  * Verifies ttsx --cwd becomes the child process cwd.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When ttsx is invoked from one directory (e.g. the shell's cwd) with `--cwd
+ * <project>`, the compiled entry must run with `process.cwd()` set to the
+ * `--cwd` value, not the shell cwd. This matters for entries that read files
+ * relative to `process.cwd()`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project in a subdirectory (`parent/app/`).
+ * 2. Run ttsx from the parent directory with `--cwd parent/app/`.
+ * 3. Assert the entry's `process.cwd()` returns `app` as the last path component.
  */
 export const test_ttsx_cwd_becomes_the_child_process_cwd = () => {
   const parent = TestProject.tmpdir("ttsc-smoke-parent-");

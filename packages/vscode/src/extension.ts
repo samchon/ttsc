@@ -67,6 +67,17 @@ function resolveServerLauncher(): ServerOptions | undefined {
   return undefined;
 }
 
+/**
+ * Build the `child_process` spawn options for the language server process.
+ *
+ * Sets `cwd` to the resolved project base so that relative paths inside
+ * ttscserver are anchored to the workspace. When a tsgo binary can be located
+ * in the same project tree, injects `TTSC_TSGO_BINARY` so the server skips its
+ * own discovery and uses the exact binary version pinned by the project.
+ *
+ * Returns `undefined` when neither a base directory nor a tsgo binary could be
+ * determined, which prevents spawning the server with an incorrect cwd.
+ */
 function serverProcessOptions(base?: string) {
   const tsgo = base ? resolveTsgoBinary(base) : undefined;
   if (!base && !tsgo) {
@@ -83,6 +94,17 @@ function serverProcessOptions(base?: string) {
   };
 }
 
+/**
+ * Locate the platform-specific `tsgo` binary installed alongside
+ * `@typescript/native-preview` in the project rooted at `base`.
+ *
+ * Resolution walks through the root `@typescript/native-preview/package.json`
+ * to find its sibling platform package (e.g.
+ * `@typescript/native-preview-linux-x64`), then constructs the path to the
+ * `tsgo` (or `tsgo.exe` on Windows) binary under that package's `lib/`
+ * directory. Returns `undefined` if any step fails (package not installed, no
+ * platform package, unexpected layout).
+ */
 function resolveTsgoBinary(base: string): string | undefined {
   try {
     const packageJson = require.resolve(
@@ -132,6 +154,14 @@ function collectResolutionBases(): string[] {
   return bases;
 }
 
+/**
+ * Build the `vscode-languageclient` options that configure which documents the
+ * client handles and how it synchronises configuration with the server.
+ *
+ * The trace channel is a plain `OutputChannel` (not `LogOutputChannel`) so that
+ * LSP wire-frame JSON is forwarded verbatim without timestamp/level prefixes
+ * that would mangle protocol messages.
+ */
 function buildClientOptions(
   traceChannel: OutputChannel,
 ): LanguageClientOptions {
@@ -189,10 +219,24 @@ async function executeServerCommand(
   }
 }
 
+/**
+ * Return the URI string of the currently active text editor document, or
+ * `undefined`.
+ */
 function activeUri(): string | undefined {
   return window.activeTextEditor?.document.uri.toString();
 }
 
+/**
+ * VSCode extension entry point — called by the host when the extension is first
+ * activated.
+ *
+ * Resolves the ttscserver launcher, creates the `LanguageClient`, registers the
+ * three ttsc commands (`ttsc.lint.fixAll`, `ttsc.format.document`,
+ * `ttsc.server.restart`), and starts the language server. Shows a clear error
+ * message and returns early if the launcher cannot be resolved, rather than
+ * letting the language client surface a confusing internal error.
+ */
 export async function activate(context: ExtensionContext): Promise<void> {
   const serverOptions = resolveServerLauncher();
   if (!serverOptions) {
@@ -245,6 +289,14 @@ export async function activate(context: ExtensionContext): Promise<void> {
   }
 }
 
+/**
+ * VSCode extension teardown — called by the host when the extension is
+ * deactivated or the window is closed.
+ *
+ * Stops the language server if it is running and clears the module-level
+ * `client` reference so any stale event handlers cannot interact with a stopped
+ * client.
+ */
 export async function deactivate(): Promise<void> {
   if (!client) return;
   try {

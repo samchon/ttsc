@@ -3,13 +3,19 @@ import { assertTransformUsesProjectOption } from "../../internal/transform-proje
 /**
  * Verifies transformTtsc uses the project option for an alternate tsconfig.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `resolveOptions({ project })` is set to an absolute path, that tsconfig
+ * should be used in place of the auto-discovered one. This allows monorepos and
+ * multi-target builds to point the adapter at a bundler-specific tsconfig that
+ * differs from the editor / CI tsconfig. If the `project` option were ignored,
+ * the adapter would silently fall back to tsconfig discovery and pick up the
+ * wrong plugin set. This pins that an explicit absolute path is honoured.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with no plugins in its tsconfig.
+ * 2. Write `tsconfig.unplugin.json` that extends the base tsconfig and adds the
+ *    fixture plugin.
+ * 3. Call `transformTtsc` with `project` set to the absolute path of that
+ *    tsconfig.
+ * 4. Assert the output contains the plugin marker.
  */
 export const test_transformttsc_uses_the_project_option_for_an_alternate_tsconfig =
   async () => {

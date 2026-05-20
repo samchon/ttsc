@@ -15,13 +15,15 @@ import {
 /**
  * Verifies plugin corpus: source path can point directly at go.mod.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Authors may prefer to reference the `go.mod` file rather than its parent
+ * directory. The source-path resolver must normalise a `go.mod` file path to
+ * its containing directory so the `go build` invocation targets the module
+ * root.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture and overwrite `plugin.cjs` so that
+ *    `source` points at `go-plugin/go.mod` (a file, not a directory).
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit and `"PLUGIN"` in the emitted JS.
  */
 export const test_plugin_corpus_source_path_can_point_directly_at_go_mod =
   () => {

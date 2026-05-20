@@ -21,16 +21,17 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: noEmit mode blocks output writes even when sources
+ * Verifies compiler corpus: `--noEmit` blocks output writes even when sources
  * are valid.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `--noEmit` is used by CI check-only passes that must not write artifacts.
+ * Pins that the flag fully suppresses emission through the CLI even when the
+ * TypeScript is clean; without this guard a codepath could treat `--noEmit` as
+ * advisory and still write to `outDir`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a valid CommonJS project.
+ * 2. Run `ttsc --cwd <root> --noEmit`.
+ * 3. Assert exit 0 and that `dist/main.js` was not written to disk.
  */
 export const test_compiler_corpus_noemit_mode_blocks_output_writes_even_when_sources_are_valid =
   (): void => {

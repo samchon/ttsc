@@ -1,3 +1,11 @@
+/**
+ * Shared helpers for tests that drive the ttsc and ttsx launchers directly,
+ * bypassing `@ttsc/testing` so the test can control binary override environment
+ * variables (`TTSC_BINARY`, `TTSC_TSGO_BINARY`). Provides `spawn` (with
+ * overrides injected), `spawnWithoutTsgoOverride` (for consumer-local tsgo
+ * tests), `createFakeNativePreview` (a scripted tsgo stub installed in a temp
+ * project's `node_modules`), and workspace path constants.
+ */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
@@ -40,6 +48,7 @@ const nativeBinary = path.join(
 );
 const tsgoBinary = resolveTsgoBinary();
 
+/** Creates a temp project directory and writes `files` into it. */
 function createProject(files: Record<string, string>) {
   const root = TestProject.tmpdir("ttsc-smoke-");
   for (const [name, contents] of Object.entries(files) as [string, string][]) {
@@ -50,6 +59,11 @@ function createProject(files: Record<string, string>) {
   return root;
 }
 
+/**
+ * Spawns a command synchronously with `TTSC_BINARY` and `TTSC_TSGO_BINARY` set
+ * to the workspace-built binaries, ensuring tests run against the current build
+ * rather than any globally installed version.
+ */
 function spawn(command: string, args: string[], options: any = {}) {
   const usesNodeLauncher = command === ttscBin || command === ttsxBin;
   const result = child_process.spawnSync(
@@ -73,6 +87,12 @@ function spawn(command: string, args: string[], options: any = {}) {
   return result;
 }
 
+/**
+ * Like `spawn` but strips `TTSC_BINARY` and `TTSC_TSGO_BINARY` from the
+ * environment, letting the launcher resolve the consumer-local
+ * `@typescript/native-preview` tsgo binary. Used by tests that verify ttsx
+ * calls the project-installed tsgo rather than the workspace binary.
+ */
 function spawnWithoutTsgoOverride(
   command: string,
   args: string[],
@@ -99,6 +119,13 @@ function spawnWithoutTsgoOverride(
   return result;
 }
 
+/**
+ * Installs a fake `@typescript/native-preview` (and its platform sub-package)
+ * into `root/node_modules`. The tsgo binary stub runs `scriptBody` as Node.js
+ * source, with `fs` and `path` pre-imported, so callers can script emit
+ * behavior, capture arguments, or simulate version output without a real Go
+ * toolchain.
+ */
 function createFakeNativePreview(root: string, scriptBody: string) {
   const nativeRoot = path.join(
     root,
@@ -143,6 +170,11 @@ function createFakeNativePreview(root: string, scriptBody: string) {
   fs.chmodSync(tsgo, 0o755);
 }
 
+/**
+ * Resolves the absolute path to the `tsgo` binary shipped by the workspace's
+ * `@typescript/native-preview` install. Uses `createRequire` so the resolution
+ * follows the same package-graph path the launcher takes at runtime.
+ */
 function resolveTsgoBinary() {
   const packageJson = requireFromTest.resolve(
     "@typescript/native-preview/package.json",
@@ -161,6 +193,11 @@ function resolveTsgoBinary() {
   );
 }
 
+/**
+ * Walks up from `start` until a directory containing `pnpm-workspace.yaml` is
+ * found. Throws if no workspace root is found before reaching the filesystem
+ * root.
+ */
 function findWorkspaceRoot(start: string): string {
   let dir = path.resolve(start);
   while (true) {

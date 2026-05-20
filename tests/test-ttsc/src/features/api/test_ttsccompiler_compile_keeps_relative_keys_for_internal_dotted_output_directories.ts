@@ -13,13 +13,15 @@ import {
  * Verifies TtscCompiler.compile keeps relative keys for internal dotted output
  * directories.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * When `outDir` starts with `..` (e.g. `..dist`) the Go binary can emit the
+ * output paths as absolute strings because the anchor differs from the project
+ * root. Pins the normalization pass that converts these back to relative keys
+ * so API consumers always receive a uniform `Record<string, string>` map
+ * regardless of how the tsconfig arranges its directories.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with `outDir: "..dist"` (dotted-prefix directory).
+ * 2. Call `compile()` via the programmatic API.
+ * 3. Assert output keys are relative strings and no key is an absolute path.
  */
 export const test_ttsccompiler_compile_keeps_relative_keys_for_internal_dotted_output_directories =
   () => {

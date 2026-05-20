@@ -10,13 +10,15 @@ import {
 /**
  * Verifies ttsc emits declaration files when the project requests them.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Pins the `declaration: true` contract through the real launcher binary. Both
+ * `dist/main.js` and `dist/main.d.ts` must be written when the tsconfig enables
+ * declarations. Validates that the default (no `--emit` flag) command surface
+ * still respects the tsconfig-level declaration option without requiring an
+ * extra CLI flag.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `declaration: true` in tsconfig.
+ * 2. Run `ttsc --cwd <root>` (no extra flags).
+ * 3. Assert both `dist/main.js` and `dist/main.d.ts` exist on disk.
  */
 export const test_ttsc_emits_declaration_files_when_the_project_requests_them =
   () => {

@@ -4,13 +4,15 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx keeps package preload specifiers unresolved.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `-r` is given a package specifier (e.g. `@scope/preload` or
+ * `plain-preload/register`), ttsx must pass it to `require()` as-is so Node's
+ * module resolution finds it in the project's `node_modules`. If ttsx
+ * incorrectly resolves the specifier to an absolute path relative to its own
+ * install location, the require will fail or load a different version.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Install scoped and subpath preloads under `node_modules/`.
+ * 2. Run ttsx with `-r @scope/preload --require plain-preload/register`.
+ * 3. Assert both preloads ran and their globals are visible to the entry.
  */
 export const test_ttsx_keeps_package_preload_specifiers_unresolved = () => {
   const root = TestProject.createProject({

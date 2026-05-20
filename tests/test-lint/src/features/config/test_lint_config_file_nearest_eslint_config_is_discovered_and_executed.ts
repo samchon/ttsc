@@ -5,15 +5,19 @@ import {
 } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: nearest eslint.config is discovered and executed.
+ * Verifies that `eslint.config.mjs` is auto-discovered and executed via the
+ * ESLint runtime even when no explicit `config` field is set on the plugin
+ * entry.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the config auto-discovery path. When the user does not provide a
+ * `config` or `extends` value, the engine must walk up from the source file's
+ * directory to find the nearest `eslint.config.*` and pass it to the runtime as
+ * the `overrideConfigFile`. A missing discovery pass would silently skip all
+ * ESLint rules in projects that rely on auto-discovery.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with an `eslint.config.mjs` in the project root and no
+ *    explicit `config` field on the plugin entry.
+ * 2. Run ttsc; assert the auto-discovered config's rule fires.
  */
 export const test_lint_config_file_nearest_eslint_config_is_discovered_and_executed =
   () => {

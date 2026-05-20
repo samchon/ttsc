@@ -7,7 +7,16 @@ import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
 import { runBuild } from "./runBuild";
 
-/** Emit one source file by building its project into a temporary directory. */
+/**
+ * Emit one source file by building its project into a temporary directory.
+ *
+ * The full project is compiled with `forceListEmittedFiles` so that the emitted
+ * file list is available for `resolveEmittedJavaScript`. The temp directory is
+ * always cleaned up in the `finally` block, even on error.
+ *
+ * @returns The transformed JavaScript source text.
+ * @throws When the build exits non-zero or no output is produced for the file.
+ */
 export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const sourceFile = realpathIfExists(
@@ -64,6 +73,10 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
   }
 }
 
+/**
+ * Resolve symlinks on `file` when it exists; return the original path when the
+ * file is not yet on disk (e.g. a synthetic path used in tests).
+ */
 function realpathIfExists(file: string): string {
   try {
     return fs.realpathSync(file);

@@ -13,7 +13,13 @@ import { TestProject } from "../TestProject";
  * same native source-plugin path that real bundler integrations use.
  */
 export namespace TestUnpluginProject {
-  /** Options for the synthetic project used by unplugin transform scenarios. */
+  /**
+   * Options for the synthetic project used by unplugin transform scenarios.
+   *
+   * `plugins` overrides the default single-plugin descriptor so individual
+   * tests can vary plugin ordering, config fields, or the absence of plugins.
+   * `source` overrides the TypeScript entrypoint written to `src/main.ts`.
+   */
   interface ICreateProjectOptions {
     plugins?: unknown[];
     source?: string;
@@ -81,6 +87,11 @@ export namespace TestUnpluginProject {
     return root;
   }
 
+  /**
+   * Set `TTSC_CACHE_DIR` once for the process lifetime so Go plugin builds are
+   * shared across test cases. Skipped when the caller has already set the env
+   * var (e.g. from a parent test runner that manages its own cache dir).
+   */
   function ensureSharedCacheDir(): void {
     if (process.env.TTSC_CACHE_DIR !== undefined) {
       return;

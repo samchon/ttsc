@@ -12,16 +12,19 @@ import {
 } from "../../internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: source plugin walks AST + uses Checker to enumerate
+ * Verifies plugin corpus: source plugin walks AST and uses Checker to enumerate
  * interface properties.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Plugins can call the TypeScript-Go Checker to resolve type symbols and
+ * enumerate their members. This test uses the `go-source-plugin-properties`
+ * fixture, which walks the AST for interface declarations and emits their
+ * property names into the output JS — proving the full shim API is reachable
+ * from a user-authored Go plugin.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin-properties` fixture.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit and that the emitted JS contains both
+ *    `["id","email","name"]` and `["sku","price"]`.
  */
 export const test_plugin_corpus_source_plugin_walks_ast_uses_checker_to_enumerate_interface_properties =
   () => {

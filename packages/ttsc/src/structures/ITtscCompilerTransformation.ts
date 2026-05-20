@@ -22,7 +22,14 @@ export namespace ITtscCompilerTransformation {
     /** Non-fatal diagnostics reported during transformation. */
     diagnostics?: ITtscCompilerDiagnostic[];
 
-    /** Transformed TypeScript source text keyed by project file path. */
+    /**
+     * Transformed TypeScript source text keyed by project-relative file path.
+     *
+     * Values are TypeScript source text, never JavaScript, declaration files,
+     * or source maps. When no transform sidecar is configured, this map
+     * contains the unmodified TypeScript files loaded by the TypeScript-Go
+     * Program.
+     */
     typescript: Record<string, string>;
   }
 
@@ -31,7 +38,13 @@ export namespace ITtscCompilerTransformation {
     /** Indicates that transformation completed with diagnostics. */
     type: "failure";
 
-    /** Transformed or partially transformed TypeScript source text. */
+    /**
+     * Transformed or partially transformed TypeScript source text keyed by
+     * project-relative file path.
+     *
+     * May be empty or partial when diagnostics prevented the transform sidecar
+     * from completing its pass.
+     */
     typescript: Record<string, string>;
 
     /** Diagnostics reported during transformation. */

@@ -14,13 +14,14 @@ import {
 /**
  * Verifies plugin corpus: @ttsc/lint reports unknown rule names.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When the user configures a rule name that the lint binary does not recognise,
+ * the binary should warn in stderr and continue rather than aborting. This
+ * keeps the build non-fatal so a future rule enabled in CI does not break
+ * developers on an older binary version that lacks it.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Configure a project with the nonexistent rule `made-up-rule: error`.
+ * 2. Run ttsc with `--noEmit`.
+ * 3. Assert zero exit and `ignoring unknown rule "made-up-rule"` in stderr.
  */
 export const test_plugin_corpus_ttsc_lint_reports_unknown_rule_names = () => {
   const root = setupLintProject("lint-violations");

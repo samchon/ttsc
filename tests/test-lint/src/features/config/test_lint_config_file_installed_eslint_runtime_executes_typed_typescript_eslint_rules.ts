@@ -1,16 +1,19 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: installed ESLint runtime executes typed
- * typescript-eslint rules.
+ * Verifies that typed `typescript-eslint` rules (those requiring
+ * `parserOptions.project`) execute correctly through ttsc's ESLint runtime.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Typed rules call `getTypeChecker()` inside the ESLint runtime; they require
+ * `parserOptions.project` and `tsconfigRootDir` to be forwarded to
+ * `tseslint.parser`. If either is missing, the parser falls back to a non-typed
+ * run and the type-aware rule silently produces no output.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with `eslint` and `typescript-eslint` symlinked and
+ *    `parserOptions.project` pointing at `tsconfig.json`.
+ * 2. Run ttsc on `Promise.resolve(1);` (a floating promise).
+ * 3. Assert `@typescript-eslint/no-floating-promises` fires with a message
+ *    matching `Promises must be awaited`.
  */
 export const test_lint_config_file_installed_eslint_runtime_executes_typed_typescript_eslint_rules =
   () => {

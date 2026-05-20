@@ -20,6 +20,10 @@ const INTERNAL_DIR = path.join(
   "internal",
 );
 
+/**
+ * Asserts that the farm, rolldown, rspack, and webpack adapter entrypoints each
+ * resolve to a callable factory function.
+ */
 async function assertAdapterEntrypointsExposeFactories() {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");
   const unpluginRolldown =
@@ -34,6 +38,11 @@ async function assertAdapterEntrypointsExposeFactories() {
   assert.equal(typeof unpluginWebpack, "function");
 }
 
+/**
+ * Asserts that all ESM entrypoints expose a callable `default` export via
+ * dynamic `import()`, covering the root index and every bundler-specific
+ * adapter.
+ */
 async function assertAdapterEntrypointsSupportEsmDefaultImport() {
   const root = await import(TestUnpluginRuntime.libUrl("index"));
   assert.equal(typeof root.default.vite, "function", "index");
@@ -54,6 +63,13 @@ async function assertAdapterEntrypointsSupportEsmDefaultImport() {
   }
 }
 
+/**
+ * Asserts that all CJS entrypoints are resolvable via `require()` and that the
+ * public `api` module exposes `resolveOptions` and `transformTtsc`.
+ *
+ * Uses a `createRequire` rooted at the test-unplugin package to simulate the
+ * resolution context of a CJS consumer.
+ */
 function assertAdapterEntrypointsSupportCjsRequire() {
   const root = REQUIRE_FROM_TEST(TestUnpluginRuntime.libPath("index", "js"));
   assert.equal(typeof root.default.vite, "function", "index");
@@ -80,6 +96,12 @@ function assertAdapterEntrypointsSupportCjsRequire() {
   assert.equal(typeof api.transformTtsc, "function");
 }
 
+/**
+ * Asserts that `ttsc` and `unplugin` are externalised in the built output, that
+ * no virtual-module shims or workspace-relative paths are inlined, and that
+ * stale dev-time externals (`diff-match-patch-es`, `magic-string`) have been
+ * removed from both `rollup.config.mjs` and the built artifacts.
+ */
 function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   assert.equal(
     fs.existsSync(TestUnpluginRuntime.libPath("core/transform", "js")),
@@ -147,6 +169,11 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   }
 }
 
+/**
+ * Asserts the shared `transformInclude` predicate accepts `.ts`/`.tsx` source
+ * files and rejects `.js`, `.jsx`, `.css`, `node_modules` paths, `.d.ts`
+ * declarations, and virtual-module IDs (prefix `\0`).
+ */
 async function assertSharedAdapterFilter() {
   const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
@@ -160,10 +187,16 @@ async function assertSharedAdapterFilter() {
   assert.equal(raw.transformInclude?.("\0rolldown/runtime.js"), false);
 }
 
+/** Escapes all regex meta-characters in `value` for use in `new RegExp(...)`. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Asserts that the Next.js adapter chains into a user-provided `webpack`
+ * callback rather than replacing it, and that the adapter's own plugin is still
+ * appended to `config.plugins`.
+ */
 async function assertNextAdapterPreservesWebpackHook() {
   const unpluginNext = await TestUnpluginRuntime.loadUnpluginAdapter("next");
   let called = false;

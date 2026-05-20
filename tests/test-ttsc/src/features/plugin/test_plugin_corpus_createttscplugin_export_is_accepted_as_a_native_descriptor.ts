@@ -15,13 +15,15 @@ import {
  * Verifies plugin corpus: createTtscPlugin export is accepted as a native
  * descriptor.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Plugin authors may export a named `createTtscPlugin` factory as an
+ * alternative to `module.exports = descriptor` or `exports.default`. The
+ * descriptor loader must recognise this convention so both styles coexist
+ * without requiring a separate entry-point per export shape.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin descriptor file that exports `createTtscPlugin` returning a
+ *    descriptor with the go-transformer source.
+ * 2. Run ttsc with `--emit` against the fixture project.
+ * 3. Assert zero exit and `"PLUGIN"` present in the emitted JS.
  */
 export const test_plugin_corpus_createttscplugin_export_is_accepted_as_a_native_descriptor =
   () => {

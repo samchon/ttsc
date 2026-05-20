@@ -7,13 +7,15 @@ import path from "node:path";
  * Verifies runner corpus: CommonJS __dirname resolves without configured
  * outDir.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When no `outDir` is configured, ttsc emits next to the source files. ttsx
+ * must still point `__dirname` at the source directory so relative paths work,
+ * and must not leave any `.js` files on disk (the cache lives in the default
+ * temp location, not alongside source).
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project without `outDir`.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the file-relative read succeeds and no `.js` file was written
+ *    alongside the source.
  */
 export const test_runner_corpus_commonjs_dirname_resolves_without_configured_outdir =
   () => {

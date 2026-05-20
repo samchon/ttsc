@@ -2,6 +2,12 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
+/**
+ * Asserts that a bundler alias map passed as the fourth argument to
+ * `transformTtsc` is forwarded to the ttsc transform as
+ * `compilerOptions.paths`, verified by the fixture plugin's `assert-paths`
+ * operation.
+ */
 async function assertTransformPassesBundlerAliases() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();

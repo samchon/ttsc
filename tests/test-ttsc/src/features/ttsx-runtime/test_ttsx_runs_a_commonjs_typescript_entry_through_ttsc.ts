@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx runs a CommonJS TypeScript entry through ttsc.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Smoke test for the basic CJS ttsx path: compile the entry with ttsc, then
+ * execute the resulting `.js` via Node's `require()`. A failure here indicates
+ * a regression in the core launcher pipeline before any advanced features are
+ * exercised.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a minimal CJS TypeScript project.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the process exits successfully and prints the expected output.
  */
 export const test_ttsx_runs_a_commonjs_typescript_entry_through_ttsc = () => {
   const root = TestProject.createProject({

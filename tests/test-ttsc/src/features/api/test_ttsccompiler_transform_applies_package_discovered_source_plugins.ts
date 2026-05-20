@@ -13,13 +13,15 @@ import {
 /**
  * Verifies TtscCompiler.transform applies package-discovered source plugins.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Mirrors the `compile()` package-discovery test but for the `transform()`
+ * path. Plugins declared in `package.json` must be discovered and applied when
+ * the caller only wants transformed TypeScript source without a full emit. Pins
+ * the auto-discovery path through the `transform()` surface so bundlers using
+ * the source-only pipeline get the same plugin treatment as `compile()`.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a plugin declared in `package.json` only.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the typescript map contains the plugin-transformed source.
  */
 export const test_ttsccompiler_transform_applies_package_discovered_source_plugins =
   () => {

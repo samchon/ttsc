@@ -11,13 +11,17 @@ import {
 /**
  * Verifies readProjectConfig applies array extends in order.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * TypeScript 5.0 supports an `extends` array where later entries override
+ * earlier ones. `readProjectConfig` must honour the same left-to-right
+ * precedence: scalar options like `outDir` take the last non-null value, and
+ * plugins take the value from the last entry that defines them.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create `base-a.json` (outDir, rootDir, plugins-a) and `base-b.json` (outDir
+ *    override, plugins-b) under a shared config directory.
+ * 2. Write a project tsconfig with `extends: ["base-a.json", "base-b.json"]` and
+ *    its own `declarationDir`.
+ * 3. Assert `outDir` comes from `base-b`, `rootDir` from `base-a`, `plugins` from
+ *    `base-b`, and `pluginBaseDirs` lists only the `shared` directory.
  */
 export const test_readprojectconfig_applies_array_extends_in_order = () => {
   const root = TestProject.tmpdir("ttsc-project-");

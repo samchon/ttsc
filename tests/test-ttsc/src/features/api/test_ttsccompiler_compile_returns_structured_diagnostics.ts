@@ -12,13 +12,16 @@ import {
 /**
  * Verifies TtscCompiler.compile returns structured diagnostics.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * `compile()` must return a `failure` result carrying a typed diagnostic array
+ * rather than a thrown exception or an opaque stderr string. Pins the full
+ * shape of a single diagnostic object — file path, category, code, position,
+ * line/character, and message text — so downstream tools can map errors back to
+ * source locations without parsing compiler output.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a type error (string assigned to number).
+ * 2. Call `compile()` via the programmatic API.
+ * 3. Assert the result is `failure` with exactly one diagnostic carrying all
+ *    required fields.
  */
 export const test_ttsccompiler_compile_returns_structured_diagnostics = () => {
   const root = createProject({

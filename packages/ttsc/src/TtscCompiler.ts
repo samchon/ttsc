@@ -36,6 +36,13 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
 export class TtscCompiler {
   private readonly context: ITtscCompilerContext;
 
+  /**
+   * Create a new compiler instance bound to the given project context.
+   *
+   * The context is defensively copied: mutations to the original object after
+   * construction do not affect this instance. Omit `context` (or pass `{}`) to
+   * inherit all defaults from the running process.
+   */
   public constructor(context: ITtscCompilerContext = {}) {
     this.context = {
       ...context,

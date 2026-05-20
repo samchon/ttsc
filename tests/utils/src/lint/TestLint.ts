@@ -284,15 +284,8 @@ export namespace TestLint {
   /**
    * Parse the renderer's stderr into structured records.
    *
-   * @param {string} stderr
-   * @returns {{
-   *   file: string;
-   *   line: number;
-   *   column: number;
-   *   severity: "warn" | "error";
-   *   rule: string;
-   *   message: string;
-   * }[]}
+   * ANSI escape codes are stripped before parsing so colour output from a TTY
+   * environment does not confuse the regex.
    */
   export function parseDiagnostics(stderr: string): ILintDiagnostic[] {
     const stripped = stderr.replace(ANSI_PATTERN, "");
@@ -327,8 +320,9 @@ export namespace TestLint {
    * anchors to (the next non-comment, non-blank line after the annotation).
    * Mirrors the ttsc plugin corpus expectation format.
    *
-   * @param {string} source
-   * @returns {{ rule: string; severity: "warn" | "error"; line: number }[]}
+   * Blank lines and stacked `// expect:` annotations between the marker and its
+   * target are skipped. A `@ts-expect-error` / `@ts-ignore` suppressor is also
+   * skipped unless the rule being tested is `ban-ts-comment` itself.
    */
   export function parseExpectations(source: string): ILintExpectation[] {
     const lines = source.split(/\r?\n/);

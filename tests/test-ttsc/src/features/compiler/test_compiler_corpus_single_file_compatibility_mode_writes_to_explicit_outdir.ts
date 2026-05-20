@@ -32,16 +32,17 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: single file compatibility mode writes to explicit
- * outDir.
+ * Verifies compiler corpus: single-file compatibility mode writes to an
+ * explicit `--outDir` when provided.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `--outDir` is supplied alongside a positional file argument, the emitted
+ * JS must land in `<outDir>/<source-relative-path>` rather than next to the
+ * source file. Pins the `--outDir` override path in single-file mode so scripts
+ * that need to direct output elsewhere can do so without editing the tsconfig.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialize a CommonJS project with a configured `outDir: dist` in tsconfig.
+ * 2. Run `ttsc --outDir single src/main.ts`.
+ * 3. Assert `single/src/main.js` is written and executes successfully.
  */
 export const test_compiler_corpus_single_file_compatibility_mode_writes_to_explicit_outdir =
   (): void => {

@@ -11,13 +11,14 @@ import {
 /**
  * Verifies computeCacheKey changes when overlay source changes.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Overlay directories supply ttsc-managed shim sources that are merged into the
+ * plugin workspace at build time. If an overlay file changes (e.g. after a ttsc
+ * upgrade), the cached binary is stale even if the plugin source itself is
+ * unchanged. The cache key must fingerprint overlay contents.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a source plugin and an overlay directory with one Go file.
+ * 2. Compute the cache key, then modify the overlay file.
+ * 3. Assert the cache key changes.
  */
 export const test_computecachekey_changes_when_overlay_source_changes = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

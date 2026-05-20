@@ -8,12 +8,19 @@ import { TestBanner } from "../internal/TestBanner";
 /**
  * Verifies the @ttsc/banner plugin: shared host ignores future optional flags.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * The plugin host binary's `transform` subcommand is versioned separately from
+ * the JS launcher. A newer launcher may pass flags that an older binary does
+ * not know about (e.g. `--future-optional-flag`). The host must ignore unknown
+ * optional flags and still run successfully, rather than exiting with an
+ * "unknown flag" error. This ensures forward-compatibility without forcing a
+ * synchronised binary upgrade.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Build a project and load its plugins via `loadProjectPlugins` to obtain the
+ *    compiled native binary path.
+ * 2. Invoke the binary's `transform` subcommand directly, passing an unrecognised
+ *    `--future-optional-flag` alongside valid required flags.
+ * 3. Assert zero exit status and that stdout contains valid JSON output (the
+ *    `"typescript"` version field).
  */
 export const test_banner_shared_host_ignores_future_optional_flags = () => {
   const root = TestProject.createProject({

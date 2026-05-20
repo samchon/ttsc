@@ -3,13 +3,15 @@ import { assertTransformIgnoresVirtualModules } from "../../internal/transform-v
 /**
  * Verifies transformTtsc ignores bundler virtual modules.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Bundlers inject synthetic modules whose IDs begin with `\0` (null byte) — for
+ * example, rolldown's runtime shim `\0rolldown/runtime.js`. These paths do not
+ * correspond to real files and must not be passed to the ttsc transform, which
+ * would fail trying to locate them on disk. The shared `transformInclude`
+ * filter already excludes them, but this pins the `transformTtsc` itself so the
+ * defence-in-depth path stays covered.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Call `transformTtsc` directly with a virtual-module path (`\0rolldown/...`).
+ * 2. Assert the return value is `undefined` (transform skipped).
  */
 export const test_transformttsc_ignores_bundler_virtual_modules = async () => {
   await assertTransformIgnoresVirtualModules();

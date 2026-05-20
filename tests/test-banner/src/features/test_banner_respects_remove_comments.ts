@@ -8,12 +8,18 @@ import { TestBanner } from "../internal/TestBanner";
 /**
  * Verifies the @ttsc/banner plugin: banner follows removeComments.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * When `compilerOptions.removeComments` is `true`, TypeScript-Go strips all
+ * JSDoc and block comments from the output. The banner is itself a JSDoc block,
+ * so the banner plugin must respect this flag and suppress its own output
+ * rather than re-inserting a comment that the compiler just removed. Without
+ * this guard the banner would survive `removeComments`, defeating the user's
+ * intent and polluting minified builds.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `removeComments: true` and a tsconfig banner plugin
+ *    entry referencing a known banner text.
+ * 2. Run `ttsc --emit` (declarations enabled) against that project.
+ * 3. Assert the emitted `.js` and `.d.ts` files contain neither the banner text
+ *    nor a `@packageDocumentation` tag.
  */
 export const test_banner_respects_remove_comments = () => {
   const root = TestProject.commonJsProject(

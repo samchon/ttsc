@@ -16,13 +16,16 @@ import {
  * Verifies plugin corpus: source path searches at most three parents for
  * go.mod.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `source` points at a deeply nested sub-directory, ttsc walks up at most
+ * three parent levels looking for `go.mod`. The limit prevents runaway
+ * filesystem traversal on deep monorepo trees and forces authors to point
+ * `source` closer to the module root. Exceeding the limit must produce a clear
+ * error naming the depth constraint.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture and create a four-level-deep directory
+ *    (`go-plugin/a/b/c/d`); rewrite `plugin.cjs` to point `source` at `d`.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `go.mod within 3 parent directories` in stderr.
  */
 export const test_plugin_corpus_source_path_searches_at_most_three_parents_for_go_mod =
   () => {

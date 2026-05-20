@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx forwards argv after -- and runs preload modules.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `-r`/`--require` tells ttsx to load modules before the entry, similar to
+ * `node -r`. Arguments after `--` must be forwarded verbatim to the entry's
+ * `process.argv`. Both behaviours must compose: preloads run first, then the
+ * entry receives the argv tail.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a CJS preload that sets a global flag and an entry that reads it.
+ * 2. Run ttsx with `-r ./preload.cjs <entry> -- --flag value`.
+ * 3. Assert the entry sees both the preload global and the forwarded argv.
  */
 export const test_ttsx_forwards_argv_after_and_runs_preload_modules = () => {
   const root = TestProject.createProject({

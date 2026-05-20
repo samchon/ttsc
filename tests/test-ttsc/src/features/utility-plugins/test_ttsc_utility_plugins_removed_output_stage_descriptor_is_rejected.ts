@@ -5,12 +5,14 @@ import path from "node:path";
 /**
  * Verifies ttsc utility plugins: removed output stage descriptor is rejected.
  *
- * This scenario stays in the compiler package because it verifies descriptor
- * validation near the utility plugin coverage.
+ * The `"output"` plugin stage was removed in an earlier release. Descriptors
+ * that still declare `stage: "output"` must be rejected by the loader with an
+ * explicit error, so authors receive a clear migration message instead of a
+ * silent no-op or a crash inside the Go host.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads an invalid plugin descriptor.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project whose plugin descriptor uses `stage: "output"`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert a non-zero exit and the `removed stage "output"` diagnostic in stderr.
  */
 export const test_ttsc_utility_plugins_removed_output_stage_descriptor_is_rejected =
   () => {

@@ -12,15 +12,17 @@ import {
 } from "../../internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: @ttsc/lint honors --emit and --outDir overrides.
+ * Verifies plugin corpus: @ttsc/lint honors `--emit` and `--outDir` overrides.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A tsconfig may set `noEmit: true` to disable output, but callers can override
+ * this and also redirect the output directory via CLI flags. The lint plugin
+ * path must not prevent these overrides from reaching the underlying compiler
+ * invocation — a regression here would cause lint-enabled projects to lose
+ * control of where their JS lands.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Configure a project with `noEmit: true` and an `@ttsc/lint` plugin.
+ * 2. Run ttsc with `--emit --outDir custom`.
+ * 3. Assert `custom/main.js` exists and `dist/main.js` does not.
  */
 export const test_plugin_corpus_ttsc_lint_honors_emit_and_outdir_overrides =
   () => {

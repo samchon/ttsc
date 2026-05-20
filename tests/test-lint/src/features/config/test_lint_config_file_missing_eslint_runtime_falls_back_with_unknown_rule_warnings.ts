@@ -1,16 +1,20 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: missing ESLint runtime falls back with
- * unknown-rule warnings.
+ * Verifies that using a namespaced rule (e.g. `@typescript-eslint/…`) without
+ * an installed `eslint` package degrades gracefully: ttsc exits zero, emits no
+ * diagnostic for the unknown rule, but logs a per-rule warning.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the graceful-fallback path for unrecognised rule names that lack a
+ * `plugins` entry. Without a plugin declaration, the native engine cannot
+ * classify the rule as runtime-only, so it warns and skips rather than
+ * hard-failing. A regression that drops the warning would leave users confused
+ * about why their `@typescript-eslint` rules do nothing.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with `@typescript-eslint/no-floating-promises: error`
+ *    and no `eslint` package.
+ * 2. Run ttsc; assert zero exit, zero diagnostics, and a `"ignoring unknown rule"`
+ *    warning for the namespaced rule in stderr.
  */
 export const test_lint_config_file_missing_eslint_runtime_falls_back_with_unknown_rule_warnings =
   () => {

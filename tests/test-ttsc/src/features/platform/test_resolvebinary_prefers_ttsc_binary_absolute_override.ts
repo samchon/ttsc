@@ -1,15 +1,15 @@
 import { assert, resolveBinary } from "../../internal/platform";
 
 /**
- * Verifies resolveBinary prefers TTSC_BINARY absolute override.
+ * Verifies resolveBinary prefers the `TTSC_BINARY` absolute override.
  *
- * This ttsc platform scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Pins the env-var escape hatch that lets operators point the launcher at a
+ * custom binary (e.g. a locally built debug binary) without changing the
+ * installed package. When `TTSC_BINARY` is set to an absolute path, the
+ * resolver must return it verbatim without any platform-package lookup.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Call `resolveBinary` with `env.TTSC_BINARY` set to an absolute path.
+ * 2. Assert the returned path equals the override value exactly.
  */
 export const test_resolvebinary_prefers_ttsc_binary_absolute_override = () => {
   const resolved = resolveBinary({

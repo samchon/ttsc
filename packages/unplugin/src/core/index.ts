@@ -11,10 +11,29 @@ import {
 } from "./transform";
 
 const name = "ttsc-unplugin";
+/**
+ * Matches any TypeScript or JavaScript source extension (.ts, .tsx, .mts, .cts,
+ * etc.).
+ */
 const sourceFilePattern = /\.[cm]?tsx?$/;
+/** Matches any path segment that is a `node_modules` directory (cross-platform). */
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
+/**
+ * Matches virtual module ids — Rollup/Vite use a leading NUL byte (`\0`) as
+ * convention.
+ */
 const virtualModulePattern = /\0/;
 
+/**
+ * Unplugin factory that wires the ttsc transform pipeline into any supported
+ * bundler (Vite, Rollup, Rolldown, webpack, Rspack, esbuild, Farm).
+ *
+ * The factory resolves raw options once, creates a per-build transform cache,
+ * and captures Vite alias configuration via the `vite.configResolved` hook so
+ * that path aliases are forwarded to the generated tsconfig overlay. The cache
+ * is cleared on every `buildStart` to avoid stale results across watch-mode
+ * rebuilds.
+ */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
   false
@@ -63,6 +82,13 @@ export { createTtscTransformCache, resolveOptions, transformTtsc, unplugin };
 
 export default unplugin;
 
+/**
+ * Returns `true` when the module id refers to a real TypeScript/JavaScript
+ * source file that should be processed by the ttsc transform.
+ *
+ * Excluded ids: virtual modules (NUL prefix), `.d.ts` declaration files, and
+ * anything inside `node_modules`.
+ */
 function isTransformTarget(id: string): boolean {
   return (
     sourceFilePattern.test(id) &&

@@ -3,13 +3,18 @@ import { assertTransformUsesRelativeProjectOption } from "../../internal/transfo
 /**
  * Verifies transformTtsc resolves a relative project option from cwd.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Bundler users may set `project: "tsconfig.unplugin.json"` as a relative path
+ * without knowing the absolute project root. If `transformTtsc` resolved
+ * relative paths against the file being transformed rather than `process.cwd`,
+ * the tsconfig lookup would silently fail or pick the wrong file. This pins
+ * that a bare filename in the `project` option is resolved against the current
+ * working directory.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with no plugins and write `tsconfig.unplugin.json`
+ *    that activates the fixture plugin.
+ * 2. Change `process.cwd()` to the project root.
+ * 3. Call `transformTtsc` with `project: "tsconfig.unplugin.json"` (relative).
+ * 4. Assert the transform succeeds and the output contains the plugin marker.
  */
 export const test_transformttsc_resolves_a_relative_project_option_from_cwd =
   async () => {

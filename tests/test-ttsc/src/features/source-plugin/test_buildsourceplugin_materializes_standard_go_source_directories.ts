@@ -12,13 +12,16 @@ import {
 /**
  * Verifies buildSourcePlugin materializes standard Go source directories.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Plugin source trees can organise helper code under `vendor/`, `lib/`,
+ * `dist/`, or `build/` subdirectories. `buildSourcePlugin` must copy all of
+ * these into the build workspace alongside `go.mod` and root-level `.go` files
+ * so `go build` can resolve them without any custom module configuration.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a plugin source tree with files in each of the four standard
+ *    subdirectories.
+ * 2. Build the plugin through a fake Go executable that fails if any expected
+ *    source file is absent from the working directory.
+ * 3. Assert the returned binary path exists (i.e. the fake `go build` succeeded).
  */
 export const test_buildsourceplugin_materializes_standard_go_source_directories =
   () => {

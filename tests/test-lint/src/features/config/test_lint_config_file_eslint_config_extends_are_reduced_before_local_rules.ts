@@ -1,16 +1,19 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint config extends are reduced before local
- * rules.
+ * Verifies that flat-config `extends` arrays are reduced before the enclosing
+ * entry's own `rules` so that local rules always take final precedence.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the reduction order for the Go-side config flattener. A base entry sets
+ * `no-var: warn` and `no-console: error`; a nested array entry then sets
+ * `no-console: off`; the top-level entry sets `no-var: error`. After reduction
+ * only `no-var: error` (the local rule winning over the extended warn) should
+ * fire — `no-console` is silenced by the nested extension. Wrong reduction
+ * order would flip which rule fires.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialize a fixture with a nested `extends` structure in the config.
+ * 2. Run ttsc with source containing both a `var` declaration and a `console.log`.
+ * 3. Assert only `no-var` with severity `error` is reported (not `no-console`).
  */
 export const test_lint_config_file_eslint_config_extends_are_reduced_before_local_rules =
   () => {

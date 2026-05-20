@@ -1,3 +1,11 @@
+/**
+ * Shared helpers for tests that exercise the `TtscCompiler` JavaScript API
+ * directly (as opposed to spawning the `ttsc` CLI). Provides a thin subclass
+ * that injects a per-suite `TTSC_CACHE_DIR` so concurrent test runs do not
+ * share cache state, plus project scaffolding utilities for common fixture
+ * shapes (basic CJS project, dotted source directory, source plugin, compiler
+ * plugin, etc.).
+ */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";

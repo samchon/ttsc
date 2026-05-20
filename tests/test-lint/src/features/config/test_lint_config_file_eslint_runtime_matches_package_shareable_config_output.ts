@@ -1,16 +1,19 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches package shareable config
- * output.
+ * Verifies that a shareable config package consumed via `import shared from
+ * "eslint-config-ttsc-parity"` produces parity-matching output through ttsc's
+ * ESLint runtime.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the `require`/`import` resolution path for shareable config packages.
+ * The runtime must be able to `require` a config from the project's own
+ * `node_modules`, not from the ttsc process's module graph. A resolution bug
+ * would either throw `MODULE_NOT_FOUND` or silently apply no rules.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a synthetic `eslint-config-ttsc-parity` package in
+ *    `node_modules/` that defines a custom rule.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal.
  */
 export const test_lint_config_file_eslint_runtime_matches_package_shareable_config_output =
   async () => {

@@ -11,13 +11,15 @@ import {
 /**
  * Verifies ttsx executes JavaScript emitted by the consumer-local tsgo.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsx resolves `tsgo` from the project's own `@typescript/native-preview`
+ * install rather than from the workspace binary. This test replaces that
+ * install with a scripted stub that writes a custom `.js` file and logs its
+ * arguments, so we can confirm both that ttsx used it and that the resulting
+ * `.js` was executed.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Install a fake `@typescript/native-preview` into the project.
+ * 2. Run ttsx without the workspace tsgo override (`spawnWithoutTsgoOverride`).
+ * 3. Assert the fake tsgo's output was executed (not the original source).
  */
 export const test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo =
   () => {

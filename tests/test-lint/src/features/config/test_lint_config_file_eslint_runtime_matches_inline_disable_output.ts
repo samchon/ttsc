@@ -1,15 +1,19 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches inline disable output.
+ * Verifies that `eslint-disable-next-line` inline directives are honoured by
+ * the ESLint runtime and that ttsc's output matches the ESLint API baseline.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the inline-disable forwarding path in the runtime bridge. ESLint
+ * suppresses the `no-explicit-any` diagnostic on the disabled line; if ttsc
+ * drops the suppression signal or re-emits the skipped diagnostic, the parity
+ * check fails.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with two `any` variables, one disabled with
+ *    `eslint-disable-next-line`.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal (only the un-disabled `any`
+ *    is reported).
  */
 export const test_lint_config_file_eslint_runtime_matches_inline_disable_output =
   async () => {

@@ -11,13 +11,16 @@ import {
 /**
  * Verifies readProjectConfig resolves package tsconfig extends.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * `extends` can reference a bare package specifier like
+ * `"@scope/tsconfig/base.json"`. `readProjectConfig` must resolve this via
+ * `require.resolve` (or equivalent node_modules lookup) so shared tsconfig
+ * presets work the same way they do in the TypeScript compiler.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a fake `node_modules/@scope/tsconfig/base.json` with an `outDir` and a
+ *    plugins entry.
+ * 2. Write a project tsconfig that extends `"@scope/tsconfig/base.json"`.
+ * 3. Assert the resolved plugins and `outDir` (absolute) match the preset's
+ *    values, anchored at the preset's location in node_modules.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends = () => {
   const root = TestProject.tmpdir("ttsc-project-");

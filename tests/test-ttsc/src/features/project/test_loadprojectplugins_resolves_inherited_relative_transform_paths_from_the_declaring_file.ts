@@ -12,13 +12,18 @@ import {
  * Verifies loadProjectPlugins resolves inherited relative transform paths from
  * the declaring file.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * When a parent tsconfig declares `plugins: [{transform:
+ * "./plugins/base.cjs"}]` and a child tsconfig extends it, the
+ * `./plugins/base.cjs` path must be resolved relative to the parent file — not
+ * the child file — so the plugin CJS module is found at the correct location on
+ * disk.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a `config/tsconfig.json` that declares a relative plugin path, and a
+ *    `project/tsconfig.json` that extends it.
+ * 2. Invoke `loadProjectPlugins` against the child tsconfig.
+ * 3. Assert that loading throws `must declare source` (the plugin resolves to the
+ *    right file, which has an empty `source`, rather than failing with a
+ *    module-not-found error).
  */
 export const test_loadprojectplugins_resolves_inherited_relative_transform_paths_from_the_declaring_file =
   () => {

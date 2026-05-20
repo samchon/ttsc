@@ -8,13 +8,15 @@ import {
 /**
  * Verifies plugin corpus: JS transform functions are rejected.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The ttsc plugin model requires all transform logic to live in Go so the host
+ * can share the TypeScript-Go AST/Checker across plugins. A descriptor that
+ * carries a JS `transformOutput` or `transformSource` function cannot be lifted
+ * into the Go pipeline, so ttsc must refuse it with a clear `unsupported JS
+ * transform functions` message rather than silently ignoring the function.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin descriptor that includes a `transformOutput` JS function.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `unsupported JS transform functions` in stderr.
  */
 export const test_plugin_corpus_js_transform_functions_are_rejected = () => {
   const root = pluginProject(

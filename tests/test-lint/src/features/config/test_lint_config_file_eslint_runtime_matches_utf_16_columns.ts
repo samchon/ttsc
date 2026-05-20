@@ -1,15 +1,18 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches UTF-16 columns.
+ * Verifies that column numbers for diagnostics after a multi-code-unit Unicode
+ * character (emoji) match between ttsc's ESLint runtime and the ESLint API.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * ESLint reports columns in UTF-16 code units; TypeScript-Go's native engine
+ * uses byte offsets. The runtime bridge must re-encode column numbers before
+ * merging. An emoji (`😀`, U+1F600) occupies two UTF-16 code units, so any
+ * identifier after it shifts by one column. This test pins the off-by-one
+ * regression that would occur if the bridge used UTF-8 byte counts instead.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with `const emoji = "😀"; forbidden();` as source.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal including column numbers.
  */
 export const test_lint_config_file_eslint_runtime_matches_utf_16_columns =
   async () => {

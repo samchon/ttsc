@@ -12,13 +12,15 @@ import {
  * Verifies readProjectConfig inherits plugins and outDir through tsconfig
  * extends.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * When a child tsconfig extends a parent that declares `plugins` and `outDir`,
+ * `readProjectConfig` must propagate both values to the resolved config and
+ * record the parent directory in `pluginBaseDirs` so relative transform paths
+ * are later resolved against the right base.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a shared `config/tsconfig.json` with `outDir` and one plugin entry.
+ * 2. Write a project tsconfig that extends it with an empty `compilerOptions`.
+ * 3. Assert the resolved config carries the inherited `plugins`, `outDir`
+ *    (absolute), and `pluginBaseDirs` pointing at `config/`.
  */
 export const test_readprojectconfig_inherits_plugins_and_outdir_through_tsconfig_extends =
   () => {

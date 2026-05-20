@@ -16,13 +16,17 @@ import {
 /**
  * Verifies plugin corpus: @ttsc/lint ignores future optional flags.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The native binary protocol is forwards-compatible: the JS launcher may pass
+ * flags that did not exist when the currently-cached binary was compiled.
+ * Unknown flags preceded by `--future-optional-flag` must be silently skipped
+ * rather than causing a non-zero exit, so a launcher upgrade does not break
+ * projects that have a stale cached binary.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Load the `@ttsc/lint` binary directly via `loadProjectPlugins` and collect
+ *    its path without invoking it.
+ * 2. Invoke the binary with `check` and an unknown `--future-optional-flag
+ *    ignored-value` argument.
+ * 3. Assert zero exit.
  */
 export const test_plugin_corpus_ttsc_lint_ignores_future_optional_flags =
   () => {

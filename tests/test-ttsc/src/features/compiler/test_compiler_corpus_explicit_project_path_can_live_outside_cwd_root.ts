@@ -40,15 +40,19 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: explicit project path can live outside cwd root.
+ * Verifies compiler corpus: `--project` can point to a tsconfig outside the
+ * `--cwd` root.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `--project` is a relative path like `configs/tsconfig.app.json` and the
+ * tsconfig's `include` and `rootDir` reference `../src`, the Go compiler must
+ * resolve those paths relative to the tsconfig file, not the working directory.
+ * Pins the cross-root resolution so monorepo setups that co-locate config files
+ * separately from source compile correctly.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `configs/tsconfig.app.json` that points `rootDir` at
+ *    `../src`.
+ * 2. Run `ttsc --project configs/tsconfig.app.json --emit`.
+ * 3. Assert `dist/app/main.js` is written and contains the expected identifier.
  */
 export const test_compiler_corpus_explicit_project_path_can_live_outside_cwd_root =
   (): void => {

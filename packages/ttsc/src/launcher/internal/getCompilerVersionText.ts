@@ -23,6 +23,7 @@ export function getCompilerVersionText(
   return `ttsc ${readOwnPackageVersion()} (${outputText(res.stdout).trim()})`;
 }
 
+/** Coerce a spawnSync stdio field (string | Buffer | null) to a plain string. */
 function outputText(value: string | Buffer | null | undefined): string {
   if (value == null) {
     return "";
@@ -30,6 +31,12 @@ function outputText(value: string | Buffer | null | undefined): string {
   return typeof value === "string" ? value : value.toString("utf8");
 }
 
+/**
+ * Read the `version` field from the `@ttsc/ttsc` package.json that sits three
+ * directories above the compiled launcher output (`lib/launcher/internal/`).
+ * Returns `"0.0.0"` on any I/O or parse failure so the banner is always safe to
+ * display.
+ */
 function readOwnPackageVersion(): string {
   try {
     const file = path.resolve(__dirname, "..", "..", "..", "package.json");

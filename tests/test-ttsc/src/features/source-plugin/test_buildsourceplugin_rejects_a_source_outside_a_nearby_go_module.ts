@@ -11,13 +11,15 @@ import {
 /**
  * Verifies buildSourcePlugin rejects a source outside a nearby Go module.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * `buildSourcePlugin` walks up at most 3 parent directories from the given
+ * source path to find a `go.mod`. If no `go.mod` is found, the plugin source
+ * cannot be compiled and ttsc must throw rather than silently producing a
+ * broken binary.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a deeply nested source directory with no `go.mod` anywhere in the
+ *    ancestor chain.
+ * 2. Call `buildSourcePlugin` with that directory.
+ * 3. Assert it throws an error matching `go.mod within 3 parent directories`.
  */
 export const test_buildsourceplugin_rejects_a_source_outside_a_nearby_go_module =
   () => {

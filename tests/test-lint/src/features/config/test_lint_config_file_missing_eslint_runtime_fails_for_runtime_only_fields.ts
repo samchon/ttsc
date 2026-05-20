@@ -1,16 +1,18 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: missing ESLint runtime fails for runtime-only
- * fields.
+ * Verifies that referencing a `plugins` entry in a flat config without an
+ * installed `eslint` package fails with an explicit error rather than silently
+ * skipping the plugin rules.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the hard-fail path for runtime-only fields. When the config uses a
+ * `plugins` key the Go-side flattener cannot execute plugin rule modules
+ * natively; it requires the ESLint runtime subprocess. Without the runtime the
+ * engine must surface "ESLint runtime is required" so the user knows exactly
+ * what to install.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with a `plugins` entry and no `eslint` package.
+ * 2. Run ttsc; assert non-zero exit and `ESLint runtime is required` in stderr.
  */
 export const test_lint_config_file_missing_eslint_runtime_fails_for_runtime_only_fields =
   () => {

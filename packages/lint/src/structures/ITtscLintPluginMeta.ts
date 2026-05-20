@@ -1,4 +1,12 @@
-/** Plugin-level metadata shared with the diagnostic surface. */
+/**
+ * Plugin-level metadata exposed on `ITtscLintPlugin.meta`.
+ *
+ * All fields are optional. When `namespace` is absent, `@ttsc/lint` falls back
+ * to the key used in the tsconfig `plugins` map (or `lint.config.*` `plugins`
+ * object) as the rule-name prefix. `name` and `version` are purely
+ * informational — they appear in diagnostic messages and are not validated at
+ * build time.
+ */
 export interface ITtscLintPluginMeta {
   /** Plugin package name as published on npm. */
   name?: string;

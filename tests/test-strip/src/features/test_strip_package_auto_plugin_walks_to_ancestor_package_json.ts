@@ -9,13 +9,19 @@ import { TestStrip } from "../internal/TestStrip";
  * Verifies the @ttsc/strip plugin: package ttsc.plugin walks to ancestor
  * package.json.
  *
- * This strip feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * The strip auto-discovery path looks for `@ttsc/strip` in the nearest
+ * `package.json`, but in a monorepo the sub-package tsconfig often lives in
+ * `packages/app/` while the root `package.json` is two directories up. The
+ * plugin loader must walk ancestor directories to find the root manifest,
+ * otherwise monorepo users are forced to duplicate the dependency in every
+ * sub-package.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/strip from package or tsconfig
- *    plugin options.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a monorepo-shaped project: root `package.json` with `@ttsc/strip`,
+ *    sub-package at `packages/app/` with its own `tsconfig.json` but no
+ *    `package.json`.
+ * 2. Run `ttsc --emit` from the sub-package working directory.
+ * 3. Assert zero exit and that `console.log` and `debugger` are absent from the
+ *    emitted `.js` output.
  */
 export const test_strip_package_auto_plugin_walks_to_ancestor_package_json =
   () => {

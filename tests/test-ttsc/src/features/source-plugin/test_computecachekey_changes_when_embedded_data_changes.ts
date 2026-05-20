@@ -11,13 +11,14 @@ import {
 /**
  * Verifies computeCacheKey changes when embedded data changes.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Go plugins that use `//go:embed` bake static data files into their binary. If
+ * an embedded file (e.g. a rules database) changes between builds, the cached
+ * binary is stale. The cache key must fingerprint embedded data files in
+ * addition to `.go` source.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a plugin with a `//go:embed rules.json` directive.
+ * 2. Compute the cache key, then update the embedded file.
+ * 3. Assert the cache key changes.
  */
 export const test_computecachekey_changes_when_embedded_data_changes = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

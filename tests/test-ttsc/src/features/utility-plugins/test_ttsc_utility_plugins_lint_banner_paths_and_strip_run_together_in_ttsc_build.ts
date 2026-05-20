@@ -9,12 +9,17 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * Verifies ttsc utility plugins: lint, banner, paths, and strip run together in
  * ttsc build.
  *
- * This scenario stays in the compiler package because it verifies linked host
- * behavior across package boundaries.
+ * All four utility plugins must compose into a single linked-host binary: lint
+ * as a separate check-stage source plugin and banner/paths/strip sharing one
+ * transform-stage linked host. This test exercises the full combination to
+ * guard against regressions in multi-contributor host wiring and cross-plugin
+ * output ordering.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads utility plugin descriptors.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `ttsc-utility-plugins` fixture project and seed `node_modules`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert the linked host was built with 3 contributors, lint ran as a separate
+ *    source plugin, path aliases were rewritten, banner was prepended exactly
+ *    once, and `console.log`/`debugger`/`assert` were stripped.
  */
 export const test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build =
   () => {

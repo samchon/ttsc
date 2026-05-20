@@ -1,8 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
-/** Locate the JavaScript file emitted for a TypeScript source file. */
+/**
+ * Locate the JavaScript file emitted for a TypeScript source file.
+ *
+ * Resolution strategy:
+ *
+ * 1. Try to derive the exact output path by mirroring the source's relative
+ *    position inside `projectRoot` into `outDir`, applying the correct JS
+ *    extension (`.js` / `.mjs` / `.cjs`). Use this path if it exists on disk.
+ * 2. Fall back to scoring each candidate in `emittedFiles` (or a recursive
+ *    directory scan of `outDir`) by the number of trailing path-stem segments
+ *    shared with the source file name, and pick the highest-scoring existing
+ *    file.
+ *
+ * Returns `null` when no matching output file is found on disk.
+ */
 export function resolveEmittedJavaScript(options: {
+  /** Pre-computed list of emitted paths; when absent `outDir` is scanned. */
   emittedFiles?: readonly string[];
   outDir: string;
   projectRoot: string;
@@ -31,6 +46,11 @@ export function resolveEmittedJavaScript(options: {
   return best && fs.existsSync(best) ? best : null;
 }
 
+/**
+ * Derive the exact output path for `sourceFile` by mirroring its position
+ * relative to `projectRoot` into `outDir`. Returns `null` when the source is
+ * not inside the project root or when the path cannot be determined.
+ */
 function resolveExactEmittedFile(
   outDir: string,
   projectRoot: string,
@@ -47,6 +67,11 @@ function resolveExactEmittedFile(
   );
 }
 
+/**
+ * Recursively enumerate every JavaScript output file under `root`. Uses an
+ * explicit stack instead of recursion to avoid call-stack overflow on deep
+ * directory trees. Non-existent roots are silently skipped.
+ */
 function listJavaScriptFiles(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
@@ -65,15 +90,22 @@ function listJavaScriptFiles(root: string): string[] {
   return out;
 }
 
+/**
+ * Count the number of consecutive trailing path-stem segments that `outPath`
+ * and `srcPath` share when both are stripped of their extensions and normalised
+ * to forward slashes.
+ *
+ * Example: `dist/lib/foo.js` vs `src/lib/foo.ts` → 2 (`lib`, `foo`).
+ */
 function sharedSourceStemSegments(outPath: string, srcPath: string): number {
-  const trim = (location: string): string[] => {
+  const stripExtAndSplit = (location: string): string[] => {
     const normalized = location.replace(/\\/g, "/");
     return normalized
       .slice(0, normalized.length - path.extname(normalized).length)
       .split("/");
   };
-  const a = trim(outPath);
-  const b = trim(srcPath);
+  const a = stripExtAndSplit(outPath);
+  const b = stripExtAndSplit(srcPath);
   const count = Math.min(a.length, b.length);
   let shared = 0;
   for (let i = 1; i <= count; i += 1) {
@@ -83,6 +115,10 @@ function sharedSourceStemSegments(outPath: string, srcPath: string): number {
   return shared;
 }
 
+/**
+ * Return true when `relative` escapes the project root (i.e. starts with `..`
+ * or is absolute). Used to guard `resolveExactEmittedFile`.
+ */
 function isOutsideRelativePath(relative: string): boolean {
   return (
     relative === ".." ||
@@ -91,6 +127,10 @@ function isOutsideRelativePath(relative: string): boolean {
   );
 }
 
+/**
+ * Map a TypeScript source extension to its JavaScript output counterpart.
+ * `.mts` → `.mjs`, `.cts` → `.cjs`, everything else → `.js`.
+ */
 function emittedJavaScriptExtension(filename: string): string {
   switch (path.extname(filename).toLowerCase()) {
     case ".mts":
@@ -102,6 +142,7 @@ function emittedJavaScriptExtension(filename: string): string {
   }
 }
 
+/** Return true when `filename` has a `.js`, `.mjs`, or `.cjs` extension. */
 function isJavaScriptOutput(filename: string): boolean {
   return /\.(?:[cm]?js)$/i.test(filename);
 }

@@ -14,13 +14,15 @@ import {
  * Verifies TtscCompiler.compile applies configured source plugins without
  * project output.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * `compile()` must run the plugin transform pipeline and return the emitted
+ * JavaScript in its result map without ever writing files to disk. Pins the
+ * in-memory output contract so bundler adapters and API callers can consume
+ * plugin-transformed JS without side-effecting the project directory.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a source plugin that upper-cases a string literal.
+ * 2. Call `compile()` via the programmatic API.
+ * 3. Assert the output map contains the transformed JS and `dist/` was not
+ *    written.
  */
 export const test_ttsccompiler_compile_applies_configured_source_plugins_without_project_output =
   () => {

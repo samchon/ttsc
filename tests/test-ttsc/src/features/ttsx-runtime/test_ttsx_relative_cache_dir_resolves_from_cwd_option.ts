@@ -6,13 +6,16 @@ import path from "node:path";
 /**
  * Verifies ttsx relative cache dir resolves from cwd option.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `--cache-dir` is a relative path, it must be resolved against `--cwd`
+ * (the project directory), not against the shell's working directory. A user
+ * might invoke ttsx from a different directory while pointing at a project
+ * elsewhere; the cache must land inside that project.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project under one temp directory and a separate driver cwd.
+ * 2. Run ttsx with `--cwd <project>` and `--cache-dir .ttsx-cache` from the driver
+ *    cwd.
+ * 3. Assert the cache directory was created inside the project, not the driver
+ *    cwd.
  */
 export const test_ttsx_relative_cache_dir_resolves_from_cwd_option = () => {
   const root = TestProject.createProject({

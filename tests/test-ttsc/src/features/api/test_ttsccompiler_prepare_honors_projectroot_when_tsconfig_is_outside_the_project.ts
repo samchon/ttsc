@@ -13,16 +13,22 @@ import {
 } from "../../internal/compiler";
 
 /**
- * Verifies TtscCompiler.prepare honors projectRoot when tsconfig is outside the
- * project.
+ * Verifies TtscCompiler.prepare honors `projectRoot` when the tsconfig lives
+ * outside the project directory.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Monorepo setups sometimes keep a shared tsconfig in a sibling `config/`
+ * directory while the actual source and `package.json` live in `project/`.
+ * Plugin discovery anchors on `projectRoot`, not on `cwd` or the tsconfig
+ * directory. Pins the `projectRoot` override so the plugin binary is cached
+ * under the project's own `cacheDir` even when the tsconfig resolves
+ * elsewhere.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a `project/` dir with `package.json` and plugin, and a
+ *    `config/tsconfig.json`.
+ * 2. Construct a TtscCompiler with `projectRoot: "project"` and `tsconfig:
+ *    "config/tsconfig.json"`.
+ * 3. Call `prepare()` and assert the binary exists under
+ *    `project/.cache/ttsc/plugins`.
  */
 export const test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project =
   () => {

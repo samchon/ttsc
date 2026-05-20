@@ -11,16 +11,19 @@ import {
 } from "../../internal/compiler";
 
 /**
- * Verifies TtscCompiler.prepare builds source plugins and clean removes context
- * cache.
+ * Verifies TtscCompiler.prepare builds source plugins and clean removes the
+ * context cache.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * `prepare()` pre-compiles Go source plugins and returns the binary paths so
+ * the subsequent `compile()` call can skip the build step. `clean()` must then
+ * remove exactly the `cacheDir` subtree and return the removed paths. Pins the
+ * full lifecycle so CI pipelines that call `prepare` + `clean` between
+ * invocations leave no dangling artifacts in explicit cache directories.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a source plugin and an explicit `cacheDir`.
+ * 2. Call `prepare()` and assert the returned binary path exists under
+ *    `cacheDir/plugins`.
+ * 3. Call `clean()` and assert the entire `cacheDir` is removed.
  */
 export const test_ttsccompiler_prepare_builds_source_plugins_and_clean_removes_context_cache =
   () => {

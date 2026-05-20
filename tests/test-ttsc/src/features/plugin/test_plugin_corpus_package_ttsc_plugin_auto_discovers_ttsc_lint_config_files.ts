@@ -15,13 +15,16 @@ import {
  * Verifies plugin corpus: package ttsc.plugin auto-discovers @ttsc/lint config
  * files.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `@ttsc/lint` appears in package.json's `devDependencies`, the
+ * auto-plugin loader must pick up `lint.config.json` from the project root and
+ * apply it as the lint rule set — without requiring an explicit `transform`
+ * entry in tsconfig. This validates the zero-config integration path for lint
+ * consumers.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Set up a project with `@ttsc/lint` in `devDependencies`, a `lint.config.json`
+ *    enabling the `no-var` rule, and a source file that uses `var`.
+ * 2. Run ttsc with `--noEmit` (no explicit lint plugin in tsconfig).
+ * 3. Assert non-zero exit and `[no-var]` in stderr.
  */
 export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_config_files =
   () => {

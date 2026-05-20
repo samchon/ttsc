@@ -7,13 +7,14 @@ import path from "node:path";
  * Verifies runner corpus: ttsx executes the intended entrypoint and side
  * effects.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsx must run the entry module in a child process whose `process.argv` and
+ * `process.cwd()` match the values a normal Node.js invocation would provide.
+ * Arguments after `--` must be forwarded verbatim as the child's argv.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an entry that writes its argv, cwd, and an execution flag to a marker
+ *    file.
+ * 2. Run ttsx with extra argv after `--`.
+ * 3. Assert the marker file contains the expected argv and cwd values.
  */
 export const test_runner_corpus_ttsx_executes_the_intended_entrypoint_and_side_effects =
   () => {

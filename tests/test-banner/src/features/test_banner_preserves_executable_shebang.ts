@@ -8,12 +8,17 @@ import { TestBanner } from "../internal/TestBanner";
 /**
  * Verifies the @ttsc/banner plugin: banner preserves executable shebang.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * CLI entry-points use a `#!/usr/bin/env node` shebang on the very first line
+ * of the emitted JS so the OS can execute the file directly. The banner
+ * transform must keep that shebang as line 1 (not push it below the banner
+ * block), otherwise the file is not directly executable. This test locks that
+ * ordering contract.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project whose source file starts with `#!/usr/bin/env node`, and
+ *    configure the banner plugin with a custom text via tsconfig.
+ * 2. Run `ttsc --emit` against that project.
+ * 3. Assert the emitted `.js` starts with the shebang line, and the banner block
+ *    appears exactly once after it.
  */
 export const test_banner_preserves_executable_shebang = () => {
   const root = TestProject.commonJsProject(

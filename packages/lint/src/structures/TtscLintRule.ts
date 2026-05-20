@@ -1,9 +1,18 @@
 /**
- * Lint rule names understood by the `@ttsc/lint` native sidecar.
+ * Union of every built-in lint rule name understood by the `@ttsc/lint` native
+ * sidecar.
  *
  * These names intentionally mirror familiar ESLint / TypeScript-ESLint rule
  * names so a `compilerOptions.plugins[]` entry can configure native linting
  * without introducing a separate lint config file.
+ *
+ * The `format/*` members at the bottom of the union are applied by `ttsc
+ * format`; their severity also controls whether `ttsc check` surfaces
+ * unformatted code as a diagnostic.
+ *
+ * This type is used as the key constraint in `TtscLintRuleMap` for rules that
+ * carry no per-rule options. Rules with typed option objects are additionally
+ * listed in `ITtscLintRuleOptionsMap`.
  */
 export type TtscLintRule =
   | "adjacent-overload-signatures"

@@ -11,13 +11,15 @@ import {
 /**
  * Verifies readProjectConfig lets later array extends clear inherited plugins.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * When a tsconfig uses the `extends` array and a later entry sets `plugins:
+ * []`, the empty array must replace the earlier entry's plugins rather than
+ * being ignored. Without this, `plugins: []` would be a no-op and there would
+ * be no way to opt out of plugins introduced by an earlier base config.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create `base-a.json` with one plugin entry and `base-b.json` with `plugins:
+ *    []`.
+ * 2. Write a project tsconfig that extends `[base-a, base-b]`.
+ * 3. Assert the resolved plugins array is empty and `pluginBaseDirs` is empty.
  */
 export const test_readprojectconfig_lets_later_array_extends_clear_inherited_plugins =
   () => {

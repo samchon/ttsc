@@ -15,13 +15,16 @@ import {
  * Verifies plugin corpus: @ttsc/lint option changes reuse the source plugin
  * binary cache.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Rule configuration is passed at runtime as `--plugins-json`; it is not baked
+ * into the binary. Changing which rules are enabled must not trigger a Go
+ * rebuild because the binary itself is unchanged — only the runtime arguments
+ * differ. Rebuilding on every config change would make lint impractically
+ * slow.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Run ttsc with `no-var: error` (cold build) and assert the binary is built.
+ * 2. Swap the config to `no-explicit-any` and `prefer-template` and run again.
+ * 3. Assert no rebuild occurs, JS is emitted to the custom outDir, and only one
+ *    binary entry exists in the plugin cache.
  */
 export const test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache =
   () => {

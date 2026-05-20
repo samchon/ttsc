@@ -6,16 +6,19 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc check resolves paths mappings under current TypeScript-Go
+ * Verifies ttsc check resolves `paths` mappings under current TypeScript-Go
  * policy.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The Go compiler tracks TypeScript-Go's evolving `paths` resolution policy.
+ * Both wildcard (`@lib/*`) and exact-match (`exact-lib`) aliases must resolve
+ * during the check phase. This test is intentionally written as a clean-pass
+ * assertion so CI will catch any regression where the Go backend silently stops
+ * resolving `paths` aliases in a newer tsgo version.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `paths` aliases and source files that import via those
+ *    aliases.
+ * 2. Run `ttsc check`.
+ * 3. Assert exit 0 (no type errors from unresolved paths).
  */
 export const test_ttsc_check_resolves_paths_mappings_under_current_typescript_go_policy =
   () => {

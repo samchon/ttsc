@@ -12,13 +12,16 @@ import {
 /**
  * Verifies TtscCompiler.transform returns failure on compiler diagnostics.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Unlike `compile()`, `transform()` still returns the TypeScript source even
+ * when there are type errors so bundler adapters can show the source location
+ * alongside the diagnostic. Pins the dual contract: the result type is
+ * `failure`, the diagnostics array carries the error code, but the `typescript`
+ * map still contains the source files.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a type error (string assigned to number).
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the result is `failure` with the error code and the typescript map is
+ *    populated.
  */
 export const test_ttsccompiler_transform_returns_failure_on_compiler_diagnostics =
   () => {

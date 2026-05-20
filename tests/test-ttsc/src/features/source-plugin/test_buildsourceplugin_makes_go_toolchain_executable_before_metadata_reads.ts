@@ -13,9 +13,15 @@ import {
  * Verifies buildSourcePlugin makes the Go toolchain executable before reading
  * go.mod metadata.
  *
- * Npm package extraction can leave bundled Go files without executable mode.
- * The source-plugin builder reads go.mod before go build, so the permission fix
- * must happen before any Go command is spawned.
+ * Npm package extraction can leave bundled Go files without the executable bit
+ * set. The source-plugin builder reads `go.mod` metadata via `go mod edit
+ * -json` before running `go build`, so the permission fix must happen before
+ * any Go command is spawned, not only before the final compile step.
+ *
+ * 1. Create a plugin source tree with the required standard subdirectories.
+ * 2. Write a fake `go` executable that is non-executable (mode 0o644).
+ * 3. Call `buildSourcePlugin`; assert it succeeds and that the fake `go` binary
+ *    now has the executable bit set.
  */
 export const test_buildsourceplugin_makes_go_toolchain_executable_before_metadata_reads =
   () => {

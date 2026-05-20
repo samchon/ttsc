@@ -1,16 +1,19 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime diagnostics match ESLint API
- * output.
+ * Verifies that ttsc's ESLint runtime mode produces diagnostics identical to
+ * calling the ESLint API directly with the same config.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * This is the primary parity contract for the ESLint runtime bridge. The ttsc
+ * host spawns the real ESLint API in a subprocess, collects its output, and
+ * merges it with native diagnostics. If the host's column/line mapping, rule
+ * name normalisation, or message transcription diverges from what ESLint
+ * reports, this test catches it.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with `typescript-eslint` installed and a typed-rule
+ *    config (`no-explicit-any` + `no-floating-promises`).
+ * 2. Run both ttsc and the ESLint API directly against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal.
  */
 export const test_lint_config_file_eslint_runtime_diagnostics_match_eslint_api_output =
   async () => {

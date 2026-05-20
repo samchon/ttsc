@@ -1,16 +1,22 @@
 import { assertTransformAbsolutizesPluginConfigPaths } from "../../internal/transform-compiler-options";
 
 /**
- * Verifies transformTtsc absolutizes relative plugin config paths in generated
+ * Verifies transformTtsc absolutizes relative plugin config paths in the
+ * generated tsconfig.
+ *
+ * The generated tsconfig is written to a temp directory outside the project
+ * root. If a plugin descriptor carries a relative `config` path it would
+ * resolve against the temp dir rather than the project root, silently loading
+ * the wrong file or failing with ENOENT. This pins that `transformTtsc`
+ * resolves relative config paths to absolute paths before writing the temp
  * tsconfig.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
- *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with no plugins in its tsconfig.
+ * 2. Write a `fixture.config.json` at the project root.
+ * 3. Call `transformTtsc` with an inline plugin that carries a relative `config:
+ *    "./fixture.config.json"` and uses the `assert-config-path` operation so
+ *    the plugin itself verifies the path is absolute.
+ * 4. Assert the transform succeeds and the output contains the plugin marker.
  */
 export const test_transformttsc_absolutizes_relative_plugin_config_paths_in_generated_tsconfig =
   async () => {

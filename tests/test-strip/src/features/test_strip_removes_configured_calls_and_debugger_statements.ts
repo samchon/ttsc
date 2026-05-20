@@ -9,13 +9,21 @@ import { TestStrip } from "../internal/TestStrip";
  * Verifies the @ttsc/strip plugin: strip removes configured calls and debugger
  * statements.
  *
- * This strip feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * This is the core strip happy-path. It exercises explicit `calls` and
+ * `statements` config via a tsconfig plugin entry, verifies that the wildcard
+ * pattern `assert.*` removes the entire containing `if`-statement (not just the
+ * inner call), and confirms declaration output is clean. Running the emitted
+ * file through Node ensures stripping does not break the remaining runtime
+ * behavior.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/strip from package or tsconfig
- *    plugin options.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project whose source mixes `console.log`, `console.debug`,
+ *    `assert.equal`, `debugger`, an `if` guard containing `console.log`, and a
+ *    kept `console.info` call.
+ * 2. Configure the tsconfig plugin with explicit `calls` and `statements` lists,
+ *    then run `ttsc --emit`.
+ * 3. Assert the stripped identifiers are absent from `.js` and `.d.ts`,
+ *    `console.info("kept")` survives, and `node dist/main.js` exits 0 with
+ *    "kept" on stdout.
  */
 export const test_strip_removes_configured_calls_and_debugger_statements =
   () => {

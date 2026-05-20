@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import * as os from "node:os";
+import os from "node:os";
 
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { resolveTtscserverBinary } from "./resolveTtscserverBinary";
@@ -66,8 +66,16 @@ export function runTtscserver(
   return result.status ?? 1;
 }
 
+/**
+ * Build the environment for the native binary. When running in `--stdio` (LSP)
+ * mode the Go binary needs to know which tsgo binary to wrap; inject
+ * `TTSC_TSGO_BINARY` so the native host does not have to re-resolve it from
+ * inside a potentially different working directory. Skip injection when the
+ * caller already provided the variable or passed an explicit `--tsgo` option.
+ */
 function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
   if (!argv.includes("--stdio")) {
+    // Non-LSP invocations (--version, --help) do not shell out to tsgo.
     return process.env;
   }
   if (process.env.TTSC_TSGO_BINARY || hasTsgoOption(argv)) {

@@ -1,16 +1,18 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: installed ESLint runtime respects ignored files
- * silently.
+ * Verifies that files matched by a flat-config `ignores` pattern are silently
+ * skipped by the ESLint runtime (no diagnostic, no warning).
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the ignored-file handling path for the runtime bridge. ESLint emits a
+ * `ENOENT`-style warning when `warnIgnored` is set; the ttsc host must pass
+ * `warnIgnored: false` and `ignore: true` so ignored files are silently
+ * excluded. A misconfigured invocation would either warn about the ignored file
+ * or still lint it.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with two sources: `src/main.ts` (to be linted) and
+ *    `src/generated.ts` (listed in `ignores`).
+ * 2. Run ttsc; assert only `src/main.ts` produces a diagnostic.
  */
 export const test_lint_config_file_installed_eslint_runtime_respects_ignored_files_silently =
   () => {

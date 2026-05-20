@@ -12,13 +12,15 @@ import {
  * Verifies TtscCompiler.transform preserves warning diagnostics from check
  * plugins.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Check-only plugins emit diagnostics without modifying the source tree. When a
+ * plugin produces a warning (not an error), `transform()` should still return a
+ * `success` result — the transform succeeded, but the warnings must be surfaced
+ * in the `diagnostics` array so callers can relay them to the user.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a check plugin that emits one warning diagnostic.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the result is `success`, `diagnostics` has one `warning`-category
+ *    entry, and the typescript source is still returned.
  */
 export const test_ttsccompiler_transform_preserves_warning_diagnostics_from_check_plugins =
   () => {

@@ -10,13 +10,15 @@ import {
 /**
  * Verifies ttsc blocks semantic diagnostics before emit.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Pins the CLI-level semantic gate against the real launcher binary. A type
+ * error must cause a non-zero exit and print the diagnostic on stderr without
+ * writing any JavaScript to the output directory. Companion to the corpus
+ * variant; exercises the default (non-corpus-wrapper) command surface.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with a type error (`string` assigned to `number`).
+ * 2. Run the real `ttsc` launcher with `--emit`.
+ * 3. Assert non-zero exit, the type-error message on stderr, and no
+ *    `dist/main.js`.
  */
 export const test_ttsc_blocks_semantic_diagnostics_before_emit = () => {
   const root = createProject({

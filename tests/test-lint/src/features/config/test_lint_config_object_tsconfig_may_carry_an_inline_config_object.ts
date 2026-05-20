@@ -1,15 +1,18 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config object: tsconfig may carry an inline config object.
+ * Verifies that the legacy `config` field on a tsconfig plugin entry accepts an
+ * inline rules object and applies it correctly.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the legacy inline-object branch that must remain functional for backward
+ * compatibility. Unlike the new `rules` field, the legacy `config` field may
+ * carry a bare rules map directly in tsconfig.json without a separate file.
+ * This test exercises that code path in isolation from the deprecation-warning
+ * behaviour (which is covered separately).
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture whose plugin entry sets `config: { "no-console":
+ *    "error", "no-var": "off" }`.
+ * 2. Run ttsc; assert `no-console` fires and `no-var` does not.
  */
 export const test_lint_config_object_tsconfig_may_carry_an_inline_config_object =
   () => {

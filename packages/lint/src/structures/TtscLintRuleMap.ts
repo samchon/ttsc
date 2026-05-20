@@ -11,8 +11,8 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   `[severity, options]`, with the options type picked per rule key.
  * - Every other built-in rule accepts `severity` or `[severity]`.
  * - Namespaced contributor plugin rules accept `severity`, `[severity]`, or
- *   `[severity, unknownOptions]` because the host type surface no longer
- *   knows contributor rule schemas.
+ *   `[severity, unknownOptions]` because the host type surface no longer knows
+ *   contributor rule schemas.
  *
  * Splitting the two halves (instead of folding them into one mapped type with a
  * conditional value) keeps TypeScript's contextual typing intact inside the
@@ -38,19 +38,18 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * splits each negative case into its own const to keep every branch
  * load-bearing.
  */
-export type TtscLintRuleMap =
-  {
-    [K in keyof ITtscLintRuleOptionsMap]?:
-      | TtscLintSeverity
-      | readonly [TtscLintSeverity]
-      | readonly [TtscLintSeverity, ITtscLintRuleOptionsMap[K]];
-  } & {
-    [K in Exclude<TtscLintRule, keyof ITtscLintRuleOptionsMap>]?:
-      | TtscLintSeverity
-      | readonly [TtscLintSeverity];
-  } & {
-    [K in `${string}/${string}`]?:
-      | TtscLintSeverity
-      | readonly [TtscLintSeverity]
-      | readonly [TtscLintSeverity, unknown];
-  };
+export type TtscLintRuleMap = {
+  [K in keyof ITtscLintRuleOptionsMap]?:
+    | TtscLintSeverity
+    | readonly [TtscLintSeverity]
+    | readonly [TtscLintSeverity, ITtscLintRuleOptionsMap[K]];
+} & {
+  [K in Exclude<TtscLintRule, keyof ITtscLintRuleOptionsMap>]?:
+    | TtscLintSeverity
+    | readonly [TtscLintSeverity];
+} & {
+  [K in `${string}/${string}`]?:
+    | TtscLintSeverity
+    | readonly [TtscLintSeverity]
+    | readonly [TtscLintSeverity, unknown];
+};

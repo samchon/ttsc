@@ -15,13 +15,15 @@ import {
  * Verifies plugin corpus: default export factory is accepted as a native
  * descriptor.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Plugin descriptors may use `exports.default = (context) => descriptor` in
+ * addition to the plain `module.exports = descriptor` shape. The descriptor
+ * loader must recognise both so package authors who prefer named exports are
+ * not forced to use `module.exports`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin file that sets `exports.default` to a factory function
+ *    returning a descriptor pointing at the go-transformer source.
+ * 2. Run ttsc with `--emit` against the fixture project.
+ * 3. Assert zero exit and `"PLUGIN"` present in the emitted JS.
  */
 export const test_plugin_corpus_default_export_factory_is_accepted_as_a_native_descriptor =
   () => {

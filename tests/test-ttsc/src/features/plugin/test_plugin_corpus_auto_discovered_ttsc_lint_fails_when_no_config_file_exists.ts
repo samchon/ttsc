@@ -15,13 +15,15 @@ import {
  * Verifies plugin corpus: auto-discovered @ttsc/lint fails when no config file
  * exists.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `@ttsc/lint` is present in `package.json` dependencies but no
+ * `ttsc-lint.config.*` file exists, ttsc must reject the project with a clear
+ * message rather than silently running with no rules or producing a cryptic Go
+ * build error from the lint sidecar.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialize a project that lists `@ttsc/lint` as a dependency but writes no
+ *    lint config file.
+ * 2. Run ttsc with `--noEmit`.
+ * 3. Assert non-zero exit and stderr that references `config.*ttsc-lint.config`.
  */
 export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists =
   () => {

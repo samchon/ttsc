@@ -13,13 +13,16 @@ import {
 /**
  * Verifies TtscCompiler.compile applies package-discovered source plugins.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Plugins declared via `ttsc.plugins` in `package.json` rather than in
+ * `tsconfig.json` must be discovered and applied during `compile()`. Pins the
+ * package-based auto-discovery path so projects that co-locate plugin config
+ * with their package manifest (rather than tsconfig) get equivalent transform
+ * behavior through the programmatic API.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a plugin declared in `package.json` only.
+ * 2. Call `compile()` via the programmatic API.
+ * 3. Assert the output map contains the plugin-transformed JS and `dist/` was not
+ *    written.
  */
 export const test_ttsccompiler_compile_applies_package_discovered_source_plugins =
   () => {

@@ -768,6 +768,19 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
 }
 
+/**
+ * Resolve the directory where compiled plugin binaries are cached.
+ *
+ * Priority order:
+ *
+ * 1. `cacheDir` option (resolved relative to `projectRoot`).
+ * 2. `TTSC_CACHE_DIR` environment variable.
+ * 3. Platform-specific global user cache (XDG / AppData / Library/Caches).
+ *
+ * When falling back to the global cache, a GC pass is triggered
+ * opportunistically to evict old or oversized entries before the cache is
+ * used.
+ */
 export function resolvePluginCacheRoot(
   projectRoot: string,
   cacheDir?: string,
@@ -783,6 +796,13 @@ export function resolvePluginCacheRoot(
   return root;
 }
 
+/**
+ * Return the absolute path to the global plugin binary cache root.
+ *
+ * The path follows platform conventions (XDG on Linux, AppData on Windows,
+ * Library/Caches on macOS) and does not depend on project-local config. Used by
+ * `ttsc cache clean` to enumerate cache locations.
+ */
 export function resolveGlobalPluginCacheRoot(): string {
   return path.join(
     resolveUserCacheRoot(),
@@ -791,6 +811,13 @@ export function resolveGlobalPluginCacheRoot(): string {
   );
 }
 
+/**
+ * Return all directories that `ttsc cache clean` should wipe for a project.
+ *
+ * Covers three locations where plugin binaries may accumulate: the global user
+ * cache, the project-local `node_modules/.ttsc` cache (legacy), and the
+ * project-local `.ttsc` cache.
+ */
 export function defaultPluginCacheCleanTargets(projectRoot: string): string[] {
   return [
     resolveGlobalPluginCacheRoot(),
@@ -878,6 +905,17 @@ function resolveGoCompiler(): string {
   return "go";
 }
 
+/**
+ * Compute a deterministic SHA-256 cache key for a plugin build.
+ *
+ * The key covers every input that can produce a different binary: ttsc/tsgo
+ * versions, platform, entry package, Go compiler identity, Go build environment
+ * variables, overlay module sources, plugin source files, and contributor
+ * source files. Contributors are sorted by name so declaration order does not
+ * affect the key.
+ *
+ * Exposed for testing and for the `ttsc cache` CLI command.
+ */
 export function computeCacheKey(inputs: {
   contributors?: readonly ITtscBuildContributor[];
   dir: string;

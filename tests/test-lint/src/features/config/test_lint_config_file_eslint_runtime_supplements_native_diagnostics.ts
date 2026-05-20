@@ -5,15 +5,19 @@ import {
 } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime supplements native diagnostics.
+ * Verifies that ESLint runtime diagnostics are appended to the native
+ * diagnostics stream rather than replacing them.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the merge path between the native engine output and the ESLint runtime
+ * subprocess output. A native `no-console` rule fires; a fake ESLint runtime
+ * also emits a `custom/rule` diagnostic. Both must appear in the final output
+ * without a `"ignoring unknown rule"` warning for the custom rule (the runtime
+ * handles it instead of the native engine). If ttsc routes all diagnostics
+ * through only one path, one set will be missing.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a fake ESLint runtime that emits `custom/rule`.
+ * 2. Enable both `no-console` (native) and `custom/rule` (runtime).
+ * 3. Assert both diagnostics appear in the merged output in order.
  */
 export const test_lint_config_file_eslint_runtime_supplements_native_diagnostics =
   () => {

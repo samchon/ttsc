@@ -14,13 +14,16 @@ import {
 /**
  * Verifies plugin corpus: source plugins are built locally and used.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * This is the primary happy-path test for the source-plugin build+cache cycle.
+ * A cold build must compile the Go source, produce a cached binary, and emit
+ * transformed JS. A subsequent warm build must reuse the cache (no build log)
+ * and produce identical output, confirming the content-addressed key is stable
+ * across repeated invocations.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy `go-source-plugin` and run ttsc (cold); assert build log and `"PLUGIN"`
+ *    in emitted JS.
+ * 2. Run ttsc again against the same cache (warm); assert no build log and
+ *    `"PLUGIN"` still present.
  */
 export const test_plugin_corpus_source_plugins_are_built_locally_and_used =
   () => {

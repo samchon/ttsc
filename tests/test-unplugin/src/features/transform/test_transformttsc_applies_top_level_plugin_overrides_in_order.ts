@@ -3,13 +3,16 @@ import { assertTransformAppliesOrderedPluginOverrides } from "../../internal/tra
 /**
  * Verifies transformTtsc applies top-level plugin overrides in order.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `plugins` array in `resolveOptions` is an ordered override list: each
+ * entry is applied in sequence so later plugins see the output of earlier ones.
+ * Reordering or skipping any plugin would silently corrupt the final output.
+ * This pins that three chained fixture plugins (prefix → upper → suffix) are
+ * applied in the declared order.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project whose tsconfig has no plugins.
+ * 2. Call `transformTtsc` with three ordered plugins: `prefix` (adds "A:"),
+ *    `upper` (uppercases), and `suffix` (adds ":Z").
+ * 3. Assert the output contains `"A:PLUGIN:Z"`, proving all three ran in order.
  */
 export const test_transformttsc_applies_top_level_plugin_overrides_in_order =
   async () => {

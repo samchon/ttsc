@@ -9,12 +9,18 @@ import { TestBanner } from "../internal/TestBanner";
  * Verifies the @ttsc/banner plugin: tsconfig banner config wins over package
  * auto config.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * When both auto-discovery (`@ttsc/banner` in `package.json`) and an explicit
+ * tsconfig plugin entry with a `config` path are present, the tsconfig entry
+ * takes precedence. Without this precedence rule the auto-discovered config
+ * would silently shadow an explicit override, making the tsconfig `config`
+ * field effectively a no-op whenever the package is also installed.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with an auto-discoverable `banner.config.cjs` in the root
+ *    and a second, explicit config under `config/banner.config.cjs` that the
+ *    tsconfig plugin entry references via `config`.
+ * 2. Run `ttsc --emit` against that project.
+ * 3. Assert only the explicit config's banner text appears in the output and the
+ *    auto-discovered text is absent.
  */
 export const test_banner_tsconfig_config_overrides_package_auto_config = () => {
   const root = TestProject.commonJsProject(

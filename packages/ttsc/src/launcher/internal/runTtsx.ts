@@ -5,6 +5,14 @@ import path from "node:path";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 
+/**
+ * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
+ * JavaScript to a PID-isolated temp directory, rewrites ESM specifiers when
+ * needed, and executes the compiled entry with the current Node.js runtime.
+ *
+ * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
+ * @returns The child-process exit code, or `2` on a ttsx-level error.
+ */
 export function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
 ): number {
@@ -222,6 +230,12 @@ function runPreparedEntry(
   return result.status ?? 1;
 }
 
+/**
+ * Walk every `.js`/`.mjs`/`.cjs` file in `root` and rewrite bare relative
+ * specifiers (e.g. `"./foo"`) to include the resolved file extension so Node
+ * can load them with `--input-type=module`. Files that did not change are not
+ * written back.
+ */
 function rewriteEsmSpecifiers(root: string): void {
   const stack = [root];
   while (stack.length !== 0) {
@@ -431,26 +445,37 @@ function findTemplateExpressionEnd(
   return null;
 }
 
+/**
+ * Append or fix a file extension on a relative specifier so that Node's ESM
+ * loader can resolve it. The resolution order mirrors Node's own algorithm:
+ * exact file match → directory index → `.js` fallback. Non-relative specifiers
+ * and already-extensioned paths are returned unchanged.
+ */
 function withResolvableExtension(fromFile: string, specifier: string): string {
   if (!specifier.startsWith(".")) {
+    // Bare specifiers (packages, builtins) need no rewriting.
     return specifier;
   }
   if (/\.(?:[cm]?js|json|node)$/i.test(specifier)) {
+    // Already has a concrete extension the loader understands.
     return specifier;
   }
   const [pathname, suffix = ""] = splitSpecifierSuffix(specifier);
   const fromDir = path.dirname(fromFile);
+  // 1. Try the specifier as a file path with each JS extension.
   for (const extension of [".js", ".mjs", ".cjs"]) {
     if (fs.existsSync(path.resolve(fromDir, pathname + extension))) {
       return pathname + extension + suffix;
     }
   }
+  // 2. Try interpreting it as a directory with an index file.
   const directory = pathname.replace(/\/+$/, "");
   for (const extension of [".js", ".mjs", ".cjs"]) {
     if (fs.existsSync(path.resolve(fromDir, directory, "index" + extension))) {
       return `${directory}/index${extension}${suffix}`;
     }
   }
+  // 3. Last resort: append `.js` and let Node surface the error if it's wrong.
   return `${specifier}.js`;
 }
 
@@ -553,6 +578,12 @@ function skipRegex(input: string, start: number): number {
   return input.length;
 }
 
+/**
+ * Determine whether the `/` at `start` opens a regex literal rather than a
+ * division operator. This is a conservative approximation: check the preceding
+ * non-whitespace token — if it is an operator character or a keyword that must
+ * be followed by an expression, we assume regex.
+ */
 function looksLikeRegexStart(input: string, start: number): boolean {
   let i = start - 1;
   while (i >= 0 && /\s/.test(input[i]!)) {

@@ -3,7 +3,19 @@ import path from "node:path";
 
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
 
-/** Resolve the tsconfig/jsconfig that owns a ttsc invocation. */
+/**
+ * Resolve the tsconfig/jsconfig that owns a ttsc invocation.
+ *
+ * Resolution order:
+ *
+ * 1. `opts.tsconfig` — resolved absolute and checked for existence.
+ * 2. `opts.file` — the nearest ancestor config that contains the file is found by
+ *    walking up from the file's directory.
+ * 3. `opts.cwd` — the nearest ancestor config walking up from cwd.
+ *
+ * Always returns a real (symlink-resolved) absolute path. Throws when no config
+ * is found or the explicitly supplied path does not exist.
+ */
 export function resolveProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
 ): string {
@@ -29,10 +41,15 @@ export function resolveProjectConfig(
   return resolveRealPath(found);
 }
 
+/** Resolve `target` against `cwd` when it is not already absolute. */
 function resolveAbsolutePath(cwd: string, target: string): string {
   return path.isAbsolute(target) ? target : path.resolve(cwd, target);
 }
 
+/**
+ * Resolve symlinks on `location`, returning the original path when
+ * `realpathSync` fails (e.g. when the file does not yet exist).
+ */
 function resolveRealPath(location: string): string {
   try {
     return fs.realpathSync(location);
@@ -41,6 +58,11 @@ function resolveRealPath(location: string): string {
   }
 }
 
+/**
+ * Walk up the directory tree from `from`, returning the first directory that
+ * contains a file whose name is in `names`. Returns `null` when the filesystem
+ * root is reached without finding a match.
+ */
 function findUp(from: string, names: readonly string[]): string | null {
   let current = path.resolve(from);
   while (true) {
@@ -58,6 +80,7 @@ function findUp(from: string, names: readonly string[]): string | null {
   }
 }
 
+/** Return true when `location` exists and is a directory. */
 function isDirectory(location: string): boolean {
   try {
     return fs.statSync(location).isDirectory();

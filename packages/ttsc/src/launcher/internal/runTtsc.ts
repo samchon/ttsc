@@ -12,6 +12,16 @@ import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourc
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 
+/**
+ * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
+ * (build, check, fix, format, prepare, clean, or native-delegate) and returns
+ * an exit code. Errors thrown by any lane are caught here and written to stderr
+ * so the process can exit cleanly.
+ *
+ * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
+ * @returns The exit code: `0` on success, `1` on binary-not-found, `2` on user
+ *   error or build failure.
+ */
 export function runTtsc(
   argv: readonly string[] = process.argv.slice(2),
 ): number {
@@ -67,6 +77,12 @@ export function runTtsc(
   }
 }
 
+/**
+ * Return `true` when `command` looks like a build argument rather than a
+ * subcommand name — a flag (`-p`, `--watch`, …) or a TypeScript/config file
+ * path. These are forwarded to the build lane unchanged so users can write
+ * `ttsc -p tsconfig.json` without an explicit `build` subcommand.
+ */
 function isBuildAlias(command: string): boolean {
   if (command.startsWith("-")) return true;
   return [".json", ".ts", ".tsx", ".mts", ".cts"].some((ext) =>
@@ -362,6 +378,8 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
         } else if (current.startsWith("--outDir=")) {
           outDir = current.slice("--outDir=".length);
         } else if (current === "-w") {
+          // Unreachable: `-w` is handled by the switch case above. Kept here
+          // as a guard in case the switch is refactored in the future.
           watch = true;
         } else if (current.startsWith("--tsconfig=")) {
           tsconfig = current.slice("--tsconfig=".length);
@@ -375,6 +393,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
         } else if (current.startsWith("--cache-dir=")) {
           cacheDir = current.slice("--cache-dir=".length);
         } else if (current === "--verbose") {
+          // Unreachable: `--verbose` is handled by the switch case above.
           quiet = false;
         } else if (current.startsWith("-")) {
           throw new Error(`ttsc: unknown option ${current}`);
@@ -588,8 +607,7 @@ function runWatch(
       tsconfig: options.tsconfig,
     }),
   );
-  const watchRoot = root;
-  const directories = collectWatchDirectories(watchRoot);
+  const directories = collectWatchDirectories(root);
   const watchers = directories.map((dir) =>
     fs.watch(dir, { persistent: true }, () => trigger()),
   );

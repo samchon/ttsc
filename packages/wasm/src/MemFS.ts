@@ -20,6 +20,15 @@ const S_IFREG = 0o100000;
 const DEFAULT_FILE_MODE = S_IFREG | 0o644;
 const DEFAULT_DIR_MODE = S_IFDIR | 0o755;
 
+/**
+ * Subset of the Node.js `fs` module that `wasm_exec.js` calls into.
+ *
+ * Go's js/wasm runtime routes all `syscall/js` filesystem operations through
+ * `globalThis.fs`. In a browser there is no real `fs`, so a MemFS
+ * implementation fulfils this interface. Only the operations that
+ * typescript-go's compiler exercises are required; the rest are no-ops or
+ * return `EPERM`/`EINVAL`.
+ */
 export interface IWasmExecFS {
   constants: Record<string, number>;
   writeSync(fd: number, buf: Uint8Array): number;
@@ -37,7 +46,10 @@ export interface IWasmExecFS {
     mode: number,
     callback: (err: NodeJS.ErrnoException | null, fd: number) => void,
   ): void;
-  close(fd: number, callback: (err: NodeJS.ErrnoException | null) => void): void;
+  close(
+    fd: number,
+    callback: (err: NodeJS.ErrnoException | null) => void,
+  ): void;
   read(
     fd: number,
     buffer: Uint8Array,
@@ -67,7 +79,10 @@ export interface IWasmExecFS {
     fd: number,
     callback: (err: NodeJS.ErrnoException | null, stats: IFileStats) => void,
   ): void;
-  fsync(fd: number, callback: (err: NodeJS.ErrnoException | null) => void): void;
+  fsync(
+    fd: number,
+    callback: (err: NodeJS.ErrnoException | null) => void,
+  ): void;
   unlink(
     path: string,
     callback: (err: NodeJS.ErrnoException | null) => void,
@@ -152,6 +167,12 @@ export interface IWasmExecFS {
   ): void;
 }
 
+/**
+ * Stat-like object returned by `stat`, `lstat`, and `fstat`.
+ *
+ * Mirrors the subset of `fs.Stats` that `wasm_exec.js` reads. Fields not
+ * relevant to Go's `os.FileInfo` (e.g. ownership) are zeroed.
+ */
 export interface IFileStats {
   isDirectory(): boolean;
   isFile(): boolean;
@@ -170,12 +191,19 @@ export interface IFileStats {
   blocks: number;
 }
 
+/** Internal filesystem tree node. Directories carry an empty `data` buffer. */
 interface INode {
   kind: "file" | "dir";
   data: Uint8Array;
   mtimeMs: number;
 }
 
+/**
+ * Filesystem error with a POSIX error code and numeric `errno`.
+ *
+ * Matches the shape of `NodeJS.ErrnoException` so Go's os package interprets it
+ * as a proper `os.PathError` with a numeric error code.
+ */
 export class MemFSError extends Error {
   public code: string;
   public errno: number;
@@ -190,6 +218,7 @@ export class MemFSError extends Error {
   }
 }
 
+/** Map a POSIX error name to its Linux numeric errno (negative by convention). */
 function errnoForCode(code: string): number {
   switch (code) {
     case "ENOENT":
@@ -207,6 +236,11 @@ function errnoForCode(code: string): number {
   }
 }
 
+/**
+ * Handle returned by `createMemFS`. Provides the `fs` shim to install on
+ * `globalThis` plus convenience methods for seeding the virtual filesystem
+ * before booting the wasm.
+ */
 export interface IMemFSHost {
   fs: IWasmExecFS;
   writeFile(path: string, data: string | Uint8Array): void;
@@ -222,6 +256,12 @@ export interface IMemFSHost {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+/**
+ * Resolve a path to an absolute, normalized POSIX path.
+ *
+ * Collapses `.` and `..` segments and converts backslashes. Returns `"/"` for
+ * empty input.
+ */
 function normalize(p: string): string {
   if (!p) return "/";
   const parts = p.replace(/\\/g, "/").split("/").filter(Boolean);
@@ -237,6 +277,15 @@ function normalize(p: string): string {
   return "/" + stack.join("/");
 }
 
+/**
+ * Create an in-memory filesystem suitable for use as `globalThis.fs` inside a
+ * Go/wasm runtime.
+ *
+ * The returned host exposes the low-level `fs` object (install it on
+ * `globalThis.fs` before loading `wasm_exec.js`) and convenience helpers
+ * (`writeFile`, `readFile`, `mkdirp`, …) for seeding source files and reading
+ * compiler output without touching the real filesystem.
+ */
 export function createMemFS(): IMemFSHost {
   const nodes = new Map<string, INode>();
   nodes.set("/", { kind: "dir", data: new Uint8Array(), mtimeMs: Date.now() });
@@ -271,6 +320,10 @@ export function createMemFS(): IMemFSHost {
   }
   const pipes = new Map<number, IPipeState>();
 
+  /**
+   * Drain buffered pipe data into `buffer[offset..offset+length]`. Returns
+   * bytes copied.
+   */
   function drainPipeInto(
     state: IPipeState,
     buffer: Uint8Array,
@@ -289,19 +342,29 @@ export function createMemFS(): IMemFSHost {
     return written;
   }
 
+  /**
+   * Satisfy any pending blocked readers using available pipe data or EOF
+   * signal.
+   */
   function flushPipeReaders(state: IPipeState): void {
     while (
       state.pendingReaders.length > 0 &&
       (state.buffers.length > 0 || state.writeClosed)
     ) {
       const reader = state.pendingReaders.shift()!;
-      const n = drainPipeInto(state, reader.buffer, reader.offset, reader.length);
+      const n = drainPipeInto(
+        state,
+        reader.buffer,
+        reader.offset,
+        reader.length,
+      );
       // Even at EOF (writeClosed && empty buffers) we satisfy with n=0 which
       // signals EOF to the Go-side caller.
       reader.callback(null, n);
     }
   }
 
+  /** Silently create any missing ancestor directories for path `p`. */
   function ensureParentDirs(p: string): void {
     const segments = normalize(p).split("/").filter(Boolean);
     segments.pop();
@@ -358,6 +421,7 @@ export function createMemFS(): IMemFSHost {
     return nodes.has(normalize(p));
   }
 
+  /** Synchronously stat `p`; throws `MemFSError("ENOENT")` if not found. */
   function statSync(p: string): IFileStats {
     const norm = normalize(p);
     const node = nodes.get(norm);
@@ -365,6 +429,7 @@ export function createMemFS(): IMemFSHost {
     return makeStats(node);
   }
 
+  /** Build an `IFileStats` object from a filesystem node. */
   function makeStats(node: INode): IFileStats {
     const isDir = node.kind === "dir";
     return {
@@ -386,6 +451,12 @@ export function createMemFS(): IMemFSHost {
     };
   }
 
+  /**
+   * Return immediate children of directory `p`, sorted alphabetically.
+   *
+   * Uses a linear scan over the node map and a `Set` to deduplicate nested
+   * paths into direct-child names — O(n) in the number of total nodes.
+   */
   function readdirSync(p: string): string[] {
     const norm = normalize(p);
     const node = nodes.get(norm);
@@ -438,9 +509,12 @@ export function createMemFS(): IMemFSHost {
       if (entry) {
         const node = nodes.get(entry.path);
         if (node && node.kind === "file") {
+          // subarray(0) is a zero-copy view over the full incoming buffer.
           const incoming = buf.subarray(0);
           const existing = node.data;
-          const next = new Uint8Array(existing.byteLength + incoming.byteLength);
+          const next = new Uint8Array(
+            existing.byteLength + incoming.byteLength,
+          );
           next.set(existing, 0);
           next.set(incoming, existing.byteLength);
           node.data = next;
@@ -455,7 +529,11 @@ export function createMemFS(): IMemFSHost {
       stderr.buffer += decoder.decode(buf);
       // eslint-disable-next-line no-console
       console.error(
-        "[wasm] writeSync to unknown fd " + fd + " (" + buf.byteLength + " bytes); routed to stderr buffer",
+        "[wasm] writeSync to unknown fd " +
+          fd +
+          " (" +
+          buf.byteLength +
+          " bytes); routed to stderr buffer",
       );
       return buf.length;
     },
@@ -599,7 +677,10 @@ export function createMemFS(): IMemFSHost {
       try {
         callback(null, statSync(p));
       } catch (err) {
-        callback(err as NodeJS.ErrnoException, undefined as unknown as IFileStats);
+        callback(
+          err as NodeJS.ErrnoException,
+          undefined as unknown as IFileStats,
+        );
       }
     },
 
@@ -614,7 +695,11 @@ export function createMemFS(): IMemFSHost {
       if (pipes.has(fd)) {
         callback(
           null,
-          makeStats({ kind: "file", data: new Uint8Array(), mtimeMs: Date.now() }),
+          makeStats({
+            kind: "file",
+            data: new Uint8Array(),
+            mtimeMs: Date.now(),
+          }),
         );
         return;
       }

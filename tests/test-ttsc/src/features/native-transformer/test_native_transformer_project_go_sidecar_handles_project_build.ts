@@ -11,15 +11,19 @@ import {
 } from "../../internal/native-transformer";
 
 /**
- * Verifies native transformer project: Go sidecar handles project build.
+ * Verifies the native transformer project: a Go sidecar handles a full project
+ * build end-to-end.
  *
- * This ttsc native transformer scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `go-native-transformer` fixture demonstrates the minimal Go sidecar
+ * pattern where a project bundles its own transformer source. This test drives
+ * the complete path: ttsc discovers the sidecar source, builds the binary, runs
+ * the transform, emits JavaScript, and executes it — all as a single `--emit`
+ * invocation.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-native-transformer` fixture into a temp directory.
+ * 2. Run `ttsc --emit` with the Go SDK on PATH and the transformer source in env.
+ * 3. Assert the emitted JS contains `GO NATIVE TRANSFORMER` and executes
+ *    successfully.
  */
 export const test_native_transformer_project_go_sidecar_handles_project_build =
   () => {

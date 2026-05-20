@@ -3,13 +3,17 @@ import { assertTransformSkipsProjectPlugins } from "../../internal/transform-dis
 /**
  * Verifies transformTtsc leaves source unchanged when plugins are disabled.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Users can opt out of all ttsc plugin transforms by passing `resolveOptions({
+ * plugins: false })`. This is the escape hatch for projects that use the
+ * unplugin adapter solely for bundler integration but want no source transforms
+ * applied. If this flag were ignored, the transform would run anyway and mutate
+ * output the user intended to keep raw. This pins that `plugins: false` causes
+ * `transformTtsc` to return `undefined`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with a source that would trigger a plugin error if
+ *    the transform ran.
+ * 2. Call `transformTtsc` with `plugins: false`.
+ * 3. Assert the return value is `undefined`.
  */
 export const test_transformttsc_leaves_source_unchanged_when_plugins_are_disabled =
   async () => {

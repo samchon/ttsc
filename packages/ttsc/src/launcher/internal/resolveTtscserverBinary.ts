@@ -47,5 +47,7 @@ function defaultLocalBinaryPath(): string | null {
 
 function packageRootDir(): string {
   const moduleDir = path.resolve(__dirname, "..", "..");
+  // Prefer the faster native variant; fall back to the JS implementation on
+  // platforms (or environments) where `realpathSync.native` is unavailable.
   return fs.realpathSync.native?.(moduleDir) ?? fs.realpathSync(moduleDir);
 }

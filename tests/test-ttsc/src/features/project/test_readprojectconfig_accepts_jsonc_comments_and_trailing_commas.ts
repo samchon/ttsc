@@ -11,13 +11,15 @@ import {
 /**
  * Verifies readProjectConfig accepts JSONC comments and trailing commas.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * TypeScript's own `tsconfig.json` parser accepts JSONC (JSON with Comments and
+ * trailing commas). `readProjectConfig` uses the same JSONC parser so that
+ * plugin configuration embedded in tsconfig follows the same relaxed syntax
+ * users already rely on for their compiler options.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Write a `tsconfig.json` that contains a `//` comment and a trailing comma in
+ *    the plugins array.
+ * 2. Invoke `readProjectConfig`.
+ * 3. Assert the plugins array parses correctly to the expected single entry.
  */
 export const test_readprojectconfig_accepts_jsonc_comments_and_trailing_commas =
   () => {

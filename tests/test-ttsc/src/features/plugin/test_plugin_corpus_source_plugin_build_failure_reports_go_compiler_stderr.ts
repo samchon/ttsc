@@ -15,13 +15,16 @@ import {
  * Verifies plugin corpus: source plugin build failure reports Go compiler
  * stderr.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `go build` fails the raw compiler output must flow through to ttsc's
+ * stderr so authors can debug syntax errors without running Go separately. A
+ * silent failure would leave users with only a non-zero exit code and no
+ * actionable information.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture and inject a Go syntax error into
+ *    `go-plugin/main.go`.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and a message containing `building plugin
+ *    "go-source-plugin" via "go build" failed` in stderr.
  */
 export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr =
   () => {

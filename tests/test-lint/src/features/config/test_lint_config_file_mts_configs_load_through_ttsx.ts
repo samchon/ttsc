@@ -1,15 +1,17 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: .mts configs load through ttsx.
+ * Verifies that a `.mts` lint config file is evaluated correctly through ttsx.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the ESM TypeScript config extension branch. The loader must recognise
+ * `.mts` as an ESM TypeScript file and invoke ttsx to evaluate it. This is the
+ * ESM-TypeScript counterpart of the `.cts` test; both branches must be
+ * exercised because the extension-based dispatch lives in a separate code path
+ * from the generic `.ts` handler.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture whose plugin entry references `./ttsc-lint.config.mts`.
+ * 2. The config default-exports a bare rules map.
+ * 3. Run ttsc; assert `no-var` fires from the loaded config.
  */
 export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
   const result = runLint({

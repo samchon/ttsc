@@ -25,16 +25,18 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: syntax diagnostics stop emit before JavaScript is
+ * Verifies compiler corpus: a syntax error stops emit before JavaScript is
  * written.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Complements the semantic-diagnostic guard by covering parse-phase errors. A
+ * source file with invalid syntax (e.g. a bare `=` with no right-hand side)
+ * must halt compilation and leave the `outDir` clean. Without this gate the
+ * compiler could parse enough of the file to emit partial JavaScript.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a CommonJS project with a syntax error in `src/main.ts`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert non-zero exit, a syntax-error message on stderr, and no
+ *    `dist/main.js`.
  */
 export const test_compiler_corpus_syntax_diagnostics_stop_emit_before_javascript_is_written =
   (): void => {

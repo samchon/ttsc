@@ -3,13 +3,15 @@ import { assertTransformResultHasNoSyntheticSourceMap } from "../../internal/tra
 /**
  * Verifies transformTtsc returns code without fabricated source maps.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The unplugin adapter must not synthesize a `map` property on the transform
+ * result. Returning a fabricated source map would override the bundler's own
+ * source-map pipeline, producing incorrect stack traces. Only the native
+ * compiler should produce source maps, and only when the user has enabled them.
+ * This pins that the transform result object does not contain a `map` key.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with no plugins in tsconfig.
+ * 2. Call `transformTtsc` with an inline plugin via `compilerOptions.plugins`.
+ * 3. Assert the result is truthy and that `"map" in result` is `false`.
  */
 export const test_transformttsc_returns_code_without_fabricated_source_maps =
   async () => {

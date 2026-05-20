@@ -1,16 +1,22 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint disable comments: native engine respects eslint and lint
- * directives.
+ * Verifies that the native engine honours both `eslint-disable-*` and
+ * `lint-disable-*` inline directives, including block, next-line, and same-line
+ * forms.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the directive parser in the Go-side native engine. Seven distinct cases
+ * are embedded in the source: one clean `var` (must fire), one disabled with
+ * `eslint-disable-next-line` (must not fire), one disabled with
+ * `lint-disable-line` (must not fire), a `var` inside an `eslint-disable` …
+ * `eslint-enable` block (must not fire), one after `eslint-enable` (must fire),
+ * one in a string literal that looks like a directive (must not suppress), and
+ * one that follows the string-literal non-directive (must fire).
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Construct a source with all seven patterns.
+ * 2. Run ttsc with `no-var: error`, `no-debugger: error`, `no-explicit-any:
+ *    error`.
+ * 3. Assert only lines 1, 8, and 10 produce diagnostics.
  */
 export const test_lint_disable_comments_native_engine_respects_eslint_and_lint_directives =
   () => {

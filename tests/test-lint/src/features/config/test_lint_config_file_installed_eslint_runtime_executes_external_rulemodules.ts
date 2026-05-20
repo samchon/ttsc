@@ -5,16 +5,19 @@ import {
 } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: installed ESLint runtime executes external
- * RuleModules.
+ * Verifies that the ESLint runtime executes rules from an installed external
+ * rule module (e.g. `@typescript-eslint/no-floating-promises`).
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the external-module resolution path. When the config references a rule
+ * by its namespaced plugin ID and the eslint runtime is installed, the host
+ * must delegate to the runtime's `lintFiles` rather than attempting to look up
+ * the rule in the native corpus. A fake ESLint runtime module is used so the
+ * test is hermetic and fast.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a fake `eslint` runtime that emits a diagnostic
+ *    for `@typescript-eslint/no-floating-promises`.
+ * 2. Run ttsc; assert the diagnostic appears with no `"ignoring unknown rule"`
+ *    warning (the runtime handled it).
  */
 export const test_lint_config_file_installed_eslint_runtime_executes_external_rulemodules =
   () => {

@@ -6,13 +6,15 @@ import path from "node:path";
 /**
  * Verifies runner corpus: ESM import.meta.url resolves from configured outDir.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * ESM modules use `import.meta.url` instead of `__dirname`. ttsx must rewrite
+ * that URL to point at the emitted output directory so that patterns like
+ * `path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")` resolve to
+ * the same location they would in a deployed build.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an ESM project with `outDir: "bin"` and source under `src/`.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the file read via the rewritten `import.meta.url` returns the expected
+ *    content.
  */
 export const test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir =
   () => {

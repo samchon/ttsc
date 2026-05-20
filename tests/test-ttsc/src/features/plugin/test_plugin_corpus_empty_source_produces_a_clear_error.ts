@@ -8,13 +8,14 @@ import {
 /**
  * Verifies plugin corpus: empty source produces a clear error.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A descriptor with `source: ""` is structurally valid JSON but semantically
+ * meaningless — there is no Go module to build. Rather than letting the Go
+ * toolchain produce a confusing "no such file" error, ttsc must catch the empty
+ * string early and emit `must declare source`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin descriptor whose `source` property is an empty string.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `must declare source` in stderr.
  */
 export const test_plugin_corpus_empty_source_produces_a_clear_error = () => {
   const root = pluginProject(

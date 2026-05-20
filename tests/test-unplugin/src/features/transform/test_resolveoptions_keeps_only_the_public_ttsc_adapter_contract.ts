@@ -3,13 +3,16 @@ import { assertResolveOptionsKeepsOnlyPublicContract } from "../../internal/opti
 /**
  * Verifies resolveOptions keeps only the public ttsc adapter contract.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `resolveOptions` is the normalisation step that strips any private or
+ * framework-specific keys before they leak into the generated tsconfig. An
+ * accidental extra key would either corrupt the tsconfig or expose an
+ * undocumented option surface. This pins that the returned object has exactly
+ * the three public keys (`compilerOptions`, `plugins`, `project`) and that each
+ * value is preserved verbatim.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Call `resolveOptions` with all three public fields populated.
+ * 2. Assert the returned object has exactly those three keys (sorted).
+ * 3. Assert each field value is deep-equal to the input.
  */
 export const test_resolveoptions_keeps_only_the_public_ttsc_adapter_contract =
   async () => {

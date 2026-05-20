@@ -11,13 +11,15 @@ import {
 /**
  * Verifies plugin corpus: nonexistent source produces a clear error.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When a descriptor's `source` path resolves to a string but the directory does
+ * not exist on disk, ttsc must report `source does not exist` before attempting
+ * a Go build. Without this guard the `go build` invocation fails with an
+ * unhelpful "no such file" from the OS rather than a ttsc-level diagnosis.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin descriptor whose `source` resolves to a directory path that is
+ *    not created in the fixture.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `source does not exist` in stderr.
  */
 export const test_plugin_corpus_nonexistent_source_produces_a_clear_error =
   () => {

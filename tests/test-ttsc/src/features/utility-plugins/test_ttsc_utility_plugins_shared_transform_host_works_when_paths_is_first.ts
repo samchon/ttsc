@@ -9,12 +9,16 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * Verifies ttsc utility plugins: shared transform host works when paths is
  * first.
  *
- * This scenario stays in the compiler package because it verifies linked host
- * behavior across package boundaries.
+ * Locks the descriptor-order invariant: `@ttsc/paths` is a linked contributor
+ * and `@ttsc/banner`/`@ttsc/strip` own the shared transform host. Placing
+ * `@ttsc/paths` first in the descriptor list must not change host selection or
+ * cause a second native host to be spawned.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads utility plugin descriptors.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Configure plugins with `paths` listed before `banner` and `strip`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert one linked host was built with 3 contributors, path aliases were
+ *    rewritten, banner was prepended, and `console.log`/`debugger` were
+ *    stripped.
  */
 export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is_first =
   () => {

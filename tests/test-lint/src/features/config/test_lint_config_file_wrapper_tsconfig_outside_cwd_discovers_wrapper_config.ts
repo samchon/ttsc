@@ -13,16 +13,21 @@ import {
 } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: wrapper tsconfig outside cwd discovers wrapper
- * config.
+ * Verifies that when the tsconfig passed to `TtscCompiler` lives outside the
+ * project CWD, the lint config is discovered relative to the wrapper tsconfig's
+ * directory rather than the CWD.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the wrapper-tsconfig config-discovery path. A monorepo root may extend a
+ * package tsconfig while providing its own `lint.config.json`; the engine must
+ * resolve the lint config from the wrapper tsconfig's directory, not from the
+ * inner project's root. Without this, the wrapper's rules would never be seen
+ * and the outer project's lint setup would be silently ignored.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a `lint.config.json` in its root.
+ * 2. Create a separate wrapper directory with its own `lint.config.json` and a
+ *    tsconfig that extends the project's tsconfig.
+ * 3. Compile via `TtscCompiler` using the wrapper tsconfig; assert the wrapper's
+ *    `no-var` rule fires (not the project's `no-console` rule).
  */
 export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config =
   () => {

@@ -8,13 +8,14 @@ import {
 /**
  * Verifies plugin corpus: invalid plugin export reports the bad specifier.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The descriptor loader accepts objects, factory functions, or named exports.
+ * When a plugin file exports a primitive (e.g. `module.exports = 123`), ttsc
+ * must name the offending file path in the error so the author can find it
+ * immediately rather than seeing a generic "not a function" crash.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin file that exports the number `123`.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `does not export a valid ttsc plugin` in stderr.
  */
 export const test_plugin_corpus_invalid_plugin_export_reports_the_bad_specifier =
   () => {

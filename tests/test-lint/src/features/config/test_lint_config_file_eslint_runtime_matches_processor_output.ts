@@ -1,15 +1,18 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches processor output.
+ * Verifies that a flat-config `processor` is forwarded to the ESLint runtime
+ * and that ttsc's output matches the ESLint API baseline.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the `processor` key forwarding path in the runtime bridge. The
+ * `preprocess`/`postprocess` pair is part of the flat-config contract; if ttsc
+ * strips the processor field the messages array from `postprocess` will be
+ * missing, silently dropping all diagnostics from the processed file.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with a custom plugin that has a `ts` processor and a
+ *    `no-forbidden-name` rule.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal.
  */
 export const test_lint_config_file_eslint_runtime_matches_processor_output =
   async () => {

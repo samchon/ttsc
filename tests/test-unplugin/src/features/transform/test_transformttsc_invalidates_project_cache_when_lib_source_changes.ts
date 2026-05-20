@@ -1,15 +1,22 @@
 import { assertTransformCacheInvalidatesOnLibSourceChange } from "../../internal/transform-compiler-options";
 
 /**
- * Verifies transformTtsc invalidates project cache when lib source changes.
+ * Verifies transformTtsc invalidates the project cache when a lib source file
+ * listed in the plugin config changes.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Plugins can declare arbitrary file dependencies via a `path` config option.
+ * If the cache only tracked project source files but not plugin-declared
+ * dependencies, a change to `lib/helper.ts` would not invalidate the cached
+ * transform result, and consumers would see stale output. This pins that a
+ * plugin-configured dependency path is tracked and that its mutation triggers
+ * cache invalidation.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture with a plugin that uses `operation:
+ *    "read-configured-helper"` pointing to `lib/helper.ts`.
+ * 2. Write `lib/helper.ts` with content "first" and run `transformTtsc` — assert
+ *    output contains `"PLUGIN:FIRST"`.
+ * 3. Overwrite `lib/helper.ts` with "second" and run `transformTtsc` again —
+ *    assert output now contains `"PLUGIN:SECOND"`.
  */
 export const test_transformttsc_invalidates_project_cache_when_lib_source_changes =
   async () => {

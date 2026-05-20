@@ -6,15 +6,18 @@ import path from "node:path";
 import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 
 /**
- * Verifies resolveTsgo accepts TTSC_TSGO_BINARY as an explicit compiler.
+ * Verifies resolveTsgo accepts `TTSC_TSGO_BINARY` as an explicit compiler
+ * override.
  *
- * This ttsc tsgo resolver scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Pins the env-var escape hatch that lets developers point ttsc at a custom
+ * tsgo binary (e.g. a locally compiled debug build) without touching the
+ * installed `@typescript/native-preview` package. When `TTSC_TSGO_BINARY` is
+ * set, the resolver must return it with `version: "custom"` to indicate the
+ * binary identity was not read from a package.json.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Write an empty file at a temp path to act as a fake tsgo binary.
+ * 2. Call `resolveTsgo` with `env.TTSC_TSGO_BINARY` pointing at that file.
+ * 3. Assert the result `binary` equals the path and `version` is `"custom"`.
  */
 export const test_resolvetsgo_accepts_ttsc_tsgo_binary_as_an_explicit_compiler =
   () => {

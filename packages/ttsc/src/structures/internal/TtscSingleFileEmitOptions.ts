@@ -10,6 +10,4 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
   out?: string;
   /** Suppress summary banners from ttsc/native sidecars. Defaults to `true`. */
   quiet?: boolean;
-  /** Normalize compiler output so diagnostics can be parsed structurally. */
-  structuredDiagnostics?: boolean;
 }

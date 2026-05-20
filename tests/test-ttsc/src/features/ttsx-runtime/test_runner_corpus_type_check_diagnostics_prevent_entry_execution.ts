@@ -6,13 +6,14 @@ import path from "node:path";
 /**
  * Verifies runner corpus: type-check diagnostics prevent entry execution.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsx runs a real type-check before executing the entry. If the project has
+ * type errors, the process must exit with a non-zero status and must not
+ * execute the entry — even though `tsgo --noEmit` would still emit JS for files
+ * with errors in `--isolatedModules` mode.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with a deliberate type error (`string = 123`).
+ * 2. Run ttsx; assert non-zero exit and the type-error diagnostic in stderr.
+ * 3. Assert the entry was never executed (no marker file written).
  */
 export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
   () => {

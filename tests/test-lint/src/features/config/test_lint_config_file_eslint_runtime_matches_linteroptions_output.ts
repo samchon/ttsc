@@ -1,15 +1,19 @@
 import { assertESLintRuntimeParity } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint runtime matches linterOptions output.
+ * Verifies that `linterOptions.noInlineConfig` is honoured by the ESLint
+ * runtime and that ttsc's output matches the ESLint API baseline.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the `linterOptions` forwarding path in the runtime bridge. With
+ * `noInlineConfig: true`, ESLint ignores `/* eslint-disable no-console *\/` and
+ * still reports the violation. If ttsc drops `linterOptions` the ESLint API
+ * call will behave differently, breaking parity.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with `linterOptions: { noInlineConfig: true }` and a
+ *    `/* eslint-disable no-console *\/` inline directive in the source.
+ * 2. Run both ttsc and the ESLint API against the same source.
+ * 3. Assert the two diagnostic arrays are deeply equal (`no-console` fires despite
+ *    the inline disable because noInlineConfig is active).
  */
 export const test_lint_config_file_eslint_runtime_matches_linteroptions_output =
   async () => {

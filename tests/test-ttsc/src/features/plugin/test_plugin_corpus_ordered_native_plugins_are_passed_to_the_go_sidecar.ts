@@ -14,13 +14,17 @@ import {
 /**
  * Verifies plugin corpus: ordered native plugins are passed to the Go sidecar.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `--plugins-json` payload forwarded to the native binary must preserve
+ * tsconfig order and honour the `enabled: false` flag. Enabled plugins that
+ * carry `prefix`/`suffix` options compose in declaration order; a disabled
+ * plugin (`enabled: false`) must be silently dropped so its suffix never
+ * appears in the output.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Configure four native plugins: prefix `A:`, a disabled suffix `:NO`, an
+ *    identity plugin, and a suffix `:Z`.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit and the emitted JS contains `"A:PLUGIN:Z"` (with no `:NO`
+ *    from the disabled entry).
  */
 export const test_plugin_corpus_ordered_native_plugins_are_passed_to_the_go_sidecar =
   () => {

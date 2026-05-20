@@ -9,12 +9,15 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * Verifies ttsc utility plugins: descriptors own separate native source
  * directories.
  *
- * This scenario stays in the compiler package because it verifies descriptor
- * source ownership across package boundaries.
+ * Each utility package (`lint`, `banner`, `paths`, `strip`) must advertise its
+ * own `source` directory — distinct from every other package — so the
+ * linked-plugin host can combine their sources into one binary without path
+ * collisions. The `stage` and `package.json` plugin field must also match the
+ * expected values for each package.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads utility plugin descriptors.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Invoke `createTtscPlugin` for each utility package with a factory context.
+ * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields.
+ * 3. Assert all four `source` directories are distinct.
  */
 export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories =
   () => {

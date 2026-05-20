@@ -14,16 +14,19 @@ import {
 } from "../../internal/compiler";
 
 /**
- * Verifies TtscCompiler.compile discovers package plugins from ancestor
+ * Verifies TtscCompiler.compile discovers package plugins from an ancestor
  * package.json.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Plugin auto-discovery walks up from `cwd` to find the nearest `package.json`
+ * carrying `ttsc.plugins`. When the project lives under a monorepo workspace
+ * root that has no `package.json` of its own, the workspace-root plugins must
+ * still apply. Pins the ancestor-walk so workspace-level plugin declarations
+ * reach nested packages through `compile()`.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a workspace root with `ttsc.plugins` and a nested `packages/app`
+ *    project.
+ * 2. Construct a TtscCompiler with `cwd` pointing at the nested project.
+ * 3. Call `compile()` and assert the workspace-level plugin was applied.
  */
 export const test_ttsccompiler_compile_discovers_package_plugins_from_ancestor_package_json =
   () => {

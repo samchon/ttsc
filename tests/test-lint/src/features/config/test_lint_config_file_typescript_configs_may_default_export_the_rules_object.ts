@@ -1,16 +1,17 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: TypeScript configs may default-export the rules
- * object.
+ * Verifies that a `.ts` lint config may default-export a bare rules map
+ * (without wrapping it in `{ rules: ... }`).
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the TypeScript config bare-export coercion path via ttsx. The loader
+ * must recognise a plain object whose keys look like rule names as a flat rules
+ * map. This is the simplest possible TypeScript config shape and should work
+ * regardless of whether the user wraps rules in an `ITtscLintConfig`
+ * structure.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with a `.ts` config that bare-exports a rules map.
+ * 2. Run ttsc; assert `no-var` fires from the loaded config.
  */
 export const test_lint_config_file_typescript_configs_may_default_export_the_rules_object =
   () => {

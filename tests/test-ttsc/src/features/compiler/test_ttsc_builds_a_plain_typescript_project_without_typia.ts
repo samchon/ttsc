@@ -8,15 +8,16 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc builds a plain TypeScript project without typia.
+ * Verifies ttsc builds a plain TypeScript project without any plugins.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The most basic contract: `ttsc --emit` on a pure TypeScript project (no
+ * typia, no plugins) must produce runnable CommonJS output. Serves as a smoke
+ * test for the compiler pipeline and ensures plain projects are not
+ * accidentally broken by plugin-loading infrastructure changes.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a minimal CommonJS project with an addition function.
+ * 2. Run `ttsc --emit` and assert `dist/main.js` is written with `exports.add`.
+ * 3. Execute the output with Node and assert the printed result is `"5"`.
  */
 export const test_ttsc_builds_a_plain_typescript_project_without_typia = () => {
   const root = createProject({

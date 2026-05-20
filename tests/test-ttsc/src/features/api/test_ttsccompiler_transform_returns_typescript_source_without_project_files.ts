@@ -13,13 +13,16 @@ import {
  * Verifies TtscCompiler.transform returns TypeScript source without project
  * files.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * `transform()` is the source-only twin of `compile()`. It must return the
+ * original (or plugin-modified) `.ts` content and must never write `.js`,
+ * `.d.ts`, or any other output to disk. Pins the basic no-plugin path so the
+ * minimum viable use-case — read a project's TypeScript into memory — works
+ * before any plugin is involved.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a minimal project with no plugins.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the typescript map contains the source and no JS/declaration keys
+ *    exist.
  */
 export const test_ttsccompiler_transform_returns_typescript_source_without_project_files =
   () => {

@@ -1,16 +1,18 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: TypeScript configs can use exported @ttsc/lint
- * types.
+ * Verifies that a `.ts` lint config using `satisfies ITtscLintConfig` from
+ * `@ttsc/lint` is evaluated correctly by ttsx.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the end-to-end TypeScript config path with type assertions. The config
+ * uses `{ rules: { ... } } satisfies ITtscLintConfig` which is a compile-time
+ * construct; ttsx must type-check and transpile it before the rules map can be
+ * extracted. If `@ttsc/lint` is not resolvable during ttsx evaluation, the type
+ * annotation fails and the config is rejected.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with a `.ts` config that imports and uses
+ *    `ITtscLintConfig`.
+ * 2. Run ttsc; assert the `no-var` rule from the config fires correctly.
  */
 export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint_types =
   () => {

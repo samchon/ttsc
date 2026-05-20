@@ -1,15 +1,16 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: .cts configs load through ttsx.
+ * Verifies that a `.cts` lint config file is evaluated correctly through ttsx.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the CJS TypeScript config extension branch. The loader must recognise
+ * `.cts` as a CommonJS TypeScript file, invoke ttsx, and accept the `export =`
+ * assignment export form. Without this, users who set `"type": "module"` in
+ * their project and write a CJS config file would silently get no rules.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialize a fixture whose plugin entry references `./ttsc-lint.config.cts`.
+ * 2. The config exports a rules map via `export = config` (CJS style).
+ * 3. Run ttsc; assert `no-console` fires from the loaded config.
  */
 export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
   const result = runLint({

@@ -22,7 +22,21 @@ import {
   selectSharedHostPlugin,
 } from "./sharedHostHelpers";
 
-/** Transform a project and capture TypeScript source output in memory. */
+/**
+ * Transform a project and capture TypeScript source output in memory.
+ *
+ * When no plugins are configured the fast path spawns the native ttsc compiler
+ * host (`cmd/ttsc api-transform`) which returns a JSON map of transformed
+ * TypeScript sources. When plugins are present:
+ *
+ * 1. Check-stage plugins run first and abort on failure.
+ * 2. If there are no transform-stage plugins the host is used as the transformer.
+ * 3. If transform plugins exist they are dispatched through the shared-host binary
+ *    with linked plugins passed via `TTSC_LINKED_PLUGINS_JSON`.
+ *
+ * @returns A `{ result, typescript }` pair where `typescript` maps output paths
+ *   to their transformed TypeScript source text.
+ */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
   result: TtscBuildResult;
   typescript: Record<string, string>;
@@ -39,6 +53,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   return transformProjectWithNativeHost(options, project);
 }
 
+/** Return true when the project or the call-level options declare any plugins. */
 function hasConfiguredPlugins(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
@@ -46,6 +61,11 @@ function hasConfiguredPlugins(
   return hasProjectPluginEntries(project, options.plugins);
 }
 
+/**
+ * Transform via the built-in native compiler host (`cmd/ttsc api-transform`).
+ * Used when no user plugins are configured, or as the fallback transformer when
+ * check-stage plugins pass and no transform-stage plugins are declared.
+ */
 function transformProjectWithNativeHost(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
@@ -160,6 +180,10 @@ function transformProjectWithPlugins(
   };
 }
 
+/**
+ * Run every check-stage plugin in sequence, short-circuiting on the first
+ * failure. Returns the aggregated `TtscBuildResult` (status 0 when all pass).
+ */
 function runNativeChecks(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
@@ -204,6 +228,7 @@ function runNativeChecks(
   return result;
 }
 
+/** Build the CLI argument list for the `transform` subcommand. */
 function createNativeTransformArgs(
   project: ITtscParsedProjectConfig,
   plugins: readonly ITtscLoadedNativePlugin[],
@@ -216,6 +241,7 @@ function createNativeTransformArgs(
   ];
 }
 
+/** Build the CLI argument list for the `check` subcommand. */
 function createNativeCheckArgs(
   project: ITtscParsedProjectConfig,
   plugins: readonly ITtscLoadedNativePlugin[],
@@ -228,6 +254,10 @@ function createNativeCheckArgs(
   ];
 }
 
+/**
+ * Serialize the plugin list to a JSON string for `--plugins-json=`. Only the
+ * fields the native binary needs are included to keep the arg short.
+ */
 function serializeNativePlugins(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): string {
@@ -240,6 +270,12 @@ function serializeNativePlugins(
   );
 }
 
+/**
+ * Build the environment for a native plugin spawn. Injects `TTSC_NODE_BINARY`,
+ * `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` so the sidecar can re-invoke
+ * Node.js or tsgo without searching PATH. For transform plugins, also passes
+ * `TTSC_LINKED_PLUGINS_JSON` when linked sources are present.
+ */
 function nativePluginEnv(
   options: ITtscCompilerContext,
   projectRoot: string,
@@ -265,6 +301,11 @@ function nativePluginEnv(
   return env;
 }
 
+/**
+ * Spawn a native binary (or a Node.js script when the path has a JS/TS
+ * extension) with the given args and return the `spawnSync` result. Sets a
+ * generous 256 MiB output buffer so large projects do not truncate.
+ */
 function spawnNative(
   binary: string,
   args: readonly string[],
@@ -290,6 +331,11 @@ function spawnNative(
   );
 }
 
+/**
+ * Ensure the binary has the executable bit set on POSIX systems. Silently skips
+ * on Windows and swallows `chmod` errors to let the original spawn error
+ * surface instead of masking it with a permission error.
+ */
 function ensureExecutable(binary: string): void {
   if (process.platform === "win32") {
     return;
@@ -305,6 +351,7 @@ function ensureExecutable(binary: string): void {
   }
 }
 
+/** Coerce a `spawnSync` output value to a plain string, defaulting to `""`. */
 function outputText(value: string | Buffer | null | undefined): string {
   if (value == null) {
     return "";
@@ -312,6 +359,13 @@ function outputText(value: string | Buffer | null | undefined): string {
   return typeof value === "string" ? value : value.toString("utf8");
 }
 
+/**
+ * Parse the JSON envelope written by the native transform host to stdout.
+ *
+ * The `typescript` field must be a `Record<string, string>`. Any other shape is
+ * treated as a protocol error and throws with the stderr/stdout context. JSON
+ * parse errors are also wrapped with the same context message.
+ */
 function parseNativeTransformOutput(
   stdout: string,
   stderr: string,
@@ -344,6 +398,7 @@ function parseNativeTransformOutput(
   }
 }
 
+/** Type guard: true when `value` is a non-null, non-array object of strings. */
 function isTextRecord(value: unknown): value is Record<string, string> {
   return (
     typeof value === "object" &&
@@ -353,6 +408,13 @@ function isTextRecord(value: unknown): value is Record<string, string> {
   );
 }
 
+/**
+ * Walk up the directory tree from `__dirname` until a directory that contains
+ * both `package.json` and `go.mod` is found. This is the `packages/ttsc` root
+ * needed for `buildNativeCompiler`.
+ *
+ * Throws when the root cannot be found (broken installation).
+ */
 function packageRootDir(): string {
   let current = path.resolve(__dirname);
   while (true) {

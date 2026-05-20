@@ -9,11 +9,7 @@ export { bootTtsc } from "./instantiate";
 export type { IBootTtscOptions, IBootResult } from "./instantiate";
 
 export { createMemFS, MemFSError } from "./MemFS";
-export type {
-  IMemFSHost,
-  IWasmExecFS,
-  IFileStats,
-} from "./MemFS";
+export type { IMemFSHost, IWasmExecFS, IFileStats } from "./MemFS";
 
 export type {
   ITtscApi,

@@ -13,16 +13,20 @@ import {
 } from "../../internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: source plugins serve an ordered --plugins-json
+ * Verifies plugin corpus: source plugins serve an ordered `--plugins-json`
  * pipeline.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Multiple entries in tsconfig plugins that resolve to the same Go source
+ * directory all share the same cached binary, but each entry may carry
+ * different `prefix`/`suffix` options. ttsc serialises all entries into the
+ * `--plugins-json` argument so the single sidecar binary applies each
+ * transformation in declaration order.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Rewrite `plugin.cjs` as a context-aware factory and configure three entries
+ *    (prefix `A:`, identity, suffix `:Z`) all pointing at the same source
+ *    directory.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit and `"A:PLUGIN:Z"` in the emitted JS.
  */
 export const test_plugin_corpus_source_plugins_serve_an_ordered_plugins_json_pipeline =
   () => {

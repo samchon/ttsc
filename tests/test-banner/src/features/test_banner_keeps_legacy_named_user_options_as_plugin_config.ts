@@ -9,12 +9,18 @@ import { TestBanner } from "../internal/TestBanner";
  * Verifies the @ttsc/banner plugin: legacy-named user options remain plugin
  * config.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * Ts-patch/ttypescript allowed plugin options (`after`, `before`, `phase`)
+ * alongside plugin-specific keys in the same tsconfig entry. The banner plugin
+ * must treat all non-reserved keys as its own config — in particular `phase` is
+ * both a legacy ts-patch lifecycle key and a valid banner config field. The
+ * banner text must appear in the output regardless of what lifecycle keys are
+ * also present in the descriptor.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project whose tsconfig plugin entry mixes `text`, `after`, `before`,
+ *    and `phase` in a single descriptor object.
+ * 2. Run `ttsc --emit` against that project.
+ * 3. Assert the output `.js` file contains the expected `phase` text from the
+ *    `text` field.
  */
 export const test_banner_keeps_legacy_named_user_options_as_plugin_config =
   () => {

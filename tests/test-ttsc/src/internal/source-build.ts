@@ -1,3 +1,9 @@
+/**
+ * Shared helpers for tests that exercise the source-plugin build pipeline
+ * (`buildSourcePlugin`, `computeCacheKey`, `resolvePluginCacheRoot`). Provides
+ * a cross-platform fake `go` executable that satisfies the commands ttsc issues
+ * during plugin compilation without running a real Go toolchain.
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -9,6 +15,17 @@ import {
   resolvePluginCacheRoot,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 
+/**
+ * Writes a fake `go` executable (Node.js script) into `root` and returns its
+ * path. The script handles `go version`, `go env -json`, `go mod edit -json`,
+ * and `go build`, verifying that expected copied source files are present
+ * before writing a stub binary to the `-o` output path.
+ *
+ * On Windows the wrapper is a `.cmd` batch file; on POSIX it is a shell script.
+ * Pass `{ executable: false }` to produce a non-executable POSIX file, which
+ * lets tests verify that `buildSourcePlugin` fixes permissions before running
+ * the toolchain.
+ */
 function createFakeGoBinary(
   root: string,
   opts: { executable?: boolean } = {},
@@ -113,6 +130,11 @@ function createFakeGoBinary(
   return command;
 }
 
+/**
+ * Single-quotes a shell argument, escaping any embedded single quotes with the
+ * `'\''` idiom. Used when embedding Node.js executable paths into POSIX shell
+ * wrapper scripts.
+ */
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }

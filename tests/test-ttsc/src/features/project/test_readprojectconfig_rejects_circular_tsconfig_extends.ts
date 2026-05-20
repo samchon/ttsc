@@ -11,13 +11,15 @@ import {
 /**
  * Verifies readProjectConfig rejects circular tsconfig extends.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * The extends-chain resolver must track visited files and break the cycle
+ * rather than looping indefinitely. Without this guard a two-file cycle
+ * (`a.json → b.json → a.json`) would exhaust the stack and crash the process
+ * with an unhandled `RangeError`.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Write two tsconfig files where `a.json` extends `b.json` and `b.json` extends
+ *    `a.json`.
+ * 2. Invoke `readProjectConfig` on `a.json`.
+ * 3. Assert it throws `circular tsconfig extends detected`.
  */
 export const test_readprojectconfig_rejects_circular_tsconfig_extends = () => {
   const root = TestProject.tmpdir("ttsc-project-");

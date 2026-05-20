@@ -7,15 +7,18 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies current platform package binary was built for the test run.
+ * Verifies the current-platform package binary was built before the test run.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The platform-specific Go binary must exist and be executable before any e2e
+ * test can spawn the compiler. Pins the build-integrity gate: if the binary is
+ * absent or oversized (> 5 MB), subsequent feature tests would fail with
+ * confusing "file not found" errors instead of pointing at the true cause — a
+ * missing or malformed build artifact.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Resolve the native binary path for the current OS/arch.
+ * 2. Assert the file exists and is under 5 MB.
+ * 3. Spawn it with `--version` and assert the version banner matches `ttsc
+ *    platform helper`.
  */
 export const test_current_platform_package_binary_was_built_for_the_test_run =
   () => {

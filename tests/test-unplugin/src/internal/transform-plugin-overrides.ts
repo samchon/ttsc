@@ -1,6 +1,11 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
+/**
+ * Asserts that three chained fixture plugins supplied via the `plugins` option
+ * are applied in the declared order: prefix (`"A:"`), upper-case, suffix
+ * (`":Z"`), producing `"A:PLUGIN:Z"` in the output.
+ */
 async function assertTransformAppliesOrderedPluginOverrides() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();

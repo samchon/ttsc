@@ -3,9 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+/** Shared helpers for the `@ttsc/strip` feature-test suite. */
 export namespace TestStrip {
   const PACKAGE_NAME = "strip";
 
+  /**
+   * Symlinks `packages/strip` into `<root>/node_modules/@ttsc/strip` so that
+   * the real plugin package is resolvable from the temporary project without a
+   * full install.
+   */
   export function seedPackage(root: string): void {
     const linkDir = path.join(root, "node_modules", "@ttsc");
     fs.mkdirSync(linkDir, { recursive: true });
@@ -22,6 +28,12 @@ export namespace TestStrip {
     }
   }
 
+  /**
+   * Returns a `PATH` string that prepends the local Go SDK bin directory when
+   * it exists (`~/go-sdk/go/bin`), falling back to the current `PATH`. Required
+   * so Go-compiled plugin binaries can be located at test time on developer
+   * machines that install Go to the non-standard location.
+   */
   export function goPath(): string | undefined {
     const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
     return fs.existsSync(localGo)

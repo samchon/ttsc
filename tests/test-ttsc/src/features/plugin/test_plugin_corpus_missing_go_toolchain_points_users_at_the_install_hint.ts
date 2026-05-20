@@ -14,13 +14,16 @@ import {
  * Verifies plugin corpus: missing Go toolchain points users at the install
  * hint.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Source plugins require `go build`, and first-time users often do not have Go
+ * in PATH. When neither `go` nor the `TTSC_GO_BINARY` override resolves to a
+ * real binary, ttsc must emit a human-readable message (`Go toolchain was not
+ * found`) and name the env variable they can set to fix it.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture into a temp directory.
+ * 2. Run ttsc with a PATH that contains no Go binary and `TTSC_GO_BINARY` pointing
+ *    at a nonexistent path.
+ * 3. Assert non-zero exit, `Go toolchain was not found`, and `TTSC_GO_BINARY` in
+ *    stderr.
  */
 export const test_plugin_corpus_missing_go_toolchain_points_users_at_the_install_hint =
   () => {

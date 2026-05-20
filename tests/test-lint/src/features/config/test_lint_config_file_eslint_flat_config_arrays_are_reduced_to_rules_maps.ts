@@ -1,16 +1,20 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: ESLint flat config arrays are reduced to rules
- * maps.
+ * Verifies that a flat-config array is reduced to a single rules map that the
+ * native engine can consume, with later entries overriding earlier ones for the
+ * same file glob.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the array-reduction logic in the Go-side config loader. A first entry
+ * sets `no-console: warn` and `no-var: off`; a second entry matching the same
+ * `files` glob then sets `no-var: error` and `no-console: off`. After reduction
+ * only `no-var: error` should fire. A broken reducer that skips the second
+ * entry, or applies both entries without per-file merging, would emit the wrong
+ * rule.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialize a fixture whose config is a two-entry flat array.
+ * 2. Run ttsc on a source with a `var` declaration and a `console.log`.
+ * 3. Assert only `no-var` with severity `error` fires.
  */
 export const test_lint_config_file_eslint_flat_config_arrays_are_reduced_to_rules_maps =
   () => {

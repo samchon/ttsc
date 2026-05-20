@@ -6,15 +6,16 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc rejects unsupported transform command.
+ * Verifies ttsc rejects the `transform` command as unsupported.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `transform` was a sub-command in earlier CLI drafts but was removed before
+ * the public release. Pins that a user who types `ttsc transform` receives a
+ * clear "unknown command" error rather than being silently treated as a project
+ * path or falling through to the default build action.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with a valid TypeScript source file.
+ * 2. Run `ttsc transform --cwd <root>`.
+ * 3. Assert non-zero exit and an `unknown command "transform"` message on stderr.
  */
 export const test_ttsc_rejects_unsupported_transform_command = () => {
   const root = createProject({

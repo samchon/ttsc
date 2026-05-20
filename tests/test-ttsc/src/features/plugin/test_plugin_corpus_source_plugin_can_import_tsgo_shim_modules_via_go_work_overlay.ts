@@ -15,13 +15,17 @@ import {
  * Verifies plugin corpus: source plugin can import tsgo shim modules via
  * go.work overlay.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Plugins that use TypeScript-Go's checker or printer shims import them as Go
+ * module paths (e.g. `github.com/microsoft/typescript-go/shim/printer`). ttsc
+ * injects a `go.work` overlay pointing these imports at the bundled shim copies
+ * so plugins can reference stable shim APIs without vendoring the entire tsgo
+ * repo in their `go.sum`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin-tsgo` fixture whose Go source imports a tsgo shim
+ *    module.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit, a build log entry, and `"TSGO (tsgo)"` in the emitted JS,
+ *    proving the shim import resolved correctly.
  */
 export const test_plugin_corpus_source_plugin_can_import_tsgo_shim_modules_via_go_work_overlay =
   () => {

@@ -1,15 +1,18 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: missing ESLint runtime fails for string extends.
+ * Verifies that using a string extends value (e.g. `"eslint/recommended"`)
+ * without an installed `eslint` package fails with an explicit error.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * String-valued `extends` entries are resolved at runtime by the ESLint API and
+ * cannot be statically expanded by the Go-side flattener. The engine must
+ * therefore require the runtime for any string extends, not just for plugin
+ * entries. Silently ignoring the string would leave the user's shared config
+ * unapplied.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with `extends: ["eslint/recommended"]` and no `eslint`
+ *    package.
+ * 2. Run ttsc; assert non-zero exit and `ESLint runtime is required` in stderr.
  */
 export const test_lint_config_file_missing_eslint_runtime_fails_for_string_extends =
   () => {

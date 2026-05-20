@@ -8,20 +8,42 @@ import path from "node:path";
 const TSGO_BINARY = TestProject.TSGO_BINARY;
 const TTSX_BIN = TestProject.TTSX_BIN;
 
+/**
+ * Minimal TypeScript source used by most config-file tests. Contains a `var`
+ * declaration (triggers `no-var`) and a `console.log` call (triggers
+ * `no-console`), giving each test a choice of which rule to enable.
+ */
 const SOURCE = `var value = 1;\nconsole.log(value);\n`;
+
+/**
+ * Source that additionally contains a typed `any` variable. Used by tests that
+ * exercise `typescript-eslint` typed rules such as `no-explicit-any`.
+ */
 const SOURCE_WITH_TS_ESLINT_VIOLATIONS = `var value = 1;\nlet typed: any = value;\nconsole.log(typed);\n`;
 
 type ILintDiagnostic = TestLint.ILintDiagnostic;
 type IRunLintOptions = TestLint.IRunLintOptions;
 
+/** Run a one-shot lint operation and return the result synchronously. */
 function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
   return TestLint.run(options);
 }
 
+/**
+ * Materialise a temp project directory from the given lint options without
+ * actually running ttsc. Call `project.cleanup()` in a `finally` block.
+ */
 function createLintProject(options: IRunLintOptions): TestLint.IRunLintProject {
   return TestLint.createProject(options);
 }
 
+/**
+ * Run ttsc in an already-materialised temp project directory and return the
+ * result synchronously.
+ *
+ * @param tmpdir - The temp directory created by `createLintProject`.
+ * @param args - Extra CLI arguments appended to the ttsc invocation.
+ */
 function runLintProject(
   tmpdir: string,
   args: string[] = [],
@@ -29,6 +51,17 @@ function runLintProject(
   return TestLint.runProject(tmpdir, args);
 }
 
+/**
+ * Build an `extraSources` map that installs a minimal fake `eslint` package
+ * into `node_modules/eslint/`. The fake `ESLint` class reports a single
+ * diagnostic with the given rule ID and message for every linted file.
+ *
+ * Used by tests that need an ESLint runtime stub without installing the real
+ * package, so the fixture stays fast and hermetic.
+ *
+ * @param ruleId - The `ruleId` field placed on every reported message.
+ * @param message - The `message` field placed on every reported message.
+ */
 function fakeEslintRuntimeModule(
   ruleId: string,
   message: string,
@@ -69,6 +102,15 @@ function fakeEslintRuntimeModule(
   };
 }
 
+/**
+ * Run ESLint directly against the given files using the project's own ESLint
+ * installation. Returns the same `ILintDiagnostic` shape that ttsc outputs, so
+ * callers can compare the two arrays with `assert.deepEqual`.
+ *
+ * @param tmpdir - Root of the temp project (determines the require base).
+ * @param configPath - Path to the flat config file, relative to `tmpdir`.
+ * @param files - Source file paths, relative to `tmpdir`, to lint.
+ */
 async function runESLintDirect(
   tmpdir: string,
   configPath: string,
@@ -103,6 +145,10 @@ async function runESLintDirect(
   );
 }
 
+/**
+ * Strip any extra fields from a diagnostic so the object only contains the six
+ * canonical properties used in parity comparisons.
+ */
 function diagnosticComparable(diagnostic: ILintDiagnostic): ILintDiagnostic {
   return {
     file: diagnostic.file,
@@ -114,6 +160,18 @@ function diagnosticComparable(diagnostic: ILintDiagnostic): ILintDiagnostic {
   };
 }
 
+/**
+ * Assert that ttsc and the real ESLint API report exactly the same diagnostics
+ * for the given project options.
+ *
+ * Materialises a temp project, runs both ttsc and ESLint against it, then
+ * deep-equals the normalised diagnostic arrays. The project is cleaned up in a
+ * `finally` block regardless of outcome.
+ *
+ * @param options - Lint project options (source, config, extra sources, …).
+ * @param files - Source files to pass to ESLint, relative to the project root.
+ *   Defaults to `["src/main.ts"]`.
+ */
 async function assertESLintRuntimeParity(
   options: IRunLintOptions,
   files: string[] = ["src/main.ts"],
@@ -138,6 +196,12 @@ async function assertESLintRuntimeParity(
   }
 }
 
+/**
+ * Return a `PATH` value that prepends the local Go SDK bin directory
+ * (`~/go-sdk/go/bin`) when it exists. Used to ensure the Go toolchain is
+ * reachable in CI and local dev environments that install Go outside the system
+ * `PATH`.
+ */
 function lintGoPath(): string | undefined {
   const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
   return fs.existsSync(localGo)

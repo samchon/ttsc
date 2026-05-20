@@ -1,6 +1,11 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
+/**
+ * Asserts that `transformTtsc` returns `undefined` when `plugins: false` is
+ * passed, meaning the transform is skipped entirely without running any project
+ * plugins.
+ */
 async function assertTransformSkipsProjectPlugins() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();

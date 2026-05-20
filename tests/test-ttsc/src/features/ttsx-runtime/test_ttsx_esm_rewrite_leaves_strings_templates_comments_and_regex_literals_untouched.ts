@@ -5,13 +5,16 @@ import assert from "node:assert/strict";
  * Verifies ttsx ESM rewrite leaves strings, templates, comments, and regex
  * literals untouched.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsx rewrites bare-specifier ESM import paths in emitted `.js` files to add
+ * `.js` extensions. The rewriter must use a proper scanner so it does not
+ * corrupt import-like text that appears inside string literals, template
+ * expressions, line comments, or regex literals.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an ESM entry that uses real imports alongside string/template/
+ *    comment/regex values that contain import-shaped text.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the program output matches the expected values, confirming the
+ *    rewriter left non-import tokens intact.
  */
 export const test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_literals_untouched =
   () => {

@@ -6,13 +6,15 @@ import path from "node:path";
 /**
  * Verifies runner corpus: ttsx keeps configured outDir untouched.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsx must never write to or delete the project's configured `outDir`. It uses
+ * an explicit `--cache-dir` for compilation output so that a deployed `dist/`
+ * tree survives a `ttsx` invocation without being overwritten or gaining extra
+ * files like a `package.json` module type marker.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with an existing `dist/keep.txt` and a custom cache dir.
+ * 2. Run ttsx with `--cache-dir`.
+ * 3. Assert `dist/keep.txt` is unchanged, no `.js` or `package.json` appeared in
+ *    `dist/`, and the cache directory was created.
  */
 export const test_runner_corpus_ttsx_keeps_configured_outdir_untouched = () => {
   const root = TestProject.createProject({

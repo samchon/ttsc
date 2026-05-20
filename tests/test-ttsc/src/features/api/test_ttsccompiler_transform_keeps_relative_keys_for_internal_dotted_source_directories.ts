@@ -12,13 +12,15 @@ import {
  * Verifies TtscCompiler.transform keeps relative keys for internal dotted
  * source directories.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * When `rootDir` starts with `..` (e.g. `..src`) the Go binary can emit
+ * absolute source paths because the anchor lies outside the project root. Pins
+ * the normalization pass that converts these back to relative keys in the
+ * `typescript` result map so the `transform()` surface always returns a uniform
+ * `Record<string, string>` regardless of the tsconfig directory layout.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a dotted-prefix source directory (e.g. `..src`).
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert all keys in the typescript map are relative (none are absolute paths).
  */
 export const test_ttsccompiler_transform_keeps_relative_keys_for_internal_dotted_source_directories =
   () => {

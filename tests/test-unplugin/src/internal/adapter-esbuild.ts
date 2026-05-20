@@ -2,6 +2,13 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 
 const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
 
+/**
+ * Asserts that running a real esbuild build with the unplugin esbuild adapter
+ * produces plugin-transformed output.
+ *
+ * Runs esbuild in-process with `write: false` and checks the first output
+ * file's text for the expected plugin marker.
+ */
 async function assertEsbuildAdapterTransformsSource() {
   const unpluginEsbuild =
     await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");

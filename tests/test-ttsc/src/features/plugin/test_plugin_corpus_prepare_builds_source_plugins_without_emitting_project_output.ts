@@ -15,13 +15,16 @@ import {
  * Verifies plugin corpus: prepare builds source plugins without emitting
  * project output.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `ttsc prepare` subcommand is designed for CI warm-up: it compiles all
+ * source plugins and populates the cache but must not touch TypeScript source
+ * files or write JS output. A subsequent `ttsc --emit` should then skip the
+ * build step entirely.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture and run `ttsc prepare`.
+ * 2. Assert zero exit, the `ttsc: prepared` stdout line, the build log in stderr,
+ *    no `dist/` directory, and exactly one binary under the plugin cache.
+ * 3. Run `ttsc --emit` against the same cache and assert it skips the build
+ *    (`building source plugin` absent) yet produces correct JS output.
  */
 export const test_plugin_corpus_prepare_builds_source_plugins_without_emitting_project_output =
   () => {

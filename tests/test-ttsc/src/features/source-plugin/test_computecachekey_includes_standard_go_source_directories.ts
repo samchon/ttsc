@@ -11,13 +11,14 @@ import {
 /**
  * Verifies computeCacheKey includes standard Go source directories.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * Helper code in `vendor/`, `lib/`, `dist/`, and `build/` subdirectories is
+ * compiled into the plugin binary. If any of those files changes, the cache
+ * must produce a new key. This test exercises each directory in isolation so a
+ * regression in any one sub-path fails with a precise error message.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a plugin with a helper file in one of the four standard directories.
+ * 2. Compute the cache key before and after mutating the file.
+ * 3. Assert the keys differ, then repeat for each remaining directory.
  */
 export const test_computecachekey_includes_standard_go_source_directories =
   () => {

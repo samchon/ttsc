@@ -15,13 +15,17 @@ import {
  * Verifies plugin corpus: ttsx relative cache dir builds source plugin under
  * cwd option.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `ttsx` accepts the same `--cwd` and `--cache-dir` flags as `ttsc`, and a
+ * relative `--cache-dir` must anchor to `--cwd`, not the process working
+ * directory. This mirrors the `ttsc` behaviour tested in
+ * `test_plugin_corpus_relative_cache_dir_resolves_from_cwd_option` but
+ * validates the ttsx code path separately since ttsx has its own argument
+ * parsing.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy `go-source-plugin` and create a separate `driverCwd`.
+ * 2. Run ttsx from `driverCwd` with `--cwd <root> --cache-dir .ttsx-cache`.
+ * 3. Assert zero exit, stdout `"PLUGIN"`, cache under `<root>/.ttsx-cache/`, and
+ *    no cache under `<driverCwd>/.ttsx-cache/`.
  */
 export const test_plugin_corpus_ttsx_relative_cache_dir_builds_source_plugin_under_cwd_option =
   () => {

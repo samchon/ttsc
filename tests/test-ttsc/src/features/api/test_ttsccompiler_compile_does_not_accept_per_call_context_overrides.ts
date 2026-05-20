@@ -12,13 +12,17 @@ import {
 /**
  * Verifies TtscCompiler.compile does not accept per-call context overrides.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Constructor options (`binary`, `cwd`, `plugins`) are sealed at construction
+ * time. Callers should not be able to smuggle a different project root or a
+ * dangerous binary path by passing a plain object as the first argument to
+ * `compile()`. Pins the contract so downstream wrappers cannot accidentally
+ * redirect the compiler to an untrusted project.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Construct a TtscCompiler pointing at a clean project with `plugins: false`.
+ * 2. Call `compile()` with an object carrying a different `cwd`, `binary`, and
+ *    `plugins`.
+ * 3. Assert the result still reflects the constructor project (success with its
+ *    output).
  */
 export const test_ttsccompiler_compile_does_not_accept_per_call_context_overrides =
   () => {

@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx runs an .mts entry and resolves emitted .mjs imports.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * In a `NodeNext` module project, `.mts` files are compiled to `.mjs`. The
+ * source uses `.mjs` in import specifiers (as required by TypeScript). ttsx
+ * must not transform those specifiers since they already carry the correct
+ * emitted extension.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a `NodeNext` project with `.mts` source files using `.mjs` imports.
+ * 2. Run ttsx against the `.mts` entry.
+ * 3. Assert the process exits successfully and the import resolved correctly.
  */
 export const test_ttsx_runs_an_mts_entry_and_resolves_emitted_mjs_imports =
   () => {

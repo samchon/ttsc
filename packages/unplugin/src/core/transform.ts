@@ -11,31 +11,86 @@ import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
 
+/**
+ * The normalised transform result type that this module produces.
+ *
+ * Excludes the shorthand `string`, `null`, and `undefined` variants of
+ * unplugin's `TransformResult` so callers always receive an object or
+ * `undefined`.
+ */
 export type TtscTransformResult = Exclude<
   TransformResult,
   string | null | undefined
 >;
 
+/**
+ * Normalised alias entry used when building the `paths` overlay for the
+ * generated tsconfig. Derived from either a Vite array alias or a webpack/
+ * Rspack object alias.
+ */
 export interface TtscTransformAlias {
+  /** The alias key (module specifier prefix). */
   find: string;
+  /** Absolute or cwd-relative path that the alias points to. */
   replacement: string;
 }
 
+/**
+ * A single entry in the per-build transform cache.
+ *
+ * Stores the full compiler result together with SHA-256 hashes of every input
+ * file. On subsequent transforms the cached entry is validated by comparing
+ * fresh hashes against {@link inputHashes}; a mismatch triggers a full
+ * re-transform of the project.
+ */
 export interface TtscCachedProjectTransform {
+  /**
+   * SHA-256 hash of each project-relative input path at the time of the
+   * transform.
+   */
   inputHashes: Record<string, string>;
+  /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;
+  /** Raw compiler output returned by {@link TtscCompiler.transform}. */
   result: ITtscCompilerTransformation;
 }
 
+/**
+ * Keyed by a stable JSON string that encodes the tsconfig path, compiler
+ * options overlay, plugin list, and alias paths. The value is a `Promise` so
+ * concurrent transforms for the same project share a single in-flight
+ * compilation rather than spawning multiple `TtscCompiler` instances.
+ */
 export type TtscTransformCache = Map<
   string,
   Promise<TtscCachedProjectTransform>
 >;
 
+/** Create an empty transform cache for a single build session. */
 export function createTtscTransformCache(): TtscTransformCache {
   return new Map();
 }
 
+/**
+ * Apply the ttsc plugin transform to a single source file.
+ *
+ * The function is intentionally project-scoped: it compiles the entire tsconfig
+ * project in one shot and extracts the result for `id`. Subsequent calls for
+ * sibling files in the same project reuse the cached result as long as none of
+ * the project's input files have changed (verified by comparing SHA-256
+ * hashes).
+ *
+ * Returns `undefined` when no transform is needed (declaration files, virtual
+ * modules, disabled plugins, or source unchanged after transform).
+ *
+ * @param id - Bundler module id (may carry a query string or virtual prefix).
+ * @param source - Current file content supplied by the bundler.
+ * @param options - Resolved plugin options.
+ * @param aliases - Raw bundler alias configuration (Vite array or webpack
+ *   object).
+ * @param cache - Optional per-build cache; cleared by the caller on
+ *   `buildStart`.
+ */
 export async function transformTtsc(
   id: string,
   source: string,
@@ -100,21 +155,44 @@ export async function transformTtsc(
   return createTransformResult(source, code);
 }
 
+/**
+ * Strip a query string or hash fragment from a bundler module id.
+ *
+ * Vite appends query parameters (e.g. `?raw`, `?url`, `?inline`) to
+ * differentiate import variants of the same file. We must strip them before
+ * using the id as a file-system path.
+ */
 export function stripQuery(id: string): string {
   const query = id.search(/[?#]/);
   return query === -1 ? id : id.slice(0, query);
 }
 
+/**
+ * Returns `true` for TypeScript declaration files (`.d.ts`, `.d.mts`,
+ * `.d.cts`).
+ */
 export function isDeclarationFile(id: string): boolean {
   return id.endsWith(".d.ts") || id.endsWith(".d.mts") || id.endsWith(".d.cts");
 }
 
+/**
+ * Returns `true` when the caller has explicitly opted out of all plugins. An
+ * empty array is treated as disabled so we don't invoke the compiler for a
+ * no-op transform.
+ */
 function pluginsAreDisabled(
   plugins: ResolvedTtscUnpluginOptions["plugins"],
 ): boolean {
   return plugins === false || (Array.isArray(plugins) && plugins.length === 0);
 }
 
+/**
+ * Build the unplugin transform result, or `undefined` when the transform
+ * produced no changes.
+ *
+ * Returning `undefined` instead of `{ code: source }` lets the bundler skip the
+ * unnecessary module update and preserves the original source map.
+ */
 export function createTransformResult(
   source: string,
   code: string,
@@ -136,6 +214,16 @@ function matchesCachedSource(
   return sameHashes(cached.inputHashes, currentHashes);
 }
 
+/**
+ * Build the complete input-hash snapshot stored alongside a fresh compiler
+ * result.
+ *
+ * Combines filesystem hashes for every file in the project directory with
+ * hashes for each emitted TypeScript output key (the compiler may have read
+ * files not visible via the directory walk). The in-memory source for the file
+ * that triggered the build is overlaid last to capture unsaved editor content
+ * correctly.
+ */
 function collectInputHashes(props: {
   currentFile: string;
   currentSource: string;
@@ -154,6 +242,7 @@ function collectInputHashes(props: {
       }
     }
   }
+  // Overlay the in-memory source so unsaved edits invalidate the cache.
   hashes[toProjectKey(props.projectRoot, props.currentFile)] = hashText(
     props.currentSource,
   );
@@ -175,6 +264,14 @@ function collectProjectInputHashes(
   return hashes;
 }
 
+/**
+ * Enumerate every regular file under `root`, skipping well-known output and
+ * tooling directories (see {@link isIgnoredProjectDirectory}).
+ *
+ * Uses an iterative DFS instead of `fs.readdirSync` recursion to avoid
+ * unbounded call-stack depth on deep project trees. The result is sorted so
+ * that hash comparisons are deterministic across OS-level directory orderings.
+ */
 function listProjectInputFiles(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
@@ -311,16 +408,30 @@ function createTransformTsconfig(props: {
   };
 }
 
+/**
+ * Resolve all relative paths inside `compilerOptions` against `tsconfigDir`.
+ *
+ * The generated tsconfig lives in a system temp directory, so any relative path
+ * (e.g. `"outDir": "../dist"`) that was meaningful relative to the original
+ * tsconfig must be converted to an absolute path before writing the generated
+ * file. Otherwise TypeScript-Go resolves it against the temp dir.
+ *
+ * Also inserts a synthetic `baseUrl` equal to `tsconfigDir` when `paths` is
+ * provided but `baseUrl` is absent — TypeScript requires `baseUrl` alongside
+ * `paths` when the latter contains non-absolute targets.
+ */
 function normalizeCompilerOptionsForGeneratedTsconfig(
   compilerOptions: Record<string, unknown>,
   tsconfigDir: string,
 ): Record<string, unknown> {
   const output = { ...compilerOptions };
+  // Scalar path fields: resolve each against the original tsconfig directory.
   for (const key of ["baseUrl", "declarationDir", "outDir", "rootDir"]) {
     if (typeof output[key] === "string") {
       output[key] = path.resolve(tsconfigDir, output[key]);
     }
   }
+  // Array path fields: resolve each element individually.
   for (const key of ["rootDirs", "typeRoots"]) {
     if (Array.isArray(output[key])) {
       output[key] = output[key].map((entry) =>
@@ -473,6 +584,14 @@ function createTransformCacheKey(props: {
   });
 }
 
+/**
+ * JSON-serialise `value` with object keys sorted alphabetically.
+ *
+ * Standard `JSON.stringify` does not guarantee key ordering, so two
+ * semantically identical option objects could produce different strings and
+ * cause unnecessary cache misses. Sorting keys makes the cache key stable
+ * regardless of the order properties were added to the options object.
+ */
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(",")}]`;
@@ -508,6 +627,15 @@ function isAlias(value: unknown): value is TtscTransformAlias {
   );
 }
 
+/**
+ * Extract the transformed source for a single file from the compiler result.
+ *
+ * Throws on compiler exception or hard failure so the bundler surfaces the
+ * error to the user. On success, tries a fast exact-match lookup by
+ * project-relative key first, then falls back to a resolve-based scan for the
+ * rare case where the key in `result.typescript` uses an absolute or
+ * differently-cased path.
+ */
 function selectTransformedSource(props: {
   file: string;
   projectRoot: string;
@@ -520,11 +648,13 @@ function selectTransformedSource(props: {
     throw new Error(formatDiagnostics(props.result.diagnostics));
   }
 
+  // Fast path: the compiler key matches the normalised project-relative path.
   const key = toProjectKey(props.projectRoot, props.file);
   const direct = props.result.typescript[key];
   if (direct !== undefined) {
     return direct;
   }
+  // Slow path: resolve each candidate to an absolute path for comparison.
   for (const [candidate, source] of Object.entries(props.result.typescript)) {
     if (path.resolve(props.projectRoot, candidate) === props.file) {
       return source;
@@ -533,6 +663,13 @@ function selectTransformedSource(props: {
   throw new Error(`ttsc transform did not return output for ${props.file}`);
 }
 
+/**
+ * Forward non-fatal plugin diagnostics to stderr.
+ *
+ * A `success` result may still carry warnings or informational messages from
+ * plugins. These are surfaced via stderr rather than throwing so the build
+ * continues. Failures and exceptions are handled by the caller.
+ */
 function reportSuccessDiagnostics(result: ITtscCompilerTransformation): void {
   if (result.type !== "success" || result.diagnostics === undefined) {
     return;
@@ -543,6 +680,14 @@ function reportSuccessDiagnostics(result: ITtscCompilerTransformation): void {
   }
 }
 
+/**
+ * Format a compiler diagnostic list into a human-readable string.
+ *
+ * Produces `"file: line:col: message"` entries joined by newlines, matching the
+ * output style of `tsc`. When the list is empty (e.g. a failure with no
+ * attached diagnostics) returns a generic fallback message so the thrown
+ * `Error` is never empty.
+ */
 function formatDiagnostics(diagnostics: ITtscCompilerDiagnostic[]): string {
   if (diagnostics.length === 0) {
     return "ttsc transform failed";
@@ -577,6 +722,16 @@ function formatUnknownError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Locate the tsconfig that should govern the transform for `file`.
+ *
+ * If `tsconfig` is supplied it is returned as-is (absolute) or resolved from
+ * `process.cwd()` (relative). Otherwise the function walks ancestor directories
+ * starting at `file`'s directory, returning the first `tsconfig.json` found.
+ * Falls back to `<cwd>/tsconfig.json` when no ancestor contains one — the
+ * compiler will error if that file does not exist, which is the correct
+ * behavior for a mis-configured project.
+ */
 function resolveTsconfig(file: string, tsconfig?: string): string {
   if (tsconfig !== undefined) {
     return path.isAbsolute(tsconfig)
@@ -591,6 +746,7 @@ function resolveTsconfig(file: string, tsconfig?: string): string {
       return candidate;
     }
     const parent = path.dirname(current);
+    // Reached filesystem root — stop walking.
     if (parent === current) {
       break;
     }

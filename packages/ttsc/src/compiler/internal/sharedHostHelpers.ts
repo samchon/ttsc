@@ -4,9 +4,7 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
  * Reports whether the given transform source is linked into another compiler
  * host instead of owning the process itself.
  */
-export function isLinkedTransform(
-  plugin: ITtscLoadedNativePlugin,
-): boolean {
+export function isLinkedTransform(plugin: ITtscLoadedNativePlugin): boolean {
   return plugin.stage === "transform" && plugin.kind === "linked";
 }
 
@@ -59,12 +57,14 @@ export function assertSharedHostCompatibility(
 export function selectSharedHostPlugin(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): ITtscLoadedNativePlugin {
-  return (
-    plugins.find((plugin) => !isLinkedTransform(plugin)) ??
-    plugins[0]!
-  );
+  return plugins.find((plugin) => !isLinkedTransform(plugin)) ?? plugins[0]!;
 }
 
+/**
+ * Return every plugin whose transform source is linked into another host binary
+ * rather than owning the process. The host binary passes these via
+ * `TTSC_LINKED_PLUGINS_JSON` so their Go code runs inside the same process.
+ */
 export function linkedTransformPlugins(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): ITtscLoadedNativePlugin[] {

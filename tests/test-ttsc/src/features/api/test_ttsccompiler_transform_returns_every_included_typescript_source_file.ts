@@ -13,13 +13,16 @@ import {
  * Verifies TtscCompiler.transform returns every included TypeScript source
  * file.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Bundler adapters need the full source map to feed their own compilation
+ * pipeline — they cannot assume a single entry file. `transform()` must return
+ * all `.ts` files that are part of the tsconfig `include`, not just the entry.
+ * Also pins that no output keys carry a `.js`, `.d.ts`, or `.map` extension,
+ * since `transform()` is a source-only operation.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with an entry, a helper module, and a nested interface file.
+ * 2. Call `transform()` via the programmatic API with `plugins: false`.
+ * 3. Assert all three `.ts` files appear in the result and no JS/declaration keys
+ *    exist.
  */
 export const test_ttsccompiler_transform_returns_every_included_typescript_source_file =
   () => {

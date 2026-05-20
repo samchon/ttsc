@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * Asserts that `transformTtsc` uses an explicit absolute `project` path instead
+ * of auto-discovering `tsconfig.json`, allowing the adapter to point at a
+ * bundler-specific tsconfig.
+ */
 async function assertTransformUsesProjectOption() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
@@ -21,6 +26,13 @@ async function assertTransformUsesProjectOption() {
   assert.match(result.code, /"PLUGIN"/);
 }
 
+/**
+ * Asserts that a relative `project` path in `resolveOptions` is resolved
+ * against `process.cwd()`, not the file being transformed.
+ *
+ * Temporarily changes `process.cwd()` to the project root and restores it in a
+ * `finally` block to avoid polluting subsequent tests.
+ */
 async function assertTransformUsesRelativeProjectOption() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
@@ -45,6 +57,11 @@ async function assertTransformUsesRelativeProjectOption() {
   }
 }
 
+/**
+ * Writes `tsconfig.unplugin.json` at `root`, extending `tsconfig.json` with the
+ * fixture plugin. Used by both `assertTransformUsesProjectOption` and
+ * `assertTransformUsesRelativeProjectOption`.
+ */
 function writeUnpluginProject(root: string): void {
   fs.writeFileSync(
     path.join(root, "tsconfig.unplugin.json"),

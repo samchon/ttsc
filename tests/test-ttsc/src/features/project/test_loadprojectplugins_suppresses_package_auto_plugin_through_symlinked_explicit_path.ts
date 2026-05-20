@@ -12,13 +12,17 @@ import {
  * Verifies loadProjectPlugins suppresses package auto plugin through symlinked
  * explicit path.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * A package that ships `ttsc.plugin` metadata would normally be auto-discovered
+ * and added to the plugin list. But when the user has already listed the same
+ * package explicitly via a relative `transform` path (even through a symlink),
+ * the auto-discovery must not add a second copy, to avoid running the plugin
+ * twice.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a fake package at `packages/linked-plugin` that carries `ttsc.plugin`
+ *    metadata, then symlink it into `project/node_modules/`.
+ * 2. Write a tsconfig that references the package via the symlinked relative path
+ *    `./node_modules/linked-plugin/index.cjs`.
+ * 3. Invoke `loadProjectPlugins` and assert exactly one native plugin is loaded.
  */
 export const test_loadprojectplugins_suppresses_package_auto_plugin_through_symlinked_explicit_path =
   () => {

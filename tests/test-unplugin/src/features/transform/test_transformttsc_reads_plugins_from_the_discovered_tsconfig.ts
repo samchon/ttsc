@@ -3,13 +3,18 @@ import { assertTransformReadsDiscoveredTsconfig } from "../../internal/transform
 /**
  * Verifies transformTtsc reads plugins from the discovered tsconfig.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The default flow locates the nearest `tsconfig.json` relative to the file
+ * being transformed and applies whatever plugins that tsconfig declares. If
+ * tsconfig discovery were broken the transform would silently run without any
+ * plugins. This also verifies that the transform does not emit a `dist/`
+ * directory — the unplugin adapter must operate in single-file mode, not as a
+ * full build.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project whose tsconfig declares the fixture plugin.
+ * 2. Call `transformTtsc` with default `resolveOptions()`.
+ * 3. Assert the output matches the plugin-transformed value and contains no
+ *    residual `goUpper` call.
+ * 4. Assert no `dist/` directory was created in the project root.
  */
 export const test_transformttsc_reads_plugins_from_the_discovered_tsconfig =
   async () => {

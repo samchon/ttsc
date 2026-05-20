@@ -8,15 +8,18 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies ttsc reports bind diagnostics through the tsgo diagnostic pipeline.
+ * Verifies ttsc reports bind-phase diagnostics through the tsgo pipeline.
  *
- * This ttsc compiler toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Bind errors (e.g. duplicate `let` declarations) are reported during the bind
+ * phase, not the type-check phase. Pins that these errors reach stderr through
+ * the same diagnostic pipeline as semantic errors and still prevent emit,
+ * ensuring no category of compiler error is silently swallowed between the Go
+ * backend and the JS launcher.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with a duplicate `let value` declaration in the same scope.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert non-zero exit, the redeclaration message on stderr, and no
+ *    `dist/main.js`.
  */
 export const test_ttsc_reports_bind_diagnostics_through_the_tsgo_diagnostic_pipeline =
   () => {

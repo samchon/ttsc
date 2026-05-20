@@ -13,13 +13,25 @@
 import type { ITtscLintPlugin } from "@ttsc/lint";
 import path from "node:path";
 
+/**
+ * Plugin descriptor for `@ttsc/lint`'s contributor demo.
+ *
+ * `source` points at the Go rules directory that `ttsc` statically links into
+ * `@ttsc/lint`'s binary on first build. The `rules` tuple is `as const` so
+ * `ITtscLintConfig` can surface valid `demo/*` keys in the user's `rules` map
+ * without a separate type file.
+ */
 const plugin = {
   meta: {
     name: "lint-contributor-demo",
     version: "0.10.2",
     namespace: "demo",
   },
-  rules: ["no-todo-comment", "capitalize-exports", "no-marker-comment"] as const,
+  rules: [
+    "no-todo-comment",
+    "capitalize-exports",
+    "no-marker-comment",
+  ] as const,
   source: path.resolve(__dirname, "..", "rules"),
 } satisfies ITtscLintPlugin;
 

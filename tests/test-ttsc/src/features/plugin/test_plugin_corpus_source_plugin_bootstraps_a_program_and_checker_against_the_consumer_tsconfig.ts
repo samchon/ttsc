@@ -15,13 +15,17 @@ import {
  * Verifies plugin corpus: source plugin bootstraps a Program and Checker
  * against the consumer tsconfig.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The Go sidecar receives a `--tsconfig` path and must initialise a
+ * TypeScript-Go Program+Checker from it before calling plugin handlers. This
+ * test confirms the plumbing works end-to-end: the `go-source-plugin-checker`
+ * fixture introspects interface property types through the Checker and emits
+ * them into the JS output.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin-checker` fixture which reads type info via the
+ *    Checker and emits interface property names/types as strings.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert zero exit, a build log entry, and `"User"` plus `"string[]"` in the
+ *    emitted JS (proving the Checker resolved real type symbols).
  */
 export const test_plugin_corpus_source_plugin_bootstraps_a_program_and_checker_against_the_consumer_tsconfig =
   () => {

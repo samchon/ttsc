@@ -3,13 +3,14 @@ import { assertAdapterEntrypointsExposeFactories } from "../../internal/adapter-
 /**
  * Verifies adapter entrypoints expose the expected plugin factories.
  *
- * This unplugin adapter scenario is isolated as one exported TypeScript feature
- * so failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * The farm, rolldown, rspack, and webpack adapters are lower-traffic paths that
+ * could silently drop their factory exports across a build-config change. This
+ * pins that every bundler-specific entrypoint resolves to a callable factory,
+ * catching missing re-exports before they reach consumers.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Load the farm, rolldown, rspack, and webpack adapter modules via
+ *    `TestUnpluginRuntime.loadUnpluginAdapter`.
+ * 2. Assert each resolved value is a function (callable factory).
  */
 export const test_adapter_entrypoints_expose_the_expected_plugin_factories =
   async () => {

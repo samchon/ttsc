@@ -14,13 +14,15 @@ import {
 /**
  * Verifies plugin corpus: custom outDir receives Go native output.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The `--outDir` CLI flag must be forwarded into the Go sidecar invocation so
+ * that plugin-transformed JS lands in the overridden directory rather than the
+ * `outDir` recorded in tsconfig. Without this forwarding a custom output path
+ * silently falls back to the tsconfig value.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Configure a native plugin project whose tsconfig uses the default `dist/`.
+ * 2. Run ttsc with `--emit --outDir custom`.
+ * 3. Assert zero exit and the emitted `main.js` (containing `"PLUGIN"`) appears
+ *    under `custom/` rather than `dist/`.
  */
 export const test_plugin_corpus_custom_outdir_receives_go_native_output =
   () => {

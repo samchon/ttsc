@@ -7,7 +7,14 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
+/** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
+/**
+ * Maximum number of ancestor directories above the project root that the
+ * virtual filesystem overlay mirrors. Three levels covers the common monorepo
+ * layout (workspace-root → packages → package-root) so `node_modules` symlinks
+ * resolve correctly without reaching an unsafe boundary.
+ */
 const MAX_VIRTUAL_PARENT_DEPTH = 3;
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
@@ -162,6 +169,7 @@ function linkVirtualEntry(
   entry: fs.Dirent,
 ): void {
   if (entry.isDirectory()) {
+    // Use junction points on Windows; plain symlinks elsewhere.
     fs.symlinkSync(
       realEntry,
       virtualEntry,
@@ -171,15 +179,25 @@ function linkVirtualEntry(
   }
   if (entry.isFile()) {
     try {
+      // Hard-link first: cheap, preserves inode, no extra disk usage.
       fs.linkSync(realEntry, virtualEntry);
     } catch {
+      // Cross-device or unsupported filesystem: fall back to a full copy.
       fs.copyFileSync(realEntry, virtualEntry);
     }
     return;
   }
+  // Symlinks (and other special entries) are re-symlinked as-is.
   fs.symlinkSync(realEntry, virtualEntry);
 }
 
+/**
+ * Walk from `projectRoot` upward (up to `MAX_VIRTUAL_PARENT_DEPTH` steps),
+ * stopping early at a workspace root (`pnpm-workspace.yaml` or `.git`). The
+ * collected directories are reversed so callers can iterate outermost-first,
+ * which lets inner symlinks override outer ones without conflicting mkdir
+ * calls.
+ */
 function collectLinkDirectories(projectRoot: string): string[] {
   const out: string[] = [];
   let current = projectRoot;
@@ -207,6 +225,14 @@ function isUnsafeVirtualParent(directory: string): boolean {
   return resolved === root || resolved === path.resolve(os.tmpdir());
 }
 
+/**
+ * Map an absolute path into a stable, filesystem-safe subtree under `root`.
+ *
+ * On POSIX the root is always `/`, so every path shares the same prefix —
+ * represented here as `"posix"`. On Windows, drive letters and UNC roots each
+ * get a sanitized label (e.g. `"C_"` for `C:\`), preventing collisions between
+ * paths from different drives inside the same virtual root.
+ */
 function virtualPath(root: string, absolute: string): string {
   const parsed = path.parse(path.resolve(absolute));
   const label =
@@ -218,6 +244,12 @@ function virtualPath(root: string, absolute: string): string {
   return path.join(root, label, relative);
 }
 
+/**
+ * Heuristic: classify emitted JS as ESM when it contains top-level `import` or
+ * `export` statements but none of the well-known CJS patterns. The CJS checks
+ * run first so that re-exported CJS bundles with both `require` calls and an
+ * `export` declaration are conservatively treated as CJS.
+ */
 function looksLikeESM(output: string): boolean {
   if (
     /\bObject\.defineProperty\(exports\b/.test(output) ||

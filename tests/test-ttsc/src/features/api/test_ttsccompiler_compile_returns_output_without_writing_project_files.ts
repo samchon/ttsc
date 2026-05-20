@@ -12,13 +12,16 @@ import {
 /**
  * Verifies TtscCompiler.compile returns output without writing project files.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * The programmatic API is designed for in-process bundler pipelines that need
+ * the emitted JS, declarations, and source maps without writing anything to
+ * disk. Pins the complete output contract: `.js`, `.d.ts`, `.js.map`, and
+ * `.d.ts.map` must all be present in the result map while `dist/` stays absent
+ * on the filesystem.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a minimal project with no plugins.
+ * 2. Call `compile()` via the programmatic API.
+ * 3. Assert all four output file types are in the result map and `dist/` was not
+ *    created.
  */
 export const test_ttsccompiler_compile_returns_output_without_writing_project_files =
   () => {

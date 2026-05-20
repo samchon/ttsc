@@ -41,16 +41,17 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: clean removes local source plugin cache
- * directories.
+ * Verifies compiler corpus: clean removes all local source-plugin cache
+ * directories at once.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A project can accumulate plugin binaries in up to three locations:
+ * `node_modules/.ttsc/`, `.ttsc/`, and a custom `TTSC_CACHE_DIR` path. Running
+ * `ttsc clean` must sweep all three so a corrupted or stale cache in any
+ * location is fully cleared by a single command.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Seed fake plugin binaries in all three local cache locations.
+ * 2. Run `ttsc clean` with `TTSC_CACHE_DIR` pointing at the custom cache.
+ * 3. Assert all three cache roots are removed and stdout reports each removal.
  */
 export const test_compiler_corpus_clean_removes_local_source_plugin_cache_directories =
   (): void => {

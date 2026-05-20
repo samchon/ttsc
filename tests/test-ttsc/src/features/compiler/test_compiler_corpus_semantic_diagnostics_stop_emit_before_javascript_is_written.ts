@@ -25,16 +25,18 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: semantic diagnostics stop emit before JavaScript is
- * written.
+ * Verifies compiler corpus: a semantic type error stops emit before JavaScript
+ * is written.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Pins the semantic-gating behavior: when a type error exists (e.g. `string`
+ * assigned to `number`), the CLI must report the error and exit non-zero
+ * without producing any output file. Without this guard the Go backend could
+ * emit partial output and leave a corrupt `dist/` tree for the next build.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a CommonJS project with a type error in `src/main.ts`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert non-zero exit, the type-error message on stderr, and no
+ *    `dist/main.js`.
  */
 export const test_compiler_corpus_semantic_diagnostics_stop_emit_before_javascript_is_written =
   (): void => {

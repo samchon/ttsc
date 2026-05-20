@@ -16,13 +16,15 @@ import {
  * Verifies plugin corpus: check plugin output does not suppress TypeScript
  * diagnostics.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A check-stage plugin emits its own diagnostic (TS9001) via stderr. Without
+ * special handling the host could conflate the plugin's exit status with a
+ * clean build and skip merging TypeScript's own TS2322. Both diagnostic streams
+ * must surface when either source is non-clean.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a source file with a genuine TS2322 type error.
+ * 2. Register a check-stage Go plugin that always emits a custom TS9001 warning.
+ * 3. Run ttsc with `--noEmit`.
+ * 4. Assert both TS9001 and TS2322 appear in stderr with a non-zero exit code.
  */
 export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics =
   () => {

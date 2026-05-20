@@ -14,13 +14,16 @@ import {
  * Verifies TtscCompiler.transform applies configured source plugins to
  * TypeScript output.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * `transform()` runs the plugin pipeline and returns transformed TypeScript
+ * source (not emitted JS). Pins the source-to-source path so bundler adapters
+ * that need to feed plugin-transformed TS back to their own compiler receive
+ * the `.ts` content and not any `.js` or `.d.ts` artifacts.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a plugin that replaces a function call with an
+ *    upper-cased string.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the result map contains the transformed TS source and no JS output
+ *    keys.
  */
 export const test_ttsccompiler_transform_applies_configured_source_plugins_to_typescript_output =
   () => {

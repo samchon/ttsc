@@ -14,16 +14,20 @@ import {
 } from "../../internal/compiler";
 
 /**
- * Verifies TtscCompiler.compile stops package plugin discovery at nearest
+ * Verifies TtscCompiler.compile stops package plugin discovery at the nearest
  * package.json.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * Plugin auto-discovery must not cross an intervening `package.json` boundary.
+ * When the project's own `package.json` carries no `ttsc.plugins`, the search
+ * must stop there even if an ancestor has plugins — otherwise a nested package
+ * would silently inherit transformations it never declared. Pins the discovery
+ * boundary so packages that opt out by having their own `package.json` are
+ * isolated from ancestor-level plugins.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a workspace root with `ttsc.plugins` and a nested project with its own
+ *    (empty) `package.json`.
+ * 2. Construct a TtscCompiler with `cwd` pointing at the nested project.
+ * 3. Call `compile()` and assert the workspace plugin was NOT applied.
  */
 export const test_ttsccompiler_compile_stops_package_plugin_discovery_at_nearest_package_json =
   () => {

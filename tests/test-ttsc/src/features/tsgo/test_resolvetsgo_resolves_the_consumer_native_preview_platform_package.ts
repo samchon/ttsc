@@ -6,15 +6,21 @@ import path from "node:path";
 import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 
 /**
- * Verifies resolveTsgo resolves the consumer native-preview platform package.
+ * Verifies resolveTsgo resolves the consumer's `@typescript/native-preview`
+ * platform package.
  *
- * This ttsc tsgo resolver scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * The normal resolution path walks from `cwd` into `node_modules` to find
+ * `@typescript/native-preview`, reads its version and `gitHead`, then locates
+ * the platform-specific sibling package that contains the actual `tsgo` binary.
+ * Pins the full resolution contract so changes to the package naming scheme or
+ * binary location are caught before they silently fall back to a system-level
+ * tsgo.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Materialize a fake `@typescript/native-preview` tree with both the root and
+ *    platform-specific packages under a temp `node_modules`.
+ * 2. Call `resolveTsgo` with `cwd` pointing at the temp directory.
+ * 3. Assert `binary`, `version`, and `gitHead` all match the fake package
+ *    metadata.
  */
 export const test_resolvetsgo_resolves_the_consumer_native_preview_platform_package =
   () => {

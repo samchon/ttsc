@@ -1,16 +1,18 @@
 import { assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: installed ESLint runtime executes real
- * typescript-eslint RuleModules.
+ * Verifies that the ESLint runtime executes the actual `typescript-eslint` rule
+ * package when it is symlinked into the project's `node_modules`.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Complements the fake-runtime test by using the real package. The real
+ * `@typescript-eslint/no-explicit-any` rule must fire on `const value: any` and
+ * produce the expected message string. This ensures the host's module
+ * resolution and ESLint API invocation work with real npm packages, not only
+ * with hermetic stubs.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a project with `eslint` and `typescript-eslint` symlinked.
+ * 2. Run ttsc; assert the real `@typescript-eslint/no-explicit-any` rule fires
+ *    with no `"ignoring unknown rule"` warning.
  */
 export const test_lint_config_file_installed_eslint_runtime_executes_real_typescript_eslint_rulemodules =
   () => {

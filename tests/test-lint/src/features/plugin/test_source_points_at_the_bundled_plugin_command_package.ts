@@ -5,15 +5,18 @@ import path from "node:path";
 import { TestLintPlugin } from "../../internal/TestLintPlugin";
 
 /**
- * Verifies source points at the bundled plugin command package.
+ * Verifies that the descriptor's `source` field points at the bundled Go plugin
+ * directory and that the directory actually exists on disk.
  *
- * This lint plugin descriptor scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * `descriptor.source` is the path the ttsc plugin builder uses to locate and
+ * compile the Go sidecar. If it drifts from `packages/lint/plugin` or that
+ * directory is deleted, every downstream build silently gets no lint engine.
+ * This test also checks for `go.mod` and `plugin/main.go` so a mis-shaped
+ * plugin source tree is caught before CI tries to compile it.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Load the factory and call it with a minimal context.
+ * 2. Assert `descriptor.source === TestLintPlugin.NATIVE_PLUGIN_DIR`.
+ * 3. Assert `packages/lint/go.mod` and `packages/lint/plugin/main.go` exist.
  */
 export const test_source_points_at_the_bundled_plugin_command_package = () => {
   const factory = TestLintPlugin.loadFactory();

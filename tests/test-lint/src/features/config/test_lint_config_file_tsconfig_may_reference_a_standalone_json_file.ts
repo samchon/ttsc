@@ -1,15 +1,16 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: tsconfig may reference a standalone JSON file.
+ * Verifies that a tsconfig plugin entry may reference a standalone `.json` lint
+ * config file via `config: "./ttsc-lint.config.json"`.
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the JSON config extension branch. JSON files require neither ttsx nor a
+ * CJS/ESM determination; they are parsed directly. Without this branch, teams
+ * that prefer JSON-only config files would need a TypeScript or JS wrapper even
+ * for a plain rules map.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with a `.json` config file containing a rules map.
+ * 2. Run ttsc; assert `no-var` fires from the JSON config.
  */
 export const test_lint_config_file_tsconfig_may_reference_a_standalone_json_file =
   () => {

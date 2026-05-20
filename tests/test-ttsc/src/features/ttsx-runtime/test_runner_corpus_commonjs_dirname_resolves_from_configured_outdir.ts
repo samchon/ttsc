@@ -6,13 +6,15 @@ import path from "node:path";
 /**
  * Verifies runner corpus: CommonJS __dirname resolves from configured outDir.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When a project has an explicit `outDir`, ttsx must set `__dirname` for
+ * CommonJS modules to the corresponding emitted output path so that relative
+ * file reads (e.g. `__dirname + "/../../data.txt"`) resolve against the same
+ * directory layout they would target in a normal `tsc` build.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `outDir: "bin"` and source under `src/`.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the program successfully reads a file relative to the emitted path and
+ *    the expected content is printed.
  */
 export const test_runner_corpus_commonjs_dirname_resolves_from_configured_outdir =
   () => {

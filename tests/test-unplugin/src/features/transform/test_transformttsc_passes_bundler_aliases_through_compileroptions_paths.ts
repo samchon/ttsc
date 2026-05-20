@@ -3,13 +3,18 @@ import { assertTransformPassesBundlerAliases } from "../../internal/transform-vi
 /**
  * Verifies transformTtsc passes bundler aliases through compilerOptions.paths.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Vite and similar bundlers resolve module aliases independently of TypeScript.
+ * When the unplugin adapter receives a bundler alias map it must forward it as
+ * `compilerOptions.paths` so the ttsc transform can resolve the same imports
+ * that the bundler would. If the alias map were dropped, the transform would
+ * fail to resolve aliased imports. This pins that the alias argument is
+ * forwarded and that the fixture plugin sees the expected `@lib` → absolute
+ * path mapping.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with no tsconfig plugins.
+ * 2. Call `transformTtsc` with a plugin that uses the `assert-paths` operation and
+ *    pass a bundler alias map `{ "@lib": "<abs>/src/modules" }`.
+ * 3. Assert the transform succeeds and the output contains the plugin marker.
  */
 export const test_transformttsc_passes_bundler_aliases_through_compileroptions_paths =
   async () => {

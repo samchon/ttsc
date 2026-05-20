@@ -11,13 +11,15 @@ import {
 /**
  * Verifies TtscCompiler.transform rejects array-shaped TypeScript source maps.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * The `transformSource` hook contract requires each plugin to return a
+ * `Record<string, string>` keyed by file path. A plugin that returns an array
+ * instead bypasses the object check and would silently produce a corrupt source
+ * map. Pins the validation that detects and rejects the wrong shape with a
+ * clear error rather than writing undefined into the output.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a plugin whose `transformSource` returns an array.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the result is `exception` and the error mentions the source map shape.
  */
 export const test_ttsccompiler_transform_rejects_array_typescript_source_map =
   () => {

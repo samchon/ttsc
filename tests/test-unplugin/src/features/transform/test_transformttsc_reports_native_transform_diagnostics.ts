@@ -3,13 +3,17 @@ import { assertTransformReportsNativeDiagnostics } from "../../internal/transfor
 /**
  * Verifies transformTtsc reports native transform diagnostics.
  *
- * This unplugin transform scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When the native ttsc compiler emits a transform diagnostic (e.g. the fixture
+ * plugin expects `goUpper(...)` but the source exports a plain string), the
+ * adapter must surface that error as a thrown exception so the bundler can
+ * report it to the user. Swallowing or ignoring native diagnostics would give a
+ * silent green build with incorrect output. This pins that the rejection
+ * message contains the expected diagnostic text.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a fixture project with source that does not satisfy the plugin's
+ *    transform contract (`"plain"` instead of `goUpper(...)`).
+ * 2. Call `transformTtsc` on that source.
+ * 3. Assert the call rejects with a message matching the expected diagnostic.
  */
 export const test_transformttsc_reports_native_transform_diagnostics =
   async () => {

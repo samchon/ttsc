@@ -96,5 +96,4 @@ export interface ITtscPlugin {
    *   unique within a single plugin build.
    */
   contributors?: ITtscPluginContributor[];
-
 }

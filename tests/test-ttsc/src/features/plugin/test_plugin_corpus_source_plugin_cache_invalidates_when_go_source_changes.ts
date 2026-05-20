@@ -15,13 +15,16 @@ import {
  * Verifies plugin corpus: source plugin cache invalidates when Go source
  * changes.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * The content-addressed cache key is derived from the Go source files. When any
+ * source file changes the hash must differ, causing ttsc to rebuild the plugin
+ * binary rather than reusing the stale cached entry. Without invalidation a
+ * developer edit would silently produce old output.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy `go-source-plugin`, run ttsc (cold build) and assert `"PLUGIN"` output.
+ * 2. Patch `go-plugin/main.go` to wrap the uppercase result in brackets
+ *    (`"[PLUGIN]"`), changing the content hash.
+ * 3. Run ttsc again and assert it rebuilds (build log present) and the emitted JS
+ *    contains `"[PLUGIN]"`.
  */
 export const test_plugin_corpus_source_plugin_cache_invalidates_when_go_source_changes =
   () => {

@@ -14,13 +14,16 @@ import {
 /**
  * Verifies plugin corpus: relative cache dir resolves from cwd option.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * When `--cache-dir` is a relative path it must be anchored at `--cwd` (the
+ * TypeScript project root), not at the process working directory from which
+ * ttsc was launched. Build tools and monorepo scripts commonly differ in their
+ * working directories, so anchoring at `--cwd` keeps the cache co-located with
+ * the project regardless of how the process is invoked.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture and create a separate `driverCwd` dir.
+ * 2. Run ttsc with `--cwd <root> --cache-dir relative-cache` from `driverCwd`.
+ * 3. Assert zero exit, the cache appears under `<root>/relative-cache/plugins`,
+ *    and does NOT appear under `<driverCwd>/relative-cache/plugins`.
  */
 export const test_plugin_corpus_relative_cache_dir_resolves_from_cwd_option =
   () => {

@@ -11,13 +11,15 @@ import {
 /**
  * Verifies readProjectConfig lets child tsconfig override inherited plugins.
  *
- * This ttsc project config scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * A child tsconfig's own `compilerOptions.plugins` array must completely
+ * replace the parent's plugins — not merge with them. This mirrors standard
+ * tsconfig inheritance behaviour: the child's explicit value wins, so a project
+ * can opt out of shared plugins by providing its own list.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a shared config that declares one plugin entry.
+ * 2. Write a project tsconfig that extends it and provides its own `plugins` array
+ *    with a different entry.
+ * 3. Assert the resolved plugins contain only the child's entry.
  */
 export const test_readprojectconfig_lets_child_tsconfig_override_inherited_plugins =
   () => {

@@ -8,13 +8,14 @@ import {
 /**
  * Verifies plugin corpus: missing source is rejected.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A descriptor object that omits the `source` property entirely is different
+ * from one that sets `source: ""` — the key is absent rather than empty. Both
+ * cases share the same `must declare source` check so users get the same
+ * guidance regardless of how they omitted the field.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Write a plugin descriptor with no `source` property.
+ * 2. Run ttsc with `--emit`.
+ * 3. Assert non-zero exit and `must declare source` in stderr.
  */
 export const test_plugin_corpus_missing_source_is_rejected = () => {
   const root = pluginProject(

@@ -14,13 +14,16 @@ import {
  * Verifies TtscCompiler.transform rejects plugin output that is not TypeScript
  * source.
  *
- * This ttsc API scenario is owned by a tests package instead of the production
- * package manifest, so package.json stays focused on build and publish
- * contracts while the feature file documents the behavior under test.
+ * A `transformSource` hook that returns non-string values (e.g. numbers or
+ * objects) for file content would silently corrupt the source map. Pins the
+ * guard that detects when any value in the returned map is not a plain string
+ * and throws a descriptive exception rather than forwarding garbage to the
+ * compiler pipeline.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create a project with a plugin whose `transformSource` returns non-string
+ *    values.
+ * 2. Call `transform()` via the programmatic API.
+ * 3. Assert the result is `exception` and the error mentions the source map shape.
  */
 export const test_ttsccompiler_transform_rejects_plugin_output_that_is_not_typescript_source =
   () => {

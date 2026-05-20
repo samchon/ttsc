@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 /**
  * Verifies runner corpus: .cts entry executes through CommonJS output.
  *
- * This ttsx runner corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * In a `type: "module"` package, `.ts` files are treated as ESM. `.cts` is the
+ * explicit CJS override. ttsx must detect the `.cts` extension and load the
+ * corresponding `.cjs` emit via `require()` rather than dynamic `import()`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a `type: "module"` project with a `.cts` entry.
+ * 2. Run ttsx against the `.cts` entry.
+ * 3. Assert it exits successfully and prints the expected output.
  */
 export const test_runner_corpus_cts_entry_executes_through_commonjs_output =
   () => {

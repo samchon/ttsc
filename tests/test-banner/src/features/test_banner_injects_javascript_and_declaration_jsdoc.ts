@@ -9,12 +9,18 @@ import { TestBanner } from "../internal/TestBanner";
  * Verifies the @ttsc/banner plugin: banner injects JavaScript and declaration
  * JSDoc.
  *
- * This banner feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * The banner text must appear as a `@packageDocumentation` JSDoc block at the
+ * top of both the `.js` and `.d.ts` outputs, but must NOT bleed into the
+ * accompanying source-map files (otherwise source positions shift and debugging
+ * becomes misleading). This test pins the happy-path of the core banner
+ * transform including multi-line text, source maps, and declaration maps.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/banner as a project plugin.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Build a project with `declaration`, `declarationMap`, and `sourceMap`
+ *    enabled, and a tsconfig plugin entry that sets `text` to a two-line
+ *    string.
+ * 2. Run `ttsc --emit` against that project.
+ * 3. Assert the banner JSDoc block appears exactly once in `.js` and `.d.ts`.
+ * 4. Assert the `.js.map` and `.d.ts.map` files contain no banner text.
  */
 export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
   const root = TestProject.commonJsProject(

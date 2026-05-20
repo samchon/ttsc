@@ -30,16 +30,19 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: emitDeclarationOnly writes declarations without
- * JavaScript.
+ * Verifies compiler corpus: `emitDeclarationOnly` writes `.d.ts` files and
+ * suppresses JavaScript output.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Library packages often enable `emitDeclarationOnly` to produce type
+ * declarations from a separate bundler pass. Pins the contract that the Go
+ * compiler respects this flag end-to-end through the ttsc CLI: the `.d.ts` must
+ * appear on disk while no `.js` file is written, even when the project
+ * otherwise has a configured `outDir`.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with `emitDeclarationOnly: true` and a type-heavy source
+ *    file.
+ * 2. Run `ttsc --cwd <root>`.
+ * 3. Assert `dist/main.d.ts` exists and `dist/main.js` does not.
  */
 export const test_compiler_corpus_emitdeclarationonly_writes_declarations_without_javascript =
   (): void => {

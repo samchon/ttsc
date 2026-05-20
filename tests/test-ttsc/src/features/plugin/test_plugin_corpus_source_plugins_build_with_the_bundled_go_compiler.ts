@@ -13,13 +13,14 @@ import {
 /**
  * Verifies plugin corpus: source plugins build with the bundled Go compiler.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Ttsc ships a platform-specific Go SDK inside its own package so users do not
+ * need to install Go separately. This test proves that even with `PATH`
+ * pointing at a nonexistent directory — so no system `go` binary is available —
+ * the bundled SDK compiles the plugin successfully.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `go-source-plugin` fixture.
+ * 2. Run ttsc with `PATH=/nonexistent` (no system Go toolchain accessible).
+ * 3. Assert zero exit and `"PLUGIN"` in the emitted JS.
  */
 export const test_plugin_corpus_source_plugins_build_with_the_bundled_go_compiler =
   () => {

@@ -17,13 +17,17 @@ import {
  * Verifies plugin corpus: @ttsc/lint surfaces rule violations through the
  * normal failure path.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * This is the primary correctness test for the lint diagnostic pipeline. The
+ * `lint-violations` fixture carries inline `// expect:` annotations marking
+ * expected rule/severity pairs. The test parses both the annotations and the
+ * actual stderr diagnostics to verify a bijective match — no missing and no
+ * unexpected violations — and confirms that a rule set to `off` never fires.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `lint-violations` fixture (which contains `// expect:` comments).
+ * 2. Run ttsc with `--noEmit`.
+ * 3. Assert non-zero exit, that every annotated violation appears in stderr, that
+ *    no unannotated violation appears, and that `[no-non-null-assertion]` (the
+ *    `off` rule) is absent.
  */
 export const test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path =
   () => {

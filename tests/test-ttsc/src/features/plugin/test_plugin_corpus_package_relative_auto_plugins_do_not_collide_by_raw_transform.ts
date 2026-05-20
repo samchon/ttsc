@@ -16,15 +16,19 @@ import {
 
 /**
  * Verifies plugin corpus: package-relative auto plugins do not collide by raw
- * transform.
+ * transform path.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Auto-discovered plugins from multiple packages may each resolve to a
+ * different absolute path even though their `transform` strings look similar.
+ * The deduplication key must be the resolved package identity, not the raw
+ * `transform` string, so two separate auto-plugin packages both run rather than
+ * one silently shadowing the other.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Set up two fake packages (`plugin-a`, `plugin-b`) as symlinked node_modules
+ *    entries; each contributes a different prefix/suffix operation.
+ * 2. Run ttsc with `--emit` against the project that lists both as dependencies.
+ * 3. Assert zero exit and the emitted JS contains `"A:plugin:B"`, confirming both
+ *    plugins ran in order.
  */
 export const test_plugin_corpus_package_relative_auto_plugins_do_not_collide_by_raw_transform =
   () => {

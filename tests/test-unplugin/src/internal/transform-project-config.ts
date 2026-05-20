@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * Asserts that `transformTtsc` discovers the nearest `tsconfig.json`, applies
+ * the plugins it declares, and does not create a `dist/` directory (single-file
+ * mode, not a full build).
+ */
 async function assertTransformReadsDiscoveredTsconfig() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();

@@ -23,15 +23,17 @@ const project = {
 };
 
 /**
- * Verifies compiler corpus: invalid tsconfig is rejected before emit.
+ * Verifies compiler corpus: a malformed tsconfig is rejected before any emit.
  *
- * This ttsc compiler corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * A truncated JSON tsconfig (missing closing braces) must cause the compiler to
+ * fail with a parse error before touching `outDir`. Without this guard a
+ * corrupted tsconfig could silently fall back to default options and write
+ * output to unexpected locations. Pins the early-rejection path so the project
+ * directory stays clean on bad config.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create a project with a truncated `tsconfig.json`.
+ * 2. Run `ttsc --emit`.
+ * 3. Assert non-zero exit, a JSON parse error on stderr, and no `dist/main.js`.
  */
 export const test_compiler_corpus_invalid_tsconfig_is_rejected_before_emit =
   (): void => {

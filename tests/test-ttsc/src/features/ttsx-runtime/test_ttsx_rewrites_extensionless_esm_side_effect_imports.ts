@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx rewrites extensionless ESM side-effect imports.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * Side-effect-only imports (`import "./setup"`) produce no bindings in the
+ * emitted JS. The specifier is extensionless, which Node.js ESM cannot resolve.
+ * ttsx must rewrite side-effect import specifiers to `.js` just as it does for
+ * value imports.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an ESM project with a side-effect import `import "./setup"`.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the side-effect module ran (global flag visible to the entry).
  */
 export const test_ttsx_rewrites_extensionless_esm_side_effect_imports = () => {
   const root = TestProject.createProject({

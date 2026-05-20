@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx rewrites extensionless ESM directory index imports.
  *
- * This ttsx runtime toolchain scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * TypeScript's `bundler` module resolution allows `import "./pkg"` to resolve
+ * to `./pkg/index.ts`. The emitted JS contains `import "./pkg"` without an
+ * extension, which Node.js ESM cannot load. ttsx must resolve the directory to
+ * its `index.js` and rewrite the specifier before executing.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an ESM project where `main.ts` imports `"./pkg"` (no extension).
+ * 2. Run ttsx against the entry.
+ * 3. Assert the directory-index module was loaded successfully.
  */
 export const test_ttsx_rewrites_extensionless_esm_directory_index_imports =
   () => {

@@ -7,39 +7,43 @@
 // The boot helper is parameterized by `apiName` so any wasm built with
 // `host.Expose(...)` can be loaded the same way. The base wasm uses "ttsc";
 // downstream consumers pick their own (e.g. "ttscPlayground", "ttscTypia").
-
-import { createMemFS, type IMemFSHost } from "./MemFS";
+import { type IMemFSHost, createMemFS } from "./MemFS";
 import type { ITtscApi } from "./api";
 
 declare const importScripts: (...urls: string[]) => void;
 
+/** Options for `bootTtsc`. All fields except `wasmUrl` have sensible defaults. */
 export interface IBootTtscOptions {
   /** URL of the .wasm to fetch. */
   wasmUrl: string;
   /** URL of wasm_exec.js. Defaults to the same directory as wasmUrl. */
   wasmExecUrl?: string;
   /**
-   * globalThis property name the wasm binds. Must match the value the wasm
-   * was built with (the `apiName` passed to `host.Expose`). Defaults to
-   * "ttsc".
+   * GlobalThis property name the wasm binds. Must match the value the wasm was
+   * built with (the `apiName` passed to `host.Expose`). Defaults to "ttsc".
    */
   apiName?: string;
   /**
-   * Optional pre-existing MemFS host. When omitted, a fresh one is created
-   * and stored on the returned BootResult. Pass an existing host when you
-   * want to boot multiple wasms over the same filesystem (e.g. base ttsc +
-   * a typia wasm) so they share project sources.
+   * Optional pre-existing MemFS host. When omitted, a fresh one is created and
+   * stored on the returned BootResult. Pass an existing host when you want to
+   * boot multiple wasms over the same filesystem (e.g. base ttsc + a typia
+   * wasm) so they share project sources.
    */
   host?: IMemFSHost;
 }
 
+/** Handle returned by `bootTtsc` once the wasm is ready. */
 export interface IBootResult {
+  /** The typed API proxy bound by the wasm to `globalThis[apiName]`. */
   api: ITtscApi;
+  /** The MemFS instance shared with the wasm's virtual filesystem. */
   host: IMemFSHost;
 }
 
 /** Boot a host-built wasm. Re-entrant only if you reuse the same `host`. */
-export async function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
+export async function bootTtsc(
+  options: IBootTtscOptions,
+): Promise<IBootResult> {
   const wasmUrl = options.wasmUrl;
   const wasmExecUrl = options.wasmExecUrl ?? defaultWasmExecUrl(wasmUrl);
   const apiName = options.apiName ?? "ttsc";
@@ -64,11 +68,12 @@ export async function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> 
 
   const response = await fetch(wasmUrl);
   if (!response.ok) {
-    throw new Error(
-      `bootTtsc: failed to fetch ${wasmUrl}: ${response.status}`,
-    );
+    throw new Error(`bootTtsc: failed to fetch ${wasmUrl}: ${response.status}`);
   }
-  const wasm = await WebAssembly.instantiateStreaming(response, go.importObject);
+  const wasm = await WebAssembly.instantiateStreaming(
+    response,
+    go.importObject,
+  );
   // go.run never resolves until the wasm exits; we don't await it.
   void go.run(wasm.instance);
   await ready;
@@ -81,17 +86,35 @@ export async function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> 
   return { api, host };
 }
 
+/**
+ * Derive the `wasm_exec.js` URL from the wasm URL by replacing the filename.
+ *
+ * If `wasmUrl` has no directory component, returns `"wasm_exec.js"` (same
+ * directory as the caller's base URL).
+ */
 function defaultWasmExecUrl(wasmUrl: string): string {
   const slash = wasmUrl.lastIndexOf("/");
   if (slash < 0) return "wasm_exec.js";
   return wasmUrl.slice(0, slash + 1) + "wasm_exec.js";
 }
 
+/**
+ * Minimal shape of the `Go` constructor that `wasm_exec.js` exports on
+ * `globalThis`. Only the members we actually use are typed here.
+ */
 interface IGoInstance {
   importObject: WebAssembly.Imports;
   run(instance: WebAssembly.Instance): Promise<void>;
 }
 
+/**
+ * Minimal `process` shim required by `wasm_exec.js` in non-Node environments.
+ *
+ * Go's js/wasm bridge reads `process.pid`, `process.ppid`, and calls
+ * `process.cwd()`. `getuid`/`getgid` and friends return `-1` (root-less).
+ * `umask` and `getgroups` are never exercised by the compiler but are included
+ * for completeness so unexpected calls surface as clear errors.
+ */
 function createProcessShim(): Record<string, unknown> {
   return {
     getuid: () => -1,

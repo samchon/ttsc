@@ -5,8 +5,8 @@ import type { TtscLintRuleMap } from "./TtscLintRuleMap";
 /**
  * Top-level object accepted by `@ttsc/lint` config files.
  *
- * Keep the file shape plain: users export an object and use
- * `satisfies ITtscLintConfig` when they want type checking.
+ * Keep the file shape plain: users export an object and use `satisfies
+ * ITtscLintConfig` when they want type checking.
  */
 export interface ITtscLintConfig {
   /** Globs that select the files this entry applies to. */

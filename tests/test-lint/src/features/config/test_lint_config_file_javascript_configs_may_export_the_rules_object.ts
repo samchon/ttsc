@@ -1,15 +1,17 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies lint config file: JavaScript configs may export the rules object.
+ * Verifies that a `.cjs` lint config may export a bare rules map via
+ * `module.exports = { ... }` (no wrapping object needed).
  *
- * This lint config scenario is isolated as one exported TypeScript feature so
- * failures identify the exact package contract under test without a shared
- * smoke wrapper or package-level switch statement.
+ * Pins the CommonJS bare-export coercion path. The loader must accept the raw
+ * `module.exports` object as a rules map when it does not have a `rules` or
+ * `extends` key. The test also verifies severity normalisation: the string
+ * `"warning"` must be treated as `"warn"` in the diagnostic output.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Materialise a fixture with a `.cjs` config that exports `{ "no-console":
+ *    "warning" }`.
+ * 2. Run ttsc; assert the diagnostic severity is `"warn"` (not `"warning"`).
  */
 export const test_lint_config_file_javascript_configs_may_export_the_rules_object =
   () => {

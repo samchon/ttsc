@@ -11,13 +11,14 @@ import {
 /**
  * Verifies computeCacheKey changes when Go compiler identity changes.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * A plugin binary built with one version of the Go compiler is not compatible
+ * with a binary built by a different version. The cache key must include a
+ * content fingerprint of the `go` executable so upgrading the toolchain
+ * produces a fresh binary slot in the global plugin cache.
  *
- * 1. Prepare the isolated project, resolver input, or plugin source fixture.
- * 2. Invoke the package API or internal resolver path being pinned.
- * 3. Assert the returned files, diagnostics, cache key, or descriptor contract.
+ * 1. Create one source plugin and two fake Go executables with different content.
+ * 2. Compute the cache key with each executable as `goBinary`.
+ * 3. Assert the keys differ.
  */
 export const test_computecachekey_changes_when_go_compiler_identity_changes =
   () => {

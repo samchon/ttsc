@@ -8,13 +8,20 @@ import { TestPaths } from "../internal/TestPaths";
 /**
  * Verifies the @ttsc/paths plugin: paths rewrites ESM imports and re-exports.
  *
- * This paths feature is isolated as one exported TypeScript test so failures
- * identify the exact package contract without a shared smoke wrapper.
+ * The paths plugin must rewrite every reference to a `compilerOptions.paths`
+ * alias — static imports, named re-exports, type-only re-exports, inline
+ * `import()` types, dynamic `import()` expressions, and CommonJS-style
+ * `require()` calls — in both `.js` and `.d.ts` outputs. A single missed form
+ * would leave broken specifiers that bundlers or runtimes cannot resolve. It
+ * also covers the multi-candidate alias (`@lib/*` maps to two directories)
+ * where the first candidate is a missing path and the second resolves.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc path that loads @ttsc/paths under the temporary project
- *    tsconfig.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Create an ES2022 module project with `paths` aliases covering an exact match,
+ *    a wildcard with a missing first candidate, and a bare specifier, and
+ *    source files using all six import/export forms.
+ * 2. Run `ttsc --emit` against that project.
+ * 3. Assert all alias specifiers are replaced with relative paths in `.js` and
+ *    `.d.ts`, including the `declare module` augmentation block.
  */
 export const test_paths_rewrites_esm_imports_and_re_exports = () => {
   const root = TestProject.createProject({

@@ -14,13 +14,14 @@ import {
 /**
  * Verifies plugin corpus: @ttsc/lint clean project exits zero.
  *
- * This ttsc plugin corpus scenario is isolated as one exported TypeScript
- * feature so failures identify the exact package contract under test without a
- * shared smoke wrapper or package-level switch statement.
+ * This is the green-path sanity test for the full @ttsc/lint pipeline. When no
+ * rule violations are present the lint sidecar must signal success so ttsc
+ * exits 0. A false positive here would make every clean project appear broken.
  *
- * 1. Materialize the project fixture or module graph required by the case.
- * 2. Execute the real ttsc, ttsx, lint, or unplugin path under test.
- * 3. Assert the observable output, diagnostics, or plugin descriptor shape.
+ * 1. Copy the `lint-violations` fixture and overwrite `src/main.ts` with a source
+ *    file that has no lint violations.
+ * 2. Run ttsc with `--noEmit`.
+ * 3. Assert zero exit.
  */
 export const test_plugin_corpus_ttsc_lint_clean_project_exits_zero = () => {
   const root = setupLintProject("lint-violations");

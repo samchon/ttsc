@@ -9,11 +9,13 @@ import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
 export * from "./defaultFormat";
 export * from "./structures/index";
 
+/** A resolved contributor: Go sub-package name + absolute source directory. */
 type TtscPluginContributor = {
   name: string;
   source: string;
 };
 
+/** Descriptor shape returned to ttsc's plugin builder by the factory. */
 type TtscPluginDescriptor = {
   name: string;
   source: string;
@@ -21,6 +23,10 @@ type TtscPluginDescriptor = {
   contributors?: TtscPluginContributor[];
 };
 
+/**
+ * Context object injected by ttsc into every plugin factory call. The generic
+ * `TConfig` is the tsconfig plugin entry shape.
+ */
 type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   cwd: string;
@@ -79,10 +85,10 @@ const LINT_CONFIG_FILENAMES = [
  * 1. The tsconfig plugin entry's `plugins` map — namespace → npm specifier. Inline
  *    for projects that prefer to keep everything in `tsconfig.json`.
  * 2. The companion `lint.config.{ts,cts,mts,js,cjs,mjs,json}` (or
- *    `eslint.config.*`) file — an object with an in-memory `plugins: {
- *    ns: pluginObject }` map. The factory evaluates the config (via ttsx for TS
- *    / ESM sources, `require` for CommonJS, `JSON.parse` for JSON) and reads
- *    the `plugins` field.
+ *    `eslint.config.*`) file — an object with an in-memory `plugins: { ns:
+ *    pluginObject }` map. The factory evaluates the config (via ttsx for TS /
+ *    ESM sources, `require` for CommonJS, `JSON.parse` for JSON) and reads the
+ *    `plugins` field.
  *
  * Contributions from both sources are merged with the tsconfig entry winning on
  * namespace collisions, so a project can opt into a hand-curated subset of an
@@ -448,6 +454,12 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
     );
 }
 
+// TypeScript source written to a temp file and executed via ttsx. The
+// %CONFIG_IMPORT% placeholder is replaced with a JSON-quoted relative path
+// before the file hits disk. The script walks the exported config object,
+// collects every `plugins` map, and serialises each plugin's `source` field
+// as a JSON array for the parent process to parse — avoiding the need to
+// serialise arbitrary in-memory plugin objects across the process boundary.
 const TTSX_EXTRACTOR_SCRIPT = `import * as importedConfig from %CONFIG_IMPORT%;
 
 declare const process: {

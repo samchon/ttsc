@@ -1,3 +1,9 @@
+/**
+ * Shared helpers for plugin-corpus feature tests. Provides project scaffolding
+ * (Go plugin source, package fixtures, lint project setup), lint diagnostic
+ * parsing, and re-exports of the ttsc CLI paths and workspace constants used
+ * across the plugin-corpus feature suite.
+ */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
