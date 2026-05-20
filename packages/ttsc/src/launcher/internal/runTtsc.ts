@@ -11,6 +11,7 @@ import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourcePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
+import { resolveCacheDir } from "./resolveCacheDir";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
@@ -668,13 +669,6 @@ function runWatch(
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
   runOnce();
   return 0;
-}
-
-function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
-  if (!cacheDir) {
-    return undefined;
-  }
-  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }
 
 function collectWatchDirectories(root: string): string[] {

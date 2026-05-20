@@ -13,9 +13,10 @@ import {
 const name = "ttsc-unplugin";
 /**
  * Matches any TypeScript or JavaScript source extension (.ts, .tsx, .mts, .cts,
- * etc.).
+ * etc.). Shared with the Bun adapter (`bun.ts`) so the filter is defined once
+ * and both adapters stay in sync.
  */
-const sourceFilePattern = /\.[cm]?tsx?$/;
+export const sourceFilePattern = /\.[cm]?tsx?$/;
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 /**

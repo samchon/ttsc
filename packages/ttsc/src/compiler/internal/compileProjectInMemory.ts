@@ -9,6 +9,7 @@ import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiag
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { buildNativeCompiler } from "./buildNativeCompiler";
+import { isOutsideRelativePath, packageRootDir } from "./paths";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { runBuild } from "./runBuild";
 
@@ -139,15 +140,6 @@ function outputKeyMapper(
   return (relativePath) => pathToKey(path.join(outDir, relativePath));
 }
 
-/** Return true when a relative path escapes its base directory. */
-function isOutsideRelativePath(relative: string): boolean {
-  return (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  );
-}
-
 /** Read every file in `directory` recursively and return a `path→content` map. */
 function readOutputDirectory(
   directory: string,
@@ -213,30 +205,5 @@ function parseNativeCompileOutput(
       (stderr || stdout).trim() ||
         "ttsc: native compiler host returned no output",
     );
-  }
-}
-
-/**
- * Walk up the directory tree from `__dirname` until a directory that contains
- * both `package.json` and `go.mod` is found. This is the `packages/ttsc` root
- * and must be passed to `buildNativeCompiler` so it can locate `cmd/ttsc`.
- *
- * Throws when the root cannot be found (i.e. the package is not in a Go
- * workspace), which would indicate a broken installation.
- */
-function packageRootDir(): string {
-  let current = path.resolve(__dirname);
-  while (true) {
-    if (
-      fs.existsSync(path.join(current, "package.json")) &&
-      fs.existsSync(path.join(current, "go.mod"))
-    ) {
-      return fs.realpathSync.native?.(current) ?? fs.realpathSync(current);
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      throw new Error("ttsc: package root not found for native compiler build");
-    }
-    current = parent;
   }
 }

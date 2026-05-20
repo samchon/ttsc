@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { findNearestGoMod } from "../../compiler/internal/paths";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import type { ITtscPlugin } from "../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../structures/ITtscPluginContributor";
@@ -286,6 +287,7 @@ function composePluginSources(
     return {
       ...plugin,
       source: aggregate.plugin.source,
+      contributors: aggregate.plugin.contributors,
     };
   });
 }
@@ -659,20 +661,6 @@ function resolveNativeSourceKind(
     );
   }
   return packageName === "main" ? "executable" : "linked";
-}
-
-function findNearestGoMod(from: string, maxDepth: number): string | null {
-  let current = path.resolve(from);
-  let depth = 0;
-  while (true) {
-    const candidate = path.join(current, "go.mod");
-    if (fs.existsSync(candidate)) return candidate;
-    if (depth >= maxDepth) return null;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
-    depth += 1;
-  }
 }
 
 function resolveGoPackageDir(source: string, label: string): string {

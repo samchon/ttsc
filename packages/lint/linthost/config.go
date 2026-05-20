@@ -1740,42 +1740,13 @@ func setEnv(env []string, key, value string) []string {
   return append(env, prefix+value)
 }
 
-// parseExternalRuleEntry mirrors parseRuleEntry for ESLint-style config
-// inputs. The contract is identical to the inline path: severity
-// literal, `[severity]`, or `[severity, options]`. Tuples longer than
-// two elements are rejected because no built-in rule's option struct
-// models positional ESLint args, so silently encoding the tail as a
-// JSON array would land in `DecodeOptions` and fall back to defaults
-// — a silent fallback the standard parser deliberately avoids.
+// parseExternalRuleEntry delegates to parseRuleEntry. Both the inline
+// (tsconfig) and external (flat-config file) paths accept exactly the
+// same severity-tuple grammar, so a single implementation suffices.
+// The name is preserved because test files in the same package call it
+// directly.
 func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
-  if tuple, ok := v.([]any); ok {
-    if len(tuple) == 0 {
-      return SeverityOff, nil, fmt.Errorf("severity tuple must not be empty")
-    }
-    sev, err := parseSeverity(tuple[0])
-    if err != nil {
-      return SeverityOff, nil, err
-    }
-    if len(tuple) == 1 {
-      return sev, nil, nil
-    }
-    if len(tuple) > 2 {
-      return SeverityOff, nil, fmt.Errorf("severity tuple must be [severity] or [severity, options], got %d elements", len(tuple))
-    }
-    if tuple[1] == nil {
-      return sev, nil, nil
-    }
-    if _, ok := tuple[1].(map[string]any); !ok {
-      return SeverityOff, nil, fmt.Errorf("severity tuple's options slot must be an object, got %T", tuple[1])
-    }
-    encoded, err := json.Marshal(tuple[1])
-    if err != nil {
-      return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
-    }
-    return sev, encoded, nil
-  }
-  sev, err := parseSeverity(v)
-  return sev, nil, err
+  return parseRuleEntry(v)
 }
 
 // parseSeverity converts a raw config value to a Severity. Accepts the string

@@ -5,6 +5,8 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+import { findNearestGoMod } from "../../compiler/internal/paths";
+
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
 const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
 const TSGO_GO_MODULE_PATH = "github.com/microsoft/typescript-go";
@@ -395,20 +397,6 @@ function resolveSourceBuildTarget(opts: {
     entry: rel === "" ? "." : `./${rel}`,
     source,
   };
-}
-
-function findNearestGoMod(from: string, maxDepth: number): string | null {
-  let current = path.resolve(from);
-  let depth = 0;
-  while (true) {
-    const candidate = path.join(current, "go.mod");
-    if (fs.existsSync(candidate)) return candidate;
-    if (depth >= maxDepth) return null;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
-    depth += 1;
-  }
 }
 
 function materializeScratchDir(source: string, scratch: string): void {

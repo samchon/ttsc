@@ -1,6 +1,3 @@
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
@@ -17,6 +14,7 @@ import {
   linkedTransformPlugins,
   selectSharedHostPlugin,
 } from "./sharedHostHelpers";
+import { outputText, spawnNative } from "./spawnNative";
 
 /**
  * Merge extra environment variables over `process.env`, always injecting
@@ -57,65 +55,6 @@ function nativePluginEnv(
     }
   }
   return env;
-}
-
-/**
- * Spawn a binary (or a Node.js script when the path ends with a JS/TS
- * extension) synchronously and return the `spawnSync` result. Enforces the
- * executable bit on POSIX before spawning. Sets a 256 MiB output buffer.
- */
-function spawnBinary(
-  binary: string,
-  args: readonly string[],
-  options: {
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-    encoding?: BufferEncoding;
-  },
-) {
-  const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
-  if (!viaNode) {
-    ensureExecutable(binary);
-  }
-  return spawnSync(
-    viaNode ? process.execPath : binary,
-    viaNode ? [binary, ...args] : [...args],
-    {
-      cwd: options.cwd,
-      env: options.env,
-      encoding: options.encoding,
-      maxBuffer: 1024 * 1024 * 256,
-      windowsHide: true,
-    },
-  );
-}
-
-/**
- * Ensure the binary has the executable bit set on POSIX systems. Silently skips
- * on Windows and swallows `chmod` errors so the original spawn error is what
- * callers see.
- */
-function ensureExecutable(binary: string): void {
-  if (process.platform === "win32") {
-    return;
-  }
-  try {
-    const mode = fs.statSync(binary).mode & 0o777;
-    if ((mode & 0o111) !== 0) {
-      return;
-    }
-    fs.chmodSync(binary, mode | 0o755);
-  } catch {
-    /* keep the original spawn error path */
-  }
-}
-
-/** Coerce a `spawnSync` output value to a plain string, defaulting to `""`. */
-function outputText(value: string | Buffer | null | undefined): string {
-  if (value == null) {
-    return "";
-  }
-  return typeof value === "string" ? value : value.toString("utf8");
 }
 
 /**
@@ -249,7 +188,7 @@ function runTsgo(
   extraArgs: readonly string[],
   options: NonNullable<Parameters<typeof runBuild>[0]>,
 ): TtscBuildResult {
-  const res = spawnBinary(
+  const res = spawnNative(
     execution.tsgo.binary,
     [
       "-p",
@@ -291,7 +230,7 @@ function runTsgoBuild(
   options: NonNullable<Parameters<typeof runBuild>[0]>,
   args: readonly string[],
 ): TtscBuildResult {
-  const res = spawnBinary(execution.tsgo.binary, args, {
+  const res = spawnNative(execution.tsgo.binary, args, {
     cwd: execution.projectRoot,
     env: mergeEnv(options.env),
     encoding: "utf8",
@@ -471,7 +410,7 @@ function runNativePluginCommand(
   execution: ReturnType<typeof resolveExecutionContext>,
   label: string,
 ): TtscBuildResult {
-  const res = spawnBinary(plugin.binary, args, {
+  const res = spawnNative(plugin.binary, args, {
     cwd: execution.projectRoot,
     env: nativePluginEnv(options.env, execution, plugin),
     encoding: "utf8",

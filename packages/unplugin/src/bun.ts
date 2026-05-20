@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import type { UnpluginContextMeta } from "unplugin";
 
 import { unplugin } from "./api";
+import { sourceFilePattern } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
 
 /**
@@ -36,9 +37,6 @@ export interface BunLikeBuild {
     loader: (args: { path: string }) => Promise<{ contents: string }>,
   ): void;
 }
-
-/** Matches any TypeScript or JavaScript source extension. */
-const sourceFilePattern = /\.[cm]?tsx?$/;
 
 /**
  * Create a ttsc plugin for Bun's bundler.

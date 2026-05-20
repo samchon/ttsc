@@ -1,5 +1,3 @@
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 
 import {
@@ -12,6 +10,7 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { buildNativeCompiler } from "./buildNativeCompiler";
+import { packageRootDir } from "./paths";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -21,6 +20,7 @@ import {
   linkedTransformPlugins,
   selectSharedHostPlugin,
 } from "./sharedHostHelpers";
+import { outputText, spawnNative } from "./spawnNative";
 
 /**
  * Transform a project and capture TypeScript source output in memory.
@@ -302,64 +302,6 @@ function nativePluginEnv(
 }
 
 /**
- * Spawn a native binary (or a Node.js script when the path has a JS/TS
- * extension) with the given args and return the `spawnSync` result. Sets a
- * generous 256 MiB output buffer so large projects do not truncate.
- */
-function spawnNative(
-  binary: string,
-  args: readonly string[],
-  options: {
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-  },
-) {
-  const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
-  if (!viaNode) {
-    ensureExecutable(binary);
-  }
-  return spawnSync(
-    viaNode ? process.execPath : binary,
-    viaNode ? [binary, ...args] : [...args],
-    {
-      cwd: options.cwd,
-      encoding: "utf8",
-      env: options.env,
-      maxBuffer: 1024 * 1024 * 256,
-      windowsHide: true,
-    },
-  );
-}
-
-/**
- * Ensure the binary has the executable bit set on POSIX systems. Silently skips
- * on Windows and swallows `chmod` errors to let the original spawn error
- * surface instead of masking it with a permission error.
- */
-function ensureExecutable(binary: string): void {
-  if (process.platform === "win32") {
-    return;
-  }
-  try {
-    const mode = fs.statSync(binary).mode & 0o777;
-    if ((mode & 0o111) !== 0) {
-      return;
-    }
-    fs.chmodSync(binary, mode | 0o755);
-  } catch {
-    /* keep the original spawn error path */
-  }
-}
-
-/** Coerce a `spawnSync` output value to a plain string, defaulting to `""`. */
-function outputText(value: string | Buffer | null | undefined): string {
-  if (value == null) {
-    return "";
-  }
-  return typeof value === "string" ? value : value.toString("utf8");
-}
-
-/**
  * Parse the JSON envelope written by the native transform host to stdout.
  *
  * The `typescript` field must be a `Record<string, string>`. Any other shape is
@@ -406,28 +348,4 @@ function isTextRecord(value: unknown): value is Record<string, string> {
     !Array.isArray(value) &&
     Object.values(value).every((entry) => typeof entry === "string")
   );
-}
-
-/**
- * Walk up the directory tree from `__dirname` until a directory that contains
- * both `package.json` and `go.mod` is found. This is the `packages/ttsc` root
- * needed for `buildNativeCompiler`.
- *
- * Throws when the root cannot be found (broken installation).
- */
-function packageRootDir(): string {
-  let current = path.resolve(__dirname);
-  while (true) {
-    if (
-      fs.existsSync(path.join(current, "package.json")) &&
-      fs.existsSync(path.join(current, "go.mod"))
-    ) {
-      return fs.realpathSync.native?.(current) ?? fs.realpathSync(current);
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      throw new Error("ttsc: package root not found for native compiler build");
-    }
-    current = parent;
-  }
 }

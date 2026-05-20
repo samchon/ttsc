@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
+import { resolveCacheDir } from "./resolveCacheDir";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
@@ -178,13 +179,6 @@ function isRelativeSpecifier(specifier: string): boolean {
     specifier.startsWith(".\\") ||
     specifier.startsWith("..\\")
   );
-}
-
-function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
-  if (!cacheDir) {
-    return undefined;
-  }
-  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }
 
 function takeValue(flag: string, rest: string[]): string {

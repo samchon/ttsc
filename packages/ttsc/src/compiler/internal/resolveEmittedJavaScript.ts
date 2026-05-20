@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { isOutsideRelativePath } from "./paths";
+
 /**
  * Locate the JavaScript file emitted for a TypeScript source file.
  *
@@ -113,18 +115,6 @@ function sharedSourceStemSegments(outPath: string, srcPath: string): number {
     shared += 1;
   }
   return shared;
-}
-
-/**
- * Return true when `relative` escapes the project root (i.e. starts with `..`
- * or is absolute). Used to guard `resolveExactEmittedFile`.
- */
-function isOutsideRelativePath(relative: string): boolean {
-  return (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  );
 }
 
 /**
