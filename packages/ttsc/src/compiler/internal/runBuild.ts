@@ -115,7 +115,10 @@ export function runBuild(
         buildWithNativeCompilerPlugins(options, execution, compilers),
       );
     } else {
-      if (options.skipDiagnosticsCheck !== true) {
+      if (
+        options.skipDiagnosticsCheck !== true &&
+        !forwardsTerminalTsgoFlag(options)
+      ) {
         const tsgoChecked = runTsgo(execution, ["--noEmit"], options);
         if (tsgoChecked.status !== 0) {
           return appendBuildOutput(checked, tsgoChecked);
@@ -146,7 +149,11 @@ export function runBuild(
     };
   }
 
-  if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
+  if (
+    options.emit !== false &&
+    options.skipDiagnosticsCheck !== true &&
+    !forwardsTerminalTsgoFlag(options)
+  ) {
     const checked = runTsgo(execution, ["--noEmit"], options);
     if (checked.status !== 0) {
       return checked;
@@ -158,6 +165,35 @@ export function runBuild(
       options.emit !== false && options.forceListEmittedFiles === true,
   });
   return runTsgoBuild(execution, options, args);
+}
+
+/**
+ * Tsgo CLI flags that make `tsgo` print something and exit instead of building
+ * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc normally runs a
+ * `--noEmit` type-check pass before the emit pass; when one of these is
+ * forwarded, both passes would run `tsgo` and the output would print twice, so
+ * the pre-check is skipped and only one `tsgo` invocation remains.
+ */
+const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = new Set([
+  "--help",
+  "-h",
+  "-?",
+  "--version",
+  "-v",
+  "--all",
+  "--showConfig",
+  "--init",
+  "--listFilesOnly",
+]);
+
+/**
+ * Report whether the caller forwarded a print-and-exit tsgo flag, so the
+ * pre-emit type-check pass can be skipped to avoid running it twice.
+ */
+function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
+  return (
+    options.passthrough?.some((flag) => TERMINAL_TSGO_FLAGS.has(flag)) ?? false
+  );
 }
 
 /**
