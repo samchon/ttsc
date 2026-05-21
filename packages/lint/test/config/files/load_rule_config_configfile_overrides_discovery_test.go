@@ -15,10 +15,10 @@ import (
 // or location. A regression that still ran discovery would silently apply the
 // wrong file's rules.
 //
-// 1. Write a discoverable lint.config.json (no-console) and a separate
-//    custom.config.json (no-var) in the same temp dir.
-// 2. Call LoadRuleConfig with `configFile: "./custom.config.json"`.
-// 3. Assert the custom file's rule wins and the discoverable file is ignored.
+//  1. Write a discoverable lint.config.json (no-console) and a separate
+//     custom.config.json (no-var) in the same temp dir.
+//  2. Call LoadRuleConfig with `configFile: "./custom.config.json"`.
+//  3. Assert the custom file's rule wins and the discoverable file is ignored.
 func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

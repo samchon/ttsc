@@ -107,8 +107,9 @@ export namespace TestLint {
    *
    * - `rules` — the helper writes a `lint.config.json` whose `rules` map is the
    *   given severity map; the sidecar discovers it.
-   * - `extraSources` with a `lint.config.*` file plus a matching `pluginConfig`
-   *   (or relying on discovery) — for config-loader and contributor scenarios.
+   * - `extraSources` with a `lint.config.*` file — for config-loader and
+   *   contributor scenarios. Set `pluginConfig: { configFile: "./path" }` to
+   *   name the file explicitly, or omit `pluginConfig` to rely on discovery.
    */
   export interface IRunLintOptions {
     name: string;

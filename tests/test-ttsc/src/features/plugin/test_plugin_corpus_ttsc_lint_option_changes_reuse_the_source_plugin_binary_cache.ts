@@ -4,7 +4,6 @@ import {
   assert,
   fs,
   goPath,
-  os,
   path,
   setupLintProject,
   spawn,

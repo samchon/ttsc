@@ -15,10 +15,10 @@ import (
 // unconditionally would disable "no-console" for non-test files and fail to
 // ignore generated files.
 //
-// 1. Build a ConfigStore with a base entry, a test-file `files` override, and
-//    an `ignores`-only entry.
-// 2. Resolve rules for three absolute source paths.
-// 3. Assert each path resolves to the expected rules and ignored state.
+//  1. Build a ConfigStore with a base entry, a test-file `files` override, and
+//     an `ignores`-only entry.
+//  2. Resolve rules for three absolute source paths.
+//  3. Assert each path resolves to the expected rules and ignored state.
 func TestParseConfigStoreResolvesFilesAndIgnores(t *testing.T) {
   store := &ConfigStore{
     entries: []ConfigEntry{

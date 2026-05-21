@@ -1,11 +1,10 @@
 // Autofix orchestration for the `@ttsc/lint fix` subcommand.
 //
-// RunFix drives the fix cascade: it applies ESLint runtime fixes first
-// (one pass, external process), then repeatedly runs the native lint
-// engine and applies any emitted TextEdit suggestions until no more
-// fixable findings remain or maxFixPasses is reached. After the cascade
-// settles, it runs a final diagnostic pass so remaining issues are
-// surfaced in the normal error stream.
+// RunFix drives the fix cascade: it repeatedly runs the native lint engine
+// and applies any emitted TextEdit suggestions until no more fixable
+// findings remain or maxFixPasses is reached. After the cascade settles, it
+// runs a final diagnostic pass so remaining issues are surfaced in the
+// normal error stream.
 package linthost
 
 import (
@@ -17,10 +16,9 @@ import (
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 )
 
-// maxFixPasses bounds the native cascade after the one-shot ESLint runtime
-// pass. Real-world cascades (no-var → prefer-const → eqeqeq …) settle in a
-// handful of passes; the cap exists so a buggy rule that re-reports its own
-// edit cannot loop forever.
+// maxFixPasses bounds the native fix cascade. Real-world cascades (no-var →
+// prefer-const → eqeqeq …) settle in a handful of passes; the cap exists so
+// a buggy rule that re-reports its own edit cannot loop forever.
 const maxFixPasses = 10
 
 // RunFix implements `@ttsc/lint fix` — apply autofixes, then report any

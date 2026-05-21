@@ -57,16 +57,18 @@ Two configuration knobs:
 packages/strip/
 ├── package.json
 ├── src/
-│   └── index.cjs        ← JS descriptor (CommonJS, no TypeScript types)
+│   ├── index.cjs        ← JS descriptor (hand-written CommonJS)
+│   └── index.d.ts       ← hand-written types (exports ITtscStripConfig)
 ├── go.mod
 ├── driver/
-│   └── strip.go         ← Linked transform logic
+│   ├── strip.go         ← Linked transform logic
+│   └── config.go        ← strip.config.* file loading
 └── plugin/
     ├── main.go          ← 36-line dispatcher
     └── strip.go         ← Blank-imports the linked driver package
 ```
 
-Strip has no TypeScript-side configuration types, so the descriptor is a plain CommonJS file — no `lib/`, no compile step.
+Strip's descriptor is a hand-written CommonJS file with a hand-written `index.d.ts` alongside it — no `lib/`, no compile step. The `.d.ts` exports `ITtscStripConfig`, the shape of a `strip.config.*` file.
 
 ## The JS descriptor (`src/index.cjs`)
 
@@ -76,7 +78,30 @@ Strip has no TypeScript-side configuration types, so the descriptor is a plain C
 
 const path = require("node:path");
 
-module.exports = function createTtscStrip() {
+// Keys the tsconfig plugin entry accepts — all others are rejected so a
+// stale inline option surfaces as a clear error instead of a silent default.
+const ALLOWED_TSCONFIG_KEYS = new Set([
+  "configFile",
+  "enabled",
+  "name",
+  "stage",
+  "transform",
+]);
+
+module.exports = function createTtscStrip(context) {
+  const plugin =
+    context && typeof context === "object" && context.plugin != null
+      ? context.plugin
+      : {};
+  for (const key of Object.keys(plugin)) {
+    if (!ALLOWED_TSCONFIG_KEYS.has(key)) {
+      throw new Error(
+        `@ttsc/strip: tsconfig plugin entry contains unsupported key ` +
+          `${JSON.stringify(key)}; strip configuration must be supplied via ` +
+          `a strip.config.* file (use the "configFile" key for a custom path)`,
+      );
+    }
+  }
   return {
     name: "@ttsc/strip",
     source: path.resolve(__dirname, "..", "driver"),

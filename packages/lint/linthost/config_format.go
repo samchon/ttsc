@@ -10,9 +10,8 @@ import (
 // The result is a `map[string]any` that mirrors what a user would
 // have written under `rules` directly — entries like
 // `"format/semi": ["off", {"prefer": "always"}]` — so the caller
-// can route it through either `ParseRulesWithOptions` (inline path) or
-// `parseExternalRuleMapInto` (flat-config path) without duplicating
-// option-decoding logic.
+// can route it through either `ParseRulesWithOptions` or
+// `parseExternalRuleMapInto` without duplicating option-decoding logic.
 //
 // The block's default severity is off. That keeps check/build diagnostics
 // independent from formatting policy unless the user explicitly sets

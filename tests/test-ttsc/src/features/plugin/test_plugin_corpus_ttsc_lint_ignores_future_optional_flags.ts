@@ -5,7 +5,6 @@ import {
   fs,
   goPath,
   nativeBinary,
-  os,
   path,
   requireFromTest,
   setupLintProject,

@@ -7,13 +7,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"os"
+  "encoding/json"
+  "fmt"
+  "io"
+  "os"
 
-	"github.com/samchon/ttsc/packages/lint/linthost"
-	"github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/lint/linthost"
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
 // stderrOf returns the host stderr stream. utility.Run* writes to os.Stderr
@@ -28,7 +28,7 @@ func newBannerPlugin() bannerPlugin { return bannerPlugin{} }
 func (bannerPlugin) Name() string { return "@ttsc/banner" }
 
 func (bannerPlugin) Run(command string, args []string) int {
-	return runUtilityPlugin("@ttsc/banner", command, args)
+  return runUtilityPlugin("@ttsc/banner", command, args)
 }
 
 type pathsPlugin struct{}
@@ -38,7 +38,7 @@ func newPathsPlugin() pathsPlugin { return pathsPlugin{} }
 func (pathsPlugin) Name() string { return "@ttsc/paths" }
 
 func (pathsPlugin) Run(command string, args []string) int {
-	return runUtilityPlugin("@ttsc/paths", command, args)
+  return runUtilityPlugin("@ttsc/paths", command, args)
 }
 
 type stripPlugin struct{}
@@ -48,7 +48,7 @@ func newStripPlugin() stripPlugin { return stripPlugin{} }
 func (stripPlugin) Name() string { return "@ttsc/strip" }
 
 func (stripPlugin) Run(command string, args []string) int {
-	return runUtilityPlugin("@ttsc/strip", command, args)
+  return runUtilityPlugin("@ttsc/strip", command, args)
 }
 
 // lintPlugin runs the real `@ttsc/lint` engine inside the playground wasm by
@@ -70,12 +70,12 @@ func newLintPlugin() lintPlugin { return lintPlugin{} }
 func (lintPlugin) Name() string { return "@ttsc/lint" }
 
 func (lintPlugin) Run(command string, args []string) int {
-	if command == "" {
-		command = "check"
-	}
-	args = ensureLintPluginsJSON(args)
-	dispatch := append([]string{command}, args...)
-	return linthost.Main(dispatch)
+  if command == "" {
+    command = "check"
+  }
+  args = ensureLintPluginsJSON(args)
+  dispatch := append([]string{command}, args...)
+  return linthost.Main(dispatch)
 }
 
 // ensureLintPluginsJSON injects a synthetic `--plugins-json` payload when the
@@ -83,26 +83,26 @@ func (lintPlugin) Run(command string, args []string) int {
 // so users who paste a snippet into the playground see the same diagnostics
 // they would in a project that extends `@ttsc/lint/lib/recommended`.
 func ensureLintPluginsJSON(args []string) []string {
-	for _, a := range args {
-		if hasFlagPrefix(a, "--plugins-json=") || a == "--plugins-json" {
-			return args
-		}
-	}
-	payload, err := json.Marshal([]map[string]any{
-		{
-			"name":  "@ttsc/lint",
-			"stage": "check",
-			"config": map[string]any{
-				"rules":  playgroundLintRules,
-				"format": map[string]any{"severity": "off"},
-			},
-		},
-	})
-	if err != nil {
-		fmt.Fprintf(stderrOf(args), "@ttsc/lint: synthesize plugins-json: %v\n", err)
-		return args
-	}
-	return append(args, "--plugins-json="+string(payload))
+  for _, a := range args {
+    if hasFlagPrefix(a, "--plugins-json=") || a == "--plugins-json" {
+      return args
+    }
+  }
+  payload, err := json.Marshal([]map[string]any{
+    {
+      "name":  "@ttsc/lint",
+      "stage": "check",
+      "config": map[string]any{
+        "rules":  playgroundLintRules,
+        "format": map[string]any{"severity": "off"},
+      },
+    },
+  })
+  if err != nil {
+    fmt.Fprintf(stderrOf(args), "@ttsc/lint: synthesize plugins-json: %v\n", err)
+    return args
+  }
+  return append(args, "--plugins-json="+string(payload))
 }
 
 // playgroundLintRules is the default rule severity map the playground turns
@@ -110,19 +110,19 @@ func ensureLintPluginsJSON(args []string) []string {
 // `console.log` smoke test surfaces real diagnostics instead of falling
 // silent when the user pastes a snippet.
 var playgroundLintRules = map[string]any{
-	"no-var":                      "error",
-	"prefer-const":                "error",
-	"eqeqeq":                      "error",
-	"no-debugger":                 "error",
-	"no-empty":                    "error",
-	"no-constant-condition":       "error",
-	"no-duplicate-case":           "error",
-	"no-dupe-keys":                "error",
-	"no-self-compare":             "error",
-	"no-template-curly-in-string": "warn",
-	"no-throw-literal":            "warn",
-	"prefer-as-const":             "error",
-	"no-useless-escape":           "error",
+  "no-var":                      "error",
+  "prefer-const":                "error",
+  "eqeqeq":                      "error",
+  "no-debugger":                 "error",
+  "no-empty":                    "error",
+  "no-constant-condition":       "error",
+  "no-duplicate-case":           "error",
+  "no-dupe-keys":                "error",
+  "no-self-compare":             "error",
+  "no-template-curly-in-string": "warn",
+  "no-throw-literal":            "warn",
+  "prefer-as-const":             "error",
+  "no-useless-escape":           "error",
 }
 
 // runUtilityPlugin invokes `packages/ttsc/utility` with a synthetic
@@ -131,54 +131,54 @@ var playgroundLintRules = map[string]any{
 // preamble; paths = module specifier rewrite; strip = call/statement
 // stripping); other plugin names in the payload are ignored.
 func runUtilityPlugin(name, command string, args []string) int {
-	payload, err := json.Marshal([]map[string]any{
-		{"name": name, "config": map[string]any{}, "stage": "transform"},
-	})
-	if err != nil {
-		fmt.Fprintf(stderrOf(args), "%s: synthesize plugins-json: %v\n", name, err)
-		return 2
-	}
-	args = appendArg(args, "--plugins-json="+string(payload))
-	switch command {
-	case "build", "":
-		return utility.RunBuild(args)
-	case "check":
-		return utility.RunCheck(args)
-	case "transform":
-		return utility.RunTransform(args)
-	default:
-		fmt.Fprintf(stderrOf(args), "%s: unknown command %q\n", name, command)
-		return 2
-	}
+  payload, err := json.Marshal([]map[string]any{
+    {"name": name, "config": map[string]any{}, "stage": "transform"},
+  })
+  if err != nil {
+    fmt.Fprintf(stderrOf(args), "%s: synthesize plugins-json: %v\n", name, err)
+    return 2
+  }
+  args = appendArg(args, "--plugins-json="+string(payload))
+  switch command {
+  case "build", "":
+    return utility.RunBuild(args)
+  case "check":
+    return utility.RunCheck(args)
+  case "transform":
+    return utility.RunTransform(args)
+  default:
+    fmt.Fprintf(stderrOf(args), "%s: unknown command %q\n", name, command)
+    return 2
+  }
 }
 
 // appendArg returns args with `flag` appended, dropping any prior occurrence
 // so re-invoking a plugin with new options replaces the synthesized payload.
 func appendArg(args []string, flag string) []string {
-	out := make([]string, 0, len(args)+1)
-	prefix := splitFlagPrefix(flag)
-	for _, a := range args {
-		if hasFlagPrefix(a, prefix) {
-			continue
-		}
-		out = append(out, a)
-	}
-	out = append(out, flag)
-	return out
+  out := make([]string, 0, len(args)+1)
+  prefix := splitFlagPrefix(flag)
+  for _, a := range args {
+    if hasFlagPrefix(a, prefix) {
+      continue
+    }
+    out = append(out, a)
+  }
+  out = append(out, flag)
+  return out
 }
 
 func splitFlagPrefix(flag string) string {
-	for i := 0; i < len(flag); i++ {
-		if flag[i] == '=' {
-			return flag[:i+1]
-		}
-	}
-	return flag
+  for i := 0; i < len(flag); i++ {
+    if flag[i] == '=' {
+      return flag[:i+1]
+    }
+  }
+  return flag
 }
 
 func hasFlagPrefix(arg, prefix string) bool {
-	if len(arg) < len(prefix) {
-		return false
-	}
-	return arg[:len(prefix)] == prefix
+  if len(arg) < len(prefix) {
+    return false
+  }
+  return arg[:len(prefix)] == prefix
 }

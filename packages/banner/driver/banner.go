@@ -166,7 +166,7 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
 }
 
 // findBannerConfigFile walks up from the tsconfig (or cwd) directory looking for
-// a banner.config.{js,cjs,mjs,ts,cts,mts,json} file. Returns the path when exactly
+// a banner.config.{ts,cts,mts,js,cjs,mjs,json} file. Returns the path when exactly
 // one match is found per directory, "" when none exists at any level, or an
 // error when multiple candidates exist in the same directory.
 func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
@@ -241,12 +241,12 @@ func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
 // loadBannerConfigFile loads and evaluates a banner config file, returning its
 // exported value as a Go any. A valid banner config exports an object with a
 // "text" string; the value is validated by bannerTextFromConfigValue. The file
-// must be named banner.config.{js,cjs,mjs,ts,cts,mts,json}; JS/CJS/MJS variants
+// must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}; JS/CJS/MJS variants
 // run under Node, TypeScript variants compile and run via ttsx in a temp
 // directory, and JSON files are parsed natively.
 func loadBannerConfigFile(location string) (any, error) {
   if !isBannerConfigFileName(filepath.Base(location)) {
-    return nil, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{js,cjs,mjs,ts,mts,cts,json}: %s", location)
+    return nil, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}: %s", location)
   }
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {

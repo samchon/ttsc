@@ -15,8 +15,8 @@ import { TestBanner } from "../internal/TestBanner";
  * JSON loader path so a regression in BOM handling or JSON parsing fails loudly
  * here rather than silently suppressing the banner.
  *
- * 1. Create a CommonJS project with a `banner.config.json` that exports the
- *    `{ "text": "…" }` object, referenced via `configFile`.
+ * 1. Create a CommonJS project with a `banner.config.json` that exports the `{
+ *    "text": "…" }` object, referenced via `configFile`.
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert the emitted `.js` file contains the expected banner block.
  */

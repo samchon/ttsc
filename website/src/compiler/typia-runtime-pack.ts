@@ -33,7 +33,10 @@ interface IPackJson {
 
 let cached: Promise<Record<string, string>> | null = null;
 
-/** Fetches the prebuilt runtime pack once. Re-entrant on the same in-flight promise. */
+/**
+ * Fetches the prebuilt runtime pack once. Re-entrant on the same in-flight
+ * promise.
+ */
 export async function loadTypiaRuntimePack(): Promise<Record<string, string>> {
   if (cached) return cached;
   cached = (async () => {
@@ -50,11 +53,15 @@ export async function loadTypiaRuntimePack(): Promise<Record<string, string>> {
 
 interface ISandboxRequireOptions {
   /** Console replacement injected into every sandbox module. */
-  console: Console | typeof globalThis.console | Record<string, (...args: unknown[]) => void>;
+  console:
+    | Console
+    | typeof globalThis.console
+    | Record<string, (...args: unknown[]) => void>;
 }
 
 /**
  * Build a sandboxed require function over a runtime pack. Resolves typia /
+ *
  * @typia / randexp specifiers from the pack; throws on anything else so the
  * caller sees the unsupported dependency.
  */
@@ -65,7 +72,8 @@ export function createSandboxRequire(
   type ModuleObj = { exports: Record<string, unknown> };
   const cache = new Map<string, ModuleObj>();
 
-  const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(pack, key);
+  const has = (key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(pack, key);
 
   const tryPaths = (...candidates: string[]): string | null => {
     for (const c of candidates) if (has(c)) return c;
@@ -73,7 +81,10 @@ export function createSandboxRequire(
   };
 
   // Read package.json from pack and resolve via main/exports.
-  const resolvePackageEntry = (pkg: string, subpath: string | null): string | null => {
+  const resolvePackageEntry = (
+    pkg: string,
+    subpath: string | null,
+  ): string | null => {
     const pjKey = `${pkg}/package.json`;
     if (!has(pjKey)) return null;
     let pj: IPackJson;
@@ -130,7 +141,10 @@ export function createSandboxRequire(
 
   // Resolve a specifier (with optional `fromKey` for relative imports) to a
   // pack key, or null if unknown.
-  const resolveSpecifier = (specifier: string, fromKey: string | null): string | null => {
+  const resolveSpecifier = (
+    specifier: string,
+    fromKey: string | null,
+  ): string | null => {
     if (specifier.startsWith("./") || specifier.startsWith("../")) {
       if (!fromKey) return null;
       const baseDir = dirname(fromKey);
@@ -249,8 +263,7 @@ function splitBareSpecifier(specifier: string): {
     const slash1 = specifier.indexOf("/");
     if (slash1 < 0) return { pkg: specifier, subpath: null };
     const slash2 = specifier.indexOf("/", slash1 + 1);
-    if (slash2 < 0)
-      return { pkg: specifier, subpath: null };
+    if (slash2 < 0) return { pkg: specifier, subpath: null };
     return {
       pkg: specifier.slice(0, slash2),
       subpath: specifier.slice(slash2 + 1),
@@ -258,5 +271,8 @@ function splitBareSpecifier(specifier: string): {
   }
   const slash = specifier.indexOf("/");
   if (slash < 0) return { pkg: specifier, subpath: null };
-  return { pkg: specifier.slice(0, slash), subpath: specifier.slice(slash + 1) };
+  return {
+    pkg: specifier.slice(0, slash),
+    subpath: specifier.slice(slash + 1),
+  };
 }

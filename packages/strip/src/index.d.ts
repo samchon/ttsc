@@ -17,9 +17,9 @@ declare namespace createTtscStrip {
    * Standalone `strip.config.{ts,cts,mts,js,cjs,mjs,json}` file shape consumed
    * by `@ttsc/strip`.
    *
-   * Both keys are optional; an omitted key keeps the built-in default
-   * (`calls: ["console.log", "console.debug", "assert.*"]`,
-   * `statements: ["debugger"]`).
+   * Both keys are optional; an omitted key keeps the built-in default (`calls:
+   * ["console.log", "console.debug", "assert.*"]`, `statements:
+   * ["debugger"]`).
    */
   export interface ITtscStripConfig {
     /**
@@ -29,10 +29,7 @@ declare namespace createTtscStrip {
      */
     calls?: readonly string[];
 
-    /**
-     * Bare statement kinds to remove. Currently only `"debugger"` is
-     * supported.
-     */
+    /** Bare statement kinds to remove. Currently only `"debugger"` is supported. */
     statements?: readonly string[];
   }
 }

@@ -38,9 +38,9 @@ import (
 // body — parameters, optional return type, `=>` token — is emitted
 // verbatim; only the body participates in reflow.
 //
-//   verbatim prefix      reflowed body
-//   ┌──────────────┐     ┌──────────┐
-//   (a, b): number =>    { return a; }
+//  verbatim prefix      reflowed body
+//  ┌──────────────┐     ┌──────────┐
+//  (a, b): number =>    { return a; }
 //
 // A concise (expression) body is dispatched directly. A block body
 // flows through printBlock, which re-indents its statements relative
@@ -123,10 +123,10 @@ func printParenthesizedExpression(ctx *PrintContext, node *shimast.Node) (Doc, b
 // line, indented one unit from the block's base indent and the closing
 // brace back at the base indent.
 //
-//   {
-//     stmt;
-//     stmt;
-//   }
+//  {
+//    stmt;
+//    stmt;
+//  }
 //
 // Each statement is dispatched through PrintNode, so a statement that
 // is itself reflowable (a long call) gets reflowed and a plain

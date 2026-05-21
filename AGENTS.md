@@ -42,6 +42,7 @@ pnpm test
 - Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style — don't create parallel structures.
 - Respect existing package boundaries. Don't hardcode consumer-specific behavior into the compiler host.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
+- Plugin configuration lives in dedicated `*.config.{ts,cts,mts,js,cjs,mjs,json}` files, auto-discovered by upward walk; the tsconfig plugin entry accepts only `configFile` (an explicit path). Don't reintroduce inline `compilerOptions.plugins` option keys — they were withdrawn so config has one typed, discoverable home.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
 

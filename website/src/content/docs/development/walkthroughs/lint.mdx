@@ -216,10 +216,10 @@ The `Run*` functions are intentionally thin wrappers; the shared work is in `run
 
 ## Config resolution
 
-The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1700 LOC) because it owns every way a user can declare rules:
+The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1400 LOC) because it owns every way a user can declare rules:
 
 - **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
-- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}`.
+- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}` — or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
 - **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 
 The config loader returns a `RuleResolver` interface:
@@ -640,7 +640,7 @@ export default {
 Lint is the most-tested package in the repo:
 
 - **Go unit tests** in [`packages/lint/test/`](https://github.com/samchon/ttsc/tree/master/packages/lint/test/) — direct calls into `linthost` helpers, AST helper coverage.
-- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/) — over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `contributor/`.
+- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/) — over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `config/`, `plugin/`, `contributor/`.
 - **Contributor demo plugin** at [`tests/lint-contributor-demo/`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/) — the canonical "build a contributor from scratch" reference, used by every contributor-related e2e test.
 
 When you write your own rule, start by copying the test shape from [`tests/test-lint/src/features/rules/no-debugger/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/rules/) — one assertion per file, materialize a fixture, run the real `ttsc check`, assert exit code and stderr substring.

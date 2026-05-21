@@ -193,8 +193,7 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
 // ConfigEntry per file, the extends-target entries declared before the
 // extending file's own entry so local rules win on collision.
 type ConfigStore struct {
-  entries            []ConfigEntry
-  externalConfigPath string
+  entries []ConfigEntry
   // options is a flat rule-name → JSON map. Options are not scoped by
   // `files` / `ignores`: a rule's behavior is a single project-wide
   // configuration even when its severity is per-file. The simplification
@@ -312,15 +311,6 @@ func (s *ConfigStore) Flatten() RuleConfig {
     }
   }
   return out
-}
-
-// ExternalConfigPath returns the absolute path of the config file that was
-// loaded into this store.
-func (s *ConfigStore) ExternalConfigPath() string {
-  if s == nil {
-    return ""
-  }
-  return s.externalConfigPath
 }
 
 func (e ConfigEntry) matchesFile(fileName string) bool {
@@ -695,8 +685,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
 }
 
 // loadConfigResolver loads and parses the lint config file at `location` into
-// a *ConfigStore and returns it as a RuleResolver. The store's
-// externalConfigPath is set so callers can resolve relative paths against it.
+// a *ConfigStore and returns it as a RuleResolver.
 func loadConfigResolver(location string) (RuleResolver, error) {
   raw, err := loadConfigFile(location)
   if err != nil {
@@ -706,7 +695,6 @@ func loadConfigResolver(location string) (RuleResolver, error) {
   if err != nil {
     return nil, err
   }
-  store.externalConfigPath = location
   return store, nil
 }
 
@@ -1264,11 +1252,8 @@ func setEnv(env []string, key, value string) []string {
   return append(env, prefix+value)
 }
 
-// parseExternalRuleEntry delegates to parseRuleEntry. Both the inline
-// (tsconfig) and external (flat-config file) paths accept exactly the
-// same severity-tuple grammar, so a single implementation suffices.
-// The name is preserved because test files in the same package call it
-// directly.
+// parseExternalRuleEntry delegates to parseRuleEntry. It is kept under this
+// name because test files in the same package call it directly.
 func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
   return parseRuleEntry(v)
 }
