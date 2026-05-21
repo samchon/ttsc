@@ -20,20 +20,24 @@ import (
 // mode, matching Prettier's `bracketSpacing: true` default for import
 // declarations (which is hard-coded; Prettier ignores `bracketSpacing`
 // for imports). Empty named imports `{}` collapse cleanly.
-func printNamedImports(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode.
+func printNamedImports(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   ni := node.AsNamedImports()
   if ni == nil || ni.Elements == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   items := make([]Doc, 0, len(ni.Elements.Nodes))
+  covered := true
   for _, spec := range ni.Elements.Nodes {
     if spec == nil {
-      return verbatim(ctx, node)
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    doc, _ := PrintNode(ctx, spec)
+    doc, childCovered := PrintNode(ctx, spec)
+    covered = covered && childCovered
     items = append(items, doc)
   }
   return printList(ctx, listShape{
@@ -42,25 +46,29 @@ func printNamedImports(ctx *PrintContext, node *shimast.Node) Doc {
     Items:    items,
     Space:    true,
     AddComma: true,
-  })
+  }), covered
 }
 
 // printNamedExports renders `export { a, b }`. The shape is identical
 // to NamedImports; only the surrounding declaration differs.
-func printNamedExports(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode.
+func printNamedExports(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   ne := node.AsNamedExports()
   if ne == nil || ne.Elements == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   items := make([]Doc, 0, len(ne.Elements.Nodes))
+  covered := true
   for _, spec := range ne.Elements.Nodes {
     if spec == nil {
-      return verbatim(ctx, node)
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    doc, _ := PrintNode(ctx, spec)
+    doc, childCovered := PrintNode(ctx, spec)
+    covered = covered && childCovered
     items = append(items, doc)
   }
   return printList(ctx, listShape{
@@ -69,7 +77,7 @@ func printNamedExports(ctx *PrintContext, node *shimast.Node) Doc {
     Items:    items,
     Space:    true,
     AddComma: true,
-  })
+  }), covered
 }
 
 // printImportDeclaration renders the surrounding `import … from "x";`.
@@ -79,13 +87,15 @@ func printNamedExports(ctx *PrintContext, node *shimast.Node) Doc {
 //
 // The dispatcher hands off to the per-clause printers; the top-level
 // frame stitches them together with the keywords and `from` token.
-func printImportDeclaration(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode.
+func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   imp := node.AsImportDeclaration()
   if imp == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   // If the declaration uses anything other than a vanilla
   // `import { ... } from "x"` shape (default specifier, namespace
@@ -93,20 +103,26 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) Doc {
   // canonical reflow target is the named-import body.
   clause := imp.ImportClause
   if clause == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   clauseData := clause.AsImportClause()
   if clauseData == nil || clauseData.NamedBindings == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   if clauseData.NamedBindings.Kind != shimast.KindNamedImports {
     // Namespace imports (`import * as ns from "x"`) have no
     // reflow surface; leave them alone.
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   if clause.Name() != nil {
     // `import Default, { … } from "x"` — keep verbatim for v1.
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
+  // AttributeClause (`with { ... }` / `assert { ... }`) lives after
+  // the module specifier. Fall back to verbatim when present so we
+  // don't drop attributes silently.
+  if imp.Attributes != nil {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
 
   // Bracketed clause prefix: `import ` (and optional `type `).
@@ -114,8 +130,9 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) Doc {
   if clause.IsTypeOnly() {
     prefix = "import type "
   }
-  named, _ := PrintNode(ctx, clauseData.NamedBindings)
+  named, covered := PrintNode(ctx, clauseData.NamedBindings)
   moduleSpec := verbatim(ctx, imp.ModuleSpecifier)
+  covered = covered && !nodeSpansMultipleLines(ctx, imp.ModuleSpecifier)
   parts := []Doc{Text(prefix), named, Text(" from "), moduleSpec}
   if sourceHasStatementTerminator(ctx.Source, node.End()) {
     // Preserve the user's terminator decision. Emitting `;`
@@ -124,13 +141,7 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) Doc {
     // `;;` — `format/semi` owns terminator placement.
     parts = append(parts, Text(";"))
   }
-  // AttributeClause (`with { ... }` / `assert { ... }`) lives after
-  // the module specifier. Fall back to verbatim when present so we
-  // don't drop attributes silently.
-  if imp.Attributes != nil {
-    return verbatim(ctx, node)
-  }
-  return Concat(parts...)
+  return Concat(parts...), covered
 }
 
 // sourceHasStatementTerminator reports whether the last non-trivia

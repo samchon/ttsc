@@ -8,8 +8,9 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * assignment export form. Without this, users who set `"type": "module"` in
  * their project and write a CJS config file would silently get no rules.
  *
- * 1. Materialize a fixture whose plugin entry references `./ttsc-lint.config.cts`.
- * 2. The config exports a rules map via `export = config` (CJS style).
+ * 1. Materialize a fixture whose plugin entry sets `configFile:
+ *    "./ttsc-lint.config.cts"`.
+ * 2. The config exports an `ITtscLintConfig` object via `export = config` (CJS).
  * 3. Run ttsc; assert `no-console` fires from the loaded config.
  */
 export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
@@ -17,11 +18,11 @@ export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
     name: "config-file-cts",
     source: SOURCE,
     pluginConfig: {
-      config: "./ttsc-lint.config.cts",
+      configFile: "./ttsc-lint.config.cts",
     },
     extraSources: {
       "ttsc-lint.config.cts": `const config = {
-        "no-console": "error",
+        rules: { "no-console": "error" },
       };
 
       export = config;\n`,

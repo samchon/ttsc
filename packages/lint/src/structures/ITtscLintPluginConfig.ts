@@ -1,6 +1,3 @@
-import type { ITtscLintFormatConfig } from "./ITtscLintFormatConfig";
-import type { TtscLintRuleMap } from "./TtscLintRuleMap";
-
 /** `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`. */
 export interface ITtscLintPluginConfig {
   /** Set to `false` to keep the entry while disabling this plugin. */
@@ -10,94 +7,24 @@ export interface ITtscLintPluginConfig {
   transform?: string;
 
   /**
-   * Inline rule severity map applied to the project.
+   * Path to the lint config file, overriding auto-discovery.
    *
-   * Mirrors the `rules` field of an ESLint flat-config entry. When set, the
-   * sidecar uses this map directly and does NOT consult any `lint.config.*`
-   * file (use `extends` for that). Combine with `plugins` to register
-   * contributor rule namespaces in the same entry.
+   * Relative paths are resolved from the tsconfig directory; absolute paths are
+   * used as-is. Accepts the usual `lint.config.*` / `ttsc-lint.config.*`
+   * extensions (`.ts`, `.cts`, `.mts`, `.js`, `.cjs`, `.mjs`, `.json`).
    *
-   * ```jsonc
-   * {
-   *   "transform": "@ttsc/lint",
-   *   "rules": { "no-var": "error", "prefer-const": "warning" }
-   * }
-   * ```
-   */
-  rules?: TtscLintRuleMap;
-
-  /**
-   * Path to a standalone lint config file whose rules should be applied to this
-   * project. Relative paths are resolved from the tsconfig directory. Accepts
-   * the usual `lint.config.*` / `ttsc-lint.config.*` / `eslint.config.*`
-   * extensions.
-   *
-   * Mirrors the `extends` field of an ESLint flat-config entry — "inherit this
-   * file's configuration".
+   * When omitted, `@ttsc/lint` discovers a `lint.config.*` /
+   * `ttsc-lint.config.*` file by walking upward from the tsconfig directory.
    *
    * ```jsonc
    * {
    *   "transform": "@ttsc/lint",
-   *   "extends": "./lint.config.ts"
+   *   "configFile": "./lint.config.ts"
    * }
    * ```
    *
-   * `rules` and `extends` are mutually exclusive on a single plugin entry; the
-   * sidecar surfaces a loud error when both are set.
+   * Every rule, format, and plugin setting lives in the config file — the
+   * tsconfig plugin entry carries nothing but this pointer.
    */
-  extends?: string;
-
-  /**
-   * Contributor lint plugins to compile into the `@ttsc/lint` binary.
-   *
-   * Each entry maps a namespace (rule-name prefix) to an npm specifier or
-   * relative path. The factory resolves the package, reads its exported
-   * `ITtscLintPlugin` descriptor, and forwards the Go source directory to
-   * ttsc's plugin builder via the `contributors` field.
-   *
-   * ```jsonc
-   * {
-   *   "transform": "@ttsc/lint",
-   *   "plugins": { "demo": "ttsc-lint-plugin-demo" },
-   *   "rules": { "demo/no-todo-comment": "error" }
-   * }
-   * ```
-   */
-  plugins?: Record<string, string>;
-
-  /**
-   * Prettier-style flat configuration for the `format/*` rules. Sibling of
-   * `rules`. See {@link ITtscLintFormatConfig} for the full surface.
-   *
-   * ```jsonc
-   * {
-   *   "transform": "@ttsc/lint",
-   *   "format": { "printWidth": 100, "singleQuote": true }
-   * }
-   * ```
-   *
-   * Combines with `rules` (per-rule overrides win on collision). Cannot be
-   * combined with `extends` on the same plugin entry — put format options
-   * inside the extends-target lint.config.ts instead.
-   */
-  format?: ITtscLintFormatConfig;
-
-  /**
-   * Inline rule map or path to a standalone lint config file.
-   *
-   * @deprecated Use `rules` for inline severity maps or `extends` for a config
-   *   file path. The sidecar maps a legacy `config` entry onto the appropriate
-   *   new field and emits a one-time stderr deprecation notice. Removed in a
-   *   future minor.
-   *
-   *   The legacy shape is intentionally narrower than `rules`/`extends`: a string
-   *   (file path) or a flat rule-name → severity map. The Go-side parser only
-   *   accepts those two shapes; widening the TS type to the full config object
-   *   would silently let unsupported nested shapes pass type-checking and fail
-   *   at runtime.
-   */
-  config?: string | TtscLintRuleMap;
-
-  /** Extra plugin-owned fields are passed through unchanged. */
-  [key: string]: unknown;
+  configFile?: string;
 }

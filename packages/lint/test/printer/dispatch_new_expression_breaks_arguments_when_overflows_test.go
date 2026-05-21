@@ -25,7 +25,8 @@ func TestDispatchNewExpressionBreaksArgumentsWhenOverflows(t *testing.T) {
   opts := DefaultPrintOptions()
   opts.PrintWidth = 20
   ctx := NewPrintContext(file, opts)
-  got := Print(printNewExpression(ctx, node), ctx.Opts)
+  doc, _ := printNewExpression(ctx, node)
+  got := Print(doc, ctx.Opts)
   want := "new Foo(\n  aaaaaa,\n  bbbbbb,\n  cccccc,\n)"
   if got != want {
     t.Fatalf("broken new expression mismatch:\nwant %q\ngot  %q", want, got)

@@ -20,7 +20,7 @@ import (
 func TestFindLintEntryAcceptsSortedCheckPluginPayload(t *testing.T) {
   const blob = `[
     {"name": "other-check", "stage": "check", "config": {}},
-    {"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}},
+    {"name": "@ttsc/lint", "stage": "check", "config": {"configFile": "./lint.config.ts"}},
     {"name": "source-transform", "stage": "transform", "config": {}}
   ]`
   entries, err := ParsePlugins(blob)

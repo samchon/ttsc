@@ -20,17 +20,23 @@ import (
 // Type arguments (`foo<A, B>(x)`) are preserved verbatim. Trailing
 // commas on type arguments are intentionally avoided — Prettier omits
 // them too (see prettier#10353).
-func printCallExpression(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode. The
+// callee, optional `?.` token and type arguments are verbatim, so a
+// multi-line callee taints coverage just as a multi-line argument does.
+func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   call := node.AsCallExpression()
   if call == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   parts := []Doc{}
+  covered := true
   if call.Expression != nil {
     parts = append(parts, verbatim(ctx, call.Expression))
+    covered = covered && !nodeSpansMultipleLines(ctx, call.Expression)
   }
   // Question-dot for optional call: `foo?.(x)`. The token byte range
   // lives between Expression.End() and the open paren; copy
@@ -43,38 +49,45 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) Doc {
     parts = append(parts, verbatimRange(ctx.Source, callTypeArgsStart(ctx, call), callTypeArgsEnd(ctx, call)))
   }
   if hasNilEntry(call.Arguments) {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  parts = append(parts, printArgList(ctx, call.Arguments))
-  return Concat(parts...)
+  argDoc, argCovered := printArgList(ctx, call.Arguments)
+  parts = append(parts, argDoc)
+  return Concat(parts...), covered && argCovered
 }
 
 // printNewExpression renders a NewExpression. It mirrors the call
 // expression printer; the only difference is the leading `new ` keyword
 // and the optional argument list (NewExpression may omit args entirely,
 // e.g. `new Foo`).
-func printNewExpression(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode.
+func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   ne := node.AsNewExpression()
   if ne == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   parts := []Doc{Text("new ")}
+  covered := true
   if ne.Expression != nil {
     parts = append(parts, verbatim(ctx, ne.Expression))
+    covered = covered && !nodeSpansMultipleLines(ctx, ne.Expression)
   }
   if ne.TypeArguments != nil {
     parts = append(parts, verbatimRange(ctx.Source, newTypeArgsStart(ctx, ne), newTypeArgsEnd(ctx, ne)))
   }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
-      return verbatim(ctx, node)
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    parts = append(parts, printArgList(ctx, ne.Arguments))
+    argDoc, argCovered := printArgList(ctx, ne.Arguments)
+    parts = append(parts, argDoc)
+    covered = covered && argCovered
   }
-  return Concat(parts...)
+  return Concat(parts...), covered
 }
 
 // hasNilEntry reports whether any entry of `list` is a nil pointer.
@@ -94,24 +107,56 @@ func hasNilEntry(list *shimast.NodeList) bool {
 }
 
 // printArgList renders an argument node list. The shared printList
-// handles the open-comma-close shape; this helper just gathers the
-// per-argument docs.
-func printArgList(ctx *PrintContext, list *shimast.NodeList) Doc {
+// handles the open-comma-close shape; this helper gathers the
+// per-argument docs and threads each argument's `covered` flag up.
+//
+// When the final argument is a callback or object literal, the list
+// renders in the "last-argument hugging" shape (see printListHuggingLast):
+// the callback's own body carries the multi-line layout, so the parens
+// stay attached and the preceding arguments are not exploded onto their
+// own lines. This is the Prettier behavior for `foo(x, () => { … })`.
+func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
   if list == nil {
-    return Text("()")
+    return Text("()"), true
   }
   items := make([]Doc, 0, len(list.Nodes))
+  covered := true
   for _, arg := range list.Nodes {
-    doc, _ := PrintNode(ctx, arg)
+    doc, childCovered := PrintNode(ctx, arg)
+    covered = covered && childCovered
     items = append(items, doc)
   }
-  return printList(ctx, listShape{
+  shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
     Items:    items,
     Space:    false,
     AddComma: true,
-  })
+    HugLast:  shouldHugLastArgument(list.Nodes),
+  }
+  return printList(ctx, shape), covered
+}
+
+// shouldHugLastArgument reports whether the final entry of `args` is a
+// shape Prettier keeps hugging the closing paren: an arrow function, a
+// function expression, or an object literal. Hugging only applies when
+// that argument is genuinely the last one; a callback in the middle of
+// the list does not trigger the shape.
+func shouldHugLastArgument(args []*shimast.Node) bool {
+  if len(args) == 0 {
+    return false
+  }
+  last := args[len(args)-1]
+  if last == nil {
+    return false
+  }
+  switch last.Kind {
+  case shimast.KindArrowFunction,
+    shimast.KindFunctionExpression,
+    shimast.KindObjectLiteralExpression:
+    return true
+  }
+  return false
 }
 
 // Type-argument byte-range helpers. The shim's NodeList.End() points

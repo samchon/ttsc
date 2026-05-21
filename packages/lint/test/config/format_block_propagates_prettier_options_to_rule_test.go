@@ -15,33 +15,30 @@ import (
 // than a load-time error, because diagnostics would still fire,
 // just incorrectly.
 //
-//  1. Build a `format` block exercising one non-default value per
+//  1. Build an ITtscLintConfig object whose `format` block exercises one non-default value per
 //     mapping cell: singleQuote, trailingComma, printWidth,
 //     tabWidth, useTabs, endOfLine, importOrder, jsdoc with
 //     tagSynonyms.
-//  2. Resolve and inspect the option blob attached to each rule.
+//  2. Parse it and inspect the option blob attached to each rule.
 //  3. Assert every cell decodes to the expected JSON.
 func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{
-        "semi":          false,
-        "singleQuote":   true,
-        "trailingComma": "es5",
-        "printWidth":    100,
-        "tabWidth":      4,
-        "useTabs":       true,
-        "endOfLine":     "crlf",
-        "importOrder":   []any{"<THIRD_PARTY_MODULES>", "^[./]"},
-        "jsdoc": map[string]any{
-          "tagSynonyms": map[string]any{"foo": "bar"},
-        },
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{
+      "semi":          false,
+      "singleQuote":   true,
+      "trailingComma": "es5",
+      "printWidth":    100,
+      "tabWidth":      4,
+      "useTabs":       true,
+      "endOfLine":     "crlf",
+      "importOrder":   []any{"<THIRD_PARTY_MODULES>", "^[./]"},
+      "jsdoc": map[string]any{
+        "tagSynonyms": map[string]any{"foo": "bar"},
       },
     },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
 
   type semiOpts struct {

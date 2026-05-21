@@ -5,22 +5,19 @@ import {
 } from "../../internal/config-file";
 
 /**
- * Verifies contributor discovery through a flat-config `lint.config.ts`
- * `plugins` field, not just the tsconfig plugin entry.
+ * Verifies contributor discovery through a `lint.config.ts` `plugins` field.
  *
- * Pins the second contributor discovery surface added in the same commit as the
- * host's `contributors` field: when the user authors plugins the
- * ESLint-flat-config way (`plugins: { demo: demoPlugin }` next to `rules`),
- * `@ttsc/lint`'s factory must spawn ttsx to evaluate the .ts config, walk every
- * entry's `plugins` map, and forward the resolved source paths to ttsc's plugin
- * builder.
+ * Pins the contributor discovery surface: `@ttsc/lint`'s factory must spawn
+ * ttsx to evaluate the `.ts` config, read its `plugins` map, and forward the
+ * resolved Go source paths to ttsc's plugin builder. All contributors live in
+ * the config file — the tsconfig plugin entry only points at it via
+ * `configFile`.
  *
- * 1. Materialize a fixture whose tsconfig only references `@ttsc/lint` (no
- *    `plugins` field) but points at an external `lint.config.ts`.
+ * 1. Materialize a fixture whose tsconfig plugin entry sets `configFile:
+ *    "./lint.config.ts"`.
  * 2. The `lint.config.ts` imports the demo plugin object and lists it under
- *    `plugins: { demo: demoPlugin }` of a flat-config entry.
- * 3. Run ttsc; assert the demo rule fires the same way it does when the plugin is
- *    declared inline in tsconfig.
+ *    `plugins: { demo: demoPlugin }` of the ITtscLintConfig object.
+ * 3. Run ttsc; assert the demo rule fires from the contributor plugin.
  */
 export const test_lint_contributor_plugin_discovered_from_lint_config_ts =
   () => {
@@ -30,7 +27,7 @@ export const test_lint_contributor_plugin_discovered_from_lint_config_ts =
       name: "contributor-demo-lint-config-ts",
       source,
       pluginConfig: {
-        extends: "./lint.config.ts",
+        configFile: "./lint.config.ts",
       },
       extraSources: {
         "lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";

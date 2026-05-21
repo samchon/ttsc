@@ -5,21 +5,20 @@ import (
 )
 
 // TestParsePluginsRoundTrip verifies the full JSON decode path from a
-// --plugins-json payload through rule-config parsing.
+// --plugins-json payload to the located @ttsc/lint plugin entry.
 //
 // This is the end-to-end happy path that every lint invocation relies on:
 // ParsePlugins must faithfully preserve entry fields (name, stage, config),
-// FindLintEntry must return the @ttsc/lint entry, and ParseRules must produce
-// the correct severity for the embedded rule config. A regression at any seam
+// and FindLintEntry must return the @ttsc/lint entry. A regression at any seam
 // — dropped fields, re-keyed JSON, misrouted stage string — would silently
-// produce an empty rule set with no error reported.
+// produce a misconfigured run with no error reported.
 //
-//  1. Build a single-entry @ttsc/lint payload with `"no-var": "error"`.
-//  2. Parse, locate the entry, and decode the rule config.
-//  3. Assert entry.Stage is "check" and Severity("no-var") is SeverityError.
+//  1. Build a single-entry @ttsc/lint payload whose config carries `configFile`.
+//  2. Parse the payload and locate the entry.
+//  3. Assert entry.Stage is "check" and the `configFile` value round-tripped.
 func TestParsePluginsRoundTrip(t *testing.T) {
   const blob = `[
-    {"name": "@ttsc/lint", "stage": "check", "config": {"config": {"no-var": "error"}}}
+    {"name": "@ttsc/lint", "stage": "check", "config": {"configFile": "./lint.config.ts"}}
   ]`
   entries, err := ParsePlugins(blob)
   if err != nil {
@@ -38,11 +37,7 @@ func TestParsePluginsRoundTrip(t *testing.T) {
   if entry.Stage != "check" {
     t.Errorf("entry.Stage: want check, got %q", entry.Stage)
   }
-  cfg, err := ParseRules(entry.Config["config"])
-  if err != nil {
-    t.Fatalf("ParseRules: %v", err)
-  }
-  if cfg.Severity("no-var") != SeverityError {
-    t.Errorf("no-var severity: want error, got %v", cfg.Severity("no-var"))
+  if got, _ := entry.Config["configFile"].(string); got != "./lint.config.ts" {
+    t.Errorf("configFile: want ./lint.config.ts, got %q", got)
   }
 }

@@ -57,16 +57,6 @@ func runFix(opts *subcommandOpts) int {
   }()
 
   totalFixes := 0
-  if fixed, err := runExternalESLintFixes(rules, opts.cwd, prog.userSourceFiles()); err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return 2
-  } else if fixed > 0 {
-    totalFixes += fixed
-    prog, code = reloadFixProgram(prog, opts)
-    if code != 0 {
-      return code
-    }
-  }
 
   // `ttsc fix` applies edits from BOTH lint-class rules and
   // format-class rules. The dual `ttsc format` subcommand exists for
@@ -105,14 +95,12 @@ func runFix(opts *subcommandOpts) int {
   }
 
   engine := NewEngineWithResolver(rules)
-  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  if !externalRan {
-    warnUnknownRules(os.Stderr, engine.UnknownRules())
-  }
+  warnUnknownRules(os.Stderr, engine.UnknownRules())
   errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd)
   if errCount > 0 {
     return 2

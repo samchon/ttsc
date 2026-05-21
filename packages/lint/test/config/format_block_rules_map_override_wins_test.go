@@ -14,21 +14,18 @@ import "testing"
 //
 //  1. Build an entry with `format: { severity: "warning" }` and
 //     `rules: { "format/semi": "error" }`.
-//  2. Resolve.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert format/semi uses the explicit rule entry and the other format
 //     rules remain warnings.
 func TestFormatBlockRulesMapOverrideWins(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": "warning"},
-      "rules": map[string]any{
-        "format/semi": "error",
-      },
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"severity": "warning"},
+    "rules": map[string]any{
+      "format/semi": "error",
     },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   enabled := resolver.EnabledRuleConfig()
   if got := enabled["format/semi"]; got != SeverityError {

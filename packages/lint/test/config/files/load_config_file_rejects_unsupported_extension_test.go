@@ -8,8 +8,8 @@ import (
 
 // TestLoadConfigFileRejectsUnsupportedExtension verifies config extension validation.
 //
-// Discovery only returns supported lint and ESLint config filenames, but
-// explicit plugin config paths can point anywhere. The generic loader must
+// Discovery only returns supported lint.config.* / ttsc-lint.config.* filenames,
+// but an explicit `configFile` path can point anywhere. The generic loader must
 // reject unknown extensions before trying JSON or Node-backed loaders.
 //
 // This scenario keeps extension handling isolated from filesystem read errors

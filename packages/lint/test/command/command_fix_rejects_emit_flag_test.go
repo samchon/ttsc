@@ -22,7 +22,7 @@ func TestCommandFixRejectsEmitFlag(t *testing.T) {
       "fix",
       "--emit",
       "--cwd", root,
-      "--plugins-json", lintManifest(t, map[string]string{}),
+      "--plugins-json", lintManifest(t),
     })
   })
   if code != 2 {

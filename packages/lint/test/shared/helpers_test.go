@@ -286,23 +286,40 @@ func seedLintProject(t *testing.T, source string) string {
 
 // lintManifest serializes the plugin payload shape passed by ttsc.
 //
-// The command package receives its rules through --plugins-json, not by reading
-// package.json. Tests use this helper to keep the sidecar protocol explicit.
-// The inner `rules` key matches the current tsconfig schema; the deprecated
-// `config` shape lives only in legacy-path tests.
-func lintManifest(t *testing.T, rules map[string]string) string {
+// The command package receives its plugin entry through --plugins-json, not by
+// reading package.json. The tsconfig plugin entry carries no inline rule
+// surface: it points at a lint config file via `configFile` or relies on
+// auto-discovery. Tests that need rules pair this helper with `seedLintConfig`.
+func lintManifest(t *testing.T) string {
   t.Helper()
   data, err := json.Marshal([]map[string]any{{
-    "name":  "@ttsc/lint",
-    "stage": "check",
-    "config": map[string]any{
-      "rules": rules,
-    },
+    "name":   "@ttsc/lint",
+    "stage":  "check",
+    "config": map[string]any{},
   }})
   if err != nil {
     t.Fatal(err)
   }
   return string(data)
+}
+
+// seedLintConfig writes a `lint.config.json` carrying the given
+// `ITtscLintConfig` object into `root`, so a command run with `--cwd root`
+// discovers it the way a real project's config file would be picked up.
+func seedLintConfig(t *testing.T, root string, config map[string]any) {
+  t.Helper()
+  data, err := json.Marshal(config)
+  if err != nil {
+    t.Fatal(err)
+  }
+  writeFile(t, filepath.Join(root, "lint.config.json"), string(data))
+}
+
+// seedLintRules is the common-case wrapper over seedLintConfig: it writes a
+// `lint.config.json` whose only key is a `rules` severity map.
+func seedLintRules(t *testing.T, root string, rules map[string]string) {
+  t.Helper()
+  seedLintConfig(t, root, map[string]any{"rules": rules})
 }
 
 // assertFixSnapshot runs one rule's findings through the native fix applier.

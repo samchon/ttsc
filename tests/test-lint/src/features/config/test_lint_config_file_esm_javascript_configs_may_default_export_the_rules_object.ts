@@ -1,16 +1,16 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies that a `.mjs` lint config may default-export a bare rules map
- * (rather than a full `ITtscLintConfig` object).
+ * Verifies that a `.mjs` lint config default-exports an `ITtscLintConfig`
+ * object.
  *
- * Pins the ESM JavaScript config extension branch and the raw-map coercion
- * path. Users without a build step often write `export default { "no-var":
- * "error" }` in a `.mjs` file; the loader must recognise the flat rules object
- * and not require it to be wrapped in `{ rules: ... }`.
+ * Pins the ESM JavaScript config extension branch. Node cannot `require()` an
+ * ESM file synchronously, so `.mjs` configs are evaluated through the same
+ * dynamic-import loader as `.ts` configs. The loader must read the default
+ * export's `rules` map.
  *
- * 1. Materialise a fixture with a `.mjs` config file that bare-exports a rules
- *    map.
+ * 1. Materialise a fixture with a `.mjs` config that default-exports `{ rules: {
+ *    "no-var": "error" } }`.
  * 2. Run ttsc; assert `no-var` fires.
  */
 export const test_lint_config_file_esm_javascript_configs_may_default_export_the_rules_object =
@@ -19,11 +19,11 @@ export const test_lint_config_file_esm_javascript_configs_may_default_export_the
       name: "config-file-mjs",
       source: SOURCE,
       pluginConfig: {
-        config: "./ttsc-lint.config.mjs",
+        configFile: "./ttsc-lint.config.mjs",
       },
       extraSources: {
         "ttsc-lint.config.mjs": `export default {
-        "no-var": "error",
+        rules: { "no-var": "error" },
       };\n`,
       },
     });

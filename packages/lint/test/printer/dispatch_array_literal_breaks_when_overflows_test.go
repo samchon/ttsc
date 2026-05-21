@@ -24,7 +24,8 @@ func TestDispatchArrayLiteralBreaksWhenOverflows(t *testing.T) {
   opts := DefaultPrintOptions()
   opts.PrintWidth = 20
   ctx := NewPrintContext(file, opts)
-  got := Print(printArrayLiteral(ctx, node), ctx.Opts)
+  doc, _ := printArrayLiteral(ctx, node)
+  got := Print(doc, ctx.Opts)
   want := "[\n  \"alpha\",\n  \"beta\",\n  \"gamma\",\n]"
   if got != want {
     t.Fatalf("broken array mismatch:\nwant %q\ngot  %q", want, got)

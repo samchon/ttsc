@@ -11,19 +11,16 @@ import "testing"
 // regression that reports format findings during check by default would make
 // formatting a compile policy again.
 //
-//  1. Build a plugin entry with `format: {}` only.
-//  2. Resolve through `LoadConfigResolver`.
+//  1. Build an `ITtscLintConfig` object with `format: {}` only.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert no `format/*` rules are enabled for check/build.
 //  4. Assert always-on format rules still have option blobs for format mode.
 func TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{},
-    },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{},
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   enabled := resolver.EnabledRuleConfig()
   for _, name := range []string{

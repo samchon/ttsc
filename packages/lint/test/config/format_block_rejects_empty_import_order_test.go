@@ -15,15 +15,13 @@ import (
 // enforces it.
 //
 //  1. Build `format: { importOrder: [] }`.
-//  2. Resolve.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert the error mentions both `format.importOrder` and the
 //     "omit" remediation.
 func TestFormatBlockRejectsEmptyImportOrder(t *testing.T) {
-  _, err := LoadConfigResolver(&PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"importOrder": []any{}},
-    },
-  }, "/virtual", "")
+  _, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"importOrder": []any{}},
+  }, "")
   if err == nil {
     t.Fatal("expected error for empty importOrder, got nil")
   }

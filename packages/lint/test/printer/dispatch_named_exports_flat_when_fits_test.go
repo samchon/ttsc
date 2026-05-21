@@ -22,7 +22,8 @@ func TestDispatchNamedExportsFlatWhenFits(t *testing.T) {
   file := parseTS(t, "export { a, b };\n")
   node := firstNodeOfKind(t, file, shimast.KindNamedExports)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printNamedExports(ctx, node), ctx.Opts)
+  doc, _ := printNamedExports(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "{ a, b }" {
     t.Fatalf("flat named exports mismatch: %q", got)
   }

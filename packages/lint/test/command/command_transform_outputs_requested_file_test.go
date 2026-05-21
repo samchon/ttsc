@@ -20,12 +20,13 @@ import (
 // 3. Assert stdout contains the emitted JavaScript for the requested file.
 func TestCommandTransformOutputsRequestedFile(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
+  seedLintRules(t, root, map[string]string{"no-var": "off"})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "transform",
       "--cwd", root,
       "--file", filepath.Join(root, "src", "main.ts"),
-      "--plugins-json", lintManifest(t, map[string]string{"no-var": "off"}),
+      "--plugins-json", lintManifest(t),
     })
   })
   if code != 0 || stderr != "" || !strings.Contains(stdout, "exports.value") {

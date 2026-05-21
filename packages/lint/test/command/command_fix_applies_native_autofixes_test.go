@@ -17,15 +17,16 @@ import (
 // 3. Assert the command succeeds and the source file contains the fixed text.
 func TestCommandFixAppliesNativeAutofixes(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\n")
+  seedLintRules(t, root, map[string]string{
+    "eqeqeq":       "error",
+    "no-var":       "error",
+    "prefer-const": "error",
+  })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "fix",
       "--cwd", root,
-      "--plugins-json", lintManifest(t, map[string]string{
-        "eqeqeq":       "error",
-        "no-var":       "error",
-        "prefer-const": "error",
-      }),
+      "--plugins-json", lintManifest(t),
     })
   })
   if code != 0 || stdout != "" || stderr != "" {

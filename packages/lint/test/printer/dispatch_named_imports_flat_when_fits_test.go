@@ -22,7 +22,8 @@ func TestDispatchNamedImportsFlatWhenFits(t *testing.T) {
   file := parseTS(t, "import { a, b } from \"x\";\n")
   node := firstNodeOfKind(t, file, shimast.KindNamedImports)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printNamedImports(ctx, node), ctx.Opts)
+  doc, _ := printNamedImports(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "{ a, b }" {
     t.Fatalf("flat named imports mismatch: %q", got)
   }

@@ -19,7 +19,7 @@ import {
  * invariant.
  *
  * 1. Materialize a lint fixture with one TODO comment and one FIXME comment in the
- *    source.
+ *    source, plus a discovered `lint.config.json` declaring the contributor.
  * 2. Symlink the workspace `@ttsc/lint` and `lint-contributor-demo` packages into
  *    the temp project's `node_modules` so the JS factory's `require.resolve`
  *    reaches them.
@@ -38,9 +38,11 @@ export const test_lint_contributor_plugin_rule_fires_through_single_diagnostic_s
     const project = createLintProject({
       name: "contributor-demo",
       source,
-      pluginConfig: {
-        plugins: { demo: "lint-contributor-demo" },
-        rules: { "demo/no-todo-comment": "error" },
+      extraSources: {
+        "lint.config.json": JSON.stringify({
+          plugins: { demo: "lint-contributor-demo" },
+          rules: { "demo/no-todo-comment": "error" },
+        }),
       },
       linkNodeModules: ["lint-contributor-demo"],
     });

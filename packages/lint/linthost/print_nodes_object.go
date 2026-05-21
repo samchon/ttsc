@@ -22,23 +22,29 @@ import (
 // The flat form uses a single space inside the braces, matching
 // Prettier's `bracketSpacing: true` default. Empty object literals
 // collapse to `{}` with no inner space, matching every formatter.
-func printObjectLiteral(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode. It is
+// the AND of every property's coverage — one multi-line verbatim
+// member taints the whole literal.
+func printObjectLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   obj := node.AsObjectLiteralExpression()
   if obj == nil || obj.Properties == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   items := make([]Doc, 0, len(obj.Properties.Nodes))
+  covered := true
   for _, prop := range obj.Properties.Nodes {
     if prop == nil {
       // A nil child entry would render as an empty Doc and surface
       // as `a, , b` in the output. Bail to verbatim so the source
       // bytes round-trip unchanged.
-      return verbatim(ctx, node)
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    doc, _ := PrintNode(ctx, prop)
+    doc, childCovered := PrintNode(ctx, prop)
+    covered = covered && childCovered
     items = append(items, doc)
   }
   return printList(ctx, listShape{
@@ -47,5 +53,5 @@ func printObjectLiteral(ctx *PrintContext, node *shimast.Node) Doc {
     Items:    items,
     Space:    true,
     AddComma: true,
-  })
+  }), covered
 }

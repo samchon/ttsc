@@ -25,16 +25,22 @@ import (
 //     printer's StartingIndent so continuation lines align under the
 //     opening token and fit measurement charges the prefix against
 //     the budget.
-//  3. Build the node's Doc via PrintNode.
-//  4. Render with the configured printWidth / tabWidth / useTabs /
+//  3. Build the node's Doc via PrintNode, which also reports a
+//     `covered` flag.
+//  4. Abstain when `covered` is false: the subtree holds a multi-line
+//     verbatim node whose frozen columns would not survive a reflow.
+//  5. Render with the configured printWidth / tabWidth / useTabs /
 //     endOfLine.
-//  5. Slice the original source bytes for the node's range.
-//  6. If the rendered output differs, emit one TextEdit replacing
+//  6. Slice the original source bytes for the node's range.
+//  7. If the rendered output differs, emit one TextEdit replacing
 //     [start, end) with the new bytes.
 //
 // The "no diff → no edit" invariant is what keeps `ttsc format`
 // idempotent: a second pass renders identical bytes, the comparison
-// short-circuits, and the cascade converges.
+// short-circuits, and the cascade converges. The `covered` abstain in
+// step 4 is the safety floor: `ttsc format` either reflows correctly or
+// leaves the node byte-identical — it never emits a half-reflowed,
+// inconsistently indented shape.
 //
 // The rule is a format-class rule (IsFormat == true) so `ttsc format`
 // applies its edits while `ttsc check` only emits diagnostics for
@@ -127,8 +133,19 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
 
   printCtx := NewPrintContext(ctx.File, printOpts)
-  doc, _ := PrintNode(printCtx, node)
+  doc, covered := PrintNode(printCtx, node)
   if doc.IsNil() {
+    return
+  }
+  // Safety abstain: the printed subtree contains a multi-line verbatim
+  // node — one the dispatcher has no printer for. Such a node keeps the
+  // source columns its lines were written at, while the reflow
+  // re-indents everything around it. Emitting the edit would produce
+  // inconsistently indented, corrupt output (a callback header at one
+  // indent, its body frozen at another). Abstaining leaves the bytes
+  // byte-identical, which is always safe. See the coverage-signal note
+  // in print_dispatch.go.
+  if !covered {
     return
   }
   rendered := Print(doc, printOpts)

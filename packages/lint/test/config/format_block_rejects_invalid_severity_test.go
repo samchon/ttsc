@@ -13,14 +13,12 @@ import (
 // instead of being ignored and silently falling back to off.
 //
 //  1. Build `format: { severity: "maybe" }`.
-//  2. Resolve.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert the error points at `format.severity`.
 func TestFormatBlockRejectsInvalidSeverity(t *testing.T) {
-  _, err := LoadConfigResolver(&PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": "maybe"},
-    },
-  }, "/virtual", "")
+  _, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"severity": "maybe"},
+  }, "")
   if err == nil {
     t.Fatal("expected error for invalid format.severity, got nil")
   }

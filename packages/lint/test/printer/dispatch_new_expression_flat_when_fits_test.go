@@ -22,7 +22,8 @@ func TestDispatchNewExpressionFlatWhenFits(t *testing.T) {
   file := parseTS(t, "new Foo(a, b);\n")
   node := firstNodeOfKind(t, file, shimast.KindNewExpression)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printNewExpression(ctx, node), ctx.Opts)
+  doc, _ := printNewExpression(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "new Foo(a, b)" {
     t.Fatalf("flat new expression mismatch: %q", got)
   }

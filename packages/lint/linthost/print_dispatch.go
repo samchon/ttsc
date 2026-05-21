@@ -9,10 +9,10 @@ import (
 //
 // The dispatcher is the bridge between the TypeScript-Go AST and the
 // printer engine. It walks one node at a time and emits a Doc tree
-// shaped to that node's grammar. Coverage is intentionally partial in
-// v1; the verbatim fallback below guarantees that an un-handled node
-// kind contributes its original source bytes verbatim, so the printer
-// can be wired up to a rule without breaking files that happen to use
+// shaped to that node's grammar. Coverage is intentionally partial;
+// the verbatim fallback below guarantees that an un-handled node kind
+// contributes its original source bytes verbatim, so the printer can
+// be wired up to a rule without breaking files that happen to use
 // shapes the per-node printers don't yet understand.
 //
 // The price of verbatim fallback is that reflow stops at the boundary
@@ -20,6 +20,19 @@ import (
 // dispatcher doesn't recognize stays long. That trade-off is preferable
 // to corrupting unfamiliar shapes — extension over time turns each
 // verbatim hop into a real reflow.
+//
+// Coverage signal. A verbatim slice keeps its *original* source column.
+// When an un-handled node spans multiple lines, its interior lines are
+// frozen at the columns the user wrote while the enclosing reflow
+// re-indents everything around it — the result is inconsistently
+// indented, corrupt output. To prevent that, every printer reports a
+// `covered` boolean alongside its Doc: `true` means the whole printed
+// subtree is reflow-safe (no multi-line verbatim node), `false` means a
+// multi-line verbatim node is buried inside. The format/print-width
+// rule abstains entirely when `covered` is false, so `ttsc format`
+// either reflows correctly or leaves the bytes untouched — it never
+// emits the half-reflowed shape. Single-line verbatim is always safe:
+// a node confined to one source line has no interior column to freeze.
 
 // PrintContext bundles the per-file inputs every per-node printer
 // needs. The dispatcher constructs one per top-level reflow and threads
@@ -42,44 +55,94 @@ func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext 
 
 // PrintNode is the dispatcher entry. It picks a per-node printer based
 // on `node.Kind` and falls back to the verbatim source slice when no
-// printer is registered. Returns the printed Doc and a boolean
-// indicating whether the dispatch actually reformatted the node. The
-// boolean is currently only used by the format/print-width rule, which
-// skips edit emission when every printable child fell back to
-// verbatim (no behavior change, no diagnostic).
+// printer is registered. Returns the printed Doc and a `covered`
+// boolean: `true` when the whole printed subtree is reflow-safe,
+// `false` when a multi-line verbatim node is buried inside it.
+//
+// The format/print-width rule consults `covered` to decide whether to
+// emit an edit at all — see the coverage-signal note at the top of this
+// file. A `false` reading is a hard abstain, not a soft hint.
 func PrintNode(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}, false
+    return Doc{}, true
   }
-  if doc, reformatted, ok := dispatchNode(ctx, node); ok {
-    return doc, reformatted
+  if doc, covered, ok := dispatchNode(ctx, node); ok {
+    return doc, covered
   }
-  return verbatim(ctx, node), false
+  return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
 }
 
 // dispatchNode is the per-kind switch. Each branch returns
-// (doc, reformatted, true) when it produces a structured Doc, or
+// (doc, covered, true) when it produces a structured Doc, or
 // (zero, false, false) to let the caller fall back to verbatim. The
-// reformatted flag is true when the per-node printer asserts the
-// result may differ from the original bytes.
+// `covered` flag is `true` only when the per-node printer guarantees
+// the whole subtree it produced is free of multi-line verbatim slices.
 func dispatchNode(ctx *PrintContext, node *shimast.Node) (Doc, bool, bool) {
   switch node.Kind {
   case shimast.KindObjectLiteralExpression:
-    return printObjectLiteral(ctx, node), true, true
+    doc, covered := printObjectLiteral(ctx, node)
+    return doc, covered, true
   case shimast.KindArrayLiteralExpression:
-    return printArrayLiteral(ctx, node), true, true
+    doc, covered := printArrayLiteral(ctx, node)
+    return doc, covered, true
   case shimast.KindCallExpression:
-    return printCallExpression(ctx, node), true, true
+    doc, covered := printCallExpression(ctx, node)
+    return doc, covered, true
   case shimast.KindNewExpression:
-    return printNewExpression(ctx, node), true, true
+    doc, covered := printNewExpression(ctx, node)
+    return doc, covered, true
   case shimast.KindNamedImports:
-    return printNamedImports(ctx, node), true, true
+    doc, covered := printNamedImports(ctx, node)
+    return doc, covered, true
   case shimast.KindNamedExports:
-    return printNamedExports(ctx, node), true, true
+    doc, covered := printNamedExports(ctx, node)
+    return doc, covered, true
   case shimast.KindImportDeclaration:
-    return printImportDeclaration(ctx, node), true, true
+    doc, covered := printImportDeclaration(ctx, node)
+    return doc, covered, true
+  case shimast.KindArrowFunction:
+    doc, covered := printArrowFunction(ctx, node)
+    return doc, covered, true
+  case shimast.KindFunctionExpression:
+    doc, covered := printFunctionExpression(ctx, node)
+    return doc, covered, true
+  case shimast.KindParenthesizedExpression:
+    doc, covered := printParenthesizedExpression(ctx, node)
+    return doc, covered, true
+  case shimast.KindBlock:
+    doc, covered := printBlock(ctx, node)
+    return doc, covered, true
+  case shimast.KindExpressionStatement:
+    doc, covered := printExpressionStatement(ctx, node)
+    return doc, covered, true
+  case shimast.KindReturnStatement:
+    doc, covered := printReturnStatement(ctx, node)
+    return doc, covered, true
   }
   return Doc{}, false, false
+}
+
+// nodeSpansMultipleLines reports whether `node`'s trivia-trimmed source
+// range crosses a newline. A verbatim slice that stays on one line is
+// always reflow-safe — there is no interior column for the enclosing
+// re-indent to leave stranded — so the dispatcher treats single-line
+// verbatim as `covered`. A multi-line verbatim node freezes its
+// interior columns and is reported uncovered.
+func nodeSpansMultipleLines(ctx *PrintContext, node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
+  end := node.End()
+  if start < 0 || end < start || end > len(ctx.Source) {
+    return false
+  }
+  for i := start; i < end; i++ {
+    if ctx.Source[i] == '\n' {
+      return true
+    }
+  }
+  return false
 }
 
 // verbatim returns the original source bytes for `node`, leading trivia

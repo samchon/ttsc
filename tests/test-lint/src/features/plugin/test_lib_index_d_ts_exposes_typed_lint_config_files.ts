@@ -10,10 +10,11 @@ import { TestLintPlugin } from "../../internal/TestLintPlugin";
  *
  * Pins the public surface of `@ttsc/lint`'s declaration file: consumers need
  * `ITtscLintConfig`, `ITtscLintPluginConfig`, `TtscLintRule`, and
- * `TtscLintSeverity` but must not see `configFile`, `configPath`,
- * `defineConfig`, `TtscLintRuleEntry`, `TtscLintPlugins`, or `PluginRuleNames`.
- * Without this test, adding or removing an export in `structures/index.d.ts` or
- * in the barrel would silently break or bloat the public API.
+ * `TtscLintSeverity`, and the tsconfig-entry shape must expose `configFile`,
+ * but the file must not leak `defineConfig`, `TtscLintRuleEntry`,
+ * `TtscLintPlugins`, or `PluginRuleNames`. Without this test, adding or
+ * removing an export in `structures/index.d.ts` or in the barrel would silently
+ * break or bloat the public API.
  *
  * 1. Read `lib/index.d.ts`, `lib/structures/ITtscLintConfig.d.ts`,
  *    `lib/structures/ITtscLintPluginConfig.d.ts`, and related files.
@@ -75,14 +76,14 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   assert.match(dts, /export \* from "\.\/structures\/index"/);
   assert.doesNotMatch(dts, /from "ttsc"/);
   assert.equal(manifest.exports["./config"], undefined);
-  // The legacy `config?: string | TtscLintRuleMap` field narrows to the
-  // rule-map shape (the new `rules` / `extends` fields cover the wider
-  // forms), so `ITtscLintPluginConfig` imports the map type.
-  assert.match(pluginConfigDts, /import type { TtscLintRuleMap }/);
+  // The tsconfig-entry shape carries only `transform`, `enabled`, and the
+  // `configFile` pointer — no rule-map surface — so `ITtscLintPluginConfig`
+  // no longer imports `TtscLintRuleMap`.
+  assert.doesNotMatch(pluginConfigDts, /import type { TtscLintRuleMap }/);
   assert.doesNotMatch(pluginConfigDts, /from "ttsc"/);
   assert.match(pluginConfigDts, /export interface ITtscLintPluginConfig/);
-  assert.doesNotMatch(dts, /configFile/);
-  assert.doesNotMatch(dts, /configPath/);
+  assert.match(pluginConfigDts, /configFile\?: string/);
+  assert.doesNotMatch(pluginConfigDts, /\brules\?:/);
   assert.match(configDts, /export interface ITtscLintConfig/);
   assert.doesNotMatch(configDts, /ITtscLintConfig</);
   assert.match(configDts, /extends\?: string/);

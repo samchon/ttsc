@@ -98,7 +98,18 @@ export namespace TestLint {
     line: number;
   }
 
-  /** Inputs needed to synthesize and execute one lint fixture project. */
+  /**
+   * Inputs needed to synthesize and execute one lint fixture project.
+   *
+   * The tsconfig plugin entry for `@ttsc/lint` carries no rule surface — it
+   * only optionally points at a config file via `configFile`. A test supplies
+   * its rules one of two ways:
+   *
+   * - `rules` — the helper writes a `lint.config.json` whose `rules` map is the
+   *   given severity map; the sidecar discovers it.
+   * - `extraSources` with a `lint.config.*` file plus a matching `pluginConfig`
+   *   (or relying on discovery) — for config-loader and contributor scenarios.
+   */
   export interface IRunLintOptions {
     name: string;
     source: string;
@@ -149,11 +160,10 @@ export namespace TestLint {
       `ttsc-lint-case-${sanitizeForFsName(name)}-`,
     );
     try {
-      writeFixtureProject(
-        tmpdir,
-        source,
-        pluginConfig ?? { rules: rules ?? {} },
-      );
+      // The tsconfig plugin entry never carries rules: it is empty, or
+      // optionally names a config file via `configFile`. When a test uses the
+      // `rules` shorthand, materialize a discoverable `lint.config.json`.
+      writeFixtureProject(tmpdir, source, pluginConfig ?? {});
       if (extraSources) {
         for (const [relPath, content] of Object.entries(extraSources) as [
           string,
@@ -163,6 +173,13 @@ export namespace TestLint {
           fs.mkdirSync(path.dirname(target), { recursive: true });
           fs.writeFileSync(target, content, "utf8");
         }
+      }
+      if (rules !== undefined) {
+        fs.writeFileSync(
+          path.join(tmpdir, "lint.config.json"),
+          JSON.stringify({ rules }, null, 2),
+          "utf8",
+        );
       }
       seedNodeModulesLink(tmpdir);
       if (linkNodeModules) {

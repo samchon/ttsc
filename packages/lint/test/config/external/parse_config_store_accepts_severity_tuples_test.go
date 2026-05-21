@@ -4,23 +4,28 @@ import (
   "testing"
 )
 
-// TestParseExternalConfigRulesAcceptsESLintSeverityTuples verifies that [severity, options]
-// tuples and scoped rule prefixes are parsed correctly from an ESLint flat config object.
+// TestParseConfigStoreAcceptsSeverityTuples verifies that a config file's
+// `rules` map accepts bare severities, `[severity]` / `[severity, options]`
+// tuples, numeric severities, and scoped rule prefixes.
 //
-// ESLint rules may be specified as bare severities or as [severity, options] tuples with numeric
-// or string severity values. Scoped names like "@typescript-eslint/no-explicit-any" must strip
-// the scope prefix to match the engine's plain name. A regression that dropped the options slot
-// or left the prefix would produce wrong severities or miss the rule entirely.
+// Rule entries may be specified as bare severities or as tuples with numeric
+// or string severity values. Scoped names like "@typescript-eslint/no-explicit-any"
+// must strip the prefix to match the engine's plain name. A regression that
+// dropped the options slot or left the prefix would produce wrong severities
+// or miss the rule entirely.
 //
-// 1. Build a flat-config rules object with tuple forms, numeric severity, and a scoped name.
-// 2. Parse it through parseExternalConfigRules.
-// 3. Assert all four rules resolve to the expected severity.
-func TestParseExternalConfigRulesAcceptsESLintSeverityTuples(t *testing.T) {
+//  1. Build an `ITtscLintConfig` object with tuple forms, numeric severity, and
+//     a scoped rule name under `rules`.
+//  2. Parse it through parseExternalConfigRules.
+//  3. Assert all four rules resolve to the expected severity.
+func TestParseConfigStoreAcceptsSeverityTuples(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
-    "no-var":                             []any{"error", map[string]any{"ignore": true}},
-    "no-console":                         []any{"warn"},
-    "@typescript-eslint/no-explicit-any": []any{float64(2), map[string]any{"fixToUnknown": true}},
-    "typescript-eslint/consistent-type-imports": "warn",
+    "rules": map[string]any{
+      "no-var":                             []any{"error", map[string]any{"ignore": true}},
+      "no-console":                         []any{"warn"},
+      "@typescript-eslint/no-explicit-any": []any{float64(2), map[string]any{"fixToUnknown": true}},
+      "typescript-eslint/consistent-type-imports": "warn",
+    },
   })
   if err != nil {
     t.Fatalf("unexpected error: %v", err)

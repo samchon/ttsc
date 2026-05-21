@@ -19,11 +19,12 @@ import (
 // 3. Assert success plus the unknown-rule warning on stderr.
 func TestCommandCheckWarnsUnknownRules(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
+  seedLintRules(t, root, map[string]string{"never-existed": "error"})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "check",
       "--cwd", root,
-      "--plugins-json", lintManifest(t, map[string]string{"never-existed": "error"}),
+      "--plugins-json", lintManifest(t),
     })
   })
   if code != 0 || stdout != "" || !strings.Contains(stderr, "ignoring unknown rule") {

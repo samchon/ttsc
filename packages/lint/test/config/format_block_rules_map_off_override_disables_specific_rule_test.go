@@ -16,17 +16,14 @@ import "testing"
 //  3. Assert format/quotes is missing from `EnabledRuleConfig()` while
 //     every other always-on format rule is still warning.
 func TestFormatBlockRulesMapOffOverrideDisablesSpecificRule(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": "warning"},
-      "rules": map[string]any{
-        "format/quotes": "off",
-      },
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"severity": "warning"},
+    "rules": map[string]any{
+      "format/quotes": "off",
     },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   enabled := resolver.EnabledRuleConfig()
   if _, ok := enabled["format/quotes"]; ok {

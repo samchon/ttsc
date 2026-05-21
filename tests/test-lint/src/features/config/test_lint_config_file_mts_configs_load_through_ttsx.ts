@@ -9,8 +9,9 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * exercised because the extension-based dispatch lives in a separate code path
  * from the generic `.ts` handler.
  *
- * 1. Materialise a fixture whose plugin entry references `./ttsc-lint.config.mts`.
- * 2. The config default-exports a bare rules map.
+ * 1. Materialise a fixture whose plugin entry sets `configFile:
+ *    "./ttsc-lint.config.mts"`.
+ * 2. The config default-exports an `ITtscLintConfig` object.
  * 3. Run ttsc; assert `no-var` fires from the loaded config.
  */
 export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
@@ -18,11 +19,11 @@ export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
     name: "config-file-mts",
     source: SOURCE,
     pluginConfig: {
-      config: "./ttsc-lint.config.mts",
+      configFile: "./ttsc-lint.config.mts",
     },
     extraSources: {
       "ttsc-lint.config.mts": `export default {
-        "no-var": "error",
+        rules: { "no-var": "error" },
       };\n`,
     },
   });
