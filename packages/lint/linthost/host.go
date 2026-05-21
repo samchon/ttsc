@@ -89,9 +89,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     overrideOutDir(cwd, parsed, options.outDir)
   }
 
+  // SingleThreaded is left unset so the program runs on TypeScript-Go's
+  // multi-threaded default: parallel parsing, a pooled checker driving
+  // parallel bind + semantic diagnostics, and parallel emit. The lint engine
+  // still walks files serially against a single pooled checker, which stays
+  // valid against the larger pool — the pool fans out only inside each
+  // TypeScript-Go phase, never across the engine's own traversal.
   tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
     Config:                      parsed,
-    SingleThreaded:              shimcore.TSTrue,
     Host:                        host,
     UseSourceOfProjectReference: true,
   })

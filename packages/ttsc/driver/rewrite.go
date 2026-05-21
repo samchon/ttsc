@@ -73,11 +73,20 @@ const RewriteSentinel = "/* @ttsc-rewritten */"
 // the output. Returns the tsgo diagnostics and any patch-time error. When
 // `writeFile` is nil, the patched JS is written to disk via the standard
 // tsgo WriteFile.
+//
+// `writeFile` does not need to be concurrency-safe: emit() funnels every
+// invocation through one mutex, so the callback never runs on two goroutines
+// at once even though TypeScript-Go emits files in parallel.
 func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, nil, writeFile)
 }
 
 // EmitAllRaw runs TypeScript-Go emit without ttsc output-text rewrites.
+//
+// Unlike EmitAll, `writeFile` is handed straight to TypeScript-Go's parallel
+// emitter, so it MUST be safe to invoke concurrently: writing distinct files
+// (the default disk writer, the source-preamble writer) is fine; a callback
+// that mutates shared state must guard it.
 func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, nil, errors.New("driver: nil program")
@@ -114,7 +123,18 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     rs = NewRewriteSet()
   }
   cursors := map[string]int{}
+  // TypeScript-Go's parallel emit invokes this WriteFile callback once per
+  // emitted file, concurrently — one goroutine per source file. Serialize the
+  // whole callback body under wfMu: the `cursors` map would otherwise trip
+  // `fatal error: concurrent map writes`, and the wrapped `writeFile` (which a
+  // caller may back with its own non-thread-safe state, e.g. api-compile's
+  // output map) must likewise see one writer at a time. The patch work here is
+  // cheap, so serializing only the callback costs ~nothing while parsing,
+  // checking, and emit-text generation still parallelize.
+  var wfMu sync.Mutex
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
+    wfMu.Lock()
+    defer wfMu.Unlock()
     // A patched file is idempotent: once the sentinel exists, the emitted text
     // is passed through unchanged. This matters for watch/rebuild loops and
     // tests that re-run emit over the same output directory.
