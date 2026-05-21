@@ -38,7 +38,7 @@ export const test_plugin_corpus_ttsc_lint_applies_forwarded_strict_flag =
           strict: false,
           outDir: "dist",
           rootDir: "src",
-          plugins: [{ transform: "@ttsc/lint", config: {} }],
+          plugins: [{ transform: "@ttsc/lint" }],
         },
         include: ["src"],
       }),
