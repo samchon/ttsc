@@ -252,7 +252,13 @@ function runTsgoBuild(
     stderr: outputText(res.stderr),
   };
   const emittedFiles = parseEmittedFiles(result.stdout);
-  if (emittedFiles.length !== 0) {
+  // The `TSFILE:` lines are tsgo's `--listEmittedFiles` output. ttsc adds that
+  // flag internally to learn the emitted paths and strips the lines back out
+  // as noise — but when the user themselves forwarded `--listEmittedFiles`,
+  // the listing is what they asked for, so it must survive to stdout.
+  const userListedEmitted =
+    options.passthrough?.includes("--listEmittedFiles") ?? false;
+  if (emittedFiles.length !== 0 && !userListedEmitted) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }
   return normalizeBuildOutput(
