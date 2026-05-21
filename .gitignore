@@ -29,6 +29,7 @@ go.work.sum
 .references/
 .wiki/
 experimental/typia/
+experimental/nestia/
 
 # Stray native sanity binary from `go build ./cmd/ttsc-wasm` (host build).
 packages/wasm/ttsc-wasm

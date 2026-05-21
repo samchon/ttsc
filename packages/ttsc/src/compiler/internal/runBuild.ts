@@ -6,6 +6,7 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -268,6 +269,9 @@ function createTsgoBuildArgs(
   const args = ["-p", execution.tsconfig];
   if (options.emit === true) {
     args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
+    if (execution.rewriteRelativeImportExtensionsForEmit) {
+      args.push("--rewriteRelativeImportExtensions");
+    }
   } else if (options.emit === false) {
     args.push("--noEmit");
   }
@@ -496,7 +500,7 @@ export function appendBuildOutput(
  * here so every code path in `runBuild` shares the same resolution logic.
  */
 function resolveExecutionContext(
-  options: TtscCommonOptions & { tsconfig?: string },
+  options: TtscCommonOptions & { emit?: boolean; tsconfig?: string },
 ) {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const tsconfig = resolveProjectConfig({
@@ -506,6 +510,18 @@ function resolveExecutionContext(
   const projectRoot = options.projectRoot
     ? path.resolve(cwd, options.projectRoot)
     : path.dirname(tsconfig);
+  let emitProject;
+  if (options.emit === true) {
+    try {
+      emitProject = readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig,
+      });
+    } catch {
+      emitProject = undefined;
+    }
+  }
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
   const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
@@ -520,6 +536,8 @@ function resolveExecutionContext(
     cwd,
     nativePlugins: loaded.nativePlugins,
     projectRoot,
+    rewriteRelativeImportExtensionsForEmit:
+      emitProject?.compilerOptions.allowImportingTsExtensions === true,
     tsgo,
     tsconfig,
   };

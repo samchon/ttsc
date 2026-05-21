@@ -16,6 +16,10 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
+Projects that enable `allowImportingTsExtensions` are supported. During the
+cached runtime emit, `ttsx` rewrites relative `.ts`, `.mts`, and `.cts` import
+specifiers to the matching JavaScript extensions so Node can execute the output.
+
 ## Pass arguments to the script
 
 Use `--` to separate `ttsx` flags from the script's own args:
