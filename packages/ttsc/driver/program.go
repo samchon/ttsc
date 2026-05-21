@@ -204,6 +204,17 @@ type LoadProgramOptions struct {
   ForceNoEmit    bool
   OutDir         string
   SourcePreamble string
+  // SingleThreaded forces TypeScript-Go's single-threaded mode (one checker,
+  // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
+  SingleThreaded bool
+  // Checkers overrides the type-checker pool size, mirroring `tsgo --checkers`.
+  // Zero leaves TypeScript-Go's default; ignored when SingleThreaded is set.
+  Checkers int
+  // TsgoArgs carries tsgo CLI flags the `ttsc` launcher did not recognize as
+  // its own (`--strict`, `--target es2020`, …). They are parsed through
+  // TypeScript-Go's own command-line parser into a CompilerOptions overlay
+  // that wins over the tsconfig, exactly as `tsgo`'s CLI merges them.
+  TsgoArgs []string
 }
 
 // Close releases the checker pool lease acquired by LoadProgram.
@@ -221,17 +232,43 @@ func (p *Program) Close() error {
 // The absolute path is resolved against cwd before any VFS lookups because
 // tsgo's filesystem APIs require absolute paths — mirrors what tsc does when
 // you pass a relative `--project` flag.
-func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+//
+// cliOptions is a CompilerOptions overlay (from forwarded `tsgo` CLI flags);
+// TypeScript-Go merges its non-zero fields over the tsconfig so the CLI wins,
+// the same precedence tsgo's own command line uses. Pass nil for none.
+func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   resolved := tspath.ResolvePath(cwd, tsconfigPath)
   if !fs.FileExists(resolved) {
     return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
   }
-  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, &core.CompilerOptions{}, nil, host, nil)
+  if cliOptions == nil {
+    cliOptions = &core.CompilerOptions{}
+  }
+  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, nil, host, nil)
   allDiags := append(diags, parsed.Errors...)
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
   }
   return parsed, nil, nil
+}
+
+// parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
+// command-line parser, yielding a CompilerOptions overlay ParseTSConfig merges
+// over the tsconfig. This is how a plugin build — which constructs its Program
+// in-process rather than shelling out to `tsgo` — still honors flags like
+// `ttsc --strict`. Returns (nil, nil, nil) when there are no forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.CompilerOptions, []Diagnostic, error) {
+  if len(args) == 0 {
+    return nil, nil, nil
+  }
+  cli := tsoptions.ParseCommandLine(args, host)
+  if cli == nil {
+    return nil, nil, fmt.Errorf("driver: tsgo argument parser returned nil")
+  }
+  if len(cli.Errors) > 0 {
+    return nil, convertDiagnostics(cli.Errors), nil
+  }
+  return cli.CompilerOptions(), nil, nil
 }
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
@@ -288,7 +325,15 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   }
   host := DefaultHost(cwd, fs)
 
-  parsed, diags, err := ParseTSConfig(fs, cwd, tsconfigPath, host)
+  cliOptions, cliDiags, err := parseTsgoArgs(options.TsgoArgs, host)
+  if err != nil {
+    return nil, nil, err
+  }
+  if len(cliDiags) > 0 {
+    return nil, cliDiags, nil
+  }
+
+  parsed, diags, err := ParseTSConfig(fs, cwd, tsconfigPath, host, cliOptions)
   if err != nil {
     return nil, nil, err
   }
@@ -304,6 +349,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if options.OutDir != "" {
     overrideOutDir(cwd, parsed, options.OutDir)
   }
+  applyThreadingOptions(parsed, options.SingleThreaded, options.Checkers)
 
   tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
 
@@ -338,6 +384,23 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 // config, replacing any outDir already set in tsconfig.json.
 func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
   parsed.ParsedConfig.CompilerOptions.OutDir = tspath.ResolvePath(cwd, outDir)
+}
+
+// applyThreadingOptions forwards the CLI threading knobs onto the parsed
+// compiler options. ttsc mirrors tsgo here: `--singleThreaded` / `--checkers`
+// land in CompilerOptions, and both Program.SingleThreaded() and the checker
+// pool read them from there — ProgramOptions is left untouched, exactly as
+// tsgo's own CLI does. SingleThreaded wins over Checkers, matching the pool's
+// own precedence.
+func applyThreadingOptions(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
+  options := parsed.ParsedConfig.CompilerOptions
+  if singleThreaded {
+    options.SingleThreaded = core.TSTrue
+  }
+  if checkers > 0 {
+    n := checkers
+    options.Checkers = &n
+  }
 }
 
 // sourcePreambleFS wraps a vfs.FS and prepends the preamble string to every

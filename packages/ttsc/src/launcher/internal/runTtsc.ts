@@ -322,14 +322,17 @@ function parseProjectArgs(argv: readonly string[]) {
 function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let binary: string | undefined;
   let cacheDir: string | undefined;
+  let checkers: number | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
   const files: string[] = [];
   let fix = false;
   let format = false;
   let outDir: string | undefined;
+  const passthrough: string[] = [];
   let preserveWatchOutput = false;
   let quiet = true;
+  let singleThreaded = false;
   let tsconfig: string | undefined;
   let watch = false;
 
@@ -373,6 +376,12 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
       case "--cache-dir":
         cacheDir = takeValue(current, rest);
         break;
+      case "--singleThreaded":
+        singleThreaded = true;
+        break;
+      case "--checkers":
+        checkers = parseCheckersValue(takeValue(current, rest));
+        break;
       default:
         if (current.startsWith("--cwd=")) {
           cwd = current.slice("--cwd=".length);
@@ -393,13 +402,26 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
           binary = current.slice("--binary=".length);
         } else if (current.startsWith("--cache-dir=")) {
           cacheDir = current.slice("--cache-dir=".length);
+        } else if (current.startsWith("--checkers=")) {
+          checkers = parseCheckersValue(current.slice("--checkers=".length));
+        } else if (current.startsWith("--singleThreaded=")) {
+          singleThreaded =
+            current.slice("--singleThreaded=".length) !== "false";
         } else if (current === "--verbose") {
           // Unreachable: `--verbose` is handled by the switch case above.
           quiet = false;
         } else if (current.startsWith("-")) {
-          throw new Error(`ttsc: unknown option ${current}`);
-        } else {
+          // Not one of ttsc's own flags. Forward it verbatim to tsgo, which
+          // owns the complete, arity-aware option parser — ttsc deliberately
+          // does not re-implement knowledge of every tsgo flag.
+          passthrough.push(current);
+        } else if (looksLikeInputFile(current)) {
           files.push(current);
+        } else {
+          // A bare non-file token — e.g. the `es2020` in `--target es2020` —
+          // is the value of a forwarded flag. Keep it next to the run so the
+          // flag and its value reach tsgo together.
+          passthrough.push(current);
         }
         break;
     }
@@ -407,17 +429,44 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   return {
     binary,
     cacheDir,
+    checkers,
     cwd,
     emit,
     files,
     fix,
     format,
     outDir,
+    passthrough,
     preserveWatchOutput,
     quiet,
+    singleThreaded,
     tsconfig,
     watch,
   };
+}
+
+/**
+ * Report whether a bare CLI token is a TypeScript source file ttsc should
+ * compile in single-file mode. Anything without a TypeScript source extension
+ * is treated as a forwarded flag value rather than an input file.
+ */
+function looksLikeInputFile(token: string): boolean {
+  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
+}
+
+/**
+ * Parse the `--checkers` value into a positive integer. tsgo rejects a
+ * non-positive checker count (`minValue: 1`); ttsc mirrors that so a typo fails
+ * loudly instead of silently building with the default pool.
+ */
+function parseCheckersValue(raw: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `ttsc: --checkers expects a positive integer, got ${JSON.stringify(raw)}`,
+    );
+  }
+  return value;
 }
 
 function printHelp(): void {
@@ -450,6 +499,11 @@ function printHelp(): void {
       "  --verbose              Print the build summary and emitted files",
       "  --binary <path>        Use an explicit tsgo binary",
       "  --cache-dir <dir>      Use this cache root for source-plugin builds",
+      "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
+      "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
+      "",
+      "  Any other flag is forwarded to tsgo as-is, so tsgo compiler options",
+      "  such as --strict or --target work directly (e.g. ttsc --strict file.ts).",
       "",
       "Plugin contract:",
       "  ttsc reads compilerOptions.plugins from tsconfig.json.",
@@ -484,9 +538,12 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   });
   const text = runSingleFileEmit({
     binary: options.binary,
+    checkers: options.checkers,
     cwd,
     file,
     out,
+    passthrough: options.passthrough,
+    singleThreaded: options.singleThreaded,
     tsconfig: options.tsconfig,
   });
   if (!fs.existsSync(out)) {
