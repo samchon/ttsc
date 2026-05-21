@@ -3,8 +3,12 @@
   "version": "0.12.4",
   "description": "First-party ttsc plugin that removes configured calls and statements from emitted JavaScript.",
   "main": "src/index.cjs",
+  "types": "src/index.d.ts",
   "exports": {
-    ".": "./src/index.cjs",
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -24,6 +28,7 @@
     "driver/config.go",
     "driver/strip.go",
     "src/index.cjs",
+    "src/index.d.ts",
     "go.mod",
     "plugin/main.go",
     "plugin/strip.go"
