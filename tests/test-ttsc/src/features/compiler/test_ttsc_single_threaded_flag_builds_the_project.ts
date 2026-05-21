@@ -10,10 +10,10 @@ import {
 /**
  * Verifies `ttsc --singleThreaded` is accepted and still builds the project.
  *
- * `--singleThreaded` mirrors tsgo's flag of the same name. ttsc's launcher
- * rejects unknown `-`-prefixed options, so the flag must be parsed explicitly
- * and forwarded to the underlying tsgo invocation rather than throwing `unknown
- * option`. This pins that the flag travels end-to-end and leaves the emitted
+ * `--singleThreaded` mirrors tsgo's flag of the same name. It is a ttsc-owned
+ * flag — parsed explicitly and plumbed into the in-process program, not blindly
+ * forwarded — so it must be recognized by ttsc's launcher and reach the
+ * compiler. This pins that the flag travels end-to-end and leaves the emitted
  * output untouched.
  *
  * 1. Create a minimal CommonJS project.

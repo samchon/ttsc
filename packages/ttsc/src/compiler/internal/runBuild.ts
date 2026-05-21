@@ -197,6 +197,7 @@ function runTsgo(
       ...extraArgs,
       ...createTsgoDiagnosticArgs(options),
       ...createTsgoThreadingArgs(options),
+      ...(options.passthrough ?? []),
     ],
     {
       cwd: execution.projectRoot,
@@ -283,6 +284,7 @@ function createTsgoBuildArgs(
   }
   args.push(...createTsgoDiagnosticArgs(options));
   args.push(...createTsgoThreadingArgs(options));
+  args.push(...(options.passthrough ?? []));
   return args;
 }
 
