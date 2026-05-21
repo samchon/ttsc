@@ -143,10 +143,18 @@ When the rule can't reflow a node (a shape it doesn't recognize, or a comment si
 | Named exports | `export { alpha, bravo, charlie };` | multi-line specifier list |
 | `import type { … }` | preserves the `type` modifier | same |
 
+A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument *hugging* the parentheses — Prettier's last-argument hugging — instead of exploding the whole argument list. The callback body is re-indented to its new column:
+
+```ts
+register("compile", async (ctx) => {
+  await ctx.run();
+});
+```
+
 #### What it does NOT touch (yet)
 
 - JSX elements and fragments.
-- Conditional, binary, and arrow expressions.
+- Conditional and binary expressions.
 - Destructuring patterns.
 - Decorators.
 - Multi-line string and template literals.
@@ -161,6 +169,7 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
 - No "magic comma" hint (Prettier's preserve-multi-line trick). Width is the only factor in the reflow decision.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
+- A callback body that contains a statement the printer does not yet cover — a multi-line `if`, `switch`, or assignment — makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
 
 ## Back-compat: per-rule tuple form

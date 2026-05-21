@@ -32,12 +32,12 @@ Drop a `strip.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // strip.config.ts
-import type { TtscStripConfig } from "@ttsc/strip";
+import type { ITtscStripConfig } from "@ttsc/strip";
 
 export default {
   calls: ["logger.debug", "metrics.devOnly", "assert.*"],
   statements: ["debugger"],
-} satisfies TtscStripConfig;
+} satisfies ITtscStripConfig;
 ```
 
 - `calls` — statement-level calls. Supports a `.*` wildcard at the end (e.g. `assert.*` matches `assert.equal`, `assert.deepStrictEqual`, …).

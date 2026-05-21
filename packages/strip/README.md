@@ -47,12 +47,12 @@ To customize the strip list, add a `strip.config.ts` next to your `tsconfig.json
 
 ```ts
 // strip.config.ts
-import type { TtscStripConfig } from "@ttsc/strip";
+import type { ITtscStripConfig } from "@ttsc/strip";
 
 export default {
   calls: ["console.log", "console.debug", "assert.*"],
   statements: ["debugger"],
-} satisfies TtscStripConfig;
+} satisfies ITtscStripConfig;
 ```
 
 `@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry:

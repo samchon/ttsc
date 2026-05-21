@@ -36,12 +36,12 @@ For a custom call list, drop a `strip.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // strip.config.ts
-import type { TtscStripConfig } from "@ttsc/strip";
+import type { ITtscStripConfig } from "@ttsc/strip";
 
 export default {
   calls: ["console.log", "console.debug", "myLogger.*"],
   statements: ["debugger"],
-} satisfies TtscStripConfig;
+} satisfies ITtscStripConfig;
 ```
 
 Two configuration knobs:
