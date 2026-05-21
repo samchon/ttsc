@@ -15,7 +15,8 @@ import { TestBanner } from "../internal/TestBanner";
  * ordering contract.
  *
  * 1. Create a project whose source file starts with `#!/usr/bin/env node`, and
- *    configure the banner plugin with a custom text via tsconfig.
+ *    configure the banner plugin with a `banner.config.cjs` file referenced via
+ *    `configFile` in the tsconfig plugin entry.
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert the emitted `.js` starts with the shebang line, and the banner block
  *    appears exactly once after it.
@@ -23,6 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_preserves_executable_shebang = () => {
   const root = TestProject.commonJsProject(
     {
+      "banner.config.cjs": `module.exports = "cli banner";\n`,
       "src/main.ts": `#!/usr/bin/env node\nexport const value = "cli";\nconsole.log(value);\n`,
     },
     {
@@ -30,7 +32,7 @@ export const test_banner_preserves_executable_shebang = () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            text: "cli banner",
+            configFile: "banner.config.cjs",
           },
         ],
       },

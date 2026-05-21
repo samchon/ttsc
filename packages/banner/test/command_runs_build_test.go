@@ -30,7 +30,7 @@ func TestCommandRunsBuild(t *testing.T) {
 
   // Build assertion: --quiet keeps stdout empty while the real output contract
   // is the files written under outDir.
-  code, stdout, stderr := runPlugin(t, "build", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, "build banner"), "--emit", "--quiet")
+  code, stdout, stderr := runPlugin(t, "build", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, root, "build banner"), "--emit", "--quiet")
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("build branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }

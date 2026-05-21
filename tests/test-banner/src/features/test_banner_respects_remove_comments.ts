@@ -15,8 +15,8 @@ import { TestBanner } from "../internal/TestBanner";
  * this guard the banner would survive `removeComments`, defeating the user's
  * intent and polluting minified builds.
  *
- * 1. Create a project with `removeComments: true` and a tsconfig banner plugin
- *    entry referencing a known banner text.
+ * 1. Create a project with `removeComments: true` and a `banner.config.cjs` file
+ *    referenced via `configFile` in the tsconfig plugin entry.
  * 2. Run `ttsc --emit` (declarations enabled) against that project.
  * 3. Assert the emitted `.js` and `.d.ts` files contain neither the banner text
  *    nor a `@packageDocumentation` tag.
@@ -24,6 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_respects_remove_comments = () => {
   const root = TestProject.commonJsProject(
     {
+      "banner.config.cjs": `module.exports = "removed banner";\n`,
       "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
     },
     {
@@ -33,7 +34,7 @@ export const test_banner_respects_remove_comments = () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            text: "removed banner",
+            configFile: "banner.config.cjs",
           },
         ],
       },

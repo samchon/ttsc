@@ -15,8 +15,8 @@ import { TestBanner } from "../internal/TestBanner";
  * "unknown flag" error. This ensures forward-compatibility without forcing a
  * synchronised binary upgrade.
  *
- * 1. Build a project and load its plugins via `loadProjectPlugins` to obtain the
- *    compiled native binary path.
+ * 1. Build a project with a `banner.config.cjs` file referenced via `configFile`,
+ *    then use `loadProjectPlugins` to obtain the compiled native binary path.
  * 2. Invoke the binary's `transform` subcommand directly, passing an unrecognised
  *    `--future-optional-flag` alongside valid required flags.
  * 3. Assert zero exit status and that stdout contains valid JSON output (the
@@ -24,6 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
  */
 export const test_banner_shared_host_ignores_future_optional_flags = () => {
   const root = TestProject.createProject({
+    "banner.config.cjs": `module.exports = "future flag";\n`,
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -31,7 +32,12 @@ export const test_banner_shared_host_ignores_future_optional_flags = () => {
         strict: true,
         outDir: "dist",
         rootDir: "src",
-        plugins: [{ transform: "@ttsc/banner", text: "future flag" }],
+        plugins: [
+          {
+            transform: "@ttsc/banner",
+            configFile: "banner.config.cjs",
+          },
+        ],
       },
       include: ["src"],
     }),

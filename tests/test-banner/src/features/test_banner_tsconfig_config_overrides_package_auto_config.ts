@@ -6,18 +6,19 @@ import path from "node:path";
 import { TestBanner } from "../internal/TestBanner";
 
 /**
- * Verifies the @ttsc/banner plugin: tsconfig banner config wins over package
- * auto config.
+ * Verifies the @ttsc/banner plugin: tsconfig `configFile` wins over package
+ * auto-discovery.
  *
  * When both auto-discovery (`@ttsc/banner` in `package.json`) and an explicit
- * tsconfig plugin entry with a `config` path are present, the tsconfig entry
- * takes precedence. Without this precedence rule the auto-discovered config
- * would silently shadow an explicit override, making the tsconfig `config`
- * field effectively a no-op whenever the package is also installed.
+ * tsconfig plugin entry with a `configFile` path are present, the tsconfig
+ * entry takes precedence. Without this precedence rule the auto-discovered
+ * config would silently shadow an explicit override, making the tsconfig
+ * `configFile` field effectively a no-op whenever the package is also
+ * installed.
  *
  * 1. Create a project with an auto-discoverable `banner.config.cjs` in the root
  *    and a second, explicit config under `config/banner.config.cjs` that the
- *    tsconfig plugin entry references via `config`.
+ *    tsconfig plugin entry references via `configFile`.
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert only the explicit config's banner text appears in the output and the
  *    auto-discovered text is absent.
@@ -31,7 +32,10 @@ export const test_banner_tsconfig_config_overrides_package_auto_config = () => {
     {
       compilerOptions: {
         plugins: [
-          { transform: "@ttsc/banner", config: "./config/banner.config.cjs" },
+          {
+            transform: "@ttsc/banner",
+            configFile: "./config/banner.config.cjs",
+          },
         ],
       },
     },

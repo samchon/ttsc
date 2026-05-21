@@ -65,12 +65,12 @@ func TestConfigPathDiscovery(t *testing.T) {
     t.Fatalf("missing config mismatch: location=%q err=%v", location, err)
   }
 
-  for _, name := range []string{"banner.config.js", "banner.config.cjs", "banner.config.mjs", "banner.config.ts", "banner.config.cts", "banner.config.mts"} {
+  for _, name := range []string{"banner.config.json", "banner.config.js", "banner.config.cjs", "banner.config.mjs", "banner.config.ts", "banner.config.cts", "banner.config.mts"} {
     if !bannerIsBannerConfigFileName(name) {
       t.Fatalf("expected %s to be accepted", name)
     }
   }
-  if bannerIsBannerConfigFileName("banner.config.json") {
-    t.Fatal("unexpected json config acceptance")
+  if bannerIsBannerConfigFileName("banner.config.toml") {
+    t.Fatal("unexpected toml config acceptance")
   }
 }

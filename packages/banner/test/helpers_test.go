@@ -140,15 +140,20 @@ func writeExecutable(t *testing.T, file string, contents string) string {
 }
 
 // bannerManifest builds the plugin manifest shape that ttsc passes to native
-// plugins through --plugins-json.
-func bannerManifest(t *testing.T, text string) string {
+// plugins through --plugins-json. It writes a temporary banner.config.cjs file
+// in dir and returns a manifest that references it via "configFile".
+func bannerManifest(t *testing.T, dir, text string) string {
   t.Helper()
+  configFile := filepath.Join(dir, "banner.config.cjs")
+  if err := os.WriteFile(configFile, []byte("module.exports = "+mustJSON(t, text)+";\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
   return mustJSON(t, []map[string]any{{
     "name":  "@ttsc/banner",
     "stage": "transform",
     "config": map[string]any{
-      "transform": "@ttsc/banner",
-      "text":      text,
+      "transform":  "@ttsc/banner",
+      "configFile": configFile,
     },
   }})
 }

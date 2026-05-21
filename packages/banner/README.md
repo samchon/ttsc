@@ -20,20 +20,20 @@ npm install -D ttsc @typescript/native-preview
 npm install -D @ttsc/banner
 ```
 
-Pass the banner text inline on the `compilerOptions.plugins[]` entry:
+Register the plugin in your `tsconfig.json`:
 
 ```jsonc
 // tsconfig.json
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "text": "License MIT (c) 2026 Acme" }
+      { "transform": "@ttsc/banner" }
     ]
   }
 }
 ```
 
-Or keep the text in a separate file `banner.config.ts` next to your tsconfig:
+Drop a `banner.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // banner.config.ts
@@ -50,15 +50,24 @@ Run your normal `ttsc` command:
 npx ttsc
 ```
 
-If `@ttsc/banner` is installed and none of the three text sources (inline `text:`, `config:` path, or an auto-discovered `banner.config.*`) yields a banner, the compile fails.
+If `@ttsc/banner` is installed and no `banner.config.*` file is found, the compile fails.
 
 ## Configuration
 
-`@ttsc/banner` resolves its text in this order:
+`@ttsc/banner` discovers its config by walking upward from the tsconfig directory, looking for `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
 
-1. the entry's inline `text` string;
-2. the entry's `config: "./path/to/banner.config.ts"` path;
-3. an upward walk for any `banner.config.{js,cjs,mjs,ts,mts,cts}` starting from the tsconfig directory.
+To point at a specific file instead of using auto-discovery, set `configFile` on the tsconfig entry:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/banner", "configFile": "./config/banner.config.ts" }
+    ]
+  }
+}
+```
 
 The plugin formats every line of the resolved text inside a JSDoc block and appends `@packageDocumentation`.
 
