@@ -22,6 +22,6 @@ export const test_lint_config_rejects_unknown_tsconfig_plugin_entry_key =
       pluginConfig: { rules: { "no-console": "error" } },
     });
 
-    assert.notEqual(result.status, 0, result.stdout);
+    assert.notEqual(result.status, 0, result.stderr);
     assert.match(result.stderr, /unsupported key "rules"/);
   };
