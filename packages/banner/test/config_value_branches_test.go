@@ -8,25 +8,23 @@ import (
 
 // TestConfigValueBranches verifies banner config value coercion, key validation, and JSDoc escaping.
 //
-// Banner text arrives from a config file (string export, object export, or
-// invalid). This pins the exact acceptance contract for loaded config values
-// and the JSDoc rendering before path discovery and loader tests exercise the
-// same helper through file-backed inputs.
+// Banner text arrives from a config file that must export an object with a
+// non-empty "text" string. This pins the exact acceptance contract for loaded
+// config values — bare strings are rejected — and the JSDoc rendering before
+// path discovery and loader tests exercise the same helper through file-backed
+// inputs.
 //
-//  1. Coerce nil, string, object, and invalid values through the shared helper.
+//  1. Coerce nil, object, and invalid (including bare-string) values through the
+//     shared helper.
 //  2. Validate tsconfig plugin entry keys: framework keys pass, unknown keys fail.
 //  3. Render a banner with Windows newlines and a closing-comment token via an
 //     explicit configFile path, asserting JSDoc escaping and trailing-blank-line
 //     stripping.
 func TestConfigValueBranches(t *testing.T) {
-  // bannerTextFromConfigValue: nil, string, object, invalid.
+  // bannerTextFromConfigValue: nil, object, invalid.
   text, ok, err := bannerTextFromConfigValue(nil, "nil")
   if text != "" || ok || err != nil {
     t.Fatalf("nil value mismatch: text=%q ok=%v err=%v", text, ok, err)
-  }
-  text, ok, err = bannerTextFromConfigValue("inline", "string")
-  if text != "inline" || !ok || err != nil {
-    t.Fatalf("string value mismatch: text=%q ok=%v err=%v", text, ok, err)
   }
   text, ok, err = bannerTextFromConfigValue(map[string]any{"text": "object"}, "object")
   if text != "object" || !ok || err != nil {
@@ -36,10 +34,13 @@ func TestConfigValueBranches(t *testing.T) {
   if text != "" || ok || err != nil {
     t.Fatalf("object without text mismatch: text=%q ok=%v err=%v", text, ok, err)
   }
+  // A bare string is no longer a valid banner config value.
+  if _, _, err := bannerTextFromConfigValue("inline", "string"); err == nil || !strings.Contains(err.Error(), "must be an object") {
+    t.Fatalf("expected bare-string rejection, got %v", err)
+  }
   for label, raw := range map[string]any{
-    "empty string": " \n\t",
-    "bad raw":      123,
-    "bad text":     map[string]any{"text": 123},
+    "bad raw":  123,
+    "bad text": map[string]any{"text": 123},
   } {
     if _, _, err := bannerTextFromConfigValue(raw, label); err == nil {
       t.Fatalf("expected %s to fail", label)
@@ -69,7 +70,7 @@ func TestConfigValueBranches(t *testing.T) {
   tsconfig := filepath.Join(root, "tsconfig.json")
   writeFile(t, tsconfig, "{}")
   configFile := filepath.Join(root, "banner.config.cjs")
-  writeFile(t, configFile, `module.exports = "one\r\ntwo */\n\n";`)
+  writeFile(t, configFile, `module.exports = { text: "one\r\ntwo */\n\n" };`)
 
   rendered, err := bannerParseBanner(map[string]any{"configFile": configFile}, root, tsconfig)
   if err != nil {
@@ -82,9 +83,9 @@ func TestConfigValueBranches(t *testing.T) {
     t.Fatalf("sanitize mismatch: %q", got)
   }
 
-  // parseBanner: empty text from config file produces an error.
+  // parseBanner: empty "text" from config file produces an error.
   emptyConfigFile := filepath.Join(root, "empty", "banner.config.cjs")
-  writeFile(t, emptyConfigFile, `module.exports = "";`)
+  writeFile(t, emptyConfigFile, `module.exports = { text: "" };`)
   if _, err := bannerParseBanner(map[string]any{"configFile": emptyConfigFile}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
     t.Fatalf("expected parse error, got %v", err)
   }

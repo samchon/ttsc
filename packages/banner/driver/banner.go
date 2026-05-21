@@ -115,7 +115,7 @@ func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string,
       return "", err
     }
     if !ok {
-      return "", fmt.Errorf("@ttsc/banner: %s must export a non-empty string or an object with a non-empty \"text\" string", location)
+      return "", fmt.Errorf("@ttsc/banner: %s must export an object with a non-empty \"text\" string", location)
     }
     return text, nil
   }
@@ -136,36 +136,29 @@ func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string,
     return "", err
   }
   if !ok {
-    return "", fmt.Errorf("@ttsc/banner: %s must export a non-empty string or an object with a non-empty \"text\" string", location)
+    return "", fmt.Errorf("@ttsc/banner: %s must export an object with a non-empty \"text\" string", location)
   }
   return text, nil
 }
 
 // bannerTextFromConfigValue extracts a banner text string from a config value.
-// raw may be a string, a map with a "text" key, or nil (not present).
-// Returns (text, true, nil) on success, ("", false, nil) when absent, or
-// ("", true, err) / ("", false, err) on a type mismatch. label is used in
-// error messages and should describe the config source (e.g. "\"text\"").
+// A banner config value must be an object with a non-empty "text" string; raw
+// may also be nil (not present). Returns (text, true, nil) on success,
+// ("", false, nil) when absent, or ("", true, err) on a type mismatch. label is
+// used in error messages and should describe the config source (e.g. "\"text\"").
 func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   if raw == nil {
     return "", false, nil
   }
-  text, ok := raw.(string)
-  if ok {
-    if strings.TrimSpace(text) == "" {
-      return "", true, fmt.Errorf("@ttsc/banner: %s must be a non-empty string", label)
-    }
-    return text, true, nil
-  }
   object, ok := raw.(map[string]any)
   if !ok {
-    return "", true, fmt.Errorf("@ttsc/banner: %s must be a string or an object with a non-empty \"text\" string", label)
+    return "", true, fmt.Errorf("@ttsc/banner: %s must be an object with a non-empty \"text\" string", label)
   }
   rawText, ok := object["text"]
   if !ok {
     return "", false, nil
   }
-  text, ok = rawText.(string)
+  text, ok := rawText.(string)
   if !ok || strings.TrimSpace(text) == "" {
     return "", true, fmt.Errorf("@ttsc/banner: %s.text must be a non-empty string", label)
   }
@@ -246,10 +239,11 @@ func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
 }
 
 // loadBannerConfigFile loads and evaluates a banner config file, returning its
-// exported value as a Go any (string or map[string]any). The file must be named
-// banner.config.{js,cjs,mjs,ts,cts,mts,json}; JS/CJS/MJS variants run under Node,
-// TypeScript variants compile and run via ttsx in a temp directory, and JSON
-// files are parsed natively.
+// exported value as a Go any. A valid banner config exports an object with a
+// "text" string; the value is validated by bannerTextFromConfigValue. The file
+// must be named banner.config.{js,cjs,mjs,ts,cts,mts,json}; JS/CJS/MJS variants
+// run under Node, TypeScript variants compile and run via ttsx in a temp
+// directory, and JSON files are parsed natively.
 func loadBannerConfigFile(location string) (any, error) {
   if !isBannerConfigFileName(filepath.Base(location)) {
     return nil, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{js,cjs,mjs,ts,mts,cts,json}: %s", location)
@@ -282,7 +276,7 @@ func isBannerConfigFileName(name string) bool {
 
 // loadBannerJSONConfigFile reads and JSON-parses a banner config file. A leading
 // UTF-8 BOM is stripped before parsing so files saved by Windows editors are
-// accepted. The parsed value must be a string or an object with a "text" string.
+// accepted. The parsed value must be an object with a non-empty "text" string.
 func loadBannerJSONConfigFile(location string) (any, error) {
   body, err := os.ReadFile(location)
   if err != nil {
@@ -316,13 +310,10 @@ const { pathToFileURL } = require("node:url");
 });
 
 function toSerializableBanner(value) {
-  if (typeof value === "string") {
-    return value;
-  }
   if (value !== null && typeof value === "object" && typeof value.text === "string") {
     return { text: value.text };
   }
-  throw new Error("config file must export a string or an object with a text string");
+  throw new Error("config file must export an object with a non-empty \"text\" string");
 }
 `
   node := os.Getenv("TTSC_NODE_BINARY")
@@ -468,13 +459,10 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 }
 
 function toSerializableBanner(value: unknown): unknown {
-  if (typeof value === "string") {
-    return value;
-  }
   if (isObject(value) && typeof value.text === "string") {
     return { text: value.text };
   }
-  throw new Error("config file must export a string or an object with a text string");
+  throw new Error("config file must export an object with a non-empty \"text\" string");
 }
 `, importLiteral)
 }

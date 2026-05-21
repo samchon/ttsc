@@ -1,2 +1,2 @@
 export * from "./ITtscBannerPluginConfig";
-export * from "./TtscBannerConfig";
+export * from "./ITtscBannerConfig";
