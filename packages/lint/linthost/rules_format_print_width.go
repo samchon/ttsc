@@ -109,6 +109,16 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // Abstain on any node nested inside a template-literal substitution.
+  // Prettier renders `${…}` expressions at printWidth:Infinity — it
+  // never breaks an interpolation the source wrote on one line — so
+  // reflowing a call or literal inside `${…}` would split the template
+  // across lines and diverge from Prettier. See the printWidth:Infinity
+  // branch in Prettier's printTemplateExpression.
+  if hasTemplateSubstitutionAncestor(node) {
+    return
+  }
+
   // Safety: abstain when the node carries comments outside its
   // children. The per-node printers join child docs with a fresh
   // `, ` separator and have no path for trivia between siblings, so
@@ -162,16 +172,27 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if !covered {
     return
   }
-  // Render under a budget shrunk by trailingWidth so the layout engine
-  // breaks the node whenever the un-movable suffix would push the last
-  // line past printWidth. Without this the engine measures the node in
-  // isolation, keeps a call flat at exactly printWidth, and the
-  // trailing `;` then spills over.
-  renderOpts := printOpts
-  if trailingWidth > 0 && renderOpts.PrintWidth-trailingWidth >= 1 {
-    renderOpts.PrintWidth -= trailingWidth
+  // Render at the full printWidth budget. A reflow that breaks across
+  // lines then makes every layout decision — which call argument hugs,
+  // where a list explodes — against the true column budget. The
+  // un-movable trailing suffix (`;`, `) {`, ` satisfies T`) lands on a
+  // short last line; charging it against the whole budget would
+  // wrongly penalize the interior lines and over-break the node.
+  rendered := Print(doc, printOpts)
+  // The one case the suffix genuinely shares the node's line is a
+  // reflow that collapses to a single line. When the flat form plus
+  // the suffix would overflow, re-render under a budget shrunk by the
+  // suffix so the node breaks instead of spilling the suffix past
+  // printWidth — the regression that keeps a call flat at exactly
+  // printWidth while the trailing `;` runs over.
+  if trailingWidth > 0 &&
+    !strings.Contains(rendered, "\n") &&
+    maxLineWidth(rendered, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth) > printOpts.PrintWidth &&
+    printOpts.PrintWidth-trailingWidth >= 1 {
+    shrunk := printOpts
+    shrunk.PrintWidth -= trailingWidth
+    rendered = Print(doc, shrunk)
   }
-  rendered := Print(doc, renderOpts)
   original := src[start:end]
   if rendered == original {
     return
@@ -395,6 +416,24 @@ func hasReflowAncestor(node *shimast.Node) bool {
   }
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if isReflowKind(parent.Kind) {
+      return true
+    }
+  }
+  return false
+}
+
+// hasTemplateSubstitutionAncestor reports whether `node` sits inside a
+// template-literal substitution (`${…}`). format/print-width abstains
+// on such nodes: Prettier prints template interpolations at infinite
+// printWidth and only keeps a break the source already had, so a reflow
+// of a nested call or literal would split a one-line `${…}` and never
+// match Prettier's output.
+func hasTemplateSubstitutionAncestor(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindTemplateExpression {
       return true
     }
   }
