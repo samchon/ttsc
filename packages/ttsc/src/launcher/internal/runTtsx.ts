@@ -48,7 +48,9 @@ function run(argv: readonly string[]): number {
   const prepared = prepareExecution(entry, {
     binary: parsed.binary,
     cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
+    checkers: parsed.checkers,
     cwd,
+    passthrough: parsed.tsgoFlags,
     // `--no-plugins` builds the entry's owning project with plugin
     // discovery and loading disabled. ttsc's own config loaders use it
     // when they evaluate a `*.config.ts` through ttsx: that build only
@@ -59,6 +61,7 @@ function run(argv: readonly string[]): number {
     // tsconfig deliberately does not satisfy.
     plugins: parsed.noPlugins ? false : undefined,
     project: parsed.project,
+    singleThreaded: parsed.singleThreaded,
   });
   return runPreparedEntry(parsed, prepared, cwd);
 }
@@ -80,10 +83,13 @@ function parseCLI(argv: readonly string[]) {
 
   let binary: string | undefined;
   let cacheDir: string | undefined;
+  let checkers: number | undefined;
   let cwd: string | undefined;
   let entry: string | undefined;
   let noPlugins = false;
   let project: string | undefined;
+  let singleThreaded = false;
+  const tsgoFlags: string[] = [];
 
   while (head.length !== 0) {
     const current = head.shift()!;
@@ -118,6 +124,12 @@ function parseCLI(argv: readonly string[]) {
       case "--no-plugins":
         noPlugins = true;
         break;
+      case "--singleThreaded":
+        singleThreaded = true;
+        break;
+      case "--checkers":
+        checkers = parseCheckersValue(takeValue(current, head));
+        break;
       default:
         if (current.startsWith("--project=")) {
           project = current.slice("--project=".length);
@@ -127,10 +139,21 @@ function parseCLI(argv: readonly string[]) {
           cacheDir = current.slice("--cache-dir=".length);
         } else if (current.startsWith("--binary=")) {
           binary = current.slice("--binary=".length);
+        } else if (current.startsWith("--checkers=")) {
+          checkers = parseCheckersValue(current.slice("--checkers=".length));
+        } else if (current.startsWith("--singleThreaded=")) {
+          singleThreaded =
+            current.slice("--singleThreaded=".length) !== "false";
         } else if (current.startsWith("-")) {
-          throw new Error(`ttsx: unknown option ${current}`);
-        } else {
+          // Not a ttsx-owned flag: forward it to tsgo's project type-check,
+          // just like the `ttsc` launcher does for the build lane.
+          tsgoFlags.push(current);
+        } else if (looksLikeEntryFile(current)) {
           entry = current;
+        } else {
+          // A bare non-file token before the entry — e.g. the `es2020` in
+          // `--target es2020` — is a forwarded flag's value.
+          tsgoFlags.push(current);
         }
         break;
     }
@@ -143,13 +166,40 @@ function parseCLI(argv: readonly string[]) {
   return {
     binary,
     cacheDir,
+    checkers,
     cwd,
     entry,
     noPlugins,
     passthrough,
     preload,
     project,
+    singleThreaded,
+    tsgoFlags,
   };
+}
+
+/**
+ * Report whether a bare CLI token is the TypeScript entry file rather than a
+ * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
+ * with a TypeScript source extension is treated as the entry.
+ */
+function looksLikeEntryFile(token: string): boolean {
+  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
+}
+
+/**
+ * Parse the `--checkers` value into a positive integer. tsgo rejects a
+ * non-positive checker count (`minValue: 1`); ttsx mirrors that so a typo fails
+ * loudly instead of silently running with the default pool.
+ */
+function parseCheckersValue(raw: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `ttsx: --checkers expects a positive integer, got ${JSON.stringify(raw)}`,
+    );
+  }
+  return value;
 }
 
 function printHelp(): void {
@@ -167,8 +217,13 @@ function printHelp(): void {
       "  --binary <path>        Use an explicit tsgo binary",
       "  --no-plugins           Build the project without ttsc plugins",
       "  -r, --require <module> Preload a module before the entrypoint",
+      "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
+      "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
       "  -h, --help             Show this help",
       "  -v, --version          Print the runner version",
+      "",
+      "  Any other flag before the entry is forwarded to tsgo, so options like",
+      "  --strict apply to the type-check (e.g. ttsx --strict src/index.ts).",
       "",
       "Examples:",
       "  ttsx src/index.ts",

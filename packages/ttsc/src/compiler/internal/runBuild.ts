@@ -6,6 +6,7 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -114,7 +115,10 @@ export function runBuild(
         buildWithNativeCompilerPlugins(options, execution, compilers),
       );
     } else {
-      if (options.skipDiagnosticsCheck !== true) {
+      if (
+        options.skipDiagnosticsCheck !== true &&
+        !forwardsTerminalTsgoFlag(options)
+      ) {
         const tsgoChecked = runTsgo(execution, ["--noEmit"], options);
         if (tsgoChecked.status !== 0) {
           return appendBuildOutput(checked, tsgoChecked);
@@ -145,7 +149,11 @@ export function runBuild(
     };
   }
 
-  if (options.emit !== false && options.skipDiagnosticsCheck !== true) {
+  if (
+    options.emit !== false &&
+    options.skipDiagnosticsCheck !== true &&
+    !forwardsTerminalTsgoFlag(options)
+  ) {
     const checked = runTsgo(execution, ["--noEmit"], options);
     if (checked.status !== 0) {
       return checked;
@@ -157,6 +165,35 @@ export function runBuild(
       options.emit !== false && options.forceListEmittedFiles === true,
   });
   return runTsgoBuild(execution, options, args);
+}
+
+/**
+ * Tsgo CLI flags that make `tsgo` print something and exit instead of building
+ * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc normally runs a
+ * `--noEmit` type-check pass before the emit pass; when one of these is
+ * forwarded, both passes would run `tsgo` and the output would print twice, so
+ * the pre-check is skipped and only one `tsgo` invocation remains.
+ */
+const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = new Set([
+  "--help",
+  "-h",
+  "-?",
+  "--version",
+  "-v",
+  "--all",
+  "--showConfig",
+  "--init",
+  "--listFilesOnly",
+]);
+
+/**
+ * Report whether the caller forwarded a print-and-exit tsgo flag, so the
+ * pre-emit type-check pass can be skipped to avoid running it twice.
+ */
+function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
+  return (
+    options.passthrough?.some((flag) => TERMINAL_TSGO_FLAGS.has(flag)) ?? false
+  );
 }
 
 /**
@@ -195,6 +232,8 @@ function runTsgo(
       execution.tsconfig,
       ...extraArgs,
       ...createTsgoDiagnosticArgs(options),
+      ...createTsgoThreadingArgs(options),
+      ...(options.passthrough ?? []),
     ],
     {
       cwd: execution.projectRoot,
@@ -249,7 +288,13 @@ function runTsgoBuild(
     stderr: outputText(res.stderr),
   };
   const emittedFiles = parseEmittedFiles(result.stdout);
-  if (emittedFiles.length !== 0) {
+  // The `TSFILE:` lines are tsgo's `--listEmittedFiles` output. ttsc adds that
+  // flag internally to learn the emitted paths and strips the lines back out
+  // as noise — but when the user themselves forwarded `--listEmittedFiles`,
+  // the listing is what they asked for, so it must survive to stdout.
+  const userListedEmitted =
+    options.passthrough?.includes("--listEmittedFiles") ?? false;
+  if (emittedFiles.length !== 0 && !userListedEmitted) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }
   return normalizeBuildOutput(
@@ -267,6 +312,9 @@ function createTsgoBuildArgs(
   const args = ["-p", execution.tsconfig];
   if (options.emit === true) {
     args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
+    if (execution.rewriteRelativeImportExtensionsForEmit) {
+      args.push("--rewriteRelativeImportExtensions");
+    }
   } else if (options.emit === false) {
     args.push("--noEmit");
   }
@@ -277,6 +325,8 @@ function createTsgoBuildArgs(
     args.push("--listEmittedFiles");
   }
   args.push(...createTsgoDiagnosticArgs(options));
+  args.push(...createTsgoThreadingArgs(options));
+  args.push(...(options.passthrough ?? []));
   return args;
 }
 
@@ -286,6 +336,23 @@ function createTsgoBuildArgs(
  */
 function createTsgoDiagnosticArgs(options: TtscCommonOptions): string[] {
   return options.structuredDiagnostics === true ? ["--pretty", "false"] : [];
+}
+
+/**
+ * Forward the `--singleThreaded` / `--checkers` knobs to a `tsgo` invocation.
+ * tsgo accepts both flags natively, so the no-plugin build lane only has to
+ * pass them through; the type-check and emit passes share this so the checker
+ * pool size stays consistent across both.
+ */
+function createTsgoThreadingArgs(options: TtscCommonOptions): string[] {
+  const args: string[] = [];
+  if (options.singleThreaded === true) {
+    args.push("--singleThreaded");
+  }
+  if (options.checkers !== undefined) {
+    args.push("--checkers", String(options.checkers));
+  }
+  return args;
 }
 
 /** Build the argument list for a native plugin `build`/`check` invocation. */
@@ -313,6 +380,8 @@ function createNativeBuildArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
+  args.push(...createNativeThreadingArgs(options));
+  args.push(...createNativeTsgoArgs(options));
   return args;
 }
 
@@ -335,7 +404,41 @@ function createNativeCheckArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
+  args.push(...createNativeThreadingArgs(options));
+  args.push(...createNativeTsgoArgs(options));
   return args;
+}
+
+/**
+ * Forward the `--singleThreaded` / `--checkers` knobs to a native sidecar
+ * (`@ttsc/lint`, transform plugins). Their Go flag sets accept the same two
+ * flags, which `driver.LoadProgram` maps onto `CompilerOptions` so the in-
+ * process program matches what `tsgo` would do on the no-plugin lane.
+ */
+function createNativeThreadingArgs(options: TtscCommonOptions): string[] {
+  const args: string[] = [];
+  if (options.singleThreaded === true) {
+    args.push("--singleThreaded");
+  }
+  if (options.checkers !== undefined) {
+    args.push("--checkers=" + String(options.checkers));
+  }
+  return args;
+}
+
+/**
+ * Forward the tsgo flags ttsc did not recognize to a native sidecar as one
+ * JSON-encoded `--tsgo-args` flag. The sidecar replays them through tsgo's own
+ * option parser onto `CompilerOptions`, so a flag like `ttsc --strict` reaches
+ * a plugin build the same way it reaches the plain tsgo lane. Encoded as a
+ * single token so the sidecars' unknown-flag filters keep it intact.
+ */
+function createNativeTsgoArgs(options: TtscCommonOptions): string[] {
+  const passthrough = options.passthrough;
+  if (passthrough === undefined || passthrough.length === 0) {
+    return [];
+  }
+  return ["--tsgo-args=" + JSON.stringify(passthrough)];
 }
 
 /**
@@ -458,7 +561,7 @@ export function appendBuildOutput(
  * here so every code path in `runBuild` shares the same resolution logic.
  */
 function resolveExecutionContext(
-  options: TtscCommonOptions & { tsconfig?: string },
+  options: TtscCommonOptions & { emit?: boolean; tsconfig?: string },
 ) {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const tsconfig = resolveProjectConfig({
@@ -468,6 +571,18 @@ function resolveExecutionContext(
   const projectRoot = options.projectRoot
     ? path.resolve(cwd, options.projectRoot)
     : path.dirname(tsconfig);
+  let emitProject;
+  if (options.emit === true) {
+    try {
+      emitProject = readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig,
+      });
+    } catch {
+      emitProject = undefined;
+    }
+  }
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
   const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
@@ -482,6 +597,8 @@ function resolveExecutionContext(
     cwd,
     nativePlugins: loaded.nativePlugins,
     projectRoot,
+    rewriteRelativeImportExtensionsForEmit:
+      emitProject?.compilerOptions.allowImportingTsExtensions === true,
     tsgo,
     tsconfig,
   };

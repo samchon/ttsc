@@ -16,6 +16,10 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
+Projects that enable `allowImportingTsExtensions` are supported. During the
+cached runtime emit, `ttsx` rewrites relative `.ts`, `.mts`, and `.cts` import
+specifiers to the matching JavaScript extensions so Node can execute the output.
+
 ## Pass arguments to the script
 
 Use `--` to separate `ttsx` flags from the script's own args:
@@ -53,8 +57,15 @@ npx ttsx -P tsconfig.scripts.json src/seed.ts
 | `--binary <path>`        | Use an explicit TypeScript-Go binary. |
 | `--no-plugins`           | Build the entry's project without loading ttsc plugins. |
 | `-r, --require <module>` | Preload a module before the entrypoint. Repeatable. |
+| `--singleThreaded`       | Run TypeScript-Go single-threaded. Mirrors `tsgo --singleThreaded`. |
+| `--checkers <n>`         | Type-checker pool size. Mirrors `tsgo --checkers`. |
 | `-h, --help`             | Show help. |
 | `-v, --version`          | Print the runner version. |
+
+Any flag `ttsx` does not own, placed **before** the entry file, is forwarded
+to the tsgo type-check — `ttsx --strict src/index.ts` works like the matching
+tsgo invocation. Flags **after** the entry go to the running program as its
+own `process.argv`, the same as `node`.
 
 ## When ttsx vs ttsc
 

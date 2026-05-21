@@ -109,14 +109,17 @@ function buildProject(
   fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
   const result = runBuild({
     binary: options.binary,
+    checkers: options.checkers,
     cwd: context.root,
     emit: true,
     env: options.env,
     forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
+    passthrough: options.passthrough,
     plugins: options.plugins,
     quiet: true,
+    singleThreaded: options.singleThreaded,
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {

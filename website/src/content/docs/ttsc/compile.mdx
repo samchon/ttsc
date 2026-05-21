@@ -72,8 +72,17 @@ npx ttsc clean                      # drop the plugin cache
 | `--verbose` | Print build summary and emitted file paths. |
 | `--binary <path>` | Use a specific tsgo binary instead of the bundled one. |
 | `--cache-dir <dir>` | Plugin binary cache root. Defaults to the shared user-level ttsc cache. |
+| `--singleThreaded` | Run TypeScript-Go single-threaded — one checker, serial parse/check/emit. Mirrors `tsgo --singleThreaded`. |
+| `--checkers <n>` | Type-checker pool size. Mirrors `tsgo --checkers`; defaults to TypeScript-Go's own default. |
 
-Settings like `target`, `module`, `strict`, `lib`, `declaration`, `sourceMap`, and other classic `tsc` compilerOptions are read from `tsconfig.json`, not from CLI flags.
+Any flag `ttsc` does not own is forwarded as-is to `tsgo`, so classic `tsc`
+compilerOptions work on the command line too — `ttsc --strict src/main.ts`,
+`ttsc --target es2020`, `ttsc --listFiles`. The usual home for `target`,
+`module`, `strict`, `lib`, and friends is still `tsconfig.json`; the CLI form
+just overrides it for one run. On a project that configures a ttsc plugin, the
+forwarded flag still reaches the in-process compiler, though tsgo's reporting
+flags (`--listFiles`, `--showConfig`, …) only print on a plain, plugin-free
+build.
 
 ## Exit codes
 

@@ -39,6 +39,17 @@ type loadProgramOptions struct {
   forceEmit   bool
   forceNoEmit bool
   outDir      string
+  // singleThreaded mirrors `tsgo --singleThreaded`: one checker, serial
+  // parse/check/emit.
+  singleThreaded bool
+  // checkers mirrors `tsgo --checkers`: type-checker pool size. Zero leaves
+  // TypeScript-Go's default; ignored when singleThreaded is set.
+  checkers int
+  // tsgoArgs carries tsgo CLI flags the `ttsc` launcher forwarded (`--strict`,
+  // `--target es2020`, …). They are parsed through TypeScript-Go's own
+  // command-line parser into a CompilerOptions overlay that wins over the
+  // tsconfig, exactly as tsgo's CLI merges them.
+  tsgoArgs []string
 }
 
 // loadProgram parses the given tsconfig, builds a Program, and acquires a
@@ -63,9 +74,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
+  cliOptions, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  if len(cliDiags) > 0 {
+    return nil, cliDiags, nil
+  }
+
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
     resolved,
-    &shimcore.CompilerOptions{},
+    cliOptions,
     nil,
     host,
     nil,
@@ -88,10 +104,16 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if options.outDir != "" {
     overrideOutDir(cwd, parsed, options.outDir)
   }
+  applyThreading(parsed, options.singleThreaded, options.checkers)
 
+  // SingleThreaded is left unset so the program runs on TypeScript-Go's
+  // multi-threaded default: parallel parsing, a pooled checker driving
+  // parallel bind + semantic diagnostics, and parallel emit. The lint engine
+  // still walks files serially against a single pooled checker, which stays
+  // valid against the larger pool — the pool fans out only inside each
+  // TypeScript-Go phase, never across the engine's own traversal.
   tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
     Config:                      parsed,
-    SingleThreaded:              shimcore.TSTrue,
     Host:                        host,
     UseSourceOfProjectReference: true,
   })
@@ -183,6 +205,43 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
     return
   }
   parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+}
+
+// parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
+// command-line parser, yielding a CompilerOptions overlay loadProgram merges
+// over the tsconfig — so a flag like `ttsc --strict` reaches the in-process
+// lint program even though @ttsc/lint never shells out to `tsgo`. Returns an
+// empty (non-nil) options value when there are no forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.CompilerOptions, []*shimast.Diagnostic) {
+  if len(args) == 0 {
+    return &shimcore.CompilerOptions{}, nil
+  }
+  cli := tsoptions.ParseCommandLine(args, host)
+  if cli == nil {
+    return &shimcore.CompilerOptions{}, nil
+  }
+  if len(cli.Errors) > 0 {
+    return nil, cli.Errors
+  }
+  return cli.CompilerOptions(), nil
+}
+
+// applyThreading forwards the --singleThreaded / --checkers knobs onto the
+// parsed compiler options. ttsc mirrors tsgo here: the values land in
+// CompilerOptions, and both Program.SingleThreaded() and the checker pool read
+// them from there. SingleThreaded wins over Checkers, matching the pool.
+func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  options := parsed.ParsedConfig.CompilerOptions
+  if singleThreaded {
+    options.SingleThreaded = shimcore.TSTrue
+  }
+  if checkers > 0 {
+    n := checkers
+    options.Checkers = &n
+  }
 }
 
 // overrideOutDir replaces the parsed config's OutDir with `outDir`.

@@ -119,8 +119,11 @@ func runFix(opts *subcommandOpts) int {
 // NoEmit forced on. Returns (nil, 2) when loading or config parsing fails.
 func loadFixProgram(opts *subcommandOpts) (*program, int) {
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit: true,
-    outDir:      opts.outDir,
+    forceNoEmit:    true,
+    outDir:         opts.outDir,
+    singleThreaded: opts.singleThreaded,
+    checkers:       opts.checkers,
+    tsgoArgs:       opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
