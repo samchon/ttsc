@@ -49,6 +49,15 @@ function run(argv: readonly string[]): number {
     binary: parsed.binary,
     cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
     cwd,
+    // `--no-plugins` builds the entry's owning project with plugin
+    // discovery and loading disabled. ttsc's own config loaders use it
+    // when they evaluate a `*.config.ts` through ttsx: that build only
+    // needs to type-check and run the config file, so loading the host
+    // project's transform/check plugins (`@nestia/core`, `typia`, …)
+    // would be both wasteful and wrong — those plugins impose project
+    // requirements (e.g. `strict` mode) the ephemeral config-loader
+    // tsconfig deliberately does not satisfy.
+    plugins: parsed.noPlugins ? false : undefined,
     project: parsed.project,
   });
   return runPreparedEntry(parsed, prepared, cwd);
@@ -73,6 +82,7 @@ function parseCLI(argv: readonly string[]) {
   let cacheDir: string | undefined;
   let cwd: string | undefined;
   let entry: string | undefined;
+  let noPlugins = false;
   let project: string | undefined;
 
   while (head.length !== 0) {
@@ -105,6 +115,9 @@ function parseCLI(argv: readonly string[]) {
       case "--binary":
         binary = takeValue(current, head);
         break;
+      case "--no-plugins":
+        noPlugins = true;
+        break;
       default:
         if (current.startsWith("--project=")) {
           project = current.slice("--project=".length);
@@ -132,6 +145,7 @@ function parseCLI(argv: readonly string[]) {
     cacheDir,
     cwd,
     entry,
+    noPlugins,
     passthrough,
     preload,
     project,
@@ -151,6 +165,7 @@ function printHelp(): void {
       "  --cwd <dir>            Resolve entry/project relative to this directory",
       "  --cache-dir <dir>      Override the runner and source-plugin cache root",
       "  --binary <path>        Use an explicit tsgo binary",
+      "  --no-plugins           Build the project without ttsc plugins",
       "  -r, --require <module> Preload a module before the entrypoint",
       "  -h, --help             Show this help",
       "  -v, --version          Print the runner version",
