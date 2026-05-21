@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -121,14 +123,22 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
   printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth)
 
+  // trailingWidth is the column span of the tokens that stay on the
+  // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
+  // replaces only [start, end) and cannot move them, so both the fast
+  // path and the layout budget must reserve those columns; otherwise
+  // the rule emits a line that overflows by exactly the suffix.
+  trailingWidth := trailingLineWidth(src, end, printOpts.TabWidth)
+
   // Fast path: if the node's existing single-line bytes already fit
-  // the printWidth budget, the reflowed output cannot differ from
-  // the source (the printer would render the same flat shape). Skip
-  // the Doc build + render entirely. This is the common case on
+  // the printWidth budget — prefix column, node width and trailing
+  // suffix all charged — the reflowed output cannot differ from the
+  // source (the printer would render the same flat shape). Skip the
+  // Doc build + render entirely. This is the common case on
   // well-formatted code — every short call, every short literal —
   // and saves the allocations from PrintNode + Print.
   if !sliceContainsNewline(src, start, end) &&
-    printOpts.StartingColumn+(end-start) <= printOpts.PrintWidth {
+    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
     return
   }
 
@@ -148,9 +158,31 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if !covered {
     return
   }
-  rendered := Print(doc, printOpts)
+  // Render under a budget shrunk by trailingWidth so the layout engine
+  // breaks the node whenever the un-movable suffix would push the last
+  // line past printWidth. Without this the engine measures the node in
+  // isolation, keeps a call flat at exactly printWidth, and the
+  // trailing `;` then spills over.
+  renderOpts := printOpts
+  if trailingWidth > 0 && renderOpts.PrintWidth-trailingWidth >= 1 {
+    renderOpts.PrintWidth -= trailingWidth
+  }
+  rendered := Print(doc, renderOpts)
   original := src[start:end]
   if rendered == original {
+    return
+  }
+  // Safety floor: never emit an edit that makes the widest line wider
+  // than it already was. The reflow may be unable to break an
+  // un-breakable token run — a long string literal, a verbatim object
+  // member — but it must never *worsen* the worst line. That is exactly
+  // the regression this guards: `ttsc format` collapsing an
+  // already-broken, fitting call into one over-wide line. A reflow that
+  // only fixes indentation and leaves a pre-existing over-wide line
+  // untouched is still emitted.
+  renderedMax := maxLineWidth(rendered, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth)
+  originalMax := maxLineWidth(original, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth)
+  if renderedMax > printOpts.PrintWidth && renderedMax > originalMax {
     return
   }
   ctx.ReportRangeFix(
@@ -159,6 +191,80 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     "Reflow to fit printWidth.",
     TextEdit{Pos: start, End: end, Text: rendered},
   )
+}
+
+// trailingLineWidth returns the visual column width of src[end:] up to
+// the next newline, with trailing whitespace trimmed. The format/print-
+// width reflow replaces only the node's own byte range, so whatever
+// shares the node's last source line — a statement `;`, a `) {` header
+// tail, a `, nextArg)` continuation — stays put. Charging that width
+// against the budget keeps the rule from emitting a line that overflows
+// by exactly the suffix it could never move.
+func trailingLineWidth(src string, end int, tabWidth int) int {
+  if end < 0 || end > len(src) {
+    return 0
+  }
+  if tabWidth <= 0 {
+    tabWidth = 2
+  }
+  lineEnd := end
+  for lineEnd < len(src) && src[lineEnd] != '\n' {
+    lineEnd++
+  }
+  for lineEnd > end {
+    c := src[lineEnd-1]
+    if c != ' ' && c != '\t' && c != '\r' {
+      break
+    }
+    lineEnd--
+  }
+  col := 0
+  for i := end; i < lineEnd; i++ {
+    if src[i] == '\t' {
+      col += tabWidth - (col % tabWidth)
+    } else {
+      col++
+    }
+  }
+  return col
+}
+
+// maxLineWidth returns the widest effective column span among the lines
+// of `text`. The first line is charged `startingColumn` — the prefix
+// already on that source line that the reflow does not re-emit — and
+// the last line is charged `trailingWidth` for the un-movable suffix
+// that follows the node. Tabs count as `tabWidth` columns.
+//
+// The rule compares the rendered output's widest line against the
+// source node's: a reflow that cannot fit an un-breakable token is
+// still allowed through as long as it does not make the worst line any
+// wider than it already was.
+func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int {
+  if tabWidth <= 0 {
+    tabWidth = 2
+  }
+  lines := strings.Split(text, "\n")
+  widest := 0
+  for i, line := range lines {
+    width := 0
+    for _, r := range line {
+      if r == '\t' {
+        width += tabWidth - (width % tabWidth)
+      } else if r != '\r' {
+        width++
+      }
+    }
+    if i == 0 {
+      width += startingColumn
+    }
+    if i == len(lines)-1 {
+      width += trailingWidth
+    }
+    if width > widest {
+      widest = width
+    }
+  }
+  return widest
 }
 
 // leadingColumn returns the visual column the byte at `pos` occupies on

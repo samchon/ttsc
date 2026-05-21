@@ -110,11 +110,12 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // handles the open-comma-close shape; this helper gathers the
 // per-argument docs and threads each argument's `covered` flag up.
 //
-// When the final argument is a callback or object literal, the list
-// renders in the "last-argument hugging" shape (see printListHuggingLast):
-// the callback's own body carries the multi-line layout, so the parens
-// stay attached and the preceding arguments are not exploded onto their
-// own lines. This is the Prettier behavior for `foo(x, () => { … })`.
+// When the final argument is a block-bodied callback or object literal,
+// the list renders in the "last-argument hugging" shape (see
+// printListHuggingLast): the callback's own body carries the multi-line
+// layout, so the parens stay attached and the preceding arguments are
+// not exploded onto their own lines. This is the Prettier behavior for
+// `foo(x, () => { … })`.
 func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
   if list == nil {
     return Text("()"), true
@@ -138,10 +139,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
 }
 
 // shouldHugLastArgument reports whether the final entry of `args` is a
-// shape Prettier keeps hugging the closing paren: an arrow function, a
-// function expression, or an object literal. Hugging only applies when
-// that argument is genuinely the last one; a callback in the middle of
-// the list does not trigger the shape.
+// shape Prettier keeps hugging the closing paren: a block-bodied arrow
+// function, a function expression, or an object literal. Hugging only
+// applies when that argument is genuinely the last one; a callback in
+// the middle of the list does not trigger the shape.
+//
+// An expression-bodied arrow (`(x) => x.id`) is deliberately excluded.
+// Its body carries no internal break point, so the hugging shape — a
+// flat `Concat` with no Group — would pin the whole call to one line
+// even when that line overflows printWidth. Routing it through the
+// normal list shape instead lets the argument list explode onto its
+// own line when the call does not fit, which is what Prettier does.
 func shouldHugLastArgument(args []*shimast.Node) bool {
   if len(args) == 0 {
     return false
@@ -151,10 +159,13 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
     return false
   }
   switch last.Kind {
-  case shimast.KindArrowFunction,
-    shimast.KindFunctionExpression,
+  case shimast.KindFunctionExpression,
     shimast.KindObjectLiteralExpression:
     return true
+  case shimast.KindArrowFunction:
+    arrow := last.AsArrowFunction()
+    return arrow != nil && arrow.Body != nil &&
+      arrow.Body.Kind == shimast.KindBlock
   }
   return false
 }

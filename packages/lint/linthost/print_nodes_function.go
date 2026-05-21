@@ -159,9 +159,10 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     }
     return Text("{}"), true
   }
-  items := make([]Doc, 0, len(block.Statements.Nodes))
+  stmts := block.Statements.Nodes
+  items := make([]Doc, 0, len(stmts))
   covered := !hasComment
-  for _, stmt := range block.Statements.Nodes {
+  for _, stmt := range stmts {
     if stmt == nil {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
@@ -169,14 +170,53 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
-  body := Join(Hardline(), items)
+  // Join statements with a Hardline, preserving a single user-authored
+  // blank line between consecutive statements. The block printer mints
+  // fresh separators, so a bare `Join(Hardline, …)` would silently
+  // delete every blank line in the body on the first reflow. The blank
+  // line is a Literalline — a bare newline with no indent — so the
+  // empty line carries no trailing whitespace. Two or more blank lines
+  // collapse to one, matching Prettier.
+  bodyParts := make([]Doc, 0, len(items)*2)
+  for i, item := range items {
+    if i > 0 {
+      if blankLineBetweenStatements(ctx.Source, stmts[i-1].End(), stmts[i].Pos()) {
+        bodyParts = append(bodyParts, Literalline())
+      }
+      bodyParts = append(bodyParts, Hardline())
+    }
+    bodyParts = append(bodyParts, item)
+  }
   doc := Concat(
     Text("{"),
-    Indent(ctx.indentUnit(), Hardline(), body),
+    Indent(ctx.indentUnit(), Hardline(), Concat(bodyParts...)),
     Hardline(),
     Text("}"),
   )
   return doc, covered
+}
+
+// blankLineBetweenStatements reports whether the source gap between the
+// end of one block statement and the start of the next contains a blank
+// line — two or more newlines. printBlock uses it to keep a single
+// user-authored blank line between statements. blockHasNonStatementComment
+// has already guaranteed the gap holds no comment when the block is
+// covered, so the gap is pure whitespace and counting newlines suffices.
+func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
+  nextStart := shimscanner.SkipTrivia(src, nextPos)
+  if prevEnd < 0 || nextStart > len(src) || nextStart <= prevEnd {
+    return false
+  }
+  newlines := 0
+  for i := prevEnd; i < nextStart; i++ {
+    if src[i] == '\n' {
+      newlines++
+      if newlines >= 2 {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 // blockHasNonStatementComment reports whether the block's byte range
