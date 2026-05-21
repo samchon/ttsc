@@ -52,6 +52,12 @@ text := shimprinter.EmitSourceFile(printer, file)
 
 For the `transform` subcommand, the host treats `typescript[fileName]` as opaque text — see [Plugin protocol → Transform](/docs/development/concepts/protocol#transform). Run a printer before placing AST-mutated source in the map.
 
+### Emit-concurrency contract
+
+TypeScript-Go emits source files in parallel — one emitter goroutine per source. ttsc nonetheless **guarantees your `WriteFile` callback runs single-threaded**: both `EmitAll` and `EmitAllRaw` funnel every invocation through one internal mutex, so the callback never executes on two goroutines at once. A plugin's output rewriter is therefore free to carry per-file state — rewrite cursors, an output map, a runtime-alias cache — in a plain Go map without locking it yourself; ttsc owns the serialization. The callback body is cheap I/O, so serializing it costs effectively nothing while parsing, type-checking, and emit-text generation still parallelize.
+
+This is the one ttsc-layered phase that observes emit at all; everything else a plugin does (`SourcePreamble`, `ApplyProgram`, rewrite collection against the pooled `Checker`) already runs on ttsc's own serial path.
+
 ## Diagnostics
 
 ```go

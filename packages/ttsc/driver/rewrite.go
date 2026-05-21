@@ -83,10 +83,14 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 
 // EmitAllRaw runs TypeScript-Go emit without ttsc output-text rewrites.
 //
-// Unlike EmitAll, `writeFile` is handed straight to TypeScript-Go's parallel
-// emitter, so it MUST be safe to invoke concurrently: writing distinct files
-// (the default disk writer, the source-preamble writer) is fine; a callback
-// that mutates shared state must guard it.
+// `writeFile` does not need to be concurrency-safe: like EmitAll, EmitAllRaw
+// funnels every invocation through one mutex, so the callback never runs on
+// two goroutines at once even though TypeScript-Go emits files in parallel.
+// This is the contract a plugin's output rewriter relies on — it is the
+// emit-stage phase ttsc guarantees runs single-threaded (a plugin's WriteFile
+// is the standard place to carry per-file cursors or an output map), so ttsc
+// owns the serialization rather than pushing goroutine-safety onto every
+// plugin author. See the emit-concurrency contract in the plugin docs.
 func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, nil, errors.New("driver: nil program")
@@ -94,11 +98,22 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   if err := p.ApplyLinkedPlugins(); err != nil {
     return nil, nil, err
   }
-  wf := writeFile
-  if wf == nil {
-    wf = func(fileName, text string, data *shimcompiler.WriteFileData) error {
-      return DefaultWriteFile(fileName, text)
+  // TypeScript-Go's parallel emit invokes WriteFile once per emitted file,
+  // concurrently — one goroutine per source file. Serialize the whole callback
+  // under wfMu so a plugin's output rewriter sees one writer at a time: a
+  // callback that mutates shared state (e.g. @nestia/core's per-file rewrite
+  // cursors and runtime-alias cache) would otherwise trip `fatal error:
+  // concurrent map read and map write`. The callback is cheap I/O, so
+  // serializing it costs ~nothing while parse/check/emit-text still parallelize
+  // — the same trade EmitAll makes for its own WriteFile.
+  var wfMu sync.Mutex
+  wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
+    wfMu.Lock()
+    defer wfMu.Unlock()
+    if writeFile != nil {
+      return writeFile(fileName, text, data)
     }
+    return DefaultWriteFile(fileName, text)
   }
   result := p.TSProgram.Emit(context.Background(), shimcompiler.EmitOptions{
     WriteFile: wf,
