@@ -235,13 +235,20 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 }
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
+//
+// SingleThreaded is intentionally left unset so the program falls back to
+// TypeScript-Go's multi-threaded default: parallel source parsing, a pooled
+// checker (parallel bind + semantic diagnostics), and parallel emit. The
+// phases ttsc layers on top — plugin application and the output rewriter —
+// still run serially against a single pooled checker, which stays valid
+// against the larger pool. Concurrency surfaces only inside each
+// TypeScript-Go phase; see EmitAll for the WriteFile-callback consequence.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
   }
   opts := shimcompiler.ProgramOptions{
     Config:                      parsed,
-    SingleThreaded:              core.TSTrue,
     Host:                        host,
     UseSourceOfProjectReference: true,
   }
