@@ -472,14 +472,18 @@ function resolveExecutionContext(
   const projectRoot = options.projectRoot
     ? path.resolve(cwd, options.projectRoot)
     : path.dirname(tsconfig);
-  const emitProject =
-    options.emit === true
-      ? readProjectConfig({
-          cwd,
-          projectRoot: options.projectRoot,
-          tsconfig,
-        })
-      : undefined;
+  let emitProject;
+  if (options.emit === true) {
+    try {
+      emitProject = readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig,
+      });
+    } catch {
+      emitProject = undefined;
+    }
+  }
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
   const fallbackBinary = resolveBinary(options);
   const loaded = loadProjectPlugins({
