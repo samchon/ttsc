@@ -273,18 +273,25 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.Compile
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
 //
-// SingleThreaded is intentionally left unset so the program falls back to
-// TypeScript-Go's multi-threaded default: parallel source parsing, a pooled
-// checker (parallel bind + semantic diagnostics), and parallel emit. The
-// phases ttsc layers on top — plugin application and the output rewriter —
-// still run serially against a single pooled checker, which stays valid
-// against the larger pool. Concurrency surfaces only inside each
-// TypeScript-Go phase; both EmitAll and EmitAllRaw serialize the WriteFile
-// callback under a mutex so the emit-stage rewriter never observes the pool.
+// SingleThreaded is intentionally left unset so the program keeps
+// TypeScript-Go's parallel source parsing and parallel emit. The checker
+// pool, however, is pinned to a single checker (see forceSingleChecker):
+// every phase ttsc layers on top — plugin transforms and the output
+// rewriter — walks the program serially against the one checker returned by
+// Program.GetTypeChecker, and then asks that checker to resolve types in
+// nodes drawn from *every* source file. TypeScript-Go's multi-checker pool
+// affinitizes each file to a different checker and forbids mixing types
+// across them; a circular type whose declarations span files on different
+// checkers resolves to `any` on the borrowed checker. Pinning the pool to
+// one checker keeps prog.Checker consistent with how every file was checked
+// while leaving parse and emit parallel. Both EmitAll and EmitAllRaw
+// serialize the WriteFile callback under a mutex so the emit-stage rewriter
+// never observes the parallel emit either.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
   }
+  forceSingleChecker(parsed)
   opts := shimcompiler.ProgramOptions{
     Config:                      parsed,
     Host:                        host,
@@ -292,6 +299,24 @@ func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompi
   }
   p := shimcompiler.NewProgram(opts)
   return p, nil, nil
+}
+
+// forceSingleChecker pins the TypeScript-Go checker pool to a single checker.
+//
+// ttsc's transform and rewrite phases run serially and obtain types through
+// the single checker that Program.GetTypeChecker hands back. Those phases
+// query types on nodes from arbitrary source files, so the checker must be
+// the same one that checked every file. A pool of size > 1 affinitizes files
+// to distinct checkers; resolving a type whose declarations cross that
+// boundary (e.g. a circular indexed-access alias) yields `any`. Parallel
+// parsing and emit are unaffected — they do not consult the checker count.
+func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
+  options := parsed.ParsedConfig.CompilerOptions
+  if options.SingleThreaded == core.TSTrue {
+    return
+  }
+  one := 1
+  options.Checkers = &one
 }
 
 // LoadProgram is the one-shot convenience used by `ttsc`.
@@ -393,6 +418,11 @@ func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir stri
 // pool read them from there — ProgramOptions is left untouched, exactly as
 // tsgo's own CLI does. SingleThreaded wins over Checkers, matching the pool's
 // own precedence.
+//
+// Note that CreateProgramFromConfig calls forceSingleChecker afterwards, so a
+// `--checkers N` greater than 1 is recorded here but then clamped back to a
+// single checker: ttsc's serial transform/rewrite phases require one checker
+// (see forceSingleChecker). `--singleThreaded` still takes full effect.
 func applyThreadingOptions(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
   options := parsed.ParsedConfig.CompilerOptions
   if singleThreaded {

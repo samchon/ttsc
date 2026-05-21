@@ -105,13 +105,18 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     overrideOutDir(cwd, parsed, options.outDir)
   }
   applyThreading(parsed, options.singleThreaded, options.checkers)
+  forceSingleChecker(parsed)
 
-  // SingleThreaded is left unset so the program runs on TypeScript-Go's
-  // multi-threaded default: parallel parsing, a pooled checker driving
-  // parallel bind + semantic diagnostics, and parallel emit. The lint engine
-  // still walks files serially against a single pooled checker, which stays
-  // valid against the larger pool — the pool fans out only inside each
-  // TypeScript-Go phase, never across the engine's own traversal.
+  // SingleThreaded is left unset so the program keeps TypeScript-Go's parallel
+  // source parsing and parallel emit. The checker pool, however, is pinned to
+  // a single checker (see forceSingleChecker): the lint engine walks files
+  // serially against the one checker GetTypeChecker hands back, and rules ask
+  // that checker to resolve types in nodes drawn from every source file.
+  // TypeScript-Go's multi-checker pool affinitizes each file to a different
+  // checker and forbids mixing types across them, so a type whose declarations
+  // span files on different checkers (e.g. a circular indexed-access alias)
+  // resolves to `any` on the borrowed checker. One checker keeps the engine's
+  // checker consistent with how every file was checked.
   tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
     Config:                      parsed,
     Host:                        host,
@@ -230,6 +235,11 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.Com
 // parsed compiler options. ttsc mirrors tsgo here: the values land in
 // CompilerOptions, and both Program.SingleThreaded() and the checker pool read
 // them from there. SingleThreaded wins over Checkers, matching the pool.
+//
+// loadProgram calls forceSingleChecker afterwards, so a `--checkers N` greater
+// than 1 is recorded here but clamped back to a single checker: the lint
+// engine requires one checker (see forceSingleChecker). `--singleThreaded`
+// still takes full effect.
 func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return
@@ -242,6 +252,26 @@ func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, ch
     n := checkers
     options.Checkers = &n
   }
+}
+
+// forceSingleChecker pins the TypeScript-Go checker pool to a single checker.
+//
+// The lint engine walks the program serially and obtains types through the
+// single checker GetTypeChecker hands back. Rules query types on nodes from
+// arbitrary source files, so the checker must be the same one that checked
+// every file. A pool of size > 1 affinitizes files to distinct checkers;
+// resolving a type whose declarations cross that boundary yields `any`.
+// Parallel parsing and emit are unaffected — they do not consult the count.
+func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  options := parsed.ParsedConfig.CompilerOptions
+  if options.SingleThreaded == shimcore.TSTrue {
+    return
+  }
+  one := 1
+  options.Checkers = &one
 }
 
 // overrideOutDir replaces the parsed config's OutDir with `outDir`.
