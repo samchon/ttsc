@@ -50,6 +50,7 @@ function run(argv: readonly string[]): number {
     cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
     checkers: parsed.checkers,
     cwd,
+    passthrough: parsed.tsgoFlags,
     project: parsed.project,
     singleThreaded: parsed.singleThreaded,
   });
@@ -78,6 +79,7 @@ function parseCLI(argv: readonly string[]) {
   let entry: string | undefined;
   let project: string | undefined;
   let singleThreaded = false;
+  const tsgoFlags: string[] = [];
 
   while (head.length !== 0) {
     const current = head.shift()!;
@@ -130,9 +132,15 @@ function parseCLI(argv: readonly string[]) {
           singleThreaded =
             current.slice("--singleThreaded=".length) !== "false";
         } else if (current.startsWith("-")) {
-          throw new Error(`ttsx: unknown option ${current}`);
-        } else {
+          // Not a ttsx-owned flag: forward it to tsgo's project type-check,
+          // just like the `ttsc` launcher does for the build lane.
+          tsgoFlags.push(current);
+        } else if (looksLikeEntryFile(current)) {
           entry = current;
+        } else {
+          // A bare non-file token before the entry — e.g. the `es2020` in
+          // `--target es2020` — is a forwarded flag's value.
+          tsgoFlags.push(current);
         }
         break;
     }
@@ -152,7 +160,17 @@ function parseCLI(argv: readonly string[]) {
     preload,
     project,
     singleThreaded,
+    tsgoFlags,
   };
+}
+
+/**
+ * Report whether a bare CLI token is the TypeScript entry file rather than a
+ * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
+ * with a TypeScript source extension is treated as the entry.
+ */
+function looksLikeEntryFile(token: string): boolean {
+  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
 
 /**
@@ -188,6 +206,9 @@ function printHelp(): void {
       "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
       "  -h, --help             Show this help",
       "  -v, --version          Print the runner version",
+      "",
+      "  Any other flag before the entry is forwarded to tsgo, so options like",
+      "  --strict apply to the type-check (e.g. ttsx --strict src/index.ts).",
       "",
       "Examples:",
       "  ttsx src/index.ts",
