@@ -198,6 +198,22 @@ func Print(doc Doc, opts PrintOptions) string {
       } else {
         stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: child})
       }
+    case docConditionalGroup:
+      // Render the first option whose first line fits the remaining
+      // width; fall back to the last option when none do. fitsFirstLine
+      // measures only up to an option's first break, so an option whose
+      // later lines wrap — a hugged callback body — is still eligible.
+      options := top.doc.Children
+      if len(options) > 0 {
+        chosen := options[len(options)-1]
+        for i := 0; i < len(options)-1; i++ {
+          if fitsFirstLine(options[i], opts.PrintWidth-col) {
+            chosen = options[i]
+            break
+          }
+        }
+        stack = append(stack, printFrame{indent: top.indent, mode: top.mode, doc: chosen})
+      }
     case docIfBreak:
       pick := top.doc.Children[1] // flat
       if top.mode == modeBreak {
@@ -313,6 +329,11 @@ func fits(doc Doc, remaining int, indent int) bool {
       for i := len(top.doc.Children) - 1; i >= 0; i-- {
         stack = append(stack, frame{mode: modeFlat, doc: top.doc.Children[i]})
       }
+    case docConditionalGroup:
+      // A conditional group's flat form is its first (flattest) option.
+      if len(top.doc.Children) > 0 {
+        stack = append(stack, frame{mode: top.mode, doc: top.doc.Children[0]})
+      }
     case docIfBreak:
       pick := top.doc.Children[1]
       if top.mode == modeBreak {
@@ -337,6 +358,55 @@ func fits(doc Doc, remaining int, indent int) bool {
       }
     case docHardline, docLiteralline:
       return false
+    }
+  }
+  return true
+}
+
+// fitsFirstLine reports whether the first line of `doc` — every column
+// up to its first line break — renders within `remaining` columns. It
+// drives ConditionalGroup option selection: an option is eligible when
+// its opening line fits, even if its later lines wrap.
+//
+// The walk treats every break point as broken — an IfBreak takes its
+// break branch, and a Line / Softline / Hardline ends the measurement —
+// so it counts exactly the columns the option would place on the line
+// the group starts on. A nested ConditionalGroup contributes its own
+// first option.
+func fitsFirstLine(doc Doc, remaining int) bool {
+  if remaining < 0 {
+    return false
+  }
+  stack := []Doc{doc}
+  for len(stack) > 0 {
+    top := stack[len(stack)-1]
+    stack = stack[:len(stack)-1]
+    switch top.Kind {
+    case docText:
+      if idx := strings.IndexByte(top.Text, '\n'); idx >= 0 {
+        // A multi-line Text ends the first line at its first newline.
+        return remaining-idx >= 0
+      }
+      remaining -= len(top.Text)
+      if remaining < 0 {
+        return false
+      }
+    case docConcat, docIndent, docAlign, docGroup:
+      for i := len(top.Children) - 1; i >= 0; i-- {
+        stack = append(stack, top.Children[i])
+      }
+    case docConditionalGroup:
+      if len(top.Children) > 0 {
+        stack = append(stack, top.Children[0])
+      }
+    case docIfBreak:
+      // Measuring in break mode: take the broken branch.
+      stack = append(stack, top.Children[0])
+    case docLine, docSoftline, docHardline, docLiteralline:
+      // The first break ends the first line; what fit so far fits.
+      return true
+    case docNil, docLineSuffix:
+      // No first-line width contribution.
     }
   }
   return true

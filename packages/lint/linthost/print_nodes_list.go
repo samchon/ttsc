@@ -38,15 +38,31 @@ type listShape struct {
 }
 
 // printList renders the list shape as a Doc tree. Empty lists collapse
-// to `OPENCLOSE`. Single-element lists still wrap so trailing-comma
-// logic stays uniform.
+// to `OPENCLOSE`. A HugLast list becomes a ConditionalGroup of the
+// hugged and exploded shapes; every other list is the plain
+// fit-or-break Group.
 func printList(ctx *PrintContext, shape listShape) Doc {
   if len(shape.Items) == 0 {
     return Text(shape.OpenTok + shape.CloseTok)
   }
+  plain := printListPlain(ctx, shape)
   if shape.HugLast {
-    return printListHuggingLast(ctx, shape)
+    // Offer the engine two shapes: the hugged form — leading items
+    // inline, the final callback or object literal hugging the parens —
+    // and the plain exploded form. The hugged form wins whenever its
+    // opening line fits the budget; otherwise every argument takes its
+    // own indented line, the shape Prettier falls back to when the hug
+    // header would overflow printWidth.
+    return ConditionalGroup(printListHuggingLast(ctx, shape), plain)
   }
+  return plain
+}
+
+// printListPlain renders the open-comma-close list as a single
+// fit-or-break Group: flat (`OPEN a, b CLOSE`) when it fits the width
+// budget, one item per indented line — with an optional trailing
+// comma — when it does not.
+func printListPlain(ctx *PrintContext, shape listShape) Doc {
   sep := Concat(Text(","), Line())
   body := Join(sep, shape.Items)
 
@@ -64,8 +80,7 @@ func printList(ctx *PrintContext, shape listShape) Doc {
   closeTok := Text(shape.CloseTok)
 
   // In flat mode: OPEN [pad] body [pad] CLOSE
-  // In broken mode: OPEN \n body, \n CLOSE — using Softline so the
-  // flat form collapses cleanly.
+  // In broken mode: OPEN \n body, \n CLOSE.
   leadingSep := IfBreak(Hardline(), flatPad)
   trailingSep := IfBreak(Hardline(), flatPad)
 
@@ -75,18 +90,19 @@ func printList(ctx *PrintContext, shape listShape) Doc {
 }
 
 // printListHuggingLast renders the "last-argument hugging" shape that
-// Prettier uses for `foo(a, b, () => { … })`: the leading items still
-// flow comma-separated, but the final item stays attached to the
-// closing paren instead of being pushed onto its own indented line.
+// Prettier uses for `foo(a, b, () => { … })`: the leading items flow
+// comma-separated and the final item stays attached to the closing
+// paren instead of being pushed onto its own indented line.
 //
-//  flat:   OPEN a, b, last CLOSE
 //  hugged: OPEN a, b, OPEN-of-last … CLOSE-of-last CLOSE
 //
-// The result is *not* wrapped in a Group: a huggable last argument is
-// almost always a callback or object literal whose own printer already
-// carries the fit-or-break decision for its body. Wrapping here would
-// let a multi-line body force the whole `a, b,` prefix to break, which
-// is the regression this shape exists to avoid.
+// The result is a plain Concat, not a Group: the hugged last argument
+// is a callback or object literal whose own printer carries the
+// fit-or-break decision for its body, so wrapping here would let a
+// multi-line body force the `a, b,` prefix to break. printList offers
+// this Concat as the first option of a ConditionalGroup; when its
+// opening line would overflow printWidth the engine falls back to the
+// plain exploded list instead.
 func printListHuggingLast(ctx *PrintContext, shape listShape) Doc {
   last := shape.Items[len(shape.Items)-1]
   lead := shape.Items[:len(shape.Items)-1]

@@ -52,6 +52,9 @@ package linthost
 //   - DocLineSuffix queues output until the next hardline/softline that
 //     actually breaks; used for trailing line comments that must stick
 //     to their source line.
+//   - DocConditionalGroup offers an ordered list of layout options; the
+//     engine renders the first whose first line fits the width budget
+//     and uses the last option as the unconditional fallback.
 //
 // The doc tree is built by helper constructors (Text, Line, Group, …)
 // below. Constructors take their children as variadic or slice
@@ -75,6 +78,7 @@ const (
   docIfBreak
   docConcat
   docLineSuffix
+  docConditionalGroup
 )
 
 // Doc is one node in the layout tree. Only the fields relevant to the
@@ -115,6 +119,16 @@ func Literalline() Doc { return Doc{Kind: docLiteralline} }
 // Group wraps a child doc in a fit-or-break decision. Variadic args are
 // concatenated.
 func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
+
+// ConditionalGroup picks the first option whose first line fits the
+// remaining width budget, falling back to the last option when none
+// fit. Where Group makes a single flat-or-break decision, a
+// ConditionalGroup lets a printer offer several distinct shapes — a
+// call's hugged vs. exploded argument list — and have the engine choose
+// between them. The last option must always be a safe fallback.
+func ConditionalGroup(options ...Doc) Doc {
+  return Doc{Kind: docConditionalGroup, Children: options}
+}
 
 // Indent adds `width` columns of indentation to every newline emitted by
 // the child doc. Nesting composes.
