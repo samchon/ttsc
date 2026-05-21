@@ -4,7 +4,7 @@ import (
   "testing"
 )
 
-// TestPrintArgListReturnsParemsForNilList verifies that printArgList
+// TestPrintArgListReturnsParensForNilList verifies that printArgList
 // returns the text `()` when given a nil NodeList.
 //
 // The nil guard in printArgList is a protective fast-path: a nil argument
@@ -16,7 +16,7 @@ import (
 // 1. Call printArgList directly with a nil list pointer.
 // 2. Print the resulting Doc under default options.
 // 3. Assert the output is exactly `()`.
-func TestPrintArgListReturnsParemsForNilList(t *testing.T) {
+func TestPrintArgListReturnsParensForNilList(t *testing.T) {
   file := parseTS(t, "foo();\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
   doc, _ := printArgList(ctx, nil)

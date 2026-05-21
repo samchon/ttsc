@@ -392,9 +392,10 @@ func lineStartOffset(src string, pos int) int {
 // after its leading whitespace, with a `? ` or `: ` ternary-arm marker,
 // and 0 otherwise. format/print-width adds it to BaseIndent so a node
 // reflowed inside a ternary arm indents its broken continuation under
-// the arm's expression rather than under the `?`/`:` token. Only a
-// ternary arm can open a line with `? ` / `: ` in valid TypeScript, so
-// the two-byte prefix check needs no further disambiguation.
+// the arm's expression rather than under the `?`/`:` token. In practice
+// only a ternary arm opens a reflow target's line with `? ` / `: `; the
+// two-byte prefix is a heuristic, and a rare false positive only shifts
+// a broken continuation by two columns — it never corrupts bytes.
 func ternaryArmIndentBonus(src string, pos int) int {
   i := lineStartOffset(src, pos)
   for i < len(src) && (src[i] == ' ' || src[i] == '\t') {

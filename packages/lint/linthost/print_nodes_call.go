@@ -139,17 +139,19 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
 }
 
 // shouldHugLastArgument reports whether the final entry of `args` is a
-// shape Prettier keeps hugging the closing paren: a block-bodied arrow
-// function, a function expression, or an object literal. Hugging only
-// applies when that argument is genuinely the last one; a callback in
-// the middle of the list does not trigger the shape.
+// shape Prettier keeps hugging the closing paren: an object or array
+// literal, a function expression, or an arrow function whose body is a
+// block, an object literal, or an array literal. Hugging only applies
+// when that argument is genuinely the last one; a callback in the
+// middle of the list does not trigger the shape.
 //
-// An expression-bodied arrow (`(x) => x.id`) is deliberately excluded.
-// Its body carries no internal break point, so the hugging shape — a
-// flat `Concat` with no Group — would pin the whole call to one line
-// even when that line overflows printWidth. Routing it through the
-// normal list shape instead lets the argument list explode onto its
-// own line when the call does not fit, which is what Prettier does.
+// An arrow with any other expression body (`(x) => x.id`) is
+// deliberately excluded. Such a body carries no internal break point,
+// so the hugging shape — a flat `Concat` with no Group — would pin the
+// whole call to one line even when that line overflows printWidth.
+// Routing it through the normal list shape instead lets the argument
+// list explode onto its own line when the call does not fit, which is
+// what Prettier does.
 func shouldHugLastArgument(args []*shimast.Node) bool {
   if len(args) == 0 {
     return false
