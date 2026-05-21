@@ -8,13 +8,14 @@
 // The ICompilerService surface exposed over tgrid is the same one the
 // PlaygroundShell consumes. `compile` projects the user's TypeScript source
 // into a one-file in-memory project and asks the wasm to emit it.
+
+import { WorkerServer } from "tgrid";
 import {
-  type IBootResult,
-  type ITtscCompileResult,
   bootTtsc,
   parseResult,
+  type IBootResult,
+  type ITtscCompileResult,
 } from "@ttsc/wasm";
-import { WorkerServer } from "tgrid";
 
 import type { ICompilerService } from "./ICompilerService";
 import type { ITransformOptions } from "./ITransformOptions";
@@ -109,7 +110,8 @@ const lineColumnOf = (
   source: string,
   start: number | undefined,
 ): { line: number; column: number } => {
-  if (typeof start !== "number" || start < 0) return { line: 1, column: 1 };
+  if (typeof start !== "number" || start < 0)
+    return { line: 1, column: 1 };
   const slice = source.slice(0, Math.min(start, source.length));
   const newlines = slice.match(/\n/g);
   const line = newlines ? newlines.length + 1 : 1;
@@ -135,7 +137,9 @@ const mapDiagnostic = (
   };
 };
 
-const pickEmittedJS = (output: Record<string, string>): string | null => {
+const pickEmittedJS = (
+  output: Record<string, string>,
+): string | null => {
   const candidates = [
     "dist/playground.js",
     "dist/src/playground.js",
@@ -181,9 +185,7 @@ const buildWithTypia = async (
       return {
         type: "error",
         target: "javascript",
-        value: {
-          message: raw.stderr || "ttsc: build failed without a result payload",
-        },
+        value: { message: raw.stderr || "ttsc: build failed without a result payload" },
       };
     }
     const parsed = parseResult<ITtscCompileResult>(raw);
@@ -255,9 +257,7 @@ interface ITypiaTransformOutput {
   typescript: Record<string, string>;
 }
 
-const safeParseTypiaTransform = (
-  text: string,
-): ITypiaTransformOutput | null => {
+const safeParseTypiaTransform = (text: string): ITypiaTransformOutput | null => {
   try {
     const parsed = JSON.parse(text) as ITypiaTransformOutput;
     if (parsed && typeof parsed === "object" && parsed.typescript) {
@@ -283,7 +283,9 @@ const projectFilesForBundle = (source: string): Record<string, string> => ({
   [`${WORK_DIR}/${ENTRY_FILE}`]: source,
 });
 
-const runLint = (props: IRunOptions): Promise<ICompilerService.ILintResult> =>
+const runLint = (
+  props: IRunOptions,
+): Promise<ICompilerService.ILintResult> =>
   enqueue(() => runLintImpl(props));
 
 const runLintImpl = async (

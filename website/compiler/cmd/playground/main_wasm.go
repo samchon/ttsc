@@ -11,17 +11,17 @@
 package main
 
 import (
-  "github.com/samchon/ttsc/packages/wasm/host"
+	"github.com/samchon/ttsc/packages/wasm/host"
 )
 
 func main() {
-  host.Expose("ttscPlayground", host.Config{
-    Plugins: []host.Plugin{
-      newBannerPlugin(),
-      newPathsPlugin(),
-      newStripPlugin(),
-      newLintPlugin(),
-      newTypiaPlugin(),
-    },
-  })
+	host.Expose("ttscPlayground", host.Config{
+		Plugins: []host.Plugin{
+			newBannerPlugin(),
+			newPathsPlugin(),
+			newStripPlugin(),
+			newLintPlugin(),
+			newTypiaPlugin(),
+		},
+	})
 }

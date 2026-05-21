@@ -11,6 +11,7 @@
 // node_modules, so without the pack `tsgo` and typia's transformer both
 // fail with "Cannot find module 'typia'". Mounting the source tree gives
 // typia's `EmitCallWithOptions` real Type definitions to inspect.
+
 import type { IMemFSHost } from "@ttsc/wasm";
 
 export const TYPIA_PACK_URL = "/compiler/typia-pack.json";
@@ -35,8 +36,8 @@ export async function loadTypiaPack(): Promise<Record<string, string>> {
 
 /**
  * Writes every pack entry into the supplied MemFS host under
- * `/work/node_modules/`. Idempotent: re-installing on the same host is a no-op
- * when the underlying writeFile is.
+ * `/work/node_modules/`. Idempotent: re-installing on the same host is a
+ * no-op when the underlying writeFile is.
  */
 export async function installTypiaPack(host: IMemFSHost): Promise<void> {
   const pack = await loadTypiaPack();
