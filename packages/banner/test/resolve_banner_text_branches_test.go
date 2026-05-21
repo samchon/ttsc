@@ -56,16 +56,23 @@ func TestResolveBannerTextBranches(t *testing.T) {
   }
 
   // Explicit configFile pointing at a config that exports no text (object without "text" key).
-  // The Node script throws "config file must export" and the discovered-path raises
-  // "must export a non-empty string" — the common substring is "must export".
+  // The Node script throws "config file must export an object" and the discovered-path
+  // raises "must export an object" — the common substring is "must export an object".
   noText := filepath.Join(project, "no-text", "banner.config.cjs")
   writeFile(t, noText, `module.exports = { other: true };`)
-  if _, err := bannerResolveBannerText(map[string]any{"configFile": "no-text/banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must export") {
+  if _, err := bannerResolveBannerText(map[string]any{"configFile": "no-text/banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must export an object") {
     t.Fatalf("expected explicit no-text export error, got %v", err)
   }
 
+  // A bare-string export is rejected: a banner config must be an object.
+  bareString := filepath.Join(project, "bare", "banner.config.cjs")
+  writeFile(t, bareString, `module.exports = "bare";`)
+  if _, err := bannerResolveBannerText(map[string]any{"configFile": "bare/banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must export an object") {
+    t.Fatalf("expected explicit bare-string export error, got %v", err)
+  }
+
   emptyText := filepath.Join(project, "empty", "banner.config.cjs")
-  writeFile(t, emptyText, `module.exports = "";`)
+  writeFile(t, emptyText, `module.exports = { text: "" };`)
   if _, err := bannerResolveBannerText(map[string]any{"configFile": "empty/banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
     t.Fatalf("expected explicit empty-text export error, got %v", err)
   }
@@ -74,7 +81,7 @@ func TestResolveBannerTextBranches(t *testing.T) {
   t.Setenv("TTSC_TTSX_BINARY", fakeTtsx)
   noTextTS := filepath.Join(project, "ts", "banner.config.ts")
   writeFile(t, noTextTS, `export default {};`)
-  if _, err := bannerResolveBannerText(map[string]any{"configFile": "ts/banner.config.ts"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must export a non-empty string") {
+  if _, err := bannerResolveBannerText(map[string]any{"configFile": "ts/banner.config.ts"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must export an object") {
     t.Fatalf("expected explicit ts no-text export error, got %v", err)
   }
 
@@ -88,15 +95,15 @@ func TestResolveBannerTextBranches(t *testing.T) {
   discoveredProject := filepath.Join(discoveredRoot, "child")
   discoveredTsconfig := filepath.Join(discoveredProject, "tsconfig.json")
   writeFile(t, discoveredTsconfig, "{}")
-  writeFile(t, filepath.Join(discoveredRoot, "banner.config.cjs"), `module.exports = "discovered";`)
+  writeFile(t, filepath.Join(discoveredRoot, "banner.config.cjs"), `module.exports = { text: "discovered" };`)
   text, err = bannerResolveBannerText(map[string]any{}, discoveredRoot, discoveredTsconfig)
   if text != "discovered" || err != nil {
     t.Fatalf("discovered config resolve mismatch: text=%q err=%v", text, err)
   }
 
   // Auto-discovery: ambiguous (duplicate) config files.
-  writeFile(t, filepath.Join(discoveredProject, "banner.config.js"), `export default "one";`)
-  writeFile(t, filepath.Join(discoveredProject, "banner.config.cjs"), `module.exports = "two";`)
+  writeFile(t, filepath.Join(discoveredProject, "banner.config.js"), `export default { text: "one" };`)
+  writeFile(t, filepath.Join(discoveredProject, "banner.config.cjs"), `module.exports = { text: "two" };`)
   if _, err := bannerResolveBannerText(map[string]any{}, discoveredRoot, discoveredTsconfig); err == nil || !strings.Contains(err.Error(), "multiple banner.config") {
     t.Fatalf("expected discovered duplicate error, got %v", err)
   }
@@ -110,13 +117,13 @@ func TestResolveBannerTextBranches(t *testing.T) {
     t.Fatalf("expected discovered loader error, got %v", err)
   }
 
-  // Auto-discovery: empty string export.
+  // Auto-discovery: empty "text" export.
   emptyDiscoveredRoot := filepath.Join(root, "empty-discovered")
   emptyDiscoveredTsconfig := filepath.Join(emptyDiscoveredRoot, "tsconfig.json")
   writeFile(t, emptyDiscoveredTsconfig, "{}")
-  writeFile(t, filepath.Join(emptyDiscoveredRoot, "banner.config.cjs"), `module.exports = "";`)
+  writeFile(t, filepath.Join(emptyDiscoveredRoot, "banner.config.cjs"), `module.exports = { text: "" };`)
   if _, err := bannerResolveBannerText(map[string]any{}, emptyDiscoveredRoot, emptyDiscoveredTsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
-    t.Fatalf("expected discovered empty string error, got %v", err)
+    t.Fatalf("expected discovered empty text error, got %v", err)
   }
 
   // Auto-discovery: TypeScript config with no text.
@@ -125,7 +132,7 @@ func TestResolveBannerTextBranches(t *testing.T) {
   writeFile(t, noTextDiscoveredTsconfig, "{}")
   writeFile(t, filepath.Join(noTextDiscoveredRoot, "banner.config.ts"), `export default {};`)
   t.Setenv("TTSC_TTSX_BINARY", fakeTtsx)
-  if _, err := bannerResolveBannerText(map[string]any{}, noTextDiscoveredRoot, noTextDiscoveredTsconfig); err == nil || !strings.Contains(err.Error(), "must export a non-empty string") {
+  if _, err := bannerResolveBannerText(map[string]any{}, noTextDiscoveredRoot, noTextDiscoveredTsconfig); err == nil || !strings.Contains(err.Error(), "must export an object") {
     t.Fatalf("expected discovered no-text export error, got %v", err)
   }
 }

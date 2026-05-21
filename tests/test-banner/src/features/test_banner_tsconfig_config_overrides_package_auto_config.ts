@@ -26,7 +26,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_tsconfig_config_overrides_package_auto_config = () => {
   const root = TestProject.commonJsProject(
     {
-      "banner.config.cjs": `module.exports = "auto banner";\n`,
+      "banner.config.cjs": `module.exports = { text: "auto banner" };\n`,
       "src/main.ts": `export const value = "banner";\n`,
     },
     {

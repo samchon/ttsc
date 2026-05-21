@@ -10,14 +10,13 @@ import { TestBanner } from "../internal/TestBanner";
  * is injected into the emitted output.
  *
  * JSON is the simplest config format — no Node subprocess or ttsx run required.
- * A `banner.config.json` file containing either a plain string or an object
- * with a `"text"` key must be parsed natively and its content injected as the
- * banner. This test pins the JSON loader path so a regression in BOM handling
- * or JSON parsing fails loudly here rather than silently suppressing the
- * banner.
+ * A `banner.config.json` file containing an object with a `"text"` key must be
+ * parsed natively and its content injected as the banner. This test pins the
+ * JSON loader path so a regression in BOM handling or JSON parsing fails loudly
+ * here rather than silently suppressing the banner.
  *
- * 1. Create a CommonJS project with a `banner.config.json` that exports a string
- *    via the `{ "text": "…" }` shape, referenced via `configFile`.
+ * 1. Create a CommonJS project with a `banner.config.json` that exports the
+ *    `{ "text": "…" }` object, referenced via `configFile`.
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert the emitted `.js` file contains the expected banner block.
  */

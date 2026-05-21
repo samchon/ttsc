@@ -18,12 +18,14 @@ Given a project that opts into `@ttsc/banner`:
 
 ```ts
 // banner.config.ts
-import type { TtscBannerConfig } from "@ttsc/banner";
+import type { ITtscBannerConfig } from "@ttsc/banner";
 
 export default {
   text: "License MIT\nCopyright 2026 Example Corp",
-} satisfies TtscBannerConfig;
+} satisfies ITtscBannerConfig;
 ```
+
+A `banner.config.*` file always exports an object with a `text` string.
 
 Running `npx ttsc --emit` produces:
 
@@ -53,8 +55,8 @@ packages/banner/
 ├── src/
 │   ├── index.ts              ← JS descriptor — compiled to lib/index.js
 │   └── structures/
+│       ├── ITtscBannerConfig.ts
 │       ├── ITtscBannerPluginConfig.ts
-│       ├── TtscBannerConfig.ts
 │       └── index.ts
 ├── go.mod                    ← Go module declaration for the sidecar
 ├── driver/

@@ -8,9 +8,9 @@ import (
 
 // TestConfigPathDiscovery verifies banner config path resolution and upward search.
 //
-// Inline text is only the shortest path; real projects often use a sibling
-// banner.config file next to tsconfig. This pins the tsconfig-relative base
-// directory and the duplicate-file rejection that prevents ambiguous discovery.
+// A project keeps its banner.config file next to tsconfig or in an ancestor
+// directory. This pins the tsconfig-relative base directory and the
+// duplicate-file rejection that prevents ambiguous discovery.
 //
 // 1. Resolve explicit config paths against cwd and relative tsconfig locations.
 // 2. Discover a config file from the tsconfig directory and then from a parent.
@@ -20,7 +20,7 @@ func TestConfigPathDiscovery(t *testing.T) {
   project := filepath.Join(root, "packages", "demo")
   tsconfig := filepath.Join(project, "tsconfig.json")
   writeFile(t, tsconfig, "{}")
-  writeFile(t, filepath.Join(root, "banner.config.js"), `export default "root";`)
+  writeFile(t, filepath.Join(root, "banner.config.js"), `export default { text: "root" };`)
 
   if got := bannerTsconfigBaseDir(root, "packages/demo/tsconfig.json"); got != project {
     t.Fatalf("relative tsconfig base mismatch: %q", got)
@@ -49,7 +49,7 @@ func TestConfigPathDiscovery(t *testing.T) {
   if location != filepath.Join(root, "banner.config.js") {
     t.Fatalf("discovered parent config mismatch: %q", location)
   }
-  writeFile(t, filepath.Join(project, "banner.config.cjs"), `module.exports = "project";`)
+  writeFile(t, filepath.Join(project, "banner.config.cjs"), `module.exports = { text: "project" };`)
   location, err = bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json")
   if err != nil {
     t.Fatal(err)
@@ -57,7 +57,7 @@ func TestConfigPathDiscovery(t *testing.T) {
   if location != filepath.Join(project, "banner.config.cjs") {
     t.Fatalf("discovered project config mismatch: %q", location)
   }
-  writeFile(t, filepath.Join(project, "banner.config.mjs"), `export default "duplicate";`)
+  writeFile(t, filepath.Join(project, "banner.config.mjs"), `export default { text: "duplicate" };`)
   if _, err := bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json"); err == nil || !strings.Contains(err.Error(), "multiple banner.config") {
     t.Fatalf("expected duplicate config error, got %v", err)
   }

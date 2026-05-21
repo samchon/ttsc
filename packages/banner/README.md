@@ -37,12 +37,14 @@ Drop a `banner.config.ts` next to your `tsconfig.json`:
 
 ```ts
 // banner.config.ts
-import type { TtscBannerConfig } from "@ttsc/banner";
+import type { ITtscBannerConfig } from "@ttsc/banner";
 
 export default {
   text: "License MIT (c) 2026 Acme",
-} satisfies TtscBannerConfig;
+} satisfies ITtscBannerConfig;
 ```
+
+A `banner.config.*` file always exports an object with a `text` string.
 
 Run your normal `ttsc` command:
 

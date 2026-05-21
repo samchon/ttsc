@@ -24,7 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_respects_remove_comments = () => {
   const root = TestProject.commonJsProject(
     {
-      "banner.config.cjs": `module.exports = "removed banner";\n`,
+      "banner.config.cjs": `module.exports = { text: "removed banner" };\n`,
       "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
     },
     {

@@ -106,11 +106,11 @@ export default {
 `banner.config.ts`:
 
 ```ts
-import type { TtscBannerConfig } from "@ttsc/banner";
+import type { ITtscBannerConfig } from "@ttsc/banner";
 
 export default {
   text: "License MIT",
-} satisfies TtscBannerConfig;
+} satisfies ITtscBannerConfig;
 ```
 
 `@ttsc/lint` runs first as a check-stage plugin and aborts emit on error-severity findings. The three transform-stage plugins then run inside one compiler emit pass through linked packages: `@ttsc/banner` overlays the source preamble, `@ttsc/strip` filters statements, `@ttsc/paths` rewrites module specifiers. TypeScript-Go owns the final emit of JavaScript, declarations, and source maps.

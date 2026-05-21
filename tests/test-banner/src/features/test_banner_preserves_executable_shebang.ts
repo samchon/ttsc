@@ -24,7 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_preserves_executable_shebang = () => {
   const root = TestProject.commonJsProject(
     {
-      "banner.config.cjs": `module.exports = "cli banner";\n`,
+      "banner.config.cjs": `module.exports = { text: "cli banner" };\n`,
       "src/main.ts": `#!/usr/bin/env node\nexport const value = "cli";\nconsole.log(value);\n`,
     },
     {
