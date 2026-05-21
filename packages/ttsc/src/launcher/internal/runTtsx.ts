@@ -51,6 +51,15 @@ function run(argv: readonly string[]): number {
     checkers: parsed.checkers,
     cwd,
     passthrough: parsed.tsgoFlags,
+    // `--no-plugins` builds the entry's owning project with plugin
+    // discovery and loading disabled. ttsc's own config loaders use it
+    // when they evaluate a `*.config.ts` through ttsx: that build only
+    // needs to type-check and run the config file, so loading the host
+    // project's transform/check plugins (`@nestia/core`, `typia`, …)
+    // would be both wasteful and wrong — those plugins impose project
+    // requirements (e.g. `strict` mode) the ephemeral config-loader
+    // tsconfig deliberately does not satisfy.
+    plugins: parsed.noPlugins ? false : undefined,
     project: parsed.project,
     singleThreaded: parsed.singleThreaded,
   });
@@ -77,6 +86,7 @@ function parseCLI(argv: readonly string[]) {
   let checkers: number | undefined;
   let cwd: string | undefined;
   let entry: string | undefined;
+  let noPlugins = false;
   let project: string | undefined;
   let singleThreaded = false;
   const tsgoFlags: string[] = [];
@@ -110,6 +120,9 @@ function parseCLI(argv: readonly string[]) {
         break;
       case "--binary":
         binary = takeValue(current, head);
+        break;
+      case "--no-plugins":
+        noPlugins = true;
         break;
       case "--singleThreaded":
         singleThreaded = true;
@@ -156,6 +169,7 @@ function parseCLI(argv: readonly string[]) {
     checkers,
     cwd,
     entry,
+    noPlugins,
     passthrough,
     preload,
     project,
@@ -201,6 +215,7 @@ function printHelp(): void {
       "  --cwd <dir>            Resolve entry/project relative to this directory",
       "  --cache-dir <dir>      Override the runner and source-plugin cache root",
       "  --binary <path>        Use an explicit tsgo binary",
+      "  --no-plugins           Build the project without ttsc plugins",
       "  -r, --require <module> Preload a module before the entrypoint",
       "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
       "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",

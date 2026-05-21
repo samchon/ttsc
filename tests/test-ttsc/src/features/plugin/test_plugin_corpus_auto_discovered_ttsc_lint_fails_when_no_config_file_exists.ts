@@ -4,7 +4,6 @@ import {
   assert,
   fs,
   goPath,
-  os,
   path,
   setupLintProject,
   spawn,
@@ -20,14 +19,16 @@ import {
  * message rather than silently running with no rules or producing a cryptic Go
  * build error from the lint sidecar.
  *
- * 1. Materialize a project that lists `@ttsc/lint` as a dependency but writes no
- *    lint config file.
+ * 1. Materialize a project that lists `@ttsc/lint` as a dependency and remove the
+ *    fixture's `lint.config.json` so no lint config file remains.
  * 2. Run ttsc with `--noEmit`.
- * 3. Assert non-zero exit and stderr that references `config.*ttsc-lint.config`.
+ * 3. Assert non-zero exit and a stderr message naming the missing `lint.config` /
+ *    `ttsc-lint.config` files.
  */
 export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists =
   () => {
     const root = setupLintProject("lint-violations");
+    fs.rmSync(path.join(root, "lint.config.json"), { force: true });
     fs.writeFileSync(
       path.join(root, "package.json"),
       JSON.stringify({ dependencies: { "@ttsc/lint": "*" } }),

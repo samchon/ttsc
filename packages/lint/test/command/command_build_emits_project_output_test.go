@@ -19,15 +19,16 @@ import (
 // covered.
 //
 // 1. Create a clean project with one exported value.
-// 2. Run build with --emit and an inline lint config.
+// 2. Run build with --emit and a discovered lint config.
 // 3. Assert custom/main.js is written and contains the emitted export.
 func TestCommandBuildEmitsProjectOutput(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
+  seedLintRules(t, root, map[string]string{"no-var": "off"})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "build",
       "--cwd", root,
-      "--plugins-json", lintManifest(t, map[string]string{"no-var": "off"}),
+      "--plugins-json", lintManifest(t),
       "--emit",
       "--outDir", "custom",
       "--quiet",

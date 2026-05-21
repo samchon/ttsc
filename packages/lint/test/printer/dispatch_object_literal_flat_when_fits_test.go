@@ -21,7 +21,8 @@ func TestDispatchObjectLiteralFlatWhenFits(t *testing.T) {
   file := parseTS(t, "const x = { a: 1 };\n")
   node := firstNodeOfKind(t, file, shimast.KindObjectLiteralExpression)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printObjectLiteral(ctx, node), ctx.Opts)
+  doc, _ := printObjectLiteral(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "{ a: 1 }" {
     t.Fatalf("flat object mismatch: %q", got)
   }

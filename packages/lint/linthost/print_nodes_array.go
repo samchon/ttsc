@@ -20,20 +20,25 @@ import (
 // Array literals do NOT carry a leading/trailing space inside the
 // brackets in flat mode (`[a, b]`, not `[ a, b ]`), matching every
 // JavaScript formatter. Empty arrays collapse to `[]`.
-func printArrayLiteral(ctx *PrintContext, node *shimast.Node) Doc {
+//
+// The second return value is the `covered` flag: see PrintNode. It is
+// the AND of every element's coverage.
+func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
-    return Doc{}
+    return Doc{}, true
   }
   arr := node.AsArrayLiteralExpression()
   if arr == nil || arr.Elements == nil {
-    return verbatim(ctx, node)
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   items := make([]Doc, 0, len(arr.Elements.Nodes))
+  covered := true
   for _, elem := range arr.Elements.Nodes {
     if elem == nil {
-      return verbatim(ctx, node)
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    doc, _ := PrintNode(ctx, elem)
+    doc, childCovered := PrintNode(ctx, elem)
+    covered = covered && childCovered
     items = append(items, doc)
   }
   return printList(ctx, listShape{
@@ -42,5 +47,5 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) Doc {
     Items:    items,
     Space:    false,
     AddComma: true,
-  })
+  }), covered
 }

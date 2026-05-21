@@ -22,17 +22,13 @@ The minimum consumer wiring:
 // tsconfig.json
 {
   "compilerOptions": {
-    "plugins": [
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error", "no-console": "warn" } }
-    ]
+    "plugins": [{ "transform": "@ttsc/lint" }]
   }
 }
 ```
 
-Or, more idiomatically, externalize the rules into `lint.config.ts`:
-
 ```ts
-// lint.config.ts
+// lint.config.ts — next to tsconfig.json
 import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
@@ -43,11 +39,13 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+`@ttsc/lint` discovers `lint.config.ts` by walking upward from the tsconfig directory. To point at a specific file, set `configFile` on the tsconfig entry:
+
 ```jsonc
-// tsconfig.json — point the plugin entry at the file
+// tsconfig.json
 {
   "compilerOptions": {
-    "plugins": [{ "transform": "@ttsc/lint", "extends": "./lint.config.ts" }]
+    "plugins": [{ "transform": "@ttsc/lint", "configFile": "./config/lint.config.ts" }]
   }
 }
 ```
@@ -76,7 +74,6 @@ packages/lint/
 │   ├── config_format.go      ← format-only config knobs
 │   ├── directives.go         ← inline-disable comments
 │   ├── contrib_adapter.go    ← wraps public rule.Rule into the engine
-│   ├── eslint_runtime.go     ← delegates @typescript-eslint rules to Node ESLint
 │   ├── ast_helpers.go        ← shared AST helpers (nodeText, identifierText, ...)
 │   ├── print_*.go            ← diagnostic + pretty-print formatters
 │   └── rules_*.go            ← 30 rule files, one rule family per file
@@ -211,21 +208,19 @@ func RunTransform(args []string) int { ... } // single-file emit
 3. Calls `loadRules(pluginsJSON, cwd, tsconfig)` to resolve the rule severity map. This is where `lint.config.ts` evaluation lands; see [Config resolution](#config-resolution).
 4. Constructs an `Engine` via `NewEngineWithResolver(rules)`.
 5. Calls `collectDiagnostics(prog, engine)` which runs both tsgo's `Bind` + `Semantic` passes **and** the lint engine. Returns separate slices: `astDiags` (compiler) and `lintDiags` (lint).
-6. Runs the ESLint runtime delegation when the resolved config asked for it — see [ESLint runtime delegation](#eslint-runtime-delegation).
-7. Renders both diagnostic streams through `shimdw.FormatMixedDiagnostics` so the user sees one unified output.
-8. If `opts.noEmit` is false, calls `prog.tsProgram.Emit(EmitOptions{})` to write JavaScript and declarations.
-9. Returns exit code based on `CountErrors(astDiags) + CountErrors(lintDiags)`.
+6. Renders both diagnostic streams through `shimdw.FormatMixedDiagnostics` so the user sees one unified output.
+7. If `opts.noEmit` is false, calls `prog.tsProgram.Emit(EmitOptions{})` to write JavaScript and declarations.
+8. Returns exit code based on `CountErrors(astDiags) + CountErrors(lintDiags)`.
 
 The `Run*` functions are intentionally thin wrappers; the shared work is in `runProject` and `collectDiagnostics`. This is the same separation you saw between `main`/`run` in banner — testable functions with explicit inputs, exit codes returned not called.
 
 ## Config resolution
 
-The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1700 LOC) because it owns every way a user can declare rules:
+The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1,470 LOC) because it owns every way a user can declare rules:
 
-- **Inline** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "rules": { "no-var": "error" } }]`
-- **`extends` path** in tsconfig: `"extends": "./lint.config.ts"`
-- **Discovery walk** when neither is given: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}`, `ttsc-lint.config.*`, or `eslint.config.*`.
-- **ESLint flat-config** in `eslint.config.ts` — including per-file overrides via the `files` glob array.
+- **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
+- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}` — or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
+- **`extends` in a config file**: a `lint.config.*` file may set `extends` to a base config file's path. The base is loaded first, then this file's `plugins`, `rules`, and `format` fields override it. Cyclic and over-deep `extends` chains are rejected with a typed error rather than recursed into.
 - **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 
 The config loader returns a `RuleResolver` interface:
@@ -475,18 +470,6 @@ After every iteration, the Program is **reloaded** so subsequent passes see the 
 
 The split is intentional: a developer can wire `ttsc format` into a pre-commit hook (zero noise; only reshape) and `ttsc check` into CI (strict, with errors).
 
-## ESLint runtime delegation
-
-The runtime-delegation layer lives in `linthost/eslint_runtime.go`. `@ttsc/lint` ships ~36 built-in rules; the TypeScript-ESLint ecosystem has hundreds. When the user's config is shaped like a real `eslint.config.*` (or carries the explicit `__ttscLintEslintRuntime: true` marker the JS factory writes when it recognises ESLint-only fields), the engine sets `ConfigStore.eslintRuntime = true`, and the orchestrator spawns Node against a tiny harness that runs the real ESLint and prints findings as JSON.
-
-The trigger is **opt-in by config shape**, not "unknown rule falls through to ESLint":
-
-1. After the Go engine runs, `compile.go` calls `provider, ok := resolver.(eslintRuntimeProvider)` on the resolved config.
-2. If the type assertion succeeds and `provider.WantsESLintRuntime()` returns true, the harness runs.
-3. The harness's JSON is parsed and converted into the same `Finding` shape the engine produces, then rendered through the same writer.
-
-The harness is ESLint-version-aware — it adapts between ESLint 8 (legacy `.eslintrc.*`) and ESLint 9 (flat config). The key idea: a single `ttsc check` invocation can mix native Go rules with delegated Node rules and the user sees one diagnostic stream — but only when the user's config asked for it.
-
 ## Contributor adapter
 
 The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contributors use a **separate** Go package — [`github.com/samchon/ttsc/packages/lint/rule`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule) — that defines a *public* `rule.Rule` interface, structurally identical to the internal one. The adapter wraps each contributor rule onto the engine's internal interface:
@@ -587,25 +570,10 @@ Several constraints, enforced by the plugin builder ([Pitfalls → Contributor m
 - **`init()` registers the rule.** Build-time ttsc synthesizes a `ttsc_contributions.go` in the host plugin's main package with `import _ "github.com/samchon/ttsc/packages/lint/contrib/demo"` — that blank import fires the contributor's `init()` before `main`.
 - **Rule names are namespaced.** `demo/no-todo-comment` is the user-facing name. The convention prevents collisions with built-ins.
 
-Wiring it on the consumer side, two surfaces:
-
-```jsonc
-// tsconfig.json — inline plugins map
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/lint",
-        "plugins": { "demo": "ttsc-lint-plugin-demo" },
-        "rules": { "demo/no-todo-comment": "error" }
-      }
-    ]
-  }
-}
-```
+Wiring it on the consumer side via `lint.config.ts`:
 
 ```ts
-// lint.config.ts — plugins object
+// lint.config.ts
 import demoPlugin from "ttsc-lint-plugin-demo";
 import type { ITtscLintConfig } from "@ttsc/lint";
 
@@ -615,7 +583,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-Both surfaces feed into the same `contributors: [...]` array on the descriptor that the Go side then merges into one binary at build time.
+This feeds into the same `contributors: [...]` array on the descriptor that the Go side then merges into one binary at build time.
 
 ## The contributor autofix path
 
@@ -652,7 +620,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`extends` points at one base config file. The base config is loaded first, then the current object's `plugins`, `rules`, and `format` fields override it. `files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`.
+`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
 
 ## What to copy, what to ignore for your own plugin
 
@@ -667,7 +635,6 @@ export default {
 **Do not copy without understanding:**
 
 - The inlined `loadProgram` in `host.go`. As noted above, that exists to avoid a circular dependency between `@ttsc/lint` (which lives inside the ttsc monorepo) and the public `driver` package. **For your own plugin, call `driver.LoadProgram`.**
-- The ESLint runtime delegation. Worth reading once, but spawning Node from a Go plugin is operationally complex (need to find the right `node` binary, marshal results, handle missing-dependency cases). Most plugins don't need it.
 - The format-class marker interface (`FormatRule`) unless your plugin has a clear "lint vs format" distinction. For most plugins, one severity ladder is enough.
 
 ## Test coverage
@@ -675,7 +642,7 @@ export default {
 Lint is the most-tested package in the repo:
 
 - **Go unit tests** in [`packages/lint/test/`](https://github.com/samchon/ttsc/tree/master/packages/lint/test/) — direct calls into `linthost` helpers, AST helper coverage.
-- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/) — over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `contributor/`, `eslint/`.
+- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/) — over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `config/`, `plugin/`, `contributor/`.
 - **Contributor demo plugin** at [`tests/lint-contributor-demo/`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/) — the canonical "build a contributor from scratch" reference, used by every contributor-related e2e test.
 
 When you write your own rule, start by copying the test shape from [`tests/test-lint/src/features/rules/no-debugger/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/rules/) — one assertion per file, materialize a fixture, run the real `ttsc check`, assert exit code and stderr substring.
@@ -684,7 +651,7 @@ When you write your own rule, start by copying the test shape from [`tests/test-
 
 Operational follow-ups:
 
-- [Architecture](/docs/development/reference/architecture) — the cache, the Go toolchain resolver, the `TTSC_*_BINARY` env vars `@ttsc/lint` itself relies on when delegating to ESLint.
+- [Architecture](/docs/development/reference/architecture) — the cache, the Go toolchain resolver, the `TTSC_*_BINARY` env vars `@ttsc/lint` itself relies on.
 - [Driver API](/docs/development/reference/driver-api) — the curated façade your own plugins should call (the same surface `@ttsc/lint` would call if it lived outside this monorepo).
 - [Pitfalls](/docs/development/reference/pitfalls) — every failure mode this tour referenced, with exact host error strings.
 - [Authoring → Recipes](/docs/development/authoring/recipes) — copy-paste patterns for the techniques the tour explained at depth.

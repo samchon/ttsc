@@ -16,8 +16,8 @@ import { TestBanner } from "../internal/TestBanner";
  * transform including multi-line text, source maps, and declaration maps.
  *
  * 1. Build a project with `declaration`, `declarationMap`, and `sourceMap`
- *    enabled, and a tsconfig plugin entry that sets `text` to a two-line
- *    string.
+ *    enabled, and a `banner.config.cjs` file referenced via `configFile` in the
+ *    tsconfig plugin entry.
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert the banner JSDoc block appears exactly once in `.js` and `.d.ts`.
  * 4. Assert the `.js.map` and `.d.ts.map` files contain no banner text.
@@ -25,6 +25,7 @@ import { TestBanner } from "../internal/TestBanner";
 export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
   const root = TestProject.commonJsProject(
     {
+      "banner.config.cjs": `module.exports = { text: "banner-only\\nsecond line" };\n`,
       "src/main.ts": `export interface Box { value: string }\nexport const box: Box = { value: "banner" };\n`,
     },
     {
@@ -35,7 +36,7 @@ export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
         plugins: [
           {
             transform: "@ttsc/banner",
-            text: "banner-only\nsecond line",
+            configFile: "banner.config.cjs",
           },
         ],
       },

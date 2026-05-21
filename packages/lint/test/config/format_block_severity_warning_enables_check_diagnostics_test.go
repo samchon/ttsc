@@ -10,19 +10,16 @@ import "testing"
 // test pins that the explicit policy still enables the always-on rules while
 // keeping opt-in rules off until their own fields are present.
 //
-//  1. Build a plugin entry with `format: { severity: "warning" }`.
-//  2. Resolve through `LoadConfigResolver`.
+//  1. Build an ITtscLintConfig object with `format: { severity: "warning" }`.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert always-on format rules are enabled as warnings.
 //  4. Assert opt-in format rules remain off.
 func TestFormatBlockSeverityWarningEnablesCheckDiagnostics(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": "warning"},
-    },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"severity": "warning"},
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   enabled := resolver.EnabledRuleConfig()
   for _, name := range []string{

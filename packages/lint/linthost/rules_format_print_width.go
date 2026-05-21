@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -25,16 +27,22 @@ import (
 //     printer's StartingIndent so continuation lines align under the
 //     opening token and fit measurement charges the prefix against
 //     the budget.
-//  3. Build the node's Doc via PrintNode.
-//  4. Render with the configured printWidth / tabWidth / useTabs /
+//  3. Build the node's Doc via PrintNode, which also reports a
+//     `covered` flag.
+//  4. Abstain when `covered` is false: the subtree holds a multi-line
+//     verbatim node whose frozen columns would not survive a reflow.
+//  5. Render with the configured printWidth / tabWidth / useTabs /
 //     endOfLine.
-//  5. Slice the original source bytes for the node's range.
-//  6. If the rendered output differs, emit one TextEdit replacing
+//  6. Slice the original source bytes for the node's range.
+//  7. If the rendered output differs, emit one TextEdit replacing
 //     [start, end) with the new bytes.
 //
 // The "no diff → no edit" invariant is what keeps `ttsc format`
 // idempotent: a second pass renders identical bytes, the comparison
-// short-circuits, and the cascade converges.
+// short-circuits, and the cascade converges. The `covered` abstain in
+// step 4 is the safety floor: `ttsc format` either reflows correctly or
+// leaves the node byte-identical — it never emits a half-reflowed,
+// inconsistently indented shape.
 //
 // The rule is a format-class rule (IsFormat == true) so `ttsc format`
 // applies its edits while `ttsc check` only emits diagnostics for
@@ -101,6 +109,16 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // Abstain on any node nested inside a template-literal substitution.
+  // Prettier renders `${…}` expressions at printWidth:Infinity — it
+  // never breaks an interpolation the source wrote on one line — so
+  // reflowing a call or literal inside `${…}` would split the template
+  // across lines and diverge from Prettier. See the printWidth:Infinity
+  // branch in Prettier's printTemplateExpression.
+  if hasTemplateSubstitutionAncestor(node) {
+    return
+  }
+
   // Safety: abstain when the node carries comments outside its
   // children. The per-node printers join child docs with a fresh
   // `, ` separator and have no path for trivia between siblings, so
@@ -113,27 +131,83 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
 
   printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
-  printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth)
+  // A node reflowed on a ternary-arm continuation line (`? expr` or
+  // `: expr`) hangs its broken continuation under the arm's expression,
+  // two columns past the `?`/`:` marker — not under the marker itself.
+  printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth) +
+    ternaryArmIndentBonus(src, start)
+
+  // trailingWidth is the column span of the tokens that stay on the
+  // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
+  // replaces only [start, end) and cannot move them, so both the fast
+  // path and the layout budget must reserve those columns; otherwise
+  // the rule emits a line that overflows by exactly the suffix.
+  trailingWidth := trailingLineWidth(src, end, printOpts.TabWidth)
 
   // Fast path: if the node's existing single-line bytes already fit
-  // the printWidth budget, the reflowed output cannot differ from
-  // the source (the printer would render the same flat shape). Skip
-  // the Doc build + render entirely. This is the common case on
+  // the printWidth budget — prefix column, node width and trailing
+  // suffix all charged — the reflowed output cannot differ from the
+  // source (the printer would render the same flat shape). Skip the
+  // Doc build + render entirely. This is the common case on
   // well-formatted code — every short call, every short literal —
   // and saves the allocations from PrintNode + Print.
   if !sliceContainsNewline(src, start, end) &&
-    printOpts.StartingColumn+(end-start) <= printOpts.PrintWidth {
+    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
     return
   }
 
   printCtx := NewPrintContext(ctx.File, printOpts)
-  doc, _ := PrintNode(printCtx, node)
+  doc, covered := PrintNode(printCtx, node)
   if doc.IsNil() {
     return
   }
+  // Safety abstain: the printed subtree contains a multi-line verbatim
+  // node — one the dispatcher has no printer for. Such a node keeps the
+  // source columns its lines were written at, while the reflow
+  // re-indents everything around it. Emitting the edit would produce
+  // inconsistently indented, corrupt output (a callback header at one
+  // indent, its body frozen at another). Abstaining leaves the bytes
+  // byte-identical, which is always safe. See the coverage-signal note
+  // in print_dispatch.go.
+  if !covered {
+    return
+  }
+  // Render at the full printWidth budget. A reflow that breaks across
+  // lines then makes every layout decision — which call argument hugs,
+  // where a list explodes — against the true column budget. The
+  // un-movable trailing suffix (`;`, `) {`, ` satisfies T`) lands on a
+  // short last line; charging it against the whole budget would
+  // wrongly penalize the interior lines and over-break the node.
   rendered := Print(doc, printOpts)
+  // The one case the suffix genuinely shares the node's line is a
+  // reflow that collapses to a single line. When the flat form plus
+  // the suffix would overflow, re-render under a budget shrunk by the
+  // suffix so the node breaks instead of spilling the suffix past
+  // printWidth — the regression that keeps a call flat at exactly
+  // printWidth while the trailing `;` runs over.
+  if trailingWidth > 0 &&
+    !strings.Contains(rendered, "\n") &&
+    maxLineWidth(rendered, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth) > printOpts.PrintWidth &&
+    printOpts.PrintWidth-trailingWidth >= 1 {
+    shrunk := printOpts
+    shrunk.PrintWidth -= trailingWidth
+    rendered = Print(doc, shrunk)
+  }
   original := src[start:end]
   if rendered == original {
+    return
+  }
+  // Safety floor: never emit an edit that makes the widest line wider
+  // than it already was. The reflow may be unable to break an
+  // un-breakable token run — a long string literal, a verbatim object
+  // member — but it must never *worsen* the worst line. That is exactly
+  // the regression this guards: `ttsc format` collapsing an
+  // already-broken, fitting call into one over-wide line. A reflow that
+  // only fixes indentation and leaves a pre-existing over-wide line
+  // untouched is still emitted.
+  renderedMax := maxLineWidth(rendered, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth)
+  originalMax := maxLineWidth(original, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth)
+  if renderedMax > printOpts.PrintWidth && renderedMax > originalMax {
     return
   }
   ctx.ReportRangeFix(
@@ -142,6 +216,80 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     "Reflow to fit printWidth.",
     TextEdit{Pos: start, End: end, Text: rendered},
   )
+}
+
+// trailingLineWidth returns the visual column width of src[end:] up to
+// the next newline, with trailing whitespace trimmed. The format/print-
+// width reflow replaces only the node's own byte range, so whatever
+// shares the node's last source line — a statement `;`, a `) {` header
+// tail, a `, nextArg)` continuation — stays put. Charging that width
+// against the budget keeps the rule from emitting a line that overflows
+// by exactly the suffix it could never move.
+func trailingLineWidth(src string, end int, tabWidth int) int {
+  if end < 0 || end > len(src) {
+    return 0
+  }
+  if tabWidth <= 0 {
+    tabWidth = 2
+  }
+  lineEnd := end
+  for lineEnd < len(src) && src[lineEnd] != '\n' {
+    lineEnd++
+  }
+  for lineEnd > end {
+    c := src[lineEnd-1]
+    if c != ' ' && c != '\t' && c != '\r' {
+      break
+    }
+    lineEnd--
+  }
+  col := 0
+  for i := end; i < lineEnd; i++ {
+    if src[i] == '\t' {
+      col += tabWidth - (col % tabWidth)
+    } else {
+      col++
+    }
+  }
+  return col
+}
+
+// maxLineWidth returns the widest effective column span among the lines
+// of `text`. The first line is charged `startingColumn` — the prefix
+// already on that source line that the reflow does not re-emit — and
+// the last line is charged `trailingWidth` for the un-movable suffix
+// that follows the node. Tabs count as `tabWidth` columns.
+//
+// The rule compares the rendered output's widest line against the
+// source node's: a reflow that cannot fit an un-breakable token is
+// still allowed through as long as it does not make the worst line any
+// wider than it already was.
+func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int {
+  if tabWidth <= 0 {
+    tabWidth = 2
+  }
+  lines := strings.Split(text, "\n")
+  widest := 0
+  for i, line := range lines {
+    width := 0
+    for _, r := range line {
+      if r == '\t' {
+        width += tabWidth - (width % tabWidth)
+      } else if r != '\r' {
+        width++
+      }
+    }
+    if i == 0 {
+      width += startingColumn
+    }
+    if i == len(lines)-1 {
+      width += trailingWidth
+    }
+    if width > widest {
+      widest = width
+    }
+  }
+  return widest
 }
 
 // leadingColumn returns the visual column the byte at `pos` occupies on
@@ -240,6 +388,25 @@ func lineStartOffset(src string, pos int) int {
   return pos
 }
 
+// ternaryArmIndentBonus returns 2 when the line containing `pos` begins,
+// after its leading whitespace, with a `? ` or `: ` ternary-arm marker,
+// and 0 otherwise. format/print-width adds it to BaseIndent so a node
+// reflowed inside a ternary arm indents its broken continuation under
+// the arm's expression rather than under the `?`/`:` token. In practice
+// only a ternary arm opens a reflow target's line with `? ` / `: `; the
+// two-byte prefix is a heuristic, and a rare false positive only shifts
+// a broken continuation by two columns — it never corrupts bytes.
+func ternaryArmIndentBonus(src string, pos int) int {
+  i := lineStartOffset(src, pos)
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  if i+1 < len(src) && (src[i] == '?' || src[i] == ':') && src[i+1] == ' ' {
+    return 2
+  }
+  return 0
+}
+
 // hasReflowAncestor reports whether any ancestor of `node` would also
 // match the format/print-width visitor. The rule uses this to suppress
 // nested fires when an enclosing reflow target already covers the
@@ -250,6 +417,24 @@ func hasReflowAncestor(node *shimast.Node) bool {
   }
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if isReflowKind(parent.Kind) {
+      return true
+    }
+  }
+  return false
+}
+
+// hasTemplateSubstitutionAncestor reports whether `node` sits inside a
+// template-literal substitution (`${…}`). format/print-width abstains
+// on such nodes: Prettier prints template interpolations at infinite
+// printWidth and only keeps a break the source already had, so a reflow
+// of a nested call or literal would split a one-line `${…}` and never
+// match Prettier's output.
+func hasTemplateSubstitutionAncestor(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindTemplateExpression {
       return true
     }
   }

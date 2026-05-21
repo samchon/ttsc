@@ -1,11 +1,10 @@
 // Autofix orchestration for the `@ttsc/lint fix` subcommand.
 //
-// RunFix drives the fix cascade: it applies ESLint runtime fixes first
-// (one pass, external process), then repeatedly runs the native lint
-// engine and applies any emitted TextEdit suggestions until no more
-// fixable findings remain or maxFixPasses is reached. After the cascade
-// settles, it runs a final diagnostic pass so remaining issues are
-// surfaced in the normal error stream.
+// RunFix drives the fix cascade: it repeatedly runs the native lint engine
+// and applies any emitted TextEdit suggestions until no more fixable
+// findings remain or maxFixPasses is reached. After the cascade settles, it
+// runs a final diagnostic pass so remaining issues are surfaced in the
+// normal error stream.
 package linthost
 
 import (
@@ -17,10 +16,9 @@ import (
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 )
 
-// maxFixPasses bounds the native cascade after the one-shot ESLint runtime
-// pass. Real-world cascades (no-var → prefer-const → eqeqeq …) settle in a
-// handful of passes; the cap exists so a buggy rule that re-reports its own
-// edit cannot loop forever.
+// maxFixPasses bounds the native fix cascade. Real-world cascades (no-var →
+// prefer-const → eqeqeq …) settle in a handful of passes; the cap exists so
+// a buggy rule that re-reports its own edit cannot loop forever.
 const maxFixPasses = 10
 
 // RunFix implements `@ttsc/lint fix` — apply autofixes, then report any
@@ -57,16 +55,6 @@ func runFix(opts *subcommandOpts) int {
   }()
 
   totalFixes := 0
-  if fixed, err := runExternalESLintFixes(rules, opts.cwd, prog.userSourceFiles()); err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return 2
-  } else if fixed > 0 {
-    totalFixes += fixed
-    prog, code = reloadFixProgram(prog, opts)
-    if code != 0 {
-      return code
-    }
-  }
 
   // `ttsc fix` applies edits from BOTH lint-class rules and
   // format-class rules. The dual `ttsc format` subcommand exists for
@@ -105,14 +93,12 @@ func runFix(opts *subcommandOpts) int {
   }
 
   engine := NewEngineWithResolver(rules)
-  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  if !externalRan {
-    warnUnknownRules(os.Stderr, engine.UnknownRules())
-  }
+  warnUnknownRules(os.Stderr, engine.UnknownRules())
   errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd)
   if errCount > 0 {
     return 2

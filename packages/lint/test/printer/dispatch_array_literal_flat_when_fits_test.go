@@ -21,7 +21,8 @@ func TestDispatchArrayLiteralFlatWhenFits(t *testing.T) {
   file := parseTS(t, "const x = [1, 2, 3];\n")
   node := firstNodeOfKind(t, file, shimast.KindArrayLiteralExpression)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printArrayLiteral(ctx, node), ctx.Opts)
+  doc, _ := printArrayLiteral(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "[1, 2, 3]" {
     t.Fatalf("flat array mismatch: %q", got)
   }

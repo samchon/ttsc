@@ -18,6 +18,9 @@ func bannerParseBanner(config map[string]any, cwd, tsconfigPath string) (string,
 //go:linkname bannerResolveBannerText github.com/samchon/ttsc/packages/banner/driver.resolveBannerText
 func bannerResolveBannerText(config map[string]any, cwd, tsconfigPath string) (string, error)
 
+//go:linkname bannerValidateBannerConfig github.com/samchon/ttsc/packages/banner/driver.validateBannerConfig
+func bannerValidateBannerConfig(config map[string]any) error
+
 //go:linkname bannerTextFromConfigValue github.com/samchon/ttsc/packages/banner/driver.bannerTextFromConfigValue
 func bannerTextFromConfigValue(raw any, label string) (string, bool, error)
 
@@ -30,14 +33,14 @@ func bannerResolveBannerConfigPath(configPath, cwd, tsconfigPath string) string
 //go:linkname bannerTsconfigBaseDir github.com/samchon/ttsc/packages/banner/driver.tsconfigBaseDir
 func bannerTsconfigBaseDir(cwd, tsconfigPath string) string
 
-//go:linkname bannerDiscoveryConfigBaseDir github.com/samchon/ttsc/packages/banner/driver.discoveryConfigBaseDir
-func bannerDiscoveryConfigBaseDir(cwd, tsconfigPath string) string
-
 //go:linkname bannerLoadBannerConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerConfigFile
 func bannerLoadBannerConfigFile(location string) (any, error)
 
 //go:linkname bannerIsBannerConfigFileName github.com/samchon/ttsc/packages/banner/driver.isBannerConfigFileName
 func bannerIsBannerConfigFileName(name string) bool
+
+//go:linkname bannerLoadBannerJSONConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerJSONConfigFile
+func bannerLoadBannerJSONConfigFile(location string) (any, error)
 
 //go:linkname bannerLoadBannerScriptConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerScriptConfigFile
 func bannerLoadBannerScriptConfigFile(location string) (any, error)

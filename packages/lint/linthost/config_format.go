@@ -10,9 +10,8 @@ import (
 // The result is a `map[string]any` that mirrors what a user would
 // have written under `rules` directly — entries like
 // `"format/semi": ["off", {"prefer": "always"}]` — so the caller
-// can route it through either `ParseRulesWithOptions` (inline path) or
-// `parseExternalRuleMapInto` (flat-config path) without duplicating
-// option-decoding logic.
+// can route it through either `ParseRulesWithOptions` or
+// `parseExternalRuleMapInto` without duplicating option-decoding logic.
 //
 // The block's default severity is off. That keeps check/build diagnostics
 // independent from formatting policy unless the user explicitly sets
@@ -97,12 +96,18 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     if err != nil {
       return nil, err
     }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.printWidth must be a positive integer; got %d", n)
+    }
     pwOpts["printWidth"] = n
   }
   if v, ok := raw["tabWidth"]; ok {
     n, err := asInt("format.tabWidth", v)
     if err != nil {
       return nil, err
+    }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
     }
     pwOpts["tabWidth"] = n
   }

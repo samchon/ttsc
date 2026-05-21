@@ -37,7 +37,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
       pluginConfig: {},
       extraSources: {
         "lint.config.json": JSON.stringify({
-          "no-console": "error",
+          rules: { "no-console": "error" },
         }),
       },
     });
@@ -46,7 +46,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
       const tsconfig = path.join(wrapper, "tsconfig.json");
       fs.writeFileSync(
         path.join(wrapper, "lint.config.json"),
-        JSON.stringify({ "no-var": "error" }),
+        JSON.stringify({ rules: { "no-var": "error" } }),
         "utf8",
       );
       fs.writeFileSync(

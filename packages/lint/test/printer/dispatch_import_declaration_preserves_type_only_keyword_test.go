@@ -21,7 +21,8 @@ func TestDispatchImportDeclarationPreservesTypeOnlyKeyword(t *testing.T) {
   file := parseTS(t, "import type { A } from \"x\";\n")
   node := firstNodeOfKind(t, file, shimast.KindImportDeclaration)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printImportDeclaration(ctx, node), ctx.Opts)
+  doc, _ := printImportDeclaration(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "import type { A } from \"x\";" {
     t.Fatalf("type-only import mismatch: %q", got)
   }

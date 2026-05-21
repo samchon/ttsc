@@ -15,15 +15,13 @@ import (
 // no-op configs.
 //
 //  1. Build `format: { printwidth: 80 }` (unknown key).
-//  2. Resolve.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert the error names the unknown key and points at the
 //     allowed surface.
 func TestFormatBlockRejectsUnknownKey(t *testing.T) {
-  _, err := LoadConfigResolver(&PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"printwidth": 80},
-    },
-  }, "/virtual", "")
+  _, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"printwidth": 80},
+  }, "")
   if err == nil {
     t.Fatal("expected error for unknown format key, got nil")
   }

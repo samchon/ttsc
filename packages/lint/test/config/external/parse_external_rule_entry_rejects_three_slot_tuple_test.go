@@ -6,17 +6,16 @@ import (
 )
 
 // TestParseExternalRuleEntryRejectsThreeSlotTuple verifies the
-// `len(tuple) > 2` rejection branch for ESLint-flat-config inputs.
+// `len(tuple) > 2` rejection branch for a config file's `rules` map.
 //
-// Pre-Cycle-1, the external parser silently JSON-encoded the tail of
-// 3+ element tuples as an array — but every built-in rule's option
-// struct expects an object, so the array landed in `DecodeOptions` and
-// fell back to defaults. Cycle-1 rejected the shape outright to keep
-// parity with the inline parser's "no silent fallback" policy. This
-// test pins the rejection so a regression cannot quietly resurrect the
-// silent-fallback behavior.
+// A `rules` entry must be a bare severity, `[severity]`, or `[severity,
+// options]`. A 3+ element tuple silently JSON-encoded its tail as an array —
+// but every built-in rule's option struct expects an object, so the array
+// landed in `DecodeOptions` and fell back to defaults. The parser rejects the
+// shape outright; this test pins the rejection so a regression cannot quietly
+// resurrect the silent-fallback behavior.
 //
-// 1. Build an external-config rule entry with a 3-element tuple.
+// 1. Build a `rules`-map rule entry with a 3-element tuple.
 // 2. Parse it.
 // 3. Assert the parser returns an error mentioning the tuple shape.
 func TestParseExternalRuleEntryRejectsThreeSlotTuple(t *testing.T) {

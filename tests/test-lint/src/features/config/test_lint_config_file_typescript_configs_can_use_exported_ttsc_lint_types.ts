@@ -20,7 +20,7 @@ export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint
       name: "config-file-ts-satisfies-native-type",
       source: SOURCE,
       pluginConfig: {
-        config: "./ttsc-lint.config.ts",
+        configFile: "./ttsc-lint.config.ts",
       },
       extraSources: {
         "ttsc-lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";

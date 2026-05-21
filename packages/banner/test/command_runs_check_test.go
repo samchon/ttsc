@@ -29,7 +29,7 @@ func TestCommandRunsCheck(t *testing.T) {
 
   // Check assertion: no JavaScript should be emitted and no summary should be
   // printed when --quiet is passed through to the utility host.
-  code, stdout, stderr := runPlugin(t, "check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, "check banner"), "--quiet")
+  code, stdout, stderr := runPlugin(t, "check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, root, "check banner"), "--quiet")
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("check branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }

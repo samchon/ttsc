@@ -9,7 +9,7 @@ The shipped plugins are ordered by difficulty:
 1. **[`@ttsc/banner`](/docs/development/walkthroughs/banner)** — insert a JSDoc preamble at the top of every emitted file. Smallest possible transform; the right place to start.
 2. **[`@ttsc/strip`](/docs/development/walkthroughs/strip)** — delete `console.log`, `debugger;`, and matching call statements before emit. Your first real AST mutation: filter a `NodeList`, recurse into block-bodied statements, replace embedded statements with an `EmptyStatement`.
 3. **[`@ttsc/paths`](/docs/development/walkthroughs/paths)** — rewrite `import "@lib/x"` into `import "./modules/x.js"` after consulting `compilerOptions.paths`, `rootDir`, `outDir`, and the actual Program source files. Introduces tsconfig parsing, AST-leaf-text mutation (the synthesize-flag invariant), and the visitor that finds every module-specifier shape TypeScript supports.
-4. **[`@ttsc/lint`](/docs/development/walkthroughs/lint)** — full ESLint-shaped diagnostics engine, plus its public Go API for third-party rule contributors. The advanced tier: rule registry, severity ladder, fix/format dispatch, ESLint runtime delegation, build-time contributor merging.
+4. **[`@ttsc/lint`](/docs/development/walkthroughs/lint)** — full diagnostics engine, plus its public Go API for third-party rule contributors. The advanced tier: rule registry, severity ladder, fix/format dispatch, build-time contributor merging.
 
 Pages 1–3 each take a single Go file and walk it line by line. Page 4 is a longer architectural tour because the lint engine is many files, but the reading pattern stays the same: open the file in the repo, then read this page as the commentary track.
 
@@ -83,8 +83,8 @@ After all four plugins look familiar, this is the smallest tsconfig that uses ev
     "outDir": "dist",
     "declaration": true,
     "plugins": [
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
-      { "transform": "@ttsc/banner", "config": "./banner.config.ts" },
+      { "transform": "@ttsc/lint" },
+      { "transform": "@ttsc/banner" },
       { "transform": "@ttsc/strip" },
       { "transform": "@ttsc/paths" }
     ]
@@ -93,14 +93,24 @@ After all four plugins look familiar, this is the smallest tsconfig that uses ev
 }
 ```
 
+`lint.config.ts`:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: { "no-var": "error" },
+} satisfies ITtscLintConfig;
+```
+
 `banner.config.ts`:
 
 ```ts
-import type { TtscBannerConfig } from "@ttsc/banner";
+import type { ITtscBannerConfig } from "@ttsc/banner";
 
 export default {
   text: "License MIT",
-} satisfies TtscBannerConfig;
+} satisfies ITtscBannerConfig;
 ```
 
 `@ttsc/lint` runs first as a check-stage plugin and aborts emit on error-severity findings. The three transform-stage plugins then run inside one compiler emit pass through linked packages: `@ttsc/banner` overlays the source preamble, `@ttsc/strip` filters statements, `@ttsc/paths` rewrites module specifiers. TypeScript-Go owns the final emit of JavaScript, declarations, and source maps.

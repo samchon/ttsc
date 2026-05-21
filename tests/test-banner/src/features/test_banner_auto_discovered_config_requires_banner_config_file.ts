@@ -45,5 +45,8 @@ export const test_banner_auto_discovered_config_requires_banner_config_file =
       },
     );
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /banner\.config\.\{js,cjs,mjs,ts,mts,cts\}/);
+    assert.match(
+      result.stderr,
+      /banner\.config\.\{ts,cts,mts,js,cjs,mjs,json\}/,
+    );
   };

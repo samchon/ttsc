@@ -26,7 +26,8 @@ func TestDispatchCallExpressionBreaksArgumentsWhenOverflows(t *testing.T) {
   opts := DefaultPrintOptions()
   opts.PrintWidth = 20
   ctx := NewPrintContext(file, opts)
-  got := Print(printCallExpression(ctx, node), ctx.Opts)
+  doc, _ := printCallExpression(ctx, node)
+  got := Print(doc, ctx.Opts)
   want := "process(\n  aaaaaaaaa,\n  bbbbbbbbb,\n  ccccccccc,\n)"
   if got != want {
     t.Fatalf("broken call mismatch:\nwant %q\ngot  %q", want, got)

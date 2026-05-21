@@ -100,8 +100,8 @@ This works with TypeScript-Go's normal emit path:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "text": "license" },
-      { "transform": "@ttsc/strip", "calls": ["console.log"] },
+      { "transform": "@ttsc/banner", "configFile": "./config/banner.config.ts" },
+      { "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" },
     ],
   },
 }
@@ -115,7 +115,7 @@ This works when a check plugin runs before one transform sidecar that owns the s
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/lint", "rules": { "no-var": "error" } },
+      { "transform": "@ttsc/lint" },
       { "transform": "my-source-transform" },
     ],
   },

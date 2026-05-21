@@ -44,13 +44,14 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatalf("dispatcher ts config mismatch: %#v", raw)
   }
 
-  directLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx"), "#!/bin/sh\nprintf '\"from direct\"'\n")
+  directLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx"), "#!/bin/sh\nprintf '{\"text\":\"from direct\"}'\n")
   t.Setenv("TTSC_TTSX_BINARY", directLauncher)
   raw, err = bannerLoadBannerTypeScriptConfigFile(filepath.Join(root, "banner.config.mts"))
   if err != nil {
     t.Fatal(err)
   }
-  if raw != "from direct" {
+  object, ok = raw.(map[string]any)
+  if !ok || object["text"] != "from direct" {
     t.Fatalf("direct ts config mismatch: %#v", raw)
   }
 

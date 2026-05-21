@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "format/sort-imports": "error"
+  }
+}

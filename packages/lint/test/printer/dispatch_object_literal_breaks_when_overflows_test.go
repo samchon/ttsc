@@ -26,7 +26,8 @@ func TestDispatchObjectLiteralBreaksWhenOverflows(t *testing.T) {
   opts := DefaultPrintOptions()
   opts.PrintWidth = 20
   ctx := NewPrintContext(file, opts)
-  got := Print(printObjectLiteral(ctx, node), ctx.Opts)
+  doc, _ := printObjectLiteral(ctx, node)
+  got := Print(doc, ctx.Opts)
   want := "{\n  aa: 1,\n  bb: 2,\n  cc: 3,\n}"
   if got != want {
     t.Fatalf("broken object mismatch:\nwant %q\ngot  %q", want, got)

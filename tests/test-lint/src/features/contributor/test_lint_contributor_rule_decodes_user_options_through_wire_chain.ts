@@ -6,7 +6,7 @@ import {
 
 /**
  * Verifies lint contributor protocol: a user-supplied `markers` array threads
- * from `lint.config.ts` through the wire chain into the contributor's Go
+ * from `lint.config.json` through the wire chain into the contributor's Go
  * `ctx.DecodeOptions` call.
  *
  * The unit test for the same surface
@@ -36,11 +36,13 @@ export const test_lint_contributor_rule_decodes_user_options_through_wire_chain 
     const project = createLintProject({
       name: "contributor-options",
       source,
-      pluginConfig: {
-        plugins: { demo: "lint-contributor-demo" },
-        rules: {
-          "demo/no-marker-comment": ["error", { markers: ["XXX"] }],
-        },
+      extraSources: {
+        "lint.config.json": JSON.stringify({
+          plugins: { demo: "lint-contributor-demo" },
+          rules: {
+            "demo/no-marker-comment": ["error", { markers: ["XXX"] }],
+          },
+        }),
       },
       linkNodeModules: ["lint-contributor-demo"],
     });

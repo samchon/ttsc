@@ -32,20 +32,16 @@ export const value = 1;
 
 Both statements vanish. The export survives.
 
-For a custom call list, override on the `compilerOptions.plugins` entry:
+For a custom call list, drop a `strip.config.ts` next to your `tsconfig.json`:
 
-```jsonc
-{
-  "compilerOptions": {
-    "plugins": [
-      {
-        "transform": "@ttsc/strip",
-        "calls": ["console.log", "console.debug", "myLogger.*"],
-        "statements": ["debugger"]
-      }
-    ]
-  }
-}
+```ts
+// strip.config.ts
+import type { ITtscStripConfig } from "@ttsc/strip";
+
+export default {
+  calls: ["console.log", "console.debug", "myLogger.*"],
+  statements: ["debugger"],
+} satisfies ITtscStripConfig;
 ```
 
 Two configuration knobs:
@@ -53,22 +49,26 @@ Two configuration knobs:
 - **`calls`** — match call statements by dotted name. `console.log` matches exactly `console.log(...)`; `myLogger.*` matches `myLogger.<anything>(...)` for any single property access. Wildcards are only supported at the **end** of a pattern.
 - **`statements`** — match statement-level syntax. Today only `debugger` is supported; the slot exists so future statement kinds can be added without a breaking change.
 
+`@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry: `{ "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" }`.
+
 ## Directory layout
 
 ```text
 packages/strip/
 ├── package.json
 ├── src/
-│   └── index.cjs        ← JS descriptor (CommonJS, no TypeScript types)
+│   ├── index.cjs        ← JS descriptor (hand-written CommonJS)
+│   └── index.d.ts       ← hand-written types (exports ITtscStripConfig)
 ├── go.mod
 ├── driver/
-│   └── strip.go         ← Linked transform logic
+│   ├── strip.go         ← Linked transform logic
+│   └── config.go        ← strip.config.* file loading
 └── plugin/
     ├── main.go          ← 36-line dispatcher
     └── strip.go         ← Blank-imports the linked driver package
 ```
 
-Strip has no TypeScript-side configuration types, so the descriptor is a plain CommonJS file — no `lib/`, no compile step.
+Strip's descriptor is a hand-written CommonJS file with a hand-written `index.d.ts` alongside it — no `lib/`, no compile step. The `.d.ts` exports `ITtscStripConfig`, the shape of a `strip.config.*` file.
 
 ## The JS descriptor (`src/index.cjs`)
 
@@ -78,7 +78,30 @@ Strip has no TypeScript-side configuration types, so the descriptor is a plain C
 
 const path = require("node:path");
 
-module.exports = function createTtscStrip() {
+// Keys the tsconfig plugin entry accepts — all others are rejected so a
+// stale inline option surfaces as a clear error instead of a silent default.
+const ALLOWED_TSCONFIG_KEYS = new Set([
+  "configFile",
+  "enabled",
+  "name",
+  "stage",
+  "transform",
+]);
+
+module.exports = function createTtscStrip(context) {
+  const plugin =
+    context && typeof context === "object" && context.plugin != null
+      ? context.plugin
+      : {};
+  for (const key of Object.keys(plugin)) {
+    if (!ALLOWED_TSCONFIG_KEYS.has(key)) {
+      throw new Error(
+        `@ttsc/strip: tsconfig plugin entry contains unsupported key ` +
+          `${JSON.stringify(key)}; strip configuration must be supplied via ` +
+          `a strip.config.* file (use the "configFile" key for a custom path)`,
+      );
+    }
+  }
   return {
     name: "@ttsc/strip",
     source: path.resolve(__dirname, "..", "driver"),
@@ -136,7 +159,7 @@ Same `run` shape, same exit codes, same subcommand surface as [banner](/docs/dev
 
 The strip-specific code in [`packages/strip/driver/strip.go`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/strip.go) is roughly five components. We walk each one in the order they execute at runtime:
 
-1. **Parse the config** — turn `--plugins-json`'s `config` object into a `*stripRewriter` value.
+1. **Parse the config** — load `strip.config.*` (or use defaults) into a `*stripRewriter` value.
 2. **Apply to every source file** — for each `SourceFile` in the Program, filter top-level statements and recurse.
 3. **Recurse into block-bodied statements** — function bodies, blocks, etc. carry their own statement lists.
 4. **Substitute embedded statements** — `if (x) <strip-me>;` becomes `if (x);` (an `EmptyStatement`) so the parent syntax stays valid.
@@ -204,7 +227,7 @@ The second return value is a boolean — `true` if the key was present, even whe
 
 **Error wrapping with `%w`.** `fmt.Errorf("@ttsc/strip: %w", err)` wraps the inner error so `errors.Is` and `errors.Unwrap` can still recover the original. Use `%w` when you want callers to inspect the cause; `%v` when you just want a formatted string.
 
-**`[]any` is Go's `unknown[]`.** `config` arrives as a `map[string]any` (decoded from JSON). Every value pulled out needs a type assertion before use: `text, ok := raw.(string)`, `arr, ok := raw.([]any)`. Numbers come out as `float64` regardless of whether the user wrote `1` or `1.0` in tsconfig. The `, ok` form is mandatory — a bare `raw.(string)` panics on the wrong type, surfacing as exit 2 with a stack trace the user cannot fix. The helper `stringArrayConfig` type-asserts each element to `string` and returns a typed `[]string`; if any element is the wrong type, the helper returns an error — the kind that pops out of `parseStrip` as `@ttsc/strip: "calls"[1] must be a non-empty string`. The cleaner alternative for richer configs is `json.Marshal` → `json.Unmarshal` into a typed struct; see [Recipes → Typed Config](/docs/development/authoring/recipes#typed-config).
+**`[]any` is Go's `unknown[]`.** `config` arrives as a `map[string]any` (decoded from JSON). Every value pulled out needs a type assertion before use: `text, ok := raw.(string)`, `arr, ok := raw.([]any)`. Numbers come out as `float64` regardless of the source. The `, ok` form is mandatory — a bare `raw.(string)` panics on the wrong type, surfacing as exit 2 with a stack trace the user cannot fix. The helper `stringArrayConfig` type-asserts each element to `string` and returns a typed `[]string`; if any element is the wrong type, the helper returns an error — the kind that pops out of `parseStrip` as `@ttsc/strip: "calls"[1] must be a non-empty string`. The cleaner alternative for richer configs is `json.Marshal` → `json.Unmarshal` into a typed struct; see [Recipes → Typed Config](/docs/development/authoring/recipes#typed-config).
 
 ### Sidebar: pointer receivers and constructors
 

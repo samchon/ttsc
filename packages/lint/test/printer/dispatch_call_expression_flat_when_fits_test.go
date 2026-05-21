@@ -21,7 +21,8 @@ func TestDispatchCallExpressionFlatWhenFits(t *testing.T) {
   file := parseTS(t, "foo(a, b);\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printCallExpression(ctx, node), ctx.Opts)
+  doc, _ := printCallExpression(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "foo(a, b)" {
     t.Fatalf("flat call mismatch: %q", got)
   }

@@ -1,0 +1,4 @@
+{
+  "calls": ["console.log", "console.debug", "assert.*"],
+  "statements": ["debugger"]
+}

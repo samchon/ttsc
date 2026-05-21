@@ -4,7 +4,6 @@ import {
   assert,
   fs,
   goPath,
-  os,
   path,
   setupLintProject,
   spawn,
@@ -48,7 +47,7 @@ export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_con
     );
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
-      JSON.stringify({ "no-var": "error" }),
+      JSON.stringify({ rules: { "no-var": "error" } }),
     );
     fs.writeFileSync(
       path.join(root, "src", "main.ts"),

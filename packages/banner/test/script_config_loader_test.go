@@ -21,7 +21,7 @@ func TestScriptConfigLoader(t *testing.T) {
   cjs := filepath.Join(root, "banner.config.cjs")
   mjs := filepath.Join(root, "banner.config.mjs")
   writeFile(t, cjs, `module.exports = async () => ({ text: "from cjs" });`)
-  writeFile(t, mjs, `export default "from mjs";`)
+  writeFile(t, mjs, `export default { text: "from mjs" };`)
 
   raw, err := bannerLoadBannerConfigFile(cjs)
   if err != nil {
@@ -35,7 +35,8 @@ func TestScriptConfigLoader(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
-  if raw != "from mjs" {
+  object, ok = raw.(map[string]any)
+  if !ok || object["text"] != "from mjs" {
     t.Fatalf("mjs config mismatch: %#v", raw)
   }
   if _, err := bannerLoadBannerConfigFile(filepath.Join(root, "other.cjs")); err == nil || !strings.Contains(err.Error(), "config file must be named") {

@@ -191,12 +191,29 @@ func Print(doc Doc, opts PrintOptions) string {
       child := Concat(top.doc.Children...)
       stack = append(stack, printFrame{indent: col, mode: top.mode, doc: child})
     case docGroup:
-      // Try flat unless the group contains a hardline.
+      // Try flat unless the group is forced broken or its flat form
+      // would overflow the remaining width.
       child := Concat(top.doc.Children...)
-      if fits(child, opts.PrintWidth-col, top.indent) {
+      if !top.doc.Break && fits(child, opts.PrintWidth-col, top.indent) {
         stack = append(stack, printFrame{indent: top.indent, mode: modeFlat, doc: child})
       } else {
         stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: child})
+      }
+    case docConditionalGroup:
+      // Render the first option whose first line fits the remaining
+      // width; fall back to the last option when none do. fitsFirstLine
+      // measures only up to an option's first break, so an option whose
+      // later lines wrap — a hugged callback body — is still eligible.
+      options := top.doc.Children
+      if len(options) > 0 {
+        chosen := options[len(options)-1]
+        for i := 0; i < len(options)-1; i++ {
+          if fitsFirstLine(options[i], opts.PrintWidth-col) {
+            chosen = options[i]
+            break
+          }
+        }
+        stack = append(stack, printFrame{indent: top.indent, mode: top.mode, doc: chosen})
       }
     case docIfBreak:
       pick := top.doc.Children[1] // flat
@@ -306,12 +323,22 @@ func fits(doc Doc, remaining int, indent int) bool {
         stack = append(stack, frame{mode: top.mode, doc: top.doc.Children[i]})
       }
     case docGroup:
+      // A forced-broken group cannot contribute a flat layout; treat it
+      // like a hard line break for the enclosing measurement.
+      if top.doc.Break {
+        return false
+      }
       // Measure nested groups in flat mode too — that is the
       // standard Wadler choice: the outer group's "does my
       // flat form fit" question is answered by treating every
       // inner group as flat.
       for i := len(top.doc.Children) - 1; i >= 0; i-- {
         stack = append(stack, frame{mode: modeFlat, doc: top.doc.Children[i]})
+      }
+    case docConditionalGroup:
+      // A conditional group's flat form is its first (flattest) option.
+      if len(top.doc.Children) > 0 {
+        stack = append(stack, frame{mode: top.mode, doc: top.doc.Children[0]})
       }
     case docIfBreak:
       pick := top.doc.Children[1]
@@ -340,4 +367,123 @@ func fits(doc Doc, remaining int, indent int) bool {
     }
   }
   return true
+}
+
+// fitsFirstLine reports whether the first line of `doc` — every column
+// up to its first line break — renders within `remaining` columns. It
+// drives ConditionalGroup option selection: an option is eligible when
+// its opening line fits, even if its later lines wrap.
+//
+// The walk treats every top-level break point as broken — an IfBreak
+// takes its break branch, and a Line / Softline / Hardline ends the
+// measurement — so it counts exactly the columns the option would place
+// on the line the group starts on. A nested ConditionalGroup
+// contributes its own first option.
+//
+// A nested Group is the exception: a Group with no hard break renders
+// flat when it fits, so its Line separators collapse to spaces and stay
+// on the first line. The walk measures such a Group's flattened width
+// rather than stopping at its first Line; only a Group that carries a
+// Hardline (flatten reports it cannot render flat) ends the first line
+// at its break.
+func fitsFirstLine(doc Doc, remaining int) bool {
+  if remaining < 0 {
+    return false
+  }
+  stack := []Doc{doc}
+  for len(stack) > 0 {
+    top := stack[len(stack)-1]
+    stack = stack[:len(stack)-1]
+    switch top.Kind {
+    case docText:
+      if idx := strings.IndexByte(top.Text, '\n'); idx >= 0 {
+        // A multi-line Text ends the first line at its first newline.
+        return remaining-idx >= 0
+      }
+      remaining -= len(top.Text)
+      if remaining < 0 {
+        return false
+      }
+    case docGroup:
+      // A Group that can render flat keeps its Lines on the first line
+      // as spaces — measure the flattened form. One that cannot (a
+      // Hardline or forced break inside) breaks, so descend and let the
+      // Line/Hardline case end the first line at that break.
+      if flat, ok := flatten(top); ok {
+        stack = append(stack, flat)
+      } else {
+        for i := len(top.Children) - 1; i >= 0; i-- {
+          stack = append(stack, top.Children[i])
+        }
+      }
+    case docConcat, docIndent, docAlign:
+      for i := len(top.Children) - 1; i >= 0; i-- {
+        stack = append(stack, top.Children[i])
+      }
+    case docConditionalGroup:
+      if len(top.Children) > 0 {
+        stack = append(stack, top.Children[0])
+      }
+    case docIfBreak:
+      // Measuring in break mode: take the broken branch.
+      stack = append(stack, top.Children[0])
+    case docLine, docSoftline, docHardline, docLiteralline:
+      // The first break ends the first line; what fit so far fits.
+      return true
+    case docNil, docLineSuffix:
+      // No first-line width contribution.
+    }
+  }
+  return true
+}
+
+// flatten returns the all-flat rendering of `doc`: every Group rendered
+// flat, every IfBreak resolved to its flat branch, every Line collapsed
+// to a single space and every Softline to nothing. The second result is
+// false when the doc cannot render flat at all — it carries a Hardline,
+// a Literalline, a forced-broken Group, a multi-line Text or a queued
+// LineSuffix — and the caller must then drop the flat layout option.
+func flatten(doc Doc) (Doc, bool) {
+  switch doc.Kind {
+  case docText:
+    if strings.Contains(doc.Text, "\n") {
+      return Doc{}, false
+    }
+    return doc, true
+  case docLine:
+    return Text(" "), true
+  case docNil, docSoftline:
+    return Doc{Kind: docNil}, true
+  case docHardline, docLiteralline, docLineSuffix:
+    return Doc{}, false
+  case docIfBreak:
+    return flatten(doc.Children[1])
+  case docConditionalGroup:
+    if len(doc.Children) == 0 {
+      return Doc{Kind: docNil}, true
+    }
+    return flatten(doc.Children[0])
+  case docGroup:
+    if doc.Break {
+      return Doc{}, false
+    }
+    return flattenChildren(doc.Children)
+  case docConcat, docIndent, docAlign:
+    return flattenChildren(doc.Children)
+  }
+  return doc, true
+}
+
+// flattenChildren flattens each child and concatenates the results,
+// short-circuiting to (zero, false) when any child cannot render flat.
+func flattenChildren(children []Doc) (Doc, bool) {
+  out := make([]Doc, 0, len(children))
+  for _, c := range children {
+    fc, ok := flatten(c)
+    if !ok {
+      return Doc{}, false
+    }
+    out = append(out, fc)
+  }
+  return Concat(out...), true
 }

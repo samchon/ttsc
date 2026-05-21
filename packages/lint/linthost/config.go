@@ -11,7 +11,6 @@ import (
   "runtime"
   "sort"
   "strings"
-  "sync"
   "time"
 )
 
@@ -85,23 +84,24 @@ type RuleConfig map[string]Severity
 
 // RuleOptionsMap captures the rule-specific options blob, keyed by rule
 // name. Severity-only rules never appear here. The values are the raw
-// JSON the user wrote in the second tuple slot of an ESLint-style
-// `["error", { ... }]` setting; each rule decodes the blob into its own
-// option struct on demand.
+// JSON the user wrote in the second tuple slot of a `["error", { ... }]`
+// rule setting; each rule decodes the blob into its own option struct on
+// demand.
 type RuleOptionsMap map[string]json.RawMessage
 
 // ResolvedRuleConfig is the rule map that applies to one source file.
-// `Ignored` means an external ESLint-style ignore-only config matched the
-// file and the engine should skip linting it entirely.
+// `Ignored` means an `ignores`-only config entry matched the file and the
+// engine should skip linting it entirely.
 type ResolvedRuleConfig struct {
   Rules   RuleConfig
   Ignored bool
 }
 
 // RuleResolver is the engine-facing view of a resolved lint configuration.
-// Implementations include RuleConfig (severity-only, no options), InlineRuleResolver
-// (tsconfig inline rules + optional per-rule options), and *ConfigStore (external
-// flat-config file, with per-file glob resolution and a unified options map).
+// Implementations include RuleConfig (severity-only, no options),
+// InlineRuleResolver (a severity map plus per-rule options), and *ConfigStore
+// (a parsed lint config file, with per-file glob resolution and a unified
+// options map).
 type RuleResolver interface {
   // ResolveRules returns the effective severity map for the given source file.
   // Implementations that support `files`/`ignores` patterns apply them here;
@@ -144,13 +144,13 @@ func (c RuleConfig) EnabledRuleConfig() RuleConfig {
 }
 
 // RuleOptions on a bare RuleConfig is always nil — this form is the
-// severity-only path used by Go unit tests and the legacy inline-rules
-// surface that predates option support.
+// severity-only path used by Go unit tests and rule constructors that
+// predate option support.
 func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
 
-// InlineRuleResolver pairs a severity map with an options map for
-// tsconfig-inline rule blocks. The fields are public so tests can
-// construct one without going through ParseRulesWithOptions.
+// InlineRuleResolver pairs a severity map with an options map. The fields
+// are public so tests can construct one without going through
+// ParseRulesWithOptions.
 type InlineRuleResolver struct {
   Rules   RuleConfig
   Options RuleOptionsMap
@@ -182,16 +182,18 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   return r.Options[name]
 }
 
-// ConfigStore holds the parsed representation of an external flat-config file.
-// It implements RuleResolver with per-file glob scoping: ResolveRules walks the
+// ConfigStore holds the parsed representation of a lint config file. It
+// implements RuleResolver with per-file glob scoping: ResolveRules walks the
 // entries in declaration order and the last matching entry wins. Options are
 // intentionally NOT per-file — one project-wide options map is kept so rule
 // behavior is uniform across the codebase even when severity varies by glob.
+//
+// A config file is a single `ITtscLintConfig` object. Its `extends` field
+// names another config file to fold in first; the extends chain produces one
+// ConfigEntry per file, the extends-target entries declared before the
+// extending file's own entry so local rules win on collision.
 type ConfigStore struct {
-  entries               []ConfigEntry
-  externalConfigPath    string
-  eslintRuntime         bool
-  eslintRuntimeRequired bool
+  entries []ConfigEntry
   // options is a flat rule-name → JSON map. Options are not scoped by
   // `files` / `ignores`: a rule's behavior is a single project-wide
   // configuration even when its severity is per-file. The simplification
@@ -208,10 +210,11 @@ func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   return s.options[name]
 }
 
-// ConfigEntry is one block of a flat-config array. BaseDir anchors glob
-// resolution; Files and Ignores are the ESLint-style pattern lists. IgnoreOnly
-// marks entries that carry only `ignores` (no `files`, no `rules`) — these
-// are evaluated first in ResolveRules and short-circuit the walk when matched.
+// ConfigEntry is the parsed form of one config file in the extends chain.
+// BaseDir anchors glob resolution; Files and Ignores are the pattern lists.
+// IgnoreOnly marks entries that carry only `ignores` (no `files`, no `rules`)
+// — these are evaluated first in ResolveRules and short-circuit the walk when
+// matched.
 type ConfigEntry struct {
   BaseDir    string
   Files      []string
@@ -292,9 +295,8 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
 }
 
 // Flatten returns the unconstrained union of all non-ignore-only entries,
-// including SeverityOff rules. Used by LoadRuleConfig (legacy callers that
-// expect a plain RuleConfig) and by parseExternalConfigRules. Later entries
-// shadow earlier ones for the same rule name.
+// including SeverityOff rules. Used by LoadRuleConfig (callers that expect a
+// plain RuleConfig). Later entries shadow earlier ones for the same rule name.
 func (s *ConfigStore) Flatten() RuleConfig {
   out := RuleConfig{}
   if s == nil {
@@ -311,43 +313,6 @@ func (s *ConfigStore) Flatten() RuleConfig {
   return out
 }
 
-// ExternalConfigPath returns the absolute path of the config file that was
-// loaded into this store, or the empty string for stores built from inline
-// tsconfig plugin entries.
-func (s *ConfigStore) ExternalConfigPath() string {
-  if s == nil {
-    return ""
-  }
-  return s.externalConfigPath
-}
-
-// WantsESLintRuntime reports whether the config uses any ESLint-native feature
-// (languageOptions, linterOptions, processor, settings, or a non-native plugin
-// map) OR whether the config file itself is an eslint.config.* file. The latter
-// check covers pure-ttsc ESLint-named configs that happen not to use runtime
-// fields.
-func (s *ConfigStore) WantsESLintRuntime() bool {
-  if s == nil {
-    return false
-  }
-  if s.eslintRuntime {
-    return true
-  }
-  base := filepath.Base(s.externalConfigPath)
-  return strings.HasPrefix(base, "eslint.config.")
-}
-
-// RequiresESLintRuntime reports whether the config contains fields that cannot
-// be evaluated without the JS ESLint runtime (e.g. non-native plugins, runtime
-// language options). Unlike WantsESLintRuntime it does NOT fire for the
-// eslint.config.* naming convention alone.
-func (s *ConfigStore) RequiresESLintRuntime() bool {
-  if s == nil {
-    return false
-  }
-  return s.eslintRuntimeRequired
-}
-
 func (e ConfigEntry) matchesFile(fileName string) bool {
   if len(e.Files) > 0 && !matchAnyPattern(e.BaseDir, e.Files, fileName) {
     return false
@@ -362,8 +327,7 @@ func (e ConfigEntry) matchesIgnores(fileName string) bool {
   return len(e.Ignores) > 0 && matchAnyPattern(e.BaseDir, e.Ignores, fileName)
 }
 
-// ParseRules normalizes the standard native rules map from a tsconfig plugin
-// entry.
+// ParseRules normalizes a rule severity map.
 //
 // Severity values:
 //   - `"off"` → SeverityOff
@@ -387,7 +351,7 @@ func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   }
   dict, ok := raw.(map[string]any)
   if !ok {
-    return nil, nil, fmt.Errorf("@ttsc/lint: \"config\" must be an object, got %T", raw)
+    return nil, nil, fmt.Errorf("@ttsc/lint: \"rules\" must be an object, got %T", raw)
   }
   cfg := make(RuleConfig, len(dict))
   opts := make(RuleOptionsMap)
@@ -404,11 +368,10 @@ func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   return cfg, opts, nil
 }
 
-// parseRuleEntry splits an ESLint-shaped rule entry into its severity
-// and (optional) options payload. Bare severity literals produce a nil
-// options blob; `[severity]` (no options) does the same; `[severity,
-// options]` re-serializes the options to JSON so each rule can decode it
-// into its own struct later.
+// parseRuleEntry splits a rule entry into its severity and (optional) options
+// payload. Bare severity literals produce a nil options blob; `[severity]`
+// (no options) does the same; `[severity, options]` re-serializes the options
+// to JSON so each rule can decode it into its own struct later.
 func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
   if tuple, ok := value.([]any); ok {
     if len(tuple) == 0 {
@@ -428,10 +391,9 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
       return sev, nil, nil
     }
     if _, ok := tuple[1].(map[string]any); !ok {
-      // ESLint accepts string-typed positional options as a shorthand
-      // (e.g. `["error", "single"]` for the `quotes` rule). ttsc does
-      // not: every option struct in TtscLintRuleOptions is an object,
-      // and silently encoding a non-object slot would land in
+      // A positional string option (e.g. `["error", "single"]`) is
+      // rejected: every option struct in TtscLintRuleOptions is an
+      // object, and silently encoding a non-object slot would land in
       // DecodeOptions as a decode error that every rule discards. Fail
       // loudly so users discover the proper `["error", { … }]` form.
       return SeverityOff, nil, fmt.Errorf("severity tuple's options slot must be an object, got %T", tuple[1])
@@ -446,9 +408,9 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
   return sev, nil, err
 }
 
-// parseExternalConfigRules is a convenience wrapper used by legacy callers
-// (e.g. tests) that only need a flat RuleConfig from an already-deserialized
-// config value. Glob scoping and options are discarded.
+// parseExternalConfigRules is a convenience wrapper used by unit tests that
+// only need a flat RuleConfig from an already-deserialized config object. Glob
+// scoping and options are discarded.
 func parseExternalConfigRules(raw any) (RuleConfig, error) {
   store, err := parseExternalConfigStore(raw, "")
   if err != nil {
@@ -457,174 +419,175 @@ func parseExternalConfigRules(raw any) (RuleConfig, error) {
   return store.Flatten(), nil
 }
 
-// parseExternalConfigStore parses `raw` without allowing runtime-only string
-// extends. Used by unit tests and paths that do not load from a real file.
+// parseExternalConfigStore parses a single `ITtscLintConfig` object into a
+// *ConfigStore. `configDir` anchors glob resolution and `extends` lookups; it
+// is empty for in-memory inputs that do not load from a real file.
 func parseExternalConfigStore(raw any, configDir string) (*ConfigStore, error) {
-  return parseExternalConfigStoreWithRuntimeMode(raw, configDir, false)
+  return collectConfigStore(raw, configDir, "")
 }
 
-// parseExternalConfigStoreForFile parses `raw` with allowRuntimeOnly=true,
-// which lets string-typed `extends` entries set eslintRuntimeRequired instead
-// of returning an error. Called by loadExternalConfigResolver after a config
-// file is read from disk.
-func parseExternalConfigStoreForFile(raw any, configDir string) (*ConfigStore, error) {
-  return parseExternalConfigStoreWithRuntimeMode(raw, configDir, true)
-}
-
-// parseExternalConfigStoreWithRuntimeMode is the shared implementation for the
-// two public parse variants. allowRuntimeOnly controls whether a bare string
-// extends value is accepted (sets eslintRuntimeRequired) or rejected with an
-// error.
-func parseExternalConfigStoreWithRuntimeMode(raw any, configDir string, allowRuntimeOnly bool) (*ConfigStore, error) {
+// collectConfigStore parses a single `ITtscLintConfig` object into a fresh
+// *ConfigStore. `rootPath` is the absolute path of the file `raw` was loaded
+// from, or "" for in-memory inputs; when set it seeds the `extends` cycle
+// guard so a config that `extends` itself (directly or transitively) is
+// rejected.
+func collectConfigStore(raw any, configDir, rootPath string) (*ConfigStore, error) {
   store := &ConfigStore{}
-  if err := collectExternalConfigEntries(store, raw, configDir, "config", allowRuntimeOnly); err != nil {
+  var chain []string
+  if rootPath != "" {
+    chain = []string{filepath.Clean(rootPath)}
+  }
+  if err := collectConfigObject(store, raw, configDir, "config", chain); err != nil {
     return nil, err
   }
   return store, nil
 }
 
-func collectExternalConfigEntries(store *ConfigStore, raw any, baseDir, path string, allowRuntimeOnly bool) error {
+// extendsDepthLimit caps how many `extends` hops collectConfigObject will
+// follow. The cycle check in appendExtendsLink already rejects every loop;
+// this is a backstop so a config chain that escapes that check (e.g. a future
+// change that resolves the same file under two different cleaned paths) still
+// fails fast instead of spawning an unbounded run of `ttsx`/`node`
+// config-loader subprocesses — one per hop.
+const extendsDepthLimit = 32
+
+// appendExtendsLink validates that following the `extends` target at `next`
+// neither closes a cycle nor exceeds extendsDepthLimit, then returns `chain`
+// extended by `next`. `chain` holds the resolved absolute paths of every
+// config file already on the current `extends` lineage, root first. The guard
+// runs before loadConfigFile so a cyclic chain fails fast instead of
+// re-reading files (and re-spawning subprocesses) without bound.
+func appendExtendsLink(chain []string, next string) ([]string, error) {
+  for i, prior := range chain {
+    if prior == next {
+      // chain[i:] capped at its own length so append allocates a fresh
+      // backing array rather than mutating the caller's `chain`.
+      cycle := append(chain[i:len(chain):len(chain)], next)
+      return nil, fmt.Errorf(
+        "@ttsc/lint: extends cycle detected: %s",
+        strings.Join(cycle, " -> "),
+      )
+    }
+  }
+  if len(chain) >= extendsDepthLimit {
+    return nil, fmt.Errorf(
+      "@ttsc/lint: extends chain exceeds the depth limit of %d: %s -> ...",
+      extendsDepthLimit,
+      strings.Join(chain, " -> "),
+    )
+  }
+  extended := make([]string, len(chain)+1)
+  copy(extended, chain)
+  extended[len(chain)] = next
+  return extended, nil
+}
+
+// collectConfigObject parses one `ITtscLintConfig` object into `store`,
+// appending one ConfigEntry for the object's own rules (and, recursively, the
+// entries of any `extends`-named config file). The extends-target's entries
+// are appended first so the extending file's local rules win on collision.
+//
+// `chain` carries the resolved absolute paths of the config files already on
+// the current `extends` lineage (root first); appendExtendsLink consults it to
+// reject cyclic or pathologically deep chains before another file is read.
+func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chain []string) error {
   if raw == nil {
     return nil
   }
-  switch typed := raw.(type) {
-  case []any:
-    for i, item := range typed {
-      if err := collectExternalConfigEntries(store, item, baseDir, fmt.Sprintf("%s[%d]", path, i), allowRuntimeOnly); err != nil {
-        return err
-      }
+  obj, ok := raw.(map[string]any)
+  if !ok {
+    return fmt.Errorf("@ttsc/lint: %s must be an ITtscLintConfig object, got %T", path, raw)
+  }
+  if err := rejectUnknownConfigKeys(obj, path); err != nil {
+    return err
+  }
+
+  if extended, hasExtends := obj["extends"]; hasExtends && extended != nil {
+    extendsStr, ok := extended.(string)
+    if !ok {
+      return fmt.Errorf("@ttsc/lint: %s.extends must be a string path to another config file, got %T", path, extended)
     }
-    return nil
-  case map[string]any:
-    if isESLintConfigObject(typed) {
-      if marker, ok := typed["__ttscLintEslintRuntime"].(bool); ok && marker {
-        store.eslintRuntime = true
-        store.eslintRuntimeRequired = true
-      }
-      localBaseDir := baseDir
-      if rawBasePath, ok := typed["basePath"]; ok {
-        basePath, ok := rawBasePath.(string)
-        if !ok {
-          return fmt.Errorf("@ttsc/lint: %s.basePath must be a string, got %T", path, rawBasePath)
-        }
-        if filepath.IsAbs(basePath) {
-          localBaseDir = basePath
-        } else {
-          localBaseDir = filepath.Join(baseDir, basePath)
-        }
-      }
-      if hasESLintRuntimeFields(typed) {
-        store.eslintRuntime = true
-        store.eslintRuntimeRequired = true
-      }
-      if extended, ok := typed["extends"]; ok {
-        if err := collectExternalExtends(store, extended, localBaseDir, path+".extends", allowRuntimeOnly); err != nil {
-          return err
-        }
-      }
-      files, err := parsePatternList(typed["files"], path+".files")
-      if err != nil {
-        return err
-      }
-      ignores, err := parsePatternList(typed["ignores"], path+".ignores")
-      if err != nil {
-        return err
-      }
-      rulesValue, hasRules := typed["rules"]
-      formatValue, hasFormat := typed["format"]
-      if hasRules || hasFormat {
-        // Expand the format block (if any) into a rules-shaped map,
-        // then overlay any explicit `rules` entries. `rules`-wins
-        // semantics match the inline path; the conflict-resolution
-        // table is identical regardless of which surface a user
-        // chose.
-        var formatRulesRaw map[string]any
-        if hasFormat {
-          fmtMap, ok := formatValue.(map[string]any)
-          if !ok {
-            return fmt.Errorf("@ttsc/lint: %s.format must be an object, got %T", path, formatValue)
-          }
-          expanded, err := expandFormatBlock(fmtMap)
-          if err != nil {
-            return err
-          }
-          formatRulesRaw = expanded
-        }
-        var rulesMap map[string]any
-        if hasRules {
-          // `parseExternalRuleMapInto` accepts the raw map directly.
-          // Coerce here to feed the same merge pipeline as the
-          // inline path.
-          typedMap, ok := rulesValue.(map[string]any)
-          if !ok {
-            return fmt.Errorf("@ttsc/lint: %s.rules must be a rule severity map, got %T", path, rulesValue)
-          }
-          rulesMap = typedMap
-        }
-        merged := mergeRuleMaps(formatRulesRaw, rulesMap)
-        if len(merged) == 0 {
-          return nil
-        }
-        parsed, err := parseExternalRuleMapInto(merged, path+".rules", store)
-        if err != nil {
-          return err
-        }
-        store.entries = append(store.entries, ConfigEntry{
-          BaseDir: localBaseDir,
-          Files:   files,
-          Ignores: ignores,
-          Rules:   parsed,
-        })
-        return nil
-      }
-      if len(files) == 0 && len(ignores) > 0 {
-        store.entries = append(store.entries, ConfigEntry{
-          BaseDir:    localBaseDir,
-          Ignores:    ignores,
-          IgnoreOnly: true,
-        })
-      }
-      return nil
+    if strings.TrimSpace(extendsStr) == "" {
+      return fmt.Errorf("@ttsc/lint: %s.extends must not be empty", path)
     }
-    parsed, err := parseExternalRuleMapInto(typed, path, store)
+    location := extendsStr
+    if !filepath.IsAbs(location) {
+      location = filepath.Join(baseDir, location)
+    }
+    location = filepath.Clean(location)
+    extendedChain, err := appendExtendsLink(chain, location)
     if err != nil {
       return err
     }
-    store.entries = append(store.entries, ConfigEntry{
-      BaseDir: baseDir,
-      Rules:   parsed,
-    })
-    return nil
-  default:
-    return fmt.Errorf("@ttsc/lint: %s must be an object or flat config array, got %T", path, raw)
-  }
-}
-
-func collectExternalExtends(store *ConfigStore, raw any, baseDir, path string, allowRuntimeOnly bool) error {
-  switch typed := raw.(type) {
-  case string:
-    if allowRuntimeOnly {
-      store.eslintRuntime = true
-      store.eslintRuntimeRequired = true
-      return nil
+    extendedRaw, err := loadConfigFile(location)
+    if err != nil {
+      return err
     }
-    return fmt.Errorf("@ttsc/lint: %s must be an object or flat config array, got %T", path, raw)
-  case []any:
-    for i, item := range typed {
-      itemPath := fmt.Sprintf("%s[%d]", path, i)
-      if _, ok := item.(string); ok && allowRuntimeOnly {
-        store.eslintRuntime = true
-        store.eslintRuntimeRequired = true
-        continue
+    if err := collectConfigObject(store, extendedRaw, filepath.Dir(location), path+".extends", extendedChain); err != nil {
+      return err
+    }
+  }
+
+  files, err := parsePatternList(obj["files"], path+".files")
+  if err != nil {
+    return err
+  }
+  ignores, err := parsePatternList(obj["ignores"], path+".ignores")
+  if err != nil {
+    return err
+  }
+
+  rulesValue, hasRules := obj["rules"]
+  formatValue, hasFormat := obj["format"]
+  if hasRules || hasFormat {
+    // Expand the format block (if any) into a rules-shaped map, then
+    // overlay any explicit `rules` entries. `rules`-wins semantics: a
+    // `rules` entry that names a `format/*` rule fully replaces the
+    // entry expanded from the `format` block.
+    var formatRulesRaw map[string]any
+    if hasFormat {
+      formatMap, ok := formatValue.(map[string]any)
+      if !ok {
+        return fmt.Errorf("@ttsc/lint: %s.format must be an object, got %T", path, formatValue)
       }
-      if err := collectExternalConfigEntries(store, item, baseDir, itemPath, allowRuntimeOnly); err != nil {
+      expanded, err := expandFormatBlock(formatMap)
+      if err != nil {
         return err
       }
+      formatRulesRaw = expanded
+    }
+    var rulesMap map[string]any
+    if hasRules {
+      typedMap, ok := rulesValue.(map[string]any)
+      if !ok {
+        return fmt.Errorf("@ttsc/lint: %s.rules must be a rule severity map, got %T", path, rulesValue)
+      }
+      rulesMap = typedMap
+    }
+    merged := mergeRuleMaps(formatRulesRaw, rulesMap)
+    if len(merged) > 0 {
+      parsed, err := parseExternalRuleMapInto(merged, path+".rules", store)
+      if err != nil {
+        return err
+      }
+      store.entries = append(store.entries, ConfigEntry{
+        BaseDir: baseDir,
+        Files:   files,
+        Ignores: ignores,
+        Rules:   parsed,
+      })
     }
     return nil
-  default:
-    return collectExternalConfigEntries(store, raw, baseDir, path, allowRuntimeOnly)
   }
+
+  if len(files) == 0 && len(ignores) > 0 {
+    store.entries = append(store.entries, ConfigEntry{
+      BaseDir:    baseDir,
+      Ignores:    ignores,
+      IgnoreOnly: true,
+    })
+  }
+  return nil
 }
 
 // parseExternalRuleMapInto parses the rules map and folds any
@@ -643,7 +606,7 @@ func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleCon
 
 // collectExternalRuleMapWithOptions also records the rule's options blob
 // when the entry is a `[severity, options]` tuple. `opts` may be nil
-// when the caller does not need option capture (legacy paths).
+// when the caller does not need option capture.
 func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw any, path string) error {
   dict, ok := raw.(map[string]any)
   if !ok {
@@ -663,109 +626,24 @@ func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw 
   return nil
 }
 
-// isESLintConfigObject reports whether `value` looks like an ESLint flat-config
-// object (has at least one recognized top-level key). Used to distinguish
-// flat-config objects from bare rules maps during config parsing.
-func isESLintConfigObject(value map[string]any) bool {
-  for _, key := range []string{
-    "basePath",
-    "extends",
-    "files",
-    "format",
-    "ignores",
-    "languageOptions",
-    "linterOptions",
-    "name",
-    "plugins",
-    "processor",
-    "rules",
-    "settings",
-    "__ttscLintEslintRuntime",
-  } {
-    if _, ok := value[key]; ok {
-      return true
+// rejectUnknownConfigKeys surfaces typos in top-level config-file keys at the
+// boundary rather than silently ignoring them. The key set mirrors
+// `ITtscLintConfig` exactly.
+func rejectUnknownConfigKeys(value map[string]any, path string) error {
+  allowed := map[string]struct{}{
+    "files":   {},
+    "ignores": {},
+    "extends": {},
+    "plugins": {},
+    "rules":   {},
+    "format":  {},
+  }
+  for key := range value {
+    if _, ok := allowed[key]; !ok {
+      return fmt.Errorf("@ttsc/lint: %s has unknown key %q; a lint config file must be an ITtscLintConfig object (files, ignores, extends, plugins, rules, format)", path, key)
     }
   }
-  return false
-}
-
-// hasESLintRuntimeFields reports whether `value` contains keys that require the
-// JS ESLint runtime to evaluate: languageOptions, linterOptions, processor,
-// settings, or a plugins map that is not purely native contributors.
-func hasESLintRuntimeFields(value map[string]any) bool {
-  for _, key := range []string{
-    "languageOptions",
-    "linterOptions",
-    "processor",
-    "settings",
-  } {
-    if _, ok := value[key]; ok {
-      return true
-    }
-  }
-  if plugins, ok := value["plugins"]; ok {
-    if !isNativePluginMap(plugins) {
-      return true
-    }
-  }
-  return false
-}
-
-// isNativePluginMap reports whether every entry in a flat-config
-// `plugins` map points at a ttsc-lint native contributor object
-// (carrying a non-empty string `source` field). Native contributors are
-// compiled into the lint binary at build time and require no JS ESLint
-// runtime; only mixed or pure-ESLint plugin maps require the runtime
-// fallback.
-func isNativePluginMap(value any) bool {
-  dict, ok := value.(map[string]any)
-  if !ok {
-    return false
-  }
-  if len(dict) == 0 {
-    return true
-  }
-  for _, entry := range dict {
-    if !isNativePluginValue(entry) {
-      return false
-    }
-  }
-  return true
-}
-
-func isNativePluginValue(entry any) bool {
-  if entry == nil {
-    return false
-  }
-  switch typed := entry.(type) {
-  case string:
-    // A non-empty string is a native npm specifier (matching the JS
-    // factory's `normalizePluginValue` contract for `.js`/`.cjs`/`.ts`
-    // configs and the JSON-only `readJsonConfigPlugins` path). The JS
-    // factory resolves the specifier at load time and bakes the
-    // contributor into the binary, so the Go sidecar should not flip
-    // `eslintRuntimeRequired` for a file that already declared a
-    // native specifier.
-    return typed != ""
-  case map[string]any:
-    // Walk ESM-from-CJS `.default` indirection so a contributor authored
-    // as `export default plugin` registers as native here, matching the
-    // JS factory's `extractPluginSource` behavior.
-    current := typed
-    for i := 0; i < 4; i++ {
-      if source, ok := current["source"].(string); ok && source != "" {
-        return true
-      }
-      next, ok := current["default"].(map[string]any)
-      if !ok {
-        return false
-      }
-      current = next
-    }
-    return false
-  default:
-    return false
-  }
+  return nil
 }
 
 // normalizeExternalRuleName strips the standard typescript-eslint namespace
@@ -807,10 +685,9 @@ func parsePatternList(raw any, path string) ([]string, error) {
   }
 }
 
-// LoadRuleConfig resolves the lint config for one plugin entry. The only
-// accepted lint-specific tsconfig key is `config`; it may be either an inline
-// rules object or a string path to a standalone config file. Relative config
-// paths are resolved from the tsconfig directory.
+// LoadRuleConfig resolves the lint config for one plugin entry and flattens it
+// to a plain RuleConfig (no glob scoping). Used by callers and tests that only
+// need a project-wide severity map.
 func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, error) {
   resolver, err := LoadConfigResolver(entry, cwd, tsconfigPath)
   if err != nil {
@@ -826,22 +703,17 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
   }
 }
 
-// LoadConfigResolver resolves one plugin entry into the engine-facing
-// config model.
+// LoadConfigResolver resolves one plugin entry into the engine-facing config
+// model.
 //
-// Two equivalent input shapes are accepted:
+// The tsconfig plugin entry carries exactly one optional lint-specific key:
+// `configFile`, a path (relative to the tsconfig directory, or absolute) to
+// the lint config file. When `configFile` is set, that file is loaded; when it
+// is absent, a `lint.config.*` / `ttsc-lint.config.*` file is discovered by
+// walking upward from the tsconfig directory.
 //
-//   - `rules` (inline severity map) + `extends` (config file path) —
-//     the canonical fields mirroring ESLint flat-config vocabulary.
-//   - `config` (legacy) — accepts the same string-or-map values but
-//     emits a one-time stderr deprecation notice. Removed in a future
-//     minor.
-//
-// `rules` and `extends` are mutually exclusive on a single plugin
-// entry; mixing legacy `config` with either new field is rejected.
-// `configFile` and `configPath` remain reserved keywords surfaced with
-// a hint pointing at `extends`, in case a user mistakenly reaches for
-// either spelling.
+// All rules, format options, and contributor plugins live in the config file
+// itself — the tsconfig entry has no inline rule/format/plugin surface.
 func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResolver, error) {
   if entry == nil {
     return RuleConfig{}, nil
@@ -850,102 +722,17 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
   if inline == nil {
     inline = map[string]any{}
   }
-  for _, key := range []string{"configFile", "configPath"} {
-    if _, ok := inline[key]; ok {
-      return nil, fmt.Errorf("@ttsc/lint: %q is not supported; use \"extends\"", key)
-    }
-  }
 
-  rulesValue, hasRules := inline["rules"]
-  extendsValue, hasExtends := inline["extends"]
-  legacyValue, hasLegacy := inline["config"]
-  formatValue, hasFormat := inline["format"]
-
-  if hasLegacy && (hasRules || hasExtends || hasFormat) {
-    sibling := ""
-    switch {
-    case hasFormat && !hasRules && !hasExtends:
-      sibling = "format"
-    case hasExtends && !hasRules && !hasFormat:
-      sibling = "extends"
-    case hasRules && !hasExtends && !hasFormat:
-      sibling = "rules"
-    default:
-      sibling = "rules/extends/format"
-    }
-    return nil, fmt.Errorf("@ttsc/lint: tsconfig plugin entry mixes legacy \"config\" with the new %q field; remove \"config\" (deprecated)", sibling)
-  }
-  if hasRules && hasExtends {
-    return nil, fmt.Errorf("@ttsc/lint: \"rules\" and \"extends\" cannot be combined on a single plugin entry; put base rules in the \"extends\" file and inline overrides in lint.config.ts itself")
-  }
-  if hasFormat && hasExtends {
-    return nil, fmt.Errorf("@ttsc/lint: \"format\" and \"extends\" cannot be combined on a single plugin entry; put format options inside the extends-target lint.config.ts instead")
-  }
-
-  // Expand the format block (if any) into a rules-shaped map.
-  var formatRulesRaw map[string]any
-  if hasFormat {
-    formatMap, ok := formatValue.(map[string]any)
+  if configFileValue, ok := inline["configFile"]; ok {
+    configFile, ok := configFileValue.(string)
     if !ok {
-      return nil, fmt.Errorf("@ttsc/lint: \"format\" must be an object, got %T", formatValue)
+      return nil, fmt.Errorf("@ttsc/lint: \"configFile\" must be a string path, got %T", configFileValue)
     }
-    expanded, err := expandFormatBlock(formatMap)
-    if err != nil {
-      return nil, err
+    if strings.TrimSpace(configFile) == "" {
+      return nil, fmt.Errorf("@ttsc/lint: \"configFile\" must not be empty")
     }
-    formatRulesRaw = expanded
-  }
-
-  if hasRules || hasFormat {
-    // Merge format defaults with inline rule overrides; the `rules`
-    // entry wins on key collisions (more explicit surface).
-    var rulesMap map[string]any
-    if hasRules {
-      typed, ok := rulesValue.(map[string]any)
-      if !ok {
-        return nil, fmt.Errorf("@ttsc/lint: \"rules\" must be a rule severity map, got %T", rulesValue)
-      }
-      rulesMap = typed
-    }
-    merged := mergeRuleMaps(formatRulesRaw, rulesMap)
-    if len(merged) == 0 {
-      return InlineRuleResolver{Rules: RuleConfig{}, Options: RuleOptionsMap{}}, nil
-    }
-    cfg, opts, err := ParseRulesWithOptions(merged)
-    if err != nil {
-      return nil, err
-    }
-    return InlineRuleResolver{Rules: cfg, Options: opts}, nil
-  }
-  if hasExtends {
-    extendsStr, ok := extendsValue.(string)
-    if !ok {
-      return nil, fmt.Errorf("@ttsc/lint: \"extends\" must be a string path, got %T", extendsValue)
-    }
-    if strings.TrimSpace(extendsStr) == "" {
-      return nil, fmt.Errorf("@ttsc/lint: \"extends\" must not be empty")
-    }
-    location := resolveConfigFilePath(extendsStr, cwd, tsconfigPath)
-    return loadExternalConfigResolver(location)
-  }
-  if hasLegacy {
-    emitLegacyConfigDeprecation()
-    switch typed := legacyValue.(type) {
-    case string:
-      if strings.TrimSpace(typed) == "" {
-        return nil, fmt.Errorf("@ttsc/lint: legacy \"config\" must not be empty")
-      }
-      location := resolveConfigFilePath(typed, cwd, tsconfigPath)
-      return loadExternalConfigResolver(location)
-    case map[string]any:
-      cfg, opts, err := ParseRulesWithOptions(typed)
-      if err != nil {
-        return nil, err
-      }
-      return InlineRuleResolver{Rules: cfg, Options: opts}, nil
-    default:
-      return nil, fmt.Errorf("@ttsc/lint: legacy \"config\" must be a string path or object, got %T", legacyValue)
-    }
+    location := resolveConfigFilePath(configFile, cwd, tsconfigPath)
+    return loadConfigResolver(location)
   }
 
   discovered, err := findLintConfigFile(cwd, tsconfigPath)
@@ -953,32 +740,22 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, err
   }
   if discovered == "" {
-    return nil, fmt.Errorf("@ttsc/lint: \"rules\" or \"extends\" is required when no lint.config.*, ttsc-lint.config.*, or supported eslint.config.* file can be discovered (searched upward from %s)", cwd)
+    return nil, fmt.Errorf("@ttsc/lint: no lint.config.* or ttsc-lint.config.* file found (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", cwd)
   }
-  return loadExternalConfigResolver(discovered)
+  return loadConfigResolver(discovered)
 }
 
-var legacyConfigDeprecationOnce sync.Once
-
-func emitLegacyConfigDeprecation() {
-  legacyConfigDeprecationOnce.Do(func() {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint: tsconfig plugin entry \"config\" is deprecated; use \"rules\" for inline severity maps or \"extends\" for a config file path.")
-  })
-}
-
-// loadExternalConfigResolver loads and parses an external config file at
-// `location` into a *ConfigStore and returns it as a RuleResolver. The store's
-// externalConfigPath is set so callers can query WantsESLintRuntime.
-func loadExternalConfigResolver(location string) (RuleResolver, error) {
+// loadConfigResolver loads and parses the lint config file at `location` into
+// a *ConfigStore and returns it as a RuleResolver.
+func loadConfigResolver(location string) (RuleResolver, error) {
   raw, err := loadConfigFile(location)
   if err != nil {
     return nil, err
   }
-  store, err := parseExternalConfigStoreForFile(raw, filepath.Dir(location))
+  store, err := collectConfigStore(raw, filepath.Dir(location), location)
   if err != nil {
     return nil, err
   }
-  store.externalConfigPath = location
   return store, nil
 }
 
@@ -1001,12 +778,6 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
       "ttsc-lint.config.ts",
       "ttsc-lint.config.mts",
       "ttsc-lint.config.cts",
-      "eslint.config.js",
-      "eslint.config.mjs",
-      "eslint.config.cjs",
-      "eslint.config.ts",
-      "eslint.config.mts",
-      "eslint.config.cts",
     } {
       candidate := filepath.Join(dir, name)
       if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
@@ -1018,7 +789,7 @@ func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
       for _, m := range matches {
         names = append(names, filepath.Base(m))
       }
-      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s (%s); set \"extends\" explicitly", dir, strings.Join(names, ", "))
+      return "", fmt.Errorf("@ttsc/lint: multiple lint config files found in %s (%s); set \"configFile\" explicitly", dir, strings.Join(names, ", "))
     }
     if len(matches) == 1 {
       return matches[0], nil
@@ -1103,8 +874,8 @@ func loadJSONConfigFile(location string) (any, error) {
   if err := json.Unmarshal(body, &out); err != nil {
     return nil, fmt.Errorf("@ttsc/lint: parse config file %s: %w", location, err)
   }
-  if !isConfigContainer(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an object or flat config array", location)
+  if !isConfigObject(out) {
+    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
   }
   return out, nil
 }
@@ -1140,8 +911,8 @@ const { pathToFileURL } = require("node:url");
     break;
   }
   const value = typeof current === "function" ? await current() : current;
-  if (value === null || typeof value !== "object") {
-    throw new Error("config file must export an object or flat config array");
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("config file must export an ITtscLintConfig object");
   }
   process.stdout.write(JSON.stringify(toSerializableConfig(value)));
 })().catch((error) => {
@@ -1149,114 +920,18 @@ const { pathToFileURL } = require("node:url");
   process.exit(1);
 });
 
+// toSerializableConfig copies every ITtscLintConfig key onto a plain object so
+// it survives the JSON round trip to the Go sidecar. Every key is copied
+// verbatim — files, ignores, extends, plugins, rules, AND format — so a config
+// whose only key is ` + "`" + `format` + "`" + ` is not silently dropped.
 function toSerializableConfig(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => toSerializableConfig(item));
-  }
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  if (isESLintConfigObject(value)) {
-    const out = {};
-    if (hasESLintRuntimeFields(value)) {
-      out.__ttscLintEslintRuntime = true;
+  const out = {};
+  for (const key of ["files", "ignores", "extends", "plugins", "rules", "format"]) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      out[key] = value[key];
     }
-    if (Object.prototype.hasOwnProperty.call(value, "basePath")) {
-      out.basePath = value.basePath;
-    }
-    if (Object.prototype.hasOwnProperty.call(value, "extends")) {
-      out.extends = toSerializableConfig(value.extends);
-    }
-    if (Object.prototype.hasOwnProperty.call(value, "files")) {
-      out.files = toSerializablePatterns(value.files, "files");
-    }
-    if (Object.prototype.hasOwnProperty.call(value, "ignores")) {
-      out.ignores = toSerializablePatterns(value.ignores, "ignores");
-    }
-    if (Object.prototype.hasOwnProperty.call(value, "rules")) {
-      out.rules = toSerializableRules(value.rules);
-    }
-    return out;
   }
-  return { rules: toSerializableRules(value) };
-}
-
-function toSerializableRules(value) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("rules must be an object");
-  }
-  return Object.fromEntries(Object.entries(value));
-}
-
-function toSerializablePatterns(value, key) {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item, index) => {
-      if (typeof item !== "string") {
-        throw new Error(key + "[" + index + "] must be a string");
-      }
-      return item;
-    });
-  }
-  throw new Error(key + " must be a string or string array");
-}
-
-function isESLintConfigObject(value) {
-  return [
-    "basePath",
-    "extends",
-    "files",
-    "ignores",
-    "languageOptions",
-    "linterOptions",
-    "name",
-    "plugins",
-    "processor",
-    "rules",
-    "settings",
-  ].some((key) => Object.prototype.hasOwnProperty.call(value, key));
-}
-
-function hasESLintRuntimeFields(value) {
-  for (const key of ["languageOptions", "linterOptions", "processor", "settings"]) {
-    if (Object.prototype.hasOwnProperty.call(value, key)) return true;
-  }
-  if (Object.prototype.hasOwnProperty.call(value, "plugins")) {
-    if (!isNativePluginMap(value.plugins)) return true;
-  }
-  return false;
-}
-
-function isNativePluginMap(value) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const entries = Object.values(value);
-  if (entries.length === 0) return true;
-  for (const entry of entries) {
-    if (!isNativePluginValue(entry)) return false;
-  }
-  return true;
-}
-
-function isNativePluginValue(entry) {
-  // A non-empty string is a native specifier — JS factory resolves it
-  // at load time, so the loader must not flip the ESLint-runtime flag.
-  if (typeof entry === "string") return entry.length > 0;
-  if (entry === null || typeof entry !== "object") return false;
-  let current = entry;
-  for (let i = 0; i < 4; i++) {
-    if (typeof current.source === "string" && current.source.length > 0) {
-      return true;
-    }
-    if (current.default === null || typeof current.default !== "object") {
-      return false;
-    }
-    current = current.default;
-  }
-  return false;
+  return out;
 }
 `
   node := os.Getenv("TTSC_NODE_BINARY")
@@ -1284,8 +959,8 @@ function isNativePluginValue(entry) {
   if err := json.Unmarshal(output, &out); err != nil {
     return nil, fmt.Errorf("@ttsc/lint: parse config file %s output: %w", location, err)
   }
-  if !isConfigContainer(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an object or flat config array", location)
+  if !isConfigObject(out) {
+    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
   }
   return out, nil
 }
@@ -1327,6 +1002,15 @@ func loadTypeScriptConfigFile(location string) (any, error) {
     "--project", tsconfig,
     "--cwd", tempDir,
     "--cache-dir", filepath.Join(tempDir, "cache"),
+    // The loader only needs to type-check and execute the user's
+    // `*.config.ts`; it must NOT load the host project's transform /
+    // check plugins. Discovering them (`@nestia/core`, `typia`, …)
+    // would run their project checks against this ephemeral loader
+    // tsconfig — which is deliberately lenient (`strict: false`) — so a
+    // plugin like `@nestia/core` that demands strict mode would fail
+    // the build and abort config evaluation. `--no-plugins` makes the
+    // ttsx build hermetic.
+    "--no-plugins",
   }
   if tsgo := os.Getenv("TTSC_TSGO_BINARY"); tsgo != "" {
     args = append(args, "--binary", tsgo)
@@ -1355,22 +1039,19 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   if err := json.Unmarshal(output, &out); err != nil {
     return nil, fmt.Errorf("@ttsc/lint: parse TypeScript config file %s output: %w", location, err)
   }
-  if !isConfigContainer(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an object or flat config array", location)
+  if !isConfigObject(out) {
+    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
   }
   return out, nil
 }
 
-// isConfigContainer reports whether `value` is a top-level config container
-// (an object or flat-config array). Scalar values are rejected so users get a
-// clear error instead of an opaque parse failure downstream.
-func isConfigContainer(value any) bool {
-  switch value.(type) {
-  case []any, map[string]any:
-    return true
-  default:
-    return false
-  }
+// isConfigObject reports whether `value` is a top-level config object. A lint
+// config file always exports a single `ITtscLintConfig` object; arrays and
+// scalars are rejected so users get a clear error instead of an opaque parse
+// failure downstream.
+func isConfigObject(value any) bool {
+  _, ok := value.(map[string]any)
+  return ok
 }
 
 // relativeImportSpecifier computes the ESM import specifier for `location`
@@ -1405,8 +1086,8 @@ declare const process: {
 
 try {
   const value = await resolveConfig(importedConfig, true);
-  if (!isObject(value)) {
-    throw new Error("config file must export an object or flat config array");
+  if (!isObject(value) || Array.isArray(value)) {
+    throw new Error("config file must export an ITtscLintConfig object");
   }
   process.stdout.write(JSON.stringify(toSerializableConfig(value)));
 } catch (error) {
@@ -1443,126 +1124,18 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
 
-function toSerializableConfig(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => toSerializableConfig(item));
-  }
-  if (!isObject(value)) {
-    return value;
-  }
-  if (isESLintConfigObject(value)) {
-    const out: Record<string, unknown> = {};
-    if (hasESLintRuntimeFields(value)) {
-      out.__ttscLintEslintRuntime = true;
+// toSerializableConfig copies every ITtscLintConfig key onto a plain object so
+// it survives the JSON round trip to the Go sidecar. Every key is copied
+// verbatim — files, ignores, extends, plugins, rules, AND format — so a config
+// whose only key is "format" is not silently dropped.
+function toSerializableConfig(value: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of ["files", "ignores", "extends", "plugins", "rules", "format"]) {
+    if (hasOwn(value, key)) {
+      out[key] = value[key];
     }
-    if (hasOwn(value, "basePath")) {
-      out.basePath = value.basePath;
-    }
-    if (hasOwn(value, "extends")) {
-      out.extends = toSerializableConfig(value.extends);
-    }
-    if (hasOwn(value, "files")) {
-      out.files = toSerializablePatterns(value.files, "files");
-    }
-    if (hasOwn(value, "ignores")) {
-      out.ignores = toSerializablePatterns(value.ignores, "ignores");
-    }
-    if (hasOwn(value, "rules")) {
-      out.rules = toSerializableRules(value.rules);
-    }
-    return out;
   }
-  return { rules: toSerializableRules(value) };
-}
-
-function toSerializableRules(value: unknown): Record<string, unknown> {
-  if (!isObject(value) || Array.isArray(value)) {
-    throw new Error("rules must be an object");
-  }
-  return Object.fromEntries(Object.entries(value));
-}
-
-function toSerializablePatterns(value: unknown, key: string): string | string[] {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((item, index) => {
-      if (typeof item !== "string") {
-        throw new Error(key + "[" + index + "] must be a string");
-      }
-      return item;
-    });
-  }
-  throw new Error(key + " must be a string or string array");
-}
-
-function isESLintConfigObject(value: Record<string, unknown>): boolean {
-  return [
-    "basePath",
-    "extends",
-    "files",
-    "ignores",
-    "languageOptions",
-    "linterOptions",
-    "name",
-    "plugins",
-    "processor",
-    "rules",
-    "settings",
-  ].some((key) => hasOwn(value, key));
-}
-
-function hasESLintRuntimeFields(value: Record<string, unknown>): boolean {
-  for (const key of ["languageOptions", "linterOptions", "processor", "settings"]) {
-    if (hasOwn(value, key)) return true;
-  }
-  if (hasOwn(value, "plugins")) {
-    const plugins = value.plugins;
-    if (!isNativePluginMap(plugins)) return true;
-  }
-  return false;
-}
-
-// isNativePluginMap reports whether every entry of a plugins map points
-// at a ttsc-lint native contributor (an object with a string "source"
-// field). Native plugins are compiled into the lint binary at build
-// time, so their presence does NOT require the JavaScript ESLint
-// runtime; only mixed or pure-ESLint plugin maps do.
-function isNativePluginMap(value: unknown): boolean {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const entries = Object.values(value as Record<string, unknown>);
-  if (entries.length === 0) return true;
-  for (const entry of entries) {
-    if (!isNativePluginValue(entry)) return false;
-  }
-  return true;
-}
-
-function isNativePluginValue(entry: unknown): boolean {
-  // A non-empty string is a native specifier — see the matching Go-side
-  // and JS-loader implementations.
-  if (typeof entry === "string") return entry.length > 0;
-  if (entry === null || typeof entry !== "object") return false;
-  // ESM-from-CJS interop wraps CJS modules' "exports.default" so a
-  // contributor authored as "export default plugin" lands under a
-  // ".default" indirection. Walk a few hops so both "export default"
-  // and plain "module.exports = plugin" contributors register as
-  // native here.
-  let current = entry as Record<string, unknown>;
-  for (let i = 0; i < 4; i++) {
-    if (typeof current.source === "string" && (current.source as string).length > 0) {
-      return true;
-    }
-    const next = current.default;
-    if (next === null || typeof next !== "object" || Array.isArray(next)) {
-      return false;
-    }
-    current = next as Record<string, unknown>;
-  }
-  return false;
+  return out;
 }
 `, importLiteral)
 }
@@ -1740,11 +1313,8 @@ func setEnv(env []string, key, value string) []string {
   return append(env, prefix+value)
 }
 
-// parseExternalRuleEntry delegates to parseRuleEntry. Both the inline
-// (tsconfig) and external (flat-config file) paths accept exactly the
-// same severity-tuple grammar, so a single implementation suffices.
-// The name is preserved because test files in the same package call it
-// directly.
+// parseExternalRuleEntry delegates to parseRuleEntry. It is kept under this
+// name because test files in the same package call it directly.
 func parseExternalRuleEntry(v any) (Severity, json.RawMessage, error) {
   return parseRuleEntry(v)
 }

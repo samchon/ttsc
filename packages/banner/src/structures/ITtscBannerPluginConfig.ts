@@ -6,12 +6,11 @@ export interface ITtscBannerPluginConfig {
   /** Plugin module specifier. */
   transform?: string;
 
-  /** Inline banner text. */
-  text?: string;
-
-  /** Path to `banner.config.*`, resolved from the selected tsconfig directory. */
-  config?: string;
-
-  /** Extra plugin-owned fields are passed through unchanged. */
-  [key: string]: unknown;
+  /**
+   * Path to a `banner.config.*` file, resolved from the directory that contains
+   * the tsconfig. When omitted, `@ttsc/banner` walks up from that directory and
+   * uses the first `banner.config.{ts,cts,mts,js,cjs,mjs,json}` file it finds.
+   * Any other key in this entry is rejected with an error.
+   */
+  configFile?: string;
 }

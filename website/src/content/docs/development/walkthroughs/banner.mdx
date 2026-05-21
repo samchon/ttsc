@@ -18,12 +18,14 @@ Given a project that opts into `@ttsc/banner`:
 
 ```ts
 // banner.config.ts
-import type { TtscBannerConfig } from "@ttsc/banner";
+import type { ITtscBannerConfig } from "@ttsc/banner";
 
 export default {
   text: "License MIT\nCopyright 2026 Example Corp",
-} satisfies TtscBannerConfig;
+} satisfies ITtscBannerConfig;
 ```
+
+A `banner.config.*` file always exports an object with a `text` string.
 
 Running `npx ttsc --emit` produces:
 
@@ -41,7 +43,7 @@ export const value = 1;
 
 The same `@packageDocumentation` block lands at the top of every emitted file: `.js`, `.d.ts`, `.mjs`, `.cjs`, etc.
 
-The consumer can also pass `text` inline on the `compilerOptions.plugins` entry, or point at a specific config file with `config: "./path/to/banner.config.ts"`. If neither is given, `@ttsc/banner` walks upward from the tsconfig directory looking for `banner.config.{js,cjs,mjs,ts,mts,cts}`.
+`@ttsc/banner` walks upward from the tsconfig directory looking for `banner.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry: `{ "transform": "@ttsc/banner", "configFile": "./path/to/banner.config.ts" }`.
 
 If nothing is configured, the build fails — `@ttsc/banner` deliberately refuses to silently insert nothing.
 
@@ -53,8 +55,8 @@ packages/banner/
 ├── src/
 │   ├── index.ts              ← JS descriptor — compiled to lib/index.js
 │   └── structures/
+│       ├── ITtscBannerConfig.ts
 │       ├── ITtscBannerPluginConfig.ts
-│       ├── TtscBannerConfig.ts
 │       └── index.ts
 ├── go.mod                    ← Go module declaration for the sidecar
 ├── driver/
@@ -103,9 +105,23 @@ type TtscPluginFactoryContext<TConfig> = {
   tsconfig: string;
 };
 
+// Keys the ttsc host injects into every plugin entry — not banner-owned.
+const FRAMEWORK_KEYS = new Set(["enabled", "name", "stage", "transform"]);
+
 export default function createTtscBanner(
-  _context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
+  context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
 ): TtscPluginDescriptor {
+  // The only banner-specific key the tsconfig entry accepts is `configFile`.
+  const entry = context.plugin as Record<string, unknown>;
+  for (const key of Object.keys(entry)) {
+    if (!FRAMEWORK_KEYS.has(key) && key !== "configFile") {
+      throw new Error(
+        `@ttsc/banner: tsconfig plugin entry contains unsupported key ` +
+          `${JSON.stringify(key)}. Banner options must be placed in a ` +
+          `banner.config.* file; the tsconfig entry accepts only "configFile".`,
+      );
+    }
+  }
   return {
     name: "@ttsc/banner",
     source: path.resolve(__dirname, "..", "driver"),
@@ -114,13 +130,13 @@ export default function createTtscBanner(
 }
 ```
 
-Three load-bearing lines:
+Three load-bearing lines in the returned descriptor:
 
 - `name: "@ttsc/banner"` — optional diagnostic label. Routing is not based on this value.
 - `source: path.resolve(__dirname, "..", "driver")` — absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
 - `stage: "transform"` — declares this plugin participates in the AST transform path. The host will spawn `transform`, `build`, and `check` subcommands. Omit `stage` and you get the same default.
 
-The factory takes a `TtscPluginFactoryContext` parameter but ignores it — banner has no factory-time decisions to make. Other plugins use it to specialise at descriptor creation time: `context.tsconfig` is the absolute path of the active tsconfig, `context.cwd` is the resolved project directory, and `context.plugin` is the original `compilerOptions.plugins[i]` entry (typed by your plugin's option interface). `@ttsc/lint`'s factory reads `context.plugin.extends` and `context.plugin.plugins` to discover contributor packages; banner has nothing analogous to do.
+The factory's one piece of factory-time work is validating `context.plugin` — the original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context — `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory — banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
 
 Defining `TtscPluginDescriptor` and `TtscPluginFactoryContext` inline (instead of importing them from `ttsc`) keeps banner's `package.json` free of a `ttsc` dependency in the published tarball. The shapes are stable; copying them is the documented escape hatch ([Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc)).
 
@@ -305,10 +321,9 @@ The full transform code lives in [`packages/banner/driver/banner.go`](https://gi
 
 1. **`init`** calls `driver.RegisterPlugin(plugin{})`, making this package visible to whichever native host links it.
 2. **`SourcePreamble(ctx driver.PluginContext)`** receives the paired project plugin entry and calls `parseBanner(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)`.
-3. **`parseBanner`** delegates to **`resolveBannerText`** for the actual three-source resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
-    - `config["text"]` inline string;
-    - `config["config"]` path to a `banner.config.*` file;
-    - upward filesystem walk from the tsconfig directory looking for any `banner.config.{js,cjs,mjs,ts,mts,cts}`.
+3. **`parseBanner`** delegates to **`resolveBannerText`** for config resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
+    - `config["configFile"]` path to a `banner.config.*` file (explicit override);
+    - upward filesystem walk from the tsconfig directory looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
 4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program *already contains* the JSDoc block at offset 0 — the printer round-trips it naturally.
 5. **`makeSourcePreambleWriteFile`** in the generic host wraps `tsgo`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsgo generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
 

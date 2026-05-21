@@ -7,14 +7,11 @@
     "rootDir": "src",
     "plugins": [
       {
-        "transform": "@ttsc/lint",
-        "rules": {
-          "eqeqeq": "warning",
-          "no-var": "error",
-          "prefer-const": "error"
-        }
+        "transform": "@ttsc/lint"
       }
     ]
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

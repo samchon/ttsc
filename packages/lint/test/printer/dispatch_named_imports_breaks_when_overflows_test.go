@@ -24,7 +24,8 @@ func TestDispatchNamedImportsBreaksWhenOverflows(t *testing.T) {
   opts := DefaultPrintOptions()
   opts.PrintWidth = 20
   ctx := NewPrintContext(file, opts)
-  got := Print(printNamedImports(ctx, node), ctx.Opts)
+  doc, _ := printNamedImports(ctx, node)
+  got := Print(doc, ctx.Opts)
   want := "{\n  alpha,\n  bravo,\n  charlie,\n  delta,\n  echo,\n}"
   if got != want {
     t.Fatalf("broken named imports mismatch:\nwant %q\ngot  %q", want, got)

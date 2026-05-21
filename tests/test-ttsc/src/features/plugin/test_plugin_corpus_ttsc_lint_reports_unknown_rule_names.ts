@@ -4,7 +4,6 @@ import {
   assert,
   fs,
   goPath,
-  os,
   path,
   setupLintProject,
   spawn,
@@ -19,7 +18,8 @@ import {
  * keeps the build non-fatal so a future rule enabled in CI does not break
  * developers on an older binary version that lacks it.
  *
- * 1. Configure a project with the nonexistent rule `made-up-rule: error`.
+ * 1. Configure a project with the nonexistent rule `made-up-rule: error` in
+ *    `lint.config.json`.
  * 2. Run ttsc with `--noEmit`.
  * 3. Assert zero exit and `ignoring unknown rule "made-up-rule"` in stderr.
  */
@@ -34,17 +34,14 @@ export const test_plugin_corpus_ttsc_lint_reports_unknown_rule_names = () => {
         strict: true,
         outDir: "dist",
         rootDir: "src",
-        plugins: [
-          {
-            transform: "@ttsc/lint",
-            config: {
-              "made-up-rule": "error",
-            },
-          },
-        ],
+        plugins: [{ transform: "@ttsc/lint" }],
       },
       include: ["src"],
     }),
+  );
+  fs.writeFileSync(
+    path.join(root, "lint.config.json"),
+    JSON.stringify({ rules: { "made-up-rule": "error" } }),
   );
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),

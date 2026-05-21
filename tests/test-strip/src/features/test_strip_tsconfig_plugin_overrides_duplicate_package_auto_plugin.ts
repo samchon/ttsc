@@ -15,12 +15,12 @@ import { TestStrip } from "../internal/TestStrip";
  * once with the explicit config and once with the default config — which could
  * strip calls the user explicitly chose to keep.
  *
- * 1. Create a project whose tsconfig configures the plugin to strip only
- *    `console.warn`, while `package.json` also lists `@ttsc/strip` (default
- *    config would additionally strip `console.log`).
+ * 1. Create a project whose tsconfig references a `strip.config.json` that strips
+ *    only `console.warn`, while `package.json` also lists `@ttsc/strip`
+ *    (default config would additionally strip `console.log`).
  * 2. Run `ttsc --emit`.
  * 3. Assert `console.log("keep-log")` is present in the output and `console.warn`
- *    is absent — confirming only the tsconfig config ran.
+ *    is absent — confirming only the tsconfig-entry config ran.
  */
 export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin =
   () => {
@@ -32,10 +32,14 @@ export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin 
           `export const value = "explicit";`,
           ``,
         ].join("\n"),
+        "strip.config.json": JSON.stringify({
+          calls: ["console.warn"],
+          statements: [],
+        }),
       },
       {
         compilerOptions: {
-          plugins: [{ transform: "@ttsc/strip", calls: ["console.warn"] }],
+          plugins: [{ transform: "@ttsc/strip" }],
         },
       },
     );

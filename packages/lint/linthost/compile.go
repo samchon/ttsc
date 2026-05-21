@@ -112,14 +112,12 @@ func RunTransform(args []string) int {
   }
   engine := NewEngineWithResolver(rules)
 
-  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  if !externalRan {
-    warnUnknownRules(os.Stderr, engine.UnknownRules())
-  }
+  warnUnknownRules(os.Stderr, engine.UnknownRules())
   if errors := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, resolvedCwd); errors > 0 {
     return 2
   }
@@ -287,14 +285,12 @@ func runProject(opts *subcommandOpts) int {
   }
   engine := NewEngineWithResolver(rules)
 
-  astDiags, lintDiags, externalRan, err := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  if !externalRan {
-    warnUnknownRules(os.Stderr, engine.UnknownRules())
-  }
+  warnUnknownRules(os.Stderr, engine.UnknownRules())
   if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
     return 2
   }
@@ -346,8 +342,9 @@ func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
 }
 
 // warnUnknownRules writes one warning line per name in `unknown` to `w`.
-// Called after engine construction when no external ESLint process handled
-// the run (the external runner surfaces its own unknown-rule warnings).
+// Called after engine construction so a config that names a rule the native
+// engine does not implement surfaces a loud warning instead of silently
+// linting nothing for that rule.
 func warnUnknownRules(w io.Writer, unknown []string) {
   for _, name := range unknown {
     fmt.Fprintf(w, "@ttsc/lint: ignoring unknown rule %q\n", name)
@@ -392,7 +389,7 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
 // collectDiagnostics merges tsgo typecheck diagnostics with the lint
 // engine's findings. The renderer takes the two slices and walks them in
 // source order, so we don't need to interleave here.
-func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, bool, error) {
+func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, error) {
   astDiags := prog.programDiagnostics()
   files := prog.userSourceFiles()
   findings := engine.Run(files, prog.checker)
@@ -411,68 +408,7 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
       fmt.Sprintf("[%s] %s", finding.Rule, finding.Message),
     ))
   }
-  if externalDiags, ran, err := runExternalESLintDiagnostics(engine.config, prog.cwd, files); err != nil {
-    return nil, nil, false, err
-  } else if ran {
-    return astDiags, mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags), true, nil
-  }
-  return astDiags, nativeDiags, false, nil
-}
-
-// mergeNativeAndExternalDiagnostics combines native lint findings with
-// external ESLint diagnostics. Any native diagnostic whose rule name also
-// appears in the external set is dropped to avoid duplicate reporting —
-// the external runner's output is authoritative for rules it covered.
-func mergeNativeAndExternalDiagnostics(nativeDiags, externalDiags []*shimdw.LintDiagnostic) []*shimdw.LintDiagnostic {
-  if len(nativeDiags) == 0 {
-    return externalDiags
-  }
-  if len(externalDiags) == 0 {
-    return nativeDiags
-  }
-  externalRules := make(map[string]struct{})
-  for _, diag := range externalDiags {
-    if rule := canonicalLintRule(lintDiagnosticRule(diag)); rule != "" {
-      externalRules[rule] = struct{}{}
-    }
-  }
-  out := make([]*shimdw.LintDiagnostic, 0, len(nativeDiags)+len(externalDiags))
-  for _, diag := range nativeDiags {
-    rule := canonicalLintRule(lintDiagnosticRule(diag))
-    if _, exists := externalRules[rule]; rule != "" && exists {
-      continue
-    }
-    out = append(out, diag)
-  }
-  return append(out, externalDiags...)
-}
-
-// lintDiagnosticRule extracts the rule name from the `[rule-name]` prefix
-// that `collectDiagnostics` injects into every lint diagnostic message.
-// Returns "" when the message does not follow the expected format.
-func lintDiagnosticRule(diag *shimdw.LintDiagnostic) string {
-  if diag == nil {
-    return ""
-  }
-  message := diag.Message()
-  if !strings.HasPrefix(message, "[") {
-    return ""
-  }
-  end := strings.Index(message, "]")
-  if end <= 1 {
-    return ""
-  }
-  return message[1:end]
-}
-
-// canonicalLintRule trims ESLint namespace prefixes from `rule` so that
-// `no-var`, `@typescript-eslint/no-var`, and `typescript-eslint/no-var`
-// all compare equal during deduplication.
-func canonicalLintRule(rule string) string {
-  rule = strings.TrimSpace(rule)
-  rule = strings.TrimPrefix(rule, "@typescript-eslint/")
-  rule = strings.TrimPrefix(rule, "typescript-eslint/")
-  return rule
+  return astDiags, nativeDiags, nil
 }
 
 // RuleCode hashes a rule name into a stable, positive int32 so the

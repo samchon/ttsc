@@ -266,18 +266,12 @@ importers:
       '@types/node':
         specifier: catalog:utils
         version: 25.6.0
-      eslint:
-        specifier: ^10.3.0
-        version: 10.3.0(jiti@2.6.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-      typescript-eslint:
-        specifier: ^8.59.2
-        version: 8.59.2(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.3)
 
   tests/test-paths:
     devDependencies:

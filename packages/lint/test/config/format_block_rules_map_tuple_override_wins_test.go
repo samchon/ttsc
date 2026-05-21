@@ -20,20 +20,17 @@ import (
 //  2. Override via `rules: { "format/print-width": ["error", { "printWidth": 120 }] }`.
 //  3. Assert the resolved options carry `printWidth=120`, not 80.
 func TestFormatBlockRulesMapTupleOverrideWins(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "format": map[string]any{"severity": "warning", "printWidth": 80},
-      "rules": map[string]any{
-        "format/print-width": []any{
-          "error",
-          map[string]any{"printWidth": 120},
-        },
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"severity": "warning", "printWidth": 80},
+    "rules": map[string]any{
+      "format/print-width": []any{
+        "error",
+        map[string]any{"printWidth": 120},
       },
     },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   if got := resolver.EnabledRuleConfig()["format/print-width"]; got != SeverityError {
     t.Errorf("severity want error, got %v", got)

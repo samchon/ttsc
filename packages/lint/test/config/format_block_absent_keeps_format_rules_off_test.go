@@ -11,20 +11,17 @@ import "testing"
 // without an explicit block would silently rewrite source on
 // `ttsc format` for every existing project.
 //
-//  1. Build a plugin entry with `rules: { "no-var": "error" }` only.
-//  2. Resolve.
+//  1. Build an `ITtscLintConfig` object with `rules: { "no-var": "error" }` only.
+//  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert no `format/*` rule is enabled.
 func TestFormatBlockAbsentKeepsFormatRulesOff(t *testing.T) {
-  entry := &PluginEntry{
-    Config: map[string]any{
-      "rules": map[string]any{
-        "no-var": "error",
-      },
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "rules": map[string]any{
+      "no-var": "error",
     },
-  }
-  resolver, err := LoadConfigResolver(entry, "/virtual", "")
+  }, "")
   if err != nil {
-    t.Fatalf("LoadConfigResolver: %v", err)
+    t.Fatalf("parseExternalConfigStore: %v", err)
   }
   enabled := resolver.EnabledRuleConfig()
   for name := range enabled {

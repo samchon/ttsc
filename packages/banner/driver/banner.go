@@ -1,6 +1,7 @@
 package banner
 
 import (
+  "bytes"
   "encoding/json"
   "fmt"
   "os"
@@ -24,6 +25,35 @@ var (
   // writeConfigLoaderFile is overridable in tests to avoid real file I/O.
   writeConfigLoaderFile = os.WriteFile
 )
+
+// frameworkKeys lists the tsconfig plugin-entry keys that the ttsc host
+// framework owns. They are accepted without error; all other keys are rejected.
+var frameworkKeys = map[string]struct{}{
+  "enabled":   {},
+  "name":      {},
+  "stage":     {},
+  "transform": {},
+}
+
+// validateBannerConfig rejects any tsconfig plugin entry key that is not a
+// known framework key and is not the single banner-specific "configFile" key.
+func validateBannerConfig(config map[string]any) error {
+  for key := range config {
+    if _, ok := frameworkKeys[key]; ok {
+      continue
+    }
+    if key == "configFile" {
+      continue
+    }
+    return fmt.Errorf(
+      "@ttsc/banner: tsconfig plugin entry contains unsupported key %q. "+
+        "Banner options must be placed in a banner.config.{ts,cts,mts,js,cjs,mjs,json} file. "+
+        "The only accepted key in the tsconfig entry is \"configFile\" (optional path to the config file).",
+      key,
+    )
+  }
+  return nil
+}
 
 // SourcePreamble resolves the banner text from the plugin config and returns it
 // formatted as a JSDoc block comment suitable for prepending to each emitted file.
@@ -60,18 +90,22 @@ func parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error
 }
 
 // resolveBannerText extracts the banner text from the plugin config.
-// It tries, in order: inline "text" key, explicit "config" path, auto-discovered
-// banner.config.* file. Returns an error when none of these sources provides text.
+// The config entry is validated first: only the "configFile" key (plus
+// framework keys) is accepted. When "configFile" is present its value is
+// resolved to an absolute path and loaded. When absent the upward-walk
+// discovery is used. Returns an error when the config is invalid or when
+// no banner text can be found.
 func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string, error) {
-  if text, ok, err := bannerTextFromConfigValue(config["text"], `"text"`); ok || err != nil {
-    return text, err
+  if err := validateBannerConfig(config); err != nil {
+    return "", err
   }
-  if rawConfigPath, ok := config["config"]; ok {
-    configPath, ok := rawConfigPath.(string)
-    if !ok || strings.TrimSpace(configPath) == "" {
-      return "", fmt.Errorf("@ttsc/banner: \"config\" must be a non-empty string path")
+
+  if rawConfigFile, ok := config["configFile"]; ok {
+    configFile, ok := rawConfigFile.(string)
+    if !ok || strings.TrimSpace(configFile) == "" {
+      return "", fmt.Errorf("@ttsc/banner: \"configFile\" must be a non-empty string path")
     }
-    location := resolveBannerConfigPath(configPath, cwd, tsconfigPath)
+    location := resolveBannerConfigPath(configFile, cwd, tsconfigPath)
     raw, err := loadBannerConfigFile(location)
     if err != nil {
       return "", err
@@ -81,16 +115,17 @@ func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string,
       return "", err
     }
     if !ok {
-      return "", fmt.Errorf("@ttsc/banner: %s must export a non-empty string or an object with a non-empty \"text\" string", location)
+      return "", fmt.Errorf("@ttsc/banner: %s must export an object with a non-empty \"text\" string", location)
     }
     return text, nil
   }
+
   location, err := findBannerConfigFile(cwd, tsconfigPath)
   if err != nil {
     return "", err
   }
   if location == "" {
-    return "", fmt.Errorf("@ttsc/banner: \"text\" must be a non-empty string or a banner.config.{js,cjs,mjs,ts,mts,cts} file must exist")
+    return "", fmt.Errorf("@ttsc/banner: no banner.config.{ts,cts,mts,js,cjs,mjs,json} file found; create one or set \"configFile\" in the tsconfig plugin entry")
   }
   raw, err := loadBannerConfigFile(location)
   if err != nil {
@@ -101,36 +136,30 @@ func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string,
     return "", err
   }
   if !ok {
-    return "", fmt.Errorf("@ttsc/banner: %s must export a non-empty string or an object with a non-empty \"text\" string", location)
+    return "", fmt.Errorf("@ttsc/banner: %s must export an object with a non-empty \"text\" string", location)
   }
   return text, nil
 }
 
 // bannerTextFromConfigValue extracts a banner text string from a config value.
-// raw may be a string, a map with a "text" key, or nil (not present).
-// Returns (text, true, nil) on success, ("", false, nil) when absent, or
-// ("", true, err) / ("", false, err) on a type mismatch. label is used in
-// error messages and should describe the config source (e.g. "\"text\"").
+// A banner config value must be an object with a non-empty "text" string; raw
+// may also be nil (not present). Returns (text, true, nil) on success,
+// ("", false, nil) when absent, or ("", true, err) on a type mismatch. label is
+// used in error messages and is the config file's base name (e.g.
+// "banner.config.json").
 func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   if raw == nil {
     return "", false, nil
   }
-  text, ok := raw.(string)
-  if ok {
-    if strings.TrimSpace(text) == "" {
-      return "", true, fmt.Errorf("@ttsc/banner: %s must be a non-empty string", label)
-    }
-    return text, true, nil
-  }
   object, ok := raw.(map[string]any)
   if !ok {
-    return "", true, fmt.Errorf("@ttsc/banner: %s must be a string or an object with a non-empty \"text\" string", label)
+    return "", true, fmt.Errorf("@ttsc/banner: %s must be an object with a non-empty \"text\" string", label)
   }
   rawText, ok := object["text"]
   if !ok {
     return "", false, nil
   }
-  text, ok = rawText.(string)
+  text, ok := rawText.(string)
   if !ok || strings.TrimSpace(text) == "" {
     return "", true, fmt.Errorf("@ttsc/banner: %s.text must be a non-empty string", label)
   }
@@ -138,14 +167,15 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
 }
 
 // findBannerConfigFile walks up from the tsconfig (or cwd) directory looking for
-// a banner.config.{js,cjs,mjs,ts,cts,mts} file. Returns the path when exactly
+// a banner.config.{ts,cts,mts,js,cjs,mjs,json} file. Returns the path when exactly
 // one match is found per directory, "" when none exists at any level, or an
 // error when multiple candidates exist in the same directory.
 func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := discoveryConfigBaseDir(cwd, tsconfigPath)
+  dir := tsconfigBaseDir(cwd, tsconfigPath)
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
+      "banner.config.json",
       "banner.config.js",
       "banner.config.cjs",
       "banner.config.mjs",
@@ -159,7 +189,14 @@ func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
       }
     }
     if len(matches) > 1 {
-      return "", fmt.Errorf("@ttsc/banner: multiple banner.config.* files found in %s", dir)
+      names := make([]string, len(matches))
+      for i, match := range matches {
+        names[i] = filepath.Base(match)
+      }
+      return "", fmt.Errorf(
+        "@ttsc/banner: multiple banner config files found in %s (%s); set \"configFile\" explicitly in the tsconfig plugin entry",
+        dir, strings.Join(names, ", "),
+      )
     }
     if len(matches) == 1 {
       return matches[0], nil
@@ -183,7 +220,8 @@ func resolveBannerConfigPath(configPath, cwd, tsconfigPath string) string {
 }
 
 // tsconfigBaseDir returns the directory that contains the tsconfig file, or cwd
-// when tsconfigPath is empty. Used as the base for resolving explicit config paths.
+// when tsconfigPath is empty. It is the base both for resolving an explicit
+// `configFile` path and for starting the upward banner-config-file search.
 func tsconfigBaseDir(cwd, tsconfigPath string) string {
   if tsconfigPath == "" {
     return cwd
@@ -195,30 +233,20 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
   return filepath.Dir(resolvedTsconfig)
 }
 
-// discoveryConfigBaseDir returns the starting directory for the upward banner
-// config file search. Semantically identical to tsconfigBaseDir; kept separate
-// to make the call sites self-documenting.
-func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
-  if tsconfigPath != "" {
-    resolvedTsconfig := tsconfigPath
-    if !filepath.IsAbs(resolvedTsconfig) {
-      resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
-    }
-    return filepath.Dir(resolvedTsconfig)
-  }
-  return cwd
-}
-
 // loadBannerConfigFile loads and evaluates a banner config file, returning its
-// exported value as a Go any (string or map[string]any). The file must be named
-// banner.config.{js,cjs,mjs,ts,cts,mts}; JS/CJS/MJS variants run under Node,
-// TypeScript variants compile and run via ttsx in a temp directory.
+// exported value as a Go any. A valid banner config exports an object with a
+// "text" string; the value is validated by bannerTextFromConfigValue. The file
+// must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}; JS/CJS/MJS variants
+// run under Node, TypeScript variants compile and run via ttsx in a temp
+// directory, and JSON files are parsed natively.
 func loadBannerConfigFile(location string) (any, error) {
   if !isBannerConfigFileName(filepath.Base(location)) {
-    return nil, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{js,cjs,mjs,ts,mts,cts}: %s", location)
+    return nil, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}: %s", location)
   }
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
+  case ".json":
+    return loadBannerJSONConfigFile(location)
   case ".js", ".cjs", ".mjs":
     return loadBannerScriptConfigFile(location)
   }
@@ -228,7 +256,8 @@ func loadBannerConfigFile(location string) (any, error) {
 // isBannerConfigFileName reports whether name is an allowed banner config file name.
 func isBannerConfigFileName(name string) bool {
   switch name {
-  case "banner.config.js",
+  case "banner.config.json",
+    "banner.config.js",
     "banner.config.cjs",
     "banner.config.mjs",
     "banner.config.ts",
@@ -238,6 +267,24 @@ func isBannerConfigFileName(name string) bool {
   default:
     return false
   }
+}
+
+// loadBannerJSONConfigFile reads and JSON-parses a banner config file. A leading
+// UTF-8 BOM is stripped before parsing so files saved by Windows editors are
+// accepted. The parsed value must be an object with a non-empty "text" string.
+func loadBannerJSONConfigFile(location string) (any, error) {
+  body, err := os.ReadFile(location)
+  if err != nil {
+    return nil, fmt.Errorf("@ttsc/banner: read config file %s: %w", location, err)
+  }
+  // Strip a leading UTF-8 BOM so files saved by Windows editors round
+  // trip through json.Unmarshal without an opaque "invalid character" failure.
+  body = bytes.TrimPrefix(body, []byte{0xEF, 0xBB, 0xBF})
+  var out any
+  if err := json.Unmarshal(body, &out); err != nil {
+    return nil, fmt.Errorf("@ttsc/banner: parse config file %s: %w", location, err)
+  }
+  return out, nil
 }
 
 // loadBannerScriptConfigFile evaluates a JS/CJS/MJS banner config file by
@@ -258,13 +305,10 @@ const { pathToFileURL } = require("node:url");
 });
 
 function toSerializableBanner(value) {
-  if (typeof value === "string") {
-    return value;
-  }
   if (value !== null && typeof value === "object" && typeof value.text === "string") {
     return { text: value.text };
   }
-  throw new Error("config file must export a string or an object with a text string");
+  throw new Error("config file must export an object with a non-empty \"text\" string");
 }
 `
   node := os.Getenv("TTSC_NODE_BINARY")
@@ -293,7 +337,9 @@ function toSerializableBanner(value) {
 
 // loadBannerTypeScriptConfigFile compiles and runs a TypeScript banner config
 // file using ttsx in a temp directory. A symlink to the nearest node_modules
-// is created so the config file can import its own dependencies.
+// is created so the config file can import its own dependencies. The ttsx
+// build runs with `--no-plugins` so evaluating the config never triggers the
+// host project's transform/check plugins against the loader tsconfig.
 func loadBannerTypeScriptConfigFile(location string) (any, error) {
   tempDir, err := os.MkdirTemp("", "ttsc-banner-config-")
   if err != nil {
@@ -323,6 +369,7 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
     "--project", tsconfig,
     "--cwd", tempDir,
     "--cache-dir", filepath.Join(tempDir, "cache"),
+    "--no-plugins",
   }
   if tsgo := os.Getenv("TTSC_TSGO_BINARY"); tsgo != "" {
     args = append(args, "--binary", tsgo)
@@ -407,13 +454,10 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 }
 
 function toSerializableBanner(value: unknown): unknown {
-  if (typeof value === "string") {
-    return value;
-  }
   if (isObject(value) && typeof value.text === "string") {
     return { text: value.text };
   }
-  throw new Error("config file must export a string or an object with a text string");
+  throw new Error("config file must export an object with a non-empty \"text\" string");
 }
 `, importLiteral)
 }

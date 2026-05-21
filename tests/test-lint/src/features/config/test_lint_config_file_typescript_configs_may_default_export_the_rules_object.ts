@@ -1,16 +1,15 @@
 import { SOURCE, assert, runLint } from "../../internal/config-file";
 
 /**
- * Verifies that a `.ts` lint config may default-export a bare rules map
- * (without wrapping it in `{ rules: ... }`).
+ * Verifies that a `.ts` lint config default-exports an `ITtscLintConfig` object
+ * evaluated through ttsx.
  *
- * Pins the TypeScript config bare-export coercion path via ttsx. The loader
- * must recognise a plain object whose keys look like rule names as a flat rules
- * map. This is the simplest possible TypeScript config shape and should work
- * regardless of whether the user wraps rules in an `ITtscLintConfig`
- * structure.
+ * Pins the generic TypeScript config loader path. The loader spawns ttsx,
+ * type-checks and transpiles the config, then reads the default export's
+ * `rules` map. This is the simplest TypeScript config shape.
  *
- * 1. Materialise a fixture with a `.ts` config that bare-exports a rules map.
+ * 1. Materialise a fixture with a `.ts` config that default-exports `{ rules: {
+ *    ... } }`.
  * 2. Run ttsc; assert `no-var` fires from the loaded config.
  */
 export const test_lint_config_file_typescript_configs_may_default_export_the_rules_object =
@@ -19,12 +18,14 @@ export const test_lint_config_file_typescript_configs_may_default_export_the_rul
       name: "config-file-ts",
       source: SOURCE,
       pluginConfig: {
-        config: "./ttsc-lint.config.ts",
+        configFile: "./ttsc-lint.config.ts",
       },
       extraSources: {
         "ttsc-lint.config.ts": `export default {
-        "no-var": "error",
-        "no-console": "off",
+        rules: {
+          "no-var": "error",
+          "no-console": "off",
+        },
       };\n`,
       },
     });

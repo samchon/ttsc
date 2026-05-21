@@ -23,7 +23,8 @@ func TestDispatchImportDeclarationThreadsClauses(t *testing.T) {
   file := parseTS(t, "import { a } from \"x\";\n")
   node := firstNodeOfKind(t, file, shimast.KindImportDeclaration)
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  got := Print(printImportDeclaration(ctx, node), ctx.Opts)
+  doc, _ := printImportDeclaration(ctx, node)
+  got := Print(doc, ctx.Opts)
   if got != "import { a } from \"x\";" {
     t.Fatalf("import declaration mismatch: %q", got)
   }

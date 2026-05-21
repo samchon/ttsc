@@ -31,7 +31,7 @@ func TestCommandRunsTransform(t *testing.T) {
 
   // Transform assertion: stdout is the command contract here, and the banner
   // must already be visible before JavaScript emit.
-  code, stdout, stderr := runPlugin(t, "transform", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, "transform banner"))
+  code, stdout, stderr := runPlugin(t, "transform", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+bannerManifest(t, root, "transform banner"))
   if code != 0 || stderr != "" {
     t.Fatalf("transform branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }

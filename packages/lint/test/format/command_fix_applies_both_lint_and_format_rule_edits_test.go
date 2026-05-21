@@ -21,14 +21,15 @@ import (
 //  3. Assert both kinds of edits land and the final exit code is zero.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
+  seedLintRules(t, root, map[string]string{
+    "format/semi": "error",
+    "no-var":      "error",
+  })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "fix",
       "--cwd", root,
-      "--plugins-json", lintManifest(t, map[string]string{
-        "format/semi": "error",
-        "no-var":      "error",
-      }),
+      "--plugins-json", lintManifest(t),
     })
   })
   if code != 0 || stdout != "" || stderr != "" {

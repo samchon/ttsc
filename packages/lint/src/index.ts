@@ -69,43 +69,43 @@ const LINT_CONFIG_FILENAMES = [
   "ttsc-lint.config.cjs",
   "ttsc-lint.config.js",
   "ttsc-lint.config.json",
-  "eslint.config.ts",
-  "eslint.config.mts",
-  "eslint.config.cts",
-  "eslint.config.mjs",
-  "eslint.config.cjs",
-  "eslint.config.js",
 ];
+
+/**
+ * Tsconfig plugin-entry keys owned by the ttsc host framework. They are
+ * accepted alongside the single lint-specific `configFile` key; every other key
+ * is rejected so a stale inline option (`rules`, `format`, `extends`, legacy
+ * `config`, `plugins`) surfaces as a clear migration error instead of being
+ * silently ignored. Mirrors `@ttsc/banner` and `@ttsc/strip`.
+ */
+const FRAMEWORK_KEYS = new Set<string>([
+  "enabled",
+  "name",
+  "stage",
+  "transform",
+]);
 
 /**
  * Plugin descriptor factory consumed by ttsc package discovery.
  *
- * Two discovery surfaces feed the descriptor's `contributors` field:
+ * Contributor lint plugins come from one place: the project's lint config file
+ * (`lint.config.{ts,cts,mts,js,cjs,mjs,json}` or `ttsc-lint.config.*`). The
+ * tsconfig plugin entry carries no rule or plugin surface — it optionally names
+ * the config file via `configFile`, otherwise the file is discovered by walking
+ * upward from the tsconfig directory.
  *
- * 1. The tsconfig plugin entry's `plugins` map — namespace → npm specifier. Inline
- *    for projects that prefer to keep everything in `tsconfig.json`.
- * 2. The companion `lint.config.{ts,cts,mts,js,cjs,mjs,json}` (or
- *    `eslint.config.*`) file — an object with an in-memory `plugins: { ns:
- *    pluginObject }` map. The factory evaluates the config (via ttsx for TS /
- *    ESM sources, `require` for CommonJS, `JSON.parse` for JSON) and reads the
- *    `plugins` field.
- *
- * Contributions from both sources are merged with the tsconfig entry winning on
- * namespace collisions, so a project can opt into a hand-curated subset of an
- * external `lint.config.ts` by overriding specific namespaces in
- * `tsconfig.json`.
+ * The factory locates the config file, evaluates it (via ttsx for TS / ESM
+ * sources, `require` for CommonJS, `JSON.parse` for JSON), reads its `plugins`
+ * map, and forwards each contributor's Go source directory to ttsc's plugin
+ * builder via the descriptor's `contributors` field.
  *
  * @internal
  */
 export default function createTtscPlugin(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): TtscPluginDescriptor {
-  const inline = resolveInlineContributors(context);
-  const fromConfig = resolveConfigFileContributors(
-    context,
-    inline.map((c) => c.name),
-  );
-  const contributors = [...inline, ...fromConfig];
+  rejectUnsupportedEntryKeys(context.plugin);
+  const contributors = resolveConfigFileContributors(context);
   // Build the descriptor without a `contributors` key when none were
   // declared, so consumers (and the existing key-shape regression
   // tests) see the same surface as before this feature shipped.
@@ -118,60 +118,6 @@ export default function createTtscPlugin(
     descriptor.contributors = contributors;
   }
   return descriptor;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// tsconfig-inline `plugins` map (the original MVP path)
-// ────────────────────────────────────────────────────────────────────────────
-
-function resolveInlineContributors(
-  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
-): TtscPluginContributor[] {
-  const declared = (context.plugin as { plugins?: unknown }).plugins;
-  if (declared === undefined) return [];
-  if (
-    typeof declared !== "object" ||
-    declared === null ||
-    Array.isArray(declared)
-  ) {
-    throw new Error(
-      `@ttsc/lint: "plugins" in tsconfig plugin entry must be an object map of namespace → package specifier`,
-    );
-  }
-  const out: TtscPluginContributor[] = [];
-  // Track the post-`goSubpackageName` form so `a-b` and `a_b` are
-  // caught as colliding aliases before they reach the downstream
-  // contributor validator's opaque `duplicate name "a_b"` error.
-  // (`Object.entries` cannot itself surface duplicate string keys, so
-  // a verbatim-namespace guard is unreachable.)
-  const seenGoNames = new Map<string, string>();
-  for (const [namespace, specifier] of Object.entries(declared)) {
-    if (!NAMESPACE_PATTERN.test(namespace)) {
-      throw new Error(
-        `@ttsc/lint: contributor namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_-]*$/`,
-      );
-    }
-    if (typeof specifier !== "string" || specifier.length === 0) {
-      throw new Error(
-        `@ttsc/lint: contributor ${JSON.stringify(namespace)} must point at a non-empty package specifier or path`,
-      );
-    }
-    const goName = goSubpackageName(namespace);
-    const earlier = seenGoNames.get(goName);
-    if (earlier !== undefined) {
-      throw new Error(
-        `@ttsc/lint: contributor namespaces ${JSON.stringify(earlier)} and ${JSON.stringify(namespace)} both map to Go sub-package ${JSON.stringify(goName)}; pick one form (hyphens collapse to underscores for the Go identifier)`,
-      );
-    }
-    seenGoNames.set(goName, namespace);
-    const plugin = loadContributorPluginViaRequire(
-      specifier,
-      context,
-      namespace,
-    );
-    out.push({ name: goName, source: plugin.source });
-  }
-  return out;
 }
 
 function loadContributorPluginViaRequire(
@@ -218,42 +164,41 @@ function loadContributorPluginViaRequire(
 // lint.config.* discovery + evaluation
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Plugin entries observed in the flat-config file, normalized per file. */
+/** Plugin entries observed in a lint config file, normalized per file. */
 type ConfigPluginEntry = { namespace: string; source: string };
 
+/**
+ * Resolves the contributor lint plugins declared in the project's lint config
+ * file.
+ *
+ * - When the tsconfig plugin entry sets `configFile`, that exact file is loaded.
+ * - Otherwise a `lint.config.*` / `ttsc-lint.config.*` file is discovered by
+ *   walking upward from the tsconfig directory.
+ *
+ * Returns an empty array when no config file is set or discovered — the Go
+ * sidecar surfaces the missing-config error; the factory only needs to forward
+ * contributors when a config file is present.
+ */
 function resolveConfigFileContributors(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
-  inlineNames: readonly string[],
 ): TtscPluginContributor[] {
-  // Read the new `rules` / `extends` fields with a one-time fallback to
-  // the legacy `config` field. The legacy fallback warns once per
-  // ttsc invocation so existing tsconfigs keep working through the
-  // deprecation window without crashing CI.
-  const { hasInlineRules, extendsPath } = readSeverityConfig(context);
-  if (hasInlineRules) {
-    // Inline rules → no lint.config.* file involved. Skip discovery so
-    // we don't pull in plugins from an unrelated file.
-    return [];
-  }
-
+  const configFile = readConfigFileOption(context);
   const configPath =
-    extendsPath !== undefined
-      ? path.resolve(tsconfigBaseDir(context), extendsPath)
+    configFile !== undefined
+      ? path.resolve(tsconfigBaseDir(context), configFile)
       : findLintConfigFile(context);
   if (!configPath || !fs.existsSync(configPath)) return [];
 
   const entries = readConfigPluginEntries(configPath, context);
-  // Dedup against the Go-subpackage form (post hyphen→underscore
-  // transform). The inline arm has already applied `goSubpackageName`
-  // when it produced `inlineNames`, so comparing on the original
-  // hyphenated namespace would always miss for hyphenated namespaces
-  // and emit a colliding contributor that `validatePluginContributors`
-  // later rejects as a duplicate name.
-  const occupied = new Set(inlineNames);
+  // Dedup on the Go-subpackage form (post hyphen→underscore transform)
+  // so two namespaces that collapse to the same Go identifier surface
+  // here instead of as the contributor validator's opaque
+  // `duplicate name "a_b"` error.
+  const occupied = new Set<string>();
   const out: TtscPluginContributor[] = [];
   for (const entry of entries) {
     const goName = goSubpackageName(entry.namespace);
-    if (occupied.has(goName)) continue; // tsconfig inline wins
+    if (occupied.has(goName)) continue;
     occupied.add(goName);
     out.push({ name: goName, source: entry.source });
   }
@@ -261,76 +206,39 @@ function resolveConfigFileContributors(
 }
 
 /**
- * Resolves the inline-rule vs file-path split between the new `rules` /
- * `extends` fields and the legacy `config` field.
- *
- * - `rules` (object) routes the discovery loop away from any `lint.config.*` file
- *   — the inline map is authoritative.
- * - `extends` (string) routes the file walk to a fixed path.
- * - `config` (legacy) silently maps onto the equivalent new field. The
- *   user-facing deprecation notice is emitted by the Go sidecar so that a
- *   single ttsc invocation prints exactly one warning regardless of how many
- *   entry points (JS factory, Go binary) parse the same key.
- * - Mixing legacy and new keys, or mixing `rules` with `extends`, is rejected
- *   outright so users don't end up with silent precedence surprises.
+ * Rejects any tsconfig plugin-entry key that is neither a host framework key
+ * nor the single lint-specific `configFile` key. Rule, format, and plugin
+ * settings live only in the lint config file, so a leftover inline key is
+ * surfaced as an explicit migration error rather than silently ignored.
  */
-function readSeverityConfig(
+function rejectUnsupportedEntryKeys(entry: ITtscLintPluginConfig): void {
+  for (const key of Object.keys(entry as Record<string, unknown>)) {
+    if (FRAMEWORK_KEYS.has(key) || key === "configFile") {
+      continue;
+    }
+    throw new Error(
+      `@ttsc/lint: tsconfig plugin entry contains unsupported key ${JSON.stringify(key)}. ` +
+        `Rules, format, and plugin settings must live in a ` +
+        `lint.config.{ts,cts,mts,js,cjs,mjs,json} file. The only accepted key ` +
+        `in the tsconfig entry is "configFile" (optional path to the config file).`,
+    );
+  }
+}
+
+/**
+ * Reads the optional `configFile` key from the tsconfig plugin entry. It is the
+ * only lint-specific key the entry accepts; when present it overrides
+ * auto-discovery of the lint config file.
+ */
+function readConfigFileOption(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
-): { hasInlineRules: boolean; extendsPath: string | undefined } {
-  const entry = context.plugin as Record<string, unknown>;
-  const rules = entry.rules;
-  const extendsRaw = entry.extends;
-  const legacy = entry.config;
-  const hasNewRules = rules !== undefined;
-  const hasExtends = extendsRaw !== undefined;
-  const hasLegacy = legacy !== undefined;
-
-  if (hasLegacy && (hasNewRules || hasExtends)) {
-    throw new Error(
-      `@ttsc/lint: tsconfig plugin entry mixes legacy "config" with the new "rules"/"extends" fields; remove "config" (deprecated)`,
-    );
+): string | undefined {
+  const value = (context.plugin as { configFile?: unknown }).configFile;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`@ttsc/lint: "configFile" must be a non-empty string path`);
   }
-  if (hasNewRules && hasExtends) {
-    throw new Error(
-      `@ttsc/lint: "rules" and "extends" cannot be combined on a single plugin entry; put base rules in the "extends" file and inline overrides in lint.config.ts itself`,
-    );
-  }
-
-  if (hasNewRules) {
-    if (typeof rules !== "object" || rules === null || Array.isArray(rules)) {
-      const actual = Array.isArray(rules)
-        ? "array"
-        : rules === null
-          ? "null"
-          : typeof rules;
-      throw new Error(
-        `@ttsc/lint: "rules" must be a rule severity map, got ${actual}`,
-      );
-    }
-    return { hasInlineRules: true, extendsPath: undefined };
-  }
-  if (hasExtends) {
-    if (typeof extendsRaw !== "string" || extendsRaw.length === 0) {
-      throw new Error(`@ttsc/lint: "extends" must be a non-empty string path`);
-    }
-    return { hasInlineRules: false, extendsPath: extendsRaw };
-  }
-  if (hasLegacy) {
-    if (
-      typeof legacy === "object" &&
-      legacy !== null &&
-      !Array.isArray(legacy)
-    ) {
-      return { hasInlineRules: true, extendsPath: undefined };
-    }
-    if (typeof legacy === "string" && legacy.length > 0) {
-      return { hasInlineRules: false, extendsPath: legacy };
-    }
-    throw new Error(
-      `@ttsc/lint: legacy "config" must be a non-empty string path or a rule severity map, got ${typeof legacy}`,
-    );
-  }
-  return { hasInlineRules: false, extendsPath: undefined };
+  return value;
 }
 
 function findLintConfigFile(
@@ -592,7 +500,20 @@ function readTtsxConfigPlugins(
     );
 
     const ttsxBinary = process.env.TTSC_TTSX_BINARY ?? "ttsx";
-    const args = ["--project", tsconfigPath, "--cwd", tempDir, loaderPath];
+    // `--no-plugins` keeps this build hermetic: the loader only needs to
+    // type-check and run the user's lint config to extract its plugin
+    // entries. Loading the host project's transform/check plugins
+    // (`@nestia/core`, `typia`, …) would run their project checks
+    // against this deliberately lenient loader tsconfig and fail the
+    // build — e.g. `@nestia/core` rejects the loader's `strict: false`.
+    const args = [
+      "--project",
+      tsconfigPath,
+      "--cwd",
+      tempDir,
+      "--no-plugins",
+      loaderPath,
+    ];
     if (process.env.TTSC_TSGO_BINARY) {
       args.unshift("--binary", process.env.TTSC_TSGO_BINARY);
     }
