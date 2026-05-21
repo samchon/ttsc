@@ -266,18 +266,12 @@ importers:
       '@types/node':
         specifier: catalog:utils
         version: 25.6.0
-      eslint:
-        specifier: ^10.3.0
-        version: 10.3.0(jiti@2.6.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-      typescript-eslint:
-        specifier: ^8.59.2
-        version: 8.59.2(eslint@10.3.0(jiti@2.6.1))(typescript@6.0.3)
 
   tests/test-paths:
     devDependencies:
@@ -469,7 +463,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: next
-        version: 13.0.0-dev.20260520.2(@types/node@20.19.41)
+        version: 13.0.0-dev.20260521.1(@types/node@20.19.41)
     devDependencies:
       '@rspack/cli':
         specifier: ^1.3.0
@@ -5647,8 +5641,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typia@13.0.0-dev.20260520.2:
-    resolution: {integrity: sha512-LkzusCBXsJ+pp3nQgq6zqMC30njQbNUNa9C80Acb/1KBMw9bwG/s8UTieHgZsGmduTFvK+gFOHsCDOWk+8bcIQ==}
+  typia@13.0.0-dev.20260521.1:
+    resolution: {integrity: sha512-W9dVDM/flYoeEg0xaPkAXfIANEKZP8e345An2gTTyOEUENAgS3jBfukNBW7TjkMYvLXEC37KGU1wC/4N2tPHBw==}
     hasBin: true
 
   uc.micro@2.1.0:
@@ -11876,7 +11870,7 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  typia@13.0.0-dev.20260520.2(@types/node@20.19.41):
+  typia@13.0.0-dev.20260521.1(@types/node@20.19.41):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@typia/interface': 13.0.0-dev.20260502-2
