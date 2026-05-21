@@ -43,7 +43,7 @@ export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is
         },
         include: ["src"],
       }),
-      "banner.config.json": JSON.stringify("paths first"),
+      "banner.config.json": JSON.stringify({ text: "paths first" }),
       "strip.config.json": JSON.stringify({
         calls: ["console.log"],
         statements: ["debugger"],

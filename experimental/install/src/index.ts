@@ -127,7 +127,7 @@ function prepareWorkspace() {
   );
   fs.writeFileSync(
     path.join(workspace, "banner.config.json"),
-    JSON.stringify("License MIT", null, 2),
+    JSON.stringify({ text: "License MIT" }, null, 2),
   );
   fs.writeFileSync(
     path.join(workspace, "strip.config.json"),
