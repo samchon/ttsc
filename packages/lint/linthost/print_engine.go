@@ -191,9 +191,10 @@ func Print(doc Doc, opts PrintOptions) string {
       child := Concat(top.doc.Children...)
       stack = append(stack, printFrame{indent: col, mode: top.mode, doc: child})
     case docGroup:
-      // Try flat unless the group contains a hardline.
+      // Try flat unless the group is forced broken or its flat form
+      // would overflow the remaining width.
       child := Concat(top.doc.Children...)
-      if fits(child, opts.PrintWidth-col, top.indent) {
+      if !top.doc.Break && fits(child, opts.PrintWidth-col, top.indent) {
         stack = append(stack, printFrame{indent: top.indent, mode: modeFlat, doc: child})
       } else {
         stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: child})
@@ -322,6 +323,11 @@ func fits(doc Doc, remaining int, indent int) bool {
         stack = append(stack, frame{mode: top.mode, doc: top.doc.Children[i]})
       }
     case docGroup:
+      // A forced-broken group cannot contribute a flat layout; treat it
+      // like a hard line break for the enclosing measurement.
+      if top.doc.Break {
+        return false
+      }
       // Measure nested groups in flat mode too — that is the
       // standard Wadler choice: the outer group's "does my
       // flat form fit" question is answered by treating every
@@ -410,4 +416,55 @@ func fitsFirstLine(doc Doc, remaining int) bool {
     }
   }
   return true
+}
+
+// flatten returns the all-flat rendering of `doc`: every Group rendered
+// flat, every IfBreak resolved to its flat branch, every Line collapsed
+// to a single space and every Softline to nothing. The second result is
+// false when the doc cannot render flat at all — it carries a Hardline,
+// a Literalline, a forced-broken Group, a multi-line Text or a queued
+// LineSuffix — and the caller must then drop the flat layout option.
+func flatten(doc Doc) (Doc, bool) {
+  switch doc.Kind {
+  case docText:
+    if strings.Contains(doc.Text, "\n") {
+      return Doc{}, false
+    }
+    return doc, true
+  case docLine:
+    return Text(" "), true
+  case docNil, docSoftline:
+    return Doc{Kind: docNil}, true
+  case docHardline, docLiteralline, docLineSuffix:
+    return Doc{}, false
+  case docIfBreak:
+    return flatten(doc.Children[1])
+  case docConditionalGroup:
+    if len(doc.Children) == 0 {
+      return Doc{Kind: docNil}, true
+    }
+    return flatten(doc.Children[0])
+  case docGroup:
+    if doc.Break {
+      return Doc{}, false
+    }
+    return flattenChildren(doc.Children)
+  case docConcat, docIndent, docAlign:
+    return flattenChildren(doc.Children)
+  }
+  return doc, true
+}
+
+// flattenChildren flattens each child and concatenates the results,
+// short-circuiting to (zero, false) when any child cannot render flat.
+func flattenChildren(children []Doc) (Doc, bool) {
+  out := make([]Doc, 0, len(children))
+  for _, c := range children {
+    fc, ok := flatten(c)
+    if !ok {
+      return Doc{}, false
+    }
+    out = append(out, fc)
+  }
+  return Concat(out...), true
 }

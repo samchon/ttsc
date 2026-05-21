@@ -97,6 +97,11 @@ type Doc struct {
   Text     string
   Children []Doc
   Width    int
+  // Break, meaningful only on a docGroup, forces the group to render
+  // broken regardless of whether its flat form would fit. A
+  // ConditionalGroup option uses it to commit its last argument — a
+  // hugged object literal — to the multi-line shape.
+  Break bool
   // IfBreak pairs: BreakChild stored in Children[0], FlatChild in Children[1].
 }
 
