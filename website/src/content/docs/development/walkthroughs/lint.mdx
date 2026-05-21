@@ -216,10 +216,11 @@ The `Run*` functions are intentionally thin wrappers; the shared work is in `run
 
 ## Config resolution
 
-The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1400 LOC) because it owns every way a user can declare rules:
+The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1,470 LOC) because it owns every way a user can declare rules:
 
 - **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
 - **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}` — or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
+- **`extends` in a config file**: a `lint.config.*` file may set `extends` to a base config file's path. The base is loaded first, then this file's `plugins`, `rules`, and `format` fields override it. Cyclic and over-deep `extends` chains are rejected with a typed error rather than recursed into.
 - **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 
 The config loader returns a `RuleResolver` interface:
@@ -609,6 +610,7 @@ The TypeScript-side config surface is a plain object. Use `satisfies ITtscLintCo
 import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
+  extends: "./base-lint.config.ts",
   files: ["src/**/*.ts"],
   ignores: ["dist/**"],
   rules: {
@@ -618,7 +620,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`.
+`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
 
 ## What to copy, what to ignore for your own plugin
 
