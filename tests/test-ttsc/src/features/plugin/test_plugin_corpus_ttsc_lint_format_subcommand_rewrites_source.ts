@@ -20,7 +20,8 @@ import {
  * in the `case "format":` switch arm surfaces immediately through this
  * scenario.
  *
- * 1. Materialize a project with one missing-semi violation.
+ * 1. Materialize a project with one missing-semi violation and a
+ *    `lint.config.json` enabling the `format/semi` rule.
  * 2. Run `ttsc format` through the real launcher and source-plugin cache.
  * 3. Assert the source file gains the semicolon and no JavaScript is emitted.
  */
@@ -29,17 +30,13 @@ export const test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source =
     const root = commonJsProject(
       {
         "src/main.ts": `const value = 1\nJSON.stringify(value)\n`,
+        "lint.config.json": JSON.stringify({
+          rules: { "format/semi": "error" },
+        }),
       },
       {
         compilerOptions: {
-          plugins: [
-            {
-              transform: "@ttsc/lint",
-              rules: {
-                "format/semi": "error",
-              },
-            },
-          ],
+          plugins: [{ transform: "@ttsc/lint" }],
         },
       },
     );

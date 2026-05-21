@@ -15,17 +15,10 @@
     "rootDir": "src",
     "plugins": [
       {
-        "transform": "@ttsc/lint",
-        "config": {
-          "no-var": "error",
-          "no-explicit-any": "error",
-          "no-debugger": "off",
-          "no-console": "off"
-        }
+        "transform": "@ttsc/lint"
       },
       {
-        "transform": "@ttsc/banner",
-        "text": "utility combo"
+        "transform": "@ttsc/banner"
       },
       {
         "transform": "@ttsc/paths"

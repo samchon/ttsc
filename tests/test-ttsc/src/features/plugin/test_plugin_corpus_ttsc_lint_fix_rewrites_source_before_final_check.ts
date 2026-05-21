@@ -19,7 +19,8 @@ import {
  * launcher must route fix mode to check-stage plugins, and the lint sidecar
  * must reload the project before reporting remaining diagnostics.
  *
- * 1. Materialize a project with fixable native lint violations.
+ * 1. Materialize a project with fixable native lint violations and a
+ *    `lint.config.json` enabling the offending rules.
  * 2. Run `ttsc fix` through the real launcher and source-plugin cache.
  * 3. Assert the source file is rewritten and no JavaScript output is emitted.
  */
@@ -28,19 +29,17 @@ export const test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check
     const root = commonJsProject(
       {
         "src/main.ts": `var legacy = 1;\nlet stable = legacy;\nif (typeof stable == "number") { JSON.stringify(stable); }\n`,
+        "lint.config.json": JSON.stringify({
+          rules: {
+            eqeqeq: "error",
+            "no-var": "error",
+            "prefer-const": "error",
+          },
+        }),
       },
       {
         compilerOptions: {
-          plugins: [
-            {
-              transform: "@ttsc/lint",
-              rules: {
-                eqeqeq: "error",
-                "no-var": "error",
-                "prefer-const": "error",
-              },
-            },
-          ],
+          plugins: [{ transform: "@ttsc/lint" }],
         },
       },
     );

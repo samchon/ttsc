@@ -40,10 +40,14 @@ export const test_plugin_corpus_ttsc_lint_ignores_future_optional_flags =
           strict: true,
           outDir: "dist",
           rootDir: "src",
-          plugins: [{ transform: "@ttsc/lint", config: {} }],
+          plugins: [{ transform: "@ttsc/lint" }],
         },
         include: ["src"],
       }),
+    );
+    fs.writeFileSync(
+      path.join(root, "lint.config.json"),
+      JSON.stringify({ rules: {} }),
     );
     fs.writeFileSync(
       path.join(root, "src", "main.ts"),

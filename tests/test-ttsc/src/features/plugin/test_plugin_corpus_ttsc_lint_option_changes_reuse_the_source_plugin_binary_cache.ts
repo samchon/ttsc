@@ -22,7 +22,8 @@ import {
  * slow.
  *
  * 1. Run ttsc with `no-var: error` (cold build) and assert the binary is built.
- * 2. Swap the config to `no-explicit-any` and `prefer-template` and run again.
+ * 2. Swap `lint.config.json` to `no-explicit-any` and `prefer-template` and run
+ *    again.
  * 3. Assert no rebuild occurs, JS is emitted to the custom outDir, and only one
  *    binary entry exists in the plugin cache.
  */
@@ -33,20 +34,24 @@ export const test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin
       path.join(root, "src", "main.ts"),
       `export const value: string = "cache-options";\n`,
     );
-    const writeConfig = (config: Record<string, string>) => {
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          outDir: "dist",
+          rootDir: "src",
+          plugins: [{ transform: "@ttsc/lint" }],
+        },
+        include: ["src"],
+      }),
+    );
+    const writeConfig = (rules: Record<string, string>) => {
       fs.writeFileSync(
-        path.join(root, "tsconfig.json"),
-        JSON.stringify({
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            outDir: "dist",
-            rootDir: "src",
-            plugins: [{ transform: "@ttsc/lint", config }],
-          },
-          include: ["src"],
-        }),
+        path.join(root, "lint.config.json"),
+        JSON.stringify({ rules }),
       );
     };
     const cacheDir = TestProject.tmpdir("ttsc-lint-cache-options-");
