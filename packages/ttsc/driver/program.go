@@ -279,7 +279,8 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.Compile
 // phases ttsc layers on top — plugin application and the output rewriter —
 // still run serially against a single pooled checker, which stays valid
 // against the larger pool. Concurrency surfaces only inside each
-// TypeScript-Go phase; see EmitAll for the WriteFile-callback consequence.
+// TypeScript-Go phase; both EmitAll and EmitAllRaw serialize the WriteFile
+// callback under a mutex so the emit-stage rewriter never observes the pool.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
