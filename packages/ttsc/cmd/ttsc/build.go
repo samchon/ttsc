@@ -37,7 +37,13 @@ func runBuild(args []string) int {
   manifestPath := fs.String("manifest", "", "write emitted file list as JSON to this path")
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
+  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
   if err := fs.Parse(args); err != nil {
+    return 2
+  }
+  tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc: %v\n", err)
     return 2
   }
   if *emit && *noEmit {
@@ -64,6 +70,7 @@ func runBuild(args []string) int {
     OutDir:         *outDir,
     SingleThreaded: *singleThreaded,
     Checkers:       *checkers,
+    TsgoArgs:       tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc: %v\n", err)
@@ -138,4 +145,19 @@ func runBuild(args []string) int {
     fmt.Fprintf(stdout, "// ttsc: recognized=%d total=%d rewrites=%d\n", 0, 0, rewrites.Len())
   }
   return 0
+}
+
+// decodeTsgoArgs decodes the JSON-array value of the `--tsgo-args` flag — the
+// tsgo CLI flags the `ttsc` launcher forwarded — into a string slice. An empty
+// flag yields a nil slice. Shared by the build / api-compile / api-transform
+// subcommands, which all hand the result to driver.LoadProgram.
+func decodeTsgoArgs(raw string) ([]string, error) {
+  if raw == "" {
+    return nil, nil
+  }
+  var args []string
+  if err := json.Unmarshal([]byte(raw), &args); err != nil {
+    return nil, fmt.Errorf("invalid --tsgo-args: %w", err)
+  }
+  return args, nil
 }

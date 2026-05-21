@@ -137,6 +137,7 @@ func loadFixProgram(opts *subcommandOpts) (*program, int) {
     outDir:         opts.outDir,
     singleThreaded: opts.singleThreaded,
     checkers:       opts.checkers,
+    tsgoArgs:       opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)

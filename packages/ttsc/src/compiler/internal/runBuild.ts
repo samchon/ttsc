@@ -339,6 +339,7 @@ function createNativeBuildArgs(
     args.push("--quiet");
   }
   args.push(...createNativeThreadingArgs(options));
+  args.push(...createNativeTsgoArgs(options));
   return args;
 }
 
@@ -362,6 +363,7 @@ function createNativeCheckArgs(
     args.push("--quiet");
   }
   args.push(...createNativeThreadingArgs(options));
+  args.push(...createNativeTsgoArgs(options));
   return args;
 }
 
@@ -380,6 +382,21 @@ function createNativeThreadingArgs(options: TtscCommonOptions): string[] {
     args.push("--checkers=" + String(options.checkers));
   }
   return args;
+}
+
+/**
+ * Forward the tsgo flags ttsc did not recognize to a native sidecar as one
+ * JSON-encoded `--tsgo-args` flag. The sidecar replays them through tsgo's own
+ * option parser onto `CompilerOptions`, so a flag like `ttsc --strict` reaches
+ * a plugin build the same way it reaches the plain tsgo lane. Encoded as a
+ * single token so the sidecars' unknown-flag filters keep it intact.
+ */
+function createNativeTsgoArgs(options: TtscCommonOptions): string[] {
+  const passthrough = options.passthrough;
+  if (passthrough === undefined || passthrough.length === 0) {
+    return [];
+  }
+  return ["--tsgo-args=" + JSON.stringify(passthrough)];
 }
 
 /**

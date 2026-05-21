@@ -45,6 +45,11 @@ type loadProgramOptions struct {
   // checkers mirrors `tsgo --checkers`: type-checker pool size. Zero leaves
   // TypeScript-Go's default; ignored when singleThreaded is set.
   checkers int
+  // tsgoArgs carries tsgo CLI flags the `ttsc` launcher forwarded (`--strict`,
+  // `--target es2020`, …). They are parsed through TypeScript-Go's own
+  // command-line parser into a CompilerOptions overlay that wins over the
+  // tsconfig, exactly as tsgo's CLI merges them.
+  tsgoArgs []string
 }
 
 // loadProgram parses the given tsconfig, builds a Program, and acquires a
@@ -69,9 +74,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
+  cliOptions, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  if len(cliDiags) > 0 {
+    return nil, cliDiags, nil
+  }
+
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
     resolved,
-    &shimcore.CompilerOptions{},
+    cliOptions,
     nil,
     host,
     nil,
@@ -195,6 +205,25 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
     return
   }
   parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+}
+
+// parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
+// command-line parser, yielding a CompilerOptions overlay loadProgram merges
+// over the tsconfig — so a flag like `ttsc --strict` reaches the in-process
+// lint program even though @ttsc/lint never shells out to `tsgo`. Returns an
+// empty (non-nil) options value when there are no forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.CompilerOptions, []*shimast.Diagnostic) {
+  if len(args) == 0 {
+    return &shimcore.CompilerOptions{}, nil
+  }
+  cli := tsoptions.ParseCommandLine(args, host)
+  if cli == nil {
+    return &shimcore.CompilerOptions{}, nil
+  }
+  if len(cli.Errors) > 0 {
+    return nil, cli.Errors
+  }
+  return cli.CompilerOptions(), nil
 }
 
 // applyThreading forwards the --singleThreaded / --checkers knobs onto the
