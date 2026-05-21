@@ -56,8 +56,15 @@ npx ttsx -P tsconfig.scripts.json src/seed.ts
 | `--cache-dir <dir>`      | Override the runtime and source-plugin cache root. |
 | `--binary <path>`        | Use an explicit TypeScript-Go binary. |
 | `-r, --require <module>` | Preload a module before the entrypoint. Repeatable. |
+| `--singleThreaded`       | Run TypeScript-Go single-threaded. Mirrors `tsgo --singleThreaded`. |
+| `--checkers <n>`         | Type-checker pool size. Mirrors `tsgo --checkers`. |
 | `-h, --help`             | Show help. |
 | `-v, --version`          | Print the runner version. |
+
+Any flag `ttsx` does not own, placed **before** the entry file, is forwarded
+to the tsgo type-check — `ttsx --strict src/index.ts` works like the matching
+tsgo invocation. Flags **after** the entry go to the running program as its
+own `process.argv`, the same as `node`.
 
 ## When ttsx vs ttsc
 

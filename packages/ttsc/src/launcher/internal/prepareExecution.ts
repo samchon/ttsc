@@ -116,6 +116,7 @@ function buildProject(
     forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
+    passthrough: options.passthrough,
     plugins: options.plugins,
     quiet: true,
     singleThreaded: options.singleThreaded,
