@@ -13,6 +13,7 @@ package linthost
 
 import (
   "context"
+  "encoding/json"
   "errors"
   "flag"
   "fmt"
@@ -61,6 +62,7 @@ func RunTransform(args []string) int {
   pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
+  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
   if err := fs.Parse(filterKnownFlags(args, map[string]bool{
     "cwd":            true,
     "file":           true,
@@ -69,11 +71,17 @@ func RunTransform(args []string) int {
     "tsconfig":       true,
     "singleThreaded": false,
     "checkers":       true,
+    "tsgo-args":      true,
   })); err != nil {
     return 2
   }
   if *file == "" {
     fmt.Fprintln(os.Stderr, "@ttsc/lint transform: --file is required")
+    return 2
+  }
+  tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
     return 2
   }
   resolvedCwd, err := resolveCwd(*cwd)
@@ -85,6 +93,7 @@ func RunTransform(args []string) int {
     forceEmit:      true,
     singleThreaded: *singleThreaded,
     checkers:       *checkers,
+    tsgoArgs:       tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -174,6 +183,7 @@ type subcommandOpts struct {
   outDir         string
   singleThreaded bool
   checkers       int
+  tsgoArgs       []string
 }
 
 // parseSubcommandFlags parses the shared flag set used by the `check`,
@@ -192,6 +202,7 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   outDir := fs.String("outDir", "", "")
   singleThreaded := fs.Bool("singleThreaded", false, "")
   checkers := fs.Int("checkers", 0, "")
+  tsgoArgsRaw := fs.String("tsgo-args", "", "")
   if err := fs.Parse(filterKnownFlags(args, map[string]bool{
     "cwd":            true,
     "emit":           false,
@@ -203,11 +214,16 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
     "verbose":        false,
     "singleThreaded": false,
     "checkers":       true,
+    "tsgo-args":      true,
   })); err != nil {
     return nil, err
   }
   if *emit && *noEmit {
     return nil, errors.New("@ttsc/lint: --emit and --noEmit are mutually exclusive")
+  }
+  tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
+  if err != nil {
+    return nil, err
   }
   resolvedCwd, err := resolveCwd(*cwd)
   if err != nil {
@@ -224,7 +240,22 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
     outDir:         *outDir,
     singleThreaded: *singleThreaded,
     checkers:       *checkers,
+    tsgoArgs:       tsgoArgs,
   }, nil
+}
+
+// decodeTsgoArgs decodes the JSON-array value of the `--tsgo-args` flag — the
+// tsgo CLI flags the `ttsc` launcher forwarded — into a string slice. An empty
+// flag yields a nil slice.
+func decodeTsgoArgs(raw string) ([]string, error) {
+  if raw == "" {
+    return nil, nil
+  }
+  var args []string
+  if err := json.Unmarshal([]byte(raw), &args); err != nil {
+    return nil, fmt.Errorf("@ttsc/lint: invalid --tsgo-args: %w", err)
+  }
+  return args, nil
 }
 
 // runProject is the shared body of RunCheck and RunBuild. It loads the
@@ -237,6 +268,7 @@ func runProject(opts *subcommandOpts) int {
     outDir:         opts.outDir,
     singleThreaded: opts.singleThreaded,
     checkers:       opts.checkers,
+    tsgoArgs:       opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)

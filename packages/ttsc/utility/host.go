@@ -27,6 +27,7 @@ type hostOptions struct {
   verbose        bool
   singleThreaded bool
   checkers       int
+  tsgoArgs       []string
 }
 
 // transformResult is the JSON envelope written to stdout by RunTransform.
@@ -138,8 +139,16 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   verbose := fs.Bool("verbose", false, "print summary")
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
+  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
   if err := fs.Parse(filterHostArgs(args)); err != nil {
     return hostOptions{}, false
+  }
+  var tsgoArgs []string
+  if *tsgoArgsRaw != "" {
+    if err := json.Unmarshal([]byte(*tsgoArgsRaw), &tsgoArgs); err != nil {
+      fmt.Fprintf(os.Stderr, "ttsc utility: invalid --tsgo-args: %v\n", err)
+      return hostOptions{}, false
+    }
   }
   if *emit && *noEmit {
     fmt.Fprintln(os.Stderr, "ttsc utility: --emit and --noEmit are mutually exclusive")
@@ -173,6 +182,7 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
     verbose:        *verbose,
     singleThreaded: *singleThreaded,
     checkers:       *checkers,
+    tsgoArgs:       tsgoArgs,
   }, true
 }
 
@@ -196,6 +206,7 @@ func filterHostArgs(args []string) []string {
     "verbose":        false,
     "singleThreaded": false,
     "checkers":       true,
+    "tsgo-args":      true,
   }
   filtered := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
@@ -251,6 +262,7 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
     OutDir:         opts.outDir,
     SingleThreaded: opts.singleThreaded,
     Checkers:       opts.checkers,
+    TsgoArgs:       opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)
