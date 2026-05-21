@@ -96,12 +96,18 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     if err != nil {
       return nil, err
     }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.printWidth must be a positive integer; got %d", n)
+    }
     pwOpts["printWidth"] = n
   }
   if v, ok := raw["tabWidth"]; ok {
     n, err := asInt("format.tabWidth", v)
     if err != nil {
       return nil, err
+    }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
     }
     pwOpts["tabWidth"] = n
   }

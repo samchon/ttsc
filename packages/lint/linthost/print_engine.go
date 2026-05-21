@@ -374,11 +374,18 @@ func fits(doc Doc, remaining int, indent int) bool {
 // drives ConditionalGroup option selection: an option is eligible when
 // its opening line fits, even if its later lines wrap.
 //
-// The walk treats every break point as broken — an IfBreak takes its
-// break branch, and a Line / Softline / Hardline ends the measurement —
-// so it counts exactly the columns the option would place on the line
-// the group starts on. A nested ConditionalGroup contributes its own
-// first option.
+// The walk treats every top-level break point as broken — an IfBreak
+// takes its break branch, and a Line / Softline / Hardline ends the
+// measurement — so it counts exactly the columns the option would place
+// on the line the group starts on. A nested ConditionalGroup
+// contributes its own first option.
+//
+// A nested Group is the exception: a Group with no hard break renders
+// flat when it fits, so its Line separators collapse to spaces and stay
+// on the first line. The walk measures such a Group's flattened width
+// rather than stopping at its first Line; only a Group that carries a
+// Hardline (flatten reports it cannot render flat) ends the first line
+// at its break.
 func fitsFirstLine(doc Doc, remaining int) bool {
   if remaining < 0 {
     return false
@@ -397,7 +404,19 @@ func fitsFirstLine(doc Doc, remaining int) bool {
       if remaining < 0 {
         return false
       }
-    case docConcat, docIndent, docAlign, docGroup:
+    case docGroup:
+      // A Group that can render flat keeps its Lines on the first line
+      // as spaces — measure the flattened form. One that cannot (a
+      // Hardline or forced break inside) breaks, so descend and let the
+      // Line/Hardline case end the first line at that break.
+      if flat, ok := flatten(top); ok {
+        stack = append(stack, flat)
+      } else {
+        for i := len(top.Children) - 1; i >= 0; i-- {
+          stack = append(stack, top.Children[i])
+        }
+      }
+    case docConcat, docIndent, docAlign:
       for i := len(top.Children) - 1; i >= 0; i-- {
         stack = append(stack, top.Children[i])
       }
