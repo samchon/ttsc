@@ -160,14 +160,58 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
   }
   switch last.Kind {
   case shimast.KindFunctionExpression,
-    shimast.KindObjectLiteralExpression:
+    shimast.KindObjectLiteralExpression,
+    shimast.KindArrayLiteralExpression:
     return true
   case shimast.KindArrowFunction:
     arrow := last.AsArrowFunction()
-    return arrow != nil && arrow.Body != nil &&
-      arrow.Body.Kind == shimast.KindBlock
+    if arrow == nil || arrow.Body == nil {
+      return false
+    }
+    body := arrow.Body
+    // `(x) => ({ … })` parenthesizes its object body; hug on the inner
+    // expression, mirroring Prettier's couldExpandArg.
+    if body.Kind == shimast.KindParenthesizedExpression {
+      if p := body.AsParenthesizedExpression(); p != nil && p.Expression != nil {
+        body = p.Expression
+      }
+    }
+    switch body.Kind {
+    case shimast.KindBlock,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindArrayLiteralExpression:
+      return true
+    }
   }
   return false
+}
+
+// forceBreakFirstGroup returns `doc` with the first Group found in a
+// left-to-right walk of its subtree forced broken, and reports whether
+// one was found. printListHuggingLast uses it to commit a hugged
+// argument — an object or array literal, possibly nested inside an
+// arrow body (`(x) => ({ … })`) — to its multi-line shape. The caller
+// guards the walk with flatten: it is only run on an item that has no
+// hard line breaks of its own, so the first Group reached is the
+// hugged literal itself, never an unrelated Group inside a block body.
+func forceBreakFirstGroup(doc Doc) (Doc, bool) {
+  switch doc.Kind {
+  case docGroup:
+    doc.Break = true
+    return doc, true
+  case docConcat, docIndent, docAlign:
+    children := make([]Doc, len(doc.Children))
+    copy(children, doc.Children)
+    for i, child := range children {
+      broken, done := forceBreakFirstGroup(child)
+      if done {
+        children[i] = broken
+        doc.Children = children
+        return doc, true
+      }
+    }
+  }
+  return doc, false
 }
 
 // Type-argument byte-range helpers. The shim's NodeList.End() points

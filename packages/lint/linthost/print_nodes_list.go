@@ -35,6 +35,11 @@ type listShape struct {
   // multi-line callback body does not force every preceding argument
   // onto its own line.
   HugLast bool
+  // ForceBreak commits the list to its broken, one-item-per-line shape
+  // even when it would fit flat. The object-literal printer sets it to
+  // mirror Prettier's objectWrap:"preserve" — an object the source
+  // wrote with a newline after `{` stays expanded.
+  ForceBreak bool
 }
 
 // printList renders the list shape as a Doc tree. Empty lists collapse
@@ -92,7 +97,11 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
 
   bodyBlock := Indent(ctx.indentUnit(), leadingSep, body, trailing)
   doc := Concat(openTok, bodyBlock, trailingSep, closeTok)
-  return Group(doc)
+  group := Group(doc)
+  // ForceBreak (object-literal newline preservation) commits the group
+  // to its broken shape regardless of fit.
+  group.Break = shape.ForceBreak
+  return group
 }
 
 // printListHuggingLast renders the "last-argument hugging" shape that
@@ -109,15 +118,22 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
 // this Concat as a ConditionalGroup option; when its opening line would
 // overflow printWidth the engine falls back to the plain exploded list.
 //
-// When the hugged final item is a Group — an object literal — it is
-// forced broken so the hugged option is genuinely multi-line and
-// distinct from the all-flat option. A flat hugged object would
-// otherwise be byte-identical to all-flat yet escape its width check.
+// The hugged final item is forced broken — via forceBreakFirstGroup —
+// so the hugged option is genuinely multi-line and distinct from the
+// all-flat option. A flat hugged object would otherwise be
+// byte-identical to all-flat yet escape its width check. The break
+// reaches the first Group in the item's subtree, so an object or array
+// nested inside an arrow body (`(x) => ({ … })`) breaks too.
 func printListHuggingLast(ctx *PrintContext, shape listShape) Doc {
   last := shape.Items[len(shape.Items)-1]
   lead := shape.Items[:len(shape.Items)-1]
-  if last.Kind == docGroup {
-    last.Break = true
+  // Force the hugged item's first Group broken only when the item has
+  // no hard line breaks of its own. A block-bodied callback already
+  // renders multi-line through its block's hard breaks; descending into
+  // it with forceBreakFirstGroup would instead force some unrelated
+  // nested Group — a plain statement's call-argument list — broken.
+  if _, flat := flatten(last); flat {
+    last, _ = forceBreakFirstGroup(last)
   }
 
   parts := []Doc{Text(shape.OpenTok)}
