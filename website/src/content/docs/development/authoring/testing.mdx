@@ -37,12 +37,12 @@ The Go shape mirrors it:
 //
 // Verifies banner config discovery: explicit config wins over banner.config.ts.
 //
-// Locks parseBanner's precedence rule — explicit `config: "./path"` on the
+// Locks parseBanner's precedence rule — explicit `configFile: "./path"` on the
 // plugin entry must shortcircuit before tsconfig-cwd banner.config.ts is
 // loaded; otherwise consumers cannot override the project default.
 //
-// 1. Materialize a fixture with both an explicit config path and a default banner.config.ts.
-// 2. Call parseBanner(map{"config": "./explicit.json"}, cwd, tsconfigPath).
+// 1. Materialize a fixture with both an explicit configFile path and a default banner.config.ts.
+// 2. Call parseBanner(map{"configFile": "./explicit.json"}, cwd, tsconfigPath).
 // 3. Assert the returned banner matches the explicit file, not the default.
 func Test_parsebanner_returns_configured_text_from_explicit_config_path(t *testing.T) { /* ... */ }
 ```
