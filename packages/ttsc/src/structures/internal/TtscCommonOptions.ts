@@ -23,6 +23,17 @@ export interface TtscCommonOptions {
   /** Normalize compiler output so diagnostics can be parsed structurally. */
   structuredDiagnostics?: boolean;
   /**
+   * Run TypeScript-Go single-threaded — one checker, serial parse/check/emit.
+   * Mirrors `tsgo --singleThreaded`. Useful for deterministic debugging and CI
+   * repro.
+   */
+  singleThreaded?: boolean;
+  /**
+   * Type-checker pool size, mirroring `tsgo --checkers`. `undefined` leaves
+   * TypeScript-Go's default; ignored when `singleThreaded` is set.
+   */
+  checkers?: number;
+  /**
    * Override project plugin loading for this invocation.
    *
    * - `false`: ignore `compilerOptions.plugins` completely.

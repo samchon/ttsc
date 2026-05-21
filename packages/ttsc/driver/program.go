@@ -204,6 +204,12 @@ type LoadProgramOptions struct {
   ForceNoEmit    bool
   OutDir         string
   SourcePreamble string
+  // SingleThreaded forces TypeScript-Go's single-threaded mode (one checker,
+  // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
+  SingleThreaded bool
+  // Checkers overrides the type-checker pool size, mirroring `tsgo --checkers`.
+  // Zero leaves TypeScript-Go's default; ignored when SingleThreaded is set.
+  Checkers int
 }
 
 // Close releases the checker pool lease acquired by LoadProgram.
@@ -304,6 +310,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if options.OutDir != "" {
     overrideOutDir(cwd, parsed, options.OutDir)
   }
+  applyThreadingOptions(parsed, options.SingleThreaded, options.Checkers)
 
   tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
 
@@ -338,6 +345,23 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 // config, replacing any outDir already set in tsconfig.json.
 func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
   parsed.ParsedConfig.CompilerOptions.OutDir = tspath.ResolvePath(cwd, outDir)
+}
+
+// applyThreadingOptions forwards the CLI threading knobs onto the parsed
+// compiler options. ttsc mirrors tsgo here: `--singleThreaded` / `--checkers`
+// land in CompilerOptions, and both Program.SingleThreaded() and the checker
+// pool read them from there — ProgramOptions is left untouched, exactly as
+// tsgo's own CLI does. SingleThreaded wins over Checkers, matching the pool's
+// own precedence.
+func applyThreadingOptions(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
+  options := parsed.ParsedConfig.CompilerOptions
+  if singleThreaded {
+    options.SingleThreaded = core.TSTrue
+  }
+  if checkers > 0 {
+    n := checkers
+    options.Checkers = &n
+  }
 }
 
 // sourcePreambleFS wraps a vfs.FS and prepends the preamble string to every

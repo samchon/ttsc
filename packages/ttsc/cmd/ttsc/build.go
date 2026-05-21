@@ -35,6 +35,8 @@ func runBuild(args []string) int {
   noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
   outDir := fs.String("outDir", "", "override compilerOptions.outDir for this build")
   manifestPath := fs.String("manifest", "", "write emitted file list as JSON to this path")
+  singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
+  checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   if err := fs.Parse(args); err != nil {
     return 2
   }
@@ -57,9 +59,11 @@ func runBuild(args []string) int {
   }
 
   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceEmit:   *emit,
-    ForceNoEmit: *noEmit,
-    OutDir:      *outDir,
+    ForceEmit:      *emit,
+    ForceNoEmit:    *noEmit,
+    OutDir:         *outDir,
+    SingleThreaded: *singleThreaded,
+    Checkers:       *checkers,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc: %v\n", err)
