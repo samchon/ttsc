@@ -31,9 +31,7 @@
         "transform": "@ttsc/paths"
       },
       {
-        "transform": "@ttsc/strip",
-        "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"]
+        "transform": "@ttsc/strip"
       }
     ]
   },

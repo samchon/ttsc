@@ -43,19 +43,27 @@ Default behavior removes these statement patterns:
 
 Call patterns match statement-level calls such as `console.log("debug")` or `assert.equal(left, right)`. A wildcard is supported at the end of a dotted call pattern, such as `assert.*`.
 
-Add a direct plugin config only when the project needs a different strip list:
+To customize the strip list, add a `strip.config.ts` next to your `tsconfig.json`:
+
+```ts
+// strip.config.ts
+import type { TtscStripConfig } from "@ttsc/strip";
+
+export default {
+  calls: ["console.log", "console.debug", "assert.*"],
+  statements: ["debugger"],
+} satisfies TtscStripConfig;
+```
+
+`@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry:
 
 ```jsonc
 {
   "compilerOptions": {
     "plugins": [
-      {
-        "transform": "@ttsc/strip",
-        "calls": ["console.log", "console.debug", "assert.*"],
-        "statements": ["debugger"],
-      },
-    ],
-  },
+      { "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" }
+    ]
+  }
 }
 ```
 

@@ -109,12 +109,9 @@ function prepareWorkspace() {
             },
             {
               transform: "@ttsc/banner",
-              text: "License MIT",
             },
             {
               transform: "@ttsc/strip",
-              calls: ["console.debug"],
-              statements: ["debugger"],
             },
           ],
         },
@@ -127,6 +124,18 @@ function prepareWorkspace() {
   fs.writeFileSync(
     path.join(workspace, "lint.config.json"),
     JSON.stringify({}, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(workspace, "banner.config.json"),
+    JSON.stringify("License MIT", null, 2),
+  );
+  fs.writeFileSync(
+    path.join(workspace, "strip.config.json"),
+    JSON.stringify(
+      { calls: ["console.debug"], statements: ["debugger"] },
+      null,
+      2,
+    ),
   );
   fs.writeFileSync(
     path.join(workspace, "src", "lib", "message.ts"),

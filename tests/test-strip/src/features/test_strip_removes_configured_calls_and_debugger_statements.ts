@@ -10,17 +10,18 @@ import { TestStrip } from "../internal/TestStrip";
  * statements.
  *
  * This is the core strip happy-path. It exercises explicit `calls` and
- * `statements` config via a tsconfig plugin entry, verifies that the wildcard
- * pattern `assert.*` removes the entire containing `if`-statement (not just the
- * inner call), and confirms declaration output is clean. Running the emitted
- * file through Node ensures stripping does not break the remaining runtime
- * behavior.
+ * `statements` config supplied via a `strip.config.json` file, verifies that
+ * the wildcard pattern `assert.*` removes the entire containing `if`-statement
+ * (not just the inner call), and confirms declaration output is clean. Running
+ * the emitted file through Node ensures stripping does not break the remaining
+ * runtime behavior.
  *
  * 1. Create a project whose source mixes `console.log`, `console.debug`,
  *    `assert.equal`, `debugger`, an `if` guard containing `console.log`, and a
- *    kept `console.info` call.
- * 2. Configure the tsconfig plugin with explicit `calls` and `statements` lists,
- *    then run `ttsc --emit`.
+ *    kept `console.info` call; supply explicit `calls` and `statements` lists
+ *    via `strip.config.json` (auto-discovered from the project root).
+ * 2. Run `ttsc --emit` with the tsconfig plugin entry containing only the
+ *    `transform` key (no inline config).
  * 3. Assert the stripped identifiers are absent from `.js` and `.d.ts`,
  *    `console.info("kept")` survives, and `node dist/main.js` exits 0 with
  *    "kept" on stdout.
@@ -30,17 +31,15 @@ export const test_strip_removes_configured_calls_and_debugger_statements =
     const root = TestProject.commonJsProject(
       {
         "src/main.ts": `export interface StripBox { value: string }\nconst assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };\ndebugger;\nconsole.log("drop");\nconsole.debug("drop");\nassert.equal(1, 1);\nconsole.info("kept");\nexport const box: StripBox = { value: "kept" };\nif (box.value) console.log("drop-if");\n`,
+        "strip.config.json": JSON.stringify({
+          calls: ["console.log", "console.debug", "assert.*"],
+          statements: ["debugger"],
+        }),
       },
       {
         compilerOptions: {
           declaration: true,
-          plugins: [
-            {
-              transform: "@ttsc/strip",
-              calls: ["console.log", "console.debug", "assert.*"],
-              statements: ["debugger"],
-            },
-          ],
+          plugins: [{ transform: "@ttsc/strip" }],
         },
       },
     );

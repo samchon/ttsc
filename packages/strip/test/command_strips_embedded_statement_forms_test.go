@@ -12,14 +12,17 @@ import (
 // Calls can appear as standalone statements or as the embedded body of control
 // flow nodes. This fixture walks each embedded-statement branch through the
 // real transform path so the rewriter preserves structure while replacing only
-// stripped bodies with empty statements.
+// stripped bodies with empty statements. Configuration is supplied via a
+// strip.config.json file rather than inline tsconfig keys.
 //
-// 1. Create a script using if, loops, with, labels, wildcard calls, and retained calls.
-// 2. Run transform with explicit calls and debugger statement config.
-// 3. Assert stripped calls disappear while non-target calls and non-call expressions remain.
+//  1. Create a script using if, loops, with, labels, wildcard calls, and retained calls;
+//     supply explicit calls and debugger config via strip.config.json.
+//  2. Run transform with a manifest that points configFile at the config file.
+//  3. Assert stripped calls disappear while non-target calls and non-call expressions remain.
 func TestCommandStripsEmbeddedStatementForms(t *testing.T) {
   root := seedProject(t, map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":false},"include":["src"]}`,
+    "tsconfig.json":     `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":false},"include":["src"]}`,
+    "strip.config.json": `{"calls":["console.log","console.debug","assert.*","drop"],"statements":["debugger"]}`,
     "src/main.ts": `// @ts-nocheck
 let flag = true;
 let obj: any = { value: 1 };
@@ -48,13 +51,12 @@ console["log"]("keep-element");
 getConsole().log("keep-call-left");
 `,
   })
+  // Config-file path: auto-discovered from the tsconfig directory.
   manifest := mustJSON(t, []map[string]any{{
     "name":  "@ttsc/strip",
     "stage": "transform",
     "config": map[string]any{
-      "transform":  "@ttsc/strip",
-      "calls":      []any{"console.log", "console.debug", "assert.*", "drop"},
-      "statements": []any{"debugger"},
+      "transform": "@ttsc/strip",
     },
   }})
 
@@ -76,18 +78,5 @@ getConsole().log("keep-call-left");
     if !strings.Contains(main, retained) {
       t.Fatalf("retained statement %q missing:\n%s", retained, main)
     }
-  }
-
-  invalidManifest := mustJSON(t, []map[string]any{{
-    "name":  "@ttsc/strip",
-    "stage": "transform",
-    "config": map[string]any{
-      "transform":  "@ttsc/strip",
-      "statements": []any{"return"},
-    },
-  }})
-  code, stdout, stderr = runPlugin(t, "transform", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+invalidManifest)
-  if code != 2 || stdout != "" || !strings.Contains(stderr, "unsupported statement pattern") {
-    t.Fatalf("invalid strip config mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
 }

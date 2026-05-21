@@ -11,6 +11,9 @@ import (
   _ "unsafe"
 )
 
+//go:linkname stripLoadStripConfigMap github.com/samchon/ttsc/packages/strip/driver.loadStripConfigMap
+func stripLoadStripConfigMap(pluginConfig map[string]any, cwd, tsconfigPath string) (map[string]any, error)
+
 type stripRewriter struct {
   calls         []stripCallPattern
   stripDebugger bool

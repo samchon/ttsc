@@ -14,7 +14,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * `@ttsc/paths` first in the descriptor list must not change host selection or
  * cause a second native host to be spawned.
  *
- * 1. Configure plugins with `paths` listed before `banner` and `strip`.
+ * 1. Configure plugins with `paths` listed before `banner` and `strip`;
+ *    `banner`/`strip` read their `*.config.json` files.
  * 2. Run `ttsc --emit`.
  * 3. Assert one linked host was built with 3 contributors, path aliases were
  *    rewritten, banner was prepended, and `console.log`/`debugger` were
@@ -36,15 +37,16 @@ export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is
           rootDir: "src",
           plugins: [
             { transform: "@ttsc/paths" },
-            { transform: "@ttsc/banner", text: "paths first" },
-            {
-              transform: "@ttsc/strip",
-              calls: ["console.log"],
-              statements: ["debugger"],
-            },
+            { transform: "@ttsc/banner" },
+            { transform: "@ttsc/strip" },
           ],
         },
         include: ["src"],
+      }),
+      "banner.config.json": JSON.stringify("paths first"),
+      "strip.config.json": JSON.stringify({
+        calls: ["console.log"],
+        statements: ["debugger"],
       }),
       "src/modules/message.ts": `export const message = "ok";\n`,
       "src/main.ts": [
