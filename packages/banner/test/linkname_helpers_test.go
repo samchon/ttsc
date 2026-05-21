@@ -33,9 +33,6 @@ func bannerResolveBannerConfigPath(configPath, cwd, tsconfigPath string) string
 //go:linkname bannerTsconfigBaseDir github.com/samchon/ttsc/packages/banner/driver.tsconfigBaseDir
 func bannerTsconfigBaseDir(cwd, tsconfigPath string) string
 
-//go:linkname bannerDiscoveryConfigBaseDir github.com/samchon/ttsc/packages/banner/driver.discoveryConfigBaseDir
-func bannerDiscoveryConfigBaseDir(cwd, tsconfigPath string) string
-
 //go:linkname bannerLoadBannerConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerConfigFile
 func bannerLoadBannerConfigFile(location string) (any, error)
 

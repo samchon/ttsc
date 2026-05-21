@@ -17,7 +17,8 @@ import (
 //
 //  1. Create a script using if, loops, with, labels, wildcard calls, and retained calls;
 //     supply explicit calls and debugger config via strip.config.json.
-//  2. Run transform with a manifest that points configFile at the config file.
+//  2. Run transform with a manifest carrying no inline config, so the
+//     strip.config.json is auto-discovered from the tsconfig directory.
 //  3. Assert stripped calls disappear while non-target calls and non-call expressions remain.
 func TestCommandStripsEmbeddedStatementForms(t *testing.T) {
   root := seedProject(t, map[string]string{

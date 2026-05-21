@@ -145,7 +145,8 @@ func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string,
 // A banner config value must be an object with a non-empty "text" string; raw
 // may also be nil (not present). Returns (text, true, nil) on success,
 // ("", false, nil) when absent, or ("", true, err) on a type mismatch. label is
-// used in error messages and should describe the config source (e.g. "\"text\"").
+// used in error messages and is the config file's base name (e.g.
+// "banner.config.json").
 func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   if raw == nil {
     return "", false, nil
@@ -170,7 +171,7 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
 // one match is found per directory, "" when none exists at any level, or an
 // error when multiple candidates exist in the same directory.
 func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := discoveryConfigBaseDir(cwd, tsconfigPath)
+  dir := tsconfigBaseDir(cwd, tsconfigPath)
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
@@ -188,7 +189,14 @@ func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
       }
     }
     if len(matches) > 1 {
-      return "", fmt.Errorf("@ttsc/banner: multiple banner.config.* files found in %s", dir)
+      names := make([]string, len(matches))
+      for i, match := range matches {
+        names[i] = filepath.Base(match)
+      }
+      return "", fmt.Errorf(
+        "@ttsc/banner: multiple banner config files found in %s (%s); set \"configFile\" explicitly in the tsconfig plugin entry",
+        dir, strings.Join(names, ", "),
+      )
     }
     if len(matches) == 1 {
       return matches[0], nil
@@ -212,7 +220,8 @@ func resolveBannerConfigPath(configPath, cwd, tsconfigPath string) string {
 }
 
 // tsconfigBaseDir returns the directory that contains the tsconfig file, or cwd
-// when tsconfigPath is empty. Used as the base for resolving explicit config paths.
+// when tsconfigPath is empty. It is the base both for resolving an explicit
+// `configFile` path and for starting the upward banner-config-file search.
 func tsconfigBaseDir(cwd, tsconfigPath string) string {
   if tsconfigPath == "" {
     return cwd
@@ -222,20 +231,6 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
     resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
   }
   return filepath.Dir(resolvedTsconfig)
-}
-
-// discoveryConfigBaseDir returns the starting directory for the upward banner
-// config file search. Semantically identical to tsconfigBaseDir; kept separate
-// to make the call sites self-documenting.
-func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
-  if tsconfigPath != "" {
-    resolvedTsconfig := tsconfigPath
-    if !filepath.IsAbs(resolvedTsconfig) {
-      resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
-    }
-    return filepath.Dir(resolvedTsconfig)
-  }
-  return cwd
 }
 
 // loadBannerConfigFile loads and evaluates a banner config file, returning its

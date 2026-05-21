@@ -104,7 +104,7 @@ func TestResolveBannerTextBranches(t *testing.T) {
   // Auto-discovery: ambiguous (duplicate) config files.
   writeFile(t, filepath.Join(discoveredProject, "banner.config.js"), `export default { text: "one" };`)
   writeFile(t, filepath.Join(discoveredProject, "banner.config.cjs"), `module.exports = { text: "two" };`)
-  if _, err := bannerResolveBannerText(map[string]any{}, discoveredRoot, discoveredTsconfig); err == nil || !strings.Contains(err.Error(), "multiple banner.config") {
+  if _, err := bannerResolveBannerText(map[string]any{}, discoveredRoot, discoveredTsconfig); err == nil || !strings.Contains(err.Error(), "multiple banner config files") {
     t.Fatalf("expected discovered duplicate error, got %v", err)
   }
 

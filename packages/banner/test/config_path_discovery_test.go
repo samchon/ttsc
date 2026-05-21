@@ -28,12 +28,6 @@ func TestConfigPathDiscovery(t *testing.T) {
   if got := bannerTsconfigBaseDir(root, ""); got != root {
     t.Fatalf("empty tsconfig base mismatch: %q", got)
   }
-  if got := bannerDiscoveryConfigBaseDir(root, "packages/demo/tsconfig.json"); got != project {
-    t.Fatalf("discovery base mismatch: %q", got)
-  }
-  if got := bannerDiscoveryConfigBaseDir(root, ""); got != root {
-    t.Fatalf("empty discovery base mismatch: %q", got)
-  }
   if got := bannerResolveBannerConfigPath("banner.config.js", root, "packages/demo/tsconfig.json"); got != filepath.Join(project, "banner.config.js") {
     t.Fatalf("relative config path mismatch: %q", got)
   }
@@ -58,8 +52,10 @@ func TestConfigPathDiscovery(t *testing.T) {
     t.Fatalf("discovered project config mismatch: %q", location)
   }
   writeFile(t, filepath.Join(project, "banner.config.mjs"), `export default { text: "duplicate" };`)
-  if _, err := bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json"); err == nil || !strings.Contains(err.Error(), "multiple banner.config") {
-    t.Fatalf("expected duplicate config error, got %v", err)
+  if _, err := bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json"); err == nil ||
+    !strings.Contains(err.Error(), "multiple banner config files") ||
+    !strings.Contains(err.Error(), "configFile") {
+    t.Fatalf("expected duplicate config error naming files and configFile, got %v", err)
   }
   if location, err := bannerFindBannerConfigFile(t.TempDir(), ""); err != nil || location != "" {
     t.Fatalf("missing config mismatch: location=%q err=%v", location, err)

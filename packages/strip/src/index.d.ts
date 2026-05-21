@@ -17,9 +17,10 @@ declare namespace createTtscStrip {
    * Standalone `strip.config.{ts,cts,mts,js,cjs,mjs,json}` file shape consumed
    * by `@ttsc/strip`.
    *
-   * Both keys are optional; an omitted key keeps the built-in default (`calls:
-   * ["console.log", "console.debug", "assert.*"]`, `statements:
-   * ["debugger"]`).
+   * Both keys are optional. The built-in defaults (`calls: ["console.log",
+   * "console.debug", "assert.*"]`, `statements: ["debugger"]`) apply only when
+   * *both* keys are omitted; declaring either key replaces both defaults with
+   * exactly what the file lists.
    */
   export interface ITtscStripConfig {
     /**
