@@ -329,6 +329,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let fix = false;
   let format = false;
   let outDir: string | undefined;
+  const passthrough: string[] = [];
   let preserveWatchOutput = false;
   let quiet = true;
   let singleThreaded = false;
@@ -410,9 +411,17 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
           // Unreachable: `--verbose` is handled by the switch case above.
           quiet = false;
         } else if (current.startsWith("-")) {
-          throw new Error(`ttsc: unknown option ${current}`);
-        } else {
+          // Not one of ttsc's own flags. Forward it verbatim to tsgo, which
+          // owns the complete, arity-aware option parser — ttsc deliberately
+          // does not re-implement knowledge of every tsgo flag.
+          passthrough.push(current);
+        } else if (looksLikeInputFile(current)) {
           files.push(current);
+        } else {
+          // A bare non-file token — e.g. the `es2020` in `--target es2020` —
+          // is the value of a forwarded flag. Keep it next to the run so the
+          // flag and its value reach tsgo together.
+          passthrough.push(current);
         }
         break;
     }
@@ -427,12 +436,22 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     fix,
     format,
     outDir,
+    passthrough,
     preserveWatchOutput,
     quiet,
     singleThreaded,
     tsconfig,
     watch,
   };
+}
+
+/**
+ * Report whether a bare CLI token is a TypeScript source file ttsc should
+ * compile in single-file mode. Anything without a TypeScript source extension
+ * is treated as a forwarded flag value rather than an input file.
+ */
+function looksLikeInputFile(token: string): boolean {
+  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
 
 /**
@@ -483,6 +502,9 @@ function printHelp(): void {
       "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
       "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
       "",
+      "  Any other flag is forwarded to tsgo as-is, so tsgo compiler options",
+      "  such as --strict or --target work directly (e.g. ttsc --strict file.ts).",
+      "",
       "Plugin contract:",
       "  ttsc reads compilerOptions.plugins from tsconfig.json.",
       "  Plugin modules are descriptors for ordered native transformer backends.",
@@ -516,9 +538,12 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   });
   const text = runSingleFileEmit({
     binary: options.binary,
+    checkers: options.checkers,
     cwd,
     file,
     out,
+    passthrough: options.passthrough,
+    singleThreaded: options.singleThreaded,
     tsconfig: options.tsconfig,
   });
   if (!fs.existsSync(out)) {

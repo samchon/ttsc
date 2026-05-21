@@ -34,6 +34,14 @@ export interface TtscCommonOptions {
    */
   checkers?: number;
   /**
+   * CLI tokens ttsc did not recognize as its own, forwarded verbatim to the
+   * underlying `tsgo` invocation. This is how a tsgo flag ttsc has no first-
+   * class option for (`--strict`, `--target es2020`, `--listFiles`, …) still
+   * reaches the compiler: ttsc owns its own flags and lets tsgo — which has the
+   * complete, arity-aware option parser — handle the rest.
+   */
+  passthrough?: readonly string[];
+  /**
    * Override project plugin loading for this invocation.
    *
    * - `false`: ignore `compilerOptions.plugins` completely.
