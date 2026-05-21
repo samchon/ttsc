@@ -423,18 +423,74 @@ func parseExternalConfigRules(raw any) (RuleConfig, error) {
 // *ConfigStore. `configDir` anchors glob resolution and `extends` lookups; it
 // is empty for in-memory inputs that do not load from a real file.
 func parseExternalConfigStore(raw any, configDir string) (*ConfigStore, error) {
+  return collectConfigStore(raw, configDir, "")
+}
+
+// collectConfigStore parses a single `ITtscLintConfig` object into a fresh
+// *ConfigStore. `rootPath` is the absolute path of the file `raw` was loaded
+// from, or "" for in-memory inputs; when set it seeds the `extends` cycle
+// guard so a config that `extends` itself (directly or transitively) is
+// rejected.
+func collectConfigStore(raw any, configDir, rootPath string) (*ConfigStore, error) {
   store := &ConfigStore{}
-  if err := collectConfigObject(store, raw, configDir, "config"); err != nil {
+  var chain []string
+  if rootPath != "" {
+    chain = []string{filepath.Clean(rootPath)}
+  }
+  if err := collectConfigObject(store, raw, configDir, "config", chain); err != nil {
     return nil, err
   }
   return store, nil
+}
+
+// extendsDepthLimit caps how many `extends` hops collectConfigObject will
+// follow. The cycle check in appendExtendsLink already rejects every loop;
+// this is a backstop so a config chain that escapes that check (e.g. a future
+// change that resolves the same file under two different cleaned paths) still
+// fails fast instead of spawning an unbounded run of `ttsx`/`node`
+// config-loader subprocesses — one per hop.
+const extendsDepthLimit = 32
+
+// appendExtendsLink validates that following the `extends` target at `next`
+// neither closes a cycle nor exceeds extendsDepthLimit, then returns `chain`
+// extended by `next`. `chain` holds the resolved absolute paths of every
+// config file already on the current `extends` lineage, root first. The guard
+// runs before loadConfigFile so a cyclic chain fails fast instead of
+// re-reading files (and re-spawning subprocesses) without bound.
+func appendExtendsLink(chain []string, next string) ([]string, error) {
+  for i, prior := range chain {
+    if prior == next {
+      // chain[i:] capped at its own length so append allocates a fresh
+      // backing array rather than mutating the caller's `chain`.
+      cycle := append(chain[i:len(chain):len(chain)], next)
+      return nil, fmt.Errorf(
+        "@ttsc/lint: extends cycle detected: %s",
+        strings.Join(cycle, " -> "),
+      )
+    }
+  }
+  if len(chain) >= extendsDepthLimit {
+    return nil, fmt.Errorf(
+      "@ttsc/lint: extends chain exceeds the depth limit of %d: %s -> ...",
+      extendsDepthLimit,
+      strings.Join(chain, " -> "),
+    )
+  }
+  extended := make([]string, len(chain)+1)
+  copy(extended, chain)
+  extended[len(chain)] = next
+  return extended, nil
 }
 
 // collectConfigObject parses one `ITtscLintConfig` object into `store`,
 // appending one ConfigEntry for the object's own rules (and, recursively, the
 // entries of any `extends`-named config file). The extends-target's entries
 // are appended first so the extending file's local rules win on collision.
-func collectConfigObject(store *ConfigStore, raw any, baseDir, path string) error {
+//
+// `chain` carries the resolved absolute paths of the config files already on
+// the current `extends` lineage (root first); appendExtendsLink consults it to
+// reject cyclic or pathologically deep chains before another file is read.
+func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chain []string) error {
   if raw == nil {
     return nil
   }
@@ -458,11 +514,16 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string) erro
     if !filepath.IsAbs(location) {
       location = filepath.Join(baseDir, location)
     }
+    location = filepath.Clean(location)
+    extendedChain, err := appendExtendsLink(chain, location)
+    if err != nil {
+      return err
+    }
     extendedRaw, err := loadConfigFile(location)
     if err != nil {
       return err
     }
-    if err := collectConfigObject(store, extendedRaw, filepath.Dir(location), path+".extends"); err != nil {
+    if err := collectConfigObject(store, extendedRaw, filepath.Dir(location), path+".extends", extendedChain); err != nil {
       return err
     }
   }
@@ -691,7 +752,7 @@ func loadConfigResolver(location string) (RuleResolver, error) {
   if err != nil {
     return nil, err
   }
-  store, err := parseExternalConfigStore(raw, filepath.Dir(location))
+  store, err := collectConfigStore(raw, filepath.Dir(location), location)
   if err != nil {
     return nil, err
   }
