@@ -121,7 +121,11 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
 
   printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
-  printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth)
+  // A node reflowed on a ternary-arm continuation line (`? expr` or
+  // `: expr`) hangs its broken continuation under the arm's expression,
+  // two columns past the `?`/`:` marker — not under the marker itself.
+  printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth) +
+    ternaryArmIndentBonus(src, start)
 
   // trailingWidth is the column span of the tokens that stay on the
   // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
@@ -361,6 +365,24 @@ func lineStartOffset(src string, pos int) int {
     pos--
   }
   return pos
+}
+
+// ternaryArmIndentBonus returns 2 when the line containing `pos` begins,
+// after its leading whitespace, with a `? ` or `: ` ternary-arm marker,
+// and 0 otherwise. format/print-width adds it to BaseIndent so a node
+// reflowed inside a ternary arm indents its broken continuation under
+// the arm's expression rather than under the `?`/`:` token. Only a
+// ternary arm can open a line with `? ` / `: ` in valid TypeScript, so
+// the two-byte prefix check needs no further disambiguation.
+func ternaryArmIndentBonus(src string, pos int) int {
+  i := lineStartOffset(src, pos)
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  if i+1 < len(src) && (src[i] == '?' || src[i] == ':') && src[i+1] == ' ' {
+    return 2
+  }
+  return 0
 }
 
 // hasReflowAncestor reports whether any ancestor of `node` would also
