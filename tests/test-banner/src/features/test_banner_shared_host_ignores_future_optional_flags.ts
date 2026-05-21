@@ -24,7 +24,7 @@ import { TestBanner } from "../internal/TestBanner";
  */
 export const test_banner_shared_host_ignores_future_optional_flags = () => {
   const root = TestProject.createProject({
-    "banner.config.cjs": `module.exports = "future flag";\n`,
+    "banner.config.cjs": `module.exports = { text: "future flag" };\n`,
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         target: "ES2022",
