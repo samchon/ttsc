@@ -17,14 +17,16 @@ import (
 // hostOptions is the parsed form of the flags accepted by all three
 // subcommands (check, build, transform).
 type hostOptions struct {
-  cwd         string
-  emit        bool
-  noEmit      bool
-  outDir      string
-  pluginsJSON string
-  quiet       bool
-  tsconfig    string
-  verbose     bool
+  cwd            string
+  emit           bool
+  noEmit         bool
+  outDir         string
+  pluginsJSON    string
+  quiet          bool
+  tsconfig       string
+  verbose        bool
+  singleThreaded bool
+  checkers       int
 }
 
 // transformResult is the JSON envelope written to stdout by RunTransform.
@@ -134,6 +136,8 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   quiet := fs.Bool("quiet", true, "suppress summary")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "project tsconfig")
   verbose := fs.Bool("verbose", false, "print summary")
+  singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
+  checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   if err := fs.Parse(filterHostArgs(args)); err != nil {
     return hostOptions{}, false
   }
@@ -159,14 +163,16 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
     resolvedCwd = abs
   }
   return hostOptions{
-    cwd:         filepath.Clean(resolvedCwd),
-    emit:        *emit,
-    noEmit:      *noEmit,
-    outDir:      *outDir,
-    pluginsJSON: *pluginsJSON,
-    quiet:       *quiet,
-    tsconfig:    *tsconfig,
-    verbose:     *verbose,
+    cwd:            filepath.Clean(resolvedCwd),
+    emit:           *emit,
+    noEmit:         *noEmit,
+    outDir:         *outDir,
+    pluginsJSON:    *pluginsJSON,
+    quiet:          *quiet,
+    tsconfig:       *tsconfig,
+    verbose:        *verbose,
+    singleThreaded: *singleThreaded,
+    checkers:       *checkers,
   }, true
 }
 
@@ -180,14 +186,16 @@ func filterHostArgs(args []string) []string {
   // true  = the flag accepts a value (--flag value or --flag=value).
   // false = the flag is boolean (no following value token).
   known := map[string]bool{
-    "cwd":          true,
-    "emit":         false,
-    "noEmit":       false,
-    "outDir":       true,
-    "plugins-json": true,
-    "quiet":        false,
-    "tsconfig":     true,
-    "verbose":      false,
+    "cwd":            true,
+    "emit":           false,
+    "noEmit":         false,
+    "outDir":         true,
+    "plugins-json":   true,
+    "quiet":          false,
+    "tsconfig":       true,
+    "verbose":        false,
+    "singleThreaded": false,
+    "checkers":       true,
   }
   filtered := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
@@ -238,9 +246,11 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
   defer restoreEnv()
 
   prog, diags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
-    ForceEmit:   opts.emit,
-    ForceNoEmit: opts.noEmit,
-    OutDir:      opts.outDir,
+    ForceEmit:      opts.emit,
+    ForceNoEmit:    opts.noEmit,
+    OutDir:         opts.outDir,
+    SingleThreaded: opts.singleThreaded,
+    Checkers:       opts.checkers,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)

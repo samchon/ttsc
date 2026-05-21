@@ -195,6 +195,7 @@ function runTsgo(
       execution.tsconfig,
       ...extraArgs,
       ...createTsgoDiagnosticArgs(options),
+      ...createTsgoThreadingArgs(options),
     ],
     {
       cwd: execution.projectRoot,
@@ -277,6 +278,7 @@ function createTsgoBuildArgs(
     args.push("--listEmittedFiles");
   }
   args.push(...createTsgoDiagnosticArgs(options));
+  args.push(...createTsgoThreadingArgs(options));
   return args;
 }
 
@@ -286,6 +288,23 @@ function createTsgoBuildArgs(
  */
 function createTsgoDiagnosticArgs(options: TtscCommonOptions): string[] {
   return options.structuredDiagnostics === true ? ["--pretty", "false"] : [];
+}
+
+/**
+ * Forward the `--singleThreaded` / `--checkers` knobs to a `tsgo` invocation.
+ * tsgo accepts both flags natively, so the no-plugin build lane only has to
+ * pass them through; the type-check and emit passes share this so the checker
+ * pool size stays consistent across both.
+ */
+function createTsgoThreadingArgs(options: TtscCommonOptions): string[] {
+  const args: string[] = [];
+  if (options.singleThreaded === true) {
+    args.push("--singleThreaded");
+  }
+  if (options.checkers !== undefined) {
+    args.push("--checkers", String(options.checkers));
+  }
+  return args;
 }
 
 /** Build the argument list for a native plugin `build`/`check` invocation. */
@@ -313,6 +332,7 @@ function createNativeBuildArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
+  args.push(...createNativeThreadingArgs(options));
   return args;
 }
 
@@ -334,6 +354,24 @@ function createNativeCheckArgs(
     args.push("--verbose");
   } else if (options.quiet === true) {
     args.push("--quiet");
+  }
+  args.push(...createNativeThreadingArgs(options));
+  return args;
+}
+
+/**
+ * Forward the `--singleThreaded` / `--checkers` knobs to a native sidecar
+ * (`@ttsc/lint`, transform plugins). Their Go flag sets accept the same two
+ * flags, which `driver.LoadProgram` maps onto `CompilerOptions` so the in-
+ * process program matches what `tsgo` would do on the no-plugin lane.
+ */
+function createNativeThreadingArgs(options: TtscCommonOptions): string[] {
+  const args: string[] = [];
+  if (options.singleThreaded === true) {
+    args.push("--singleThreaded");
+  }
+  if (options.checkers !== undefined) {
+    args.push("--checkers=" + String(options.checkers));
   }
   return args;
 }

@@ -39,6 +39,12 @@ type loadProgramOptions struct {
   forceEmit   bool
   forceNoEmit bool
   outDir      string
+  // singleThreaded mirrors `tsgo --singleThreaded`: one checker, serial
+  // parse/check/emit.
+  singleThreaded bool
+  // checkers mirrors `tsgo --checkers`: type-checker pool size. Zero leaves
+  // TypeScript-Go's default; ignored when singleThreaded is set.
+  checkers int
 }
 
 // loadProgram parses the given tsconfig, builds a Program, and acquires a
@@ -88,6 +94,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if options.outDir != "" {
     overrideOutDir(cwd, parsed, options.outDir)
   }
+  applyThreading(parsed, options.singleThreaded, options.checkers)
 
   // SingleThreaded is left unset so the program runs on TypeScript-Go's
   // multi-threaded default: parallel parsing, a pooled checker driving
@@ -188,6 +195,24 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
     return
   }
   parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+}
+
+// applyThreading forwards the --singleThreaded / --checkers knobs onto the
+// parsed compiler options. ttsc mirrors tsgo here: the values land in
+// CompilerOptions, and both Program.SingleThreaded() and the checker pool read
+// them from there. SingleThreaded wins over Checkers, matching the pool.
+func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  options := parsed.ParsedConfig.CompilerOptions
+  if singleThreaded {
+    options.SingleThreaded = shimcore.TSTrue
+  }
+  if checkers > 0 {
+    n := checkers
+    options.Checkers = &n
+  }
 }
 
 // overrideOutDir replaces the parsed config's OutDir with `outDir`.

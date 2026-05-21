@@ -322,6 +322,7 @@ function parseProjectArgs(argv: readonly string[]) {
 function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let binary: string | undefined;
   let cacheDir: string | undefined;
+  let checkers: number | undefined;
   let cwd: string | undefined;
   let emit: boolean | undefined = checkOnly ? false : undefined;
   const files: string[] = [];
@@ -330,6 +331,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   let outDir: string | undefined;
   let preserveWatchOutput = false;
   let quiet = true;
+  let singleThreaded = false;
   let tsconfig: string | undefined;
   let watch = false;
 
@@ -373,6 +375,12 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
       case "--cache-dir":
         cacheDir = takeValue(current, rest);
         break;
+      case "--singleThreaded":
+        singleThreaded = true;
+        break;
+      case "--checkers":
+        checkers = parseCheckersValue(takeValue(current, rest));
+        break;
       default:
         if (current.startsWith("--cwd=")) {
           cwd = current.slice("--cwd=".length);
@@ -393,6 +401,11 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
           binary = current.slice("--binary=".length);
         } else if (current.startsWith("--cache-dir=")) {
           cacheDir = current.slice("--cache-dir=".length);
+        } else if (current.startsWith("--checkers=")) {
+          checkers = parseCheckersValue(current.slice("--checkers=".length));
+        } else if (current.startsWith("--singleThreaded=")) {
+          singleThreaded =
+            current.slice("--singleThreaded=".length) !== "false";
         } else if (current === "--verbose") {
           // Unreachable: `--verbose` is handled by the switch case above.
           quiet = false;
@@ -407,6 +420,7 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   return {
     binary,
     cacheDir,
+    checkers,
     cwd,
     emit,
     files,
@@ -415,9 +429,25 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     outDir,
     preserveWatchOutput,
     quiet,
+    singleThreaded,
     tsconfig,
     watch,
   };
+}
+
+/**
+ * Parse the `--checkers` value into a positive integer. tsgo rejects a
+ * non-positive checker count (`minValue: 1`); ttsc mirrors that so a typo fails
+ * loudly instead of silently building with the default pool.
+ */
+function parseCheckersValue(raw: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `ttsc: --checkers expects a positive integer, got ${JSON.stringify(raw)}`,
+    );
+  }
+  return value;
 }
 
 function printHelp(): void {
@@ -450,6 +480,8 @@ function printHelp(): void {
       "  --verbose              Print the build summary and emitted files",
       "  --binary <path>        Use an explicit tsgo binary",
       "  --cache-dir <dir>      Use this cache root for source-plugin builds",
+      "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
+      "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
       "",
       "Plugin contract:",
       "  ttsc reads compilerOptions.plugins from tsconfig.json.",

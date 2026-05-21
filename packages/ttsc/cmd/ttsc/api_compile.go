@@ -47,6 +47,8 @@ func runAPICompile(args []string) int {
   fs.SetOutput(stderr)
   tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
   cwdOverride := fs.String("cwd", "", "override the working directory")
+  singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
+  checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   if err := fs.Parse(args); err != nil {
     return 2
   }
@@ -58,7 +60,9 @@ func runAPICompile(args []string) int {
   }
 
   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceEmit: true,
+    ForceEmit:      true,
+    SingleThreaded: *singleThreaded,
+    Checkers:       *checkers,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc api-compile: %v\n", err)
