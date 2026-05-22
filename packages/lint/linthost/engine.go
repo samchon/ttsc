@@ -314,6 +314,9 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
     return collected
   }
   fileRules := resolved.Rules
+  if !hasEnabledFileRules(fileRules) {
+    return collected
+  }
 
   var walk func(node *shimast.Node)
   walk = func(node *shimast.Node) {
@@ -379,6 +382,15 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // the filter would silently leak those findings into the diagnostic
   // stream.
   return filterInlineDisabledFindings(file, collected)
+}
+
+func hasEnabledFileRules(rules RuleConfig) bool {
+  for _, severity := range rules {
+    if severity != SeverityOff {
+      return true
+    }
+  }
+  return false
 }
 
 // runRuleCheck invokes a rule's `Check` with a `recover()` barrier so a
