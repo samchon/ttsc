@@ -323,6 +323,13 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
   return findings
 }
 
+// boundRule pairs an active rule with the Context the engine reuses for
+// every node it dispatches to that rule within one file. See runFile.
+type boundRule struct {
+  rule Rule
+  ctx  *Context
+}
+
 // runFile is the per-file driver. The visitor is allocated once per file
 // to keep the per-node hot path branch-free; it visits children
 // post-order so parents see their already-checked subtrees.
@@ -338,28 +345,49 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
     return collected
   }
 
+  // Bind every active rule to a Context once per file. A Context's fields
+  // — File, Checker, the file-resolved Severity, the rule's Options blob,
+  // and the format marker — are all invariant across the file's nodes, so
+  // the engine builds them here. The earlier shape allocated a fresh
+  // Context for every (node, rule) pair, which on a large program meant
+  // millions of short-lived heap allocations and the GC pressure they
+  // carry. Rules never mutate their Context, so reuse is safe.
+  byKind := make(map[shimast.Kind][]boundRule, len(e.rules))
+  ctxByRule := make(map[string]*Context, len(e.enabled))
+  for kind, rules := range e.rules {
+    for _, rule := range rules {
+      name := rule.Name()
+      ctx, built := ctxByRule[name]
+      if !built {
+        if severity := fileRules.Severity(name); severity != SeverityOff {
+          ctx = &Context{
+            File:     file,
+            Checker:  checker,
+            Severity: severity,
+            Options:  e.config.RuleOptions(name),
+            rule:     rule,
+            isFormat: isFormatRule(rule),
+            collect:  collect,
+          }
+        }
+        // A nil entry memoizes "off for this file" so a rule registered
+        // for several kinds resolves its severity only once.
+        ctxByRule[name] = ctx
+      }
+      if ctx == nil {
+        continue
+      }
+      byKind[kind] = append(byKind[kind], boundRule{rule: rule, ctx: ctx})
+    }
+  }
+
   var walk func(node *shimast.Node)
   walk = func(node *shimast.Node) {
     if node == nil {
       return
     }
-    if rules, ok := e.rules[node.Kind]; ok {
-      for _, rule := range rules {
-        severity := fileRules.Severity(rule.Name())
-        if severity == SeverityOff {
-          continue
-        }
-        ctx := &Context{
-          File:     file,
-          Checker:  checker,
-          Severity: severity,
-          Options:  e.config.RuleOptions(rule.Name()),
-          rule:     rule,
-          isFormat: isFormatRule(rule),
-          collect:  collect,
-        }
-        runRuleCheck(rule, ctx, node, collect)
-      }
+    for _, bound := range byKind[node.Kind] {
+      runRuleCheck(bound.rule, bound.ctx, node, collect)
     }
     node.ForEachChild(func(child *shimast.Node) bool {
       walk(child)
@@ -371,23 +399,8 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // statements explicitly so the file node itself can be inspected by
   // rules (e.g., `ban-ts-comment` reads CommentDirectives off the
   // SourceFile).
-  if rules, ok := e.rules[shimast.KindSourceFile]; ok {
-    for _, rule := range rules {
-      severity := fileRules.Severity(rule.Name())
-      if severity == SeverityOff {
-        continue
-      }
-      ctx := &Context{
-        File:     file,
-        Checker:  checker,
-        Severity: severity,
-        Options:  e.config.RuleOptions(rule.Name()),
-        rule:     rule,
-        isFormat: isFormatRule(rule),
-        collect:  collect,
-      }
-      runRuleCheck(rule, ctx, file.AsNode(), collect)
-    }
+  for _, bound := range byKind[shimast.KindSourceFile] {
+    runRuleCheck(bound.rule, bound.ctx, file.AsNode(), collect)
   }
 
   statements := file.Statements
