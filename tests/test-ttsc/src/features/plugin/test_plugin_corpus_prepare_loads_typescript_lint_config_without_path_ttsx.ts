@@ -42,7 +42,7 @@ export default {
 `,
     );
 
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PATH: goPath(),
       TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-prepare-"),
