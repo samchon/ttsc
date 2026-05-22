@@ -1,38 +1,48 @@
 import BenchmarkDashboard from "../../components/benchmark/BenchmarkDashboard";
 
-# 🏁 Benchmark
+# Benchmark
 
-`ttsc` is the same toolchain you already run — compiler, linter, formatter — rebuilt on TypeScript-Go. This page measures the one thing that decides whether that matters in practice: **wall-clock time**.
+This page measures the practical question behind `ttsc`: how much wall-clock
+time changes when a real TypeScript project moves from the legacy
+`tsc`/`eslint` path to TypeScript-Go backed builds, checks, and linting.
 
-Every number below is a median of repeated runs on a fixed machine, comparing the legacy toolchain (`tsc` · `eslint` · `prettier`) against `ttsc` and `@ttsc/lint` on the *same* source tree.
+The fixtures are real repositories cloned into prepared `legacy`, `ttsc`, and
+`ttsc-lint` branches. The dashboard reports medians from repeated command-line
+runs on the same machine, so the ratios are the useful signal; absolute seconds
+still depend on the host shown below.
 
 <BenchmarkDashboard />
 
-## What it measures
+## Reading the Results
 
-Each fixture is checked out twice from an identical source tree — once configured for the legacy toolchain, once for `ttsc` — so every comparison is like-for-like.
+The Summary tab keeps only the strongest result in each category. Build and
+Type-check compare one unit of work across the legacy compiler, `ttsc` in
+single-threaded and default multi-threaded modes, and direct `tsgo` where the
+fixture supports it.
 
-- **Build** — full `tsc` vs `ttsc`: type-check the project and emit JS + `.d.ts`.
-- **Type-check** — `tsc --noEmit` vs `ttsc --noEmit`: the check pass alone, no files written.
-- **Parallelism** — `ttsc` with its default parallel parse/emit vs `ttsc --singleThreaded`, which runs TypeScript-Go fully serial. This isolates how much of the speedup comes from using every core.
-- **Format** — `prettier` rewriting the source tree vs `ttsc format`, which formats through the same compiler pass.
+Lint is intentionally split out. The legacy path is `tsc + eslint`, two
+separate passes over the project. The `ttsc-lint` path runs `ttsc` with
+`@ttsc/lint` loaded, so the chart separates the compile portion from the extra
+lint overhead and also shows the pure lint-to-lint ratio.
 
-The headline of the build numbers is architectural. `eslint` is a *second* process that re-parses the whole project; `@ttsc/lint` folds linting into the single `ttsc` compile pass. So a `ttsc` build with lint configured already *is* build + lint — there is no separate lint step to time.
+## Methodology
 
-## The fixtures
+Each fixture is checked out as `legacy`, `ttsc`, and `ttsc-lint`. The `ttsc`
+branches run `ttsc prepare` before timing so plugin binary build time is not
+included in compiler measurements. No benchmark-only `tsconfig` is used; the
+runner invokes the repository's normal TypeScript configuration for the command
+being measured.
 
-The benchmark runs against real open-source codebases rather than synthetic ones, so the numbers reflect production-shaped projects — mixed plugin usage, deep type graphs, and large file counts.
+Each cell runs one warmup followed by ten measured runs. The runner records the
+median, fastest sample, full sample list, retry counts, and deterministic
+failures in `website/public/benchmark.json`. A missing bar means that project
+does not currently have a valid comparable command for that tool.
 
-Each project is tagged by `kind`:
+## Comparisons
 
-- **plugin-heavy** — leans on `ttsc` transform plugins (e.g. `typia`), where the plugin pass is part of every build.
-- **type-check-heavy** — large, deeply generic type graphs where the checker dominates.
-- **library** — published packages with broad `.d.ts` emit surface.
-
-A project only carries the measurements that make sense for it; the dashboard renders whatever is present and skips the rest.
-
-## Method
-
-Each command runs one unmeasured warmup (absorbing first-run plugin compilation and cold filesystem cache) followed by several measured runs; the **median** is reported. A measured run that exits non-zero is retried so an unrelated stability issue never contaminates a timing sample.
-
-The benchmark harness lives in [`experimental/benchmark`](https://github.com/samchon/ttsc/tree/master/experimental/benchmark) and writes the result file served on this page. Numbers are tied to the machine in the **Measurement host** panel above — treat the *ratios* as the portable result, not the absolute milliseconds.
+- **Build**: `tsc` emit on the legacy branch versus `ttsc` and optional direct
+  `tsgo` emit on the `ttsc` branch.
+- **Type-check**: `tsc --noEmit` versus `ttsc --noEmit` and optional direct
+  `tsgo --noEmit`.
+- **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
+  `eslint` time versus the measured `@ttsc/lint` overhead.

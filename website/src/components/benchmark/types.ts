@@ -1,5 +1,6 @@
 /**
- * Shape of `public/benchmark.json` — the committed, served benchmark result file.
+ * Shape of `public/benchmark.json` — the committed, served benchmark result
+ * file.
  *
  * This file is the single canonical schema: the benchmark runner
  * (`experimental/benchmark/bench.mjs`) emits exactly this shape, and the
@@ -9,17 +10,20 @@
  *
  * Required fields drive the dashboard. Optional fields (`samples`, `minMs`,
  * stability) carry the runner's richer per-cell data through to the JSON so a
- * published result is fully reproducible; the dashboard does not depend on them.
+ * published result is fully reproducible; the dashboard does not depend on
+ * them.
  */
 
 export type BenchmarkBranch = "legacy" | "ttsc" | "ttsc-lint";
 export type BenchmarkTool =
   | "tsc"
+  | "tsgo"
   | "ttsc"
+  | "ttsc+@ttsc/lint"
   | "eslint"
   | "@ttsc/lint"
   | "prettier";
-export type BenchmarkOp = "build" | "noEmit" | "format";
+export type BenchmarkOp = "build" | "noEmit" | "eslint" | "format";
 export type BenchmarkThreading = "single" | "multi";
 
 /**
@@ -52,10 +56,13 @@ export interface BenchmarkMeasurement {
   raceRetries?: number;
   /** Kind of the deterministic failure when the cell could not be measured. */
   failure?: BenchmarkFailureKind;
+  /** Process exit status when the cell failed deterministically. */
+  exitStatus?: number;
 }
 
 export interface BenchmarkProject {
   name: string;
+  repo?: string;
   files: number;
   kind: string;
   measurements: BenchmarkMeasurement[];
@@ -69,11 +76,14 @@ export interface BenchmarkHost {
   ramGB: number;
   node: string;
   ttsc: string;
+  tsgo: string;
   typescript: string;
 }
 
 export interface BenchmarkReport {
   date: string;
+  runs?: number;
+  warmup?: number;
   host: BenchmarkHost;
   projects: BenchmarkProject[];
 }

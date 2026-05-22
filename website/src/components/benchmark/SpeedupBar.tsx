@@ -1,16 +1,20 @@
 "use client";
 
-import { formatDuration, formatMultiplier, type Speedup } from "./format";
+import { type Speedup, formatDuration, formatMultiplier } from "./format";
 
 /**
  * One head-to-head comparison: a slow baseline bar over a faster ttsc bar.
  *
- * Bar widths are proportional to wall-clock time within the row, so the
- * shorter ttsc bar reads as "less time" at a glance; the multiplier on the
- * right states the win numerically.
+ * Bar widths are proportional to wall-clock time within the row, so the shorter
+ * ttsc bar reads as "less time" at a glance; the multiplier on the right states
+ * the win numerically.
  */
 export default function SpeedupBar({ speedup }: { speedup: Speedup }) {
-  const fastPct = Math.max(6, (speedup.fast.ms / speedup.baseline.ms) * 100);
+  const fastPct = Math.min(
+    100,
+    Math.max(6, (speedup.fast.ms / speedup.baseline.ms) * 100),
+  );
+  const faster = speedup.factor >= 1;
 
   return (
     <div className="not-prose">
@@ -42,7 +46,7 @@ export default function SpeedupBar({ speedup }: { speedup: Speedup }) {
         <span className="font-bold text-cyan-600 dark:text-cyan-300">
           {formatMultiplier(speedup.factor)}
         </span>{" "}
-        faster
+        {faster ? "faster" : "of baseline"}
       </p>
     </div>
   );

@@ -1,10 +1,3 @@
-/**
- * Formatting helpers shared across the benchmark dashboard widgets.
- *
- * Kept free of React so they can be unit-reasoned and reused by both the
- * project cards and the host-spec panel without pulling in JSX.
- */
-
 import type { BenchmarkMeasurement } from "./types";
 
 /** Human-friendly wall-clock label: sub-second in `ms`, otherwise `s`. */
@@ -16,13 +9,10 @@ export function formatDuration(ms: number): string {
 
 /** Speedup multiplier label, e.g. `2.5x`. */
 export function formatMultiplier(factor: number): string {
+  if (!Number.isFinite(factor)) return "∞x";
   return `${factor.toFixed(factor < 10 ? 1 : 0)}x`;
 }
 
-/**
- * A speedup pairs a slow baseline against a faster ttsc measurement.
- * `factor` is baseline / fast — how many times faster ttsc ran.
- */
 export interface Speedup {
   id: string;
   label: string;
@@ -39,7 +29,6 @@ interface FindOptions {
   threading?: BenchmarkMeasurement["threading"];
 }
 
-/** First measurement matching every provided dimension, or `undefined`. */
 export function findMeasurement(
   measurements: BenchmarkMeasurement[],
   options: FindOptions,
@@ -53,113 +42,189 @@ export function findMeasurement(
   );
 }
 
-/**
- * Derive every speedup the supplied measurements support. Gracefully skips a
- * comparison whenever one side is missing or recorded as `0` (not measured),
- * so a project with a partial result set still renders cleanly.
- */
 export function deriveSpeedups(
   measurements: BenchmarkMeasurement[],
 ): Speedup[] {
   const out: Speedup[] = [];
+  const legacyBuild = findMeasurement(measurements, {
+    branch: "legacy",
+    op: "build",
+    threading: "multi",
+  });
+  const legacyNoEmit = findMeasurement(measurements, {
+    branch: "legacy",
+    op: "noEmit",
+    threading: "multi",
+  });
+  const eslint =
+    findMeasurement(measurements, {
+      branch: "legacy",
+      tool: "eslint",
+      op: "eslint",
+      threading: "multi",
+    }) ??
+    findMeasurement(measurements, {
+      branch: "legacy",
+      tool: "eslint",
+      threading: "multi",
+    });
 
   const push = (
     id: string,
     label: string,
     detail: string,
-    baseline: BenchmarkMeasurement | undefined,
-    fast: BenchmarkMeasurement | undefined,
+    baseline: { tool: string; ms: number } | undefined,
+    fast: { tool: string; ms: number } | undefined,
   ) => {
     if (!baseline || !fast) return;
-    if (baseline.medianMs <= 0 || fast.medianMs <= 0) return;
+    if (baseline.ms <= 0 || fast.ms <= 0) return;
     out.push({
       id,
       label,
       detail,
-      baseline: { tool: baseline.tool, ms: baseline.medianMs },
-      fast: { tool: fast.tool, ms: fast.medianMs },
-      factor: baseline.medianMs / fast.medianMs,
+      baseline,
+      fast,
+      factor: baseline.ms / fast.ms,
     });
   };
 
-  // Build: tsc vs ttsc.
-  push(
-    "build",
-    "Build",
-    "type-check and emit JS + .d.ts",
-    findMeasurement(measurements, {
-      branch: "legacy",
-      tool: "tsc",
-      op: "build",
-    }),
-    findMeasurement(measurements, {
+  for (const threading of ["multi", "single"] as const) {
+    const ttscBuild = findMeasurement(measurements, {
       branch: "ttsc",
       tool: "ttsc",
       op: "build",
-      threading: "multi",
-    }),
-  );
+      threading,
+    });
+    push(
+      `build-${threading}`,
+      `Build (${threading})`,
+      "legacy tsc build vs ttsc build",
+      legacyBuild && { tool: "tsc", ms: legacyBuild.medianMs },
+      ttscBuild && { tool: `ttsc ${threading}`, ms: ttscBuild.medianMs },
+    );
 
-  // Type-check only: tsc --noEmit vs ttsc --noEmit.
-  push(
-    "noEmit",
-    "Type-check",
-    "check the project with --noEmit",
-    findMeasurement(measurements, {
-      branch: "legacy",
-      tool: "tsc",
-      op: "noEmit",
-    }),
-    findMeasurement(measurements, {
+    const ttscNoEmit = findMeasurement(measurements, {
       branch: "ttsc",
       tool: "ttsc",
       op: "noEmit",
-      threading: "multi",
-    }),
-  );
+      threading,
+    });
+    push(
+      `noEmit-${threading}`,
+      `No emit (${threading})`,
+      "legacy tsc --noEmit vs ttsc --noEmit",
+      legacyNoEmit && { tool: "tsc --noEmit", ms: legacyNoEmit.medianMs },
+      ttscNoEmit && {
+        tool: `ttsc --noEmit ${threading}`,
+        ms: ttscNoEmit.medianMs,
+      },
+    );
 
-  // Threading: single-threaded ttsc vs multi-threaded ttsc.
-  const stBuild = findMeasurement(measurements, {
-    branch: "ttsc",
-    threading: "single",
-    op: "build",
-  });
-  const mtBuild = findMeasurement(measurements, {
-    branch: "ttsc",
-    threading: "multi",
-    op: "build",
-  });
-  const stNoEmit = findMeasurement(measurements, {
-    branch: "ttsc",
-    threading: "single",
-    op: "noEmit",
-  });
-  const mtNoEmit = findMeasurement(measurements, {
-    branch: "ttsc",
-    threading: "multi",
-    op: "noEmit",
-  });
-  push(
-    "threading",
-    "Parallelism",
-    "ttsc default vs --singleThreaded",
-    stBuild ?? stNoEmit,
-    stBuild ? mtBuild : mtNoEmit,
-  );
+    const ttscLintBuild =
+      findMeasurement(measurements, {
+        branch: "ttsc-lint",
+        tool: "ttsc+@ttsc/lint",
+        op: "build",
+        threading,
+      }) ??
+      findMeasurement(measurements, {
+        branch: "ttsc-lint",
+        op: "build",
+        threading,
+      });
+    push(
+      `build-eslint-${threading}`,
+      `Build + lint (${threading})`,
+      "legacy tsc build + eslint vs ttsc-lint build",
+      legacyBuild &&
+        eslint && {
+          tool: "tsc + eslint",
+          ms: legacyBuild.medianMs + eslint.medianMs,
+        },
+      ttscLintBuild && {
+        tool: `ttsc-lint ${threading}`,
+        ms: ttscLintBuild.medianMs,
+      },
+    );
 
-  // Format: prettier vs @ttsc/lint format.
-  push(
-    "format",
-    "Format",
-    "rewrite the source tree",
-    findMeasurement(measurements, { tool: "prettier" }),
-    findMeasurement(measurements, { tool: "@ttsc/lint", op: "format" }),
-  );
+    const ttscLintNoEmit =
+      findMeasurement(measurements, {
+        branch: "ttsc-lint",
+        tool: "ttsc+@ttsc/lint",
+        op: "noEmit",
+        threading,
+      }) ??
+      findMeasurement(measurements, {
+        branch: "ttsc-lint",
+        op: "noEmit",
+        threading,
+      });
+    push(
+      `noEmit-eslint-${threading}`,
+      `No emit + lint (${threading})`,
+      "legacy tsc --noEmit + eslint vs ttsc-lint --noEmit",
+      legacyNoEmit &&
+        eslint && {
+          tool: "tsc --noEmit + eslint",
+          ms: legacyNoEmit.medianMs + eslint.medianMs,
+        },
+      ttscLintNoEmit && {
+        tool: `ttsc-lint --noEmit ${threading}`,
+        ms: ttscLintNoEmit.medianMs,
+      },
+    );
+
+    if (eslint && ttscBuild && ttscLintBuild) {
+      const overhead = ttscLintBuild.medianMs - ttscBuild.medianMs;
+      push(
+        `lint-overhead-${threading}`,
+        `Lint overhead (${threading})`,
+        "eslint alone vs ttsc-lint build minus ttsc build",
+        { tool: "eslint", ms: eslint.medianMs },
+        overhead > 0
+          ? { tool: `ttsc-lint - ttsc ${threading}`, ms: overhead }
+          : undefined,
+      );
+    }
+
+    const tsgoBuild = findMeasurement(measurements, {
+      branch: "ttsc",
+      tool: "tsgo",
+      op: "build",
+      threading,
+    });
+    push(
+      `ttsc-vs-tsgo-build-${threading}`,
+      `TTSC vs TSGO build (${threading})`,
+      "tsgo build vs ttsc build on the ttsc branch",
+      tsgoBuild && { tool: `tsgo ${threading}`, ms: tsgoBuild.medianMs },
+      ttscBuild && { tool: `ttsc ${threading}`, ms: ttscBuild.medianMs },
+    );
+
+    const tsgoNoEmit = findMeasurement(measurements, {
+      branch: "ttsc",
+      tool: "tsgo",
+      op: "noEmit",
+      threading,
+    });
+    push(
+      `ttsc-vs-tsgo-noEmit-${threading}`,
+      `TTSC vs TSGO no emit (${threading})`,
+      "tsgo --noEmit vs ttsc --noEmit on the ttsc branch",
+      tsgoNoEmit && {
+        tool: `tsgo --noEmit ${threading}`,
+        ms: tsgoNoEmit.medianMs,
+      },
+      ttscNoEmit && {
+        tool: `ttsc --noEmit ${threading}`,
+        ms: ttscNoEmit.medianMs,
+      },
+    );
+  }
 
   return out;
 }
 
-/** Largest speedup across a project — drives the hero multiplier callout. */
 export function headlineSpeedup(speedups: Speedup[]): Speedup | undefined {
   return speedups.reduce<Speedup | undefined>(
     (best, s) => (best === undefined || s.factor > best.factor ? s : best),
