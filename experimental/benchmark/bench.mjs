@@ -90,7 +90,7 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint . --ignore-pattern 'temp/**'"],
+      eslint: ["pnpm exec eslint 'packages/*/src/**/*.ts'"],
       format: {
         legacy: ["pnpm exec prettier --check 'packages/*/src/**/*.ts'"],
         ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
@@ -171,7 +171,7 @@ const PACKAGE_CONFIGS = {
           env: { NODE_OPTIONS: "--max-old-space-size=6144" },
         },
       ],
-      eslint: ["pnpm exec eslint . --quiet"],
+      eslint: ["pnpm exec eslint 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts' --quiet"],
       format: {
         legacy: ["pnpm exec prettier --check 'source/**/*.d.ts' 'test-d/**/*.ts'"],
         ttscLint: [
@@ -197,7 +197,7 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint --quiet"],
+      eslint: ["pnpm exec eslint 'src/**/*.ts' --quiet"],
       format: {
         legacy: ["pnpm exec prettier --check 'src/**/*.ts'"],
         ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
@@ -293,10 +293,8 @@ const PACKAGE_CONFIGS = {
       legacy: {
         build: normalizeSteps(["pnpm exec tsc -p tsconfig.json"]),
         noEmit: normalizeSteps(["pnpm exec tsc -p tsconfig.json --noEmit"]),
-        eslint: normalizeSteps(["pnpm exec eslint src test"]),
-        format: normalizeSteps([
-          "pnpm exec prettier --check 'src/**/*.ts' 'test/**/*.ts'",
-        ]),
+        eslint: normalizeSteps(["pnpm exec eslint 'src/**/*.ts'"]),
+        format: normalizeSteps(["pnpm exec prettier --check 'src/**/*.ts'"]),
       },
       ttsc: {
         build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
@@ -457,7 +455,7 @@ function nestjsCommands() {
       build: normalizeSteps(nestjsPackageSteps("tsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("tsc", true)),
       eslint: normalizeSteps([
-        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts'",
+        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts' --ignore-pattern '**/test/**' --ignore-pattern 'integration/**' --ignore-pattern 'sample/**'",
       ]),
       format: normalizeSteps([
         "npm exec -- prettier --check 'packages/**/*.ts' --ignore-path .prettierignore",
