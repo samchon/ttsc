@@ -46,3 +46,26 @@ does not currently have a valid comparable command for that tool.
   `tsgo --noEmit`.
 - **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
   `eslint` time versus the measured `@ttsc/lint` overhead.
+
+## Reproduce
+
+The runner starts from an empty `experimental/benchmark/.work` directory. It
+packs the local `ttsc` workspace into tarballs, clones the fixture branches,
+installs those tarballs into the `ttsc` and `ttsc-lint` clones, runs
+`ttsc prepare`, then measures each cell sequentially so projects do not compete
+for CPU during timing.
+
+```bash
+git clone https://github.com/samchon/ttsc.git
+cd ttsc
+corepack enable
+pnpm install
+
+node experimental/benchmark/bench.mjs --fresh \
+  vue type-fest typeorm zod nestjs vscode shopping-backend
+```
+
+The published run uses one warmup and ten measured runs per cell. Results are
+written to `experimental/benchmark/.work/report.md`,
+`experimental/benchmark/.work/report.json`, and
+`website/public/benchmark.json`.
