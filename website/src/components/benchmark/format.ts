@@ -120,33 +120,6 @@ export function deriveSpeedups(
       },
     );
 
-    const ttscLintBuild =
-      findMeasurement(measurements, {
-        branch: "ttsc-lint",
-        tool: "ttsc+@ttsc/lint",
-        op: "build",
-        threading,
-      }) ??
-      findMeasurement(measurements, {
-        branch: "ttsc-lint",
-        op: "build",
-        threading,
-      });
-    push(
-      `build-eslint-${threading}`,
-      `Build + lint (${threading})`,
-      "legacy tsc build + eslint vs ttsc-lint build",
-      legacyBuild &&
-        eslint && {
-          tool: "tsc + eslint",
-          ms: legacyBuild.medianMs + eslint.medianMs,
-        },
-      ttscLintBuild && {
-        tool: `ttsc-lint ${threading}`,
-        ms: ttscLintBuild.medianMs,
-      },
-    );
-
     const ttscLintNoEmit =
       findMeasurement(measurements, {
         branch: "ttsc-lint",
@@ -159,30 +132,16 @@ export function deriveSpeedups(
         op: "noEmit",
         threading,
       });
-    push(
-      `noEmit-eslint-${threading}`,
-      `No emit + lint (${threading})`,
-      "legacy tsc --noEmit + eslint vs ttsc-lint --noEmit",
-      legacyNoEmit &&
-        eslint && {
-          tool: "tsc --noEmit + eslint",
-          ms: legacyNoEmit.medianMs + eslint.medianMs,
-        },
-      ttscLintNoEmit && {
-        tool: `ttsc-lint --noEmit ${threading}`,
-        ms: ttscLintNoEmit.medianMs,
-      },
-    );
 
-    if (eslint && ttscBuild && ttscLintBuild) {
-      const overhead = ttscLintBuild.medianMs - ttscBuild.medianMs;
+    if (eslint && ttscNoEmit && ttscLintNoEmit) {
+      const overhead = ttscLintNoEmit.medianMs - ttscNoEmit.medianMs;
       push(
         `lint-overhead-${threading}`,
-        `Lint overhead (${threading})`,
-        "eslint alone vs ttsc-lint build minus ttsc build",
+        `Lint (${threading})`,
+        "eslint alone vs ttsc-lint noEmit minus ttsc noEmit",
         { tool: "eslint", ms: eslint.medianMs },
         overhead > 0
-          ? { tool: `ttsc-lint - ttsc ${threading}`, ms: overhead }
+          ? { tool: `@ttsc/lint ${threading}`, ms: overhead }
           : undefined,
       );
     }

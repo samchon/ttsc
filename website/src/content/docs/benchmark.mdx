@@ -19,10 +19,11 @@ The Summary tab keeps only the strongest result in each category. Build and
 Type-check compare one unit of work across the legacy compiler, `ttsc` in
 single-threaded and default multi-threaded modes.
 
-Lint is intentionally split out. The legacy path is `tsc + eslint`, two
-separate passes over the project. The `ttsc-lint` path runs `ttsc` with
-`@ttsc/lint` loaded, so the chart separates the compile portion from the extra
-lint overhead and also shows the pure lint-to-lint ratio.
+Lint is intentionally isolated from type-checking. The legacy lint number is
+the ESLint command by itself. The `@ttsc/lint` number is the measured overhead
+of `ttsc-lint --noEmit` over plain `ttsc --noEmit` for the same threading mode,
+so the chart compares lint work against lint work instead of stacking compiler
+time into the bar.
 
 ## Methodology
 
@@ -43,8 +44,8 @@ comparable command for that tool.
 - **Build**: `tsc` emit on the legacy branch versus `ttsc` emit on the `ttsc`
   branch.
 - **Type-check**: `tsc --noEmit` versus `ttsc --noEmit`.
-- **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
-  `eslint` time versus the measured `@ttsc/lint` overhead.
+- **Lint**: legacy `eslint` time versus the measured `@ttsc/lint` overhead
+  (`ttsc-lint --noEmit` minus plain `ttsc --noEmit`).
 
 ## Reproduce
 

@@ -1432,8 +1432,7 @@ function filterCells(cells) {
 }
 
 function isLintComparisonCell(cell) {
-  if (cell.branch === "legacy")
-    return cell.op === "noEmit" || cell.op === "eslint";
+  if (cell.branch === "legacy") return cell.op === "eslint";
   if (cell.branch === "ttsc") return cell.op === "noEmit";
   return cell.branch === "ttsc-lint" && cell.op === "noEmit";
 }

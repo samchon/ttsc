@@ -233,11 +233,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
             />
           ) : null}
           {lint ? (
-            <ProjectLintRows
-              project={lint.project}
-              op="noEmit"
-              title="Type-check + lint"
-            />
+            <ProjectLintRows project={lint.project} op="noEmit" title="Lint" />
           ) : null}
         </div>
       </section>
@@ -342,7 +338,7 @@ function LintTab({ report }: { report: BenchmarkReport }) {
   return (
     <LintMatrix
       title="Lint Tool Matrix"
-      description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
+      description="ESLint is measured directly; @ttsc/lint is the extra time over plain ttsc for the same noEmit pass."
       projects={projects}
       op="noEmit"
     />
@@ -415,9 +411,10 @@ function ProjectLintRows({
             label={row.label}
             totalMs={row.totalMs}
             maxMs={maxMs}
-            ratio={row.baseline ? "baseline" : undefined}
-            lintRatio={
-              row.baseline ? undefined : lintRatioParts(baseline.totalMs, row)
+            ratio={
+              row.baseline
+                ? "baseline"
+                : formatMultiplier(baseline.totalMs / row.totalMs)
             }
             baseline={row.baseline}
             segments={row.segments}
@@ -509,7 +506,6 @@ function StackedDurationBar({
   totalMs,
   maxMs,
   ratio,
-  lintRatio,
   baseline,
   segments,
 }: {
@@ -517,7 +513,6 @@ function StackedDurationBar({
   totalMs: number;
   maxMs: number;
   ratio?: string;
-  lintRatio?: LintRatioParts;
   baseline?: boolean;
   segments: { label: string; ms: number; color: string }[];
 }) {
@@ -534,18 +529,13 @@ function StackedDurationBar({
         </p>
         <div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px]">
           <span className="text-neutral-400">{formatDuration(totalMs)}</span>
-          {lintRatio ? (
-            <>
-              <span className="font-semibold text-sky-300">
-                {lintRatio.total}
-              </span>
-              <span className="font-semibold text-emerald-300">
-                {lintRatio.lint}
-              </span>
-            </>
-          ) : (
-            <span className="text-neutral-500">{ratio}</span>
-          )}
+          <span
+            className={
+              baseline ? "text-neutral-500" : "font-semibold text-emerald-300"
+            }
+          >
+            {ratio}
+          </span>
         </div>
       </div>
       <p className="mb-1.5 break-words font-mono text-[10px] text-neutral-500">
@@ -626,14 +616,6 @@ interface LintRow {
   totalMs: number;
   segments: LintSegment[];
   baseline?: boolean;
-  eslintMs?: number;
-  lintOverheadMs?: number;
-  lintFactor?: number;
-}
-
-interface LintRatioParts {
-  total: string;
-  lint: string;
 }
 
 interface Winner {
@@ -687,25 +669,17 @@ function lintRowsForProject(
 ): LintRow[] {
   const measurements = project.measurements;
   const rows: LintRow[] = [];
-  const tsc = findMeasured(measurements, {
-    branch: "legacy",
-    tool: "tsc",
-    op,
-    threading: "multi",
-  });
   const eslint = findLegacyEslint(measurements, op);
 
-  if (tsc && eslint)
+  if (eslint)
     rows.push({
       project,
       op,
       threading: "multi",
-      label: "tsc + eslint",
-      totalMs: tsc.medianMs + eslint.medianMs,
+      label: "ESLint",
+      totalMs: eslint.medianMs,
       baseline: true,
-      eslintMs: eslint.medianMs,
       segments: [
-        { label: "tsc", ms: tsc.medianMs, color: "bg-neutral-500" },
         { label: "ESLint", ms: eslint.medianMs, color: "bg-amber-500" },
       ],
     });
@@ -721,27 +695,14 @@ function lintRowsForProject(
     if (!total || !plainTtsc) continue;
 
     const rawLintOverheadMs = total.medianMs - plainTtsc.medianMs;
-    const ttscMs = Math.min(plainTtsc.medianMs, total.medianMs);
     const lintOverheadMs = Math.max(0, rawLintOverheadMs);
     rows.push({
       project,
       op,
       threading,
-      label:
-        threading === "single"
-          ? "ttsc + @ttsc/lint (ST)"
-          : "ttsc + @ttsc/lint (MT)",
-      totalMs: total.medianMs,
-      eslintMs: eslint?.medianMs,
-      lintOverheadMs,
-      lintFactor:
-        eslint && rawLintOverheadMs <= 0
-          ? Infinity
-          : eslint && lintOverheadMs > 0
-            ? eslint.medianMs / lintOverheadMs
-            : undefined,
+      label: threading === "single" ? "@ttsc/lint (ST)" : "@ttsc/lint (MT)",
+      totalMs: lintOverheadMs,
       segments: [
-        { label: "ttsc", ms: ttscMs, color: "bg-cyan-500" },
         {
           label: "@ttsc/lint",
           ms: lintOverheadMs,
@@ -828,12 +789,6 @@ function bestLintProject(
 
     return winner && (!best || winner.factor > best.factor) ? winner : best;
   }, undefined);
-}
-
-function lintRatioParts(baselineMs: number, row: LintRow): LintRatioParts {
-  const total = formatMultiplier(baselineMs / row.totalMs);
-  const lint = `${formatMultiplier(row.lintFactor ?? 0)} lint`;
-  return { total: `${total} total`, lint };
 }
 
 function findMeasured(
