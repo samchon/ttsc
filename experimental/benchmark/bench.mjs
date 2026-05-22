@@ -35,8 +35,10 @@
  *      ttsc workspace) — default /tmp/ttsc-bench-work/;
  *   3. `pnpm install` each clone; `ttsc prepare` the ttsc / ttsc-lint clones;
  *      run each project's prerequisites (e.g. shopping-backend build:prisma);
- *   4. measure the matrix; write a Markdown report + JSON sidecar into the
- *      git-ignored `.work/` directory.
+ *   4. measure the matrix; write a Markdown report + raw JSON sidecar into the
+ *      git-ignored `.work/` directory, AND the canonical, committed result file
+ *      `website/public/benchmark.json` (the schema the website dashboard
+ *      renders — locked by `website/src/components/benchmark/types.ts`).
  *
  * Usage:
  *   node bench.mjs [projects...]            # e.g. `node bench.mjs tstl zod`
@@ -67,6 +69,14 @@ const TGZ = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
 const OUT =
   process.env.TTSC_BENCH_OUT ??
   path.resolve(import.meta.dirname, ".work", "report.md");
+// The canonical, committed, served result file. The website dashboard fetches
+// this; its schema is locked by website/src/components/benchmark/types.ts.
+const WEBSITE_JSON = path.resolve(
+  REPO_ROOT,
+  "website",
+  "public",
+  "benchmark.json",
+);
 const RUNS = Number(process.env.TTSC_BENCH_RUNS ?? 3);
 const WARMUP = Number(process.env.TTSC_BENCH_WARMUP ?? 1);
 const RETRIES = Number(process.env.TTSC_BENCH_RETRIES ?? 3);
@@ -212,15 +222,17 @@ const PROJECTS = {
   vue: {
     repo: "https://github.com/samchon/ttsc-benchmark-vue.git",
     kind: "plugin-free",
-    // TODO: ttsc-lint branch not pushed yet — see issue #118 fixture work.
-    branches: ["legacy", "ttsc"],
+    branches: ["legacy", "ttsc", "ttsc-lint"],
     prerequisites: [],
     cases: [
       {
+        // vue's tsconfig is `noEmit` (vue ships JS via rollup), so the measured
+        // op is a pure `--noEmit` type-check. `emit: false` keeps it out of the
+        // M1 emit-build comparison; the `mt`/`st` cells ARE the type-check cells.
         name: "check",
         emit: false,
         singleThreaded: true,
-        legacy: { build: "pnpm exec tsc --incremental --noEmit" },
+        legacy: { build: "pnpm exec tsc --noEmit" },
         ttsc: { build: "pnpm exec ttsc --noEmit" },
       },
     ],
@@ -554,10 +566,15 @@ function depVersion(fromDir, pkg) {
 }
 
 /**
- * Collect the host machine spec + toolchain versions for the report header.
- * `tsgo`/`tsc` resolve from the fixture clones (that is where the compilers are
- * installed); `tsgo` reads `@typescript/native-preview` from a `ttsc` clone and
- * `tsc` reads `typescript` from a `legacy` clone.
+ * Collect the host machine spec + toolchain versions for the report.
+ *
+ * The returned object is the canonical `BenchmarkHost` shape consumed by the
+ * website dashboard (`os`, `kernel`, `cpu`, `cores`, `ramGB`, `node`, `ttsc`,
+ * `typescript`) plus a `tsgo` extra used only by the Markdown report header.
+ *
+ * `typescript`/`tsgo` resolve from the fixture clones (that is where the
+ * compilers are installed): `typescript` reads `typescript` from a `legacy`
+ * clone, `tsgo` reads `@typescript/native-preview` from a `ttsc` clone.
  */
 function hostSpec(wantedProjectsList) {
   const cpu = os.cpus();
@@ -565,7 +582,7 @@ function hostSpec(wantedProjectsList) {
   try {
     const rel = fs.readFileSync("/etc/os-release", "utf8");
     const pretty = rel.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
-    if (pretty) osName = `${pretty[1]} (kernel ${os.release()})`;
+    if (pretty) osName = pretty[1];
   } catch {
     /* not Linux — keep os.type()/os.release() */
   }
@@ -580,12 +597,134 @@ function hostSpec(wantedProjectsList) {
   }
   return {
     os: osName,
-    cpu: `${cpu.length}× ${cpu[0]?.model?.trim() ?? "unknown"}`,
-    ram: `${(os.totalmem() / 2 ** 30).toFixed(0)} GB`,
+    kernel: os.release(),
+    cpu: cpu[0]?.model?.trim() ?? "unknown",
+    cores: cpu.length,
+    ramGB: Math.round(os.totalmem() / 2 ** 30),
     node: process.version,
     ttsc: TTSC_VERSION,
+    typescript: tsc ?? "—",
     tsgo: tsgo ?? "—",
-    tsc: tsc ?? "—",
+  };
+}
+
+// ── canonical website JSON ───────────────────────────────────────────────────
+
+/**
+ * Count the project's own TypeScript source files in a clone — `.ts` / `.tsx` /
+ * `.mts` / `.cts`, excluding `node_modules`, declaration files, and dist/build
+ * output. This is the `files` figure shown on each website project card; it is
+ * an approximate project-size signal, not the exact compiler input set.
+ */
+function countSourceFiles(dir) {
+  if (!dir || !fs.existsSync(dir)) return 0;
+  const SKIP = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    "lib",
+    "out",
+    "build",
+    "coverage",
+  ]);
+  let count = 0;
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (!SKIP.has(e.name)) walk(path.join(d, e.name));
+      } else if (
+        /\.(ts|tsx|mts|cts)$/.test(e.name) &&
+        !/\.d\.(ts|mts|cts)$/.test(e.name)
+      ) {
+        count++;
+      }
+    }
+  };
+  walk(dir);
+  return count;
+}
+
+/**
+ * Project the runner's internal `project|branch|case|mode` result map into the
+ * canonical `BenchmarkReport` shape served at `website/public/benchmark.json`
+ * and consumed by `website/src/components/benchmark/types.ts`.
+ *
+ * The mapping is mechanical:
+ *
+ *   - branch `legacy` → `tool: "tsc"`; `ttsc`/`ttsc-lint` → `tool: "ttsc"`.
+ *   - mode `mt`/`st` carry `threading` multi/single; the `op` is `build` for an
+ *     emit case and `noEmit` for a type-check-only case.
+ *   - modes `noEmit`/`st-noEmit` are always `op: "noEmit"` at the matching
+ *     threading.
+ *
+ * `format` measurements are not produced by the current matrix (the runner has
+ * no prettier / `@ttsc/lint` format case wired); the website schema keeps the
+ * `format` op for when such a case lands, and the dashboard simply skips it.
+ */
+function buildWebsiteReport(results, started, host) {
+  const projects = [];
+  for (const project of wantedProjects) {
+    const cfg = PROJECTS[project];
+    // First clone that exists on disk gives the source-file count.
+    const filesDir = cfg.branches
+      .map((b) => cloneDir(project, b))
+      .find((d) => fs.existsSync(d));
+    const measurements = [];
+    const push = (branch, op, threading, cell) => {
+      if (!cell) return;
+      const m = {
+        branch,
+        tool: branch === "legacy" ? "tsc" : "ttsc",
+        op,
+        threading,
+        medianMs: cell.median ?? 0,
+      };
+      if (cell.min != null) m.minMs = cell.min;
+      if (cell.samples?.length) m.samples = cell.samples;
+      if (cell.raceRetries) m.raceRetries = cell.raceRetries;
+      if (cell.deterministicFailure)
+        m.failure = cell.deterministicFailure.kind;
+      measurements.push(m);
+    };
+    for (const c of cfg.cases) {
+      for (const branch of cfg.branches) {
+        const cell = (mode) => results[`${project}|${branch}|${c.name}|${mode}`];
+        // `mt`/`st` carry the case's primary op (build for an emit case,
+        // noEmit for a type-check-only case).
+        const primaryOp = c.emit ? "build" : "noEmit";
+        push(branch, primaryOp, "multi", cell("mt"));
+        push(branch, primaryOp, "single", cell("st"));
+        // The dedicated type-check-only cells are always `noEmit`.
+        push(branch, "noEmit", "multi", cell("noEmit"));
+        push(branch, "noEmit", "single", cell("st-noEmit"));
+      }
+    }
+    projects.push({
+      name: project,
+      files: countSourceFiles(filesDir),
+      kind: cfg.kind,
+      measurements,
+    });
+  }
+  return {
+    date: started.toISOString(),
+    host: {
+      os: host.os,
+      kernel: host.kernel,
+      cpu: host.cpu,
+      cores: host.cores,
+      ramGB: host.ramGB,
+      node: host.node,
+      ttsc: host.ttsc,
+      typescript: host.typescript,
+    },
+    projects,
   };
 }
 
@@ -612,13 +751,13 @@ function buildReport(results, started, host) {
   L.push("");
   L.push(`| Field | Value |`);
   L.push(`| --- | --- |`);
-  L.push(`| OS | ${host.os} |`);
-  L.push(`| CPU | ${host.cpu} |`);
-  L.push(`| RAM | ${host.ram} |`);
+  L.push(`| OS | ${host.os} (kernel ${host.kernel}) |`);
+  L.push(`| CPU | ${host.cores}× ${host.cpu} |`);
+  L.push(`| RAM | ${host.ramGB} GB |`);
   L.push(`| node | ${host.node} |`);
   L.push(`| ttsc | ${host.ttsc} |`);
   L.push(`| @typescript/native-preview (tsgo) | ${host.tsgo} |`);
-  L.push(`| tsc | ${host.tsc} |`);
+  L.push(`| tsc | ${host.typescript} |`);
   L.push("");
   L.push(
     `- Method: ${WARMUP} warmup + ${RUNS} measured runs per cell; median ` +
@@ -871,7 +1010,20 @@ function main() {
     jsonPath,
     JSON.stringify({ started, host, results }, null, 2),
   );
-  process.stdout.write(`\n${report}\n\nReport written to ${OUT}\n`);
+
+  // Canonical website result — the published, committed, served file. Written
+  // straight to website/public/benchmark.json so a run needs no manual step.
+  const websiteReport = buildWebsiteReport(results, started, host);
+  fs.mkdirSync(path.dirname(WEBSITE_JSON), { recursive: true });
+  fs.writeFileSync(
+    WEBSITE_JSON,
+    JSON.stringify(websiteReport, null, 2) + "\n",
+  );
+
+  process.stdout.write(
+    `\n${report}\n\nReport written to ${OUT}\n` +
+      `Website result written to ${WEBSITE_JSON}\n`,
+  );
 }
 
 main();
