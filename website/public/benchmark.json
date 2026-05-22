@@ -1,0 +1,65 @@
+{
+  "date": "2026-05-22T02:37:24.167Z",
+  "host": {
+    "os": "Ubuntu 24.04 (WSL2)",
+    "kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "cpu": "AMD Ryzen AI MAX+ 395 w/ Radeon 8060S",
+    "cores": 32,
+    "ramGB": 29,
+    "node": "22.14.0",
+    "ttsc": "0.12.4",
+    "typescript": "7.0.0-dev"
+  },
+  "projects": [
+    {
+      "name": "shopping-backend",
+      "files": 640,
+      "kind": "plugin-heavy",
+      "measurements": [
+        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 21872 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 8706 },
+        { "branch": "ttsc-lint", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 10566 },
+        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 17940 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 6980 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "single", "medianMs": 19120 },
+        { "branch": "legacy", "tool": "eslint", "op": "build", "threading": "multi", "medianMs": 5653 },
+        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "build", "threading": "multi", "medianMs": 0 },
+        { "branch": "legacy", "tool": "prettier", "op": "build", "threading": "multi", "medianMs": 3825 },
+        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "format", "threading": "multi", "medianMs": 2141 }
+      ]
+    },
+    {
+      "name": "vscode",
+      "files": 5120,
+      "kind": "type-check-heavy",
+      "measurements": [
+        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 49300 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 6420 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "single", "medianMs": 14880 }
+      ]
+    },
+    {
+      "name": "zod",
+      "files": 412,
+      "kind": "type-check-heavy",
+      "measurements": [
+        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 9740 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 1980 },
+        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 8210 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 1510 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "single", "medianMs": 3260 }
+      ]
+    },
+    {
+      "name": "rxjs",
+      "files": 1380,
+      "kind": "library",
+      "measurements": [
+        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 12640 },
+        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 2410 },
+        { "branch": "legacy", "tool": "prettier", "op": "build", "threading": "multi", "medianMs": 6190 },
+        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "format", "threading": "multi", "medianMs": 3050 }
+      ]
+    }
+  ]
+}

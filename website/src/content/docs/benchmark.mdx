@@ -1,0 +1,38 @@
+import BenchmarkDashboard from "../../components/benchmark/BenchmarkDashboard";
+
+# 🏁 Benchmark
+
+`ttsc` is the same toolchain you already run — compiler, linter, formatter — rebuilt on TypeScript-Go. This page measures the one thing that decides whether that matters in practice: **wall-clock time**.
+
+Every number below is a median of repeated runs on a fixed machine, comparing the legacy toolchain (`tsc` · `eslint` · `prettier`) against `ttsc` and `@ttsc/lint` on the *same* source tree.
+
+<BenchmarkDashboard />
+
+## What it measures
+
+Each fixture is checked out twice from an identical source tree — once configured for the legacy toolchain, once for `ttsc` — so every comparison is like-for-like.
+
+- **Build** — full `tsc` vs `ttsc`: type-check the project and emit JS + `.d.ts`.
+- **Type-check** — `tsc --noEmit` vs `ttsc --noEmit`: the check pass alone, no files written.
+- **Parallelism** — `ttsc` with its default parallel parse/emit vs `ttsc --singleThreaded`, which runs TypeScript-Go fully serial. This isolates how much of the speedup comes from using every core.
+- **Format** — `prettier` rewriting the source tree vs `ttsc format`, which formats through the same compiler pass.
+
+The headline of the build numbers is architectural. `eslint` is a *second* process that re-parses the whole project; `@ttsc/lint` folds linting into the single `ttsc` compile pass. So a `ttsc` build with lint configured already *is* build + lint — there is no separate lint step to time.
+
+## The fixtures
+
+The benchmark runs against real open-source codebases rather than synthetic ones, so the numbers reflect production-shaped projects — mixed plugin usage, deep type graphs, and large file counts.
+
+Each project is tagged by `kind`:
+
+- **plugin-heavy** — leans on `ttsc` transform plugins (e.g. `typia`), where the plugin pass is part of every build.
+- **type-check-heavy** — large, deeply generic type graphs where the checker dominates.
+- **library** — published packages with broad `.d.ts` emit surface.
+
+A project only carries the measurements that make sense for it; the dashboard renders whatever is present and skips the rest.
+
+## Method
+
+Each command runs one unmeasured warmup (absorbing first-run plugin compilation and cold filesystem cache) followed by several measured runs; the **median** is reported. A measured run that exits non-zero is retried so an unrelated stability issue never contaminates a timing sample.
+
+The benchmark harness lives in [`experimental/benchmark`](https://github.com/samchon/ttsc/tree/master/experimental/benchmark) and writes the result file served on this page. Numbers are tied to the machine in the **Measurement host** panel above — treat the *ratios* as the portable result, not the absolute milliseconds.
