@@ -39,9 +39,11 @@ const EXAMPLES =
 const RUNS = Number(process.env.TTSC_BENCH_RUNS ?? 3);
 const WARMUP = Number(process.env.TTSC_BENCH_WARMUP ?? 1);
 const RETRIES = Number(process.env.TTSC_BENCH_RETRIES ?? 3);
+// Results are an ephemeral artifact, never committed: the default lands in the
+// git-ignored `.work/` directory next to this script.
 const OUT =
   process.env.TTSC_BENCH_OUT ??
-  path.resolve(import.meta.dirname, "report.md");
+  path.resolve(import.meta.dirname, ".work", "report.md");
 
 const PROJECTS = {
   legacy: path.join(EXAMPLES, "shopping-backend@legacy"),
@@ -52,6 +54,10 @@ const PROJECTS = {
 /**
  * Every distinct (project, command) measured once. `key` is referenced by the
  * report tables; `crashy` marks commands subject to the parallel-emit race.
+ *
+ * The `:st` keys re-run the ttsc build under `--singleThreaded` (TypeScript-Go
+ * fully serial) so B4 can report the multi-threaded speedup. Their multi-
+ * threaded counterparts are the plain `:build:*` keys (ttsc's default).
  */
 const CASES = [
   { key: "legacy:build:main", project: "legacy", cmd: "pnpm run build:main" },
@@ -64,6 +70,10 @@ const CASES = [
   { key: "legacy:eslint:test", project: "legacy", cmd: "pnpm exec eslint test" },
   { key: "experiment:build:main", project: "experiment", cmd: "pnpm run build:main", crashy: true },
   { key: "experiment:build:test", project: "experiment", cmd: "pnpm run build:test", crashy: true },
+  { key: "next:build:main:st", project: "next", cmd: "pnpm exec rimraf lib && pnpm exec ttsc --singleThreaded" },
+  { key: "next:build:test:st", project: "next", cmd: "pnpm exec rimraf bin && pnpm exec ttsc -p test/tsconfig.json --singleThreaded" },
+  { key: "experiment:build:main:st", project: "experiment", cmd: "pnpm exec rimraf lib && pnpm exec ttsc --singleThreaded" },
+  { key: "experiment:build:test:st", project: "experiment", cmd: "pnpm exec rimraf bin && pnpm exec ttsc -p test/tsconfig.json --singleThreaded" },
 ];
 
 const GROUPS = {
@@ -72,6 +82,11 @@ const GROUPS = {
   b3: [
     "legacy:build:main", "legacy:build:test", "legacy:eslint:src",
     "legacy:eslint:test", "experiment:build:main", "experiment:build:test",
+  ],
+  b4: [
+    "next:build:main", "next:build:main:st", "next:build:test", "next:build:test:st",
+    "experiment:build:main", "experiment:build:main:st",
+    "experiment:build:test", "experiment:build:test:st",
   ],
 };
 
@@ -238,6 +253,24 @@ if (hasGroup("b3")) {
   lines.push("");
 }
 
+if (hasGroup("b4")) {
+  lines.push(`## B4 — ttsc threading: single-threaded vs multi-threaded`);
+  lines.push("");
+  lines.push(`\`ttsc --singleThreaded\` runs TypeScript-Go fully serial; the default keeps parallel parsing and emit. Speedup is multi-threaded over single-threaded.`);
+  lines.push("");
+  lines.push(`| Project · step | single-threaded | multi-threaded | speedup |`);
+  lines.push(`| --- | --- | --- | --- |`);
+  for (const [label, mt, st] of [
+    ["next · build:main", "next:build:main", "next:build:main:st"],
+    ["next · build:test", "next:build:test", "next:build:test:st"],
+    ["experiment · build:main", "experiment:build:main", "experiment:build:main:st"],
+    ["experiment · build:test", "experiment:build:test", "experiment:build:test:st"],
+  ]) {
+    lines.push(`| ${label} | ${s(R(st).median)} | ${s(R(mt).median)} | ${ratio(R(st).median, R(mt).median)} |`);
+  }
+  lines.push("");
+}
+
 const raced = Object.values(results).filter((r) => r.raceRetries > 0);
 const failed = Object.entries(results).filter(([, r]) => r.deterministicFailure);
 if (raced.length || failed.length) {
@@ -269,6 +302,7 @@ for (const k of Object.keys(results)) {
 }
 lines.push("");
 
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const report = lines.join("\n");
 fs.writeFileSync(OUT, report);
 fs.writeFileSync(OUT.replace(/\.md$/, ".json"), JSON.stringify({ started, results }, null, 2));

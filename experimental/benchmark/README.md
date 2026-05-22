@@ -9,6 +9,7 @@ Wall-clock benchmark comparing the legacy TypeScript toolchain against the
 | **B1** Build | type-check + emit | `tsc` | `ttsc` |
 | **B2** Format | format the `src` tree | `prettier` | `ttsc format` |
 | **B3** Build + lint | build then lint | `tsc` + `eslint` | `ttsc` + `@ttsc/lint` |
+| **B4** Threading | ttsc build, serial vs parallel | `ttsc --singleThreaded` | `ttsc` (default) |
 
 The headline of B3 is architectural: `eslint` is a second process that re-parses
 the project, while `@ttsc/lint` folds linting into the single `ttsc` compile
@@ -62,9 +63,11 @@ like-for-like comparison.
 ## Run
 
 ```bash
-node bench.mjs            # all groups
-node bench.mjs b1 b2      # selected groups; results accumulate on disk
+node bench.mjs            # all groups (b1 b2 b3 b4)
+node bench.mjs b1 b4      # selected groups; results accumulate on disk
 ```
+
+The report is written to `.work/report.md` — a **git-ignored** directory; benchmark results are an ephemeral artifact and are never committed.
 
 Environment overrides:
 
@@ -74,7 +77,7 @@ Environment overrides:
 | `TTSC_BENCH_RUNS` | `3` | measured runs per command |
 | `TTSC_BENCH_WARMUP` | `1` | warmup runs per command |
 | `TTSC_BENCH_RETRIES` | `3` | retries to recover a crashed run |
-| `TTSC_BENCH_OUT` | `report.md` | report destination (`.md` + `.json`) |
+| `TTSC_BENCH_OUT` | `.work/report.md` | report destination (`.md` + `.json`) |
 
 ## Method
 

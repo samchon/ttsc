@@ -31,6 +31,9 @@ go.work.sum
 experimental/typia/
 experimental/nestia/
 
+# Benchmark results — an ephemeral artifact, never committed.
+experimental/benchmark/.work/
+
 # Stray native sanity binary from `go build ./cmd/ttsc-wasm` (host build).
 packages/wasm/ttsc-wasm
 
