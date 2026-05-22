@@ -126,6 +126,8 @@ export function loadProjectPlugins(options: {
       label: pluginLabel(plugin, entries[index]!.config, index),
       linkedContributorName,
       name: plugin.name,
+      reportsTypeScriptDiagnostics:
+        plugin.reportsTypeScriptDiagnostics === true,
       source,
       stage,
     };
@@ -200,6 +202,7 @@ export function loadProjectPlugins(options: {
       contributors: record.contributors,
       kind: record.kind,
       name: record.name,
+      reportsTypeScriptDiagnostics: record.reportsTypeScriptDiagnostics,
       source: record.source,
       stage: record.stage,
     };

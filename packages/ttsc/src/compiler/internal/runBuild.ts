@@ -104,6 +104,9 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
           buildWithNativeCompilerPlugins(buildOptions, execution, compilers),
         );
       }
+      if (checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)) {
+        return checked;
+      }
       return appendBuildOutput(
         checked,
         runTsgo(execution, ["--noEmit"], buildOptions),
@@ -120,6 +123,7 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
     } else {
       if (
         buildOptions.skipDiagnosticsCheck !== true &&
+        !checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins) &&
         !forwardsTerminalTsgoFlag(buildOptions)
       ) {
         const tsgoChecked = runTsgo(execution, ["--noEmit"], buildOptions);
@@ -178,6 +182,16 @@ function applyProjectNoEmit(
     return options;
   }
   return { ...options, emit: false };
+}
+
+function checkPluginsReportTypeScriptDiagnostics(
+  plugins: readonly ITtscLoadedNativePlugin[],
+): boolean {
+  return plugins.some(
+    (plugin) =>
+      plugin.stage === "check" &&
+      plugin.reportsTypeScriptDiagnostics === true,
+  );
 }
 
 /**

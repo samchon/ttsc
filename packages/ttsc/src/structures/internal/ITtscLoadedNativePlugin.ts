@@ -14,6 +14,8 @@ export interface ITtscLoadedNativePlugin {
   kind: "executable" | "linked";
   /** Optional human label used in diagnostics and native manifests. */
   name?: string;
+  /** Whether a check-stage plugin already emits TypeScript diagnostics. */
+  reportsTypeScriptDiagnostics?: boolean;
   /** Go source directory selected by the plugin descriptor. */
   source: string;
   /** Pipeline stage where the sidecar participates. */

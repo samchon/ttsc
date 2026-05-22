@@ -18,6 +18,7 @@ type TtscPluginContributor = {
 /** Descriptor shape returned to ttsc's plugin builder by the factory. */
 type TtscPluginDescriptor = {
   name: string;
+  reportsTypeScriptDiagnostics?: boolean;
   source: string;
   stage?: "check" | "transform";
   contributors?: TtscPluginContributor[];
@@ -111,6 +112,7 @@ export default function createTtscPlugin(
   // tests) see the same surface as before this feature shipped.
   const descriptor: TtscPluginDescriptor = {
     name: "@ttsc/lint",
+    reportsTypeScriptDiagnostics: true,
     source: path.resolve(__dirname, "..", "plugin"),
     stage: "check",
   };

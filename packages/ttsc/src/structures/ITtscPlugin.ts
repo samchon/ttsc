@@ -65,6 +65,18 @@ export interface ITtscPlugin {
   stage?: TtscPluginStage;
 
   /**
+   * Whether a check-stage sidecar reports the normal TypeScript diagnostics for
+   * the project as part of its `check` subcommand.
+   *
+   * Leave this unset for ordinary check plugins that only report their own
+   * diagnostics; ttsc will keep running a separate `tsgo --noEmit` guard so
+   * TypeScript errors are not suppressed. Set it only when the sidecar builds
+   * the project Program and emits the same TypeScript diagnostics the guard
+   * would have produced.
+   */
+  reportsTypeScriptDiagnostics?: boolean;
+
+  /**
    * Additional Go source packages to statically link into this plugin's binary
    * at build time ("plugin-within-plugin" composition).
    *

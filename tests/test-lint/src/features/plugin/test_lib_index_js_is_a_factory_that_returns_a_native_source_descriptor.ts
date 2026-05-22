@@ -8,14 +8,15 @@ import { TestLintPlugin } from "../../internal/TestLintPlugin";
  *
  * The `@ttsc/lint` package's JS entry must be a callable factory (not a plain
  * config object), and the returned descriptor must carry the plugin name
- * `"@ttsc/lint"` and the `"check"` stage so the ttsc host knows when to invoke
- * it. A wrong name or stage would silently route lint diagnostics to the wrong
- * pipeline slot.
+ * `"@ttsc/lint"`, the `"check"` stage, and the TypeScript-diagnostics
+ * capability so the ttsc host knows when to invoke it and avoid redundant
+ * `tsgo --noEmit` guards. A wrong name or stage would silently route lint
+ * diagnostics to the wrong pipeline slot.
  *
  * 1. Load the factory from the built `lib/index.js`.
  * 2. Call it with a minimal context supplying `transform: "@ttsc/lint"`.
  * 3. Assert `typeof factory === "function"`, `descriptor.name === "@ttsc/lint"`,
- *    and `descriptor.stage === "check"`.
+ *    `descriptor.stage === "check"`, and the diagnostics capability is set.
  */
 export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descriptor =
   () => {
@@ -26,4 +27,5 @@ export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descrip
     );
     assert.equal(descriptor.name, "@ttsc/lint");
     assert.equal(descriptor.stage, "check");
+    assert.equal(descriptor.reportsTypeScriptDiagnostics, true);
   };

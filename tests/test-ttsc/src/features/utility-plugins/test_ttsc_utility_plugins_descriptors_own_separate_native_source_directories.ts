@@ -12,8 +12,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * Each utility package (`lint`, `banner`, `paths`, `strip`) must advertise its
  * own `source` directory — distinct from every other package — so the
  * linked-plugin host can combine their sources into one binary without path
- * collisions. The `stage` and `package.json` plugin field must also match the
- * expected values for each package.
+ * collisions. The `stage`, optional diagnostics capability, and `package.json`
+ * plugin field must also match the expected values for each package.
  *
  * 1. Invoke `createTtscPlugin` for each utility package with a factory context.
  * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields.
@@ -22,7 +22,11 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
 export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories =
   () => {
     const expectations = {
-      lint: { source: "plugin", stage: "check" },
+      lint: {
+        reportsTypeScriptDiagnostics: true,
+        source: "plugin",
+        stage: "check",
+      },
       banner: { source: "driver", stage: "transform" },
       paths: { source: "driver", stage: "transform" },
       strip: { source: "driver", stage: "transform" },
@@ -38,9 +42,18 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
       assert.equal(descriptor.stage, expectation.stage);
       assert.deepEqual(Object.keys(descriptor).sort(), [
         "name",
+        ...("reportsTypeScriptDiagnostics" in expectation
+          ? ["reportsTypeScriptDiagnostics"]
+          : []),
         "source",
         "stage",
       ]);
+      if ("reportsTypeScriptDiagnostics" in expectation) {
+        assert.equal(
+          descriptor.reportsTypeScriptDiagnostics,
+          expectation.reportsTypeScriptDiagnostics,
+        );
+      }
       assert.equal(
         descriptor.source,
         path.join(
