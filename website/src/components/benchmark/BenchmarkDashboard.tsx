@@ -316,7 +316,7 @@ function ProjectOperationRows({
           <DurationBar
             key={`${project.name}:${op}:${row.label}`}
             label={row.label}
-            measurement={row.measurement}
+            ms={row.measurement.medianMs}
             maxMs={maxMs}
             color={row.color}
             ratio={
@@ -459,22 +459,20 @@ function ProjectLabel({
 
 function DurationBar({
   label,
-  measurement,
+  ms,
   maxMs,
   color,
   ratio,
   baseline,
 }: {
   label: string;
-  measurement: BenchmarkMeasurement;
+  ms: number;
   maxMs: number;
   color: string;
   ratio: string;
   baseline?: boolean;
 }) {
-  const ms = measurement.medianMs;
   const widthPct = Math.max(4, (ms / maxMs) * 100);
-  const stats = sampleStats(measurement);
 
   return (
     <div className="py-1.5">
@@ -500,7 +498,6 @@ function DurationBar({
         <div
           className={`h-full rounded ${color}`}
           style={{ width: `${widthPct}%` }}
-          title={stats}
         />
       </div>
     </div>
@@ -522,10 +519,9 @@ function StackedDurationBar({
   ratio?: string;
   lintRatio?: LintRatioParts;
   baseline?: boolean;
-  segments: LintSegment[];
+  segments: { label: string; ms: number; color: string }[];
 }) {
   const widthPct = Math.max(4, (totalMs / maxMs) * 100);
-  const stats = segmentStats(segments);
 
   return (
     <div className="py-1.5">
@@ -563,7 +559,6 @@ function StackedDurationBar({
         <div
           className="flex h-full overflow-hidden rounded"
           style={{ width: `${widthPct}%` }}
-          title={stats}
         >
           {segments.map((segment) => {
             const segmentPct =
@@ -575,9 +570,6 @@ function StackedDurationBar({
                 key={segment.label}
                 className={`h-full ${segment.color}`}
                 style={{ width: `${segmentPct}%` }}
-                title={`${segment.label}: ${formatDuration(segment.ms)}${
-                  segment.detail ? `\n${segment.detail}` : ""
-                }`}
               />
             );
           })}
@@ -624,7 +616,6 @@ interface LintSegment {
   label: string;
   ms: number;
   color: string;
-  detail?: string;
 }
 
 interface LintRow {
@@ -729,18 +720,8 @@ function lintRowsForProject(
       baseline: true,
       eslintMs: eslint.medianMs,
       segments: [
-        {
-          label: "tsc",
-          ms: tsc.medianMs,
-          color: "bg-neutral-500",
-          detail: sampleStats(tsc),
-        },
-        {
-          label: "ESLint",
-          ms: eslint.medianMs,
-          color: "bg-amber-500",
-          detail: sampleStats(eslint),
-        },
+        { label: "tsc", ms: tsc.medianMs, color: "bg-neutral-500" },
+        { label: "ESLint", ms: eslint.medianMs, color: "bg-amber-500" },
       ],
     });
 
@@ -772,17 +753,11 @@ function lintRowsForProject(
           ? eslint.medianMs / lintOverheadMs
           : undefined,
       segments: [
-        {
-          label: "ttsc",
-          ms: ttscMs,
-          color: "bg-cyan-500",
-          detail: sampleStats(plainTtsc),
-        },
+        { label: "ttsc", ms: ttscMs, color: "bg-cyan-500" },
         {
           label: "@ttsc/lint",
           ms: lintOverheadMs,
           color: "bg-emerald-400",
-          detail: overheadStats(total, plainTtsc),
         },
       ].filter((segment) => segment.ms > 0),
     });
@@ -954,53 +929,4 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-function sampleStats(measurement: BenchmarkMeasurement) {
-  const samples = measurement.samples?.filter((sample) => sample > 0) ?? [];
-  const min = measurement.minMs ?? (samples.length ? Math.min(...samples) : 0);
-  const max = samples.length ? Math.max(...samples) : measurement.medianMs;
-  const average = samples.length
-    ? samples.reduce((sum, sample) => sum + sample, 0) / samples.length
-    : measurement.medianMs;
-  const lines = [
-    `median ${formatDuration(measurement.medianMs)} / avg ${formatDuration(
-      average,
-    )} / min ${formatDuration(min)} / max ${formatDuration(max)}`,
-  ];
-  if (samples.length)
-    lines.push(samples.map((sample) => formatDuration(sample)).join(", "));
-  return lines.join("\n");
-}
-
-function overheadStats(
-  total: BenchmarkMeasurement,
-  base: BenchmarkMeasurement,
-) {
-  const totalSamples = total.samples ?? [];
-  const baseSamples = base.samples ?? [];
-  const length = Math.min(totalSamples.length, baseSamples.length);
-  if (length === 0) return sampleStats(total);
-  const samples = Array.from({ length }, (_, i) =>
-    Math.max(0, totalSamples[i] - baseSamples[i]),
-  );
-  return sampleStats({
-    ...total,
-    medianMs: median(samples),
-    minMs: Math.min(...samples),
-    samples,
-  });
-}
-
-function segmentStats(segments: LintSegment[]) {
-  const details = segments
-    .filter((segment) => segment.detail)
-    .map((segment) => `${segment.label}: ${segment.detail}`);
-  return details.join("\n");
-}
-
-function median(values: number[]) {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
