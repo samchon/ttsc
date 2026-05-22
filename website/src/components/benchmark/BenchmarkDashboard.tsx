@@ -37,20 +37,28 @@ export default function BenchmarkDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/benchmark.json")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<BenchmarkReport>;
-      })
-      .then((data) => {
-        if (!cancelled) setReport(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : String(err));
-      });
+    const load = () => {
+      fetch(`/benchmark.json?ts=${Date.now()}`, { cache: "no-store" })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json() as Promise<BenchmarkReport>;
+        })
+        .then((data) => {
+          if (cancelled) return;
+          setReport(data);
+          setError(null);
+        })
+        .catch((err: unknown) => {
+          if (!cancelled)
+            setError(err instanceof Error ? err.message : String(err));
+        });
+    };
+
+    load();
+    const timer = window.setInterval(load, 5_000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 
