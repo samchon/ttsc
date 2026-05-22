@@ -162,7 +162,7 @@ function Snapshot({ report }: { report: BenchmarkReport }) {
     },
     {
       label: "Best ratio",
-      value: best ? formatMultiplier(best.factor) : "n/a",
+      value: best ? formatMultiplier(best.factor) : "-",
       note: best ? `${best.project.name}: ${best.label}` : undefined,
     },
     { label: "Measured", value: formatDate(report.date) },
@@ -735,8 +735,9 @@ function lintRowsForProject(
     });
     if (!total || !plainTtsc) continue;
 
+    const rawLintOverheadMs = total.medianMs - plainTtsc.medianMs;
     const ttscMs = Math.min(plainTtsc.medianMs, total.medianMs);
-    const lintOverheadMs = Math.max(0, total.medianMs - plainTtsc.medianMs);
+    const lintOverheadMs = Math.max(0, rawLintOverheadMs);
     rows.push({
       project,
       op,
@@ -749,9 +750,11 @@ function lintRowsForProject(
       eslintMs: eslint?.medianMs,
       lintOverheadMs,
       lintFactor:
-        eslint && lintOverheadMs > 0
-          ? eslint.medianMs / lintOverheadMs
-          : undefined,
+        eslint && rawLintOverheadMs <= 0
+          ? Infinity
+          : eslint && lintOverheadMs > 0
+            ? eslint.medianMs / lintOverheadMs
+            : undefined,
       segments: [
         { label: "ttsc", ms: ttscMs, color: "bg-cyan-500" },
         {
@@ -759,7 +762,7 @@ function lintRowsForProject(
           ms: lintOverheadMs,
           color: "bg-emerald-400",
         },
-      ].filter((segment) => segment.ms > 0),
+      ],
     });
   }
 
@@ -844,10 +847,7 @@ function bestLintProject(
 
 function lintRatioParts(baselineMs: number, row: LintRow): LintRatioParts {
   const total = formatMultiplier(baselineMs / row.totalMs);
-  const lint =
-    row.lintFactor === undefined
-      ? "n/a lint"
-      : `${formatMultiplier(row.lintFactor)} lint`;
+  const lint = `${formatMultiplier(row.lintFactor ?? 0)} lint`;
   return { total: `${total} total`, lint };
 }
 
