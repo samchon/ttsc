@@ -1,626 +1,855 @@
 #!/usr/bin/env node
 /**
- * ttsc matrix benchmark runner.
+ * Prepared-clone benchmark runner for the ttsc comparison matrix.
  *
- * Clone-based, fully reproducible from a clean checkout. For every fixture
- * project the runner clones three branches of a forked repo —
+ * The benchmark worktree is `experimental/benchmark/.work` by default. Each
+ * measured repository is cloned once per branch into:
  *
- *   - `legacy`    stock `tsc` toolchain (TypeScript 5.x · prettier · eslint)
- *   - `ttsc`      the `ttsc` toolchain (TypeScript 7 via @typescript/native-preview)
- *   - `ttsc-lint` `ttsc` + `@ttsc/lint` (lint folded into the compile pass)
+ * .work/<repo>@legacy .work/<repo>@ttsc .work/<repo>@ttsc-lint
  *
- * — then measures, for each (project × branch):
+ * Existing clone directories are preserved. Missing directories are cloned,
+ * installed, prepared, and then measured. `ttsc prepare` runs before timings so
+ * plugin/native binary build time is not included in compiler measurements.
  *
- *   - emit build           the project's real build command (type-check + emit)
- *   - noEmit               the same input under `--noEmit` (type-check only)
- *   - multi-threaded       ttsc's default (parallel parse/check/emit)
- *   - single-threaded      `--singleThreaded` (TypeScript-Go fully serial)
- *
- * The legacy branch is only measured multi-threaded (stock `tsc` has no
- * `--singleThreaded`); the ttsc / ttsc-lint branches are measured both ways.
- *
- * Each cell does WARMUP unmeasured runs then RUNS measured runs and reports the
- * median. A measured run that exits non-zero is classified as a `race` failure
- * (the intermittent Go data-race crash — retried, the clean timing is kept) or
- * a deterministic `error` (a real compile error — not retried, cell left
- * unmeasured). A (project × branch) whose fork branch does not exist yet, or a
- * mode a project does not support, is skipped cleanly — never a crash.
- *
- * Pipeline:
- *
- *   1. build + pack the local ttsc / @ttsc/lint / current-platform tarballs
- *      into /tmp/ttsc-tgz/ so fixtures install the compiler under test;
- *   2. `git clone` each fixture branch into an OUTSIDE-the-repo working dir
- *      (cloning inside the ttsc tree would let pnpm adopt the clone into the
- *      ttsc workspace) — default /tmp/ttsc-bench-work/;
- *   3. `pnpm install` each clone; `ttsc prepare` the ttsc / ttsc-lint clones;
- *      run each project's prerequisites (e.g. shopping-backend build:prisma);
- *   4. measure the matrix; write a Markdown report + raw JSON sidecar into the
- *      git-ignored `.work/` directory, AND the canonical, committed result file
- *      `website/public/benchmark.json` (the schema the website dashboard
- *      renders — locked by `website/src/components/benchmark/types.ts`).
- *
- * Usage:
- *   node bench.mjs [projects...]            # e.g. `node bench.mjs tstl zod`
- *   node bench.mjs --setup-only             # clone + install, no measuring
- *   node bench.mjs --no-setup               # measure only (reuse clones)
- *   node bench.mjs --list                   # print the config table and exit
- *
- * Environment overrides:
- *   TTSC_BENCH_WORK=/path        clone working dir       (default /tmp/ttsc-bench-work)
- *   TTSC_BENCH_TGZ=/path         tarball staging dir     (default /tmp/ttsc-tgz)
- *   TTSC_BENCH_OUT=/path/x.md    report destination      (default .work/report.md)
- *   TTSC_BENCH_RUNS=3            measured runs per cell
- *   TTSC_BENCH_WARMUP=1          warmup runs per cell
- *   TTSC_BENCH_RETRIES=3         retries to recover a crashed run
- *   TTSC_BENCH_SKIP_PACK=1       reuse existing tarballs (skip step 1)
+ * Useful modes: node bench.mjs --setup-only node bench.mjs --verify-only node
+ * bench.mjs --no-setup --verify-only vue rxjs
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// ── configuration ────────────────────────────────────────────────────────────
-
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
 const WORK =
-  process.env.TTSC_BENCH_WORK ?? path.join(os.tmpdir(), "ttsc-bench-work");
+  process.env.TTSC_BENCH_WORK ?? path.resolve(import.meta.dirname, ".work");
 const TGZ = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
 const OUT =
   process.env.TTSC_BENCH_OUT ??
   path.resolve(import.meta.dirname, ".work", "report.md");
-// The canonical, committed, served result file. The website dashboard fetches
-// this; its schema is locked by website/src/components/benchmark/types.ts.
 const WEBSITE_JSON = path.resolve(
   REPO_ROOT,
   "website",
   "public",
   "benchmark.json",
 );
-const RUNS = Number(process.env.TTSC_BENCH_RUNS ?? 3);
-const WARMUP = Number(process.env.TTSC_BENCH_WARMUP ?? 1);
-const RETRIES = Number(process.env.TTSC_BENCH_RETRIES ?? 3);
+const REPORT_JSON = OUT.replace(/\.md$/, ".json");
+const CHECKPOINT_JSON =
+  process.env.TTSC_BENCH_CHECKPOINT ??
+  path.resolve(WORK, "benchmark.checkpoint.json");
 
-// The ttsc workspace version every fixture branch pins its tarballs against.
+const RUNS = numberEnv("TTSC_BENCH_RUNS", 10);
+const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1);
+const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
+const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
+const TSGO_VERSION =
+  packageVersion(
+    path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
+  ) ?? "7.0.0-dev.20260521.1";
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
-
-/**
- * The declarative per-project matrix.
- *
- * Each project clones a forked repo and exposes one or more `cases`. A case is
- * a measured command parametrised over a branch and a mode. `build` is the
- * emit-producing command; `noEmit` is the type-check-only command; both omit
- * the project's clean step so the timing is the compiler, not `rimraf`. The
- * runner prepends the clean step itself when a case declares `clean`.
- *
- * `singleThreaded: true` on a case means the runner *also* measures it with
- * `--singleThreaded` appended (only meaningful for ttsc / ttsc-lint branches).
- *
- * A branch absent from `branches` is a fork branch not pushed yet — the runner
- * skips it. TODO entries below are projects/branches still being set up.
- */
-const PROJECTS = {
-  // ── plugin-heavy: every file runs typia + @nestia source-plugin transforms ──
-  "shopping-backend": {
-    repo: "https://github.com/samchon/shopping-backend.git",
-    kind: "plugin-heavy",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    // Prisma client + nestia SDK that build:main type-checks against.
-    prerequisites: ["build:prisma", "build:sdk"],
-    cases: [
-      {
-        // build:test is intentionally not measured: shopping-backend's matrix
-        // is build:main only (the test tsconfig double-counts the same files).
-        name: "build:main",
-        emit: true,
-        singleThreaded: true,
-        legacy: { build: "pnpm exec tsc" },
-        ttsc: {
-          build: "pnpm exec ttsc",
-          noEmit: "pnpm exec ttsc --noEmit",
-          stClean: "pnpm exec rimraf lib",
-        },
-      },
-    ],
+const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
+const TSGO_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
+const LOCAL_TARBALLS = [
+  {
+    dir: "packages/ttsc",
+    file: `ttsc-${TTSC_VERSION}.tgz`,
+    name: "ttsc",
   },
-
-  // ── plugin-free emit-producing libraries (the scaling curve) ────────────────
-  tstl: {
-    repo: "https://github.com/samchon/tstl.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    prerequisites: [],
-    cases: [
-      {
-        name: "build",
-        emit: true,
-        singleThreaded: true,
-        legacy: { build: "pnpm exec tsc" },
-        ttsc: {
-          build: "pnpm exec ttsc",
-          noEmit: "pnpm exec ttsc --noEmit",
-          stClean: "pnpm exec rimraf lib",
-        },
-      },
-    ],
+  {
+    dir: "packages/lint",
+    file: `ttsc-lint-${TTSC_VERSION}.tgz`,
+    name: "@ttsc/lint",
   },
-
-  zod: {
-    repo: "https://github.com/samchon/ttsc-benchmark-zod.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    prerequisites: [],
-    cases: [
-      {
-        // `build:benchmark` compiles the zod package via tsconfig.benchmark.json
-        // (tsc on legacy, ttsc on ttsc/ttsc-lint).
-        name: "build:benchmark",
-        emit: true,
-        singleThreaded: true,
-        cwd: "packages/zod",
-        legacy: { build: "pnpm exec tsc -p tsconfig.benchmark.json" },
-        ttsc: {
-          build: "pnpm exec ttsc -p tsconfig.benchmark.json",
-          noEmit: "pnpm exec ttsc -p tsconfig.benchmark.json --noEmit",
-          stClean: "pnpm exec rimraf lib",
-        },
-      },
-    ],
+  {
+    dir: `packages/ttsc-${PLATFORM_KEY}`,
+    file: `ttsc-${PLATFORM_KEY}-${TTSC_VERSION}.tgz`,
+    name: PLATFORM_PACKAGE,
   },
-
-  rxjs: {
-    repo: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    // rxjs is a yarn/nx monorepo; the benchmark cell is the rxjs package only.
-    packageManager: "yarn",
-    prerequisites: [],
-    cases: [
-      {
-        // `build:bench` compiles packages/rxjs via tsconfig.bench.json.
-        name: "build:bench",
-        emit: true,
-        singleThreaded: true,
-        cwd: "packages/rxjs",
-        legacy: { build: "yarn exec tsc -- -p tsconfig.bench.json" },
-        ttsc: {
-          build: "yarn exec ttsc -- -p tsconfig.bench.json",
-          noEmit: "yarn exec ttsc -- -p tsconfig.bench.json --noEmit",
-          stClean: "pnpm exec rimraf dist-bench",
-        },
-      },
-    ],
-  },
-
-  // ── plugin-free pure type-check (no emit build) ─────────────────────────────
-  "type-fest": {
-    repo: "https://github.com/samchon/ttsc-benchmark-type-fest.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    prerequisites: [],
-    cases: [
-      {
-        // type-fest's tsconfig is permanently `noEmit: true` — a pure
-        // type-checker stress with no emit cell. `emit: false` keeps it out of
-        // the emit-build comparison so it is not weighed against emitting cells.
-        name: "check",
-        emit: false,
-        singleThreaded: true,
-        legacy: { build: "pnpm exec tsc" },
-        ttsc: {
-          build: "pnpm exec ttsc",
-          // build is already noEmit; no separate noEmit cell.
-        },
-      },
-    ],
-  },
-
-  // ── frontend framework: type-check only (vue builds via rollup) ─────────────
-  vue: {
-    repo: "https://github.com/samchon/ttsc-benchmark-vue.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    prerequisites: [],
-    cases: [
-      {
-        // vue's tsconfig is `noEmit` (vue ships JS via rollup), so the measured
-        // op is a pure `--noEmit` type-check. `emit: false` keeps it out of the
-        // M1 emit-build comparison; the `mt`/`st` cells ARE the type-check cells.
-        name: "check",
-        emit: false,
-        singleThreaded: true,
-        legacy: { build: "pnpm exec tsc --noEmit" },
-        ttsc: { build: "pnpm exec ttsc --noEmit" },
-      },
-    ],
-  },
-
-  // ── backend framework: project-references monorepo via a build orchestrator ─
-  nestjs: {
-    repo: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
-    kind: "plugin-free",
-    branches: ["legacy", "ttsc", "ttsc-lint"],
-    prerequisites: [],
-    cases: [
-      {
-        // nestjs has no `tsc -b` analogue in ttsc; the ttsc branches ship a
-        // `scripts/build-ttsc.mjs` orchestrator that walks packages in
-        // topological order. That orchestrator emits and exposes no --noEmit /
-        // --singleThreaded flag, so this case measures the emit build only.
-        name: "build",
-        emit: true,
-        singleThreaded: false,
-        legacy: { build: "pnpm exec tsc -b packages" },
-        ttsc: { build: "node scripts/build-ttsc.mjs" },
-      },
-    ],
-  },
-
-  // TODO(#118): vscode fixture — the samchon/ttsc-benchmark-vscode repo has no
-  // legacy / ttsc / ttsc-lint branches yet. When the fixture agent pushes them,
-  // add a `vscode` entry here mirroring `vue` (VSCode type-checks via `tsc`).
-};
-
-// ── argument parsing ─────────────────────────────────────────────────────────
+];
 
 const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith("--")));
 const positional = argv.filter((a) => !a.startsWith("--"));
+
+const PACKAGE_CONFIGS = {
+  vue: {
+    kind: "frontend monorepo",
+    repoName: "ttsc-benchmark-vue",
+    repo: "https://github.com/samchon/ttsc-benchmark-vue.git",
+    packageManager: "pnpm",
+    filesRoot: "packages",
+    commands: compilerCommands({
+      build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
+      noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
+      eslint: ["pnpm exec eslint . --ignore-pattern 'temp/**'"],
+    }),
+  },
+  rxjs: {
+    kind: "library monorepo",
+    repoName: "ttsc-benchmark-rxjs",
+    repo: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
+    packageManager: "yarn",
+    filesRoot: "packages",
+    commands: compilerCommands({
+      build: (tool) => [
+        {
+          cwd: "packages/observable",
+          cmd: `yarn --ignore-engines exec ${tool} -- -p tsconfig.json`,
+        },
+        ...rxjsBuildSteps(tool),
+      ],
+      noEmit: (tool) => [
+        {
+          cwd: "packages/observable",
+          cmd: `yarn --ignore-engines exec ${tool} -- -p tsconfig.json --noEmit`,
+        },
+        ...rxjsNoEmitSteps(tool),
+      ],
+      eslint: [
+        {
+          cwd: "packages/observable",
+          cmd: "yarn --ignore-engines exec eslint -- 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
+        },
+        {
+          cwd: "packages/rxjs",
+          cmd: "yarn --ignore-engines exec eslint -- 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
+        },
+      ],
+    }),
+  },
+  "type-fest": {
+    kind: "type-level library",
+    repoName: "ttsc-benchmark-type-fest",
+    repo: "https://github.com/samchon/ttsc-benchmark-type-fest.git",
+    packageManager: "pnpm",
+    filesRoot: ".",
+    commands: compilerCommands({
+      build: (tool) => [
+        {
+          cmd: `pnpm exec ${tool} -p tsconfig.json`,
+          env: { NODE_OPTIONS: "--max-old-space-size=6144" },
+        },
+      ],
+      noEmit: (tool) => [
+        {
+          cmd: `pnpm exec ${tool} -p tsconfig.json --noEmit`,
+          env: { NODE_OPTIONS: "--max-old-space-size=6144" },
+        },
+      ],
+      eslint: ["pnpm exec eslint . --quiet"],
+    }),
+  },
+  typeorm: {
+    kind: "ORM library",
+    repoName: "ttsc-benchmark-typeorm",
+    repo: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
+    packageManager: "pnpm",
+    installCommand:
+      "pnpm --ignore-workspace install --virtual-store-dir node_modules/.pnpm --no-frozen-lockfile --ignore-scripts",
+    installTarballsCommand: (specs) =>
+      `pnpm --ignore-workspace add --virtual-store-dir node_modules/.pnpm -D --ignore-scripts ${specs}`,
+    prepareCommand: "pnpm exec ttsc prepare -p tsconfig.json",
+    filesRoot: "src",
+    commands: compilerCommands({
+      build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
+      noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
+      eslint: ["pnpm exec eslint --quiet"],
+    }),
+  },
+  zod: {
+    kind: "schema library monorepo",
+    repoName: "ttsc-benchmark-zod",
+    repo: "https://github.com/samchon/ttsc-benchmark-zod.git",
+    packageManager: "pnpm",
+    filesRoot: "packages/zod/src",
+    commands: compilerCommands({
+      build: (tool) => [
+        {
+          cwd: "packages/zod",
+          cmd: `pnpm exec ${tool} -p tsconfig.build.json`,
+        },
+      ],
+      noEmit: (tool) => [
+        {
+          cwd: "packages/zod",
+          cmd: `pnpm exec ${tool} -p tsconfig.json --noEmit`,
+        },
+      ],
+      eslint: ["pnpm exec eslint ."],
+    }),
+  },
+  nestjs: {
+    kind: "backend framework monorepo",
+    repoName: "ttsc-benchmark-nestjs",
+    repo: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
+    packageManager: "npm",
+    filesRoot: "packages",
+    commands: nestjsCommands(),
+  },
+  vscode: {
+    kind: "application monorepo",
+    repoName: "ttsc-benchmark-vscode",
+    repo: "https://github.com/samchon/ttsc-benchmark-vscode.git",
+    packageManager: "npm",
+    installCommand: "npm install --legacy-peer-deps --ignore-scripts",
+    installTarballsCommand: (specs) =>
+      `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`,
+    prepareCommand: "./node_modules/.bin/ttsc prepare -p src/tsconfig.json",
+    filesRoot: "src",
+    commands: compilerCommands({
+      build: (tool) => [
+        {
+          cmd: `./node_modules/.bin/${tool} -p src/tsconfig.json`,
+          env: { NODE_OPTIONS: "--max-old-space-size=8192" },
+        },
+      ],
+      noEmit: (tool) => [
+        {
+          cmd: `./node_modules/.bin/${tool} -p src/tsconfig.json --noEmit`,
+          env: { NODE_OPTIONS: "--max-old-space-size=8192" },
+        },
+      ],
+      eslint: ["./node_modules/.bin/eslint src --quiet"],
+    }),
+  },
+  "shopping-backend": {
+    kind: "plugin-heavy service",
+    repoName: "shopping-backend",
+    repo: "https://github.com/samchon/shopping-backend.git",
+    packageManager: "pnpm",
+    filesRoot: "src",
+    commands: {
+      legacy: {
+        build: normalizeSteps(["pnpm exec tsc -p tsconfig.json"]),
+        noEmit: normalizeSteps(["pnpm exec tsc -p tsconfig.json --noEmit"]),
+        eslint: normalizeSteps(["pnpm exec eslint src test"]),
+      },
+      ttsc: {
+        build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
+        noEmit: normalizeSteps(["pnpm exec ttsc -p tsconfig.json --noEmit"]),
+      },
+      "ttsc-lint": {
+        build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
+        noEmit: normalizeSteps(["pnpm exec ttsc -p tsconfig.json --noEmit"]),
+      },
+    },
+  },
+};
+
+const PROJECTS = Object.entries(PACKAGE_CONFIGS)
+  .filter(([, config]) => !config.disabled)
+  .map(([name, config]) => ({
+    name,
+    ...config,
+  }));
+
 const wantedProjects = positional.length
-  ? positional.filter((p) => PROJECTS[p])
-  : Object.keys(PROJECTS);
+  ? positional.map(resolveProjectArg).filter(Boolean)
+  : PROJECTS;
 
 if (flags.has("--list")) {
-  printConfigTable();
+  printConfig();
   process.exit(0);
 }
-if (positional.length && wantedProjects.length === 0) {
-  process.stderr.write(
-    `No known project in [${positional.join(", ")}].\n` +
-      `Known: ${Object.keys(PROJECTS).join(", ")}\n`,
-  );
-  process.exit(1);
+if (positional.length && wantedProjects.length !== positional.length) {
+  const known = PROJECTS.map((p) => `${p.name} (${p.repoName})`).join(", ");
+  throw new Error(`unknown project selection. Known: ${known}`);
 }
 
-// ── shell helpers ────────────────────────────────────────────────────────────
+main();
 
-function sh(cmd, cwd, { check = true, quiet = false, env } = {}) {
+function numberEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0)
+    throw new Error(`${name} must be positive`);
+  return n;
+}
+
+function packageVersion(dir) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"))
+      .version;
+  } catch {
+    return undefined;
+  }
+}
+
+function compilerCommands({ build, noEmit, eslint }) {
+  const ttsc = {
+    build: normalizeSteps(build("ttsc")),
+    noEmit: normalizeSteps(noEmit("ttsc")),
+    tsgoBuild: normalizeSteps(build("tsgo")),
+    tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
+  };
+  return {
+    legacy: {
+      build: normalizeSteps(build("tsc")),
+      noEmit: normalizeSteps(noEmit("tsc")),
+      eslint: normalizeSteps(eslint),
+    },
+    ttsc,
+    "ttsc-lint": {
+      build: normalizeSteps(build("ttsc")),
+      noEmit: normalizeSteps(noEmit("ttsc")),
+    },
+  };
+}
+
+function rxjsNoEmitSteps(tool) {
+  return [
+    "./src/tsconfig.cjs.json",
+    "./src/tsconfig.esm.json",
+    "./src/tsconfig.types.json",
+  ].map((config) => ({
+    cwd: "packages/rxjs",
+    cmd: `yarn --ignore-engines exec ${tool} -- -p ${config} --noEmit`,
+  }));
+}
+
+function rxjsBuildSteps(tool) {
+  return [
+    "./src/tsconfig.cjs.json",
+    "./src/tsconfig.esm.json",
+    "./src/tsconfig.types.json",
+  ].map((config) => ({
+    cwd: "packages/rxjs",
+    cmd: `yarn --ignore-engines exec ${tool} -- -p ${config}`,
+  }));
+}
+
+function nestjsCommands() {
+  return {
+    legacy: {
+      build: normalizeSteps(["npm exec -- tsc -p tsconfig.json"]),
+      noEmit: normalizeSteps(["npm exec -- tsc -p tsconfig.json --noEmit"]),
+      eslint: normalizeSteps([
+        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts'",
+      ]),
+    },
+    ttsc: {
+      build: normalizeSteps(["npm exec -- ttsc -p tsconfig.json"]),
+      noEmit: normalizeSteps(["npm exec -- ttsc -p tsconfig.json --noEmit"]),
+      tsgoBuild: normalizeSteps(["npm exec -- tsgo -p tsconfig.json"]),
+      tsgoNoEmit: normalizeSteps([
+        "npm exec -- tsgo -p tsconfig.json --noEmit",
+      ]),
+    },
+    "ttsc-lint": {
+      build: normalizeSteps(["npm exec -- ttsc -p tsconfig.json"]),
+      noEmit: normalizeSteps(["npm exec -- ttsc -p tsconfig.json --noEmit"]),
+    },
+  };
+}
+
+function nestjsPackageSteps(tool, noEmit) {
+  const packages = [
+    "common",
+    "core",
+    "microservices",
+    "platform-express",
+    "platform-fastify",
+    "platform-socket.io",
+    "platform-ws",
+    "testing",
+    "websockets",
+  ];
+  return packages.map((pkg) => ({
+    cmd:
+      `npm exec -- ${tool} -p packages/${pkg}/tsconfig.build.json` +
+      (noEmit ? " --noEmit" : ""),
+  }));
+}
+
+function normalizeSteps(value) {
+  const array = Array.isArray(value) ? value : [value];
+  return array.map((entry) =>
+    typeof entry === "string" ? { cmd: entry } : { ...entry },
+  );
+}
+
+function resolveProjectArg(arg) {
+  return PROJECTS.find((p) => p.name === arg || p.repoName === arg);
+}
+
+function cloneDir(project, branch) {
+  return path.join(WORK, `${project.repoName}@${branch}`);
+}
+
+function ownsPnpmWorkspace(root) {
+  return fs.existsSync(path.join(root, "pnpm-workspace.yaml"));
+}
+
+function pnpmProjectCommand(root, command) {
+  if (ownsPnpmWorkspace(root)) return `pnpm ${command}`;
+  const [verb, ...rest] = command.split(/\s+/);
+  if (verb === "install" || verb === "add") {
+    return `pnpm --ignore-workspace ${verb} --virtual-store-dir node_modules/.pnpm ${rest.join(" ")}`.trim();
+  }
+  return `pnpm --ignore-workspace ${command}`;
+}
+
+function commandForProject(cmd, root) {
+  if (!/^pnpm\b/.test(cmd) || ownsPnpmWorkspace(root)) return cmd;
+  if (/^pnpm\s+--ignore-workspace\b/.test(cmd)) return cmd;
+  return cmd.replace(/^pnpm\b/, "pnpm --ignore-workspace");
+}
+
+function sh(cmd, cwd, options = {}) {
   const res = spawnSync(cmd, {
     cwd,
     shell: true,
     encoding: "utf8",
-    env: env ?? process.env,
-    stdio: quiet ? "pipe" : "inherit",
+    env: options.env ?? process.env,
+    stdio: options.quiet ? "pipe" : "inherit",
   });
-  if (check && res.status !== 0) {
+  if (options.check !== false && res.status !== 0) {
     throw new Error(
-      `command failed (exit ${res.status}): ${cmd}\n${res.stderr ?? ""}`,
+      `command failed (${res.status}) in ${cwd}: ${cmd}\n${res.stderr ?? ""}`,
     );
   }
   return res;
 }
 
-/** Time a command once; never throws — a failed run is reported, not fatal. */
-function runOnce(cmd, cwd, env) {
+function runSteps(steps, root) {
   const t0 = process.hrtime.bigint();
-  const res = spawnSync(cmd, {
-    cwd,
-    shell: true,
-    encoding: "utf8",
-    env: env ?? process.env,
-  });
+  let log = "";
+  for (const step of steps) {
+    const cwd = path.resolve(root, step.cwd ?? ".");
+    const cmd = commandForProject(step.cmd, root);
+    const res = spawnSync(cmd, {
+      cwd,
+      shell: true,
+      encoding: "utf8",
+      env: step.env ? { ...process.env, ...step.env } : process.env,
+    });
+    log += `$ ${cmd}\n${res.stdout ?? ""}${res.stderr ?? ""}`;
+    if (res.status !== 0) {
+      const t1 = process.hrtime.bigint();
+      return {
+        ok: false,
+        status: res.status,
+        ms: Number(t1 - t0) / 1e6,
+        log,
+      };
+    }
+  }
   const t1 = process.hrtime.bigint();
-  return {
-    ms: Number(t1 - t0) / 1e6,
-    ok: res.status === 0,
-    status: res.status,
-    log: `${res.stdout ?? ""}${res.stderr ?? ""}`,
-  };
+  return { ok: true, status: 0, ms: Number(t1 - t0) / 1e6, log };
 }
 
-function median(xs) {
-  const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-/**
- * Classify a failed run from its output. A `race` failure is the intermittent
- * Go data-race crash; anything else is a deterministic `error` (e.g. a type
- * error). This keeps an orthogonal stability bug from being mislabelled — and
- * stops a deterministic compile error from being reported as a "crash".
- */
 function classifyFailure(log) {
   return /concurrent map|fatal error|\bpanic:|DATA RACE/.test(log)
     ? "race"
     : "error";
 }
 
-// ── step 1: build + pack the local ttsc tarballs ─────────────────────────────
-
-/**
- * Build the workspace and pack ttsc / @ttsc/lint / the current-platform package
- * into TGZ under the exact filenames the fixture branches pin
- * (`ttsc-<version>.tgz`, `ttsc-lint-<version>.tgz`,
- * `ttsc-<platform>-<version>.tgz`). Fixtures reference these via
- * `file:/tmp/ttsc-tgz/...` so an install picks up the compiler under test.
- */
 function packTarballs() {
-  if (process.env.TTSC_BENCH_SKIP_PACK === "1" || flags.has("--no-pack")) {
-    process.stdout.write(`◦ skipping tarball pack (reusing ${TGZ})\n`);
+  if (flags.has("--no-pack") || process.env.TTSC_BENCH_SKIP_PACK === "1") {
+    process.stdout.write(`Skipping tarball pack; using ${TGZ}\n`);
     return;
   }
-  process.stdout.write(`\n▸ building + packing ttsc tarballs into ${TGZ}\n`);
   fs.mkdirSync(TGZ, { recursive: true });
+  process.stdout.write(`Packing local ttsc tarballs into ${TGZ}\n`);
   sh("pnpm run build:current", REPO_ROOT);
-  const targets = [
-    { dir: "packages/ttsc", file: `ttsc-${TTSC_VERSION}.tgz` },
-    { dir: "packages/lint", file: `ttsc-lint-${TTSC_VERSION}.tgz` },
-    {
-      dir: `packages/ttsc-${PLATFORM_KEY}`,
-      file: `ttsc-${PLATFORM_KEY}-${TTSC_VERSION}.tgz`,
-    },
-  ];
-  for (const t of targets) {
-    const dir = path.join(REPO_ROOT, t.dir);
-    if (!fs.existsSync(dir)) {
-      throw new Error(`tarball source missing: ${t.dir}`);
-    }
-    const out = path.join(TGZ, t.file);
+  for (const target of LOCAL_TARBALLS) {
+    const out = path.join(TGZ, target.file);
     fs.rmSync(out, { force: true });
-    sh(`pnpm pack --out ${JSON.stringify(out)}`, dir);
-    process.stdout.write(`  packed ${t.file}\n`);
+    sh(`pnpm pack --out ${quote(out)}`, path.join(REPO_ROOT, target.dir));
   }
 }
 
-// ── step 2 + 3: clone + install a fixture branch ─────────────────────────────
-
-/** Working directory for one (project, branch) clone. */
-function cloneDir(project, branch) {
-  return path.join(WORK, `${project}@${branch}`);
-}
-
-/**
- * Clone `branch` of `project`'s repo into the working directory and install it.
- * Returns `false` (skip, not fatal) when the branch does not exist on the fork
- * — fixture branches are still being pushed. A stray `pnpm-workspace.yaml` is
- * dropped into the clone so pnpm treats it as an isolated workspace even if it
- * ever lands inside another workspace tree.
- */
 function setupClone(project, branch) {
-  const cfg = PROJECTS[project];
   const dir = cloneDir(project, branch);
-  const pm = cfg.packageManager ?? "pnpm";
-
-  // Branch existence probe — a missing fork branch is skipped, not a crash.
-  const probe = spawnSync(
-    "git",
-    ["ls-remote", "--exit-code", "--heads", cfg.repo, branch],
-    { encoding: "utf8" },
-  );
-  if (probe.status !== 0) {
-    process.stdout.write(
-      `  ⚠ ${project}@${branch}: branch not on fork yet — skipped\n`,
+  fs.mkdirSync(WORK, { recursive: true });
+  if (!fs.existsSync(dir)) {
+    process.stdout.write(`Cloning ${project.repoName}@${branch}\n`);
+    sh(
+      `git clone --branch ${quote(branch)} ${quote(project.repo)} ${quote(dir)}`,
+      WORK,
+      { quiet: true },
     );
-    return false;
+  } else if (!fs.existsSync(path.join(dir, ".git"))) {
+    throw new Error(`${dir} exists but is not a git clone`);
   }
 
-  fs.rmSync(dir, { recursive: true, force: true });
-  process.stdout.write(`  cloning ${project}@${branch}\n`);
-  sh(
-    `git clone --depth 1 --branch ${branch} ${cfg.repo} ${JSON.stringify(dir)}`,
-    WORK,
-    { quiet: true },
-  );
-  // Isolate the clone from any surrounding pnpm workspace.
-  if (!fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
-    fs.writeFileSync(path.join(dir, "pnpm-workspace.yaml"), "packages: []\n");
+  const current = sh("git branch --show-current", dir, {
+    quiet: true,
+    check: false,
+  }).stdout?.trim();
+  if (current && current !== branch) {
+    const dirty = sh("git status --short", dir, {
+      quiet: true,
+      check: false,
+    }).stdout;
+    if (dirty.trim()) {
+      throw new Error(
+        `${dir} is on ${current}, expected ${branch}, and has local changes`,
+      );
+    }
+    sh(`git checkout ${quote(branch)}`, dir, { quiet: true });
   }
 
-  process.stdout.write(`  installing ${project}@${branch} (${pm})\n`);
-  const installCmd =
-    pm === "yarn"
-      ? "yarn install --frozen-lockfile || yarn install"
-      : "pnpm install --no-frozen-lockfile";
-  sh(installCmd, dir, { quiet: true });
+  if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
 
-  // `ttsc prepare` builds the cached plugin binaries the ttsc branches need.
   if (branch === "ttsc" || branch === "ttsc-lint") {
-    const prep = spawnSync(`${pm} exec ttsc prepare`, {
-      cwd: dir,
-      shell: true,
-      encoding: "utf8",
-    });
-    if (prep.status !== 0) {
+    const pm = project.packageManager;
+    const cmd = project.prepareCommand
+      ? commandForProject(project.prepareCommand, dir)
+      : pm === "npm"
+        ? "npm exec -- ttsc prepare"
+        : pm === "pnpm"
+          ? pnpmProjectCommand(dir, "exec ttsc prepare")
+          : `${pm} exec ttsc prepare`;
+    const res = sh(cmd, dir, { quiet: true, check: false });
+    if (res.status !== 0) {
       process.stdout.write(
-        `  ◦ ${project}@${branch}: 'ttsc prepare' exited ${prep.status} ` +
-          `(ok if the project defines no plugins)\n`,
+        `${project.repoName}@${branch}: ttsc prepare exited ${res.status}; ` +
+          `continuing only if this project has no source plugins\n`,
       );
     }
   }
 
-  // Project-specific prerequisites (e.g. Prisma client, nestia SDK).
-  for (const script of cfg.prerequisites ?? []) {
-    process.stdout.write(`  prerequisite: ${project}@${branch} ${script}\n`);
-    sh(`${pm} run ${script}`, dir, { quiet: true });
+  for (const step of normalizeSteps(project.prerequisites ?? [])) {
+    process.stdout.write(
+      `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
+    );
+    sh(step.cmd, path.resolve(dir, step.cwd ?? "."), { quiet: true });
   }
-  return true;
 }
 
-// ── step 4: measure one cell ─────────────────────────────────────────────────
-
-/**
- * Measure one matrix cell: WARMUP unmeasured runs, then RUNS measured runs.
- * `prep` (e.g. a clean step) runs unmeasured before every run so each timing
- * starts from the same state. Returns the per-cell result record.
- */
-function measureCell(label, cmd, cwd, { prep, crashy } = {}) {
-  process.stdout.write(`\n▶ ${label}\n  ${cmd}${prep ? `\n  prep: ${prep}` : ""}\n`);
-  const fresh = () => {
-    if (prep) spawnSync(prep, { cwd, shell: true });
-    return runOnce(cmd, cwd);
-  };
-  for (let i = 0; i < WARMUP; i++) {
-    const w = fresh();
+function installIfNeeded(project, dir, branch) {
+  const mustRefreshTarballs = branch === "ttsc" || branch === "ttsc-lint";
+  const hasNodeModules = fs.existsSync(path.join(dir, "node_modules"));
+  if (!mustRefreshTarballs && !flags.has("--force-install") && hasNodeModules) {
+    return;
+  }
+  const pm = project.packageManager;
+  if (mustRefreshTarballs) assertLocalTarballs(branch);
+  const cmd =
+    project.installCommand ??
+    (pm === "pnpm"
+      ? pnpmProjectCommand(dir, "install --no-frozen-lockfile")
+      : pm === "yarn"
+        ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
+        : "npm install --legacy-peer-deps");
+  if (!hasNodeModules || flags.has("--force-install")) {
+    process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
+    sh(cmd, dir);
+  } else {
     process.stdout.write(
-      `  warmup ${i + 1}: ${w.ms.toFixed(0)} ms ${w.ok ? "ok" : `EXIT ${w.status}`}\n`,
+      `Reusing installed node_modules in ${path.basename(dir)}\n`,
     );
   }
+  if (branch === "ttsc" && hasTsgoCells(project) && !hasTsgoExperimentDeps(dir))
+    installTsgoExperimentDeps(project, dir);
+  if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
+}
+
+function assertLocalTarballs(branch) {
+  const missing = localTarballPaths(branch).filter(
+    (file) => !fs.existsSync(file),
+  );
+  if (missing.length) {
+    throw new Error(
+      "missing local ttsc tarballs; run without --no-pack or populate " +
+        `${TGZ}\n${missing.map((file) => `- ${file}`).join("\n")}`,
+    );
+  }
+}
+
+function localTarballTargets(branch) {
+  return LOCAL_TARBALLS.filter(
+    (target) => branch === "ttsc-lint" || target.name !== "@ttsc/lint",
+  );
+}
+
+function localTarballPaths(branch) {
+  return localTarballTargets(branch).map((target) =>
+    path.join(TGZ, target.file),
+  );
+}
+
+function installLocalTarballs(project, dir, branch) {
+  const targets = localTarballTargets(branch);
+  if (project.packageManager === "yarn") {
+    materializeLocalTarballs(targets, dir);
+    return;
+  }
+  const specs = targets
+    .map((target) => quote(path.join(TGZ, target.file)))
+    .join(" ");
+  const pm = project.packageManager;
+  const cmd =
+    project.installTarballsCommand?.(specs) ??
+    (pm === "pnpm"
+      ? ownsPnpmWorkspace(dir)
+        ? `pnpm add -w -D ${specs}`
+        : `pnpm add --ignore-workspace -D ${specs}`
+      : pm === "yarn"
+        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+        : `npm install --legacy-peer-deps --save-dev ${specs}`);
+  process.stdout.write(
+    `Installing local tarballs into ${path.basename(dir)}: ` +
+      `${targets.map((target) => target.name).join(", ")}\n`,
+  );
+  sh(cmd, dir);
+}
+
+function materializeLocalTarballs(targets, dir) {
+  const nodeModules = path.join(dir, "node_modules");
+  fs.mkdirSync(nodeModules, { recursive: true });
+  fs.mkdirSync(path.join(nodeModules, ".bin"), { recursive: true });
+  for (const target of targets) {
+    const packageDir = path.join(nodeModules, ...target.name.split("/"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-bench-tgz-"));
+    fs.rmSync(packageDir, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(packageDir), { recursive: true });
+    sh(`tar -xzf ${quote(path.join(TGZ, target.file))} -C ${quote(tmp)}`, dir, {
+      quiet: true,
+    });
+    fs.cpSync(path.join(tmp, "package"), packageDir, { recursive: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
+    linkPackageBins(packageDir, nodeModules);
+  }
+  process.stdout.write(
+    `Materialized local tarballs into ${path.basename(dir)}: ` +
+      `${targets.map((target) => target.name).join(", ")}\n`,
+  );
+}
+
+function linkPackageBins(packageDir, nodeModules) {
+  const packageJson = path.join(packageDir, "package.json");
+  if (!fs.existsSync(packageJson)) return;
+  const manifest = JSON.parse(fs.readFileSync(packageJson, "utf8"));
+  const bins =
+    typeof manifest.bin === "string"
+      ? { [manifest.name]: manifest.bin }
+      : manifest.bin;
+  if (!bins || typeof bins !== "object") return;
+  const binDir = path.join(nodeModules, ".bin");
+  for (const [name, bin] of Object.entries(bins)) {
+    const link = path.join(binDir, name);
+    const target = path.relative(binDir, path.join(packageDir, bin));
+    fs.rmSync(link, { force: true });
+    fs.symlinkSync(target, link);
+  }
+}
+
+function hasTsgoCells(project) {
+  return Boolean(
+    project.commands.ttsc?.tsgoBuild?.length ||
+    project.commands.ttsc?.tsgoNoEmit?.length,
+  );
+}
+
+function installTsgoExperimentDeps(project, dir) {
+  const specs = [
+    `@typescript/native-preview@${TSGO_VERSION}`,
+    `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}`,
+  ]
+    .map(quote)
+    .join(" ");
+  const pm = project.packageManager;
+  const cmd =
+    pm === "pnpm"
+      ? ownsPnpmWorkspace(dir)
+        ? `pnpm add -w -D ${specs}`
+        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D ${specs}`
+      : pm === "yarn"
+        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+        : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
+  process.stdout.write(
+    `Installing tsgo experiment deps into ${path.basename(dir)}: ` +
+      `@typescript/native-preview, ${TSGO_PLATFORM_PACKAGE}\n`,
+  );
+  sh(cmd, dir);
+}
+
+function hasTsgoExperimentDeps(dir) {
+  return (
+    depVersion(dir, "@typescript/native-preview") !== undefined &&
+    depVersion(dir, TSGO_PLATFORM_PACKAGE) !== undefined
+  );
+}
+
+function quote(value) {
+  return JSON.stringify(value);
+}
+
+function singleThreadedSteps(steps) {
+  return steps.map((step) => {
+    if (step.singleThreadedCmd) {
+      const { singleThreadedCmd, ...rest } = step;
+      return { ...rest, cmd: singleThreadedCmd };
+    }
+    if (
+      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
+      /--singleThreaded\b/.test(step.cmd)
+    ) {
+      return step;
+    }
+    return { ...step, cmd: `${step.cmd} --singleThreaded` };
+  });
+}
+
+function measureCell({ id, project, branch, tool, op, threading, steps }) {
+  const root = cloneDir(project, branch);
+  process.stdout.write(`\n[${id}] ${RUNS} runs\n`);
+
+  const run = () => runSteps(steps, root);
+
+  for (let i = 0; i < WARMUP; i++) {
+    const result = run();
+    process.stdout.write(
+      `  warmup ${i + 1}: ${result.ms.toFixed(0)} ms ` +
+        (result.ok ? "ok" : `exit ${result.status}`) +
+        "\n",
+    );
+    if (!result.ok && classifyFailure(result.log) === "error") {
+      return failedMeasurement(
+        project,
+        branch,
+        op,
+        threading,
+        result,
+        0,
+        id,
+        tool,
+      );
+    }
+  }
+
   const samples = [];
   let raceRetries = 0;
-  let deterministicFailure = null;
+  let deterministic = null;
   for (let i = 0; i < RUNS; i++) {
-    let r = fresh();
+    let result = run();
     let attempts = 0;
-    while (!r.ok && attempts < RETRIES) {
-      const kind = classifyFailure(r.log);
-      if (kind === "race") raceRetries++;
+    while (!result.ok && attempts < RETRIES) {
+      const kind = classifyFailure(result.log);
+      if (kind === "error") break;
+      raceRetries++;
       attempts++;
-      process.stdout.write(
-        `  run ${i + 1}: EXIT ${r.status} (${kind}) — retry ${attempts}\n`,
-      );
-      if (kind === "error") break; // deterministic: retrying will not help
-      r = fresh();
+      process.stdout.write(`  run ${i + 1}: race retry ${attempts}\n`);
+      result = run();
     }
-    if (!r.ok) {
-      deterministicFailure = { status: r.status, kind: classifyFailure(r.log) };
-      process.stdout.write(
-        `  run ${i + 1}: EXIT ${r.status} — deterministic failure, not measured\n`,
-      );
+    if (!result.ok) {
+      deterministic = result;
+      process.stdout.write(`  run ${i + 1}: exit ${result.status}\n`);
+      break;
+    }
+    samples.push(result.ms);
+    process.stdout.write(`  run ${i + 1}: ${result.ms.toFixed(0)} ms\n`);
+  }
+
+  if (deterministic || samples.length === 0) {
+    return failedMeasurement(
+      project,
+      branch,
+      op,
+      threading,
+      deterministic ?? { status: 1, log: "no samples", ms: 0 },
+      raceRetries,
+      id,
+      tool,
+    );
+  }
+
+  return {
+    id,
+    branch,
+    tool: toolFor(branch, op, tool),
+    op,
+    threading,
+    medianMs: median(samples),
+    minMs: Math.min(...samples),
+    samples,
+    raceRetries: raceRetries || undefined,
+  };
+}
+
+function failedMeasurement(
+  project,
+  branch,
+  op,
+  threading,
+  result,
+  raceRetries,
+  id,
+  tool,
+) {
+  return {
+    id,
+    branch,
+    tool: toolFor(branch, op, tool),
+    op,
+    threading,
+    medianMs: 0,
+    samples: [],
+    raceRetries: raceRetries || undefined,
+    failure: classifyFailure(result.log),
+    exitStatus: result.status,
+  };
+}
+
+function toolFor(branch, op, tool) {
+  if (tool) return tool;
+  if (op === "eslint") return "eslint";
+  if (branch === "legacy") return "tsc";
+  return branch === "ttsc-lint" ? "ttsc+@ttsc/lint" : "ttsc";
+}
+
+function measureProject(project, report) {
+  const projectReport = ensureProjectReport(report, project);
+  const done = new Set(projectReport.measurements.map((m) => m.id));
+  for (const cell of projectCells(project)) {
+    if (done.has(cell.id)) {
+      process.stdout.write(`\n[${cell.id}] already measured; skipping\n`);
       continue;
     }
-    samples.push(r.ms);
-    process.stdout.write(`  run ${i + 1}: ${r.ms.toFixed(0)} ms\n`);
+    const measurement = measureCell(cell);
+    projectReport.measurements.push(measurement);
+    done.add(cell.id);
+    writeReports(report);
   }
+}
+
+function ensureProjectReport(report, project) {
+  let projectReport = report.projects.find((p) => p.name === project.name);
+  if (!projectReport) {
+    projectReport = projectReportFor(project, []);
+    report.projects.push(projectReport);
+  }
+  return projectReport;
+}
+
+function projectReportFor(project, measurements) {
   return {
-    label,
-    samples,
-    raceRetries,
-    deterministicFailure,
-    median: samples.length ? median(samples) : null,
-    min: samples.length ? Math.min(...samples) : null,
+    name: project.name,
+    repo: project.repoName,
+    kind: project.kind,
+    files: countSourceFiles(
+      path.join(cloneDir(project, "legacy"), project.filesRoot),
+    ),
+    measurements,
   };
 }
 
-/**
- * Expand a (project, branch, case) into measured cells and record them into
- * `results`. The `ttsc` / `ttsc-lint` branches add a noEmit cell and (when the
- * case opts in) single-threaded variants of build + noEmit.
- */
-function measureCase(results, project, branch, c) {
-  const cfg = PROJECTS[project];
-  const dir = cloneDir(project, branch);
-  if (!fs.existsSync(dir)) return; // setup skipped this branch
-  const runCwd = c.cwd ? path.join(dir, c.cwd) : dir;
-  const spec = branch === "legacy" ? c.legacy : c.ttsc;
-  if (!spec) return;
-  const key = (mode) => `${project}|${branch}|${c.name}|${mode}`;
-
-  // emit / type-check build, multi-threaded (ttsc's default; the only mode for legacy).
-  if (spec.build) {
-    results[key("mt")] = measureCell(key("mt"), spec.build, runCwd);
-  }
-  // type-check-only build.
-  if (spec.noEmit) {
-    results[key("noEmit")] = measureCell(key("noEmit"), spec.noEmit, runCwd);
-  }
-  // single-threaded variants — ttsc / ttsc-lint only, and only when opted in.
-  if (c.singleThreaded && branch !== "legacy") {
-    const prep = spec.stClean
-      ? `${spec.stClean.replace("pnpm exec", (cfg.packageManager ?? "pnpm") + " exec")}`
-      : undefined;
-    if (spec.build) {
-      results[key("st")] = measureCell(
-        key("st"),
-        `${spec.build} --singleThreaded`,
-        runCwd,
-        { prep },
-      );
-    }
-    if (spec.noEmit) {
-      results[key("st-noEmit")] = measureCell(
-        key("st-noEmit"),
-        `${spec.noEmit} --singleThreaded`,
-        runCwd,
-      );
-    }
-  }
-}
-
-// ── host spec ────────────────────────────────────────────────────────────────
-
-/**
- * Read a dependency's installed version from a package's node_modules. Returns
- * `undefined` when the package is not present so callers can fall back.
- */
-function depVersion(fromDir, pkg) {
-  try {
-    const p = path.join(fromDir, "node_modules", pkg, "package.json");
-    return JSON.parse(fs.readFileSync(p, "utf8")).version;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Collect the host machine spec + toolchain versions for the report.
- *
- * The returned object is the canonical `BenchmarkHost` shape consumed by the
- * website dashboard (`os`, `kernel`, `cpu`, `cores`, `ramGB`, `node`, `ttsc`,
- * `typescript`) plus a `tsgo` extra used only by the Markdown report header.
- *
- * `typescript`/`tsgo` resolve from the fixture clones (that is where the
- * compilers are installed): `typescript` reads `typescript` from a `legacy`
- * clone, `tsgo` reads `@typescript/native-preview` from a `ttsc` clone.
- */
-function hostSpec(wantedProjectsList) {
-  const cpu = os.cpus();
-  let osName = `${os.type()} ${os.release()}`;
-  try {
-    const rel = fs.readFileSync("/etc/os-release", "utf8");
-    const pretty = rel.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
-    if (pretty) osName = pretty[1];
-  } catch {
-    /* not Linux — keep os.type()/os.release() */
-  }
-  // Walk fixture clones for the first one that has each compiler installed.
-  let tsgo, tsc;
-  for (const project of wantedProjectsList) {
-    tsgo ??= depVersion(
-      cloneDir(project, "ttsc"),
-      "@typescript/native-preview",
-    );
-    tsc ??= depVersion(cloneDir(project, "legacy"), "typescript");
-  }
-  return {
-    os: osName,
-    kernel: os.release(),
-    cpu: cpu[0]?.model?.trim() ?? "unknown",
-    cores: cpu.length,
-    ramGB: Math.round(os.totalmem() / 2 ** 30),
-    node: process.version,
-    ttsc: TTSC_VERSION,
-    typescript: tsc ?? "—",
-    tsgo: tsgo ?? "—",
-  };
-}
-
-// ── canonical website JSON ───────────────────────────────────────────────────
-
-/**
- * Count the project's own TypeScript source files in a clone — `.ts` / `.tsx` /
- * `.mts` / `.cts`, excluding `node_modules`, declaration files, and dist/build
- * output. This is the `files` figure shown on each website project card; it is
- * an approximate project-size signal, not the exact compiler input set.
- */
-function countSourceFiles(dir) {
-  if (!dir || !fs.existsSync(dir)) return 0;
-  const SKIP = new Set([
-    "node_modules",
+function countSourceFiles(root) {
+  if (!fs.existsSync(root)) return 0;
+  const skip = new Set([
     ".git",
+    "node_modules",
     "dist",
     "lib",
     "out",
@@ -628,402 +857,324 @@ function countSourceFiles(dir) {
     "coverage",
   ]);
   let count = 0;
-  const walk = (d) => {
-    let entries;
-    try {
-      entries = fs.readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (e.isDirectory()) {
-        if (!SKIP.has(e.name)) walk(path.join(d, e.name));
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!skip.has(entry.name)) walk(path.join(dir, entry.name));
       } else if (
-        /\.(ts|tsx|mts|cts)$/.test(e.name) &&
-        !/\.d\.(ts|mts|cts)$/.test(e.name)
+        /\.(ts|tsx|mts|cts)$/.test(entry.name) &&
+        !/\.d\.(ts|mts|cts)$/.test(entry.name)
       ) {
         count++;
       }
     }
   };
-  walk(dir);
+  walk(root);
   return count;
 }
 
-/**
- * Project the runner's internal `project|branch|case|mode` result map into the
- * canonical `BenchmarkReport` shape served at `website/public/benchmark.json`
- * and consumed by `website/src/components/benchmark/types.ts`.
- *
- * The mapping is mechanical:
- *
- *   - branch `legacy` → `tool: "tsc"`; `ttsc`/`ttsc-lint` → `tool: "ttsc"`.
- *   - mode `mt`/`st` carry `threading` multi/single; the `op` is `build` for an
- *     emit case and `noEmit` for a type-check-only case.
- *   - modes `noEmit`/`st-noEmit` are always `op: "noEmit"` at the matching
- *     threading.
- *
- * `format` measurements are not produced by the current matrix (the runner has
- * no prettier / `@ttsc/lint` format case wired); the website schema keeps the
- * `format` op for when such a case lands, and the dashboard simply skips it.
- */
-function buildWebsiteReport(results, started, host) {
-  const projects = [];
-  for (const project of wantedProjects) {
-    const cfg = PROJECTS[project];
-    // First clone that exists on disk gives the source-file count.
-    const filesDir = cfg.branches
-      .map((b) => cloneDir(project, b))
-      .find((d) => fs.existsSync(d));
-    const measurements = [];
-    const push = (branch, op, threading, cell) => {
-      if (!cell) return;
-      const m = {
-        branch,
-        tool: branch === "legacy" ? "tsc" : "ttsc",
-        op,
-        threading,
-        medianMs: cell.median ?? 0,
-      };
-      if (cell.min != null) m.minMs = cell.min;
-      if (cell.samples?.length) m.samples = cell.samples;
-      if (cell.raceRetries) m.raceRetries = cell.raceRetries;
-      if (cell.deterministicFailure)
-        m.failure = cell.deterministicFailure.kind;
-      measurements.push(m);
-    };
-    for (const c of cfg.cases) {
-      for (const branch of cfg.branches) {
-        const cell = (mode) => results[`${project}|${branch}|${c.name}|${mode}`];
-        // `mt`/`st` carry the case's primary op (build for an emit case,
-        // noEmit for a type-check-only case).
-        const primaryOp = c.emit ? "build" : "noEmit";
-        push(branch, primaryOp, "multi", cell("mt"));
-        push(branch, primaryOp, "single", cell("st"));
-        // The dedicated type-check-only cells are always `noEmit`.
-        push(branch, "noEmit", "multi", cell("noEmit"));
-        push(branch, "noEmit", "single", cell("st-noEmit"));
-      }
-    }
-    projects.push({
-      name: project,
-      files: countSourceFiles(filesDir),
-      kind: cfg.kind,
-      measurements,
-    });
+function hostSpec(projects) {
+  const cpus = os.cpus();
+  let osName = `${os.type()} ${os.release()}`;
+  try {
+    const pretty = fs
+      .readFileSync("/etc/os-release", "utf8")
+      .match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+    if (pretty) osName = pretty[1];
+  } catch {
+    // Keep os.type/os.release fallback.
+  }
+  let typescript = "unknown";
+  let tsgo = "unknown";
+  for (const project of projects) {
+    typescript =
+      depVersion(cloneDir(project, "legacy"), "typescript") ?? typescript;
+    tsgo =
+      depVersion(cloneDir(project, "ttsc"), "@typescript/native-preview") ??
+      tsgo;
   }
   return {
-    date: started.toISOString(),
-    host: {
-      os: host.os,
-      kernel: host.kernel,
-      cpu: host.cpu,
-      cores: host.cores,
-      ramGB: host.ramGB,
-      node: host.node,
-      ttsc: host.ttsc,
-      typescript: host.typescript,
-    },
-    projects,
+    os: osName,
+    kernel: os.release(),
+    cpu: cpus[0]?.model?.trim() ?? "unknown",
+    cores: cpus.length,
+    ramGB: Math.round(os.totalmem() / 2 ** 30),
+    node: process.version,
+    ttsc: TTSC_VERSION,
+    typescript,
+    tsgo,
   };
 }
 
-// ── reporting ────────────────────────────────────────────────────────────────
-
-function s(ms) {
-  return ms == null ? "—" : `${(ms / 1000).toFixed(2)} s`;
+function depVersion(root, name) {
+  try {
+    return JSON.parse(
+      fs.readFileSync(
+        path.join(root, "node_modules", name, "package.json"),
+        "utf8",
+      ),
+    ).version;
+  } catch {
+    return undefined;
+  }
 }
-function ratio(slow, fast) {
-  return slow == null || fast == null || fast === 0
-    ? "—"
-    : `${(slow / fast).toFixed(2)}×`;
-}
 
-function buildReport(results, started, host) {
-  const R = (k) => results[k] ?? null;
-  const med = (k) => R(k)?.median ?? null;
-  const L = [];
-  L.push(`# ttsc matrix benchmark`);
-  L.push("");
-  L.push(`- Date: ${started.toISOString()}`);
-  L.push("");
-  L.push(`## Host`);
-  L.push("");
-  L.push(`| Field | Value |`);
-  L.push(`| --- | --- |`);
-  L.push(`| OS | ${host.os} (kernel ${host.kernel}) |`);
-  L.push(`| CPU | ${host.cores}× ${host.cpu} |`);
-  L.push(`| RAM | ${host.ramGB} GB |`);
-  L.push(`| node | ${host.node} |`);
-  L.push(`| ttsc | ${host.ttsc} |`);
-  L.push(`| @typescript/native-preview (tsgo) | ${host.tsgo} |`);
-  L.push(`| tsc | ${host.typescript} |`);
-  L.push("");
-  L.push(
-    `- Method: ${WARMUP} warmup + ${RUNS} measured runs per cell; median ` +
-      `reported. A run hitting the intermittent parallel-emit race is retried ` +
-      `(up to ${RETRIES}×); a deterministic failure is left unmeasured.`,
-  );
-  L.push("");
+function buildMarkdown(report) {
+  const lines = [];
+  lines.push("# ttsc benchmark");
+  lines.push("");
+  lines.push(`- Date: ${report.date}`);
+  lines.push(`- Runs: ${RUNS} measured + ${WARMUP} warmup per cell`);
+  lines.push("");
+  lines.push("## Host");
+  lines.push("");
+  lines.push("| Field | Value |");
+  lines.push("| --- | --- |");
+  for (const [key, value] of Object.entries(report.host)) {
+    lines.push(`| ${key} | ${value} |`);
+  }
+  lines.push("");
 
-  // ── M1 — emit build: legacy vs ttsc vs ttsc-lint ──────────────────────────
-  L.push(`## M1 — Emit build: tsc (legacy) vs ttsc vs ttsc + @ttsc/lint`);
-  L.push("");
-  L.push(
-    `Multi-threaded emit build per project. type-fest and vue are ` +
-      `type-check-only (no emit build) and appear in M2 instead.`,
-  );
-  L.push("");
-  L.push(
-    `| Project | kind | legacy · tsc | ttsc | ttsc-lint | tsc→ttsc | lint cost |`,
-  );
-  L.push(`| --- | --- | --- | --- | --- | --- | --- |`);
-  for (const project of wantedProjects) {
-    const cfg = PROJECTS[project];
-    for (const c of cfg.cases) {
-      if (!c.emit) continue;
-      const lg = med(`${project}|legacy|${c.name}|mt`);
-      const tt = med(`${project}|ttsc|${c.name}|mt`);
-      const tl = med(`${project}|ttsc-lint|${c.name}|mt`);
-      L.push(
-        `| ${project} · ${c.name} | ${cfg.kind} | ${s(lg)} | ${s(tt)} | ` +
-          `${s(tl)} | ${ratio(lg, tt)} | ${ratio(tl, tt)} |`,
+  for (const project of report.projects) {
+    lines.push(`## ${project.name}`);
+    lines.push("");
+    lines.push("| Branch | Op | Threading | Median | Samples | Failure |");
+    lines.push("| --- | --- | --- | --- | --- | --- |");
+    for (const m of project.measurements) {
+      lines.push(
+        `| ${m.branch} | ${m.op} | ${m.threading} | ${formatMs(m.medianMs)} | ` +
+          `${m.samples?.map((s) => s.toFixed(0)).join(", ") || "-"} | ` +
+          `${m.failure ?? ""} |`,
       );
     }
+    lines.push("");
   }
-  L.push("");
-  L.push(
-    `*tsc→ttsc* is the legacy-over-ttsc speedup. *lint cost* is ttsc-lint ` +
-      `over plain ttsc — the marginal cost of folding \`@ttsc/lint\` into the ` +
-      `compile pass (a value near 1× means linting is nearly free).`,
-  );
-  L.push("");
+  return lines.join("\n");
+}
 
-  // ── M2 — type-check only (--noEmit) ───────────────────────────────────────
-  L.push(`## M2 — Type-check only (\`--noEmit\`)`);
-  L.push("");
-  L.push(
-    `Pure type-checking, emit excluded. Isolates checker speed from emit cost.`,
-  );
-  L.push("");
-  L.push(`| Project | kind | legacy · tsc | ttsc | ttsc-lint | tsc→ttsc |`);
-  L.push(`| --- | --- | --- | --- | --- | --- |`);
-  for (const project of wantedProjects) {
-    const cfg = PROJECTS[project];
-    for (const c of cfg.cases) {
-      // For an emit-producing case the type-check-only cell is the `noEmit`
-      // mode (ttsc only — legacy has no noEmit cell wired). For a project
-      // whose build *is* `noEmit` (type-fest, vue) the `mt` cell IS the
-      // type-check cell, and legacy `tsc` is a like-for-like comparison.
-      const noEmitMode = c.emit ? "noEmit" : "mt";
-      const legacyShown = c.emit ? null : med(`${project}|legacy|${c.name}|mt`);
-      const tt = med(`${project}|ttsc|${c.name}|${noEmitMode}`);
-      const tl = med(`${project}|ttsc-lint|${c.name}|${noEmitMode}`);
-      if (tt == null && tl == null && legacyShown == null) continue;
-      L.push(
-        `| ${project} · ${c.name} | ${cfg.kind} | ${s(legacyShown)} | ` +
-          `${s(tt)} | ${s(tl)} | ${ratio(legacyShown, tt)} |`,
+function formatMs(ms) {
+  return ms > 0 ? `${(ms / 1000).toFixed(2)} s` : "-";
+}
+
+function createReport(projects) {
+  const previous = flags.has("--fresh") ? null : loadCheckpoint();
+  const reusable =
+    previous &&
+    previous.runs === RUNS &&
+    previous.warmup === WARMUP &&
+    Array.isArray(previous.projects)
+      ? previous
+      : null;
+  if (previous && !reusable) {
+    process.stdout.write(
+      `Ignoring checkpoint with different run settings: ${CHECKPOINT_JSON}\n`,
+    );
+  }
+  return {
+    date: reusable?.date ?? new Date().toISOString(),
+    runs: RUNS,
+    warmup: WARMUP,
+    host: hostSpec(projects),
+    projects: projects.map((project) => {
+      const old = reusable?.projects.find((p) => p.name === project.name);
+      return projectReportFor(
+        project,
+        Array.isArray(old?.measurements) ? old.measurements : [],
       );
-    }
-  }
-  L.push("");
-  L.push(
-    `type-fest and vue are \`noEmit\` projects — their M1/M2 cell is the same ` +
-      `command, and legacy \`tsc\` for those is shown here as a like-for-like ` +
-      `compare. Emit-producing projects measure ttsc \`--noEmit\` only (stock ` +
-      `\`tsc\` has no comparable type-check-only build wired in the fixture).`,
-  );
-  L.push("");
+    }),
+  };
+}
 
-  // ── M3 — threading: single vs multi ───────────────────────────────────────
-  L.push(`## M3 — ttsc threading: single-threaded vs multi-threaded`);
-  L.push("");
-  L.push(
-    `\`ttsc --singleThreaded\` runs TypeScript-Go fully serial; the default ` +
-      `keeps parallel parse/check/emit. Speedup is multi-threaded over ` +
-      `single-threaded.`,
-  );
-  L.push("");
-  L.push(`| Project · branch · step | single-threaded | multi-threaded | speedup |`);
-  L.push(`| --- | --- | --- | --- |`);
+function loadCheckpoint() {
+  if (!fs.existsSync(CHECKPOINT_JSON)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(CHECKPOINT_JSON, "utf8"));
+  } catch (error) {
+    process.stdout.write(
+      `Ignoring unreadable checkpoint ${CHECKPOINT_JSON}: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    return null;
+  }
+}
+
+function writeReports(report, { publishWebsite = false } = {}) {
+  fs.writeFileSync(OUT, buildMarkdown(report) + "\n");
+  fs.writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n");
+  fs.writeFileSync(CHECKPOINT_JSON, JSON.stringify(report, null, 2) + "\n");
+  if (publishWebsite) {
+    fs.mkdirSync(path.dirname(WEBSITE_JSON), { recursive: true });
+    fs.writeFileSync(WEBSITE_JSON, JSON.stringify(report, null, 2) + "\n");
+  }
+}
+
+function printConfig() {
   for (const project of wantedProjects) {
-    const cfg = PROJECTS[project];
-    for (const c of cfg.cases) {
-      if (!c.singleThreaded) continue;
-      for (const branch of ["ttsc", "ttsc-lint"]) {
-        const mt = med(`${project}|${branch}|${c.name}|mt`);
-        const st = med(`${project}|${branch}|${c.name}|st`);
-        if (mt == null && st == null) continue;
-        L.push(
-          `| ${project} · ${branch} · ${c.name} | ${s(st)} | ${s(mt)} | ` +
-            `${ratio(st, mt)} |`,
-        );
+    process.stdout.write(`${project.name}: ${project.repo}\n`);
+    for (const cell of projectCells(project)) {
+      const tool = cell.tool ?? toolFor(cell.branch, cell.op);
+      const root = cloneDir(project, cell.branch);
+      process.stdout.write(
+        `  ${cell.branch}:${tool}:${cell.op}:${cell.threading}\n`,
+      );
+      for (const step of cell.steps) {
+        const cmd = commandForProject(step.cmd, root);
+        process.stdout.write(`    ${step.cwd ? `${step.cwd}: ` : ""}${cmd}\n`);
       }
     }
   }
-  L.push("");
-
-  // ── stability ─────────────────────────────────────────────────────────────
-  const raced = Object.values(results).filter((r) => r.raceRetries > 0);
-  const failed = Object.values(results).filter((r) => r.deterministicFailure);
-  if (raced.length || failed.length) {
-    L.push(`## Stability`);
-    L.push("");
-    if (raced.length) {
-      L.push(
-        `Parallel-emit data-race retries — intermittent; the reported timing ` +
-          `is from a clean run:`,
-      );
-      L.push("");
-      for (const r of raced)
-        L.push(
-          `- \`${r.label}\`: ${r.raceRetries} race ` +
-            `retr${r.raceRetries === 1 ? "y" : "ies"}`,
-        );
-      L.push("");
-    }
-    if (failed.length) {
-      L.push(
-        `Deterministic failures — retrying does not help, so the cell is ` +
-          `left unmeasured:`,
-      );
-      L.push("");
-      for (const r of failed)
-        L.push(
-          `- \`${r.label}\`: exits ${r.deterministicFailure.status} ` +
-            `(${r.deterministicFailure.kind}) on every run`,
-        );
-      L.push("");
-    }
-  }
-
-  // ── raw samples ───────────────────────────────────────────────────────────
-  L.push(`## Raw samples (ms)`);
-  L.push("");
-  L.push(`| Cell | runs | median | min |`);
-  L.push(`| --- | --- | --- | --- |`);
-  for (const k of Object.keys(results).sort()) {
-    const r = results[k];
-    L.push(
-      `| \`${k}\` | ${r.samples.map((x) => x.toFixed(0)).join(", ") || "—"} ` +
-        `| ${s(r.median)} | ${s(r.min)} |`,
-    );
-  }
-  L.push("");
-  return L.join("\n");
 }
-
-function printConfigTable() {
-  process.stdout.write(`\nttsc matrix benchmark — project config\n\n`);
-  for (const [name, cfg] of Object.entries(PROJECTS)) {
-    process.stdout.write(
-      `${name}  [${cfg.kind}]  branches: ${cfg.branches.join(", ")}\n`,
-    );
-    process.stdout.write(`  repo: ${cfg.repo}\n`);
-    if (cfg.prerequisites?.length)
-      process.stdout.write(`  prerequisites: ${cfg.prerequisites.join(", ")}\n`);
-    for (const c of cfg.cases) {
-      process.stdout.write(
-        `  case ${c.name}: emit=${c.emit} singleThreaded=${c.singleThreaded}` +
-          `${c.cwd ? ` cwd=${c.cwd}` : ""}\n`,
-      );
-      process.stdout.write(`    legacy: ${c.legacy?.build ?? "—"}\n`);
-      process.stdout.write(
-        `    ttsc:   ${c.ttsc?.build ?? "—"}` +
-          `${c.ttsc?.noEmit ? `  |  noEmit: ${c.ttsc.noEmit}` : ""}\n`,
-      );
-    }
-    process.stdout.write("\n");
-  }
-}
-
-// ── main ─────────────────────────────────────────────────────────────────────
 
 function main() {
-  const started = new Date();
+  if (wantedProjects.length === 0)
+    throw new Error("no benchmark projects selected");
+
   fs.mkdirSync(WORK, { recursive: true });
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
 
-  // Prior results merge in so projects can be measured across invocations.
-  const jsonPath = OUT.replace(/\.md$/, ".json");
-  let results = {};
-  if (fs.existsSync(jsonPath)) {
-    try {
-      results = JSON.parse(fs.readFileSync(jsonPath, "utf8")).results ?? {};
-    } catch {
-      results = {};
-    }
-  }
-
-  // Step 1 — tarballs (skipped by --no-setup, which assumes clones are ready).
   if (!flags.has("--no-setup")) {
     packTarballs();
-  }
-
-  // Steps 2 + 3 — clone + install every (project, branch).
-  const ready = {}; // project -> Set<branch> that installed cleanly
-  if (!flags.has("--no-setup")) {
-    process.stdout.write(`\n▸ cloning + installing fixtures into ${WORK}\n`);
+    const setupFailures = [];
     for (const project of wantedProjects) {
-      ready[project] = new Set();
-      for (const branch of PROJECTS[project].branches) {
+      for (const branch of BRANCHES) {
         try {
-          if (setupClone(project, branch)) ready[project].add(branch);
-        } catch (err) {
-          process.stdout.write(
-            `  ⚠ ${project}@${branch}: setup failed — ${err.message}\n`,
+          setupClone(project, branch);
+        } catch (error) {
+          setupFailures.push(
+            `${project.repoName}@${branch}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           );
         }
       }
     }
-  } else {
-    // --no-setup: trust whatever clones already exist on disk.
-    for (const project of wantedProjects) {
-      ready[project] = new Set(
-        PROJECTS[project].branches.filter((b) =>
-          fs.existsSync(cloneDir(project, b)),
-        ),
+    if (setupFailures.length && !flags.has("--allow-missing")) {
+      throw new Error(
+        "setup failed; pass --allow-missing to measure the ready subset\n" +
+          setupFailures.map((f) => `- ${f}`).join("\n"),
       );
     }
   }
 
   if (flags.has("--setup-only")) {
-    process.stdout.write(`\n✓ setup complete — clones in ${WORK}\n`);
+    process.stdout.write(`Setup complete in ${WORK}\n`);
     return;
   }
 
-  // Step 4 — measure.
-  for (const project of wantedProjects) {
-    for (const c of PROJECTS[project].cases) {
-      for (const branch of PROJECTS[project].branches) {
-        if (!ready[project]?.has(branch)) continue;
-        measureCase(results, project, branch, c);
+  const readyProjects = wantedProjects.filter((project) =>
+    BRANCHES.every((branch) => fs.existsSync(cloneDir(project, branch))),
+  );
+  const missingProjects = wantedProjects.filter(
+    (project) => !readyProjects.includes(project),
+  );
+  if (missingProjects.length && !flags.has("--allow-missing")) {
+    throw new Error(
+      "missing prepared clones; run without --no-setup to clone/install them " +
+        "or pass --allow-missing\n" +
+        missingProjects.map((project) => `- ${project.repoName}`).join("\n"),
+    );
+  }
+
+  if (flags.has("--verify-only")) {
+    verifyCommands(readyProjects);
+    return;
+  }
+
+  const report = createReport(readyProjects);
+  writeReports(report);
+  for (const project of readyProjects) measureProject(project, report);
+  writeReports(report, { publishWebsite: true });
+
+  process.stdout.write(`Report written to ${OUT}\n`);
+  process.stdout.write(`Website JSON written to ${WEBSITE_JSON}\n`);
+}
+
+function verifyCommands(projects) {
+  const failures = [];
+  for (const project of projects) {
+    for (const cell of projectCells(project)) {
+      const root = cloneDir(project, cell.branch);
+      process.stdout.write(`\nVERIFY ${cell.id}\n`);
+      const result = runSteps(cell.steps, root);
+      if (!result.ok) {
+        failures.push(`${cell.id} failed (${result.status})`);
+        process.stderr.write(result.log);
+      } else {
+        process.stdout.write(`  ok ${result.ms.toFixed(0)} ms\n`);
       }
     }
   }
-
-  // Report.
-  const host = hostSpec(wantedProjects);
-  const report = buildReport(results, started, host);
-  fs.writeFileSync(OUT, report);
-  fs.writeFileSync(
-    jsonPath,
-    JSON.stringify({ started, host, results }, null, 2),
-  );
-
-  // Canonical website result — the published, committed, served file. Written
-  // straight to website/public/benchmark.json so a run needs no manual step.
-  const websiteReport = buildWebsiteReport(results, started, host);
-  fs.mkdirSync(path.dirname(WEBSITE_JSON), { recursive: true });
-  fs.writeFileSync(
-    WEBSITE_JSON,
-    JSON.stringify(websiteReport, null, 2) + "\n",
-  );
-
-  process.stdout.write(
-    `\n${report}\n\nReport written to ${OUT}\n` +
-      `Website result written to ${WEBSITE_JSON}\n`,
-  );
+  if (failures.length) {
+    throw new Error(
+      `benchmark command verification failed\n${failures
+        .map((f) => `- ${f}`)
+        .join("\n")}`,
+    );
+  }
+  process.stdout.write("\nAll benchmark commands verified.\n");
 }
 
-main();
+function projectCells(project) {
+  const cells = [];
+  for (const branch of BRANCHES) {
+    const branchCommands = project.commands[branch];
+    if (!branchCommands) continue;
+    for (const op of ["build", "noEmit", "eslint"]) {
+      const baseSteps = branchCommands[op];
+      if (!baseSteps?.length) continue;
+      if (branch === "legacy" || op === "eslint") {
+        cells.push({
+          id: `${project.name}:${branch}:${op}:multi`,
+          project,
+          branch,
+          op,
+          threading: "multi",
+          steps: baseSteps,
+        });
+      } else {
+        cells.push({
+          id: `${project.name}:${branch}:${op}:multi`,
+          project,
+          branch,
+          op,
+          threading: "multi",
+          steps: baseSteps,
+        });
+        cells.push({
+          id: `${project.name}:${branch}:${op}:single`,
+          project,
+          branch,
+          op,
+          threading: "single",
+          steps: singleThreadedSteps(baseSteps),
+        });
+      }
+      if (branch === "ttsc" && (op === "build" || op === "noEmit")) {
+        const tsgoSteps =
+          branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
+        if (tsgoSteps?.length) {
+          cells.push({
+            id: `${project.name}:${branch}:tsgo:${op}:multi`,
+            project,
+            branch,
+            tool: "tsgo",
+            op,
+            threading: "multi",
+            steps: tsgoSteps,
+          });
+          cells.push({
+            id: `${project.name}:${branch}:tsgo:${op}:single`,
+            project,
+            branch,
+            tool: "tsgo",
+            op,
+            threading: "single",
+            steps: singleThreadedSteps(tsgoSteps),
+          });
+        }
+      }
+    }
+  }
+  return cells;
+}
