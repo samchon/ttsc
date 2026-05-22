@@ -1067,7 +1067,48 @@ function writeReports(report, { publishWebsite = false } = {}) {
   fs.writeFileSync(CHECKPOINT_JSON, JSON.stringify(report, null, 2) + "\n");
   if (publishWebsite && !flags.has("--no-website")) {
     fs.mkdirSync(path.dirname(WEBSITE_JSON), { recursive: true });
-    fs.writeFileSync(WEBSITE_JSON, JSON.stringify(report, null, 2) + "\n");
+    const websiteReport = mergePreviousWebsiteMeasurements(report);
+    fs.writeFileSync(
+      WEBSITE_JSON,
+      JSON.stringify(websiteReport, null, 2) + "\n",
+    );
+  }
+}
+
+function mergePreviousWebsiteMeasurements(report) {
+  const previous = loadJson(WEBSITE_JSON);
+  if (!previous || !Array.isArray(previous.projects)) return report;
+
+  const merged = JSON.parse(JSON.stringify(report));
+  for (const project of merged.projects) {
+    const oldProject = previous.projects.find((p) => p.name === project.name);
+    if (!oldProject || !Array.isArray(oldProject.measurements)) continue;
+
+    const freshById = new Map(
+      project.measurements.map((measurement) => [measurement.id, measurement]),
+    );
+    const measurements = [];
+    for (const oldMeasurement of oldProject.measurements) {
+      const fresh = freshById.get(oldMeasurement.id);
+      if (fresh) {
+        measurements.push(fresh);
+        freshById.delete(oldMeasurement.id);
+      } else {
+        measurements.push(oldMeasurement);
+      }
+    }
+    measurements.push(...freshById.values());
+    project.measurements = measurements;
+  }
+  return merged;
+}
+
+function loadJson(file) {
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
   }
 }
 
