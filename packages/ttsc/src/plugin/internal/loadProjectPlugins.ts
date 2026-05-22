@@ -545,38 +545,72 @@ function loadPluginEntry(
   context: ITtscPluginFactoryContext,
   baseDir: string,
 ): ITtscPlugin {
-  const specifier = entry.transform;
-  if (typeof specifier !== "string" || specifier.length === 0) {
-    throw new Error(`ttsc: plugin entry is missing a string "transform" field`);
-  }
-
-  const request = resolvePluginRequest(specifier, baseDir);
-  const mod = require(request) as {
-    createTtscPlugin?: TtscPluginFactory;
-    default?: ITtscPlugin | TtscPluginFactory;
-  } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
-  const candidate =
-    mod.createTtscPlugin ??
-    mod.default ??
-    mod.plugin ??
-    (mod as unknown as ITtscPlugin | TtscPluginFactory);
-  if (typeof candidate === "function") {
-    const plugin = candidate(context);
-    if (!isTtscPlugin(plugin)) {
+  return withPluginLoaderEnv(() => {
+    const specifier = entry.transform;
+    if (typeof specifier !== "string" || specifier.length === 0) {
       throw new Error(
-        `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+        `ttsc: plugin entry is missing a string "transform" field`,
       );
     }
-    rejectJsTransformFunctions(specifier, plugin);
-    return plugin;
-  }
-  if (isTtscPlugin(candidate)) {
-    rejectJsTransformFunctions(specifier, candidate);
-    return candidate;
-  }
-  throw new Error(
-    `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+
+    const request = resolvePluginRequest(specifier, baseDir);
+    const mod = require(request) as {
+      createTtscPlugin?: TtscPluginFactory;
+      default?: ITtscPlugin | TtscPluginFactory;
+    } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
+    const candidate =
+      mod.createTtscPlugin ??
+      mod.default ??
+      mod.plugin ??
+      (mod as unknown as ITtscPlugin | TtscPluginFactory);
+    if (typeof candidate === "function") {
+      const plugin = candidate(context);
+      if (!isTtscPlugin(plugin)) {
+        throw new Error(
+          `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+        );
+      }
+      rejectJsTransformFunctions(specifier, plugin);
+      return plugin;
+    }
+    if (isTtscPlugin(candidate)) {
+      rejectJsTransformFunctions(specifier, candidate);
+      return candidate;
+    }
+    throw new Error(
+      `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+    );
+  });
+}
+
+function withPluginLoaderEnv<T>(run: () => T): T {
+  const previousNode = process.env.TTSC_NODE_BINARY;
+  const previousTtsx = process.env.TTSC_TTSX_BINARY;
+  process.env.TTSC_NODE_BINARY ??= process.execPath;
+  process.env.TTSC_TTSX_BINARY ??= path.join(
+    __dirname,
+    "..",
+    "..",
+    "launcher",
+    "ttsx.js",
   );
+  try {
+    return run();
+  } finally {
+    restoreEnv("TTSC_NODE_BINARY", previousNode);
+    restoreEnv("TTSC_TTSX_BINARY", previousTtsx);
+  }
+}
+
+function restoreEnv(
+  key: "TTSC_NODE_BINARY" | "TTSC_TTSX_BINARY",
+  value: string | undefined,
+): void {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
 }
 
 function isTtscPlugin(value: unknown): value is ITtscPlugin {
