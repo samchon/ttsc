@@ -18,6 +18,7 @@
  * - `node bench.mjs --project vue --project type-fest`
  * - `node bench.mjs --project=type-fest --ttsc-build-only --fresh`
  * - `node bench.mjs --project=type-fest --only-ttsc-build --fresh`
+ * - `node bench.mjs --project=type-fest --only-ttsc-build --no-website`
  * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
  */
 import { spawnSync } from "node:child_process";
@@ -1058,7 +1059,7 @@ function writeReports(report, { publishWebsite = false } = {}) {
   fs.writeFileSync(OUT, buildMarkdown(report) + "\n");
   fs.writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n");
   fs.writeFileSync(CHECKPOINT_JSON, JSON.stringify(report, null, 2) + "\n");
-  if (publishWebsite) {
+  if (publishWebsite && !flags.has("--no-website")) {
     fs.mkdirSync(path.dirname(WEBSITE_JSON), { recursive: true });
     fs.writeFileSync(WEBSITE_JSON, JSON.stringify(report, null, 2) + "\n");
   }
