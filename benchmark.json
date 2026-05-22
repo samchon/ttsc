@@ -1,7 +1,7 @@
 {
-  "date": "2026-05-22T15:21:10.421Z",
-  "runs": 1,
-  "warmup": 0,
+  "date": "2026-05-22T17:50:34.841Z",
+  "runs": 10,
+  "warmup": 1,
   "host": {
     "os": "Ubuntu 26.04 LTS",
     "kernel": "6.6.87.2-microsoft-standard-WSL2",
@@ -10,8 +10,7 @@
     "ramGB": 29,
     "node": "v24.15.0",
     "ttsc": "0.12.4",
-    "typescript": "5.9.3",
-    "tsgo": "7.0.0-dev.20260517.1"
+    "typescript": "5.9.3"
   },
   "projects": [
     {
@@ -21,15 +20,45 @@
       "files": 442,
       "measurements": [
         {
+          "id": "vue:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 1867.2917750000001,
+          "minMs": 1826.065427,
+          "samples": [
+            1843.587806,
+            1888.282252,
+            1889.360275,
+            1903.914991,
+            1923.14751,
+            1831.945452,
+            1826.065427,
+            1894.023619,
+            1836.798506,
+            1846.301298
+          ]
+        },
+        {
           "id": "vue:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 2298.946841,
-          "minMs": 2298.946841,
+          "medianMs": 1826.3646035000002,
+          "minMs": 1791.603587,
           "samples": [
-            2298.946841
+            1867.706653,
+            1916.381471,
+            1829.860554,
+            1808.105827,
+            1841.199366,
+            1822.868653,
+            1791.603587,
+            1908.929844,
+            1816.448045,
+            1812.761412
           ]
         },
         {
@@ -38,34 +67,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 3405.341904,
-          "minMs": 3405.341904,
+          "medianMs": 2693.69912,
+          "minMs": 2603.497502,
           "samples": [
-            3405.341904
-          ]
-        },
-        {
-          "id": "vue:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 798.610709,
-          "minMs": 798.610709,
-          "samples": [
-            798.610709
-          ]
-        },
-        {
-          "id": "vue:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1299.615775,
-          "minMs": 1299.615775,
-          "samples": [
-            1299.615775
+            2695.769912,
+            2707.955961,
+            2620.854743,
+            2699.419805,
+            2702.78172,
+            2603.497502,
+            2691.628328,
+            2689.339311,
+            2655.089584,
+            2699.216104
           ]
         },
         {
@@ -74,94 +88,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 2449.224284,
-          "minMs": 2449.224284,
+          "medianMs": 471.92330549999997,
+          "minMs": 459.088146,
           "samples": [
-            2449.224284
-          ]
-        },
-        {
-          "id": "vue:ttsc-lint:build:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 3352.107018,
-          "minMs": 3352.107018,
-          "samples": [
-            3352.107018
-          ]
-        },
-        {
-          "id": "vue:ttsc-lint:build:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 3436.578122,
-          "minMs": 3436.578122,
-          "samples": [
-            3436.578122
-          ]
-        },
-        {
-          "id": "vue:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 2803.141617,
-          "minMs": 2803.141617,
-          "samples": [
-            2803.141617
-          ]
-        },
-        {
-          "id": "vue:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 2772.844634,
-          "minMs": 2772.844634,
-          "samples": [
-            2772.844634
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 781.850788,
-          "minMs": 781.850788,
-          "samples": [
-            781.850788
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1093.148929,
-          "minMs": 1093.148929,
-          "samples": [
-            1093.148929
-          ]
-        },
-        {
-          "id": "vue:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 2322.038882,
-          "minMs": 2322.038882,
-          "samples": [
-            2322.038882
+            465.138856,
+            470.662186,
+            467.287152,
+            473.184425,
+            475.80858,
+            523.883706,
+            480.370298,
+            459.088146,
+            466.949725,
+            482.91929
           ]
         },
         {
@@ -170,34 +109,145 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 989.907254,
-          "minMs": 989.907254,
+          "medianMs": 682.130431,
+          "minMs": 649.389922,
           "samples": [
-            989.907254
+            688.741694,
+            655.763554,
+            664.166983,
+            748.013609,
+            685.326264,
+            679.642144,
+            649.389922,
+            708.725547,
+            684.618718,
+            672.311644
           ]
         },
         {
-          "id": "vue:ttsc:tsgo:build:multi",
+          "id": "vue:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 481.93149,
+          "minMs": 474.146162,
+          "samples": [
+            571.828018,
+            532.497417,
+            475.965775,
+            477.089103,
+            478.689442,
+            477.659103,
+            510.511193,
+            528.927699,
+            485.173538,
+            474.146162
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 686.937963,
+          "minMs": 660.265646,
+          "samples": [
+            751.355469,
+            680.792246,
+            660.265646,
+            674.616551,
+            712.42676,
+            727.125932,
+            682.386949,
+            678.389724,
+            691.488977,
+            692.970868
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 855.167938,
-          "minMs": 855.167938,
+          "medianMs": 2204.5092649999997,
+          "minMs": 2036.461651,
           "samples": [
-            855.167938
+            2232.167987,
+            2250.930994,
+            2413.622623,
+            2176.850543,
+            2341.809943,
+            2142.030361,
+            2259.900468,
+            2081.935642,
+            2132.013424,
+            2036.461651
           ]
         },
         {
-          "id": "vue:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
+          "id": "vue:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 971.0131,
-          "minMs": 971.0131,
+          "medianMs": 2290.09978,
+          "minMs": 2226.489147,
           "samples": [
-            971.0131
+            2282.240537,
+            2318.411655,
+            2318.021912,
+            2315.989232,
+            2226.783077,
+            2264.151649,
+            2313.014029,
+            2226.489147,
+            2297.959023,
+            2251.905418
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 1870.2590890000001,
+          "minMs": 1799.790319,
+          "samples": [
+            1839.451147,
+            1937.426464,
+            1980.207085,
+            1895.942775,
+            1815.060332,
+            1830.793119,
+            1860.171543,
+            1799.790319,
+            1897.931883,
+            1880.346635
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 1856.2936694999999,
+          "minMs": 1790.802392,
+          "samples": [
+            1790.802392,
+            1860.489877,
+            1824.957572,
+            1906.775832,
+            1853.500564,
+            1859.086775,
+            1914.948648,
+            1879.792656,
+            1828.144006,
+            1811.342888
           ]
         }
       ]
@@ -209,15 +259,45 @@
       "files": 515,
       "measurements": [
         {
+          "id": "rxjs:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 4268.833568,
+          "minMs": 4217.555027,
+          "samples": [
+            4241.228164,
+            4262.267394,
+            4338.920956,
+            4264.556716,
+            4217.555027,
+            4276.09134,
+            4251.774629,
+            4273.11042,
+            4354.878744,
+            4386.790723
+          ]
+        },
+        {
           "id": "rxjs:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 4761.083382,
-          "minMs": 4761.083382,
+          "medianMs": 4272.703348499999,
+          "minMs": 4243.802358,
           "samples": [
-            4761.083382
+            4255.567402,
+            4827.220591,
+            4300.468245,
+            4583.919213,
+            4261.363702,
+            4256.098133,
+            4436.003131,
+            4243.802358,
+            4252.687007,
+            4284.042995
           ]
         },
         {
@@ -226,70 +306,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 4635.828555,
-          "minMs": 4635.828555,
+          "medianMs": 3261.2596355,
+          "minMs": 3205.848836,
           "samples": [
-            4635.828555
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 1365.830497,
-          "minMs": 1365.830497,
-          "samples": [
-            1365.830497
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1502.210582,
-          "minMs": 1502.210582,
-          "samples": [
-            1502.210582
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 2840.242492,
-          "minMs": 2840.242492,
-          "samples": [
-            2840.242492
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 2864.295609,
-          "minMs": 2864.295609,
-          "samples": [
-            2864.295609
-          ]
-        },
-        {
-          "id": "rxjs:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 5136.164078,
-          "minMs": 5136.164078,
-          "samples": [
-            5136.164078
+            3247.28321,
+            3284.848204,
+            3300.443888,
+            3258.38569,
+            3250.317923,
+            3248.964452,
+            3264.133581,
+            3205.848836,
+            3269.837372,
+            3318.681426
           ]
         },
         {
@@ -298,10 +327,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 1710.795995,
-          "minMs": 1710.795995,
+          "medianMs": 1239.4337675000002,
+          "minMs": 1190.663386,
           "samples": [
-            1710.795995
+            1240.553504,
+            1244.185314,
+            1238.314031,
+            1204.111684,
+            1234.269562,
+            1245.823789,
+            1192.291833,
+            1267.79935,
+            1190.663386,
+            1243.44132
           ]
         },
         {
@@ -310,58 +348,61 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 1510.358603,
-          "minMs": 1510.358603,
+          "medianMs": 1287.358585,
+          "minMs": 1228.154917,
           "samples": [
-            1510.358603
+            1317.149671,
+            1305.013197,
+            1279.539469,
+            1268.428684,
+            1312.947403,
+            1265.858951,
+            1362.879083,
+            1295.177701,
+            1228.154917,
+            1278.067596
           ]
         },
         {
-          "id": "rxjs:ttsc:tsgo:build:multi",
+          "id": "rxjs:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 1415.833749,
-          "minMs": 1415.833749,
-          "samples": [
-            1415.833749
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1481.311569,
-          "minMs": 1481.311569,
-          "samples": [
-            1481.311569
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 1296.743017,
-          "minMs": 1296.743017,
+          "medianMs": 1220.2771324999999,
+          "minMs": 1181.978144,
           "samples": [
-            1296.743017
+            1215.382459,
+            1181.978144,
+            1232.596034,
+            1199.804852,
+            1344.090132,
+            1230.061631,
+            1201.785193,
+            1225.171806,
+            1188.914544,
+            1244.35366
           ]
         },
         {
-          "id": "rxjs:ttsc:tsgo:noEmit:single",
+          "id": "rxjs:ttsc:noEmit:single",
           "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 1447.947243,
-          "minMs": 1447.947243,
+          "medianMs": 1260.1250045000002,
+          "minMs": 1233.392397,
           "samples": [
-            1447.947243
+            1272.449689,
+            1257.264778,
+            1273.182178,
+            1268.049264,
+            1262.985231,
+            1233.392397,
+            1247.604563,
+            1238.98135,
+            1247.711895,
+            1289.578714
           ]
         },
         {
@@ -370,10 +411,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 3152.296114,
-          "minMs": 3152.296114,
+          "medianMs": 2760.5426335,
+          "minMs": 2725.730586,
           "samples": [
-            3152.296114
+            2725.730586,
+            2829.050058,
+            2783.928036,
+            2743.745049,
+            2808.191596,
+            2756.369106,
+            2756.582907,
+            2764.50236,
+            2747.242795,
+            2864.470421
           ]
         },
         {
@@ -382,10 +432,61 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 3169.933042,
-          "minMs": 3169.933042,
+          "medianMs": 2824.9391459999997,
+          "minMs": 2775.428288,
           "samples": [
-            3169.933042
+            2791.455643,
+            2884.096223,
+            2827.44105,
+            2775.428288,
+            2822.437242,
+            2817.701437,
+            2819.079404,
+            2838.455795,
+            2897.456776,
+            2830.512809
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 2522.206501,
+          "minMs": 2481.658608,
+          "samples": [
+            2512.584083,
+            2521.972584,
+            2516.835251,
+            2542.11837,
+            2537.627438,
+            2594.712224,
+            2522.440418,
+            2640.390289,
+            2481.658608,
+            2495.89878
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 2932.5430324999998,
+          "minMs": 2549.093075,
+          "samples": [
+            2557.028695,
+            2549.093075,
+            3057.607348,
+            2967.596665,
+            3277.987682,
+            3129.092518,
+            2895.161304,
+            2840.779059,
+            2911.115193,
+            2953.970872
           ]
         }
       ]
@@ -397,15 +498,45 @@
       "files": 209,
       "measurements": [
         {
+          "id": "type-fest:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 36328.3306815,
+          "minMs": 35802.316468,
+          "samples": [
+            37011.324053,
+            36117.6693,
+            36382.496076,
+            36028.090063,
+            35802.316468,
+            36593.384667,
+            36673.057272,
+            36802.28532,
+            36180.838045,
+            36274.165287
+          ]
+        },
+        {
           "id": "type-fest:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 41702.151076,
-          "minMs": 41702.151076,
+          "medianMs": 36054.0109265,
+          "minMs": 35831.860688,
           "samples": [
-            41702.151076
+            36115.279974,
+            36607.928358,
+            36058.811503,
+            36341.669954,
+            35924.181495,
+            36049.21035,
+            36042.658367,
+            35911.762855,
+            36094.841359,
+            35831.860688
           ]
         },
         {
@@ -414,94 +545,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 2635.629178,
-          "minMs": 2635.629178,
+          "medianMs": 2207.3400315,
+          "minMs": 2104.569155,
           "samples": [
-            2635.629178
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 15788.697771,
-          "minMs": 15788.697771,
-          "samples": [
-            15788.697771
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 23188.874709,
-          "minMs": 23188.874709,
-          "samples": [
-            23188.874709
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 15491.524347,
-          "minMs": 15491.524347,
-          "samples": [
-            15491.524347
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 15220.332642,
-          "minMs": 15220.332642,
-          "samples": [
-            15220.332642
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 15550.147274,
-          "minMs": 15550.147274,
-          "samples": [
-            15550.147274
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 22607.481073,
-          "minMs": 22607.481073,
-          "samples": [
-            22607.481073
-          ]
-        },
-        {
-          "id": "type-fest:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 37225.356167,
-          "minMs": 37225.356167,
-          "samples": [
-            37225.356167
+            2330.637386,
+            2205.974718,
+            2208.705345,
+            2193.036256,
+            2203.206852,
+            2241.788185,
+            2139.703447,
+            2256.328464,
+            2236.425692,
+            2104.569155
           ]
         },
         {
@@ -510,10 +566,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 16760.72912,
-          "minMs": 16760.72912,
+          "medianMs": 16428.4393125,
+          "minMs": 15973.333241,
           "samples": [
-            16760.72912
+            16678.17384,
+            15973.333241,
+            16586.449085,
+            16197.740078,
+            16581.169474,
+            16593.465335,
+            16275.709151,
+            16049.628115,
+            16073.768478,
+            16684.503483
           ]
         },
         {
@@ -522,34 +587,61 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 23914.603681,
-          "minMs": 23914.603681,
+          "medianMs": 22636.9113765,
+          "minMs": 22303.700951,
           "samples": [
-            23914.603681
+            22852.943954,
+            22657.591258,
+            23376.710894,
+            22398.673325,
+            22303.700951,
+            22565.33876,
+            23802.936259,
+            22539.02519,
+            22616.231495,
+            22834.808311
           ]
         },
         {
-          "id": "type-fest:ttsc:tsgo:build:multi",
+          "id": "type-fest:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
+          "tool": "ttsc",
+          "op": "noEmit",
           "threading": "multi",
-          "medianMs": 15803.660725,
-          "minMs": 15803.660725,
+          "medianMs": 15961.173993,
+          "minMs": 15726.120688,
           "samples": [
-            15803.660725
+            15888.310388,
+            16001.928583,
+            15948.972787,
+            15726.120688,
+            16252.50067,
+            15973.375199,
+            15948.504597,
+            16127.642096,
+            15860.440868,
+            23822.683761
           ]
         },
         {
-          "id": "type-fest:ttsc:tsgo:build:single",
+          "id": "type-fest:ttsc:noEmit:single",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
+          "tool": "ttsc",
+          "op": "noEmit",
           "threading": "single",
-          "medianMs": 23914.179154,
-          "minMs": 23914.179154,
+          "medianMs": 31948.341162999997,
+          "minMs": 31004.165224,
           "samples": [
-            23914.179154
+            32672.883897,
+            31959.175882,
+            32487.540717,
+            32226.476792,
+            31715.201903,
+            31482.905705,
+            32072.34752,
+            31004.165224,
+            31314.318072,
+            31937.506444
           ]
         },
         {
@@ -558,10 +650,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 15706.616977,
-          "minMs": 15706.616977,
+          "medianMs": 25034.291605500002,
+          "minMs": 23062.644339,
           "samples": [
-            15706.616977
+            27495.323781,
+            26514.312106,
+            25169.476089,
+            25641.667123,
+            24899.107122,
+            23062.644339,
+            23186.390703,
+            23375.440695,
+            25522.171415,
+            23897.308491
           ]
         },
         {
@@ -570,10 +671,61 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 16016.993428,
-          "minMs": 16016.993428,
+          "medianMs": 24673.777283000003,
+          "minMs": 23180.909776,
           "samples": [
-            16016.993428
+            23180.909776,
+            23457.522848,
+            25041.051264,
+            24306.503302,
+            23677.359777,
+            23682.594744,
+            28187.781931,
+            27982.862405,
+            30725.629982,
+            25469.668573
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 25085.497676,
+          "minMs": 24335.601627,
+          "samples": [
+            24537.872446,
+            26488.253148,
+            26355.115662,
+            24671.587069,
+            24970.124757,
+            28405.316525,
+            28334.766863,
+            24411.578347,
+            25200.870595,
+            24335.601627
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 24992.258544,
+          "minMs": 24473.889654,
+          "samples": [
+            24774.235145,
+            25238.565097,
+            24723.909846,
+            24473.889654,
+            25490.738156,
+            24706.452648,
+            25775.032152,
+            24830.701027,
+            25311.46274,
+            25153.816061
           ]
         }
       ]
@@ -585,15 +737,45 @@
       "files": 495,
       "measurements": [
         {
+          "id": "typeorm:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 22587.9084305,
+          "minMs": 22170.650492,
+          "samples": [
+            22897.437204,
+            22917.052567,
+            22225.248869,
+            23015.033219,
+            22558.283882,
+            22333.121957,
+            23001.507841,
+            22503.339497,
+            22617.532979,
+            22170.650492
+          ]
+        },
+        {
           "id": "typeorm:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 9858.688205,
-          "minMs": 9858.688205,
+          "medianMs": 14311.189924,
+          "minMs": 13983.857652,
           "samples": [
-            9858.688205
+            13983.857652,
+            13990.203932,
+            14068.706733,
+            14458.464783,
+            14369.792573,
+            15183.979105,
+            14058.793579,
+            14252.587275,
+            14376.376735,
+            14370.136866
           ]
         },
         {
@@ -602,70 +784,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 29057.624746,
-          "minMs": 29057.624746,
+          "medianMs": 42836.594981,
+          "minMs": 41784.358717,
           "samples": [
-            29057.624746
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 1674.511367,
-          "minMs": 1674.511367,
-          "samples": [
-            1674.511367
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3103.185399,
-          "minMs": 3103.185399,
-          "samples": [
-            3103.185399
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 2255.3101,
-          "minMs": 2255.3101,
-          "samples": [
-            2255.3101
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 2218.197717,
-          "minMs": 2218.197717,
-          "samples": [
-            2218.197717
-          ]
-        },
-        {
-          "id": "typeorm:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 15032.949771,
-          "minMs": 15032.949771,
-          "samples": [
-            15032.949771
+            42271.688339,
+            43082.028142,
+            45038.849168,
+            43302.829615,
+            41784.358717,
+            43069.422806,
+            42675.027422,
+            42474.480498,
+            42998.16254,
+            41967.384173
           ]
         },
         {
@@ -674,10 +805,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 2154.351451,
-          "minMs": 2154.351451,
+          "medianMs": 4122.792525,
+          "minMs": 3989.623239,
           "samples": [
-            2154.351451
+            4213.531505,
+            3989.623239,
+            3996.902158,
+            4164.469342,
+            4081.115708,
+            4068.010813,
+            4184.895222,
+            4927.461526,
+            4224.710614,
+            4076.453472
           ]
         },
         {
@@ -686,58 +826,61 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 5217.478444,
-          "minMs": 5217.478444,
+          "medianMs": 8086.8229465,
+          "minMs": 7944.049167,
           "samples": [
-            5217.478444
+            8180.808087,
+            8038.102881,
+            7965.61498,
+            8026.23421,
+            8135.543012,
+            8015.533447,
+            8444.995511,
+            8247.133087,
+            8164.999452,
+            7944.049167
           ]
         },
         {
-          "id": "typeorm:ttsc:tsgo:build:multi",
+          "id": "typeorm:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 2077.806276,
-          "minMs": 2077.806276,
-          "samples": [
-            2077.806276
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 5255.536311,
-          "minMs": 5255.536311,
-          "samples": [
-            5255.536311
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 1527.097177,
-          "minMs": 1527.097177,
+          "medianMs": 2361.405627,
+          "minMs": 2163.752909,
           "samples": [
-            1527.097177
+            2517.878473,
+            2388.271024,
+            2360.673616,
+            2387.648926,
+            2343.896818,
+            2356.031867,
+            2163.752909,
+            2307.714544,
+            2362.137638,
+            2626.518133
           ]
         },
         {
-          "id": "typeorm:ttsc:tsgo:noEmit:single",
+          "id": "typeorm:ttsc:noEmit:single",
           "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 2946.149271,
-          "minMs": 2946.149271,
+          "medianMs": 4258.6003225,
+          "minMs": 4090.96729,
           "samples": [
-            2946.149271
+            4336.96972,
+            4363.598616,
+            4259.0348,
+            4457.457783,
+            4159.026049,
+            4225.28448,
+            4090.96729,
+            4229.028114,
+            4258.165845,
+            4350.985909
           ]
         },
         {
@@ -746,10 +889,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 4035.215668,
-          "minMs": 4035.215668,
+          "medianMs": 6585.1585205,
+          "minMs": 6273.119283,
           "samples": [
-            4035.215668
+            6847.564019,
+            6432.67969,
+            6352.812429,
+            6605.797923,
+            6648.252639,
+            6323.542857,
+            6564.519118,
+            6636.119307,
+            6841.065728,
+            6273.119283
           ]
         },
         {
@@ -758,10 +910,61 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 6930.836961,
-          "minMs": 6930.836961,
+          "medianMs": 10479.143439,
+          "minMs": 10218.98243,
           "samples": [
-            6930.836961
+            10725.748661,
+            10570.800616,
+            10281.945455,
+            10467.479957,
+            10490.806921,
+            10364.041019,
+            10334.808206,
+            10218.98243,
+            10854.147833,
+            10692.948472
+          ]
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 2928.8181729999997,
+          "minMs": 2789.665319,
+          "samples": [
+            2868.005167,
+            2789.665319,
+            3097.147531,
+            2972.632558,
+            2926.870336,
+            2947.971191,
+            2849.066964,
+            2943.015421,
+            2930.76601,
+            2884.030812
+          ]
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 2911.923464,
+          "minMs": 2749.909958,
+          "samples": [
+            2858.226928,
+            2910.926746,
+            2749.909958,
+            2883.547082,
+            3061.349523,
+            2944.814193,
+            2833.664535,
+            2912.920182,
+            3450.106613,
+            2922.212611
           ]
         }
       ]
@@ -773,15 +976,45 @@
       "files": 286,
       "measurements": [
         {
+          "id": "zod:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 6174.8793375000005,
+          "minMs": 5865.377528,
+          "samples": [
+            5927.333618,
+            6484.38427,
+            6318.625871,
+            6201.813545,
+            6170.958371,
+            5865.377528,
+            6178.800304,
+            6067.807648,
+            6365.867687,
+            6113.796964
+          ]
+        },
+        {
           "id": "zod:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 8110.477452,
-          "minMs": 8110.477452,
+          "medianMs": 11910.081384500001,
+          "minMs": 11673.697986,
           "samples": [
-            8110.477452
+            12767.576829,
+            12345.758784,
+            11941.381336,
+            12223.511612,
+            11870.545376,
+            11908.414376,
+            11911.748393,
+            11673.697986,
+            11869.831761,
+            11721.52047
           ]
         },
         {
@@ -790,70 +1023,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 2624.807856,
-          "minMs": 2624.807856,
+          "medianMs": 3319.1636735,
+          "minMs": 3232.913525,
           "samples": [
-            2624.807856
-          ]
-        },
-        {
-          "id": "zod:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 1833.219415,
-          "minMs": 1833.219415,
-          "samples": [
-            1833.219415
-          ]
-        },
-        {
-          "id": "zod:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3314.579913,
-          "minMs": 3314.579913,
-          "samples": [
-            3314.579913
-          ]
-        },
-        {
-          "id": "zod:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 2311.343636,
-          "minMs": 2311.343636,
-          "samples": [
-            2311.343636
-          ]
-        },
-        {
-          "id": "zod:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 2305.447633,
-          "minMs": 2305.447633,
-          "samples": [
-            2305.447633
-          ]
-        },
-        {
-          "id": "zod:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 4024.325924,
-          "minMs": 4024.325924,
-          "samples": [
-            4024.325924
+            3313.755195,
+            3258.009406,
+            3232.913525,
+            3238.041801,
+            3253.835014,
+            3438.399523,
+            3523.829449,
+            3535.478975,
+            3384.173465,
+            3324.572152
           ]
         },
         {
@@ -862,10 +1044,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 1125.358733,
-          "minMs": 1125.358733,
+          "medianMs": 1615.0992055000002,
+          "minMs": 1407.545843,
           "samples": [
-            1125.358733
+            1659.294237,
+            1611.921617,
+            1451.974471,
+            1687.608644,
+            1508.562696,
+            1642.790541,
+            1407.545843,
+            1618.276794,
+            1446.507915,
+            1675.286992
           ]
         },
         {
@@ -874,58 +1065,61 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 1363.684508,
-          "minMs": 1363.684508,
+          "medianMs": 1866.4503805,
+          "minMs": 1669.850924,
           "samples": [
-            1363.684508
+            1872.612932,
+            1877.913713,
+            1729.291654,
+            1921.122788,
+            1931.843811,
+            1669.850924,
+            1899.486519,
+            1818.634508,
+            1840.952598,
+            1860.287829
           ]
         },
         {
-          "id": "zod:ttsc:tsgo:build:multi",
+          "id": "zod:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 1138.877824,
-          "minMs": 1138.877824,
-          "samples": [
-            1138.877824
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1353.37376,
-          "minMs": 1353.37376,
-          "samples": [
-            1353.37376
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 1876.659816,
-          "minMs": 1876.659816,
+          "medianMs": 2920.2836445000003,
+          "minMs": 2713.741216,
           "samples": [
-            1876.659816
+            2900.534534,
+            2889.983315,
+            2923.419034,
+            2947.774266,
+            2713.741216,
+            2917.148255,
+            2902.096629,
+            2942.722103,
+            3087.49558,
+            2960.779553
           ]
         },
         {
-          "id": "zod:ttsc:tsgo:noEmit:single",
+          "id": "zod:ttsc:noEmit:single",
           "branch": "ttsc",
-          "tool": "tsgo",
+          "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 3275.34676,
-          "minMs": 3275.34676,
+          "medianMs": 4676.1232645,
+          "minMs": 4437.525412,
           "samples": [
-            3275.34676
+            5864.309493,
+            4437.525412,
+            4741.567362,
+            4476.815301,
+            5802.338992,
+            4532.667366,
+            4571.776511,
+            5215.574178,
+            4788.165913,
+            4610.679167
           ]
         },
         {
@@ -934,10 +1128,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 2322.002883,
-          "minMs": 2322.002883,
+          "medianMs": 2979.7796179999996,
+          "minMs": 2910.181442,
           "samples": [
-            2322.002883
+            2975.552985,
+            3058.648508,
+            2975.426984,
+            2944.279017,
+            2984.006251,
+            3072.651607,
+            3102.746457,
+            2910.181442,
+            3092.124375,
+            2954.427176
           ]
         },
         {
@@ -946,10 +1149,61 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 2501.546053,
-          "minMs": 2501.546053,
+          "medianMs": 3270.5495684999996,
+          "minMs": 3130.707419,
           "samples": [
-            2501.546053
+            3229.305869,
+            3236.871106,
+            3345.151009,
+            3130.707419,
+            3211.006647,
+            3283.624539,
+            3257.474598,
+            3496.63556,
+            3357.413421,
+            3442.949973
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 3157.7463325,
+          "minMs": 3060.455659,
+          "samples": [
+            3217.106811,
+            3229.375771,
+            3166.193742,
+            3228.113561,
+            3181.482549,
+            3121.453092,
+            3135.082819,
+            3093.949361,
+            3149.298923,
+            3060.455659
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3138.18867,
+          "minMs": 3033.587767,
+          "samples": [
+            3233.821028,
+            3113.043117,
+            3158.52491,
+            3068.982542,
+            3134.918383,
+            3033.587767,
+            3250.87067,
+            3141.458957,
+            3206.412416,
+            3083.496199
           ]
         }
       ]
@@ -961,15 +1215,45 @@
       "files": 769,
       "measurements": [
         {
+          "id": "nestjs:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 14211.6592865,
+          "minMs": 13946.950421,
+          "samples": [
+            14055.87876,
+            14194.792903,
+            13946.950421,
+            14577.517294,
+            14321.189222,
+            14228.52567,
+            14153.76603,
+            14164.37432,
+            14300.310862,
+            14377.215525
+          ]
+        },
+        {
           "id": "nestjs:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 9377.261633,
-          "minMs": 9377.261633,
+          "medianMs": 14608.113002999999,
+          "minMs": 14047.078164,
           "samples": [
-            9377.261633
+            15683.887163,
+            15023.742521,
+            14852.978285,
+            14880.350528,
+            14363.247721,
+            14289.171683,
+            14047.078164,
+            15237.602799,
+            14336.180965,
+            14318.952309
           ]
         },
         {
@@ -978,94 +1262,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 4537.33485,
-          "minMs": 4537.33485,
+          "medianMs": 6453.078395500001,
+          "minMs": 6269.675639,
           "samples": [
-            4537.33485
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 3235.398588,
-          "minMs": 3235.398588,
-          "samples": [
-            3235.398588
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3639.36435,
-          "minMs": 3639.36435,
-          "samples": [
-            3639.36435
-          ]
-        },
-        {
-          "id": "nestjs:ttsc-lint:noEmit:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 7648.673007,
-          "minMs": 7648.673007,
-          "samples": [
-            7648.673007
-          ]
-        },
-        {
-          "id": "nestjs:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 7856.08761,
-          "minMs": 7856.08761,
-          "samples": [
-            7856.08761
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 3063.717059,
-          "minMs": 3063.717059,
-          "samples": [
-            3063.717059
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3371.86172,
-          "minMs": 3371.86172,
-          "samples": [
-            3371.86172
-          ]
-        },
-        {
-          "id": "nestjs:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 9420.359008,
-          "minMs": 9420.359008,
-          "samples": [
-            9420.359008
+            6408.019188,
+            6321.702996,
+            6397.223513,
+            6541.75297,
+            6507.383501,
+            6392.537842,
+            6498.137603,
+            6269.675639,
+            6506.921487,
+            6844.866364
           ]
         },
         {
@@ -1074,10 +1283,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 3736.892297,
-          "minMs": 3736.892297,
+          "medianMs": 4951.2028900000005,
+          "minMs": 4705.418551,
           "samples": [
-            3736.892297
+            4974.297099,
+            4940.330421,
+            4921.379246,
+            4806.383049,
+            4968.76706,
+            4813.180689,
+            5115.581771,
+            5128.539835,
+            4705.418551,
+            4962.075359
           ]
         },
         {
@@ -1086,34 +1304,61 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 3657.732823,
-          "minMs": 3657.732823,
+          "medianMs": 5224.5554445,
+          "minMs": 4973.665974,
           "samples": [
-            3657.732823
+            5336.166092,
+            5016.263518,
+            5094.616991,
+            5162.373641,
+            5132.298454,
+            5286.737248,
+            5327.163046,
+            5429.607206,
+            5346.106324,
+            4973.665974
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:multi",
+          "id": "nestjs:ttsc:noEmit:multi",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
+          "tool": "ttsc",
+          "op": "noEmit",
           "threading": "multi",
-          "medianMs": 3418.97539,
-          "minMs": 3418.97539,
+          "medianMs": 4965.391012,
+          "minMs": 4718.80252,
           "samples": [
-            3418.97539
+            5000.049188,
+            5207.718054,
+            4964.930717,
+            4978.795585,
+            4930.706145,
+            4904.20426,
+            5056.630082,
+            4718.80252,
+            4965.851307,
+            4733.945555
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:single",
+          "id": "nestjs:ttsc:noEmit:single",
           "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
+          "tool": "ttsc",
+          "op": "noEmit",
           "threading": "single",
-          "medianMs": 3405.703306,
-          "minMs": 3405.703306,
+          "medianMs": 5181.399098,
+          "minMs": 5017.026921,
           "samples": [
-            3405.703306
+            5318.512397,
+            5345.464745,
+            5285.535226,
+            5201.114462,
+            5134.398783,
+            5079.509427,
+            5161.372247,
+            5017.026921,
+            5161.683734,
+            5293.649657
           ]
         },
         {
@@ -1122,10 +1367,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 8716.525839,
-          "minMs": 8716.525839,
+          "medianMs": 10258.902302999999,
+          "minMs": 9931.710696,
           "samples": [
-            8716.525839
+            10262.148238,
+            10263.463235,
+            10345.745858,
+            10220.162102,
+            10544.209886,
+            10252.198839,
+            10363.601786,
+            9931.710696,
+            10147.790586,
+            10255.656368
           ]
         },
         {
@@ -1134,10 +1388,61 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 9032.266583,
-          "minMs": 9032.266583,
+          "medianMs": 10650.810178,
+          "minMs": 10448.28293,
           "samples": [
-            9032.266583
+            10653.338896,
+            10648.28146,
+            10765.838362,
+            10886.074211,
+            10972.451122,
+            10570.370919,
+            10448.28293,
+            11019.711112,
+            10459.629796,
+            10621.445659
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 8389.0661345,
+          "minMs": 8173.876361,
+          "samples": [
+            8284.129763,
+            8396.210443,
+            8861.04225,
+            8381.921826,
+            8304.429426,
+            8375.369232,
+            8798.01844,
+            8623.905087,
+            8173.876361,
+            8447.420012
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 8495.122911999999,
+          "minMs": 8296.4939,
+          "samples": [
+            8525.336532,
+            8393.042699,
+            8403.654517,
+            8386.10352,
+            8296.4939,
+            8564.084942,
+            8872.484689,
+            8464.909292,
+            8535.907567,
+            8706.129441
           ]
         }
       ]
@@ -1149,27 +1454,45 @@
       "files": 6093,
       "measurements": [
         {
-          "id": "vscode:legacy:noEmit:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 63097.462541,
-          "minMs": 63097.462541,
-          "samples": [
-            63097.462541
-          ]
-        },
-        {
           "id": "vscode:legacy:build:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 83197.722621,
-          "minMs": 83197.722621,
+          "medianMs": 119344.25970550001,
+          "minMs": 115635.885572,
           "samples": [
-            83197.722621
+            121778.861936,
+            119184.62968,
+            120044.413391,
+            120971.766516,
+            120738.627766,
+            119503.889731,
+            118977.251477,
+            117454.131635,
+            117451.765542,
+            115635.885572
+          ]
+        },
+        {
+          "id": "vscode:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 93958.288529,
+          "minMs": 91246.257911,
+          "samples": [
+            92234.210643,
+            92142.744139,
+            92450.507228,
+            91246.257911,
+            95026.982016,
+            95546.456194,
+            99510.625156,
+            93500.112201,
+            94416.464857,
+            103536.539673
           ]
         },
         {
@@ -1178,10 +1501,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 55866.262047,
-          "minMs": 55866.262047,
+          "medianMs": 75287.298295,
+          "minMs": 68903.404298,
           "samples": [
-            55866.262047
+            87479.034946,
+            83158.43156,
+            80999.222454,
+            80110.945828,
+            80485.020381,
+            70409.649007,
+            69789.812648,
+            70463.650762,
+            68903.404298,
+            69261.186249
           ]
         },
         {
@@ -1190,10 +1522,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 12043.640053,
-          "minMs": 12043.640053,
+          "medianMs": 19231.2759425,
+          "minMs": 18100.393958,
           "samples": [
-            12043.640053
+            19605.651593,
+            19422.009621,
+            19237.799822,
+            19052.744653,
+            19455.117765,
+            19985.652923,
+            18100.393958,
+            18955.409472,
+            19224.752063,
+            18765.753485
           ]
         },
         {
@@ -1202,34 +1543,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 33263.227884,
-          "minMs": 33263.227884,
+          "medianMs": 42662.01933150001,
+          "minMs": 41698.574302,
           "samples": [
-            33263.227884
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:build:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 12170.608169,
-          "minMs": 12170.608169,
-          "samples": [
-            12170.608169
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 33280.402559,
-          "minMs": 33280.402559,
-          "samples": [
-            33280.402559
+            43133.654639,
+            42072.611967,
+            42954.608667,
+            41698.574302,
+            43670.365691,
+            42811.799936,
+            42512.238727,
+            42220.529387,
+            43523.76321,
+            42246.333207
           ]
         },
         {
@@ -1238,10 +1564,19 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 9724.313852,
-          "minMs": 9724.313852,
+          "medianMs": 14366.663681,
+          "minMs": 14095.394675,
           "samples": [
-            9724.313852
+            14234.850304,
+            14566.735339,
+            14596.63999,
+            14513.333772,
+            14371.423744,
+            14331.870445,
+            14095.394675,
+            14112.200226,
+            15091.126972,
+            14361.903618
           ]
         },
         {
@@ -1250,34 +1585,19 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 24530.228006,
-          "minMs": 24530.228006,
+          "medianMs": 30487.172323,
+          "minMs": 30120.58021,
           "samples": [
-            24530.228006
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:multi",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 8947.94903,
-          "minMs": 8947.94903,
-          "samples": [
-            8947.94903
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 24257.613282,
-          "minMs": 24257.613282,
-          "samples": [
-            24257.613282
+            30973.547204,
+            30191.604347,
+            30391.958599,
+            30539.531777,
+            30443.652993,
+            30120.58021,
+            30667.721667,
+            30530.691653,
+            30168.125485,
+            31100.322829
           ]
         },
         {
@@ -1286,10 +1606,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 21924.843718,
-          "minMs": 21924.843718,
+          "medianMs": 34919.290422000005,
+          "minMs": 33856.062539,
           "samples": [
-            21924.843718
+            34849.465407,
+            34934.985413,
+            35213.810657,
+            35670.426373,
+            34775.586381,
+            34062.668091,
+            34903.595431,
+            33856.062539,
+            35000.018778,
+            35238.230429
           ]
         },
         {
@@ -1298,10 +1627,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 43230.26633,
-          "minMs": 43230.26633,
+          "medianMs": 57375.395694,
+          "minMs": 56539.550456,
           "samples": [
-            43230.26633
+            58395.581668,
+            56539.550456,
+            58375.458099,
+            56786.455693,
+            57094.320411,
+            57712.801443,
+            59425.033774,
+            57203.107664,
+            57303.429118,
+            57447.36227
           ]
         },
         {
@@ -1310,10 +1648,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 10185.542261,
-          "minMs": 10185.542261,
+          "medianMs": 15161.545144,
+          "minMs": 14630.381643,
           "samples": [
-            10185.542261
+            14937.693942,
+            14630.381643,
+            14757.668585,
+            15610.367206,
+            15162.780372,
+            15180.987262,
+            15705.645449,
+            15501.037862,
+            15160.309916,
+            14717.116241
           ]
         },
         {
@@ -1322,10 +1669,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 10325.769738,
-          "minMs": 10325.769738,
+          "medianMs": 15485.8009285,
+          "minMs": 14794.782996,
           "samples": [
-            10325.769738
+            15390.669421,
+            15086.055382,
+            14794.782996,
+            15636.403416,
+            15233.54277,
+            15415.308842,
+            15751.388285,
+            15556.293015,
+            15612.312304,
+            15750.770585
           ]
         }
       ]
@@ -1342,10 +1698,19 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 17690.538382,
-          "minMs": 17690.538382,
+          "medianMs": 22162.825607,
+          "minMs": 22066.054263,
           "samples": [
-            17690.538382
+            22705.892264,
+            22633.995799,
+            22761.943801,
+            22066.054263,
+            22158.292,
+            22227.675628,
+            22073.100584,
+            22167.359214,
+            22126.04089,
+            22081.862886
           ]
         },
         {
@@ -1354,10 +1719,19 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 4805.655518,
-          "minMs": 4805.655518,
+          "medianMs": 6228.2859455,
+          "minMs": 6158.619916,
           "samples": [
-            4805.655518
+            6546.715708,
+            6192.771877,
+            6211.233133,
+            6158.619916,
+            6266.007835,
+            6245.338758,
+            6191.346963,
+            6401.575594,
+            6532.946497,
+            6195.950643
           ]
         },
         {
@@ -1366,10 +1740,19 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 5446.58965,
-          "minMs": 5446.58965,
+          "medianMs": 6492.446404,
+          "minMs": 6359.599991,
           "samples": [
-            5446.58965
+            6507.226568,
+            6883.115496,
+            6359.599991,
+            6449.606693,
+            6579.669635,
+            6503.977648,
+            6480.91516,
+            6425.886064,
+            7041.801834,
+            6470.840411
           ]
         },
         {
@@ -1378,10 +1761,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 6765.884452,
-          "minMs": 6765.884452,
+          "medianMs": 8784.1156825,
+          "minMs": 8745.247132,
           "samples": [
-            6765.884452
+            8772.015134,
+            8885.467898,
+            8892.260197,
+            8814.322962,
+            8768.963644,
+            9171.075363,
+            8769.689101,
+            8796.216231,
+            8745.247132,
+            8760.626484
           ]
         },
         {
@@ -1390,10 +1782,19 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 6806.472331,
-          "minMs": 6806.472331,
+          "medianMs": 8919.480311,
+          "minMs": 8727.389906,
           "samples": [
-            6806.472331
+            9014.287711,
+            9213.230623,
+            8953.070015,
+            8885.890607,
+            8727.389906,
+            9045.108282,
+            8797.708023,
+            8976.938787,
+            8748.232851,
+            8811.410502
           ]
         },
         {
@@ -1402,10 +1803,19 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 1688.923152,
-          "minMs": 1688.923152,
+          "medianMs": 2032.060839,
+          "minMs": 1928.972196,
           "samples": [
-            1688.923152
+            1960.931734,
+            1998.446632,
+            2129.44129,
+            2027.011884,
+            1985.661933,
+            2037.109794,
+            2098.948142,
+            1928.972196,
+            2167.504749,
+            2103.399085
           ]
         },
         {
@@ -1414,10 +1824,19 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 1657.179232,
-          "minMs": 1657.179232,
+          "medianMs": 2075.8187545,
+          "minMs": 1947.753632,
           "samples": [
-            1657.179232
+            1947.753632,
+            2161.660762,
+            2077.198288,
+            1950.720167,
+            2118.834854,
+            2072.243517,
+            2158.806469,
+            1959.2395,
+            2074.439221,
+            2099.448812
           ]
         },
         {
@@ -1426,10 +1845,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "multi",
-          "medianMs": 7807.028905,
-          "minMs": 7807.028905,
+          "medianMs": 10052.4643965,
+          "minMs": 9882.745463,
           "samples": [
-            7807.028905
+            9994.154619,
+            10099.483119,
+            9898.657279,
+            10210.169969,
+            10509.504188,
+            10466.11188,
+            10200.670947,
+            9924.733767,
+            10005.445674,
+            9882.745463
           ]
         },
         {
@@ -1438,10 +1866,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 7840.566507,
-          "minMs": 7840.566507,
+          "medianMs": 10212.7069015,
+          "minMs": 9932.295546,
           "samples": [
-            7840.566507
+            9939.301336,
+            10256.567506,
+            9932.295546,
+            10282.367319,
+            10670.648913,
+            10691.578562,
+            9941.724492,
+            10215.922998,
+            10209.490805,
+            10092.415292
           ]
         },
         {
@@ -1450,10 +1887,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 2833.840918,
-          "minMs": 2833.840918,
+          "medianMs": 3384.0963285,
+          "minMs": 3207.221484,
           "samples": [
-            2833.840918
+            3348.146541,
+            3207.221484,
+            3539.420362,
+            3430.190434,
+            3440.35187,
+            3288.337128,
+            3319.776647,
+            3396.850532,
+            3405.539385,
+            3371.342125
           ]
         },
         {
@@ -1462,10 +1908,19 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 2801.271896,
-          "minMs": 2801.271896,
+          "medianMs": 3308.687914,
+          "minMs": 3241.434111,
           "samples": [
-            2801.271896
+            3484.713776,
+            3313.094942,
+            3241.434111,
+            3355.571929,
+            3245.672938,
+            3277.669666,
+            3388.276074,
+            3304.280886,
+            3281.974739,
+            3661.174187
           ]
         }
       ]
