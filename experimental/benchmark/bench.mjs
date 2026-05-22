@@ -54,7 +54,7 @@ const CHECKPOINT_JSON =
   path.resolve(WORK, "benchmark.checkpoint.json");
 
 const RUNS = numberEnv("TTSC_BENCH_RUNS", 10);
-const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1);
+const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
 const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
 const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
@@ -323,12 +323,16 @@ function splitProjectList(value) {
 
 main();
 
-function numberEnv(name, fallback) {
+function numberEnv(name, fallback, options = {}) {
   const raw = process.env[name];
   if (raw == null || raw === "") return fallback;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0)
-    throw new Error(`${name} must be positive`);
+  if (!Number.isFinite(n) || n < 0 || (!options.allowZero && n === 0))
+    throw new Error(
+      options.allowZero
+        ? `${name} must be zero or positive`
+        : `${name} must be positive`,
+    );
   return n;
 }
 
