@@ -60,13 +60,8 @@ const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
-const TSGO_VERSION =
-  packageVersion(
-    path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
-  ) ?? "7.0.0-dev.20260521.1";
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
 const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
-const TSGO_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
 const LOCAL_TARBALLS = [
   {
     dir: "packages/ttsc",
@@ -349,8 +344,6 @@ function compilerCommands({ build, noEmit, eslint }) {
   const ttsc = {
     build: normalizeSteps(build("ttsc")),
     noEmit: normalizeSteps(noEmit("ttsc")),
-    tsgoBuild: normalizeSteps(build("tsgo")),
-    tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
   };
   return {
     legacy: {
@@ -400,8 +393,6 @@ function nestjsCommands() {
     ttsc: {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
-      tsgoBuild: normalizeSteps(nestjsPackageSteps("tsgo", false)),
-      tsgoNoEmit: normalizeSteps(nestjsPackageSteps("tsgo", true)),
     },
     "ttsc-lint": {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
@@ -491,8 +482,7 @@ function timePhase(label, task) {
 function sh(cmd, cwd, options = {}) {
   const start = process.hrtime.bigint();
   const label = options.label ?? cmd;
-  if (options.timing !== false)
-    process.stdout.write(`[cmd] start ${label}\n`);
+  if (options.timing !== false) process.stdout.write(`[cmd] start ${label}\n`);
   const res = spawnSync(cmd, {
     cwd,
     shell: true,
@@ -660,7 +650,9 @@ function installIfNeeded(project, dir, branch) {
       !flags.has("--force-install") &&
       hasNodeModules
     ) {
-      process.stdout.write(`Reusing installed node_modules in ${path.basename(dir)}\n`);
+      process.stdout.write(
+        `Reusing installed node_modules in ${path.basename(dir)}\n`,
+      );
       return;
     }
     const pm = project.packageManager;
@@ -680,12 +672,6 @@ function installIfNeeded(project, dir, branch) {
         `Reusing installed node_modules in ${path.basename(dir)}\n`,
       );
     }
-    if (
-      branch === "ttsc" &&
-      hasTsgoCells(project) &&
-      !hasTsgoExperimentDeps(dir)
-    )
-      installTsgoExperimentDeps(project, dir);
     if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
   });
 }
@@ -878,43 +864,6 @@ function linkPackageBins(packageDir, nodeModules) {
   }
 }
 
-function hasTsgoCells(project) {
-  return Boolean(
-    project.commands.ttsc?.tsgoBuild?.length ||
-    project.commands.ttsc?.tsgoNoEmit?.length,
-  );
-}
-
-function installTsgoExperimentDeps(project, dir) {
-  const specs = [
-    `@typescript/native-preview@${TSGO_VERSION}`,
-    `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}`,
-  ]
-    .map(quote)
-    .join(" ");
-  const pm = project.packageManager;
-  const cmd =
-    pm === "pnpm"
-      ? ownsPnpmWorkspace(dir)
-        ? `pnpm add -w -D ${specs}`
-        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D ${specs}`
-      : pm === "yarn"
-        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
-        : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
-  process.stdout.write(
-    `Installing tsgo experiment deps into ${path.basename(dir)}: ` +
-      `@typescript/native-preview, ${TSGO_PLATFORM_PACKAGE}\n`,
-  );
-  sh(cmd, dir);
-}
-
-function hasTsgoExperimentDeps(dir) {
-  return (
-    depVersion(dir, "@typescript/native-preview") !== undefined &&
-    depVersion(dir, TSGO_PLATFORM_PACKAGE) !== undefined
-  );
-}
-
 function quote(value) {
   return JSON.stringify(value);
 }
@@ -925,10 +874,7 @@ function singleThreadedSteps(steps) {
       const { singleThreadedCmd, ...rest } = step;
       return { ...rest, cmd: singleThreadedCmd };
     }
-    if (
-      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
-      /--singleThreaded\b/.test(step.cmd)
-    ) {
+    if (!/\bttsc\b/.test(step.cmd) || /--singleThreaded\b/.test(step.cmd)) {
       return step;
     }
     return { ...step, cmd: `${step.cmd} --singleThreaded` };
@@ -1050,7 +996,9 @@ function measureProject(project, report) {
         (measurement) => measurement.id === cell.id,
       );
       if (existingIndex !== -1)
-        process.stdout.write(`\n[${cell.id}] refreshing existing measurement\n`);
+        process.stdout.write(
+          `\n[${cell.id}] refreshing existing measurement\n`,
+        );
       const measurement = measureCell(cell);
       if (existingIndex === -1) projectReport.measurements.push(measurement);
       else projectReport.measurements.splice(existingIndex, 1, measurement);
@@ -1126,13 +1074,9 @@ function hostSpec(projects) {
     // Keep os.type/os.release fallback.
   }
   let typescript = "unknown";
-  let tsgo = "unknown";
   for (const project of projects) {
     typescript =
       depVersion(cloneDir(project, "legacy"), "typescript") ?? typescript;
-    tsgo =
-      depVersion(cloneDir(project, "ttsc"), "@typescript/native-preview") ??
-      tsgo;
   }
   return {
     os: osName,
@@ -1143,7 +1087,6 @@ function hostSpec(projects) {
     node: process.version,
     ttsc: TTSC_VERSION,
     typescript,
-    tsgo,
   };
 }
 
@@ -1236,12 +1179,14 @@ function createReport(projects) {
 }
 
 function loadPreviousReport() {
-  return [WEBSITE_JSON, CHECKPOINT_JSON]
-    .map((file) => ({ file, report: loadJson(file) }))
-    .filter(({ report }) => report && Array.isArray(report.projects))
-    .sort(
-      (a, b) => measurementCount(b.report) - measurementCount(a.report),
-    )[0]?.report ?? null;
+  return (
+    [WEBSITE_JSON, CHECKPOINT_JSON]
+      .map((file) => ({ file, report: loadJson(file) }))
+      .filter(({ report }) => report && Array.isArray(report.projects))
+      .sort(
+        (a, b) => measurementCount(b.report) - measurementCount(a.report),
+      )[0]?.report ?? null
+  );
 }
 
 function measurementCount(report) {
@@ -1460,30 +1405,6 @@ function projectCells(project) {
           steps: singleThreadedSteps(baseSteps),
         });
       }
-      if (branch === "ttsc" && (op === "build" || op === "noEmit")) {
-        const tsgoSteps =
-          branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
-        if (tsgoSteps?.length) {
-          cells.push({
-            id: `${project.name}:${branch}:tsgo:${op}:multi`,
-            project,
-            branch,
-            tool: "tsgo",
-            op,
-            threading: "multi",
-            steps: tsgoSteps,
-          });
-          cells.push({
-            id: `${project.name}:${branch}:tsgo:${op}:single`,
-            project,
-            branch,
-            tool: "tsgo",
-            op,
-            threading: "single",
-            steps: singleThreadedSteps(tsgoSteps),
-          });
-        }
-      }
     }
   }
   return filterCells(cells);
@@ -1496,10 +1417,7 @@ function projectBranches(project) {
 function filterCells(cells) {
   const predicates = [];
   if (flags.has("--ttsc-build-only") || flags.has("--only-ttsc-build")) {
-    predicates.push(
-      (cell) =>
-        cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
-    );
+    predicates.push((cell) => cell.branch === "ttsc" && cell.op === "build");
   }
   if (flags.has("--lint-only")) {
     predicates.push(isLintComparisonCell);
@@ -1516,7 +1434,6 @@ function filterCells(cells) {
 function isLintComparisonCell(cell) {
   if (cell.branch === "legacy")
     return cell.op === "noEmit" || cell.op === "eslint";
-  if (cell.branch === "ttsc")
-    return cell.op === "noEmit" && cell.tool !== "tsgo";
+  if (cell.branch === "ttsc") return cell.op === "noEmit";
   return cell.branch === "ttsc-lint" && cell.op === "noEmit";
 }

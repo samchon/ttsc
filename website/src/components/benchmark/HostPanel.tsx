@@ -38,7 +38,6 @@ export default function HostPanel({
     { label: "Kernel", value: fallback(host.kernel) },
     { label: "Node.js", value: fallback(host.node) },
     { label: "ttsc", value: fallback(host.ttsc) },
-    { label: "tsgo", value: fallback(host.tsgo) },
     { label: "TypeScript", value: fallback(host.typescript) },
   ];
 
