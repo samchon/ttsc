@@ -3,6 +3,8 @@ package linthost
 import (
   "bytes"
   "context"
+  "crypto/sha256"
+  "encoding/hex"
   "encoding/json"
   "fmt"
   "os"
@@ -11,6 +13,7 @@ import (
   "runtime"
   "sort"
   "strings"
+  "sync"
   "time"
 )
 
@@ -844,17 +847,163 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
 // loadConfigFile loads and deserializes a lint config file at `location`.
 // The file format is determined by extension: .json is parsed natively;
 // .js/.cjs/.mjs run through a Node subprocess; .ts/.cts/.mts run through ttsx.
+// The two subprocess-backed forms go through loadCachedConfigFile so that a
+// monorepo build — which spawns one `ttsc` process per package — evaluates a
+// shared lint config once instead of once per package.
 func loadConfigFile(location string) (any, error) {
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
   case ".json":
     return loadJSONConfigFile(location)
   case ".js", ".cjs", ".mjs":
-    return loadScriptConfigFile(location)
+    return loadCachedConfigFile(location, loadScriptConfigFile)
   case ".ts", ".cts", ".mts":
-    return loadTypeScriptConfigFile(location)
+    return loadCachedConfigFile(location, loadTypeScriptConfigFile)
   default:
     return nil, fmt.Errorf("@ttsc/lint: unsupported config file extension %q for %s", ext, location)
+  }
+}
+
+// configCacheVersion namespaces the on-disk config cache. Bump it whenever
+// the shape of a cached config object changes so that entries written by an
+// older @ttsc/lint binary are treated as a miss rather than silently reused.
+const configCacheVersion = "v1"
+
+// configEvalCache memoizes evaluated .ts/.js lint config objects for the
+// lifetime of one process; the on-disk cache (configCacheDir) extends the
+// same memoization across the separate `ttsc` processes a monorepo build
+// spawns. Guarded by configEvalCacheMu.
+var (
+  configEvalCacheMu sync.Mutex
+  configEvalCache   = map[string]any{}
+)
+
+// configCacheDir is the directory shared by this Go sidecar and the JS
+// plugin factory (packages/lint/src/index.ts) for cached lint configs.
+// Evaluating a .ts/.js config means spawning a ttsx/node subprocess; the
+// cache keeps every `ttsc` invocation after the first from re-paying it.
+func configCacheDir() string {
+  return filepath.Join(os.TempDir(), "ttsc-lint-config-cache")
+}
+
+// configCacheDisabled reports whether the env opt-out is set — an escape
+// hatch for callers that must force a fresh evaluation (e.g. a config whose
+// behavior depends on imported non-config files that the key cannot see).
+func configCacheDisabled() bool {
+  return os.Getenv("TTSC_LINT_DISABLE_CONFIG_CACHE") != ""
+}
+
+// configCacheKey derives the cache key for a config file from a version
+// tag, a namespace `kind`, the file's absolute path, and its exact
+// contents. Content-addressing means an edited config invalidates cleanly
+// with no clock-resolution race; the absolute path keeps two projects with
+// byte-identical configs distinct; `kind` separates this sidecar's
+// evaluated-config namespace from the JS factory's plugin-entry namespace.
+func configCacheKey(kind, absPath string, content []byte) string {
+  h := sha256.New()
+  h.Write([]byte(configCacheVersion))
+  h.Write([]byte{0})
+  h.Write([]byte(kind))
+  h.Write([]byte{0})
+  h.Write([]byte(absPath))
+  h.Write([]byte{0})
+  h.Write(content)
+  return hex.EncodeToString(h.Sum(nil))
+}
+
+// loadCachedConfigFile wraps a subprocess-backed config loader (`eval`)
+// with the two-tier (in-process + on-disk) config cache. The cache key
+// covers the config file's path and bytes only — a config's own `import`s
+// of non-config files are NOT tracked, since a lint config is expected to
+// be self-contained; set TTSC_LINT_DISABLE_CONFIG_CACHE when it is not.
+// Errors are never cached: a failed evaluation re-runs next time.
+func loadCachedConfigFile(location string, eval func(string) (any, error)) (any, error) {
+  content, err := os.ReadFile(location)
+  if err != nil {
+    return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
+  }
+  if configCacheDisabled() {
+    return eval(location)
+  }
+  abs := location
+  if resolved, absErr := filepath.Abs(location); absErr == nil {
+    abs = resolved
+  }
+  key := configCacheKey("config", abs, content)
+
+  configEvalCacheMu.Lock()
+  cached, ok := configEvalCache[key]
+  configEvalCacheMu.Unlock()
+  if ok {
+    return cached, nil
+  }
+  if value, hit := readConfigDiskCache(key); hit {
+    configEvalCacheMu.Lock()
+    configEvalCache[key] = value
+    configEvalCacheMu.Unlock()
+    return value, nil
+  }
+
+  value, err := eval(location)
+  if err != nil {
+    return nil, err
+  }
+  configEvalCacheMu.Lock()
+  configEvalCache[key] = value
+  configEvalCacheMu.Unlock()
+  writeConfigDiskCache(key, value)
+  return value, nil
+}
+
+// readConfigDiskCache returns the cached config object for `key`, or
+// (nil, false) on any miss — a missing file, an unreadable file, or
+// content that no longer parses as a config object. Every failure is a
+// soft miss: the caller re-evaluates rather than surfacing a cache fault.
+func readConfigDiskCache(key string) (any, bool) {
+  body, err := os.ReadFile(filepath.Join(configCacheDir(), key+".json"))
+  if err != nil {
+    return nil, false
+  }
+  var value any
+  if err := json.Unmarshal(body, &value); err != nil {
+    return nil, false
+  }
+  if !isConfigObject(value) {
+    return nil, false
+  }
+  return value, true
+}
+
+// writeConfigDiskCache stores `value` under `key`. It is best-effort: a
+// failure to create the directory or write the file leaves the cache cold
+// (the next run re-evaluates) rather than failing the lint run. The write
+// goes through a temp file + rename so a concurrent reader in a sibling
+// `ttsc` process never observes a half-written entry.
+func writeConfigDiskCache(key string, value any) {
+  body, err := json.Marshal(value)
+  if err != nil {
+    return
+  }
+  dir := configCacheDir()
+  if err := os.MkdirAll(dir, 0o755); err != nil {
+    return
+  }
+  tmp, err := os.CreateTemp(dir, key+".*.tmp")
+  if err != nil {
+    return
+  }
+  tmpName := tmp.Name()
+  if _, err := tmp.Write(body); err != nil {
+    tmp.Close()
+    os.Remove(tmpName)
+    return
+  }
+  if err := tmp.Close(); err != nil {
+    os.Remove(tmpName)
+    return
+  }
+  if err := os.Rename(tmpName, filepath.Join(dir, key+".json")); err != nil {
+    os.Remove(tmpName)
   }
 }
 

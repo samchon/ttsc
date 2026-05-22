@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -452,7 +453,31 @@ function extractPluginSource(value: unknown): string | undefined {
 }
 `;
 
+/**
+ * Resolves the contributor plugin entries declared in a .ts/.mjs lint
+ * config, memoized through the shared on-disk config cache.
+ *
+ * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo
+ * build runs one `ttsc` process per package, and each would otherwise
+ * re-spawn `ttsx` for the same shared config; the cache collapses that to
+ * a single evaluation. The cache is keyed by the config file's path and
+ * exact contents (see `configCacheKey`), so an edit re-evaluates cleanly.
+ */
 function readTtsxConfigPlugins(
+  configPath: string,
+  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+): ConfigPluginEntry[] {
+  const cacheKey = configCacheKey("plugins", configPath);
+  if (cacheKey) {
+    const cached = readConfigPluginCache(cacheKey);
+    if (cached) return cached;
+  }
+  const entries = evaluateTtsxConfigPlugins(configPath, context);
+  if (cacheKey) writeConfigPluginCache(cacheKey, entries);
+  return entries;
+}
+
+function evaluateTtsxConfigPlugins(
   configPath: string,
   _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
@@ -590,6 +615,103 @@ function readTtsxConfigPlugins(
     });
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Config cache (shared with the Go sidecar — packages/lint/linthost/config.go)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Namespaces the on-disk config cache. Kept in lockstep with the Go
+ * sidecar's `configCacheVersion`; bump both when the cached shape changes.
+ */
+const CONFIG_CACHE_VERSION = "v1";
+
+/**
+ * Directory shared by this factory and the Go sidecar for cached lint
+ * configs. The two write different files (the `kind` segment of the cache
+ * key keeps their namespaces apart), so they coexist without collision.
+ */
+function configCacheDir(): string {
+  return path.join(os.tmpdir(), "ttsc-lint-config-cache");
+}
+
+/** Env opt-out, mirroring the Go sidecar's `TTSC_LINT_DISABLE_CONFIG_CACHE`. */
+function configCacheDisabled(): boolean {
+  return Boolean(process.env.TTSC_LINT_DISABLE_CONFIG_CACHE);
+}
+
+/**
+ * Content-addressed cache key for a lint config file. Mirrors the Go
+ * sidecar's `configCacheKey`: a version tag, a namespace `kind`, the
+ * config's absolute path, and its exact bytes. Returns "" — a "do not
+ * cache" signal — when the file cannot be read or the env opt-out is set.
+ */
+function configCacheKey(kind: string, configPath: string): string {
+  if (configCacheDisabled()) return "";
+  let content: Buffer;
+  try {
+    content = fs.readFileSync(configPath);
+  } catch {
+    return "";
+  }
+  return createHash("sha256")
+    .update(CONFIG_CACHE_VERSION)
+    .update("\0")
+    .update(kind)
+    .update("\0")
+    .update(path.resolve(configPath))
+    .update("\0")
+    .update(content)
+    .digest("hex");
+}
+
+/**
+ * Returns the cached plugin-entry list for `cacheKey`, or undefined on any
+ * miss — a missing file, an unreadable file, or content that is not a JSON
+ * array. Every failure is a soft miss: the caller re-evaluates.
+ */
+function readConfigPluginCache(
+  cacheKey: string,
+): ConfigPluginEntry[] | undefined {
+  let body: string;
+  try {
+    body = fs.readFileSync(
+      path.join(configCacheDir(), `${cacheKey}.json`),
+      "utf8",
+    );
+  } catch {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return Array.isArray(parsed)
+      ? (parsed as ConfigPluginEntry[])
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Writes `entries` to the config cache under `cacheKey`. Best-effort: any
+ * failure leaves the cache cold rather than aborting plugin discovery. The
+ * temp-file + rename keeps a concurrent reader in a sibling `ttsc` process
+ * from observing a half-written file.
+ */
+function writeConfigPluginCache(
+  cacheKey: string,
+  entries: ConfigPluginEntry[],
+): void {
+  try {
+    const dir = configCacheDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(dir, `${cacheKey}.${process.pid}.tmp`);
+    fs.writeFileSync(tmp, JSON.stringify(entries), "utf8");
+    fs.renameSync(tmp, path.join(dir, `${cacheKey}.json`));
+  } catch {
+    // Cold cache on failure — the next invocation re-evaluates.
   }
 }
 
