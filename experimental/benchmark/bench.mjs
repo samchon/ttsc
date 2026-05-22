@@ -324,23 +324,21 @@ function rxjsBuildSteps(tool) {
 function nestjsCommands() {
   return {
     legacy: {
-      build: normalizeSteps(["npm exec -- tsc -p tsconfig.json"]),
-      noEmit: normalizeSteps(["npm exec -- tsc -p tsconfig.json --noEmit"]),
+      build: normalizeSteps(nestjsPackageSteps("tsc", false)),
+      noEmit: normalizeSteps(nestjsPackageSteps("tsc", true)),
       eslint: normalizeSteps([
         "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts'",
       ]),
     },
     ttsc: {
-      build: normalizeSteps(["npm exec -- ttsc -p tsconfig.json"]),
-      noEmit: normalizeSteps(["npm exec -- ttsc -p tsconfig.json --noEmit"]),
-      tsgoBuild: normalizeSteps(["npm exec -- tsgo -p tsconfig.json"]),
-      tsgoNoEmit: normalizeSteps([
-        "npm exec -- tsgo -p tsconfig.json --noEmit",
-      ]),
+      build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
+      noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
+      tsgoBuild: normalizeSteps(nestjsPackageSteps("tsgo", false)),
+      tsgoNoEmit: normalizeSteps(nestjsPackageSteps("tsgo", true)),
     },
     "ttsc-lint": {
-      build: normalizeSteps(["npm exec -- ttsc -p tsconfig.json"]),
-      noEmit: normalizeSteps(["npm exec -- ttsc -p tsconfig.json --noEmit"]),
+      build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
+      noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
     },
   };
 }
