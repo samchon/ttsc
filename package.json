@@ -17,7 +17,7 @@
     "release": "bumpp -r",
     "test": "pnpm run build:current && pnpm run test:typecheck && pnpm run test:features",
     "coverage:go": "node scripts/test-go-coverage.cjs",
-    "test:features": "pnpm --filter \"./tests/test-*\" -r start",
+    "test:features": "pnpm --filter \"./tests/test-*\" -r --workspace-concurrency=1 start",
     "test:typecheck": "node scripts/test-typecheck.cjs"
   },
   "repository": {
