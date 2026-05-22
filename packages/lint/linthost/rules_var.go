@@ -71,7 +71,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
       if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) {
         return
       }
-      for _, name := range bindingIdentifierNames(expr.Left) {
+      for _, name := range assignmentTargetNames(expr.Left) {
         assigned[name] = true
       }
     case shimast.KindPrefixUnaryExpression:

@@ -12,4 +12,14 @@ for (let item of [1, 2]) {
   JSON.stringify(item);
 }
 
-JSON.stringify([stable, changing]);
+// Destructuring-assignment targets reassign their identifiers, so neither
+// `swapLeft` nor `swapRight` is const-able and must stay unflagged.
+let swapLeft = 1;
+let swapRight = 2;
+[swapLeft, swapRight] = [swapRight, swapLeft];
+
+// Object-destructuring assignment reassigns `picked` through a property value.
+let picked = 0;
+({ picked } = { picked: 9 });
+
+JSON.stringify([stable, changing, swapLeft, swapRight, picked]);

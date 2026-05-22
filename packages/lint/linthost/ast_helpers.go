@@ -280,31 +280,83 @@ func walkDescendants(node *shimast.Node, visit func(*shimast.Node)) {
   })
 }
 
-// bindingIdentifierNames collects the declared identifier names from a
-// binding pattern. For a simple Identifier node it returns a single-element
-// slice. For ObjectBindingPattern and ArrayBindingPattern it walks the
-// descendants and returns all embedded Identifier texts. Returns nil for
-// unrecognized node kinds.
-func bindingIdentifierNames(node *shimast.Node) []string {
+// assignmentTargetNames collects the identifier names written by an
+// assignment's left-hand side. A bare Identifier yields one name. A
+// destructuring-assignment target — parsed as an ArrayLiteralExpression
+// (`[a, b] = …`) or ObjectLiteralExpression (`({a} = …)`) rather than a
+// binding pattern — is walked so every nested write position is counted:
+// array elements, object property values, shorthand properties, defaults
+// (`[a = 1]`, `{a = 1}`), nested patterns, and rest elements.
+//
+// Property names in `{key: target}` are read positions, not writes, so
+// only the property value contributes; member-access targets (`obj.x`)
+// declare no local binding and are skipped. Returns nil for other shapes.
+func assignmentTargetNames(node *shimast.Node) []string {
   if node == nil {
     return nil
   }
   if name := identifierText(node); name != "" {
     return []string{name}
   }
-  if node.Kind != shimast.KindObjectBindingPattern && node.Kind != shimast.KindArrayBindingPattern {
-    return nil
-  }
   var names []string
-  walkDescendants(node, func(child *shimast.Node) {
-    if child == node {
-      return
-    }
-    if name := identifierText(child); name != "" {
-      names = append(names, name)
-    }
-  })
+  collectAssignmentTargetNames(node, &names)
   return names
+}
+
+// collectAssignmentTargetNames appends to `names` every identifier in a
+// destructuring-assignment target. It descends only through write-target
+// positions so reads (object property keys, computed-member expressions)
+// never count as reassignments.
+func collectAssignmentTargetNames(node *shimast.Node, names *[]string) {
+  if node == nil {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindIdentifier:
+    if name := identifierText(node); name != "" {
+      *names = append(*names, name)
+    }
+  case shimast.KindParenthesizedExpression:
+    collectAssignmentTargetNames(stripParens(node), names)
+  case shimast.KindArrayLiteralExpression:
+    if arr := node.AsArrayLiteralExpression(); arr != nil && arr.Elements != nil {
+      for _, el := range arr.Elements.Nodes {
+        collectAssignmentTargetNames(el, names)
+      }
+    }
+  case shimast.KindObjectLiteralExpression:
+    if obj := node.AsObjectLiteralExpression(); obj != nil && obj.Properties != nil {
+      for _, prop := range obj.Properties.Nodes {
+        collectAssignmentTargetNames(prop, names)
+      }
+    }
+  case shimast.KindSpreadElement:
+    if spread := node.AsSpreadElement(); spread != nil {
+      collectAssignmentTargetNames(spread.Expression, names)
+    }
+  case shimast.KindSpreadAssignment:
+    if spread := node.AsSpreadAssignment(); spread != nil {
+      collectAssignmentTargetNames(spread.Expression, names)
+    }
+  case shimast.KindShorthandPropertyAssignment:
+    // `{a}` and `{a = 1}` — the property name is the write target; any
+    // ObjectAssignmentInitializer is a default value, not a target.
+    if short := node.AsShorthandPropertyAssignment(); short != nil {
+      collectAssignmentTargetNames(short.Name(), names)
+    }
+  case shimast.KindPropertyAssignment:
+    // `{key: target}` — only the value (initializer) is written to.
+    if assignment := node.AsPropertyAssignment(); assignment != nil {
+      collectAssignmentTargetNames(assignment.Initializer, names)
+    }
+  case shimast.KindBinaryExpression:
+    // A default inside a pattern (`[a = 1]`, `{key: a = 1}`) parses as an
+    // `=` BinaryExpression; only its left side is the write target.
+    if expr := node.AsBinaryExpression(); expr != nil &&
+      expr.OperatorToken != nil && expr.OperatorToken.Kind == shimast.KindEqualsToken {
+      collectAssignmentTargetNames(expr.Left, names)
+    }
+  }
 }
 
 // isLiteralLike reports whether `node` (after stripping parentheses) is a
