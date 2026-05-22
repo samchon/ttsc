@@ -894,11 +894,17 @@ function projectReportFor(project, measurements) {
     name: project.name,
     repo: project.repoName,
     kind: project.kind,
-    files: countSourceFiles(
-      path.join(cloneDir(project, "legacy"), project.filesRoot),
-    ),
+    files: countSourceFiles(projectSourceRoot(project)),
     measurements,
   };
+}
+
+function projectSourceRoot(project) {
+  for (const branch of projectBranches(project)) {
+    const root = path.join(cloneDir(project, branch), project.filesRoot);
+    if (fs.existsSync(root)) return root;
+  }
+  return path.join(cloneDir(project, "legacy"), project.filesRoot);
 }
 
 function countSourceFiles(root) {
@@ -1095,7 +1101,7 @@ function main() {
     packTarballs();
     const setupFailures = [];
     for (const project of wantedProjects) {
-      for (const branch of BRANCHES) {
+      for (const branch of projectBranches(project)) {
         try {
           setupClone(project, branch);
         } catch (error) {
@@ -1121,7 +1127,9 @@ function main() {
   }
 
   const readyProjects = wantedProjects.filter((project) =>
-    BRANCHES.every((branch) => fs.existsSync(cloneDir(project, branch))),
+    projectBranches(project).every((branch) =>
+      fs.existsSync(cloneDir(project, branch)),
+    ),
   );
   const missingProjects = wantedProjects.filter(
     (project) => !readyProjects.includes(project),
@@ -1235,6 +1243,10 @@ function projectCells(project) {
     }
   }
   return filterCells(cells);
+}
+
+function projectBranches(project) {
+  return [...new Set(projectCells(project).map((cell) => cell.branch))];
 }
 
 function filterCells(cells) {
