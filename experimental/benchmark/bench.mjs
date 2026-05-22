@@ -1139,7 +1139,7 @@ function main() {
   }
 
   const report = createReport(readyProjects);
-  writeReports(report, { publishWebsite: true });
+  writeReports(report);
   for (const project of readyProjects) measureProject(project, report);
   writeReports(report, { publishWebsite: true });
 
