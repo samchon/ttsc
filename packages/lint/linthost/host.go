@@ -246,10 +246,10 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.Com
 // CompilerOptions, and both Program.SingleThreaded() and the checker pool read
 // them from there. SingleThreaded wins over Checkers, matching the pool.
 //
-// loadProgram calls forceSingleChecker afterwards, so a `--checkers N` greater
-// than 1 is recorded here but clamped back to a single checker: the lint
-// engine requires one checker (see forceSingleChecker). `--singleThreaded`
-// still takes full effect.
+// When a type-aware lint rule is active, loadProgram calls forceSingleChecker
+// afterwards, so a `--checkers N` greater than 1 is recorded here and then
+// clamped back to a single checker. AST-only lint runs keep the recorded
+// checker count. `--singleThreaded` still takes full effect.
 func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return
