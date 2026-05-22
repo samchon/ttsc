@@ -43,6 +43,7 @@ func runFormat(opts *subcommandOpts) int {
   }
   resolver := formatCommandResolver{inner: rules}
   engine := NewEngineWithResolver(resolver)
+  engine.SetSerial(opts.singleThreaded)
   needsRuleChecker := engine.NeedsTypeChecker()
 
   prog, code := loadFixProgram(opts, needsRuleChecker)
