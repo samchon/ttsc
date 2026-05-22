@@ -1,65 +1,561 @@
 {
-  "date": "2026-05-22T02:37:24.167Z",
+  "date": "2026-05-22T14:14:20.993Z",
+  "runs": 1,
+  "warmup": 1,
   "host": {
-    "os": "Ubuntu 24.04 (WSL2)",
+    "os": "Ubuntu 26.04 LTS",
     "kernel": "6.6.87.2-microsoft-standard-WSL2",
-    "cpu": "AMD Ryzen AI MAX+ 395 w/ Radeon 8060S",
+    "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
     "cores": 32,
     "ramGB": 29,
-    "node": "22.14.0",
+    "node": "v24.15.0",
     "ttsc": "0.12.4",
-    "typescript": "7.0.0-dev"
+    "typescript": "5.9.3",
+    "tsgo": "7.0.0-dev.20260517.1"
   },
   "projects": [
     {
-      "name": "shopping-backend",
-      "files": 640,
-      "kind": "plugin-heavy",
+      "name": "vue",
+      "repo": "ttsc-benchmark-vue",
+      "kind": "frontend monorepo",
+      "files": 442,
       "measurements": [
-        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 21872 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 8706 },
-        { "branch": "ttsc-lint", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 10566 },
-        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 17940 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 6980 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "single", "medianMs": 19120 },
-        { "branch": "legacy", "tool": "eslint", "op": "build", "threading": "multi", "medianMs": 5653 },
-        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "build", "threading": "multi", "medianMs": 0 },
-        { "branch": "legacy", "tool": "prettier", "op": "build", "threading": "multi", "medianMs": 3825 },
-        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "format", "threading": "multi", "medianMs": 2141 }
-      ]
-    },
-    {
-      "name": "vscode",
-      "files": 5120,
-      "kind": "type-check-heavy",
-      "measurements": [
-        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 49300 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 6420 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "single", "medianMs": 14880 }
-      ]
-    },
-    {
-      "name": "zod",
-      "files": 412,
-      "kind": "type-check-heavy",
-      "measurements": [
-        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 9740 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 1980 },
-        { "branch": "legacy", "tool": "tsc", "op": "noEmit", "threading": "multi", "medianMs": 8210 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "multi", "medianMs": 1510 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "noEmit", "threading": "single", "medianMs": 3260 }
+        {
+          "id": "vue:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 2194.676845,
+          "minMs": 2194.676845,
+          "samples": [
+            2194.676845
+          ]
+        },
+        {
+          "id": "vue:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 3190.37042,
+          "minMs": 3190.37042,
+          "samples": [
+            3190.37042
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 580.245355,
+          "minMs": 580.245355,
+          "samples": [
+            580.245355
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 833.305461,
+          "minMs": 833.305461,
+          "samples": [
+            833.305461
+          ]
+        },
+        {
+          "id": "vue:ttsc:build:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 597.697261,
+          "minMs": 597.697261,
+          "samples": [
+            597.697261
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 5238.489438,
+          "minMs": 5238.489438,
+          "samples": [
+            5238.489438
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 5895.388094,
+          "minMs": 5895.388094,
+          "samples": [
+            5895.388094
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 2740.373618,
+          "minMs": 2740.373618,
+          "samples": [
+            2740.373618
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 2973.23513,
+          "minMs": 2973.23513,
+          "samples": [
+            2973.23513
+          ]
+        }
       ]
     },
     {
       "name": "rxjs",
-      "files": 1380,
-      "kind": "library",
+      "repo": "ttsc-benchmark-rxjs",
+      "kind": "library monorepo",
+      "files": 515,
       "measurements": [
-        { "branch": "legacy", "tool": "tsc", "op": "build", "threading": "multi", "medianMs": 12640 },
-        { "branch": "ttsc", "tool": "ttsc", "op": "build", "threading": "multi", "medianMs": 2410 },
-        { "branch": "legacy", "tool": "prettier", "op": "build", "threading": "multi", "medianMs": 6190 },
-        { "branch": "ttsc-lint", "tool": "@ttsc/lint", "op": "format", "threading": "multi", "medianMs": 3050 }
+        {
+          "id": "rxjs:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 4932.992989,
+          "minMs": 4932.992989,
+          "samples": [
+            4932.992989
+          ]
+        },
+        {
+          "id": "rxjs:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 3749.130811,
+          "minMs": 3749.130811,
+          "samples": [
+            3749.130811
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 1368.689028,
+          "minMs": 1368.689028,
+          "samples": [
+            1368.689028
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 1360.757227,
+          "minMs": 1360.757227,
+          "samples": [
+            1360.757227
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 3387.937016,
+          "minMs": 3387.937016,
+          "samples": [
+            3387.937016
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3511.746757,
+          "minMs": 3511.746757,
+          "samples": [
+            3511.746757
+          ]
+        }
       ]
+    },
+    {
+      "name": "type-fest",
+      "repo": "ttsc-benchmark-type-fest",
+      "kind": "type-level library",
+      "files": 209,
+      "measurements": [
+        {
+          "id": "type-fest:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 38685.803269,
+          "minMs": 38685.803269,
+          "samples": [
+            38685.803269
+          ]
+        },
+        {
+          "id": "type-fest:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 2575.534725,
+          "minMs": 2575.534725,
+          "samples": [
+            2575.534725
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 25631.137634,
+          "minMs": 25631.137634,
+          "samples": [
+            25631.137634
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 28069.710405,
+          "minMs": 28069.710405,
+          "samples": [
+            28069.710405
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 38277.714813,
+          "minMs": 38277.714813,
+          "samples": [
+            38277.714813
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 58896.556443,
+          "minMs": 58896.556443,
+          "samples": [
+            58896.556443
+          ]
+        }
+      ]
+    },
+    {
+      "name": "typeorm",
+      "repo": "ttsc-benchmark-typeorm",
+      "kind": "ORM library",
+      "files": 495,
+      "measurements": [
+        {
+          "id": "typeorm:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 9969.208651,
+          "minMs": 9969.208651,
+          "samples": [
+            9969.208651
+          ]
+        },
+        {
+          "id": "typeorm:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 31880.117892,
+          "minMs": 31880.117892,
+          "samples": [
+            31880.117892
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 1501.239534,
+          "minMs": 1501.239534,
+          "samples": [
+            1501.239534
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3208.549564,
+          "minMs": 3208.549564,
+          "samples": [
+            3208.549564
+          ]
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 3617.095802,
+          "minMs": 3617.095802,
+          "samples": [
+            3617.095802
+          ]
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 5209.568986,
+          "minMs": 5209.568986,
+          "samples": [
+            5209.568986
+          ]
+        }
+      ]
+    },
+    {
+      "name": "zod",
+      "repo": "ttsc-benchmark-zod",
+      "kind": "schema library monorepo",
+      "files": 286,
+      "measurements": [
+        {
+          "id": "zod:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 8461.672422,
+          "minMs": 8461.672422,
+          "samples": [
+            8461.672422
+          ]
+        },
+        {
+          "id": "zod:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 2518.052058,
+          "minMs": 2518.052058,
+          "samples": [
+            2518.052058
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 1931.574414,
+          "minMs": 1931.574414,
+          "samples": [
+            1931.574414
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3502.451689,
+          "minMs": 3502.451689,
+          "samples": [
+            3502.451689
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 4039.764228,
+          "minMs": 4039.764228,
+          "samples": [
+            4039.764228
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 5679.182511,
+          "minMs": 5679.182511,
+          "samples": [
+            5679.182511
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nestjs",
+      "repo": "ttsc-benchmark-nestjs",
+      "kind": "backend framework monorepo",
+      "files": 769,
+      "measurements": [
+        {
+          "id": "nestjs:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 10150.567225,
+          "minMs": 10150.567225,
+          "samples": [
+            10150.567225
+          ]
+        },
+        {
+          "id": "nestjs:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 4605.687576,
+          "minMs": 4605.687576,
+          "samples": [
+            4605.687576
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 3294.15615,
+          "minMs": 3294.15615,
+          "samples": [
+            3294.15615
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3738.351467,
+          "minMs": 3738.351467,
+          "samples": [
+            3738.351467
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 9871.241282,
+          "minMs": 9871.241282,
+          "samples": [
+            9871.241282
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 10191.437541,
+          "minMs": 10191.437541,
+          "samples": [
+            10191.437541
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vscode",
+      "repo": "ttsc-benchmark-vscode",
+      "kind": "application monorepo",
+      "files": 6093,
+      "measurements": [
+        {
+          "id": "vscode:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 74884.301222,
+          "minMs": 74884.301222,
+          "samples": [
+            74884.301222
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shopping-backend",
+      "repo": "shopping-backend",
+      "kind": "plugin-heavy service",
+      "files": 464,
+      "measurements": []
     }
   ]
 }
