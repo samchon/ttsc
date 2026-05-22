@@ -463,7 +463,36 @@ function commandForProject(cmd, root) {
   return cmd.replace(/^pnpm\b/, "pnpm --ignore-workspace");
 }
 
+function hrtimeMs(start) {
+  return Number(process.hrtime.bigint() - start) / 1e6;
+}
+
+function formatDuration(ms) {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${ms.toFixed(0)} ms`;
+}
+
+function timePhase(label, task) {
+  const start = process.hrtime.bigint();
+  process.stdout.write(`[timer] start ${label}\n`);
+  try {
+    const result = task();
+    process.stdout.write(
+      `[timer] done ${label} in ${formatDuration(hrtimeMs(start))}\n`,
+    );
+    return result;
+  } catch (error) {
+    process.stdout.write(
+      `[timer] fail ${label} after ${formatDuration(hrtimeMs(start))}\n`,
+    );
+    throw error;
+  }
+}
+
 function sh(cmd, cwd, options = {}) {
+  const start = process.hrtime.bigint();
+  const label = options.label ?? cmd;
+  if (options.timing !== false)
+    process.stdout.write(`[cmd] start ${label}\n`);
   const res = spawnSync(cmd, {
     cwd,
     shell: true,
@@ -471,6 +500,11 @@ function sh(cmd, cwd, options = {}) {
     env: options.env ?? process.env,
     stdio: options.quiet ? "pipe" : "inherit",
   });
+  if (options.timing !== false)
+    process.stdout.write(
+      `[cmd] done ${label} in ${formatDuration(hrtimeMs(start))} ` +
+        `(exit ${res.status})\n`,
+    );
   if (options.check !== false && res.status !== 0) {
     throw new Error(
       `command failed (${res.status}) in ${cwd}: ${cmd}\n${res.stderr ?? ""}`,
@@ -485,12 +519,20 @@ function runSteps(steps, root) {
   for (const step of steps) {
     const cwd = path.resolve(root, step.cwd ?? ".");
     const cmd = commandForProject(step.cmd, root);
+    const stepStart = process.hrtime.bigint();
+    process.stdout.write(
+      `    [step] start ${path.relative(root, cwd) || "."}: ${cmd}\n`,
+    );
     const res = spawnSync(cmd, {
       cwd,
       shell: true,
       encoding: "utf8",
       env: step.env ? { ...process.env, ...step.env } : process.env,
     });
+    process.stdout.write(
+      `    [step] done ${path.relative(root, cwd) || "."}: ` +
+        `${formatDuration(hrtimeMs(stepStart))} (exit ${res.status})\n`,
+    );
     log += `$ ${cmd}\n${res.stdout ?? ""}${res.stderr ?? ""}`;
     if (res.status !== 0) {
       const t1 = process.hrtime.bigint();
@@ -523,101 +565,129 @@ function packTarballs() {
     process.stdout.write(`Skipping tarball pack; using ${TGZ}\n`);
     return;
   }
-  fs.mkdirSync(TGZ, { recursive: true });
-  process.stdout.write(`Packing local ttsc tarballs into ${TGZ}\n`);
-  sh("pnpm run build:current", REPO_ROOT);
-  for (const target of LOCAL_TARBALLS) {
-    const out = path.join(TGZ, target.file);
-    fs.rmSync(out, { force: true });
-    sh(`pnpm pack --out ${quote(out)}`, path.join(REPO_ROOT, target.dir));
-  }
+  timePhase(`pack local ttsc tarballs into ${TGZ}`, () => {
+    fs.mkdirSync(TGZ, { recursive: true });
+    sh("pnpm run build:current", REPO_ROOT, { label: "build current ttsc" });
+    for (const target of LOCAL_TARBALLS) {
+      const out = path.join(TGZ, target.file);
+      fs.rmSync(out, { force: true });
+      sh(`pnpm pack --out ${quote(out)}`, path.join(REPO_ROOT, target.dir), {
+        label: `pack ${target.name}`,
+      });
+    }
+  });
 }
 
 function setupClone(project, branch) {
-  const dir = cloneDir(project, branch);
-  fs.mkdirSync(WORK, { recursive: true });
-  if (!fs.existsSync(dir)) {
-    process.stdout.write(`Cloning ${project.repoName}@${branch}\n`);
-    sh(
-      `git clone --branch ${quote(branch)} ${quote(project.repo)} ${quote(dir)}`,
-      WORK,
-      { quiet: true },
-    );
-  } else if (!fs.existsSync(path.join(dir, ".git"))) {
-    throw new Error(`${dir} exists but is not a git clone`);
-  }
+  return timePhase(`setup ${project.repoName}@${branch}`, () => {
+    const dir = cloneDir(project, branch);
+    fs.mkdirSync(WORK, { recursive: true });
+    if (!fs.existsSync(dir)) {
+      process.stdout.write(`Cloning ${project.repoName}@${branch}\n`);
+      sh(
+        `git clone --branch ${quote(branch)} ${quote(project.repo)} ${quote(dir)}`,
+        WORK,
+        { quiet: true, label: `clone ${project.repoName}@${branch}` },
+      );
+    } else if (!fs.existsSync(path.join(dir, ".git"))) {
+      throw new Error(`${dir} exists but is not a git clone`);
+    }
 
-  const current = sh("git branch --show-current", dir, {
-    quiet: true,
-    check: false,
-  }).stdout?.trim();
-  if (current && current !== branch) {
-    const dirty = sh("git status --short", dir, {
+    const current = sh("git branch --show-current", dir, {
       quiet: true,
       check: false,
-    }).stdout;
-    if (dirty.trim()) {
-      throw new Error(
-        `${dir} is on ${current}, expected ${branch}, and has local changes`,
-      );
+      timing: false,
+    }).stdout?.trim();
+    if (current && current !== branch) {
+      const dirty = sh("git status --short", dir, {
+        quiet: true,
+        check: false,
+        timing: false,
+      }).stdout;
+      if (dirty.trim()) {
+        throw new Error(
+          `${dir} is on ${current}, expected ${branch}, and has local changes`,
+        );
+      }
+      sh(`git checkout ${quote(branch)}`, dir, {
+        quiet: true,
+        label: `checkout ${project.repoName}@${branch}`,
+      });
     }
-    sh(`git checkout ${quote(branch)}`, dir, { quiet: true });
-  }
 
-  if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
+    if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
 
-  if (branch === "ttsc" || branch === "ttsc-lint") {
-    const pm = project.packageManager;
-    const cmd = project.prepareCommand
-      ? commandForProject(project.prepareCommand, dir)
-      : pm === "npm"
-        ? "npm exec -- ttsc prepare"
-        : pm === "pnpm"
-          ? pnpmProjectCommand(dir, "exec ttsc prepare")
-          : `${pm} exec ttsc prepare`;
-    const res = sh(cmd, dir, { quiet: true, check: false });
-    if (res.status !== 0) {
+    if (branch === "ttsc" || branch === "ttsc-lint") {
+      const pm = project.packageManager;
+      const cmd = project.prepareCommand
+        ? commandForProject(project.prepareCommand, dir)
+        : pm === "npm"
+          ? "npm exec -- ttsc prepare"
+          : pm === "pnpm"
+            ? pnpmProjectCommand(dir, "exec ttsc prepare")
+            : `${pm} exec ttsc prepare`;
+      const res = sh(cmd, dir, {
+        quiet: true,
+        check: false,
+        label: `ttsc prepare ${project.repoName}@${branch}`,
+      });
+      if (res.status !== 0) {
+        process.stdout.write(
+          `${project.repoName}@${branch}: ttsc prepare exited ${res.status}; ` +
+            `continuing only if this project has no source plugins\n`,
+        );
+      }
+    }
+
+    for (const step of normalizeSteps(project.prerequisites ?? [])) {
       process.stdout.write(
-        `${project.repoName}@${branch}: ttsc prepare exited ${res.status}; ` +
-          `continuing only if this project has no source plugins\n`,
+        `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
       );
+      sh(step.cmd, path.resolve(dir, step.cwd ?? "."), {
+        quiet: true,
+        label: `prerequisite ${project.repoName}@${branch}`,
+      });
     }
-  }
-
-  for (const step of normalizeSteps(project.prerequisites ?? [])) {
-    process.stdout.write(
-      `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
-    );
-    sh(step.cmd, path.resolve(dir, step.cwd ?? "."), { quiet: true });
-  }
+  });
 }
 
 function installIfNeeded(project, dir, branch) {
-  const mustRefreshTarballs = branch === "ttsc" || branch === "ttsc-lint";
-  const hasNodeModules = fs.existsSync(path.join(dir, "node_modules"));
-  if (!mustRefreshTarballs && !flags.has("--force-install") && hasNodeModules) {
-    return;
-  }
-  const pm = project.packageManager;
-  if (mustRefreshTarballs) assertLocalTarballs(branch);
-  const cmd =
-    project.installCommand ??
-    (pm === "pnpm"
-      ? pnpmProjectCommand(dir, "install --no-frozen-lockfile")
-      : pm === "yarn"
-        ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
-        : "npm install --legacy-peer-deps");
-  if (!hasNodeModules || flags.has("--force-install")) {
-    process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
-    sh(cmd, dir);
-  } else {
-    process.stdout.write(
-      `Reusing installed node_modules in ${path.basename(dir)}\n`,
-    );
-  }
-  if (branch === "ttsc" && hasTsgoCells(project) && !hasTsgoExperimentDeps(dir))
-    installTsgoExperimentDeps(project, dir);
-  if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
+  return timePhase(`install ${path.basename(dir)}`, () => {
+    const mustRefreshTarballs = branch === "ttsc" || branch === "ttsc-lint";
+    const hasNodeModules = fs.existsSync(path.join(dir, "node_modules"));
+    if (
+      !mustRefreshTarballs &&
+      !flags.has("--force-install") &&
+      hasNodeModules
+    ) {
+      process.stdout.write(`Reusing installed node_modules in ${path.basename(dir)}\n`);
+      return;
+    }
+    const pm = project.packageManager;
+    if (mustRefreshTarballs) assertLocalTarballs(branch);
+    const cmd =
+      project.installCommand ??
+      (pm === "pnpm"
+        ? pnpmProjectCommand(dir, "install --no-frozen-lockfile")
+        : pm === "yarn"
+          ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
+          : "npm install --legacy-peer-deps");
+    if (!hasNodeModules || flags.has("--force-install")) {
+      process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
+      sh(cmd, dir, { label: `install dependencies ${path.basename(dir)}` });
+    } else {
+      process.stdout.write(
+        `Reusing installed node_modules in ${path.basename(dir)}\n`,
+      );
+    }
+    if (
+      branch === "ttsc" &&
+      hasTsgoCells(project) &&
+      !hasTsgoExperimentDeps(dir)
+    )
+      installTsgoExperimentDeps(project, dir);
+    if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
+  });
 }
 
 function assertLocalTarballs(branch) {
@@ -645,30 +715,32 @@ function localTarballPaths(branch) {
 }
 
 function installLocalTarballs(project, dir, branch) {
-  const targets = localTarballTargets(branch);
-  scrubLocalTarballInstallState(dir, targets);
-  if (project.packageManager === "yarn") {
-    materializeLocalTarballs(targets, dir);
-    return;
-  }
-  const specs = targets
-    .map((target) => quote(path.join(TGZ, target.file)))
-    .join(" ");
-  const pm = project.packageManager;
-  const cmd =
-    project.installTarballsCommand?.(specs) ??
-    (pm === "pnpm"
-      ? ownsPnpmWorkspace(dir)
-        ? `pnpm add -w -D ${specs}`
-        : `pnpm add --ignore-workspace -D ${specs}`
-      : pm === "yarn"
-        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
-        : `npm install --legacy-peer-deps --save-dev ${specs}`);
-  process.stdout.write(
-    `Installing local tarballs into ${path.basename(dir)}: ` +
-      `${targets.map((target) => target.name).join(", ")}\n`,
-  );
-  sh(cmd, dir);
+  return timePhase(`install local tarballs ${path.basename(dir)}`, () => {
+    const targets = localTarballTargets(branch);
+    scrubLocalTarballInstallState(dir, targets);
+    if (project.packageManager === "yarn") {
+      materializeLocalTarballs(targets, dir);
+      return;
+    }
+    const specs = targets
+      .map((target) => quote(path.join(TGZ, target.file)))
+      .join(" ");
+    const pm = project.packageManager;
+    const cmd =
+      project.installTarballsCommand?.(specs) ??
+      (pm === "pnpm"
+        ? ownsPnpmWorkspace(dir)
+          ? `pnpm add -w -D ${specs}`
+          : `pnpm add --ignore-workspace -D ${specs}`
+        : pm === "yarn"
+          ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+          : `npm install --legacy-peer-deps --save-dev ${specs}`);
+    process.stdout.write(
+      `Installing local tarballs into ${path.basename(dir)}: ` +
+        `${targets.map((target) => target.name).join(", ")}\n`,
+    );
+    sh(cmd, dir, { label: `install local tarballs ${path.basename(dir)}` });
+  });
 }
 
 function scrubLocalTarballInstallState(dir, targets) {
@@ -971,18 +1043,20 @@ function toolFor(branch, op, tool) {
 }
 
 function measureProject(project, report) {
-  const projectReport = ensureProjectReport(report, project);
-  for (const cell of projectCells(project)) {
-    const existingIndex = projectReport.measurements.findIndex(
-      (measurement) => measurement.id === cell.id,
-    );
-    if (existingIndex !== -1)
-      process.stdout.write(`\n[${cell.id}] refreshing existing measurement\n`);
-    const measurement = measureCell(cell);
-    if (existingIndex === -1) projectReport.measurements.push(measurement);
-    else projectReport.measurements.splice(existingIndex, 1, measurement);
-    writeReports(report, { publishWebsite: true });
-  }
+  return timePhase(`measure project ${project.name}`, () => {
+    const projectReport = ensureProjectReport(report, project);
+    for (const cell of projectCells(project)) {
+      const existingIndex = projectReport.measurements.findIndex(
+        (measurement) => measurement.id === cell.id,
+      );
+      if (existingIndex !== -1)
+        process.stdout.write(`\n[${cell.id}] refreshing existing measurement\n`);
+      const measurement = measureCell(cell);
+      if (existingIndex === -1) projectReport.measurements.push(measurement);
+      else projectReport.measurements.splice(existingIndex, 1, measurement);
+      writeReports(report, { publishWebsite: true });
+    }
+  });
 }
 
 function ensureProjectReport(report, project) {
@@ -1255,6 +1329,7 @@ function printConfig() {
 }
 
 function main() {
+  const totalStart = process.hrtime.bigint();
   if (wantedProjects.length === 0)
     throw new Error("no benchmark projects selected");
   if (!wantedProjects.some((project) => projectCells(project).length !== 0))
@@ -1320,6 +1395,9 @@ function main() {
 
   process.stdout.write(`Report written to ${OUT}\n`);
   process.stdout.write(`Website JSON written to ${WEBSITE_JSON}\n`);
+  process.stdout.write(
+    `[timer] total benchmark ${formatDuration(hrtimeMs(totalStart))}\n`,
+  );
 }
 
 function verifyCommands(projects) {
