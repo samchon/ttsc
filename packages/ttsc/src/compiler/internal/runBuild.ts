@@ -369,16 +369,19 @@ function createNativeBuildArgs(
   ];
   if (options.emit === true) {
     args.push("--emit");
-  } else if (options.emit === false) {
-    args.push("--noEmit");
   }
   if (options.outDir) {
     args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
   }
-  if (options.quiet === false) {
-    args.push("--verbose");
-  } else if (options.quiet === true) {
-    args.push("--quiet");
+  // Third-party transform hosts already treat the `check` subcommand as a
+  // quiet no-emit pass. Keep ttsc-owned build modifiers off that lane so older
+  // strict hosts do not reject unknown optional flags before analysis starts.
+  if (options.emit !== false) {
+    if (options.quiet === false) {
+      args.push("--verbose");
+    } else if (options.quiet === true) {
+      args.push("--quiet");
+    }
   }
   args.push(...createNativeTsgoArgs(options));
   return args;
