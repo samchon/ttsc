@@ -11,8 +11,13 @@
  * installed, prepared, and then measured. `ttsc prepare` runs before timings so
  * plugin/native binary build time is not included in compiler measurements.
  *
- * Useful modes: node bench.mjs --setup-only node bench.mjs --verify-only node
- * bench.mjs --no-setup --verify-only vue rxjs
+ * Useful modes:
+ *
+ * node bench.mjs --setup-only
+ * node bench.mjs --verify-only
+ * node bench.mjs --project vue --project type-fest
+ * node bench.mjs --project=type-fest --ttsc-build-only --fresh
+ * node bench.mjs --cell-filter=':ttsc:build:' vue type-fest
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -69,9 +74,9 @@ const LOCAL_TARBALLS = [
   },
 ];
 
-const argv = process.argv.slice(2);
-const flags = new Set(argv.filter((a) => a.startsWith("--")));
-const positional = argv.filter((a) => !a.startsWith("--"));
+const { cellFilters, flags, projectArgs, positional } = parseCliArgs(
+  process.argv.slice(2),
+);
 
 const PACKAGE_CONFIGS = {
   vue: {
@@ -245,17 +250,67 @@ const PROJECTS = Object.entries(PACKAGE_CONFIGS)
     ...config,
   }));
 
-const wantedProjects = positional.length
-  ? positional.map(resolveProjectArg).filter(Boolean)
+const projectSelection = [...projectArgs, ...positional];
+const wantedProjects = projectSelection.length
+  ? projectSelection.map(resolveProjectArg).filter(Boolean)
   : PROJECTS;
 
 if (flags.has("--list")) {
   printConfig();
   process.exit(0);
 }
-if (positional.length && wantedProjects.length !== positional.length) {
+if (
+  projectSelection.length &&
+  wantedProjects.length !== projectSelection.length
+) {
   const known = PROJECTS.map((p) => `${p.name} (${p.repoName})`).join(", ");
   throw new Error(`unknown project selection. Known: ${known}`);
+}
+
+function parseCliArgs(args) {
+  const parsedCellFilters = [];
+  const parsedFlags = new Set();
+  const parsedProjects = [];
+  const parsedPositional = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--project") {
+      const value = args[++i];
+      if (!value || value.startsWith("--"))
+        throw new Error("--project requires a project name");
+      parsedProjects.push(...splitProjectList(value));
+    } else if (arg.startsWith("--project=")) {
+      const value = arg.slice("--project=".length);
+      if (!value) throw new Error("--project requires a project name");
+      parsedProjects.push(...splitProjectList(value));
+    } else if (arg === "--cell-filter") {
+      const value = args[++i];
+      if (!value || value.startsWith("--"))
+        throw new Error("--cell-filter requires a regular expression");
+      parsedCellFilters.push(new RegExp(value));
+    } else if (arg.startsWith("--cell-filter=")) {
+      const value = arg.slice("--cell-filter=".length);
+      if (!value) throw new Error("--cell-filter requires a regular expression");
+      parsedCellFilters.push(new RegExp(value));
+    } else if (arg.startsWith("--")) {
+      parsedFlags.add(arg);
+    } else {
+      parsedPositional.push(arg);
+    }
+  }
+  return {
+    cellFilters: parsedCellFilters,
+    flags: parsedFlags,
+    projectArgs: parsedProjects,
+    positional: parsedPositional,
+  };
+}
+
+function splitProjectList(value) {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 main();
@@ -1027,6 +1082,8 @@ function printConfig() {
 function main() {
   if (wantedProjects.length === 0)
     throw new Error("no benchmark projects selected");
+  if (!wantedProjects.some((project) => projectCells(project).length !== 0))
+    throw new Error("no benchmark cells selected");
 
   fs.mkdirSync(WORK, { recursive: true });
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
@@ -1174,5 +1231,20 @@ function projectCells(project) {
       }
     }
   }
-  return cells;
+  return filterCells(cells);
+}
+
+function filterCells(cells) {
+  const predicates = [];
+  if (flags.has("--ttsc-build-only")) {
+    predicates.push(
+      (cell) =>
+        cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
+    );
+  }
+  for (const filter of cellFilters) {
+    predicates.push((cell) => filter.test(cell.id));
+  }
+  if (predicates.length === 0) return cells;
+  return cells.filter((cell) => predicates.some((predicate) => predicate(cell)));
 }

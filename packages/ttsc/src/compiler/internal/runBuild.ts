@@ -71,17 +71,18 @@ export function runBuild(
   } = {},
 ): TtscBuildResult {
   const execution = resolveExecutionContext(options);
+  const buildOptions = applyProjectNoEmit(options, execution);
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
       (plugin) => plugin.stage === "transform",
     );
-    const checked = runNativeCheckPlugins(options, execution);
+    const checked = runNativeCheckPlugins(buildOptions, execution);
     if (checked.status !== 0) {
       return checked;
     }
 
-    if (options.emit === false) {
-      if (options.format === true) {
+    if (buildOptions.emit === false) {
+      if (buildOptions.format === true) {
         // Format mode is write-only by contract: the lint sidecar
         // already rewrote source files and reported nothing. Running
         // tsgo --noEmit OR a transform compiler afterwards would either
@@ -100,12 +101,12 @@ export function runBuild(
         assertSharedHostCompatibility(compilers, "emit");
         return appendBuildOutput(
           checked,
-          buildWithNativeCompilerPlugins(options, execution, compilers),
+          buildWithNativeCompilerPlugins(buildOptions, execution, compilers),
         );
       }
       return appendBuildOutput(
         checked,
-        runTsgo(execution, ["--noEmit"], options),
+        runTsgo(execution, ["--noEmit"], buildOptions),
       );
     }
 
@@ -114,29 +115,29 @@ export function runBuild(
       assertSharedHostCompatibility(compilers, "emit");
       result = appendBuildOutput(
         checked,
-        buildWithNativeCompilerPlugins(options, execution, compilers),
+        buildWithNativeCompilerPlugins(buildOptions, execution, compilers),
       );
     } else {
       if (
-        options.skipDiagnosticsCheck !== true &&
-        !forwardsTerminalTsgoFlag(options)
+        buildOptions.skipDiagnosticsCheck !== true &&
+        !forwardsTerminalTsgoFlag(buildOptions)
       ) {
-        const tsgoChecked = runTsgo(execution, ["--noEmit"], options);
+        const tsgoChecked = runTsgo(execution, ["--noEmit"], buildOptions);
         if (tsgoChecked.status !== 0) {
           return appendBuildOutput(checked, tsgoChecked);
         }
       }
-      const args = createTsgoBuildArgs(execution, options, {
-        listEmittedFiles: options.forceListEmittedFiles === true,
+      const args = createTsgoBuildArgs(execution, buildOptions, {
+        listEmittedFiles: buildOptions.forceListEmittedFiles === true,
       });
-      const emitted = runTsgoBuild(execution, options, args);
+      const emitted = runTsgoBuild(execution, buildOptions, args);
       result = appendBuildOutput(checked, emitted);
     }
 
     return result;
   }
 
-  if (options.format === true) {
+  if (buildOptions.format === true) {
     // Format mode is write-only by contract — see the matching
     // short-circuit in the with-native-plugins branch above. When no
     // native plugin is loaded there is nothing for `ttsc format` to
@@ -151,15 +152,32 @@ export function runBuild(
     };
   }
 
-  const args = createTsgoBuildArgs(execution, options, {
+  const args = createTsgoBuildArgs(execution, buildOptions, {
     listEmittedFiles:
-      options.emit !== false && options.forceListEmittedFiles === true,
+      buildOptions.emit !== false &&
+      buildOptions.forceListEmittedFiles === true,
     noEmitOnError:
-      options.emit !== false &&
-      options.skipDiagnosticsCheck !== true &&
-      !forwardsTerminalTsgoFlag(options),
+      buildOptions.emit !== false &&
+      buildOptions.skipDiagnosticsCheck !== true &&
+      !forwardsTerminalTsgoFlag(buildOptions),
   });
-  return runTsgoBuild(execution, options, args);
+  return runTsgoBuild(execution, buildOptions, args);
+}
+
+/**
+ * A tsconfig-level `noEmit: true` is an analysis-only build unless the user
+ * explicitly asks `ttsc --emit` to override it. Treat it like CLI `--noEmit`
+ * before composing tsgo/native-host arguments so ttsc does not add emit-only
+ * guards around projects that cannot emit.
+ */
+function applyProjectNoEmit<T extends TtscBuildOptions>(
+  options: T,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): T {
+  if (options.emit !== undefined || execution.projectNoEmit !== true) {
+    return options;
+  }
+  return { ...options, emit: false };
 }
 
 /**
@@ -584,6 +602,7 @@ function resolveExecutionContext(
   return {
     cwd,
     nativePlugins: loaded.nativePlugins,
+    projectNoEmit: project.compilerOptions.noEmit === true,
     projectRoot,
     rewriteRelativeImportExtensionsForEmit:
       options.emit === true &&
