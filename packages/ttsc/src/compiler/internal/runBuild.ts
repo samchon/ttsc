@@ -380,7 +380,6 @@ function createNativeBuildArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
-  args.push(...createNativeThreadingArgs(options));
   args.push(...createNativeTsgoArgs(options));
   return args;
 }
@@ -404,27 +403,26 @@ function createNativeCheckArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
-  args.push(...createNativeThreadingArgs(options));
   args.push(...createNativeTsgoArgs(options));
   return args;
 }
 
-/**
- * Forward the `--singleThreaded` / `--checkers` knobs to a native sidecar
- * (`@ttsc/lint`, transform plugins). Their Go flag sets accept the same two
- * flags, which `driver.LoadProgram` maps onto `CompilerOptions` so the in-
- * process program matches what `tsgo` would do on the no-plugin lane.
- */
-function createNativeThreadingArgs(options: TtscCommonOptions): string[] {
-  const args: string[] = [];
-  if (options.singleThreaded === true) {
-    args.push("--singleThreaded");
-  }
-  if (options.checkers !== undefined) {
-    args.push("--checkers=" + String(options.checkers));
-  }
-  return args;
-}
+// `--singleThreaded` / `--checkers` are intentionally NOT forwarded to native
+// plugin hosts.
+//
+// They were forwarded as bare CLI flags in #113, but a native host built
+// before that release has no `singleThreaded`/`checkers` flag in its
+// `flag.FlagSet`, and a host that parses with `flag.ContinueOnError` exits 2
+// on the unknown flag instead of ignoring it — `ttsc --singleThreaded` then
+// fails deterministically on any project with a third-party transform plugin
+// (typia, nestia). The plugin protocol only promises that new optional flags
+// are *accept-and-ignored* by hosts that adopted `filterHostArgs`; ttsc cannot
+// know whether the host it is about to spawn did, so it must not emit a flag
+// whose rejection is fatal. The threading knobs still take full effect on the
+// no-plugin `tsgo` lane (`createTsgoThreadingArgs`), and `CreateProgramFromConfig`
+// already pins every native-host program to a single checker via
+// `forceSingleChecker`, so the in-process determinism `--singleThreaded`
+// targets is preserved on the plugin lane regardless.
 
 /**
  * Forward the tsgo flags ttsc did not recognize to a native sidecar as one
