@@ -818,7 +818,7 @@ function measureProject(project, report) {
     const measurement = measureCell(cell);
     projectReport.measurements.push(measurement);
     done.add(cell.id);
-    writeReports(report);
+    writeReports(report, { publishWebsite: true });
   }
 }
 
@@ -1080,7 +1080,7 @@ function main() {
   }
 
   const report = createReport(readyProjects);
-  writeReports(report);
+  writeReports(report, { publishWebsite: true });
   for (const project of readyProjects) measureProject(project, report);
   writeReports(report, { publishWebsite: true });
 
