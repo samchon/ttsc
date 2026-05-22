@@ -16,8 +16,8 @@
  * - `node bench.mjs --setup-only`
  * - `node bench.mjs --verify-only`
  * - `node bench.mjs --project vue --project type-fest`
- * - `node bench.mjs --project=type-fest --ttsc-build-only --fresh`
- * - `node bench.mjs --project=type-fest --only-ttsc-build --fresh`
+ * - `node bench.mjs --project=type-fest --ttsc-build-only`
+ * - `node bench.mjs --project=type-fest --only-ttsc-build --reset`
  * - `node bench.mjs --project=type-fest --only-ttsc-build --no-website`
  * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
  */
@@ -1119,46 +1119,59 @@ function formatMs(ms) {
 }
 
 function createReport(projects) {
-  const previous = flags.has("--fresh") ? null : loadCheckpoint();
+  const previous = flags.has("--reset") ? null : loadPreviousReport();
   const reusable =
-    previous &&
-    previous.runs === RUNS &&
-    previous.warmup === WARMUP &&
-    Array.isArray(previous.projects)
-      ? previous
-      : null;
-  if (previous && !reusable) {
-    process.stdout.write(
-      `Ignoring checkpoint with different run settings: ${CHECKPOINT_JSON}\n`,
+    previous && Array.isArray(previous.projects) ? previous : null;
+  const selected = new Set(projects.map((project) => project.name));
+  const reports = new Map(
+    (reusable?.projects ?? [])
+      .filter((project) => project?.name && !selected.has(project.name))
+      .map((project) => [project.name, project]),
+  );
+  for (const project of projects) {
+    const old = reusable?.projects.find((p) => p.name === project.name);
+    reports.set(
+      project.name,
+      projectReportFor(
+        project,
+        Array.isArray(old?.measurements) ? old.measurements : [],
+      ),
     );
   }
+  const orderedReports = [];
+  for (const project of PROJECTS) {
+    const report = reports.get(project.name);
+    if (report) {
+      orderedReports.push(report);
+      reports.delete(project.name);
+    }
+  }
+  orderedReports.push(...reports.values());
   return {
-    date: reusable?.date ?? new Date().toISOString(),
+    date: new Date().toISOString(),
     runs: RUNS,
     warmup: WARMUP,
     host: hostSpec(projects),
-    projects: projects.map((project) => {
-      const old = reusable?.projects.find((p) => p.name === project.name);
-      return projectReportFor(
-        project,
-        Array.isArray(old?.measurements) ? old.measurements : [],
-      );
-    }),
+    projects: orderedReports,
   };
 }
 
-function loadCheckpoint() {
-  if (!fs.existsSync(CHECKPOINT_JSON)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(CHECKPOINT_JSON, "utf8"));
-  } catch (error) {
-    process.stdout.write(
-      `Ignoring unreadable checkpoint ${CHECKPOINT_JSON}: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`,
-    );
-    return null;
-  }
+function loadPreviousReport() {
+  return [WEBSITE_JSON, CHECKPOINT_JSON]
+    .map((file) => ({ file, report: loadJson(file) }))
+    .filter(({ report }) => report && Array.isArray(report.projects))
+    .sort(
+      (a, b) => measurementCount(b.report) - measurementCount(a.report),
+    )[0]?.report ?? null;
+}
+
+function measurementCount(report) {
+  return (report.projects ?? []).reduce(
+    (sum, project) =>
+      sum +
+      (Array.isArray(project?.measurements) ? project.measurements.length : 0),
+    0,
+  );
 }
 
 function writeReports(report, { publishWebsite = false } = {}) {
@@ -1176,6 +1189,7 @@ function writeReports(report, { publishWebsite = false } = {}) {
 }
 
 function mergePreviousWebsiteMeasurements(report) {
+  if (flags.has("--reset")) return report;
   const previous = loadJson(WEBSITE_JSON);
   if (!previous || !Array.isArray(previous.projects)) return report;
 
@@ -1199,6 +1213,12 @@ function mergePreviousWebsiteMeasurements(report) {
     }
     measurements.push(...freshById.values());
     project.measurements = measurements;
+  }
+  const existing = new Set(merged.projects.map((project) => project.name));
+  for (const oldProject of previous.projects) {
+    if (!existing.has(oldProject.name)) {
+      merged.projects.push(oldProject);
+    }
   }
   return merged;
 }
