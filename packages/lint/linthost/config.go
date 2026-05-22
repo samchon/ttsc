@@ -918,12 +918,12 @@ func configCacheKey(kind, absPath string, content []byte) string {
 // be self-contained; set TTSC_LINT_DISABLE_CONFIG_CACHE when it is not.
 // Errors are never cached: a failed evaluation re-runs next time.
 func loadCachedConfigFile(location string, eval func(string) (any, error)) (any, error) {
+  if configCacheDisabled() {
+    return eval(location)
+  }
   content, err := os.ReadFile(location)
   if err != nil {
     return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
-  }
-  if configCacheDisabled() {
-    return eval(location)
   }
   abs := location
   if resolved, absErr := filepath.Abs(location); absErr == nil {

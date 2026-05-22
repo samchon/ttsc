@@ -74,7 +74,9 @@ func (noExAssign) Check(ctx *Context, node *shimast.Node) {
 }
 
 // walkAssignments invokes `report` on every `<name> = ...` shape inside
-// `root`. Used by no-ex-assign and friends.
+// `root`. Used by no-ex-assign to scan a single catch block; the
+// file-wide no-func-assign / no-class-assign scans go through
+// reportAssignmentsToDeclarations instead.
 func walkAssignments(root *shimast.Node, name string, report func(*shimast.Node)) {
   if root == nil {
     return

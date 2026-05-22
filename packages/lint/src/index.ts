@@ -470,11 +470,41 @@ function readTtsxConfigPlugins(
   const cacheKey = configCacheKey("plugins", configPath);
   if (cacheKey) {
     const cached = readConfigPluginCache(cacheKey);
-    if (cached) return cached;
+    // Re-validate cached entries before trusting them: a contributor's
+    // resolved `source` directory may have moved since the entry was
+    // written. A stale entry falls through to a fresh evaluation rather
+    // than being forwarded to ttsc's plugin builder as a dead path.
+    if (cached && cached.every(isValidConfigPluginEntry)) return cached;
   }
   const entries = evaluateTtsxConfigPlugins(configPath, context);
   if (cacheKey) writeConfigPluginCache(cacheKey, entries);
   return entries;
+}
+
+/**
+ * Reports whether a cached plugin entry is still usable: a well-formed
+ * namespace and an absolute `source` that still points at a directory.
+ * Pure predicate — never throws — so a malformed cache entry simply
+ * triggers re-evaluation instead of aborting plugin discovery.
+ */
+function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
+  if (
+    entry == null ||
+    typeof entry !== "object" ||
+    typeof (entry as ConfigPluginEntry).namespace !== "string" ||
+    typeof (entry as ConfigPluginEntry).source !== "string"
+  ) {
+    return false;
+  }
+  const { namespace, source } = entry as ConfigPluginEntry;
+  if (!NAMESPACE_PATTERN.test(namespace) || !path.isAbsolute(source)) {
+    return false;
+  }
+  try {
+    return fs.statSync(source).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function evaluateTtsxConfigPlugins(
