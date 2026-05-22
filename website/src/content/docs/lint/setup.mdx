@@ -35,6 +35,8 @@ export default {
 
 The `format` block configures the formatter — keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.
 
+A `lint.config.{ts,js,mjs}` file is evaluated once and the result is cached, keyed by the file's contents — so a monorepo build that runs `ttsc` once per package does not re-evaluate the config each time. Editing the config invalidates the cache automatically. The one case it does not cover is a config that `import`s a separate file: change that imported file without touching the config itself, and set `TTSC_LINT_DISABLE_CONFIG_CACHE=1` to force a fresh evaluation.
+
 ## See it
 
 ```ts
