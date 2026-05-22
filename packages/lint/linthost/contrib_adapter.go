@@ -68,6 +68,13 @@ type contributorAdapter struct {
   inner rule.Rule
 }
 
+// NeedsTypeChecker keeps contributor rules on the historical checker path.
+// The public rule.Context exposes Checker and has no mandatory marker, so the
+// host cannot safely infer that a third-party rule is AST-only.
+func (a contributorAdapter) NeedsTypeChecker() bool {
+  return true
+}
+
 // formatContributorAdapter is the FormatRule-tagged variant of
 // contributorAdapter. Wrapping the lint-only adapter (rather than
 // duplicating its method set) keeps the marker addition trivial and

@@ -89,11 +89,19 @@ func RunTransform(args []string) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
+  rules, err := loadRules(*pluginsJSON, resolvedCwd, *tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  engine := NewEngineWithResolver(rules)
+
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
-    forceEmit:      true,
-    singleThreaded: *singleThreaded,
-    checkers:       *checkers,
-    tsgoArgs:       tsgoArgs,
+    forceEmit:        true,
+    needsRuleChecker: engine.NeedsTypeChecker(),
+    singleThreaded:   *singleThreaded,
+    checkers:         *checkers,
+    tsgoArgs:         tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -104,13 +112,6 @@ func RunTransform(args []string) int {
     return 2
   }
   defer prog.close()
-
-  rules, err := loadRules(*pluginsJSON, resolvedCwd, *tsconfig)
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return 2
-  }
-  engine := NewEngineWithResolver(rules)
 
   astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
@@ -260,13 +261,21 @@ func decodeTsgoArgs(raw string) ([]string, error) {
 // program, collects diagnostics, renders them, and optionally emits
 // JavaScript output when the config allows it.
 func runProject(opts *subcommandOpts) int {
+  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  engine := NewEngineWithResolver(rules)
+
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceEmit:      opts.emit,
-    forceNoEmit:    opts.noEmit,
-    outDir:         opts.outDir,
-    singleThreaded: opts.singleThreaded,
-    checkers:       opts.checkers,
-    tsgoArgs:       opts.tsgoArgs,
+    forceEmit:        opts.emit,
+    forceNoEmit:      opts.noEmit,
+    outDir:           opts.outDir,
+    needsRuleChecker: engine.NeedsTypeChecker(),
+    singleThreaded:   opts.singleThreaded,
+    checkers:         opts.checkers,
+    tsgoArgs:         opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -277,13 +286,6 @@ func runProject(opts *subcommandOpts) int {
     return 2
   }
   defer prog.close()
-
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return 2
-  }
-  engine := NewEngineWithResolver(rules)
 
   astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {

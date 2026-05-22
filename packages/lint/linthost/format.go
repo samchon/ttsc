@@ -41,8 +41,11 @@ func runFormat(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
+  resolver := formatCommandResolver{inner: rules}
+  engine := NewEngineWithResolver(resolver)
+  needsRuleChecker := engine.NeedsTypeChecker()
 
-  prog, code := loadFixProgram(opts)
+  prog, code := loadFixProgram(opts, needsRuleChecker)
   if code != 0 {
     return code
   }
@@ -55,7 +58,6 @@ func runFormat(opts *subcommandOpts) int {
   totalFixes := 0
   cascadeConverged := false
   for pass := 0; pass < maxFormatPasses; pass++ {
-    engine := NewEngineWithResolver(formatCommandResolver{inner: rules})
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
     fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
     if err != nil {
@@ -67,7 +69,7 @@ func runFormat(opts *subcommandOpts) int {
       break
     }
     totalFixes += fixed
-    prog, code = reloadFixProgram(prog, opts)
+    prog, code = reloadFixProgram(prog, opts, needsRuleChecker)
     if code != 0 {
       return code
     }

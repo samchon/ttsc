@@ -19,6 +19,9 @@ import (
 type awaitThenable struct{}
 
 func (awaitThenable) Name() string { return "await-thenable" }
+func (awaitThenable) NeedsTypeChecker() bool {
+  return true
+}
 func (awaitThenable) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindAwaitExpression}
 }

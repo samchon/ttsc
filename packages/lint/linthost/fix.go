@@ -43,8 +43,10 @@ func runFix(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
+  engine := NewEngineWithResolver(rules)
+  needsRuleChecker := engine.NeedsTypeChecker()
 
-  prog, code := loadFixProgram(opts)
+  prog, code := loadFixProgram(opts, needsRuleChecker)
   if code != 0 {
     return code
   }
@@ -63,7 +65,6 @@ func runFix(opts *subcommandOpts) int {
   // kinds of findings in one pass — no filtering needed here.
   cascadeConverged := false
   for pass := 0; pass < maxFixPasses; pass++ {
-    engine := NewEngineWithResolver(rules)
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
     fixed, err := applyFindingFixes(opts.cwd, findings)
     if err != nil {
@@ -75,7 +76,7 @@ func runFix(opts *subcommandOpts) int {
       break
     }
     totalFixes += fixed
-    prog, code = reloadFixProgram(prog, opts)
+    prog, code = reloadFixProgram(prog, opts, needsRuleChecker)
     if code != 0 {
       return code
     }
@@ -92,7 +93,6 @@ func runFix(opts *subcommandOpts) int {
       maxFixPasses)
   }
 
-  engine := NewEngineWithResolver(rules)
   astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -117,13 +117,14 @@ func runFix(opts *subcommandOpts) int {
 
 // loadFixProgram loads the TypeScript program for a fix/format pass with
 // NoEmit forced on. Returns (nil, 2) when loading or config parsing fails.
-func loadFixProgram(opts *subcommandOpts) (*program, int) {
+func loadFixProgram(opts *subcommandOpts, needsRuleChecker bool) (*program, int) {
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:    true,
-    outDir:         opts.outDir,
-    singleThreaded: opts.singleThreaded,
-    checkers:       opts.checkers,
-    tsgoArgs:       opts.tsgoArgs,
+    forceNoEmit:      true,
+    outDir:           opts.outDir,
+    needsRuleChecker: needsRuleChecker,
+    singleThreaded:   opts.singleThreaded,
+    checkers:         opts.checkers,
+    tsgoArgs:         opts.tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -139,11 +140,11 @@ func loadFixProgram(opts *subcommandOpts) (*program, int) {
 // reloadFixProgram closes `current` and loads a fresh program from disk.
 // Used between cascade passes so the engine sees edits applied in the
 // previous pass rather than stale in-memory AST nodes.
-func reloadFixProgram(current *program, opts *subcommandOpts) (*program, int) {
+func reloadFixProgram(current *program, opts *subcommandOpts, needsRuleChecker bool) (*program, int) {
   if current != nil {
     current.close()
   }
-  return loadFixProgram(opts)
+  return loadFixProgram(opts, needsRuleChecker)
 }
 
 // fileFixes groups all pending TextEdit suggestions for a single file.

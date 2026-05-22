@@ -62,10 +62,21 @@ type FormatRule interface {
   IsFormat() bool
 }
 
+// typeAwareRule marks rules that need a live TypeScript checker in Context.
+// Rules that do not implement it are assumed AST-only.
+type typeAwareRule interface {
+  NeedsTypeChecker() bool
+}
+
 // isFormatRule reports whether `r` opts into the format category.
 func isFormatRule(r Rule) bool {
   fr, ok := r.(FormatRule)
   return ok && fr.IsFormat()
+}
+
+func ruleNeedsTypeChecker(r Rule) bool {
+  tr, ok := r.(typeAwareRule)
+  return ok && tr.NeedsTypeChecker()
 }
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
@@ -234,10 +245,11 @@ func AllRuleNames() []string {
 // Engine binds a rule configuration to a Program and walks the AST once
 // per source file, dispatching each visited node to its interested rules.
 type Engine struct {
-  config  RuleResolver
-  rules   map[shimast.Kind][]Rule
-  enabled map[string]Severity
-  unknown []string
+  config           RuleResolver
+  rules            map[shimast.Kind][]Rule
+  enabled          map[string]Severity
+  unknown          []string
+  needsTypeChecker bool
 }
 
 // NewEngine returns an engine configured for `config`. Rules whose
@@ -266,6 +278,9 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
       eng.unknown = append(eng.unknown, name)
       continue
     }
+    if ruleNeedsTypeChecker(rule) {
+      eng.needsTypeChecker = true
+    }
     eng.enabled[name] = displaySeverities.Severity(name)
     // Dedup kinds per rule so a contributor that accidentally lists the
     // same Kind twice in `Visits()` doesn't end up firing twice per node.
@@ -285,6 +300,11 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
 // UnknownRules returns the names of rules that appeared in the config but
 // have no registered implementation.
 func (e *Engine) UnknownRules() []string { return e.unknown }
+
+// NeedsTypeChecker reports whether any active rule requires Context.Checker.
+func (e *Engine) NeedsTypeChecker() bool {
+  return e != nil && e.needsTypeChecker
+}
 
 // EnabledRules returns the active rule set keyed by name. Mostly for
 // tests + introspection.

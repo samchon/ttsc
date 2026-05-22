@@ -11,14 +11,14 @@ import (
 // multi-checker pool request down to a single checker in the lint host.
 //
 // PR #112 dropped SingleThreaded, which switched on TypeScript-Go's
-// multi-checker pool. The lint engine walks files serially and resolves types
-// through the one checker GetTypeChecker hands back, so a pool larger than one
-// lets a type whose declarations span files on different checkers resolve to
-// `any`. loadProgram must therefore clamp `Checkers` back to 1 even when
-// `--checkers N` asked for more, while leaving `--singleThreaded` untouched so
-// that path still wins.
+// multi-checker pool. Type-aware lint rules walk files serially and resolve
+// types through the one checker GetTypeChecker hands back, so a pool larger
+// than one lets a type whose declarations span files on different checkers
+// resolve to `any`. loadProgram must therefore clamp `Checkers` back to 1 for
+// type-aware rules, while leaving `--singleThreaded` untouched so that path
+// still wins.
 //
-// 1. loadProgram a multi-file project with loadProgramOptions.checkers set to 8.
+// 1. loadProgram a multi-file project with checkers=8 and needsRuleChecker.
 // 2. Assert the resolved CompilerOptions.Checkers is clamped to exactly 1.
 // 3. loadProgram the same project with singleThreaded and assert it still applies.
 func TestLoadProgramClampsCheckerPoolToOne(t *testing.T) {
@@ -39,7 +39,10 @@ func TestLoadProgramClampsCheckerPoolToOne(t *testing.T) {
   writeFile(t, filepath.Join(root, "src", "main.ts"),
     "import { a } from \"./a\";\nimport { b } from \"./b\";\nexport const sum = a + b;\n")
 
-  pooled, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{checkers: 8})
+  pooled, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    checkers:         8,
+    needsRuleChecker: true,
+  })
   if err != nil {
     t.Fatal(err)
   }
@@ -56,7 +59,10 @@ func TestLoadProgramClampsCheckerPoolToOne(t *testing.T) {
     t.Fatalf("forceSingleChecker did not clamp the pool: Checkers = %d, want 1", *checkers)
   }
 
-  single, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{singleThreaded: true})
+  single, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    singleThreaded:   true,
+    needsRuleChecker: true,
+  })
   if err != nil {
     t.Fatal(err)
   }
