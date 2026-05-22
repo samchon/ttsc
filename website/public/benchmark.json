@@ -1,5 +1,5 @@
 {
-  "date": "2026-05-22T14:48:20.880Z",
+  "date": "2026-05-22T14:55:46.969Z",
   "runs": 1,
   "warmup": 1,
   "host": {
@@ -10,7 +10,7 @@
     "ramGB": 29,
     "node": "v24.15.0",
     "ttsc": "0.12.4",
-    "typescript": "5.9.3",
+    "typescript": "4.9.5",
     "tsgo": "7.0.0-dev.20260521.1"
   },
   "projects": [
@@ -486,10 +486,10 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 10150.567225,
-          "minMs": 10150.567225,
+          "medianMs": 9222.19666,
+          "minMs": 9222.19666,
           "samples": [
-            10150.567225
+            9222.19666
           ]
         },
         {
@@ -498,10 +498,10 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 4605.687576,
-          "minMs": 4605.687576,
+          "medianMs": 4084.403755,
+          "minMs": 4084.403755,
           "samples": [
-            4605.687576
+            4084.403755
           ]
         },
         {
@@ -510,10 +510,10 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 3294.15615,
-          "minMs": 3294.15615,
+          "medianMs": 3111.752504,
+          "minMs": 3111.752504,
           "samples": [
-            3294.15615
+            3111.752504
           ]
         },
         {
@@ -522,10 +522,10 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 3738.351467,
-          "minMs": 3738.351467,
+          "medianMs": 3518.531482,
+          "minMs": 3518.531482,
           "samples": [
-            3738.351467
+            3518.531482
           ]
         },
         {
@@ -534,10 +534,10 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 9871.241282,
-          "minMs": 9871.241282,
+          "medianMs": 8314.64284,
+          "minMs": 8314.64284,
           "samples": [
-            9871.241282
+            8314.64284
           ]
         },
         {
@@ -546,10 +546,34 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 10191.437541,
-          "minMs": 10191.437541,
+          "medianMs": 7855.179858,
+          "minMs": 7855.179858,
           "samples": [
-            10191.437541
+            7855.179858
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:multi",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 2998.288691,
+          "minMs": 2998.288691,
+          "samples": [
+            2998.288691
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 3373.145957,
+          "minMs": 3373.145957,
+          "samples": [
+            3373.145957
           ]
         }
       ]
