@@ -33,10 +33,11 @@ included in compiler measurements. No benchmark-only `tsconfig` is used; the
 runner invokes the repository's normal TypeScript configuration for the command
 being measured.
 
-Each cell runs one warmup followed by ten measured runs. The runner records the
+The run count is configured by `TTSC_BENCH_RUNS` and `TTSC_BENCH_WARMUP`, and
+the chosen values are recorded in `website/public/benchmark.json` with the
 median, fastest sample, full sample list, retry counts, and deterministic
-failures in `website/public/benchmark.json`. A missing bar means that project
-does not currently have a valid comparable command for that tool.
+failures. A missing bar means that project does not currently have a valid
+comparable command for that tool.
 
 ## Comparisons
 
@@ -61,11 +62,15 @@ cd ttsc
 corepack enable
 pnpm install
 
-node experimental/benchmark/bench.mjs --fresh \
-  vue type-fest typeorm zod nestjs vscode shopping-backend
+rm -rf experimental/benchmark/.work
+TTSC_BENCH_RUNS=1 TTSC_BENCH_WARMUP=0 node experimental/benchmark/bench.mjs
 ```
 
-The published run uses one warmup and ten measured runs per cell. Results are
-written to `experimental/benchmark/.work/report.md`,
-`experimental/benchmark/.work/report.json`, and
-`website/public/benchmark.json`.
+The current published snapshot uses one measured run and no warmup per cell so
+the PR can finish in a practical time. Including local tarball packing,
+clone setup, dependency refresh, `ttsc prepare`, and all measurements, it took
+1,401 seconds, about 23 minutes 21 seconds, on the host shown in the dashboard.
+For a statistically steadier publication run, omit the two `TTSC_BENCH_*`
+environment variables to use the runner defaults. Results are written to
+`experimental/benchmark/.work/report.md`,
+`experimental/benchmark/.work/report.json`, and `website/public/benchmark.json`.
