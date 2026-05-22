@@ -160,7 +160,7 @@ const PACKAGE_CONFIGS = {
     installCommand:
       "pnpm --ignore-workspace install --virtual-store-dir node_modules/.pnpm --no-frozen-lockfile --ignore-scripts",
     installTarballsCommand: (specs) =>
-      `pnpm --ignore-workspace add --virtual-store-dir node_modules/.pnpm -D --ignore-scripts ${specs}`,
+      `pnpm --ignore-workspace add --virtual-store-dir node_modules/.pnpm -D --no-frozen-lockfile --ignore-scripts ${specs}`,
     prepareCommand: "pnpm exec ttsc prepare -p tsconfig.json",
     filesRoot: "src",
     commands: compilerCommands({
@@ -654,8 +654,8 @@ function installLocalTarballs(project, dir, branch) {
     project.installTarballsCommand?.(specs) ??
     (pm === "pnpm"
       ? ownsPnpmWorkspace(dir)
-        ? `pnpm add -w -D ${specs}`
-        : `pnpm add --ignore-workspace -D ${specs}`
+        ? `pnpm add -w -D --no-frozen-lockfile ${specs}`
+        : `pnpm add --ignore-workspace -D --no-frozen-lockfile ${specs}`
       : pm === "yarn"
         ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
         : `npm install --legacy-peer-deps --save-dev ${specs}`);
@@ -812,8 +812,8 @@ function installTsgoExperimentDeps(project, dir) {
   const cmd =
     pm === "pnpm"
       ? ownsPnpmWorkspace(dir)
-        ? `pnpm add -w -D ${specs}`
-        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D ${specs}`
+        ? `pnpm add -w -D --no-frozen-lockfile ${specs}`
+        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D --no-frozen-lockfile ${specs}`
       : pm === "yarn"
         ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
         : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
