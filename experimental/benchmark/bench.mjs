@@ -641,6 +641,7 @@ function localTarballPaths(branch) {
 
 function installLocalTarballs(project, dir, branch) {
   const targets = localTarballTargets(branch);
+  scrubLocalTarballInstallState(dir, targets);
   if (project.packageManager === "yarn") {
     materializeLocalTarballs(targets, dir);
     return;
@@ -663,6 +664,94 @@ function installLocalTarballs(project, dir, branch) {
       `${targets.map((target) => target.name).join(", ")}\n`,
   );
   sh(cmd, dir);
+}
+
+function scrubLocalTarballInstallState(dir, targets) {
+  const specs = Object.fromEntries(
+    targets.map((target) => [
+      target.name,
+      `file:${path.join(TGZ, target.file)}`,
+    ]),
+  );
+  for (const packageJson of findProjectFiles(dir, "package.json")) {
+    rewritePackageJsonTarballs(packageJson, specs);
+  }
+  for (const workspaceFile of findProjectFiles(dir, "pnpm-workspace.yaml")) {
+    rewriteTextTarballs(workspaceFile, targets);
+  }
+  for (const lockfile of findProjectFiles(dir, [
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+  ])) {
+    const text = fs.readFileSync(lockfile, "utf8");
+    if (text.includes("ttsc-tgz")) fs.rmSync(lockfile);
+  }
+}
+
+function findProjectFiles(root, names) {
+  const wanted = new Set(Array.isArray(names) ? names : [names]);
+  const skip = new Set([".git", "node_modules", "dist", "lib", "out"]);
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!skip.has(entry.name)) walk(path.join(dir, entry.name));
+      } else if (wanted.has(entry.name)) {
+        files.push(path.join(dir, entry.name));
+      }
+    }
+  };
+  walk(root);
+  return files;
+}
+
+function rewritePackageJsonTarballs(file, specs) {
+  const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+  let changed = false;
+  const rewriteMap = (map) => {
+    if (!map || typeof map !== "object") return;
+    for (const [name, spec] of Object.entries(specs)) {
+      const current = map[name];
+      if (typeof current === "string" && current.includes("ttsc-tgz")) {
+        map[name] = spec;
+        changed = true;
+      }
+    }
+  };
+  for (const key of [
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+    "peerDependencies",
+    "overrides",
+    "resolutions",
+  ]) {
+    rewriteMap(manifest[key]);
+  }
+  rewriteMap(manifest.pnpm?.overrides);
+  if (changed) fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+}
+
+function rewriteTextTarballs(file, targets) {
+  let text = fs.readFileSync(file, "utf8");
+  let changed = false;
+  for (const target of targets) {
+    const pattern = new RegExp(
+      `(?:file:)?[^\\s'",}]*ttsc-tgz[^\\s'",}]*/${escapeRegExp(target.file)}`,
+      "g",
+    );
+    const next = text.replace(pattern, `file:${path.join(TGZ, target.file)}`);
+    if (next !== text) {
+      text = next;
+      changed = true;
+    }
+  }
+  if (changed) fs.writeFileSync(file, text);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function materializeLocalTarballs(targets, dir) {
