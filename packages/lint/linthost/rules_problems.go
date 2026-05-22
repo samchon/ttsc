@@ -230,38 +230,80 @@ func numericLiteralLosesPrecision(text string) bool {
 type noClassAssign struct{}
 
 func (noClassAssign) Name() string           { return "no-class-assign" }
-func (noClassAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindClassDeclaration} }
+func (noClassAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (noClassAssign) Check(ctx *Context, node *shimast.Node) {
-  decl := node.AsClassDeclaration()
-  if decl == nil || decl.Name() == nil {
-    return
-  }
-  name := identifierText(decl.Name())
-  if name == "" {
-    return
-  }
-  walkAssignments(ctx.File.AsNode(), name, func(target *shimast.Node) {
-    ctx.Report(target, "'"+name+"' is a class.")
-  })
+  reportAssignmentsToDeclarations(ctx, node, shimast.KindClassDeclaration, "is a class.")
 }
 
 // no-func-assign: same idea, but for function declarations.
 type noFuncAssign struct{}
 
 func (noFuncAssign) Name() string           { return "no-func-assign" }
-func (noFuncAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindFunctionDeclaration} }
+func (noFuncAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (noFuncAssign) Check(ctx *Context, node *shimast.Node) {
-  decl := node.AsFunctionDeclaration()
-  if decl == nil || decl.Name() == nil {
+  reportAssignmentsToDeclarations(ctx, node, shimast.KindFunctionDeclaration, "is a function.")
+}
+
+// reportAssignmentsToDeclarations flags every `<name> = …` assignment whose
+// target identifier names a `declKind` declaration found anywhere in the
+// file. It walks the file exactly once — gathering declared names and
+// assignment targets in the same pass — so the cost is linear in file size.
+//
+// The earlier shape registered for `declKind` directly and, on every
+// declaration, re-scanned the whole file for assignments: O(declarations ×
+// file size), which blows up quadratically on a file with many top-level
+// functions. Visiting `KindSourceFile` once and cross-referencing afterward
+// keeps the same findings without the repeated scans.
+func reportAssignmentsToDeclarations(
+  ctx *Context,
+  file *shimast.Node,
+  declKind shimast.Kind,
+  noun string,
+) {
+  if ctx == nil || file == nil {
     return
   }
-  name := identifierText(decl.Name())
-  if name == "" {
-    return
-  }
-  walkAssignments(ctx.File.AsNode(), name, func(target *shimast.Node) {
-    ctx.Report(target, "'"+name+"' is a function.")
+  declared := map[string]struct{}{}
+  var targets []*shimast.Node
+  walkDescendants(file, func(n *shimast.Node) {
+    switch n.Kind {
+    case declKind:
+      if name := declarationName(n); name != "" {
+        declared[name] = struct{}{}
+      }
+    case shimast.KindBinaryExpression:
+      if expr := n.AsBinaryExpression(); expr != nil &&
+        expr.OperatorToken != nil && isAssignmentOperator(expr.OperatorToken.Kind) &&
+        expr.Left != nil && expr.Left.Kind == shimast.KindIdentifier {
+        targets = append(targets, expr.Left)
+      }
+    }
   })
+  if len(declared) == 0 || len(targets) == 0 {
+    return
+  }
+  for _, target := range targets {
+    name := identifierText(target)
+    if _, ok := declared[name]; ok {
+      ctx.Report(target, "'"+name+"' "+noun)
+    }
+  }
+}
+
+// declarationName returns the bound name of a class or function declaration
+// node, or "" when the node is neither (or is anonymous).
+func declarationName(n *shimast.Node) string {
+  switch n.Kind {
+  case shimast.KindFunctionDeclaration:
+    if d := n.AsFunctionDeclaration(); d != nil {
+      return identifierText(d.Name())
+    }
+  case shimast.KindClassDeclaration:
+    if d := n.AsClassDeclaration(); d != nil {
+      return identifierText(d.Name())
+    }
+  }
+  return ""
 }
 
 // no-prototype-builtins: `obj.hasOwnProperty(x)` — should be
