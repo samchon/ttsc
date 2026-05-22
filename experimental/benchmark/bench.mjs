@@ -19,6 +19,7 @@
  * - `node bench.mjs --project=type-fest --ttsc-build-only`
  * - `node bench.mjs --project=type-fest --only-ttsc-build --reset`
  * - `node bench.mjs --project=type-fest --only-ttsc-build --no-website`
+ * - `node bench.mjs --project=type-fest --lint-only`
  * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
  */
 import { spawnSync } from "node:child_process";
@@ -1418,6 +1419,9 @@ function filterCells(cells) {
         cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
     );
   }
+  if (flags.has("--lint-only")) {
+    predicates.push(isLintComparisonCell);
+  }
   for (const filter of cellFilters) {
     predicates.push((cell) => filter.test(cell.id));
   }
@@ -1425,4 +1429,12 @@ function filterCells(cells) {
   return cells.filter((cell) =>
     predicates.some((predicate) => predicate(cell)),
   );
+}
+
+function isLintComparisonCell(cell) {
+  if (cell.branch === "legacy")
+    return cell.op === "noEmit" || cell.op === "eslint";
+  if (cell.branch === "ttsc")
+    return cell.op === "noEmit" && cell.tool !== "tsgo";
+  return cell.branch === "ttsc-lint" && cell.op === "noEmit";
 }
