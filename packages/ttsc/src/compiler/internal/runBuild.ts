@@ -1,13 +1,15 @@
 import path from "node:path";
 
-import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
+import {
+  hasProjectPluginEntries,
+  loadProjectPlugins,
+} from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { resolveProjectConfig } from "./project/resolveProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import {
@@ -149,30 +151,22 @@ export function runBuild(
     };
   }
 
-  if (
-    options.emit !== false &&
-    options.skipDiagnosticsCheck !== true &&
-    !forwardsTerminalTsgoFlag(options)
-  ) {
-    const checked = runTsgo(execution, ["--noEmit"], options);
-    if (checked.status !== 0) {
-      return checked;
-    }
-  }
-
   const args = createTsgoBuildArgs(execution, options, {
     listEmittedFiles:
       options.emit !== false && options.forceListEmittedFiles === true,
+    noEmitOnError:
+      options.emit !== false &&
+      options.skipDiagnosticsCheck !== true &&
+      !forwardsTerminalTsgoFlag(options),
   });
   return runTsgoBuild(execution, options, args);
 }
 
 /**
  * Tsgo CLI flags that make `tsgo` print something and exit instead of building
- * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc normally runs a
- * `--noEmit` type-check pass before the emit pass; when one of these is
- * forwarded, both passes would run `tsgo` and the output would print twice, so
- * the pre-check is skipped and only one `tsgo` invocation remains.
+ * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc must not add
+ * build-only guard flags around these because the forwarded flag asks tsgo to
+ * print something and exit instead of compiling the project.
  */
 const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = new Set([
   "--help",
@@ -187,8 +181,8 @@ const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Report whether the caller forwarded a print-and-exit tsgo flag, so the
- * pre-emit type-check pass can be skipped to avoid running it twice.
+ * Report whether the caller forwarded a print-and-exit tsgo flag, so ttsc can
+ * avoid adding compile-only flags to a command that is not going to compile.
  */
 function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
   return (
@@ -307,7 +301,7 @@ function runTsgoBuild(
 function createTsgoBuildArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
   options: NonNullable<Parameters<typeof runBuild>[0]>,
-  flags: { listEmittedFiles: boolean },
+  flags: { listEmittedFiles: boolean; noEmitOnError?: boolean },
 ): string[] {
   const args = ["-p", execution.tsconfig];
   if (options.emit === true) {
@@ -327,6 +321,9 @@ function createTsgoBuildArgs(
   args.push(...createTsgoDiagnosticArgs(options));
   args.push(...createTsgoThreadingArgs(options));
   args.push(...(options.passthrough ?? []));
+  if (flags.noEmitOnError === true) {
+    args.push("--noEmitOnError");
+  }
   return args;
 }
 
@@ -565,41 +562,32 @@ function resolveExecutionContext(
   options: TtscCommonOptions & { emit?: boolean; tsconfig?: string },
 ) {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const tsconfig = resolveProjectConfig({
+  const project = readProjectConfig({
     cwd,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  const projectRoot = options.projectRoot
-    ? path.resolve(cwd, options.projectRoot)
-    : path.dirname(tsconfig);
-  let emitProject;
-  if (options.emit === true) {
-    try {
-      emitProject = readProjectConfig({
-        cwd,
-        projectRoot: options.projectRoot,
-        tsconfig,
-      });
-    } catch {
-      emitProject = undefined;
-    }
-  }
+  const tsconfig = project.path;
+  const projectRoot = project.root;
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
-  const fallbackBinary = resolveBinary(options);
-  const loaded = loadProjectPlugins({
-    binary: fallbackBinary ?? "",
-    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
-    cwd,
-    entries: options.plugins,
-    projectRoot,
-    tsconfig,
-  });
+  const hasPlugins = hasProjectPluginEntries(project, options.plugins);
+  const loaded = hasPlugins
+    ? loadProjectPlugins({
+        binary: resolveBinary(options) ?? "",
+        cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+        cwd,
+        entries: options.plugins,
+        projectRoot,
+        tsconfig,
+      })
+    : { nativePlugins: [] };
   return {
     cwd,
     nativePlugins: loaded.nativePlugins,
     projectRoot,
     rewriteRelativeImportExtensionsForEmit:
-      emitProject?.compilerOptions.allowImportingTsExtensions === true,
+      options.emit === true &&
+      project.compilerOptions.allowImportingTsExtensions === true,
     tsgo,
     tsconfig,
   };
