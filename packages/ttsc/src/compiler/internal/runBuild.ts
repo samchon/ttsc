@@ -19,6 +19,11 @@ import {
 } from "./sharedHostHelpers";
 import { outputText, spawnNative } from "./spawnNative";
 
+type RunBuildOptions = TtscBuildOptions & {
+  skipDiagnosticsCheck?: boolean;
+  forceListEmittedFiles?: boolean;
+};
+
 /**
  * Merge extra environment variables over `process.env`, always injecting
  * `TTSC_NODE_BINARY` so child processes can re-invoke the same Node.js binary
@@ -64,12 +69,7 @@ function nativePluginEnv(
  * Run `ttsc` against a tsconfig. Returns once the binary exits so the CLI can
  * decide how to surface diagnostics. Does not throw on non-zero exit.
  */
-export function runBuild(
-  options: TtscBuildOptions & {
-    skipDiagnosticsCheck?: boolean;
-    forceListEmittedFiles?: boolean;
-  } = {},
-): TtscBuildResult {
+export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
   const execution = resolveExecutionContext(options);
   const buildOptions = applyProjectNoEmit(options, execution);
   if (execution.nativePlugins.length > 0) {
@@ -170,10 +170,10 @@ export function runBuild(
  * before composing tsgo/native-host arguments so ttsc does not add emit-only
  * guards around projects that cannot emit.
  */
-function applyProjectNoEmit<T extends TtscBuildOptions>(
-  options: T,
+function applyProjectNoEmit(
+  options: RunBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
-): T {
+): RunBuildOptions {
   if (options.emit !== undefined || execution.projectNoEmit !== true) {
     return options;
   }
@@ -235,7 +235,7 @@ function buildWithNativeCompilerPlugins(
 function runTsgo(
   execution: ReturnType<typeof resolveExecutionContext>,
   extraArgs: readonly string[],
-  options: NonNullable<Parameters<typeof runBuild>[0]>,
+  options: RunBuildOptions,
 ): TtscBuildResult {
   const res = spawnNative(
     execution.tsgo.binary,
@@ -278,7 +278,7 @@ function runTsgo(
  */
 function runTsgoBuild(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: NonNullable<Parameters<typeof runBuild>[0]>,
+  options: RunBuildOptions,
   args: readonly string[],
 ): TtscBuildResult {
   const res = spawnNative(execution.tsgo.binary, args, {
@@ -318,7 +318,7 @@ function runTsgoBuild(
 /** Build the argument list for a direct `tsgo` build invocation. */
 function createTsgoBuildArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: NonNullable<Parameters<typeof runBuild>[0]>,
+  options: RunBuildOptions,
   flags: { listEmittedFiles: boolean; noEmitOnError?: boolean },
 ): string[] {
   const args = ["-p", execution.tsconfig];

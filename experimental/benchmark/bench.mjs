@@ -13,11 +13,12 @@
  *
  * Useful modes:
  *
- * node bench.mjs --setup-only
- * node bench.mjs --verify-only
- * node bench.mjs --project vue --project type-fest
- * node bench.mjs --project=type-fest --ttsc-build-only --fresh
- * node bench.mjs --cell-filter=':ttsc:build:' vue type-fest
+ * - `node bench.mjs --setup-only`
+ * - `node bench.mjs --verify-only`
+ * - `node bench.mjs --project vue --project type-fest`
+ * - `node bench.mjs --project=type-fest --ttsc-build-only --fresh`
+ * - `node bench.mjs --project=type-fest --only-ttsc-build --fresh`
+ * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -290,7 +291,8 @@ function parseCliArgs(args) {
       parsedCellFilters.push(new RegExp(value));
     } else if (arg.startsWith("--cell-filter=")) {
       const value = arg.slice("--cell-filter=".length);
-      if (!value) throw new Error("--cell-filter requires a regular expression");
+      if (!value)
+        throw new Error("--cell-filter requires a regular expression");
       parsedCellFilters.push(new RegExp(value));
     } else if (arg.startsWith("--")) {
       parsedFlags.add(arg);
@@ -1236,7 +1238,7 @@ function projectCells(project) {
 
 function filterCells(cells) {
   const predicates = [];
-  if (flags.has("--ttsc-build-only")) {
+  if (flags.has("--ttsc-build-only") || flags.has("--only-ttsc-build")) {
     predicates.push(
       (cell) =>
         cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
@@ -1246,5 +1248,7 @@ function filterCells(cells) {
     predicates.push((cell) => filter.test(cell.id));
   }
   if (predicates.length === 0) return cells;
-  return cells.filter((cell) => predicates.some((predicate) => predicate(cell)));
+  return cells.filter((cell) =>
+    predicates.some((predicate) => predicate(cell)),
+  );
 }
