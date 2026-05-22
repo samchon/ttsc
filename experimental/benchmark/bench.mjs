@@ -967,15 +967,15 @@ function toolFor(branch, op, tool) {
 
 function measureProject(project, report) {
   const projectReport = ensureProjectReport(report, project);
-  const done = new Set(projectReport.measurements.map((m) => m.id));
   for (const cell of projectCells(project)) {
-    if (done.has(cell.id)) {
-      process.stdout.write(`\n[${cell.id}] already measured; skipping\n`);
-      continue;
-    }
+    const existingIndex = projectReport.measurements.findIndex(
+      (measurement) => measurement.id === cell.id,
+    );
+    if (existingIndex !== -1)
+      process.stdout.write(`\n[${cell.id}] refreshing existing measurement\n`);
     const measurement = measureCell(cell);
-    projectReport.measurements.push(measurement);
-    done.add(cell.id);
+    if (existingIndex === -1) projectReport.measurements.push(measurement);
+    else projectReport.measurements.splice(existingIndex, 1, measurement);
     writeReports(report, { publishWebsite: true });
   }
 }
