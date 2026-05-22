@@ -725,7 +725,7 @@ function lintRowsForProject(
       ],
     });
 
-  for (const threading of ["single", "multi"] as const) {
+  for (const threading of ["multi", "single"] as const) {
     const total = findTtscLintTotal(measurements, op, threading);
     const plainTtsc = findMeasured(measurements, {
       branch: "ttsc",
@@ -743,8 +743,8 @@ function lintRowsForProject(
       threading,
       label:
         threading === "single"
-          ? "ttsc --singleThreaded + @ttsc/lint"
-          : "ttsc + @ttsc/lint",
+          ? "ttsc + @ttsc/lint (ST)"
+          : "ttsc + @ttsc/lint (MT)",
       totalMs: total.medianMs,
       eslintMs: eslint?.medianMs,
       lintOverheadMs,
