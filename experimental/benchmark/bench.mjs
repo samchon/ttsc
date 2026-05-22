@@ -26,10 +26,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+const { cellFilters, flags, projectArgs, positional } = parseCliArgs(
+  process.argv.slice(2),
+);
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
 const WORK =
   process.env.TTSC_BENCH_WORK ?? path.resolve(import.meta.dirname, ".work");
-const TGZ = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
+const TGZ =
+  process.env.TTSC_BENCH_TGZ ??
+  path.join(
+    os.tmpdir(),
+    flags.has("--no-pack") ? "ttsc-tgz" : `ttsc-tgz-${process.pid}`,
+  );
 const OUT =
   process.env.TTSC_BENCH_OUT ??
   path.resolve(import.meta.dirname, ".work", "report.md");
@@ -75,10 +83,6 @@ const LOCAL_TARBALLS = [
     name: PLATFORM_PACKAGE,
   },
 ];
-
-const { cellFilters, flags, projectArgs, positional } = parseCliArgs(
-  process.argv.slice(2),
-);
 
 const PACKAGE_CONFIGS = {
   vue: {
