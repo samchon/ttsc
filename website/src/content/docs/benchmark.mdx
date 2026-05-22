@@ -45,6 +45,10 @@ comparable command for that tool.
 - **Type-check**: `tsc --noEmit` versus `ttsc --noEmit`.
 - **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
   `eslint` time versus the measured `@ttsc/lint` overhead.
+- **Format**: legacy `prettier --check` versus `ttsc format`, measured for both
+  multi-threaded and single-threaded variants of `ttsc format`. The fixture
+  source is expected to be pre-formatted so each cell measures the
+  no-op steady-state cost rather than the first-edit-apply pass.
 
 ## Reproduce
 

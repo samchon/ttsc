@@ -10,7 +10,7 @@ import type {
   BenchmarkReport,
 } from "./types";
 
-type BenchmarkTab = "summary" | "build" | "check" | "lint";
+type BenchmarkTab = "summary" | "build" | "check" | "lint" | "format";
 type Operation = "build" | "noEmit";
 type Threading = "single" | "multi";
 
@@ -19,6 +19,7 @@ const TABS: { id: BenchmarkTab; label: string }[] = [
   { id: "build", label: "Build" },
   { id: "check", label: "Type-check" },
   { id: "lint", label: "Lint" },
+  { id: "format", label: "Format" },
 ];
 
 const panelClass =
@@ -121,6 +122,7 @@ export default function BenchmarkDashboard() {
         />
       ) : null}
       {activeTab === "lint" ? <LintTab report={report} /> : null}
+      {activeTab === "format" ? <FormatTab report={report} /> : null}
     </div>
   );
 }
@@ -868,6 +870,113 @@ function findLegacyEslint(
         measurement.medianMs > 0,
     )
   );
+}
+
+function FormatTab({ report }: { report: BenchmarkReport }) {
+  const projects = report.projects.filter(hasComparableFormat);
+
+  return (
+    <section className={panelClass}>
+      <TableHeader
+        title="Format Tool Matrix"
+        description="Prettier (legacy) vs ttsc format (ttsc-lint), multi-threaded and single-threaded variants."
+        suffix={`${projects.length.toLocaleString()} projects`}
+      />
+      <div className="divide-y divide-[#252b36]">
+        {projects.length > 0 ? (
+          projects.map((project) => (
+            <ProjectFormatRows
+              key={`${project.name}:format`}
+              project={project}
+            />
+          ))
+        ) : (
+          <p className="px-4 py-4 text-[12px] text-neutral-500">
+            No comparable format measurements recorded for this view.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
+  const rows = formatRowsForProject(project);
+  const baseline = rows.find((row) => row.baseline);
+  const maxMs = Math.max(
+    1,
+    ...rows.map((row) => row.measurement.medianMs).filter((ms) => ms > 0),
+  );
+
+  if (!baseline || rows.length <= 1) return null;
+
+  return (
+    <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
+      <ProjectLabel
+        project={project}
+        baselineMs={baseline.measurement.medianMs}
+      />
+      <div className="space-y-1.5">
+        {rows.map((row) => (
+          <DurationBar
+            key={`${project.name}:format:${row.label}`}
+            label={row.label}
+            ms={row.measurement.medianMs}
+            maxMs={maxMs}
+            color={row.color}
+            ratio={
+              row.baseline
+                ? "baseline"
+                : formatMultiplier(
+                    baseline.measurement.medianMs / row.measurement.medianMs,
+                  )
+            }
+            baseline={row.baseline}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatRowsForProject(project: BenchmarkProject): OperationRow[] {
+  const rows: OperationRow[] = [];
+  const measurements = project.measurements;
+  const prettier = measurements.find(
+    (m) =>
+      m.branch === "legacy" &&
+      m.op === "format" &&
+      m.threading === "multi" &&
+      m.medianMs > 0,
+  );
+  if (prettier)
+    rows.push({
+      label: "prettier --check",
+      measurement: prettier,
+      color: "bg-amber-500",
+      baseline: true,
+    });
+  for (const threading of ["multi", "single"] as const) {
+    const ttscFormat = measurements.find(
+      (m) =>
+        m.branch === "ttsc-lint" &&
+        m.op === "format" &&
+        m.threading === threading &&
+        m.medianMs > 0,
+    );
+    if (ttscFormat)
+      rows.push({
+        label: `ttsc format${threading === "single" ? " --singleThreaded" : ""}`,
+        measurement: ttscFormat,
+        color: threading === "single" ? "bg-cyan-600" : "bg-cyan-400",
+      });
+  }
+  return rows;
+}
+
+function hasComparableFormat(project: BenchmarkProject): boolean {
+  const rows = formatRowsForProject(project);
+  return rows.some((row) => row.baseline) && rows.some((row) => !row.baseline);
 }
 
 function findTtscLintTotal(
