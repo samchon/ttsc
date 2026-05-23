@@ -127,12 +127,19 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
+  // AddComma honors `format.trailingComma`: call / new argument lists
+  // accepted trailing commas only in ES2017+, so Prettier's "es5" and
+  // "none" modes skip them here. Hardcoding `true` would oscillate
+  // against Prettier on every cascade pass on any project configured
+  // with "es5" (rxjs hit this on ajax.ts and several operators / testing
+  // helpers — the rule said "no comma needed" while the printer added
+  // one back on its own reflow).
   shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
     Items:    items,
     Space:    false,
-    AddComma: true,
+    AddComma: ctx.allowsCallArgumentTrailingComma(),
     HugLast:  shouldHugLastArgument(list.Nodes),
   }
   return printList(ctx, shape), covered

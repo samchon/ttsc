@@ -90,7 +90,14 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   out["format/trailing-comma"] = ruleEntry(map[string]any{"mode": tcMode})
 
   // format/print-width
-  pwOpts := map[string]any{}
+  //
+  // `trailingComma` is mirrored into the print-width rule's options so
+  // the printer's broken-list reflow emits the same trailing-comma
+  // shape `format/trailing-comma` does. Without the mirror the two
+  // rules disagree on `es5` / `none` projects and oscillate on every
+  // cascade pass — the trailing-comma rule says "no comma" while the
+  // printer adds one back. See `printArgList` in print_nodes_call.go.
+  pwOpts := map[string]any{"trailingComma": tcMode}
   if v, ok := raw["printWidth"]; ok {
     n, err := asInt("format.printWidth", v)
     if err != nil {

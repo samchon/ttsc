@@ -21,7 +21,9 @@ import (
   "encoding/json"
   "fmt"
   "os"
+  "runtime"
   "sort"
+  "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
@@ -250,6 +252,27 @@ type Engine struct {
   enabled          map[string]Severity
   unknown          []string
   needsTypeChecker bool
+  serial           bool
+}
+
+// SetSerial forces Engine.Run to walk files one at a time. The host calls
+// this when `--singleThreaded` reaches the lint sidecar so the benchmark
+// (and any caller that wants a deterministic, low-overhead pass) can opt
+// out of file-level parallelism. Type-aware rule sets always run serial
+// regardless of this flag — the single shared checker is not concurrent —
+// so callers do not need to clear it themselves.
+func (e *Engine) SetSerial(serial bool) {
+  if e == nil {
+    return
+  }
+  e.serial = serial
+}
+
+// runsSerial reports whether Run must walk files one at a time — either
+// because the caller asked for it or because a type-aware rule pins the
+// engine to the shared single checker.
+func (e *Engine) runsSerial() bool {
+  return e == nil || e.serial || e.needsTypeChecker
 }
 
 // NewEngine returns an engine configured for `config`. Rules whose
@@ -310,15 +333,56 @@ func (e *Engine) NeedsTypeChecker() bool {
 // tests + introspection.
 func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 
-// Run walks every non-declaration source file in the program and
-// returns the collected findings.
+// Run walks every non-declaration source file in the program and returns
+// the collected findings. By default files are processed in parallel,
+// bounded by `runtime.NumCPU()`; the engine falls back to a serial walk
+// when SetSerial(true) was called or when a type-aware rule is active.
+// Findings are merged in source-file order so the diagnostic stream is
+// deterministic across runs even when the per-file work happens out of
+// order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
-  var findings []*Finding
-  for _, file := range files {
+  if e.runsSerial() {
+    var findings []*Finding
+    for _, file := range files {
+      if file == nil || file.IsDeclarationFile {
+        continue
+      }
+      findings = append(findings, e.runFile(file, checker)...)
+    }
+    return findings
+  }
+
+  perFile := make([][]*Finding, len(files))
+  var wg sync.WaitGroup
+  workers := runtime.NumCPU()
+  if workers < 1 {
+    workers = 1
+  }
+  sem := make(chan struct{}, workers)
+  for i, file := range files {
     if file == nil || file.IsDeclarationFile {
       continue
     }
-    findings = append(findings, e.runFile(file, checker)...)
+    wg.Add(1)
+    sem <- struct{}{}
+    go func(idx int, f *shimast.SourceFile) {
+      defer wg.Done()
+      defer func() { <-sem }()
+      perFile[idx] = e.runFile(f, checker)
+    }(i, file)
+  }
+  wg.Wait()
+
+  total := 0
+  for _, fs := range perFile {
+    total += len(fs)
+  }
+  if total == 0 {
+    return nil
+  }
+  findings := make([]*Finding, 0, total)
+  for _, fs := range perFile {
+    findings = append(findings, fs...)
   }
   return findings
 }

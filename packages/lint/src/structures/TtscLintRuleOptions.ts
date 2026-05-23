@@ -99,6 +99,21 @@ export interface ITtscLintPrintWidthRuleOptions {
    * @default "lf"
    */
   endOfLine?: "lf" | "crlf";
+
+  /**
+   * Trailing-comma policy the reflow honors when it breaks a list across
+   * lines. Mirrors prettier's `trailingComma` and must match the
+   * `format/trailing-comma` rule's `mode`; otherwise the two rules
+   * disagree on every cascade pass and oscillate against each other.
+   *
+   * When a `format` block is configured, `format.trailingComma` is mirrored
+   * into this option automatically. Set it directly only when overriding
+   * the print-width rule via a `rules` tuple — see the conflict-resolution
+   * notes in the README.
+   *
+   * @default "all"
+   */
+  trailingComma?: "all" | "es5" | "none";
 }
 
 /** `format/jsdoc` rule options. */

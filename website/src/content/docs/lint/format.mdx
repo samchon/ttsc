@@ -111,7 +111,7 @@ Driven by `format.printWidth`, `format.tabWidth`, `format.useTabs`, `format.endO
 For each list-shaped expression in the file (object literals, array literals, function arguments, named imports, named exports, …), the rule considers two layouts:
 
 - **Flat** — one line, no internal breaks.
-- **Broken** — opening punctuator on the head line, one entry per indented line, closing punctuator on its own line, trailing comma.
+- **Broken** — opening punctuator on the head line, one entry per indented line, closing punctuator on its own line. The trailing comma on the last entry honors `format.trailingComma`: `"all"` keeps one on every list, `"es5"` keeps one on arrays / objects / named imports / exports but not on call or `new` argument lists, and `"none"` drops it everywhere. The setting flows into the reflow automatically.
 
 It measures the flat form. If flat fits within `printWidth` (counting the column where the node starts), the flat layout is kept. If it doesn't fit, the broken layout is emitted.
 
@@ -128,6 +128,8 @@ const user = {
 ```
 
 When the rule can't reflow a node (a shape it doesn't recognize, or a comment sits inside it), it abstains — no edits applied, original bytes pass through verbatim.
+
+Trailing `//` line comments do not count against the budget. A line comment runs to the end of the source line by definition, so a node whose only overflow is its trailing comment stays flat — matching Prettier's behavior. The un-movable punctuation suffix (`;`, `) {`, `,`) is still charged.
 
 #### What it reflows
 

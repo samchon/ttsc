@@ -1561,19 +1561,111 @@ func normalizeGlobPattern(pattern string) string {
 // matchGlob tests whether `name` matches `pattern` using the ESLint-compatible
 // glob semantics implemented by matchGlobParts. Both strings are trimmed of
 // leading/trailing slashes before splitting on "/" so that empty segments do
-// not appear in the part slices.
+// not appear in the part slices. Brace alternatives (`{a,b,c}`) are expanded
+// before matching so patterns like `src/foo/{a.ts,b.ts}` reach every branch —
+// Go's `filepath.Match` does not honor brace expansion natively.
 func matchGlob(pattern, name string) bool {
   pattern = strings.Trim(pattern, "/")
   name = strings.Trim(name, "/")
   if pattern == "" {
     return name == ""
   }
-  patternParts := strings.Split(pattern, "/")
   nameParts := []string{}
   if name != "" {
     nameParts = strings.Split(name, "/")
   }
-  return matchGlobParts(patternParts, nameParts)
+  for _, expanded := range expandBraces(pattern) {
+    if matchGlobParts(strings.Split(expanded, "/"), nameParts) {
+      return true
+    }
+  }
+  return false
+}
+
+// expandBraces expands shell-style brace alternatives (`{a,b,c}`) in `pattern`
+// into the equivalent flat list of patterns. The expansion is recursive: a
+// pattern with multiple brace groups produces the Cartesian product across all
+// groups. Patterns with no braces, or with an unmatched opening `{`, are
+// returned unchanged so that callers can treat the result as an authoritative
+// list of every concrete alternative the user wrote.
+//
+// Only top-level braces are recognized; nested braces inside another brace
+// group's alternative are honored by the recursion in alternative expansion,
+// but escaped braces (`\{`, `\}`) are not currently supported because lint
+// config patterns have no reason to embed literal braces. If a user ever needs
+// one, the simplest workaround is to author the glob without the brace group.
+func expandBraces(pattern string) []string {
+  open := strings.IndexByte(pattern, '{')
+  if open < 0 {
+    return []string{pattern}
+  }
+  // Find the matching close brace, accounting for nested groups so the
+  // outermost group is split first. A pattern with no matching close brace
+  // is treated as a literal — return it unchanged. `closeIdx` shadows no
+  // builtin (unlike the natural `close` name), which keeps `go vet` quiet.
+  depth := 0
+  closeIdx := -1
+  for i := open; i < len(pattern); i++ {
+    switch pattern[i] {
+    case '{':
+      depth++
+    case '}':
+      depth--
+      if depth == 0 {
+        closeIdx = i
+      }
+    }
+    if closeIdx >= 0 {
+      break
+    }
+  }
+  if closeIdx < 0 {
+    return []string{pattern}
+  }
+  prefix := pattern[:open]
+  suffix := pattern[closeIdx+1:]
+  // Split the brace body on top-level commas so nested groups remain
+  // intact for the recursive expansion below.
+  body := pattern[open+1 : closeIdx]
+  alternatives := splitBraceAlternatives(body)
+  // Expand each alternative against the suffix; the suffix may itself
+  // contain further brace groups, which the recursive call handles.
+  suffixExpansions := expandBraces(suffix)
+  out := make([]string, 0, len(alternatives)*len(suffixExpansions))
+  for _, alt := range alternatives {
+    for _, altExpanded := range expandBraces(alt) {
+      for _, suf := range suffixExpansions {
+        out = append(out, prefix+altExpanded+suf)
+      }
+    }
+  }
+  return out
+}
+
+// splitBraceAlternatives splits the body of a brace group on top-level commas.
+// Commas inside a nested `{...}` are not separators — the matching close brace
+// is tracked so `a,{b,c},d` splits into three alternatives, not four.
+func splitBraceAlternatives(body string) []string {
+  out := []string{}
+  depth := 0
+  start := 0
+  for i := 0; i < len(body); i++ {
+    switch body[i] {
+    case '{':
+      depth++
+    case '}':
+      if depth > 0 {
+        depth--
+      }
+    case ',':
+      if depth == 0 {
+        out = append(out, body[start:i])
+        start = i + 1
+      }
+    }
+  }
+  out = append(out, body[start:])
+  return out
 }
 
 // matchGlobParts recursively matches path segments against pattern segments.

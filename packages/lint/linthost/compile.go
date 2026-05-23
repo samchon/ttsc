@@ -95,6 +95,7 @@ func RunTransform(args []string) int {
     return 2
   }
   engine := NewEngineWithResolver(rules)
+  engine.SetSerial(*singleThreaded)
 
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
     forceEmit:        true,
@@ -267,6 +268,7 @@ func runProject(opts *subcommandOpts) int {
     return 2
   }
   engine := NewEngineWithResolver(rules)
+  engine.SetSerial(opts.singleThreaded)
 
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceEmit:        opts.emit,

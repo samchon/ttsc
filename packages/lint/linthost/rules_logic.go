@@ -5,7 +5,10 @@
 // AST-only, no scope analysis.
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
 
 // no-extra-boolean-cast: `if (!!x)`, `if (Boolean(x))`, `Boolean(!!x)` —
 // the conversion is implicit in a boolean context.
@@ -26,9 +29,43 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if identifierText(call.Expression) != "Boolean" {
       return
     }
-    if isInBooleanContext(node) {
-      ctx.Report(node, "Redundant Boolean call.")
+    if call.QuestionDotToken != nil {
+      return
     }
+    if !isInBooleanContext(node) {
+      return
+    }
+    message := "Redundant Boolean call."
+    // Only autofix when there is exactly one positional argument: zero
+    // arguments produce `undefined → false`, and multi-arg calls signal the
+    // author may be passing through an unrelated value as the second slot.
+    // Spread arguments hide the runtime shape, so skip those as well.
+    if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+      ctx.Report(node, message)
+      return
+    }
+    arg := call.Arguments.Nodes[0]
+    if arg == nil || arg.Kind == shimast.KindSpreadElement {
+      ctx.Report(node, message)
+      return
+    }
+    src := ctx.File.Text()
+    argStart := shimscanner.SkipTrivia(src, arg.Pos())
+    argEnd := arg.End()
+    if argStart < 0 || argStart >= argEnd || argEnd > len(src) {
+      ctx.Report(node, message)
+      return
+    }
+    editPos := shimscanner.SkipTrivia(src, node.Pos())
+    if editPos < 0 || editPos >= node.End() {
+      ctx.Report(node, message)
+      return
+    }
+    ctx.ReportFix(
+      node,
+      message,
+      TextEdit{Pos: editPos, End: node.End(), Text: src[argStart:argEnd]},
+    )
   case shimast.KindPrefixUnaryExpression:
     outer := node.AsPrefixUnaryExpression()
     if outer == nil || outer.Operator != shimast.KindExclamationToken {
@@ -42,9 +79,31 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if inner == nil || inner.Operator != shimast.KindExclamationToken {
       return
     }
-    if isInBooleanContext(node) {
-      ctx.Report(node, "Redundant double negation.")
+    if !isInBooleanContext(node) {
+      return
     }
+    message := "Redundant double negation."
+    if inner.Operand == nil {
+      ctx.Report(node, message)
+      return
+    }
+    src := ctx.File.Text()
+    inStart := shimscanner.SkipTrivia(src, inner.Operand.Pos())
+    inEnd := inner.Operand.End()
+    if inStart < 0 || inStart >= inEnd || inEnd > len(src) {
+      ctx.Report(node, message)
+      return
+    }
+    editPos := shimscanner.SkipTrivia(src, node.Pos())
+    if editPos < 0 || editPos >= node.End() {
+      ctx.Report(node, message)
+      return
+    }
+    ctx.ReportFix(
+      node,
+      message,
+      TextEdit{Pos: editPos, End: node.End(), Text: src[inStart:inEnd]},
+    )
   }
 }
 

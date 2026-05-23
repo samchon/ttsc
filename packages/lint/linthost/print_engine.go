@@ -63,6 +63,21 @@ import "strings"
 // makes the close brace of a reflowed list land at `BaseIndent`
 // while its children sit at `BaseIndent + indentUnit`.
 //
+// TrailingComma mirrors Prettier's `trailingComma` setting and controls
+// which broken-list shapes the printer emits a trailing comma on:
+//
+//   - "all"  (default)  every multi-line list gets one.
+//   - "es5"             arrays, objects, named imports / exports get one;
+//                       call arguments, parameter lists, and type-level
+//                       lists do not — those positions accepted trailing
+//                       commas only in ES2017+, so es5 mode skips them
+//                       to match Prettier and avoid oscillating against
+//                       the formatter on every cascade pass.
+//   - "none"            no list gets one.
+//
+// An empty string is treated as "all", which keeps `DefaultPrintOptions()`
+// callers and tests that pre-date this field on their original behavior.
+//
 // Defaults of 0 keep the engine usable for top-of-file reflow without
 // a wrapper.
 type PrintOptions struct {
@@ -70,14 +85,17 @@ type PrintOptions struct {
   TabWidth       int
   UseTabs        bool
   EndOfLine      string
+  TrailingComma  string
   StartingColumn int
   BaseIndent     int
 }
 
 // DefaultPrintOptions returns the Prettier defaults: 80-column lines,
-// 2-space indentation, LF line terminators.
+// 2-space indentation, LF line terminators, trailing commas on every
+// multi-line list (the `trailingComma: "all"` default Prettier adopted
+// in v2).
 func DefaultPrintOptions() PrintOptions {
-  return PrintOptions{PrintWidth: 80, TabWidth: 2, UseTabs: false, EndOfLine: "lf"}
+  return PrintOptions{PrintWidth: 80, TabWidth: 2, UseTabs: false, EndOfLine: "lf", TrailingComma: "all"}
 }
 
 // printMode is the per-group choice made by the fit measurement.

@@ -44,6 +44,7 @@ func runFix(opts *subcommandOpts) int {
     return 2
   }
   engine := NewEngineWithResolver(rules)
+  engine.SetSerial(opts.singleThreaded)
   needsRuleChecker := engine.NeedsTypeChecker()
 
   prog, code := loadFixProgram(opts, needsRuleChecker)

@@ -10,7 +10,7 @@ import type {
   BenchmarkReport,
 } from "./types";
 
-type BenchmarkTab = "summary" | "build" | "check" | "lint";
+type BenchmarkTab = "summary" | "build" | "check" | "lint" | "format";
 type Operation = "build" | "noEmit";
 type Threading = "single" | "multi";
 
@@ -19,6 +19,7 @@ const TABS: { id: BenchmarkTab; label: string }[] = [
   { id: "build", label: "Build" },
   { id: "check", label: "Type-check" },
   { id: "lint", label: "Lint" },
+  { id: "format", label: "Format" },
 ];
 
 const panelClass =
@@ -121,6 +122,7 @@ export default function BenchmarkDashboard() {
         />
       ) : null}
       {activeTab === "lint" ? <LintTab report={report} /> : null}
+      {activeTab === "format" ? <FormatTab report={report} /> : null}
     </div>
   );
 }
@@ -233,7 +235,11 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
             />
           ) : null}
           {lint ? (
-            <ProjectLintRows project={lint.project} op="noEmit" title="Lint" />
+            <ProjectLintRows
+              project={lint.project}
+              op="noEmit"
+              title="Type-check + lint"
+            />
           ) : null}
         </div>
       </section>
@@ -338,7 +344,7 @@ function LintTab({ report }: { report: BenchmarkReport }) {
   return (
     <LintMatrix
       title="Lint Tool Matrix"
-      description="ESLint is measured directly; @ttsc/lint is the extra time over plain ttsc for the same noEmit pass."
+      description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
       projects={projects}
       op="noEmit"
     />
@@ -411,10 +417,9 @@ function ProjectLintRows({
             label={row.label}
             totalMs={row.totalMs}
             maxMs={maxMs}
-            ratio={
-              row.baseline
-                ? "baseline"
-                : formatMultiplier(baseline.totalMs / row.totalMs)
+            ratio={row.baseline ? "baseline" : undefined}
+            lintRatio={
+              row.baseline ? undefined : lintRatioParts(baseline.totalMs, row)
             }
             baseline={row.baseline}
             segments={row.segments}
@@ -506,6 +511,7 @@ function StackedDurationBar({
   totalMs,
   maxMs,
   ratio,
+  lintRatio,
   baseline,
   segments,
 }: {
@@ -513,6 +519,7 @@ function StackedDurationBar({
   totalMs: number;
   maxMs: number;
   ratio?: string;
+  lintRatio?: LintRatioParts;
   baseline?: boolean;
   segments: { label: string; ms: number; color: string }[];
 }) {
@@ -529,13 +536,18 @@ function StackedDurationBar({
         </p>
         <div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px]">
           <span className="text-neutral-400">{formatDuration(totalMs)}</span>
-          <span
-            className={
-              baseline ? "text-neutral-500" : "font-semibold text-emerald-300"
-            }
-          >
-            {ratio}
-          </span>
+          {lintRatio ? (
+            <>
+              <span className="font-semibold text-sky-300">
+                {lintRatio.total}
+              </span>
+              <span className="font-semibold text-emerald-300">
+                {lintRatio.lint}
+              </span>
+            </>
+          ) : (
+            <span className="text-neutral-500">{ratio}</span>
+          )}
         </div>
       </div>
       <p className="mb-1.5 break-words font-mono text-[10px] text-neutral-500">
@@ -616,6 +628,14 @@ interface LintRow {
   totalMs: number;
   segments: LintSegment[];
   baseline?: boolean;
+  eslintMs?: number;
+  lintOverheadMs?: number;
+  lintFactor?: number;
+}
+
+interface LintRatioParts {
+  total: string;
+  lint: string;
 }
 
 interface Winner {
@@ -669,17 +689,25 @@ function lintRowsForProject(
 ): LintRow[] {
   const measurements = project.measurements;
   const rows: LintRow[] = [];
+  const tsc = findMeasured(measurements, {
+    branch: "legacy",
+    tool: "tsc",
+    op,
+    threading: "multi",
+  });
   const eslint = findLegacyEslint(measurements, op);
 
-  if (eslint)
+  if (tsc && eslint)
     rows.push({
       project,
       op,
       threading: "multi",
-      label: "ESLint",
-      totalMs: eslint.medianMs,
+      label: "tsc + eslint",
+      totalMs: tsc.medianMs + eslint.medianMs,
       baseline: true,
+      eslintMs: eslint.medianMs,
       segments: [
+        { label: "tsc", ms: tsc.medianMs, color: "bg-neutral-500" },
         { label: "ESLint", ms: eslint.medianMs, color: "bg-amber-500" },
       ],
     });
@@ -695,14 +723,27 @@ function lintRowsForProject(
     if (!total || !plainTtsc) continue;
 
     const rawLintOverheadMs = total.medianMs - plainTtsc.medianMs;
+    const ttscMs = Math.min(plainTtsc.medianMs, total.medianMs);
     const lintOverheadMs = Math.max(0, rawLintOverheadMs);
     rows.push({
       project,
       op,
       threading,
-      label: threading === "single" ? "@ttsc/lint (ST)" : "@ttsc/lint (MT)",
-      totalMs: lintOverheadMs,
+      label:
+        threading === "single"
+          ? "ttsc + @ttsc/lint (ST)"
+          : "ttsc + @ttsc/lint (MT)",
+      totalMs: total.medianMs,
+      eslintMs: eslint?.medianMs,
+      lintOverheadMs,
+      lintFactor:
+        eslint && rawLintOverheadMs <= 0
+          ? Infinity
+          : eslint && lintOverheadMs > 0
+            ? eslint.medianMs / lintOverheadMs
+            : undefined,
       segments: [
+        { label: "ttsc", ms: ttscMs, color: "bg-cyan-500" },
         {
           label: "@ttsc/lint",
           ms: lintOverheadMs,
@@ -791,6 +832,12 @@ function bestLintProject(
   }, undefined);
 }
 
+function lintRatioParts(baselineMs: number, row: LintRow): LintRatioParts {
+  const total = formatMultiplier(baselineMs / row.totalMs);
+  const lint = `${formatMultiplier(row.lintFactor ?? 0)} lint`;
+  return { total: `${total} total`, lint };
+}
+
 function findMeasured(
   measurements: BenchmarkMeasurement[],
   options: MeasurementOptions,
@@ -823,6 +870,113 @@ function findLegacyEslint(
         measurement.medianMs > 0,
     )
   );
+}
+
+function FormatTab({ report }: { report: BenchmarkReport }) {
+  const projects = report.projects.filter(hasComparableFormat);
+
+  return (
+    <section className={panelClass}>
+      <TableHeader
+        title="Format Tool Matrix"
+        description="Prettier (legacy) vs ttsc format (ttsc-lint), multi-threaded and single-threaded variants."
+        suffix={`${projects.length.toLocaleString()} projects`}
+      />
+      <div className="divide-y divide-[#252b36]">
+        {projects.length > 0 ? (
+          projects.map((project) => (
+            <ProjectFormatRows
+              key={`${project.name}:format`}
+              project={project}
+            />
+          ))
+        ) : (
+          <p className="px-4 py-4 text-[12px] text-neutral-500">
+            No comparable format measurements recorded for this view.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
+  const rows = formatRowsForProject(project);
+  const baseline = rows.find((row) => row.baseline);
+  const maxMs = Math.max(
+    1,
+    ...rows.map((row) => row.measurement.medianMs).filter((ms) => ms > 0),
+  );
+
+  if (!baseline || rows.length <= 1) return null;
+
+  return (
+    <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
+      <ProjectLabel
+        project={project}
+        baselineMs={baseline.measurement.medianMs}
+      />
+      <div className="space-y-1.5">
+        {rows.map((row) => (
+          <DurationBar
+            key={`${project.name}:format:${row.label}`}
+            label={row.label}
+            ms={row.measurement.medianMs}
+            maxMs={maxMs}
+            color={row.color}
+            ratio={
+              row.baseline
+                ? "baseline"
+                : formatMultiplier(
+                    baseline.measurement.medianMs / row.measurement.medianMs,
+                  )
+            }
+            baseline={row.baseline}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatRowsForProject(project: BenchmarkProject): OperationRow[] {
+  const rows: OperationRow[] = [];
+  const measurements = project.measurements;
+  const prettier = measurements.find(
+    (m) =>
+      m.branch === "legacy" &&
+      m.op === "format" &&
+      m.threading === "multi" &&
+      m.medianMs > 0,
+  );
+  if (prettier)
+    rows.push({
+      label: "prettier --check",
+      measurement: prettier,
+      color: "bg-amber-500",
+      baseline: true,
+    });
+  for (const threading of ["multi", "single"] as const) {
+    const ttscFormat = measurements.find(
+      (m) =>
+        m.branch === "ttsc-lint" &&
+        m.op === "format" &&
+        m.threading === threading &&
+        m.medianMs > 0,
+    );
+    if (ttscFormat)
+      rows.push({
+        label: `ttsc format${threading === "single" ? " --singleThreaded" : ""}`,
+        measurement: ttscFormat,
+        color: threading === "single" ? "bg-cyan-600" : "bg-cyan-400",
+      });
+  }
+  return rows;
+}
+
+function hasComparableFormat(project: BenchmarkProject): boolean {
+  const rows = formatRowsForProject(project);
+  return rows.some((row) => row.baseline) && rows.some((row) => !row.baseline);
 }
 
 function findTtscLintTotal(

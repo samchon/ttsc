@@ -19,11 +19,10 @@ The Summary tab keeps only the strongest result in each category. Build and
 Type-check compare one unit of work across the legacy compiler, `ttsc` in
 single-threaded and default multi-threaded modes.
 
-Lint is intentionally isolated from type-checking. The legacy lint number is
-the ESLint command by itself. The `@ttsc/lint` number is the measured overhead
-of `ttsc-lint --noEmit` over plain `ttsc --noEmit` for the same threading mode,
-so the chart compares lint work against lint work instead of stacking compiler
-time into the bar.
+Lint is intentionally split out. The legacy path is `tsc + eslint`, two
+separate passes over the project. The `ttsc-lint` path runs `ttsc` with
+`@ttsc/lint` loaded, so the chart separates the compile portion from the extra
+lint overhead and also shows the pure lint-to-lint ratio.
 
 ## Methodology
 
@@ -44,8 +43,12 @@ comparable command for that tool.
 - **Build**: `tsc` emit on the legacy branch versus `ttsc` emit on the `ttsc`
   branch.
 - **Type-check**: `tsc --noEmit` versus `ttsc --noEmit`.
-- **Lint**: legacy `eslint` time versus the measured `@ttsc/lint` overhead
-  (`ttsc-lint --noEmit` minus plain `ttsc --noEmit`).
+- **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
+  `eslint` time versus the measured `@ttsc/lint` overhead.
+- **Format**: legacy `prettier --check` versus `ttsc format`, measured for both
+  multi-threaded and single-threaded variants of `ttsc format`. The fixture
+  source is expected to be pre-formatted so each cell measures the
+  no-op steady-state cost rather than the first-edit-apply pass.
 
 ## Reproduce
 
@@ -62,14 +65,16 @@ corepack enable
 pnpm install
 
 rm -rf experimental/benchmark/.work
-TTSC_BENCH_RUNS=1 TTSC_BENCH_WARMUP=0 node experimental/benchmark/bench.mjs
+node experimental/benchmark/bench.mjs
 ```
 
-The current published snapshot uses one measured run and no warmup per cell so
-the PR can finish in a practical time. Including local tarball packing,
-clone setup, dependency refresh, `ttsc prepare`, and all measurements, it took
-1,401 seconds, about 23 minutes 21 seconds, on the host shown in the dashboard.
-For a statistically steadier publication run, omit the two `TTSC_BENCH_*`
-environment variables to use the runner defaults. Results are written to
+The runner defaults to **5 measured runs + 1 warmup** per cell. That is the
+setting the published snapshot uses: enough samples for the median to absorb
+single-cell outliers while keeping a full matrix sweep practical on a single
+host. Override with `TTSC_BENCH_RUNS` / `TTSC_BENCH_WARMUP` when you want a
+quicker spot-check (`TTSC_BENCH_RUNS=1 TTSC_BENCH_WARMUP=0` finishes a sweep
+in roughly half an hour but every cell is one sample) or a steadier
+publication run (`TTSC_BENCH_RUNS=10` is what the prior snapshot used and
+the one this rewrite supersedes). Results are written to
 `experimental/benchmark/.work/report.md`,
 `experimental/benchmark/.work/report.json`, and `website/public/benchmark.json`.

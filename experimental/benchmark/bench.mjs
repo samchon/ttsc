@@ -53,7 +53,7 @@ const CHECKPOINT_JSON =
   process.env.TTSC_BENCH_CHECKPOINT ??
   path.resolve(WORK, "benchmark.checkpoint.json");
 
-const RUNS = numberEnv("TTSC_BENCH_RUNS", 10);
+const RUNS = numberEnv("TTSC_BENCH_RUNS", 5);
 const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
 const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
 const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
@@ -90,7 +90,11 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint . --ignore-pattern 'temp/**'"],
+      eslint: ["pnpm exec eslint 'packages/*/src/**/*.ts'"],
+      format: {
+        legacy: ["pnpm exec prettier --check 'packages/*/src/**/*.ts'"],
+        ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
+      },
     }),
   },
   rxjs: {
@@ -124,6 +128,28 @@ const PACKAGE_CONFIGS = {
           cmd: "yarn --ignore-engines exec eslint -- 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
         },
       ],
+      format: {
+        legacy: [
+          {
+            cwd: "packages/observable",
+            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+          },
+          {
+            cwd: "packages/rxjs",
+            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+          },
+        ],
+        ttscLint: [
+          {
+            cwd: "packages/observable",
+            cmd: "yarn --ignore-engines exec ttsc -- format -p tsconfig.json",
+          },
+          {
+            cwd: "packages/rxjs",
+            cmd: "yarn --ignore-engines exec ttsc -- format -p tsconfig.json",
+          },
+        ],
+      },
     }),
   },
   "type-fest": {
@@ -145,7 +171,16 @@ const PACKAGE_CONFIGS = {
           env: { NODE_OPTIONS: "--max-old-space-size=6144" },
         },
       ],
-      eslint: ["pnpm exec eslint . --quiet"],
+      eslint: ["pnpm exec eslint 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts' --quiet"],
+      format: {
+        legacy: ["pnpm exec prettier --check 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts'"],
+        ttscLint: [
+          {
+            cmd: "pnpm exec ttsc format -p tsconfig.json",
+            env: { NODE_OPTIONS: "--max-old-space-size=6144" },
+          },
+        ],
+      },
     }),
   },
   typeorm: {
@@ -162,7 +197,13 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint --quiet"],
+      eslint: ["pnpm exec eslint 'src/**/*.ts' 'test/**/*.ts' '*.ts' --quiet"],
+      format: {
+        legacy: [
+          "pnpm exec prettier --check 'src/**/*.ts' 'test/**/*.ts' '*.ts'",
+        ],
+        ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
+      },
     }),
   },
   zod: {
@@ -185,6 +226,25 @@ const PACKAGE_CONFIGS = {
         },
       ],
       eslint: ["pnpm exec eslint ."],
+      format: {
+        legacy: [
+          {
+            cwd: "packages/zod",
+            cmd:
+              "pnpm exec prettier --check 'src/**/*.ts'" +
+              " --ignore-pattern 'src/**/tests/**'" +
+              " --ignore-pattern 'src/**/benchmarks/**'" +
+              " --ignore-pattern 'src/**/*.test.ts'" +
+              " --ignore-pattern 'src/**/*.source.ts'",
+          },
+        ],
+        ttscLint: [
+          {
+            cwd: "packages/zod",
+            cmd: "pnpm exec ttsc format -p tsconfig.build.json",
+          },
+        ],
+      },
     }),
   },
   nestjs: {
@@ -219,6 +279,15 @@ const PACKAGE_CONFIGS = {
         },
       ],
       eslint: ["./node_modules/.bin/eslint src --quiet"],
+      format: {
+        legacy: ["./node_modules/.bin/prettier --check 'src/**/*.ts'"],
+        ttscLint: [
+          {
+            cmd: "./node_modules/.bin/ttsc format -p src/tsconfig.json",
+            env: { NODE_OPTIONS: "--max-old-space-size=8192" },
+          },
+        ],
+      },
     }),
   },
   "shopping-backend": {
@@ -231,7 +300,8 @@ const PACKAGE_CONFIGS = {
       legacy: {
         build: normalizeSteps(["pnpm exec tsc -p tsconfig.json"]),
         noEmit: normalizeSteps(["pnpm exec tsc -p tsconfig.json --noEmit"]),
-        eslint: normalizeSteps(["pnpm exec eslint src test"]),
+        eslint: normalizeSteps(["pnpm exec eslint 'src/**/*.ts'"]),
+        format: normalizeSteps(["pnpm exec prettier --check 'src/**/*.ts'"]),
       },
       ttsc: {
         build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
@@ -240,6 +310,7 @@ const PACKAGE_CONFIGS = {
       "ttsc-lint": {
         build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
         noEmit: normalizeSteps(["pnpm exec ttsc -p tsconfig.json --noEmit"]),
+        format: normalizeSteps(["pnpm exec ttsc format -p tsconfig.json"]),
       },
     },
   },
@@ -340,22 +411,26 @@ function packageVersion(dir) {
   }
 }
 
-function compilerCommands({ build, noEmit, eslint }) {
-  const ttsc = {
+function compilerCommands({ build, noEmit, eslint, format }) {
+  const legacy = {
+    build: normalizeSteps(build("tsc")),
+    noEmit: normalizeSteps(noEmit("tsc")),
+    eslint: normalizeSteps(eslint),
+  };
+  if (format?.legacy?.length) legacy.format = normalizeSteps(format.legacy);
+  const ttscLint = {
     build: normalizeSteps(build("ttsc")),
     noEmit: normalizeSteps(noEmit("ttsc")),
   };
+  if (format?.ttscLint?.length)
+    ttscLint.format = normalizeSteps(format.ttscLint);
   return {
-    legacy: {
-      build: normalizeSteps(build("tsc")),
-      noEmit: normalizeSteps(noEmit("tsc")),
-      eslint: normalizeSteps(eslint),
-    },
-    ttsc,
-    "ttsc-lint": {
+    legacy,
+    ttsc: {
       build: normalizeSteps(build("ttsc")),
       noEmit: normalizeSteps(noEmit("ttsc")),
     },
+    "ttsc-lint": ttscLint,
   };
 }
 
@@ -387,7 +462,14 @@ function nestjsCommands() {
       build: normalizeSteps(nestjsPackageSteps("tsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("tsc", true)),
       eslint: normalizeSteps([
-        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts'",
+        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts' --ignore-pattern '**/test/**' --ignore-pattern 'integration/**' --ignore-pattern 'sample/**'",
+      ]),
+      format: normalizeSteps([
+        "npm exec -- prettier --check 'packages/**/*.ts'" +
+          " --ignore-pattern '**/test/**'" +
+          " --ignore-pattern '**/*.spec.ts'" +
+          " --ignore-pattern '**/dist/**'" +
+          " --ignore-path .prettierignore",
       ]),
     },
     ttsc: {
@@ -397,6 +479,12 @@ function nestjsCommands() {
     "ttsc-lint": {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
+      format: normalizeSteps(
+        nestjsPackageSteps("ttsc", false).map((step) => ({
+          ...step,
+          cmd: step.cmd.replace(/\bttsc\b -p/, "ttsc format -p"),
+        })),
+      ),
     },
   };
 }
@@ -984,6 +1072,7 @@ function failedMeasurement(
 function toolFor(branch, op, tool) {
   if (tool) return tool;
   if (op === "eslint") return "eslint";
+  if (op === "format") return branch === "legacy" ? "prettier" : "ttsc-format";
   if (branch === "legacy") return "tsc";
   return branch === "ttsc-lint" ? "ttsc+@ttsc/lint" : "ttsc";
 }
@@ -1375,7 +1464,7 @@ function projectCells(project) {
   for (const branch of BRANCHES) {
     const branchCommands = project.commands[branch];
     if (!branchCommands) continue;
-    for (const op of ["build", "noEmit", "eslint"]) {
+    for (const op of ["build", "noEmit", "eslint", "format"]) {
       const baseSteps = branchCommands[op];
       if (!baseSteps?.length) continue;
       if (branch === "legacy" || op === "eslint") {
@@ -1422,6 +1511,9 @@ function filterCells(cells) {
   if (flags.has("--lint-only")) {
     predicates.push(isLintComparisonCell);
   }
+  if (flags.has("--format-only")) {
+    predicates.push(isFormatComparisonCell);
+  }
   for (const filter of cellFilters) {
     predicates.push((cell) => filter.test(cell.id));
   }
@@ -1432,7 +1524,12 @@ function filterCells(cells) {
 }
 
 function isLintComparisonCell(cell) {
-  if (cell.branch === "legacy") return cell.op === "eslint";
+  if (cell.branch === "legacy")
+    return cell.op === "noEmit" || cell.op === "eslint";
   if (cell.branch === "ttsc") return cell.op === "noEmit";
   return cell.branch === "ttsc-lint" && cell.op === "noEmit";
+}
+
+function isFormatComparisonCell(cell) {
+  return cell.op === "format";
 }

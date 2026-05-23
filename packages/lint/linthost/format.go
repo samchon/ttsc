@@ -43,6 +43,7 @@ func runFormat(opts *subcommandOpts) int {
   }
   resolver := formatCommandResolver{inner: rules}
   engine := NewEngineWithResolver(resolver)
+  engine.SetSerial(opts.singleThreaded)
   needsRuleChecker := engine.NeedsTypeChecker()
 
   prog, code := loadFixProgram(opts, needsRuleChecker)
@@ -104,9 +105,20 @@ type formatCommandResolver struct {
 // ResolveRules implements RuleResolver. It delegates to the inner resolver
 // and then upgrades format-rule entries from off to warn so they are applied
 // even when the project config omits them.
+//
+// A user-authored entry whose `ignores` list matches `fileName` is honored
+// here even when the entry also carries a `rules` block: the engine already
+// skips that entry's rule contributions via `ConfigEntry.matchesFile`, so the
+// format command must skip its blanket format-rule upgrade as well. Without
+// this guard, `ttsc format` would rewrite files that the user explicitly
+// asked the lint config to ignore — the engine's lint walk would skip the
+// file but the formatter would still touch it.
 func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig {
   resolved := r.inner.ResolveRules(fileName)
   if resolved.Ignored {
+    return resolved
+  }
+  if r.fileIsIgnoredByEntry(fileName) {
     return resolved
   }
   if resolved.Rules == nil {
@@ -118,6 +130,31 @@ func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig 
     }
   }
   return resolved
+}
+
+// fileIsIgnoredByEntry reports whether any non-IgnoreOnly entry in the inner
+// ConfigStore has an `ignores` glob that matches `fileName`. IgnoreOnly
+// entries are already handled by ResolvedRuleConfig.Ignored — they are
+// checked first by ConfigStore.ResolveRules and short-circuit the walk. This
+// helper covers the complementary case: an entry that carries both `rules`
+// and `ignores`, where the engine skips the entry's rule contributions via
+// `ConfigEntry.matchesFile` but the format command must learn the same fact
+// independently because its job is to upgrade format rules to `warn`, not to
+// read the engine's resolved severity map.
+func (r formatCommandResolver) fileIsIgnoredByEntry(fileName string) bool {
+  store, ok := r.inner.(*ConfigStore)
+  if !ok || store == nil {
+    return false
+  }
+  for _, entry := range store.entries {
+    if entry.IgnoreOnly {
+      continue
+    }
+    if entry.matchesIgnores(fileName) {
+      return true
+    }
+  }
+  return false
 }
 
 // ActiveRuleNames implements RuleResolver. Returns the union of the inner

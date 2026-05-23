@@ -52,11 +52,19 @@ import (
 type formatPrintWidth struct{}
 
 // formatPrintWidthOptions mirrors `TtscLintRuleOptions.PrintWidth`.
+//
+// TrailingComma reaches this rule because the printer's reflow decides
+// whether to emit a trailing comma on every multi-line list — and that
+// decision must match the user's `format.trailingComma` setting or the
+// reflow oscillates against `format/trailing-comma` on every cascade
+// pass. The config layer mirrors `format.trailingComma` into both
+// rules' option blobs (see `expandFormatBlock` in config_format.go).
 type formatPrintWidthOptions struct {
-  PrintWidth *int    `json:"printWidth"`
-  TabWidth   *int    `json:"tabWidth"`
-  UseTabs    *bool   `json:"useTabs"`
-  EndOfLine  *string `json:"endOfLine"`
+  PrintWidth    *int    `json:"printWidth"`
+  TabWidth      *int    `json:"tabWidth"`
+  UseTabs       *bool   `json:"useTabs"`
+  EndOfLine     *string `json:"endOfLine"`
+  TrailingComma *string `json:"trailingComma"`
 }
 
 func (formatPrintWidth) Name() string   { return "format/print-width" }
@@ -74,6 +82,29 @@ func (formatPrintWidth) Visits() []shimast.Kind {
   }
 }
 
+// Known residual divergence from Prettier 3 (investigated against the
+// nestjs / typeorm / vscode benchmark fixtures, not closed in this
+// pass):
+//
+//   - Multi-line `reduce(...)` (or other single-arg method) calls where
+//     Prettier 3 keeps the inline form because it fits print-width
+//     minus the trailing-suffix budget. The current shrunk-budget
+//     re-render still over-breaks some of these; the next slice should
+//     measure fitsFirstLine against `pw - col - trailingNonComment`
+//     before committing to the broken layout.
+//   - Single-line `export type { X } from "long-path"` reexports.
+//     Prettier 3 keeps them flat even when the whole declaration
+//     overflows; ttsc-lint visits `KindNamedExports` in isolation and
+//     breaks the brace clause. A real fix requires teaching the rule
+//     about the surrounding ExportDeclaration so the brace clause is
+//     measured against the full declaration line, or visiting
+//     ExportDeclaration directly so the `from "..."` tail joins the
+//     reflow surface.
+//
+// Both cases are tracked benchmark cases that forced
+// `format/print-width: 'off'` on the ttsc-lint branch. They are listed
+// here so a future slice can pick them up without rediscovering the
+// divergence.
 func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
@@ -92,6 +123,9 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
   if opts.EndOfLine != nil {
     printOpts.EndOfLine = *opts.EndOfLine
+  }
+  if opts.TrailingComma != nil {
+    printOpts.TrailingComma = *opts.TrailingComma
   }
 
   src := ctx.File.Text()
@@ -225,6 +259,16 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
 // tail, a `, nextArg)` continuation — stays put. Charging that width
 // against the budget keeps the rule from emitting a line that overflows
 // by exactly the suffix it could never move.
+//
+// Trailing `//` line comments are excluded from the budget. A line
+// comment runs to the end of the source line by definition, so breaking
+// the reflowed node to make the comment fit cannot help — Prettier 3
+// keeps the node inline and lets the comment trail (see typeorm's
+// `comment.replaceAll(...) // Null bytes' shape that pushed
+// `format/print-width: 'off'` onto the ttsc-lint benchmark branch).
+// Excluding the comment from `trailingLineWidth` matches that
+// behavior: the fast path sees just the un-movable punctuation suffix,
+// and the shrunk-budget re-render does not over-shrink and over-break.
 func trailingLineWidth(src string, end int, tabWidth int) int {
   if end < 0 || end > len(src) {
     return 0
@@ -232,17 +276,7 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
   if tabWidth <= 0 {
     tabWidth = 2
   }
-  lineEnd := end
-  for lineEnd < len(src) && src[lineEnd] != '\n' {
-    lineEnd++
-  }
-  for lineEnd > end {
-    c := src[lineEnd-1]
-    if c != ' ' && c != '\t' && c != '\r' {
-      break
-    }
-    lineEnd--
-  }
+  lineEnd := trailingSuffixEnd(src, end)
   col := 0
   for i := end; i < lineEnd; i++ {
     if src[i] == '\t' {
@@ -252,6 +286,39 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
     }
   }
   return col
+}
+
+// trailingSuffixEnd returns the byte offset where the node's un-movable
+// trailing suffix ends on the line that begins at `end`. The walk stops
+// at the first `//` line comment (Prettier-style "free" trailing
+// attachment, see trailingLineWidth) or at the newline, then trims
+// trailing whitespace so a `;<spaces><newline>` tail measures the
+// `;` only. Trailing block comments inside the un-movable suffix span
+// (`} /* note */`) keep their bytes counted; that path is rare and
+// already exercised through the existing block-comment fixture.
+func trailingSuffixEnd(src string, end int) int {
+  lineEnd := end
+  for lineEnd < len(src) && src[lineEnd] != '\n' {
+    if src[lineEnd] == '/' && lineEnd+1 < len(src) {
+      next := src[lineEnd+1]
+      if next == '/' {
+        // `//` line comment — Prettier treats the whole tail as a
+        // trailing comment that runs to EOL. Drop it from the suffix
+        // budget so the rule does not break the node to chase a
+        // comment that cannot be moved or wrapped.
+        break
+      }
+    }
+    lineEnd++
+  }
+  for lineEnd > end {
+    c := src[lineEnd-1]
+    if c != ' ' && c != '\t' && c != '\r' {
+      break
+    }
+    lineEnd--
+  }
+  return lineEnd
 }
 
 // maxLineWidth returns the widest effective column span among the lines
