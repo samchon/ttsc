@@ -1,121 +1,131 @@
-# ttsc matrix benchmark
+# ttsc benchmark runner
 
-A clone-based, reproducible benchmark of the `ttsc` toolchain against the stock
-TypeScript toolchain, run as a **matrix** over many real-world TypeScript
-projects.
+Clone-based, reproducible matrix benchmark of the `ttsc` toolchain against
+stock `tsc`, `eslint`, and `prettier` across real-world TypeScript projects.
 
-`bench.mjs` clones each fixture project's forked repo, installs the locally
-built `ttsc` / `@ttsc/lint` tarballs, and measures wall-clock build time across
-a grid of toolchain configurations. Nothing is hand-prepared — a run is
-reproducible from a clean checkout.
+This README is the runner reference. For the published numbers and result
+interpretation — build vs type-check vs lint vs format comparisons, the
+multi-threaded vs single-threaded analysis, and per-fixture commentary — see
+https://ttsc.dev/benchmark (source:
+`website/src/content/docs/benchmark.mdx`).
+
+## Quickstart
+
+Prereq: `pnpm install` at the workspace root so the local `ttsc` workspace
+can be built and packed into tarballs.
+
+```bash
+node bench.mjs                          # full sweep
+node bench.mjs --project=type-fest      # one fixture
+node bench.mjs --setup-only             # clone + install, no measurement
+node bench.mjs --list                   # print the cell grid and exit
+node bench.mjs --verbose                # tee child stdio for debugging
+```
+
+The first run packs the local `ttsc` workspace into tarballs, clones each
+fixture's three branches into `.work/`, installs the tarballs, runs
+`ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse
+the clones.
 
 ## The matrix
 
-Every fixture is a forked repo with three branches:
+A **cell** is one `(project, branch, tool, op, threading)` measurement.
 
-| Branch | Toolchain |
-| --- | --- |
-| `legacy` | stock `tsc` (TypeScript 5.x) · `prettier` · `eslint` |
-| `ttsc` | `ttsc` (TypeScript 7 via `@typescript/native-preview`) |
-| `ttsc-lint` | `ttsc` + `@ttsc/lint` (linting folded into the compile pass) |
+- **Branches** (each fixture is a forked repo with all three):
+  - `legacy` — stock `tsc` / `eslint` / `prettier`
+  - `ttsc` — `ttsc` over `@typescript/native-preview`
+  - `ttsc-lint` — `ttsc` with `@ttsc/lint` folded into the compile pass
+- **Ops**: `build` (emit), `noEmit` (type-check only), `eslint` (legacy only),
+  `format` (legacy `prettier --check` vs `ttsc format`).
+- **Threading**: `multi` (ttsc default) and `single` (`--singleThreaded`).
+  Legacy cells and `eslint` cells are `multi` only.
+- **Tool resolution** (set per cell, recorded in the report):
+  - legacy → `tsc`, `eslint`, or `prettier` depending on op
+  - ttsc → `ttsc`; raw `@typescript/native-preview` is also measured as a
+    parallel `tsgo` cell on the same clone so the ttsc launcher overhead is
+    observable
+  - ttsc-lint → `ttsc+@ttsc/lint` for build/noEmit, `ttsc-format` for format
 
-Each `(project × branch)` is measured along two more dimensions:
-
-| Dimension | Values |
-| --- | --- |
-| Emit | **emit build** (type-check + emit) · **`--noEmit`** (type-check only) |
-| Threading | **multi-threaded** (ttsc default) · **single-threaded** (`--singleThreaded`) |
-
-The `legacy` branch is measured multi-threaded only — stock `tsc` has no
-`--singleThreaded`. The `ttsc` / `ttsc-lint` branches are measured both ways.
-
-The report has three sections:
-
-- **M1 — Emit build**: `tsc` vs `ttsc` vs `ttsc + @ttsc/lint`. Reports the
-  `tsc → ttsc` speedup and the *lint cost* (`ttsc-lint` over plain `ttsc` — the
-  marginal cost of folding linting into the compile pass).
-- **M2 — Type-check only**: the same input under `--noEmit`, isolating checker
-  speed from emit cost.
-- **M3 — Threading**: single-threaded vs multi-threaded `ttsc`.
+Cell IDs follow `project:branch:op:threading`, with `:tsgo:` inserted before
+the op for raw native-preview cells (e.g. `vue:ttsc:tsgo:build:single`). Run
+`--list` to print the resolved grid for the selected fixtures.
 
 ## Fixtures
 
-| Project | Repo | Kind | Measured command | Notes |
-| --- | --- | --- | --- | --- |
-| `shopping-backend` | `samchon/shopping-backend` | plugin-heavy | `tsc` / `ttsc` (build:main) | nestia/typia source plugins on every file; needs `build:prisma` + `build:sdk` first |
-| `tstl` | `samchon/tstl` | plugin-free | `tsc` / `ttsc` | STL/algorithms library; small anchor |
-| `zod` | `samchon/ttsc-benchmark-zod` | plugin-free | `tsc -p tsconfig.benchmark.json` | schema-validation library; built from `packages/zod` |
-| `rxjs` | `samchon/ttsc-benchmark-rxjs` | plugin-free | `tsc -p tsconfig.bench.json` | reactive-streams library; yarn/nx monorepo, built from `packages/rxjs` |
-| `type-fest` | `samchon/ttsc-benchmark-type-fest` | plugin-free | `tsc` (`noEmit`) | pure type-level library — type-check only, no emit cell |
-| `vue` | `samchon/ttsc-benchmark-vue` | plugin-free | `tsc --noEmit` | frontend framework; type-check only (`ttsc-lint` branch TBD) |
-| `nestjs` | `samchon/ttsc-benchmark-nestjs` | plugin-free | `tsc -b packages` / `build-ttsc.mjs` | project-references monorepo; emit build only (the orchestrator exposes no `--noEmit` / `--singleThreaded`) |
+| Project | Repo | Kind | Package mgr |
+| --- | --- | --- | --- |
+| `vue` | `samchon/ttsc-benchmark-vue` | frontend monorepo | pnpm |
+| `rxjs` | `samchon/ttsc-benchmark-rxjs` | library monorepo (cjs / esm / types per package) | yarn |
+| `type-fest` | `samchon/ttsc-benchmark-type-fest` | type-level library | pnpm |
+| `typeorm` | `samchon/ttsc-benchmark-typeorm` | ORM library | pnpm |
+| `zod` | `samchon/ttsc-benchmark-zod` | schema library monorepo | pnpm |
+| `nestjs` | `samchon/ttsc-benchmark-nestjs` | backend framework monorepo (9 packages per op) | npm |
+| `vscode` | `samchon/ttsc-benchmark-vscode` | application monorepo | npm |
+| `shopping-backend` | `samchon/shopping-backend` | plugin-heavy service (typia/nestia source plugins) | pnpm |
 
-`samchon/ttsc-benchmark-vscode` is a planned fixture; its branches are not
-pushed yet, so it is left as a `TODO` in `bench.mjs` and skipped at runtime.
+Per-project commands, install/prepare overrides, and prerequisites live in
+`PACKAGE_CONFIGS` at the top of `bench.mjs`.
 
-The per-project build commands, prerequisites, and supported modes live in the
-`PROJECTS` config table at the top of `bench.mjs`. Run `node bench.mjs --list`
-to print it.
+## CLI flags
 
-## Run
-
-```bash
-node bench.mjs                 # all fixtures: clone, install, measure
-node bench.mjs tstl zod        # selected fixtures only
-node bench.mjs --list          # print the config table and exit
-node bench.mjs --setup-only    # clone + install, no measuring
-node bench.mjs --no-setup      # measure only (reuse existing clones)
-```
-
-The first run builds and packs the local `ttsc` / `@ttsc/lint` /
-current-platform tarballs into `/tmp/ttsc-tgz/`, clones every fixture branch
-into `/tmp/ttsc-bench-work/`, installs each clone, runs `ttsc prepare` on the
-`ttsc` / `ttsc-lint` clones, and runs each project's prerequisites — then
-measures the matrix.
-
-Clones live **outside** the repo tree: cloning inside `ttsc` would let pnpm
-adopt the clone into the `ttsc` workspace. Each clone also gets a stray
-`pnpm-workspace.yaml` so it stays an isolated workspace regardless of location.
-
-A fork branch that is not pushed yet is skipped cleanly — the run does not
-crash.
-
-## Output
-
-The report — a Markdown matrix plus a `.json` sidecar — is written to
-`.work/` next to this script. `.work/` is **git-ignored**: benchmark results are
-an ephemeral artifact and are never committed.
-
-The report opens with a **Host** block recording OS name + kernel, CPU model +
-core count, total RAM, and toolchain versions (node, `ttsc`,
-`@typescript/native-preview`, `tsc`), so a number is always traceable to the
-machine that produced it.
-
-Results merge into the existing `.json`, so fixtures can be measured across
-separate invocations and still report as one matrix.
-
-## Method
-
-Each matrix cell runs `WARMUP` unmeasured times (absorbs first-run plugin
-compilation and cold filesystem cache), then `RUNS` measured times; the
-**median** is reported. Single-threaded cells re-clean their output directory
-before every run so each timing starts from the same state.
-
-A measured run that exits non-zero is classified from its output: a `race`
-failure (the intermittent TypeScript-Go data-race crash) is retried up to
-`RETRIES` times and the clean timing kept; a deterministic `error` (a real
-compile error) is not retried and the cell is left unmeasured. Both are
-reported in a **Stability** section, keeping an orthogonal stability bug out of
-the speed numbers.
+| Flag | Effect |
+| --- | --- |
+| `--project NAME` / `--project=A,B` | Limit to named fixtures. Stacks; positional names work too. |
+| `--cell-filter REGEX` | Keep cells whose ID matches. Stacks. |
+| `--ttsc-build-only`, `--only-ttsc-build` | `ttsc` branch, `build` op, non-`tsgo` cells only. |
+| `--lint-only` | Only the lint comparison set (`legacy:noEmit`, `legacy:eslint`, `ttsc:noEmit`, `ttsc-lint:noEmit`). |
+| `--format-only` | Only `format` cells. |
+| `--setup-only` | Pack + clone + install + `ttsc prepare`. No measurement. |
+| `--verify-only` | Run each selected cell once and fail loudly on any error. |
+| `--no-setup` | Skip pack/clone/install; measure the existing clones. |
+| `--no-install` | Skip the install step inside setup. |
+| `--no-pack` | Reuse tarballs already in `TTSC_BENCH_TGZ` (same as `TTSC_BENCH_SKIP_PACK=1`). |
+| `--force-install` | Reinstall even when `node_modules` is already present. |
+| `--allow-missing` | Tolerate fixtures whose clones failed setup instead of aborting. |
+| `--reset` | Discard the previous report; do not merge with prior measurements. |
+| `--no-website` | Do not publish into `website/public/benchmark.json`. |
+| `--verbose` | Tee child stdio (install / pack / build) live and add `[cmd]` / `[step]` / `[timer] start` traces. Default output is milestone-only; use this when an AI/agent run needs the full transcript for diagnosis. |
+| `--list` | Print the per-fixture cell grid and exit. |
 
 ## Environment overrides
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TTSC_BENCH_WORK` | `/tmp/ttsc-bench-work` | clone working directory |
-| `TTSC_BENCH_TGZ` | `/tmp/ttsc-tgz` | tarball staging directory |
-| `TTSC_BENCH_OUT` | `.work/report.md` | report destination (`.md` + `.json`) |
-| `TTSC_BENCH_RUNS` | `3` | measured runs per cell |
-| `TTSC_BENCH_WARMUP` | `1` | warmup runs per cell |
-| `TTSC_BENCH_RETRIES` | `3` | retries to recover a crashed run |
-| `TTSC_BENCH_SKIP_PACK` | — | set to `1` to reuse existing tarballs |
+| `TTSC_BENCH_WORK` | `./.work` | Clone working directory. |
+| `TTSC_BENCH_TGZ` | `/tmp/ttsc-tgz-<pid>` (`/tmp/ttsc-tgz` with `--no-pack`) | Tarball staging directory. |
+| `TTSC_BENCH_OUT` | `./.work/report.md` | Report destination; sibling `.json` is written alongside. |
+| `TTSC_BENCH_CHECKPOINT` | `<WORK>/benchmark.checkpoint.json` | Intermediate snapshot rewritten after each cell so an interrupted run is resumable. |
+| `TTSC_BENCH_RUNS` | `5` | Measured runs per cell. |
+| `TTSC_BENCH_WARMUP` | `1` | Warmup runs per cell (excluded from the median). |
+| `TTSC_BENCH_RETRIES` | `2` | Retries allowed for a `race`-classified failure. |
+| `TTSC_BENCH_SKIP_PACK` | — | `1` reuses tarballs in `TTSC_BENCH_TGZ` (same as `--no-pack`). |
+| `TTSC_BENCH_REQUIRE_QUIET` | — | `1` turns the host-load warning into a hard error. |
+| `TTSC_BENCH_SKIP_LOAD_CHECK` | — | `1` disables the host-load check entirely. |
+
+## Method
+
+- Each cell runs `WARMUP` unmeasured passes (absorbs cold filesystem cache and
+  Go runtime warmup) then `RUNS` measured passes. The **median** is the
+  reported time; `min` and the full sample list are kept in JSON.
+- Plugin binaries are built by `ttsc prepare` during setup, never during a
+  measured run, so compiler timings do not include plugin build time.
+- Non-zero exits are classified from captured output. A `race` (TypeScript-Go
+  data-race markers — `concurrent map`, `fatal error`, `panic:`, `DATA RACE`)
+  is retried up to `RETRIES` times and the clean timing kept; a deterministic
+  `error` is recorded as failed without retry.
+- Cells are measured **sequentially** so they do not compete for CPU.
+- At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio
+  exceeds 0.5 — the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 %
+  on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error
+  instead, or `TTSC_BENCH_SKIP_LOAD_CHECK=1` to silence.
+
+## Output
+
+| File | Contents |
+| --- | --- |
+| `.work/report.md` | Per-project Markdown table (`Branch \| Op \| Threading \| Median \| Samples \| Failure`) preceded by a `Host` block (OS, kernel, CPU, RAM, `node` / `ttsc` / `typescript` / `tsgo` versions). |
+| `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
+| `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
+| `website/public/benchmark.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place — cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
+
+`.work/` is git-ignored; results are an ephemeral artifact and never committed.
