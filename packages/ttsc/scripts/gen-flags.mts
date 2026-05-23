@@ -14,6 +14,7 @@
 // Regenerating: the script is idempotent. CI fails when committed output drifts
 // from `schema.ts` — see `scripts/check-flags.cjs`.
 
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,8 +67,11 @@ function renderGoMap(
   name: string,
   entries: Map<string, boolean>,
 ): string {
+  // Deterministic byte-order sort. `localeCompare` is locale-sensitive and
+  // could reorder entries differently on a non-en host — generated files
+  // live in version control so the comparator must be reproducible.
   const sorted = [...entries.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+    a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
   );
   // Emit raw entries; gofmt aligns the `:` and value columns when the file
   // passes through `pnpm format:go`. The schema check script runs gofmt
@@ -112,9 +116,22 @@ function renderDocsTable(schema: readonly FlagSpec[]): string {
     })
     .join("\n");
 
-  return `${HEADER.replace(/^\/\//gm, "{/*").trimEnd()} */}
+  // Single MDX comment block so it parses cleanly under MDX2 / Nextra.
+  // The line-per-line `{/* … */}` rewrite the previous version did
+  // produced four openers with one closer and tripped strict MDX
+  // linters even though Nextra renders it tolerantly.
+  return `{/*
+${HEADER.trimEnd()
+    .split("\n")
+    .map((line) => line.replace(/^\/\/ ?/, ""))
+    .join("\n")}
+*/}
 
 # ttsc & ttsx CLI flags
+
+For ttsc and ttsx CLI users (command-line, build scripts, CI runners). Plugin
+authors should also skim the **Consumed by** column to see which layer reads
+each flag.
 
 Single source of truth: \`packages/ttsc/src/flags/schema.ts\`. Each row is one
 entry in \`FLAG_SCHEMA\`; the parsing engine, the docs table, and the Go
@@ -182,5 +199,16 @@ function renderNotes(flag: FlagSpec): string {
 function writeFile(target: string, contents: string): void {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, contents, "utf8");
+  // Self-format `.go` outputs so running `node gen-flags.mts` alone is
+  // drift-free against the committed copy (which always passes through
+  // `pnpm format:go`). Without this, anyone who regenerates outside the
+  // `pnpm format` chain sees a noisy whitespace diff. The gofmt wrapper
+  // lives at the repo root — fall back silently if it is unavailable.
+  if (target.endsWith(".go")) {
+    const formatter = path.join(repoRoot, ".vscode", "gofmt-2spaces.sh");
+    if (fs.existsSync(formatter)) {
+      spawnSync(formatter, ["-w", target], { stdio: "ignore" });
+    }
+  }
   process.stdout.write(`generated ${path.relative(repoRoot, target)}\n`);
 }

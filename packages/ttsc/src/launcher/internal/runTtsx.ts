@@ -134,7 +134,18 @@ function parseCLI(argv: readonly string[]) {
   // LAST one into `values`, so reconstruct the full list by scanning the
   // raw argv. Mirrors the legacy parser's `preload.push(takeValue(...))`
   // behaviour.
-  for (let i = 0; i < rewritten.length; i += 1) {
+  //
+  // Stop the rescue scan at the first token that begins tail mode —
+  // either the entry file or the `--` separator. Without this guard,
+  // `ttsx entry.ts -r preload.cjs` would BOTH preload `preload.cjs` AND
+  // forward `-r preload.cjs` to the entry's argv, double-effecting the
+  // module load. The schema engine already routes post-entry tokens to
+  // `result.tail`; the rescue scan must respect the same boundary.
+  const scanEnd = rewritten.findIndex(
+    (token) => looksLikeEntryFile(token) || token === "--",
+  );
+  const scanLimit = scanEnd === -1 ? rewritten.length : scanEnd;
+  for (let i = 0; i < scanLimit; i += 1) {
     const token = rewritten[i]!;
     if (token === "-r" || token === "--require") {
       const value = rewritten[i + 1];

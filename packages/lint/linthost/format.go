@@ -177,11 +177,21 @@ func (r formatCommandResolver) fileIsIgnoredByEntry(fileName string) bool {
 // way the engine does: no entry contributes rules, so the blanket
 // format-rule upgrade must be skipped.
 //
-// When the inner resolver is not a *ConfigStore the helper returns true.
-// That preserves the prior behavior for non-ConfigStore resolvers (tests,
-// dynamic resolvers, future adapters) — the `files` scope is a ConfigStore
-// concept and we should not penalize callers that surface a different
-// resolver shape.
+// Base cases:
+//
+//   - Empty entries slice: returns `true`. A store with no entries cannot
+//     skip a file by scope (the engine has nothing to walk), so format
+//     mode must be allowed to apply its default upgrade. Matching engine
+//     behavior at `ConfigStore.ResolveRules` for the same input
+//     (`Ignored = false`, empty rule map).
+//   - All entries are IgnoreOnly: returns `false`. No non-IgnoreOnly
+//     entry contributes a `files` scope, so the file is out-of-scope by
+//     construction.
+//   - Inner resolver is not a *ConfigStore: returns `true` (conservative
+//     default). The `files` concept is store-specific; an in-process
+//     custom resolver that does not surface a scope cannot have its
+//     rule-eligibility reasoned about from the outside, so the format
+//     upgrade applies the same as it does for an entry without `files`.
 func (r formatCommandResolver) fileMatchesAnyEntry(fileName string) bool {
   store, ok := r.inner.(*ConfigStore)
   if !ok || store == nil {

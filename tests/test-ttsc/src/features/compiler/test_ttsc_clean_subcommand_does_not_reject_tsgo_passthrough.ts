@@ -8,9 +8,10 @@ import {
 /**
  * Verifies `ttsc clean` accepts tsgo passthrough flags (RC-3 + RC-4).
  *
- * Before the flag-schema cutover, `parseProjectArgs` was a completely
- * separate parser from the build-lane parser: it rejected every unknown
- * flag with `throw new Error("unknown option")`, so a user habituated to
+ * Before the flag-schema cutover, project subcommands ran through a
+ * completely separate parser branch from the build-lane parser: it
+ * rejected every unknown flag with `throw new Error("unknown option")`,
+ * so a user habituated to
  * `ttsc --strict` would hit a hard exit on `ttsc clean --strict
  * tsconfig.json`. The new schema routes every subcommand through one
  * engine, and `clean` declares `--strict` as forwardable like every other

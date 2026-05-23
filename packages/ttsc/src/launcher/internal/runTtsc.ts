@@ -14,7 +14,6 @@ import {
   getString,
   parseFlags,
 } from "../../flags/parser";
-import type { TtscSubcommand } from "../../flags/schema";
 import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourcePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
@@ -362,13 +361,6 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
 function looksLikeInputFile(token: string): boolean {
   return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
-
-// `_subcommand` reserves the subcommand-routing handle the schema engine
-// will use to specialise `parseBuildArgs` per mode (build / check / fix /
-// format) when subcommand-specific accept-lists diverge. Currently the
-// build / check / fix / format lanes share the same flag set so the engine
-// can use the `"build"` subset for all of them.
-type _Subcommand = TtscSubcommand;
 
 function printHelp(): void {
   process.stdout.write(

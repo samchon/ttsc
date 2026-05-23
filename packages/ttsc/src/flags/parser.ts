@@ -108,8 +108,13 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       continue;
     }
 
-    // `--foo=value` form: split before resolving against the schema.
-    const equalsIndex = current.startsWith("--") ? current.indexOf("=") : -1;
+    // `--foo=value` / `-p=value` form: split before resolving against the
+    // schema. Both long (`--foo`) and short (`-p`) aliases support the
+    // inline-value shape — without splitting the short form, `-p=value`
+    // would fall through as an unknown token and be forwarded to tsgo,
+    // bypassing the launcher's own consumer (e.g. plugin discovery against
+    // the wrong project root).
+    const equalsIndex = current.startsWith("-") ? current.indexOf("=") : -1;
     const token = equalsIndex === -1 ? current : current.slice(0, equalsIndex);
     const inlineValue =
       equalsIndex === -1 ? undefined : current.slice(equalsIndex + 1);
@@ -122,14 +127,13 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
     // Token IS a known flag but is not accepted by THIS subcommand. The
     // engine forwards it to tsgo just like an unknown flag — the same
-    // policy the legacy `parseBuildArgs` applied (RC-1 prevention).
+    // policy the bare-lane parser applied (RC-1 prevention).
     const globalFlag = FLAG_BY_NAME.get(token);
     if (globalFlag !== undefined) {
       forwardKnownButUnaccepted(
         passthrough,
         globalFlag,
         current,
-        token,
         inlineValue,
         head,
       );
@@ -178,13 +182,36 @@ function consumeFlag(
   errorPrefix: string,
 ): void {
   if (flag.kind === "boolean") {
-    if (inlineValue === undefined) {
-      values.set(flag.name, true);
+    if (inlineValue !== undefined) {
+      // `--flag=false` / `--flag=true` inline form. Anything other than
+      // a recognised literal stays loud: `--singleThreaded=yes` silently
+      // becoming `true` is the kind of footgun the RCA's RC-4 class
+      // covers. Mirrors `validatePositiveInt`'s style.
+      const literal = parseBooleanLiteral(inlineValue);
+      if (literal === undefined) {
+        throw new Error(
+          `${errorPrefix} ${token} expects \`true\` or \`false\`, got ${JSON.stringify(
+            inlineValue,
+          )}`,
+        );
+      }
+      values.set(flag.name, literal);
       return;
     }
-    // `--flag=false` form support: matches the legacy parser's behaviour
-    // (e.g. `--singleThreaded=false`).
-    values.set(flag.name, inlineValue !== "false");
+    // Space form `--flag true` / `--flag false`: peek the next token and
+    // consume it only when it parses as a boolean literal. tsgo accepts
+    // this shape natively; the launcher must mirror it so `ttsc --noEmit
+    // false` does not corrupt argv (positional sink getting `false`,
+    // tsgo seeing it as a stray input file).
+    if (rest.length > 0) {
+      const peek = parseBooleanLiteral(rest[0]!);
+      if (peek !== undefined) {
+        rest.shift();
+        values.set(flag.name, peek);
+        return;
+      }
+    }
+    values.set(flag.name, true);
     return;
   }
 
@@ -228,6 +255,17 @@ function takeValueToken(
 }
 
 /**
+ * Parse a CLI boolean literal — `true`/`false` only (case-sensitive to
+ * match tsgo's parser). Returns `undefined` for any other token so the
+ * caller knows to throw or treat as a non-value.
+ */
+function parseBooleanLiteral(raw: string): boolean | undefined {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return undefined;
+}
+
+/**
  * Validate a `positiveInt` value. Mirrors tsgo's `--checkers minValue:1`
  * constraint so a typo fails loudly at the launcher rather than reaching
  * tsgo with an invalid argument.
@@ -256,7 +294,6 @@ function forwardKnownButUnaccepted(
   passthrough: string[],
   flag: FlagSpec,
   original: string,
-  token: string,
   inlineValue: string | undefined,
   rest: string[],
 ): void {
@@ -270,7 +307,6 @@ function forwardKnownButUnaccepted(
   if (rest.length === 0) return;
   if (rest[0]!.startsWith("-")) return;
   passthrough.push(rest.shift()!);
-  void token; // unused; kept for symmetry with consumeFlag's signature
 }
 
 /**
