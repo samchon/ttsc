@@ -877,12 +877,19 @@ function installLocalTarballs(project, dir, branch) {
       .map((target) => quote(path.join(TGZ, target.file)))
       .join(" ");
     const pm = project.packageManager;
+    // `--config.minimumReleaseAge=0` keeps the just-bumped ttsc release from
+    // tripping a fixture's npm-hygiene policy. The vue workspace pins
+    // `minimumReleaseAge: 1440` (24 h) in its `pnpm-workspace.yaml`; without
+    // the override pnpm refuses to resolve `optionalDependencies` like
+    // `@ttsc/win32-x64@0.13.0` for ~24 h after publish and the local tarball
+    // install fails. The bench is the publisher's own canonical signal, so
+    // the policy carries no value here.
     const cmd =
       project.installTarballsCommand?.(specs) ??
       (pm === "pnpm"
         ? ownsPnpmWorkspace(dir)
-          ? `pnpm add -w -D ${specs}`
-          : `pnpm add --ignore-workspace -D ${specs}`
+          ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
+          : `pnpm add --ignore-workspace -D --config.minimumReleaseAge=0 ${specs}`
         : pm === "yarn"
           ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
           : `npm install --legacy-peer-deps --save-dev ${specs}`);
@@ -1054,11 +1061,15 @@ function installTsgoExperimentDeps(project, dir) {
     .map(quote)
     .join(" ");
   const pm = project.packageManager;
+  // Mirror `installLocalTarballs` and bypass any fixture-side
+  // `minimumReleaseAge` policy. tsgo dev tags publish on a daily-ish cadence
+  // and the bench should always pin to whatever ttsc's workspace resolves,
+  // not what an old enough mirror happens to expose.
   const cmd =
     pm === "pnpm"
       ? ownsPnpmWorkspace(dir)
-        ? `pnpm add -w -D ${specs}`
-        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D ${specs}`
+        ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
+        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D --config.minimumReleaseAge=0 ${specs}`
       : pm === "yarn"
         ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
         : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
