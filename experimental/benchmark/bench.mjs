@@ -173,7 +173,7 @@ const PACKAGE_CONFIGS = {
       ],
       eslint: ["pnpm exec eslint 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts' --quiet"],
       format: {
-        legacy: ["pnpm exec prettier --check 'source/**/*.d.ts' 'test-d/**/*.ts'"],
+        legacy: ["pnpm exec prettier --check 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts'"],
         ttscLint: [
           {
             cmd: "pnpm exec ttsc format -p tsconfig.json",
@@ -197,9 +197,11 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint 'src/**/*.ts' --quiet"],
+      eslint: ["pnpm exec eslint 'src/**/*.ts' 'test/**/*.ts' '*.ts' --quiet"],
       format: {
-        legacy: ["pnpm exec prettier --check 'src/**/*.ts'"],
+        legacy: [
+          "pnpm exec prettier --check 'src/**/*.ts' 'test/**/*.ts' '*.ts'",
+        ],
         ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
       },
     }),
@@ -228,13 +230,18 @@ const PACKAGE_CONFIGS = {
         legacy: [
           {
             cwd: "packages/zod",
-            cmd: "pnpm exec prettier --check 'src/**/*.ts'",
+            cmd:
+              "pnpm exec prettier --check 'src/**/*.ts'" +
+              " --ignore-pattern 'src/**/tests/**'" +
+              " --ignore-pattern 'src/**/benchmarks/**'" +
+              " --ignore-pattern 'src/**/*.test.ts'" +
+              " --ignore-pattern 'src/**/*.source.ts'",
           },
         ],
         ttscLint: [
           {
             cwd: "packages/zod",
-            cmd: "pnpm exec ttsc format -p tsconfig.json",
+            cmd: "pnpm exec ttsc format -p tsconfig.build.json",
           },
         ],
       },
@@ -458,7 +465,11 @@ function nestjsCommands() {
         "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts' --ignore-pattern '**/test/**' --ignore-pattern 'integration/**' --ignore-pattern 'sample/**'",
       ]),
       format: normalizeSteps([
-        "npm exec -- prettier --check 'packages/**/*.ts' --ignore-path .prettierignore",
+        "npm exec -- prettier --check 'packages/**/*.ts'" +
+          " --ignore-pattern '**/test/**'" +
+          " --ignore-pattern '**/*.spec.ts'" +
+          " --ignore-pattern '**/dist/**'" +
+          " --ignore-path .prettierignore",
       ]),
     },
     ttsc: {
