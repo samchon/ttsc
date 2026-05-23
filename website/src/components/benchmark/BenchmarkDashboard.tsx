@@ -239,7 +239,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
             <ProjectLintRows
               project={lint.project}
               op="noEmit"
-              title="Type-check + lint"
+              title="Lint"
             />
           ) : null}
         </div>
