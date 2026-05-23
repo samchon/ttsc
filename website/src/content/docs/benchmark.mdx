@@ -66,10 +66,28 @@ comparable command for that tool.
 - **Type-check**: `tsc --noEmit` versus `ttsc --noEmit`.
 - **Lint**: legacy `tsc + eslint` versus `ttsc + @ttsc/lint`, plus the isolated
   `eslint` time versus the measured `@ttsc/lint` overhead.
-- **Format**: legacy `prettier --check` versus `ttsc format`, measured for both
-  multi-threaded and single-threaded variants of `ttsc format`. The fixture
-  source is expected to be pre-formatted so each cell measures the
-  no-op steady-state cost rather than the first-edit-apply pass.
+- **Format**: legacy `prettier --check` versus `ttsc format`, run across the
+  four threading variants (below).
+
+### Threading variants
+
+Every `ttsc` and `ttsc:tsgo` cell is measured under four threading
+configurations, in display order:
+
+| Variant | Flag | What it caps |
+| --- | --- | --- |
+| `single` | `--singleThreaded` | Forces every stage serial: parse, type-check, lint engine. |
+| `checkers2` | `--checkers 2` | Parse and lint stay parallel; the TypeScript-Go checker pool is capped at 2 workers. |
+| `checkers4` | `--checkers 4` | Same, capped at 4 checker workers. |
+| `checkers8` | `--checkers 8` | Same, capped at 8 checker workers. |
+
+The previous binary `single` / `multi` axis (where `multi` meant "default,
+uncapped — usually one checker per CPU") is gone. The 4-point spectrum is the
+diminishing-returns curve of the checker pool alone — parse parallelism is
+held constant — so a glance at the four bars per project shows whether 8
+checkers is overkill, 2 is enough, or the rule walk has already saturated.
+The fixture source is expected to be pre-formatted so each format cell
+measures the no-op steady-state cost rather than the first-edit-apply pass.
 
 ## Why Threading Doesn't Always Help
 

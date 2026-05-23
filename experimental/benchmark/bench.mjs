@@ -1086,6 +1086,37 @@ function singleThreadedSteps(steps) {
   });
 }
 
+/**
+ * Append `--checkers N` to every ttsc/tsgo step in the cell. Used to sweep
+ * the checker-pool size axis (2 / 4 / 8) replacing the previous binary
+ * single/multi axis. Parse and the lint engine still run with the host's
+ * full CPU count; only the type-checker pool is capped.
+ */
+function checkersSteps(steps, n) {
+  return steps.map((step) => {
+    if (
+      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
+      /--checkers\b/.test(step.cmd)
+    ) {
+      return step;
+    }
+    return { ...step, cmd: `${step.cmd} --checkers ${n}` };
+  });
+}
+
+/**
+ * Threading variants the bench measures for every ttsc / ttsc-lint /
+ * ttsc:tsgo cell. Order is the spec the user asked for: serial baseline
+ * first, then the 2/4/8 checker-pool sweep, so the dashboard rows read
+ * left-to-right as `single → checkers2 → checkers4 → checkers8`.
+ */
+const THREADING_VARIANTS = [
+  { name: "single", apply: (steps) => singleThreadedSteps(steps) },
+  { name: "checkers2", apply: (steps) => checkersSteps(steps, 2) },
+  { name: "checkers4", apply: (steps) => checkersSteps(steps, 4) },
+  { name: "checkers8", apply: (steps) => checkersSteps(steps, 8) },
+];
+
 function measureCell({ id, project, branch, tool, op, threading, steps }) {
   const root = cloneDir(project, branch);
   process.stdout.write(`\n[${id}] ${RUNS} runs\n`);
@@ -1616,6 +1647,11 @@ function projectCells(project) {
       const baseSteps = branchCommands[op];
       if (!baseSteps?.length) continue;
       if (branch === "legacy" || op === "eslint") {
+        // Legacy compilers and the ESLint pass do not vary by ttsc's
+        // threading axis. Keep the cell at `threading: "multi"` (its
+        // natural default — uncapped CPU use) so the dashboard's legacy
+        // baseline lookups (`branch: "legacy", threading: "multi"`) keep
+        // resolving without a separate schema-cutover step.
         cells.push({
           id: `${project.name}:${branch}:${op}:multi`,
           project,
@@ -1625,45 +1661,32 @@ function projectCells(project) {
           steps: baseSteps,
         });
       } else {
-        cells.push({
-          id: `${project.name}:${branch}:${op}:multi`,
-          project,
-          branch,
-          op,
-          threading: "multi",
-          steps: baseSteps,
-        });
-        cells.push({
-          id: `${project.name}:${branch}:${op}:single`,
-          project,
-          branch,
-          op,
-          threading: "single",
-          steps: singleThreadedSteps(baseSteps),
-        });
+        for (const variant of THREADING_VARIANTS) {
+          cells.push({
+            id: `${project.name}:${branch}:${op}:${variant.name}`,
+            project,
+            branch,
+            op,
+            threading: variant.name,
+            steps: variant.apply(baseSteps),
+          });
+        }
       }
       if (branch === "ttsc" && (op === "build" || op === "noEmit")) {
         const tsgoSteps =
           branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
         if (tsgoSteps?.length) {
-          cells.push({
-            id: `${project.name}:${branch}:tsgo:${op}:multi`,
-            project,
-            branch,
-            tool: "tsgo",
-            op,
-            threading: "multi",
-            steps: tsgoSteps,
-          });
-          cells.push({
-            id: `${project.name}:${branch}:tsgo:${op}:single`,
-            project,
-            branch,
-            tool: "tsgo",
-            op,
-            threading: "single",
-            steps: singleThreadedSteps(tsgoSteps),
-          });
+          for (const variant of THREADING_VARIANTS) {
+            cells.push({
+              id: `${project.name}:${branch}:tsgo:${op}:${variant.name}`,
+              project,
+              branch,
+              tool: "tsgo",
+              op,
+              threading: variant.name,
+              steps: variant.apply(tsgoSteps),
+            });
+          }
         }
       }
     }

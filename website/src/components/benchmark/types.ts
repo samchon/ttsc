@@ -24,7 +24,28 @@ export type BenchmarkTool =
   | "@ttsc/lint"
   | "prettier";
 export type BenchmarkOp = "build" | "noEmit" | "eslint" | "format";
-export type BenchmarkThreading = "single" | "multi";
+/**
+ * Threading variant the cell was measured under.
+ *
+ * - `single`: the run forces `--singleThreaded`. Parse, type-check, and
+ *   the lint engine all run serially.
+ * - `checkers2` / `checkers4` / `checkers8`: parse and the lint engine
+ *   use the host's full CPU count, but the TypeScript-Go checker pool
+ *   is capped at 2, 4, or 8 workers via tsgo's `--checkers N`. The
+ *   spectrum exposes the diminishing-returns shape of the checker
+ *   pool independently of the parse parallelism.
+ *
+ * The legacy `multi` value (uncapped default checker count) is no longer
+ * emitted by the runner; a one-time snapshot may still carry it in the
+ * file. The dashboard tolerates the legacy value and renders it as the
+ * top of the spectrum.
+ */
+export type BenchmarkThreading =
+  | "single"
+  | "checkers2"
+  | "checkers4"
+  | "checkers8"
+  | "multi";
 
 /**
  * How a measured run that exited non-zero was classified. `race` is the

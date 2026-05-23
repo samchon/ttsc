@@ -8,11 +8,12 @@ import type {
   BenchmarkMeasurement,
   BenchmarkProject,
   BenchmarkReport,
+  BenchmarkThreading,
 } from "./types";
 
 type BenchmarkTab = "summary" | "build" | "check" | "lint" | "format";
 type Operation = "build" | "noEmit";
-type Threading = "single" | "multi";
+type Threading = BenchmarkThreading;
 
 const TABS: { id: BenchmarkTab; label: string }[] = [
   { id: "summary", label: "Summary" },
@@ -672,7 +673,7 @@ function operationRows(
       baseline: true,
     });
 
-  for (const threading of ["single", "multi"] as const) {
+  for (const threading of TTSC_THREADING_SPECTRUM) {
     const measurement = findMeasured(measurements, {
       branch: "ttsc",
       tool: "ttsc",
@@ -683,11 +684,11 @@ function operationRows(
       rows.push({
         label: compilerCliLabel("ttsc", op, threading),
         measurement,
-        color: threading === "single" ? "bg-cyan-600" : "bg-cyan-400",
+        color: ttscBarColor(threading),
       });
   }
 
-  for (const threading of ["single", "multi"] as const) {
+  for (const threading of TTSC_THREADING_SPECTRUM) {
     const measurement = findMeasured(measurements, {
       branch: "ttsc",
       tool: "tsgo",
@@ -698,7 +699,7 @@ function operationRows(
       rows.push({
         label: compilerCliLabel("tsgo", op, threading),
         measurement,
-        color: threading === "single" ? "bg-violet-600" : "bg-violet-400",
+        color: tsgoBarColor(threading),
       });
   }
 
@@ -742,7 +743,7 @@ function lintRowsForProject(
   const ttscByThreading: Partial<
     Record<Threading, { plainMs: number; totalMs: number; rawOverhead: number }>
   > = {};
-  for (const threading of ["multi", "single"] as const) {
+  for (const threading of TTSC_THREADING_SPECTRUM) {
     const total = findTtscLintTotal(measurements, op, threading);
     const plainTtsc = findMeasured(measurements, {
       branch: "ttsc",
@@ -758,7 +759,7 @@ function lintRowsForProject(
     };
   }
 
-  for (const threading of ["multi", "single"] as const) {
+  for (const threading of TTSC_THREADING_SPECTRUM) {
     const current = ttscByThreading[threading];
     if (!current) continue;
 
@@ -767,27 +768,32 @@ function lintRowsForProject(
     let estimated = false;
 
     // ST back-fill: when the single-threaded lint cost cannot be observed
-    // (overhead <= 0 in raw timings) but the multi-threaded run for the same
-    // project did record positive overhead, synthesize the ST overhead from
-    // the MT ratio:
-    //   ST_synthetic = round(ST_plain * (MT_overhead / MT_plain))
-    // The synthetic row is tagged `estimated` so the renderer can mark it
-    // as a derived figure rather than a measurement.
+    // (overhead <= 0 in raw timings) the checker spectrum is sweeping
+    // around the noise floor on the ST end. Synthesize the ST overhead
+    // from `checkers8`'s ratio — the fastest spectrum point and the
+    // closest to the pre-spectrum "multi" baseline:
+    //   ST_synthetic = round(ST_plain * (C8_overhead / C8_plain))
+    // The synthetic row is tagged `estimated` so the renderer can mark
+    // it as a derived figure rather than a measurement.
     if (threading === "single" && rawOverhead <= 0) {
-      const mt = ttscByThreading.multi;
-      if (mt && mt.plainMs > 0 && mt.rawOverhead > 0) {
-        lintOverheadMs = Math.round(plainMs * (mt.rawOverhead / mt.plainMs));
+      const fast = ttscByThreading.checkers8 ?? ttscByThreading.multi;
+      if (fast && fast.plainMs > 0 && fast.rawOverhead > 0) {
+        lintOverheadMs = Math.round(
+          plainMs * (fast.rawOverhead / fast.plainMs),
+        );
         estimated = lintOverheadMs > 0;
       }
     }
 
     const ttscMs = estimated ? plainMs : Math.min(plainMs, totalMs);
     const adjustedTotalMs = estimated ? ttscMs + lintOverheadMs : totalMs;
+    const flagSuffix = formatFlagLabel(threading);
+    const baseLabel = "ttsc + @ttsc/lint";
     const label = estimated
-      ? "ttsc + @ttsc/lint (ST, est.)"
-      : threading === "single"
-        ? "ttsc + @ttsc/lint (ST)"
-        : "ttsc + @ttsc/lint (MT)";
+      ? `${baseLabel} (${flagSuffix}, est.)`
+      : flagSuffix
+        ? `${baseLabel} (${flagSuffix})`
+        : baseLabel;
 
     rows.push({
       project,
@@ -1016,7 +1022,7 @@ function formatRowsForProject(project: BenchmarkProject): OperationRow[] {
       color: "bg-amber-500",
       baseline: true,
     });
-  for (const threading of ["multi", "single"] as const) {
+  for (const threading of TTSC_THREADING_SPECTRUM) {
     const ttscFormat = measurements.find(
       (m) =>
         m.branch === "ttsc-lint" &&
@@ -1026,12 +1032,28 @@ function formatRowsForProject(project: BenchmarkProject): OperationRow[] {
     );
     if (ttscFormat)
       rows.push({
-        label: `ttsc format${threading === "single" ? " --singleThreaded" : ""}`,
+        label: `ttsc format ${formatFlagLabel(threading)}`.trim(),
         measurement: ttscFormat,
-        color: threading === "single" ? "bg-cyan-600" : "bg-cyan-400",
+        color: ttscBarColor(threading),
       });
   }
   return rows;
+}
+
+/** CLI flag suffix for a threading variant, used by chart labels. */
+function formatFlagLabel(threading: Threading): string {
+  switch (threading) {
+    case "single":
+      return "--singleThreaded";
+    case "checkers2":
+      return "--checkers 2";
+    case "checkers4":
+      return "--checkers 4";
+    case "checkers8":
+      return "--checkers 8";
+    case "multi":
+      return "";
+  }
 }
 
 function hasComparableFormat(project: BenchmarkProject): boolean {
@@ -1071,8 +1093,56 @@ function compilerCliLabel(
 ) {
   const parts: string[] = [tool];
   if (op === "noEmit") parts.push("--noEmit");
-  if (threading === "single" && tool !== "tsc") parts.push("--singleThreaded");
+  if (tool === "tsc") return parts.join(" ");
+  if (threading === "single") parts.push("--singleThreaded");
+  else if (threading === "checkers2") parts.push("--checkers 2");
+  else if (threading === "checkers4") parts.push("--checkers 4");
+  else if (threading === "checkers8") parts.push("--checkers 8");
+  // legacy "multi" had no extra flag — render bare so older snapshots
+  // keep rendering without a stale flag in the chart label.
   return parts.join(" ");
+}
+
+/** Threading variants the ttsc/tsgo rows iterate, in display order. */
+const TTSC_THREADING_SPECTRUM: readonly Threading[] = [
+  "single",
+  "checkers2",
+  "checkers4",
+  "checkers8",
+];
+
+/**
+ * Tailwind class for the bar of a threading variant. The spectrum reads
+ * dark→light from `single` (most-constrained, slowest) to `checkers8`
+ * (most-parallel, fastest), so a glance at the chart shows the
+ * diminishing-returns curve as a colour gradient.
+ */
+function ttscBarColor(threading: Threading): string {
+  switch (threading) {
+    case "single":
+      return "bg-cyan-700";
+    case "checkers2":
+      return "bg-cyan-600";
+    case "checkers4":
+      return "bg-cyan-500";
+    case "checkers8":
+    case "multi":
+      return "bg-cyan-400";
+  }
+}
+
+function tsgoBarColor(threading: Threading): string {
+  switch (threading) {
+    case "single":
+      return "bg-violet-700";
+    case "checkers2":
+      return "bg-violet-600";
+    case "checkers4":
+      return "bg-violet-500";
+    case "checkers8":
+    case "multi":
+      return "bg-violet-400";
+  }
 }
 
 function formatDate(value: string) {
