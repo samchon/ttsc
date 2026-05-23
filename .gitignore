@@ -41,3 +41,6 @@ packages/wasm/ttsc-wasm
 /plugin
 # Stray native sanity binary from `go build website/compiler/cmd/playground` invoked from website/compiler.
 website/compiler/playground
+
+# Compiled Go binaries left by `go build .` in the cmd directory.
+packages/ttsc/cmd/ttsc/ttsc
