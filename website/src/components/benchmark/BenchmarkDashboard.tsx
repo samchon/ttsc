@@ -209,6 +209,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
   const build = bestOperationProject(report, "build");
   const check = bestOperationProject(report, "noEmit");
   const lint = bestLintProject(report, "noEmit");
+  const format = bestFormatProject(report);
 
   return (
     <div className="space-y-4">
@@ -217,7 +218,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
         <TableHeader
           title="Summary Winners"
           description="Each field keeps only the fastest project, but still shows the full tool group."
-          suffix={`${[build, check, lint].filter(Boolean).length} fields`}
+          suffix={`${[build, check, lint, format].filter(Boolean).length} fields`}
         />
         <div className="divide-y divide-[#252b36]">
           {build ? (
@@ -240,6 +241,9 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
               op="noEmit"
               title="Type-check + lint"
             />
+          ) : null}
+          {format ? (
+            <ProjectFormatRows project={format.project} title="Format" />
           ) : null}
         </div>
       </section>
@@ -831,6 +835,7 @@ function bestRatio(report: BenchmarkReport): Winner | undefined {
     bestOperationProject(report, "build"),
     bestOperationProject(report, "noEmit"),
     bestLintProject(report, "noEmit"),
+    bestFormatProject(report),
   ].reduce<Winner | undefined>(
     (best, current) =>
       current && (!best || current.factor > best.factor) ? current : best,
@@ -881,6 +886,32 @@ function bestLintProject(
         const current = {
           project,
           label: `Lint ${row.label}`,
+          factor,
+        };
+        return !innerBest || current.factor > innerBest.factor
+          ? current
+          : innerBest;
+      }, undefined);
+
+    return winner && (!best || winner.factor > best.factor) ? winner : best;
+  }, undefined);
+}
+
+function bestFormatProject(
+  report: BenchmarkReport,
+): Winner | undefined {
+  return report.projects.reduce<Winner | undefined>((best, project) => {
+    const rows = formatRowsForProject(project);
+    const baseline = rows.find((row) => row.baseline);
+    if (!baseline) return best;
+
+    const winner = rows
+      .filter((row) => !row.baseline)
+      .reduce<Winner | undefined>((innerBest, row) => {
+        const factor = baseline.measurement.medianMs / row.measurement.medianMs;
+        const current = {
+          project,
+          label: `Format ${row.label}`,
           factor,
         };
         return !innerBest || current.factor > innerBest.factor
@@ -960,7 +991,13 @@ function FormatTab({ report }: { report: BenchmarkReport }) {
   );
 }
 
-function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
+function ProjectFormatRows({
+  project,
+  title,
+}: {
+  project: BenchmarkProject;
+  title?: string;
+}) {
   const rows = formatRowsForProject(project);
   const baseline = rows.find((row) => row.baseline);
   const maxMs = Math.max(
@@ -974,6 +1011,7 @@ function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
       <ProjectLabel
         project={project}
+        title={title}
         baselineMs={baseline.measurement.medianMs}
       />
       <div className="space-y-1.5">
