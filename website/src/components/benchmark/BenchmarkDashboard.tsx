@@ -210,11 +210,9 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
   const build = bestOperationProject(report, "build");
   const check = bestOperationProject(report, "noEmit");
   const lint = bestLintProject(report, "noEmit");
-  const hero = bestRatio(report);
 
   return (
     <div className="space-y-4">
-      <HeroRatio winner={hero} scope="Overall" />
       <HostPanel host={report.host} date={report.date} />
       <section className={panelClass}>
         <TableHeader
@@ -264,34 +262,30 @@ function OperationTab({
   const projects = report.projects.filter((project) =>
     hasComparableOperation(project, op),
   );
-  const hero = bestOperationProject(report, op);
 
   return (
-    <div className="space-y-4">
-      <HeroRatio winner={hero} scope={title} />
-      <section className={panelClass}>
-        <TableHeader
-          title={`${title} Tool Matrix`}
-          description={description}
-          suffix={`${projects.length.toLocaleString()} projects`}
-        />
-        <div className="divide-y divide-[#252b36]">
-          {projects.length > 0 ? (
-            projects.map((project) => (
-              <ProjectOperationRows
-                key={`${project.name}:${op}`}
-                project={project}
-                op={op}
-              />
-            ))
-          ) : (
-            <p className="px-4 py-4 text-[12px] text-neutral-500">
-              No comparable measurements recorded for this view.
-            </p>
-          )}
-        </div>
-      </section>
-    </div>
+    <section className={panelClass}>
+      <TableHeader
+        title={`${title} Tool Matrix`}
+        description={description}
+        suffix={`${projects.length.toLocaleString()} projects`}
+      />
+      <div className="divide-y divide-[#252b36]">
+        {projects.length > 0 ? (
+          projects.map((project) => (
+            <ProjectOperationRows
+              key={`${project.name}:${op}`}
+              project={project}
+              op={op}
+            />
+          ))
+        ) : (
+          <p className="px-4 py-4 text-[12px] text-neutral-500">
+            No comparable measurements recorded for this view.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -313,12 +307,21 @@ function ProjectOperationRows({
 
   if (!baseline || rows.length <= 1) return null;
 
+  const best = rows
+    .filter((row) => !row.baseline && row.measurement.medianMs > 0)
+    .reduce<{ factor: number; label: string } | undefined>((acc, row) => {
+      const factor = baseline.measurement.medianMs / row.measurement.medianMs;
+      return !acc || factor > acc.factor ? { factor, label: row.label } : acc;
+    }, undefined);
+
   return (
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
       <ProjectLabel
         project={project}
         title={title}
         baselineMs={baseline.measurement.medianMs}
+        bestFactor={best?.factor}
+        bestLabel={best?.label}
       />
       <div className="space-y-1.5">
         {rows.map((row) => (
@@ -347,18 +350,14 @@ function LintTab({ report }: { report: BenchmarkReport }) {
   const projects = report.projects.filter((project) =>
     hasComparableLint(project, "noEmit"),
   );
-  const hero = bestLintProject(report, "noEmit");
 
   return (
-    <div className="space-y-4">
-      <HeroRatio winner={hero} scope="Lint" />
-      <LintMatrix
-        title="Lint Tool Matrix"
-        description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
-        projects={projects}
-        op="noEmit"
-      />
-    </div>
+    <LintMatrix
+      title="Lint Tool Matrix"
+      description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
+      projects={projects}
+      op="noEmit"
+    />
   );
 }
 
@@ -414,12 +413,26 @@ function ProjectLintRows({
 
   if (!baseline || rows.length <= 1) return null;
 
+  // Lint's "best" is the lint-pass-only ratio (ESLint time vs @ttsc/lint
+  // overhead) — that's the multiplier the dashboard is actually selling.
+  // Total-stack ratio (`tsc + eslint` vs `ttsc + @ttsc/lint`) lives in the
+  // bars on the right and reads ~10–20x; the isolated lint factor reads
+  // ~50x+ because eslint alone is the slow side.
+  const best = rows
+    .filter((row) => !row.baseline && (row.lintFactor ?? 0) > 0)
+    .reduce<{ factor: number; label: string } | undefined>((acc, row) => {
+      const factor = row.lintFactor!;
+      return !acc || factor > acc.factor ? { factor, label: row.label } : acc;
+    }, undefined);
+
   return (
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
       <ProjectLabel
         project={project}
         title={title}
         baselineMs={baseline.totalMs}
+        bestFactor={best?.factor}
+        bestLabel={best?.label}
       />
       <div className="space-y-1.5">
         {rows.map((row) => (
@@ -446,10 +459,14 @@ function ProjectLabel({
   project,
   title,
   baselineMs,
+  bestFactor,
+  bestLabel,
 }: {
   project: BenchmarkProject;
   title?: string;
   baselineMs: number;
+  bestFactor?: number;
+  bestLabel?: string;
 }) {
   return (
     <div>
@@ -467,6 +484,16 @@ function ProjectLabel({
       <p className="mt-2 font-mono text-[11px] text-neutral-400">
         baseline: {formatDuration(baselineMs)}
       </p>
+      {bestFactor !== undefined && bestFactor > 1 ? (
+        <div className="mt-3" title={bestLabel}>
+          <div className="font-mono text-3xl font-bold leading-none text-emerald-300 md:text-4xl">
+            {formatMultiplier(bestFactor)}
+          </div>
+          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+            best
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -855,44 +882,6 @@ function bestRatio(report: BenchmarkReport): Winner | undefined {
   );
 }
 
-/**
- * Hero panel: the biggest single speedup across the tab's scope rendered
- * at oversized point size on the left, with the project + cell label
- * underneath. Drives the at-a-glance number the user reads first when
- * loading the page.
- */
-function HeroRatio({
-  winner,
-  scope,
-}: {
-  winner: Winner | undefined;
-  scope: string;
-}) {
-  if (!winner) return null;
-  return (
-    <section
-      className={`${panelClass} flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center`}
-    >
-      <div className="flex-shrink-0">
-        <div
-          className="font-mono text-5xl font-bold leading-none text-emerald-300 md:text-6xl"
-          title={`${winner.project.name}: ${winner.label}`}
-        >
-          {formatMultiplier(winner.factor)}
-        </div>
-        <div className="mt-1 font-mono text-[11px] uppercase tracking-wider text-neutral-500">
-          {scope} winner
-        </div>
-      </div>
-      <div className="text-[13px] text-neutral-300 md:ml-6">
-        <div className="font-semibold text-neutral-50">
-          {winner.project.name}
-        </div>
-        <div className="mt-0.5 text-neutral-400">{winner.label}</div>
-      </div>
-    </section>
-  );
-}
 
 function bestOperationProject(
   report: BenchmarkReport,
@@ -952,10 +941,14 @@ function bestLintProject(
     const baseline = rows.find((row) => row.baseline);
     if (!baseline) return best;
 
+    // Use the isolated lint-pass ratio (`eslintMs / lintOverheadMs`) so the
+    // headline number reflects how much faster the lint pass alone is —
+    // not the total-stack ratio which is dragged down by the shared
+    // type-check that both sides pay.
     const winner = rows
-      .filter((row) => !row.baseline)
+      .filter((row) => !row.baseline && (row.lintFactor ?? 0) > 0)
       .reduce<Winner | undefined>((innerBest, row) => {
-        const factor = baseline.totalMs / row.totalMs;
+        const factor = row.lintFactor!;
         const current = {
           project,
           label: `Lint ${row.label}`,
@@ -1012,33 +1005,29 @@ function findLegacyEslint(
 
 function FormatTab({ report }: { report: BenchmarkReport }) {
   const projects = report.projects.filter(hasComparableFormat);
-  const hero = bestFormatProject(report);
 
   return (
-    <div className="space-y-4">
-      <HeroRatio winner={hero} scope="Format" />
-      <section className={panelClass}>
-        <TableHeader
-          title="Format Tool Matrix"
-          description="Prettier (legacy) vs ttsc format (ttsc-lint), across the threading spectrum."
-          suffix={`${projects.length.toLocaleString()} projects`}
-        />
-        <div className="divide-y divide-[#252b36]">
-          {projects.length > 0 ? (
-            projects.map((project) => (
-              <ProjectFormatRows
-                key={`${project.name}:format`}
-                project={project}
-              />
-            ))
-          ) : (
-            <p className="px-4 py-4 text-[12px] text-neutral-500">
-              No comparable format measurements recorded for this view.
-            </p>
-          )}
-        </div>
-      </section>
-    </div>
+    <section className={panelClass}>
+      <TableHeader
+        title="Format Tool Matrix"
+        description="Prettier (legacy) vs ttsc format (ttsc-lint), across the threading spectrum."
+        suffix={`${projects.length.toLocaleString()} projects`}
+      />
+      <div className="divide-y divide-[#252b36]">
+        {projects.length > 0 ? (
+          projects.map((project) => (
+            <ProjectFormatRows
+              key={`${project.name}:format`}
+              project={project}
+            />
+          ))
+        ) : (
+          <p className="px-4 py-4 text-[12px] text-neutral-500">
+            No comparable format measurements recorded for this view.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1052,11 +1041,20 @@ function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
 
   if (!baseline || rows.length <= 1) return null;
 
+  const best = rows
+    .filter((row) => !row.baseline && row.measurement.medianMs > 0)
+    .reduce<{ factor: number; label: string } | undefined>((acc, row) => {
+      const factor = baseline.measurement.medianMs / row.measurement.medianMs;
+      return !acc || factor > acc.factor ? { factor, label: row.label } : acc;
+    }, undefined);
+
   return (
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
       <ProjectLabel
         project={project}
         baselineMs={baseline.measurement.medianMs}
+        bestFactor={best?.factor}
+        bestLabel={best?.label}
       />
       <div className="space-y-1.5">
         {rows.map((row) => (
