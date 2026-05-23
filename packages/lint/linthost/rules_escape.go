@@ -52,12 +52,12 @@ func (noUselessEscape) Check(ctx *Context, node *shimast.Node) {
   // single-char escape whitelist matches ESLint per-context.
   switch node.Kind {
   case shimast.KindStringLiteral:
-    reportStringEscapes(ctx, raw, pos, stringValidEscapes)
+    reportStringEscapes(ctx, raw, pos, stringValidEscapes, false)
   case shimast.KindNoSubstitutionTemplateLiteral,
     shimast.KindTemplateHead,
     shimast.KindTemplateMiddle,
     shimast.KindTemplateTail:
-    reportStringEscapes(ctx, raw, pos, templateValidEscapes)
+    reportStringEscapes(ctx, raw, pos, templateValidEscapes, true)
   case shimast.KindRegularExpressionLiteral:
     reportRegexEscapes(ctx, raw, pos)
   }
@@ -79,7 +79,16 @@ const regexValidEscapes = "^$\\.*+?()[]{}|/-\n\r"
 // translate to absolute file positions. The function issues an autofix
 // (delete the backslash) for ASCII escapes; multi-byte sequences are
 // reported without a fix to avoid corrupting UTF-8.
-func reportStringEscapes(ctx *Context, raw string, base int, whitelist string) {
+//
+// `isTemplate` is true for `NoSubstitutionTemplateLiteral` and
+// `TemplateHead`/`Middle`/`Tail` payloads. Inside a template, `\${` escapes
+// the interpolation opener: stripping the backslash from `\${expr}` would
+// either turn the literal text into an interpolation (corrupting the
+// program) or — when the surrounding template already contains a real
+// `${expr}` — produce TS syntax that no longer parses. The explicit guard
+// here pins that exception so future tightening of `templateValidEscapes`
+// cannot regress the corruption.
+func reportStringEscapes(ctx *Context, raw string, base int, whitelist string, isTemplate bool) {
   if len(raw) < 2 {
     return
   }
@@ -101,6 +110,14 @@ func reportStringEscapes(ctx *Context, raw string, base int, whitelist string) {
       return
     }
     next := raw[i+1]
+    // Template-literal exception: `\${` escapes the interpolation
+    // opener. Without the backslash the next two bytes would either
+    // start an interpolation or trigger a parse error, so the escape is
+    // load-bearing even though `\$` looks redundant in isolation.
+    if isTemplate && next == '$' && i+2 < len(raw) && raw[i+2] == '{' {
+      i++ // consume the `$` so the `{` is not re-examined as a fresh char.
+      continue
+    }
     if isUselessStringEscape(next, whitelist) {
       // Only emit a fix when both surrounding bytes are plain ASCII so
       // deleting one byte cannot corrupt a multi-byte sequence.
