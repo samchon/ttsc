@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { INTERNAL_SHADOW_FLAGS, TERMINAL_FLAGS } from "../../flags/schema";
 import {
   hasProjectPluginEntries,
   loadProjectPlugins,
@@ -198,18 +199,19 @@ function checkPluginsReportTypeScriptDiagnostics(
  * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc must not add
  * build-only guard flags around these because the forwarded flag asks tsgo to
  * print something and exit instead of compiling the project.
+ *
+ * Schema-derived: the set is computed from `FLAG_SCHEMA[*].terminal === true`,
+ * not hand-maintained next to runBuild. Adding a new terminal flag now means
+ * editing `schema.ts` and re-running `pnpm format` — every layer learns about
+ * it automatically.
  */
-const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = new Set([
-  "--help",
-  "-h",
-  "-?",
-  "--version",
-  "-v",
-  "--all",
-  "--showConfig",
-  "--init",
-  "--listFilesOnly",
-]);
+const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = (() => {
+  // Mirror the legacy hand-list: schema's terminal flags ∪ the `-?` alias
+  // tsgo accepts (kept here because it is a tsgo synonym, not a ttsc flag).
+  const out = new Set<string>(TERMINAL_FLAGS);
+  out.add("-?");
+  return out;
+})();
 
 /**
  * Report whether the caller forwarded a print-and-exit tsgo flag, so ttsc can
@@ -219,6 +221,26 @@ function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
   return (
     options.passthrough?.some((flag) => TERMINAL_TSGO_FLAGS.has(flag)) ?? false
   );
+}
+
+/**
+ * Report whether the caller forwarded a flag ttsc adds to tsgo internally —
+ * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or
+ * `--noEmit` (ttsc adds it for the pre-emit type-check). When the user
+ * also forwards the same flag, post-processing must keep the user-visible
+ * effect intact instead of stripping it as ttsc-internal noise.
+ *
+ * Schema-derived: `FLAG_SCHEMA[*].internalShadow === true`. RC-2 from the
+ * RCA (RCA section 3, `--listEmittedFiles` / `--showConfig` swallowed):
+ * the per-flag `passthrough.includes("…")` check is now one structural
+ * lookup against the schema, not one bespoke `if` per shadow flag.
+ */
+function forwardsInternalShadowFlag(
+  options: TtscCommonOptions,
+  flag: string,
+): boolean {
+  if (!INTERNAL_SHADOW_FLAGS.has(flag)) return false;
+  return options.passthrough?.includes(flag) ?? false;
 }
 
 /**
@@ -317,8 +339,13 @@ function runTsgoBuild(
   // flag internally to learn the emitted paths and strips the lines back out
   // as noise — but when the user themselves forwarded `--listEmittedFiles`,
   // the listing is what they asked for, so it must survive to stdout.
-  const userListedEmitted =
-    options.passthrough?.includes("--listEmittedFiles") ?? false;
+  // The lookup is schema-driven (FLAG_SCHEMA marks `--listEmittedFiles` with
+  // `internalShadow: true`); see `forwardsInternalShadowFlag` for the RC-2
+  // background.
+  const userListedEmitted = forwardsInternalShadowFlag(
+    options,
+    "--listEmittedFiles",
+  );
   if (emittedFiles.length !== 0 && !userListedEmitted) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }

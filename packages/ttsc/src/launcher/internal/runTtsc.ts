@@ -8,6 +8,13 @@ import { resolveProjectConfig } from "../../compiler/internal/project/resolvePro
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
+import {
+  getBoolean,
+  getNumber,
+  getString,
+  parseFlags,
+} from "../../flags/parser";
+import type { TtscSubcommand } from "../../flags/schema";
 import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourcePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
@@ -282,166 +289,68 @@ function ensureExecutable(binary: string): void {
 }
 
 function parseProjectArgs(argv: readonly string[]) {
-  let cacheDir: string | undefined;
-  let cwd: string | undefined;
-  let tsconfig: string | undefined;
-
-  const rest = [...argv];
-  while (rest.length !== 0) {
-    const current = rest.shift()!;
-    switch (current) {
-      case "--cwd":
-        cwd = takeValue(current, rest);
-        break;
-      case "--cache-dir":
-        cacheDir = takeValue(current, rest);
-        break;
-      case "-p":
-      case "--tsconfig":
-      case "--project":
-        tsconfig = takeValue(current, rest);
-        break;
-      default:
-        if (current.startsWith("--cwd=")) {
-          cwd = current.slice("--cwd=".length);
-        } else if (current.startsWith("--cache-dir=")) {
-          cacheDir = current.slice("--cache-dir=".length);
-        } else if (current.startsWith("--tsconfig=")) {
-          tsconfig = current.slice("--tsconfig=".length);
-        } else if (current.startsWith("--project=")) {
-          tsconfig = current.slice("--project=".length);
-        } else {
-          throw new Error(`ttsc: unknown option ${current}`);
-        }
-        break;
-    }
-  }
-  return { cacheDir, cwd, tsconfig };
+  // `prepare` and `clean` are project-shaped commands. They share the same
+  // schema as the build lane; the engine forwards unknown flags as well as
+  // build-only flags (e.g. `--strict`) to the launcher's passthrough list
+  // so the legacy "unknown option" behaviour is no longer a separate trap
+  // (RC-3 + RC-4 prevention; see issue #125 §5 in the RCA).
+  const result = parseFlags({
+    argv,
+    errorPrefix: "ttsc:",
+    subcommand: "prepare",
+  });
+  return {
+    cacheDir: getString(result, "--cache-dir"),
+    cwd: getString(result, "--cwd"),
+    tsconfig: getString(result, "--tsconfig"),
+  };
 }
 
 function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
-  let binary: string | undefined;
-  let cacheDir: string | undefined;
-  let checkers: number | undefined;
-  let cwd: string | undefined;
-  let emit: boolean | undefined = checkOnly ? false : undefined;
-  const files: string[] = [];
-  let fix = false;
-  let format = false;
-  let outDir: string | undefined;
-  const passthrough: string[] = [];
-  let preserveWatchOutput = false;
-  let quiet = true;
-  let singleThreaded = false;
-  let tsconfig: string | undefined;
-  let watch = false;
+  const result = parseFlags({
+    argv,
+    errorPrefix: "ttsc:",
+    subcommand: "build",
+  });
+  // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
+  // `--verbose` flips it to false; `emit` defaults `undefined` in build
+  // mode (let tsconfig decide) and `false` in check/fix/format mode.
+  const verbose = getBoolean(result, "--verbose");
+  const quietFlag = getBoolean(result, "--quiet");
+  const quiet = verbose === true ? false : (quietFlag ?? true);
+  const explicitEmit = getBoolean(result, "--emit");
+  const explicitNoEmit = getBoolean(result, "--noEmit");
+  let emit: boolean | undefined;
+  if (explicitEmit === true) emit = true;
+  else if (explicitNoEmit === true) emit = false;
+  if (emit === undefined && checkOnly) emit = false;
 
-  const rest = [...argv];
-  while (rest.length !== 0) {
-    const current = rest.shift()!;
-    switch (current) {
-      case "--emit":
-        emit = true;
-        break;
-      case "--noEmit":
-        emit = false;
-        break;
-      case "--quiet":
-        quiet = true;
-        break;
-      case "--verbose":
-        quiet = false;
-        break;
-      case "-w":
-      case "--watch":
-        watch = true;
-        break;
-      case "--preserveWatchOutput":
-        preserveWatchOutput = true;
-        break;
-      case "--cwd":
-        cwd = takeValue(current, rest);
-        break;
-      case "--outDir":
-        outDir = takeValue(current, rest);
-        break;
-      case "-p":
-      case "--tsconfig":
-      case "--project":
-        tsconfig = takeValue(current, rest);
-        break;
-      case "--binary":
-        binary = takeValue(current, rest);
-        break;
-      case "--cache-dir":
-        cacheDir = takeValue(current, rest);
-        break;
-      case "--singleThreaded":
-        singleThreaded = true;
-        break;
-      case "--checkers":
-        checkers = parseCheckersValue(takeValue(current, rest));
-        break;
-      default:
-        if (current.startsWith("--cwd=")) {
-          cwd = current.slice("--cwd=".length);
-        } else if (current.startsWith("--outDir=")) {
-          outDir = current.slice("--outDir=".length);
-        } else if (current === "-w") {
-          // Unreachable: `-w` is handled by the switch case above. Kept here
-          // as a guard in case the switch is refactored in the future.
-          watch = true;
-        } else if (current.startsWith("--tsconfig=")) {
-          tsconfig = current.slice("--tsconfig=".length);
-        } else if (current.startsWith("--project=")) {
-          tsconfig = current.slice("--project=".length);
-        } else if (current.startsWith("--preserveWatchOutput=")) {
-          preserveWatchOutput =
-            current.slice("--preserveWatchOutput=".length) !== "false";
-        } else if (current.startsWith("--binary=")) {
-          binary = current.slice("--binary=".length);
-        } else if (current.startsWith("--cache-dir=")) {
-          cacheDir = current.slice("--cache-dir=".length);
-        } else if (current.startsWith("--checkers=")) {
-          checkers = parseCheckersValue(current.slice("--checkers=".length));
-        } else if (current.startsWith("--singleThreaded=")) {
-          singleThreaded =
-            current.slice("--singleThreaded=".length) !== "false";
-        } else if (current === "--verbose") {
-          // Unreachable: `--verbose` is handled by the switch case above.
-          quiet = false;
-        } else if (current.startsWith("-")) {
-          // Not one of ttsc's own flags. Forward it verbatim to tsgo, which
-          // owns the complete, arity-aware option parser — ttsc deliberately
-          // does not re-implement knowledge of every tsgo flag.
-          passthrough.push(current);
-        } else if (looksLikeInputFile(current)) {
-          files.push(current);
-        } else {
-          // A bare non-file token — e.g. the `es2020` in `--target es2020` —
-          // is the value of a forwarded flag. Keep it next to the run so the
-          // flag and its value reach tsgo together.
-          passthrough.push(current);
-        }
-        break;
-    }
-  }
+  const files = result.positional.filter(looksLikeInputFile);
+  // Bare non-file positionals are flag values (e.g. the `es2020` in
+  // `--target es2020`). The engine left them in `positional` because the
+  // forwarded flag is unknown to the schema; route them back into
+  // passthrough so the user's pair reaches tsgo intact.
+  const trailingValues = result.positional.filter(
+    (token) => !looksLikeInputFile(token),
+  );
+  const passthrough = [...result.passthrough, ...trailingValues];
+
   return {
-    binary,
-    cacheDir,
-    checkers,
-    cwd,
+    binary: getString(result, "--binary"),
+    cacheDir: getString(result, "--cache-dir"),
+    checkers: getNumber(result, "--checkers"),
+    cwd: getString(result, "--cwd"),
     emit,
     files,
-    fix,
-    format,
-    outDir,
+    fix: false,
+    format: false,
+    outDir: getString(result, "--outDir"),
     passthrough,
-    preserveWatchOutput,
+    preserveWatchOutput: getBoolean(result, "--preserveWatchOutput") === true,
     quiet,
-    singleThreaded,
-    tsconfig,
-    watch,
+    singleThreaded: getBoolean(result, "--singleThreaded") === true,
+    tsconfig: getString(result, "--tsconfig"),
+    watch: getBoolean(result, "--watch") === true,
   };
 }
 
@@ -454,20 +363,12 @@ function looksLikeInputFile(token: string): boolean {
   return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
 
-/**
- * Parse the `--checkers` value into a positive integer. tsgo rejects a
- * non-positive checker count (`minValue: 1`); ttsc mirrors that so a typo fails
- * loudly instead of silently building with the default pool.
- */
-function parseCheckersValue(raw: string): number {
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(
-      `ttsc: --checkers expects a positive integer, got ${JSON.stringify(raw)}`,
-    );
-  }
-  return value;
-}
+// `_subcommand` reserves the subcommand-routing handle the schema engine
+// will use to specialise `parseBuildArgs` per mode (build / check / fix /
+// format) when subcommand-specific accept-lists diverge. Currently the
+// build / check / fix / format lanes share the same flag set so the engine
+// can use the `"build"` subset for all of them.
+type _Subcommand = TtscSubcommand;
 
 function printHelp(): void {
   process.stdout.write(
@@ -749,14 +650,6 @@ function collectWatchDirectories(root: string): string[] {
     }
   }
   return out;
-}
-
-function takeValue(flag: string, rest: string[]): string {
-  const value = rest.shift();
-  if (!value) {
-    throw new Error(`ttsc: ${flag} requires a value`);
-  }
-  return value;
 }
 
 function formatError(error: unknown): string {

@@ -63,16 +63,7 @@ func RunTransform(args []string) int {
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
-  if err := fs.Parse(filterKnownFlags(args, map[string]bool{
-    "cwd":            true,
-    "file":           true,
-    "out":            true,
-    "plugins-json":   true,
-    "tsconfig":       true,
-    "singleThreaded": false,
-    "checkers":       true,
-    "tsgo-args":      true,
-  })); err != nil {
+  if err := fs.Parse(filterKnownFlags(args, LintFlagAllowList)); err != nil {
     return 2
   }
   if *file == "" {
@@ -203,19 +194,7 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   singleThreaded := fs.Bool("singleThreaded", false, "")
   checkers := fs.Int("checkers", 0, "")
   tsgoArgsRaw := fs.String("tsgo-args", "", "")
-  if err := fs.Parse(filterKnownFlags(args, map[string]bool{
-    "cwd":            true,
-    "emit":           false,
-    "noEmit":         false,
-    "outDir":         true,
-    "plugins-json":   true,
-    "quiet":          false,
-    "tsconfig":       true,
-    "verbose":        false,
-    "singleThreaded": false,
-    "checkers":       true,
-    "tsgo-args":      true,
-  })); err != nil {
+  if err := fs.Parse(filterKnownFlags(args, LintFlagAllowList)); err != nil {
     return nil, err
   }
   if *emit && *noEmit {

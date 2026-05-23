@@ -191,23 +191,11 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
 // cause flag.FlagSet to error. Flags not in the known set are consumed together
 // with their value argument when they clearly take one (no inline "=" and the
 // next token does not start with "-").
+//
+// The allow-list itself is generated from packages/ttsc/src/flags/schema.ts
+// (see flags_gen.go); editing it means editing the schema and re-running
+// `pnpm format`, not patching this file.
 func filterHostArgs(args []string) []string {
-  // known maps flag name → whether it takes a separate value token.
-  // true  = the flag accepts a value (--flag value or --flag=value).
-  // false = the flag is boolean (no following value token).
-  known := map[string]bool{
-    "cwd":            true,
-    "emit":           false,
-    "noEmit":         false,
-    "outDir":         true,
-    "plugins-json":   true,
-    "quiet":          false,
-    "tsconfig":       true,
-    "verbose":        false,
-    "singleThreaded": false,
-    "checkers":       true,
-    "tsgo-args":      true,
-  }
   filtered := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
     current := args[i]
@@ -219,7 +207,7 @@ func filterHostArgs(args []string) []string {
       continue
     }
     name, hasInlineValue := flagName(current)
-    takesValue, ok := known[name]
+    takesValue, ok := HostFlagAllowList[name]
     if ok {
       filtered = append(filtered, current)
       if takesValue && !hasInlineValue && i+1 < len(args) {
