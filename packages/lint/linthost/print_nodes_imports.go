@@ -40,12 +40,15 @@ func printNamedImports(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
+  // AddComma honors `format.trailingComma`: named imports are an
+  // ES5-permitted comma position, so "all" and "es5" both keep the
+  // trailing comma; only "none" drops it.
   return printList(ctx, listShape{
     OpenTok:  "{",
     CloseTok: "}",
     Items:    items,
     Space:    true,
-    AddComma: true,
+    AddComma: ctx.allowsEs5TrailingComma(),
   }), covered
 }
 
@@ -71,12 +74,15 @@ func printNamedExports(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
+  // AddComma honors `format.trailingComma`: named exports are an
+  // ES5-permitted comma position, so "all" and "es5" both keep the
+  // trailing comma; only "none" drops it.
   return printList(ctx, listShape{
     OpenTok:  "{",
     CloseTok: "}",
     Items:    items,
     Space:    true,
-    AddComma: true,
+    AddComma: ctx.allowsEs5TrailingComma(),
   }), covered
 }
 

@@ -55,12 +55,16 @@ func printObjectLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if len(obj.Properties.Nodes) > 0 {
     forceBreak = objectHasNewlineAfterBrace(ctx.Source, node, obj.Properties.Nodes[0])
   }
+  // AddComma honors `format.trailingComma`: object literals accept
+  // trailing commas in ES5 so both "all" and "es5" keep them; only
+  // "none" suppresses. Pairs with the call/array branches so the printer
+  // never disagrees with the trailing-comma rule on the same setting.
   return printList(ctx, listShape{
     OpenTok:    "{",
     CloseTok:   "}",
     Items:      items,
     Space:      true,
-    AddComma:   true,
+    AddComma:   ctx.allowsEs5TrailingComma(),
     ForceBreak: forceBreak,
   }), covered
 }

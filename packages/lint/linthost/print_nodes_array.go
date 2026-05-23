@@ -41,11 +41,16 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
+  // AddComma honors `format.trailingComma`: arrays accept trailing
+  // commas in ES5 so both "all" and "es5" keep them; only "none"
+  // suppresses. Hardcoding `true` would oscillate against Prettier on
+  // every `none` project (the trailing-comma rule wouldn't insert one
+  // and the printer would put one back).
   return printList(ctx, listShape{
     OpenTok:  "[",
     CloseTok: "]",
     Items:    items,
     Space:    false,
-    AddComma: true,
+    AddComma: ctx.allowsEs5TrailingComma(),
   }), covered
 }

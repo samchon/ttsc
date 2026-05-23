@@ -52,11 +52,19 @@ import (
 type formatPrintWidth struct{}
 
 // formatPrintWidthOptions mirrors `TtscLintRuleOptions.PrintWidth`.
+//
+// TrailingComma reaches this rule because the printer's reflow decides
+// whether to emit a trailing comma on every multi-line list — and that
+// decision must match the user's `format.trailingComma` setting or the
+// reflow oscillates against `format/trailing-comma` on every cascade
+// pass. The config layer mirrors `format.trailingComma` into both
+// rules' option blobs (see `expandFormatBlock` in config_format.go).
 type formatPrintWidthOptions struct {
-  PrintWidth *int    `json:"printWidth"`
-  TabWidth   *int    `json:"tabWidth"`
-  UseTabs    *bool   `json:"useTabs"`
-  EndOfLine  *string `json:"endOfLine"`
+  PrintWidth    *int    `json:"printWidth"`
+  TabWidth      *int    `json:"tabWidth"`
+  UseTabs       *bool   `json:"useTabs"`
+  EndOfLine     *string `json:"endOfLine"`
+  TrailingComma *string `json:"trailingComma"`
 }
 
 func (formatPrintWidth) Name() string   { return "format/print-width" }
@@ -92,6 +100,9 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
   if opts.EndOfLine != nil {
     printOpts.EndOfLine = *opts.EndOfLine
+  }
+  if opts.TrailingComma != nil {
+    printOpts.TrailingComma = *opts.TrailingComma
   }
 
   src := ctx.File.Text()

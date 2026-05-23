@@ -181,3 +181,38 @@ func (ctx *PrintContext) indentUnit() int {
   }
   return 2
 }
+
+// trailingCommaMode normalizes ctx.Opts.TrailingComma to one of "all",
+// "es5", or "none". An empty value — the zero value for the field —
+// reads as "all" to keep pre-existing callers and tests that built a
+// PrintOptions{} without setting the field on Prettier's default
+// behavior. Any other value also reads as "all"; the config layer
+// rejects unknown strings before they reach the printer (see
+// `expandFormatBlock` in config_format.go), so a stray value here is a
+// programmer error and the safest fallback is the most-commas mode.
+func (ctx *PrintContext) trailingCommaMode() string {
+  switch ctx.Opts.TrailingComma {
+  case "es5", "none":
+    return ctx.Opts.TrailingComma
+  }
+  return "all"
+}
+
+// allowsCallArgumentTrailingComma reports whether a multi-line call /
+// new argument list should emit a trailing comma under the current
+// trailingComma setting. Trailing commas in call arguments arrived in
+// ES2017, so Prettier's "es5" mode excludes them just like "none" does;
+// only "all" keeps them. Parameter lists are not printed by the
+// dispatcher today, but the same rule applies to them when they are.
+func (ctx *PrintContext) allowsCallArgumentTrailingComma() bool {
+  return ctx.trailingCommaMode() == "all"
+}
+
+// allowsEs5TrailingComma reports whether a multi-line ES5-permitted
+// list — arrays, objects, named imports / exports — should emit a
+// trailing comma. Only "none" suppresses the comma here; "es5" and
+// "all" both keep it because ES5 has accepted trailing commas in these
+// positions since the language's inception.
+func (ctx *PrintContext) allowsEs5TrailingComma() bool {
+  return ctx.trailingCommaMode() != "none"
+}
