@@ -113,12 +113,24 @@ type formatCommandResolver struct {
 // this guard, `ttsc format` would rewrite files that the user explicitly
 // asked the lint config to ignore — the engine's lint walk would skip the
 // file but the formatter would still touch it.
+//
+// The symmetric guard applies to `files`: if every non-IgnoreOnly entry
+// carries a `files` filter and `fileName` matches none of them, the engine
+// would not run any rules on the file (`ConfigEntry.matchesFile` returns
+// false for every entry). The format command must skip its blanket
+// format-rule upgrade for the same reason — otherwise `ttsc format` would
+// rewrite files that fall outside every entry's scope, e.g. a `.json`
+// resolved into the program via `resolveJsonModule` when the only entry
+// targets `src/**/*.ts`.
 func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig {
   resolved := r.inner.ResolveRules(fileName)
   if resolved.Ignored {
     return resolved
   }
   if r.fileIsIgnoredByEntry(fileName) {
+    return resolved
+  }
+  if !r.fileMatchesAnyEntry(fileName) {
     return resolved
   }
   if resolved.Rules == nil {
@@ -151,6 +163,38 @@ func (r formatCommandResolver) fileIsIgnoredByEntry(fileName string) bool {
       continue
     }
     if entry.matchesIgnores(fileName) {
+      return true
+    }
+  }
+  return false
+}
+
+// fileMatchesAnyEntry reports whether `fileName` falls inside the `files`
+// scope of at least one non-IgnoreOnly entry. An entry without an explicit
+// `files` list matches every file by definition (eslint flat-config
+// semantics), so a config with any unrestricted non-IgnoreOnly entry returns
+// true for every file. The format command treats a `false` result the same
+// way the engine does: no entry contributes rules, so the blanket
+// format-rule upgrade must be skipped.
+//
+// When the inner resolver is not a *ConfigStore the helper returns true.
+// That preserves the prior behavior for non-ConfigStore resolvers (tests,
+// dynamic resolvers, future adapters) — the `files` scope is a ConfigStore
+// concept and we should not penalize callers that surface a different
+// resolver shape.
+func (r formatCommandResolver) fileMatchesAnyEntry(fileName string) bool {
+  store, ok := r.inner.(*ConfigStore)
+  if !ok || store == nil {
+    return true
+  }
+  if len(store.entries) == 0 {
+    return true
+  }
+  for _, entry := range store.entries {
+    if entry.IgnoreOnly {
+      continue
+    }
+    if entry.matchesFile(fileName) {
       return true
     }
   }
