@@ -1109,13 +1109,21 @@ function checkersSteps(steps, n) {
  * ttsc:tsgo cell. Order is the spec the user asked for: serial baseline
  * first, then the 2/4/8 checker-pool sweep, so the dashboard rows read
  * left-to-right as `single → checkers2 → checkers4 → checkers8`.
+ *
+ * Returned by a function rather than a top-level `const` so the call
+ * sites (`projectCells`, invoked from `main()` near the top of the
+ * file) hit a defined value — top-level statements run top-to-bottom,
+ * and `main();` is at line ~414 while the variant helpers below sit
+ * past line 1000.
  */
-const THREADING_VARIANTS = [
-  { name: "single", apply: (steps) => singleThreadedSteps(steps) },
-  { name: "checkers2", apply: (steps) => checkersSteps(steps, 2) },
-  { name: "checkers4", apply: (steps) => checkersSteps(steps, 4) },
-  { name: "checkers8", apply: (steps) => checkersSteps(steps, 8) },
-];
+function threadingVariants() {
+  return [
+    { name: "single", apply: (steps) => singleThreadedSteps(steps) },
+    { name: "checkers2", apply: (steps) => checkersSteps(steps, 2) },
+    { name: "checkers4", apply: (steps) => checkersSteps(steps, 4) },
+    { name: "checkers8", apply: (steps) => checkersSteps(steps, 8) },
+  ];
+}
 
 function measureCell({ id, project, branch, tool, op, threading, steps }) {
   const root = cloneDir(project, branch);
@@ -1661,7 +1669,7 @@ function projectCells(project) {
           steps: baseSteps,
         });
       } else {
-        for (const variant of THREADING_VARIANTS) {
+        for (const variant of threadingVariants()) {
           cells.push({
             id: `${project.name}:${branch}:${op}:${variant.name}`,
             project,
@@ -1676,7 +1684,7 @@ function projectCells(project) {
         const tsgoSteps =
           branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
         if (tsgoSteps?.length) {
-          for (const variant of THREADING_VARIANTS) {
+          for (const variant of threadingVariants()) {
             cells.push({
               id: `${project.name}:${branch}:tsgo:${op}:${variant.name}`,
               project,
