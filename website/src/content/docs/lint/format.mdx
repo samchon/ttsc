@@ -129,6 +129,8 @@ const user = {
 
 When the rule can't reflow a node (a shape it doesn't recognize, or a comment sits inside it), it abstains — no edits applied, original bytes pass through verbatim.
 
+Trailing `//` line comments do not count against the budget. A line comment runs to the end of the source line by definition, so a node whose only overflow is its trailing comment stays flat — matching Prettier's behavior. The un-movable punctuation suffix (`;`, `) {`, `,`) is still charged.
+
 #### What it reflows
 
 | Shape | Example before | Example after (`printWidth: 20`) |
