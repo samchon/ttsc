@@ -53,7 +53,7 @@ const CHECKPOINT_JSON =
   process.env.TTSC_BENCH_CHECKPOINT ??
   path.resolve(WORK, "benchmark.checkpoint.json");
 
-const RUNS = numberEnv("TTSC_BENCH_RUNS", 10);
+const RUNS = numberEnv("TTSC_BENCH_RUNS", 5);
 const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
 const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
 const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
