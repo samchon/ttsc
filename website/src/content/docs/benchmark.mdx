@@ -24,6 +24,19 @@ separate passes over the project. The `ttsc-lint` path runs `ttsc` with
 `@ttsc/lint` loaded, so the chart separates the compile portion from the extra
 lint overhead and also shows the pure lint-to-lint ratio.
 
+When the single-threaded lint overhead measures at or below zero — the
+`ttsc + @ttsc/lint` total lands inside the noise of the bare `ttsc` total — the
+dashboard substitutes a synthetic value derived from the multi-threaded run for
+the same project:
+
+```
+ST_overhead = round(ST_ttsc * (MT_overhead / MT_ttsc))
+```
+
+The substituted row is labelled `ttsc + @ttsc/lint (ST, est.)` so the chart
+keeps a finite bar and the Summary keeps a finite ratio instead of rendering
+`Infinity` / `NaN` against an unobservable cost.
+
 ## Methodology
 
 Each fixture is checked out as `legacy`, `ttsc`, and `ttsc-lint`. The `ttsc`
