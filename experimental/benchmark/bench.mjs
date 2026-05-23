@@ -21,6 +21,17 @@
  * - `node bench.mjs --project=type-fest --only-ttsc-build --no-website`
  * - `node bench.mjs --project=type-fest --lint-only`
  * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
+ *
+ * Default output is milestone-only: phase timers, per-cell `run i: N ms`, and
+ * short status lines ("Cloning X", "Installing X", "Reusing X"). Child process
+ * stdio (pnpm/npm/yarn install, pack, per-step build output) is captured and
+ * suppressed.
+ *
+ * Pass `--verbose` to surface everything — child stdio is teed live, and the
+ * granular `[cmd] start/done`, `[step] start/done`, and `[timer] start` traces
+ * are added back. This is the mode intended for AI/agent runs that need the
+ * full command transcript for diagnosis; a human watching live progress
+ * usually wants the default.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -56,6 +67,10 @@ const CHECKPOINT_JSON =
 const RUNS = numberEnv("TTSC_BENCH_RUNS", 5);
 const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
 const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
+// AI/debug knob — see the header comment. When set, child stdio is inherited
+// (teed for runSteps so race detection still works) and granular start/done
+// traces are written. Human runs leave it off and read milestone lines only.
+const VERBOSE = flags.has("--verbose");
 const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
@@ -589,7 +604,7 @@ function formatDuration(ms) {
 
 function timePhase(label, task) {
   const start = process.hrtime.bigint();
-  process.stdout.write(`[timer] start ${label}\n`);
+  if (VERBOSE) process.stdout.write(`[timer] start ${label}\n`);
   try {
     const result = task();
     process.stdout.write(
@@ -607,23 +622,34 @@ function timePhase(label, task) {
 function sh(cmd, cwd, options = {}) {
   const start = process.hrtime.bigint();
   const label = options.label ?? cmd;
-  if (options.timing !== false) process.stdout.write(`[cmd] start ${label}\n`);
+  // Default: capture child stdio so the progress stream stays at the milestone
+  // level (timePhase summaries + short status lines). `--verbose` inherits so
+  // AI/debug runs see installs, packs, and per-step output live. `quiet: true`
+  // forces capture regardless — for callers that read stdout themselves
+  // (git status, git branch --show-current, etc.).
+  const inherit = VERBOSE && !options.quiet;
+  if (VERBOSE && options.timing !== false)
+    process.stdout.write(`[cmd] start ${label}\n`);
   const res = spawnSync(cmd, {
     cwd,
     shell: true,
     encoding: "utf8",
     env: options.env ?? process.env,
-    stdio: options.quiet ? "pipe" : "inherit",
+    stdio: inherit ? "inherit" : "pipe",
   });
-  if (options.timing !== false)
+  if (VERBOSE && options.timing !== false)
     process.stdout.write(
       `[cmd] done ${label} in ${formatDuration(hrtimeMs(start))} ` +
         `(exit ${res.status})\n`,
     );
   if (options.check !== false && res.status !== 0) {
-    throw new Error(
-      `command failed (${res.status}) in ${cwd}: ${cmd}\n${res.stderr ?? ""}`,
-    );
+    // In quiet mode the captured streams are the only record of why this
+    // failed — replay them to stderr before throwing.
+    if (!inherit) {
+      if (res.stdout) process.stderr.write(res.stdout);
+      if (res.stderr) process.stderr.write(res.stderr);
+    }
+    throw new Error(`command failed (${res.status}) in ${cwd}: ${cmd}`);
   }
   return res;
 }
@@ -635,19 +661,27 @@ function runSteps(steps, root) {
     const cwd = path.resolve(root, step.cwd ?? ".");
     const cmd = commandForProject(step.cmd, root);
     const stepStart = process.hrtime.bigint();
-    process.stdout.write(
-      `    [step] start ${path.relative(root, cwd) || "."}: ${cmd}\n`,
-    );
+    if (VERBOSE)
+      process.stdout.write(
+        `    [step] start ${path.relative(root, cwd) || "."}: ${cmd}\n`,
+      );
+    // Always pipe so classifyFailure() can inspect the combined output for
+    // race markers. In --verbose we tee to the parent streams so the user
+    // still sees the live transcript.
     const res = spawnSync(cmd, {
       cwd,
       shell: true,
       encoding: "utf8",
       env: step.env ? { ...process.env, ...step.env } : process.env,
     });
-    process.stdout.write(
-      `    [step] done ${path.relative(root, cwd) || "."}: ` +
-        `${formatDuration(hrtimeMs(stepStart))} (exit ${res.status})\n`,
-    );
+    if (VERBOSE) {
+      if (res.stdout) process.stdout.write(res.stdout);
+      if (res.stderr) process.stderr.write(res.stderr);
+      process.stdout.write(
+        `    [step] done ${path.relative(root, cwd) || "."}: ` +
+          `${formatDuration(hrtimeMs(stepStart))} (exit ${res.status})\n`,
+      );
+    }
     log += `$ ${cmd}\n${res.stdout ?? ""}${res.stderr ?? ""}`;
     if (res.status !== 0) {
       const t1 = process.hrtime.bigint();
