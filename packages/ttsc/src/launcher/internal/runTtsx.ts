@@ -115,22 +115,19 @@ function parseCLI(argv: readonly string[]) {
   if (entry === undefined) {
     throw new Error("ttsx: entry file is required");
   }
-  // Positionals that arrived before the entry but are not the entry file
-  // are forwarded-flag values (e.g. `--target es2020` before the entry).
-  const preEntryValues: string[] = [];
-  const postEntryArgs: string[] = [];
-  let seenEntry = false;
-  for (const token of result.positional) {
-    if (!seenEntry && token === entry) {
-      seenEntry = true;
-      continue;
-    }
-    if (seenEntry) {
-      postEntryArgs.push(token);
-    } else if (!looksLikeEntryFile(token)) {
-      preEntryValues.push(token);
-    }
-  }
+  // With `forwardAfterFirstPositional: true` the parser reports
+  // `result.positional` as just the entry, `result.passthrough` as flags
+  // arriving BEFORE the entry (tsgo-forwarded), and `result.tail` as every
+  // token AFTER the entry — those are the user program's argv (e.g. the
+  // `generate --input src/input` tail of `ttsx typia.ts generate
+  // --input src/input`) and MUST NOT reach tsgo. Anything in positional
+  // that is not the entry is a pre-entry flag value (e.g. `--target es2020`)
+  // that the parser stored positionally; forward those to tsgo with the
+  // rest of `passthrough`.
+  const preEntryValues: string[] = result.positional.filter(
+    (token) => token !== entry && !looksLikeEntryFile(token),
+  );
+  const postEntryArgs: string[] = [...result.tail];
 
   const preload: string[] = [];
   // `--require` accepts repeated values; the schema engine writes the

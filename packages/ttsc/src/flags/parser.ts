@@ -31,6 +31,13 @@ export interface ParseResult {
   readonly passthrough: readonly string[];
   /** Bare non-flag positional arguments, in original order. */
   readonly positional: readonly string[];
+  /**
+   * Tokens that arrived after the `forwardAfterFirstPositional` sentinel.
+   * These are intended for the user's program (e.g. ttsx's entry-file argv);
+   * they are NOT forwarded to tsgo. Always empty when
+   * `forwardAfterFirstPositional` is false.
+   */
+  readonly tail: readonly string[];
 }
 
 /**
@@ -76,6 +83,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   const values = new Map<string, string | boolean | number>();
   const passthrough: string[] = [];
   const positional: string[] = [];
+  const tail: string[] = [];
 
   let remainder: string[] | null = null;
   if (opts.honorDoubleDashSeparator === true) {
@@ -92,7 +100,11 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   while (head.length !== 0) {
     const current = head.shift()!;
     if (forwardingTail) {
-      passthrough.push(current);
+      // Post-sentinel tokens belong to the user's program (e.g. the typia.ts
+      // entry's own argv: `ttsx typia.ts generate --input X`). They MUST NOT
+      // be forwarded to tsgo — the caller distinguishes `tail` from
+      // `passthrough` so script args never reach tsgo's option parser.
+      tail.push(current);
       continue;
     }
 
@@ -143,10 +155,13 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   }
 
   if (remainder !== null) {
-    for (const token of remainder) passthrough.push(token);
+    // `--` separator: everything after goes to the user program when we are
+    // in tail mode (ttsx after the entry), otherwise to tsgo as passthrough.
+    const sink = forwardingTail ? tail : passthrough;
+    for (const token of remainder) sink.push(token);
   }
 
-  return { values, passthrough, positional };
+  return { values, passthrough, positional, tail };
 }
 
 /**
