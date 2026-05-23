@@ -1,3 +1,4 @@
+import type { ITtscPluginCapabilities } from "../ITtscPluginCapabilities";
 import type { ITtscPluginContributor } from "../ITtscPluginContributor";
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 import type { TtscPluginStage } from "../TtscPluginStage";
@@ -6,6 +7,8 @@ import type { TtscPluginStage } from "../TtscPluginStage";
 export interface ITtscLoadedNativePlugin {
   /** Executable produced by the lazy Go source build cache. */
   binary: string;
+  /** Capability flags declared by the descriptor (see `ITtscPluginCapabilities`). */
+  capabilities?: ITtscPluginCapabilities;
   /** Original tsconfig plugin entry passed unchanged to the sidecar. */
   config: ITtscProjectPluginConfig;
   /** Contributor Go sources statically linked into the binary, if any. */

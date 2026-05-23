@@ -1,3 +1,4 @@
+import type { ITtscPluginCapabilities } from "./ITtscPluginCapabilities";
 import type { ITtscPluginContributor } from "./ITtscPluginContributor";
 import type { TtscPluginStage } from "./TtscPluginStage";
 
@@ -63,6 +64,19 @@ export interface ITtscPlugin {
    * @default "transform"
    */
   stage?: TtscPluginStage;
+
+  /**
+   * Optional capability flags declared by the sidecar.
+   *
+   * ttsc carries a few cross-cutting flags (`--singleThreaded`, `--checkers`,
+   * …) the lint sidecar parses but a typical third-party transform host
+   * does not. Capability flags let the plugin author opt into those flags
+   * explicitly, instead of ttsc keeping a hard-coded allow-list keyed by
+   * plugin name. Every capability defaults to `false`.
+   *
+   * @see ITtscPluginCapabilities
+   */
+  capabilities?: ITtscPluginCapabilities;
 
   /**
    * Whether a check-stage sidecar reports the normal TypeScript diagnostics for

@@ -120,6 +120,7 @@ export function loadProjectPlugins(options: {
         ? `linked_${String(index).padStart(6, "0")}`
         : undefined;
     return {
+      capabilities: plugin.capabilities,
       contributors,
       config: entries[index]!.config,
       kind,
@@ -198,6 +199,7 @@ export function loadProjectPlugins(options: {
     }
     return {
       binary,
+      capabilities: record.capabilities,
       config: record.config,
       contributors: record.contributors,
       kind: record.kind,

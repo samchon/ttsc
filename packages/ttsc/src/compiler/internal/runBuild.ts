@@ -477,17 +477,26 @@ function createNativeCheckThreadingArgs(
 }
 
 /**
- * Return true when the loaded native check-stage host is the lint sidecar ttsc
- * ships. The lint sidecar declares its public name as `@ttsc/lint` (see
- * `packages/lint/src/index.ts::createTtscPlugin`), and its
- * `parseSubcommandFlags` handler accepts `--singleThreaded` and `--checkers`
- * directly. Any other check-stage host is treated as a third-party binary whose
- * flag set is unknown, matching the conservative default from commit ad3443a.
+ * Return true when the loaded native check-stage host has declared
+ * `capabilities.threadingArgs` in its plugin descriptor.
+ *
+ * The lint sidecar (`packages/lint/src/index.ts::createTtscPlugin`) opts in
+ * because its `parseSubcommandFlags` handler accepts `--singleThreaded` and
+ * `--checkers` directly and threads them into `loadProgram` (parse phase)
+ * and `engine.SetSerial` (rule walk). Any other check-stage host that has
+ * not declared the capability is treated as a third-party binary whose flag
+ * set is unknown, matching the conservative default from commit ad3443a.
+ *
+ * The capability flag replaces the prior `plugin.name === "@ttsc/lint"`
+ * string check: routing on a descriptor field instead of the plugin name
+ * lets the next first-party check-stage plugin opt in without ttsc needing
+ * to learn its name. See `ITtscPluginCapabilities` and issue #125 for the
+ * broader CLI-parser cleanup this is the quick-win step of.
  */
 function nativeHostAcceptsThreadingArgs(
   plugin: ITtscLoadedNativePlugin,
 ): boolean {
-  return plugin.name === "@ttsc/lint";
+  return plugin.capabilities?.threadingArgs === true;
 }
 
 /**
