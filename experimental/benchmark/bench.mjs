@@ -971,9 +971,19 @@ function rewritePackageJsonTarballs(file, specs) {
 function rewriteTextTarballs(file, targets) {
   let text = fs.readFileSync(file, "utf8");
   let changed = false;
+  // Match any historical ttsc tarball reference for this target — not just
+  // the current `{stem}-{TTSC_VERSION}.tgz` file name. After a version bump
+  // (e.g. 0.12.4 -> 0.13.0) the pack pid changes and the new tarball ships
+  // under a new file name, so a stale `pnpm-workspace.yaml` override left
+  // by an earlier prepared clone (the vue fixture pins
+  // `'@ttsc/linux-x64'` through `overrides`) would otherwise survive the
+  // scrub and pnpm would fail to open the now-deleted `/tmp/ttsc-tgz-OLD/`
+  // path with ENOENT (exit 254). Pin the stem so `ttsc-` and
+  // `ttsc-linux-x64-` do not cross-rewrite.
   for (const target of targets) {
+    const stem = target.file.replace(/-\d+\.\d+\.\d+\.tgz$/, "");
     const pattern = new RegExp(
-      `(?:file:)?[^\\s'",}]*ttsc-tgz[^\\s'",}]*/${escapeRegExp(target.file)}`,
+      `(?:file:)?[^\\s'",}]*ttsc-tgz[^\\s'",}]*/${escapeRegExp(stem)}-\\d+\\.\\d+\\.\\d+\\.tgz`,
       "g",
     );
     const next = text.replace(pattern, `file:${path.join(TGZ, target.file)}`);

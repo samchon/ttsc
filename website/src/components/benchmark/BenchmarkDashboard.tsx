@@ -210,6 +210,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
   const build = bestOperationProject(report, "build");
   const check = bestOperationProject(report, "noEmit");
   const lint = bestLintProject(report, "noEmit");
+  const format = bestFormatProject(report);
 
   return (
     <div className="space-y-4">
@@ -218,7 +219,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
         <TableHeader
           title="Summary Winners"
           description="Each field keeps only the fastest project, but still shows the full tool group."
-          suffix={`${[build, check, lint].filter(Boolean).length} fields`}
+          suffix={`${[build, check, lint, format].filter(Boolean).length} fields`}
         />
         <div className="divide-y divide-[#252b36]">
           {build ? (
@@ -241,6 +242,9 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
               op="noEmit"
               title="Lint"
             />
+          ) : null}
+          {format ? (
+            <ProjectFormatRows project={format.project} title="Format" />
           ) : null}
         </div>
       </section>
@@ -1087,7 +1091,13 @@ function FormatTab({ report }: { report: BenchmarkReport }) {
   );
 }
 
-function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
+function ProjectFormatRows({
+  project,
+  title,
+}: {
+  project: BenchmarkProject;
+  title?: string;
+}) {
   const rows = formatRowsForProject(project);
   const baseline = rows.find((row) => row.baseline);
   const maxMs = Math.max(
@@ -1108,6 +1118,7 @@ function ProjectFormatRows({ project }: { project: BenchmarkProject }) {
     <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)]">
       <ProjectLabel
         project={project}
+        title={title}
         baselineMs={baseline.measurement.medianMs}
         bestFactor={best?.factor}
         bestLabel={best?.label}
