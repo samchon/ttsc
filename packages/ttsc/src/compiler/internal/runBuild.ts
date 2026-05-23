@@ -189,8 +189,7 @@ function checkPluginsReportTypeScriptDiagnostics(
 ): boolean {
   return plugins.some(
     (plugin) =>
-      plugin.stage === "check" &&
-      plugin.reportsTypeScriptDiagnostics === true,
+      plugin.stage === "check" && plugin.reportsTypeScriptDiagnostics === true,
   );
 }
 
@@ -420,6 +419,7 @@ function createNativeBuildArgs(
 function createNativeCheckArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
   options: TtscBuildOptions,
+  plugin: ITtscLoadedNativePlugin,
 ): string[] {
   const args = [
     nativeCheckSubcommand(options),
@@ -435,26 +435,60 @@ function createNativeCheckArgs(
   } else if (options.quiet === true) {
     args.push("--quiet");
   }
+  args.push(...createNativeCheckThreadingArgs(options, plugin));
   args.push(...createNativeTsgoArgs(options));
   return args;
 }
 
-// `--singleThreaded` / `--checkers` are intentionally NOT forwarded to native
-// plugin hosts.
+// `--singleThreaded` / `--checkers` are forwarded to native check-stage hosts
+// only when the host is one ttsc itself owns (currently `@ttsc/lint`). #113
+// forwarded both flags as bare CLI tokens to every native sidecar, then
+// commit ad3443a reverted that across the board because a third-party host
+// built before #113 has no `singleThreaded` / `checkers` flag in its
+// `flag.FlagSet` and would exit 2 on the unknown flag — so
+// `ttsc --singleThreaded` failed deterministically on every typia/nestia
+// transform-plugin project.
 //
-// They were forwarded as bare CLI flags in #113, but a native host built
-// before that release has no `singleThreaded`/`checkers` flag in its
-// `flag.FlagSet`, and a host that parses with `flag.ContinueOnError` exits 2
-// on the unknown flag instead of ignoring it — `ttsc --singleThreaded` then
-// fails deterministically on any project with a third-party transform plugin
-// (typia, nestia). The plugin protocol only promises that new optional flags
-// are *accept-and-ignored* by hosts that adopted `filterHostArgs`; ttsc cannot
-// know whether the host it is about to spawn did, so it must not emit a flag
-// whose rejection is fatal. The threading knobs still take full effect on the
-// no-plugin `tsgo` lane (`createTsgoThreadingArgs`), and `CreateProgramFromConfig`
-// already pins every native-host program to a single checker via
-// `forceSingleChecker`, so the in-process determinism `--singleThreaded`
-// targets is preserved on the plugin lane regardless.
+// The performance ceiling that caused, though, is real: format/check passes
+// through the lint sidecar are dominated by parallel parse + parallel rule
+// walk, and with the threading knob silently dropped, MT and ST runs of
+// `ttsc format` produced identical wall-clock numbers — the benchmark cell
+// became a non-measurement. The lint sidecar is built and shipped from this
+// repo, accepts both flags via `parseSubcommandFlags`, and threads them down
+// to `loadProgram` (parse phase) and `engine.SetSerial` (rule walk). The host
+// is identified by name (`@ttsc/lint`) so a third-party check-stage plugin
+// keeps the strict-host behavior from ad3443a; only the host we control gets
+// the bare flag. Transform-stage hosts are never reached by this path
+// (they go through `createNativeBuildArgs`), so the typia/nestia regression
+// remains pinned by `test_plugin_corpus_single_threaded_flag_does_not_break_a_native_plugin_build`.
+function createNativeCheckThreadingArgs(
+  options: TtscCommonOptions,
+  plugin: ITtscLoadedNativePlugin,
+): string[] {
+  if (!nativeHostAcceptsThreadingArgs(plugin)) return [];
+  const args: string[] = [];
+  if (options.singleThreaded === true) {
+    args.push("--singleThreaded");
+  }
+  if (options.checkers !== undefined) {
+    args.push("--checkers=" + String(options.checkers));
+  }
+  return args;
+}
+
+/**
+ * Return true when the loaded native check-stage host is the lint sidecar ttsc
+ * ships. The lint sidecar declares its public name as `@ttsc/lint` (see
+ * `packages/lint/src/index.ts::createTtscPlugin`), and its
+ * `parseSubcommandFlags` handler accepts `--singleThreaded` and `--checkers`
+ * directly. Any other check-stage host is treated as a third-party binary whose
+ * flag set is unknown, matching the conservative default from commit ad3443a.
+ */
+function nativeHostAcceptsThreadingArgs(
+  plugin: ITtscLoadedNativePlugin,
+): boolean {
+  return plugin.name === "@ttsc/lint";
+}
 
 /**
  * Forward the tsgo flags ttsc did not recognize to a native sidecar as one
@@ -518,7 +552,7 @@ function runNativeCheckPlugins(
   )) {
     const result = runNativePluginCommand(
       plugin,
-      createNativeCheckArgs(execution, options),
+      createNativeCheckArgs(execution, options, plugin),
       options,
       execution,
       "ttsc.check",
