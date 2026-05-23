@@ -198,7 +198,13 @@ function consumeFlag(
 }
 
 /**
- * Read the value token that follows `flag`. Throws if argv ends here.
+ * Read the value token that follows `flag`. Throws if argv ends here OR if
+ * the next token looks like another flag (`-` prefix). Without the
+ * "looks like a flag" guard `ttsc --cwd --strict src/main.ts` would silently
+ * consume `--strict` as the value of `--cwd`, leaving `--strict` lost and
+ * `cwd` set to a junk path. Mirrors the symmetric guard already in
+ * `forwardKnownButUnaccepted` (RC-1 fairness — the two value-resolution
+ * paths must agree on what counts as "a missing value").
  */
 function takeValueToken(
   flag: string,
@@ -208,6 +214,15 @@ function takeValueToken(
   const value = rest.shift();
   if (value === undefined) {
     throw new Error(`${errorPrefix} ${flag} requires a value`);
+  }
+  if (value.startsWith("-")) {
+    // Put it back so the next loop iteration parses it as its own flag.
+    rest.unshift(value);
+    throw new Error(
+      `${errorPrefix} ${flag} requires a value (next token ${JSON.stringify(
+        value,
+      )} starts with "-")`,
+    );
   }
   return value;
 }

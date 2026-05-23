@@ -38,7 +38,11 @@ func runBuild(args []string) int {
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
-  if err := fs.Parse(args); err != nil {
+  // Strip unknown forwarded tsgo options before fs.Parse so a flag like
+  // `--strict` (which tsgo accepts but cmd/ttsc's FlagSet does not declare)
+  // does not exit 2 before reaching the tsgo lane via `--tsgo-args=<JSON>`.
+  // See packages/ttsc/cmd/ttsc/filter.go for the allow-list source.
+  if err := fs.Parse(filterHostArgs(args)); err != nil {
     return 2
   }
   tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)

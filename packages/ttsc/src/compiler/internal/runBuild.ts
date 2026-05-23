@@ -240,7 +240,17 @@ function forwardsInternalShadowFlag(
   flag: string,
 ): boolean {
   if (!INTERNAL_SHADOW_FLAGS.has(flag)) return false;
-  return options.passthrough?.includes(flag) ?? false;
+  const passthrough = options.passthrough;
+  if (passthrough === undefined) return false;
+  // Match both the bare form (`--pretty`) and the inline-value form
+  // (`--pretty=true`). The launcher's parser preserves these shapes
+  // verbatim, so a tolerant prefix compare is what we want — `passthrough`
+  // never holds a stray substring that happens to start with the flag
+  // because parser positional/passthrough sinks split on whitespace.
+  const inlinePrefix = `${flag}=`;
+  return passthrough.some(
+    (token) => token === flag || token.startsWith(inlinePrefix),
+  );
 }
 
 /**
@@ -388,9 +398,21 @@ function createTsgoBuildArgs(
 /**
  * Return `["--pretty", "false"]` when structured diagnostics are requested so
  * that the output can be parsed line-by-line, or an empty array otherwise.
+ *
+ * When the user explicitly forwarded `--pretty` (any value), the internal
+ * `--pretty false` shadow is dropped so the user wins on the surface. ttsc's
+ * own diagnostic parser will then see pretty-formatted output and fall back
+ * to surfacing it verbatim — the RC-2 contract that `--pretty`'s
+ * `internalShadow: true` flag in `FLAG_SCHEMA` declares. Without this guard
+ * the order in `runTsgo` (internal flags first, passthrough last) would
+ * still let the user's `--pretty true` override at the tsgo level, but ttsc
+ * would have already committed to a structured-diagnostics post-process
+ * that no longer matches the actual output.
  */
 function createTsgoDiagnosticArgs(options: TtscCommonOptions): string[] {
-  return options.structuredDiagnostics === true ? ["--pretty", "false"] : [];
+  if (options.structuredDiagnostics !== true) return [];
+  if (forwardsInternalShadowFlag(options, "--pretty")) return [];
+  return ["--pretty", "false"];
 }
 
 /**

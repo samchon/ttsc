@@ -3,6 +3,7 @@ export * from "./ITtscCompilerDiagnostic";
 export * from "./ITtscCompilerResult";
 export * from "./ITtscCompilerTransformation";
 export * from "./ITtscPlugin";
+export * from "./ITtscPluginCapabilities";
 export * from "./ITtscPluginContributor";
 export * from "./ITtscPluginFactoryContext";
 export * from "./ITtscProjectPluginConfig";

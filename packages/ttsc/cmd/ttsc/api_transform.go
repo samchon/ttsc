@@ -35,7 +35,8 @@ func runAPITransform(args []string) int {
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
-  if err := fs.Parse(args); err != nil {
+  // See cmd/ttsc/build.go's filterHostArgs call for the rationale.
+  if err := fs.Parse(filterHostArgs(args)); err != nil {
     return 2
   }
 
