@@ -60,8 +60,17 @@ const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
+// Pin the tsgo experiment to whatever `@typescript/native-preview` the parent
+// ttsc workspace resolves at — keeps the comparison row in lockstep with the
+// tsgo build that ttsc itself shipped. Falls back to the catalog pin in
+// `pnpm-workspace.yaml` when the workspace has not been installed yet.
+const TSGO_VERSION =
+  packageVersion(
+    path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
+  ) ?? readTsgoCatalogVersion(REPO_ROOT);
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
 const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
+const TSGO_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
 const LOCAL_TARBALLS = [
   {
     dir: "packages/ttsc",
@@ -411,6 +420,26 @@ function packageVersion(dir) {
   }
 }
 
+function readTsgoCatalogVersion(repoRoot) {
+  // The ttsc workspace pins `@typescript/native-preview` through the `tsgo`
+  // catalog in `pnpm-workspace.yaml`. Without a JSON parser for YAML, do a
+  // narrow regex pull so the benchmark stays in sync after a bump even when
+  // `node_modules/` is empty.
+  try {
+    const file = fs.readFileSync(
+      path.join(repoRoot, "pnpm-workspace.yaml"),
+      "utf8",
+    );
+    const match = file.match(
+      /^\s*'@typescript\/native-preview':\s*([^\s#]+)\s*$/m,
+    );
+    if (match) return match[1].replace(/^['"]|['"]$/g, "");
+  } catch {
+    // Fall through.
+  }
+  return undefined;
+}
+
 function compilerCommands({ build, noEmit, eslint, format }) {
   const legacy = {
     build: normalizeSteps(build("tsc")),
@@ -429,6 +458,12 @@ function compilerCommands({ build, noEmit, eslint, format }) {
     ttsc: {
       build: normalizeSteps(build("ttsc")),
       noEmit: normalizeSteps(noEmit("ttsc")),
+      // Direct tsgo invocation lives on the same `ttsc` clone as a second op
+      // so the chart can show the raw native-preview cost alongside ttsc and
+      // expose the per-invocation plugin-host overhead the ttsc launcher
+      // carries.
+      tsgoBuild: normalizeSteps(build("tsgo")),
+      tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
     },
     "ttsc-lint": ttscLint,
   };
@@ -475,6 +510,8 @@ function nestjsCommands() {
     ttsc: {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
+      tsgoBuild: normalizeSteps(nestjsPackageSteps("tsgo", false)),
+      tsgoNoEmit: normalizeSteps(nestjsPackageSteps("tsgo", true)),
     },
     "ttsc-lint": {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
@@ -760,6 +797,12 @@ function installIfNeeded(project, dir, branch) {
         `Reusing installed node_modules in ${path.basename(dir)}\n`,
       );
     }
+    if (
+      branch === "ttsc" &&
+      hasTsgoCells(project) &&
+      !hasTsgoExperimentDeps(dir)
+    )
+      installTsgoExperimentDeps(project, dir);
     if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
   });
 }
@@ -952,6 +995,43 @@ function linkPackageBins(packageDir, nodeModules) {
   }
 }
 
+function hasTsgoCells(project) {
+  return Boolean(
+    project.commands.ttsc?.tsgoBuild?.length ||
+      project.commands.ttsc?.tsgoNoEmit?.length,
+  );
+}
+
+function installTsgoExperimentDeps(project, dir) {
+  const specs = [
+    `@typescript/native-preview@${TSGO_VERSION}`,
+    `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}`,
+  ]
+    .map(quote)
+    .join(" ");
+  const pm = project.packageManager;
+  const cmd =
+    pm === "pnpm"
+      ? ownsPnpmWorkspace(dir)
+        ? `pnpm add -w -D ${specs}`
+        : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D ${specs}`
+      : pm === "yarn"
+        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+        : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
+  process.stdout.write(
+    `Installing tsgo experiment deps into ${path.basename(dir)}: ` +
+      `@typescript/native-preview, ${TSGO_PLATFORM_PACKAGE}\n`,
+  );
+  sh(cmd, dir);
+}
+
+function hasTsgoExperimentDeps(dir) {
+  return (
+    depVersion(dir, "@typescript/native-preview") !== undefined &&
+    depVersion(dir, TSGO_PLATFORM_PACKAGE) !== undefined
+  );
+}
+
 function quote(value) {
   return JSON.stringify(value);
 }
@@ -962,7 +1042,10 @@ function singleThreadedSteps(steps) {
       const { singleThreadedCmd, ...rest } = step;
       return { ...rest, cmd: singleThreadedCmd };
     }
-    if (!/\bttsc\b/.test(step.cmd) || /--singleThreaded\b/.test(step.cmd)) {
+    if (
+      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
+      /--singleThreaded\b/.test(step.cmd)
+    ) {
       return step;
     }
     return { ...step, cmd: `${step.cmd} --singleThreaded` };
@@ -1163,9 +1246,13 @@ function hostSpec(projects) {
     // Keep os.type/os.release fallback.
   }
   let typescript = "unknown";
+  let tsgo = "unknown";
   for (const project of projects) {
     typescript =
       depVersion(cloneDir(project, "legacy"), "typescript") ?? typescript;
+    tsgo =
+      depVersion(cloneDir(project, "ttsc"), "@typescript/native-preview") ??
+      tsgo;
   }
   return {
     os: osName,
@@ -1176,6 +1263,7 @@ function hostSpec(projects) {
     node: process.version,
     ttsc: TTSC_VERSION,
     typescript,
+    tsgo,
   };
 }
 
@@ -1494,6 +1582,30 @@ function projectCells(project) {
           steps: singleThreadedSteps(baseSteps),
         });
       }
+      if (branch === "ttsc" && (op === "build" || op === "noEmit")) {
+        const tsgoSteps =
+          branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
+        if (tsgoSteps?.length) {
+          cells.push({
+            id: `${project.name}:${branch}:tsgo:${op}:multi`,
+            project,
+            branch,
+            tool: "tsgo",
+            op,
+            threading: "multi",
+            steps: tsgoSteps,
+          });
+          cells.push({
+            id: `${project.name}:${branch}:tsgo:${op}:single`,
+            project,
+            branch,
+            tool: "tsgo",
+            op,
+            threading: "single",
+            steps: singleThreadedSteps(tsgoSteps),
+          });
+        }
+      }
     }
   }
   return filterCells(cells);
@@ -1506,7 +1618,10 @@ function projectBranches(project) {
 function filterCells(cells) {
   const predicates = [];
   if (flags.has("--ttsc-build-only") || flags.has("--only-ttsc-build")) {
-    predicates.push((cell) => cell.branch === "ttsc" && cell.op === "build");
+    predicates.push(
+      (cell) =>
+        cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
+    );
   }
   if (flags.has("--lint-only")) {
     predicates.push(isLintComparisonCell);
@@ -1526,7 +1641,8 @@ function filterCells(cells) {
 function isLintComparisonCell(cell) {
   if (cell.branch === "legacy")
     return cell.op === "noEmit" || cell.op === "eslint";
-  if (cell.branch === "ttsc") return cell.op === "noEmit";
+  if (cell.branch === "ttsc")
+    return cell.op === "noEmit" && cell.tool !== "tsgo";
   return cell.branch === "ttsc-lint" && cell.op === "noEmit";
 }
 
