@@ -1457,6 +1457,32 @@ function main() {
   if (!wantedProjects.some((project) => projectCells(project).length !== 0))
     throw new Error("no benchmark cells selected");
 
+  // Quiet-host gate. Short ttsc / tsgo cells (build/noEmit) finish in 2–8 s
+  // and a noisy host (concurrent claude worktrees, ts-node jobs, video
+  // playback) can move a single sample by 30–60 %. The threshold is the
+  // 1-minute load average per logical CPU: 0.5 is the rule of thumb above
+  // which a publication-grade sweep starts to drift, anything past 1.0 is
+  // already deep in CPU-steal territory. The check warns by default and
+  // aborts when `TTSC_BENCH_REQUIRE_QUIET=1` so CI hosts can opt into the
+  // strict mode without changing local quick-checks. Disable entirely via
+  // `TTSC_BENCH_SKIP_LOAD_CHECK=1`.
+  if (process.env.TTSC_BENCH_SKIP_LOAD_CHECK !== "1") {
+    const cpuCount = Math.max(os.cpus().length, 1);
+    const load1 = os.loadavg()[0];
+    const ratio = load1 / cpuCount;
+    if (ratio > 0.5) {
+      const msg =
+        `host load is high (1-min loadavg ${load1.toFixed(2)} on ` +
+        `${cpuCount} CPUs, ratio ${ratio.toFixed(2)}); short cells may ` +
+        `drift 20–60% from a quiet baseline. ` +
+        `Set TTSC_BENCH_SKIP_LOAD_CHECK=1 to ignore.`;
+      if (process.env.TTSC_BENCH_REQUIRE_QUIET === "1") {
+        throw new Error(`bench: ${msg}`);
+      }
+      process.stderr.write(`[bench] warning: ${msg}\n`);
+    }
+  }
+
   fs.mkdirSync(WORK, { recursive: true });
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
 

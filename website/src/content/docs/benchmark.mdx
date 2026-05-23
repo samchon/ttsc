@@ -24,6 +24,14 @@ separate passes over the project. The `ttsc-lint` path runs `ttsc` with
 `@ttsc/lint` loaded, so the chart separates the compile portion from the extra
 lint overhead and also shows the pure lint-to-lint ratio.
 
+The practical takeaway from this split: **`@ttsc/lint` adds only the rule
+walk on top of an existing `ttsc --noEmit`**. The parse, the program load,
+the type checker — all already paid for the type-check pass — are reused.
+On typeorm (3,220 files) the overhead measures **+400–600 ms over the
+bare `ttsc --noEmit`**, vs. **~46 seconds for the equivalent ESLint pass
+on the same code**. Adding `@ttsc/lint` to a project that already runs
+`ttsc` is roughly free; the win shows up as the eslint column disappearing.
+
 When the single-threaded lint overhead measures at or below zero — the
 `ttsc + @ttsc/lint` total lands inside the noise of the bare `ttsc` total — the
 dashboard substitutes a synthetic value derived from the multi-threaded run for
@@ -161,3 +169,13 @@ publication run (`TTSC_BENCH_RUNS=10` is what the prior snapshot used and
 the one this rewrite supersedes). Results are written to
 `experimental/benchmark/.work/report.md`,
 `experimental/benchmark/.work/report.json`, and `website/public/benchmark.json`.
+
+The fastest cells (`ttsc:build:single`, `ttsc:noEmit:single`) finish in
+2–8 seconds, which is short enough that ambient host load — a concurrent
+build, an editor running language servers, a stray Node script — can move
+a single sample by 30–60 %. The runner therefore checks the 1-minute load
+average against the logical CPU count at startup and warns when the ratio
+exceeds 0.5; set `TTSC_BENCH_REQUIRE_QUIET=1` to turn the warning into a
+hard error for publication runs, or `TTSC_BENCH_SKIP_LOAD_CHECK=1` to
+suppress it during a development iteration where the noise floor is not
+the question being asked.
