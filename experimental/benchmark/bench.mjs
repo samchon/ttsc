@@ -132,11 +132,11 @@ const PACKAGE_CONFIGS = {
         legacy: [
           {
             cwd: "packages/observable",
-            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
           },
           {
             cwd: "packages/rxjs",
-            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
           },
         ],
         ttscLint: [
