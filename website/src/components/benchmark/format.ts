@@ -186,6 +186,40 @@ export function deriveSpeedups(
           : undefined,
       );
     }
+
+    const tsgoBuild = findMeasurement(measurements, {
+      branch: "ttsc",
+      tool: "tsgo",
+      op: "build",
+      threading,
+    });
+    push(
+      `ttsc-vs-tsgo-build-${threading}`,
+      `TTSC vs TSGO build (${threading})`,
+      "tsgo build vs ttsc build on the ttsc branch",
+      tsgoBuild && { tool: `tsgo ${threading}`, ms: tsgoBuild.medianMs },
+      ttscBuild && { tool: `ttsc ${threading}`, ms: ttscBuild.medianMs },
+    );
+
+    const tsgoNoEmit = findMeasurement(measurements, {
+      branch: "ttsc",
+      tool: "tsgo",
+      op: "noEmit",
+      threading,
+    });
+    push(
+      `ttsc-vs-tsgo-noEmit-${threading}`,
+      `TTSC vs TSGO no emit (${threading})`,
+      "tsgo --noEmit vs ttsc --noEmit on the ttsc branch",
+      tsgoNoEmit && {
+        tool: `tsgo --noEmit ${threading}`,
+        ms: tsgoNoEmit.medianMs,
+      },
+      ttscNoEmit && {
+        tool: `ttsc --noEmit ${threading}`,
+        ms: ttscNoEmit.medianMs,
+      },
+    );
   }
 
   return out;

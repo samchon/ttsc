@@ -110,7 +110,7 @@ export default function BenchmarkDashboard() {
           report={report}
           op="build"
           title="Build"
-          description="Each project groups tsc (legacy) and ttsc ST/MT in one chart."
+          description="Each project groups tsc (legacy), ttsc ST/MT, and optional tsgo ST/MT in one chart."
         />
       ) : null}
       {activeTab === "check" ? (
@@ -118,7 +118,7 @@ export default function BenchmarkDashboard() {
           report={report}
           op="noEmit"
           title="Type-check"
-          description="Each project groups tsc (legacy) and ttsc ST/MT in one noEmit chart."
+          description="Each project groups tsc (legacy), ttsc ST/MT, and optional tsgo ST/MT in one noEmit chart."
         />
       ) : null}
       {activeTab === "lint" ? <LintTab report={report} /> : null}
@@ -687,6 +687,21 @@ function operationRows(
       });
   }
 
+  for (const threading of ["single", "multi"] as const) {
+    const measurement = findMeasured(measurements, {
+      branch: "ttsc",
+      tool: "tsgo",
+      op,
+      threading,
+    });
+    if (measurement)
+      rows.push({
+        label: compilerCliLabel("tsgo", op, threading),
+        measurement,
+        color: threading === "single" ? "bg-violet-600" : "bg-violet-400",
+      });
+  }
+
   return rows;
 }
 
@@ -1050,7 +1065,7 @@ function findTtscLintTotal(
 }
 
 function compilerCliLabel(
-  tool: "tsc" | "ttsc",
+  tool: "tsc" | "ttsc" | "tsgo",
   op: Operation,
   threading: Threading,
 ) {
