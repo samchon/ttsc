@@ -76,6 +76,16 @@ export interface ParseOptions {
 export function parseFlags(opts: ParseOptions): ParseResult {
   const accepted = new Map<string, FlagSpec>();
   for (const flag of flagsForSubcommand(opts.subcommand)) {
+    // A flag enters the launcher's `accepted` set only when its
+    // `consumedBy` includes `"launcher"`. Flags consumed solely by tsgo
+    // or by native sidecars (e.g. `--showConfig`, `--listFilesOnly`)
+    // must fall through to `forwardKnownButUnaccepted` so the launcher
+    // forwards them verbatim instead of storing them in `values` where
+    // no consumer reads them back out. The previous shape — filter on
+    // `subcommands` only — silently dropped every tsgo-only terminal
+    // flag at the launcher boundary (the RC-1 / RC-2 class the schema
+    // is meant to make impossible).
+    if (!flag.consumedBy.includes("launcher")) continue;
     accepted.set(flag.name, flag);
     for (const alias of flag.aliases ?? []) accepted.set(alias, flag);
   }

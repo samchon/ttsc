@@ -21,8 +21,17 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  */
 export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories =
   () => {
-    const expectations = {
+    const expectations: Record<
+      string,
+      {
+        source: string;
+        stage: string;
+        capabilities?: { threadingArgs?: boolean };
+        reportsTypeScriptDiagnostics?: boolean;
+      }
+    > = {
       lint: {
+        capabilities: { threadingArgs: true },
         reportsTypeScriptDiagnostics: true,
         source: "plugin",
         stage: "check",
@@ -41,14 +50,18 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
       assert.equal(descriptor.name, `@ttsc/${name}`);
       assert.equal(descriptor.stage, expectation.stage);
       assert.deepEqual(Object.keys(descriptor).sort(), [
+        ...(expectation.capabilities !== undefined ? ["capabilities"] : []),
         "name",
-        ...("reportsTypeScriptDiagnostics" in expectation
+        ...(expectation.reportsTypeScriptDiagnostics !== undefined
           ? ["reportsTypeScriptDiagnostics"]
           : []),
         "source",
         "stage",
       ]);
-      if ("reportsTypeScriptDiagnostics" in expectation) {
+      if (expectation.capabilities !== undefined) {
+        assert.deepEqual(descriptor.capabilities, expectation.capabilities);
+      }
+      if (expectation.reportsTypeScriptDiagnostics !== undefined) {
         assert.equal(
           descriptor.reportsTypeScriptDiagnostics,
           expectation.reportsTypeScriptDiagnostics,

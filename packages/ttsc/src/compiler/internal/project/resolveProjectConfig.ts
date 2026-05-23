@@ -25,6 +25,26 @@ export function resolveProjectConfig(
     if (!fs.existsSync(resolved)) {
       throw new Error(`ttsc: tsconfig not found: ${resolved}`);
     }
+    // `-p <directory>` is the documented tsgo shorthand for the
+    // directory that contains a `tsconfig.json`. Mirror that — without
+    // this branch a forwarded `--tsconfig=sub` would feed the directory
+    // path into `readResolvedCompilerOptions`, which calls
+    // `fs.readFileSync` and throws `EISDIR` (the RCA's predicted
+    // RC-3 §5 #2 bug, pinned by
+    // `test_ttsc_dash_p_directory_path_is_accepted`).
+    if (isDirectory(resolved)) {
+      const tsconfigInDir = path.join(resolved, "tsconfig.json");
+      if (fs.existsSync(tsconfigInDir)) {
+        return resolveRealPath(tsconfigInDir);
+      }
+      const jsconfigInDir = path.join(resolved, "jsconfig.json");
+      if (fs.existsSync(jsconfigInDir)) {
+        return resolveRealPath(jsconfigInDir);
+      }
+      throw new Error(
+        `ttsc: directory has no tsconfig.json / jsconfig.json: ${resolved}`,
+      );
+    }
     return resolveRealPath(resolved);
   }
 
