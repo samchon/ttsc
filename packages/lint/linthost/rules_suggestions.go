@@ -7,6 +7,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // no-alert: `alert()` / `confirm()` / `prompt()`. Rarely the right
@@ -742,16 +743,72 @@ func (noUnneededTernary) Visits() []shimast.Kind {
 }
 func (noUnneededTernary) Check(ctx *Context, node *shimast.Node) {
   cond := node.AsConditionalExpression()
-  if cond == nil {
+  if cond == nil || cond.Condition == nil {
     return
   }
   t := stripParens(cond.WhenTrue)
   f := stripParens(cond.WhenFalse)
   tBool, tOk := isLiteralBoolean(t)
   fBool, fOk := isLiteralBoolean(f)
-  if tOk && fOk && tBool != fBool {
-    ctx.Report(node, "Unnecessary use of conditional expression for boolean.")
+  if !(tOk && fOk && tBool != fBool) {
+    return
   }
+  message := "Unnecessary use of conditional expression for boolean."
+  src := ctx.File.Text()
+  condStart := shimscanner.SkipTrivia(src, cond.Condition.Pos())
+  if condStart < 0 || condStart >= cond.Condition.End() {
+    ctx.Report(node, message)
+    return
+  }
+  condText := src[condStart:cond.Condition.End()]
+  var replacement string
+  if tBool {
+    // `cond ? true : false` → `Boolean(cond)`
+    replacement = "Boolean(" + condText + ")"
+  } else {
+    // `cond ? false : true` → `!cond`. Wrap the condition in parentheses
+    // when it is not already a primary expression so operator precedence
+    // does not flip the meaning (e.g. `a || b` must become `!(a || b)`).
+    if needsParensForUnaryNegation(cond.Condition) {
+      replacement = "!(" + condText + ")"
+    } else {
+      replacement = "!" + condText
+    }
+  }
+  editPos := shimscanner.SkipTrivia(src, node.Pos())
+  if editPos < 0 || editPos >= node.End() {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: editPos, End: node.End(), Text: replacement},
+  )
+}
+
+// needsParensForUnaryNegation reports whether `cond` must be wrapped in
+// parentheses before prefixing with `!`. Anything looser than a unary /
+// member / primary expression flips precedence when negated. Mirrors
+// ESLint's `no-unneeded-ternary` autofix safety check.
+func needsParensForUnaryNegation(node *shimast.Node) bool {
+  inner := stripParens(node)
+  if inner == nil {
+    return false
+  }
+  switch inner.Kind {
+  case shimast.KindBinaryExpression,
+    shimast.KindConditionalExpression,
+    shimast.KindYieldExpression,
+    shimast.KindAwaitExpression,
+    shimast.KindArrowFunction,
+    shimast.KindFunctionExpression,
+    shimast.KindAsExpression,
+    shimast.KindSatisfiesExpression,
+    shimast.KindTypeAssertionExpression:
+    return true
+  }
+  return false
 }
 
 // no-unused-expressions: an expression statement whose value isn't used.
@@ -1099,9 +1156,27 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
     }
   }
   hasString, hasOther := concatChainShape(node)
-  if hasString && hasOther {
-    ctx.Report(node, "Unexpected string concatenation.")
+  if !(hasString && hasOther) {
+    return
   }
+  message := "Unexpected string concatenation."
+  src := ctx.File.Text()
+  operands := flattenConcatOperands(node)
+  template, ok := renderConcatAsTemplate(src, operands)
+  if !ok {
+    ctx.Report(node, message)
+    return
+  }
+  editPos := shimscanner.SkipTrivia(src, node.Pos())
+  if editPos < 0 || editPos >= node.End() {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: editPos, End: node.End(), Text: template},
+  )
 }
 
 func concatChainShape(node *shimast.Node) (hasString bool, hasOther bool) {
@@ -1120,6 +1195,86 @@ func concatChainShape(node *shimast.Node) (hasString bool, hasOther bool) {
     return true, false
   }
   return false, true
+}
+
+// flattenConcatOperands walks a `+` chain left-to-right and returns each
+// leaf operand in source order. Parenthesized sub-expressions are kept as
+// a single operand so the rendered template literal does not lose their
+// grouping. Mirrors ESLint's behavior of treating `("a" + b)` as one
+// expression slot when it appears inside a larger chain.
+func flattenConcatOperands(node *shimast.Node) []*shimast.Node {
+  if node == nil {
+    return nil
+  }
+  if node.Kind == shimast.KindBinaryExpression {
+    bin := node.AsBinaryExpression()
+    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken {
+      out := flattenConcatOperands(bin.Left)
+      out = append(out, flattenConcatOperands(bin.Right)...)
+      return out
+    }
+  }
+  return []*shimast.Node{node}
+}
+
+// renderConcatAsTemplate renders the flattened concat operands as a single
+// backtick template literal. String-like literals contribute their value
+// directly (with template-specific escaping); any other expression becomes
+// a `${…}` placeholder copied verbatim from the source text. Returns ok=false
+// when an operand cannot be rendered (typically because its source range is
+// unavailable), so the caller falls back to detection-only.
+func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool) {
+  if len(operands) == 0 {
+    return "", false
+  }
+  var sb strings.Builder
+  sb.WriteByte('`')
+  for _, operand := range operands {
+    if operand == nil {
+      return "", false
+    }
+    inner := stripParens(operand)
+    if isStringLikeLiteral(inner) {
+      sb.WriteString(escapeTemplateLiteralBody(stringLiteralText(inner)))
+      continue
+    }
+    pos := shimscanner.SkipTrivia(src, operand.Pos())
+    end := operand.End()
+    if pos < 0 || pos >= end || end > len(src) {
+      return "", false
+    }
+    sb.WriteString("${")
+    sb.WriteString(src[pos:end])
+    sb.WriteByte('}')
+  }
+  sb.WriteByte('`')
+  return sb.String(), true
+}
+
+// escapeTemplateLiteralBody escapes the characters that would otherwise
+// terminate or interpolate a template literal body: backslash, backtick,
+// and the `${` sequence. Matches the canonical ESLint `prefer-template`
+// fixer escape set.
+func escapeTemplateLiteralBody(text string) string {
+  var sb strings.Builder
+  sb.Grow(len(text))
+  for i := 0; i < len(text); i++ {
+    ch := text[i]
+    switch ch {
+    case '\\', '`':
+      sb.WriteByte('\\')
+      sb.WriteByte(ch)
+    case '$':
+      if i+1 < len(text) && text[i+1] == '{' {
+        sb.WriteString("\\$")
+      } else {
+        sb.WriteByte('$')
+      }
+    default:
+      sb.WriteByte(ch)
+    }
+  }
+  return sb.String()
 }
 
 // require-yield: `function* gen() { return 1; }` — generators that

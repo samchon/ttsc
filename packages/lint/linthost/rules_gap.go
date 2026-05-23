@@ -8,7 +8,10 @@
 // Each rule is registered in init() at the bottom of the file.
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
 
 // no-empty-static-block: `class C { static {} }` has no effect.
 // ESLint recommended: https://eslint.org/docs/latest/rules/no-empty-static-block
@@ -372,14 +375,63 @@ func (dotNotation) Visits() []shimast.Kind {
 }
 func (dotNotation) Check(ctx *Context, node *shimast.Node) {
   access := node.AsElementAccessExpression()
-  if access == nil {
+  if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
     return
   }
   key := stringLiteralText(access.ArgumentExpression)
   if key == "" || !isSimpleIdentifierName(key) {
     return
   }
-  ctx.Report(node, "Use dot notation instead of a string literal property access.")
+  message := "Use dot notation instead of a string literal property access."
+  // Conservative: keep reserved words as bracket access. Modern JS accepts
+  // `obj.class`/`obj.if`/etc. syntactically but mixing them with member
+  // expression syntax is jarring and can confuse minifiers and older runtimes.
+  if isReservedWord(key) {
+    ctx.Report(node, message)
+    return
+  }
+  src := ctx.File.Text()
+  // Determine where the bracket access begins. With an optional chain
+  // (`obj?.["foo"]`) the `?.` token already separates object from access, so
+  // we replace the `["foo"]` tail with `foo`. Otherwise we replace the
+  // `["foo"]` tail with `.foo`.
+  var replaceFrom int
+  var replacement string
+  if access.QuestionDotToken != nil {
+    replaceFrom = shimscanner.SkipTrivia(src, access.QuestionDotToken.End())
+    replacement = key
+  } else {
+    replaceFrom = access.Expression.End()
+    replacement = "." + key
+  }
+  if replaceFrom < 0 || replaceFrom >= node.End() {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFix(
+    node,
+    message,
+    TextEdit{Pos: replaceFrom, End: node.End(), Text: replacement},
+  )
+}
+
+// isReservedWord reports whether `value` is an ECMAScript reserved word. The
+// `dot-notation` autofix uses this to skip the rewrite even though modern
+// parsers accept reserved-word member names: leaving bracket access matches
+// the conservative branch ESLint takes when `allowKeywords: false`.
+func isReservedWord(value string) bool {
+  switch value {
+  case "break", "case", "catch", "class", "const", "continue",
+    "debugger", "default", "delete", "do", "else", "enum",
+    "export", "extends", "false", "finally", "for", "function",
+    "if", "implements", "import", "in", "instanceof", "interface",
+    "let", "new", "null", "package", "private", "protected",
+    "public", "return", "static", "super", "switch", "this",
+    "throw", "true", "try", "typeof", "var", "void",
+    "while", "with", "yield", "await":
+    return true
+  }
+  return false
 }
 
 // isSimpleIdentifierName reports whether value is a valid bare identifier
