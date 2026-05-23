@@ -262,30 +262,34 @@ function OperationTab({
   const projects = report.projects.filter((project) =>
     hasComparableOperation(project, op),
   );
+  const hero = bestOperationProject(report, op);
 
   return (
-    <section className={panelClass}>
-      <TableHeader
-        title={`${title} Tool Matrix`}
-        description={description}
-        suffix={`${projects.length.toLocaleString()} projects`}
-      />
-      <div className="divide-y divide-[#252b36]">
-        {projects.length > 0 ? (
-          projects.map((project) => (
-            <ProjectOperationRows
-              key={`${project.name}:${op}`}
-              project={project}
-              op={op}
-            />
-          ))
-        ) : (
-          <p className="px-4 py-4 text-[12px] text-neutral-500">
-            No comparable measurements recorded for this view.
-          </p>
-        )}
-      </div>
-    </section>
+    <div className="space-y-4">
+      <HeroRatio winner={hero} scope={title} />
+      <section className={panelClass}>
+        <TableHeader
+          title={`${title} Tool Matrix`}
+          description={description}
+          suffix={`${projects.length.toLocaleString()} projects`}
+        />
+        <div className="divide-y divide-[#252b36]">
+          {projects.length > 0 ? (
+            projects.map((project) => (
+              <ProjectOperationRows
+                key={`${project.name}:${op}`}
+                project={project}
+                op={op}
+              />
+            ))
+          ) : (
+            <p className="px-4 py-4 text-[12px] text-neutral-500">
+              No comparable measurements recorded for this view.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -350,14 +354,18 @@ function LintTab({ report }: { report: BenchmarkReport }) {
   const projects = report.projects.filter((project) =>
     hasComparableLint(project, "noEmit"),
   );
+  const hero = bestLintProject(report, "noEmit");
 
   return (
-    <LintMatrix
-      title="Lint Tool Matrix"
-      description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
-      projects={projects}
-      op="noEmit"
-    />
+    <div className="space-y-4">
+      <HeroRatio winner={hero} scope="Lint" />
+      <LintMatrix
+        title="Lint Tool Matrix"
+        description="Legacy stacks tsc --noEmit plus ESLint; ttsc-lint stacks ttsc --noEmit plus the @ttsc/lint overhead."
+        projects={projects}
+        op="noEmit"
+      />
+    </div>
   );
 }
 
@@ -484,9 +492,13 @@ function ProjectLabel({
       <p className="mt-2 font-mono text-[11px] text-neutral-400">
         baseline: {formatDuration(baselineMs)}
       </p>
-      {bestFactor !== undefined && bestFactor > 1 ? (
+      {bestFactor !== undefined ? (
         <div className="mt-3" title={bestLabel}>
-          <div className="font-mono text-3xl font-bold leading-none text-emerald-300 md:text-4xl">
+          <div
+            className={`font-mono text-3xl font-bold leading-none md:text-4xl ${
+              bestFactor >= 1 ? "text-emerald-300" : "text-rose-300"
+            }`}
+          >
             {formatMultiplier(bestFactor)}
           </div>
           <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
@@ -869,6 +881,46 @@ function hasComparableLint(project: BenchmarkProject, op: Operation) {
   return rows.some((row) => row.baseline) && rows.some((row) => !row.baseline);
 }
 
+/**
+ * Hero panel: the biggest single speedup across the tab's scope rendered
+ * at oversized point size on the left, with the project + cell label
+ * underneath. Rendered above Build / Type-check / Lint / Format tabs
+ * (NOT the Summary tab — that one's per-project label badges already
+ * carry the per-project best).
+ */
+function HeroRatio({
+  winner,
+  scope,
+}: {
+  winner: Winner | undefined;
+  scope: string;
+}) {
+  if (!winner) return null;
+  return (
+    <section
+      className={`${panelClass} flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center`}
+    >
+      <div className="flex-shrink-0">
+        <div
+          className="font-mono text-5xl font-bold leading-none text-emerald-300 md:text-6xl"
+          title={`${winner.project.name}: ${winner.label}`}
+        >
+          {formatMultiplier(winner.factor)}
+        </div>
+        <div className="mt-1 font-mono text-[11px] uppercase tracking-wider text-neutral-500">
+          {scope} winner
+        </div>
+      </div>
+      <div className="text-[13px] text-neutral-300 md:ml-6">
+        <div className="font-semibold text-neutral-50">
+          {winner.project.name}
+        </div>
+        <div className="mt-0.5 text-neutral-400">{winner.label}</div>
+      </div>
+    </section>
+  );
+}
+
 function bestRatio(report: BenchmarkReport): Winner | undefined {
   return [
     bestOperationProject(report, "build"),
@@ -1005,29 +1057,33 @@ function findLegacyEslint(
 
 function FormatTab({ report }: { report: BenchmarkReport }) {
   const projects = report.projects.filter(hasComparableFormat);
+  const hero = bestFormatProject(report);
 
   return (
-    <section className={panelClass}>
-      <TableHeader
-        title="Format Tool Matrix"
-        description="Prettier (legacy) vs ttsc format (ttsc-lint), across the threading spectrum."
-        suffix={`${projects.length.toLocaleString()} projects`}
-      />
-      <div className="divide-y divide-[#252b36]">
-        {projects.length > 0 ? (
-          projects.map((project) => (
-            <ProjectFormatRows
-              key={`${project.name}:format`}
-              project={project}
-            />
-          ))
-        ) : (
-          <p className="px-4 py-4 text-[12px] text-neutral-500">
-            No comparable format measurements recorded for this view.
-          </p>
-        )}
-      </div>
-    </section>
+    <div className="space-y-4">
+      <HeroRatio winner={hero} scope="Format" />
+      <section className={panelClass}>
+        <TableHeader
+          title="Format Tool Matrix"
+          description="Prettier (legacy) vs ttsc format (ttsc-lint), across the threading spectrum."
+          suffix={`${projects.length.toLocaleString()} projects`}
+        />
+        <div className="divide-y divide-[#252b36]">
+          {projects.length > 0 ? (
+            projects.map((project) => (
+              <ProjectFormatRows
+                key={`${project.name}:format`}
+                project={project}
+              />
+            ))
+          ) : (
+            <p className="px-4 py-4 text-[12px] text-neutral-500">
+              No comparable format measurements recorded for this view.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
