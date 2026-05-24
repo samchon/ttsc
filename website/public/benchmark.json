@@ -1,5 +1,5 @@
 {
-  "date": "2026-05-24T07:38:25.190Z",
+  "date": "2026-05-24T12:34:03.077Z",
   "runs": 5,
   "warmup": 1,
   "host": {
@@ -11,16 +11,1228 @@
     "node": "v24.15.0",
     "ttsc": "0.13.0",
     "typescript": "v6.0.3",
-    "tsgo": "7.0.0-dev.20260521.1"
+    "tsgo": "7.0.0-dev.20260522.1"
   },
   "projects": [
+    {
+      "name": "vscode",
+      "repo": "ttsc-benchmark-vscode",
+      "kind": "application monorepo",
+      "files": 6093,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260522.1",
+      "measurements": [
+        {
+          "id": "vscode:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 130232.745976,
+          "minMs": 129300.37598,
+          "samples": [
+            131258.469167,
+            130232.745976,
+            129300.37598,
+            133935.639473,
+            129673.032848
+          ]
+        },
+        {
+          "id": "vscode:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 78436.8166,
+          "minMs": 75756.828345,
+          "samples": [
+            79821.409378,
+            79251.414755,
+            77734.035861,
+            78436.8166,
+            75756.828345
+          ]
+        },
+        {
+          "id": "vscode:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 65626.206847,
+          "minMs": 65360.682423,
+          "samples": [
+            65527.473845,
+            65360.682423,
+            65884.27155,
+            66027.432894,
+            65626.206847
+          ]
+        },
+        {
+          "id": "vscode:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 118292.885951,
+          "minMs": 116822.274578,
+          "samples": [
+            118292.885951,
+            119212.388955,
+            118787.180264,
+            118239.503088,
+            116822.274578
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 35100.9132505,
+          "minMs": 34588.342895,
+          "samples": [
+            35151.253636,
+            34837.589768,
+            35050.572865,
+            35267.512449,
+            36026.737731,
+            35222.325935,
+            34833.069541,
+            34588.342895,
+            35244.288629,
+            34627.785556
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 34931.5509745,
+          "minMs": 34368.311165,
+          "samples": [
+            34971.214074,
+            34891.887875,
+            34629.724863,
+            34389.138837,
+            35138.507328,
+            34725.960135,
+            34368.311165,
+            35026.249214,
+            35183.357408,
+            35098.590469
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 25481.15907,
+          "minMs": 24704.649066,
+          "samples": [
+            31499.089309,
+            27827.600834,
+            24704.649066,
+            25481.15907,
+            24820.389945
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 24997.6214255,
+          "minMs": 24460.08197,
+          "samples": [
+            24945.421793,
+            25049.821058,
+            25094.932178,
+            25050.985647,
+            24760.759233,
+            25146.178376,
+            24923.885378,
+            25050.038185,
+            24889.120209,
+            24460.08197
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 61209.9154395,
+          "minMs": 60848.238972,
+          "samples": [
+            61346.4278,
+            60897.614821,
+            61240.652302,
+            60848.238972,
+            60900.243103,
+            61383.600413,
+            61746.150919,
+            61012.8007,
+            61179.178577,
+            62050.762045
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 22784.79735,
+          "minMs": 22727.254134,
+          "samples": [
+            23374.850816,
+            22991.876428,
+            22784.79735,
+            22727.254134,
+            22767.573068
+          ],
+          "lintMedianMs": 22514,
+          "lintMinMs": 22466,
+          "lintSamples": [
+            23098,
+            22717,
+            22514,
+            22466,
+            22500
+          ],
+          "lintPluginMedianMs": 969,
+          "lintPluginMinMs": 954,
+          "lintPluginSamples": [
+            969,
+            985,
+            954,
+            963,
+            973
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "medianMs": 5165.732881,
+          "minMs": 5089.208165,
+          "samples": [
+            5237.235193,
+            5197.185495,
+            5108.778624,
+            5165.732881,
+            5089.208165
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 1543.003422,
+          "minMs": 1533.961196,
+          "samples": [
+            1618.134916,
+            1543.003422,
+            1541.751837,
+            1533.961196,
+            1586.98507
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 22117.521539499998,
+          "minMs": 21715.173949,
+          "samples": [
+            22672.686137,
+            22384.535536,
+            22198.712315,
+            22107.911032,
+            22127.132047,
+            24017.094081,
+            21729.674228,
+            22031.467731,
+            21941.146069,
+            21715.173949
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 17089.5154065,
+          "minMs": 16552.724263,
+          "samples": [
+            16552.724263,
+            17149.975185,
+            17224.261818,
+            16660.494363,
+            17588.344387,
+            17254.648194,
+            16931.367432,
+            17029.763558,
+            17149.267255,
+            16859.936224
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 13819.593749,
+          "minMs": 13436.792798,
+          "samples": [
+            13777.366432,
+            13826.864349,
+            13475.699195,
+            13436.792798,
+            13542.792231,
+            14338.690102,
+            13812.323149,
+            14147.09536,
+            14061.65896,
+            14435.365863
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 22117.519081,
+          "minMs": 21448.440995,
+          "samples": [
+            22529.007241,
+            22323.342554,
+            21927.500218,
+            21927.402245,
+            21768.189038,
+            21448.440995,
+            22324.392941,
+            22021.142716,
+            22213.895446,
+            22468.413388
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 16789.483105500003,
+          "minMs": 16114.71094,
+          "samples": [
+            16241.499298,
+            17316.097586,
+            16455.229088,
+            16114.71094,
+            16820.796953,
+            16715.242329,
+            17212.172665,
+            16960.578001,
+            16971.034044,
+            16758.169258
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 14024.408729,
+          "minMs": 13580.51606,
+          "samples": [
+            14998.896238,
+            14006.004977,
+            14042.812481,
+            14709.954991,
+            13647.860777,
+            14111.879701,
+            14088.049244,
+            13720.046487,
+            13580.51606,
+            13864.723393
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 14002.488508,
+          "minMs": 13562.303755,
+          "samples": [
+            14002.488508,
+            14227.158238,
+            13562.303755,
+            14194.618928,
+            13862.626284
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 8554.913013,
+          "minMs": 8493.972133,
+          "samples": [
+            9032.66058,
+            8629.489175,
+            8554.913013,
+            8524.503268,
+            8493.972133
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 6654.432376,
+          "minMs": 6518.160611,
+          "samples": [
+            7030.4182,
+            6821.66771,
+            6654.432376,
+            6582.34156,
+            6518.160611
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 15851.9505015,
+          "minMs": 15482.860111,
+          "samples": [
+            16299.106587,
+            15712.963245,
+            16186.23639,
+            15868.816725,
+            15482.860111,
+            15788.773173,
+            16353.40755,
+            15835.084278,
+            15694.364898,
+            16187.566883
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 12093.136719,
+          "minMs": 11738.897275,
+          "samples": [
+            12179.007296,
+            11936.046018,
+            11916.847032,
+            12007.266142,
+            12434.448264,
+            11885.518096,
+            12725.533817,
+            12267.198615,
+            11738.897275,
+            12341.613997
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 10156.637115500002,
+          "minMs": 9858.660608,
+          "samples": [
+            9887.1288,
+            9858.660608,
+            9868.779171,
+            10740.156648,
+            10100.693875,
+            10301.017805,
+            10212.580356,
+            10084.138112,
+            10644.830886,
+            10765.72281
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 38747.838181,
+          "minMs": 37804.610199,
+          "samples": [
+            38865.711249,
+            39098.001864,
+            39003.676247,
+            37804.610199,
+            38591.621507,
+            38299.760241,
+            38758.340479,
+            39003.06148,
+            38690.902293,
+            38737.335883
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 29213.31159,
+          "minMs": 28341.649652,
+          "samples": [
+            29235.005689,
+            29430.447425,
+            29557.964356,
+            29023.411611,
+            28341.649652,
+            29119.497285,
+            28738.440095,
+            29191.617491,
+            29382.352989,
+            30973.864743
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 25216.011032,
+          "minMs": 24136.889214,
+          "samples": [
+            25538.966185,
+            24939.868311,
+            25367.121966,
+            24431.456431,
+            25431.022906,
+            24136.889214,
+            25840.339682,
+            24787.330853,
+            25064.900098,
+            25665.723178
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 12816.443914,
+          "minMs": 12705.946127,
+          "samples": [
+            12735.322595,
+            12891.738086,
+            12816.443914,
+            13130.58556,
+            12705.946127
+          ],
+          "lintMedianMs": 12548,
+          "lintMinMs": 12439,
+          "lintSamples": [
+            12478,
+            12611,
+            12548,
+            12861,
+            12439
+          ],
+          "lintPluginMedianMs": 129,
+          "lintPluginMinMs": 124,
+          "lintPluginSamples": [
+            126,
+            124,
+            129,
+            137,
+            130
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 8795.080216,
+          "minMs": 8732.858376,
+          "samples": [
+            8828.185101,
+            8904.471161,
+            8753.232061,
+            8732.858376,
+            8795.080216
+          ],
+          "lintMedianMs": 8524,
+          "lintMinMs": 8451,
+          "lintSamples": [
+            8552,
+            8633,
+            8482,
+            8451,
+            8524
+          ],
+          "lintPluginMedianMs": 140,
+          "lintPluginMinMs": 130,
+          "lintPluginSamples": [
+            152,
+            133,
+            140,
+            140,
+            130
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 7050.263063,
+          "minMs": 7007.232439,
+          "samples": [
+            7050.263063,
+            7019.124886,
+            7120.026767,
+            7116.082455,
+            7007.232439
+          ],
+          "lintMedianMs": 6769,
+          "lintMinMs": 6728,
+          "lintSamples": [
+            6769,
+            6728,
+            6845,
+            6819,
+            6735
+          ],
+          "lintPluginMedianMs": 180,
+          "lintPluginMinMs": 162,
+          "lintPluginSamples": [
+            162,
+            180,
+            181,
+            207,
+            172
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nestjs",
+      "repo": "ttsc-benchmark-nestjs",
+      "kind": "backend framework monorepo",
+      "files": 769,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260522.1",
+      "measurements": [
+        {
+          "id": "nestjs:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 34934.979739,
+          "minMs": 33632.014753,
+          "samples": [
+            34591.183701,
+            34995.806909,
+            33632.014753,
+            34934.979739,
+            35049.047251
+          ]
+        },
+        {
+          "id": "nestjs:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 15468.886827,
+          "minMs": 15273.561261,
+          "samples": [
+            15698.970854,
+            15600.949936,
+            15468.886827,
+            15390.796844,
+            15273.561261
+          ]
+        },
+        {
+          "id": "nestjs:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 3937.376418,
+          "minMs": 3908.098738,
+          "samples": [
+            4140.022393,
+            3933.152976,
+            4042.050323,
+            3908.098738,
+            3937.376418
+          ]
+        },
+        {
+          "id": "nestjs:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 3824.224531,
+          "minMs": 3808.185379,
+          "samples": [
+            3891.496506,
+            3808.185379,
+            3816.003911,
+            3824.224531,
+            3826.199496
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 6542.299768000001,
+          "minMs": 6284.521244,
+          "samples": [
+            6776.016945,
+            6823.469171,
+            6284.521244,
+            6520.026657,
+            6906.508738,
+            6564.403736,
+            6451.787198,
+            6520.1958,
+            6729.442971,
+            6338.941133
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 6102.5391039999995,
+          "minMs": 5967.502393,
+          "samples": [
+            6100.174565,
+            5967.502393,
+            6053.706337,
+            6106.141245,
+            6104.903643,
+            6026.192876,
+            6129.137597,
+            6251.239829,
+            6340.354874,
+            6042.853666
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 4326.210027,
+          "minMs": 4276.666143,
+          "samples": [
+            4361.809735,
+            4333.315584,
+            4276.666143,
+            4326.210027,
+            4285.619388
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 5022.3483175,
+          "minMs": 4949.666465,
+          "samples": [
+            5150.732913,
+            5021.559482,
+            5025.843105,
+            4991.261065,
+            5023.137153,
+            5068.571173,
+            5091.219412,
+            4980.831652,
+            4949.666465,
+            5000.616183
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 6442.616297500001,
+          "minMs": 6303.201408,
+          "samples": [
+            7170.229634,
+            6520.491636,
+            6427.750892,
+            6457.481703,
+            6376.281083,
+            6322.23813,
+            6415.011106,
+            6605.211674,
+            6668.253408,
+            6303.201408
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 4512.844255,
+          "minMs": 4469.722528,
+          "samples": [
+            4510.24131,
+            4512.844255,
+            4522.598952,
+            4469.722528,
+            4533.728085
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "medianMs": 2063.175505,
+          "minMs": 2038.322734,
+          "samples": [
+            2038.322734,
+            2043.37998,
+            2071.05899,
+            2063.175505,
+            2080.109802
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 2025.191759,
+          "minMs": 2010.033905,
+          "samples": [
+            2035.51549,
+            2010.033905,
+            2036.3675,
+            2025.191759,
+            2014.024996
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 6006.046592000001,
+          "minMs": 5894.101685,
+          "samples": [
+            6025.763767,
+            5937.540226,
+            5986.329417,
+            6406.567912,
+            6420.039275,
+            5918.651657,
+            5923.246194,
+            5894.101685,
+            6235.962289,
+            6264.307701
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 5654.355299999999,
+          "minMs": 5487.820701,
+          "samples": [
+            5553.521308,
+            5613.111568,
+            5661.28299,
+            5719.022071,
+            5518.077333,
+            5707.14806,
+            5647.42761,
+            5487.820701,
+            5701.060897,
+            5928.01278
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 5559.381278,
+          "minMs": 5454.141252,
+          "samples": [
+            5560.952862,
+            5689.731197,
+            5572.393964,
+            5460.357145,
+            5548.436265,
+            5454.141252,
+            5508.361919,
+            5604.723838,
+            5557.809694,
+            5827.555482
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 5536.6453825,
+          "minMs": 5442.743116,
+          "samples": [
+            5505.989549,
+            5590.577646,
+            5442.743116,
+            5452.90935,
+            5559.252686,
+            5471.733328,
+            5514.038079,
+            5654.858528,
+            5576.269067,
+            6198.296656
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 5306.633274,
+          "minMs": 5089.646606,
+          "samples": [
+            5304.796199,
+            5089.646606,
+            5339.734453,
+            5308.470349,
+            5388.819384,
+            5258.018229,
+            5299.941106,
+            5395.260766,
+            5220.516345,
+            5384.153588
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 5166.770092,
+          "minMs": 5045.721722,
+          "samples": [
+            5045.721722,
+            5127.564488,
+            5182.166802,
+            5187.203783,
+            5362.748489,
+            5076.31388,
+            5210.895729,
+            5151.373382,
+            5137.271912,
+            5280.995306
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 3684.821846,
+          "minMs": 3639.45118,
+          "samples": [
+            3703.557101,
+            3684.821846,
+            3663.553145,
+            3717.682032,
+            3639.45118
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 3520.519504,
+          "minMs": 3453.399533,
+          "samples": [
+            3453.399533,
+            3534.158792,
+            3483.433154,
+            3520.519504,
+            3683.160155
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 3456.581653,
+          "minMs": 3411.045402,
+          "samples": [
+            3530.373746,
+            3487.776543,
+            3449.0075,
+            3456.581653,
+            3411.045402
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 4904.4645205,
+          "minMs": 4682.530209,
+          "samples": [
+            4868.691087,
+            4737.992215,
+            4815.592035,
+            5078.271339,
+            5201.013942,
+            4940.237954,
+            4982.380644,
+            5272.305429,
+            4856.960578,
+            4682.530209
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 4712.441065,
+          "minMs": 4603.733302,
+          "samples": [
+            4687.71347,
+            4811.704874,
+            4782.387781,
+            4613.484212,
+            4641.724829,
+            4650.834831,
+            4737.16866,
+            4603.733302,
+            5235.217057,
+            4962.62343
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 4575.038957999999,
+          "minMs": 4497.442781,
+          "samples": [
+            4602.40916,
+            4533.143439,
+            4647.114952,
+            4565.863909,
+            4637.633935,
+            4497.442781,
+            4508.839073,
+            4625.035927,
+            4546.800833,
+            4584.214007
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 5964.109134,
+          "minMs": 5906.697981,
+          "samples": [
+            5934.524861,
+            6307.07192,
+            6112.986784,
+            5957.301625,
+            5906.697981,
+            6028.746841,
+            5970.916643,
+            5945.461118,
+            6071.568758,
+            5957.274665
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 5593.760148,
+          "minMs": 5524.926192,
+          "samples": [
+            5630.662812,
+            5576.379126,
+            5586.327129,
+            5601.193167,
+            5642.498135,
+            5524.926192,
+            5834.552223,
+            5548.656003,
+            5526.092467,
+            5734.231971
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 5549.266647,
+          "minMs": 5488.713908,
+          "samples": [
+            5574.736416,
+            5526.462308,
+            5681.295893,
+            5535.220386,
+            5627.058882,
+            5563.312908,
+            5496.854777,
+            5488.713908,
+            5506.444416,
+            5869.817686
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 3968.659639,
+          "minMs": 3914.9047,
+          "samples": [
+            4056.387317,
+            3923.244345,
+            3914.9047,
+            3968.659639,
+            4181.055184
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 3762.901948,
+          "minMs": 3710.759502,
+          "samples": [
+            3750.137211,
+            3710.759502,
+            3795.43657,
+            3762.901948,
+            3823.91438
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 3708.907336,
+          "minMs": 3672.38403,
+          "samples": [
+            3714.954022,
+            3737.35251,
+            3672.38403,
+            3675.006067,
+            3708.907336
+          ]
+        }
+      ]
+    },
     {
       "name": "vue",
       "repo": "ttsc-benchmark-vue",
       "kind": "frontend monorepo",
       "files": 442,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260521.1",
+      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "vue:legacy:build:multi",
@@ -44,14 +1256,14 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 3021.609373,
-          "minMs": 2981.776934,
+          "medianMs": 9792.238326,
+          "minMs": 9640.826578,
           "samples": [
-            2981.776934,
-            3009.334487,
-            3021.609373,
-            3058.253661,
-            3114.180276
+            9792.238326,
+            9795.836999,
+            9751.363862,
+            9899.375591,
+            9640.826578
           ]
         },
         {
@@ -60,14 +1272,14 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 4269.738436,
-          "minMs": 4148.188282,
+          "medianMs": 2642.160344,
+          "minMs": 2609.990078,
           "samples": [
-            4269.738436,
-            4627.73453,
-            4216.289911,
-            4148.188282,
-            4294.860589
+            2697.475675,
+            2652.780266,
+            2609.990078,
+            2617.847739,
+            2642.160344
           ]
         },
         {
@@ -76,14 +1288,14 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 4732.652566,
-          "minMs": 4670.523958,
+          "medianMs": 6351.716726,
+          "minMs": 6335.316519,
           "samples": [
-            4982.004664,
-            5108.749645,
-            4701.897267,
-            4732.652566,
-            4670.523958
+            6435.794822,
+            6335.316519,
+            6351.716726,
+            6541.114179,
+            6339.484484
           ]
         },
         {
@@ -134,19 +1346,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 644.0485745,
-          "minMs": 637.066167,
+          "medianMs": 3044.16515,
+          "minMs": 3001.968488,
           "samples": [
-            681.906087,
-            637.066167,
-            641.590029,
-            646.897834,
-            642.181711,
-            643.494074,
-            655.087864,
-            675.23262,
-            643.208463,
-            644.603075
+            3028.999748,
+            3001.968488,
+            3086.306556,
+            3044.16515,
+            3158.196704
           ]
         },
         {
@@ -201,23 +1408,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 4051.681868,
-          "minMs": 4007.619228,
+          "medianMs": 3235.48327,
+          "minMs": 3194.275807,
           "samples": [
-            4051.681868,
-            4196.981522,
-            4007.619228,
-            4553.661303,
-            4025.513211
+            3212.41368,
+            3235.48327,
+            3290.166212,
+            3194.275807,
+            3240.604739
           ],
-          "lintMedianMs": 3474,
-          "lintMinMs": 3403,
+          "lintMedianMs": 2735,
+          "lintMinMs": 2706,
           "lintSamples": [
-            3474,
-            3496,
-            3439,
-            3885,
-            3403
+            2706,
+            2735,
+            2785,
+            2716,
+            2757
+          ],
+          "lintPluginMedianMs": 60,
+          "lintPluginMinMs": 54,
+          "lintPluginSamples": [
+            60,
+            90,
+            91,
+            55,
+            54
           ]
         },
         {
@@ -226,14 +1442,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 1067.986011,
-          "minMs": 926.383639,
+          "medianMs": 1025.837455,
+          "minMs": 1006.602883,
           "samples": [
-            1176.957231,
-            926.383639,
-            1067.986011,
-            1091.51852,
-            953.83004
+            1021.842926,
+            1025.837455,
+            1060.778089,
+            1006.602883,
+            1030.490691
           ]
         },
         {
@@ -242,14 +1458,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 890.505345,
-          "minMs": 789.546557,
+          "medianMs": 727.517703,
+          "minMs": 712.961879,
           "samples": [
-            1033.351467,
-            810.327609,
-            890.505345,
-            934.983674,
-            789.546557
+            754.397608,
+            712.961879,
+            730.248239,
+            727.517703,
+            713.7135
           ]
         },
         {
@@ -384,19 +1600,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 457.037763,
-          "minMs": 445.808674,
+          "medianMs": 2072.669513,
+          "minMs": 2051.334701,
           "samples": [
-            496.432728,
-            503.843952,
-            469.830001,
-            446.806941,
-            448.018765,
-            468.823311,
-            455.230575,
-            458.844951,
-            445.808674,
-            446.983902
+            2095.876444,
+            2125.635494,
+            2065.986592,
+            2051.334701,
+            2072.669513
           ]
         },
         {
@@ -405,19 +1616,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 463.0953495,
-          "minMs": 449.628913,
+          "medianMs": 1606.651984,
+          "minMs": 1576.428139,
           "samples": [
-            484.12617,
-            480.338096,
-            461.174599,
-            455.074424,
-            449.628913,
-            461.338313,
-            456.168114,
-            471.686428,
-            464.852386,
-            469.420313
+            1576.428139,
+            1606.651984,
+            1672.84363,
+            1605.587322,
+            1660.960082
           ]
         },
         {
@@ -426,19 +1632,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 458.08883849999995,
-          "minMs": 451.9684,
+          "medianMs": 1346.233091,
+          "minMs": 1306.063959,
           "samples": [
-            529.44931,
-            459.041953,
-            457.135724,
-            455.681336,
-            451.9684,
-            454.049135,
-            471.862364,
-            474.415373,
-            453.431865,
-            459.152425
+            1355.958341,
+            1306.063959,
+            1346.233091,
+            1347.614587,
+            1335.591803
           ]
         },
         {
@@ -585,23 +1786,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 3182.116136,
-          "minMs": 3103.492874,
+          "medianMs": 2250.273875,
+          "minMs": 2209.886249,
           "samples": [
-            3201.218676,
-            3208.017844,
-            3151.734771,
-            3103.492874,
-            3182.116136
+            2299.00446,
+            2233.002609,
+            2209.886249,
+            2281.620127,
+            2250.273875
           ],
-          "lintMedianMs": 2584,
-          "lintMinMs": 2496,
+          "lintMedianMs": 1764,
+          "lintMinMs": 1721,
           "lintSamples": [
-            2496,
-            2587,
-            2584,
-            2554,
-            2610
+            1822,
+            1734,
+            1721,
+            1769,
+            1764
+          ],
+          "lintPluginMedianMs": 9,
+          "lintPluginMinMs": 8,
+          "lintPluginSamples": [
+            8,
+            9,
+            9,
+            49,
+            8
           ]
         },
         {
@@ -610,23 +1820,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 2641.755148,
-          "minMs": 2492.98151,
+          "medianMs": 1805.315303,
+          "minMs": 1790.904165,
           "samples": [
-            2492.98151,
-            2811.672066,
-            2641.755148,
-            2622.222055,
-            2725.802837
+            1790.904165,
+            1796.893526,
+            1825.765916,
+            1805.315303,
+            1839.654924
           ],
-          "lintMedianMs": 1967,
-          "lintMinMs": 1933,
+          "lintMedianMs": 1312,
+          "lintMinMs": 1292,
           "lintSamples": [
-            1967,
-            2222,
-            2024,
-            1933,
-            1964
+            1312,
+            1292,
+            1346,
+            1310,
+            1333
+          ],
+          "lintPluginMedianMs": 9,
+          "lintPluginMinMs": 8,
+          "lintPluginSamples": [
+            8,
+            9,
+            10,
+            9,
+            9
           ]
         },
         {
@@ -635,1887 +1854,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2442.444906,
-          "minMs": 2405.928074,
+          "medianMs": 1530.316395,
+          "minMs": 1509.026113,
           "samples": [
-            2504.990952,
-            2420.501508,
-            2405.928074,
-            2442.444906,
-            2442.991746
+            1530.316395,
+            1573.709738,
+            1509.026113,
+            1572.664455,
+            1517.136518
           ],
-          "lintMedianMs": 1792,
-          "lintMinMs": 1732,
+          "lintMedianMs": 1035,
+          "lintMinMs": 1012,
           "lintSamples": [
-            1903,
-            1855,
-            1792,
-            1732,
-            1777
-          ]
-        }
-      ]
-    },
-    {
-      "name": "rxjs",
-      "repo": "ttsc-benchmark-rxjs",
-      "kind": "library monorepo",
-      "files": 515,
-      "measurements": [
-        {
-          "id": "rxjs:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 5267.052444,
-          "minMs": 5217.166911,
-          "samples": [
-            5267.052444,
-            5274.538719,
-            5321.592751,
-            5266.091596,
-            5217.166911
-          ]
-        },
-        {
-          "id": "rxjs:legacy:noEmit:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 5131.452151,
-          "minMs": 5057.030192,
-          "samples": [
-            5131.452151,
-            5090.66566,
-            5057.030192,
-            5482.506647,
-            5283.782149
-          ]
-        },
-        {
-          "id": "rxjs:legacy:eslint:multi",
-          "branch": "legacy",
-          "tool": "eslint",
-          "op": "eslint",
-          "threading": "multi",
-          "medianMs": 4904.23118,
-          "minMs": 4881.825528,
-          "samples": [
-            4964.195088,
-            4904.23118,
-            4894.486846,
-            5012.262883,
-            4881.825528
-          ]
-        },
-        {
-          "id": "rxjs:legacy:format:multi",
-          "branch": "legacy",
-          "tool": "prettier",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 3653.247343,
-          "minMs": 3602.33855,
-          "samples": [
-            3742.385557,
-            3641.179188,
-            3602.33855,
-            3676.987873,
-            3653.247343
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:build:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1203.1419415,
-          "minMs": 1172.278019,
-          "samples": [
-            1214.844759,
-            1175.363214,
-            1172.278019,
-            1200.469619,
-            1224.588039,
-            1218.785399,
-            1193.835383,
-            1205.814264,
-            1190.780526,
-            1235.037261
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1118.8898685,
-          "minMs": 1096.628121,
-          "samples": [
-            1128.002216,
-            1128.207492,
-            1123.225717,
-            1166.505133,
-            1109.722204,
-            1134.980926,
-            1109.490176,
-            1114.55402,
-            1096.628121,
-            1101.677016
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1188.1929715,
-          "minMs": 1153.106308,
-          "samples": [
-            1153.106308,
-            1183.515527,
-            1178.619897,
-            1192.456577,
-            1184.596244,
-            1188.052196,
-            1188.333747,
-            1192.592889,
-            1230.698824,
-            1190.751315
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1114.614767,
-          "minMs": 1089.000506,
-          "samples": [
-            1155.838519,
-            1172.762865,
-            1115.909358,
-            1134.708574,
-            1093.545067,
-            1105.668637,
-            1113.320176,
-            1102.804108,
-            1125.347601,
-            1089.000506
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:build:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 3431.1127134999997,
-          "minMs": 3397.137672,
-          "samples": [
-            3416.901429,
-            3433.819846,
-            3452.745606,
-            3426.296547,
-            3470.899628,
-            3397.137672,
-            3479.181051,
-            3428.405581,
-            3411.020843,
-            3455.379862
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3065.9919845,
-          "minMs": 3026.411094,
-          "samples": [
-            3026.411094,
-            3029.996561,
-            3073.553155,
-            3070.501789,
-            3061.48218,
-            3095.545909,
-            3034.404365,
-            3027.085379,
-            3138.353764,
-            3085.748662
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:format:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "single",
-          "medianMs": 1131.083694,
-          "minMs": 1106.27734,
-          "samples": [
-            1160.423558,
-            1108.793905,
-            1123.902377,
-            1110.857949,
-            1216.005542,
-            1194.216575,
-            1106.27734,
-            1138.265011,
-            1111.050603,
-            1151.928012
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:format:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 1162.3865435,
-          "minMs": 1122.101483,
-          "samples": [
-            1187.841956,
-            1122.69067,
-            1219.466087,
-            1163.743037,
-            1148.827519,
-            1161.03005,
-            1187.703325,
-            1259.447902,
-            1122.101483,
-            1141.563287
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:build:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 1155.1136325,
-          "minMs": 1112.710943,
-          "samples": [
-            1150.142621,
-            1153.755625,
-            1112.710943,
-            1161.298414,
-            1140.068658,
-            1193.117469,
-            1160.599015,
-            1156.47164,
-            1160.451683,
-            1127.200542
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:build:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 1142.1462625,
-          "minMs": 1127.593074,
-          "samples": [
-            1144.650914,
-            1153.428168,
-            1137.714982,
-            1130.740109,
-            1188.954973,
-            1127.593074,
-            1168.809728,
-            1139.641611,
-            1151.299369,
-            1136.823674
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:build:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 1149.3874635,
-          "minMs": 1119.125119,
-          "samples": [
-            1178.539461,
-            1149.127237,
-            1158.075698,
-            1138.670588,
-            1150.92276,
-            1136.653605,
-            1128.708269,
-            1171.603955,
-            1119.125119,
-            1149.64769
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 1080.478126,
-          "minMs": 1041.434686,
-          "samples": [
-            1087.842272,
-            1105.999791,
-            1132.383388,
-            1063.90767,
-            1083.067945,
-            1041.434686,
-            1058.682007,
-            1077.888307,
-            1066.465289,
-            1103.5144
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 1057.5249785,
-          "minMs": 1035.632305,
-          "samples": [
-            1056.200508,
-            1073.668475,
-            1047.868455,
-            1118.303675,
-            1057.91597,
-            1075.248405,
-            1064.4127,
-            1035.632305,
-            1057.133987,
-            1044.018012
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 1074.414948,
-          "minMs": 1044.708674,
-          "samples": [
-            1089.993712,
-            1044.708674,
-            1083.186492,
-            1046.942261,
-            1061.096898,
-            1084.236938,
-            1049.538183,
-            1105.740107,
-            1065.643404,
-            1083.562081
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 1138.547693,
-          "minMs": 1124.720512,
-          "samples": [
-            1124.720512,
-            1138.409131,
-            1132.038261,
-            1138.686255,
-            1141.542899,
-            1137.981977,
-            1164.543936,
-            1136.609598,
-            1185.377112,
-            1138.834111
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1142.469347,
-          "minMs": 1116.305428,
-          "samples": [
-            1151.626906,
-            1133.311788,
-            1190.675506,
-            1116.305428,
-            1170.333022,
-            1179.702704,
-            1132.784153,
-            1128.253029,
-            1125.341849,
-            1159.371413
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1143.453762,
-          "minMs": 1109.843671,
-          "samples": [
-            1188.91698,
-            1138.128583,
-            1150.588695,
-            1148.778941,
-            1116.132397,
-            1161.941797,
-            1132.213167,
-            1177.953173,
-            1109.843671,
-            1135.128801
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 1040.3916995,
-          "minMs": 1031.191784,
-          "samples": [
-            1038.836945,
-            1031.191784,
-            1066.694216,
-            1039.911343,
-            1073.98565,
-            1070.597029,
-            1032.948795,
-            1082.674339,
-            1040.346162,
-            1040.437237
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1064.0306495,
-          "minMs": 1024.600569,
-          "samples": [
-            1059.486423,
-            1075.843903,
-            1067.385008,
-            1076.065311,
-            1057.762469,
-            1024.600569,
-            1073.433575,
-            1046.074608,
-            1078.7466,
-            1060.676291
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1061.702624,
-          "minMs": 1042.278082,
-          "samples": [
-            1068.226093,
-            1067.714131,
-            1060.654866,
-            1059.35638,
-            1047.966817,
-            1074.452938,
-            1062.750382,
-            1059.062372,
-            1073.696032,
-            1042.278082
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:build:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 3233.7210495,
-          "minMs": 3204.542607,
-          "samples": [
-            3263.795334,
-            3204.542607,
-            3233.449341,
-            3319.786237,
-            3212.761187,
-            3275.073794,
-            3233.992758,
-            3214.24923,
-            3238.288258,
-            3219.929526
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:build:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 3180.286088,
-          "minMs": 3119.779814,
-          "samples": [
-            3122.679705,
-            3194.167463,
-            3205.649736,
-            3165.295525,
-            3183.933951,
-            3119.779814,
-            3172.784042,
-            3208.058917,
-            3176.638225,
-            3185.129674
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:build:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 3172.9453670000003,
-          "minMs": 3146.91076,
-          "samples": [
-            3186.621765,
-            3171.05947,
-            3174.831264,
-            3196.376842,
-            3163.270747,
-            3156.245264,
-            3146.91076,
-            3186.662912,
-            3191.693931,
-            3147.405421
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 2901.607548,
-          "minMs": 2866.333974,
-          "samples": [
-            2936.038735,
-            2889.392195,
-            2926.898719,
-            2888.907155,
-            2903.666017,
-            2882.236147,
-            2866.333974,
-            2920.787633,
-            2899.549079,
-            2908.220451
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 2869.4967070000002,
-          "minMs": 2801.66529,
-          "samples": [
-            2879.40855,
-            2887.725222,
-            2851.738112,
-            2854.443031,
-            2895.529429,
-            2864.851004,
-            2801.66529,
-            2874.14241,
-            2875.648004,
-            2856.73825
-          ]
-        },
-        {
-          "id": "rxjs:ttsc-lint:noEmit:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 2830.9371735,
-          "minMs": 2801.999751,
-          "samples": [
-            2815.872926,
-            2806.289312,
-            2836.879943,
-            2887.858344,
-            2854.698934,
-            2863.049637,
-            2801.999751,
-            2802.001644,
-            2878.686428,
-            2824.994404
-          ]
-        }
-      ],
-      "typescript": "v6.0.3"
-    },
-    {
-      "name": "type-fest",
-      "repo": "ttsc-benchmark-type-fest",
-      "kind": "type-level library",
-      "files": 209,
-      "measurements": [
-        {
-          "id": "type-fest:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 63220.660134,
-          "minMs": 61429.898174,
-          "samples": [
-            61429.898174,
-            62768.496686,
-            64062.682997,
-            64776.989826,
-            63220.660134
-          ]
-        },
-        {
-          "id": "type-fest:legacy:noEmit:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 63009.341896,
-          "minMs": 62753.738454,
-          "samples": [
-            62753.738454,
-            63009.341896,
-            63412.998184,
-            63869.45945,
-            62878.212954
-          ]
-        },
-        {
-          "id": "type-fest:legacy:eslint:multi",
-          "branch": "legacy",
-          "tool": "eslint",
-          "op": "eslint",
-          "threading": "multi",
-          "medianMs": 3613.722493,
-          "minMs": 3449.744847,
-          "samples": [
-            3829.338917,
-            3884.635901,
-            3613.722493,
-            3449.744847,
-            3490.370684
-          ]
-        },
-        {
-          "id": "type-fest:legacy:format:multi",
-          "branch": "legacy",
-          "tool": "prettier",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 4238.325113,
-          "minMs": 4201.243403,
-          "samples": [
-            4551.026259,
-            4238.325113,
-            4259.255586,
-            4214.465978,
-            4201.243403
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:build:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 24128.513628499997,
-          "minMs": 23493.58512,
-          "samples": [
-            26400.883019,
-            24228.863454,
-            23493.58512,
-            23720.353456,
-            24028.163803,
-            27197.271098,
-            27340.076368,
-            27489.264572,
-            23737.380011,
-            23704.640759
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 23539.454054499998,
-          "minMs": 23311.875535,
-          "samples": [
-            23311.875535,
-            23485.183293,
-            23687.483806,
-            23524.386327,
-            23544.627922,
-            23913.040436,
-            23534.280187,
-            23697.426442,
-            23646.947457,
-            23455.277279
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 23508.871372499998,
-          "minMs": 23225.281933,
-          "samples": [
-            25321.709004,
-            23762.159514,
-            23676.243234,
-            23504.029097,
-            23411.693285,
-            23292.913213,
-            23225.281933,
-            23513.713648,
-            23970.978023,
-            23383.461246
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 23188.544176,
-          "minMs": 22886.450664,
-          "samples": [
-            24078.167292,
-            23710.56885,
-            23191.828153,
-            22886.450664,
-            23385.089514,
-            22999.005559,
-            23185.260199,
-            23060.534853,
-            23039.863431,
-            23712.301615
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:build:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 23596.136288,
-          "minMs": 23014.179394,
-          "samples": [
-            25114.57366,
-            23761.011938,
-            23837.778104,
-            23956.132105,
-            23787.80264,
-            23431.260638,
-            23311.541025,
-            23296.029546,
-            23014.179394,
-            23169.366647
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 23499.622004,
-          "minMs": 22991.568203,
-          "samples": [
-            23414.9746,
-            23721.539548,
-            23584.269408,
-            22991.568203,
-            23374.069649,
-            23671.763047,
-            23074.007251,
-            23868.351978,
-            23251.161491,
-            24014.942814
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:format:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "single",
-          "medianMs": 908.202549,
-          "minMs": 755.650014,
-          "samples": [
-            1231.724101,
-            771.598084,
-            952.36421,
-            990.245434,
-            914.290042,
-            755.650014,
-            1096.747789,
-            851.411433,
-            801.386501,
-            902.115056
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:format:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 1049.11764,
-          "minMs": 951.656364,
-          "samples": [
-            983.515612,
-            1091.097788,
-            1099.344566,
-            1062.673209,
-            1035.562071,
-            1023.253384,
-            1207.976977,
-            1245.529647,
-            951.656364,
-            1015.41637
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:build:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 19595.8791355,
-          "minMs": 19078.819649,
-          "samples": [
-            19922.046714,
-            19718.826327,
-            19263.955551,
-            19548.51281,
-            19563.456945,
-            20319.654644,
-            19235.744254,
-            19628.301326,
-            19644.915635,
-            19078.819649
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:build:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 17759.4962045,
-          "minMs": 17537.71946,
-          "samples": [
-            18226.939428,
-            17824.945115,
-            17792.698516,
-            17561.981623,
-            17552.204629,
-            17565.832308,
-            18240.653127,
-            17537.71946,
-            17788.921006,
-            17730.071403
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:build:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 19381.817123499997,
-          "minMs": 18824.807193,
-          "samples": [
-            18824.807193,
-            18927.384052,
-            20282.704415,
-            19190.368513,
-            20525.40894,
-            20115.647532,
-            18892.918191,
-            19810.039684,
-            19391.37388,
-            19372.260367
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 19075.552443,
-          "minMs": 18965.438885,
-          "samples": [
-            19055.14417,
-            18974.138516,
-            18965.438885,
-            19425.403116,
-            19319.752223,
-            19940.746781,
-            19281.506161,
-            19015.779316,
-            19019.873304,
-            19095.960716
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 17949.32073,
-          "minMs": 17514.351004,
-          "samples": [
-            17627.156681,
-            17995.817313,
-            17856.700035,
-            18566.814331,
-            18394.769909,
-            18030.64449,
-            17902.824147,
-            18126.360953,
-            17514.351004,
-            17735.784639
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 19764.3374925,
-          "minMs": 19126.544044,
-          "samples": [
-            19328.321336,
-            20616.840364,
-            20063.068825,
-            19886.237544,
-            19391.23121,
-            19126.544044,
-            20029.661321,
-            19642.437441,
-            20176.894673,
-            19578.429332
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 19294.478382,
-          "minMs": 18715.64316,
-          "samples": [
-            19212.335179,
-            19440.687854,
-            19376.621585,
-            19179.320271,
-            18715.64316,
-            19210.158617,
-            20581.206773,
-            19660.095442,
-            19493.5865,
-            19008.610389
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 17953.912463,
-          "minMs": 17486.793859,
-          "samples": [
-            17486.793859,
-            17710.162715,
-            18308.656425,
-            17991.115831,
-            18744.773908,
-            18074.731598,
-            17794.296625,
-            17581.30233,
-            18515.485922,
-            17916.709095
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 19943.761695,
-          "minMs": 19030.970965,
-          "samples": [
-            20261.445684,
-            19622.683947,
-            19780.381922,
-            19030.970965,
-            20107.141468,
-            19560.226981,
-            20743.11749,
-            20926.875136,
-            19197.795829,
-            22118.83878
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 19343.445321,
-          "minMs": 18797.971321,
-          "samples": [
-            18797.971321,
-            19197.614722,
-            19770.861223,
-            19055.207696,
-            19334.467733,
-            19352.422909,
-            19668.007454,
-            19409.152694,
-            19386.219078,
-            19107.517625
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 18196.6438265,
-          "minMs": 17567.474421,
-          "samples": [
-            17891.627925,
-            18277.573203,
-            17754.767072,
-            18109.079407,
-            17567.474421,
-            18115.71445,
-            18818.19167,
-            19607.807944,
-            19929.330483,
-            19883.288819
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 19712.518414,
-          "minMs": 19324.230686,
-          "samples": [
-            19644.522087,
-            21419.380846,
-            19324.230686,
-            19736.738429,
-            20406.299909,
-            19339.37749,
-            19688.298399,
-            19916.510274,
-            19573.055405,
-            20876.798377
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:build:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 19155.6149515,
-          "minMs": 18797.018295,
-          "samples": [
-            18885.932702,
-            18912.559843,
-            19429.470407,
-            18797.018295,
-            19256.946529,
-            18975.2247,
-            19749.240509,
-            19291.875656,
-            19054.283374,
-            19592.262192
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:build:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 17860.150234,
-          "minMs": 17529.283135,
-          "samples": [
-            17771.795841,
-            17954.278376,
-            18328.962856,
-            17566.285796,
-            17927.03683,
-            17529.283135,
-            18306.853146,
-            18144.255849,
-            17793.263638,
-            17773.038148
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:build:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 19757.763281,
-          "minMs": 19068.364298,
-          "samples": [
-            19508.407837,
-            19068.364298,
-            20480.7329,
-            19872.66904,
-            20075.22401,
-            19186.846293,
-            20553.942021,
-            19104.225248,
-            19642.857522,
-            20616.2779
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 19258.8632785,
-          "minMs": 18948.22428,
-          "samples": [
-            19275.073241,
-            19383.866936,
-            18948.22428,
-            19476.169216,
-            19338.466046,
-            19168.577957,
-            19008.098844,
-            19347.537826,
-            19242.653316,
-            19210.969272
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 17763.7255735,
-          "minMs": 17454.714645,
-          "samples": [
-            17718.616452,
-            17724.199194,
-            17650.4072,
-            17987.663271,
-            17900.216919,
-            17864.714655,
-            17803.251953,
-            18391.87144,
-            17454.714645,
-            17644.575105
-          ]
-        },
-        {
-          "id": "type-fest:ttsc-lint:noEmit:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 20191.2147645,
-          "minMs": 19689.04242,
-          "samples": [
-            20183.244659,
-            20102.380176,
-            20199.18487,
-            20524.535412,
-            19867.945748,
-            20668.729111,
-            19689.04242,
-            19949.753373,
-            20263.807459,
-            20764.594382
-          ]
-        }
-      ],
-      "typescript": "v6.0.3"
-    },
-    {
-      "name": "typeorm",
-      "repo": "ttsc-benchmark-typeorm",
-      "kind": "ORM library",
-      "files": 495,
-      "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260521.1",
-      "measurements": [
-        {
-          "id": "typeorm:legacy:build:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "build",
-          "threading": "multi",
-          "medianMs": 24374.337045,
-          "minMs": 24131.283979,
-          "samples": [
-            24131.283979,
-            24690.283948,
-            24374.337045,
-            24282.049406,
-            24869.50424
-          ]
-        },
-        {
-          "id": "typeorm:legacy:noEmit:multi",
-          "branch": "legacy",
-          "tool": "tsc",
-          "op": "noEmit",
-          "threading": "multi",
-          "medianMs": 15118.323155,
-          "minMs": 15027.629618,
-          "samples": [
-            15164.686734,
-            15040.472414,
-            15259.082612,
-            15118.323155,
-            15027.629618
-          ]
-        },
-        {
-          "id": "typeorm:legacy:eslint:multi",
-          "branch": "legacy",
-          "tool": "eslint",
-          "op": "eslint",
-          "threading": "multi",
-          "medianMs": 46142.719461,
-          "minMs": 45817.372424,
-          "samples": [
-            47649.89398,
-            45896.622938,
-            45817.372424,
-            46142.719461,
-            46453.807657
-          ]
-        },
-        {
-          "id": "typeorm:legacy:format:multi",
-          "branch": "legacy",
-          "tool": "prettier",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 33574.333262,
-          "minMs": 33511.764754,
-          "samples": [
-            33511.764754,
-            33533.552663,
-            33853.36286,
-            33683.180532,
-            33574.333262
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:build:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 6133.428453500001,
-          "minMs": 5993.499346,
-          "samples": [
-            6041.032248,
-            6008.641769,
-            6273.822973,
-            6260.029127,
-            6024.087033,
-            5993.499346,
-            6026.358327,
-            6459.434363,
-            6286.600055,
-            6225.824659
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 6174.610103499999,
-          "minMs": 5883.322904,
-          "samples": [
-            6379.532024,
-            6281.172918,
-            6818.677191,
-            6037.407693,
-            6042.171145,
-            5943.981145,
-            6174.52374,
-            6174.696467,
-            6246.906878,
-            5883.322904
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:single",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3139.2613045,
-          "minMs": 3033.835197,
-          "samples": [
-            3452.948504,
-            3097.64061,
-            3283.288907,
-            3286.855329,
-            3033.835197,
-            3411.774747,
-            3074.704688,
-            3180.881999,
-            3078.807808,
-            3078.022355
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3112.0514,
-          "minMs": 3007.666793,
-          "samples": [
-            3031.710809,
-            3179.964748,
-            3059.929083,
-            3278.950315,
-            3153.825958,
-            3123.659734,
-            3100.443066,
-            3007.666793,
-            3078.725997,
-            3645.309735
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:build:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 9393.631581,
-          "minMs": 9207.310073,
-          "samples": [
-            9207.310073,
-            9342.725129,
-            9652.902877,
-            9379.132607,
-            9366.470267,
-            9815.076664,
-            9301.070306,
-            9488.957905,
-            9408.130555,
-            9428.676443
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3088.792998,
-          "minMs": 2917.644751,
-          "samples": [
-            3088.792998,
-            3093.18532,
-            3046.021838,
-            2917.644751,
-            3137.598066
+            1025,
+            1087,
+            1012,
+            1083,
+            1035
           ],
-          "lintMedianMs": 2604,
-          "lintMinMs": 2453,
-          "lintSamples": [
-            2604,
-            2611,
-            2575,
-            2453,
-            2678
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:format:single",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "single",
-          "medianMs": 1269.373297,
-          "minMs": 1223.349523,
-          "samples": [
-            1284.971273,
-            1274.559345,
-            1223.349523,
-            1269.373297,
-            1231.258157
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:format:multi",
-          "branch": "ttsc-lint",
-          "tool": "ttsc-format",
-          "op": "format",
-          "threading": "multi",
-          "medianMs": 788.840501,
-          "minMs": 736.589403,
-          "samples": [
-            816.001376,
-            788.990209,
-            788.840501,
-            780.682809,
-            736.589403
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:build:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 4149.4737235,
-          "minMs": 4004.629446,
-          "samples": [
-            4095.559956,
-            4192.364425,
-            4239.211541,
-            4244.652939,
-            4119.887706,
-            4004.629446,
-            4090.104989,
-            4179.059741,
-            4110.766296,
-            4184.664205
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:build:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 3499.7479869999997,
-          "minMs": 3411.910261,
-          "samples": [
-            3411.910261,
-            3432.100804,
-            3497.935133,
-            3458.659965,
-            3559.968936,
-            3461.466409,
-            3501.560841,
-            3575.524214,
-            3509.169948,
-            3585.217108
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:build:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 3336.59069,
-          "minMs": 3144.159111,
-          "samples": [
-            3261.723576,
-            3172.516285,
-            3415.131945,
-            3293.398566,
-            3263.286313,
-            3390.317249,
-            3469.747971,
-            3543.706106,
-            3144.159111,
-            3379.782814
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 4008.8386235,
-          "minMs": 3844.214428,
-          "samples": [
-            3993.336266,
-            4098.506482,
-            4113.980643,
-            4024.340981,
-            4088.910739,
-            3906.996796,
-            3844.214428,
-            4044.43092,
-            3970.46352,
-            3989.485481
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 3487.398978,
-          "minMs": 3294.244597,
-          "samples": [
-            3524.745266,
-            3442.357083,
-            3486.251237,
-            3604.448653,
-            3499.630948,
-            3361.100459,
-            3294.244597,
-            3614.878278,
-            3488.546719,
-            3441.407007
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 3275.811809,
-          "minMs": 3075.98027,
-          "samples": [
-            3354.501674,
-            3305.432699,
-            3206.268833,
-            3191.808945,
-            3245.173241,
-            3644.874514,
-            3315.545995,
-            3075.98027,
-            3246.553936,
-            3305.069682
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 2356.7912655,
-          "minMs": 2178.303543,
-          "samples": [
-            2178.303543,
-            2273.804891,
-            2366.389116,
-            2414.752544,
-            2254.782126,
-            2555.502861,
-            2347.193415,
-            2450.795456,
-            2457.991336,
-            2251.95784
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1942.180732,
-          "minMs": 1865.600139,
-          "samples": [
-            2009.194639,
-            1935.080486,
-            1865.600139,
-            1968.109171,
-            1924.655716,
-            1924.554391,
-            2069.711908,
-            1901.173062,
-            1949.280978,
-            2023.489355
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "ttsc",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1718.3362455000001,
-          "minMs": 1668.343503,
-          "samples": [
-            1906.190258,
-            1668.343503,
-            1801.875519,
-            1724.897429,
-            1711.775062,
-            1668.643674,
-            1685.203047,
-            1747.647493,
-            1689.711658,
-            1859.607863
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 2378.3233835,
-          "minMs": 2221.670249,
-          "samples": [
-            2619.143547,
-            2411.714848,
-            2413.944483,
-            2308.21486,
-            2269.144554,
-            2403.445203,
-            2353.201564,
-            2341.497073,
-            2221.670249,
-            2618.832118
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1901.3674474999998,
-          "minMs": 1809.604285,
-          "samples": [
-            1897.766158,
-            1879.220805,
-            1994.084133,
-            1861.923297,
-            2044.042799,
-            1809.604285,
-            1840.369194,
-            1904.968737,
-            1957.121556,
-            1937.998894
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1749.8188169999999,
-          "minMs": 1624.655171,
-          "samples": [
-            1771.759729,
-            1740.147103,
-            1759.490531,
-            1680.668251,
-            1707.258771,
-            1873.375013,
-            1702.854026,
-            1797.351184,
-            1624.655171,
-            1817.523179
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:build:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 6449.10379,
-          "minMs": 6284.12882,
-          "samples": [
-            6408.55995,
-            6557.043894,
-            6432.630104,
-            6377.188266,
-            6412.464012,
-            6284.12882,
-            6537.922027,
-            6466.367707,
-            6465.577476,
-            6468.962314
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:build:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 5544.455716,
-          "minMs": 5445.230204,
-          "samples": [
-            5738.180336,
-            5479.021551,
-            5467.1616,
-            5637.0221,
-            5700.637321,
-            5507.158196,
-            5875.028594,
-            5445.230204,
-            5581.753236,
-            5472.454531
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:build:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 5219.4155185,
-          "minMs": 4969.565699,
-          "samples": [
-            5242.09739,
-            4969.565699,
-            5671.655855,
-            5014.733216,
-            5354.144752,
-            5337.726207,
-            5196.733647,
-            5049.420602,
-            5089.596262,
-            5333.625665
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:checkers2",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 1977.987249,
-          "minMs": 1858.805353,
-          "samples": [
-            1923.208741,
-            1858.805353,
-            2066.253345,
-            1992.54682,
-            1977.987249
-          ],
-          "lintMedianMs": 1500,
-          "lintMinMs": 1382,
-          "lintSamples": [
-            1449,
-            1382,
-            1568,
-            1513,
-            1500
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:checkers4",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1546.809315,
-          "minMs": 1523.478188,
-          "samples": [
-            1624.291679,
-            1546.809315,
-            1526.213061,
-            1523.478188,
-            1570.527571
-          ],
-          "lintMedianMs": 1073,
-          "lintMinMs": 1026,
-          "lintSamples": [
-            1149,
-            1073,
-            1033,
-            1026,
-            1084
-          ]
-        },
-        {
-          "id": "typeorm:ttsc-lint:noEmit:checkers8",
-          "branch": "ttsc-lint",
-          "tool": "ttsc+@ttsc/lint",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1359.764758,
-          "minMs": 1275.238901,
-          "samples": [
-            1331.539959,
-            1401.263527,
-            1359.764758,
-            1275.238901,
-            1457.062777
-          ],
-          "lintMedianMs": 854,
-          "lintMinMs": 788,
-          "lintSamples": [
-            820,
-            924,
-            854,
-            788,
-            965
+          "lintPluginMedianMs": 9,
+          "lintPluginMinMs": 8,
+          "lintPluginSamples": [
+            9,
+            10,
+            8,
+            8,
+            9
           ]
         }
       ]
@@ -2526,7 +1890,7 @@
       "kind": "schema library monorepo",
       "files": 286,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260521.1",
+      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "zod:legacy:build:multi",
@@ -2550,14 +1914,14 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 13380.700565,
-          "minMs": 13313.433302,
+          "medianMs": 7597.150098,
+          "minMs": 7496.689698,
           "samples": [
-            13313.433302,
-            13318.769666,
-            13409.825981,
-            13525.073382,
-            13380.700565
+            7597.150098,
+            7496.689698,
+            7556.831556,
+            7638.726809,
+            7624.934334
           ]
         },
         {
@@ -2566,14 +1930,14 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 3578.062452,
-          "minMs": 3431.566476,
+          "medianMs": 3339.448904,
+          "minMs": 3312.044388,
           "samples": [
-            3439.327947,
-            3578.062452,
-            3638.508581,
-            3594.472059,
-            3431.566476
+            3339.448904,
+            3323.112549,
+            3383.510161,
+            3312.044388,
+            3359.979073
           ]
         },
         {
@@ -2582,14 +1946,14 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 7384.039656,
-          "minMs": 7365.766247,
+          "medianMs": 4648.192926,
+          "minMs": 4604.974807,
           "samples": [
-            7384.039656,
-            7365.766247,
-            7497.623722,
-            7518.359037,
-            7373.669246
+            4648.192926,
+            4656.485623,
+            4604.974807,
+            4642.106109,
+            4652.044378
           ]
         },
         {
@@ -2640,19 +2004,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 3428.1125015,
-          "minMs": 3304.85285,
+          "medianMs": 2871.515991,
+          "minMs": 2841.166111,
           "samples": [
-            3444.137572,
-            3425.99419,
-            3644.826058,
-            3356.109108,
-            3304.85285,
-            3438.114873,
-            3408.348319,
-            3511.69141,
-            3430.230813,
-            3412.284724
+            2871.515991,
+            2841.166111,
+            2849.448124,
+            2913.867537,
+            2880.636074
           ]
         },
         {
@@ -2703,23 +2062,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 3172.460657,
-          "minMs": 3091.579508,
+          "medianMs": 3114.94205,
+          "minMs": 3061.369736,
           "samples": [
-            3091.579508,
-            3193.76522,
-            3172.460657,
-            3188.492435,
-            3125.461184
+            3061.369736,
+            3206.587452,
+            3084.33105,
+            3122.149561,
+            3114.94205
           ],
-          "lintMedianMs": 2696,
-          "lintMinMs": 2611,
+          "lintMedianMs": 2634,
+          "lintMinMs": 2576,
           "lintSamples": [
-            2611,
-            2727,
-            2696,
-            2722,
-            2665
+            2576,
+            2693,
+            2578,
+            2642,
+            2634
+          ],
+          "lintPluginMedianMs": 36,
+          "lintPluginMinMs": 35,
+          "lintPluginSamples": [
+            35,
+            36,
+            37,
+            36,
+            36
           ]
         },
         {
@@ -2728,14 +2096,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 591.686318,
-          "minMs": 542.052519,
+          "medianMs": 747.465883,
+          "minMs": 710.78263,
           "samples": [
-            648.62617,
-            542.052519,
-            575.649134,
-            600.493708,
-            591.686318
+            768.810492,
+            721.85392,
+            710.78263,
+            789.42448,
+            747.465883
           ]
         },
         {
@@ -2744,14 +2112,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 542.696497,
-          "minMs": 525.537704,
+          "medianMs": 607.418194,
+          "minMs": 593.473283,
           "samples": [
-            561.89205,
-            545.777141,
-            542.696497,
-            525.537704,
-            534.634593
+            648.050143,
+            630.443064,
+            600.637836,
+            593.473283,
+            607.418194
           ]
         },
         {
@@ -2886,19 +2254,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 2628.3736765000003,
-          "minMs": 2480.829635,
+          "medianMs": 2021.856629,
+          "minMs": 1956.877396,
           "samples": [
-            2635.444035,
-            2615.125138,
-            2678.061238,
-            2595.567659,
-            2784.3121,
-            2676.903221,
-            2504.499981,
-            2683.622682,
-            2621.303318,
-            2480.829635
+            2033.698245,
+            2021.856629,
+            1956.877396,
+            2196.29219,
+            1998.207123
           ]
         },
         {
@@ -2907,19 +2270,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 2333.7220575,
-          "minMs": 2185.926085,
+          "medianMs": 1608.19291,
+          "minMs": 1607.403846,
           "samples": [
-            2385.179763,
-            2463.113994,
-            2306.144731,
-            2324.288698,
-            2445.303576,
-            2278.954641,
-            2185.926085,
-            2277.023962,
-            2343.155417,
-            2438.825893
+            1610.181759,
+            1608.19291,
+            1607.484242,
+            1607.403846,
+            1663.514374
           ]
         },
         {
@@ -2928,19 +2286,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2193.259792,
-          "minMs": 2129.889282,
+          "medianMs": 1448.654084,
+          "minMs": 1437.461552,
           "samples": [
-            2218.438482,
-            2194.39547,
-            2176.406188,
-            2201.532957,
-            2192.124114,
-            2133.555653,
-            2245.401565,
-            2200.860033,
-            2129.889282,
-            2160.096477
+            1448.654084,
+            1477.240751,
+            1437.461552,
+            1441.046373,
+            1516.423895
           ]
         },
         {
@@ -3075,23 +2428,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 2243.689218,
-          "minMs": 2171.777922,
+          "medianMs": 2199.217769,
+          "minMs": 2139.162532,
           "samples": [
-            2251.837747,
-            2289.773188,
-            2243.689218,
-            2220.081404,
-            2171.777922
+            2174.665253,
+            2200.255395,
+            2139.162532,
+            2252.056429,
+            2199.217769
           ],
-          "lintMedianMs": 1768,
-          "lintMinMs": 1674,
+          "lintMedianMs": 1692,
+          "lintMinMs": 1632,
           "lintSamples": [
-            1785,
-            1816,
-            1768,
-            1736,
-            1674
+            1692,
+            1688,
+            1632,
+            1765,
+            1719
+          ],
+          "lintPluginMedianMs": 6,
+          "lintPluginMinMs": 6,
+          "lintPluginSamples": [
+            24,
+            6,
+            6,
+            6,
+            9
           ]
         },
         {
@@ -3100,23 +2462,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 1865.758422,
-          "minMs": 1702.586566,
+          "medianMs": 1889.788847,
+          "minMs": 1777.944376,
           "samples": [
-            1702.586566,
-            1878.413587,
-            1907.025754,
-            1831.26795,
-            1865.758422
+            1906.781754,
+            1889.788847,
+            1777.944376,
+            1891.209441,
+            1842.57541
           ],
-          "lintMedianMs": 1394,
-          "lintMinMs": 1234,
+          "lintMedianMs": 1361,
+          "lintMinMs": 1286,
           "lintSamples": [
-            1234,
+            1365,
             1394,
-            1432,
-            1356,
-            1401
+            1286,
+            1361,
+            1360
+          ],
+          "lintPluginMedianMs": 7,
+          "lintPluginMinMs": 6,
+          "lintPluginSamples": [
+            6,
+            7,
+            6,
+            7,
+            7
           ]
         },
         {
@@ -3125,1268 +2496,1958 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 1720.093004,
-          "minMs": 1533.092667,
+          "medianMs": 1662.360469,
+          "minMs": 1644.923863,
           "samples": [
-            1533.092667,
-            1720.093004,
-            1720.528458,
-            1820.896263,
-            1719.577909
+            1657.308627,
+            1679.972773,
+            1664.491511,
+            1662.360469,
+            1644.923863
           ],
-          "lintMedianMs": 1242,
-          "lintMinMs": 1045,
+          "lintMedianMs": 1158,
+          "lintMinMs": 1144,
           "lintSamples": [
-            1045,
-            1244,
-            1242,
-            1322,
-            1230
+            1158,
+            1182,
+            1152,
+            1170,
+            1144
+          ],
+          "lintPluginMedianMs": 6,
+          "lintPluginMinMs": 6,
+          "lintPluginSamples": [
+            6,
+            7,
+            6,
+            7,
+            6
           ]
         }
       ]
     },
     {
-      "name": "nestjs",
-      "repo": "ttsc-benchmark-nestjs",
-      "kind": "backend framework monorepo",
-      "files": 769,
+      "name": "typeorm",
+      "repo": "ttsc-benchmark-typeorm",
+      "kind": "ORM library",
+      "files": 495,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
-          "id": "nestjs:legacy:build:multi",
+          "id": "typeorm:legacy:build:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 34934.979739,
-          "minMs": 33632.014753,
+          "medianMs": 24374.337045,
+          "minMs": 24131.283979,
           "samples": [
-            34591.183701,
-            34995.806909,
-            33632.014753,
-            34934.979739,
-            35049.047251
+            24131.283979,
+            24690.283948,
+            24374.337045,
+            24282.049406,
+            24869.50424
           ]
         },
         {
-          "id": "nestjs:legacy:noEmit:multi",
+          "id": "typeorm:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 28261.012083,
-          "minMs": 27311.629831,
+          "medianMs": 8627.476406,
+          "minMs": 8545.588612,
           "samples": [
-            28261.012083,
-            34357.332992,
-            30541.129839,
-            27438.359946,
-            27311.629831
+            8627.476406,
+            8596.330115,
+            8648.474475,
+            8545.588612,
+            8667.007838
           ]
         },
         {
-          "id": "nestjs:legacy:eslint:multi",
+          "id": "typeorm:legacy:eslint:multi",
           "branch": "legacy",
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 11082.985941,
-          "minMs": 10829.600855,
+          "medianMs": 26767.952796,
+          "minMs": 26652.911345,
           "samples": [
-            10829.600855,
-            10863.591384,
-            11082.985941,
-            11214.998478,
-            11237.211914
+            26829.365527,
+            26863.583199,
+            26767.952796,
+            26716.731455,
+            26652.911345
           ]
         },
         {
-          "id": "nestjs:legacy:format:multi",
+          "id": "typeorm:legacy:format:multi",
           "branch": "legacy",
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 8055.442973,
-          "minMs": 7959.600103,
+          "medianMs": 23681.288279,
+          "minMs": 23555.786655,
           "samples": [
-            8248.799467,
-            8563.625227,
-            8055.442973,
-            8044.374604,
-            7959.600103
+            23691.103705,
+            23794.310765,
+            23555.786655,
+            23681.288279,
+            23620.892067
           ]
         },
         {
-          "id": "nestjs:ttsc:build:single",
+          "id": "typeorm:ttsc:build:single",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 6542.299768000001,
-          "minMs": 6284.521244,
+          "medianMs": 6133.428453500001,
+          "minMs": 5993.499346,
           "samples": [
-            6776.016945,
-            6823.469171,
-            6284.521244,
-            6520.026657,
-            6906.508738,
-            6564.403736,
-            6451.787198,
-            6520.1958,
-            6729.442971,
-            6338.941133
+            6041.032248,
+            6008.641769,
+            6273.822973,
+            6260.029127,
+            6024.087033,
+            5993.499346,
+            6026.358327,
+            6459.434363,
+            6286.600055,
+            6225.824659
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:single",
+          "id": "typeorm:ttsc:tsgo:build:single",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "single",
-          "medianMs": 6102.5391039999995,
-          "minMs": 5967.502393,
+          "medianMs": 6174.610103499999,
+          "minMs": 5883.322904,
           "samples": [
-            6100.174565,
-            5967.502393,
-            6053.706337,
-            6106.141245,
-            6104.903643,
-            6026.192876,
-            6129.137597,
-            6251.239829,
-            6340.354874,
-            6042.853666
+            6379.532024,
+            6281.172918,
+            6818.677191,
+            6037.407693,
+            6042.171145,
+            5943.981145,
+            6174.52374,
+            6174.696467,
+            6246.906878,
+            5883.322904
           ]
         },
         {
-          "id": "nestjs:ttsc:noEmit:single",
+          "id": "typeorm:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5138.662012000001,
-          "minMs": 4932.766623,
+          "medianMs": 2712.954564,
+          "minMs": 2663.019704,
           "samples": [
-            5357.721811,
-            5269.754594,
-            4958.823671,
-            5120.995508,
-            5227.146469,
-            5131.905821,
-            5122.462102,
-            4932.766623,
-            5145.418203,
-            5429.485827
+            2712.954564,
+            2663.019704,
+            2712.09,
+            2741.316451,
+            2720.208389
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:noEmit:single",
+          "id": "typeorm:ttsc:tsgo:noEmit:single",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5022.3483175,
-          "minMs": 4949.666465,
+          "medianMs": 3112.0514,
+          "minMs": 3007.666793,
           "samples": [
-            5150.732913,
-            5021.559482,
-            5025.843105,
-            4991.261065,
-            5023.137153,
-            5068.571173,
-            5091.219412,
-            4980.831652,
-            4949.666465,
-            5000.616183
+            3031.710809,
+            3179.964748,
+            3059.929083,
+            3278.950315,
+            3153.825958,
+            3123.659734,
+            3100.443066,
+            3007.666793,
+            3078.725997,
+            3645.309735
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:build:single",
+          "id": "typeorm:ttsc-lint:build:single",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 6442.616297500001,
-          "minMs": 6303.201408,
+          "medianMs": 9393.631581,
+          "minMs": 9207.310073,
           "samples": [
-            7170.229634,
-            6520.491636,
-            6427.750892,
-            6457.481703,
-            6376.281083,
-            6322.23813,
-            6415.011106,
-            6605.211674,
-            6668.253408,
-            6303.201408
+            9207.310073,
+            9342.725129,
+            9652.902877,
+            9379.132607,
+            9366.470267,
+            9815.076664,
+            9301.070306,
+            9488.957905,
+            9408.130555,
+            9428.676443
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:noEmit:single",
+          "id": "typeorm:ttsc-lint:noEmit:single",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5183.833031,
-          "minMs": 4936.607027,
+          "medianMs": 3904.238577,
+          "minMs": 3808.209268,
           "samples": [
-            5468.868458,
-            5277.729152,
-            5169.901446,
-            4997.654036,
-            5370.433829,
-            5107.122198,
-            5281.935239,
-            5180.407676,
-            4936.607027,
-            5187.258386
+            4039.095563,
+            3871.348349,
+            3904.238577,
+            3808.209268,
+            4022.122008
+          ],
+          "lintMedianMs": 3270,
+          "lintMinMs": 3163,
+          "lintSamples": [
+            3270,
+            3259,
+            3279,
+            3163,
+            3446
+          ],
+          "lintPluginMedianMs": 125,
+          "lintPluginMinMs": 124,
+          "lintPluginSamples": [
+            125,
+            124,
+            155,
+            124,
+            164
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:format:single",
+          "id": "typeorm:ttsc-lint:format:single",
           "branch": "ttsc-lint",
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 2405.9296015,
-          "minMs": 2292.253351,
+          "medianMs": 1711.604347,
+          "minMs": 1574.177314,
           "samples": [
-            2549.02394,
-            2431.567685,
-            2396.913866,
-            2317.187047,
-            2292.253351,
-            2414.945337,
-            2420.147648,
-            2566.945453,
-            2395.266443,
-            2345.324847
+            1732.346471,
+            1711.604347,
+            1574.177314,
+            1751.669086,
+            1583.975448
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:format:multi",
+          "id": "typeorm:ttsc-lint:format:multi",
           "branch": "ttsc-lint",
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 8443.0758575,
-          "minMs": 8309.576078,
+          "medianMs": 1261.660457,
+          "minMs": 1195.433793,
           "samples": [
-            8309.576078,
-            8455.149529,
-            8558.444636,
-            8431.002186,
-            8412.985402,
-            8325.667799,
-            8587.086902,
-            8565.388141,
-            8330.185672,
-            8516.06052
+            1195.433793,
+            1294.341998,
+            1261.660457,
+            1282.124876,
+            1201.271543
           ]
         },
         {
-          "id": "nestjs:ttsc:build:checkers2",
+          "id": "typeorm:ttsc:build:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 6006.046592000001,
-          "minMs": 5894.101685,
+          "medianMs": 4149.4737235,
+          "minMs": 4004.629446,
           "samples": [
-            6025.763767,
-            5937.540226,
-            5986.329417,
-            6406.567912,
-            6420.039275,
-            5918.651657,
-            5923.246194,
-            5894.101685,
-            6235.962289,
-            6264.307701
+            4095.559956,
+            4192.364425,
+            4239.211541,
+            4244.652939,
+            4119.887706,
+            4004.629446,
+            4090.104989,
+            4179.059741,
+            4110.766296,
+            4184.664205
           ]
         },
         {
-          "id": "nestjs:ttsc:build:checkers4",
+          "id": "typeorm:ttsc:build:checkers4",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 5654.355299999999,
-          "minMs": 5487.820701,
+          "medianMs": 3499.7479869999997,
+          "minMs": 3411.910261,
           "samples": [
-            5553.521308,
-            5613.111568,
-            5661.28299,
-            5719.022071,
-            5518.077333,
-            5707.14806,
-            5647.42761,
-            5487.820701,
-            5701.060897,
-            5928.01278
+            3411.910261,
+            3432.100804,
+            3497.935133,
+            3458.659965,
+            3559.968936,
+            3461.466409,
+            3501.560841,
+            3575.524214,
+            3509.169948,
+            3585.217108
           ]
         },
         {
-          "id": "nestjs:ttsc:build:checkers8",
+          "id": "typeorm:ttsc:build:checkers8",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 5559.381278,
-          "minMs": 5454.141252,
+          "medianMs": 3336.59069,
+          "minMs": 3144.159111,
           "samples": [
-            5560.952862,
-            5689.731197,
-            5572.393964,
-            5460.357145,
-            5548.436265,
-            5454.141252,
-            5508.361919,
-            5604.723838,
-            5557.809694,
-            5827.555482
+            3261.723576,
+            3172.516285,
+            3415.131945,
+            3293.398566,
+            3263.286313,
+            3390.317249,
+            3469.747971,
+            3543.706106,
+            3144.159111,
+            3379.782814
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:checkers2",
+          "id": "typeorm:ttsc:tsgo:build:checkers2",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 5536.6453825,
-          "minMs": 5442.743116,
+          "medianMs": 4008.8386235,
+          "minMs": 3844.214428,
           "samples": [
-            5505.989549,
-            5590.577646,
-            5442.743116,
-            5452.90935,
-            5559.252686,
-            5471.733328,
-            5514.038079,
-            5654.858528,
-            5576.269067,
-            6198.296656
+            3993.336266,
+            4098.506482,
+            4113.980643,
+            4024.340981,
+            4088.910739,
+            3906.996796,
+            3844.214428,
+            4044.43092,
+            3970.46352,
+            3989.485481
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:checkers4",
+          "id": "typeorm:ttsc:tsgo:build:checkers4",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 5306.633274,
-          "minMs": 5089.646606,
+          "medianMs": 3487.398978,
+          "minMs": 3294.244597,
           "samples": [
-            5304.796199,
-            5089.646606,
-            5339.734453,
-            5308.470349,
-            5388.819384,
-            5258.018229,
-            5299.941106,
-            5395.260766,
-            5220.516345,
-            5384.153588
+            3524.745266,
+            3442.357083,
+            3486.251237,
+            3604.448653,
+            3499.630948,
+            3361.100459,
+            3294.244597,
+            3614.878278,
+            3488.546719,
+            3441.407007
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:checkers8",
+          "id": "typeorm:ttsc:tsgo:build:checkers8",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 5166.770092,
-          "minMs": 5045.721722,
+          "medianMs": 3275.811809,
+          "minMs": 3075.98027,
           "samples": [
-            5045.721722,
-            5127.564488,
-            5182.166802,
-            5187.203783,
-            5362.748489,
-            5076.31388,
-            5210.895729,
-            5151.373382,
-            5137.271912,
-            5280.995306
+            3354.501674,
+            3305.432699,
+            3206.268833,
+            3191.808945,
+            3245.173241,
+            3644.874514,
+            3315.545995,
+            3075.98027,
+            3246.553936,
+            3305.069682
           ]
         },
         {
-          "id": "nestjs:ttsc:noEmit:checkers2",
+          "id": "typeorm:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 5015.0033615,
-          "minMs": 4770.965848,
+          "medianMs": 2601.244331,
+          "minMs": 1877.740082,
           "samples": [
-            4770.965848,
-            5139.67558,
-            5037.161031,
-            4970.867718,
-            4822.947378,
-            5319.819637,
-            4902.600356,
-            5003.94224,
-            5145.660601,
-            5026.064483
+            1877.740082,
+            3361.266254,
+            2601.244331,
+            2958.159089,
+            2508.723385
           ]
         },
         {
-          "id": "nestjs:ttsc:noEmit:checkers4",
+          "id": "typeorm:ttsc:noEmit:checkers4",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 4827.373889500001,
-          "minMs": 4662.295781,
+          "medianMs": 1983.883623,
+          "minMs": 1870.123176,
           "samples": [
-            4991.71462,
-            4817.832706,
-            4786.625236,
-            4990.847977,
-            4682.73665,
-            4895.456231,
-            4730.149674,
-            4879.787124,
-            4836.915073,
-            4662.295781
+            1978.505016,
+            1983.883623,
+            1870.123176,
+            2026.366978,
+            2098.627601
           ]
         },
         {
-          "id": "nestjs:ttsc:noEmit:checkers8",
+          "id": "typeorm:ttsc:noEmit:checkers8",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 4848.6270585,
-          "minMs": 4720.453951,
+          "medianMs": 1755.867827,
+          "minMs": 1750.327147,
           "samples": [
-            4762.545343,
-            4834.991833,
-            4862.262284,
-            4918.355984,
-            4931.56558,
-            4720.453951,
-            4912.877521,
-            4883.930404,
-            4813.430242,
-            4759.110333
+            1755.867827,
+            1768.563194,
+            1750.602521,
+            1934.240785,
+            1750.327147
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers2",
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4904.4645205,
-          "minMs": 4682.530209,
+          "medianMs": 2378.3233835,
+          "minMs": 2221.670249,
           "samples": [
-            4868.691087,
-            4737.992215,
-            4815.592035,
-            5078.271339,
-            5201.013942,
-            4940.237954,
-            4982.380644,
-            5272.305429,
-            4856.960578,
-            4682.530209
+            2619.143547,
+            2411.714848,
+            2413.944483,
+            2308.21486,
+            2269.144554,
+            2403.445203,
+            2353.201564,
+            2341.497073,
+            2221.670249,
+            2618.832118
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers4",
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers4",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 4712.441065,
-          "minMs": 4603.733302,
+          "medianMs": 1901.3674474999998,
+          "minMs": 1809.604285,
           "samples": [
-            4687.71347,
-            4811.704874,
-            4782.387781,
-            4613.484212,
-            4641.724829,
-            4650.834831,
-            4737.16866,
-            4603.733302,
-            5235.217057,
-            4962.62343
+            1897.766158,
+            1879.220805,
+            1994.084133,
+            1861.923297,
+            2044.042799,
+            1809.604285,
+            1840.369194,
+            1904.968737,
+            1957.121556,
+            1937.998894
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers8",
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers8",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 4575.038957999999,
-          "minMs": 4497.442781,
+          "medianMs": 1749.8188169999999,
+          "minMs": 1624.655171,
           "samples": [
-            4602.40916,
-            4533.143439,
-            4647.114952,
-            4565.863909,
-            4637.633935,
-            4497.442781,
-            4508.839073,
-            4625.035927,
-            4546.800833,
-            4584.214007
+            1771.759729,
+            1740.147103,
+            1759.490531,
+            1680.668251,
+            1707.258771,
+            1873.375013,
+            1702.854026,
+            1797.351184,
+            1624.655171,
+            1817.523179
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:build:checkers2",
+          "id": "typeorm:ttsc-lint:build:checkers2",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 5964.109134,
-          "minMs": 5906.697981,
+          "medianMs": 6449.10379,
+          "minMs": 6284.12882,
           "samples": [
-            5934.524861,
-            6307.07192,
-            6112.986784,
-            5957.301625,
-            5906.697981,
-            6028.746841,
-            5970.916643,
-            5945.461118,
-            6071.568758,
-            5957.274665
+            6408.55995,
+            6557.043894,
+            6432.630104,
+            6377.188266,
+            6412.464012,
+            6284.12882,
+            6537.922027,
+            6466.367707,
+            6465.577476,
+            6468.962314
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:build:checkers4",
+          "id": "typeorm:ttsc-lint:build:checkers4",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 5593.760148,
-          "minMs": 5524.926192,
+          "medianMs": 5544.455716,
+          "minMs": 5445.230204,
           "samples": [
-            5630.662812,
-            5576.379126,
-            5586.327129,
-            5601.193167,
-            5642.498135,
-            5524.926192,
-            5834.552223,
-            5548.656003,
-            5526.092467,
-            5734.231971
+            5738.180336,
+            5479.021551,
+            5467.1616,
+            5637.0221,
+            5700.637321,
+            5507.158196,
+            5875.028594,
+            5445.230204,
+            5581.753236,
+            5472.454531
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:build:checkers8",
+          "id": "typeorm:ttsc-lint:build:checkers8",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 5549.266647,
-          "minMs": 5488.713908,
+          "medianMs": 5219.4155185,
+          "minMs": 4969.565699,
           "samples": [
-            5574.736416,
-            5526.462308,
-            5681.295893,
-            5535.220386,
-            5627.058882,
-            5563.312908,
-            5496.854777,
-            5488.713908,
-            5506.444416,
-            5869.817686
+            5242.09739,
+            4969.565699,
+            5671.655855,
+            5014.733216,
+            5354.144752,
+            5337.726207,
+            5196.733647,
+            5049.420602,
+            5089.596262,
+            5333.625665
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:noEmit:checkers2",
+          "id": "typeorm:ttsc-lint:noEmit:checkers2",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 5002.0038045,
-          "minMs": 4886.842644,
+          "medianMs": 2911.284149,
+          "minMs": 2823.153883,
           "samples": [
-            5024.030873,
-            4966.297646,
-            5001.161442,
-            4998.809355,
-            5186.389707,
-            5175.82806,
-            4902.508748,
-            5002.846167,
-            5033.156316,
-            4886.842644
+            2923.161823,
+            2911.284149,
+            2823.153883,
+            2979.138224,
+            2894.412354
+          ],
+          "lintMedianMs": 2208,
+          "lintMinMs": 2149,
+          "lintSamples": [
+            2208,
+            2231,
+            2149,
+            2293,
+            2182
+          ],
+          "lintPluginMedianMs": 36,
+          "lintPluginMinMs": 27,
+          "lintPluginSamples": [
+            65,
+            66,
+            36,
+            31,
+            27
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:noEmit:checkers4",
+          "id": "typeorm:ttsc-lint:noEmit:checkers4",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 4882.0055055,
-          "minMs": 4776.785352,
+          "medianMs": 2349.162286,
+          "minMs": 2330.036003,
           "samples": [
-            4918.456685,
-            4834.096481,
-            5093.193036,
-            5325.555333,
-            4791.905796,
-            4845.554326,
-            5026.713982,
-            4776.785352,
-            4835.97303,
-            4945.704901
+            2371.317853,
+            2349.162286,
+            2434.910268,
+            2330.036003,
+            2343.09774
+          ],
+          "lintMedianMs": 1712,
+          "lintMinMs": 1625,
+          "lintSamples": [
+            1625,
+            1712,
+            1777,
+            1736,
+            1644
+          ],
+          "lintPluginMedianMs": 31,
+          "lintPluginMinMs": 24,
+          "lintPluginSamples": [
+            31,
+            34,
+            74,
+            28,
+            24
           ]
         },
         {
-          "id": "nestjs:ttsc-lint:noEmit:checkers8",
+          "id": "typeorm:ttsc-lint:noEmit:checkers8",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 4824.60958,
-          "minMs": 4740.819511,
+          "medianMs": 2215.339634,
+          "minMs": 2135.752364,
           "samples": [
-            4749.704023,
-            4740.819511,
-            4959.501204,
-            4905.076141,
-            4819.204449,
-            4827.248117,
-            4821.971043,
-            4746.454627,
-            4847.028532,
-            4875.869015
+            2230.312888,
+            2135.752364,
+            2158.346629,
+            2217.890136,
+            2215.339634
+          ],
+          "lintMedianMs": 1526,
+          "lintMinMs": 1492,
+          "lintSamples": [
+            1644,
+            1526,
+            1492,
+            1494,
+            1632
+          ],
+          "lintPluginMedianMs": 29,
+          "lintPluginMinMs": 26,
+          "lintPluginSamples": [
+            26,
+            34,
+            27,
+            30,
+            29
           ]
         }
-      ],
-      "typescript": "v6.0.3"
+      ]
     },
     {
-      "name": "vscode",
-      "repo": "ttsc-benchmark-vscode",
-      "kind": "application monorepo",
-      "files": 6093,
+      "name": "rxjs",
+      "repo": "ttsc-benchmark-rxjs",
+      "kind": "library monorepo",
+      "files": 515,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260521.1",
+      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
-          "id": "vscode:legacy:build:multi",
+          "id": "rxjs:legacy:build:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 130232.745976,
-          "minMs": 129300.37598,
+          "medianMs": 5267.052444,
+          "minMs": 5217.166911,
           "samples": [
-            131258.469167,
-            130232.745976,
-            129300.37598,
-            133935.639473,
-            129673.032848
+            5267.052444,
+            5274.538719,
+            5321.592751,
+            5266.091596,
+            5217.166911
           ]
         },
         {
-          "id": "vscode:legacy:noEmit:multi",
+          "id": "rxjs:legacy:noEmit:multi",
           "branch": "legacy",
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 101458.02909,
-          "minMs": 99169.14194,
+          "medianMs": 9337.93054,
+          "minMs": 9091.228976,
           "samples": [
-            101458.02909,
-            99169.14194,
-            104421.25037,
-            100921.209467,
-            103405.069731
+            9188.324118,
+            9091.228976,
+            9495.194269,
+            9814.17261,
+            9337.93054
           ]
         },
         {
-          "id": "vscode:legacy:eslint:multi",
+          "id": "rxjs:legacy:eslint:multi",
           "branch": "legacy",
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 88015.921715,
-          "minMs": 87164.543729,
+          "medianMs": 4530.52744,
+          "minMs": 4391.482414,
           "samples": [
-            91344.54192,
-            87164.543729,
-            88015.921715,
-            89166.674214,
-            87251.209319
+            4391.482414,
+            4587.835908,
+            4897.586988,
+            4530.52744,
+            4468.085741
           ]
         },
         {
-          "id": "vscode:legacy:format:multi",
+          "id": "rxjs:legacy:format:multi",
           "branch": "legacy",
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 144889.290468,
-          "minMs": 141538.517726,
+          "medianMs": 3507.819192,
+          "minMs": 3461.597177,
           "samples": [
-            144889.290468,
-            148813.111217,
-            141538.517726,
-            144654.568413,
-            148429.97003
+            3732.857586,
+            3507.819192,
+            3466.235288,
+            3461.597177,
+            3821.140991
           ]
         },
         {
-          "id": "vscode:ttsc:build:single",
+          "id": "rxjs:ttsc:build:single",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 35100.9132505,
-          "minMs": 34588.342895,
+          "medianMs": 1203.1419415,
+          "minMs": 1172.278019,
           "samples": [
-            35151.253636,
-            34837.589768,
-            35050.572865,
-            35267.512449,
-            36026.737731,
-            35222.325935,
-            34833.069541,
-            34588.342895,
-            35244.288629,
-            34627.785556
+            1214.844759,
+            1175.363214,
+            1172.278019,
+            1200.469619,
+            1224.588039,
+            1218.785399,
+            1193.835383,
+            1205.814264,
+            1190.780526,
+            1235.037261
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:single",
+          "id": "rxjs:ttsc:tsgo:build:single",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "single",
-          "medianMs": 34931.5509745,
-          "minMs": 34368.311165,
+          "medianMs": 1118.8898685,
+          "minMs": 1096.628121,
           "samples": [
-            34971.214074,
-            34891.887875,
-            34629.724863,
-            34389.138837,
-            35138.507328,
-            34725.960135,
-            34368.311165,
-            35026.249214,
-            35183.357408,
-            35098.590469
+            1128.002216,
+            1128.207492,
+            1123.225717,
+            1166.505133,
+            1109.722204,
+            1134.980926,
+            1109.490176,
+            1114.55402,
+            1096.628121,
+            1101.677016
           ]
         },
         {
-          "id": "vscode:ttsc:noEmit:single",
+          "id": "rxjs:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 24794.518507499997,
-          "minMs": 24484.772289,
+          "medianMs": 2800.592135,
+          "minMs": 2678.096449,
           "samples": [
-            24732.258455,
-            25097.458742,
-            24578.244289,
-            24677.988049,
-            24856.77856,
-            24506.584244,
-            25103.410495,
-            24484.772289,
-            25329.651835,
-            24975.584135
+            2678.096449,
+            2895.624246,
+            2800.592135,
+            2686.604597,
+            2815.894393
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:noEmit:single",
+          "id": "rxjs:ttsc:tsgo:noEmit:single",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 24997.6214255,
-          "minMs": 24460.08197,
+          "medianMs": 1114.614767,
+          "minMs": 1089.000506,
           "samples": [
-            24945.421793,
-            25049.821058,
-            25094.932178,
-            25050.985647,
-            24760.759233,
-            25146.178376,
-            24923.885378,
-            25050.038185,
-            24889.120209,
-            24460.08197
+            1155.838519,
+            1172.762865,
+            1115.909358,
+            1134.708574,
+            1093.545067,
+            1105.668637,
+            1113.320176,
+            1102.804108,
+            1125.347601,
+            1089.000506
           ]
         },
         {
-          "id": "vscode:ttsc-lint:build:single",
+          "id": "rxjs:ttsc-lint:build:single",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 61209.9154395,
-          "minMs": 60848.238972,
+          "medianMs": 3431.1127134999997,
+          "minMs": 3397.137672,
           "samples": [
-            61346.4278,
-            60897.614821,
-            61240.652302,
-            60848.238972,
-            60900.243103,
-            61383.600413,
-            61746.150919,
-            61012.8007,
-            61179.178577,
-            62050.762045
+            3416.901429,
+            3433.819846,
+            3452.745606,
+            3426.296547,
+            3470.899628,
+            3397.137672,
+            3479.181051,
+            3428.405581,
+            3411.020843,
+            3455.379862
           ]
         },
         {
-          "id": "vscode:ttsc-lint:noEmit:single",
+          "id": "rxjs:ttsc-lint:noEmit:single",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 24409.957021,
-          "minMs": 24244.583099,
+          "medianMs": 3909.435736,
+          "minMs": 3836.431811,
           "samples": [
-            24904.393715,
-            24409.957021,
-            24244.583099,
-            24318.457657,
-            24565.023744
+            3952.453861,
+            3836.431811,
+            3909.435736,
+            3920.694578,
+            3841.828792
           ],
-          "lintMedianMs": 24163,
-          "lintMinMs": 23991,
+          "lintMedianMs": 1657,
+          "lintMinMs": 1479,
           "lintSamples": [
-            24654,
-            24163,
-            23991,
-            24043,
-            24304
+            1602,
+            1479,
+            1657,
+            1678,
+            1699
+          ],
+          "lintPluginMedianMs": 24,
+          "lintPluginMinMs": 22,
+          "lintPluginSamples": [
+            37,
+            22,
+            24,
+            24,
+            36
           ]
         },
         {
-          "id": "vscode:ttsc-lint:format:single",
+          "id": "rxjs:ttsc-lint:format:single",
           "branch": "ttsc-lint",
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 6837.866447,
-          "minMs": 6407.587445,
+          "medianMs": 2679.53909,
+          "minMs": 2647.522697,
           "samples": [
-            8890.353869,
-            6779.7258,
-            7196.231888,
-            6407.587445,
-            6837.866447
+            2671.201882,
+            2647.522697,
+            2693.560447,
+            2750.858656,
+            2679.53909
           ]
         },
         {
-          "id": "vscode:ttsc-lint:format:multi",
+          "id": "rxjs:ttsc-lint:format:multi",
           "branch": "ttsc-lint",
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 2841.604752,
-          "minMs": 2662.886196,
+          "medianMs": 2676.97533,
+          "minMs": 2656.225497,
           "samples": [
-            2850.813625,
-            2841.604752,
-            2662.886196,
-            2819.802668,
-            3122.105595
+            2656.225497,
+            2731.928506,
+            2657.816186,
+            2782.894019,
+            2676.97533
           ]
         },
         {
-          "id": "vscode:ttsc:build:checkers2",
+          "id": "rxjs:ttsc:build:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 22117.521539499998,
-          "minMs": 21715.173949,
+          "medianMs": 1155.1136325,
+          "minMs": 1112.710943,
           "samples": [
-            22672.686137,
-            22384.535536,
-            22198.712315,
-            22107.911032,
-            22127.132047,
-            24017.094081,
-            21729.674228,
-            22031.467731,
-            21941.146069,
-            21715.173949
+            1150.142621,
+            1153.755625,
+            1112.710943,
+            1161.298414,
+            1140.068658,
+            1193.117469,
+            1160.599015,
+            1156.47164,
+            1160.451683,
+            1127.200542
           ]
         },
         {
-          "id": "vscode:ttsc:build:checkers4",
+          "id": "rxjs:ttsc:build:checkers4",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 17089.5154065,
-          "minMs": 16552.724263,
+          "medianMs": 1142.1462625,
+          "minMs": 1127.593074,
           "samples": [
-            16552.724263,
-            17149.975185,
-            17224.261818,
-            16660.494363,
-            17588.344387,
-            17254.648194,
-            16931.367432,
-            17029.763558,
-            17149.267255,
-            16859.936224
+            1144.650914,
+            1153.428168,
+            1137.714982,
+            1130.740109,
+            1188.954973,
+            1127.593074,
+            1168.809728,
+            1139.641611,
+            1151.299369,
+            1136.823674
           ]
         },
         {
-          "id": "vscode:ttsc:build:checkers8",
+          "id": "rxjs:ttsc:build:checkers8",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 13819.593749,
-          "minMs": 13436.792798,
+          "medianMs": 1149.3874635,
+          "minMs": 1119.125119,
           "samples": [
-            13777.366432,
-            13826.864349,
-            13475.699195,
-            13436.792798,
-            13542.792231,
-            14338.690102,
-            13812.323149,
-            14147.09536,
-            14061.65896,
-            14435.365863
+            1178.539461,
+            1149.127237,
+            1158.075698,
+            1138.670588,
+            1150.92276,
+            1136.653605,
+            1128.708269,
+            1171.603955,
+            1119.125119,
+            1149.64769
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:checkers2",
+          "id": "rxjs:ttsc:tsgo:build:checkers2",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 22117.519081,
-          "minMs": 21448.440995,
+          "medianMs": 1080.478126,
+          "minMs": 1041.434686,
           "samples": [
-            22529.007241,
-            22323.342554,
-            21927.500218,
-            21927.402245,
-            21768.189038,
-            21448.440995,
-            22324.392941,
-            22021.142716,
-            22213.895446,
-            22468.413388
+            1087.842272,
+            1105.999791,
+            1132.383388,
+            1063.90767,
+            1083.067945,
+            1041.434686,
+            1058.682007,
+            1077.888307,
+            1066.465289,
+            1103.5144
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:checkers4",
+          "id": "rxjs:ttsc:tsgo:build:checkers4",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 16789.483105500003,
-          "minMs": 16114.71094,
+          "medianMs": 1057.5249785,
+          "minMs": 1035.632305,
           "samples": [
-            16241.499298,
-            17316.097586,
-            16455.229088,
-            16114.71094,
-            16820.796953,
-            16715.242329,
-            17212.172665,
-            16960.578001,
-            16971.034044,
-            16758.169258
+            1056.200508,
+            1073.668475,
+            1047.868455,
+            1118.303675,
+            1057.91597,
+            1075.248405,
+            1064.4127,
+            1035.632305,
+            1057.133987,
+            1044.018012
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:checkers8",
+          "id": "rxjs:ttsc:tsgo:build:checkers8",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 14024.408729,
-          "minMs": 13580.51606,
+          "medianMs": 1074.414948,
+          "minMs": 1044.708674,
           "samples": [
-            14998.896238,
-            14006.004977,
-            14042.812481,
-            14709.954991,
-            13647.860777,
-            14111.879701,
-            14088.049244,
-            13720.046487,
-            13580.51606,
-            13864.723393
+            1089.993712,
+            1044.708674,
+            1083.186492,
+            1046.942261,
+            1061.096898,
+            1084.236938,
+            1049.538183,
+            1105.740107,
+            1065.643404,
+            1083.562081
           ]
         },
         {
-          "id": "vscode:ttsc:noEmit:checkers2",
+          "id": "rxjs:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 15923.171676499998,
-          "minMs": 15657.741221,
+          "medianMs": 2603.184745,
+          "minMs": 2558.02108,
           "samples": [
-            16207.315019,
-            15897.424506,
-            15935.193612,
-            15911.149741,
-            15821.540372,
-            16077.37602,
-            17650.272776,
-            16111.903701,
-            15812.305963,
-            15657.741221
+            2603.184745,
+            2953.932771,
+            2558.02108,
+            2599.255839,
+            2654.444261
           ]
         },
         {
-          "id": "vscode:ttsc:noEmit:checkers4",
+          "id": "rxjs:ttsc:noEmit:checkers4",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 12073.9493125,
-          "minMs": 11901.046571,
+          "medianMs": 2580.922642,
+          "minMs": 2556.947034,
           "samples": [
-            12256.647073,
-            12034.36276,
-            11938.285149,
-            11901.046571,
-            12496.395308,
-            11997.20396,
-            12328.196939,
-            12112.079693,
-            12035.818932,
-            12416.184844
+            2603.844644,
+            2580.922642,
+            2556.947034,
+            2712.94279,
+            2579.249764
           ]
         },
         {
-          "id": "vscode:ttsc:noEmit:checkers8",
+          "id": "rxjs:ttsc:noEmit:checkers8",
           "branch": "ttsc",
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 10288.454361,
-          "minMs": 10009.053446,
+          "medianMs": 2576.93828,
+          "minMs": 2469.367359,
           "samples": [
-            10112.575498,
-            10762.660173,
-            10155.159086,
-            10009.053446,
-            10299.092622,
-            10621.677405,
-            10270.196616,
-            10822.853784,
-            10277.8161,
-            10642.718718
+            2481.470795,
+            2469.367359,
+            2576.93828,
+            2597.44357,
+            2581.984972
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers2",
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 15851.9505015,
-          "minMs": 15482.860111,
+          "medianMs": 1040.3916995,
+          "minMs": 1031.191784,
           "samples": [
-            16299.106587,
-            15712.963245,
-            16186.23639,
-            15868.816725,
-            15482.860111,
-            15788.773173,
-            16353.40755,
-            15835.084278,
-            15694.364898,
-            16187.566883
+            1038.836945,
+            1031.191784,
+            1066.694216,
+            1039.911343,
+            1073.98565,
+            1070.597029,
+            1032.948795,
+            1082.674339,
+            1040.346162,
+            1040.437237
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers4",
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers4",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 12093.136719,
-          "minMs": 11738.897275,
+          "medianMs": 1064.0306495,
+          "minMs": 1024.600569,
           "samples": [
-            12179.007296,
-            11936.046018,
-            11916.847032,
-            12007.266142,
-            12434.448264,
-            11885.518096,
-            12725.533817,
-            12267.198615,
-            11738.897275,
-            12341.613997
+            1059.486423,
+            1075.843903,
+            1067.385008,
+            1076.065311,
+            1057.762469,
+            1024.600569,
+            1073.433575,
+            1046.074608,
+            1078.7466,
+            1060.676291
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers8",
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers8",
           "branch": "ttsc",
           "tool": "tsgo",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 10156.637115500002,
-          "minMs": 9858.660608,
+          "medianMs": 1061.702624,
+          "minMs": 1042.278082,
           "samples": [
-            9887.1288,
-            9858.660608,
-            9868.779171,
-            10740.156648,
-            10100.693875,
-            10301.017805,
-            10212.580356,
-            10084.138112,
-            10644.830886,
-            10765.72281
+            1068.226093,
+            1067.714131,
+            1060.654866,
+            1059.35638,
+            1047.966817,
+            1074.452938,
+            1062.750382,
+            1059.062372,
+            1073.696032,
+            1042.278082
           ]
         },
         {
-          "id": "vscode:ttsc-lint:build:checkers2",
+          "id": "rxjs:ttsc-lint:build:checkers2",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 38747.838181,
-          "minMs": 37804.610199,
+          "medianMs": 3233.7210495,
+          "minMs": 3204.542607,
           "samples": [
-            38865.711249,
-            39098.001864,
-            39003.676247,
-            37804.610199,
-            38591.621507,
-            38299.760241,
-            38758.340479,
-            39003.06148,
-            38690.902293,
-            38737.335883
+            3263.795334,
+            3204.542607,
+            3233.449341,
+            3319.786237,
+            3212.761187,
+            3275.073794,
+            3233.992758,
+            3214.24923,
+            3238.288258,
+            3219.929526
           ]
         },
         {
-          "id": "vscode:ttsc-lint:build:checkers4",
+          "id": "rxjs:ttsc-lint:build:checkers4",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 29213.31159,
-          "minMs": 28341.649652,
+          "medianMs": 3180.286088,
+          "minMs": 3119.779814,
           "samples": [
-            29235.005689,
-            29430.447425,
-            29557.964356,
-            29023.411611,
-            28341.649652,
-            29119.497285,
-            28738.440095,
-            29191.617491,
-            29382.352989,
-            30973.864743
+            3122.679705,
+            3194.167463,
+            3205.649736,
+            3165.295525,
+            3183.933951,
+            3119.779814,
+            3172.784042,
+            3208.058917,
+            3176.638225,
+            3185.129674
           ]
         },
         {
-          "id": "vscode:ttsc-lint:build:checkers8",
+          "id": "rxjs:ttsc-lint:build:checkers8",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 25216.011032,
-          "minMs": 24136.889214,
+          "medianMs": 3172.9453670000003,
+          "minMs": 3146.91076,
           "samples": [
-            25538.966185,
-            24939.868311,
-            25367.121966,
-            24431.456431,
-            25431.022906,
-            24136.889214,
-            25840.339682,
-            24787.330853,
-            25064.900098,
-            25665.723178
+            3186.621765,
+            3171.05947,
+            3174.831264,
+            3196.376842,
+            3163.270747,
+            3156.245264,
+            3146.91076,
+            3186.662912,
+            3191.693931,
+            3147.405421
           ]
         },
         {
-          "id": "vscode:ttsc-lint:noEmit:checkers2",
+          "id": "rxjs:ttsc-lint:noEmit:checkers2",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 13514.335013,
-          "minMs": 13186.841914,
+          "medianMs": 3806.702113,
+          "minMs": 3606.264557,
           "samples": [
-            13514.335013,
-            13186.841914,
-            13314.203098,
-            16866.141705,
-            19483.181731
+            3816.084892,
+            3695.05907,
+            3806.702113,
+            3829.412051,
+            3606.264557
           ],
-          "lintMedianMs": 13240,
-          "lintMinMs": 12931,
+          "lintMedianMs": 1490,
+          "lintMinMs": 1461,
           "lintSamples": [
-            13240,
-            12931,
-            13057,
-            16599,
-            19083
+            1461,
+            1496,
+            1601,
+            1490,
+            1482
+          ],
+          "lintPluginMedianMs": 8,
+          "lintPluginMinMs": 7,
+          "lintPluginSamples": [
+            7,
+            8,
+            8,
+            17,
+            11
           ]
         },
         {
-          "id": "vscode:ttsc-lint:noEmit:checkers4",
+          "id": "rxjs:ttsc-lint:noEmit:checkers4",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 14277.188285,
-          "minMs": 13460.586947,
+          "medianMs": 3661.080978,
+          "minMs": 3496.179822,
           "samples": [
-            13460.586947,
-            14439.546873,
-            13673.660492,
-            14277.188285,
-            14834.50041
+            3824.720537,
+            3609.05341,
+            3920.396183,
+            3661.080978,
+            3496.179822
           ],
-          "lintMedianMs": 13883,
-          "lintMinMs": 13098,
+          "lintMedianMs": 1436,
+          "lintMinMs": 1385,
           "lintSamples": [
-            13098,
-            14031,
-            13343,
-            13883,
-            14495
+            1449,
+            1436,
+            1474,
+            1395,
+            1385
+          ],
+          "lintPluginMedianMs": 7,
+          "lintPluginMinMs": 7,
+          "lintPluginSamples": [
+            7,
+            7,
+            9,
+            9,
+            7
           ]
         },
         {
-          "id": "vscode:ttsc-lint:noEmit:checkers8",
+          "id": "rxjs:ttsc-lint:noEmit:checkers8",
           "branch": "ttsc-lint",
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 13073.821389,
-          "minMs": 12309.236762,
+          "medianMs": 3709.865584,
+          "minMs": 3631.21138,
           "samples": [
-            13390.192082,
-            12818.137928,
-            13222.668232,
-            13073.821389,
-            12309.236762
+            3631.21138,
+            3640.274739,
+            4025.184019,
+            3791.92915,
+            3709.865584
           ],
-          "lintMedianMs": 12745,
-          "lintMinMs": 11967,
+          "lintMedianMs": 1437,
+          "lintMinMs": 1355,
           "lintSamples": [
-            13008,
-            12372,
-            12918,
-            12745,
-            11967
+            1355,
+            1437,
+            1663,
+            1482,
+            1356
+          ],
+          "lintPluginMedianMs": 8,
+          "lintPluginMinMs": 7,
+          "lintPluginSamples": [
+            17,
+            7,
+            11,
+            8,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "name": "type-fest",
+      "repo": "ttsc-benchmark-type-fest",
+      "kind": "type-level library",
+      "files": 209,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260522.1",
+      "measurements": [
+        {
+          "id": "type-fest:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "medianMs": 63220.660134,
+          "minMs": 61429.898174,
+          "samples": [
+            61429.898174,
+            62768.496686,
+            64062.682997,
+            64776.989826,
+            63220.660134
+          ]
+        },
+        {
+          "id": "type-fest:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "medianMs": 45031.323959,
+          "minMs": 44630.727206,
+          "samples": [
+            45282.750767,
+            44790.670483,
+            45189.758059,
+            44630.727206,
+            45031.323959
+          ]
+        },
+        {
+          "id": "type-fest:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "medianMs": 3112.412628,
+          "minMs": 2939.752132,
+          "samples": [
+            3297.199622,
+            3313.178051,
+            3112.412628,
+            2939.752132,
+            3110.113249
+          ]
+        },
+        {
+          "id": "type-fest:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 4267.115056,
+          "minMs": 4142.215576,
+          "samples": [
+            4421.687021,
+            4231.078451,
+            4362.510208,
+            4142.215576,
+            4267.115056
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 24128.513628499997,
+          "minMs": 23493.58512,
+          "samples": [
+            26400.883019,
+            24228.863454,
+            23493.58512,
+            23720.353456,
+            24028.163803,
+            27197.271098,
+            27340.076368,
+            27489.264572,
+            23737.380011,
+            23704.640759
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 23539.454054499998,
+          "minMs": 23311.875535,
+          "samples": [
+            23311.875535,
+            23485.183293,
+            23687.483806,
+            23524.386327,
+            23544.627922,
+            23913.040436,
+            23534.280187,
+            23697.426442,
+            23646.947457,
+            23455.277279
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 27534.625834,
+          "minMs": 27265.355893,
+          "samples": [
+            28085.871724,
+            28426.375941,
+            27534.625834,
+            27265.355893,
+            27420.135306
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 23188.544176,
+          "minMs": 22886.450664,
+          "samples": [
+            24078.167292,
+            23710.56885,
+            23191.828153,
+            22886.450664,
+            23385.089514,
+            22999.005559,
+            23185.260199,
+            23060.534853,
+            23039.863431,
+            23712.301615
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "medianMs": 23596.136288,
+          "minMs": 23014.179394,
+          "samples": [
+            25114.57366,
+            23761.011938,
+            23837.778104,
+            23956.132105,
+            23787.80264,
+            23431.260638,
+            23311.541025,
+            23296.029546,
+            23014.179394,
+            23169.366647
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "medianMs": 26607.929778,
+          "minMs": 25959.231582,
+          "samples": [
+            26607.929778,
+            26851.215746,
+            26738.456086,
+            26020.74894,
+            25959.231582
+          ],
+          "lintMedianMs": 26011,
+          "lintMinMs": 25222,
+          "lintSamples": [
+            26011,
+            26245,
+            26047,
+            25420,
+            25222
+          ],
+          "lintPluginMedianMs": 16,
+          "lintPluginMinMs": 15,
+          "lintPluginSamples": [
+            16,
+            79,
+            15,
+            21,
+            16
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "medianMs": 869.298518,
+          "minMs": 779.794634,
+          "samples": [
+            779.794634,
+            869.298518,
+            1096.033634,
+            784.171447,
+            979.603001
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "medianMs": 852.519747,
+          "minMs": 782.039427,
+          "samples": [
+            998.989258,
+            852.519747,
+            924.961927,
+            782.039427,
+            810.178855
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 19595.8791355,
+          "minMs": 19078.819649,
+          "samples": [
+            19922.046714,
+            19718.826327,
+            19263.955551,
+            19548.51281,
+            19563.456945,
+            20319.654644,
+            19235.744254,
+            19628.301326,
+            19644.915635,
+            19078.819649
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 17759.4962045,
+          "minMs": 17537.71946,
+          "samples": [
+            18226.939428,
+            17824.945115,
+            17792.698516,
+            17561.981623,
+            17552.204629,
+            17565.832308,
+            18240.653127,
+            17537.71946,
+            17788.921006,
+            17730.071403
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 19381.817123499997,
+          "minMs": 18824.807193,
+          "samples": [
+            18824.807193,
+            18927.384052,
+            20282.704415,
+            19190.368513,
+            20525.40894,
+            20115.647532,
+            18892.918191,
+            19810.039684,
+            19391.37388,
+            19372.260367
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 19075.552443,
+          "minMs": 18965.438885,
+          "samples": [
+            19055.14417,
+            18974.138516,
+            18965.438885,
+            19425.403116,
+            19319.752223,
+            19940.746781,
+            19281.506161,
+            19015.779316,
+            19019.873304,
+            19095.960716
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 17949.32073,
+          "minMs": 17514.351004,
+          "samples": [
+            17627.156681,
+            17995.817313,
+            17856.700035,
+            18566.814331,
+            18394.769909,
+            18030.64449,
+            17902.824147,
+            18126.360953,
+            17514.351004,
+            17735.784639
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 19764.3374925,
+          "minMs": 19126.544044,
+          "samples": [
+            19328.321336,
+            20616.840364,
+            20063.068825,
+            19886.237544,
+            19391.23121,
+            19126.544044,
+            20029.661321,
+            19642.437441,
+            20176.894673,
+            19578.429332
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 23086.368155,
+          "minMs": 22708.091708,
+          "samples": [
+            23248.135693,
+            23339.415763,
+            22708.091708,
+            23086.368155,
+            23031.747797
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 20087.688324,
+          "minMs": 19966.416961,
+          "samples": [
+            19966.416961,
+            21006.682373,
+            20028.77973,
+            20447.577937,
+            20087.688324
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 22863.831716,
+          "minMs": 21991.531402,
+          "samples": [
+            22941.434387,
+            22863.831716,
+            21999.192982,
+            23628.556571,
+            21991.531402
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 19343.445321,
+          "minMs": 18797.971321,
+          "samples": [
+            18797.971321,
+            19197.614722,
+            19770.861223,
+            19055.207696,
+            19334.467733,
+            19352.422909,
+            19668.007454,
+            19409.152694,
+            19386.219078,
+            19107.517625
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 18196.6438265,
+          "minMs": 17567.474421,
+          "samples": [
+            17891.627925,
+            18277.573203,
+            17754.767072,
+            18109.079407,
+            17567.474421,
+            18115.71445,
+            18818.19167,
+            19607.807944,
+            19929.330483,
+            19883.288819
+          ]
+        },
+        {
+          "id": "type-fest:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 19712.518414,
+          "minMs": 19324.230686,
+          "samples": [
+            19644.522087,
+            21419.380846,
+            19324.230686,
+            19736.738429,
+            20406.299909,
+            19339.37749,
+            19688.298399,
+            19916.510274,
+            19573.055405,
+            20876.798377
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "medianMs": 19155.6149515,
+          "minMs": 18797.018295,
+          "samples": [
+            18885.932702,
+            18912.559843,
+            19429.470407,
+            18797.018295,
+            19256.946529,
+            18975.2247,
+            19749.240509,
+            19291.875656,
+            19054.283374,
+            19592.262192
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "medianMs": 17860.150234,
+          "minMs": 17529.283135,
+          "samples": [
+            17771.795841,
+            17954.278376,
+            18328.962856,
+            17566.285796,
+            17927.03683,
+            17529.283135,
+            18306.853146,
+            18144.255849,
+            17793.263638,
+            17773.038148
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "medianMs": 19757.763281,
+          "minMs": 19068.364298,
+          "samples": [
+            19508.407837,
+            19068.364298,
+            20480.7329,
+            19872.66904,
+            20075.22401,
+            19186.846293,
+            20553.942021,
+            19104.225248,
+            19642.857522,
+            20616.2779
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "medianMs": 22422.305792,
+          "minMs": 22212.972205,
+          "samples": [
+            22422.305792,
+            22820.56159,
+            22212.972205,
+            22246.042576,
+            22928.296344
+          ],
+          "lintMedianMs": 21809,
+          "lintMinMs": 21578,
+          "lintSamples": [
+            21809,
+            22117,
+            21578,
+            21632,
+            22163
+          ],
+          "lintPluginMedianMs": 3,
+          "lintPluginMinMs": 2,
+          "lintPluginSamples": [
+            2,
+            5,
+            6,
+            3,
+            3
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "medianMs": 21020.498433,
+          "minMs": 20566.230123,
+          "samples": [
+            21177.247677,
+            21020.498433,
+            20642.040861,
+            21704.348336,
+            20566.230123
+          ],
+          "lintMedianMs": 20458,
+          "lintMinMs": 19982,
+          "lintSamples": [
+            20615,
+            20458,
+            20028,
+            21148,
+            19982
+          ],
+          "lintPluginMedianMs": 3,
+          "lintPluginMinMs": 3,
+          "lintPluginSamples": [
+            3,
+            3,
+            5,
+            5,
+            3
+          ]
+        },
+        {
+          "id": "type-fest:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "medianMs": 21592.2747,
+          "minMs": 20938.486579,
+          "samples": [
+            22011.203096,
+            21055.871061,
+            21592.2747,
+            20938.486579,
+            21775.56768
+          ],
+          "lintMedianMs": 20912,
+          "lintMinMs": 20332,
+          "lintSamples": [
+            21421,
+            20460,
+            20912,
+            20332,
+            21113
+          ],
+          "lintPluginMedianMs": 4,
+          "lintPluginMinMs": 4,
+          "lintPluginSamples": [
+            4,
+            7,
+            4,
+            4,
+            4
           ]
         }
       ]
@@ -4397,7 +4458,7 @@
       "kind": "plugin-heavy service",
       "files": 464,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260517.1",
+      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "shopping-backend:legacy:build:multi",
@@ -4421,14 +4482,14 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 5582.908597,
-          "minMs": 5164.807891,
+          "medianMs": 6443.141385,
+          "minMs": 6182.147619,
           "samples": [
-            5277.203287,
-            5164.807891,
-            5966.266875,
-            5582.908597,
-            5684.687512
+            6182.147619,
+            6508.069718,
+            6443.141385,
+            6702.098004,
+            6235.632392
           ]
         },
         {
@@ -4437,14 +4498,14 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 5176.947344,
-          "minMs": 5107.578763,
+          "medianMs": 6340.456322,
+          "minMs": 6248.602238,
           "samples": [
-            5534.690546,
-            5176.947344,
-            5140.511723,
-            5188.88779,
-            5107.578763
+            6248.602238,
+            6438.317842,
+            6343.791588,
+            6267.83321,
+            6340.456322
           ]
         },
         {
@@ -4453,15 +4514,10 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 3568.428799,
-          "minMs": 3528.514262,
-          "samples": [
-            3572.364955,
-            3528.514262,
-            3568.428799,
-            3549.728868,
-            3606.091654
-          ]
+          "medianMs": 0,
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 1
         },
         {
           "id": "shopping-backend:ttsc:build:single",
@@ -4490,14 +4546,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 1665.373224,
-          "minMs": 1626.714536,
+          "medianMs": 2014.816362,
+          "minMs": 1847.537143,
           "samples": [
-            1665.373224,
-            1658.783704,
-            1720.367952,
-            1739.958694,
-            1626.714536
+            1850.166995,
+            2014.816362,
+            2200.277573,
+            1847.537143,
+            2092.691688
           ]
         },
         {
@@ -4527,32 +4583,41 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 2661.102053,
-          "minMs": 2598.190145,
+          "medianMs": 3707.79516,
+          "minMs": 3612.620745,
           "samples": [
-            2598.190145,
-            2666.792488,
-            2661.102053,
-            2627.348914,
-            2673.353747
+            3717.379487,
+            3705.97623,
+            3712.144079,
+            3612.620745,
+            3707.79516
           ],
-          "lintMedianMs": 1111,
-          "lintMinMs": 1075,
+          "lintMedianMs": 1459,
+          "lintMinMs": 1292,
           "lintSamples": [
-            1075,
-            1134,
-            1145,
-            1111,
-            1078
+            1615,
+            1295,
+            1567,
+            1459,
+            1292
           ],
-          "transformHostMedianMs": 721,
-          "transformHostMinMs": 715,
+          "lintPluginMedianMs": 71,
+          "lintPluginMinMs": 68,
+          "lintPluginSamples": [
+            68,
+            94,
+            92,
+            69,
+            71
+          ],
+          "transformHostMedianMs": 1125,
+          "transformHostMinMs": 1036,
           "transformHostSamples": [
-            715,
-            732,
-            721,
-            720,
-            797
+            1036,
+            1217,
+            1125,
+            1095,
+            1169
           ]
         },
         {
@@ -4561,14 +4626,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 1358.065722,
-          "minMs": 1290.11093,
+          "medianMs": 1853.326061,
+          "minMs": 1650.005473,
           "samples": [
-            1341.504757,
-            1358.065722,
-            1389.69426,
-            1395.082568,
-            1290.11093
+            1851.83317,
+            1853.326061,
+            1650.005473,
+            1890.53615,
+            1858.738266
           ]
         },
         {
@@ -4577,14 +4642,14 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 1030.364334,
-          "minMs": 1015.439346,
+          "medianMs": 1573.536493,
+          "minMs": 1414.970116,
           "samples": [
-            1043.540184,
-            1015.439346,
-            1064.705477,
-            1021.656406,
-            1030.364334
+            1573.536493,
+            1502.170568,
+            1609.664865,
+            1414.970116,
+            1701.765114
           ]
         },
         {
@@ -4656,14 +4721,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 1683.376289,
-          "minMs": 1584.286422,
+          "medianMs": 1928.509292,
+          "minMs": 1875.805427,
           "samples": [
-            1584.286422,
-            1713.053196,
-            1774.977774,
-            1621.309202,
-            1683.376289
+            1928.509292,
+            1890.59391,
+            2042.784712,
+            2016.916572,
+            1875.805427
           ]
         },
         {
@@ -4672,14 +4737,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 1624.707073,
-          "minMs": 1602.874818,
+          "medianMs": 2034.264645,
+          "minMs": 1882.847415,
           "samples": [
-            1611.380618,
-            1631.389537,
-            1624.707073,
-            1629.475951,
-            1602.874818
+            2124.29764,
+            1882.847415,
+            2034.264645,
+            2046.720125,
+            1891.133326
           ]
         },
         {
@@ -4688,14 +4753,14 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 1725.018974,
-          "minMs": 1648.923359,
+          "medianMs": 2012.516892,
+          "minMs": 1895.710124,
           "samples": [
-            1648.923359,
-            1730.720172,
-            1745.538891,
-            1663.816495,
-            1725.018974
+            2012.516892,
+            1895.710124,
+            2051.777548,
+            2028.205626,
+            1965.389906
           ]
         },
         {
@@ -4767,32 +4832,41 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 2233.457073,
-          "minMs": 2173.530465,
+          "medianMs": 3237.680967,
+          "minMs": 3079.617718,
           "samples": [
-            2218.968942,
-            2324.300096,
-            2247.743939,
-            2233.457073,
-            2173.530465
+            3223.446921,
+            3339.132184,
+            3237.680967,
+            3261.061956,
+            3079.617718
           ],
-          "lintMedianMs": 645,
-          "lintMinMs": 621,
+          "lintMedianMs": 1083,
+          "lintMinMs": 1008.9999999999999,
           "lintSamples": [
-            629,
-            660,
-            645,
-            725,
-            621
+            1012.9999999999999,
+            1008.9999999999999,
+            1111,
+            1120,
+            1083
           ],
-          "transformHostMedianMs": 753,
-          "transformHostMinMs": 690,
+          "lintPluginMedianMs": 24,
+          "lintPluginMinMs": 21,
+          "lintPluginSamples": [
+            21,
+            31,
+            23,
+            24,
+            40
+          ],
+          "transformHostMedianMs": 1125,
+          "transformHostMinMs": 1006,
           "transformHostSamples": [
-            753,
-            801,
-            754,
-            690,
-            733
+            1203,
+            1326,
+            1016.9999999999999,
+            1125,
+            1006
           ]
         },
         {
@@ -4801,32 +4875,41 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 2176.339116,
-          "minMs": 2076.852714,
+          "medianMs": 3094.800918,
+          "minMs": 3028.65174,
           "samples": [
-            2076.852714,
-            2238.727106,
-            2176.339116,
-            2178.18612,
-            2133.860947
+            3028.65174,
+            3130.943602,
+            3094.800918,
+            3110.48454,
+            3072.947748
           ],
-          "lintMedianMs": 589,
-          "lintMinMs": 539,
+          "lintMedianMs": 981,
+          "lintMinMs": 944,
           "lintSamples": [
-            539,
-            625,
-            589,
-            579,
-            591
+            991,
+            1002.9999999999999,
+            981,
+            960,
+            944
           ],
-          "transformHostMedianMs": 733,
-          "transformHostMinMs": 706,
+          "lintPluginMedianMs": 24,
+          "lintPluginMinMs": 22,
+          "lintPluginSamples": [
+            24,
+            22,
+            25,
+            23,
+            24
+          ],
+          "transformHostMedianMs": 1121,
+          "transformHostMinMs": 1042,
           "transformHostSamples": [
-            712,
-            768,
-            733,
-            777,
-            706
+            1046,
+            1042,
+            1129,
+            1121,
+            1126
           ]
         },
         {
@@ -4835,32 +4918,41 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2117.487325,
-          "minMs": 2101.197792,
+          "medianMs": 3090.342919,
+          "minMs": 3037.97261,
           "samples": [
-            2104.473638,
-            2129.673115,
-            2144.383567,
-            2101.197792,
-            2117.487325
+            3191.920172,
+            3090.342919,
+            3037.97261,
+            3120.387062,
+            3050.095178
           ],
-          "lintMedianMs": 560,
-          "lintMinMs": 544,
+          "lintMedianMs": 941,
+          "lintMinMs": 890,
           "lintSamples": [
-            589,
-            560,
-            569,
-            544,
-            547
+            965,
+            951,
+            919,
+            941,
+            890
           ],
-          "transformHostMedianMs": 731,
-          "transformHostMinMs": 693,
+          "lintPluginMedianMs": 22,
+          "lintPluginMinMs": 21,
+          "lintPluginSamples": [
+            25,
+            21,
+            22,
+            21,
+            26
+          ],
+          "transformHostMedianMs": 1126,
+          "transformHostMinMs": 1083,
           "transformHostSamples": [
-            693,
-            749,
-            746,
-            716,
-            731
+            1211,
+            1096,
+            1083,
+            1148,
+            1126
           ]
         }
       ]
