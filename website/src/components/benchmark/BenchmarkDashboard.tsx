@@ -414,8 +414,8 @@ function ProjectLintRows({
   // Lint's "best" is the lint-pass-only ratio (ESLint time vs @ttsc/lint
   // overhead) — that's the multiplier the dashboard is actually selling.
   // Total-stack ratio (`tsc + eslint` vs `ttsc + @ttsc/lint`) lives in the
-  // bars on the right and reads ~10–20x; the isolated lint factor reads
-  // ~50x+ because eslint alone is the slow side.
+  // bars on the right; the isolated lint factor can be hundreds of times
+  // larger because eslint alone is the slow side.
   const best = rows
     .filter((row) => !row.baseline && (row.lintFactor ?? 0) > 0)
     .reduce<{ factor: number; label: string } | undefined>((acc, row) => {

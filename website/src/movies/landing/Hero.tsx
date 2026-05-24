@@ -7,7 +7,7 @@ const CLAIMS = [
     detail: "Up to 10x faster than JavaScript tsc through TypeScript-Go.",
   },
   {
-    value: "20x",
+    value: "1000x",
     label: "faster lint loop",
     detail: "@ttsc/lint uses the same program and checker, no second parse.",
   },

@@ -1,5 +1,5 @@
 {
-  "date": "2026-05-24T12:34:03.077Z",
+  "date": "2026-05-24T14:20:36.678Z",
   "runs": 5,
   "warmup": 1,
   "host": {
@@ -834,14 +834,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 4512.844255,
-          "minMs": 4469.722528,
+          "medianMs": 7900.679443,
+          "minMs": 7867.790225,
           "samples": [
-            4510.24131,
-            4512.844255,
-            4522.598952,
-            4469.722528,
-            4533.728085
+            8114.888324,
+            8133.441255,
+            7867.790225,
+            7887.605732,
+            7900.679443
+          ],
+          "lintMedianMs": 2899,
+          "lintMinMs": 2819,
+          "lintSamples": [
+            2880,
+            3070,
+            2819,
+            2910,
+            2899
+          ],
+          "lintPluginMedianMs": 19,
+          "lintPluginMinMs": 16,
+          "lintPluginSamples": [
+            19,
+            19,
+            16,
+            18,
+            19
           ]
         },
         {
@@ -1182,14 +1200,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 3968.659639,
-          "minMs": 3914.9047,
+          "medianMs": 7719.529912,
+          "minMs": 7647.652897,
           "samples": [
-            4056.387317,
-            3923.244345,
-            3914.9047,
-            3968.659639,
-            4181.055184
+            7778.182927,
+            7647.652897,
+            7717.864263,
+            7960.408679,
+            7719.529912
+          ],
+          "lintMedianMs": 2544,
+          "lintMinMs": 2502,
+          "lintSamples": [
+            2537,
+            2544,
+            2502,
+            2611,
+            2592
+          ],
+          "lintPluginMedianMs": 8,
+          "lintPluginMinMs": 7,
+          "lintPluginSamples": [
+            14,
+            7,
+            8,
+            8,
+            19
           ]
         },
         {
@@ -1198,14 +1234,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3762.901948,
-          "minMs": 3710.759502,
+          "medianMs": 7604.500575,
+          "minMs": 7503.281712,
           "samples": [
-            3750.137211,
-            3710.759502,
-            3795.43657,
-            3762.901948,
-            3823.91438
+            7604.500575,
+            7582.064477,
+            7503.281712,
+            7847.447005,
+            8001.347366
+          ],
+          "lintMedianMs": 2295,
+          "lintMinMs": 2252,
+          "lintSamples": [
+            2295,
+            2284,
+            2252,
+            2373,
+            2370
+          ],
+          "lintPluginMedianMs": 9,
+          "lintPluginMinMs": 8,
+          "lintPluginSamples": [
+            11,
+            9,
+            8,
+            8,
+            10
           ]
         },
         {
@@ -1214,14 +1268,32 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3708.907336,
-          "minMs": 3672.38403,
+          "medianMs": 7562.781326,
+          "minMs": 7420.107012,
           "samples": [
-            3714.954022,
-            3737.35251,
-            3672.38403,
-            3675.006067,
-            3708.907336
+            7562.781326,
+            7427.419101,
+            7844.222589,
+            7575.310219,
+            7420.107012
+          ],
+          "lintMedianMs": 2240,
+          "lintMinMs": 2218,
+          "lintSamples": [
+            2218,
+            2240,
+            2304,
+            2290,
+            2235
+          ],
+          "lintPluginMedianMs": 9,
+          "lintPluginMinMs": 7,
+          "lintPluginSamples": [
+            9,
+            9,
+            8,
+            9,
+            7
           ]
         }
       ]
@@ -4514,10 +4586,15 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 0,
-          "samples": [],
-          "failure": "error",
-          "exitStatus": 1
+          "medianMs": 8819.95399,
+          "minMs": 8800.679611,
+          "samples": [
+            9197.256976,
+            8808.739413,
+            8819.95399,
+            8800.679611,
+            9249.564984
+          ]
         },
         {
           "id": "shopping-backend:ttsc:build:single",
