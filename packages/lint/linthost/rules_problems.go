@@ -8,6 +8,7 @@
 package linthost
 
 import (
+  "strconv"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -196,10 +197,10 @@ func (noLossOfPrecision) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// numericLiteralLosesPrecision reports whether the decimal integer literal
-// text exceeds Number.MAX_SAFE_INTEGER (2^53 - 1). Non-decimal literals
-// (hex, octal, binary) and literals with exponents or decimal points are
-// exempt because their precision loss is caller-visible and intentional.
+// numericLiteralLosesPrecision reports whether the decimal integer literal text
+// changes when parsed as a JavaScript Number. Non-decimal literals (hex, octal,
+// binary) and literals with exponents or decimal points are exempt because
+// their precision loss is caller-visible and intentional.
 func numericLiteralLosesPrecision(text string) bool {
   // Strip underscore separators, exponents, decimal/hex/oct/binary
   // markers — for the simple-base-10 integer case the round-trip
@@ -216,16 +217,20 @@ func numericLiteralLosesPrecision(text string) bool {
   if trimmed == "" {
     return false
   }
-  // Number.MAX_SAFE_INTEGER is 2^53-1 = 9007199254740991; 2^53 itself
-  // (9007199254740992) is the first integer that float64 cannot round-trip.
-  const maxSafe = "9007199254740992"
-  if len(trimmed) < len(maxSafe) {
+  // 2^53 is unsafe for arithmetic comparisons but still exactly representable.
+  // 2^53+1 is the first plain decimal integer that changes when parsed.
+  const firstPossibleLoss = "9007199254740993"
+  if len(trimmed) < len(firstPossibleLoss) {
     return false
   }
-  if len(trimmed) > len(maxSafe) {
-    return true
+  if len(trimmed) == len(firstPossibleLoss) && trimmed < firstPossibleLoss {
+    return false
   }
-  return trimmed > maxSafe
+  parsed, err := strconv.ParseFloat(trimmed, 64)
+  if err != nil && parsed == 0 {
+    return false
+  }
+  return strconv.FormatFloat(parsed, 'f', 0, 64) != trimmed
 }
 
 // no-class-assign: assigning to a class declaration's name.
