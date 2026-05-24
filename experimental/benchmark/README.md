@@ -110,10 +110,11 @@ Per-project commands, install/prepare overrides, and prerequisites live in
   Go runtime warmup) then `RUNS` measured passes. The **median** is the
   reported time; `min` and the full sample list are kept in JSON.
 - `ttsc-lint` build/check cells add `--diagnostics` and parse
-  `ttsc check plugin @ttsc/lint time` plus any
-  `ttsc transform host [...] time` lines from stdout. The dashboard can then
-  show the lint sidecar's own wall-clock cost and plugin-heavy transform-host
-  cost instead of subtracting plain `ttsc` totals.
+  `@ttsc/lint time`, `ttsc check plugin @ttsc/lint time`, and any
+  `ttsc transform host [...] time` lines from stdout. The dashboard uses the
+  native `@ttsc/lint` timing as the green lint segment; the sidecar total is
+  retained for audit because it also includes TypeScript-Go Program and
+  diagnostics work that belongs in the compiler segment.
 - Plugin binaries are built by `ttsc prepare` during setup, never during a
   measured run, so compiler timings do not include plugin build time.
 - Non-zero exits are classified from captured output. A `race` (TypeScript-Go

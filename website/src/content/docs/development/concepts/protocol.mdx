@@ -74,6 +74,10 @@ interface ITtscPlugin {
   source: string;
   composes?: string[];
   stage?: "transform" | "check";
+  capabilities?: {
+    diagnosticsTiming?: boolean;
+    threadingArgs?: boolean;
+  };
   reportsTypeScriptDiagnostics?: boolean;
   contributors?: ITtscPluginContributor[];
 }
@@ -90,6 +94,11 @@ Field rules:
 - `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
+- `capabilities`: opt-in flags for host-owned CLI knobs a strict sidecar would
+  otherwise reject. Set `threadingArgs` only when the sidecar accepts
+  `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it
+  accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail
+  to stdout.
 - `reportsTypeScriptDiagnostics`: check-stage capability flag. Set this only
   when the sidecar's `check` subcommand loads the project Program and reports
   normal TypeScript diagnostics itself; `ttsc` then skips the redundant

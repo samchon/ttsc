@@ -132,6 +132,12 @@ const (
   NodeFlagsAwaitContext = innerast.NodeFlagsAwaitContext
 )
 
+// ---- Modifier-flag constants ----
+
+const (
+  ModifierFlagsAmbient = innerast.ModifierFlagsAmbient
+)
+
 // ---- Statement / declaration / expression kinds ----
 
 const (

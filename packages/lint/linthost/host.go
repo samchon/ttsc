@@ -14,6 +14,7 @@ import (
   "errors"
   "fmt"
   "path/filepath"
+  "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   "github.com/microsoft/typescript-go/shim/bundled"
@@ -157,17 +158,53 @@ func (p *program) close() {
   }
 }
 
-// userSourceFiles returns the program's user-authored source files
-// (declaration files filtered out — those belong to library typings).
+// userSourceFiles returns the tsconfig-selected source files the lint engine
+// owns. The tsconfig file list is the boundary: imported libraries, generated
+// output, and JSON modules may still appear in Program.SourceFiles(), but lint
+// and format should not walk them unless the project selected them as TS/JS
+// source roots.
 func (p *program) userSourceFiles() []*shimast.SourceFile {
+  roots := p.userSourceFileNames()
   out := make([]*shimast.SourceFile, 0)
   for _, f := range p.tsProgram.SourceFiles() {
-    if f == nil || f.IsDeclarationFile {
+    if f == nil {
+      continue
+    }
+    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; !ok {
       continue
     }
     out = append(out, f)
   }
   return out
+}
+
+func (p *program) userSourceFileNames() map[string]struct{} {
+  out := make(map[string]struct{})
+  if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
+    return out
+  }
+  for _, fileName := range p.parsed.ParsedConfig.FileNames {
+    if isLintSourceFileName(fileName) {
+      out[canonicalProjectPath(p.cwd, fileName)] = struct{}{}
+    }
+  }
+  return out
+}
+
+func canonicalProjectPath(cwd, fileName string) string {
+  if !filepath.IsAbs(fileName) {
+    fileName = filepath.Join(cwd, fileName)
+  }
+  return filepath.ToSlash(filepath.Clean(fileName))
+}
+
+func isLintSourceFileName(fileName string) bool {
+  switch strings.ToLower(filepath.Ext(fileName)) {
+  case ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs":
+    return true
+  default:
+    return false
+  }
 }
 
 // programDiagnostics returns the bind + semantic diagnostics for the

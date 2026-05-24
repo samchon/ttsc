@@ -74,9 +74,9 @@ export interface BenchmarkMeasurement {
   /** Raw per-run wall-clock samples in milliseconds, in run order. */
   samples?: number[];
   /**
-   * Median `@ttsc/lint` check sidecar wall-clock time parsed from
-   * `ttsc --diagnostics`. Present only for `ttsc-lint` build/check cells
-   * recorded by newer benchmark runs.
+   * Median `@ttsc/lint` check sidecar wall-clock time parsed from `ttsc
+   * --diagnostics`. Present only for `ttsc-lint` build/check cells recorded by
+   * newer benchmark runs.
    */
   lintMedianMs?: number;
   /** Fastest measured `@ttsc/lint` sidecar run in milliseconds. */
@@ -84,8 +84,17 @@ export interface BenchmarkMeasurement {
   /** Raw per-run `@ttsc/lint` sidecar samples in milliseconds. */
   lintSamples?: number[];
   /**
-   * Median third-party transform-host wall-clock time parsed from
-   * `ttsc --diagnostics`. Present when a `ttsc-lint` check/build cell also runs
+   * Median native `@ttsc/lint` time parsed from the lint sidecar's own
+   * diagnostics timing. This is the green lint segment in the dashboard.
+   */
+  lintPluginMedianMs?: number;
+  /** Fastest measured native `@ttsc/lint` run in milliseconds. */
+  lintPluginMinMs?: number;
+  /** Raw per-run native `@ttsc/lint` samples in milliseconds. */
+  lintPluginSamples?: number[];
+  /**
+   * Median third-party transform-host wall-clock time parsed from `ttsc
+   * --diagnostics`. Present when a `ttsc-lint` check/build cell also runs
    * source transform plugins such as typia or nestia.
    */
   transformHostMedianMs?: number;

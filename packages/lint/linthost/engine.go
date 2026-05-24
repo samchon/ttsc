@@ -333,18 +333,17 @@ func (e *Engine) NeedsTypeChecker() bool {
 // tests + introspection.
 func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 
-// Run walks every non-declaration source file in the program and returns
-// the collected findings. By default files are processed in parallel,
-// bounded by `runtime.NumCPU()`; the engine falls back to a serial walk
-// when SetSerial(true) was called or when a type-aware rule is active.
-// Findings are merged in source-file order so the diagnostic stream is
-// deterministic across runs even when the per-file work happens out of
-// order.
+// Run walks the source files supplied by the caller and returns the collected
+// findings. By default files are processed in parallel, bounded by
+// `runtime.NumCPU()`; the engine falls back to a serial walk when
+// SetSerial(true) was called or when a type-aware rule is active. Findings are
+// merged in source-file order so the diagnostic stream is deterministic across
+// runs even when the per-file work happens out of order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
   if e.runsSerial() {
     var findings []*Finding
     for _, file := range files {
-      if file == nil || file.IsDeclarationFile {
+      if file == nil {
         continue
       }
       findings = append(findings, e.runFile(file, checker)...)
@@ -360,7 +359,7 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
   }
   sem := make(chan struct{}, workers)
   for i, file := range files {
-    if file == nil || file.IsDeclarationFile {
+    if file == nil {
       continue
     }
     wg.Add(1)

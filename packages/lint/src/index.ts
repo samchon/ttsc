@@ -18,7 +18,7 @@ type TtscPluginContributor = {
 
 /** Descriptor shape returned to ttsc's plugin builder by the factory. */
 type TtscPluginDescriptor = {
-  capabilities?: { threadingArgs?: boolean };
+  capabilities?: { diagnosticsTiming?: boolean; threadingArgs?: boolean };
   contributors?: TtscPluginContributor[];
   name: string;
   reportsTypeScriptDiagnostics?: boolean;
@@ -113,7 +113,7 @@ export default function createTtscPlugin(
   // declared, so consumers (and the existing key-shape regression
   // tests) see the same surface as before this feature shipped.
   const descriptor: TtscPluginDescriptor = {
-    capabilities: { threadingArgs: true },
+    capabilities: { diagnosticsTiming: true, threadingArgs: true },
     name: "@ttsc/lint",
     reportsTypeScriptDiagnostics: true,
     source: path.resolve(__dirname, "..", "plugin"),
@@ -456,14 +456,14 @@ function extractPluginSource(value: unknown): string | undefined {
 `;
 
 /**
- * Resolves the contributor plugin entries declared in a .ts/.mjs lint
- * config, memoized through the shared on-disk config cache.
+ * Resolves the contributor plugin entries declared in a .ts/.mjs lint config,
+ * memoized through the shared on-disk config cache.
  *
- * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo
- * build runs one `ttsc` process per package, and each would otherwise
- * re-spawn `ttsx` for the same shared config; the cache collapses that to
- * a single evaluation. The cache is keyed by the config file's path and
- * exact contents (see `configCacheKey`), so an edit re-evaluates cleanly.
+ * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo build
+ * runs one `ttsc` process per package, and each would otherwise re-spawn `ttsx`
+ * for the same shared config; the cache collapses that to a single evaluation.
+ * The cache is keyed by the config file's path and exact contents (see
+ * `configCacheKey`), so an edit re-evaluates cleanly.
  */
 function readTtsxConfigPlugins(
   configPath: string,
@@ -485,9 +485,9 @@ function readTtsxConfigPlugins(
 
 /**
  * Reports whether a cached plugin entry is still usable: a well-formed
- * namespace and an absolute `source` that still points at a directory.
- * Pure predicate — never throws — so a malformed cache entry simply
- * triggers re-evaluation instead of aborting plugin discovery.
+ * namespace and an absolute `source` that still points at a directory. Pure
+ * predicate — never throws — so a malformed cache entry simply triggers
+ * re-evaluation instead of aborting plugin discovery.
  */
 function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
   if (
@@ -655,15 +655,15 @@ function evaluateTtsxConfigPlugins(
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Namespaces the on-disk config cache. Kept in lockstep with the Go
- * sidecar's `configCacheVersion`; bump both when the cached shape changes.
+ * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
+ * `configCacheVersion`; bump both when the cached shape changes.
  */
 const CONFIG_CACHE_VERSION = "v1";
 
 /**
- * Directory shared by this factory and the Go sidecar for cached lint
- * configs. The two write different files (the `kind` segment of the cache
- * key keeps their namespaces apart), so they coexist without collision.
+ * Directory shared by this factory and the Go sidecar for cached lint configs.
+ * The two write different files (the `kind` segment of the cache key keeps
+ * their namespaces apart), so they coexist without collision.
  */
 function configCacheDir(): string {
   return path.join(os.tmpdir(), "ttsc-lint-config-cache");
@@ -675,10 +675,10 @@ function configCacheDisabled(): boolean {
 }
 
 /**
- * Content-addressed cache key for a lint config file. Mirrors the Go
- * sidecar's `configCacheKey`: a version tag, a namespace `kind`, the
- * config's absolute path, and its exact bytes. Returns "" — a "do not
- * cache" signal — when the file cannot be read or the env opt-out is set.
+ * Content-addressed cache key for a lint config file. Mirrors the Go sidecar's
+ * `configCacheKey`: a version tag, a namespace `kind`, the config's absolute
+ * path, and its exact bytes. Returns "" — a "do not cache" signal — when the
+ * file cannot be read or the env opt-out is set.
  */
 function configCacheKey(kind: string, configPath: string): string {
   if (configCacheDisabled()) return "";
@@ -700,9 +700,9 @@ function configCacheKey(kind: string, configPath: string): string {
 }
 
 /**
- * Returns the cached plugin-entry list for `cacheKey`, or undefined on any
- * miss — a missing file, an unreadable file, or content that is not a JSON
- * array. Every failure is a soft miss: the caller re-evaluates.
+ * Returns the cached plugin-entry list for `cacheKey`, or undefined on any miss
+ * — a missing file, an unreadable file, or content that is not a JSON array.
+ * Every failure is a soft miss: the caller re-evaluates.
  */
 function readConfigPluginCache(
   cacheKey: string,
@@ -718,9 +718,7 @@ function readConfigPluginCache(
   }
   try {
     const parsed: unknown = JSON.parse(body);
-    return Array.isArray(parsed)
-      ? (parsed as ConfigPluginEntry[])
-      : undefined;
+    return Array.isArray(parsed) ? (parsed as ConfigPluginEntry[]) : undefined;
   } catch {
     return undefined;
   }
@@ -729,8 +727,8 @@ function readConfigPluginCache(
 /**
  * Writes `entries` to the config cache under `cacheKey`. Best-effort: any
  * failure leaves the cache cold rather than aborting plugin discovery. The
- * temp-file + rename keeps a concurrent reader in a sibling `ttsc` process
- * from observing a half-written file.
+ * temp-file + rename keeps a concurrent reader in a sibling `ttsc` process from
+ * observing a half-written file.
  */
 function writeConfigPluginCache(
   cacheKey: string,

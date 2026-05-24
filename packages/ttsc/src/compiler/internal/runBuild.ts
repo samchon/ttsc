@@ -319,15 +319,15 @@ function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
 
 /**
  * Report whether the caller forwarded a flag ttsc adds to tsgo internally —
- * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or
- * `--noEmit` (ttsc adds it for the pre-emit type-check). When the user
- * also forwards the same flag, post-processing must keep the user-visible
- * effect intact instead of stripping it as ttsc-internal noise.
+ * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or `--noEmit`
+ * (ttsc adds it for the pre-emit type-check). When the user also forwards the
+ * same flag, post-processing must keep the user-visible effect intact instead
+ * of stripping it as ttsc-internal noise.
  *
- * Schema-derived: `FLAG_SCHEMA[*].internalShadow === true`. RC-2 from the
- * RCA (RCA section 3, `--listEmittedFiles` / `--showConfig` swallowed):
- * the per-flag `passthrough.includes("…")` check is now one structural
- * lookup against the schema, not one bespoke `if` per shadow flag.
+ * Schema-derived: `FLAG_SCHEMA[*].internalShadow === true`. RC-2 from the RCA
+ * (RCA section 3, `--listEmittedFiles` / `--showConfig` swallowed): the
+ * per-flag `passthrough.includes("…")` check is now one structural lookup
+ * against the schema, not one bespoke `if` per shadow flag.
  */
 function forwardsInternalShadowFlag(
   options: TtscCommonOptions,
@@ -498,13 +498,13 @@ function createTsgoBuildArgs(
  *
  * When the user explicitly forwarded `--pretty` (any value), the internal
  * `--pretty false` shadow is dropped so the user wins on the surface. ttsc's
- * own diagnostic parser will then see pretty-formatted output and fall back
- * to surfacing it verbatim — the RC-2 contract that `--pretty`'s
- * `internalShadow: true` flag in `FLAG_SCHEMA` declares. Without this guard
- * the order in `runTsgo` (internal flags first, passthrough last) would
- * still let the user's `--pretty true` override at the tsgo level, but ttsc
- * would have already committed to a structured-diagnostics post-process
- * that no longer matches the actual output.
+ * own diagnostic parser will then see pretty-formatted output and fall back to
+ * surfacing it verbatim — the RC-2 contract that `--pretty`'s `internalShadow:
+ * true` flag in `FLAG_SCHEMA` declares. Without this guard the order in
+ * `runTsgo` (internal flags first, passthrough last) would still let the user's
+ * `--pretty true` override at the tsgo level, but ttsc would have already
+ * committed to a structured-diagnostics post-process that no longer matches the
+ * actual output.
  */
 function createTsgoDiagnosticArgs(options: TtscCommonOptions): string[] {
   if (options.structuredDiagnostics !== true) return [];
@@ -582,6 +582,7 @@ function createNativeCheckArgs(
     args.push("--quiet");
   }
   args.push(...createNativeCheckThreadingArgs(options, plugin));
+  args.push(...createNativeCheckDiagnosticsArgs(options, plugin));
   args.push(...createNativeTsgoArgs(options));
   return args;
 }
@@ -602,11 +603,11 @@ function createNativeCheckArgs(
 // became a non-measurement. The lint sidecar is built and shipped from this
 // repo, accepts both flags via `parseSubcommandFlags`, and threads them down
 // to `loadProgram` (parse phase) and `engine.SetSerial` (rule walk). The host
-// is identified by name (`@ttsc/lint`) so a third-party check-stage plugin
-// keeps the strict-host behavior from ad3443a; only the host we control gets
-// the bare flag. Transform-stage hosts are never reached by this path
-// (they go through `createNativeBuildArgs`), so the typia/nestia regression
-// remains pinned by `test_plugin_corpus_single_threaded_flag_does_not_break_a_native_plugin_build`.
+// opts in through `capabilities.threadingArgs`, so a third-party check-stage
+// plugin keeps the strict-host behavior from ad3443a unless it declares the
+// same contract. Transform-stage hosts are never reached by this path (they go
+// through `createNativeBuildArgs`), so the typia/nestia regression remains
+// pinned by `test_plugin_corpus_single_threaded_flag_does_not_break_a_native_plugin_build`.
 function createNativeCheckThreadingArgs(
   options: TtscCommonOptions,
   plugin: ITtscLoadedNativePlugin,
@@ -628,21 +629,36 @@ function createNativeCheckThreadingArgs(
  *
  * The lint sidecar (`packages/lint/src/index.ts::createTtscPlugin`) opts in
  * because its `parseSubcommandFlags` handler accepts `--singleThreaded` and
- * `--checkers` directly and threads them into `loadProgram` (parse phase)
- * and `engine.SetSerial` (rule walk). Any other check-stage host that has
- * not declared the capability is treated as a third-party binary whose flag
- * set is unknown, matching the conservative default from commit ad3443a.
+ * `--checkers` directly and threads them into `loadProgram` (parse phase) and
+ * `engine.SetSerial` (rule walk). Any other check-stage host that has not
+ * declared the capability is treated as a third-party binary whose flag set is
+ * unknown, matching the conservative default from commit ad3443a.
  *
- * The capability flag replaces the prior `plugin.name === "@ttsc/lint"`
- * string check: routing on a descriptor field instead of the plugin name
- * lets the next first-party check-stage plugin opt in without ttsc needing
- * to learn its name. See `ITtscPluginCapabilities` and issue #125 for the
- * broader CLI-parser cleanup this is the quick-win step of.
+ * The capability flag replaces the prior `plugin.name === "@ttsc/lint"` string
+ * check: routing on a descriptor field instead of the plugin name lets the next
+ * first-party check-stage plugin opt in without ttsc needing to learn its name.
+ * See `ITtscPluginCapabilities` and issue #125 for the broader CLI-parser
+ * cleanup this is the quick-win step of.
  */
 function nativeHostAcceptsThreadingArgs(
   plugin: ITtscLoadedNativePlugin,
 ): boolean {
   return plugin.capabilities?.threadingArgs === true;
+}
+
+function createNativeCheckDiagnosticsArgs(
+  options: TtscCommonOptions,
+  plugin: ITtscLoadedNativePlugin,
+): string[] {
+  if (!nativeHostAcceptsDiagnosticsTiming(plugin)) return [];
+  if (!hasDiagnosticsFlag(options)) return [];
+  return ["--diagnostics"];
+}
+
+function nativeHostAcceptsDiagnosticsTiming(
+  plugin: ITtscLoadedNativePlugin,
+): boolean {
+  return plugin.capabilities?.diagnosticsTiming === true;
 }
 
 function transformHostTimingLabel(

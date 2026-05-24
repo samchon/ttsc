@@ -22,27 +22,28 @@ single-threaded and default multi-threaded modes.
 Lint is intentionally split out. The legacy path is `tsc + eslint`, two
 separate passes over the project. The `ttsc-lint` path runs `ttsc` with
 `@ttsc/lint` loaded and invokes those cells with `--diagnostics`, so the
-runner parses the `@ttsc/lint` check-sidecar wall time that `ttsc` prints
-instead of deriving lint cost from total-minus-total noise. The chart separates
-that measured sidecar portion from the rest of the compiler run. If the same
-command also runs source transform hosts such as typia or nestia, the chart
-shows that transform-host time as a second compiler segment after the green
-lint segment, because that work is still part of the TypeScript compile path
-rather than ESLint-style lint work. The chart also shows the pure lint-to-lint
-ratio.
+runner parses the lint sidecar's own `@ttsc/lint time` line instead of deriving
+lint cost from total-minus-total noise. The chart separates that measured lint
+portion from the rest of the compiler run. The rest stays blue because
+`@ttsc/lint` also builds a TypeScript-Go Program and reports normal TypeScript
+diagnostics for the project. If the same command also runs source transform
+hosts such as typia or nestia, the chart shows that transform-host time as a
+second compiler segment after the green lint segment, because that work is
+still part of the TypeScript compile path rather than ESLint-style lint work.
+The chart also shows the pure lint-to-lint ratio.
 
-The practical takeaway from this split: **`@ttsc/lint` is measured as the
-native check sidecar that runs inside the `ttsc-lint` command**. That timing is
-the actual plugin process wall clock seen by `ttsc`, not a synthetic
-subtraction against the bare `ttsc` branch. Adding `@ttsc/lint` to a project
-that already runs `ttsc` is roughly free; the win shows up as the eslint column
-disappearing.
+The practical takeaway from this split: **`@ttsc/lint` is measured from the
+single native `@ttsc/lint time` line, not as the whole check sidecar**. The
+sidecar wall clock is still recorded for audit, but it includes compiler work
+that belongs in the blue segment. Adding `@ttsc/lint` to a project that already runs `ttsc` is
+roughly free; the win shows up as the eslint column disappearing.
 
-Older published snapshots did not carry direct plugin timings. When a row lacks
-the parsed `@ttsc/lint` sample, the dashboard falls back to the old estimate:
-`ttsc-lint` total minus the matching plain `ttsc` total. If that fallback lands
-at or below zero for the single-threaded row, the dashboard substitutes a
-synthetic value derived from the fastest available row for the same project:
+Older published snapshots did not carry direct `@ttsc/lint` timings. When a row
+lacks the parsed `@ttsc/lint` sample, the dashboard falls back to the old
+estimate: `ttsc-lint` total minus the matching plain `ttsc` total. If that
+fallback lands at or below zero for the single-threaded row, the dashboard
+substitutes a synthetic value derived from the fastest available row for the
+same project:
 
 ```
 ST_overhead = round(ST_ttsc * (MT_overhead / MT_ttsc))
@@ -62,7 +63,7 @@ being measured.
 The run count is configured by `TTSC_BENCH_RUNS` and `TTSC_BENCH_WARMUP`, and
 the chosen values are recorded in `website/public/benchmark.json` with the
 median, fastest sample, full sample list, retry counts, deterministic failures,
-and, for `ttsc-lint` build/check cells, parsed `@ttsc/lint` sidecar timings. A
+and, for `ttsc-lint` build/check cells, parsed `@ttsc/lint` timings. A
 missing bar means that project does not currently have a valid comparable
 command for that tool.
 

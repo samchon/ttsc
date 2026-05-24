@@ -237,11 +237,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
             />
           ) : null}
           {lint ? (
-            <ProjectLintRows
-              project={lint.project}
-              op="noEmit"
-              title="Lint"
-            />
+            <ProjectLintRows project={lint.project} op="noEmit" title="Lint" />
           ) : null}
           {format ? (
             <ProjectFormatRows project={format.project} title="Format" />
@@ -367,7 +363,7 @@ function LintTab({ report }: { report: BenchmarkReport }) {
         title="Lint Tool Matrix"
         description={
           "Legacy stacks tsc --noEmit plus ESLint; ttsc-lint reports the " +
-          "measured @ttsc/lint sidecar time from ttsc --diagnostics."
+          "measured @ttsc/lint time from ttsc --diagnostics."
         }
         projects={projects}
         op="noEmit"
@@ -592,7 +588,7 @@ function StackedDurationBar({
   const labelTooltip = estimated
     ? [
         `${label} — estimated from total ttsc-lint minus plain ttsc;`,
-        "rerun the benchmark to use direct @ttsc/lint diagnostics timing",
+        "rerun the benchmark to use direct @ttsc/lint timing",
       ].join(" ")
     : label;
 
@@ -801,10 +797,11 @@ function lintRowsForProject(
       ],
     });
 
-  // Newer runs record the @ttsc/lint sidecar and transform-host wall-clock
-  // timings from `ttsc --diagnostics`. Older snapshots only have total
-  // ttsc-lint wall time, so keep the previous total-minus-plain fallback until
-  // the published dataset is refreshed.
+  // Newer runs record the native @ttsc/lint and transform-host wall-clock
+  // timings from `ttsc --diagnostics`. Older snapshots recorded only the whole
+  // @ttsc/lint sidecar, which includes TypeScript diagnostics and makes the
+  // compiler segment look implausibly small, so those rows deliberately fall
+  // back to total-minus-plain until the published dataset is refreshed.
   const ttscByThreading: Partial<
     Record<
       Threading,
@@ -828,8 +825,8 @@ function lintRowsForProject(
     });
     if (!total || !plainTtsc) continue;
     const directLintMs =
-      total.lintMedianMs !== undefined && total.lintMedianMs > 0
-        ? total.lintMedianMs
+      total.lintPluginMedianMs !== undefined && total.lintPluginMedianMs > 0
+        ? total.lintPluginMedianMs
         : undefined;
     ttscByThreading[threading] = {
       directLintTiming: directLintMs !== undefined,
@@ -845,19 +842,14 @@ function lintRowsForProject(
     const current = ttscByThreading[threading];
     if (!current) continue;
 
-    const {
-      directLintTiming,
-      plainMs,
-      totalMs,
-      rawOverhead,
-      transformHostMs,
-    } = current;
+    const { directLintTiming, plainMs, totalMs, rawOverhead, transformHostMs } =
+      current;
     let lintOverheadMs = directLintTiming
       ? Math.max(0, current.lintMs)
       : Math.max(0, rawOverhead);
     const estimated = !directLintTiming;
 
-    // ST fallback: when an older snapshot has no direct sidecar timing and
+    // ST fallback: when a snapshot has no direct @ttsc/lint timing and
     // total-minus-plain lands below the noise floor, synthesize the ST lint
     // cost from `checkers8`'s ratio — the fastest spectrum point and the
     // closest to the former "multi" baseline:
@@ -875,9 +867,7 @@ function lintRowsForProject(
         fastLintMs !== undefined &&
         fastLintMs > 0
       ) {
-        lintOverheadMs = Math.round(
-          plainMs * (fastLintMs / fast.plainMs),
-        );
+        lintOverheadMs = Math.round(plainMs * (fastLintMs / fast.plainMs));
       }
     }
 
@@ -945,11 +935,10 @@ function hasComparableLint(project: BenchmarkProject, op: Operation) {
 }
 
 /**
- * Hero panel: the biggest single speedup across the tab's scope rendered
- * at oversized point size on the left, with the project + cell label
- * underneath. Rendered above Build / Type-check / Lint / Format tabs
- * (NOT the Summary tab — that one's per-project label badges already
- * carry the per-project best).
+ * Hero panel: the biggest single speedup across the tab's scope rendered at
+ * oversized point size on the left, with the project + cell label underneath.
+ * Rendered above Build / Type-check / Lint / Format tabs (NOT the Summary tab —
+ * that one's per-project label badges already carry the per-project best).
  */
 function HeroRatio({
   winner,
@@ -996,7 +985,6 @@ function bestRatio(report: BenchmarkReport): Winner | undefined {
     undefined,
   );
 }
-
 
 function bestOperationProject(
   report: BenchmarkReport,

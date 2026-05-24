@@ -13,7 +13,6 @@
 //
 // Regenerating: the script is idempotent. CI fails when committed output drifts
 // from `schema.ts` — see `scripts/check-flags.cjs`.
-
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -21,9 +20,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   FLAG_SCHEMA,
-  buildGoAllowList,
   type FlagLayer,
   type FlagSpec,
+  buildGoAllowList,
 } from "../src/flags/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -122,9 +121,9 @@ function renderDocsTable(schema: readonly FlagSpec[]): string {
   // linters even though Nextra renders it tolerantly.
   return `{/*
 ${HEADER.trimEnd()
-    .split("\n")
-    .map((line) => line.replace(/^\/\/ ?/, ""))
-    .join("\n")}
+  .split("\n")
+  .map((line) => line.replace(/^\/\/ ?/, ""))
+  .join("\n")}
 */}
 
 # ttsc & ttsx CLI flags
@@ -151,9 +150,9 @@ ${rows}
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes — \`terminal\` (the flag asks tsgo
   to print and exit), \`shadow\` (ttsc adds the flag internally; post-
-  processing must not eat a user-forwarded copy), and
-  \`capability: threadingArgs\` (the flag is delivered to native check-stage
-  hosts that opt in via \`ITtscPluginCapabilities.threadingArgs\`).
+  processing must not eat a user-forwarded copy), and \`capability: ...\`
+  (the flag is delivered to native check-stage hosts that opt in via the
+  matching \`ITtscPluginCapabilities\` field).
 
 Unknown \`-\`-prefixed flags are forwarded to tsgo without registration in
 the schema, so adding a flag is only needed for flags ttsc itself consumes,

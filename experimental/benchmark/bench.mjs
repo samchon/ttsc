@@ -30,8 +30,8 @@
  * Pass `--verbose` to surface everything — child stdio is teed live, and the
  * granular `[cmd] start/done`, `[step] start/done`, and `[timer] start` traces
  * are added back. This is the mode intended for AI/agent runs that need the
- * full command transcript for diagnosis; a human watching live progress
- * usually wants the default.
+ * full command transcript for diagnosis; a human watching live progress usually
+ * wants the default.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -63,6 +63,9 @@ const REPORT_JSON = OUT.replace(/\.md$/, ".json");
 const CHECKPOINT_JSON =
   process.env.TTSC_BENCH_CHECKPOINT ??
   path.resolve(WORK, "benchmark.checkpoint.json");
+const TSCONFIG_FILES = quote(
+  path.join(import.meta.dirname, "tsconfig-files.mjs"),
+);
 
 const RUNS = numberEnv("TTSC_BENCH_RUNS", 5);
 const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
@@ -115,9 +118,13 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint 'packages/*/src/**/*.ts'"],
+      eslint: [
+        `pnpm exec eslint --no-ignore ${tsconfigFiles("tsconfig.json")}`,
+      ],
       format: {
-        legacy: ["pnpm exec prettier --check 'packages/*/src/**/*.ts'"],
+        legacy: [
+          `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
+        ],
         ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
       },
     }),
@@ -146,22 +153,22 @@ const PACKAGE_CONFIGS = {
       eslint: [
         {
           cwd: "packages/observable",
-          cmd: "yarn --ignore-engines exec eslint -- 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
+          cmd: `yarn --ignore-engines exec eslint --no-ignore ${tsconfigFiles("tsconfig.json")}`,
         },
         {
           cwd: "packages/rxjs",
-          cmd: "yarn --ignore-engines exec eslint -- 'src/**/*.ts' --ignore-pattern '**/*.d.ts'",
+          cmd: `yarn --ignore-engines exec eslint --no-ignore ${tsconfigFiles(rxjsSourceTsconfigs())}`,
         },
       ],
       format: {
         legacy: [
           {
             cwd: "packages/observable",
-            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+            cmd: `yarn --ignore-engines exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
           },
           {
             cwd: "packages/rxjs",
-            cmd: "yarn --ignore-engines exec prettier -- --check 'src/**/*.ts'",
+            cmd: `yarn --ignore-engines exec prettier --check --ignore-path /dev/null ${tsconfigFiles(rxjsSourceTsconfigs())}`,
           },
         ],
         ttscLint: [
@@ -171,7 +178,15 @@ const PACKAGE_CONFIGS = {
           },
           {
             cwd: "packages/rxjs",
-            cmd: "yarn --ignore-engines exec ttsc -- format -p tsconfig.json",
+            cmd: "yarn --ignore-engines exec ttsc -- format -p ./src/tsconfig.cjs.json",
+          },
+          {
+            cwd: "packages/rxjs",
+            cmd: "yarn --ignore-engines exec ttsc -- format -p ./src/tsconfig.esm.json",
+          },
+          {
+            cwd: "packages/rxjs",
+            cmd: "yarn --ignore-engines exec ttsc -- format -p ./src/tsconfig.types.json",
           },
         ],
       },
@@ -196,9 +211,13 @@ const PACKAGE_CONFIGS = {
           env: { NODE_OPTIONS: "--max-old-space-size=6144" },
         },
       ],
-      eslint: ["pnpm exec eslint 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts' --quiet"],
+      eslint: [
+        `pnpm exec eslint --no-ignore --quiet ${tsconfigFiles("tsconfig.json")}`,
+      ],
       format: {
-        legacy: ["pnpm exec prettier --check 'index.d.ts' 'source/**/*.d.ts' 'test-d/**/*.ts'"],
+        legacy: [
+          `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
+        ],
         ttscLint: [
           {
             cmd: "pnpm exec ttsc format -p tsconfig.json",
@@ -222,10 +241,12 @@ const PACKAGE_CONFIGS = {
     commands: compilerCommands({
       build: (tool) => [`pnpm exec ${tool} -p tsconfig.json`],
       noEmit: (tool) => [`pnpm exec ${tool} -p tsconfig.json --noEmit`],
-      eslint: ["pnpm exec eslint 'src/**/*.ts' 'test/**/*.ts' '*.ts' --quiet"],
+      eslint: [
+        `pnpm exec eslint --no-ignore --quiet ${tsconfigFiles("tsconfig.json")}`,
+      ],
       format: {
         legacy: [
-          "pnpm exec prettier --check 'src/**/*.ts' 'test/**/*.ts' '*.ts'",
+          `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
         ],
         ttscLint: ["pnpm exec ttsc format -p tsconfig.json"],
       },
@@ -250,23 +271,23 @@ const PACKAGE_CONFIGS = {
           cmd: `pnpm exec ${tool} -p tsconfig.json --noEmit`,
         },
       ],
-      eslint: ["pnpm exec eslint ."],
+      eslint: [
+        {
+          cwd: "packages/zod",
+          cmd: `pnpm exec eslint --no-ignore ${tsconfigFiles("tsconfig.json")}`,
+        },
+      ],
       format: {
         legacy: [
           {
             cwd: "packages/zod",
-            cmd:
-              "pnpm exec prettier --check 'src/**/*.ts'" +
-              " --ignore-pattern 'src/**/tests/**'" +
-              " --ignore-pattern 'src/**/benchmarks/**'" +
-              " --ignore-pattern 'src/**/*.test.ts'" +
-              " --ignore-pattern 'src/**/*.source.ts'",
+            cmd: `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
           },
         ],
         ttscLint: [
           {
             cwd: "packages/zod",
-            cmd: "pnpm exec ttsc format -p tsconfig.build.json",
+            cmd: "pnpm exec ttsc format -p tsconfig.json",
           },
         ],
       },
@@ -303,9 +324,13 @@ const PACKAGE_CONFIGS = {
           env: { NODE_OPTIONS: "--max-old-space-size=8192" },
         },
       ],
-      eslint: ["./node_modules/.bin/eslint src --quiet"],
+      eslint: [
+        `./node_modules/.bin/eslint --no-ignore --quiet ${tsconfigFiles("src/tsconfig.json")}`,
+      ],
       format: {
-        legacy: ["./node_modules/.bin/prettier --check 'src/**/*.ts'"],
+        legacy: [
+          `./node_modules/.bin/prettier --check --ignore-path /dev/null ${tsconfigFiles("src/tsconfig.json")}`,
+        ],
         ttscLint: [
           {
             cmd: "./node_modules/.bin/ttsc format -p src/tsconfig.json",
@@ -321,12 +346,26 @@ const PACKAGE_CONFIGS = {
     repo: "https://github.com/samchon/shopping-backend.git",
     packageManager: "pnpm",
     filesRoot: "src",
+    installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile",
+    installTarballsCommand: (specs) =>
+      `pnpm add -w -D --ignore-scripts --config.minimumReleaseAge=0 ${specs}`,
+    prerequisites: normalizeSteps([
+      {
+        cmd: "pnpm run build:prisma",
+        env: { TS_NODE_TRANSPILE_ONLY: "1" },
+      },
+    ]),
+    cleanExcludes: [".env", "src/prisma", "src/prisma/**"],
     commands: {
       legacy: {
         build: normalizeSteps(["pnpm exec tsc -p tsconfig.json"]),
         noEmit: normalizeSteps(["pnpm exec tsc -p tsconfig.json --noEmit"]),
-        eslint: normalizeSteps(["pnpm exec eslint 'src/**/*.ts'"]),
-        format: normalizeSteps(["pnpm exec prettier --check 'src/**/*.ts'"]),
+        eslint: normalizeSteps([
+          `pnpm exec eslint --no-ignore ${tsconfigFiles("tsconfig.json")}`,
+        ]),
+        format: normalizeSteps([
+          `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
+        ]),
       },
       ttsc: {
         build: normalizeSteps(["pnpm exec ttsc -p tsconfig.json"]),
@@ -486,41 +525,38 @@ function compilerCommands({ build, noEmit, eslint, format }) {
 }
 
 function rxjsNoEmitSteps(tool) {
-  return [
-    "./src/tsconfig.cjs.json",
-    "./src/tsconfig.esm.json",
-    "./src/tsconfig.types.json",
-  ].map((config) => ({
+  return rxjsSourceTsconfigs().map((config) => ({
     cwd: "packages/rxjs",
     cmd: `yarn --ignore-engines exec ${tool} -- -p ${config} --noEmit`,
   }));
 }
 
 function rxjsBuildSteps(tool) {
-  return [
-    "./src/tsconfig.cjs.json",
-    "./src/tsconfig.esm.json",
-    "./src/tsconfig.types.json",
-  ].map((config) => ({
+  return rxjsSourceTsconfigs().map((config) => ({
     cwd: "packages/rxjs",
     cmd: `yarn --ignore-engines exec ${tool} -- -p ${config}`,
   }));
 }
 
+function rxjsSourceTsconfigs() {
+  return [
+    "./src/tsconfig.cjs.json",
+    "./src/tsconfig.esm.json",
+    "./src/tsconfig.types.json",
+  ];
+}
+
 function nestjsCommands() {
+  const configs = nestjsPackageTsconfigs();
   return {
     legacy: {
       build: normalizeSteps(nestjsPackageSteps("tsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("tsc", true)),
       eslint: normalizeSteps([
-        "npm exec -- eslint 'packages/**/**.ts' --ignore-pattern 'packages/**/*.spec.ts' --ignore-pattern '**/test/**' --ignore-pattern 'integration/**' --ignore-pattern 'sample/**'",
+        `npm exec -- eslint --no-ignore ${tsconfigFiles(configs)}`,
       ]),
       format: normalizeSteps([
-        "npm exec -- prettier --check 'packages/**/*.ts'" +
-          " --ignore-pattern '**/test/**'" +
-          " --ignore-pattern '**/*.spec.ts'" +
-          " --ignore-pattern '**/dist/**'" +
-          " --ignore-path .prettierignore",
+        `npm exec -- prettier --check --ignore-path /dev/null ${tsconfigFiles(configs)}`,
       ]),
     },
     ttsc: {
@@ -543,7 +579,13 @@ function nestjsCommands() {
 }
 
 function nestjsPackageSteps(tool, noEmit) {
-  const packages = [
+  return nestjsPackageTsconfigs().map((config) => ({
+    cmd: `npm exec -- ${tool} -p ${config}` + (noEmit ? " --noEmit" : ""),
+  }));
+}
+
+function nestjsPackageTsconfigs() {
+  return [
     "common",
     "core",
     "microservices",
@@ -553,12 +595,13 @@ function nestjsPackageSteps(tool, noEmit) {
     "platform-ws",
     "testing",
     "websockets",
-  ];
-  return packages.map((pkg) => ({
-    cmd:
-      `npm exec -- ${tool} -p packages/${pkg}/tsconfig.build.json` +
-      (noEmit ? " --noEmit" : ""),
-  }));
+  ].map((pkg) => `packages/${pkg}/tsconfig.build.json`);
+}
+
+function tsconfigFiles(projects) {
+  const list = Array.isArray(projects) ? projects : [projects];
+  const args = list.map((project) => `-p ${quote(project)}`).join(" ");
+  return `$(node ${TSCONFIG_FILES} ${args} --shell)`;
 }
 
 function normalizeSteps(value) {
@@ -714,8 +757,13 @@ function isLintOp(op) {
   return op === "build" || op === "noEmit";
 }
 
-function parseTtscLintTimingMs(log) {
+function parseTtscLintSidecarTimingMs(log) {
   const pattern = /^ttsc check plugin @ttsc\/lint time:\s*([0-9.]+)s\s*$/gm;
+  return parseSummedTimingMs(log, pattern);
+}
+
+function parseTtscLintPluginTimingMs(log) {
+  const pattern = /^@ttsc\/lint time:\s*([0-9.]+)s\s*$/gm;
   return parseSummedTimingMs(log, pattern);
 }
 
@@ -791,6 +839,7 @@ function setupClone(project, branch) {
         label: `checkout ${project.repoName}@${branch}`,
       });
     }
+    cleanupBenchmarkWorktree(dir, project);
 
     if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
 
@@ -821,6 +870,7 @@ function setupClone(project, branch) {
         `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
       );
       sh(step.cmd, path.resolve(dir, step.cwd ?? "."), {
+        env: step.env ? { ...process.env, ...step.env } : process.env,
         quiet: true,
         label: `prerequisite ${project.repoName}@${branch}`,
       });
@@ -847,13 +897,25 @@ function installIfNeeded(project, dir, branch) {
     const cmd =
       project.installCommand ??
       (pm === "pnpm"
-        ? pnpmProjectCommand(dir, "install --no-frozen-lockfile")
+        ? pnpmProjectCommand(
+            dir,
+            "install --no-frozen-lockfile --config.minimumReleaseAge=0",
+          )
         : pm === "yarn"
           ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
           : "npm install --legacy-peer-deps");
     if (!hasNodeModules || flags.has("--force-install")) {
       process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
-      sh(cmd, dir, { label: `install dependencies ${path.basename(dir)}` });
+      const install = () =>
+        sh(cmd, dir, { label: `install dependencies ${path.basename(dir)}` });
+      if (mustRefreshTarballs) {
+        withDependencyFileSnapshot(dir, () => {
+          scrubLocalTarballInstallState(dir, localTarballTargets(branch));
+          install();
+        });
+      } else {
+        install();
+      }
     } else {
       process.stdout.write(
         `Reusing installed node_modules in ${path.basename(dir)}\n`,
@@ -1128,7 +1190,7 @@ function linkPackageBins(packageDir, nodeModules) {
 function hasTsgoCells(project) {
   return Boolean(
     project.commands.ttsc?.tsgoBuild?.length ||
-      project.commands.ttsc?.tsgoNoEmit?.length,
+    project.commands.ttsc?.tsgoNoEmit?.length,
   );
 }
 
@@ -1187,17 +1249,14 @@ function singleThreadedSteps(steps) {
 }
 
 /**
- * Append `--checkers N` to every ttsc/tsgo step in the cell. Used to sweep
- * the checker-pool size axis (2 / 4 / 8) replacing the previous binary
- * single/multi axis. Parse and the lint engine still run with the host's
- * full CPU count; only the type-checker pool is capped.
+ * Append `--checkers N` to every ttsc/tsgo step in the cell. Used to sweep the
+ * checker-pool size axis (2 / 4 / 8) replacing the previous binary single/multi
+ * axis. Parse and the lint engine still run with the host's full CPU count;
+ * only the type-checker pool is capped.
  */
 function checkersSteps(steps, n) {
   return steps.map((step) => {
-    if (
-      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
-      /--checkers\b/.test(step.cmd)
-    ) {
+    if (!/\b(?:ttsc|tsgo)\b/.test(step.cmd) || /--checkers\b/.test(step.cmd)) {
       return step;
     }
     return { ...step, cmd: `${step.cmd} --checkers ${n}` };
@@ -1217,16 +1276,15 @@ function diagnosticsSteps(steps) {
 }
 
 /**
- * Threading variants the bench measures for every ttsc / ttsc-lint /
- * ttsc:tsgo cell. Order is the spec the user asked for: serial baseline
- * first, then the 2/4/8 checker-pool sweep, so the dashboard rows read
- * left-to-right as `single → checkers2 → checkers4 → checkers8`.
+ * Threading variants the bench measures for every ttsc / ttsc-lint / ttsc:tsgo
+ * cell. Order is the spec the user asked for: serial baseline first, then the
+ * 2/4/8 checker-pool sweep, so the dashboard rows read left-to-right as `single
+ * → checkers2 → checkers4 → checkers8`.
  *
- * Returned by a function rather than a top-level `const` so the call
- * sites (`projectCells`, invoked from `main()` near the top of the
- * file) hit a defined value — top-level statements run top-to-bottom,
- * and `main();` is at line ~414 while the variant helpers below sit
- * past line 1000.
+ * Returned by a function rather than a top-level `const` so the call sites
+ * (`projectCells`, invoked from `main()` near the top of the file) hit a
+ * defined value — top-level statements run top-to-bottom, and `main();` is at
+ * line ~414 while the variant helpers below sit past line 1000.
  */
 function threadingVariants() {
   return [
@@ -1253,9 +1311,10 @@ function formatThreadingVariants() {
 function measureCell({ id, project, branch, tool, op, threading, steps }) {
   const root = cloneDir(project, branch);
   process.stdout.write(`\n[${id}] ${RUNS} runs\n`);
-  assertCleanBenchmarkWorktree(root, id);
+  assertCleanBenchmarkWorktree(root, id, project);
+  cleanupBenchmarkWorktree(root, project);
 
-  const run = () => runBenchmarkSteps(steps, root);
+  const run = () => runBenchmarkSteps(steps, root, project);
   const capturesLintTiming = branch === "ttsc-lint" && isLintOp(op);
 
   for (let i = 0; i < WARMUP; i++) {
@@ -1280,7 +1339,8 @@ function measureCell({ id, project, branch, tool, op, threading, steps }) {
   }
 
   const samples = [];
-  const lintSamples = [];
+  const lintSidecarSamples = [];
+  const lintPluginSamples = [];
   const transformHostSamples = [];
   let raceRetries = 0;
   let deterministic = null;
@@ -1302,8 +1362,10 @@ function measureCell({ id, project, branch, tool, op, threading, steps }) {
     }
     samples.push(result.ms);
     if (capturesLintTiming) {
-      const lintMs = parseTtscLintTimingMs(result.log);
-      if (lintMs !== undefined) lintSamples.push(lintMs);
+      const lintSidecarMs = parseTtscLintSidecarTimingMs(result.log);
+      if (lintSidecarMs !== undefined) lintSidecarSamples.push(lintSidecarMs);
+      const lintPluginMs = parseTtscLintPluginTimingMs(result.log);
+      if (lintPluginMs !== undefined) lintPluginSamples.push(lintPluginMs);
       const transformHostMs = parseTtscTransformHostTimingMs(result.log);
       if (transformHostMs !== undefined) {
         transformHostSamples.push(transformHostMs);
@@ -1336,10 +1398,15 @@ function measureCell({ id, project, branch, tool, op, threading, steps }) {
     samples,
     raceRetries: raceRetries || undefined,
   };
-  if (capturesLintTiming && lintSamples.length !== 0) {
-    measured.lintMedianMs = median(lintSamples);
-    measured.lintMinMs = Math.min(...lintSamples);
-    measured.lintSamples = lintSamples;
+  if (capturesLintTiming && lintSidecarSamples.length !== 0) {
+    measured.lintMedianMs = median(lintSidecarSamples);
+    measured.lintMinMs = Math.min(...lintSidecarSamples);
+    measured.lintSamples = lintSidecarSamples;
+  }
+  if (capturesLintTiming && lintPluginSamples.length !== 0) {
+    measured.lintPluginMedianMs = median(lintPluginSamples);
+    measured.lintPluginMinMs = Math.min(...lintPluginSamples);
+    measured.lintPluginSamples = lintPluginSamples;
   }
   if (capturesLintTiming && transformHostSamples.length !== 0) {
     measured.transformHostMedianMs = median(transformHostSamples);
@@ -1349,45 +1416,86 @@ function measureCell({ id, project, branch, tool, op, threading, steps }) {
   return measured;
 }
 
-function runBenchmarkSteps(steps, root) {
+function runBenchmarkSteps(steps, root, project) {
   try {
     return runSteps(steps, root);
   } finally {
-    cleanupBenchmarkWorktree(root);
+    cleanupBenchmarkWorktree(root, project);
   }
 }
 
-function assertCleanBenchmarkWorktree(root, id) {
-  const status = benchmarkWorktreeStatus(root);
+function assertCleanBenchmarkWorktree(root, id, project) {
+  const status = benchmarkWorktreeStatus(root, project);
   if (!status.trim()) return;
   throw new Error(
     `${id} cannot start from a dirty benchmark worktree: ${root}\n${status}`,
   );
 }
 
-function cleanupBenchmarkWorktree(root) {
-  const status = benchmarkWorktreeStatus(root);
-  if (!status.trim()) return;
+function cleanupBenchmarkWorktree(root, project) {
   sh("git restore --worktree .", root, {
     quiet: true,
     timing: false,
     label: `restore benchmark worktree ${path.basename(root)}`,
   });
-  sh("git clean -fd", root, {
-    quiet: true,
-    timing: false,
-    label: `clean benchmark worktree ${path.basename(root)}`,
-  });
+  const excludes = [
+    "node_modules",
+    "**/node_modules",
+    ".yarn-cache",
+    ".pnpm-store",
+    ".husky/_",
+    "**/.husky/_",
+    ...(project?.cleanExcludes ?? []),
+  ];
+  sh(
+    `git clean -fdx ${excludes.map((pattern) => `-e ${quote(pattern)}`).join(" ")}`,
+    root,
+    {
+      quiet: true,
+      timing: false,
+      label: `clean benchmark worktree ${path.basename(root)}`,
+    },
+  );
 }
 
-function benchmarkWorktreeStatus(root) {
-  return (
+function benchmarkWorktreeStatus(root, project) {
+  const status =
     sh("git status --short --untracked-files=normal", root, {
       quiet: true,
       check: false,
       timing: false,
-    }).stdout ?? ""
-  );
+    }).stdout ?? "";
+  return status
+    .split("\n")
+    .filter((line) => line && !isAllowedBenchmarkDirtyLine(line, project))
+    .join("\n");
+}
+
+function isAllowedBenchmarkDirtyLine(line, project) {
+  const pathText = line.slice(3).trim();
+  const paths = pathText.includes(" -> ")
+    ? pathText.split(" -> ").map((part) => part.trim())
+    : [pathText];
+  return paths.every((file) => isAllowedBenchmarkDirtyPath(file, project));
+}
+
+function isAllowedBenchmarkDirtyPath(file, project) {
+  const path = file.replace(/^"|"$/g, "").replace(/\/$/, "");
+  const allowed = [
+    "node_modules",
+    ".yarn-cache",
+    ".pnpm-store",
+    ".husky/_",
+    ...(project?.cleanExcludes ?? []),
+  ];
+  return allowed.some((pattern) => matchesBenchmarkDirtyPath(path, pattern));
+}
+
+function matchesBenchmarkDirtyPath(path, pattern) {
+  const normalized = pattern.replace(/\/\*\*$/, "").replace(/\/$/, "");
+  if (normalized === "**/node_modules") return path.includes("node_modules");
+  if (normalized === "**/.husky/_") return path.endsWith(".husky/_");
+  return path === normalized || path.startsWith(`${normalized}/`);
 }
 
 function failedMeasurement(
@@ -1580,13 +1688,14 @@ function buildMarkdown(report) {
     lines.push(`## ${project.name}`);
     lines.push("");
     lines.push(
-      "| Branch | Op | Threading | Median | @ttsc/lint | Transform host | Samples | Failure |",
+      "| Branch | Op | Threading | Median | @ttsc/lint sidecar | @ttsc/lint | Transform host | Samples | Failure |",
     );
-    lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
+    lines.push("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
     for (const m of project.measurements) {
       lines.push(
         `| ${m.branch} | ${m.op} | ${m.threading} | ${formatMs(m.medianMs)} | ` +
           `${formatMs(m.lintMedianMs ?? 0)} | ` +
+          `${formatMs(m.lintPluginMedianMs ?? 0)} | ` +
           `${formatMs(m.transformHostMedianMs ?? 0)} | ` +
           `${m.samples?.map((s) => s.toFixed(0)).join(", ") || "-"} | ` +
           `${m.failure ?? ""} |`,

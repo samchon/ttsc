@@ -9,19 +9,31 @@
  * silently dropping the flag for anything else.
  *
  * Every field is optional and defaults to `false`. Plugin authors opt in by
- * setting only the capabilities their sidecar actually implements; ttsc
- * keeps the conservative default for everything else.
+ * setting only the capabilities their sidecar actually implements; ttsc keeps
+ * the conservative default for everything else.
  */
 export interface ITtscPluginCapabilities {
   /**
-   * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
-   * command line. The lint sidecar parses both flags via
-   * `parseSubcommandFlags` and threads them into `loadProgram` (parse phase)
-   * and `engine.SetSerial` (rule walk); other check-stage hosts may not.
+   * Whether the sidecar accepts `--diagnostics` and `--extendedDiagnostics` on
+   * its command line and may print plugin-owned timing detail to stdout.
    *
-   * When `false` (the default), ttsc strips both flags from the sidecar's
-   * arg list — the conservative behavior that ad3443a restored after
-   * `#113` over-forwarded them to typia/nestia hosts.
+   * When `false` (the default), ttsc keeps diagnostics flags out of native
+   * sidecar argv so older strict hosts do not reject them. The ttsc launcher
+   * still records the coarse sidecar wall-clock timing itself.
+   *
+   * @default false
+   */
+  diagnosticsTiming?: boolean;
+
+  /**
+   * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
+   * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
+   * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`
+   * (rule walk); other check-stage hosts may not.
+   *
+   * When `false` (the default), ttsc strips both flags from the sidecar's arg
+   * list — the conservative behavior that ad3443a restored after `#113`
+   * over-forwarded them to typia/nestia hosts.
    *
    * @default false
    */

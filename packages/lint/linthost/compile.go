@@ -21,6 +21,7 @@ import (
   "os"
   "path/filepath"
   "strings"
+  "time"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -63,6 +64,8 @@ func RunTransform(args []string) int {
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
+  _ = fs.Bool("diagnostics", false, "print @ttsc/lint diagnostics timing")
+  _ = fs.Bool("extendedDiagnostics", false, "print @ttsc/lint diagnostics timing")
   if err := fs.Parse(filterKnownFlags(args, LintFlagAllowList)); err != nil {
     return 2
   }
@@ -171,6 +174,7 @@ type subcommandOpts struct {
   noEmit         bool
   quiet          bool
   verbose        bool
+  diagnostics    bool
   outDir         string
   singleThreaded bool
   checkers       int
@@ -190,6 +194,8 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   noEmit := fs.Bool("noEmit", false, "")
   quiet := fs.Bool("quiet", false, "")
   verbose := fs.Bool("verbose", false, "")
+  diagnostics := fs.Bool("diagnostics", false, "")
+  extendedDiagnostics := fs.Bool("extendedDiagnostics", false, "")
   outDir := fs.String("outDir", "", "")
   singleThreaded := fs.Bool("singleThreaded", false, "")
   checkers := fs.Int("checkers", 0, "")
@@ -216,6 +222,7 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
     noEmit:         *noEmit,
     quiet:          *quiet,
     verbose:        *verbose,
+    diagnostics:    *diagnostics || *extendedDiagnostics,
     outDir:         *outDir,
     singleThreaded: *singleThreaded,
     checkers:       *checkers,
@@ -268,11 +275,12 @@ func runProject(opts *subcommandOpts) int {
   }
   defer prog.close()
 
-  astDiags, lintDiags, err := collectDiagnostics(prog, engine)
+  astDiags, lintDiags, diagnosticsTiming, err := collectDiagnosticsTimed(prog, engine)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
+  printLintDiagnosticsTiming(os.Stdout, opts.diagnostics, diagnosticsTiming)
   warnUnknownRules(os.Stderr, engine.UnknownRules())
   if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
     return 2
@@ -373,9 +381,21 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
 // engine's findings. The renderer takes the two slices and walks them in
 // source order, so we don't need to interleave here.
 func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, error) {
+  astDiags, lintDiags, _, err := collectDiagnosticsTimed(prog, engine)
+  return astDiags, lintDiags, err
+}
+
+type lintDiagnosticsTiming struct {
+  lint time.Duration
+}
+
+func collectDiagnosticsTimed(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, lintDiagnosticsTiming, error) {
+  timing := lintDiagnosticsTiming{}
   astDiags := prog.programDiagnostics()
   files := prog.userSourceFiles()
+  lintStarted := time.Now()
   findings := engine.Run(files, prog.checker)
+  timing.lint = time.Since(lintStarted)
   nativeDiags := make([]*shimdw.LintDiagnostic, 0, len(findings))
   for _, finding := range findings {
     category := shimdw.LintCategoryError
@@ -391,7 +411,18 @@ func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, [
       fmt.Sprintf("[%s] %s", finding.Rule, finding.Message),
     ))
   }
-  return astDiags, nativeDiags, nil
+  return astDiags, nativeDiags, timing, nil
+}
+
+func printLintDiagnosticsTiming(w io.Writer, enabled bool, timing lintDiagnosticsTiming) {
+  if !enabled {
+    return
+  }
+  fmt.Fprintf(w, "@ttsc/lint time: %s\n", formatTimingSeconds(timing.lint))
+}
+
+func formatTimingSeconds(duration time.Duration) string {
+  return fmt.Sprintf("%.3fs", duration.Seconds())
 }
 
 // RuleCode hashes a rule name into a stable, positive int32 so the

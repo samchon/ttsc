@@ -13,6 +13,12 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
   if stmt == nil || stmt.DeclarationList == nil {
     return
   }
+  if ctx.File != nil && ctx.File.IsDeclarationFile {
+    return
+  }
+  if node.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
+    return
+  }
   if shimast.IsVar(stmt.DeclarationList) {
     start := keywordStart(ctx.File, stmt.DeclarationList, "var")
     if start >= 0 {

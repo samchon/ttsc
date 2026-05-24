@@ -183,7 +183,11 @@ In practice: `driver.LoadProgram` is the right choice for *third-party* plugins,
 
 **For your own plugin, ignore this complication.** Call `driver.LoadProgram` directly; the doc-comment caveat does not apply to plugins built and consumed outside this repo.
 
-**`userSourceFiles` filters declaration files.** Every lint pass walks user code, never `*.d.ts`. The driver does the same filtering, but `host.go` re-implements it because `*program` (lowercase, package-private) does not expose `*driver.Program`'s convenience methods.
+**`userSourceFiles` follows tsconfig roots.** Every lint pass walks the TS/JS
+source roots from `parsedConfig.fileNames`, including user-authored `*.d.ts`
+files. Imported implementation files, library declarations, generated output,
+and JSON modules may still appear in `Program.SourceFiles()`, so `host.go`
+filters them before lint and format run.
 
 ## Subcommand orchestration (`linthost/compile.go`)
 

@@ -38,8 +38,8 @@ one layer and silently disappears at the next boundary.
 | `--no-plugins` | — | boolean | ttsx | launcher | consumed-not-forwarded | Build the project without ttsc plugins (ttsx). |
 | `--listEmittedFiles` | — | boolean | ttsc, build, check | runBuild, tsgo | shadow | Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded). |
 | `--pretty` | — | value | ttsc, ttsx, build, check, fix, format | tsgo | shadow | Toggle tsgo pretty-printed diagnostics (forwarded to tsgo). |
-| `--diagnostics` | — | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo | — | Print compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
-| `--extendedDiagnostics` | — | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo | — | Print detailed compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
+| `--diagnostics` | — | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo, lint | capability: diagnosticsTiming | Print compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
+| `--extendedDiagnostics` | — | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo, lint | capability: diagnosticsTiming | Print detailed compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
 | `--showConfig` | — | boolean | ttsc, build, check | tsgo | terminal | Print the resolved tsconfig and exit (forwarded to tsgo). |
 | `--listFilesOnly` | — | boolean | ttsc, build, check | tsgo | terminal | Print the project file list and exit (forwarded to tsgo). |
 | `--all` | — | boolean | ttsc, build, check | tsgo | terminal | Print the full tsgo CLI help and exit. |
@@ -59,9 +59,9 @@ one layer and silently disappears at the next boundary.
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes — `terminal` (the flag asks tsgo
   to print and exit), `shadow` (ttsc adds the flag internally; post-
-  processing must not eat a user-forwarded copy), and
-  `capability: threadingArgs` (the flag is delivered to native check-stage
-  hosts that opt in via `ITtscPluginCapabilities.threadingArgs`).
+  processing must not eat a user-forwarded copy), and `capability: ...`
+  (the flag is delivered to native check-stage hosts that opt in via the
+  matching `ITtscPluginCapabilities` field).
 
 Unknown `-`-prefixed flags are forwarded to tsgo without registration in
 the schema, so adding a flag is only needed for flags ttsc itself consumes,

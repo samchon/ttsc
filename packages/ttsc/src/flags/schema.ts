@@ -33,8 +33,8 @@ export type TtscSubcommand =
   | "clean";
 
 /**
- * Subcommands the ttsx CLI dispatches to. ttsx exposes a single lane today
- * but the schema mirrors ttsc's shape so future subcommands plug in without a
+ * Subcommands the ttsx CLI dispatches to. ttsx exposes a single lane today but
+ * the schema mirrors ttsc's shape so future subcommands plug in without a
  * second engine.
  */
 export type TtsxSubcommand = "ttsx";
@@ -44,7 +44,7 @@ export type AnySubcommand = TtscSubcommand | TtsxSubcommand;
 /**
  * Layers a flag can be consumed by. The order reflects the runtime pipeline:
  *
- *   launcher → runBuild → tsgo / native sidecars (host, lint).
+ * Launcher → runBuild → tsgo / native sidecars (host, lint).
  *
  * A flag must declare at least one consumer. `forwardTo` declares where the
  * flag travels when the consuming layer does not absorb it (e.g. ttsc-owned
@@ -60,19 +60,18 @@ export type FlagLayer =
 /**
  * Argument shape of a flag.
  *
- *   * `boolean`        — `--flag` / `--flag=true` / `--flag=false`. No value
- *                        token is consumed.
- *   * `value`          — `--flag value` or `--flag=value`. Required value.
- *   * `valueOptional`  — `--flag` standalone is allowed; if followed by a
- *                        non-flag token that token is consumed as the value.
- *                        (Currently unused — declared for future flags like
- *                        `--watch [path]`.)
+ * - `boolean` — `--flag` / `--flag=true` / `--flag=false`. No value token is
+ *   consumed.
+ * - `value` — `--flag value` or `--flag=value`. Required value.
+ * - `valueOptional` — `--flag` standalone is allowed; if followed by a non-flag
+ *   token that token is consumed as the value. (Currently unused — declared for
+ *   future flags like `--watch [path]`.)
  */
 export type FlagKind = "boolean" | "value" | "valueOptional";
 
 /**
- * Validation predicate for `value`-kind flags. `none` is the default
- * (accept any string).
+ * Validation predicate for `value`-kind flags. `none` is the default (accept
+ * any string).
  */
 export type ValueValidator = "none" | "positiveInt";
 
@@ -91,8 +90,8 @@ export interface FlagSpec {
   readonly name: string;
 
   /**
-   * Alternative spellings (`"-p"`, `"--project"` for `--tsconfig`). The
-   * parsing engine treats every alias as an equivalent of `name`.
+   * Alternative spellings (`"-p"`, `"--project"` for `--tsconfig`). The parsing
+   * engine treats every alias as an equivalent of `name`.
    */
   readonly aliases?: readonly string[];
 
@@ -115,10 +114,10 @@ export interface FlagSpec {
   readonly consumedBy: readonly FlagLayer[];
 
   /**
-   * Where the flag travels when the consuming layer does not absorb it.
-   * Default for any flag a layer does not consume is `"tsgo"` — i.e. the
-   * launcher forwards an unknown flag to tsgo via passthrough. Setting this
-   * to `undefined` while `consumedBy: ["launcher"]` is set means the flag is
+   * Where the flag travels when the consuming layer does not absorb it. Default
+   * for any flag a layer does not consume is `"tsgo"` — i.e. the launcher
+   * forwards an unknown flag to tsgo via passthrough. Setting this to
+   * `undefined` while `consumedBy: ["launcher"]` is set means the flag is
    * intentionally consumed-not-forwarded (e.g. ttsc-internal `--binary`).
    */
   readonly forwardTo?: FlagLayer;
@@ -132,41 +131,41 @@ export interface FlagSpec {
   readonly terminal?: boolean;
 
   /**
-   * `true` when ttsc may add this flag to tsgo internally and post-process
-   * the output. If the user also forwards the same flag, ttsc keeps the
-   * user-visible behaviour (no double-print, no swallowed output). The
-   * shadow check is structural rather than `passthrough.includes("…")`.
+   * `true` when ttsc may add this flag to tsgo internally and post-process the
+   * output. If the user also forwards the same flag, ttsc keeps the
+   * user-visible behaviour (no double-print, no swallowed output). The shadow
+   * check is structural rather than `passthrough.includes("…")`.
    *
    * Currently true for `--listEmittedFiles`, `--noEmit`, `--pretty`.
    */
   readonly internalShadow?: boolean;
 
   /**
-   * Reserved for future use: native hosts that opt in via
-   * `capabilities.threadingArgs`. The flag travels to such hosts as a bare
-   * CLI argument; everything else routes through `--tsgo-args`.
+   * Native sidecar capability that must be declared before ttsc sends this flag
+   * as a bare CLI argument. Everything else routes through `--tsgo-args` or
+   * stays in the JS launcher.
    */
-  readonly nativeCapability?: "threadingArgs";
+  readonly nativeCapability?: "diagnosticsTiming" | "threadingArgs";
 
   /** Human description for `--help` and the docs table. */
   readonly description: string;
 }
 
 /**
- * Single source of truth for every flag the ttsc / ttsx CLI accepts. New
- * flags are added here and only here; the generator rebuilds the parsers and
- * the Go allow-lists from this table.
+ * Single source of truth for every flag the ttsc / ttsx CLI accepts. New flags
+ * are added here and only here; the generator rebuilds the parsers and the Go
+ * allow-lists from this table.
  *
  * Constraints enforced by the parser and the generator:
  *
- *   1. Every flag is uniquely identified by `name`; aliases must not collide
- *      with other flags' `name` or `aliases`.
- *   2. A flag listed in `consumedBy: ["launcher"]` without a `forwardTo`
- *      consumes-not-forwards. The generator flags this in the docs and the
- *      Go allow-list so the boundary is explicit.
- *   3. A flag with `subcommands` covering `clean` or `prepare` is parsed by
- *      the project-args lane; the parsing engine accepts the same flag in
- *      build / check / fix / format without a separate parser.
+ * 1. Every flag is uniquely identified by `name`; aliases must not collide with
+ *    other flags' `name` or `aliases`.
+ * 2. A flag listed in `consumedBy: ["launcher"]` without a `forwardTo`
+ *    consumes-not-forwards. The generator flags this in the docs and the Go
+ *    allow-list so the boundary is explicit.
+ * 3. A flag with `subcommands` covering `clean` or `prepare` is parsed by the
+ *    project-args lane; the parsing engine accepts the same flag in build /
+ *    check / fix / format without a separate parser.
  */
 export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // -------------------------------------------------------------------------
@@ -395,8 +394,9 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     name: "--diagnostics",
     kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
-    consumedBy: ["runBuild", "tsgo"],
+    consumedBy: ["runBuild", "tsgo", "lint"],
     forwardTo: "tsgo",
+    nativeCapability: "diagnosticsTiming",
     description:
       "Print compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings.",
   },
@@ -404,8 +404,9 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     name: "--extendedDiagnostics",
     kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
-    consumedBy: ["runBuild", "tsgo"],
+    consumedBy: ["runBuild", "tsgo", "lint"],
     forwardTo: "tsgo",
+    nativeCapability: "diagnosticsTiming",
     description:
       "Print detailed compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings.",
   },
@@ -534,8 +535,8 @@ function register(
 }
 
 /**
- * Terminal flags as a derived set. Used by `runBuild.ts` to skip the
- * pre-emit pass when one is present.
+ * Terminal flags as a derived set. Used by `runBuild.ts` to skip the pre-emit
+ * pass when one is present.
  */
 export const TERMINAL_FLAGS: ReadonlySet<string> = new Set(
   FLAG_SCHEMA.flatMap((flag) =>
@@ -561,10 +562,10 @@ export function flagsForSubcommand(subcommand: AnySubcommand): FlagSpec[] {
 
 /**
  * Allow-list map for the Go layer named `layer` (`"host"` or `"lint"`):
- * flag-name (no leading dashes) → whether the flag takes a value token.
- * The generator emits a literal Go map with the same shape, but this
- * function is the runtime equivalent — used in tests to verify the
- * generated Go matches the schema.
+ * flag-name (no leading dashes) → whether the flag takes a value token. The
+ * generator emits a literal Go map with the same shape, but this function is
+ * the runtime equivalent — used in tests to verify the generated Go matches the
+ * schema.
  */
 export function buildGoAllowList(layer: "host" | "lint"): Map<string, boolean> {
   const out = new Map<string, boolean>();
