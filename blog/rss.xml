@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>ttsc Blog</title>
+    <link>https://ttsc.dev/blog/</link>
+    <description>Engineering notes, releases, and deep dives from ttsc.</description>
+    <language>en</language>
+    <item>
+      <title>500x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go</title>
+      <link>https://ttsc.dev/blog/500x-faster-typescript-lint/</link>
+      <guid>https://ttsc.dev/blog/500x-faster-typescript-lint/</guid>
+      <pubDate>Mon, 25 May 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/lint moves lint into the TypeScript-Go-backed check path and ships a separate native format command: 500x faster lint and 70x faster format on the VS Code fixture.</description>
+    </item>
+  </channel>
+</rss>
