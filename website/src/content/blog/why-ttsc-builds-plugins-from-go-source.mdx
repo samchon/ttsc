@@ -1,0 +1,273 @@
+---
+title: "Why ttsc Builds Plugins From Go Source"
+description: "ttsc plugins are npm packages, but their compiler logic is Go source built once into a content-addressed cache. Here is why that tradeoff exists."
+date: "2026-05-30"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - compiler
+  - npm
+---
+
+> ## TL;DR
+>
+> A `ttsc` plugin installs from npm, but the actual compiler logic is Go source.
+>
+> On first use, `ttsc` builds that source into a native sidecar and stores it in a content-addressed cache.
+>
+> After that, the plugin is just a binary.
+>
+> This is not accidental complexity.
+>
+> It is how `ttsc` keeps TypeScript-Go plugins close to the compiler while still letting users consume them like npm packages.
+
+---
+
+## 1. The Strange Part
+
+The first strange thing about `ttsc` plugins is that they are not pure JavaScript.
+
+A package looks like this:
+
+```text
+my-ttsc-plugin/
+├── package.json
+├── plugin.cjs
+└── plugin/
+    ├── go.mod
+    └── main.go
+```
+
+The JavaScript file is the descriptor.
+
+The Go directory is the real compiler plugin.
+
+The user installs it with npm:
+
+```bash
+npm install -D my-ttsc-plugin
+```
+
+Then `ttsc` builds the Go source the first time the plugin is needed.
+
+At first glance, that sounds heavier than shipping a prebuilt binary.
+
+So why do it?
+
+---
+
+## 2. Because The Compiler Is Go
+
+TypeScript-Go gives us a native compiler core.
+
+If a plugin wants to share its AST, checker, parser, printer, and emit pipeline, it should speak the same language at the hot boundary.
+
+That is what the Go sidecar does.
+
+It can call the `ttsc` driver API.
+
+It can load the Program.
+
+It can walk TypeScript-Go nodes.
+
+It can ask the Checker questions.
+
+It can report diagnostics in the same shape as TypeScript.
+
+It can transform AST before emit.
+
+Trying to keep that logic in JavaScript would mean either copying too much data across a boundary or rebuilding a parallel compiler view.
+
+That is exactly the kind of duplicate work `ttsc` tries to remove.
+
+---
+
+## 3. Why Not Prebuild Everything?
+
+Prebuilt binaries sound simpler until you list the matrix:
+
+```text
+linux x64
+linux arm64
+darwin x64
+darwin arm64
+windows x64
+...
+```
+
+Then add:
+
+- TypeScript-Go version;
+- `ttsc` shim version;
+- plugin source version;
+- linked contributors;
+- Go build environment;
+- optional cgo settings;
+- platform package layout.
+
+Shipping every possible binary is not free.
+
+It also makes local development worse. A plugin author changing Go source should not need a release pipeline just to test the package.
+
+`ttsc` takes the opposite approach:
+
+> Ship source. Build locally. Cache aggressively.
+
+That makes the package portable without pretending native code has no platform shape.
+
+---
+
+## 4. The Cache Is The Contract
+
+The plugin cache key is intentionally strict.
+
+It includes things that can change the built binary:
+
+- `ttsc` version;
+- `@typescript/native-preview` version;
+- platform and architecture;
+- plugin entry package;
+- Go compiler identity;
+- effective Go build environment;
+- plugin source hash;
+- `ttsc` overlay and shim hashes;
+- contributor source hashes.
+
+It does not include things that are merely input to the plugin:
+
+- consumer TypeScript source files;
+- lint rule options;
+- CLI flags like `--outDir`;
+- ordinary project compiler output paths.
+
+That distinction is important.
+
+If you change the plugin source, rebuild.
+
+If you change the user's source files, reuse the same plugin binary and run it again.
+
+The binary is the tool.
+
+The project is the data.
+
+---
+
+## 5. `ttsc prepare` Exists For CI
+
+Cold builds are real.
+
+The first time a plugin is used on a cache key, `ttsc` runs Go build.
+
+That is why the CLI has:
+
+```bash
+npx ttsc prepare
+```
+
+`prepare` resolves and builds configured plugin binaries into the cache without type-checking the project or emitting JavaScript.
+
+Use it when you want to pay the cold build cost before the timed part of CI:
+
+```bash
+npx ttsc prepare
+npx ttsc --noEmit
+```
+
+The benchmark runner does this too. Plugin build time is not hidden inside the compile measurement.
+
+That is the honest split.
+
+---
+
+## 6. The Go Toolchain Problem
+
+One uncomfortable question remains:
+
+> Does every user need Go installed?
+
+The consumer story should not depend on a random system Go version.
+
+So `ttsc` platform packages ship the native helper and a bundled Go SDK. Published installs should resolve that toolchain automatically through the platform package.
+
+There are still development fallbacks:
+
+- workspace platform package;
+- local Go SDK layout;
+- finally `$PATH` `go`.
+
+But the intended package-user path is bundled.
+
+That matters because plugin builds should be reproducible enough to cache and debug.
+
+The Go toolchain is part of the binary identity, so it belongs in the cache key.
+
+---
+
+## 7. Contributors Make This More Than One Plugin
+
+`@ttsc/lint` uses another piece of the protocol: contributors.
+
+A host plugin can statically link additional Go source packages into its binary.
+
+That lets third-party lint rule packages extend the lint engine without each rule package becoming a separate compiler process.
+
+The model is:
+
+```text
+@ttsc/lint host
+  + contributor package A
+  + contributor package B
+  -> one cached lint binary
+```
+
+This is a big deal for performance.
+
+Rules should not require separate process startup, separate Program loads, and separate AST walks.
+
+They should join the host where the lint engine already lives.
+
+---
+
+## 8. Why This Feels Better Than It Sounds
+
+From the user's point of view, the flow is still normal:
+
+```bash
+npm install -D ttsc @typescript/native-preview typia
+npx ttsc
+```
+
+The first run may build a plugin.
+
+The next run reuses it.
+
+The cache is shared at the user level, not tied to one project-local `node_modules` path.
+
+That means pnpm virtual store paths, workspace installs, and ordinary npm installs can still share the same built binary when the effective inputs match.
+
+The implementation is not simple.
+
+But the user experience should be.
+
+---
+
+## 9. The Tradeoff
+
+This is the tradeoff I chose:
+
+```text
+slightly more host complexity
+  -> real TypeScript-Go plugin access
+  -> native performance
+  -> local plugin development
+  -> content-addressed cache
+  -> npm consumption model
+```
+
+I think that is the right trade.
+
+If TypeScript-Go is the future compiler core, plugin authors need a way to meet it there.
+
+`ttsc` builds that bridge from source, once per cache key.

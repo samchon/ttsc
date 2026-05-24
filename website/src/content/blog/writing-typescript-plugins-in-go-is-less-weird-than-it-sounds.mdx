@@ -1,0 +1,274 @@
+---
+title: "Writing TypeScript Plugins In Go Is Less Weird Than It Sounds"
+description: "ttsc plugins use a JavaScript descriptor and a Go sidecar. That split looks unusual until you map it to TypeScript-Go's AST, Checker, and emit pipeline."
+date: "2026-06-01"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - compiler
+  - plugins
+---
+
+> ## TL;DR
+>
+> `ttsc` plugins are npm packages with two halves:
+>
+> ```text
+> JavaScript descriptor -> tells ttsc where the plugin is
+> Go sidecar            -> does the compiler work
+> ```
+>
+> That sounds strange only if you assume a TypeScript plugin must be JavaScript.
+>
+> TypeScript-Go is already Go.
+>
+> If the plugin needs the TypeScript-Go AST and Checker, Go is the direct path.
+
+---
+
+## 1. The Two-Halves Model
+
+A `ttsc` plugin package looks like this:
+
+```text
+my-plugin/
+├── package.json
+├── plugin.cjs
+└── plugin/
+    ├── go.mod
+    └── main.go
+```
+
+The JavaScript file exports a descriptor:
+
+```js
+const path = require("node:path");
+
+module.exports = {
+  name: "my-plugin",
+  source: path.resolve(__dirname, "plugin"),
+  stage: "transform",
+};
+```
+
+That descriptor is not the compiler logic.
+
+It is metadata:
+
+- what the plugin is called;
+- where its Go source lives;
+- whether it is a transform-stage or check-stage plugin;
+- whether it composes other plugin entries;
+- whether it links contributor packages.
+
+The Go sidecar is where the plugin actually works.
+
+---
+
+## 2. Transform Or Check
+
+`ttsc` exposes two public plugin stages.
+
+Transform-stage plugins mutate source before emit:
+
+```text
+stage: "transform"
+  -> build
+  -> transform
+```
+
+Check-stage plugins report diagnostics before emit:
+
+```text
+stage: "check"
+  -> check
+  -> fix      optional
+  -> format   optional
+```
+
+That split keeps the protocol honest.
+
+`typia` is a transform plugin. It replaces `typia.createValidate<T>()` calls with generated JavaScript.
+
+`@ttsc/lint` is a check plugin. It reports diagnostics and can optionally apply fixes or format rewrites.
+
+Those jobs are not the same.
+
+The host should not pretend they are.
+
+---
+
+## 3. The First Useful API: LoadProgram
+
+Most interesting plugins need the project, not just one file.
+
+They need to know imports, declarations, generic arguments, symbols, and compiler options.
+
+The `ttsc` driver gives plugin authors a canonical entry:
+
+```go
+prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
+if err != nil {
+    return 2
+}
+defer prog.Close()
+```
+
+From there, a plugin can inspect source files and ask the checker questions.
+
+For a type-aware tool, that is the load-bearing part.
+
+If you are only doing syntax work, you can parse a file directly.
+
+But if you are generating runtime validators, OpenAPI schemas, SDKs, or type-aware lint diagnostics, the Program is the real object.
+
+---
+
+## 4. Diagnostics Are Not Strings
+
+A check plugin should not just print random text.
+
+It should report diagnostics with source positions.
+
+The lint-style flow is intentionally small:
+
+```go
+diags = append(diags, driver.NewLintDiagnostic(
+    file,
+    node.Pos(),
+    node.End(),
+    9001,
+    driver.SeverityError,
+    "[my-plugin/no-debugger] debugger statements are forbidden",
+))
+driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+if driver.CountErrors(diags) > 0 {
+    return 1
+}
+```
+
+That output looks like a TypeScript diagnostic.
+
+This is important because compiler plugins should integrate with the same developer muscle memory:
+
+- terminal location;
+- editor underline;
+- CI failure;
+- quick navigation to the offending node.
+
+If a plugin is part of the compiler, its errors should feel like compiler errors.
+
+---
+
+## 5. Why Not Just Run JavaScript?
+
+Because the hot data is already in Go.
+
+TypeScript-Go owns the AST and Checker.
+
+A JavaScript plugin would need a bridge to inspect that data or a separate parser/checker path to recreate it.
+
+That defeats the point.
+
+`ttsc` keeps a JavaScript descriptor because npm packages need a JavaScript-facing entry. It keeps compiler logic in Go because the compiler-facing work is Go.
+
+That split is the practical middle.
+
+---
+
+## 6. Composition Is The Hard Part
+
+Running one plugin is easy.
+
+Composing plugins is where compiler hosts get dangerous.
+
+If two transform plugins both want to own the emit pass, `ttsc` does not silently chain two independent compiler hosts.
+
+That shape is not safe.
+
+Instead, plugins have to share a host:
+
+- linked Go packages can register into a generic host;
+- an aggregate executable can dispatch multiple modes;
+- `composes` can redirect several plugin entries to one binary.
+
+This is stricter than the old transformer world.
+
+It has to be.
+
+The alternative is several plugins each believing they own the same Program.
+
+---
+
+## 7. Contributors Are Different From Composes
+
+`composes` is horizontal.
+
+Several top-level plugin entries dispatch to one binary.
+
+`contributors` are vertical.
+
+One host plugin statically links extra Go packages that are not top-level compiler plugin entries.
+
+`@ttsc/lint` uses this shape for third-party rule packages:
+
+```text
+@ttsc/lint
+  + react-hooks contributor
+  + project-rules contributor
+  -> one lint binary
+```
+
+That lets a lint ecosystem grow without turning every rule pack into another Program load.
+
+For diagnostics engines, that matters.
+
+The whole reason `@ttsc/lint` is fast is that rules share the compiler world that already exists.
+
+---
+
+## 8. The Authoring Story I Want
+
+For plugin authors, the first successful plugin should feel possible:
+
+1. publish an npm package;
+2. export a descriptor;
+3. write a Go sidecar;
+4. load the Program;
+5. report diagnostics or transform source;
+6. let `ttsc` build and cache the binary.
+
+The details get deep.
+
+Compiler work always does.
+
+But the first shape should be understandable.
+
+That is why the docs split the world by audience:
+
+- setup pages for users;
+- package pages for typia/nestia/lint;
+- authoring pages for plugin writers;
+- reference pages for protocol details and pitfalls.
+
+The protocol is not small because compiler plugins are not small.
+
+But it is explicit.
+
+---
+
+## 9. The Takeaway
+
+Writing TypeScript plugins in Go sounds weird until you accept the new center of gravity.
+
+TypeScript-Go moved the compiler core.
+
+`ttsc` moves plugin logic near it.
+
+The npm package remains the distribution unit.
+
+The Go sidecar becomes the compiler unit.
+
+That is the shape I think TypeScript plugins need next.

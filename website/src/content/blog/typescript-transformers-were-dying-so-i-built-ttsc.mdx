@@ -1,0 +1,282 @@
+---
+title: "TypeScript Transformers Were Dying, So I Built ttsc"
+description: "TypeScript-Go changes the ground under custom transformers. ttsc exists because typia, nestia, autobe, and the next compiler-powered tools need a real host."
+date: "2026-05-26"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - compiler
+  - opensource
+---
+
+> ## TL;DR
+>
+> I did not build [`ttsc`](https://github.com/samchon/ttsc) because I wanted another TypeScript CLI.
+>
+> I built it because the transformer ecosystem was already living on unofficial hosts, and TypeScript-Go makes that bargain even harder to ignore.
+>
+> My own projects depend on compile-time TypeScript transforms:
+>
+> - [`typia`](https://typia.io) generates validators, serializers, Protocol Buffer codecs, random data, and LLM schemas from TypeScript types;
+> - [`nestia`](https://nestia.io) turns NestJS controllers into SDKs, OpenAPI, and typed runtime validators;
+> - `autobe` uses the same kind of type-driven compiler work downstream.
+>
+> If custom transforms disappear, those projects do not become a little slower.
+>
+> They lose the thing that makes them different.
+
+---
+
+## 1. The Awkward Truth About TypeScript Plugins
+
+TypeScript developers have wanted compiler plugins for years.
+
+Not "Babel plugin that sees JavaScript-ish syntax."
+
+Real TypeScript plugins.
+
+Plugins that can ask the checker what a type is. Plugins that can look at a generic argument. Plugins that can generate code from an interface without asking the user to duplicate that interface as JSON Schema.
+
+Stock `tsc` never made that a stable public transformer story.
+
+So the ecosystem survived on unofficial hosts:
+
+```text
+ttypescript
+ts-patch
+custom build wrappers
+framework-specific hacks
+```
+
+I am grateful those tools existed. Without them, a lot of practical TypeScript metaprogramming would never have shipped.
+
+But they were always a warning sign.
+
+The most powerful TypeScript tools were standing outside the official door.
+
+---
+
+## 2. TypeScript-Go Makes The Old Deal Worse
+
+TypeScript-Go is great news for TypeScript performance.
+
+It is also a breaking mental shift for transformer authors.
+
+The old transformer world assumed the compiler was a JavaScript process. A transformer could live in npm, receive TypeScript's JavaScript AST objects, call JavaScript checker APIs, and mutate a tree in the same runtime.
+
+TypeScript-Go changes that shape.
+
+The compiler core is no longer "just another JS library you monkey-patch."
+
+It is a native program with a Go AST, a Go checker, Go ownership rules, and a different extension boundary.
+
+That is not a complaint.
+
+It is the whole point of TypeScript-Go.
+
+But it means transform-heavy libraries need a new host instead of pretending the old one will magically survive.
+
+---
+
+## 3. Why I Could Not Wait
+
+I maintain libraries where the transformer is not decoration.
+
+`typia` does not generate runtime validators as a cute optimization. It is the product.
+
+This:
+
+```ts
+const validateUser = typia.createValidate<User>();
+```
+
+only works because the compiler can see `User`, walk its structure, read its tags, and generate dedicated runtime code before JavaScript runs.
+
+`nestia` has the same dependency. Its typed route decorators, SDK generation, OpenAPI generation, and runtime validation are powered by the real TypeScript signatures behind the controller.
+
+`autobe` follows the same direction: type information is not metadata after the fact; it is the source of truth.
+
+If the transformer host dies, these libraries do not become ordinary packages with a slower fallback.
+
+They become the wrong abstraction.
+
+So I built [`ttsc`](https://github.com/samchon/ttsc).
+
+---
+
+## 4. What ttsc Is
+
+`ttsc` is a TypeScript-Go toolchain with a plugin protocol.
+
+It ships:
+
+```text
+ttsc        -> build, check, watch, transform
+ttsx        -> run a TypeScript entrypoint after a real project check
+ttscserver  -> editor/LSP host for plugin diagnostics and code actions
+plugins     -> Go sidecars that share TypeScript-Go's AST and Checker
+```
+
+The important part is not the command name.
+
+The important part is that plugins have a real contract:
+
+```text
+npm package
+  -> JS descriptor
+  -> Go source sidecar
+  -> ttsc builds it
+  -> ttsc caches the binary
+  -> plugin runs inside the TypeScript-Go pipeline
+```
+
+That is the missing middle.
+
+Custom TypeScript transforms need more than "install this patcher and hope your compiler version still works."
+
+They need a host that knows how to resolve, build, cache, compose, and run them.
+
+---
+
+## 5. Why Go Sidecars
+
+There are two obvious ways to host plugins in a TypeScript-Go world.
+
+One is to keep pretending plugins are JavaScript and bridge everything across the runtime boundary.
+
+The other is to let compiler-powered plugins live near the compiler.
+
+`ttsc` picks the second path.
+
+A plugin package still installs from npm. The user does not have to learn Go to consume it. But the actual transform/check logic is Go source, built by `ttsc` on first use and cached by content.
+
+That gives plugin authors direct access to the TypeScript-Go AST, parser, printer, checker, and `ttsc` driver helpers.
+
+It also means the cache can be honest:
+
+- `ttsc` version;
+- `@typescript/native-preview` version;
+- platform and architecture;
+- Go compiler identity;
+- Go build environment;
+- plugin source hash;
+- contributor source hash;
+- shim/overlay hash.
+
+Consumer TypeScript source does not belong in that cache key. Plugin options do not belong there either.
+
+The plugin binary is a tool. The project source is its input.
+
+---
+
+## 6. The New Plugin Shape
+
+A `ttsc` plugin has two halves.
+
+The JavaScript half is small:
+
+```js
+module.exports = {
+  name: "my-plugin",
+  source: require("node:path").resolve(__dirname, "plugin"),
+  stage: "transform",
+};
+```
+
+The Go half does the work.
+
+For a transform plugin, it receives `build` / `transform` commands and mutates TypeScript source before emit.
+
+For a check plugin, it receives `check`, and optionally `fix` or `format`, then reports diagnostics before emit.
+
+That distinction matters because not every plugin is the same kind of tool.
+
+`typia` is a transform.
+
+`@ttsc/lint` is a check-stage plugin.
+
+`@ttsc/paths`, `@ttsc/banner`, and `@ttsc/strip` are utility transforms.
+
+The host knows the difference.
+
+---
+
+## 7. The Part I Care About Most: Composition
+
+The hard part is not running one plugin.
+
+The hard part is running several plugins without lying about the compiler pipeline.
+
+Two independent executable transform hosts cannot both own one emit pass. If they each build their own Program, mutate their own AST, and print their own output, the project is no longer doing "one compile."
+
+It is doing several almost-compiles and hoping the output stacks.
+
+`ttsc` refuses that shape.
+
+If transform libraries need to cooperate, they must share a host:
+
+- one aggregate executable plugin can dispatch several modes;
+- linked Go packages can register into a generic native host;
+- `composes` can redirect several plugin names into one binary.
+
+This sounds strict because it is strict.
+
+But the alternative is silent wrong code.
+
+---
+
+## 8. What This Means For typia And nestia
+
+For users, the goal is boring:
+
+```bash
+npm install -D ttsc @typescript/native-preview typia
+npx ttsc
+```
+
+That should be enough for `typia` calls to become generated JavaScript.
+
+For NestJS:
+
+```bash
+npm install -D ttsc @typescript/native-preview typia @nestia/core @nestia/sdk
+npx ttsc
+```
+
+That should be enough for the decorator transform path to exist.
+
+The user should not have to understand TypeScript-Go internals, Go modules, sidecar cache keys, or host composition just to get a validator.
+
+The host should absorb that complexity.
+
+That is what `ttsc` is for.
+
+---
+
+## 9. This Is Not Nostalgia
+
+I am not trying to preserve the old transformer ecosystem exactly as it was.
+
+Some of it was too fragile.
+
+Some of it depended on undocumented internals.
+
+Some of it made TypeScript upgrades feel like surgery.
+
+The point is not to freeze that world.
+
+The point is to keep the useful idea alive:
+
+> TypeScript types should be allowed to generate real runtime code.
+
+TypeScript-Go makes the compiler faster.
+
+`ttsc` tries to make the plugin story survive that speedup.
+
+That is the series.
+
+The first article was about 500x faster lint.
+
+This one is about why the host had to exist at all.

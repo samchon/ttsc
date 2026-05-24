@@ -1,0 +1,245 @@
+---
+title: "Stop Shipping tsconfig Paths To Runtime"
+description: "@ttsc/paths is the boring plugin that fixes a real build problem: TypeScript path aliases are compiler hints, not JavaScript runtime imports."
+date: "2026-06-02"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - node
+  - compiler
+  - plugins
+---
+
+> ## TL;DR
+>
+> `compilerOptions.paths` is a TypeScript compile-time convenience.
+>
+> It does not automatically make Node understand your emitted JavaScript.
+>
+> [`@ttsc/paths`](https://ttsc.dev/docs/plugins/paths) exists for the boring but important job:
+>
+> ```text
+> import { x } from "@app/domain/user"
+> ```
+>
+> becomes a relative import in emitted JavaScript and declaration files.
+>
+> Boring plugins are often the ones that make a toolchain feel production-ready.
+
+---
+
+## 1. The Alias Trap
+
+Most TypeScript projects eventually add path aliases:
+
+```jsonc
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["src/*"],
+    },
+  },
+}
+```
+
+Then the source becomes nicer:
+
+```ts
+import { createUser } from "@app/domain/user";
+```
+
+The type-checker understands it.
+
+The editor understands it.
+
+The developer is happy.
+
+Then JavaScript is emitted and runtime says:
+
+```text
+Cannot find module '@app/domain/user'
+```
+
+The alias was never a runtime module.
+
+It was a compiler resolution hint.
+
+---
+
+## 2. The Usual Workarounds
+
+People solve this several ways:
+
+- bundle everything;
+- configure a runtime loader;
+- use `tsconfig-paths/register`;
+- teach Jest, Vitest, ESLint, ts-node, webpack, Vite, and Node about the same alias;
+- avoid aliases entirely;
+- emit broken imports and fix them after the fact.
+
+Some of these are fine in specific stacks.
+
+But for libraries and plain Node builds, the cleanest emitted JavaScript is usually still:
+
+```ts
+import { createUser } from "../domain/user.js";
+```
+
+The runtime should not need to know about your TypeScript-only alias.
+
+The emitted code should be normal JavaScript.
+
+---
+
+## 3. What @ttsc/paths Does
+
+`@ttsc/paths` runs as a `ttsc` transform plugin.
+
+It reads the same project configuration TypeScript uses:
+
+- `baseUrl`;
+- `paths`;
+- source file location;
+- emit target;
+- declaration output.
+
+Then it rewrites matching import/export specifiers to relative paths for emitted JavaScript and declaration files.
+
+The input can stay expressive:
+
+```ts
+export { createUser } from "@app/domain/user";
+```
+
+The output can be runnable:
+
+```ts
+export { createUser } from "../domain/user.js";
+```
+
+That is not glamorous.
+
+It is necessary.
+
+---
+
+## 4. Why This Belongs In The Compiler Pass
+
+Path rewriting is exactly the kind of thing that should happen while the compiler already understands the project.
+
+A post-process script has to rediscover too much:
+
+- where the source file came from;
+- where it was emitted;
+- what extension the runtime expects;
+- which specifiers are package names and which are aliases;
+- how declaration emit maps to source paths;
+- whether an import is type-only or runtime-relevant.
+
+The compiler path already has that context.
+
+So `@ttsc/paths` lives there.
+
+It is a transform, not a regex over generated files.
+
+---
+
+## 5. How It Fits With Other Plugins
+
+`@ttsc/paths` is intentionally small, but it has to compose.
+
+You might have:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/paths" },
+      { "transform": "@ttsc/strip" },
+      { "transform": "@ttsc/banner" },
+    ],
+  },
+}
+```
+
+Or you might install a package that is auto-discovered.
+
+The important point is that these transforms should not each invent their own project pipeline.
+
+They should share the `ttsc` host and operate inside one source-to-source or emit pass.
+
+That is how boring utility plugins stay boring.
+
+---
+
+## 6. The Declaration File Detail
+
+JavaScript output is the obvious part.
+
+Declaration files are the part people forget.
+
+If a published package emits:
+
+```ts
+export { User } from "@app/domain/user";
+```
+
+inside `.d.ts`, then downstream consumers now inherit your private alias.
+
+That is a package boundary leak.
+
+The declaration should point to a real relative module in the published output.
+
+That is why `@ttsc/paths` cares about declaration emit too.
+
+Runtime correctness and type-consumer correctness are the same problem seen from two sides.
+
+---
+
+## 7. Why I Like This Plugin
+
+`@ttsc/paths` is not a headline feature like 500x lint.
+
+It will not get the same attention as `typia`, `nestia`, or `ttsx`.
+
+But it represents the kind of compiler plugin I want more of:
+
+- narrow job;
+- clear failure mode;
+- no runtime dependency;
+- no duplicate project parser;
+- output that becomes simpler than input.
+
+Good build tools make complicated source conventions compile into boring artifacts.
+
+Aliases are a source convention.
+
+Relative imports are a boring artifact.
+
+That is a win.
+
+---
+
+## 8. The Bigger Point
+
+Not every `ttsc` plugin needs to be a framework.
+
+Some plugins should just remove small cuts from TypeScript projects.
+
+`@ttsc/banner` adds package documentation banners.
+
+`@ttsc/strip` removes debug calls and `debugger` statements.
+
+`@ttsc/paths` fixes path aliases at emit time.
+
+These are not huge features alone.
+
+Together, they test whether the plugin host is actually useful for everyday compiler work.
+
+If the host can only support spectacular demos, it is not a toolchain.
+
+It is a showcase.
+
+I want a toolchain.

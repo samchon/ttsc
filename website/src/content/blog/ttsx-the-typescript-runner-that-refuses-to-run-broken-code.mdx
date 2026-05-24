@@ -1,0 +1,273 @@
+---
+title: "ttsx: The TypeScript Runner That Refuses To Run Broken Code"
+description: "ttsx keeps the tsx-style workflow, but gates execution behind a real TypeScript-Go project check and the same ttsc plugin pipeline."
+date: "2026-05-28"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - node
+  - cli
+  - go
+---
+
+> ## TL;DR
+>
+> [`ttsx`](https://ttsc.dev/docs/ttsc/execute) is the command in `ttsc` I may be most excited about.
+>
+> It is a TypeScript runner like `tsx` in the way you use it:
+>
+> ```bash
+> npx ttsx src/script.ts
+> ```
+>
+> But it refuses to run until the owning TypeScript project passes a real check.
+>
+> Type errors stop execution.
+>
+> `@ttsc/lint` errors stop execution.
+>
+> Transform plugins like `typia` and `nestia` run before the script starts.
+
+---
+
+## 1. The Problem With Fast Script Runners
+
+I love fast TypeScript runners.
+
+They made TypeScript scripts feel normal:
+
+```bash
+tsx scripts/seed.ts
+tsx src/server.ts
+tsx test/index.ts
+```
+
+No build directory.
+
+No manual `tsc`.
+
+No waiting for a whole project emit just to run one entrypoint.
+
+That workflow is good.
+
+But it has a sharp edge: "can execute" is not the same as "is type-safe."
+
+For scripts that mutate a database, generate source files, publish packages, run migrations, or call production APIs, that difference matters.
+
+Fast feedback is not enough when the wrong script can do real damage.
+
+---
+
+## 2. What ttsx Does Differently
+
+`ttsx` keeps the same command shape:
+
+```bash
+npx ttsx src/index.ts
+```
+
+But the pipeline is different:
+
+```text
+resolve project
+  -> type-check with TypeScript-Go
+  -> run configured ttsc plugins
+  -> emit JavaScript into a runtime cache
+  -> execute the emitted entry with Node
+```
+
+If the check fails, the script does not run.
+
+That includes TypeScript errors:
+
+```text
+error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+It also includes lint errors when `@ttsc/lint` is enabled:
+
+```text
+error TS11966: [no-var] Unexpected var, use let or const instead.
+```
+
+The runner is not a transpile-only shortcut.
+
+It is a gate.
+
+---
+
+## 3. The Small Command With A Big Job
+
+The CLI is intentionally boring:
+
+```bash
+npx ttsx src/seed.ts
+```
+
+Pass arguments after `--`:
+
+```bash
+npx ttsx src/server.ts -- --port 3000
+```
+
+Pick a project:
+
+```bash
+npx ttsx -P tsconfig.scripts.json scripts/migrate.ts
+```
+
+Preload modules:
+
+```bash
+npx ttsx -r dotenv/config scripts/seed.ts
+```
+
+Forward compiler flags before the entry:
+
+```bash
+npx ttsx --strict scripts/check.ts
+```
+
+Everything after the entry belongs to your script. Everything before the entry belongs to the check.
+
+That line is easy to explain, and it is how the implementation treats it.
+
+---
+
+## 4. The Plugin Part Is The Real Difference
+
+If your project uses `ttsc` plugins, `ttsx` uses them too.
+
+That matters for libraries like `typia`.
+
+This script:
+
+```ts
+import typia from "typia";
+
+type Env = {
+  DATABASE_URL: string & typia.tags.Format<"uri">;
+};
+
+const assertEnv = typia.createAssert<Env>();
+assertEnv(process.env);
+```
+
+should not run as untransformed TypeScript.
+
+The `typia.createAssert<Env>()` call is supposed to become generated runtime code before execution.
+
+`ttsx` runs the same plugin pipeline as `ttsc`, then executes the emitted JavaScript.
+
+So scripts do not become the unsafe backdoor around your compiler-powered stack.
+
+---
+
+## 5. Where I Would Use It
+
+I would not use `ttsx` for every toy command.
+
+I would use it where "just run it" is too weak:
+
+- database migrations;
+- seed scripts;
+- release scripts;
+- code generators;
+- integration test entrypoints;
+- local admin tools;
+- AI-agent harnesses that apply source edits and then execute checks;
+- framework bootstrap scripts that depend on transform plugins.
+
+These are exactly the places where TypeScript errors are embarrassing and runtime errors are expensive.
+
+The script should prove it belongs to the project before it runs.
+
+---
+
+## 6. Cache Is What Makes It Practical
+
+`ttsx` does not emit into your project `dist/` by default.
+
+It writes runtime JavaScript into a cache directory:
+
+```text
+node_modules/.cache/ttsc/ttsx/project/<pid>/fs/...
+```
+
+Then it runs the emitted entry with the current Node runtime.
+
+That gives two important properties:
+
+1. Your source tree does not get polluted by one-off script output.
+2. The runner can preserve enough of the project layout that Node module resolution still works.
+
+In monorepos, that second point matters.
+
+The implementation mirrors a bounded slice of the workspace layout into the virtual runtime tree so symlinked `node_modules` and package roots keep resolving.
+
+That is not flashy.
+
+It is the difference between a runner that works in demos and a runner that works in real repositories.
+
+---
+
+## 7. It Is Not Trying To Replace Builds
+
+`ttsx` is not a deployment build.
+
+Use `ttsc` for that:
+
+```bash
+npx ttsc
+```
+
+Use `ttsc --noEmit` for CI check-only gates:
+
+```bash
+npx ttsc --noEmit
+```
+
+Use `ttsx` when the unit of work is "check this project, then run this entrypoint":
+
+```bash
+npx ttsx test/index.ts
+```
+
+That is a different job.
+
+It deserves its own command.
+
+---
+
+## 8. Why This Fits The AI Coding Era
+
+AI agents write scripts quickly.
+
+They also write confidently wrong scripts quickly.
+
+That makes a typed runner more valuable, not less.
+
+If an agent edits a migration script, the next step should not be:
+
+```bash
+node whatever-it-produced.js
+```
+
+The next step should be:
+
+```bash
+npx ttsx scripts/migrate.ts -- --dry-run
+```
+
+No type pass, no execution.
+
+No lint pass, no execution.
+
+No plugin transform, no execution.
+
+That is the shape I want.
+
+Not slower feedback for its own sake.
+
+Feedback that has authority before side effects happen.
