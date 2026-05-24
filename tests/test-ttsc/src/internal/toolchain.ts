@@ -73,6 +73,7 @@ function spawn(command: string, args: string[], options: any = {}) {
       ...options,
       env: {
         ...process.env,
+        ...(options.env ?? {}),
         TTSC_BINARY: nativeBinary,
         TTSC_TSGO_BINARY: tsgoBinary,
       },
@@ -99,7 +100,7 @@ function spawnWithoutTsgoOverride(
   options: any = {},
 ) {
   const usesNodeLauncher = command === ttscBin || command === ttsxBin;
-  const env = { ...process.env };
+  const env = { ...process.env, ...(options.env ?? {}) };
   delete env.TTSC_BINARY;
   delete env.TTSC_TSGO_BINARY;
   const result = child_process.spawnSync(

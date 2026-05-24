@@ -5,7 +5,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
-const result = cp.spawnSync("go", ["test", "./..."], {
+const result = cp.spawnSync("go", ["test", "-count=1", "./..."], {
   cwd: path.join(root, "tests", "go-transformer"),
   env: {
     ...process.env,

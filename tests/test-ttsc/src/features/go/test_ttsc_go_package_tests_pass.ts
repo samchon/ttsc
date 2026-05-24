@@ -14,12 +14,12 @@ import path from "node:path";
  *
  * 1. Resolve the workspace `packages/ttsc` directory.
  * 2. Prefer the local Go SDK path when the developer machine has one.
- * 3. Execute `go test ./...` and fail on either TestProject.spawn or test failure.
+ * 3. Execute `go test -count=1 ./...` and fail on spawn or test failure.
  */
 export const test_ttsc_go_package_tests_pass = (): void => {
   const ttscRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc");
   const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
-  const result = child_process.spawnSync("go", ["test", "./..."], {
+  const result = child_process.spawnSync("go", ["test", "-count=1", "./..."], {
     cwd: ttscRoot,
     env: {
       ...process.env,
@@ -33,6 +33,8 @@ export const test_ttsc_go_package_tests_pass = (): void => {
 
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`go test ./... failed with status ${result.status ?? 1}`);
+    throw new Error(
+      `go test -count=1 ./... failed with status ${result.status ?? 1}`,
+    );
   }
 };
