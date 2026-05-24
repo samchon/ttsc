@@ -961,7 +961,7 @@ function installIfNeeded(project, dir, branch) {
     }
     if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
     if (mustRefreshTarballs && !hasPinnedTsgoRuntimeDeps(dir)) {
-      installPinnedTsgoRuntimeDeps(project, dir);
+      installPinnedTsgoRuntimeDeps(project, dir, branch);
     }
   });
 }
@@ -1229,7 +1229,7 @@ function hasTsgoCells(project) {
   );
 }
 
-function installPinnedTsgoRuntimeDeps(project, dir) {
+function installPinnedTsgoRuntimeDeps(project, dir, branch) {
   const specs = [
     `@typescript/native-preview@${TSGO_VERSION}`,
     `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}`,
@@ -1254,7 +1254,10 @@ function installPinnedTsgoRuntimeDeps(project, dir) {
       `@typescript/native-preview@${TSGO_VERSION}, ` +
       `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}\n`,
   );
-  withDependencyFileSnapshot(dir, () => sh(cmd, dir));
+  withDependencyFileSnapshot(dir, () => {
+    scrubLocalTarballInstallState(dir, localTarballTargets(branch));
+    sh(cmd, dir);
+  });
 }
 
 function hasPinnedTsgoRuntimeDeps(dir) {
