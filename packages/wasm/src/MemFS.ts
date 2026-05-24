@@ -11,8 +11,9 @@
 // Errors carry a `code` (e.g. ENOENT, EBADF) so Go's os package sees them as
 // proper os.PathError values.
 //
-// Files are stored as Uint8Array. Text files written via writeFile are
-// encoded by the caller; reads return the raw bytes.
+// Files are stored as Uint8Array. String input passed to writeFile is encoded,
+// byte input is copied, and readFile returns a copy so callers cannot mutate
+// stored filesystem state by keeping a reference.
 
 /** Mode bits exposed by stat. We only differentiate file vs directory. */
 const S_IFDIR = 0o040000;
@@ -155,9 +156,9 @@ export interface IWasmExecFS {
     callback: (err: NodeJS.ErrnoException | null) => void,
   ): void;
   // pipe2 is what Go's wasm `os.Pipe()` calls. Returns two fds: a read end
-  // and a write end. Used by the playground's host.runWithCapturedIO to
-  // capture plugin stdout/stderr; without it the plugin's typia transform
-  // output (multi-hundred-KB JSON) silently vanishes and Execute fails.
+  // and a write end. The host's stdout/stderr capture currently uses MemFS
+  // temp files, but this keeps direct pipe callers compatible with the wasm
+  // fs surface.
   pipe2(
     flags: number,
     callback: (
@@ -514,7 +515,8 @@ export function createMemFS(): IMemFSHost {
       if (entry) {
         const node = nodes.get(entry.path);
         if (node && node.kind === "file") {
-          // subarray(0) is a zero-copy view over the full incoming buffer.
+          // subarray(0) is a zero-copy view over the full incoming buffer; the
+          // bytes are copied into `next` before writeSync returns.
           const incoming = buf.subarray(0);
           const existing = node.data;
           const next = new Uint8Array(

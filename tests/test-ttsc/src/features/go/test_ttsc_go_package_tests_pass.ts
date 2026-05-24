@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Runs the Go test suite owned by `packages/ttsc`.
+ * Verifies ttsc Go package tests pass.
  *
  * The JavaScript test package keeps Go verification inside the same dynamic
  * test harness as the TypeScript feature packages. That makes missing feature

@@ -78,7 +78,7 @@ export interface ITtscPluginOpts {
 
 /** Envelope returned by every `ITtscApi` method. */
 export interface ITtscResult {
-  /** Exit code. 0 = success, 2 = usage error, 3 = runtime error. */
+  /** Exit code. 0 = success, 2 = compiler/config/usage error, 3 = runtime error. */
   code: number;
   /** Anything the wasm wrote to its stdout stream. */
   stdout: string;
@@ -95,8 +95,8 @@ export interface ITtscResult {
 /**
  * Structured payload inside `ITtscResult.result` for `build` and `check`.
  *
- * `output` maps emit-destination paths (relative to `outDir`) to file contents.
- * It is empty when `check` is called without emit.
+ * `output` maps emit-destination paths (relative to `cwd`) to file contents. It
+ * is empty when `check` is called without emit.
  */
 export interface ITtscCompileResult {
   diagnostics?: ITtscDiagnostic[];

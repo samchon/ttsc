@@ -56,12 +56,13 @@ Override:
 TTSC_CACHE_DIR=/tmp/ttsc-cache npx ttsc --emit
 ```
 
-`--cache-dir` and `TTSC_CACHE_DIR` remain project/test isolation escapes. Relative `--cache-dir` values resolve from the ttsc working directory and store plugin binaries below `<cache-dir>/plugins`.
+`--cache-dir` and `TTSC_CACHE_DIR` remain project/test isolation escapes for source-plugin binaries. Relative `--cache-dir` values resolve from the effective ttsc working directory (`--cwd` when set) and store plugin binaries below `<cache-dir>/plugins`. For `ttsx`, only explicit `--cache-dir` also anchors temporary runtime output below `<cache-dir>/project/<pid>`.
 
 Clean — removes the active cache location and legacy project-local caches (`node_modules/.ttsc`, `.ttsc`) so projects upgraded from older ttsc releases do not keep stale binaries:
 
 ```bash
 npx ttsc clean
+npx ttsc clean --cache-dir /tmp/ttsc-cache
 ```
 
 The default cache is content-addressed and shared across projects on the same machine. It is not tied to a package manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.

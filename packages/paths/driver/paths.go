@@ -32,6 +32,7 @@ func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
 // module specifiers across an entire program.
 type rewriter struct {
   basePath    string
+  jsxPreserve bool
   outDir      string
   patterns    []pathPattern
   rootDir     string
@@ -45,6 +46,11 @@ type pathPattern struct {
   targets []string
 }
 
+var sourceLookupExtensions = []string{
+  ".ts", ".tsx", ".mts", ".cts",
+  ".js", ".jsx", ".mjs", ".cjs",
+}
+
 // newRewriter builds a rewriter from the program's compiler options.
 // Patterns are sorted by decreasing specificity (longer literal prefix first)
 // so the most-specific match wins on overlapping patterns.
@@ -55,6 +61,7 @@ func newRewriter(prog *driver.Program) *rewriter {
   }
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
   out.basePath = filepath.Clean(options.GetPathsBasePath(prog.Host.GetCurrentDirectory()))
+  out.jsxPreserve = options.Jsx == shimcore.JsxEmitPreserve
   out.outDir = optionalPath(options.OutDir, prog.Host.GetCurrentDirectory())
   out.rootDir = optionalPath(options.RootDir, prog.Host.GetCurrentDirectory())
   files := prog.SourceFiles()
@@ -200,18 +207,18 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
 
 // lookupSource checks whether candidate (a normalized path, possibly without
 // extension) corresponds to a known source file. It tries the exact path, stem
-// with each TS extension, and index files.
+// with each known TypeScript/JavaScript source extension, and index files.
 func (r *rewriter) lookupSource(candidate string) (string, bool) {
   if source, ok := r.sourceFiles[normalizePath(candidate)]; ok {
     return source, true
   }
   stem := stripKnownSourceExtension(normalizePath(candidate))
-  for _, ext := range []string{".ts", ".tsx", ".mts", ".cts"} {
+  for _, ext := range sourceLookupExtensions {
     if source, ok := r.sourceFiles[stem+ext]; ok {
       return source, true
     }
   }
-  for _, ext := range []string{".ts", ".tsx", ".mts", ".cts"} {
+  for _, ext := range sourceLookupExtensions {
     if source, ok := r.sourceFiles[normalizePath(filepath.Join(stem, "index"+ext))]; ok {
       return source, true
     }
@@ -230,18 +237,22 @@ func (r *rewriter) outputPathForSource(source string) string {
   if err != nil || isOutsideRelativePath(rel) {
     return ""
   }
-  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel))))
+  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel, r.jsxPreserve))))
 }
 
 // emittedJavaScriptExtension returns the JavaScript file extension that TypeScript
-// emits for a given source path: ".mjs" for ".mts", ".cjs" for ".cts", ".js"
-// for all other extensions.
-func emittedJavaScriptExtension(source string) string {
+// emits for a given source path.
+func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
   switch strings.ToLower(filepath.Ext(source)) {
-  case ".mts":
+  case ".mts", ".mjs":
     return ".mjs"
-  case ".cts":
+  case ".cts", ".cjs":
     return ".cjs"
+  case ".tsx", ".jsx":
+    if jsxPreserve {
+      return ".jsx"
+    }
+    return ".js"
   default:
     return ".js"
   }

@@ -30,8 +30,9 @@ package host
 // streams is captured and returned to the JS caller.
 type Plugin interface {
   // Name is the npm-style plugin id (e.g. `@ttsc/banner`). The JS side
-  // passes this exact string when dispatching: `api.plugin("@ttsc/banner",
-  // "build", opts)`. Names must be unique within a Config.
+  // passes this exact string when dispatching:
+  // `api.plugin({ name: "@ttsc/banner", command: "build", ...opts })`.
+  // Names must be unique within a Config.
   Name() string
 
   // Run dispatches a subcommand. `command` is the verb the JS caller asked
@@ -39,8 +40,8 @@ type Plugin interface {
   // `args` is the rest of the argv, already prefixed with `--flag=value`
   // pairs the host built from the JS options object.
   //
-  // Return the exit code (0 for success, 2 for usage errors, 3 for runtime
-  // errors — mirrors the native CLI exit-code contract). Anything written
+  // Return the exit code (0 for success, 2 for compiler/config/usage errors, 3
+  // for runtime errors — mirrors the native CLI exit-code contract). Anything written
   // to `os.Stdout` / `os.Stderr` is captured by the host.
   //
   // API stability: experimental until v1.0; the signature is expected to
@@ -51,7 +52,7 @@ type Plugin interface {
 // Config carries the optional registrations the host applies before binding
 // `globalThis[name]`. Pass `Config{}` for a vanilla ttsc + tsgo wasm.
 type Config struct {
-  // Plugins are dispatched through `api.plugin(name, command, opts)` from
+  // Plugins are dispatched through `api.plugin({ name, command, ...opts })` from
   // JS. Their Run methods share the same `os.Stdout` / `os.Stderr` streams
   // the base build/check/transform endpoints use, so diagnostics render
   // the same way no matter which lane produced them.

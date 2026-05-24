@@ -12,8 +12,10 @@ import path from "node:path";
  * with errors in `--isolatedModules` mode.
  *
  * 1. Create a project with a deliberate type error (`string = 123`).
- * 2. Run ttsx; assert non-zero exit and the type-error diagnostic in stderr.
- * 3. Assert the entry was never executed (no marker file written).
+ * 2. Run ttsx with an explicit cache dir; assert non-zero exit and the type-error
+ *    diagnostic in stderr.
+ * 3. Assert the entry was never executed and the runtime project output was
+ *    cleaned after the failed preparation.
  */
 export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
   () => {
@@ -33,10 +35,11 @@ export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
     `,
     });
     const marker = path.join(root, "type-error-marker.txt");
+    const cacheDir = path.join(root, ".ttsx-cache");
 
     const result = TestProject.spawn(
       TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
+      ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
       {
         cwd: root,
         env: {
@@ -52,4 +55,7 @@ export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
     );
     assert.doesNotMatch(result.stdout, /should-not-run/);
     assert.equal(fs.existsSync(marker), false);
+    const projectCache = path.join(cacheDir, "project");
+    assert.equal(fs.existsSync(projectCache), true);
+    assert.deepEqual(fs.readdirSync(projectCache), []);
   };

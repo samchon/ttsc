@@ -116,7 +116,10 @@ const result = await api.build({ cwd: "/work" });
 console.log(result.result); // JSON: { diagnostics, output }
 ```
 
-Booting two wasms with the same `apiName` panics; pick a unique `apiName` per binary.
+Booting two wasms with the same `apiName` overwrites the previous global
+binding; pick a unique `apiName` per binary. `bootTtsc` also installs shared
+`fs` and `process` globals in its Worker, so use separate Workers when binaries
+need independent filesystems.
 
 ## Plugin contract
 

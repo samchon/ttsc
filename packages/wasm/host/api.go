@@ -16,10 +16,11 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// APIResult is the JSON shape every plugin-dispatch endpoint returns to the
-// JS host. `code` follows the native CLI exit-code contract (0 success, 2
-// usage error, 3 runtime error). `stdout` / `stderr` are raw strings the
-// caller can render in a console panel.
+// APIResult is the stdout/stderr capture returned by runWithCapturedIO. The
+// js/wasm binding wraps it in the same JS result envelope that build/check/
+// transform use, adding `result` when an endpoint has a JSON payload. `code`
+// follows the native CLI exit-code contract (0 success, 2 compiler/config/
+// usage error, 3 runtime error).
 type APIResult struct {
   Code   int    `json:"code"`
   Stdout string `json:"stdout"`

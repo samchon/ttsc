@@ -192,7 +192,7 @@ For structural mutations (filtering `Statements.Nodes`, swapping children), `shi
 The fix is two lines that detach the node from its parse-tree source span:
 
 ```go
-// Source: packages/paths/driver/paths.go::pathsRewriter (the @ttsc/paths leaf-text path)
+// Source: packages/paths/driver/paths.go::rewriter (the @ttsc/paths leaf-text path)
 lit.AsStringLiteral().Text = rewritten
 lit.Flags |= shimast.NodeFlagsSynthesized
 lit.Loc   = shimcore.UndefinedTextRange()

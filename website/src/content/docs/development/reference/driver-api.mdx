@@ -144,6 +144,8 @@ err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
 | `PluginSource` interface, `NullPluginSource`                                                                        | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
 | `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`                                                          | Host-side entry points.                                          |
 | `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit`                              | Wire types in the LSP envelope.                                  |
+| `FrameReader`, `NewFrameReader`, `WriteFrame`, `MaxFrameBytes`, `MaxHeaderBytes`, `ErrFrameClosed`, `ErrFrameTooLarge` | Lower-level JSON-RPC framing helpers and safety caps for embedders that test or wrap the byte stream directly. |
+| `Envelope`, `ParseEnvelope`, `ErrInvalidJSONRPC`                                                                    | JSON-RPC envelope parsing helpers for embedders that need to inspect LSP payloads outside the proxy. |
 
 `DenyNpmInstall` remains for older in-process embedders, but the shipped `ttscserver` no longer embeds tsgo and cannot override tsgo's internal ATA callback.
 

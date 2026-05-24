@@ -35,23 +35,28 @@ export function prepareExecution(
     entryFile,
     options,
   );
-  buildProject(context, options);
-  const emittedEntry = resolveEmittedJavaScript({
-    emittedFiles: context.emittedFiles ?? undefined,
-    outDir: context.emitDir,
-    projectRoot: context.root,
-    sourceFile: entryFile,
-  });
-  if (emittedEntry === null) {
-    throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
+  try {
+    buildProject(context, options);
+    const emittedEntry = resolveEmittedJavaScript({
+      emittedFiles: context.emittedFiles ?? undefined,
+      outDir: context.emitDir,
+      projectRoot: context.root,
+      sourceFile: entryFile,
+    });
+    if (emittedEntry === null) {
+      throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
+    }
+    const output = fs.readFileSync(emittedEntry, "utf8");
+    return {
+      cleanupDir: context.processDir,
+      emitDir: context.emitDir,
+      entryFile: emittedEntry,
+      moduleKind: looksLikeESM(output) ? "esm" : "cjs",
+    };
+  } catch (error) {
+    removeRuntimeOutput(context.processDir);
+    throw error;
   }
-  const output = fs.readFileSync(emittedEntry, "utf8");
-  return {
-    cleanupDir: context.processDir,
-    emitDir: context.emitDir,
-    entryFile: emittedEntry,
-    moduleKind: looksLikeESM(output) ? "esm" : "cjs",
-  };
 }
 
 function createProjectContext(
@@ -134,7 +139,7 @@ function buildProject(
     return;
   }
 
-  fs.rmSync(context.processDir, { recursive: true, force: true });
+  removeRuntimeOutput(context.processDir);
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
@@ -142,6 +147,14 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+function removeRuntimeOutput(directory: string): void {
+  try {
+    fs.rmSync(directory, { recursive: true, force: true });
+  } catch {
+    // Best effort: cleanup must not hide the original preparation failure.
+  }
 }
 
 function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {

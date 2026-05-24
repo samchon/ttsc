@@ -19,11 +19,13 @@
 //  }
 //
 // Expose binds `globalThis[name]` to an object that exposes ttsc's base
-// project commands (build, check, transform, version) plus a `plugin(name,
-// command, opts)` dispatcher that routes into a Plugin's CLI-shaped Run
-// callback. Plugins keep ttsc's existing argv-based contract — the same
-// shape the native sidecars implement — so the wasm and the native CLI can
-// share their Run* entry points byte-for-byte.
+// project commands (build, check, transform, version) plus
+// `plugin({ name, command, ...opts })`, which routes into a Plugin's
+// CLI-shaped Run callback. Every async endpoint returns the JS result envelope;
+// build/check/transform place JSON payloads in `result`, while plugin output
+// is captured in stdout/stderr. Plugins keep ttsc's existing argv-based
+// contract — the same shape the native sidecars implement — so the wasm and
+// the native CLI can share their Run* entry points byte-for-byte.
 //
 // The package is browser-agnostic: every JS-facing helper sits behind
 // //go:build js, so a consumer can `go build ./...` natively without GOOS=js

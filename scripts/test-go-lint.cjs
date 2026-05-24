@@ -17,7 +17,7 @@
 //      package itself, and the ttsc package (the latter is required so
 //      Go workspace mode can resolve the multi-module placeholder
 //      versions the shims declare).
-//   4. Run `go test ./linthost` in the scratch dir.
+//   4. Run `go test -count=1 ./linthost` in the scratch dir.
 
 const cp = require("node:child_process");
 const { createRequire } = require("node:module");

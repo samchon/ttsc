@@ -30,11 +30,14 @@ export const test_ttsx_esm_rewrite_preserves_query_and_hash_on_extensioned_speci
         include: ["src"],
       }),
       "src/helper.ts": `export const href: string = import.meta.url;\n`,
+      "src/import-url-suffixes.d.ts": [
+        `declare module "*?query" { export const href: string; }`,
+        `declare module "*#hash" { export const href: string; }`,
+        ``,
+      ].join("\n"),
       "src/main.ts": `
         export {};
-        // @ts-ignore: query suffix is a runtime ESM URL concern.
         const query = await import("./helper.js?query");
-        // @ts-ignore: hash suffix is a runtime ESM URL concern.
         const hash = await import("./helper.js#hash");
         console.log(JSON.stringify({
           query: new URL(query.href).search,

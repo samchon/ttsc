@@ -179,10 +179,10 @@ func regexHasSurrogatePair(src string) bool {
   return false
 }
 
-// no-loss-of-precision: `9007199254740993` — integer literal larger than
-// `Number.MAX_SAFE_INTEGER`. We read the *source* form (not the parser's
-// normalized .Text, which has already lost precision) and decide off
-// that.
+// no-loss-of-precision: `9007199254740993` — decimal numeric literal whose
+// source text changes when parsed as a JavaScript Number. We read the source
+// form instead of the parser's normalized .Text, which has already lost
+// precision.
 type noLossOfPrecision struct{}
 
 func (noLossOfPrecision) Name() string           { return "no-loss-of-precision" }
@@ -225,6 +225,12 @@ func numericLiteralLosesPrecision(text string) bool {
   }
   if len(trimmed) == len(firstPossibleLoss) && trimmed < firstPossibleLoss {
     return false
+  }
+  // Number.MAX_VALUE is around 1.79e308, so any integer with more than 309
+  // decimal digits cannot round-trip through a finite JavaScript Number.
+  const maxFiniteDecimalDigits = 309
+  if len(trimmed) > maxFiniteDecimalDigits {
+    return true
   }
   parsed, err := strconv.ParseFloat(trimmed, 64)
   if err != nil && parsed == 0 {

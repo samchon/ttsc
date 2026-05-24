@@ -23,11 +23,11 @@ import (
 // shut down a pump loop without surfacing an error to the editor.
 var ErrFrameClosed = errors.New("lsp: frame stream closed")
 
-// ErrFrameTooLarge reports that a peer announced a Content-Length above
-// the safety cap. ttscserver bounds the value defensively so a confused
-// editor or compromised pipe cannot drive the proxy OOM with a single
-// gigabyte-scale header.
-var ErrFrameTooLarge = errors.New("lsp: frame body exceeds maximum size")
+// ErrFrameTooLarge reports that a peer sent a header block or announced a
+// Content-Length above the safety cap. ttscserver bounds both defensively so a
+// confused editor or compromised pipe cannot drive the proxy OOM with a single
+// gigabyte-scale frame.
+var ErrFrameTooLarge = errors.New("lsp: frame exceeds maximum size")
 
 // MaxFrameBytes caps Content-Length to 64 MiB. The largest payload the
 // LSP base protocol routinely produces is workspace symbol responses

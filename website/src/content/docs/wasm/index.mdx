@@ -124,6 +124,8 @@ the Worker boundary instead of parsing the same payload repeatedly in your UI.
 - `tsconfig` is relative to `cwd` and defaults to `tsconfig.json`.
 - `host.writeFile` creates parent directories automatically; `host.mkdirp`
   exists when you need to create directories without writing a file.
+- `host.writeFile` copies `Uint8Array` input, and `host.readFile` returns a
+  copy. Call `writeFile` again when you want to replace stored bytes.
 - `host.readFileText` reads emitted or transformed virtual files if your
   plugin writes into the MemFS.
 - `host.stdout.buffer` and `host.stderr.buffer` capture direct writes to fd 1
@@ -146,7 +148,7 @@ lifetime.
 | `api.plugins()`                          | Names registered into a custom wasm by `host.Config`. Empty for the base binary.  |
 | `api.check({ cwd, tsconfig })`           | Type-check without emit.                                                          |
 | `api.build({ cwd, tsconfig })`           | Type-check and emit JavaScript/declaration output into the result payload.        |
-| `api.transform({ cwd, tsconfig })`       | Return the TypeScript source map the program saw, keyed by project-relative path. |
+| `api.transform({ cwd, tsconfig })`       | Return the TypeScript source-file map the program saw, keyed by project-relative path. |
 | `api.plugin({ name, command, ...opts })` | Dispatch a plugin linked into a custom wasm.                                      |
 
 Every async endpoint returns:
@@ -303,7 +305,7 @@ to reproduce.
 | The page locks up                        | Booted wasm on the main thread. Move it into a Worker.                                                                     |
 | `ENOENT` for `tsconfig.json`             | Write `/work/tsconfig.json` and every included source file before calling the API.                                         |
 | Plugin output is empty                   | For custom plugins, make sure the plugin writes to `os.Stdout`/`os.Stderr` or returns data through the virtual filesystem. |
-| Two wasm binaries conflict               | Give each binary a unique `apiName`. Pass the same `host` only when they intentionally share files.                        |
+| Two wasm binaries conflict               | Give each binary a unique `apiName`. Use separate Workers when they need independent `fs`/`process` globals or filesystems. |
 
 ## Published tarball layout
 

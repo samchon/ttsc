@@ -2,7 +2,7 @@
 
 `@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the *output* file layout, not just the source — TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
 
-This page is also the canonical reference for **leaf-text AST mutation** — changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `pathsRewriter.apply`.
+This page is also the canonical reference for **leaf-text AST mutation** — changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
 
 If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this should too. The new ideas are: read tsconfig fields through the driver, walk every syntactic shape that holds a module specifier, and the synthesize-flag rule.
 
@@ -43,8 +43,8 @@ export const value = hello();
 
 ```ts
 // dist/main.d.ts (after)
-import type { User } from "./modules/types/user";
-export declare const value: ReturnType<typeof import("./modules/greet").hello>;
+import type { User } from "./modules/types/user.js";
+export declare const value: ReturnType<typeof import("./modules/greet.js").hello>;
 export type Owner = User;
 ```
 
@@ -67,7 +67,7 @@ packages/paths/
 
 Identical shape to strip. The descriptor at `src/index.cjs` and the entrypoint at `plugin/main.go` are the same dispatcher you read in the [banner walkthrough](/docs/development/walkthroughs/banner#the-sidecar-pluginmaingo); the only difference is the plugin name string. Skip ahead to the real logic.
 
-## The real logic — `pathsRewriter` in `driver/paths.go`
+## The real logic — `rewriter` in `driver/paths.go`
 
 Everything below is in [`packages/paths/driver/paths.go`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go). Six steps:
 
@@ -81,21 +81,22 @@ Everything below is in [`packages/paths/driver/paths.go`](https://github.com/sam
 ### 1. Building the rewriter
 
 ```go
-type pathsRewriter struct {
+type rewriter struct {
   basePath    string
+  jsxPreserve bool
   outDir      string
-  patterns    []pathsPattern
+  patterns    []pathPattern
   rootDir     string
   sourceFiles map[string]string
 }
 
-type pathsPattern struct {
+type pathPattern struct {
   pattern string
   targets []string
 }
 
-func newPathsRewriter(prog *driver.Program) *pathsRewriter {
-  out := &pathsRewriter{sourceFiles: map[string]string{}}
+func newRewriter(prog *driver.Program) *rewriter {
+  out := &rewriter{sourceFiles: map[string]string{}}
   if prog == nil || prog.ParsedConfig == nil ||
     prog.ParsedConfig.ParsedConfig == nil ||
     prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
@@ -103,6 +104,7 @@ func newPathsRewriter(prog *driver.Program) *pathsRewriter {
   }
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
   out.basePath = filepath.Clean(options.GetPathsBasePath(prog.Host.GetCurrentDirectory()))
+  out.jsxPreserve = options.Jsx == shimcore.JsxEmitPreserve
   out.outDir = optionalPath(options.OutDir, prog.Host.GetCurrentDirectory())
   out.rootDir = optionalPath(options.RootDir, prog.Host.GetCurrentDirectory())
   files := prog.SourceFiles()
@@ -115,7 +117,7 @@ func newPathsRewriter(prog *driver.Program) *pathsRewriter {
   }
   if options.Paths != nil {
     for pattern, targets := range options.Paths.Entries() {
-      out.patterns = append(out.patterns, pathsPattern{
+      out.patterns = append(out.patterns, pathPattern{
         pattern: pattern,
         targets: append([]string(nil), targets...),
       })
@@ -145,9 +147,10 @@ for _, file := range files {
 ```
 
 Extensionless targets such as `src/modules/greet` are resolved later by
-`lookupSource`, which tries known TypeScript extensions in a deterministic
-order. This keeps ambiguous stems like `foo.ts` plus `foo.tsx` stable instead of
-depending on program file iteration order.
+`lookupSource`, which tries known TypeScript extensions first and JavaScript
+extensions after them in a deterministic order. This keeps ambiguous stems like
+`foo.ts` plus `foo.tsx` stable instead of depending on program file iteration
+order while still supporting `allowJs` projects.
 
 **`patterns`** — copied from `options.Paths.Entries()`. Each entry's targets slice is deep-copied with `append([]string(nil), targets...)` so a later mutation in tsgo's options does not leak back into the rewriter.
 
@@ -180,7 +183,7 @@ A pattern's rank is the count of non-wildcard characters: `@lib/foo/*` (rank 9) 
 ### 3. Walk every node that could hold a module specifier
 
 ```go
-func (r *pathsRewriter) apply(file *shimast.SourceFile) {
+func (r *rewriter) apply(file *shimast.SourceFile) {
   if r == nil || file == nil || len(r.patterns) == 0 {
     return
   }
@@ -288,7 +291,7 @@ returning `false` keeps the iteration alive. Returning `true` would short-circui
 ### 4. Resolving a specifier
 
 ```go
-func (r *pathsRewriter) rewrite(fromSource string, specifier string) (string, bool) {
+func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
   if specifier == "" || strings.HasPrefix(specifier, ".") || strings.HasPrefix(specifier, "/") {
     return specifier, false
   }
@@ -301,10 +304,7 @@ func (r *pathsRewriter) rewrite(fromSource string, specifier string) (string, bo
   if fromOut == "" || targetOut == "" {
     return specifier, false
   }
-  rel, err := filepath.Rel(filepath.Dir(fromOut), targetOut)
-  if err != nil {
-    return specifier, false
-  }
+  rel, _ := filepath.Rel(filepath.Dir(fromOut), targetOut)
   rel = filepath.ToSlash(rel)
   if !strings.HasPrefix(rel, ".") {
     rel = "./" + rel
@@ -328,7 +328,7 @@ The resolution chain:
 `resolveSource`:
 
 ```go
-func (r *pathsRewriter) resolveSource(specifier string) (string, bool) {
+func (r *rewriter) resolveSource(specifier string) (string, bool) {
   for _, pattern := range r.patterns {
     star, ok := matchPattern(pattern.pattern, specifier)
     if !ok {
@@ -366,14 +366,15 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
 
 `lookupSource` walks three stages, falling through on each miss: literal match
-in the `sourceFiles` map → stem with each of `.ts` / `.tsx` / `.mts` / `.cts`
-appended → stem + `/index.<ext>` for directory-style imports. The exact source
-is in [`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
+in the `sourceFiles` map → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` /
+`.js` / `.jsx` / `.mjs` / `.cjs` appended → stem + `/index.<ext>` for
+directory-style imports. The exact source is in
+[`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
 
 ### 5. Mapping source to emitted-JS path
 
 ```go
-func (r *pathsRewriter) outputPathForSource(source string) string {
+func (r *rewriter) outputPathForSource(source string) string {
   if r.outDir == "" || r.rootDir == "" {
     return ""
   }
@@ -381,28 +382,33 @@ func (r *pathsRewriter) outputPathForSource(source string) string {
   if err != nil || isOutsideRelativePath(rel) {
     return ""
   }
-  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel))))
+  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel, r.jsxPreserve))))
 }
 
-func emittedJavaScriptExtension(source string) string {
+func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
   switch strings.ToLower(filepath.Ext(source)) {
-  case ".mts":
+  case ".mts", ".mjs":
     return ".mjs"
-  case ".cts":
+  case ".cts", ".cjs":
     return ".cjs"
+  case ".tsx", ".jsx":
+    if jsxPreserve {
+      return ".jsx"
+    }
+    return ".js"
   default:
     return ".js"
   }
 }
 ```
 
-The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ".js")` strips the source extension and appends `.js` (or `.mjs` / `.cjs`).
+The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ext)` strips the source extension and appends `.js`, `.mjs`, `.cjs`, or `.jsx` depending on the matched source and `jsx` mode.
 
-`isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, "../")` — sources outside the rootDir do not have a well-defined output and the rewriter bails out.
+`isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))` — sources outside the rootDir do not have a well-defined output and the rewriter bails out.
 
 ### 6. Mutating a string literal — the synthesize-flag invariant
 
-This is the three-line pattern at the end of `pathsRewriter.apply`:
+This is the three-line pattern at the end of `rewriter.apply`:
 
 ```go
 lit.AsStringLiteral().Text = rewritten
@@ -442,7 +448,7 @@ When in doubt, set both — the cost is zero and the failure mode is silent.
 
 ## Pulling it together
 
-`pathsRewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
+`rewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
 
 The pattern generalizes to any plugin that needs to query *project-level* information:
 
@@ -455,7 +461,7 @@ The pattern generalizes to any plugin that needs to query *project-level* inform
 
 **Copy:**
 
-- The pattern of caching tsconfig facts on a constructor-built struct (`pathsRewriter`). Avoids re-querying for every node.
+- The pattern of caching tsconfig facts on a constructor-built struct (`rewriter`). Avoids re-querying for every node.
 - The pattern-rank sort. Whenever you read a user-supplied map keyed on globs or patterns, copy this idiom: pull entries into a slice, then `sort.SliceStable` by specificity rank. This makes resolution deterministic across runs.
 - The visitor that enumerates every module-specifier kind. If your plugin cares about module specifiers, this is the exhaustive list as of TypeScript 5.x.
 - The synthesize-flag invariant. Read it once; tattoo it.
@@ -468,7 +474,7 @@ The pattern generalizes to any plugin that needs to query *project-level* inform
 
 ## Test coverage
 
-The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/) — every feature test materializes a real project layout under `tests/projects/path-*`, runs the real `ttsc` launcher, and asserts on both the emitted JS and `.d.ts`.
+The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/) — feature tests materialize real temp project layouts from `tests/projects/path-*` fixtures or inline files, run the real `ttsc` launcher, and assert on the emitted JavaScript and declaration output relevant to each scenario.
 
 The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/paths/driver/` and the end-to-end fixtures above.
 

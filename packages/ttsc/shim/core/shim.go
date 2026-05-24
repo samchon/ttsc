@@ -10,6 +10,9 @@ import innercore "github.com/microsoft/typescript-go/internal/core"
 // TypeScript-Go program host.
 type CompilerOptions = innercore.CompilerOptions
 
+// JsxEmit is the parsed compilerOptions.jsx mode.
+type JsxEmit = innercore.JsxEmit
+
 // Tristate is a three-valued boolean: TSFalse, TSTrue, or TSUnknown. Used by
 // CompilerOptions fields that can be explicitly unset.
 type Tristate = innercore.Tristate
@@ -37,6 +40,14 @@ const (
   ScriptKindExternal = innercore.ScriptKindExternal
   ScriptKindJSON     = innercore.ScriptKindJSON
   ScriptKindDeferred = innercore.ScriptKindDeferred
+
+  // JsxEmit* constants enumerate compilerOptions.jsx modes.
+  JsxEmitNone        = innercore.JsxEmitNone
+  JsxEmitPreserve    = innercore.JsxEmitPreserve
+  JsxEmitReactNative = innercore.JsxEmitReactNative
+  JsxEmitReact       = innercore.JsxEmitReact
+  JsxEmitReactJSX    = innercore.JsxEmitReactJSX
+  JsxEmitReactJSXDev = innercore.JsxEmitReactJSXDev
 )
 
 // NewTextRange constructs a closed/open [pos, end) text range.

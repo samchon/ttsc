@@ -32,6 +32,7 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 pnpm install
 pnpm format
 pnpm build
+pnpm test:go
 pnpm test
 ```
 

@@ -1,6 +1,6 @@
 # Rules
 
-The full catalog by category. Each rule maps to an ESLint name where one exists. Severity in `lint.config.ts` is one of `"error"` (fails the build), `"warning"` (prints, exit code 0), `"off"` (skipped).
+A practical rule catalog by category. Each rule maps to an ESLint name where one exists. Severity in `lint.config.ts` is one of `"error"` (fails the build), `"warning"` (prints, exit code 0), `"off"` (skipped).
 
 If you're skimming: the `error`-severity defaults at the bottom of this page are what most projects end up with.
 
@@ -40,6 +40,7 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-useless-escape` | Reject `\.` and friends when not required. Autofixable. |
 | `no-octal` | Reject octal literals. |
 | `no-octal-escape` | Reject `\08`-style escapes. |
+| `no-loss-of-precision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
 | `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
 
 ## Wrapper objects and prototypes

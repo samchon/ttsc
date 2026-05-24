@@ -266,7 +266,15 @@ function runPreparedEntry(
     }
     return result.status ?? 1;
   } finally {
-    fs.rmSync(execution.cleanupDir, { force: true, recursive: true });
+    removeRuntimeOutput(execution.cleanupDir);
+  }
+}
+
+function removeRuntimeOutput(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort: cleanup must not replace the child process exit status.
   }
 }
 

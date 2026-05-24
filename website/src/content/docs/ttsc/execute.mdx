@@ -17,7 +17,7 @@ npx ttsx src/index.ts
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 Projects that enable `allowImportingTsExtensions` are supported. During the
-runtime emit, `ttsx` rewrites relative `.ts`, `.mts`, and `.cts` import
+runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import
 specifiers to the matching JavaScript extensions so Node can execute the output.
 The emitted JavaScript lives in a per-run cache directory and is removed after
 the script exits.
@@ -37,11 +37,12 @@ Everything after `--` is passed through to `process.argv` unchanged.
 Same as Node's `--require`:
 
 ```bash
-npx ttsx -r ./preload.ts src/index.ts
+npx ttsx -r ./preload.cjs src/index.ts
 npx ttsx -r dotenv/config src/index.ts
 ```
 
-Repeatable: `-r a -r b` preloads `a` then `b`.
+Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to
+Node's raw `--require` loader; `ttsx` does not compile preload files for you.
 
 ## Pick a tsconfig
 
@@ -95,8 +96,13 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 Compiled JavaScript is temporary and cleaned after the script exits. Source
 plugin binaries still use the shared ttsc plugin cache, so repeated runs do not
-rebuild unchanged Go sidecars. Use `--cache-dir` to override the cache root, or
-`npx ttsc clean` to wipe cached plugin binaries.
+rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the
+temporary runtime output root and the source-plugin binary cache anchored in a
+known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx`
+places runtime output under `<cache-dir>/project/<pid>` and plugin binaries
+under `<cache-dir>/plugins`. The runtime project subtree is still removed after
+each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin
+cache.
 
 ## See also
 

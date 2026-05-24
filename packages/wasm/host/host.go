@@ -3,10 +3,10 @@
 // JS-side bindings for the host package.
 //
 // `Expose` installs `globalThis[apiName]` with the base ttsc endpoints
-// (version, build, check, transform) plus a `plugin(name, command, opts)`
-// dispatcher that routes into the consumer's registered plugins. The handler
-// shape mirrors typia's `ttsc-typia` wasm so JS callers can build a single
-// boot helper that works against any host-built binary.
+// (version, build, check, transform) plus `plugin({ name, command, ...opts })`,
+// routing into the consumer's registered plugins. Every async endpoint returns
+// the JS result envelope so callers can build a single boot helper that works
+// against any host-built binary.
 package host
 
 import (
@@ -36,11 +36,14 @@ var (
 // The contract:
 //
 //   - globalThis[apiName].version()                        → version banner
-//   - globalThis[apiName].build({ cwd, tsconfig })         → Promise<CompileResult>
-//   - globalThis[apiName].check({ cwd, tsconfig })         → Promise<CompileResult>
-//   - globalThis[apiName].transform({ cwd, tsconfig })     → Promise<TransformResult>
-//   - globalThis[apiName].plugin({ name, command, ...opts}) → Promise<APIResult>
+//   - globalThis[apiName].build({ cwd, tsconfig })         → Promise<ITtscResult>
+//   - globalThis[apiName].check({ cwd, tsconfig })         → Promise<ITtscResult>
+//   - globalThis[apiName].transform({ cwd, tsconfig })     → Promise<ITtscResult>
+//   - globalThis[apiName].plugin({ name, command, ...opts}) → Promise<ITtscResult>
 //   - globalThis[apiName].plugins()                        → string[] of registered names
+//
+// build/check/transform encode their structured payloads as JSON in
+// ITtscResult.result. Plugin stdout/stderr are captured in the envelope streams.
 //
 // A matching readiness resolver is invoked: `globalThis[`${apiName}Ready`]`.
 // JS callers register this BEFORE go.run begins so they can await wasm boot.
@@ -333,15 +336,25 @@ func runWithCapturedIO(task func() int) APIResult {
     }
     return APIResult{Code: task()}
   }
+  capturing := false
   defer func() {
-    _ = outFile.Close()
-    _ = errFile.Close()
+    if capturing {
+      os.Stdout = prevOut
+      os.Stderr = prevErr
+    }
+    if outFile != nil {
+      _ = outFile.Close()
+    }
+    if errFile != nil {
+      _ = errFile.Close()
+    }
     _ = os.Remove(stdoutPath)
     _ = os.Remove(stderrPath)
   }()
 
   os.Stdout = outFile
   os.Stderr = errFile
+  capturing = true
 
   code := task()
 
@@ -350,15 +363,16 @@ func runWithCapturedIO(task func() int) APIResult {
   _ = outFile.Sync()
   _ = errFile.Sync()
   _ = outFile.Close()
+  outFile = nil
   _ = errFile.Close()
+  errFile = nil
 
   os.Stdout = prevOut
   os.Stderr = prevErr
+  capturing = false
 
   stdoutBytes, _ := os.ReadFile(stdoutPath)
   stderrBytes, _ := os.ReadFile(stderrPath)
-  _ = os.Remove(stdoutPath)
-  _ = os.Remove(stderrPath)
 
   return APIResult{
     Code:   code,

@@ -47,9 +47,15 @@ import { value } from "./modules/value.js";
 ## What it does and doesn't do
 
 - Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses.
-- Rewrites both `.js` emit and `.d.ts` declarations.
+- Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts`
+  declarations.
+- Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`,
+  then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
 - No separate plugin config.
-- Does *not* add `.js` extensions where they weren't already implied — Node's `NodeNext` / `Bundler` resolution should match your `module` setting.
+- Only rewrites specifiers that match `compilerOptions.paths`; relative,
+  absolute, and non-matching package specifiers are left alone.
+- Uses TypeScript-Go's emitted runtime suffix for matched targets (`.js`,
+  `.mjs`, `.cjs`, or `.jsx` depending on the source file and `jsx` mode).
 - Does *not* change source files — only the emit.
 
 ## Common alternatives (and why this is simpler)

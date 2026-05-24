@@ -346,7 +346,7 @@ node.ForEachChild(func(child *shimast.Node) bool {
 })
 ```
 
-Closures in Go capture variables **by reference**, not by value — the inner function sees later mutations to the captured variable. Here `strip` is captured so the recursive call still has the rewriter state; nothing mutates `strip` after the closure is created, so the capture-by-reference detail is invisible. It matters when you capture a loop variable you intend to reassign or pass into a goroutine — the pre-1.22 loop-variable trap mentioned above is exactly this. This closure shape is the standard Go pattern for tree walking; you will see it again in `pathsRewriter`.
+Closures in Go capture variables **by reference**, not by value — the inner function sees later mutations to the captured variable. Here `strip` is captured so the recursive call still has the rewriter state; nothing mutates `strip` after the closure is created, so the capture-by-reference detail is invisible. It matters when you capture a loop variable you intend to reassign or pass into a goroutine — the pre-1.22 loop-variable trap mentioned above is exactly this. This closure shape is the standard Go pattern for tree walking; you will see it again in the `@ttsc/paths` `rewriter`.
 
 ### Sidebar: `node.AsX()` returns nil — branch on `Kind` first
 

@@ -1,7 +1,7 @@
 // linkname_helpers_test.go exposes unexported symbols from the paths driver to
-// this external test package via go:linkname. The declarations mirror private
-// types and functions exactly so rewriter unit tests can reach driver internals
-// without crossing module boundaries.
+// this external test package via go:linkname. The struct layout mirrors
+// driver.rewriter; the `paths*` names are test-local adapters so unit tests can
+// reach driver internals without crossing module boundaries.
 package paths_test
 
 import (
@@ -14,6 +14,7 @@ import (
 
 type pathsRewriter struct {
   basePath    string
+  jsxPreserve bool
   outDir      string
   patterns    []pathsPathPattern
   rootDir     string
@@ -74,4 +75,4 @@ func pathsReplaceSourceExtension(value string, ext string) string
 func pathsIsOutsideRelativePath(rel string) bool
 
 //go:linkname pathsEmittedJavaScriptExtension github.com/samchon/ttsc/packages/paths/driver.emittedJavaScriptExtension
-func pathsEmittedJavaScriptExtension(source string) string
+func pathsEmittedJavaScriptExtension(source string, jsxPreserve bool) string
