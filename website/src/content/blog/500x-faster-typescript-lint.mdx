@@ -1,0 +1,462 @@
+---
+title: "500x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go"
+description: "@ttsc/lint moves lint into the TypeScript-Go-backed check path and ships a separate native format command: 500x faster lint and 70x faster format on the VS Code fixture."
+date: "2026-05-25"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - eslint
+  - opensource
+---
+
+> ## TL;DR
+>
+> I built [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint), a native TypeScript lint engine for [`ttsc`](https://github.com/samchon/ttsc).
+>
+> It also ships the separate `ttsc format` command.
+>
+> On the VS Code benchmark fixture:
+>
+> - `ttsc` type-checks up to **10x faster** than legacy `tsc`;
+> - the measured `@ttsc/lint` pass is around **500x faster** than ESLint;
+> - the separate `ttsc format` command is around **70x faster** than `prettier --check`.
+>
+> Yes, 500x sounds like bait.
+>
+> It is bait.
+>
+> It is also measured, and the reason is simple: once TypeScript-Go has already built the Program, lint should not start a second TypeScript pipeline.
+>
+> Benchmark: https://ttsc.dev/docs/benchmark
+>
+> Repository: https://github.com/samchon/ttsc
+
+---
+
+## 1. The Tax Nobody Questions
+
+Most TypeScript projects still run some version of this:
+
+```bash
+npx tsc --noEmit
+npx eslint .
+npx prettier --check .
+```
+
+It feels normal because we have done it for years.
+
+But if you step back, it is a weird amount of duplicate work.
+
+The compiler reads the project, parses TypeScript, builds a Program, and checks types.
+
+Then ESLint reads the project again, parses TypeScript again, builds another view of the code, and runs rules.
+
+Then Prettier reads the project again, parses enough of it again, and checks whether the printed version is stable.
+
+The source tree did not change between those commands.
+
+The question did not change either:
+
+> Is this TypeScript project acceptable enough to merge?
+
+We just ask it three different ways.
+
+[`@ttsc/lint`](https://ttsc.dev/docs/lint) is my attempt to remove the second TypeScript pipeline.
+
+Formatting is related, but it is not the same command. `@ttsc/lint` owns the `format/*` rules and the `ttsc format` command, but `ttsc --noEmit` and `ttsc format` are separate surfaces.
+
+That separation is important.
+
+---
+
+## 2. The 500x And 70x Numbers
+
+The headline numbers come from the public [`ttsc` benchmark](https://ttsc.dev/docs/benchmark). The reference project for this article is the VS Code fixture.
+
+That matters. I do not want to hide the benchmark behind a vague "large project" claim. The fixture is concrete, recognizable, and big enough that startup noise is not the whole story.
+
+On that fixture:
+
+- `ttsc` type-checks up to **10x faster** than legacy `tsc`;
+- the measured `@ttsc/lint` pass is around **500x faster** than ESLint;
+- `ttsc format` is around **70x faster** than `prettier --check`.
+
+The concrete row behind the lint headline is about 65.6 seconds for ESLint versus 129 milliseconds for the native `@ttsc/lint time` line in the `ttsc --noEmit --checkers 2` run. That is 508x, rounded down to 500x.
+
+This is not a universal promise that every repository will see exactly the same ratio. File count, rule set, TypeScript options, config shape, and plugins all matter.
+
+But the direction is the important part.
+
+Traditional linting pays for another parser and another rule runtime.
+
+Traditional formatting pays for another parse-and-print pipeline.
+
+`@ttsc/lint` moves lint into the native check lane, and gives formatting its own native command.
+
+---
+
+## 3. What I Actually Moved
+
+The title says "moved lint into TypeScript-Go", so here is the precise version.
+
+`@ttsc/lint` is not a fork of Microsoft's `tsgo` binary. It is a `ttsc` check-stage native sidecar that builds on TypeScript-Go's Program, AST, and Checker.
+
+That is still the important move.
+
+The old workflow looks like this:
+
+```text
+tsc                 -> type diagnostics
+@typescript-eslint  -> lint diagnostics
+prettier            -> format check
+```
+
+The `ttsc` workflow is split correctly:
+
+```text
+ttsc --noEmit -> TypeScript-Go Program -> type diagnostics
+                                      -> native lint diagnostics
+
+ttsc format  -> TypeScript-Go AST     -> format/* rewrites
+```
+
+`ttsc --noEmit` is the check path. It catches TypeScript diagnostics and lint diagnostics.
+
+`ttsc format` is the write path. It rewrites source using the formatter rules.
+
+Same package. Separate commands.
+
+The compiler has already opened the project for the check path. It already knows the source files. It already has TypeScript diagnostics. If a lint rule needs type information, the Checker is there too.
+
+So the linter should not rebuild the world.
+
+---
+
+## 4. The Honest Cost Model
+
+This is where performance posts usually get sloppy, so let me be explicit.
+
+I am not claiming a full command invocation costs zero milliseconds.
+
+A real `ttsc --noEmit` run with `@ttsc/lint` still has surrounding work:
+
+- starting the native sidecar process;
+- checking or building the cached plugin binary;
+- loading `lint.config.ts`;
+- reading `tsconfig.json`;
+- building the TypeScript-Go Program;
+- collecting TypeScript bind and semantic diagnostics;
+- acquiring a Checker when a type-aware rule needs one;
+- rendering diagnostics.
+
+Those costs are real.
+
+They are just not the lint pass.
+
+The benchmark's `@ttsc/lint time` line measures the native rule walk after the Program has already been loaded. In code terms, the timer starts immediately before the engine runs over the selected source files and stops immediately after that rule walk returns.
+
+What remains is mostly:
+
+- pick the project-owned source files;
+- walk TypeScript-Go AST nodes;
+- dispatch only to rules interested in each node kind;
+- call the Checker only for type-aware rules;
+- collect findings.
+
+That is why the additional lint cost can be so close to zero in practice.
+
+Not literally zero.
+
+Close enough that the old mental model breaks.
+
+```text
+legacy check = tsc + eslint
+ttsc check   = TypeScript-Go check + tiny native lint pass
+```
+
+For formatting, the benchmark is a different comparison:
+
+```text
+legacy format = prettier --check
+ttsc format   = native format/* rule walk
+```
+
+On the same VS Code fixture, `prettier --check` takes about 118.3 seconds and `ttsc format` takes about 1.5 seconds in the default run. That is roughly 76x, so I call it **70x faster format**.
+
+---
+
+## 5. What It Feels Like
+
+Take a small file:
+
+```ts
+var x: number = 3;
+let y: number = 4;
+const z: string = 5;
+
+console.log(x + y + z);
+```
+
+There are three issues:
+
+- `var x` violates `no-var`;
+- `let y` should be `const`;
+- `const z: string = 5` is a TypeScript type error.
+
+In the usual setup, TypeScript reports one of them and ESLint reports the other two.
+
+With `ttsc --noEmit` and `@ttsc/lint`, they are all compiler-style diagnostics:
+
+```text
+src/lint.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+
+3 const z: string = 5;
+        ~
+
+src/lint.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let y: number = 4;
+      ~~~~~~~~~~~~~
+
+src/lint.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var x: number = 3;
+  ~~~~~~~~~~~~~~~~~~
+```
+
+The exact diagnostic codes are not the interesting part.
+
+The shape is.
+
+Types and lint share one terminal output and one CI gate.
+
+Formatting stays a separate write command.
+
+That is a different product from "ESLint, but faster."
+
+---
+
+## 6. Setup
+
+Install:
+
+```bash
+npm install -D ttsc @ttsc/lint @typescript/native-preview
+```
+
+Create `lint.config.ts` next to `tsconfig.json`:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-explicit-any": "warning",
+  },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Run the check path:
+
+```bash
+npx ttsc --noEmit
+```
+
+Run the separate format path:
+
+```bash
+npx ttsc format
+```
+
+Use autofix when you want lint and format edits applied before a re-check:
+
+```bash
+npx ttsc fix
+```
+
+The commands are intentionally boring. The interesting part is what they replace.
+
+---
+
+## 7. Why A Separate lint.config.ts?
+
+Early versions of this idea put lint options inside `compilerOptions.plugins`.
+
+I backed away from that.
+
+`tsconfig.json` should describe the TypeScript project. It can point at compiler plugins, but it should not become the home for every plugin's private configuration language.
+
+So `@ttsc/lint` uses dedicated config files:
+
+```text
+lint.config.ts
+lint.config.mts
+lint.config.cts
+lint.config.js
+lint.config.mjs
+lint.config.cjs
+lint.config.json
+```
+
+The file is discovered by walking upward from the project. If a project needs an explicit path, the tsconfig plugin entry accepts `configFile`.
+
+That keeps the migration legible:
+
+```text
+.eslintrc.*      -> lint.config.ts rules
+.prettierrc.*    -> lint.config.ts format
+tsconfig.json    -> TypeScript project
+```
+
+Small boundary, big difference.
+
+---
+
+## 8. Formatting Is Not The Check Command
+
+The package is called `@ttsc/lint`, but it also owns common TypeScript formatting.
+
+That does not mean `ttsc --noEmit` secretly runs `ttsc format`.
+
+It does not.
+
+`ttsc format` is a separate command because formatting writes source files. That command uses `format/*` rules from `@ttsc/lint`:
+
+```ts
+format: {
+  printWidth: 100,
+  singleQuote: true,
+  trailingComma: "all",
+}
+```
+
+The formatter covers rules such as semicolons, quotes, trailing commas, print-width reflow, import ordering, and JSDoc normalization.
+
+This does not mean "every Prettier plugin is replaced."
+
+It means the common TypeScript formatting path can stay in the same native toolchain while keeping the right command boundary:
+
+```bash
+npx ttsc --noEmit  # type + lint
+npx ttsc format    # format
+```
+
+---
+
+## 9. What This Does Not Replace Yet
+
+`@ttsc/lint` does not run existing ESLint plugins.
+
+It does not run existing Prettier plugins.
+
+It does not mean every project should delete ESLint today.
+
+That tradeoff is real:
+
+| Path         | Best at                                         |
+| ------------ | ----------------------------------------------- |
+| ESLint       | Huge JavaScript rule ecosystem                  |
+| Prettier     | Huge formatting ecosystem and language coverage |
+| `@ttsc/lint` | Native TypeScript-focused compiler integration  |
+
+If your repo depends on a pile of custom ESLint plugins, keep them.
+
+If your repo mostly needs TypeScript rules, type-aware checks, core formatting, and faster CI feedback, `@ttsc/lint` is worth trying now.
+
+You do not have to migrate in one dramatic pull request.
+
+Start small. Run it beside the old pipeline. Delete old steps only after the new one becomes boring.
+
+---
+
+## 10. Why This Is Part One
+
+This article is about `@ttsc/lint` because **500x faster lint** and a separate **70x faster format** command are the easiest way to make the architecture obvious.
+
+But this is not the whole `ttsc` story.
+
+The bigger idea is:
+
+> TypeScript-Go should not only be a faster `tsc`. It should become a base for a compiler-powered TypeScript toolchain.
+
+That bigger story includes runtime execution, compiler plugins, bundlers, and ecosystem packages.
+
+Those deserve their own posts.
+
+This first one only needs to land one point:
+
+> Lint does not have to be a second TypeScript pipeline.
+
+That is the opening shot.
+
+---
+
+## 11. Try It
+
+Install:
+
+```bash
+npm install -D ttsc @ttsc/lint @typescript/native-preview
+```
+
+Create `lint.config.ts`:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+  },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Run:
+
+```bash
+npx ttsc --noEmit
+npx ttsc format
+npx ttsc fix
+```
+
+Read next:
+
+- Benchmark: https://ttsc.dev/docs/benchmark
+- Lint overview: https://ttsc.dev/docs/lint
+- Format config: https://ttsc.dev/docs/lint/format
+- Rule catalog: https://ttsc.dev/docs/lint/rules
+- Repository: https://github.com/samchon/ttsc
+
+The old workflow:
+
+```bash
+npx tsc --noEmit
+npx eslint .
+npx prettier --check .
+```
+
+The `@ttsc/lint` workflow:
+
+```bash
+npx ttsc --noEmit  # type + lint
+npx ttsc format    # format
+```
+
+Same package, separate commands.
+
+That is the first chapter.

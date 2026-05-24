@@ -5,9 +5,10 @@
   "private": true,
   "scripts": {
     "build": "pnpm run prebuild && pnpm run build:next && pnpm run postbuild",
-    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler",
+    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss",
     "build:next": "next build",
     "build:compiler": "node build/compiler.cjs",
+    "build:blog:rss": "node build/blog.cjs",
     "postbuild": "pnpm run build:pagefind && pnpm run build:sitemap",
     "build:pagefind": "pagefind --site .next/server/app --output-path out/_pagefind",
     "build:sitemap": "next-sitemap",

@@ -16,6 +16,10 @@ const meta: MetaRecord = {
     type: "page",
     title: "📖 Guide Documents",
   },
+  blog: {
+    type: "page",
+    title: "📝 Blog Articles",
+  },
   playground: {
     type: "page",
     title: "🛝 Playground",

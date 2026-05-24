@@ -2,7 +2,7 @@ import { generateStaticParamsFor, importPage } from "nextra/pages";
 
 import { useMDXComponents as getMDXComponents } from "../../../mdx-components";
 
-const CUSTOM_ROUTES = new Set(["playground"]);
+const CUSTOM_ROUTES = new Set(["blog", "playground"]);
 
 export async function generateStaticParams() {
   const params = await generateStaticParamsFor("mdxPath")();

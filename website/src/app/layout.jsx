@@ -5,6 +5,7 @@ import { getPageMap } from "nextra/page-map";
 import "./global.css";
 
 export const metadata = {
+  metadataBase: new URL("https://ttsc.dev"),
   title: {
     default: "ttsc — TypeScript-Go toolchain for compiler-powered plugins",
     template: "%s · ttsc",
