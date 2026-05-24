@@ -1,0 +1,216 @@
+---
+title: "CI Should Warm The Compiler, Not Fear It"
+description: "ttsc prepare prebuilds plugin binaries so CI can separate cold plugin compilation from steady-state type-check and lint measurements."
+date: "2026-06-09"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - ci
+  - cache
+  - go
+---
+
+> ## TL;DR
+>
+> `ttsc` builds Go source plugins into a cache.
+>
+> That first build cost is real.
+>
+> CI should make it explicit:
+>
+> ```bash
+> npx ttsc prepare
+> npx ttsc --noEmit
+> ```
+>
+> `prepare` warms the plugin cache.
+>
+> `--noEmit` gates the project.
+
+---
+
+## 1. Cold Start Is Not A Scandal
+
+`ttsc` plugins ship Go source.
+
+On first use, the host builds that source into a native binary.
+
+That can take seconds.
+
+Some people see that and panic:
+
+> The first run is slower.
+
+Yes.
+
+It is doing a build.
+
+The important question is whether that cost is:
+
+- explicit;
+- cacheable;
+- separate from steady-state compiler work;
+- easy to pre-warm.
+
+That is what `ttsc prepare` is for.
+
+---
+
+## 2. What prepare Does
+
+Run:
+
+```bash
+npx ttsc prepare
+```
+
+The command resolves configured plugins, builds missing Go sidecars, and writes the binaries into the plugin cache.
+
+It does not:
+
+- type-check the project;
+- emit JavaScript;
+- run lint diagnostics;
+- format files.
+
+It is a cache-warm command.
+
+That makes it useful in CI and benchmark harnesses.
+
+---
+
+## 3. The CI Shape
+
+A simple CI job can be:
+
+```bash
+pnpm install --frozen-lockfile
+npx ttsc prepare
+npx ttsc --noEmit
+```
+
+If you use `@ttsc/lint`, the check command gates type errors and lint errors together.
+
+If plugin binaries are already restored from cache, `prepare` should be cheap.
+
+If they are missing, `prepare` pays the cold build cost before the gate.
+
+That is a clean line.
+
+---
+
+## 4. What To Cache
+
+The default plugin cache is user-level:
+
+```text
+~/.cache/ttsc/plugins/<key>/plugin
+```
+
+or the platform equivalent.
+
+You can override it:
+
+```bash
+npx ttsc --cache-dir .cache/ttsc prepare
+npx ttsc --cache-dir .cache/ttsc --noEmit
+```
+
+That makes CI caching straightforward.
+
+Use a project-local cache dir if your CI cache tool prefers paths inside the workspace.
+
+Use the default cache if your runner image persists user caches.
+
+The important part is consistency between `prepare` and the command that follows.
+
+---
+
+## 5. Why The Cache Key Is Strict
+
+The cache key includes the things that can change the plugin binary:
+
+- `ttsc` version;
+- TypeScript-Go version;
+- platform;
+- Go compiler identity;
+- Go build environment;
+- plugin source hash;
+- shim/overlay hash;
+- contributor source hashes.
+
+That means a cache miss is not arbitrary.
+
+If any of those inputs change, rebuilding is correct.
+
+If only your TypeScript source changes, the plugin binary should be reused.
+
+That is the distinction that makes the cache worth trusting.
+
+---
+
+## 6. Benchmarks Use The Same Split
+
+The public benchmark runner runs `ttsc prepare` before measuring compile cells.
+
+That is not cheating.
+
+It is separating two questions:
+
+1. How long does it take to build the tool?
+2. How long does it take the tool to check this project?
+
+ESLint is not measured by reinstalling npm packages every run.
+
+Prettier is not measured by rebuilding its package every run.
+
+`ttsc` plugin source builds should be handled the same way.
+
+Measure cold start when cold start is the question.
+
+Measure steady-state compiler work when compiler work is the question.
+
+---
+
+## 7. Cleaning The Cache
+
+When you need to drop it:
+
+```bash
+npx ttsc clean
+```
+
+That removes active cache locations plus legacy project-local caches.
+
+Use it when:
+
+- debugging plugin build failures;
+- verifying a cold build;
+- cleaning a broken local cache;
+- testing package contents before publish.
+
+Do not put `clean` before every CI check unless you explicitly want to measure cold start every time.
+
+That defeats the cache.
+
+---
+
+## 8. The Takeaway
+
+Native plugin builds are a real cost.
+
+They should not be hidden.
+
+They also should not be paid on every check.
+
+The workflow is:
+
+```bash
+npx ttsc prepare
+npx ttsc --noEmit
+```
+
+Warm the compiler.
+
+Then trust the gate.

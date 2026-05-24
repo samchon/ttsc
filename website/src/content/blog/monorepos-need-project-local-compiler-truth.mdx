@@ -1,0 +1,201 @@
+---
+title: "Monorepos Need Project-Local Compiler Truth"
+description: "ttsc resolves tsconfig, package plugins, config files, ttsx runtime layout, and VS Code server paths from the project that owns the file."
+date: "2026-06-18"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - monorepo
+  - pnpm
+  - tooling
+---
+
+> ## TL;DR
+>
+> Monorepos break tools that assume one root, one config, one compiler, one package.
+>
+> `ttsc` tries to keep truth project-local:
+>
+> - resolve `tsconfig.json` from the command or file;
+> - discover plugin config from the tsconfig directory upward;
+> - auto-discover only direct dependencies;
+> - make `ttsx` preserve enough workspace layout for runtime resolution;
+> - make VS Code resolve the active file's project compiler first.
+
+---
+
+## 1. Monorepos Are Not Edge Cases
+
+Modern TypeScript repositories often look like:
+
+```text
+repo/
+├── packages/
+│   ├── api/
+│   ├── web/
+│   ├── sdk/
+│   └── shared/
+├── pnpm-workspace.yaml
+└── package.json
+```
+
+Each package can have:
+
+- its own `tsconfig.json`;
+- its own dependencies;
+- its own lint config;
+- its own build output;
+- its own runtime scripts;
+- its own editor expectations.
+
+A tool that treats the repo root as the only truth will eventually be wrong.
+
+---
+
+## 2. tsconfig Is The Anchor
+
+For compile commands, `ttsc` starts from the selected project:
+
+```bash
+npx ttsc -p packages/api/tsconfig.json
+```
+
+or current working directory:
+
+```bash
+cd packages/api
+npx ttsc
+```
+
+That tsconfig path determines the project root and relative compiler options.
+
+Plugin config discovery starts from that world.
+
+This matters because `packages/api` and `packages/web` should not accidentally share every option unless the repo deliberately places a shared config above them.
+
+---
+
+## 3. Direct Dependency Auto-Discovery
+
+Plugin auto-discovery reads direct dependencies and devDependencies from the nearest consumer package.
+
+That is important in monorepos.
+
+A dependency used by `packages/web` should not automatically become a compiler plugin for `packages/api` unless `api` lists it too.
+
+Compiler plugins can change output.
+
+They should activate because the package owner opted in.
+
+Direct dependency scanning is the opt-in boundary.
+
+---
+
+## 4. Config Walks Are Useful
+
+Dedicated config files can live at a package root:
+
+```text
+packages/api/lint.config.ts
+packages/api/tsconfig.json
+```
+
+or at the repo root:
+
+```text
+lint.config.ts
+packages/api/tsconfig.json
+packages/web/tsconfig.json
+```
+
+Upward discovery lets shared defaults exist without forcing every package to copy config.
+
+Explicit `configFile` exists when a package needs a different path.
+
+That is the right monorepo tradeoff:
+
+Convention first.
+
+Explicit override when needed.
+
+---
+
+## 5. ttsx Runtime Layout
+
+`ttsx` emits runtime JavaScript into a cache directory instead of your `dist/`.
+
+But Node module resolution still has to work.
+
+In a pnpm workspace, dependencies may be symlinked through workspace and virtual-store layout.
+
+The runner mirrors a bounded slice of the workspace layout into a virtual runtime tree so common monorepo resolution keeps working.
+
+That is not a headline feature.
+
+It is the difference between:
+
+```bash
+npx ttsx scripts/seed.ts
+```
+
+working in a real repo or only in a toy project.
+
+---
+
+## 6. VS Code Resolution
+
+The VS Code extension resolves from the active file first.
+
+If you open:
+
+```text
+packages/api/src/main.ts
+```
+
+it tries to resolve that package's installed `ttsc` before falling back through workspace folders.
+
+That matters because one monorepo can have packages at different migration stages.
+
+The editor should follow the file's project, not the extension host's current directory.
+
+---
+
+## 7. The Cache Is Shared, But The Project Is Local
+
+Plugin binaries can be cached at the user level.
+
+That is good.
+
+Two packages using the same plugin source, `ttsc` version, TypeScript-Go version, platform, and build environment can reuse the same binary.
+
+But plugin activation and project config remain local.
+
+That split is exactly what you want:
+
+```text
+shared tool binary cache
+project-local compiler truth
+```
+
+Cache globally.
+
+Decide locally.
+
+---
+
+## 8. The Takeaway
+
+Monorepos punish tools that guess too broadly.
+
+`ttsc` tries to keep the boundaries clear:
+
+- tsconfig owns the project;
+- package dependencies own auto plugin activation;
+- config files own plugin options;
+- editor resolution starts from the active file;
+- runtime caches preserve enough workspace shape to execute.
+
+That is not glamorous architecture.
+
+It is what makes the tool work outside a demo repo.

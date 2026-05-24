@@ -23,6 +23,8 @@ tags:
 >
 > Type errors and lint errors should fail together.
 >
+> In other words: lint stops being style police and becomes the acceptance harness between generated code and the repository.
+>
 > But the harness cannot become a pile of duplicate passes:
 >
 > ```bash
@@ -95,6 +97,18 @@ That is why I do not want lint to feel like a separate optional ceremony.
 
 I want it to look like a compile error.
 
+That is the real shift.
+
+Lint used to be something teams ran after the important compiler step.
+
+In AI coding, lint becomes part of the important compiler step.
+
+The harness is not a prettier report after the fact.
+
+It is the boundary that says:
+
+> This generated patch is allowed to keep moving.
+
 ---
 
 ## 3. Why Separate Passes Hurt More Now
@@ -140,6 +154,26 @@ So lint should ask:
 > What can I check while that world is already loaded?
 
 That is the `@ttsc/lint` model.
+
+This matters more when the author is an agent.
+
+A human might run the full gate once before pushing.
+
+An agent may run it after every edit, every retry, every autofix, and every narrowed test attempt.
+
+If each loop pays for:
+
+```text
+parse project for TypeScript
+parse project again for lint
+parse project again for format
+```
+
+the harness becomes the bottleneck.
+
+If the lint diagnostics ride the compiler check that already exists, strictness gets cheaper.
+
+That is the point of the one-time compilation pass.
 
 The check path looks like this:
 
@@ -289,3 +323,7 @@ That is why I care about one compilation pass.
 And that is why `@ttsc/lint` is not just a faster ESLint clone.
 
 It is a different place to put the gate.
+
+For AI-generated code, that gate is the harness.
+
+And the best harness is the one strict enough to catch the project contract, but cheap enough to run every time the code changes.

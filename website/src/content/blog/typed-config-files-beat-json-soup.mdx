@@ -1,0 +1,258 @@
+---
+title: "Typed Config Files Beat JSON Soup"
+description: "ttsc plugins use dedicated config files such as lint.config.ts and strip.config.ts. The tsconfig plugin entry stays small and discoverable."
+date: "2026-06-07"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - config
+  - tooling
+  - plugins
+---
+
+> ## TL;DR
+>
+> `ttsc` plugin configuration moved away from dumping every option into `compilerOptions.plugins[]`.
+>
+> The pattern is:
+>
+> ```jsonc
+> { "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }
+> ```
+>
+> and the actual options live in:
+>
+> ```ts
+> // lint.config.ts
+> export default { rules: { "no-var": "error" } };
+> ```
+>
+> One typed, discoverable config home beats JSON soup inside `tsconfig.json`.
+
+---
+
+## 1. tsconfig Is Already Busy
+
+`tsconfig.json` has enough jobs:
+
+- compiler target;
+- module kind;
+- module resolution;
+- lib files;
+- source maps;
+- declaration emit;
+- paths;
+- strictness;
+- include/exclude.
+
+It is not a great place to host every plugin's entire option schema too.
+
+At first, inline plugin options feel convenient:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      {
+        "transform": "@ttsc/lint",
+        "rules": { "no-var": "error" },
+        "format": { "printWidth": 100 },
+      },
+    ],
+  },
+}
+```
+
+Then the object grows.
+
+Then you want comments.
+
+Then you want imports.
+
+Then you want TypeScript types.
+
+Then you want a helper function.
+
+Now JSON is the wrong format.
+
+---
+
+## 2. The Dedicated Config Pattern
+
+`@ttsc/lint` reads:
+
+```text
+lint.config.ts
+lint.config.mts
+lint.config.cts
+lint.config.js
+lint.config.cjs
+lint.config.mjs
+lint.config.json
+```
+
+or the `ttsc-lint.config.*` equivalent.
+
+`@ttsc/banner` reads:
+
+```text
+banner.config.*
+```
+
+`@ttsc/strip` reads:
+
+```text
+strip.config.*
+```
+
+The plugin entry stays small:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "@ttsc/strip" }],
+  },
+}
+```
+
+If you need an explicit path:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" },
+    ],
+  },
+}
+```
+
+That is enough.
+
+---
+
+## 3. Why `configFile` Is The Only tsconfig Option
+
+For first-party config-driven plugins, the tsconfig entry accepts only `configFile`.
+
+That is intentional.
+
+It prevents two competing config homes:
+
+```text
+some options in tsconfig
+some options in lint.config.ts
+some overrides in package scripts
+```
+
+That split is how projects become hard to debug.
+
+The rule is simpler:
+
+> tsconfig says which plugin is active. The plugin config file says what it does.
+
+If a plugin needs no config, it needs no config file.
+
+If a plugin needs real config, give it a real file.
+
+---
+
+## 4. TypeScript Config Files Are Better For Tooling
+
+A TypeScript config file can do this:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+  },
+  format: {
+    printWidth: 100,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
+```
+
+That gives:
+
+- autocomplete;
+- type checking;
+- comments;
+- reusable constants;
+- project-local conventions;
+- normal module resolution.
+
+For a serious toolchain, that is worth more than keeping everything inside one JSON file.
+
+---
+
+## 5. Discovery Matters In Monorepos
+
+Config discovery walks upward from the tsconfig directory.
+
+That matters in monorepos:
+
+```text
+repo/
+├── lint.config.ts
+├── packages/
+│   ├── api/tsconfig.json
+│   └── web/tsconfig.json
+```
+
+Both packages can inherit the root config.
+
+If one package needs a different config, it can place its own file nearer to its tsconfig or set `configFile`.
+
+That is the shape developers already expect from tools like ESLint and Prettier.
+
+The difference is that the plugin still runs inside the compiler path.
+
+---
+
+## 6. Config Loading Needs A Typed Runner
+
+There is one subtle detail:
+
+If the config file is TypeScript, something has to run it.
+
+`ttsc` uses its own runner path for this kind of work.
+
+When config loading invokes `ttsx`, it can pass `--no-plugins` so the config loader does not recursively load the project's transform/check plugins just to evaluate a config object.
+
+That is a small implementation detail with a big practical effect.
+
+Config files should be type-safe.
+
+They should not accidentally require the entire app plugin stack to boot.
+
+---
+
+## 7. The Takeaway
+
+I do not want giant plugin option blobs inside `tsconfig.json`.
+
+I want:
+
+```jsonc
+{ "transform": "@ttsc/lint" }
+```
+
+and:
+
+```ts
+// lint.config.ts
+export default { ... };
+```
+
+Small activation.
+
+Typed configuration.
+
+One discoverable home.
+
+That is easier to explain, easier to validate, and easier to migrate.

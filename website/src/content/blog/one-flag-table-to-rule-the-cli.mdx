@@ -1,0 +1,251 @@
+---
+title: "One Flag Table To Rule The CLI"
+description: "ttsc and ttsx share a generated flag schema so launcher parsing, docs, and native plugin allow-lists do not drift."
+date: "2026-06-08"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - cli
+  - dx
+  - tooling
+---
+
+> ## TL;DR
+>
+> CLI flags are easy to add and hard to keep consistent.
+>
+> `ttsc` keeps a single flag schema as the source of truth.
+>
+> From that one schema it derives:
+>
+> - launcher parsing;
+> - docs;
+> - subcommand coverage;
+> - which layer consumes the flag;
+> - which flags native plugins may receive.
+>
+> Boring? Yes.
+>
+> Necessary? Also yes.
+
+---
+
+## 1. Flag Drift Is A Real Bug
+
+Every compiler wrapper eventually grows flags.
+
+At first:
+
+```bash
+ttsc --noEmit
+ttsc --watch
+ttsc -p tsconfig.build.json
+```
+
+Then:
+
+```bash
+ttsc --cache-dir .cache
+ttsc --checkers 4
+ttsc --diagnostics
+ttsx -r dotenv/config src/index.ts
+```
+
+Then plugins need to know which flags can be forwarded.
+
+Docs need to describe them.
+
+The launcher has to parse them.
+
+The native host has to accept them.
+
+The linter has to ignore or consume some of them.
+
+If those lists drift, users get nonsense:
+
+```text
+docs say flag exists
+launcher accepts it
+native sidecar rejects it
+```
+
+That is not acceptable for a compiler tool.
+
+---
+
+## 2. The Schema Is The Source
+
+`ttsc` keeps the flag source of truth in code.
+
+The docs page is generated from that schema.
+
+The Go allow-lists are generated from that schema.
+
+The parser reads the same structure.
+
+The generated docs show columns like:
+
+- flag name;
+- aliases;
+- kind;
+- subcommands;
+- consumed by;
+- notes;
+- description.
+
+This is not fancy.
+
+It is the kind of boring infrastructure that prevents subtle CLI bugs.
+
+---
+
+## 3. Some Flags Are Consumed, Some Are Forwarded
+
+Not every flag belongs to the launcher.
+
+For example:
+
+```bash
+ttsc --strict src/main.ts
+```
+
+can be forwarded to TypeScript-Go.
+
+But:
+
+```bash
+ttsc --cache-dir .cache
+```
+
+is consumed by `ttsc`.
+
+And:
+
+```bash
+ttsx --require dotenv/config src/index.ts
+```
+
+is consumed by the `ttsx` launcher.
+
+The schema makes that explicit.
+
+That matters because `ttsc` is not only one process.
+
+It is a launcher, native helper, plugin host, lint sidecar, tsgo process, and sometimes a script runner.
+
+Flags cross process boundaries.
+
+They need a map.
+
+---
+
+## 4. Terminal Flags Are Special
+
+Some TypeScript flags ask the compiler to print and exit:
+
+```bash
+ttsc --showConfig
+ttsc --listFilesOnly
+ttsc --init
+```
+
+Those are not ordinary build flags.
+
+They affect control flow.
+
+The schema marks them as terminal.
+
+That way a plugin-backed build does not accidentally swallow a user's request to inspect configuration.
+
+Again, boring.
+
+Again, important.
+
+---
+
+## 5. Shadow Flags Are Special Too
+
+Some flags are user-facing and also host-internal.
+
+`--noEmit` is a good example.
+
+The launcher may need to force analysis-only behavior.
+
+The user may also pass `--noEmit`.
+
+Post-processing cannot just delete every copy and hope.
+
+The schema marks shadow flags so the parser and forwarding logic know when `ttsc` is deliberately mirroring TypeScript-Go behavior.
+
+This is how wrapper CLIs avoid becoming leaky wrappers.
+
+---
+
+## 6. ttsx Makes This Harder
+
+`ttsx` shares much of the compiler flag surface, but it has runner-specific rules.
+
+Before the entry file:
+
+```bash
+ttsx --strict src/index.ts
+```
+
+`--strict` belongs to the type-check.
+
+After the entry file:
+
+```bash
+ttsx src/index.ts -- --strict
+```
+
+`--strict` belongs to the user's program.
+
+The parser has to honor that boundary.
+
+It also has `-P` as a project alias, `-r` / `--require` for preload modules, and `--no-plugins` for config-loading use cases.
+
+This is exactly where ad hoc argument parsing gets brittle.
+
+---
+
+## 7. Why Users Should Care
+
+Users should not need to care about the schema.
+
+They should feel its absence if it breaks.
+
+A good CLI lets you predict:
+
+```bash
+ttsc --checkers 4 --diagnostics
+ttsx --checkers 4 src/index.ts
+ttsc format --singleThreaded
+```
+
+The flags should either work, forward, or fail with a clear message.
+
+They should not disappear between JavaScript and Go.
+
+They should not work in docs but fail in a plugin sidecar.
+
+That reliability comes from boring centralization.
+
+---
+
+## 8. The Takeaway
+
+I like big architecture posts.
+
+But sometimes the thing that makes a tool usable is a generated flag table.
+
+One schema.
+
+One parser.
+
+One docs page.
+
+One native allow-list.
+
+That is how a compiler wrapper stays a tool instead of a pile of shell scripts.

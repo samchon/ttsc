@@ -1,0 +1,241 @@
+---
+title: "Benchmarks Are Boring Until They Save Your Architecture"
+description: "The ttsc benchmark is not just a chart. It is how I keep compiler, lint, and format claims honest across real projects."
+date: "2026-06-06"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - benchmark
+  - performance
+  - tooling
+---
+
+> ## TL;DR
+>
+> I use the VS Code fixture as the public headline because it is concrete, recognizable, and large.
+>
+> But the benchmark page is more important than the headline.
+>
+> It separates:
+>
+> - build;
+> - type-check;
+> - lint;
+> - isolated lint overhead;
+> - format;
+> - threading variants.
+>
+> Without that split, a performance post becomes marketing.
+
+---
+
+## 1. Performance Claims Need A Shape
+
+"Fast" is not a benchmark.
+
+"10x faster" is not a benchmark unless you know what was measured.
+
+For `ttsc`, the obvious headline is:
+
+> TypeScript-Go type-checks much faster than legacy JavaScript `tsc`.
+
+That is true, but too broad.
+
+The interesting questions are narrower:
+
+- Is this build or no-emit?
+- Is lint included?
+- Is lint measured as the whole command or the native rule walk?
+- Is format using the checker?
+- Is the compiler single-threaded or using a checker pool?
+- Is plugin binary build time included?
+
+Those details change the story.
+
+So the benchmark has to expose them.
+
+---
+
+## 2. Why VS Code Is The Reference Fixture
+
+The public headline uses the VS Code fixture.
+
+That is not because every project is VS Code.
+
+It is because VS Code is:
+
+- recognizable;
+- large enough that startup noise is not the whole story;
+- TypeScript-heavy;
+- real, not synthetic.
+
+On that fixture, the published benchmark shows:
+
+- up to 10x faster type-checks than legacy `tsc`;
+- around 500x faster measured `@ttsc/lint` pass than ESLint;
+- around 70x faster `ttsc format` than `prettier --check`.
+
+The exact ratio is not universal.
+
+The architecture signal is.
+
+---
+
+## 3. Why Lint Is Split Out
+
+This is the most important part of the chart.
+
+The legacy path is:
+
+```text
+tsc + eslint
+```
+
+The `ttsc` path is:
+
+```text
+ttsc + @ttsc/lint
+```
+
+But the `@ttsc/lint` sidecar also participates in normal TypeScript diagnostics.
+
+If you call the whole sidecar wall-clock "lint," the chart lies.
+
+So the benchmark parses the native `@ttsc/lint time` line when available.
+
+That gives the lint pass itself:
+
+```text
+ESLint time vs native rule-walk time
+```
+
+The surrounding compiler work remains in the compiler segment.
+
+That is how the 500x claim stays honest.
+
+---
+
+## 4. Why Format Is Different
+
+Format does not use the TypeScript checker.
+
+That means flags like:
+
+```bash
+--checkers 8
+```
+
+do not mean the same thing for `ttsc format` as they do for `ttsc --noEmit`.
+
+The format chart keeps the meaningful comparison:
+
+```text
+prettier --check vs ttsc format
+```
+
+and distinguishes single-threaded from the default command where it matters.
+
+A format command is mostly parse plus AST rule walk plus fixed launcher overhead.
+
+If a project is small, the fixed overhead dominates.
+
+If a project has thousands of files, parse and rule walk dominate.
+
+One ratio cannot explain every project.
+
+---
+
+## 5. Why Plugin Build Time Is Excluded
+
+`ttsc` builds Go source plugins into a cache.
+
+That cold build cost is real.
+
+It should be measured when you care about first install.
+
+It should not be mixed into repeated compiler measurements.
+
+The benchmark runs:
+
+```bash
+npx ttsc prepare
+```
+
+before timing the cells.
+
+That prebuilds plugin binaries into the cache.
+
+Then the compile/check/format measurements answer the steady-state question:
+
+> What does this command cost when the plugin binary exists?
+
+That is the right comparison for local iteration and CI after cache warmup.
+
+---
+
+## 6. Threading Is Not A Magic Multiplier
+
+TypeScript-Go can use parallel parsing and checker pools.
+
+That helps.
+
+But not every workload scales the same way.
+
+Large single-program projects can benefit more because there is enough work inside one process.
+
+Projects split across many tiny tsconfigs may pay startup overhead repeatedly.
+
+Format has no checker pool to scale.
+
+Some rule walks plateau because a few large files dominate the longest path.
+
+That is why the benchmark shows threading variants instead of only one best bar.
+
+Performance engineering is usually less glamorous than the headline number.
+
+The chart has to show the boring parts too.
+
+---
+
+## 7. What I Watch When Changing ttsc
+
+When I change `ttsc`, I do not only ask:
+
+> Did the test pass?
+
+I also ask:
+
+- Did type-check get slower?
+- Did the lint overhead move?
+- Did format regress?
+- Did a threading variant change unexpectedly?
+- Did plugin setup time move into the wrong segment?
+
+The benchmark is a design constraint.
+
+It catches architecture drift.
+
+If the native lint pass quietly starts rebuilding compiler state, the 500x story disappears.
+
+The chart would show it.
+
+---
+
+## 8. The Takeaway
+
+Benchmarks are boring until they stop you from lying to yourself.
+
+`ttsc` needs big performance claims because the project exists partly to remove wasted compiler work.
+
+But those claims only matter if the measurement is precise.
+
+Build is not check.
+
+Check is not lint overhead.
+
+Lint is not format.
+
+Cold plugin build is not steady-state compile.
+
+Keep those lines visible and the architecture stays honest.

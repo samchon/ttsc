@@ -1,0 +1,232 @@
+---
+title: "The Plugin Pitfalls I Already Hit For You"
+description: "Most ttsc plugin failures are predictable: missing source, wrong package name, bad composition, stale Go env, and unsafe AST assumptions."
+date: "2026-06-12"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - plugins
+  - debugging
+---
+
+> ## TL;DR
+>
+> Compiler plugins fail in boring ways.
+>
+> The best debugging docs are the ones that quote the actual error string.
+>
+> `ttsc` has a pitfall guide because most first-hour plugin failures are predictable:
+>
+> - missing Go source in the tarball;
+> - package auto-discovery name mismatch;
+> - missing bundled Go SDK;
+> - bad `composes`;
+> - contributor shape errors;
+> - unsafe AST assumptions;
+> - stale cache assumptions.
+
+---
+
+## 1. The First Failure: Source Does Not Exist
+
+The plugin descriptor points to Go source:
+
+```js
+source: path.resolve(__dirname, "plugin");
+```
+
+But the npm tarball forgot to include it.
+
+That is the classic first plugin publish bug.
+
+Fix `package.json`:
+
+```json
+{
+  "files": ["plugin.cjs", "plugin"]
+}
+```
+
+Then verify:
+
+```bash
+npm pack --dry-run
+```
+
+Do not wait for users to discover that your package published only the descriptor.
+
+---
+
+## 2. Auto-Discovery Did Nothing
+
+This one is subtle because it can look like success.
+
+The project builds.
+
+No error.
+
+No transform.
+
+No diagnostic.
+
+The usual cause is package name mismatch.
+
+The consumer wrote:
+
+```json
+"devDependencies": {
+  "my-ttsc-plugin": "^0.1.0"
+}
+```
+
+But the package says:
+
+```json
+{ "name": "something-else" }
+```
+
+Auto-discovery matches the direct dependency string to the installed package's `name`.
+
+If those do not line up, `ttsc` should not guess.
+
+Explicit plugin entries still work when you need total control.
+
+---
+
+## 3. Go Toolchain Missing
+
+Consumers should not need a random system Go install.
+
+Published `ttsc` installs are supposed to resolve the bundled Go SDK from the platform package.
+
+But optional dependencies can be skipped.
+
+Then you see an error saying the Go toolchain was not found.
+
+The fix is usually:
+
+```bash
+npm install
+```
+
+without `--no-optional`, or:
+
+```bash
+export TTSC_GO_BINARY=/absolute/path/to/go
+```
+
+for a deliberate override.
+
+This is one reason the platform packages matter.
+
+Native plugin builds need a known toolchain.
+
+---
+
+## 4. Composition Is Strict On Purpose
+
+Two unrelated executable transform hosts cannot both own one emit pass.
+
+If they try, `ttsc` fails.
+
+That is not a limitation to paper over.
+
+It is a correctness guard.
+
+The fix is to share a host:
+
+- aggregate executable plugin;
+- linked non-`main` transform packages;
+- `composes` redirection.
+
+But `composes` itself has rules:
+
+- no cycles;
+- no plugin claimed by two aggregates;
+- no empty targets;
+- no contributors on a composed plugin.
+
+Those sound fussy because the alternative is silently routing a plugin to the wrong binary.
+
+Compiler hosts should fail loudly.
+
+---
+
+## 5. Contributors Have A Shape
+
+Contributor packages are linked into a host plugin.
+
+So they cannot bring their own `go.mod`.
+
+They cannot collide with reserved scratch paths like `contrib/`.
+
+They cannot ship a `ttsc_contributions.go` file at the host entry root.
+
+These rules are not aesthetic.
+
+They prevent the contributor merge step from silently overwriting source or changing the host dependency graph.
+
+If a contributor is part of the host binary, the host owns the module boundary.
+
+---
+
+## 6. AST Helpers Have Edges
+
+TypeScript-Go AST nodes are not magic JavaScript objects.
+
+Some convenient-looking calls have sharp edges.
+
+Examples:
+
+- `node.Text()` is safe only for certain token-like nodes;
+- `node.Symbol()` can be nil on non-declaration nodes;
+- `let` / `const` / `var` are not stored where newcomers expect;
+- diagnostic ranges need trivia skipping if you want clean underlines.
+
+This is normal compiler work.
+
+It is also why `@ttsc/lint` wraps rule execution with recovery and why plugin authors should start from documented helpers.
+
+---
+
+## 7. Cache Did Not Rebuild
+
+The plugin cache key includes plugin source and many build inputs.
+
+It does not include the consumer's TypeScript source.
+
+That distinction can surprise people.
+
+If you changed a config option and expected the binary to rebuild, it probably should not.
+
+If you changed a Go source file and it did not rebuild, then you have a cache-key bug or you edited outside the source directory.
+
+When debugging:
+
+```bash
+npx ttsc clean
+```
+
+forces a cold rebuild.
+
+But do not use clean as a permanent workaround.
+
+Understand which input should have changed the key.
+
+---
+
+## 8. The Takeaway
+
+Compiler plugin systems need pitfall docs because the failure modes are not always obvious.
+
+But they should be diagnosable.
+
+Quote the exact error.
+
+Explain the invariant.
+
+Give the fix.
+
+That is how plugin authors get unstuck without reading the host source every time.
