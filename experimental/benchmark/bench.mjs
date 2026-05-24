@@ -78,17 +78,19 @@ const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
-// Pin the tsgo experiment to whatever `@typescript/native-preview` the parent
-// ttsc workspace resolves at — keeps the comparison row in lockstep with the
-// tsgo build that ttsc itself shipped. Falls back to the catalog pin in
-// `pnpm-workspace.yaml` when the workspace has not been installed yet.
+// Pin the tsgo experiment to the repository lockfile, not whatever a fixture
+// happened to resolve. Fixtures will be normalized later; the published label
+// should still describe the ttsc workspace under test.
 const TSGO_VERSION =
+  readTsgoLockVersion(REPO_ROOT) ??
   packageVersion(
     path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
-  ) ?? readTsgoCatalogVersion(REPO_ROOT);
+  ) ??
+  readTsgoWorkspaceCatalogVersion(REPO_ROOT);
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
 const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
 const TSGO_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
+const GENERATED_PNPM_WORKSPACE = "packages:\n  - \".\"\n";
 const LEGACY_TYPESCRIPT_DISPLAY_VERSION = "v6.0.3";
 const LOCAL_TARBALLS = [
   {
@@ -233,9 +235,9 @@ const PACKAGE_CONFIGS = {
     repo: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     packageManager: "pnpm",
     installCommand:
-      "pnpm --ignore-workspace install --virtual-store-dir node_modules/.pnpm --no-frozen-lockfile --ignore-scripts",
+      "pnpm install --virtual-store-dir node_modules/.pnpm --no-frozen-lockfile --ignore-scripts --config.minimumReleaseAge=0",
     installTarballsCommand: (specs) =>
-      `pnpm --ignore-workspace add --virtual-store-dir node_modules/.pnpm -D --ignore-scripts ${specs}`,
+      `pnpm add -w --virtual-store-dir node_modules/.pnpm -D --ignore-scripts --config.minimumReleaseAge=0 ${specs}`,
     prepareCommand: "pnpm exec ttsc prepare -p tsconfig.json",
     filesRoot: "src",
     commands: compilerCommands({
@@ -475,11 +477,20 @@ function packageVersion(dir) {
   }
 }
 
-function readTsgoCatalogVersion(repoRoot) {
-  // The ttsc workspace pins `@typescript/native-preview` through the `tsgo`
-  // catalog in `pnpm-workspace.yaml`. Without a JSON parser for YAML, do a
-  // narrow regex pull so the benchmark stays in sync after a bump even when
-  // `node_modules/` is empty.
+function readTsgoLockVersion(repoRoot) {
+  try {
+    const file = fs.readFileSync(path.join(repoRoot, "pnpm-lock.yaml"), "utf8");
+    const match = file.match(
+      /^\s*'@typescript\/native-preview':\n\s+specifier:\s+[^\n]+\n\s+version:\s+([^\s#]+)\s*$/m,
+    );
+    if (match) return match[1].replace(/^['"]|['"]$/g, "");
+  } catch {
+    // Fall through.
+  }
+  return undefined;
+}
+
+function readTsgoWorkspaceCatalogVersion(repoRoot) {
   try {
     const file = fs.readFileSync(
       path.join(repoRoot, "pnpm-workspace.yaml"),
@@ -621,6 +632,13 @@ function cloneDir(project, branch) {
 
 function ownsPnpmWorkspace(root) {
   return fs.existsSync(path.join(root, "pnpm-workspace.yaml"));
+}
+
+function ensurePnpmWorkspaceBoundary(project, root) {
+  if (project.packageManager !== "pnpm") return;
+  const workspaceFile = path.join(root, "pnpm-workspace.yaml");
+  if (fs.existsSync(workspaceFile)) return;
+  fs.writeFileSync(workspaceFile, GENERATED_PNPM_WORKSPACE);
 }
 
 function pnpmProjectCommand(root, command) {
@@ -840,6 +858,7 @@ function setupClone(project, branch) {
       });
     }
     cleanupBenchmarkWorktree(dir, project);
+    ensurePnpmWorkspaceBoundary(project, dir);
 
     if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
 
@@ -1445,6 +1464,7 @@ function cleanupBenchmarkWorktree(root, project) {
     ".pnpm-store",
     ".husky/_",
     "**/.husky/_",
+    ...(project?.packageManager === "pnpm" ? ["pnpm-workspace.yaml"] : []),
     ...(project?.cleanExcludes ?? []),
   ];
   sh(
@@ -1486,6 +1506,7 @@ function isAllowedBenchmarkDirtyPath(file, project) {
     ".yarn-cache",
     ".pnpm-store",
     ".husky/_",
+    ...(project?.packageManager === "pnpm" ? ["pnpm-workspace.yaml"] : []),
     ...(project?.cleanExcludes ?? []),
   ];
   return allowed.some((pattern) => matchesBenchmarkDirtyPath(path, pattern));
@@ -1567,7 +1588,7 @@ function projectReportFor(project, measurements) {
     typescript: displayLegacyTypescriptVersion(
       depVersion(cloneDir(project, "legacy"), "typescript"),
     ),
-    tsgo: depVersion(cloneDir(project, "ttsc"), "@typescript/native-preview"),
+    tsgo: TSGO_VERSION,
     measurements,
   };
 }
@@ -1630,7 +1651,7 @@ function hostSpec(projects) {
     typescript: displayLegacyTypescriptVersion(
       commonDepVersion(projects, "legacy", "typescript"),
     ),
-    tsgo: commonDepVersion(projects, "ttsc", "@typescript/native-preview"),
+    tsgo: TSGO_VERSION,
   };
 }
 
