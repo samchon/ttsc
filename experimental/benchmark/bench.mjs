@@ -895,38 +895,89 @@ function localTarballPaths(branch) {
 
 function installLocalTarballs(project, dir, branch) {
   return timePhase(`install local tarballs ${path.basename(dir)}`, () => {
-    const targets = localTarballTargets(branch);
-    scrubLocalTarballInstallState(dir, targets);
-    if (project.packageManager === "yarn") {
-      materializeLocalTarballs(targets, dir);
-      return;
-    }
-    const specs = targets
-      .map((target) => quote(path.join(TGZ, target.file)))
-      .join(" ");
-    const pm = project.packageManager;
-    // `--config.minimumReleaseAge=0` keeps the just-bumped ttsc release from
-    // tripping a fixture's npm-hygiene policy. The vue workspace pins
-    // `minimumReleaseAge: 1440` (24 h) in its `pnpm-workspace.yaml`; without
-    // the override pnpm refuses to resolve `optionalDependencies` like
-    // `@ttsc/win32-x64@0.13.0` for ~24 h after publish and the local tarball
-    // install fails. The bench is the publisher's own canonical signal, so
-    // the policy carries no value here.
-    const cmd =
-      project.installTarballsCommand?.(specs) ??
-      (pm === "pnpm"
-        ? ownsPnpmWorkspace(dir)
-          ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
-          : `pnpm add --ignore-workspace -D --config.minimumReleaseAge=0 ${specs}`
-        : pm === "yarn"
-          ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
-          : `npm install --legacy-peer-deps --save-dev ${specs}`);
-    process.stdout.write(
-      `Installing local tarballs into ${path.basename(dir)}: ` +
-        `${targets.map((target) => target.name).join(", ")}\n`,
-    );
-    sh(cmd, dir, { label: `install local tarballs ${path.basename(dir)}` });
+    withDependencyFileSnapshot(dir, () => {
+      const targets = localTarballTargets(branch);
+      scrubLocalTarballInstallState(dir, targets);
+      if (project.packageManager === "yarn") {
+        materializeLocalTarballs(targets, dir);
+        return;
+      }
+      const specs = targets
+        .map((target) => quote(path.join(TGZ, target.file)))
+        .join(" ");
+      const pm = project.packageManager;
+      // `--config.minimumReleaseAge=0` keeps the just-bumped ttsc release from
+      // tripping a fixture's npm-hygiene policy. The vue workspace pins
+      // `minimumReleaseAge: 1440` (24 h) in its `pnpm-workspace.yaml`; without
+      // the override pnpm refuses to resolve `optionalDependencies` like
+      // `@ttsc/win32-x64@0.13.0` for ~24 h after publish and the local tarball
+      // install fails. The bench is the publisher's own canonical signal, so
+      // the policy carries no value here.
+      const cmd =
+        project.installTarballsCommand?.(specs) ??
+        (pm === "pnpm"
+          ? ownsPnpmWorkspace(dir)
+            ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
+            : `pnpm add --ignore-workspace -D --config.minimumReleaseAge=0 ${specs}`
+          : pm === "yarn"
+            ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+            : `npm install --legacy-peer-deps --save-dev ${specs}`);
+      process.stdout.write(
+        `Installing local tarballs into ${path.basename(dir)}: ` +
+          `${targets.map((target) => target.name).join(", ")}\n`,
+      );
+      sh(cmd, dir, { label: `install local tarballs ${path.basename(dir)}` });
+    });
   });
+}
+
+function withDependencyFileSnapshot(dir, fn) {
+  const snapshot = snapshotDependencyFiles(dir);
+  try {
+    return fn();
+  } finally {
+    restoreDependencyFiles(snapshot);
+  }
+}
+
+function snapshotDependencyFiles(dir) {
+  const files = new Set(
+    findProjectFiles(dir, [
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "yarn.lock",
+    ]),
+  );
+  for (const name of [
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "yarn.lock",
+  ]) {
+    files.add(path.join(dir, name));
+  }
+  return [...files].map((file) => {
+    const exists = fs.existsSync(file);
+    return {
+      file,
+      exists,
+      content: exists ? fs.readFileSync(file, "utf8") : undefined,
+    };
+  });
+}
+
+function restoreDependencyFiles(snapshot) {
+  for (const entry of snapshot) {
+    if (entry.exists) {
+      fs.mkdirSync(path.dirname(entry.file), { recursive: true });
+      fs.writeFileSync(entry.file, entry.content);
+    } else {
+      fs.rmSync(entry.file, { force: true });
+    }
+  }
 }
 
 function scrubLocalTarballInstallState(dir, targets) {
@@ -1105,7 +1156,7 @@ function installTsgoExperimentDeps(project, dir) {
     `Installing tsgo experiment deps into ${path.basename(dir)}: ` +
       `@typescript/native-preview, ${TSGO_PLATFORM_PACKAGE}\n`,
   );
-  sh(cmd, dir);
+  withDependencyFileSnapshot(dir, () => sh(cmd, dir));
 }
 
 function hasTsgoExperimentDeps(dir) {
@@ -1202,8 +1253,9 @@ function formatThreadingVariants() {
 function measureCell({ id, project, branch, tool, op, threading, steps }) {
   const root = cloneDir(project, branch);
   process.stdout.write(`\n[${id}] ${RUNS} runs\n`);
+  assertCleanBenchmarkWorktree(root, id);
 
-  const run = () => runSteps(steps, root);
+  const run = () => runBenchmarkSteps(steps, root);
   const capturesLintTiming = branch === "ttsc-lint" && isLintOp(op);
 
   for (let i = 0; i < WARMUP; i++) {
@@ -1295,6 +1347,47 @@ function measureCell({ id, project, branch, tool, op, threading, steps }) {
     measured.transformHostSamples = transformHostSamples;
   }
   return measured;
+}
+
+function runBenchmarkSteps(steps, root) {
+  try {
+    return runSteps(steps, root);
+  } finally {
+    cleanupBenchmarkWorktree(root);
+  }
+}
+
+function assertCleanBenchmarkWorktree(root, id) {
+  const status = benchmarkWorktreeStatus(root);
+  if (!status.trim()) return;
+  throw new Error(
+    `${id} cannot start from a dirty benchmark worktree: ${root}\n${status}`,
+  );
+}
+
+function cleanupBenchmarkWorktree(root) {
+  const status = benchmarkWorktreeStatus(root);
+  if (!status.trim()) return;
+  sh("git restore --worktree .", root, {
+    quiet: true,
+    timing: false,
+    label: `restore benchmark worktree ${path.basename(root)}`,
+  });
+  sh("git clean -fd", root, {
+    quiet: true,
+    timing: false,
+    label: `clean benchmark worktree ${path.basename(root)}`,
+  });
+}
+
+function benchmarkWorktreeStatus(root) {
+  return (
+    sh("git status --short --untracked-files=normal", root, {
+      quiet: true,
+      check: false,
+      timing: false,
+    }).stdout ?? ""
+  );
 }
 
 function failedMeasurement(
