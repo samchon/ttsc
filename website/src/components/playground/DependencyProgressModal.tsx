@@ -1,6 +1,6 @@
 "use client";
 
-import type { IPlaygroundDependencyProgress } from "@ttsc/playground";
+import type { IPlaygroundDependencyProgress } from "../../compiler/npm-dependencies";
 
 interface DependencyProgressModalProps {
   progress: IPlaygroundDependencyProgress | null;

@@ -36,6 +36,7 @@ export interface IPlaygroundDependencyInstallOptions {
   installedPackages?: Iterable<string>;
   ignoredPackages?: Iterable<string>;
   maxPackages?: number;
+  signal?: AbortSignal;
   onProgress?: (event: IPlaygroundDependencyProgress) => void;
 }
 
@@ -171,6 +172,7 @@ export async function installPlaygroundDependencies(
   if (!fetchImpl) {
     throw new Error("installPlaygroundDependencies requires fetch.");
   }
+  throwIfAborted(options.signal);
 
   const ignored = new Set(
     options.ignoredPackages ?? BUILT_IN_PLAYGROUND_PACKAGES,
@@ -224,13 +226,16 @@ export async function installPlaygroundDependencies(
 
     const item = queue[index]!;
     if (installed.has(item.name) || done.has(item.name)) continue;
+    throwIfAborted(options.signal);
 
     report("resolve", item, `Resolving ${item.name}`);
     const metadata = await fetchNpmMetadata(
       fetchImpl,
       item.name,
       item.optional,
+      options.signal,
     );
+    throwIfAborted(options.signal);
     if (!metadata) {
       done.add(item.name);
       report("skip", item, `Skipped optional ${item.name}`);
@@ -250,9 +255,11 @@ export async function installPlaygroundDependencies(
     }
 
     report("download", item, `Downloading ${item.name}@${version}`, version);
-    const tgz = await downloadTarball(fetchImpl, tarball);
+    const tgz = await downloadTarball(fetchImpl, tarball, options.signal);
+    throwIfAborted(options.signal);
     report("extract", item, `Extracting ${item.name}@${version}`, version);
-    const unpacked = await unpackNpmTarball(tgz);
+    const unpacked = await unpackNpmTarball(tgz, options.signal);
+    throwIfAborted(options.signal);
     const packageJson = {
       ...versionMetadata,
       ...unpacked.packageJson,
@@ -308,6 +315,7 @@ async function fetchNpmMetadata(
   fetchImpl: FetchLike,
   packageName: string,
   optional: boolean,
+  signal: AbortSignal | undefined,
 ): Promise<INpmMetadata | null> {
   const response = await fetchImpl(
     `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
@@ -315,6 +323,7 @@ async function fetchNpmMetadata(
       headers: {
         Accept: "application/vnd.npm.install-v1+json, application/json",
       },
+      signal,
     },
   );
   if (response.status === 404 && optional) return null;
@@ -344,16 +353,22 @@ function selectVersion(metadata: INpmMetadata, range: string): string {
 async function downloadTarball(
   fetchImpl: FetchLike,
   tarball: string,
+  signal: AbortSignal | undefined,
 ): Promise<ArrayBuffer> {
-  const response = await fetchImpl(tarball);
+  const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
   }
   return response.arrayBuffer();
 }
 
-async function unpackNpmTarball(tgz: ArrayBuffer): Promise<IUnpackedPackage> {
+async function unpackNpmTarball(
+  tgz: ArrayBuffer,
+  signal: AbortSignal | undefined,
+): Promise<IUnpackedPackage> {
+  throwIfAborted(signal);
   const tar = await gunzip(tgz);
+  throwIfAborted(signal);
   const decoder = new TextDecoder();
   const files: Record<string, string> = {};
   let packageJson: IPackageJson = {};
@@ -362,6 +377,7 @@ async function unpackNpmTarball(tgz: ArrayBuffer): Promise<IUnpackedPackage> {
   let paxPath: string | null = null;
 
   while (offset + 512 <= tar.length) {
+    throwIfAborted(signal);
     const header = tar.subarray(offset, offset + 512);
     offset += 512;
     if (header.every((value) => value === 0)) break;
@@ -404,6 +420,12 @@ async function unpackNpmTarball(tgz: ArrayBuffer): Promise<IUnpackedPackage> {
   }
 
   return { files, packageJson };
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  if (signal.reason !== undefined) throw signal.reason;
+  throw new DOMException("The operation was aborted.", "AbortError");
 }
 
 async function gunzip(input: ArrayBuffer): Promise<Uint8Array> {

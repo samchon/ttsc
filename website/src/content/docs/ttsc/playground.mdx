@@ -26,9 +26,8 @@ The `typia` packages used by the default examples remain bundled because the
 wasm-side typia adapter must match the exact typia source version linked into
 the playground compiler.
 
-## Reuse
+## Current Scope
 
-The browser-side dependency loader lives in `@ttsc/playground`. Playground
-hosts can use it to collect external imports, download npm tarballs, mount text
-package files into a wasm compiler, add declaration files to Monaco, and merge
-runtime JavaScript into an Execute sandbox.
+The browser-side dependency loader currently lives inside the website
+playground. A reusable UI package can be split out later once the interaction
+surface settles.

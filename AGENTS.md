@@ -17,7 +17,6 @@ The contract is general-purpose. Downstream projects like `typia` and `nestia` a
 - `packages/{banner,paths,strip}`: utility transform plugins with package-owned `driver/` logic linked into a generic native host.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
-- `packages/playground`: reusable browser-side dependency loader for ttsc playground hosts. It detects bare imports, downloads npm tarballs, extracts package text files, and returns compiler/editor/runtime packs without owning a specific UI.
 - `packages/vscode`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
