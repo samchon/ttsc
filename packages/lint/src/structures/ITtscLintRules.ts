@@ -429,6 +429,9 @@ export interface ITtscLintRules {
   /** rejects triple-slash reference directives. */
   "triple-slash-reference"?: TtscLintRuleSetting;
 
+  /** validates basic TSDoc syntax in documentation comments. */
+  "tsdoc/syntax"?: TtscLintRuleSetting;
+
   /** requires `Number.isNaN`/`isNaN` for `NaN` checks. */
   "use-isnan"?: TtscLintRuleSetting;
 

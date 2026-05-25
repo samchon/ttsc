@@ -145,6 +145,7 @@ export type TtscLintRule =
   | "radix"
   | "require-yield"
   | "triple-slash-reference"
+  | "tsdoc/syntax"
   | "use-isnan"
   | "valid-typeof"
   | "vars-on-top"
