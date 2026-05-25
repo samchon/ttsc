@@ -77,6 +77,17 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
 | `no-promise-executor-return` | Reject `return` inside a Promise executor. |
 
+## React performance
+
+These rules run on `.tsx` files only. They mirror the static `eslint-plugin-react-perf` checks that catch freshly-created prop values which defeat shallow equality in memoized React components. Each accepts `nativeAllowList?: "all" | string[]` to skip lowercase/native JSX elements globally or by prop name while still checking custom components.
+
+| Rule | Effect |
+| ---- | ------ |
+| `react-perf/jsx-no-new-array-as-prop` | Reject `[]`, `Array()`, `new Array()`, and fallback/conditional variants passed as JSX props. |
+| `react-perf/jsx-no-new-function-as-prop` | Reject inline function expressions, arrow functions, `Function()`, and `new Function()` passed as JSX props. |
+| `react-perf/jsx-no-new-object-as-prop` | Reject `{}`, `Object()`, `new Object()`, and fallback/conditional variants passed as JSX props. |
+| `react-perf/jsx-no-jsx-as-prop` | Reject freshly-created JSX elements or fragments passed as JSX props. |
+
 ## Throw and control flow
 
 | Rule | Effect |

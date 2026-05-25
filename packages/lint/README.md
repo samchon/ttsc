@@ -162,7 +162,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
+The rule corpus is tested in `tests/test-lint/src/cases/*.ts` or package-local Go cases under `packages/lint/test/rules/` for plugin-family ports. Each rule below links to the tested fixture:
 
 - [`adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
@@ -296,6 +296,10 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`prefer-spread`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-spread.ts): prefers spread arguments over `.apply`.
 - [`prefer-template`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-template.ts): prefers template literals over string concatenation.
 - [`radix`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/radix.ts): requires a radix argument for `parseInt`.
+- [`react-perf/jsx-no-new-array-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_new_array_as_prop_test.go): rejects freshly-created arrays passed as JSX props in TSX files.
+- [`react-perf/jsx-no-new-function-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_new_function_as_prop_test.go): rejects freshly-created functions passed as JSX props in TSX files.
+- [`react-perf/jsx-no-new-object-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_new_object_as_prop_test.go): rejects freshly-created objects passed as JSX props in TSX files.
+- [`react-perf/jsx-no-jsx-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_jsx_as_prop_test.go): rejects freshly-created JSX elements or fragments passed as JSX props in TSX files.
 - [`require-yield`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/require-yield.ts): requires generator functions to contain `yield`.
 - [`triple-slash-reference`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/triple-slash-reference/violation.ts): rejects triple-slash reference directives.
 - [`use-isnan`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/use-isnan.ts): requires `Number.isNaN`/`isNaN` for `NaN` checks.

@@ -137,6 +137,20 @@ export interface ITtscLintJsdocRuleOptions {
   sortTags?: boolean;
 }
 
+/** `react-perf/*` rule options. */
+export interface ITtscLintReactPerfRuleOptions {
+  /**
+   * Controls which intrinsic JSX element props are ignored.
+   *
+   * `"all"` ignores every prop on lowercase/native elements such as `div`.
+   * An array ignores only those prop names on native elements, for example
+   * `["style"]`. Custom components are still checked.
+   *
+   * @default [] (native props are checked)
+   */
+  nativeAllowList?: "all" | readonly string[];
+}
+
 /**
  * Index from format rule name to its option object. Kept as a public lookup
  * type for consumers that want to derive option helpers from the same rule
@@ -149,4 +163,8 @@ export interface ITtscLintRuleOptionsMap {
   "format/sort-imports": ITtscLintSortImportsRuleOptions;
   "format/jsdoc": ITtscLintJsdocRuleOptions;
   "format/print-width": ITtscLintPrintWidthRuleOptions;
+  "react-perf/jsx-no-new-array-as-prop": ITtscLintReactPerfRuleOptions;
+  "react-perf/jsx-no-new-function-as-prop": ITtscLintReactPerfRuleOptions;
+  "react-perf/jsx-no-new-object-as-prop": ITtscLintReactPerfRuleOptions;
+  "react-perf/jsx-no-jsx-as-prop": ITtscLintReactPerfRuleOptions;
 }
