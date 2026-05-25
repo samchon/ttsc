@@ -426,6 +426,30 @@ export interface ITtscLintRules {
   /** requires generator functions to contain `yield`. */
   "require-yield"?: TtscLintRuleSetting;
 
+  /** requires TanStack Query keys to include variables read by queryFn. */
+  "tanstack-query/exhaustive-deps"?: TtscLintRuleSetting;
+
+  /** requires infinite query page-param callbacks to appear after queryFn. */
+  "tanstack-query/infinite-query-property-order"?: TtscLintRuleSetting;
+
+  /** requires mutation lifecycle callbacks to keep onMutate before error/settled handlers. */
+  "tanstack-query/mutation-property-order"?: TtscLintRuleSetting;
+
+  /** rejects object rest destructuring over TanStack Query hook results. */
+  "tanstack-query/no-rest-destructuring"?: TtscLintRuleSetting;
+
+  /** rejects passing whole TanStack Query hook results to React dependency arrays. */
+  "tanstack-query/no-unstable-deps"?: TtscLintRuleSetting;
+
+  /** rejects queryFn callbacks that return no data in AST-local cases. */
+  "tanstack-query/no-void-query-fn"?: TtscLintRuleSetting;
+
+  /** prefers extracted TanStack Query options over inline queryKey/queryFn objects. */
+  "tanstack-query/prefer-query-options"?: TtscLintRuleSetting;
+
+  /** rejects creating QueryClient inside React component or hook bodies. */
+  "tanstack-query/stable-query-client"?: TtscLintRuleSetting;
+
   /** rejects triple-slash reference directives. */
   "triple-slash-reference"?: TtscLintRuleSetting;
 
