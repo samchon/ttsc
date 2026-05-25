@@ -1,42 +1,49 @@
 ![banner of ttsc](/og.jpg)
 
-<span style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: "6px" }}>
-{[
-  [
-    "MIT License",
-    "https://img.shields.io/badge/license-MIT-blue.svg",
-    "https://github.com/samchon/ttsc/blob/master/LICENSE",
-  ],
-  [
-    "NPM Version",
-    "https://img.shields.io/npm/v/ttsc.svg",
-    "https://www.npmjs.com/package/ttsc",
-  ],
-  [
-    "NPM Downloads",
-    "https://img.shields.io/npm/dm/ttsc.svg",
-    "https://www.npmjs.com/package/ttsc",
-  ],
-  [
-    "Build Status",
-    "https://github.com/samchon/ttsc/workflows/test/badge.svg",
-    "https://github.com/samchon/ttsc/actions?query=workflow%3Atest",
-  ],
-  [
-    "Guide Documents",
-    "https://img.shields.io/badge/Guide-Documents-forestgreen",
-    "https://ttsc.dev/docs",
-  ],
-  [
-    "Discord",
-    "https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ",
-    "https://discord.gg/E94XhzrUCZ",
-  ],
-].map(([alt, image, url]) => (
-  <a href={url} style={{ marginTop: "20px" }} key={alt}>
-    <img src={image} alt={alt} />
-  </a>
-))}
+<span
+  style={{
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: "6px",
+  }}
+>
+  {[
+    [
+      "MIT License",
+      "https://img.shields.io/badge/license-MIT-blue.svg",
+      "https://github.com/samchon/ttsc/blob/master/LICENSE",
+    ],
+    [
+      "NPM Version",
+      "https://img.shields.io/npm/v/ttsc.svg",
+      "https://www.npmjs.com/package/ttsc",
+    ],
+    [
+      "NPM Downloads",
+      "https://img.shields.io/npm/dm/ttsc.svg",
+      "https://www.npmjs.com/package/ttsc",
+    ],
+    [
+      "Build Status",
+      "https://github.com/samchon/ttsc/workflows/test/badge.svg",
+      "https://github.com/samchon/ttsc/actions?query=workflow%3Atest",
+    ],
+    [
+      "Guide Documents",
+      "https://img.shields.io/badge/Guide-Documents-forestgreen",
+      "https://ttsc.dev/docs",
+    ],
+    [
+      "Discord",
+      "https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ",
+      "https://discord.gg/E94XhzrUCZ",
+    ],
+  ].map(([alt, image, url]) => (
+    <a href={url} style={{ marginTop: "20px" }} key={alt}>
+      <img src={image} alt={alt} />
+    </a>
+  ))}
 </span>
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
@@ -84,7 +91,10 @@ npx ttsc format
 
 ### Editor
 
-Install the VS Code extension to see lint and plugin diagnostics live as you type:
+Install the VS Code extension to run your project's `ttscserver` /
+TypeScript-Go language server in VS Code, with live TypeScript-Go editor
+features plus saved-state ttsc plugin diagnostics and actions in the same
+editor stream:
 
 ```bash
 npm install -D @ttsc/vscode
@@ -170,11 +180,12 @@ interface IMember {
 The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time:
 
 ```js
-import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
 import typia from "typia";
+import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
+import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
+import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
 import { v4 } from "uuid";
+
 const matched = (() => {
   const _io0 = (input) =>
     "string" === typeof input.id &&

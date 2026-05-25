@@ -9,6 +9,7 @@ package linthost
 import (
   "encoding/json"
   "io"
+  "net/url"
   "os"
   "path/filepath"
   "regexp"
@@ -292,10 +293,15 @@ func seedLintProject(t *testing.T, source string) string {
 // auto-discovery. Tests that need rules pair this helper with `seedLintConfig`.
 func lintManifest(t *testing.T) string {
   t.Helper()
+  return lintManifestWithConfig(t, map[string]any{})
+}
+
+func lintManifestWithConfig(t *testing.T, config map[string]any) string {
+  t.Helper()
   data, err := json.Marshal([]map[string]any{{
     "name":   "@ttsc/lint",
     "stage":  "check",
-    "config": map[string]any{},
+    "config": config,
   }})
   if err != nil {
     t.Fatal(err)
@@ -320,6 +326,36 @@ func seedLintConfig(t *testing.T, root string, config map[string]any) {
 func seedLintRules(t *testing.T, root string, rules map[string]string) {
   t.Helper()
   seedLintConfig(t, root, map[string]any{"rules": rules})
+}
+
+func assertFileText(t *testing.T, file string, expected string) {
+  t.Helper()
+  got, err := os.ReadFile(file)
+  if err != nil {
+    t.Fatalf("ReadFile(%s): %v", file, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s text mismatch:\nwant %q\ngot  %q", file, expected, string(got))
+  }
+}
+
+func lintTestFileURI(t *testing.T, file string) string {
+  t.Helper()
+  abs, err := filepath.Abs(file)
+  if err != nil {
+    t.Fatalf("Abs: %v", err)
+  }
+  uriPath := filepath.ToSlash(abs)
+  if filepath.VolumeName(abs) != "" && !strings.HasPrefix(uriPath, "/") {
+    uriPath = "/" + uriPath
+  }
+  return (&url.URL{Scheme: "file", Path: uriPath}).String()
+}
+
+func isBenignContributorCollisionWarning(stderr string) bool {
+  trimmed := strings.TrimSpace(stderr)
+  return trimmed == "" ||
+    trimmed == `@ttsc/lint: contributor rule "demo/option-consumer" collides with an existing rule; dropping contributor entry`
 }
 
 // assertFixSnapshot runs one rule's findings through the native fix applier.
