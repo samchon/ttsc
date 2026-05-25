@@ -1,7 +1,8 @@
 // JSON-RPC Content-Length framing as used by LSP over stdio. ttscserver
 // wraps tsgo's LSP server but sits between it and the editor so it can
 // merge plugin diagnostics into outgoing publishDiagnostics and inject
-// ttsc-owned code actions. Both legs of the proxy work on raw bytes.
+// ttsc-owned code actions and executeCommand results. Both legs of the
+// proxy work on raw bytes.
 //
 // Headers are preserved when read so callers that inspect Content-Type
 // or vendor-specific headers can react to them; outgoing frames written
@@ -126,7 +127,7 @@ func parseContentLength(line string) (int, bool) {
 
 // WriteFrame serializes body with a Content-Length header to w. The header
 // uses CRLF line endings to match the LSP base protocol exactly so editors
-// that strict-parse the header block (notably VSCode's client) accept the
+// that strict-parse the header block (notably VS Code's client) accept the
 // message without warnings.
 func WriteFrame(w io.Writer, body []byte) error {
   header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))

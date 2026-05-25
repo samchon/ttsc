@@ -20,8 +20,10 @@ export interface ITtscPluginContributor {
    * Absolute path to the contributor's Go source directory.
    *
    * Every `.go` file under this directory is copied into the scratch build tree
-   * as a sub-package of the host plugin's module. Subdirectories are copied
-   * recursively; `go.mod` files, `node_modules`, and `.git` are pruned.
+   * as a sub-package of the host plugin's module. A top-level `go.mod` is
+   * rejected because contributors are packages, not modules. Copied source
+   * prunes `node_modules`, `.git`, `.ttsc`, generated workspace files, and
+   * local artifact files.
    */
   source: string;
 }

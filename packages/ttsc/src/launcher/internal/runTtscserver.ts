@@ -1,18 +1,28 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import {
+  hasProjectPluginEntries,
+  loadProjectPlugins,
+} from "../../plugin/internal/loadProjectPlugins";
+import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import { resolveTtscserverBinary } from "./resolveTtscserverBinary";
 
 /**
  * Drive the ttscserver native binary from a node launcher. The launcher is
  * deliberately thin: argument parsing, version banners, and help text are owned
  * by the Go binary so future flags only need to change one layer. The JS side
- * performs only:
+ * performs the Node-owned setup that depends on package resolution:
  *
  * - Resolve the platform binary,
  * - Resolve the project TypeScript-Go binary for the native wrapper,
+ * - Resolve the project config and build the LSP plugin manifest environment,
+ * - Inject the Node/ttsx helper paths used by disk-backed LSP sidecars,
  * - Inject `--stdio` when the first arg is not a meta-command,
  * - Delegate to the binary with inherited stdio so OS-level signals reach the
  *   child via the parent's process group.
@@ -67,32 +77,116 @@ export function runTtscserver(
 }
 
 /**
- * Build the environment for the native binary. When running in `--stdio` (LSP)
- * mode the Go binary needs to know which tsgo binary to wrap; inject
- * `TTSC_TSGO_BINARY` so the native host does not have to re-resolve it from
- * inside a potentially different working directory. Skip injection when the
- * caller already provided the variable or passed an explicit `--tsgo` option.
+ * Build the environment for the native binary. In `--stdio` (LSP) mode the Go
+ * binary needs the project tsgo binary plus any LSP-capable plugin sidecars the
+ * JS loader resolved from config. Inject those paths through environment
+ * variables so the native host can stay focused on proxying tsgo and
+ * dispatching sidecar verbs. Skip `TTSC_TSGO_BINARY` injection when the caller
+ * already provided the variable or passed an explicit `--tsgo` option.
  */
 function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
   if (!argv.includes("--stdio")) {
     // Non-LSP invocations (--version, --help) do not shell out to tsgo.
     return process.env;
   }
-  if (process.env.TTSC_TSGO_BINARY || hasTsgoOption(argv)) {
-    return process.env;
+  const context = resolveLspExecutionContext(argv);
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
+    TTSC_TTSX_BINARY:
+      process.env.TTSC_TTSX_BINARY ??
+      path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
+  };
+  delete env.TTSC_LSP_PLUGINS_JSON;
+  if (!process.env.TTSC_TSGO_BINARY && !hasTsgoOption(argv)) {
+    env.TTSC_TSGO_BINARY = context.tsgoBinary;
+  }
+  const lspPlugins = context.nativePlugins.filter(
+    (plugin) => plugin.capabilities?.lsp === true,
+  );
+  if (lspPlugins.length > 0) {
+    env.TTSC_LSP_PLUGINS_JSON = JSON.stringify({
+      plugins: serializeNativePlugins(context.nativePlugins),
+      lspPlugins: lspPlugins.map((plugin) => ({
+        binary: plugin.binary,
+        name: plugin.name,
+        stage: plugin.stage,
+      })),
+    });
+  }
+  return env;
+}
+
+function resolveLspExecutionContext(argv: readonly string[]): {
+  nativePlugins: readonly ITtscLoadedNativePlugin[];
+  tsgoBinary: string;
+} {
+  const cwd = path.resolve(optionValue(argv, "--cwd") ?? process.cwd());
+  const tsconfig = optionValue(argv, "--tsconfig");
+  let project: ReturnType<typeof readProjectConfig>;
+  try {
+    project = readProjectConfig({ cwd, tsconfig });
+  } catch (error) {
+    if (tsconfig) {
+      throw error;
+    }
+    const tsgo = resolveTsgo({
+      binary: optionValue(argv, "--tsgo"),
+      cwd,
+      resolveFrom: __filename,
+    });
+    return {
+      nativePlugins: [],
+      tsgoBinary: tsgo.binary,
+    };
   }
   const tsgo = resolveTsgo({
-    cwd: process.cwd(),
+    binary: optionValue(argv, "--tsgo"),
+    cwd: project.root,
     resolveFrom: __filename,
   });
+  const loaded = hasProjectPluginEntries(project)
+    ? loadProjectPlugins({
+        binary: resolveBinary() ?? "",
+        cwd,
+        projectRoot: project.root,
+        tsconfig: project.path,
+      })
+    : { nativePlugins: [] };
   return {
-    ...process.env,
-    TTSC_TSGO_BINARY: tsgo.binary,
+    nativePlugins: loaded.nativePlugins,
+    tsgoBinary: tsgo.binary,
   };
 }
 
 function hasTsgoOption(argv: readonly string[]): boolean {
   return argv.some((arg) => arg === "--tsgo" || arg.startsWith("--tsgo="));
+}
+
+function optionValue(
+  argv: readonly string[],
+  name: string,
+): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === name) {
+      return argv[i + 1];
+    }
+    if (arg.startsWith(name + "=")) {
+      return arg.slice(name.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function serializeNativePlugins(
+  plugins: readonly ITtscLoadedNativePlugin[],
+): unknown[] {
+  return plugins.map((plugin) => ({
+    config: plugin.config,
+    name: plugin.name,
+    stage: plugin.stage,
+  }));
 }
 
 function formatError(error: unknown): string {

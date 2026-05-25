@@ -62,6 +62,15 @@ type LSPServerOptions struct {
   // Source contributes ttsc plugin diagnostics / code actions /
   // executeCommand handling. Nil falls back to NullPluginSource{}.
   Source PluginSource
+  // SuppressExecuteCommandProvider keeps ttsc command ids out of the
+  // initialize response for clients that route wrapper commands themselves.
+  SuppressExecuteCommandProvider bool
+  // SuppressedExecuteCommandIDs filters specific ttsc command ids out of the
+  // initialize response while leaving other plugin command ids registered.
+  SuppressedExecuteCommandIDs []string
+  // ExecuteCommandIDPrefix namespaces advertised executeCommand ids for hosts
+  // that run multiple language clients in one global command registry.
+  ExecuteCommandIDPrefix string
   // ProgressDelay is accepted for CLI compatibility. The external tsgo
   // LSP command does not currently expose a progress-delay flag.
   ProgressDelay time.Duration
@@ -163,11 +172,14 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   upstreamOutR, upstreamOutW := io.Pipe()
 
   proxy := NewProxy(ProxyOptions{
-    EditorIn:    opts.In,
-    EditorOut:   opts.Out,
-    UpstreamIn:  upstreamInW,
-    UpstreamOut: upstreamOutR,
-    Source:      source,
+    EditorIn:                       opts.In,
+    EditorOut:                      opts.Out,
+    UpstreamIn:                     upstreamInW,
+    UpstreamOut:                    upstreamOutR,
+    Source:                         source,
+    SuppressExecuteCommandProvider: opts.SuppressExecuteCommandProvider,
+    SuppressedExecuteCommandIDs:    opts.SuppressedExecuteCommandIDs,
+    ExecuteCommandIDPrefix:         opts.ExecuteCommandIDPrefix,
   })
 
   serverCtx, cancel := context.WithCancel(ctx)

@@ -145,10 +145,11 @@ export class TtscCompiler {
    *
    * This is the source-to-source API for plugin authors. It must not return
    * JavaScript emit, declaration files, or source maps; those artifacts belong
-   * to {@link TtscCompiler.compile}. A transform sidecar is expected to write
-   * JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to stdout. When
-   * no transform sidecar is configured, ttsc returns the TypeScript files
-   * loaded by the TypeScript-Go Program together with normal diagnostics.
+   * to {@link TtscCompiler.compile}. A transform native source is expected to
+   * write JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to
+   * stdout. When no transform native source is configured, ttsc returns the
+   * TypeScript files loaded by the TypeScript-Go Program together with normal
+   * diagnostics.
    *
    * The returned shape mirrors `embed-typescript`'s transformation API:
    * `success` and `failure` carry a `typescript` map, while unexpected host

@@ -57,7 +57,8 @@ npx ttsc format
 
 ### Editor
 
-Install the VS Code extension to see lint and plugin diagnostics live as you type:
+Install the VS Code extension for live TypeScript-Go editor features plus
+saved-state ttsc plugin diagnostics and actions:
 
 ```bash
 npm install -D @ttsc/vscode
@@ -143,11 +144,12 @@ interface IMember {
 The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time:
 
 ```js
-import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
 import typia from "typia";
+import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
+import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
+import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
 import { v4 } from "uuid";
+
 const matched = (() => {
   const _io0 = (input) =>
     "string" === typeof input.id &&
