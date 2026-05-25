@@ -1,6 +1,6 @@
 function f() {
   console.log("hi");
-  // expect: vars-on-top error
+  // expect: varsOnTop error
   var a = 1;
   JSON.stringify(a);
 }

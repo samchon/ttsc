@@ -20,7 +20,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastSetAccessorParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "class Box {\n  private _value = 0;\n  set value(\n    next: number\n  ) {\n    this._value = next;\n  }\n}\nBox;\n",
     "class Box {\n  private _value = 0;\n  set value(\n    next: number,\n  ) {\n    this._value = next;\n  }\n}\nBox;\n",
   )

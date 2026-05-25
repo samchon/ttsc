@@ -17,13 +17,13 @@ import (
 // in a way the spec rules out.
 //
 //  1. Build `format: { severity: "warning", printWidth: 80 }`.
-//  2. Override via `rules: { "format/print-width": ["error", { "printWidth": 120 }] }`.
+//  2. Override via `rules: { "formatPrintWidth": ["error", { "printWidth": 120 }] }`.
 //  3. Assert the resolved options carry `printWidth=120`, not 80.
 func TestFormatBlockRulesMapTupleOverrideWins(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{"severity": "warning", "printWidth": 80},
     "rules": map[string]any{
-      "format/print-width": []any{
+      "formatPrintWidth": []any{
         "error",
         map[string]any{"printWidth": 120},
       },
@@ -32,14 +32,14 @@ func TestFormatBlockRulesMapTupleOverrideWins(t *testing.T) {
   if err != nil {
     t.Fatalf("parseExternalConfigStore: %v", err)
   }
-  if got := resolver.EnabledRuleConfig()["format/print-width"]; got != SeverityError {
+  if got := resolver.EnabledRuleConfig()["formatPrintWidth"]; got != SeverityError {
     t.Errorf("severity want error, got %v", got)
   }
   type pwOpts struct {
     PrintWidth int `json:"printWidth"`
   }
   var pw pwOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/print-width"), &pw); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatPrintWidth"), &pw); err != nil {
     t.Fatalf("decode options: %v", err)
   }
   if pw.PrintWidth != 120 {

@@ -20,7 +20,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastConstructorTypeParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "type PointCtor = new (\n  x: number,\n  y: number\n) => { x: number; y: number };\nlet c: PointCtor;\nc;\n",
     "type PointCtor = new (\n  x: number,\n  y: number,\n) => { x: number; y: number };\nlet c: PointCtor;\nc;\n",
   )

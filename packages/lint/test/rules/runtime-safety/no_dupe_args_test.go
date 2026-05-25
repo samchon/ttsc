@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDupeArgs(t *testing.T) {
-  assertRuleCorpusCase(t, "no-dupe-args.ts", "// expect: no-dupe-args error\nfunction f(a: number, b: number, a: number) {\n  return a + b;\n}\nf(1, 2, 3);\n")
+  assertRuleCorpusCase(t, "no-dupe-args.ts", "// expect: noDupeArgs error\nfunction f(a: number, b: number, a: number) {\n  return a + b;\n}\nf(1, 2, 3);\n")
 }

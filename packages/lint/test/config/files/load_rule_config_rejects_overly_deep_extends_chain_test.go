@@ -16,10 +16,10 @@ import (
 // pathologically long chain cannot spawn an unbounded run of loader
 // subprocesses.
 //
-// 1. Write `cfg0.config.json` ... `cfgN.config.json` where each file `extends`
-//    the next and the chain length exceeds extendsDepthLimit.
-// 2. Call LoadRuleConfig with `configFile: "./cfg0.config.json"`.
-// 3. Assert a non-nil error that mentions the depth limit.
+//  1. Write `cfg0.config.json` ... `cfgN.config.json` where each file `extends`
+//     the next and the chain length exceeds extendsDepthLimit.
+//  2. Call LoadRuleConfig with `configFile: "./cfg0.config.json"`.
+//  3. Assert a non-nil error that mentions the depth limit.
 func TestLoadRuleConfigRejectsOverlyDeepExtendsChain(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
@@ -28,11 +28,11 @@ func TestLoadRuleConfigRejectsOverlyDeepExtendsChain(t *testing.T) {
   for i := 0; i < chainLength; i++ {
     name := fmt.Sprintf("cfg%d.config.json", i)
     if i == chainLength-1 {
-      writeFile(t, filepath.Join(dir, name), `{ "rules": { "no-var": "error" } }`)
+      writeFile(t, filepath.Join(dir, name), `{ "rules": { "noVar": "error" } }`)
       continue
     }
     writeFile(t, filepath.Join(dir, name), fmt.Sprintf(
-      `{ "extends": "./cfg%d.config.json", "rules": { "no-var": "error" } }`, i+1))
+      `{ "extends": "./cfg%d.config.json", "rules": { "noVar": "error" } }`, i+1))
   }
 
   _, err := LoadRuleConfig(&PluginEntry{

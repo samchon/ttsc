@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDuplicateCase(t *testing.T) {
-  assertRuleCorpusCase(t, "no-duplicate-case.ts", "function f(x: number) {\n  switch (x) {\n    case 1:\n      return \"a\";\n    // expect: no-duplicate-case error\n    case 1:\n      return \"b\";\n  }\n  return \"\";\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-duplicate-case.ts", "function f(x: number) {\n  switch (x) {\n    case 1:\n      return \"a\";\n    // expect: noDuplicateCase error\n    case 1:\n      return \"b\";\n  }\n  return \"\";\n}\nJSON.stringify(f);\n")
 }

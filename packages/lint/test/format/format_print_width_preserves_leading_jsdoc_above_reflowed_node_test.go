@@ -22,7 +22,7 @@ func TestFormatPrintWidthPreservesLeadingJSDocAboveReflowedNode(t *testing.T) {
   want := "/** doc */\nconst x = {\n  aaaa: 1,\n  bbbb: 2,\n  cccc: 3,\n};\n"
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     src,
     `{"printWidth": 20}`,
     want,

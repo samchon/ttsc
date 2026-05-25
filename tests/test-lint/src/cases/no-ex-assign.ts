@@ -1,7 +1,7 @@
 try {
   throw new Error("x");
 } catch (e) {
-  // expect: no-ex-assign error
+  // expect: noExAssign error
   e = "boom";
   console.log(e);
 }

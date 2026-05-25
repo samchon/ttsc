@@ -17,7 +17,7 @@ import "testing"
 func TestFormatTrailingCommaHonorsModeEs5SkipsTupleElement(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "type Pair = [\n  number,\n  string\n];\nconst v: Pair = [1, \"a\"];\nv;\n",
     `{"mode":"es5"}`,
   )

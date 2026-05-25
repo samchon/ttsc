@@ -14,7 +14,7 @@ import (
 // there are no statements and no trivia comment, there is nothing to drop
 // or misformat on reflow, so the printer collapses the block to `{}` and
 // marks it fully covered. A regression that emitted `{\n}` or returned
-// covered==false would prevent the format/print-width rule from accepting
+// covered==false would prevent the formatPrintWidth rule from accepting
 // the empty body as a valid reflow target.
 //
 //  1. Parse `const f = () => {};`.

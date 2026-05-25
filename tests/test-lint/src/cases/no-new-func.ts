@@ -1,3 +1,3 @@
-// expect: no-new-func error
+// expect: noNewFunc error
 const f = new Function("a", "return a");
 JSON.stringify(f);

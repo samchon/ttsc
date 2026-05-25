@@ -11,7 +11,7 @@ import (
 // printer is registered for the encountered kind.
 //
 // Verbatim fallback is the safety net for the partial-coverage v1 of
-// `format/print-width`: a rule that ever lost bytes when encountering
+// `formatPrintWidth`: a rule that ever lost bytes when encountering
 // an un-handled shape would be unfit for `ttsc format`. The case
 // passes a TypeScript-only node kind the dispatcher does not handle
 // (TypeAliasDeclaration) and asserts the rendered output equals the

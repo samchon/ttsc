@@ -8,13 +8,13 @@ import (
 
 // TestCommandFormatPrintWidthCascadesWithSemiAndQuotes verifies the
 // `ttsc format` cascade converges to a single fixed-point output when
-// `format/print-width`, `format/semi`, `format/quotes`, and
-// `format/trailing-comma` are all enabled together.
+// `formatPrintWidth`, `formatSemi`, `formatQuotes`, and
+// `formatTrailingComma` are all enabled together.
 //
 // Beyond demonstrating multi-rule integration, this case is the
 // regression guard for an earlier bug where
 // `printImportDeclaration` unconditionally appended `;`. Combined
-// with `format/semi`'s zero-width insert at the same `node.End()`,
+// with `formatSemi`'s zero-width insert at the same `node.End()`,
 // that double-emit produced `;;` on imports the user wrote without
 // a terminator. The non-overlap check in the applier did not catch
 // it (zero-width insert + same-end replacement do not "overlap" by
@@ -41,10 +41,10 @@ func TestCommandFormatPrintWidthCascadesWithSemiAndQuotes(t *testing.T) {
   root := seedLintProject(t, source)
   seedLintConfig(t, root, map[string]any{
     "rules": map[string]any{
-      "format/print-width":    []any{"error", map[string]any{"printWidth": 20}},
-      "format/semi":           "error",
-      "format/quotes":         "error",
-      "format/trailing-comma": "error",
+      "formatPrintWidth":    []any{"error", map[string]any{"printWidth": 20}},
+      "formatSemi":          "error",
+      "formatQuotes":        "error",
+      "formatTrailingComma": "error",
     },
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {

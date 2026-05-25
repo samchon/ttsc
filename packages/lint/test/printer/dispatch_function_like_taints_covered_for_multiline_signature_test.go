@@ -15,7 +15,7 @@ import (
 // does — a multi-line parameter list, a long return-type annotation — that
 // verbatim slice freezes its interior columns. Any reflow of the body would
 // then produce inconsistently indented output, so printFunctionLike taints
-// covered to false. The format/print-width rule checks this flag and abstains
+// covered to false. The formatPrintWidth rule checks this flag and abstains
 // rather than emitting a half-reflowed edit.
 //
 //  1. Parse an arrow function whose parameter list spans two lines (the `=>`

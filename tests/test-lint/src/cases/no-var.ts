@@ -1,3 +1,3 @@
-// expect: no-var error
+// expect: noVar error
 var legacy = 1;
 JSON.stringify(legacy);

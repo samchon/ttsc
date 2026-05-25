@@ -18,14 +18,14 @@ import (
 //
 //  1. Parse a source where the only `/**` byte sequence lives inside a
 //     string literal.
-//  2. Run format/jsdoc.
+//  2. Run formatJsdoc.
 //  3. Assert zero findings — the rule must not touch user data.
 func TestFormatJSDocSkipsJSDocLikeStringsInSource(t *testing.T) {
   source := "export const s = \"/** @return number */\";\n" +
     "export const t = `/** @arg x */`;\n" +
     "console.log(s, t);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (no real JSDoc in source), got %d:\n%v",

@@ -21,7 +21,7 @@ import (
 func TestLoadJSONConfigFileRejectsInvalidJSON(t *testing.T) {
   dir := t.TempDir()
   location := filepath.Join(dir, "lint.config.json")
-  writeFile(t, location, `{"no-var": "error",`)
+  writeFile(t, location, `{"noVar": "error",`)
 
   _, err := loadJSONConfigFile(location)
   if err == nil {

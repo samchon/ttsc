@@ -1,3 +1,3 @@
-// expect: no-empty-character-class error
+// expect: noEmptyCharacterClass error
 const r = /[]/;
 JSON.stringify(r);

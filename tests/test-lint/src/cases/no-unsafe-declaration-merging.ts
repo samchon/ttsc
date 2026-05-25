@@ -2,7 +2,7 @@ class Merged {
   value = 1;
 }
 
-// expect: no-unsafe-declaration-merging error
+// expect: noUnsafeDeclarationMerging error
 interface Merged {
   other: string;
 }

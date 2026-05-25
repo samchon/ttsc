@@ -1,3 +1,3 @@
-// expect: no-template-curly-in-string error
+// expect: noTemplateCurlyInString error
 const s: string = "hello ${name}";
 JSON.stringify(s);

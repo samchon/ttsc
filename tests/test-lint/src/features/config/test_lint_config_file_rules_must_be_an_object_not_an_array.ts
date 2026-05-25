@@ -11,7 +11,7 @@ import { assert, runLint } from "../../internal/config-file";
  * equivalent test that exercised the now-withdrawn inline-config model.
  *
  * 1. Materialize a fixture with a discovered `lint.config.json` whose `rules`
- *    is `["no-var"]` — an array instead of a map.
+ *    is `["noVar"]` — an array instead of a map.
  * 2. Run ttsc.
  * 3. Assert non-zero exit and stderr says the rules value must be a severity map.
  */
@@ -21,7 +21,7 @@ export const test_lint_config_file_rules_must_be_an_object_not_an_array =
       name: "config-file-rules-not-an-object",
       source: "export const ok = 1;\n",
       extraSources: {
-        "lint.config.json": JSON.stringify({ rules: ["no-var"] }),
+        "lint.config.json": JSON.stringify({ rules: ["noVar"] }),
       },
     });
 

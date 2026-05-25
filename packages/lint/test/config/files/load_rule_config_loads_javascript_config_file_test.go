@@ -21,8 +21,8 @@ func TestLoadRuleConfigLoadsJavaScriptConfigFile(t *testing.T) {
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "ttsc-lint.config.cjs"), `module.exports = {
     rules: {
-      "no-console": "warning",
-      "no-debugger": "error",
+      "noConsole": "warning",
+      "noDebugger": "error",
     },
   };`)
 
@@ -34,10 +34,10 @@ func TestLoadRuleConfigLoadsJavaScriptConfigFile(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("no-console") != SeverityWarn {
-    t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
+  if cfg.Severity("noConsole") != SeverityWarn {
+    t.Errorf("noConsole: want warning, got %v", cfg.Severity("noConsole"))
   }
-  if cfg.Severity("no-debugger") != SeverityError {
-    t.Errorf("no-debugger: want error, got %v", cfg.Severity("no-debugger"))
+  if cfg.Severity("noDebugger") != SeverityError {
+    t.Errorf("noDebugger: want error, got %v", cfg.Severity("noDebugger"))
   }
 }

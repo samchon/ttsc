@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatPrintWidthAbstainsWhenCallbackBodyHoldsUncoveredStatement
-// verifies format/print-width emits no edit when a reflow target buries
+// verifies formatPrintWidth emits no edit when a reflow target buries
 // a multi-line node the dispatcher has no printer for.
 //
 // The `if` statement inside the callback body has no per-node printer,
@@ -17,12 +17,12 @@ import "testing"
 //
 //  1. Feed a `new` expression whose callback body holds a multi-line
 //     `if` statement.
-//  2. Run format/print-width.
+//  2. Run formatPrintWidth.
 //  3. Assert the rule reports zero findings — no edit, no diagnostic.
 func TestFormatPrintWidthAbstainsWhenCallbackBodyHoldsUncoveredStatement(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = new Singleton(\n  () => {\n        if (ready) {\n          start();\n        }\n  },\n);\n",
   )
 }

@@ -21,8 +21,8 @@ import (
 func TestParseConfigStoreAcceptsSeverityTuples(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
     "rules": map[string]any{
-      "no-var":                             []any{"error", map[string]any{"ignore": true}},
-      "no-console":                         []any{"warn"},
+      "noVar":                              []any{"error", map[string]any{"ignore": true}},
+      "noConsole":                          []any{"warn"},
       "@typescript-eslint/no-explicit-any": []any{float64(2), map[string]any{"fixToUnknown": true}},
       "typescript-eslint/consistent-type-imports": "warn",
     },
@@ -30,16 +30,16 @@ func TestParseConfigStoreAcceptsSeverityTuples(t *testing.T) {
   if err != nil {
     t.Fatalf("unexpected error: %v", err)
   }
-  if cfg.Severity("no-var") != SeverityError {
-    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  if cfg.Severity("noVar") != SeverityError {
+    t.Errorf("noVar: want error, got %v", cfg.Severity("noVar"))
   }
-  if cfg.Severity("no-console") != SeverityWarn {
-    t.Errorf("no-console: want warning, got %v", cfg.Severity("no-console"))
+  if cfg.Severity("noConsole") != SeverityWarn {
+    t.Errorf("noConsole: want warning, got %v", cfg.Severity("noConsole"))
   }
-  if cfg.Severity("no-explicit-any") != SeverityError {
-    t.Errorf("no-explicit-any: want error, got %v", cfg.Severity("no-explicit-any"))
+  if cfg.Severity("noExplicitAny") != SeverityError {
+    t.Errorf("noExplicitAny: want error, got %v", cfg.Severity("noExplicitAny"))
   }
-  if cfg.Severity("consistent-type-imports") != SeverityWarn {
-    t.Errorf("consistent-type-imports: want warning, got %v", cfg.Severity("consistent-type-imports"))
+  if cfg.Severity("consistentTypeImports") != SeverityWarn {
+    t.Errorf("consistentTypeImports: want warning, got %v", cfg.Severity("consistentTypeImports"))
   }
 }

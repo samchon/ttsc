@@ -15,14 +15,14 @@ import (
 // format rule and a lint rule on the same project and asserts the file
 // changes mirror the format rule's edit set only.
 //
-// 1. Seed a project with a no-var violation and a missing-semi violation.
+// 1. Seed a project with a noVar violation and a missing-semi violation.
 // 2. Run the format subcommand with both rules enabled.
 // 3. Assert the file gains semicolons but keeps its `var` declaration.
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   seedLintRules(t, root, map[string]string{
-    "format/semi": "error",
-    "no-var":      "error",
+    "formatSemi": "error",
+    "noVar":      "error",
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
@@ -38,8 +38,8 @@ func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
   }
-  // format/semi applied: trailing semicolons. no-var did NOT apply: `var`
-  // remains (its TextEdit was filtered out because no-var is a lint rule).
+  // formatSemi applied: trailing semicolons. noVar did NOT apply: `var`
+  // remains (its TextEdit was filtered out because noVar is a lint rule).
   want := "var legacy = 1;\nJSON.stringify(legacy);\n"
   if string(got) != want {
     t.Fatalf("formatted source mismatch:\nwant %q\ngot  %q", want, string(got))

@@ -19,18 +19,18 @@ import (
 //
 //  1. Configure the rule with a malformed `tagSynonyms` value alongside
 //     a valid one.
-//  2. Run format/jsdoc on a source containing both candidate tags.
+//  2. Run formatJsdoc on a source containing both candidate tags.
 //  3. Assert only the valid synonym fires; the malformed entry leaves
 //     its tag alone.
 func TestFormatJSDocRejectsMalformedTagSynonymValue(t *testing.T) {
   source := "/** @return number\n * @property name */\nexport const value = 1;\n"
   file := parseTS(t, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/jsdoc": SeverityError},
+    Rules: RuleConfig{"formatJsdoc": SeverityError},
     Options: RuleOptionsMap{
       // `return` → "" is malformed (would emit bare `@`).
       // `property` → "prop" is well-formed and should fire.
-      "format/jsdoc": json.RawMessage(`{"tagSynonyms":{"return":"","property":"prop"}}`),
+      "formatJsdoc": json.RawMessage(`{"tagSynonyms":{"return":"","property":"prop"}}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

@@ -17,7 +17,7 @@ import "testing"
 func TestFormatQuotesEscapesDoubleQuoteWhenConverting(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/quotes",
+    "formatQuotes",
     "const mixed = 'a\"b\\'c';\nJSON.stringify(mixed);\n",
     "const mixed = \"a\\\"b'c\";\nJSON.stringify(mixed);\n",
   )

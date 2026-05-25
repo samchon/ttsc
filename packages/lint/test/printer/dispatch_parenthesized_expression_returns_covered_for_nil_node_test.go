@@ -12,7 +12,7 @@ import (
 // error-recovery parse passes. Returning covered==true for a nil node is
 // correct because an empty Doc contributes no multi-line verbatim content to
 // the surrounding Doc tree. A regression that returned covered==false would
-// cause the format/print-width rule to abstain unnecessarily on every
+// cause the formatPrintWidth rule to abstain unnecessarily on every
 // parenthesized expression that follows the nil path.
 //
 //  1. Build a PrintContext from any valid parsed file.

@@ -1,5 +1,5 @@
 function f(a: number, b: number) {
-  // expect: no-bitwise error
+  // expect: noBitwise error
   return a & b;
 }
 JSON.stringify(f);

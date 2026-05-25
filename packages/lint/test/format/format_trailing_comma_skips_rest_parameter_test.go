@@ -16,7 +16,7 @@ import (
 //
 //  1. Parse a multi-line function declaration whose last parameter is
 //     a rest parameter without a trailing comma.
-//  2. Run format/trailing-comma with mode:"all".
+//  2. Run formatTrailingComma with mode:"all".
 //  3. Assert zero findings — the rule must NOT propose an edit that
 //     would render the source unparseable.
 func TestFormatTrailingCommaSkipsRestParameter(t *testing.T) {
@@ -28,7 +28,7 @@ func TestFormatTrailingCommaSkipsRestParameter(t *testing.T) {
     "}\n" +
     "f(\"x\", 1, 2);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (rest param disallows trailing comma), got %d:\n%v",

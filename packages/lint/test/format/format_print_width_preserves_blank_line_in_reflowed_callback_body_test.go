@@ -6,7 +6,7 @@ import "testing"
 // the rule keeps a user-authored blank line inside a hugged callback
 // body instead of deleting it.
 //
-// The format/print-width print engine rebuilds a block body from fresh
+// The formatPrintWidth print engine rebuilds a block body from fresh
 // Hardline separators. Before the Literalline fix the rebuild collapsed
 // every inter-statement blank line, so the first `ttsc format` pass
 // silently rewrote a developer's spacing. With the fix the canonical
@@ -15,12 +15,12 @@ import "testing"
 //
 //  1. Feed a `new Singleton(() => { … })` whose body has a blank line
 //     between two statements.
-//  2. Run format/print-width at the default width.
+//  2. Run formatPrintWidth at the default width.
 //  3. Assert the rule reports zero findings — the blank line survives.
 func TestFormatPrintWidthPreservesBlankLineInReflowedCallbackBody(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = new Singleton(() => {\n  setup();\n\n  teardown();\n});\n",
   )
 }

@@ -9,7 +9,7 @@ import (
 // TestDispatchNamedImportsBreaksWhenOverflows verifies a long
 // `{ … }` import clause reflows onto multiple indented lines.
 //
-// The headline use case for `format/print-width` on the import side:
+// The headline use case for `formatPrintWidth` on the import side:
 // projects with sprawling barrel re-exports want the same multi-line
 // rendering Prettier produces. Without this case, an `error`-class
 // severity could regress to a single-line output.

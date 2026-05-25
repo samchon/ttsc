@@ -1,5 +1,5 @@
 function f(x: number) {
-  // expect: use-isnan error
+  // expect: useIsNaN error
   return x === NaN;
 }
 JSON.stringify(f);

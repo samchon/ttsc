@@ -1,4 +1,4 @@
-// expect: no-lone-blocks error
+// expect: noLoneBlocks error
 {
   console.log("hi");
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferSpread(t *testing.T) {
-  assertRuleCorpusCase(t, "prefer-spread.ts", "function f(a: number, b: number) {\n  return a + b;\n}\nconst args: [number, number] = [1, 2];\n// expect: prefer-spread error\nf.apply(null, args);\n")
+  assertRuleCorpusCase(t, "prefer-spread.ts", "function f(a: number, b: number) {\n  return a + b;\n}\nconst args: [number, number] = [1, 2];\n// expect: preferSpread error\nf.apply(null, args);\n")
 }

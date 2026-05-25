@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthHugsObjectArgumentDespiteLongTrailingSuffix(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "wrap(\n  {\n    a: 1,\n  },\n) satisfies VeryLongTypeName;\n",
     `{"printWidth": 30}`,
     "wrap({\n  a: 1,\n}) satisfies VeryLongTypeName;\n",

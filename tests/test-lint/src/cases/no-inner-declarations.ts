@@ -1,6 +1,6 @@
 function outer() {
   if (1) {
-    // expect: no-inner-declarations error
+    // expect: noInnerDeclarations error
     function inner() {}
     inner();
   }

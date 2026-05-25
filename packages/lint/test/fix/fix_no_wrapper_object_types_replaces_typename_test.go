@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFixNoWrapperObjectTypesReplacesTypename verifies the no-wrapper-object-types fixer.
+// TestFixNoWrapperObjectTypesReplacesTypename verifies the noWrapperObjectTypes fixer.
 //
 // The fixer must rewrite the boxed wrapper type identifier in place (`String`
 // → `string`) while leaving every surrounding token alone. ESLint omits the
@@ -11,12 +11,12 @@ import "testing"
 // `Object`, so this test pins only the primitive-wrapper subset.
 //
 // 1. Parse a source file with a `String`-typed annotation.
-// 2. Apply the no-wrapper-object-types finding through the disk-backed fixer.
+// 2. Apply the noWrapperObjectTypes finding through the disk-backed fixer.
 // 3. Assert only the type identifier changed.
 func TestFixNoWrapperObjectTypesReplacesTypename(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-wrapper-object-types",
+    "noWrapperObjectTypes",
     "let label: String = \"x\";\nJSON.stringify(label);\n",
     "let label: string = \"x\";\nJSON.stringify(label);\n",
   )

@@ -1,5 +1,5 @@
 {
   "rules": {
-    "format/sort-imports": "error"
+    "formatSortImports": "error"
   }
 }

@@ -16,16 +16,16 @@ import (
 // loader subprocess — forever. The guard must reject the cycle before the
 // second hop re-reads `a.config.json`.
 //
-// 1. Write `a.config.json` and `b.config.json` that each `extends` the other.
-// 2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
-// 3. Assert a non-nil error that says `extends cycle detected` and names both
-//    files.
+//  1. Write `a.config.json` and `b.config.json` that each `extends` the other.
+//  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
+//  3. Assert a non-nil error that says `extends cycle detected` and names both
+//     files.
 func TestLoadRuleConfigRejectsExtendsCycleBetweenTwoConfigs(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "a.config.json"), `{
     "extends": "./b.config.json",
-    "rules": { "no-var": "error" }
+    "rules": { "noVar": "error" }
   }`)
   writeFile(t, filepath.Join(dir, "b.config.json"), `{
     "extends": "./a.config.json",

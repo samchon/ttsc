@@ -17,22 +17,22 @@ import (
 // 3. Assert each string maps to the correct Severity and the missing rule returns SeverityOff.
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
   cfg, err := ParseRules(map[string]any{
-    "no-var":          "error",
-    "no-explicit-any": "warning",
-    "no-debugger":     "off",
-    "eqeqeq":          "warn",
+    "noVar":         "error",
+    "noExplicitAny": "warning",
+    "noDebugger":    "off",
+    "eqeqeq":        "warn",
   })
   if err != nil {
     t.Fatalf("unexpected error: %v", err)
   }
-  if cfg.Severity("no-var") != SeverityError {
-    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  if cfg.Severity("noVar") != SeverityError {
+    t.Errorf("noVar: want error, got %v", cfg.Severity("noVar"))
   }
-  if cfg.Severity("no-explicit-any") != SeverityWarn {
-    t.Errorf("no-explicit-any: want warning, got %v", cfg.Severity("no-explicit-any"))
+  if cfg.Severity("noExplicitAny") != SeverityWarn {
+    t.Errorf("noExplicitAny: want warning, got %v", cfg.Severity("noExplicitAny"))
   }
-  if cfg.Severity("no-debugger") != SeverityOff {
-    t.Errorf("no-debugger: want off, got %v", cfg.Severity("no-debugger"))
+  if cfg.Severity("noDebugger") != SeverityOff {
+    t.Errorf("noDebugger: want off, got %v", cfg.Severity("noDebugger"))
   }
   if cfg.Severity("eqeqeq") != SeverityWarn {
     t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoObjCalls(t *testing.T) {
-  assertRuleCorpusCase(t, "no-obj-calls.ts", "// @ts-expect-error Math is not callable; we exercise the lint rule\n// expect: no-obj-calls error\nMath();\n")
+  assertRuleCorpusCase(t, "no-obj-calls.ts", "// @ts-expect-error Math is not callable; we exercise the lint rule\n// expect: noObjCalls error\nMath();\n")
 }

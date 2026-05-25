@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusObjectShorthand(t *testing.T) {
-  assertRuleCorpusCase(t, "object-shorthand.ts", "const x = 1;\n// expect: object-shorthand error\nconst o = { x: x };\nJSON.stringify(o);\n")
+  assertRuleCorpusCase(t, "object-shorthand.ts", "const x = 1;\n// expect: objectShorthand error\nconst o = { x: x };\nJSON.stringify(o);\n")
 }

@@ -31,7 +31,7 @@ func TestParseRulesRejectsNonObjectOptionsSlot(t *testing.T) {
   }
   for _, c := range cases {
     _, _, err := ParseRulesWithOptions(map[string]any{
-      "format/quotes": c.entry,
+      "formatQuotes": c.entry,
     })
     if err == nil {
       t.Errorf("%s: expected rejection, got nil", c.name)

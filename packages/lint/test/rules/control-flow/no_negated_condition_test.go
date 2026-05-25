@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoNegatedCondition(t *testing.T) {
-  assertRuleCorpusCase(t, "no-negated-condition.ts", "function f(a: any) {\n  // expect: no-negated-condition error\n  if (!a) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-negated-condition.ts", "function f(a: any) {\n  // expect: noNegatedCondition error\n  if (!a) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\nJSON.stringify(f);\n")
 }

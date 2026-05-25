@@ -19,15 +19,15 @@ import (
 // double-quote form. This scenario pins the JSX-parent guard.
 //
 // 1. Parse a TSX file with a JSX attribute carrying a double-quoted string.
-// 2. Run the engine with format/quotes configured prefer:"single".
+// 2. Run the engine with formatQuotes configured prefer:"single".
 // 3. Assert zero findings.
 func TestFormatQuotesSkipsJsxAttributeStrings(t *testing.T) {
   source := "const el = <div className=\"foo\" />;\n"
   file := parseTSXFile(t, "/virtual/main.tsx", source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/quotes": SeverityError},
+    Rules: RuleConfig{"formatQuotes": SeverityError},
     Options: RuleOptionsMap{
-      "format/quotes": []byte(`{"prefer":"single"}`),
+      "formatQuotes": []byte(`{"prefer":"single"}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

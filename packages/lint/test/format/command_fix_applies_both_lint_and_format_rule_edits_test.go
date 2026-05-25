@@ -15,15 +15,15 @@ import (
 // invocation. The intentional asymmetry — fix is a superset of format
 // — is documented in the README's Fix section.
 //
-//  1. Seed a project with one lint-class violation (no-var) and one
-//     format-class violation (format/semi).
+//  1. Seed a project with one lint-class violation (noVar) and one
+//     format-class violation (formatSemi).
 //  2. Run the fix subcommand with both rules enabled.
 //  3. Assert both kinds of edits land and the final exit code is zero.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   seedLintRules(t, root, map[string]string{
-    "format/semi": "error",
-    "no-var":      "error",
+    "formatSemi": "error",
+    "noVar":      "error",
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
@@ -39,7 +39,7 @@ func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
   }
-  // `var` → `let` (no-var) and `;` appended (format/semi) in one pass.
+  // `var` → `let` (noVar) and `;` appended (formatSemi) in one pass.
   want := "let legacy = 1;\nJSON.stringify(legacy);\n"
   if string(got) != want {
     t.Fatalf("fixed source mismatch:\nwant %q\ngot  %q", want, string(got))

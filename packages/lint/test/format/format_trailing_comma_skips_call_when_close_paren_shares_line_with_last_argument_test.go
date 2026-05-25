@@ -18,13 +18,13 @@ import "testing"
 //
 //  1. Parse a source file with one multi-line call whose sole argument is a
 //     multi-line object literal whose closing `}` shares a line with `)`.
-//  2. Run the engine with format/trailing-comma enabled.
+//  2. Run the engine with formatTrailingComma enabled.
 //  3. Assert zero findings — neither the call nor the already-terminated
 //     object literal contribute an edit.
 func TestFormatTrailingCommaSkipsCallWhenCloseParenSharesLineWithLastArgument(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "JSON.stringify({\n  a: 1,\n  b: 2,\n});\n",
   )
 }

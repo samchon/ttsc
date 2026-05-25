@@ -1,4 +1,4 @@
-// expect: no-shadow-restricted-names error
+// expect: noShadowRestrictedNames error
 function f(undefined: number) {
   return undefined;
 }

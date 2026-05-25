@@ -20,7 +20,7 @@ import (
 // findings (order-independent), with no doubles and no drops, on a
 // multi-file program.
 //
-//  1. Parse three virtual files each containing `no-var` violations.
+//  1. Parse three virtual files each containing `noVar` violations.
 //  2. Run the engine in serial mode, capture each finding's path + rule.
 //  3. Run the engine in parallel mode against the same files; sort both
 //     finding lists by (path, rule, pos) and assert they match.
@@ -31,14 +31,14 @@ func TestEngineRunParallelMatchesSerialFindingSet(t *testing.T) {
     parseTSFile(t, "/virtual/c.ts", "let c = 4;\nvar c2 = 5;\n"),
   }
 
-  serial := NewEngine(RuleConfig{"no-var": SeverityError})
+  serial := NewEngine(RuleConfig{"noVar": SeverityError})
   serial.SetSerial(true)
   serialFindings := serial.Run(files, nil)
   if got, want := len(serialFindings), 4; got != want {
     t.Fatalf("serial run: want %d findings, got %d (%v)", want, got, findingRules(serialFindings))
   }
 
-  parallel := NewEngine(RuleConfig{"no-var": SeverityError})
+  parallel := NewEngine(RuleConfig{"noVar": SeverityError})
   parallelFindings := parallel.Run(files, nil)
   if got, want := len(parallelFindings), 4; got != want {
     t.Fatalf("parallel run: want %d findings, got %d (%v)", want, got, findingRules(parallelFindings))

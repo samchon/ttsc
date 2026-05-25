@@ -10,7 +10,7 @@ import (
 // PrintNode reports `covered == false` when the printed subtree buries
 // a multi-line node the dispatcher has no printer for.
 //
-// The `covered` flag is the safety signal the format/print-width rule
+// The `covered` flag is the safety signal the formatPrintWidth rule
 // abstains on. A multi-line verbatim node — here an `if` statement
 // inside a callback body — keeps the source columns its lines were
 // written at, so a reflow that re-indented everything around it would

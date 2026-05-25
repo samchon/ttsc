@@ -1,4 +1,4 @@
-// expect: consistent-type-definitions error
+// expect: consistentTypeDefinitions error
 type Shape = {
   name: string;
 };

@@ -14,12 +14,12 @@ import (
 // not fire. This pins the severity-filter in NewEngine so a refactor that changes the
 // sentinel from 0 to some other value still needs to update the filter consistently.
 //
-// 1. Build an engine with no-var configured as SeverityOff.
+// 1. Build an engine with noVar configured as SeverityOff.
 // 2. Assert EnabledRules() is empty (no active rules).
 // 3. Parse a source file with a var statement and assert zero findings.
 func TestEngineSkipsOffRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
-    "no-var": SeverityOff,
+    "noVar": SeverityOff,
   })
   if len(engine.EnabledRules()) != 0 {
     t.Fatalf("want 0 enabled, got %d", len(engine.EnabledRules()))

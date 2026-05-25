@@ -19,7 +19,7 @@ import "testing"
 func TestFormatPrintWidthPreservesCallTypeArguments(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "foo<Alpha>(aaaaaa, bbbbbb, cccccc);\n",
     `{"printWidth": 24}`,
     "foo<Alpha>(\n  aaaaaa,\n  bbbbbb,\n  cccccc,\n);\n",

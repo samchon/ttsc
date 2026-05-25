@@ -21,7 +21,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastCallSignatureParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "interface Combiner {\n  (\n    left: number,\n    right: number\n  ): number;\n}\nlet c: Combiner;\nc;\n",
     "interface Combiner {\n  (\n    left: number,\n    right: number,\n  ): number;\n}\nlet c: Combiner;\nc;\n",
   )

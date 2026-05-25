@@ -14,7 +14,7 @@ import (
 // `{ // note }` written across lines has no statements *and* a comment
 // — collapsing it to `{}` would silently delete the comment. The
 // printer must treat the comment-bearing statement-free block as
-// uncovered so the format/print-width rule abstains and the comment
+// uncovered so the formatPrintWidth rule abstains and the comment
 // survives byte-identical. A regression that collapsed it would lose
 // the comment on the first `ttsc format` pass.
 //

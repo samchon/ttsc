@@ -1,3 +1,3 @@
-// expect: no-empty-function error
+// expect: noEmptyFunction error
 function f(): void {}
 f();

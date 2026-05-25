@@ -16,14 +16,14 @@ import (
 // readability gain.
 //
 // 1. Parse a source file with single-line array, object, and call lists.
-// 2. Run the engine with format/trailing-comma enabled.
+// 2. Run the engine with formatTrailingComma enabled.
 // 3. Assert zero findings.
 func TestFormatTrailingCommaSkipsSingleLineLists(t *testing.T) {
   source := "const xs = [1, 2, 3];\n" +
     "const obj = { a: 1, b: 2 };\n" +
     "JSON.stringify({ a: 1, b: 2 }, null, 2);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

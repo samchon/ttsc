@@ -7,7 +7,7 @@ import (
 
 // TestFormatBlockPropagatesImportOrderSeparationOptions verifies that
 // importOrderSeparation, importOrderSortSpecifiers, and importOrderCaseInsensitive
-// boolean options are accepted and forwarded to the format/sort-imports rule entry
+// boolean options are accepted and forwarded to the formatSortImports rule entry
 // when provided alongside a valid importOrder array.
 //
 // Locks the success arms (`siOpts["importOrderSeparation"] = b` et al.) inside
@@ -18,7 +18,7 @@ import (
 //  1. Build a format block with importOrder and all three boolean sub-options set.
 //  2. Call expandFormatBlock.
 //  3. Assert no error.
-//  4. Assert format/sort-imports options contain all three boolean sub-options.
+//  4. Assert formatSortImports options contain all three boolean sub-options.
 func TestFormatBlockPropagatesImportOrderSeparationOptions(t *testing.T) {
   out, err := expandFormatBlock(map[string]any{
     "importOrder":                []any{"^[./]"},
@@ -30,9 +30,9 @@ func TestFormatBlockPropagatesImportOrderSeparationOptions(t *testing.T) {
     t.Fatalf("expandFormatBlock: unexpected error: %v", err)
   }
 
-  entry, ok := out["format/sort-imports"]
+  entry, ok := out["formatSortImports"]
   if !ok {
-    t.Fatal("format/sort-imports not present in output")
+    t.Fatal("formatSortImports not present in output")
   }
   raw, err := json.Marshal(entry)
   if err != nil {

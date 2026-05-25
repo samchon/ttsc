@@ -16,11 +16,11 @@ import (
 // kinds; this scenario pins that omission.
 //
 // 1. Parse a source file using only backtick template literals.
-// 2. Run the engine with format/quotes enabled.
+// 2. Run the engine with formatQuotes enabled.
 // 3. Assert zero findings.
 func TestFormatQuotesSkipsTemplateLiterals(t *testing.T) {
   file := parseTS(t, "const greeting = `hello`;\nconst name = `world`;\n")
-  findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatQuotes": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

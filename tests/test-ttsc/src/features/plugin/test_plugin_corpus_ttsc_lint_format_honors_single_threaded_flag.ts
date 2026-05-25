@@ -28,7 +28,7 @@ import {
  * survives the launcher boundary and the sidecar accepts it without exiting.
  *
  * 1. Materialize a `@ttsc/lint` project whose source contains a `'single'` string
- *    literal and a `format/quotes: error` rule.
+ *    literal and a `formatQuotes: error` rule.
  * 2. Run `ttsc format -p tsconfig.json --singleThreaded`.
  * 3. Assert zero exit and the literal is rewritten to use double quotes.
  */
@@ -51,7 +51,7 @@ export const test_plugin_corpus_ttsc_lint_format_honors_single_threaded_flag =
     );
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: { "format/quotes": "error" } }),
+      JSON.stringify({ rules: { formatQuotes: "error" } }),
     );
     const sourcePath = path.join(root, "src", "main.ts");
     fs.writeFileSync(sourcePath, `export const value = 'single';\n`);

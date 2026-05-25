@@ -18,7 +18,7 @@ import (
 //
 //  1. Parse a JSDoc block containing one synonym outside `@example`
 //     (must be rewritten) and one synonym inside (must be preserved).
-//  2. Run format/jsdoc.
+//  2. Run formatJsdoc.
 //  3. Assert exactly one finding — the synonym outside the example.
 func TestFormatJSDocPreservesExampleBlockBody(t *testing.T) {
   source := "/**\n" +
@@ -32,7 +32,7 @@ func TestFormatJSDocPreservesExampleBlockBody(t *testing.T) {
     " */\n" +
     "export const value = 1;\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 {
     t.Fatalf("expected 1 finding (only the outer @return → @returns), got %d:\n%v",

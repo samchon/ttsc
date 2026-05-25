@@ -1,4 +1,4 @@
-// expect: no-unsafe-function-type error
+// expect: noUnsafeFunctionType error
 type Callback = Function;
 
 JSON.stringify({} as Callback);

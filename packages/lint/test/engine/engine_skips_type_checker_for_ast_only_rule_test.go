@@ -6,16 +6,16 @@ import "testing"
 // request Context.Checker.
 //
 // The checker gate is computed from the active rule set before Program
-// creation. A common Vue/type-fest rule such as no-var must therefore keep the
+// creation. A common Vue/type-fest rule such as noVar must therefore keep the
 // engine on the AST-only path, otherwise those projects still pay the old
 // single-checker cost.
 //
-// 1. Build an engine with only no-var enabled.
+// 1. Build an engine with only noVar enabled.
 // 2. Ask whether the engine needs a type checker.
 // 3. Assert the answer is false.
 func TestEngineSkipsTypeCheckerForAstOnlyRule(t *testing.T) {
-  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  engine := NewEngine(RuleConfig{"noVar": SeverityError})
   if engine.NeedsTypeChecker() {
-    t.Fatal("no-var unexpectedly requested a type checker")
+    t.Fatal("noVar unexpectedly requested a type checker")
   }
 }

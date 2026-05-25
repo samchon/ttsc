@@ -1,6 +1,6 @@
 const box = { name: "ttsc", "not-valid-key": "kept" };
 
-// expect: dot-notation error
+// expect: dotNotation error
 const value = box["name"];
 const kept = box["not-valid-key"];
 

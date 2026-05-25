@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFixNoUselessRenameDropsRenameTail verifies the no-useless-rename
+// TestFixNoUselessRenameDropsRenameTail verifies the noUselessRename
 // fixer collapses `{ x as x }` to `{ x }` on an import specifier.
 //
 // The rule fires on three syntactic shapes (import/export specifier and
@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUselessRenameDropsRenameTail(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-useless-rename",
+    "noUselessRename",
     "import { foo as foo } from \"./fixture\";\nJSON.stringify(foo);\n",
     "import { foo } from \"./fixture\";\nJSON.stringify(foo);\n",
   )

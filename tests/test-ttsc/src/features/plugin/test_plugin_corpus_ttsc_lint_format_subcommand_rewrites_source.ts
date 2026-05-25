@@ -21,7 +21,7 @@ import {
  * scenario.
  *
  * 1. Materialize a project with one missing-semi violation and a
- *    `lint.config.json` enabling the `format/semi` rule.
+ *    `lint.config.json` enabling the `formatSemi` rule.
  * 2. Run `ttsc format` through the real launcher and source-plugin cache.
  * 3. Assert the source file gains the semicolon and no JavaScript is emitted.
  */
@@ -31,7 +31,7 @@ export const test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source =
       {
         "src/main.ts": `const value = 1\nJSON.stringify(value)\n`,
         "lint.config.json": JSON.stringify({
-          rules: { "format/semi": "error" },
+          rules: { formatSemi: "error" },
         }),
       },
       {

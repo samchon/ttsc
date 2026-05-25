@@ -15,13 +15,13 @@ import (
 // despite having explicit suppression comments.
 //
 // 1. Parse three debugger statements; the middle one is preceded by `lint-disable-next-line`.
-// 2. Run the no-debugger engine.
+// 2. Run the noDebugger engine.
 // 3. Assert exactly two findings; the alias-suppressed statement is silent.
 func TestEngineRespectsLintDisableNextLineAlias(t *testing.T) {
-  engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
+  engine := NewEngine(RuleConfig{"noDebugger": SeverityError})
   file := parseTS(t, `
     debugger;
-    // lint-disable-next-line no-debugger
+    // lint-disable-next-line noDebugger
     debugger;
     debugger;
   `)

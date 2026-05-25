@@ -19,7 +19,7 @@ func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "lint.config.json"), `{
-    "rules": { "no-var": "error" }
+    "rules": { "noVar": "error" }
   }`)
 
   cfg, err := LoadRuleConfig(&PluginEntry{
@@ -28,7 +28,7 @@ func TestLoadRuleConfigDiscoversPlainLintConfig(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("no-var") != SeverityError {
-    t.Errorf("no-var: want error, got %v", cfg.Severity("no-var"))
+  if cfg.Severity("noVar") != SeverityError {
+    t.Errorf("noVar: want error, got %v", cfg.Severity("noVar"))
   }
 }

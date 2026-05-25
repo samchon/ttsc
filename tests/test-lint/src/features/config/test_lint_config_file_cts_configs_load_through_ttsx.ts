@@ -11,7 +11,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * 1. Materialize a fixture whose plugin entry sets `configFile:
  *    "./ttsc-lint.config.cts"`.
  * 2. The config exports an `ITtscLintConfig` object via `export = config` (CJS).
- * 3. Run ttsc; assert `no-console` fires from the loaded config.
+ * 3. Run ttsc; assert `noConsole` fires from the loaded config.
  */
 export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
   const result = runLint({
@@ -22,7 +22,7 @@ export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
     },
     extraSources: {
       "ttsc-lint.config.cts": `const config = {
-        rules: { "no-console": "error" },
+        rules: { "noConsole": "error" },
       };
 
       export = config;\n`,
@@ -32,7 +32,7 @@ export const test_lint_config_file_cts_configs_load_through_ttsx = () => {
   assert.notEqual(result.status, 0);
   assert.deepEqual(
     result.diagnostics.map((d) => [d.rule, d.severity]),
-    [["no-console", "error"]],
+    [["noConsole", "error"]],
     result.stderr,
   );
 };

@@ -1,3 +1,3 @@
-// expect: no-misleading-character-class error
+// expect: noMisleadingCharacterClass error
 const r = /[👍]/;
 JSON.stringify(r);

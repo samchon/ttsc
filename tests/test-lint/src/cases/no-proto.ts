@@ -1,3 +1,3 @@
 const o: any = {};
-// expect: no-proto error
+// expect: noProto error
 JSON.stringify(o.__proto__);

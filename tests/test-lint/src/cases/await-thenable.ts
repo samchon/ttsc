@@ -1,5 +1,5 @@
 async function bad(): Promise<number> {
-  // expect: await-thenable error
+  // expect: awaitThenable error
   return await 42;
 }
 JSON.stringify(bad);

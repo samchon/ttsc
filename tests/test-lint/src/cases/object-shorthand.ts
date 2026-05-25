@@ -1,4 +1,4 @@
 const x = 1;
-// expect: object-shorthand error
+// expect: objectShorthand error
 const o = { x: x };
 JSON.stringify(o);

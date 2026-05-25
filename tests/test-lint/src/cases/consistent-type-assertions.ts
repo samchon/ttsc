@@ -1,5 +1,5 @@
 declare const input: unknown;
 
-// expect: consistent-type-assertions error
+// expect: consistentTypeAssertions error
 const value = <string>input;
 JSON.stringify(value);

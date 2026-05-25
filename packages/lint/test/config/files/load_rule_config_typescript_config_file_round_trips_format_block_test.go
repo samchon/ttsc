@@ -16,7 +16,7 @@ import (
 // only a `format` block and asserts the prettier option survives evaluation.
 //
 // 1. Write a ttsc-lint.config.ts default-exporting `{ format: { semi: false } }`.
-// 2. Load it through LoadConfigResolver and read the format/semi options.
+// 2. Load it through LoadConfigResolver and read the formatSemi options.
 // 3. Assert `prefer` decodes to "never" — proof `format` was not dropped.
 func TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   dir := t.TempDir()
@@ -34,15 +34,15 @@ func TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadConfigResolver: %v", err)
   }
-  raw := resolver.RuleOptions("format/semi")
+  raw := resolver.RuleOptions("formatSemi")
   if len(raw) == 0 {
-    t.Fatal("format block was dropped: format/semi has no options")
+    t.Fatal("format block was dropped: formatSemi has no options")
   }
   var opts struct {
     Prefer string `json:"prefer"`
   }
   if err := json.Unmarshal(raw, &opts); err != nil {
-    t.Fatalf("decode format/semi options: %v", err)
+    t.Fatalf("decode formatSemi options: %v", err)
   }
   if opts.Prefer != "never" {
     t.Fatalf("prefer want \"never\" (format block round-tripped), got %q", opts.Prefer)

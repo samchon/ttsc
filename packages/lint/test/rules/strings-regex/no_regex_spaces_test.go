@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoRegexSpaces(t *testing.T) {
-  assertRuleCorpusCase(t, "no-regex-spaces.ts", "// expect: no-regex-spaces error\nconst r = /a  b/;\nJSON.stringify(r);\n")
+  assertRuleCorpusCase(t, "no-regex-spaces.ts", "// expect: noRegexSpaces error\nconst r = /a  b/;\nJSON.stringify(r);\n")
 }

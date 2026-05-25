@@ -11,7 +11,7 @@ import "testing"
 // Without the branch, a PrintWidth of 0 would reach the engine where
 // `opts.PrintWidth <= 0` is normalised in Print — but the context's Opts
 // field would still hold 0, which breaks callers that read Opts.PrintWidth
-// directly (e.g. format/print-width). The branch pins that the guard
+// directly (e.g. formatPrintWidth). The branch pins that the guard
 // triggers at construction time, not at render time.
 //
 //  1. Parse any valid TypeScript source so a SourceFile is available.

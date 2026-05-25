@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoConsole(t *testing.T) {
-  assertRuleCorpusCase(t, "no-console.ts", "// expect: no-console error\nconsole.log(\"hi\");\n")
+  assertRuleCorpusCase(t, "no-console.ts", "// expect: noConsole error\nconsole.log(\"hi\");\n")
 }

@@ -12,7 +12,7 @@ import (
 // produces one `ConfigEntry` per file. ResolveRules must apply entries whose
 // `files` glob matches the requested path while treating an `ignores`-only
 // entry as a global ignore pattern. A regression that applied all entries
-// unconditionally would disable "no-console" for non-test files and fail to
+// unconditionally would disable "noConsole" for non-test files and fail to
 // ignore generated files.
 //
 //  1. Build a ConfigStore with a base entry, a test-file `files` override, and
@@ -25,14 +25,14 @@ func TestParseConfigStoreResolvesFilesAndIgnores(t *testing.T) {
       {
         BaseDir: "/project",
         Rules: RuleConfig{
-          "no-var":     SeverityError,
-          "no-console": SeverityWarn,
+          "noVar":     SeverityError,
+          "noConsole": SeverityWarn,
         },
       },
       {
         BaseDir: "/project",
         Files:   []string{"src/**/*.test.ts"},
-        Rules:   RuleConfig{"no-console": SeverityOff},
+        Rules:   RuleConfig{"noConsole": SeverityOff},
       },
       {
         BaseDir:    "/project",
@@ -46,7 +46,7 @@ func TestParseConfigStoreResolvesFilesAndIgnores(t *testing.T) {
   if main.Ignored {
     t.Fatal("main.ts should not be ignored")
   }
-  if main.Rules.Severity("no-var") != SeverityError || main.Rules.Severity("no-console") != SeverityWarn {
+  if main.Rules.Severity("noVar") != SeverityError || main.Rules.Severity("noConsole") != SeverityWarn {
     t.Fatalf("main.ts rules not resolved correctly: %+v", main.Rules)
   }
 
@@ -54,7 +54,7 @@ func TestParseConfigStoreResolvesFilesAndIgnores(t *testing.T) {
   if testFile.Ignored {
     t.Fatal("example.test.ts should not be ignored")
   }
-  if testFile.Rules.Severity("no-var") != SeverityError || testFile.Rules.Severity("no-console") != SeverityOff {
+  if testFile.Rules.Severity("noVar") != SeverityError || testFile.Rules.Severity("noConsole") != SeverityOff {
     t.Fatalf("example.test.ts rules not resolved correctly: %+v", testFile.Rules)
   }
 

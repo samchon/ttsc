@@ -24,7 +24,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterParameterPropertyInConstructor(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "class Point {\n  constructor(\n    public readonly x: number,\n    private y: number\n  ) {}\n}\nPoint;\n",
     "class Point {\n  constructor(\n    public readonly x: number,\n    private y: number,\n  ) {}\n}\nPoint;\n",
   )

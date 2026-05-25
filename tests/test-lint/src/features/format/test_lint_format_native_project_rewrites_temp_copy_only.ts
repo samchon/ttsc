@@ -56,7 +56,7 @@ export const test_lint_format_native_project_rewrites_temp_copy_only = () => {
     );
 
     assert.equal(result.status, 0, result.stderr);
-    // Format is write-only: no diagnostics, no `[format/semi]` banner.
+    // Format is write-only: no diagnostics, no `[formatSemi]` banner.
     assert.doesNotMatch(result.stderr ?? "", /\[format\/semi\]/);
     assert.equal(
       fs.readFileSync(path.join(root, "src", "main.ts"), "utf8"),

@@ -6,7 +6,7 @@ import (
 )
 
 // TestFormatBlockPropagatesJsdocSortTagsOption verifies that sortTags: true
-// inside a format.jsdoc object is accepted and forwarded to the format/jsdoc
+// inside a format.jsdoc object is accepted and forwarded to the formatJsdoc
 // rule entry.
 //
 // Locks the success arm at `jdOpts["sortTags"] = b` inside expandFormatBlock.
@@ -17,7 +17,7 @@ import (
 //  1. Build a format block with jsdoc: {sortTags: true}.
 //  2. Call expandFormatBlock.
 //  3. Assert no error.
-//  4. Assert format/jsdoc options contain sortTags: true.
+//  4. Assert formatJsdoc options contain sortTags: true.
 func TestFormatBlockPropagatesJsdocSortTagsOption(t *testing.T) {
   out, err := expandFormatBlock(map[string]any{
     "jsdoc": map[string]any{
@@ -28,9 +28,9 @@ func TestFormatBlockPropagatesJsdocSortTagsOption(t *testing.T) {
     t.Fatalf("expandFormatBlock: unexpected error: %v", err)
   }
 
-  entry, ok := out["format/jsdoc"]
+  entry, ok := out["formatJsdoc"]
   if !ok {
-    t.Fatal("format/jsdoc not present in output")
+    t.Fatal("formatJsdoc not present in output")
   }
   raw, err := json.Marshal(entry)
   if err != nil {

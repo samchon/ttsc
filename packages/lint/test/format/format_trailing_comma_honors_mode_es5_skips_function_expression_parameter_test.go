@@ -18,7 +18,7 @@ import "testing"
 func TestFormatTrailingCommaHonorsModeEs5SkipsFunctionExpressionParameter(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "const add = function (\n  a: number,\n  b: number\n): number {\n  return a + b;\n};\nadd;\n",
     `{"mode":"es5"}`,
   )

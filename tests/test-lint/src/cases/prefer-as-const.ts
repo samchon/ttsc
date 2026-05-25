@@ -1,3 +1,3 @@
-// expect: prefer-as-const error
+// expect: preferAsConst error
 const a = "foo" as "foo";
 JSON.stringify(a);

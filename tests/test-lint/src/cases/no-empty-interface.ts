@@ -1,4 +1,4 @@
-// expect: no-empty-interface error
+// expect: noEmptyInterface error
 interface Empty {}
 const e: Empty = {};
 JSON.stringify(e);

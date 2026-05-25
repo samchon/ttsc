@@ -2,7 +2,7 @@ function f(a: any, b: any) {
   if (a) {
     return 1;
   } else {
-    // expect: no-lonely-if error
+    // expect: noLonelyIf error
     if (b) {
       return 2;
     }

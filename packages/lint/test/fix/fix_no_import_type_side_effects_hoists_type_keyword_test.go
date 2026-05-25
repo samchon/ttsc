@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoImportTypeSideEffectsHoistsTypeKeyword verifies the
-// no-import-type-side-effects fixer hoists per-specifier `type` modifiers
+// noImportTypeSideEffects fixer hoists per-specifier `type` modifiers
 // into a single import-clause `type`.
 //
 // The fix emits one insertion (`" type"` after `import`) and one deletion
@@ -17,7 +17,7 @@ import "testing"
 func TestFixNoImportTypeSideEffectsHoistsTypeKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-import-type-side-effects",
+    "noImportTypeSideEffects",
     "import { type A, type B } from \"./mod\";\nconst x: A | null = null;\nconst y: B | null = null;\nJSON.stringify([x, y]);\n",
     "import type { A, B } from \"./mod\";\nconst x: A | null = null;\nconst y: B | null = null;\nJSON.stringify([x, y]);\n",
   )

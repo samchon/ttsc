@@ -7,7 +7,7 @@ import (
 )
 
 // TestCommandFormatAppliesPrintWidthReflow verifies the `ttsc format`
-// subcommand applies format/print-width edits to disk in a single
+// subcommand applies formatPrintWidth edits to disk in a single
 // pass.
 //
 // Going through the subcommand exercises the full path: rule
@@ -17,7 +17,7 @@ import (
 // with the existing format runner without special handling.
 //
 //  1. Seed a project with a long single-line object literal plus a
-//     lint.config.json enabling format/print-width with printWidth=20.
+//     lint.config.json enabling formatPrintWidth with printWidth=20.
 //  2. Run the format subcommand.
 //  3. Assert the file on disk is the reflowed multi-line form and the
 //     subcommand exits cleanly.
@@ -25,7 +25,7 @@ func TestCommandFormatAppliesPrintWidthReflow(t *testing.T) {
   root := seedLintProject(t, "const x = { aa: 1, bb: 2, cc: 3 };\n")
   seedLintConfig(t, root, map[string]any{
     "rules": map[string]any{
-      "format/print-width": []any{"error", map[string]any{"printWidth": 20}},
+      "formatPrintWidth": []any{"error", map[string]any{"printWidth": 20}},
     },
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {

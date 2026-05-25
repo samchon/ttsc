@@ -15,7 +15,7 @@ import (
 //
 //  1. Parse a source file with sorted external + relative groups and a
 //     blank-line separator.
-//  2. Run the engine with format/sort-imports enabled.
+//  2. Run the engine with formatSortImports enabled.
 //  3. Assert zero findings.
 func TestFormatSortImportsSkipsAlreadySortedFiles(t *testing.T) {
   source := "import alpha from \"alpha\";\n" +
@@ -25,7 +25,7 @@ func TestFormatSortImportsSkipsAlreadySortedFiles(t *testing.T) {
     "import { reduce } from \"./local-b\";\n" +
     "JSON.stringify({ alpha, zebra, x, reduce });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

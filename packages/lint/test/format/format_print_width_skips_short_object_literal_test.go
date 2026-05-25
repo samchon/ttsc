@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthSkipsShortObjectLiteral verifies format/print-width
+// TestFormatPrintWidthSkipsShortObjectLiteral verifies formatPrintWidth
 // abstains when the flat form already fits the configured budget.
 //
 // "No diff → no edit" is the load-bearing invariant that keeps
@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthSkipsShortObjectLiteral(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = { a: 1 };\n",
   )
 }

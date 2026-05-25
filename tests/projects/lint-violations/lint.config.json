@@ -1,12 +1,12 @@
 {
   "rules": {
-    "no-var": "error",
-    "no-explicit-any": "warn",
-    "no-non-null-assertion": "off",
-    "no-debugger": "error",
+    "noVar": "error",
+    "noExplicitAny": "warn",
+    "noNonNullAssertion": "off",
+    "noDebugger": "error",
     "eqeqeq": "error",
-    "no-empty-interface": "warn",
-    "prefer-for-of": "warn",
-    "no-confusing-non-null-assertion": "error"
+    "noEmptyInterface": "warn",
+    "preferForOf": "warn",
+    "noConfusingNonNullAssertion": "error"
   }
 }

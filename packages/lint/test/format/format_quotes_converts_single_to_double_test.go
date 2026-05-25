@@ -17,7 +17,7 @@ import "testing"
 func TestFormatQuotesConvertsSingleToDouble(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/quotes",
+    "formatQuotes",
     "const greeting = 'hello';\nJSON.stringify(greeting);\n",
     "const greeting = \"hello\";\nJSON.stringify(greeting);\n",
   )

@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatQuotesHonorsPreferSingleOption verifies that the `prefer:
-// "single"` option flips format/quotes' direction.
+// "single"` option flips formatQuotes' direction.
 //
 // The default behavior converts single-quoted literals to double-quoted.
 // Passing `{ prefer: "single" }` flips the contract: double-quoted
@@ -18,5 +18,5 @@ import "testing"
 func TestFormatQuotesHonorsPreferSingleOption(t *testing.T) {
   source := "const greeting = \"hello\";\nJSON.stringify(greeting);\n"
   want := "const greeting = 'hello';\nJSON.stringify(greeting);\n"
-  assertFixSnapshotWithOptions(t, "format/quotes", source, `{"prefer":"single"}`, want)
+  assertFixSnapshotWithOptions(t, "formatQuotes", source, `{"prefer":"single"}`, want)
 }

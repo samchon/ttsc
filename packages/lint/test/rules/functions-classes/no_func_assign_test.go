@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoFuncAssign(t *testing.T) {
-  assertRuleCorpusCase(t, "no-func-assign.ts", "function g() {\n  return 1;\n}\n// expect: no-func-assign error\ng = function () {\n  return 2;\n};\n")
+  assertRuleCorpusCase(t, "no-func-assign.ts", "function g() {\n  return 1;\n}\n// expect: noFuncAssign error\ng = function () {\n  return 2;\n};\n")
 }

@@ -1,4 +1,4 @@
-// expect: no-dupe-args error
+// expect: noDupeArgs error
 function f(a: number, b: number, a: number) {
   return a + b;
 }

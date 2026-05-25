@@ -21,7 +21,7 @@ import (
 //
 //  1. Parse a two-statement source where the second statement starts
 //     with `[`.
-//  2. Run format/semi configured `prefer: "never"`.
+//  2. Run formatSemi configured `prefer: "never"`.
 //  3. Assert zero findings — the hazard guard kept the first `;` in
 //     place.
 func TestFormatSemiPreferNeverKeepsSemiBeforeASIHazard(t *testing.T) {
@@ -29,9 +29,9 @@ func TestFormatSemiPreferNeverKeepsSemiBeforeASIHazard(t *testing.T) {
     "[1, 2].forEach((n) => n);\n"
   file := parseTS(t, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/semi": SeverityError},
+    Rules: RuleConfig{"formatSemi": SeverityError},
     Options: RuleOptionsMap{
-      "format/semi": json.RawMessage(`{"prefer":"never"}`),
+      "formatSemi": json.RawMessage(`{"prefer":"never"}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

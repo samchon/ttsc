@@ -17,14 +17,14 @@ import "testing"
 //
 //  1. Feed a `new` call inside a function body whose callback body
 //     statements are deliberately mis-indented in the source.
-//  2. Run format/print-width at the default width.
+//  2. Run formatPrintWidth at the default width.
 //  3. Assert the call's `=>` header sits at the block indent and the
 //     body statements indent exactly two spaces deeper — consistent at
 //     every level.
 func TestFormatPrintWidthReindentsCallbackBodyInsideIndentedBlock(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "function boot() {\n  const x = new Singleton(\n() => {\n          register();\n  return x;\n});\n}\n",
     "function boot() {\n  const x = new Singleton(() => {\n    register();\n    return x;\n  });\n}\n",
   )

@@ -10,7 +10,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * diagnostic output.
  *
  * 1. Materialise a fixture with a `.cjs` config that exports `{ rules: {
- *    "no-console": "warning" } }`.
+ *    "noConsole": "warning" } }`.
  * 2. Run ttsc; assert the diagnostic severity is `"warn"` (not `"warning"`).
  */
 export const test_lint_config_file_javascript_configs_may_export_the_rules_object =
@@ -23,7 +23,7 @@ export const test_lint_config_file_javascript_configs_may_export_the_rules_objec
       },
       extraSources: {
         "ttsc-lint.config.cjs": `module.exports = {
-        rules: { "no-console": "warning" },
+        rules: { "noConsole": "warning" },
       };\n`,
       },
     });
@@ -31,7 +31,7 @@ export const test_lint_config_file_javascript_configs_may_export_the_rules_objec
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-console", "warn"]],
+      [["noConsole", "warn"]],
       result.stderr,
     );
   };

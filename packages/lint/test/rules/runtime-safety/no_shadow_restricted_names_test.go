@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoShadowRestrictedNames(t *testing.T) {
-  assertRuleCorpusCase(t, "no-shadow-restricted-names.ts", "// expect: no-shadow-restricted-names error\nfunction f(undefined: number) {\n  return undefined;\n}\nf(1);\n")
+  assertRuleCorpusCase(t, "no-shadow-restricted-names.ts", "// expect: noShadowRestrictedNames error\nfunction f(undefined: number) {\n  return undefined;\n}\nf(1);\n")
 }

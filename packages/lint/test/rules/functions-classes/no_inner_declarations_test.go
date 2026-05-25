@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoInnerDeclarations(t *testing.T) {
-  assertRuleCorpusCase(t, "no-inner-declarations.ts", "function outer() {\n  if (1) {\n    // expect: no-inner-declarations error\n    function inner() {}\n    inner();\n  }\n}\nouter();\n")
+  assertRuleCorpusCase(t, "no-inner-declarations.ts", "function outer() {\n  if (1) {\n    // expect: noInnerDeclarations error\n    function inner() {}\n    inner();\n  }\n}\nouter();\n")
 }

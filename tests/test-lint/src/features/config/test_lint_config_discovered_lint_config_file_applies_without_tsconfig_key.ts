@@ -13,7 +13,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * 1. Materialize a fixture whose plugin entry has no `configFile` key, with a
  *    `lint.config.json` (an ITtscLintConfig object) beside tsconfig.json.
  * 2. Run ttsc.
- * 3. Assert the discovered config's `no-console` rule fires.
+ * 3. Assert the discovered config's `noConsole` rule fires.
  */
 export const test_lint_config_discovered_lint_config_file_applies_without_tsconfig_key =
   () => {
@@ -23,7 +23,7 @@ export const test_lint_config_discovered_lint_config_file_applies_without_tsconf
       pluginConfig: {},
       extraSources: {
         "lint.config.json": JSON.stringify({
-          rules: { "no-var": "off", "no-console": "error" },
+          rules: { "noVar": "off", "noConsole": "error" },
         }),
       },
     });
@@ -31,7 +31,7 @@ export const test_lint_config_discovered_lint_config_file_applies_without_tsconf
     assert.notEqual(result.status, 0, result.stderr);
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-console", "error"]],
+      [["noConsole", "error"]],
       result.stderr,
     );
   };

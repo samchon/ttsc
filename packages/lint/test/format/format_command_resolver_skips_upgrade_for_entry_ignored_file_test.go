@@ -31,25 +31,25 @@ func TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile(t *testing.T) {
         BaseDir: "/project",
         Ignores: []string{"src/driver/mongodb/typings.ts"},
         Rules: RuleConfig{
-          "no-var": SeverityError,
+          "noVar": SeverityError,
         },
       },
     },
     options: RuleOptionsMap{
-      "format/semi": json.RawMessage(`{"prefer":"always"}`),
+      "formatSemi": json.RawMessage(`{"prefer":"always"}`),
     },
   }
   resolver := formatCommandResolver{inner: store}
 
   ignored := resolver.ResolveRules("/project/src/driver/mongodb/typings.ts")
-  if ignored.Rules.Severity("format/semi") != SeverityOff {
-    t.Fatalf("ignored file: want format/semi off, got %v (resolved=%+v)",
-      ignored.Rules.Severity("format/semi"), ignored.Rules)
+  if ignored.Rules.Severity("formatSemi") != SeverityOff {
+    t.Fatalf("ignored file: want formatSemi off, got %v (resolved=%+v)",
+      ignored.Rules.Severity("formatSemi"), ignored.Rules)
   }
 
   other := resolver.ResolveRules("/project/src/main.ts")
-  if other.Rules.Severity("format/semi") != SeverityWarn {
-    t.Fatalf("non-ignored file: want format/semi warn, got %v (resolved=%+v)",
-      other.Rules.Severity("format/semi"), other.Rules)
+  if other.Rules.Severity("formatSemi") != SeverityWarn {
+    t.Fatalf("non-ignored file: want formatSemi warn, got %v (resolved=%+v)",
+      other.Rules.Severity("formatSemi"), other.Rules)
   }
 }

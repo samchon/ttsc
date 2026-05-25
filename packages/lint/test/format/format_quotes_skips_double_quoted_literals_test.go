@@ -16,11 +16,11 @@ import (
 // — this scenario pins that guard.
 //
 // 1. Parse a source file with only double-quoted literals.
-// 2. Run the engine with format/quotes enabled.
+// 2. Run the engine with formatQuotes enabled.
 // 3. Assert zero findings.
 func TestFormatQuotesSkipsDoubleQuotedLiterals(t *testing.T) {
   file := parseTS(t, `const greeting = "hello";`+"\n"+`JSON.stringify(greeting);`+"\n")
-  findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatQuotes": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

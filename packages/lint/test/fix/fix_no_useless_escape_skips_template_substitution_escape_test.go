@@ -3,15 +3,15 @@ package linthost
 import "testing"
 
 // TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape verifies the
-// `\${` exception inside template literals for `no-useless-escape`.
+// `\${` exception inside template literals for `noUselessEscape`.
 //
 // Inside a template literal `\${` escapes the substitution opener so the
 // next two source bytes appear as literal `${` instead of starting a
 // `${expr}` interpolation. Stripping the backslash would either turn the
 // literal text into an interpolation (corrupting the program) or — when
 // the same template already contains a real interpolation — produce TS
-// syntax that no longer parses, e.g. `` `\${${k}}` `` would collapse to
-// `` `${${k}}` `` which is a syntax error. This case pins the rule's
+// syntax that no longer parses, e.g. “ `\${${k}}` “ would collapse to
+// “ `${${k}}` “ which is a syntax error. This case pins the rule's
 // silence for every template-literal shape that can carry the escape:
 // `NoSubstitutionTemplateLiteral`, `TemplateHead`, `TemplateMiddle`, and
 // `TemplateTail`. The companion finding for `\n` / `\\` stays unflagged
@@ -27,7 +27,7 @@ import "testing"
 func TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "no-useless-escape",
+    "noUselessEscape",
     "const k = \"x\";\n"+
       "const head = `\\${${k}}`;\n"+
       "const nosub = `\\${k}`;\n"+

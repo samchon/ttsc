@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUnsafeFinally(t *testing.T) {
-  assertRuleCorpusCase(t, "no-unsafe-finally.ts", "function f() {\n  try {\n    throw new Error(\"x\");\n  } finally {\n    // expect: no-unsafe-finally error\n    return 1;\n  }\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-unsafe-finally.ts", "function f() {\n  try {\n    throw new Error(\"x\");\n  } finally {\n    // expect: noUnsafeFinally error\n    return 1;\n  }\n}\nJSON.stringify(f);\n")
 }

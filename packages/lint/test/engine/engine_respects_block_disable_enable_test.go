@@ -16,15 +16,15 @@ import (
 // This pins the open/close pairing and the resume-after-enable semantics.
 //
 // 1. Parse three var statements: one before, one inside, one after a disable/enable pair.
-// 2. Run the no-var engine.
+// 2. Run the noVar engine.
 // 3. Assert exactly two findings (before and after); the inner statement is suppressed.
 func TestEngineRespectsBlockDisableEnable(t *testing.T) {
-  engine := NewEngine(RuleConfig{"no-var": SeverityError})
+  engine := NewEngine(RuleConfig{"noVar": SeverityError})
   file := parseTS(t, `
     var before = 1;
-    /* eslint-disable no-var */
+    /* eslint-disable noVar */
     var skipped = 2;
-    /* eslint-enable no-var */
+    /* eslint-enable noVar */
     var after = 3;
   `)
   findings := engine.Run([]*shimast.SourceFile{file}, nil)

@@ -1,6 +1,6 @@
 enum Mixed {
   A = 1,
-  // expect: no-mixed-enums error
+  // expect: noMixedEnums error
   B = "two",
 }
 JSON.stringify(Mixed.A);

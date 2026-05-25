@@ -45,7 +45,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     Prefer string `json:"prefer"`
   }
   var semi semiOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/semi"), &semi); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatSemi"), &semi); err != nil {
     t.Fatalf("decode semi: %v", err)
   }
   if semi.Prefer != "never" {
@@ -56,7 +56,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     Prefer string `json:"prefer"`
   }
   var quotes quotesOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/quotes"), &quotes); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatQuotes"), &quotes); err != nil {
     t.Fatalf("decode quotes: %v", err)
   }
   if quotes.Prefer != "single" {
@@ -67,7 +67,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     Mode string `json:"mode"`
   }
   var tc tcOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/trailing-comma"), &tc); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatTrailingComma"), &tc); err != nil {
     t.Fatalf("decode trailing-comma: %v", err)
   }
   if tc.Mode != "es5" {
@@ -81,7 +81,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     EndOfLine  string `json:"endOfLine"`
   }
   var pw pwOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/print-width"), &pw); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatPrintWidth"), &pw); err != nil {
     t.Fatalf("decode print-width: %v", err)
   }
   if pw.PrintWidth != 100 || pw.TabWidth != 4 || !pw.UseTabs || pw.EndOfLine != "crlf" {
@@ -92,7 +92,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     ImportOrder []string `json:"importOrder"`
   }
   var si siOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/sort-imports"), &si); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatSortImports"), &si); err != nil {
     t.Fatalf("decode sort-imports: %v", err)
   }
   if len(si.ImportOrder) != 2 || si.ImportOrder[0] != "<THIRD_PARTY_MODULES>" {
@@ -103,7 +103,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
     TagSynonyms map[string]string `json:"tagSynonyms"`
   }
   var jd jdOpts
-  if err := json.Unmarshal(resolver.RuleOptions("format/jsdoc"), &jd); err != nil {
+  if err := json.Unmarshal(resolver.RuleOptions("formatJsdoc"), &jd); err != nil {
     t.Fatalf("decode jsdoc: %v", err)
   }
   if jd.TagSynonyms["foo"] != "bar" {

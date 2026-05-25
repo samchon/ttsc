@@ -31,7 +31,7 @@ export function assertAllLintCases(): void {
  * rules) are gathered by `collectExtraSources`.
  *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
- *   separated, e.g. `"consistent-type-imports/violation.ts"`).
+ *   separated, e.g. `"consistentTypeImports/violation.ts"`).
  */
 export function assertLintCase(relativeFile: string): void {
   const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
@@ -76,7 +76,7 @@ function listLintCases(): string[] {
 /**
  * Gather sibling files from the same subdirectory as `relativeFile` to pass as
  * extra sources. Used for rules that need a companion type-declaration or
- * separate module file (e.g. `consistent-type-imports/src/types-fixture.ts`).
+ * separate module file (e.g. `consistentTypeImports/src/types-fixture.ts`).
  *
  * Returns an empty object when the fixture sits directly under `casesRoot`
  * (i.e. no subdirectory companion files are expected).

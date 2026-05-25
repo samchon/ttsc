@@ -16,7 +16,7 @@ import "testing"
 func TestFormatPrintWidthHonorsUseTabsOption(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = { aa: 1, bb: 2, cc: 3 };\n",
     `{"printWidth": 20, "useTabs": true}`,
     "const x = {\n\taa: 1,\n\tbb: 2,\n\tcc: 3,\n};\n",

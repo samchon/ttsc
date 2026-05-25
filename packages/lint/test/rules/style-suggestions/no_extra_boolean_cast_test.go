@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoExtraBooleanCast(t *testing.T) {
-  assertRuleCorpusCase(t, "no-extra-boolean-cast.ts", "function f(x: any) {\n  // expect: no-extra-boolean-cast error\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-extra-boolean-cast.ts", "function f(x: any) {\n  // expect: noExtraBooleanCast error\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoSparseArrays(t *testing.T) {
-  assertRuleCorpusCase(t, "no-sparse-arrays.ts", "// expect: no-sparse-arrays error\nconst a = [1, , 3];\nJSON.stringify(a);\n")
+  assertRuleCorpusCase(t, "no-sparse-arrays.ts", "// expect: noSparseArrays error\nconst a = [1, , 3];\nJSON.stringify(a);\n")
 }

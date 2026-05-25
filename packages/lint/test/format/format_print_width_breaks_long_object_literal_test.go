@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthBreaksLongObjectLiteral verifies format/print-width
+// TestFormatPrintWidthBreaksLongObjectLiteral verifies formatPrintWidth
 // rewrites a long single-line object literal to its broken multi-line
 // form when its flat width exceeds the configured printWidth.
 //
@@ -21,7 +21,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongObjectLiteral(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = { aa: 1, bb: 2, cc: 3 };\n",
     `{"printWidth": 20}`,
     "const x = {\n  aa: 1,\n  bb: 2,\n  cc: 3,\n};\n",

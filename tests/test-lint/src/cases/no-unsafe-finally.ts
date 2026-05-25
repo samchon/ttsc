@@ -2,7 +2,7 @@ function f() {
   try {
     throw new Error("x");
   } finally {
-    // expect: no-unsafe-finally error
+    // expect: noUnsafeFinally error
     return 1;
   }
 }

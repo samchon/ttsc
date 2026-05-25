@@ -12,7 +12,7 @@ import "testing"
 // inside `trailingLineWidth`, which subtracted them from the layout
 // budget on the shrunk re-render and forced an over-break of short
 // calls. That is the typeorm `comment.replaceAll("nul", "") // Null
-// bytes' shape that pushed `format/print-width: 'off'` onto the
+// bytes' shape that pushed `formatPrintWidth: 'off'` onto the
 // ttsc-lint branch of the benchmark.
 //
 //  1. Configure printWidth=30 — large enough that the call plus its
@@ -23,7 +23,7 @@ import "testing"
 func TestFormatPrintWidthKeepsCallWithTrailingLineCommentInline(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "myCall(arg1, arg2, arg3); // hi\n",
     `{"printWidth": 30}`,
   )

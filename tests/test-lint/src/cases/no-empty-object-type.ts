@@ -1,4 +1,4 @@
-// expect: no-empty-object-type error
+// expect: noEmptyObjectType error
 type T = {};
 const v: T = {};
 JSON.stringify(v);

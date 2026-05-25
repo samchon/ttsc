@@ -10,7 +10,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  *
  * 1. Materialise a fixture with a `.json` config file holding an `ITtscLintConfig`
  *    object.
- * 2. Run ttsc; assert `no-var` fires from the JSON config.
+ * 2. Run ttsc; assert `noVar` fires from the JSON config.
  */
 export const test_lint_config_file_tsconfig_may_reference_a_standalone_json_file =
   () => {
@@ -22,7 +22,7 @@ export const test_lint_config_file_tsconfig_may_reference_a_standalone_json_file
       },
       extraSources: {
         "ttsc-lint.config.json": JSON.stringify({
-          rules: { "no-var": "error" },
+          rules: { "noVar": "error" },
         }),
       },
     });
@@ -30,7 +30,7 @@ export const test_lint_config_file_tsconfig_may_reference_a_standalone_json_file
     assert.notEqual(result.status, 0);
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-var", "error"]],
+      [["noVar", "error"]],
       result.stderr,
     );
   };

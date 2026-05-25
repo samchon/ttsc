@@ -1,7 +1,7 @@
 function g() {
   return 1;
 }
-// expect: no-func-assign error
+// expect: noFuncAssign error
 g = function () {
   return 2;
 };

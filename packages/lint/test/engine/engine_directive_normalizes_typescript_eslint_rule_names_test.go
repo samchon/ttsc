@@ -11,17 +11,17 @@ import (
 // bare rule name.
 //
 // ESLint users often write `// eslint-disable-next-line @typescript-eslint/no-explicit-any`
-// while the native registry only knows `no-explicit-any`. The directive parser must strip
+// while the native registry only knows `noExplicitAny`. The directive parser must strip
 // the prefix before looking up the suppression set; without normalization the suppression
 // silently has no effect, and the finding leaks through. This test pins the name-mapping
 // branch in the directive scanner.
 //
-//  1. Enable `no-explicit-any` and parse two lines — one with a prefixed disable directive,
+//  1. Enable `noExplicitAny` and parse two lines — one with a prefixed disable directive,
 //     one without.
 //  2. Run the engine.
 //  3. Assert only the directive-covered line is suppressed; the other line still fires.
 func TestEngineDirectiveNormalizesTypeScriptESLintRuleNames(t *testing.T) {
-  engine := NewEngine(RuleConfig{"no-explicit-any": SeverityError})
+  engine := NewEngine(RuleConfig{"noExplicitAny": SeverityError})
   file := parseTS(t, `
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const skipped: any = 1;

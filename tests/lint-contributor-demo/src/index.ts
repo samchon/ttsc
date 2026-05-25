@@ -39,7 +39,7 @@ const plugin = {
 // blob. Augmenting `TtscLintRuleOptionsMap` here is what unlocks the
 // `[severity, options]` tuple form in user configs — the autocomplete
 // for `markers` flows from this interface declaration into the
-// `TtscLintRuleMap` mapped type the user writes against. The Go
+// `ITtscLintRules` interface the user writes against. The Go
 // rule's option struct (`noMarkerCommentOptions` in
 // `rules/no_marker_comment.go`) uses matching JSON tags so the wire
 // payload decodes cleanly on the host side.

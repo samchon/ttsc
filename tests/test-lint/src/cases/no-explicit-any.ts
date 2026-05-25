@@ -1,5 +1,5 @@
 function f(
-  // expect: no-explicit-any error
+  // expect: noExplicitAny error
   x: any,
 ): number {
   return Number(x);

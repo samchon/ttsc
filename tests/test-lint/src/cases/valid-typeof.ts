@@ -1,5 +1,5 @@
 function f(x: any) {
-  // expect: valid-typeof error
+  // expect: validTypeof error
   return typeof x === "stirng";
 }
 JSON.stringify(f);

@@ -14,21 +14,21 @@ import "testing"
 // 2. Check warning and error maps.
 // 3. Assert only warning and error maps are considered enabled.
 func TestEngineDetectsFilesWithoutEnabledRules(t *testing.T) {
-	cases := []struct {
-		name  string
-		rules RuleConfig
-		want  bool
-	}{
-		{name: "nil", rules: nil, want: false},
-		{name: "empty", rules: RuleConfig{}, want: false},
-		{name: "off", rules: RuleConfig{"no-var": SeverityOff}, want: false},
-		{name: "warning", rules: RuleConfig{"no-var": SeverityWarn}, want: true},
-		{name: "error", rules: RuleConfig{"no-var": SeverityError}, want: true},
-	}
+  cases := []struct {
+    name  string
+    rules RuleConfig
+    want  bool
+  }{
+    {name: "nil", rules: nil, want: false},
+    {name: "empty", rules: RuleConfig{}, want: false},
+    {name: "off", rules: RuleConfig{"noVar": SeverityOff}, want: false},
+    {name: "warning", rules: RuleConfig{"noVar": SeverityWarn}, want: true},
+    {name: "error", rules: RuleConfig{"noVar": SeverityError}, want: true},
+  }
 
-	for _, tt := range cases {
-		if got := hasEnabledFileRules(tt.rules); got != tt.want {
-			t.Fatalf("%s: want %v, got %v", tt.name, tt.want, got)
-		}
-	}
+  for _, tt := range cases {
+    if got := hasEnabledFileRules(tt.rules); got != tt.want {
+      t.Fatalf("%s: want %v, got %v", tt.name, tt.want, got)
+    }
+  }
 }

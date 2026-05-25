@@ -14,12 +14,12 @@ import (
 // that prevents that.
 //
 // 1. Parse a source file with only canonical JSDoc tags.
-// 2. Run the engine with format/jsdoc enabled.
+// 2. Run the engine with formatJsdoc enabled.
 // 3. Assert zero findings.
 func TestFormatJSDocSkipsCanonicalTags(t *testing.T) {
   source := "/**\n * @param name The name.\n * @returns The greeting.\n * @description Builds a greeting.\n */\nexport function greet(name: string): string { return name; }\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

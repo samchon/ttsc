@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoEmptyStaticBlock(t *testing.T) {
-  assertRuleCorpusCase(t, "no-empty-static-block.ts", "class Holder {\n  // expect: no-empty-static-block error\n  static {}\n}\n")
+  assertRuleCorpusCase(t, "no-empty-static-block.ts", "class Holder {\n  // expect: noEmptyStaticBlock error\n  static {}\n}\n")
 }

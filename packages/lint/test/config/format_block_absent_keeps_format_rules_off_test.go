@@ -11,13 +11,13 @@ import "testing"
 // without an explicit block would silently rewrite source on
 // `ttsc format` for every existing project.
 //
-//  1. Build an `ITtscLintConfig` object with `rules: { "no-var": "error" }` only.
+//  1. Build an `ITtscLintConfig` object with `rules: { "noVar": "error" }` only.
 //  2. Parse it through `parseExternalConfigStore`.
-//  3. Assert no `format/*` rule is enabled.
+//  3. Assert no format rule is enabled.
 func TestFormatBlockAbsentKeepsFormatRulesOff(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "rules": map[string]any{
-      "no-var": "error",
+      "noVar": "error",
     },
   }, "")
   if err != nil {
@@ -25,10 +25,10 @@ func TestFormatBlockAbsentKeepsFormatRulesOff(t *testing.T) {
   }
   enabled := resolver.EnabledRuleConfig()
   for name := range enabled {
-    if name == "no-var" {
+    if name == "noVar" {
       continue
     }
-    if len(name) >= len("format/") && name[:len("format/")] == "format/" {
+    if isRegisteredFormatRule(name) {
       t.Errorf("expected no format rule to be enabled, found %q", name)
     }
   }

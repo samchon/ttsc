@@ -36,9 +36,9 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   file := parseTSFile(t, filePath, source)
 
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/sort-imports": SeverityError},
+    Rules: RuleConfig{"formatSortImports": SeverityError},
     Options: RuleOptionsMap{
-      "format/sort-imports": json.RawMessage(
+      "formatSortImports": json.RawMessage(
         `{"importOrder":["<THIRD_PARTY_MODULES>","@api(.*)$","^[./]"]}`,
       ),
     },
@@ -71,7 +71,7 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
     // the rule itself regressed into a re-emit loop. Either way we want a
     // loud failure instead of a misleading green when the loop falls
     // through with edits still pending.
-    t.Fatalf("format/sort-imports did not converge within %d passes", maxPasses)
+    t.Fatalf("formatSortImports did not converge within %d passes", maxPasses)
   }
   got, err := os.ReadFile(filePath)
   if err != nil {

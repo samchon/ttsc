@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatPrintWidthIdempotentOnHuggedCallbackCall verifies a second
-// format/print-width pass over an already-hugged callback call emits
+// formatPrintWidth pass over an already-hugged callback call emits
 // zero findings.
 //
 // `ttsc format` runs a convergence cascade; a rule whose render output
@@ -15,12 +15,12 @@ import "testing"
 //
 //  1. Feed an already-hugged `new Singleton(() => { … })` whose body is
 //     correctly indented two spaces.
-//  2. Run format/print-width at the default width.
+//  2. Run formatPrintWidth at the default width.
 //  3. Assert the rule reports zero findings.
 func TestFormatPrintWidthIdempotentOnHuggedCallbackCall(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = new Singleton(() => {\n  doStuff();\n  return 1;\n});\n",
   )
 }

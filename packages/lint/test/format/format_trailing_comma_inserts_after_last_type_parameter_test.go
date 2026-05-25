@@ -22,7 +22,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastTypeParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "function pick<\n  T extends object,\n  K extends keyof T\n>(obj: T, key: K): T[K] {\n  return obj[key];\n}\npick;\n",
     "function pick<\n  T extends object,\n  K extends keyof T,\n>(obj: T, key: K): T[K] {\n  return obj[key];\n}\npick;\n",
   )

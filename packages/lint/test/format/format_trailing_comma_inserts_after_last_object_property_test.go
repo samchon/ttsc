@@ -16,7 +16,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastObjectProperty(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "const obj = {\n  a: 1,\n  b: 2\n};\n",
     "const obj = {\n  a: 1,\n  b: 2,\n};\n",
   )

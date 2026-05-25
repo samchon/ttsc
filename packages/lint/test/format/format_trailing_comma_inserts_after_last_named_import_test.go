@@ -16,7 +16,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastNamedImport(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "import {\n  readFileSync,\n  writeFileSync\n} from \"node:fs\";\nreadFileSync; writeFileSync;\n",
     "import {\n  readFileSync,\n  writeFileSync,\n} from \"node:fs\";\nreadFileSync; writeFileSync;\n",
   )

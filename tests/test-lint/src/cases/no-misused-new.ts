@@ -1,5 +1,5 @@
 interface I {
-  // expect: no-misused-new error
+  // expect: noMisusedNew error
   constructor(): void;
 }
 declare const i: I;

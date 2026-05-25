@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFormatSemiInsertsAfterMissingTerminator verifies format/semi inserts a
+// TestFormatSemiInsertsAfterMissingTerminator verifies formatSemi inserts a
 // missing trailing semicolon on a simple expression statement.
 //
 // The rule must be a zero-width insertion at the statement's End position so
@@ -16,7 +16,7 @@ import "testing"
 func TestFormatSemiInsertsAfterMissingTerminator(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/semi",
+    "formatSemi",
     "JSON.stringify(1)\n",
     "JSON.stringify(1);\n",
   )

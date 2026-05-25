@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoSetterReturn(t *testing.T) {
-  assertRuleCorpusCase(t, "no-setter-return.ts", "class Holder {\n  set value(input: string) {\n    JSON.stringify(input);\n    // expect: no-setter-return error\n    return \"ignored\";\n  }\n}\n")
+  assertRuleCorpusCase(t, "no-setter-return.ts", "class Holder {\n  set value(input: string) {\n    JSON.stringify(input);\n    // expect: noSetterReturn error\n    return \"ignored\";\n  }\n}\n")
 }

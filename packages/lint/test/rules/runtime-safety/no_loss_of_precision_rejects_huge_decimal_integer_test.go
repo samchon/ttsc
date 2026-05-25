@@ -15,7 +15,7 @@ import (
 // 1. Build a 310-digit decimal integer literal.
 // 2. Check it with the precision-loss predicate.
 // 3. Run the native rule engine on the same literal.
-// 4. Assert the no-loss-of-precision diagnostic is emitted.
+// 4. Assert the noLossOfPrecision diagnostic is emitted.
 func TestNoLossOfPrecisionRejectsHugeDecimalInteger(t *testing.T) {
   huge := "1" + strings.Repeat("0", 309)
   if !numericLiteralLosesPrecision(huge) {
@@ -24,6 +24,6 @@ func TestNoLossOfPrecisionRejectsHugeDecimalInteger(t *testing.T) {
   assertRuleCorpusCase(
     t,
     "no-loss-of-precision-huge-decimal-integer.ts",
-    "// expect: no-loss-of-precision error\nconst huge = "+huge+";\nJSON.stringify(huge);\n",
+    "// expect: noLossOfPrecision error\nconst huge = "+huge+";\nJSON.stringify(huge);\n",
   )
 }

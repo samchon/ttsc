@@ -19,13 +19,13 @@ import "testing"
 //
 //  1. Parse a source file with one unparenthesized-arrow whose body contains
 //     a `)` on a later line.
-//  2. Run the engine with format/trailing-comma enabled.
+//  2. Run the engine with formatTrailingComma enabled.
 //  3. Assert zero findings — the inner call already carries its own trailing
 //     comma, so silence on the arrow's parameter list is the entire signal.
 func TestFormatTrailingCommaSkipsUnparenthesizedArrowWithMultilineBody(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "declare function foo(x: number): number;\nconst f = a => {\n  return foo(\n    a,\n  );\n};\nf;\n",
   )
 }

@@ -1,2 +1,2 @@
-// expect: no-promise-executor-return error
+// expect: noPromiseExecutorReturn error
 new Promise((resolve) => resolve(1));

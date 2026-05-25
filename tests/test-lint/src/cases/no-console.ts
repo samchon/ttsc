@@ -1,2 +1,2 @@
-// expect: no-console error
+// expect: noConsole error
 console.log("hi");

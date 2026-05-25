@@ -2,7 +2,7 @@ function f(x: number) {
   switch (x) {
     case 1:
       console.log("one");
-    // expect: no-fallthrough error
+    // expect: noFallthrough error
     case 2:
       console.log("two");
       break;

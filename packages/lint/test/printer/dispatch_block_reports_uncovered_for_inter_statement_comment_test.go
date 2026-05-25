@@ -13,7 +13,7 @@ import (
 // printBlock joins statements with bare Hardline separators that have
 // no carrier slot for trivia. A comment sitting between statements
 // would be silently dropped by a reflow. The printer must surface that
-// as `covered == false` so the format/print-width rule abstains and the
+// as `covered == false` so the formatPrintWidth rule abstains and the
 // comment survives byte-identical. A regression that ignored the
 // comment would delete it on the first `ttsc format` pass.
 //

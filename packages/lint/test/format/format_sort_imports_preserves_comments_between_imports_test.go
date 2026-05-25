@@ -16,7 +16,7 @@ import (
 // this scenario pins it.
 //
 //  1. Parse a source file with a comment between two imports.
-//  2. Run the engine with format/sort-imports enabled.
+//  2. Run the engine with formatSortImports enabled.
 //  3. Assert no block-level reorder finding fires (specifier-level findings
 //     may still fire for the same file, but the block reorder must not).
 func TestFormatSortImportsPreservesCommentsBetweenImports(t *testing.T) {
@@ -25,7 +25,7 @@ func TestFormatSortImportsPreservesCommentsBetweenImports(t *testing.T) {
     "import alpha from \"alpha\";\n" +
     "JSON.stringify({ zebra, alpha });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   for _, finding := range findings {
     if finding.Message == "Imports must be sorted into canonical groups." {

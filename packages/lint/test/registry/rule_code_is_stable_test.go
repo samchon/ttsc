@@ -15,14 +15,14 @@ import (
 // uses names known not to share an FNV-1a code; if a future hash change introduces a
 // collision this test fails before the change ships.
 //
-// 1. Call RuleCode("no-var") twice and assert both results are equal.
+// 1. Call RuleCode("noVar") twice and assert both results are equal.
 // 2. Assert the code falls within [9000, 18000).
-// 3. Assert RuleCode("no-var") and RuleCode("no-debugger") differ.
+// 3. Assert RuleCode("noVar") and RuleCode("noDebugger") differ.
 func TestRuleCodeIsStable(t *testing.T) {
   // The hashed rule code must be deterministic across runs and inside
   // the (9000, 18000) banner range.
-  code := RuleCode("no-var")
-  again := RuleCode("no-var")
+  code := RuleCode("noVar")
+  again := RuleCode("noVar")
   if code != again {
     t.Errorf("ruleCode is non-deterministic")
   }
@@ -31,9 +31,9 @@ func TestRuleCodeIsStable(t *testing.T) {
   }
   // Two distinct rules should not share a code unless we're unlucky;
   // pick names known not to hash-collide with FNV-1a 32-bit.
-  a := RuleCode("no-var")
-  b := RuleCode("no-debugger")
+  a := RuleCode("noVar")
+  b := RuleCode("noDebugger")
   if a == b {
-    t.Errorf("ruleCode collision for no-var vs no-debugger")
+    t.Errorf("ruleCode collision for noVar vs noDebugger")
   }
 }

@@ -45,7 +45,7 @@ export const test_plugin_corpus_source_plugin_default_cache_is_global_content_ca
     );
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: { "no-var": "error" } }),
+      JSON.stringify({ rules: { noVar: "error" } }),
     );
 
     const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {

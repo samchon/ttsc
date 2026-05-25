@@ -1,3 +1,3 @@
-// expect: no-octal-escape error
+// expect: noOctalEscape error
 const s: string = "\251";
 JSON.stringify(s);

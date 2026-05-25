@@ -17,11 +17,11 @@ import (
 //
 // 1. Parse a source file containing a debugger statement.
 // 2. Mark it as a declaration source file.
-// 3. Run the no-debugger engine and assert the supplied file is linted.
+// 3. Run the noDebugger engine and assert the supplied file is linted.
 func TestEngineLintsSuppliedDeclarationFiles(t *testing.T) {
   file := parseTS(t, "debugger;")
   file.IsDeclarationFile = true
-  engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
+  engine := NewEngine(RuleConfig{"noDebugger": SeverityError})
   findings := engine.Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 {
     t.Fatalf("declaration file was not linted; got %d findings", len(findings))

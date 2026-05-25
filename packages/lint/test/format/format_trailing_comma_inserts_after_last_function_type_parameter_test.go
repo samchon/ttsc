@@ -23,7 +23,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastFunctionTypeParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "type BinaryOp = (\n  left: number,\n  right: number\n) => number;\nlet f: BinaryOp;\nf;\n",
     "type BinaryOp = (\n  left: number,\n  right: number,\n) => number;\nlet f: BinaryOp;\nf;\n",
   )

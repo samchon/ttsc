@@ -19,12 +19,12 @@ import "testing"
 //  1. Parse a source file with one multi-line array literal whose last
 //     element is followed by an inline block comment and `]` on the same
 //     line.
-//  2. Run the engine with format/trailing-comma enabled.
+//  2. Run the engine with formatTrailingComma enabled.
 //  3. Assert zero findings.
 func TestFormatTrailingCommaSkipsInlineBlockCommentBeforeCloseBracket(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "const xs = [\n  1,\n  2/* note */];\n",
   )
 }

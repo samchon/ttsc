@@ -1,4 +1,4 @@
 function f(x: number) {
-  // expect: no-compare-neg-zero error
+  // expect: noCompareNegZero error
   return x === -0;
 }

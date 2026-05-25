@@ -23,10 +23,10 @@ import "testing"
 func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
   withFix := []TextEdit{{Pos: 0, End: 1, Text: ""}}
   findings := []*Finding{
-    {Rule: "no-var", IsFormat: false, Fix: withFix},
-    {Rule: "format/semi", IsFormat: true, Fix: withFix},
+    {Rule: "noVar", IsFormat: false, Fix: withFix},
+    {Rule: "formatSemi", IsFormat: true, Fix: withFix},
     nil,
-    {Rule: "format/quotes", IsFormat: true, Fix: withFix},
+    {Rule: "formatQuotes", IsFormat: true, Fix: withFix},
     {Rule: "eqeqeq", IsFormat: false},
     {Rule: "format/no-fix-rule", IsFormat: true}, // format but no edits
   }

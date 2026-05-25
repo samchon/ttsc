@@ -1,5 +1,5 @@
 declare const maybe: string | undefined;
 
-// expect: no-non-null-asserted-nullish-coalescing error
+// expect: noNonNullAssertedNullishCoalescing error
 const value = maybe! ?? "fallback";
 JSON.stringify(value);

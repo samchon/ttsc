@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatSemiFiresForEveryAsiStatementKind verifies format/semi covers the
+// TestFormatSemiFiresForEveryAsiStatementKind verifies formatSemi covers the
 // full ASI statement surface.
 //
 // The rule's Visits() list is the load-bearing contract: dropping a kind
@@ -16,7 +16,7 @@ import (
 // updating this fixture.
 //
 // 1. Parse a source file with one of each ASI statement kind missing `;`.
-// 2. Run the engine with format/semi enabled.
+// 2. Run the engine with formatSemi enabled.
 // 3. Assert the finding count matches the declared kind count.
 func TestFormatSemiFiresForEveryAsiStatementKind(t *testing.T) {
   // Each line is exactly one statement that ASI would terminate. The
@@ -41,7 +41,7 @@ function loop() {
 debugger
 `
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/semi": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSemi": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
 
   // 14 ASI-terminated kinds in the fixture: import, importEquals,
@@ -57,7 +57,7 @@ debugger
     if !finding.IsFormat {
       t.Fatalf("expected IsFormat=true on %s @ %d", finding.Rule, finding.Pos)
     }
-    if finding.Rule != "format/semi" {
+    if finding.Rule != "formatSemi" {
       t.Fatalf("unexpected rule %q in finding", finding.Rule)
     }
     if len(finding.Fix) != 1 {

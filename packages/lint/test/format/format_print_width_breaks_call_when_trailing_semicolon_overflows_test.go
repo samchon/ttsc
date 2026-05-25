@@ -21,7 +21,7 @@ import "testing"
 func TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = run((v) => v.ok);\n",
     `{"printWidth": 26}`,
     "const x = run(\n  (v) => v.ok,\n);\n",

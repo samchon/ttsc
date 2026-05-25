@@ -16,5 +16,5 @@ import "testing"
 func TestFormatJSDocRewritesArgSynonymsToParam(t *testing.T) {
   source := "/**\n * @arg name The recipient name.\n * @argument greeting The greeting prefix.\n */\nexport function greet(name: string, greeting: string): string {\n  return greeting + name;\n}\n"
   expected := "/**\n * @param name The recipient name.\n * @param greeting The greeting prefix.\n */\nexport function greet(name: string, greeting: string): string {\n  return greeting + name;\n}\n"
-  assertFixSnapshot(t, "format/jsdoc", source, expected)
+  assertFixSnapshot(t, "formatJsdoc", source, expected)
 }

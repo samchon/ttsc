@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatSemiSkipsAlreadyTerminatedStatements verifies format/semi is
+// TestFormatSemiSkipsAlreadyTerminatedStatements verifies formatSemi is
 // idempotent on well-terminated statements.
 //
 // The rule fires only when src[End-1] is not `;`. Idempotence is non-optional
@@ -16,11 +16,11 @@ import (
 // semantics cannot regress to a stuttering insertion.
 //
 // 1. Parse a source file whose every statement already ends with `;`.
-// 2. Run the engine with format/semi enabled.
+// 2. Run the engine with formatSemi enabled.
 // 3. Assert zero findings.
 func TestFormatSemiSkipsAlreadyTerminatedStatements(t *testing.T) {
   file := parseTS(t, "const value = 1;\nJSON.stringify(value);\n")
-  findings := NewEngine(RuleConfig{"format/semi": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSemi": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

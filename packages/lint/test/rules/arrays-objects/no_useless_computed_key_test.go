@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUselessComputedKey(t *testing.T) {
-  assertRuleCorpusCase(t, "no-useless-computed-key.ts", "// expect: no-useless-computed-key error\nconst o = { [\"foo\"]: 1 };\nJSON.stringify(o);\n")
+  assertRuleCorpusCase(t, "no-useless-computed-key.ts", "// expect: noUselessComputedKey error\nconst o = { [\"foo\"]: 1 };\nJSON.stringify(o);\n")
 }

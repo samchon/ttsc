@@ -1,5 +1,5 @@
 function f(a: any) {
-  // expect: no-return-assign error
+  // expect: noReturnAssign error
   return (a = 1);
 }
 JSON.stringify(f);

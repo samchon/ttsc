@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoExplicitAny(t *testing.T) {
-  assertRuleCorpusCase(t, "no-explicit-any.ts", "function f(\n  // expect: no-explicit-any error\n  x: any,\n): number {\n  return Number(x);\n}\nf(0);\n")
+  assertRuleCorpusCase(t, "no-explicit-any.ts", "function f(\n  // expect: noExplicitAny error\n  x: any,\n): number {\n  return Number(x);\n}\nf(0);\n")
 }

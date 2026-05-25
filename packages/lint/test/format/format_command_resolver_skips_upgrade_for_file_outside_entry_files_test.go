@@ -33,25 +33,25 @@ func TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles(t *testing.T)
         BaseDir: "/project",
         Files:   []string{"src/**/*.ts"},
         Rules: RuleConfig{
-          "no-var": SeverityError,
+          "noVar": SeverityError,
         },
       },
     },
     options: RuleOptionsMap{
-      "format/semi": json.RawMessage(`{"prefer":"always"}`),
+      "formatSemi": json.RawMessage(`{"prefer":"always"}`),
     },
   }
   resolver := formatCommandResolver{inner: store}
 
   inScope := resolver.ResolveRules("/project/src/main.ts")
-  if inScope.Rules.Severity("format/semi") != SeverityWarn {
-    t.Fatalf("in-scope file: want format/semi warn, got %v (resolved=%+v)",
-      inScope.Rules.Severity("format/semi"), inScope.Rules)
+  if inScope.Rules.Severity("formatSemi") != SeverityWarn {
+    t.Fatalf("in-scope file: want formatSemi warn, got %v (resolved=%+v)",
+      inScope.Rules.Severity("formatSemi"), inScope.Rules)
   }
 
   outOfScope := resolver.ResolveRules("/project/extensions/theme-defaults/themes/dark_modern.json")
-  if outOfScope.Rules.Severity("format/semi") != SeverityOff {
-    t.Fatalf("out-of-scope file: want format/semi off, got %v (resolved=%+v)",
-      outOfScope.Rules.Severity("format/semi"), outOfScope.Rules)
+  if outOfScope.Rules.Severity("formatSemi") != SeverityOff {
+    t.Fatalf("out-of-scope file: want formatSemi off, got %v (resolved=%+v)",
+      outOfScope.Rules.Severity("formatSemi"), outOfScope.Rules)
   }
 }

@@ -18,7 +18,7 @@ import (
 // JSON round trip into the engine's option blob.
 //
 // 1. Write a ttsc-lint.config.cjs exporting `{ format: { printWidth: 120 } }`.
-// 2. Load it through LoadConfigResolver and read the format/print-width options.
+// 2. Load it through LoadConfigResolver and read the formatPrintWidth options.
 // 3. Assert `printWidth` decodes to 120 — proof `format` was not dropped.
 func TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   dir := t.TempDir()
@@ -35,15 +35,15 @@ func TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadConfigResolver: %v", err)
   }
-  raw := resolver.RuleOptions("format/print-width")
+  raw := resolver.RuleOptions("formatPrintWidth")
   if len(raw) == 0 {
-    t.Fatal("format block was dropped: format/print-width has no options")
+    t.Fatal("format block was dropped: formatPrintWidth has no options")
   }
   var opts struct {
     PrintWidth int `json:"printWidth"`
   }
   if err := json.Unmarshal(raw, &opts); err != nil {
-    t.Fatalf("decode format/print-width options: %v", err)
+    t.Fatalf("decode formatPrintWidth options: %v", err)
   }
   if opts.PrintWidth != 120 {
     t.Fatalf("printWidth want 120 (format block round-tripped), got %d", opts.PrintWidth)

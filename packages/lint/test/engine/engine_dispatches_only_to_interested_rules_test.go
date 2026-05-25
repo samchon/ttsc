@@ -16,15 +16,15 @@ import (
 // unsupported node cast. This test uses two rules with non-overlapping kind sets on one
 // source file to confirm independent dispatch counts.
 //
-// 1. Build an engine with no-var (KindVariableStatement) and no-debugger (KindDebuggerStatement).
+// 1. Build an engine with noVar (KindVariableStatement) and noDebugger (KindDebuggerStatement).
 // 2. Parse a file with two var declarations and one debugger statement.
 // 3. Assert three total findings split 2 and 1 across the two rules.
 func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   // Build an engine with two rules enabled. The walker should call
   // each rule only on the kinds it registered for.
   engine := NewEngine(RuleConfig{
-    "no-var":      SeverityError,
-    "no-debugger": SeverityWarn,
+    "noVar":      SeverityError,
+    "noDebugger": SeverityWarn,
   })
   if got := engine.EnabledRules(); len(got) != 2 {
     t.Fatalf("want 2 enabled rules, got %d", len(got))
@@ -42,7 +42,7 @@ func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   for _, f := range findings {
     names[f.Rule]++
   }
-  if names["no-var"] != 2 || names["no-debugger"] != 1 {
-    t.Errorf("expected 2 no-var + 1 no-debugger, got %v", names)
+  if names["noVar"] != 2 || names["noDebugger"] != 1 {
+    t.Errorf("expected 2 noVar + 1 noDebugger, got %v", names)
   }
 }

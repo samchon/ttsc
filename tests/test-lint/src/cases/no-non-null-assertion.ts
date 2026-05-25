@@ -1,5 +1,5 @@
 function f(x: number | null): number {
-  // expect: no-non-null-assertion error
+  // expect: noNonNullAssertion error
   return x!;
 }
 f(1);

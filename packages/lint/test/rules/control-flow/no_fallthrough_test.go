@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoFallthrough(t *testing.T) {
-  assertRuleCorpusCase(t, "no-fallthrough.ts", "function f(x: number) {\n  switch (x) {\n    case 1:\n      console.log(\"one\");\n    // expect: no-fallthrough error\n    case 2:\n      console.log(\"two\");\n      break;\n  }\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-fallthrough.ts", "function f(x: number) {\n  switch (x) {\n    case 1:\n      console.log(\"one\");\n    // expect: noFallthrough error\n    case 2:\n      console.log(\"two\");\n      break;\n  }\n}\nJSON.stringify(f);\n")
 }

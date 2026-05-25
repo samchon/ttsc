@@ -19,7 +19,7 @@ import (
 func TestEngineRecordsUnknownRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "never-existed": SeverityError,
-    "no-var":        SeverityError,
+    "noVar":         SeverityError,
   })
   unknown := engine.UnknownRules()
   if len(unknown) != 1 || unknown[0] != "never-existed" {
@@ -28,7 +28,7 @@ func TestEngineRecordsUnknownRules(t *testing.T) {
   if _, ok := engine.EnabledRules()["never-existed"]; ok {
     t.Errorf("unknown rule should not be enabled")
   }
-  if _, ok := engine.EnabledRules()["no-var"]; !ok {
+  if _, ok := engine.EnabledRules()["noVar"]; !ok {
     t.Errorf("known rule should still be enabled")
   }
 }

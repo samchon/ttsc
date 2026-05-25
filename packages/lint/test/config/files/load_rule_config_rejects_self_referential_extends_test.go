@@ -14,16 +14,16 @@ import (
 // seeded with the root config's own absolute path, so a config that `extends`
 // itself is caught on the first hop instead of recursing without bound.
 //
-// 1. Write a single `a.config.json` whose `extends` names `a.config.json`.
-// 2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
-// 3. Assert a non-nil error that says `extends cycle detected` and names the
-//    file.
+//  1. Write a single `a.config.json` whose `extends` names `a.config.json`.
+//  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
+//  3. Assert a non-nil error that says `extends cycle detected` and names the
+//     file.
 func TestLoadRuleConfigRejectsSelfReferentialExtends(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "a.config.json"), `{
     "extends": "./a.config.json",
-    "rules": { "no-var": "error" }
+    "rules": { "noVar": "error" }
   }`)
 
   _, err := LoadRuleConfig(&PluginEntry{

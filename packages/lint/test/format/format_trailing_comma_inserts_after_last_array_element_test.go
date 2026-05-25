@@ -16,7 +16,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastArrayElement(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "const xs = [\n  1,\n  2,\n  3\n];\n",
     "const xs = [\n  1,\n  2,\n  3,\n];\n",
   )

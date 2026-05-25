@@ -1,5 +1,5 @@
 function f(x: number) {
-  // expect: no-empty error
+  // expect: noEmpty error
   if (x === 0) {
   }
 }

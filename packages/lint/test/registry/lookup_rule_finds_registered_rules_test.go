@@ -15,9 +15,9 @@ import "testing"
 // 2. Look up a deliberately missing rule name.
 // 3. Assert the known rule is returned and the unknown rule is absent.
 func TestLookupRuleFindsRegisteredRules(t *testing.T) {
-  rule := LookupRule("no-var")
-  if rule == nil || rule.Name() != "no-var" {
-    t.Fatalf("expected no-var lookup hit, got rule=%v", rule)
+  rule := LookupRule("noVar")
+  if rule == nil || rule.Name() != "noVar" {
+    t.Fatalf("expected noVar lookup hit, got rule=%v", rule)
   }
   if rule := LookupRule("never-existed"); rule != nil {
     t.Fatalf("expected unknown lookup miss, got rule=%v", rule)

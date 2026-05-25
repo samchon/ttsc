@@ -16,7 +16,7 @@ import (
 //
 // 1. Call AllRuleNames() and build a sorted copy of the result.
 // 2. Compare element by element; fail on the first mismatch.
-// 3. Verify that no-var, no-explicit-any, no-non-null-assertion, and eqeqeq are present.
+// 3. Verify that noVar, noExplicitAny, noNonNullAssertion, and eqeqeq are present.
 func TestAllRuleNamesIsSorted(t *testing.T) {
   names := AllRuleNames()
   sorted := append([]string(nil), names...)
@@ -27,7 +27,7 @@ func TestAllRuleNamesIsSorted(t *testing.T) {
     }
   }
   // Sanity: registry has at least the headline rules from the README.
-  for _, headline := range []string{"no-var", "no-explicit-any", "no-non-null-assertion", "eqeqeq"} {
+  for _, headline := range []string{"noVar", "noExplicitAny", "noNonNullAssertion", "eqeqeq"} {
     found := false
     for _, n := range names {
       if n == headline {

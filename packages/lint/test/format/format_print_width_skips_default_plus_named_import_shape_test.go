@@ -19,7 +19,7 @@ import "testing"
 func TestFormatPrintWidthSkipsDefaultPlusNamedImportShape(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "import D, { alpha, bravo, charlie } from \"x\";\n",
     `{"printWidth": 10}`,
   )

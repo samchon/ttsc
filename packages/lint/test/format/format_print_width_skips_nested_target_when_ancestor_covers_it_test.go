@@ -33,9 +33,9 @@ func TestFormatPrintWidthSkipsNestedTargetWhenAncestorCoversIt(t *testing.T) {
   writeFile(t, filePath, source)
   file := parseTSFile(t, filePath, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/print-width": SeverityError},
+    Rules: RuleConfig{"formatPrintWidth": SeverityError},
     Options: RuleOptionsMap{
-      "format/print-width": json.RawMessage(`{"printWidth": 24}`),
+      "formatPrintWidth": json.RawMessage(`{"printWidth": 24}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run(
@@ -45,7 +45,7 @@ func TestFormatPrintWidthSkipsNestedTargetWhenAncestorCoversIt(t *testing.T) {
     t.Fatalf("expected exactly one finding (outer call), got %d: %+v",
       len(findings), findings)
   }
-  if findings[0].Rule != "format/print-width" {
+  if findings[0].Rule != "formatPrintWidth" {
     t.Fatalf("unexpected finding rule: %q", findings[0].Rule)
   }
 }

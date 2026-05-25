@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUnnecessaryTypeConstraint(t *testing.T) {
-  assertRuleCorpusCase(t, "no-unnecessary-type-constraint.ts", "// expect: no-unnecessary-type-constraint error\nfunction identity<T extends unknown>(value: T): T {\n  return value;\n}\n")
+  assertRuleCorpusCase(t, "no-unnecessary-type-constraint.ts", "// expect: noUnnecessaryTypeConstraint error\nfunction identity<T extends unknown>(value: T): T {\n  return value;\n}\n")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusBanTslintComment(t *testing.T) {
-  assertRuleCorpusCase(t, "ban-tslint-comment.ts", "// expect: ban-tslint-comment error\n// tslint:disable\nconst x = 1;\nJSON.stringify(x);\n")
+  assertRuleCorpusCase(t, "ban-tslint-comment.ts", "// expect: banTslintComment error\n// tslint:disable\nconst x = 1;\nJSON.stringify(x);\n")
 }

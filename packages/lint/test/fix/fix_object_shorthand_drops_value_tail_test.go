@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFixObjectShorthandDropsValueTail verifies the object-shorthand
+// TestFixObjectShorthandDropsValueTail verifies the objectShorthand
 // fixer collapses `{ x: x }` to `{ x }`.
 //
 // The rule only fires when the property's key identifier equals the
@@ -16,7 +16,7 @@ import "testing"
 func TestFixObjectShorthandDropsValueTail(t *testing.T) {
   assertFixSnapshot(
     t,
-    "object-shorthand",
+    "objectShorthand",
     "const x = 1;\nconst obj = { x: x };\nJSON.stringify(obj);\n",
     "const x = 1;\nconst obj = { x };\nJSON.stringify(obj);\n",
   )

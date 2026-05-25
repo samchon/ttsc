@@ -15,18 +15,18 @@ import (
 // or location. A regression that still ran discovery would silently apply the
 // wrong file's rules.
 //
-//  1. Write a discoverable lint.config.json (no-console) and a separate
-//     custom.config.json (no-var) in the same temp dir.
+//  1. Write a discoverable lint.config.json (noConsole) and a separate
+//     custom.config.json (noVar) in the same temp dir.
 //  2. Call LoadRuleConfig with `configFile: "./custom.config.json"`.
 //  3. Assert the custom file's rule wins and the discoverable file is ignored.
 func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "lint.config.json"), `{
-    "rules": { "no-console": "error" }
+    "rules": { "noConsole": "error" }
   }`)
   writeFile(t, filepath.Join(dir, "custom.config.json"), `{
-    "rules": { "no-var": "error" }
+    "rules": { "noVar": "error" }
   }`)
 
   cfg, err := LoadRuleConfig(&PluginEntry{
@@ -37,10 +37,10 @@ func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("no-var") != SeverityError {
-    t.Errorf("no-var: want error from configFile target, got %v", cfg.Severity("no-var"))
+  if cfg.Severity("noVar") != SeverityError {
+    t.Errorf("noVar: want error from configFile target, got %v", cfg.Severity("noVar"))
   }
-  if cfg.Severity("no-console") != SeverityOff {
-    t.Errorf("no-console: discoverable file must be ignored when configFile is set, got %v", cfg.Severity("no-console"))
+  if cfg.Severity("noConsole") != SeverityOff {
+    t.Errorf("noConsole: discoverable file must be ignored when configFile is set, got %v", cfg.Severity("noConsole"))
   }
 }

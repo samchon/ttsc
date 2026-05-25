@@ -55,6 +55,15 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
     path.join(TestLintPlugin.PACKAGE_ROOT, "lib", "structures", "index.d.ts"),
     "utf8",
   );
+  const rulesDts = fs.readFileSync(
+    path.join(
+      TestLintPlugin.PACKAGE_ROOT,
+      "lib",
+      "structures",
+      "ITtscLintRules.d.ts",
+    ),
+    "utf8",
+  );
   const ruleDts = fs.readFileSync(
     path.join(
       TestLintPlugin.PACKAGE_ROOT,
@@ -88,12 +97,18 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   assert.doesNotMatch(configDts, /ITtscLintConfig</);
   assert.match(configDts, /extends\?: string/);
   assert.match(configDts, /plugins\?: Record<string, ITtscLintPlugin>/);
+  assert.match(configDts, /rules\?: ITtscLintRules/);
   assert.match(
     structuresIndexDts,
     /export \* from "\.\/ITtscLintPluginConfig"/,
   );
   assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintConfig"/);
+  assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintRules"/);
+  assert.match(rulesDts, /export interface ITtscLintRules/);
+  assert.match(rulesDts, /noVar\?: TtscLintRuleSetting/);
+  assert.match(rulesDts, /formatPrintWidth\?: TtscLintRuleOptionsSetting/);
   assert.doesNotMatch(structuresIndexDts, /TtscLintRuleEntry/);
+  assert.doesNotMatch(structuresIndexDts, /TtscLintRuleMap/);
   assert.doesNotMatch(structuresIndexDts, /TtscLintPlugins/);
   assert.doesNotMatch(structuresIndexDts, /PluginRuleNames/);
   assert.match(ruleDts, /export type TtscLintRule/);

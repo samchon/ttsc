@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoIterator(t *testing.T) {
-  assertRuleCorpusCase(t, "no-iterator.ts", "const o: any = {};\n// expect: no-iterator error\nJSON.stringify(o.__iterator__);\n")
+  assertRuleCorpusCase(t, "no-iterator.ts", "const o: any = {};\n// expect: noIterator error\nJSON.stringify(o.__iterator__);\n")
 }

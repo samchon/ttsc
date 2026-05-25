@@ -2,6 +2,6 @@ const base = 1;
 
 enum Value {
   Fixed = 1,
-  // expect: prefer-literal-enum-member error
+  // expect: preferLiteralEnumMember error
   Computed = base + 1,
 }

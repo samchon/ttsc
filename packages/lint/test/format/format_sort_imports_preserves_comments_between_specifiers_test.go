@@ -17,14 +17,14 @@ import (
 //
 //  1. Parse an import whose named-specifier list carries an inline
 //     block comment between two specifiers.
-//  2. Run format/sort-imports.
+//  2. Run formatSortImports.
 //  3. Assert zero findings — the rule must NOT propose an edit that
 //     would silently drop the comment.
 func TestFormatSortImportsPreservesCommentsBetweenSpecifiers(t *testing.T) {
   source := "import { b /* pin */, a } from \"./local\";\n" +
     "console.log(a, b);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (specifier-sort must not drop inline comments), got %d:\n%v",

@@ -1,4 +1,4 @@
-// expect: require-yield error
+// expect: requireYield error
 function* gen() {
   return 1;
 }

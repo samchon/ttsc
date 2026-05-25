@@ -18,7 +18,7 @@ import "testing"
 func TestFormatTrailingCommaHonorsModeEs5SkipsConstructorParameter(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/trailing-comma",
+    "formatTrailingComma",
     "class Point {\n  constructor(\n    public x: number,\n    public y: number\n  ) {}\n}\nPoint;\n",
     `{"mode":"es5"}`,
   )

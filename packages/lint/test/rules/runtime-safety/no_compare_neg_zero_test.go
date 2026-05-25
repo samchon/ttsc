@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoCompareNegZero(t *testing.T) {
-  assertRuleCorpusCase(t, "no-compare-neg-zero.ts", "function f(x: number) {\n  // expect: no-compare-neg-zero error\n  return x === -0;\n}\n")
+  assertRuleCorpusCase(t, "no-compare-neg-zero.ts", "function f(x: number) {\n  // expect: noCompareNegZero error\n  return x === -0;\n}\n")
 }

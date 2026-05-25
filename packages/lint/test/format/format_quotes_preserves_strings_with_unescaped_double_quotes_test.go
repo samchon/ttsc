@@ -17,11 +17,11 @@ import (
 // `>` operator cannot silently start adding noise to source.
 //
 // 1. Parse a source file with single-quoted literals containing `"`.
-// 2. Run the engine with format/quotes enabled.
+// 2. Run the engine with formatQuotes enabled.
 // 3. Assert zero findings.
 func TestFormatQuotesPreservesStringsWithUnescapedDoubleQuotes(t *testing.T) {
   file := parseTS(t, "const greeting = 'say \"hi\"';\nJSON.stringify(greeting);\n")
-  findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatQuotes": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

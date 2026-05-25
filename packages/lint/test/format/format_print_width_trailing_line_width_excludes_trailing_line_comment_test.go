@@ -11,7 +11,7 @@ import "testing"
 // suffix width over-shrinks the layout budget on the rule's shrunk
 // re-render and forces a flat-fitting call to break (Prettier 3 keeps
 // the call inline in that shape — see the typeorm `replaceAll(...) //
-// Null bytes' regression that pushed `format/print-width: 'off'` onto
+// Null bytes' regression that pushed `formatPrintWidth: 'off'` onto
 // the ttsc-lint benchmark branch). The exclusion lives in the helper
 // because the same accounting needs to flow through both the fast-path
 // budget check and the shrunk-budget re-render.

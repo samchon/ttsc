@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoUnnecessaryTypeConstraintDropsExtendsClause verifies the
-// no-unnecessary-type-constraint fixer removes the ` extends any` clause.
+// noUnnecessaryTypeConstraint fixer removes the ` extends any` clause.
 //
 // The constraint is meaningless when the rule fires, so deleting from the
 // type parameter's name end through the constraint's end yields the same
@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUnnecessaryTypeConstraintDropsExtendsClause(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-unnecessary-type-constraint",
+    "noUnnecessaryTypeConstraint",
     "function box<T extends any>(value: T): T { return value; }\nJSON.stringify(box);\n",
     "function box<T>(value: T): T { return value; }\nJSON.stringify(box);\n",
   )

@@ -135,7 +135,7 @@ func parseRuleExpectations(t *testing.T, source string) []ruleExpectation {
         target++
         continue
       }
-      if match[1] != "ban-ts-comment" &&
+      if match[1] != "banTsComment" &&
         regexp.MustCompile(`^\s*//\s*@ts-(?:expect-error|ignore)\b`).MatchString(candidate) {
         target++
         continue
@@ -409,7 +409,7 @@ func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expe
 // assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
 // the input when configured with the given options JSON. Mirrors
 // `assertRuleSkipsSource`; used for option-gated skip arms (e.g.
-// `format/trailing-comma` under `mode: "es5"`) so per-case tests do not have
+// `formatTrailingComma` under `mode: "es5"`) so per-case tests do not have
 // to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
 func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
   t.Helper()

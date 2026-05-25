@@ -1,5 +1,5 @@
 const s: string =
-  // expect: no-multi-str error
+  // expect: noMultiStr error
   "line1 \
 line2";
 JSON.stringify(s);

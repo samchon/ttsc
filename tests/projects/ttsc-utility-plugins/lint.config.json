@@ -1,8 +1,8 @@
 {
   "rules": {
-    "no-var": "error",
-    "no-explicit-any": "error",
-    "no-debugger": "off",
-    "no-console": "off"
+    "noVar": "error",
+    "noExplicitAny": "error",
+    "noDebugger": "off",
+    "noConsole": "off"
   }
 }

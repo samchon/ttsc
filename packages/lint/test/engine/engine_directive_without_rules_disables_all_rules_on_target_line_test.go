@@ -15,14 +15,14 @@ import (
 // "blanket disable" branch — distinct from the named-rule branch tested elsewhere.
 // Getting this wrong means a bare disable comment still lets specific rules fire.
 //
-//  1. Enable two rules (no-var and no-debugger) and parse two lines: a suppressed line
+//  1. Enable two rules (noVar and noDebugger) and parse two lines: a suppressed line
 //     and an unsuppressed line, each with both offending constructs.
 //  2. Run the engine.
 //  3. Assert exactly two findings (one per rule on the non-suppressed line).
 func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
   engine := NewEngine(RuleConfig{
-    "no-var":      SeverityError,
-    "no-debugger": SeverityError,
+    "noVar":      SeverityError,
+    "noDebugger": SeverityError,
   })
   file := parseTS(t, `
     // eslint-disable-next-line

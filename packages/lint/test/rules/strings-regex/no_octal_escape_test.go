@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoOctalEscape(t *testing.T) {
-  assertRuleCorpusCase(t, "no-octal-escape.ts", "// expect: no-octal-escape error\nconst s: string = \"\\251\";\nJSON.stringify(s);")
+  assertRuleCorpusCase(t, "no-octal-escape.ts", "// expect: noOctalEscape error\nconst s: string = \"\\251\";\nJSON.stringify(s);")
 }

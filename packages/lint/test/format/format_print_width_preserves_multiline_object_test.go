@@ -9,7 +9,7 @@ import "testing"
 // Prettier's objectWrap:"preserve" default — confirmed against
 // prettier@3 — treats a newline after `{` as intentional structure:
 // `{\n  a: 1\n}` stays broken and never collapses to `{ a: 1 }`.
-// format/print-width mirrors that through objectHasNewlineAfterBrace;
+// formatPrintWidth mirrors that through objectHasNewlineAfterBrace;
 // an earlier revision collapsed the object, which diverged from
 // Prettier and silently destroyed the author's chosen layout. The rule
 // must therefore emit no finding for an already-preserved object.
@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthPreservesMultilineObject(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = {\n  a: 1,\n};\n",
   )
 }

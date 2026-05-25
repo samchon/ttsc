@@ -19,5 +19,5 @@ func TestFormatPrintWidthDefaultWidthIs80Columns(t *testing.T) {
   // 90-char statement (counted manually).
   src := "const x = { alpha: 1, bravo: 2, charlie: 3, delta: 4, echo: 5, foxtrot: 6, golf: 7 };\n"
   want := "const x = {\n  alpha: 1,\n  bravo: 2,\n  charlie: 3,\n  delta: 4,\n  echo: 5,\n  foxtrot: 6,\n  golf: 7,\n};\n"
-  assertFixSnapshot(t, "format/print-width", src, want)
+  assertFixSnapshot(t, "formatPrintWidth", src, want)
 }

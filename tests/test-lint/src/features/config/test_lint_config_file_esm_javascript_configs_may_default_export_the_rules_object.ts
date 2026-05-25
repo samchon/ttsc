@@ -10,8 +10,8 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * export's `rules` map.
  *
  * 1. Materialise a fixture with a `.mjs` config that default-exports `{ rules: {
- *    "no-var": "error" } }`.
- * 2. Run ttsc; assert `no-var` fires.
+ *    "noVar": "error" } }`.
+ * 2. Run ttsc; assert `noVar` fires.
  */
 export const test_lint_config_file_esm_javascript_configs_may_default_export_the_rules_object =
   () => {
@@ -23,7 +23,7 @@ export const test_lint_config_file_esm_javascript_configs_may_default_export_the
       },
       extraSources: {
         "ttsc-lint.config.mjs": `export default {
-        rules: { "no-var": "error" },
+        rules: { "noVar": "error" },
       };\n`,
       },
     });
@@ -31,7 +31,7 @@ export const test_lint_config_file_esm_javascript_configs_may_default_export_the
     assert.notEqual(result.status, 0);
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-var", "error"]],
+      [["noVar", "error"]],
       result.stderr,
     );
   };

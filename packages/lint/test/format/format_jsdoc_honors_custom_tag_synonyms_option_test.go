@@ -17,5 +17,5 @@ import "testing"
 func TestFormatJSDocHonorsCustomTagSynonymsOption(t *testing.T) {
   source := "/**\n * @property name\n * @return greeting\n */\nexport function greet(): string { return \"hi\"; }\n"
   want := "/**\n * @prop name\n * @returns greeting\n */\nexport function greet(): string { return \"hi\"; }\n"
-  assertFixSnapshotWithOptions(t, "format/jsdoc", source, `{"tagSynonyms":{"property":"prop"}}`, want)
+  assertFixSnapshotWithOptions(t, "formatJsdoc", source, `{"tagSynonyms":{"property":"prop"}}`, want)
 }

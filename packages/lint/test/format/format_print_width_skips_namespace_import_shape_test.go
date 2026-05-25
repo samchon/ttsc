@@ -16,7 +16,7 @@ import "testing"
 func TestFormatPrintWidthSkipsNamespaceImportShape(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "import * as someVeryLongNamespaceAlias from \"x\";\n",
     `{"printWidth": 10}`,
   )

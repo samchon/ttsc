@@ -28,7 +28,7 @@ func TestFormatPrintWidthIndentsRelativeToLineLeadingIndent(t *testing.T) {
   want := "function f() {\n  const x = {\n    aa: 1,\n    bb: 2,\n    cc: 3,\n  };\n}\n"
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     src,
     `{"printWidth": 28}`,
     want,

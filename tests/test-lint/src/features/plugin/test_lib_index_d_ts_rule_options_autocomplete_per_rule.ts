@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
  * Verifies lib/index.d.ts surfaces per-rule option autocomplete and rejects
  * malformed shapes at compile time.
  *
- * `TtscLintRuleMap` picks each known format rule's second tuple slot from
+ * `ITtscLintRules` exposes each built-in rule as a concrete camelCase
+ * property and picks each known format rule's second tuple slot from
  * `ITtscLintRuleOptionsMap`. This compile-time test exercises both the happy
  * path and the negative branches that make the typing load-bearing.
  *
@@ -17,10 +18,13 @@ import assert from "node:assert/strict";
  *
  * Negative branches pinned with `@ts-expect-error`:
  *
- * - Typo'd built-in rule name (`no-vra`) is rejected.
+ * - Typo'd built-in rule name (`noVra`) is rejected.
  * - Typo'd option key (`prefre` for `prefer`) is rejected.
- * - Cross-rule option leakage (`mode` on `format/quotes`) is rejected.
- * - A lint-only rule (`no-var`) cannot carry an options object.
+ * - Cross-rule option leakage (`mode` on `formatQuotes`) is rejected.
+ * - A lint-only rule (`noVar`) cannot carry an options object.
+ * - A legacy slash format rule name (`format/semi`) is rejected by the type
+ *   surface even though runtime config loading still accepts it as a migration
+ *   alias.
  *
  * The function runs at runtime as a sanity check that `satisfies
  * ITtscLintConfig` does not regress; the real assertion happens during `pnpm
@@ -35,11 +39,11 @@ import assert from "node:assert/strict";
 export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   const config: ITtscLintConfig = {
     rules: {
-      "no-var": "error",
-      "format/semi": ["warning", { prefer: "always" }],
-      "format/quotes": ["warning", { prefer: "double" }],
-      "format/trailing-comma": ["warning", { mode: "all" }],
-      "format/sort-imports": [
+      noVar: "error",
+      formatSemi: ["warning", { prefer: "always" }],
+      formatQuotes: ["warning", { prefer: "double" }],
+      formatTrailingComma: ["warning", { mode: "all" }],
+      formatSortImports: [
         "warning",
         {
           importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
@@ -47,7 +51,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           importOrderSortSpecifiers: true,
         },
       ],
-      "format/jsdoc": [
+      formatJsdoc: [
         "warning",
         {
           tagSynonyms: { property: "prop" },
@@ -59,8 +63,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
 
   const bareTuple: ITtscLintConfig = {
     rules: {
-      "format/semi": ["warning"],
-      "format/sort-imports": "off",
+      formatSemi: ["warning"],
+      formatSortImports: "off",
     },
   };
 
@@ -72,39 +76,45 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   // typo branch and leaving its `@ts-expect-error` directive unused.
   // Splitting the cases keeps each branch load-bearing.
   //
-  // - Built-in rule-name typo (`no-vra`) — excess property on the
+  // - Built-in rule-name typo (`noVra`) — excess property on the
   //   rules-object.
   // - Option-key typo (`prefre` for `prefer`) — excess property on the
   //   tuple's options slot.
-  // - Cross-rule option leakage (`mode` on `format/sort-imports`) — the
+  // - Cross-rule option leakage (`mode` on `formatSortImports`) — the
   //   options slot is keyed per rule; sort-imports's option shape has
   //   no `mode` field.
-  // - Lint-only rule with options (`no-var: ["error", {...}]`) — the
-  //   second half of `TtscLintRuleMap` types lint rules as
+  // - Lint-only rule with options (`noVar: ["error", {...}]`) — the
+  //   lint rule properties are typed as
   //   `severity | [severity]`, so a length-2 tuple has no matching
   //   union branch.
   const ruleNameTypo: ITtscLintConfig = {
     rules: {
-      // @ts-expect-error — "no-vra" is not a known built-in rule and not a namespaced contributor rule.
-      "no-vra": "error",
+      // @ts-expect-error — `noVra` is not a known built-in rule and not a namespaced contributor rule.
+      noVra: "error",
     },
   };
   const optionKeyTypo: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `prefre` is a typo of `prefer`; excess property check on the tuple's options slot fires.
-      "format/quotes": ["error", { prefre: "double" }],
+      formatQuotes: ["error", { prefre: "double" }],
     },
   };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
-      // @ts-expect-error — `mode` belongs to format/trailing-comma; format/sort-imports's option shape rejects it.
-      "format/sort-imports": ["error", { mode: "all" }],
+      // @ts-expect-error — `mode` belongs to formatTrailingComma; formatSortImports's option shape rejects it.
+      formatSortImports: ["error", { mode: "all" }],
     },
   };
   const lintRuleWithOptions: ITtscLintConfig = {
     rules: {
-      // @ts-expect-error — `no-var` is a lint rule with `severity | [severity]` only; a length-2 tuple is rejected.
-      "no-var": ["error", { ignore: true }],
+      // @ts-expect-error — `noVar` is a lint rule with `severity | [severity]` only; a length-2 tuple is rejected.
+      noVar: ["error", { ignore: true }],
+    },
+  };
+  const legacyFormatRuleName: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — built-in format rules use camelCase names such as `formatSemi`.
+      "format/semi": "error",
     },
   };
 
@@ -114,4 +124,5 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(optionKeyTypo);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
+  assert.ok(legacyFormatRuleName);
 };

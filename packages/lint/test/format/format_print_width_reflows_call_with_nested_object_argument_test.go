@@ -18,14 +18,14 @@ import "testing"
 //
 //  1. Feed `register("svc", { name: …, opts: { … } });` mis-indented
 //     across several lines so the outer object must be reflowed.
-//  2. Run format/print-width at printWidth=30.
+//  2. Run formatPrintWidth at printWidth=30.
 //  3. Assert the object hugs the parens, its members align at a
 //     two-space indent, and the single-line nested object survives
 //     verbatim.
 func TestFormatPrintWidthReflowsCallWithNestedObjectArgument(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "register(\"svc\", {\n      name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",
     `{"printWidth": 30}`,
     "register(\"svc\", {\n  name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",

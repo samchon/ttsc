@@ -9,7 +9,7 @@ import (
 // an error when the `importOrder` field is not an array.
 //
 // Locks the `asStringSlice` error path for `format.importOrder`. The field
-// activates `format/sort-imports`; a non-array value (e.g. a string) must be
+// activates `formatSortImports`; a non-array value (e.g. a string) must be
 // rejected at the format-block boundary so the rule engine is never given an
 // invalid options blob.
 //

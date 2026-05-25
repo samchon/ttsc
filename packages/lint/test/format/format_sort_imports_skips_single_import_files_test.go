@@ -14,12 +14,12 @@ import (
 // `len(imports) >= 2` guard exists for that reason.
 //
 // 1. Parse a source file with exactly one import declaration.
-// 2. Run the engine with format/sort-imports enabled.
+// 2. Run the engine with formatSortImports enabled.
 // 3. Assert no block-level reorder finding fires.
 func TestFormatSortImportsSkipsSingleImportFiles(t *testing.T) {
   source := "import zebra from \"zebra\";\nzebra;\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   for _, finding := range findings {
     if finding.Message == "Imports must be sorted into canonical groups." {

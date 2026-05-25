@@ -1,3 +1,3 @@
-// expect: no-extra-bind error
+// expect: noExtraBind error
 const f = (() => 1).bind({});
 JSON.stringify(f);

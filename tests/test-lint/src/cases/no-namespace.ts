@@ -1,4 +1,4 @@
-// expect: no-namespace error
+// expect: noNamespace error
 namespace Foo {
   export const x = 1;
 }

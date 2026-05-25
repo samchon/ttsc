@@ -1,5 +1,5 @@
 function f(a: number) {
-  // expect: no-self-compare error
+  // expect: noSelfCompare error
   return a === a;
 }
 JSON.stringify(f);

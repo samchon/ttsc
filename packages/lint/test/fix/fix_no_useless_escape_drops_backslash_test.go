@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFixNoUselessEscapeDropsBackslash verifies the no-useless-escape
+// TestFixNoUselessEscapeDropsBackslash verifies the noUselessEscape
 // fixer deletes a redundant backslash inside a string literal.
 //
 // The detection scans the raw literal text; the fix is a single-byte
@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUselessEscapeDropsBackslash(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-useless-escape",
+    "noUselessEscape",
     "const v = \"ab\\cdef\";\nJSON.stringify(v);\n",
     "const v = \"abcdef\";\nJSON.stringify(v);\n",
   )

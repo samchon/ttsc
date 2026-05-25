@@ -19,7 +19,7 @@ import "testing"
 func TestFormatPrintWidthExplodesCallWhenHuggedHeaderOverflows(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "register(alphaArg, betaArg, () => { run(); });\n",
     `{"printWidth": 30}`,
     "register(\n  alphaArg,\n  betaArg,\n  () => {\n    run();\n  },\n);\n",

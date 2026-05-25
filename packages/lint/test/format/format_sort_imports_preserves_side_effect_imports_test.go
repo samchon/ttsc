@@ -18,7 +18,7 @@ import (
 //
 //  1. Parse a source with mixed side-effect and value imports in an
 //     order the lexical sort would change.
-//  2. Run format/sort-imports.
+//  2. Run formatSortImports.
 //  3. Assert zero findings — the block stays in source order.
 func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
   source := "import \"./polyfill\";\n" +
@@ -27,7 +27,7 @@ func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
     "import alpha from \"alpha\";\n" +
     "JSON.stringify({ reduce, alpha });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
+  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (side-effect imports inhibit sort), got %d:\n%v",

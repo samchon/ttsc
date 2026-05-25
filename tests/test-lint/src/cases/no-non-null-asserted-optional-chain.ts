@@ -1,4 +1,4 @@
 const o: { a?: { b: number } } = {} as any;
-// expect: no-non-null-asserted-optional-chain error
+// expect: noNonNullAssertedOptionalChain error
 const x = o?.a!;
 JSON.stringify(x);

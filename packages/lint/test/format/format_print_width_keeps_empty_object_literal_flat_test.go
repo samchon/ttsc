@@ -16,7 +16,7 @@ import "testing"
 func TestFormatPrintWidthKeepsEmptyObjectLiteralFlat(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = {};\n",
     `{"printWidth": 1}`,
   )

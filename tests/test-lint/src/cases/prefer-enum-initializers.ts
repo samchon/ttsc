@@ -1,5 +1,5 @@
 enum E {
-  // expect: prefer-enum-initializers error
+  // expect: preferEnumInitializers error
   A,
 }
 JSON.stringify(E.A);

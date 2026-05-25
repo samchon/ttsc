@@ -1,6 +1,6 @@
 class A {
   m() {
-    // expect: no-this-alias error
+    // expect: noThisAlias error
     const self = this;
     return self;
   }

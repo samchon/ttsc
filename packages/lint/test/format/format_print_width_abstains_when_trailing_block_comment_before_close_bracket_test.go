@@ -23,7 +23,7 @@ import "testing"
 func TestFormatPrintWidthAbstainsWhenTrailingBlockCommentBeforeCloseBracket(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "foo(a, b /* tail */);\n",
     `{"printWidth": 10}`,
   )

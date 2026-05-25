@@ -18,8 +18,8 @@ import (
 // 3. Assert severity and options are routed to the correct collection.
 func TestParseRulesAcceptsESLintTuplesInStandardInlineConfig(t *testing.T) {
   cfg, opts, err := ParseRulesWithOptions(map[string]any{
-    "no-var": "error",
-    "format/sort-imports": []any{
+    "noVar": "error",
+    "formatSortImports": []any{
       "warning",
       map[string]any{
         "importOrder":           []any{"<THIRD_PARTY_MODULES>", "^[./]"},
@@ -30,16 +30,16 @@ func TestParseRulesAcceptsESLintTuplesInStandardInlineConfig(t *testing.T) {
   if err != nil {
     t.Fatalf("ParseRulesWithOptions: %v", err)
   }
-  if cfg["no-var"] != SeverityError {
-    t.Fatalf("no-var severity: want error, got %v", cfg["no-var"])
+  if cfg["noVar"] != SeverityError {
+    t.Fatalf("noVar severity: want error, got %v", cfg["noVar"])
   }
-  if cfg["format/sort-imports"] != SeverityWarn {
-    t.Fatalf("format/sort-imports severity: want warning, got %v", cfg["format/sort-imports"])
+  if cfg["formatSortImports"] != SeverityWarn {
+    t.Fatalf("formatSortImports severity: want warning, got %v", cfg["formatSortImports"])
   }
-  if _, exists := opts["no-var"]; exists {
+  if _, exists := opts["noVar"]; exists {
     t.Fatalf("severity-only rule must not have an options blob recorded")
   }
-  raw, ok := opts["format/sort-imports"]
+  raw, ok := opts["formatSortImports"]
   if !ok {
     t.Fatalf("tuple rule must produce an options blob")
   }

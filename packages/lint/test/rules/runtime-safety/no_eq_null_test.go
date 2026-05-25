@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoEqNull(t *testing.T) {
-  assertRuleCorpusCase(t, "no-eq-null.ts", "function f(x: any) {\n  // expect: no-eq-null error\n  return x == null;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-eq-null.ts", "function f(x: any) {\n  // expect: noEqNull error\n  return x == null;\n}\nJSON.stringify(f);\n")
 }

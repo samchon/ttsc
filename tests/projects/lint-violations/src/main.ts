@@ -7,23 +7,23 @@
 // annotated site fires, no extra sites fire, and the rendered
 // line:column matches what the engine reports.
 
-// expect: no-var error
+// expect: noVar error
 var legacy = 1;
 
 function takesAnyArg(
-  // expect: no-explicit-any warn
+  // expect: noExplicitAny warn
   x: any,
 ): number {
   return Number(x);
 }
 
-// expect: no-explicit-any warn
+// expect: noExplicitAny warn
 function returnsAny(): any {
   return null;
 }
 
 function debugMe(): void {
-  // expect: no-debugger error
+  // expect: noDebugger error
   debugger;
 }
 
@@ -32,18 +32,18 @@ function loose(x: number, y: number): boolean {
   return x == y;
 }
 
-// expect: no-empty-interface warn
+// expect: noEmptyInterface warn
 interface Empty {}
 
 function suspect(arr: number[]): void {
-  // expect: prefer-for-of warn
+  // expect: preferForOf warn
   for (let i = 0; i < arr.length; i++) {
     console.log(arr[i]);
   }
 }
 
 function nullably(x: number | null, y: number): boolean {
-  // expect: no-confusing-non-null-assertion error
+  // expect: noConfusingNonNullAssertion error
   return x! === y;
 }
 

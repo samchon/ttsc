@@ -12,7 +12,7 @@ import (
 //
 // `"none"` is the strictest mode: every list position — calls,
 // arrays, objects, named imports / exports — must render without a
-// trailing comma. The `format/trailing-comma` rule short-circuits at
+// trailing comma. The `formatTrailingComma` rule short-circuits at
 // the top of `Check` when the option resolves to "none", so the
 // printer must agree on the same shape or the printer would keep
 // reinserting the comma on every cascade pass.

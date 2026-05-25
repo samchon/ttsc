@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoUselessEscapeSkipsTaggedTemplate verifies the round-2
-// tagged-template bailout for `no-useless-escape`.
+// tagged-template bailout for `noUselessEscape`.
 //
 // Tag functions like `String.raw`, `dedent`, `gql`, `css` read the raw
 // bytes of the template payload, so a backslash that looks redundant to
@@ -18,7 +18,7 @@ import "testing"
 func TestFixNoUselessEscapeSkipsTaggedTemplate(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "no-useless-escape",
+    "noUselessEscape",
     "const html = String.raw`<a href=\"\\#fragment\">link</a>`;\nJSON.stringify(html);\n",
   )
 }

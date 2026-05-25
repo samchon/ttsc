@@ -1,2 +1,2 @@
-// expect: no-eval error
+// expect: noEval error
 eval("1");

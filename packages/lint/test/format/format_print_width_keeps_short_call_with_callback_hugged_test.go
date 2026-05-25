@@ -17,13 +17,13 @@ import "testing"
 //
 //  1. Feed a `new` expression whose argument is an arrow callback whose
 //     block body is mis-indented in the source.
-//  2. Run format/print-width at the default 80-column width.
+//  2. Run formatPrintWidth at the default 80-column width.
 //  3. Assert the callback hugs the parens and every body line lands at
 //     a consistent two-space indent.
 func TestFormatPrintWidthKeepsShortCallWithCallbackHugged(t *testing.T) {
   assertFixSnapshot(
     t,
-    "format/print-width",
+    "formatPrintWidth",
     "const x = new Singleton(\n      () => {\n  doStuff();\n        return 1;\n});\n",
     "const x = new Singleton(() => {\n  doStuff();\n  return 1;\n});\n",
   )

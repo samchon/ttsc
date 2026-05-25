@@ -1,3 +1,3 @@
-// expect: no-undef-init error
+// expect: noUndefInit error
 let a: any = undefined;
 JSON.stringify(a);
