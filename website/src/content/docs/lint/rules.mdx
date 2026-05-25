@@ -115,6 +115,12 @@ export default {
 
 These diagnostics are not autofixable. A boundary violation usually needs a public API, a dependency inversion, or a config decision; rewriting the import path automatically would be unsafe.
 
+## React Fast Refresh
+
+| Rule | Effect |
+| ---- | ------ |
+| `react-refresh/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
+
 ## Promises and async
 
 | Rule | Effect |

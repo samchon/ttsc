@@ -8,10 +8,9 @@ import "testing"
 // `RunFormat` is the only caller of `filterFormatFindings`: it
 // short-circuits the engine's mixed finding stream to the format-rule
 // subset with attached edits so `ttsc format` never applies lint-class
-// edits AND never drops a fixable format finding silently. `RunFix`
-// does not filter — fix is the run-everything entry point — so the
-// inverse filter is intentionally absent. Testing the format filter
-// alone with a mixed synthetic input pins both criteria.
+// edits AND never drops a fixable format finding silently. The lint-side
+// inverse filter is tested separately because LSP fix-all and format actions
+// now expose those edit classes independently.
 //
 //  1. Build a mixed finding slice covering format-with-fix,
 //     format-without-fix, lint-with-fix, lint-without-fix, plus a nil

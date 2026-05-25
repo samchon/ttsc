@@ -29,9 +29,9 @@ If you don't already have one:
     "moduleResolution": "NodeNext",
     "strict": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 
@@ -85,11 +85,14 @@ That's it. From here you can:
 
 - **Run a script directly** — `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
 - **Add a transform plugin** — e.g. [typia](https://typia.io) for runtime validators generated from your types.
-- **Wire your editor** — install the VS Code extension below for live diagnostics.
+- **Wire your editor** — install the VS Code extension below for the project
+  TypeScript-Go language server plus LSP-capable ttsc plugin diagnostics.
 
 ## Editor (VS Code)
 
-The VS Code extension surfaces lint and plugin diagnostics live in the editor instead of only at build time. Same `error TSxxxxx` shape your build emits — as you type.
+The VS Code extension starts the `ttscserver` launcher from your project's own
+`ttsc` dependency, so VS Code uses the same TypeScript-Go language server your
+project pins.
 
 Not yet on the VS Code Marketplace. For now it ships as an npm package with a one-shot installer:
 
@@ -106,11 +109,32 @@ npx ttsc-vscode uninstall
 
 What it adds:
 
-- `@ttsc/lint` violations underline as you type, with quick-fixes for autofixable rules.
-- Plugin code actions appear in the lightbulb menu.
-- Plugin-defined commands show up in the Command Palette.
+- TypeScript-Go hover, navigation, completions, and diagnostics through the
+  project-selected `tsgo --lsp --stdio` process.
+- LSP-capable ttsc plugin diagnostics, code actions, and executeCommand
+  handlers. `@ttsc/lint` contributes lint diagnostics, fix-all actions, and
+  document format edits. Plugin diagnostics, code actions, and command
+  computation use the saved project state today; commands return VS Code
+  `WorkspaceEdit`s and VS Code applies them only while touched documents are
+  still clean.
+- Multi-root workspaces start server contexts from the active file and
+  workspace folders. Add packages as VS Code workspace folders when each
+  package should keep its own `ttsc`, `@typescript/native-preview`, and plugin
+  config active.
+- `ttsc: Restart language server` in the Command Palette.
+- `ttsc: Fix all lint issues` and `ttsc: Format document` are always
+  registered by the extension, but they return edits only when the selected
+  file's server has an LSP-capable owner such as `@ttsc/lint`. Other
+  plugin-owned command ids are advertised through `vscode-languageclient`; when
+  they return a `changes`-map `WorkspaceEdit`, the extension applies it with the
+  same clean-document guard.
+- Leave `ttsc.serverPath` empty for plugin diagnostics/actions. The default
+  project `ttsc` launcher builds the plugin manifest before starting the native
+  server; a direct native binary path is useful only when that manifest is
+  supplied by the caller.
 
-If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
+If diagnostics don't appear after install, open **View → Output**, select
+**ttsc** from the dropdown, and read the server log.
 
 Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
 

@@ -4,6 +4,9 @@ import (
   "context"
   "errors"
   "io"
+  "net/url"
+  "os"
+  "path/filepath"
   "sync"
   "testing"
   "time"
@@ -36,19 +39,23 @@ type proxyHarness struct {
 // Passing a nil source makes the proxy fall back to NullPluginSource{}.
 func newProxyHarness(t *testing.T, source driver.PluginSource) *proxyHarness {
   t.Helper()
+  return newProxyHarnessWithOptions(t, source, driver.ProxyOptions{})
+}
+
+func newProxyHarnessWithOptions(t *testing.T, source driver.PluginSource, opts driver.ProxyOptions) *proxyHarness {
+  t.Helper()
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()
   upInR, upInW := io.Pipe()
   upOutR, upOutW := io.Pipe()
 
   ctx, cancel := context.WithCancel(context.Background())
-  proxy := driver.NewProxy(driver.ProxyOptions{
-    EditorIn:    edInR,
-    EditorOut:   edOutW,
-    UpstreamIn:  upInW,
-    UpstreamOut: upOutR,
-    Source:      source,
-  })
+  opts.EditorIn = edInR
+  opts.EditorOut = edOutW
+  opts.UpstreamIn = upInW
+  opts.UpstreamOut = upOutR
+  opts.Source = source
+  proxy := driver.NewProxy(opts)
 
   h := &proxyHarness{
     t:            t,
@@ -159,13 +166,23 @@ func (h *proxyHarness) readWithTimeout(fr *driver.FrameReader, label string) []b
 // jitter while keeping failures fast.
 func (h *proxyHarness) expectNoUpstreamFrame(window time.Duration) {
   h.t.Helper()
+  h.expectNoFrame(h.upstreamInFR, "upstream", window)
+}
+
+func (h *proxyHarness) expectNoEditorFrame(window time.Duration) {
+  h.t.Helper()
+  h.expectNoFrame(h.editorOutFR, "editor", window)
+}
+
+func (h *proxyHarness) expectNoFrame(fr *driver.FrameReader, label string, window time.Duration) {
+  h.t.Helper()
   type readResult struct {
     body []byte
     err  error
   }
   done := make(chan readResult, 1)
   go func() {
-    _, body, err := h.upstreamInFR.Read()
+    _, body, err := fr.Read()
     done <- readResult{body, err}
   }()
   select {
@@ -173,7 +190,20 @@ func (h *proxyHarness) expectNoUpstreamFrame(window time.Duration) {
     if r.err != nil {
       return
     }
-    h.t.Fatalf("upstream received a frame it should not have:\n%s", r.body)
+    h.t.Fatalf("%s received a frame it should not have:\n%s", label, r.body)
   case <-time.After(window):
   }
+}
+
+func writeLSPDiskFile(t *testing.T, text string) string {
+  t.Helper()
+  file := filepath.Join(t.TempDir(), "source.ts")
+  if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  uriPath := filepath.ToSlash(file)
+  if filepath.VolumeName(file) != "" && uriPath[0] != '/' {
+    uriPath = "/" + uriPath
+  }
+  return (&url.URL{Scheme: "file", Path: uriPath}).String()
 }
