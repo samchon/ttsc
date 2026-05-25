@@ -33,7 +33,7 @@ No — `ttsc` works without it. But the whole point of the toolchain is the pair
 3. Run `npx ttsc fix` once to apply all autofixes (lint and format) across the project.
 4. Commit, then delete `.eslintrc.*` and `.prettierrc.*` and the `eslint` / `prettier` devDependencies.
 
-Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`no-var`, `prefer-const`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts — for those, the native rule set is being built out rule by rule.
+Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`noVar`, `preferConst`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts — for those, the native rule set is being built out rule by rule.
 
 ## Will my existing `eslint` plugins work?
 

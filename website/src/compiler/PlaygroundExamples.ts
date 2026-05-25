@@ -75,7 +75,7 @@ console.log({ json, parsed });
   {
     id: "lint-no-var",
     group: "lint",
-    title: "@ttsc/lint — no-var · prefer-const",
+    title: "@ttsc/lint - noVar · preferConst",
     description: "See lint violations in the same stream as type errors.",
     source: `var greeting = "hello";
 let target = "ttsc";
@@ -85,7 +85,7 @@ console.log(greeting + ", " + target);
   {
     id: "lint-quotes",
     group: "lint",
-    title: "@ttsc/lint — format/quotes · format/semi",
+    title: "@ttsc/lint - formatQuotes · formatSemi",
     description: "Mixed quotes and missing semicolons.",
     source: `const greeting = 'hello'
 const target = "ttsc"

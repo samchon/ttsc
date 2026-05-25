@@ -201,7 +201,7 @@ console.log(x + y + z);
 
 There are three issues:
 
-- `var x` violates `no-var`;
+- `var x` violates `noVar`;
 - `let y` should be `const`;
 - `const z: string = 5` is a TypeScript type error.
 
@@ -215,12 +215,12 @@ src/lint.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'
 3 const z: string = 5;
         ~
 
-src/lint.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+src/lint.ts:2:5 - error TS17397: [preferConst] Use const instead of let.
 
 2 let y: number = 4;
       ~~~~~~~~~~~~~
 
-src/lint.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+src/lint.ts:1:1 - error TS11966: [noVar] Unexpected var, use let or const instead.
 
 1 var x: number = 3;
   ~~~~~~~~~~~~~~~~~~
@@ -253,9 +253,9 @@ import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
-    "no-var": "error",
-    "prefer-const": "error",
-    "no-explicit-any": "warning",
+    noVar: "error",
+    preferConst: "error",
+    noExplicitAny: "warning",
   },
   format: {
     printWidth: 100,
@@ -415,8 +415,8 @@ import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
-    "no-var": "error",
-    "prefer-const": "error",
+    noVar: "error",
+    preferConst: "error",
   },
   format: {
     printWidth: 100,

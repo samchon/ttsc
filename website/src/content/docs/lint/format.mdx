@@ -1,6 +1,6 @@
 # Format rules
 
-The `format/*` subset of `@ttsc/lint` — semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and column-aware print-width reflow. This is what replaces Prettier in a `ttsc` project.
+The format rule set in `@ttsc/lint` — semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and column-aware print-width reflow. This is what replaces Prettier in a `ttsc` project.
 
 ## The `format` block (canonical)
 
@@ -20,7 +20,7 @@ export default {
     jsdoc: true,
   },
   rules: {
-    "no-var": "error",
+    noVar: "error",
   },
 } satisfies ITtscLintConfig;
 ```
@@ -29,14 +29,14 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 
 | Rule | Driven by `format` key | Effect |
 | --- | --- | --- |
-| `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
-| `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
-| `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
-| `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
-| `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize them. |
-| `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+| `formatSemi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
+| `formatQuotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
+| `formatTrailingComma` | `trailingComma` | Add trailing commas to multi-line lists. |
+| `formatPrintWidth` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
+| `formatSortImports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize them. |
+| `formatJsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
+Both `formatSortImports` and `formatJsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
 
 ### `format.severity`
 
@@ -55,25 +55,25 @@ To bump (or relax) one specific rule, drop a sibling `rules` entry — `rules` w
 ```ts
 export default {
   format: { semi: true, severity: "warning" },
-  rules: { "format/semi": "error" },  // promote this one to error
+  rules: { formatSemi: "error" },  // promote this one to error
 } satisfies ITtscLintConfig;
 ```
 
 ## The individual rules
 
-### `format/semi`
+### `formatSemi`
 
 Enforce trailing semicolons on statements that need them. Default: required. Autofixable. Driven by `format.semi`.
 
-### `format/quotes`
+### `formatQuotes`
 
 One quote style throughout. Pick `"double"` (default) or `"single"`. Backticks always allowed for template literals. Driven by `format.singleQuote`.
 
-### `format/trailing-comma`
+### `formatTrailingComma`
 
 Enforce trailing commas in **multiline** literals — object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
 
-### `format/sort-imports`
+### `formatSortImports`
 
 **Opt-in.** Reorder and group imports.
 
@@ -88,7 +88,7 @@ Default grouping (each group separated by a blank line):
 
 Within each group, alphabetical. Autofixable. Set `format.importOrder` to enable.
 
-### `format/jsdoc`
+### `formatJsdoc`
 
 **Opt-in.** Normalize JSDoc block spacing and wrapping.
 
@@ -100,7 +100,7 @@ Handles:
 
 Autofixable. Set `format.jsdoc: true` (or an options object) to enable.
 
-### `format/print-width`
+### `formatPrintWidth`
 
 Column-aware reflow. Mirrors Prettier's `printWidth`, `tabWidth`, `useTabs`, and `endOfLine`. The most distinctive rule in the format set — the one that actually reshapes your code.
 
@@ -184,17 +184,17 @@ import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
-    "format/semi": "error",
-    "format/quotes": ["error", { prefer: "double" }],
-    "format/trailing-comma": "error",
-    "format/print-width": ["error", { printWidth: 80 }],
+    formatSemi: "error",
+    formatQuotes: ["error", { prefer: "double" }],
+    formatTrailingComma: "error",
+    formatPrintWidth: ["error", { printWidth: 80 }],
   },
 } satisfies ITtscLintConfig;
 ```
 
 ## Rule interactions
 
-`format/print-width` and `format/trailing-comma` overlap in one place: the broken layout that `print-width` emits always has a trailing comma (structurally, not because of the rule). So leaving `format/trailing-comma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals — only from manually-written ones.
+`formatPrintWidth` and `formatTrailingComma` overlap in one place: the broken layout that `formatPrintWidth` emits always has a trailing comma (structurally, not because of the rule). So leaving `formatTrailingComma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals — only from manually-written ones.
 
 `ttsc format` re-runs every enabled rule until the file is stable, so rule order in `lint.config.ts` doesn't affect the final result.
 

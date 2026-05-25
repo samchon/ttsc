@@ -10,107 +10,107 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-var` | Reject `var`. Use `let` or `const`. Autofixable. |
-| `prefer-const` | When a `let` is never reassigned, demand `const`. Autofixable for single declarations. |
+| `noVar` | Reject `var`. Use `let` or `const`. Autofixable. |
+| `preferConst` | When a `let` is never reassigned, demand `const`. Autofixable for single declarations. |
 
 ## Equality and comparison
 
 | Rule | Effect |
 | ---- | ------ |
 | `eqeqeq` | Reject `==` and `!=`. Autofixable when both operands are typed. |
-| `no-self-compare` | Reject `x === x` and friends. |
-| `no-self-assign` | Reject `x = x`, including destructured forms. |
+| `noSelfCompare` | Reject `x === x` and friends. |
+| `noSelfAssign` | Reject `x = x`, including destructured forms. |
 
 ## Suggestions
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-explicit-any` | Reject `any` annotations. Typically `"warning"` during migrations. |
-| `prefer-as-const` | Reject `as Literal` when `as const` would do. Autofixable. |
-| `object-shorthand` | Reject `{ foo: foo }`. Autofixable. |
-| `no-useless-rename` | Reject `{ x: x }` in destructuring. Autofixable. |
-| `no-extra-non-null-assertion` | Reject `x!!`. Autofixable. |
-| `no-unnecessary-type-constraint` | Reject `<T extends unknown>` and similar. Autofixable. |
-| `prefer-namespace-keyword` | Use `namespace` not `module`. Autofixable. |
+| `noExplicitAny` | Reject `any` annotations. Typically `"warning"` during migrations. |
+| `preferAsConst` | Reject `as Literal` when `as const` would do. Autofixable. |
+| `objectShorthand` | Reject `{ foo: foo }`. Autofixable. |
+| `noUselessRename` | Reject `{ x: x }` in destructuring. Autofixable. |
+| `noExtraNonNullAssertion` | Reject `x!!`. Autofixable. |
+| `noUnnecessaryTypeConstraint` | Reject `<T extends unknown>` and similar. Autofixable. |
+| `preferNamespaceKeyword` | Use `namespace` not `module`. Autofixable. |
 
 ## Strings and literals
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-useless-escape` | Reject `\.` and friends when not required. Autofixable. |
-| `no-octal` | Reject octal literals. |
-| `no-octal-escape` | Reject `\08`-style escapes. |
-| `no-loss-of-precision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
-| `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
+| `noUselessEscape` | Reject `\.` and friends when not required. Autofixable. |
+| `noOctal` | Reject octal literals. |
+| `noOctalEscape` | Reject `\08`-style escapes. |
+| `noLossOfPrecision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
+| `noTemplateCurlyInString` | Reject `${}` inside non-template strings (probably a bug). |
 
 ## Wrapper objects and prototypes
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-wrapper-object-types` | Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. |
-| `no-proto` | Reject `obj.__proto__`. |
-| `no-prototype-builtins` | Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. |
+| `noWrapperObjectTypes` | Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. |
+| `noProto` | Reject `obj.__proto__`. |
+| `noPrototypeBuiltins` | Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. |
 
 ## Loops
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-constant-condition` | Reject `while (true)` and other constant test expressions. |
-| `for-direction` | `for (i = 0; i < 10; i--)` → fail. |
-| `prefer-for-of` | Prefer `for..of` when the index is unused. |
+| `noConstantCondition` | Reject `while (true)` and other constant test expressions. |
+| `forDirection` | `for (i = 0; i < 10; i--)` → fail. |
+| `preferForOf` | Prefer `for..of` when the index is unused. |
 
 ## Imports and exports
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-import-type-side-effects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
-| `consistent-type-imports` | Prefer `import type {}` when imports are types-only. |
-| `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
+| `noImportTypeSideEffects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
+| `consistentTypeImports` | Prefer `import type {}` when imports are types-only. |
+| `noRequireImports` | Reject `require(...)` outside CommonJS modules. |
 
 ## Promises and async
 
 | Rule | Effect |
 | ---- | ------ |
-| `await-thenable` | Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). |
-| `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
-| `no-promise-executor-return` | Reject `return` inside a Promise executor. |
+| `awaitThenable` | Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). |
+| `noAsyncPromiseExecutor` | Reject `new Promise(async (...) => ...)`. |
+| `noPromiseExecutorReturn` | Reject `return` inside a Promise executor. |
 
 ## Throw and control flow
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-throw-literal` | `throw "boom"` → fail. Use `throw new Error(...)`. |
-| `no-fallthrough` | Reject `switch` case fall-through without an explicit comment. |
-| `no-unsafe-finally` | Reject `return` / `throw` inside a `finally`. |
+| `noThrowLiteral` | `throw "boom"` → fail. Use `throw new Error(...)`. |
+| `noFallthrough` | Reject `switch` case fall-through without an explicit comment. |
+| `noUnsafeFinally` | Reject `return` / `throw` inside a `finally`. |
 
 ## Parameters
 
 | Rule | Effect |
 | ---- | ------ |
-| `default-param-last` | `(req, opt = 1, req2)` → fail. |
-| `no-dupe-args` | Function declared with two parameters of the same name. |
+| `defaultParamLast` | `(req, opt = 1, req2)` → fail. |
+| `noDupeArgs` | Function declared with two parameters of the same name. |
 
 ## Duplicates
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-dupe-keys` | `{ a: 1, a: 2 }`. |
-| `no-duplicate-case` | Same case label twice in a `switch`. |
-| `no-dupe-else-if` | `if (a) ... else if (a) ...`. |
+| `noDupeKeys` | `{ a: 1, a: 2 }`. |
+| `noDuplicateCase` | Same case label twice in a `switch`. |
+| `noDupeElseIf` | `if (a) ... else if (a) ...`. |
 
 ## Miscellaneous
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-debugger` | Reject `debugger`. |
-| `no-empty` | Reject `if (x) {}`, `while (x) {}`, etc. |
-| `no-empty-function` | Reject `function f() {}`. |
-| `no-with` | Reject `with (...)`. |
-| `no-multi-assign` | Reject `a = b = 0` chains. |
+| `noDebugger` | Reject `debugger`. |
+| `noEmpty` | Reject `if (x) {}`, `while (x) {}`, etc. |
+| `noEmptyFunction` | Reject `function f() {}`. |
+| `noWith` | Reject `with (...)`. |
+| `noMultiAssign` | Reject `a = b = 0` chains. |
 
 ## Format
 
-The format rules (`format/*`) cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
+The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
 
 ## A common starter set
 
@@ -123,33 +123,33 @@ import type { ITtscLintConfig } from "@ttsc/lint";
 export default {
   rules: {
     // Variables
-    "no-var": "error",
-    "prefer-const": "error",
+    noVar: "error",
+    preferConst: "error",
 
     // Comparison
     "eqeqeq": "error",
-    "no-self-compare": "error",
+    noSelfCompare: "error",
 
     // Suggestions
-    "no-explicit-any": "warning",
-    "prefer-as-const": "error",
-    "object-shorthand": "error",
-    "no-useless-rename": "error",
+    noExplicitAny: "warning",
+    preferAsConst: "error",
+    objectShorthand: "error",
+    noUselessRename: "error",
 
     // Imports
-    "no-import-type-side-effects": "error",
-    "consistent-type-imports": "error",
+    noImportTypeSideEffects: "error",
+    consistentTypeImports: "error",
 
     // Misc safety
-    "no-debugger": "error",
-    "no-throw-literal": "error",
-    "await-thenable": "error",
+    noDebugger: "error",
+    noThrowLiteral: "error",
+    awaitThenable: "error",
 
     // Format (see /docs/lint/format)
-    "format/semi": "error",
-    "format/quotes": ["error", { prefer: "double" }],
-    "format/trailing-comma": "error",
-    "format/print-width": ["error", { printWidth: 80 }],
+    formatSemi: "error",
+    formatQuotes: ["error", { prefer: "double" }],
+    formatTrailingComma: "error",
+    formatPrintWidth: ["error", { printWidth: 80 }],
   },
 } satisfies ITtscLintConfig;
 ```
@@ -158,15 +158,15 @@ export default {
 
 `ttsc fix` autofixes a subset. Native fixers cover:
 
-- `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`
-- `no-wrapper-object-types` (primitives only; `Object` is detection-only)
-- `prefer-as-const`, `no-useless-rename`, `object-shorthand`, `no-extra-non-null-assertion`
-- `no-unnecessary-type-constraint`, `prefer-namespace-keyword`, `no-useless-escape`
-- `no-import-type-side-effects` (hoists inline `type` modifiers)
-- `await-thenable` (type-aware — drops `await` on non-thenable operands)
+- `noVar`, single-declaration `preferConst`, ESLint-safe `eqeqeq`
+- `noWrapperObjectTypes` (primitives only; `Object` is detection-only)
+- `preferAsConst`, `noUselessRename`, `objectShorthand`, `noExtraNonNullAssertion`
+- `noUnnecessaryTypeConstraint`, `preferNamespaceKeyword`, `noUselessEscape`
+- `noImportTypeSideEffects` (hoists inline `type` modifiers)
+- `awaitThenable` (type-aware — drops `await` on non-thenable operands)
 - Every format rule
 
 ## See also
 
-- [Format](/docs/lint/format) — the `format/*` subset (including `format/print-width`).
+- [Format](/docs/lint/format) — the format rule set (including `formatPrintWidth`).
 - [Overview](/docs/lint) — the `ttsc fix` / `ttsc format` command summary.
