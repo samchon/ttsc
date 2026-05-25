@@ -497,7 +497,7 @@ func (s *testingLibraryState) reportUnnecessaryAct(ctx *Context) {
       inner := child.AsCallExpression()
       return inner != nil && (s.isRenderCall(child) || s.isFireEventCall(inner) || s.isUserEventCall(inner))
     }) {
-      ctx.Report(node, "Testing Library already wraps these updates in act().")
+      reportTestingLibraryCallName(ctx, node, "act", "Testing Library already wraps these updates in act().")
     }
   }
 }
@@ -1060,31 +1060,57 @@ func nearestNonQueryParent(node *shimast.Node) *shimast.Node {
 }
 
 func isExpectMatcherCall(node *shimast.Node) bool {
-  cur := node
-  for cur != nil {
-    if cur.Kind == shimast.KindCallExpression {
-      call := cur.AsCallExpression()
-      if callInfoFromCall(call).name == "expect" {
-        return true
-      }
-    }
-    cur = cur.Parent
-  }
-  return false
+  return expectCallFromMatcherNode(node) != nil
 }
 
 func firstExpectArgument(node *shimast.Node) *shimast.Node {
-  for cur := node; cur != nil; cur = cur.Parent {
-    call := cur.AsCallExpression()
-    if call == nil || callInfoFromCall(call).name != "expect" || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-      continue
-    }
+  call := expectCallFromMatcherNode(node)
+  if call != nil && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
     return stripParens(call.Arguments.Nodes[0])
   }
   return nil
 }
 
+func expectCallFromMatcherNode(node *shimast.Node) *shimast.CallExpression {
+  if call := expectCallInExpression(node); call != nil {
+    return call
+  }
+  for cur := node; cur != nil; cur = cur.Parent {
+    call := cur.AsCallExpression()
+    if call == nil || callInfoFromCall(call).name != "expect" || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+      continue
+    }
+    return call
+  }
+  return nil
+}
+
+func expectCallInExpression(node *shimast.Node) *shimast.CallExpression {
+  node = stripParens(node)
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    if callInfoFromCall(call).name == "expect" {
+      return call
+    }
+    return expectCallInExpression(call.Expression)
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return nil
+    }
+    return expectCallInExpression(access.Expression)
+  }
+  return nil
+}
+
 func matcherCallIsNegated(node *shimast.Node) bool {
+  if matcherExpressionHasProperty(node, "not") {
+    return true
+  }
   for cur := node.Parent; cur != nil; cur = cur.Parent {
     if cur.Kind != shimast.KindPropertyAccessExpression {
       continue
@@ -1092,6 +1118,28 @@ func matcherCallIsNegated(node *shimast.Node) bool {
     if identifierText(cur.AsPropertyAccessExpression().Name()) == "not" {
       return true
     }
+  }
+  return false
+}
+
+func matcherExpressionHasProperty(node *shimast.Node, name string) bool {
+  node = stripParens(node)
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    return call != nil && matcherExpressionHasProperty(call.Expression, name)
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return false
+    }
+    if identifierText(access.Name()) == name {
+      return true
+    }
+    return matcherExpressionHasProperty(access.Expression, name)
   }
   return false
 }
