@@ -311,16 +311,34 @@ func runPlaywrightNoForceOption(ctx *Context, root *shimast.Node) {
       return
     }
     call := node.AsCallExpression()
-    if call == nil || call.Arguments == nil {
+    if call == nil {
       return
     }
-    for _, arg := range call.Arguments.Nodes {
-      prop := objectPropertyNode(ctx.File, stripParens(arg), "force")
-      if prop != nil && isTrueLiteral(objectPropertyValue(ctx.File, stripParens(arg), "force")) {
-        ctx.Report(prop, "Unexpected Playwright force option.")
-      }
+    chain := playwrightCallChain(call.Expression)
+    if !isPlaywrightForceOptionMethod(chain) {
+      return
+    }
+    lastArg := -1
+    if call.Arguments != nil {
+      lastArg = len(call.Arguments.Nodes) - 1
+    }
+    options := callArgument(call, lastArg)
+    prop := objectPropertyNode(ctx.File, options, "force")
+    if prop != nil && isTrueLiteral(objectPropertyValue(ctx.File, options, "force")) {
+      ctx.Report(prop, "Unexpected Playwright force option.")
     }
   })
+}
+
+func isPlaywrightForceOptionMethod(chain []string) bool {
+  if len(chain) < 2 {
+    return false
+  }
+  switch chain[len(chain)-1] {
+  case "check", "clear", "click", "dblclick", "dragAndDrop", "dragTo", "fill", "hover", "selectOption", "selectText", "setChecked", "tap", "uncheck":
+    return true
+  }
+  return false
 }
 
 func runPlaywrightNoNetworkidle(ctx *Context, root *shimast.Node) {
@@ -329,20 +347,45 @@ func runPlaywrightNoNetworkidle(ctx *Context, root *shimast.Node) {
       return
     }
     call := node.AsCallExpression()
-    chain := playwrightCallChain(call.Expression)
-    if len(chain) > 0 && chain[len(chain)-1] == "waitForLoadState" && isStringLiteralValue(callArgument(call, 0), "networkidle") {
-      ctx.Report(callArgument(call, 0), "Unexpected networkidle load state.")
-    }
-    if call.Arguments == nil {
+    if call == nil {
       return
     }
-    for _, arg := range call.Arguments.Nodes {
-      value := objectPropertyValue(ctx.File, stripParens(arg), "waitUntil")
-      if isStringLiteralValue(value, "networkidle") {
-        ctx.Report(value, "Unexpected networkidle waitUntil option.")
-      }
+    chain := playwrightCallChain(call.Expression)
+    if !isPlaywrightNetworkidleMethod(chain) {
+      return
+    }
+    method := chain[len(chain)-1]
+    if method == "waitForLoadState" && isStringLiteralValue(callArgument(call, 0), "networkidle") {
+      ctx.Report(callArgument(call, 0), "Unexpected networkidle load state.")
+      return
+    }
+    options := playwrightWaitUntilOptionsArgument(call, method)
+    value := objectPropertyValue(ctx.File, options, "waitUntil")
+    if isStringLiteralValue(value, "networkidle") {
+      ctx.Report(value, "Unexpected networkidle waitUntil option.")
     }
   })
+}
+
+func isPlaywrightNetworkidleMethod(chain []string) bool {
+  if len(chain) < 2 {
+    return false
+  }
+  switch chain[len(chain)-1] {
+  case "goBack", "goForward", "goto", "reload", "setContent", "waitForLoadState", "waitForNavigation", "waitForURL":
+    return true
+  }
+  return false
+}
+
+func playwrightWaitUntilOptionsArgument(call *shimast.CallExpression, method string) *shimast.Node {
+  switch method {
+  case "goBack", "goForward", "reload", "waitForNavigation":
+    return callArgument(call, 0)
+  case "goto", "setContent", "waitForURL":
+    return callArgument(call, 1)
+  }
+  return nil
 }
 
 func runPlaywrightExpectExpect(ctx *Context, root *shimast.Node) {
