@@ -343,6 +343,7 @@ Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path rul
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+- [`tsdoc/syntax`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/comments-directives/tsdoc_syntax_test.go): validates malformed TSDoc block tags and inline tags in `/** ... */` comments.
 
 ## Third-party rule plugins
 
