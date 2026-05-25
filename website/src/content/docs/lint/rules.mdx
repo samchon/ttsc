@@ -111,6 +111,35 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Jest
+
+These rules mirror high-confidence `eslint-plugin-jest` checks under the
+`jest/*` namespace. The native implementation focuses on TS test-source AST
+patterns that do not require ESLint's scope manager, Jest runtime settings, or
+comment-preserving source scans.
+
+| Rule | Effect |
+| ---- | ------ |
+| `jest/expect-expect` | Require Jest test bodies to contain an assertion. |
+| `jest/max-expects` | Limit excessive assertion counts inside one test body. |
+| `jest/no-conditional-expect` | Reject `expect` calls inside test conditionals. |
+| `jest/no-conditional-in-test` | Reject conditionals inside Jest test bodies. |
+| `jest/no-disabled-tests` | Reject `test.skip`, `it.skip`, `describe.skip`, and `x*` disabled aliases. |
+| `jest/no-done-callback` | Reject `done` callback parameters in tests and hooks. |
+| `jest/no-duplicate-hooks` | Reject duplicate hooks at the same suite level. |
+| `jest/no-export` | Reject exports from Jest test files. |
+| `jest/no-focused-tests` | Reject `test.only`, `it.only`, `describe.only`, `fit`, and `fdescribe`. |
+| `jest/no-hooks` | Reject Jest hook registration. |
+| `jest/no-identical-title` | Reject duplicate test or describe titles at the same suite level. |
+| `jest/no-standalone-expect` | Reject `expect` calls that execute outside a Jest test block. |
+| `jest/no-test-prefixes` | Reject focused and disabled prefix aliases such as `fit` and `xit`. |
+| `jest/no-test-return-statement` | Reject explicit `return` statements in Jest test callbacks. |
+| `jest/prefer-to-have-length` | Prefer `toHaveLength` over comparing `.length`. |
+| `jest/require-to-throw-message` | Require `toThrow` assertions to include an expected message. |
+| `jest/valid-describe-callback` | Require `describe` callbacks to exist and be synchronous. |
+| `jest/valid-expect` | Require `expect` to receive one value and call a matcher. |
+| `jest/valid-title` | Require Jest test and describe titles to be non-empty strings. |
+
 ## Format
 
 The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
