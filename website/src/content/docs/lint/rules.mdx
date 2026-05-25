@@ -32,6 +32,7 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `noExtraNonNullAssertion` | Reject `x!!`. Autofixable. |
 | `noUnnecessaryTypeConstraint` | Reject `<T extends unknown>` and similar. Autofixable. |
 | `preferNamespaceKeyword` | Use `namespace` not `module`. Autofixable. |
+| `methodSignatureStyle` | Prefer function-property signatures over TypeScript method shorthand signatures. |
 
 ## Strings and literals
 
@@ -66,6 +67,7 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `noImportTypeSideEffects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
 | `consistentTypeImports` | Prefer `import type {}` when imports are types-only. |
 | `noRequireImports` | Reject `require(...)` outside CommonJS modules. |
+| `noUselessEmptyExport` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
 
 ## Promises and async
 
@@ -89,6 +91,7 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | ---- | ------ |
 | `defaultParamLast` | `(req, opt = 1, req2)` → fail. |
 | `noDupeArgs` | Function declared with two parameters of the same name. |
+| `noUnnecessaryParameterPropertyAssignment` | Reject `this.x = x` when `x` is already a constructor parameter property. |
 
 ## Duplicates
 
