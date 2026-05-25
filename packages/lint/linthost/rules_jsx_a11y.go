@@ -515,6 +515,7 @@ var jsxRoleRequiredProps = map[string][]string{
 }
 
 var jsxRoleSupportedProps = map[string]map[string]bool{
+	"button":     {"aria-expanded": true, "aria-pressed": true},
 	"checkbox":   {"aria-checked": true, "aria-readonly": true},
 	"combobox":   {"aria-activedescendant": true, "aria-autocomplete": true, "aria-controls": true, "aria-expanded": true, "aria-readonly": true, "aria-required": true},
 	"heading":    {"aria-level": true},
@@ -1096,7 +1097,7 @@ func (jsxA11yRoleHasRequiredAriaProps) Check(ctx *Context, node *shimast.Node) {
 	info := jsxElementFromNode(node)
 	role, ok := jsxRole(info.attrs)
 	if !ok {
-		role = jsxImplicitRole(info)
+		return
 	}
 	for _, required := range jsxRoleRequiredProps[role] {
 		if !jsxHasAttr(info.attrs, required) {
@@ -1116,7 +1117,7 @@ func (jsxA11yRoleSupportsAriaProps) Check(ctx *Context, node *shimast.Node) {
 	info := jsxElementFromNode(node)
 	role, ok := jsxRole(info.attrs)
 	if !ok {
-		role = jsxImplicitRole(info)
+		return
 	}
 	if role == "" {
 		return
