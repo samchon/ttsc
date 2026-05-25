@@ -4,6 +4,7 @@ import type {
   ITtscLintQuotesRuleOptions,
   ITtscLintSemiRuleOptions,
   ITtscLintSortImportsRuleOptions,
+  ITtscLintStorybookNoUninstalledAddonsRuleOptions,
   ITtscLintTrailingCommaRuleOptions,
 } from "./TtscLintRuleOptions";
 import type { TtscLintSeverity } from "./TtscLintSeverity";
@@ -440,6 +441,54 @@ export interface ITtscLintRules {
 
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
+
+  /** requires awaited Storybook interaction helpers in play functions. */
+  "storybook/await-interactions"?: TtscLintRuleSetting;
+
+  /** requires forwarding context when composing another story's play function. */
+  "storybook/context-in-play-function"?: TtscLintRuleSetting;
+
+  /** requires CSF default meta to declare a component. */
+  "storybook/csf-component"?: TtscLintRuleSetting;
+
+  /** requires story files to export default CSF metadata. */
+  "storybook/default-exports"?: TtscLintRuleSetting;
+
+  /** rejects deprecated `|` separators in Storybook title metadata. */
+  "storybook/hierarchy-separator"?: TtscLintRuleSetting;
+
+  /** requires statically inline `title` and `args` meta properties. */
+  "storybook/meta-inline-properties"?: TtscLintRuleSetting;
+
+  /** requires CSF meta objects to use TypeScript `satisfies`. */
+  "storybook/meta-satisfies-type"?: TtscLintRuleSetting;
+
+  /** rejects story name metadata that duplicates the export-derived name. */
+  "storybook/no-redundant-story-name"?: TtscLintRuleSetting;
+
+  /** rejects direct imports from Storybook renderer packages. */
+  "storybook/no-renderer-packages"?: TtscLintRuleSetting;
+
+  /** rejects deprecated `storiesOf` usage. */
+  "storybook/no-stories-of"?: TtscLintRuleSetting;
+
+  /** rejects explicit `title` in CSF strict meta. */
+  "storybook/no-title-property-in-meta"?: TtscLintRuleSetting;
+
+  /** validates Storybook addon names against package dependencies. */
+  "storybook/no-uninstalled-addons"?: TtscLintRuleOptionsSetting<ITtscLintStorybookNoUninstalledAddonsRuleOptions>;
+
+  /** requires PascalCase named story exports. */
+  "storybook/prefer-pascal-case"?: TtscLintRuleSetting;
+
+  /** requires at least one usable named story export. */
+  "storybook/story-exports"?: TtscLintRuleSetting;
+
+  /** requires Storybook's expect helper in play assertions. */
+  "storybook/use-storybook-expect"?: TtscLintRuleSetting;
+
+  /** rejects direct Testing Library imports in story files. */
+  "storybook/use-storybook-testing-library"?: TtscLintRuleSetting;
 
   /** Insert or remove trailing semicolons on ASI-terminated statements. */
   "format/semi"?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;

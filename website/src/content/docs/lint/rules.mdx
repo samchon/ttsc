@@ -69,6 +69,29 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
 | `no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
 
+## Storybook
+
+Apply these to `*.stories.ts`, `*.stories.tsx`, and `.storybook/main.ts` files as appropriate.
+
+| Rule | Effect |
+| ---- | ------ |
+| `storybook/await-interactions` | Requires awaiting Storybook interaction helpers such as `userEvent`, `waitFor`, `findBy*`, and composed `play` calls. |
+| `storybook/context-in-play-function` | Requires passing the active context when invoking another story's `play` function. |
+| `storybook/csf-component` | Requires default CSF meta to declare `component`. |
+| `storybook/default-exports` | Requires story files to export default CSF metadata. |
+| `storybook/hierarchy-separator` | Rejects deprecated `|` separators in `title` metadata. |
+| `storybook/meta-inline-properties` | Requires statically inline `title` and `args` meta properties. |
+| `storybook/meta-satisfies-type` | Requires CSF meta objects to use TypeScript `satisfies`. |
+| `storybook/no-redundant-story-name` | Rejects `name` / `storyName` metadata that duplicates the export-derived story name. |
+| `storybook/no-renderer-packages` | Rejects direct imports from renderer packages such as `@storybook/react`; use framework packages instead. |
+| `storybook/no-stories-of` | Rejects deprecated `storiesOf` imports and calls. |
+| `storybook/no-title-property-in-meta` | Rejects explicit `title` in CSF strict meta. |
+| `storybook/no-uninstalled-addons` | Validates Storybook addon names in `.storybook/main.ts` against `dependencies` and `devDependencies`. Options: `{ packageJsonLocation?: string; ignore?: string[] }`. |
+| `storybook/prefer-pascal-case` | Requires PascalCase named story exports. |
+| `storybook/story-exports` | Requires at least one usable named story export after `includeStories` / `excludeStories` filtering. |
+| `storybook/use-storybook-expect` | Requires importing `expect` from Storybook's test packages instead of using a global. |
+| `storybook/use-storybook-testing-library` | Rejects direct `@testing-library/*` imports in story files; import through `storybook/test`. |
+
 ## Promises and async
 
 | Rule | Effect |
