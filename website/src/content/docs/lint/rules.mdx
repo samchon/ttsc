@@ -69,6 +69,52 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
 | `no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
 
+## Architecture boundaries
+
+These rules are inspired by `eslint-plugin-boundaries`, but `@ttsc/lint` implements a conservative TypeScript source-path subset. They inspect static `import` and `export ... from` module specifiers, resolve relative imports to real source files, and classify files with the rule option's `elements` array.
+
+| Rule | Effect |
+| ---- | ------ |
+| `boundaries/element-types` | Enforce allowed dependency directions between configured source-path element types. |
+| `boundaries/external` | Restrict external package imports by package/specifier pattern. |
+| `boundaries/entry-point` | Require imports into an element to target that element's configured public entry files. |
+| `boundaries/no-private` | Reject imports of configured private files from outside their element. |
+| `boundaries/no-unknown` | Reject relative imports whose resolved source file matches no configured element. |
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "boundaries/element-types": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts", private: "internal/**" },
+      ],
+      rules: [{ from: "app", disallow: "domain" }],
+    }],
+    "boundaries/entry-point": ["error", {
+      elements: [
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts" },
+      ],
+    }],
+    "boundaries/no-private": ["error", {
+      elements: [
+        { type: "domain", pattern: "src/domain/**", private: "internal/**" },
+      ],
+    }],
+    "boundaries/no-unknown": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**" },
+      ],
+    }],
+    "boundaries/external": ["error", { disallow: ["@legacy/sdk"] }],
+  },
+};
+```
+
+These diagnostics are not autofixable. A boundary violation usually needs a public API, a dependency inversion, or a config decision; rewriting the import path automatically would be unsafe.
+
 ## Promises and async
 
 | Rule | Effect |

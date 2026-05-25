@@ -146,6 +146,41 @@ export default {
   rules: { "format/semi": "off" },
 } satisfies ITtscLintConfig;
 ```
+
+### Architecture boundaries
+
+The `boundaries/*` rules implement a conservative TypeScript source-path subset inspired by `eslint-plugin-boundaries`: static `import` and `export ... from` specifiers are resolved to source files, then classified with per-rule `elements` options.
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "boundaries/element-types": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts", private: "internal/**" },
+      ],
+      rules: [{ from: "app", disallow: "domain" }],
+    }],
+    "boundaries/entry-point": ["error", {
+      elements: [{ type: "domain", pattern: "src/domain/**", entry: "index.ts" }],
+    }],
+    "boundaries/no-private": ["error", {
+      elements: [{ type: "domain", pattern: "src/domain/**", private: "internal/**" }],
+    }],
+    "boundaries/no-unknown": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**" },
+      ],
+    }],
+    "boundaries/external": ["error", { disallow: ["@legacy/sdk"] }],
+  },
+} satisfies ITtscLintConfig;
+```
+
+Boundary diagnostics do not offer autofixes. A violation usually needs an API or architecture decision, not a mechanical import rewrite.
+
 ### Rules
 
 Rules are off until you enable them:
@@ -162,13 +197,18 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
+Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path rules with temporary project trees link to their Go tests. Each rule below links to its tested fixture:
 
 - [`adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
 - [`await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable (type-aware).
 - [`ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
 - [`ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
+- [`boundaries/element-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_element_types_rejects_disallowed_import_test.go): enforces allowed dependency directions between configured source-path element types.
+- [`boundaries/entry-point`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_entry_point_rejects_non_entry_import_test.go): requires imports into an element to target its configured public entry files.
+- [`boundaries/external`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_external_rejects_disallowed_package_test.go): restricts external package imports by package/specifier pattern.
+- [`boundaries/no-private`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_no_private_rejects_cross_element_private_import_test.go): rejects imports of configured private files from outside their element.
+- [`boundaries/no-unknown`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_no_unknown_rejects_unknown_import_target_test.go): rejects relative imports whose resolved source file matches no configured element.
 - [`consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
 - [`consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
 - [`consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.

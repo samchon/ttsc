@@ -1,4 +1,9 @@
 import type {
+  ITtscLintBoundariesElementTypesRuleOptions,
+  ITtscLintBoundariesEntryPointRuleOptions,
+  ITtscLintBoundariesExternalRuleOptions,
+  ITtscLintBoundariesNoPrivateRuleOptions,
+  ITtscLintBoundariesNoUnknownRuleOptions,
   ITtscLintJsdocRuleOptions,
   ITtscLintPrintWidthRuleOptions,
   ITtscLintQuotesRuleOptions,
@@ -41,6 +46,21 @@ export interface ITtscLintRules {
 
   /** rejects obsolete `tslint:` comments. */
   "ban-tslint-comment"?: TtscLintRuleSetting;
+
+  /** Enforce allowed dependency directions between configured source-path element types. */
+  "boundaries/element-types"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesElementTypesRuleOptions>;
+
+  /** Require cross-element imports to target the element's configured public entry files. */
+  "boundaries/entry-point"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesEntryPointRuleOptions>;
+
+  /** Restrict external package imports by package/specifier pattern. */
+  "boundaries/external"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesExternalRuleOptions>;
+
+  /** Reject imports of configured private files from outside their source-path element. */
+  "boundaries/no-private"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoPrivateRuleOptions>;
+
+  /** Reject relative imports whose resolved source file matches no configured element. */
+  "boundaries/no-unknown"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoUnknownRuleOptions>;
 
   /** prefers `Record` for single index-signature object types. */
   "consistent-indexed-object-style"?: TtscLintRuleSetting;
