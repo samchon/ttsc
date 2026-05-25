@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestNoDisabledTestsReportsSkip verifies vitest/no-disabled-tests flags skipped cases.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/no-disabled-tests.
 // 3. Assert one diagnostic is emitted.
 func TestVitestNoDisabledTestsReportsSkip(t *testing.T) {
-	file := parseTS(t, `test.skip("temporarily ignored", () => {
+  file := parseTS(t, `test.skip("temporarily ignored", () => {
   expect(value).toBe(1);
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/no-disabled-tests": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/no-disabled-tests": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

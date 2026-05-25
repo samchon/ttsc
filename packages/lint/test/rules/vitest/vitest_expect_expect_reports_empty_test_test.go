@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestExpectExpectReportsEmptyTest verifies vitest/expect-expect flags a test without assertions.
@@ -16,12 +16,12 @@ import (
 // 2. Enable vitest/expect-expect.
 // 3. Assert one diagnostic is emitted.
 func TestVitestExpectExpectReportsEmptyTest(t *testing.T) {
-	file := parseTS(t, `test("loads", () => {
+  file := parseTS(t, `test("loads", () => {
   render();
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/expect-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/expect-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestNoConditionalTestsReportsTestInsideIf verifies vitest/no-conditional-tests rejects guarded declarations.
@@ -16,12 +16,12 @@ import (
 // 2. Enable vitest/no-conditional-tests.
 // 3. Assert one diagnostic is emitted.
 func TestVitestNoConditionalTestsReportsTestInsideIf(t *testing.T) {
-	file := parseTS(t, `if (process.env.CI) {
+  file := parseTS(t, `if (process.env.CI) {
   test("ci only", () => expect(true).toBe(true));
 }
 `)
-	findings := NewEngine(RuleConfig{"vitest/no-conditional-tests": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/no-conditional-tests": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestValidDescribeCallbackReportsAsyncCallback verifies vitest/valid-describe-callback rejects async describes.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/valid-describe-callback.
 // 3. Assert one diagnostic is emitted.
 func TestVitestValidDescribeCallbackReportsAsyncCallback(t *testing.T) {
-	file := parseTS(t, `describe("suite", async () => {
+  file := parseTS(t, `describe("suite", async () => {
   test("case", () => expect(value).toBe(1));
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/valid-describe-callback": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/valid-describe-callback": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

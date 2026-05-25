@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestValidExpectReportsMissingMatcher verifies vitest/valid-expect rejects bare expect calls.
@@ -16,12 +16,12 @@ import (
 // 2. Enable vitest/valid-expect.
 // 3. Assert one diagnostic is emitted.
 func TestVitestValidExpectReportsMissingMatcher(t *testing.T) {
-	file := parseTS(t, `test("bare", () => {
+  file := parseTS(t, `test("bare", () => {
   expect(value);
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/valid-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/valid-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

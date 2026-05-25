@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestNoDoneCallbackReportsTestParameter verifies vitest/no-done-callback rejects callback-style async tests.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/no-done-callback.
 // 3. Assert one diagnostic is emitted.
 func TestVitestNoDoneCallbackReportsTestParameter(t *testing.T) {
-	file := parseTS(t, `it("uses callback", (done) => {
+  file := parseTS(t, `it("uses callback", (done) => {
   done();
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/no-done-callback": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/no-done-callback": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

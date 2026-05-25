@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestPreferToHaveLengthReportsLengthMatcher verifies vitest/prefer-to-have-length flags .length equality.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/prefer-to-have-length.
 // 3. Assert one diagnostic is emitted.
 func TestVitestPreferToHaveLengthReportsLengthMatcher(t *testing.T) {
-	file := parseTS(t, `test("length", () => {
+  file := parseTS(t, `test("length", () => {
   expect(items.length).toBe(3);
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/prefer-to-have-length": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/prefer-to-have-length": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

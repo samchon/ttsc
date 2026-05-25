@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestNoTestReturnStatementReportsReturn verifies vitest/no-test-return-statement flags returned values.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/no-test-return-statement.
 // 3. Assert one diagnostic is emitted.
 func TestVitestNoTestReturnStatementReportsReturn(t *testing.T) {
-	file := parseTS(t, `test("returns", () => {
+  file := parseTS(t, `test("returns", () => {
   return buildValue();
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/no-test-return-statement": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/no-test-return-statement": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

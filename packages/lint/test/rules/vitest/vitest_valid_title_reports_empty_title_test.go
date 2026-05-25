@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestValidTitleReportsEmptyTitle verifies vitest/valid-title rejects empty static titles.
@@ -15,12 +15,12 @@ import (
 // 2. Enable vitest/valid-title.
 // 3. Assert one diagnostic is emitted.
 func TestVitestValidTitleReportsEmptyTitle(t *testing.T) {
-	file := parseTS(t, `test("", () => {
+  file := parseTS(t, `test("", () => {
   expect(value).toBe(1);
 });
 `)
-	findings := NewEngine(RuleConfig{"vitest/valid-title": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/valid-title": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }

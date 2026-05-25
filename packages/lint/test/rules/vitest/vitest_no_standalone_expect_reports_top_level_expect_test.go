@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestVitestNoStandaloneExpectReportsTopLevelExpect verifies vitest/no-standalone-expect rejects module-scope assertions.
@@ -16,10 +16,10 @@ import (
 // 2. Enable vitest/no-standalone-expect.
 // 3. Assert one diagnostic is emitted.
 func TestVitestNoStandaloneExpectReportsTopLevelExpect(t *testing.T) {
-	file := parseTS(t, `expect(value).toBe(1);
+  file := parseTS(t, `expect(value).toBe(1);
 `)
-	findings := NewEngine(RuleConfig{"vitest/no-standalone-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("expected one finding, got %v", findingRules(findings))
-	}
+  findings := NewEngine(RuleConfig{"vitest/no-standalone-expect": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("expected one finding, got %v", findingRules(findings))
+  }
 }
