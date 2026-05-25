@@ -1,5 +1,8 @@
 import type {
+  ITtscLintDisableEnablePairRuleOptions,
   ITtscLintJsdocRuleOptions,
+  ITtscLintNoRestrictedDisableRuleOptions,
+  ITtscLintNoUseRuleOptions,
   ITtscLintPrintWidthRuleOptions,
   ITtscLintQuotesRuleOptions,
   ITtscLintSemiRuleOptions,
@@ -41,6 +44,33 @@ export interface ITtscLintRules {
 
   /** rejects obsolete `tslint:` comments. */
   "ban-tslint-comment"?: TtscLintRuleSetting;
+
+  /** requires range `eslint-disable` directives to be paired with `eslint-enable`. */
+  "eslint-comments/disable-enable-pair"?: TtscLintRuleOptionsSetting<ITtscLintDisableEnablePairRuleOptions>;
+
+  /** rejects bare `eslint-enable` comments that re-enable named disables at once. */
+  "eslint-comments/no-aggregating-enable"?: TtscLintRuleSetting;
+
+  /** rejects disable directives that repeat an already active disable. */
+  "eslint-comments/no-duplicate-disable"?: TtscLintRuleSetting;
+
+  /** rejects disable directives for configured protected rules. */
+  "eslint-comments/no-restricted-disable"?: TtscLintRuleOptionsSetting<ITtscLintNoRestrictedDisableRuleOptions>;
+
+  /** rejects disable directives with no explicit rule list. */
+  "eslint-comments/no-unlimited-disable"?: TtscLintRuleSetting;
+
+  /** rejects disable directives that suppress no finding. */
+  "eslint-comments/no-unused-disable"?: TtscLintRuleSetting;
+
+  /** rejects enable directives that do not re-enable anything. */
+  "eslint-comments/no-unused-enable"?: TtscLintRuleSetting;
+
+  /** rejects inline lint directive comments. */
+  "eslint-comments/no-use"?: TtscLintRuleOptionsSetting<ITtscLintNoUseRuleOptions>;
+
+  /** requires lint directive comments to include a `--` description. */
+  "eslint-comments/require-description"?: TtscLintRuleSetting;
 
   /** prefers `Record` for single index-signature object types. */
   "consistent-indexed-object-style"?: TtscLintRuleSetting;

@@ -169,6 +169,15 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable (type-aware).
 - [`ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
 - [`ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
+- `eslint-comments/disable-enable-pair`: requires range `eslint-disable` directives to be paired with `eslint-enable`.
+- `eslint-comments/no-aggregating-enable`: rejects bare `eslint-enable` comments that re-enable named disables at once.
+- `eslint-comments/no-duplicate-disable`: rejects repeated disables for a rule that is already disabled.
+- `eslint-comments/no-restricted-disable`: rejects disables for configured protected rules.
+- `eslint-comments/no-unlimited-disable`: rejects disable comments with no explicit rule list.
+- `eslint-comments/no-unused-disable`: rejects disable comments that suppress no diagnostic.
+- `eslint-comments/no-unused-enable`: rejects enable comments that do not re-enable anything.
+- `eslint-comments/no-use`: rejects lint directive comments entirely.
+- `eslint-comments/require-description`: requires directive comments to include a `--` description.
 - [`consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
 - [`consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
 - [`consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.

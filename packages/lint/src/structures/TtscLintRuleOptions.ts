@@ -137,12 +137,41 @@ export interface ITtscLintJsdocRuleOptions {
   sortTags?: boolean;
 }
 
+/** `eslint-comments/disable-enable-pair` rule options. */
+export interface ITtscLintDisableEnablePairRuleOptions {
+  /**
+   * Allow a file-leading range disable to stay open through the end of the file.
+   *
+   * @default false
+   */
+  allowWholeFile?: boolean;
+}
+
+/** `eslint-comments/no-restricted-disable` rule options. */
+export interface ITtscLintNoRestrictedDisableRuleOptions {
+  /** Rule names that inline disable comments may not suppress. */
+  rules?: readonly string[];
+}
+
+/** `eslint-comments/no-use` rule options. */
+export interface ITtscLintNoUseRuleOptions {
+  /**
+   * Directive markers that remain allowed, such as `"eslint-disable-next-line"`.
+   *
+   * @default []
+   */
+  allow?: readonly string[];
+}
+
 /**
- * Index from format rule name to its option object. Kept as a public lookup
+ * Index from option-bearing rule name to its option object. Kept as a public lookup
  * type for consumers that want to derive option helpers from the same rule
  * names accepted by `ITtscLintRules`.
  */
 export interface ITtscLintRuleOptionsMap {
+  "eslint-comments/disable-enable-pair": ITtscLintDisableEnablePairRuleOptions;
+  "eslint-comments/no-restricted-disable": ITtscLintNoRestrictedDisableRuleOptions;
+  "eslint-comments/no-use": ITtscLintNoUseRuleOptions;
   "format/semi": ITtscLintSemiRuleOptions;
   "format/quotes": ITtscLintQuotesRuleOptions;
   "format/trailing-comma": ITtscLintTrailingCommaRuleOptions;
