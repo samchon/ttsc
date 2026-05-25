@@ -302,6 +302,22 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+- [`react/button-has-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_button_has_type_requires_explicit_type_test.go): requires explicit valid `type` values on JSX `button` elements.
+- [`react/iframe-missing-sandbox`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_iframe_missing_sandbox_reports_iframe_test.go): requires JSX `iframe` elements to include a sandbox attribute.
+- [`react/jsx-key`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_jsx_key_reports_array_element_test.go): requires `key` props for JSX elements produced by arrays or `.map()`.
+- [`react/jsx-no-duplicate-props`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_jsx_no_duplicate_props_reports_duplicate_test.go): rejects duplicate JSX prop names on the same element.
+- [`react/jsx-no-script-url`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_jsx_no_script_url_reports_javascript_href_test.go): rejects `javascript:` URLs in JSX URL-like props.
+- [`react/no-array-index-key`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_array_index_key_reports_index_key_test.go): rejects array map index parameters as JSX keys.
+- [`react/no-children-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_children_prop_reports_children_prop_test.go): rejects passing children through a JSX `children` prop.
+- [`react/no-danger`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_danger_reports_dangerously_set_inner_html_test.go): rejects `dangerouslySetInnerHTML`.
+- [`react/no-danger-with-children`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_danger_with_children_reports_mixed_content_test.go): rejects combining `dangerouslySetInnerHTML` with children.
+- [`react/no-direct-mutation-state`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_direct_mutation_state_reports_state_property_write_test.go): rejects direct writes to `this.state` outside constructor initialization.
+- [`react/no-find-dom-node`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_find_dom_node_reports_call_test.go): rejects `findDOMNode` calls.
+- [`react/no-is-mounted`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_is_mounted_reports_call_test.go): rejects `isMounted` calls.
+- [`react/no-string-refs`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_string_refs_reports_string_ref_test.go): rejects string JSX refs.
+- [`react/no-unescaped-entities`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_unescaped_entities_reports_quote_text_test.go): rejects unescaped `>`, `"`, `'`, and `}` in JSX text.
+- [`react/style-prop-object`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_style_prop_object_reports_string_style_test.go): rejects string literal JSX `style` prop values.
+- [`react/void-dom-elements-no-children`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_void_dom_elements_no_children_reports_img_child_test.go): rejects children and HTML injection props on void DOM elements.
 
 ## Third-party rule plugins
 

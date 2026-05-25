@@ -94,7 +94,8 @@ func checkReactNoArrayIndexKey(ctx *Context, node *shimast.Node) {
 	if !ok {
 		return
 	}
-	if reactJSXAttrExpressionIdentifier(attr) == "index" {
+	name := reactJSXAttrExpressionIdentifier(attr)
+	if name != "" && reactJSXNeedsKey(node) && reactJSXKeyUsesMapIndex(node, name) {
 		ctx.Report(attr.node, "Do not use array index as key.")
 	}
 }
@@ -466,13 +467,36 @@ func reactIsMapCallbackReturn(node *shimast.Node) bool {
 		return false
 	}
 	body := fn.Body()
-	if body == node || stripParens(body) == node {
+	if reactJSXIsReturnedExpression(node, body) {
 		return true
 	}
 	for cur := node.Parent; cur != nil && cur != fn; cur = cur.Parent {
 		if cur.Kind == shimast.KindReturnStatement {
 			ret := cur.AsReturnStatement()
-			return ret != nil && (ret.Expression == node || stripParens(ret.Expression) == node)
+			return ret != nil && reactJSXIsReturnedExpression(node, ret.Expression)
+		}
+	}
+	return false
+}
+
+func reactJSXIsReturnedExpression(node, expr *shimast.Node) bool {
+	target := stripParens(expr)
+	if target == nil {
+		return false
+	}
+	for cur := node; cur != nil; cur = cur.Parent {
+		if cur != node && (cur.Kind == shimast.KindJsxElement || cur.Kind == shimast.KindJsxSelfClosingElement) {
+			return false
+		}
+		if stripParens(cur) == target {
+			return true
+		}
+		if cur != node {
+			switch cur.Kind {
+			case shimast.KindParenthesizedExpression, shimast.KindConditionalExpression, shimast.KindBinaryExpression:
+			default:
+				return false
+			}
 		}
 	}
 	return false
@@ -498,6 +522,19 @@ func reactIsMapCallback(fn *shimast.Node) bool {
 	}
 	_, method, ok := reactPropertyAccessParts(call.Expression)
 	return ok && method == "map"
+}
+
+func reactJSXKeyUsesMapIndex(node *shimast.Node, name string) bool {
+	fn := reactNearestFunctionLike(node)
+	if fn == nil || !reactIsMapCallback(fn) {
+		return false
+	}
+	params := fn.Parameters()
+	if len(params) < 2 {
+		return false
+	}
+	param := params[1].AsParameterDeclaration()
+	return param != nil && identifierText(param.Name()) == name
 }
 
 func reactPropertyAccessParts(node *shimast.Node) (*shimast.Node, string, bool) {
