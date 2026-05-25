@@ -111,6 +111,47 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Playwright
+
+These rules mirror high-confidence `eslint-plugin-playwright` checks under the
+`playwright/*` namespace. The native implementation focuses on TS test-source
+AST patterns that do not require ESLint's scope manager or Playwright runtime
+configuration.
+
+| Rule | Effect |
+| ---- | ------ |
+| `playwright/expect-expect` | Require Playwright test bodies to contain an assertion. |
+| `playwright/max-expects` | Limit excessive assertion counts inside one test body. |
+| `playwright/no-conditional-expect` | Reject `expect` calls inside conditionals. |
+| `playwright/no-conditional-in-test` | Reject conditionals inside Playwright test bodies. |
+| `playwright/no-duplicate-hooks` | Reject duplicate Playwright hooks in the same file. |
+| `playwright/no-duplicate-slow` | Reject repeated `test.slow()` markers. |
+| `playwright/no-element-handle` | Reject direct element-handle APIs such as `$`, `$$`, and `elementHandle`. |
+| `playwright/no-eval` | Reject Playwright page and locator evaluation APIs. |
+| `playwright/no-focused-test` | Reject `test.only` and `test.describe.only`. |
+| `playwright/no-force-option` | Reject `{ force: true }` Playwright action options. |
+| `playwright/no-get-by-title` | Prefer stronger locators over `getByTitle`. |
+| `playwright/no-hooks` | Reject Playwright hook registration. |
+| `playwright/no-nested-step` | Reject nested `test.step()` calls. |
+| `playwright/no-networkidle` | Reject `networkidle` load-state and `waitUntil` usage. |
+| `playwright/no-nth-methods` | Reject brittle `.first()`, `.last()`, and `.nth()` locator indexing. |
+| `playwright/no-page-pause` | Reject committed `page.pause()` debugging calls. |
+| `playwright/no-skipped-test` | Reject `test.skip` and `test.describe.skip`. |
+| `playwright/no-slowed-test` | Reject `test.slow()` usage. |
+| `playwright/no-standalone-expect` | Require `expect` calls to appear inside tests, describes, hooks, or steps. |
+| `playwright/no-wait-for-navigation` | Reject `page.waitForNavigation()`. |
+| `playwright/no-wait-for-selector` | Reject `page.waitForSelector()`. |
+| `playwright/no-wait-for-timeout` | Reject fixed `page.waitForTimeout()` waits. |
+| `playwright/prefer-locator` | Prefer locator APIs over direct page selector calls. |
+| `playwright/prefer-to-have-count` | Prefer `toHaveCount` over count comparisons. |
+| `playwright/prefer-to-have-length` | Prefer `toHaveLength` over length comparisons. |
+| `playwright/prefer-web-first-assertions` | Prefer locator/web-first assertions over awaited state plus generic matchers. |
+| `playwright/require-to-pass-timeout` | Require an explicit timeout option for `expect(...).toPass()`. |
+| `playwright/require-to-throw-message` | Require `toThrow` assertions to include an expected message. |
+| `playwright/valid-describe-callback` | Require `test.describe` callbacks to be synchronous. |
+| `playwright/valid-expect` | Require `expect` calls to receive an actual value. |
+| `playwright/valid-title` | Require Playwright test and describe titles to be non-empty strings. |
+
 ## Format
 
 The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
