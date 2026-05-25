@@ -23,9 +23,7 @@ measurements visible below.
 
 The Summary tab keeps only the strongest result in each category. Build and
 Type-check compare one unit of work across the legacy compiler, `ttsc` in
-single-threaded and checker-pool modes. Raw `tsgo` rows are kept as a reference
-for native-preview overhead, but they are not eligible for the headline winner
-or per-project best ratio.
+single-threaded and checker-pool modes.
 
 Lint is intentionally split out. The legacy path is `tsc + eslint`, two
 separate passes over the project. The `ttsc-lint` path runs `ttsc` with
@@ -95,8 +93,8 @@ varies by fixture.
 
 ### Threading variants
 
-Build, type-check, and lint cells for `ttsc` and `ttsc:tsgo` are measured under
-four threading configurations, in display order:
+Build, type-check, and lint cells for `ttsc` are measured under four threading
+configurations, in display order:
 
 | Variant     | Flag               | What it caps                                                                         |
 | ----------- | ------------------ | ------------------------------------------------------------------------------------ |
@@ -122,17 +120,17 @@ current snapshot relabels the former `checkers4` format samples as the bare
 
 ## Why Threading Doesn't Always Help
 
-The dashboard exposes two threading variants of `ttsc` — the default (parallel
-parse, parallel emit, parallel rule walk) and the `--singleThreaded` mode that
-mirrors `tsgo --singleThreaded`. The multi-threaded variant is usually faster,
-but the size of the win swings widely across projects: type-check on
+The dashboard exposes multiple threading variants of `ttsc`: serial execution
+with `--singleThreaded`, plus checker-pool caps with `--checkers 2`, `4`, and
+`8`. The less constrained variants are usually faster, but the size of the win
+swings widely across projects: type-check on
 `vscode` is roughly 2× the single-threaded time, while `format` on
 `shopping-backend` lands within a percent of the single-threaded run. Two
 mechanics drive that spread.
 
 **Per-build chunking caps the parallel win.** TypeScript-Go's worker pool lives
 inside one program. A fixture that splits the work across many `tsc -p` or
-`ttsc -p` invocations — `rxjs` type-checks with three separate `tsgo` calls
+`ttsc -p` invocations — `rxjs` type-checks with three separate compiler calls
 (cjs / esm / types tsconfigs) and formats with two (observable / rxjs
 packages); `nestjs` runs one per published package (nine for type-check, nine
 for format); `shopping-backend` is a single small program — pays parse-startup
@@ -221,10 +219,10 @@ written to `experimental/benchmark/.work/report.md`,
 The published snapshot pins every fixture's `legacy` branch to the
 **Legacy TypeScript** version shown in the host panel and on each project row
 (currently `v6.0.3`) so the `tsc` baseline reflects the same major
-version the `ttsc` / `@typescript/native-preview` row runs against. Earlier
+version the `ttsc` rows run against. Earlier
 snapshots ran legacy on TypeScript 4.9.5 / 5.x; the matrix kept its shape but
 the cross-row comparison was apples-to-oranges. The fixtures' `ttsc` and
-`ttsc-lint` branches do not pin `typescript` because they run on tsgo.
+`ttsc-lint` branches use the local tarballs packed by the runner.
 
 The fastest cells (`ttsc:build:single`, `ttsc:noEmit:single`) finish in
 2–8 seconds, which is short enough that ambient host load — a concurrent

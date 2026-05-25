@@ -113,7 +113,7 @@ export default function BenchmarkDashboard() {
           report={report}
           op="build"
           title="Build"
-          description="Each project groups tsc (legacy), ttsc ST/MT, and optional tsgo ST/MT in one chart."
+          description="Each project groups tsc (legacy) and ttsc threading variants in one chart."
         />
       ) : null}
       {activeTab === "check" ? (
@@ -121,7 +121,7 @@ export default function BenchmarkDashboard() {
           report={report}
           op="noEmit"
           title="Type-check"
-          description="Each project groups tsc (legacy), ttsc ST/MT, and optional tsgo ST/MT in one noEmit chart."
+          description="Each project groups tsc (legacy) and ttsc threading variants in one noEmit chart."
         />
       ) : null}
       {activeTab === "lint" ? <LintTab report={report} /> : null}
@@ -746,21 +746,6 @@ function operationRows(
       });
   }
 
-  for (const threading of TTSC_THREADING_SPECTRUM) {
-    const measurement = findMeasured(measurements, {
-      branch: "ttsc",
-      tool: "tsgo",
-      op,
-      threading,
-    });
-    if (measurement)
-      rows.push({
-        label: compilerCliLabel("tsgo", op, threading),
-        measurement,
-        color: tsgoBarColor(threading),
-      });
-  }
-
   return rows;
 }
 
@@ -1293,7 +1278,7 @@ function findTtscLintTotal(
 }
 
 function compilerCliLabel(
-  tool: "tsc" | "ttsc" | "tsgo",
+  tool: "tsc" | "ttsc",
   op: Operation,
   threading: Threading,
 ) {
@@ -1309,7 +1294,7 @@ function compilerCliLabel(
   return parts.join(" ");
 }
 
-/** Threading variants the ttsc/tsgo rows iterate, in display order. */
+/** Threading variants the ttsc rows iterate, in display order. */
 const TTSC_THREADING_SPECTRUM: readonly Threading[] = [
   "single",
   "checkers2",
@@ -1337,20 +1322,6 @@ function ttscBarColor(threading: Threading): string {
     case "checkers8":
     case "multi":
       return "bg-cyan-400";
-  }
-}
-
-function tsgoBarColor(threading: Threading): string {
-  switch (threading) {
-    case "single":
-      return "bg-violet-700";
-    case "checkers2":
-      return "bg-violet-600";
-    case "checkers4":
-      return "bg-violet-500";
-    case "checkers8":
-    case "multi":
-      return "bg-violet-400";
   }
 }
 

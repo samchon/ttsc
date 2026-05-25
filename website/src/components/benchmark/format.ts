@@ -189,42 +189,6 @@ export function deriveSpeedups(
           : undefined,
       );
     }
-
-    const tsgoBuild = findMeasurement(measurements, {
-      branch: "ttsc",
-      tool: "tsgo",
-      op: "build",
-      threading,
-    });
-    push(
-      `ttsc-vs-tsgo-build-${threading}`,
-      `TTSC vs TSGO build (${threading})`,
-      "tsgo build vs ttsc build on the ttsc branch",
-      tsgoBuild && { tool: `tsgo ${threading}`, ms: tsgoBuild.medianMs },
-      ttscBuild && { tool: `ttsc ${threading}`, ms: ttscBuild.medianMs },
-      true,
-    );
-
-    const tsgoNoEmit = findMeasurement(measurements, {
-      branch: "ttsc",
-      tool: "tsgo",
-      op: "noEmit",
-      threading,
-    });
-    push(
-      `ttsc-vs-tsgo-noEmit-${threading}`,
-      `TTSC vs TSGO no emit (${threading})`,
-      "tsgo --noEmit vs ttsc --noEmit on the ttsc branch",
-      tsgoNoEmit && {
-        tool: `tsgo --noEmit ${threading}`,
-        ms: tsgoNoEmit.medianMs,
-      },
-      ttscNoEmit && {
-        tool: `ttsc --noEmit ${threading}`,
-        ms: ttscNoEmit.medianMs,
-      },
-      true,
-    );
   }
 
   return out;
@@ -233,8 +197,7 @@ export function deriveSpeedups(
 export function headlineSpeedup(speedups: Speedup[]): Speedup | undefined {
   return speedups
     .filter((speedup) => !speedup.referenceOnly)
-    .reduce<Speedup | undefined>(
-      (best, s) => (best === undefined || s.factor > best.factor ? s : best),
-      undefined,
-    );
+    .reduce<Speedup | undefined>((best, s) => {
+      return best === undefined || s.factor > best.factor ? s : best;
+    }, undefined);
 }

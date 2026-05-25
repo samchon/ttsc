@@ -17,7 +17,6 @@
 export type BenchmarkBranch = "legacy" | "ttsc" | "ttsc-lint";
 export type BenchmarkTool =
   | "tsc"
-  | "tsgo"
   | "ttsc"
   | "ttsc+@ttsc/lint"
   | "eslint"
@@ -31,7 +30,7 @@ export type BenchmarkOp = "build" | "noEmit" | "eslint" | "format";
  *   engine all run serially.
  * - `checkers2` / `checkers4` / `checkers8`: parse and the lint engine use the
  *   host's full CPU count, but the TypeScript-Go checker pool is capped at 2,
- *   4, or 8 workers via tsgo's `--checkers N`. The spectrum exposes the
+ *   4, or 8 workers via `--checkers N`. The spectrum exposes the
  *   diminishing-returns shape of the checker pool independently of the parse
  *   parallelism.
  * - `multi`: the bare command with no threading flag. Legacy measurements use it
@@ -120,8 +119,6 @@ export interface BenchmarkProject {
   kind: string;
   /** Installed TypeScript version in the fixture's legacy clone. */
   typescript?: string;
-  /** Installed @typescript/native-preview version in the fixture's ttsc clone. */
-  tsgo?: string;
   measurements: BenchmarkMeasurement[];
 }
 
@@ -133,7 +130,6 @@ export interface BenchmarkHost {
   ramGB: number;
   node: string;
   ttsc: string;
-  tsgo: string;
   typescript: string;
 }
 

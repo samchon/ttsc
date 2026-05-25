@@ -78,19 +78,19 @@ const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
-// Pin the tsgo experiment to the repository lockfile, not whatever a fixture
-// happened to resolve. Fixtures will be normalized later; the published label
-// should still describe the ttsc workspace under test.
-const TSGO_VERSION =
-  readTsgoLockVersion(REPO_ROOT) ??
+// Pin the TypeScript-Go runtime to the repository lockfile, not whatever a
+// fixture happened to resolve. Fixtures will be normalized later so every ttsc
+// branch measures the same workspace runtime.
+const NATIVE_PREVIEW_VERSION =
+  readNativePreviewLockVersion(REPO_ROOT) ??
   packageVersion(
     path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
   ) ??
-  readTsgoWorkspaceCatalogVersion(REPO_ROOT);
+  readNativePreviewWorkspaceCatalogVersion(REPO_ROOT);
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
 const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
-const TSGO_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
-const GENERATED_PNPM_WORKSPACE = "packages:\n  - \".\"\n";
+const NATIVE_PREVIEW_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
+const GENERATED_PNPM_WORKSPACE = 'packages:\n  - "."\n';
 const LEGACY_TYPESCRIPT_DISPLAY_VERSION = "v6.0.3";
 const LOCAL_TARBALLS = [
   {
@@ -499,7 +499,7 @@ function packageVersion(dir) {
   }
 }
 
-function readTsgoLockVersion(repoRoot) {
+function readNativePreviewLockVersion(repoRoot) {
   try {
     const file = fs.readFileSync(path.join(repoRoot, "pnpm-lock.yaml"), "utf8");
     const match = file.match(
@@ -512,7 +512,7 @@ function readTsgoLockVersion(repoRoot) {
   return undefined;
 }
 
-function readTsgoWorkspaceCatalogVersion(repoRoot) {
+function readNativePreviewWorkspaceCatalogVersion(repoRoot) {
   try {
     const file = fs.readFileSync(
       path.join(repoRoot, "pnpm-workspace.yaml"),
@@ -546,12 +546,6 @@ function compilerCommands({ build, noEmit, eslint, format }) {
     ttsc: {
       build: normalizeSteps(build("ttsc")),
       noEmit: normalizeSteps(noEmit("ttsc")),
-      // Direct tsgo invocation lives on the same `ttsc` clone as a second op
-      // so the chart can show the raw native-preview cost alongside ttsc and
-      // expose the per-invocation plugin-host overhead the ttsc launcher
-      // carries.
-      tsgoBuild: normalizeSteps(build("tsgo")),
-      tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
     },
     "ttsc-lint": ttscLint,
   };
@@ -595,8 +589,6 @@ function nestjsCommands() {
     ttsc: {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
       noEmit: normalizeSteps(nestjsPackageSteps("ttsc", true)),
-      tsgoBuild: normalizeSteps(nestjsPackageSteps("tsgo", false)),
-      tsgoNoEmit: normalizeSteps(nestjsPackageSteps("tsgo", true)),
     },
     "ttsc-lint": {
       build: normalizeSteps(nestjsPackageSteps("ttsc", false)),
@@ -963,8 +955,8 @@ function installIfNeeded(project, dir, branch) {
       );
     }
     if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
-    if (mustRefreshTarballs && !hasPinnedTsgoRuntimeDeps(dir)) {
-      installPinnedTsgoRuntimeDeps(project, dir, branch);
+    if (mustRefreshTarballs && !hasPinnedNativePreviewRuntimeDeps(dir)) {
+      installPinnedNativePreviewRuntimeDeps(project, dir, branch);
     }
   });
 }
@@ -1225,25 +1217,18 @@ function linkPackageBins(packageDir, nodeModules) {
   }
 }
 
-function hasTsgoCells(project) {
-  return Boolean(
-    project.commands.ttsc?.tsgoBuild?.length ||
-    project.commands.ttsc?.tsgoNoEmit?.length,
-  );
-}
-
-function installPinnedTsgoRuntimeDeps(project, dir, branch) {
+function installPinnedNativePreviewRuntimeDeps(project, dir, branch) {
   const specs = [
-    `@typescript/native-preview@${TSGO_VERSION}`,
-    `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}`,
+    `@typescript/native-preview@${NATIVE_PREVIEW_VERSION}`,
+    `${NATIVE_PREVIEW_PLATFORM_PACKAGE}@${NATIVE_PREVIEW_VERSION}`,
   ]
     .map(quote)
     .join(" ");
   const pm = project.packageManager;
   // Mirror `installLocalTarballs` and bypass any fixture-side
-  // `minimumReleaseAge` policy. tsgo dev tags publish on a daily-ish cadence
-  // and the bench should always pin to whatever ttsc's workspace resolves,
-  // not what an old enough mirror happens to expose.
+  // `minimumReleaseAge` policy. The runtime dev tags publish on a daily-ish
+  // cadence and the bench should always pin to whatever ttsc's workspace
+  // resolves, not what an old enough mirror happens to expose.
   const cmd =
     pm === "pnpm"
       ? ownsPnpmWorkspace(dir)
@@ -1253,9 +1238,9 @@ function installPinnedTsgoRuntimeDeps(project, dir, branch) {
         ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
         : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
   process.stdout.write(
-    `Installing pinned tsgo runtime deps into ${path.basename(dir)}: ` +
-      `@typescript/native-preview@${TSGO_VERSION}, ` +
-      `${TSGO_PLATFORM_PACKAGE}@${TSGO_VERSION}\n`,
+    `Installing pinned TypeScript-Go runtime deps into ${path.basename(dir)}: ` +
+      `@typescript/native-preview@${NATIVE_PREVIEW_VERSION}, ` +
+      `${NATIVE_PREVIEW_PLATFORM_PACKAGE}@${NATIVE_PREVIEW_VERSION}\n`,
   );
   withDependencyFileSnapshot(dir, () => {
     scrubLocalTarballInstallState(dir, localTarballTargets(branch));
@@ -1263,10 +1248,10 @@ function installPinnedTsgoRuntimeDeps(project, dir, branch) {
   });
 }
 
-function hasPinnedTsgoRuntimeDeps(dir) {
+function hasPinnedNativePreviewRuntimeDeps(dir) {
   return (
-    depVersion(dir, "@typescript/native-preview") === TSGO_VERSION &&
-    depVersion(dir, TSGO_PLATFORM_PACKAGE) === TSGO_VERSION
+    depVersion(dir, "@typescript/native-preview") === NATIVE_PREVIEW_VERSION &&
+    depVersion(dir, NATIVE_PREVIEW_PLATFORM_PACKAGE) === NATIVE_PREVIEW_VERSION
   );
 }
 
@@ -1280,10 +1265,7 @@ function singleThreadedSteps(steps) {
       const { singleThreadedCmd, ...rest } = step;
       return { ...rest, cmd: singleThreadedCmd };
     }
-    if (
-      !/\b(?:ttsc|tsgo)\b/.test(step.cmd) ||
-      /--singleThreaded\b/.test(step.cmd)
-    ) {
+    if (!/\bttsc\b/.test(step.cmd) || /--singleThreaded\b/.test(step.cmd)) {
       return step;
     }
     return { ...step, cmd: `${step.cmd} --singleThreaded` };
@@ -1291,14 +1273,14 @@ function singleThreadedSteps(steps) {
 }
 
 /**
- * Append `--checkers N` to every ttsc/tsgo step in the cell. Used to sweep the
+ * Append `--checkers N` to every ttsc step in the cell. Used to sweep the
  * checker-pool size axis (2 / 4 / 8) replacing the previous binary single/multi
  * axis. Parse and the lint engine still run with the host's full CPU count;
  * only the type-checker pool is capped.
  */
 function checkersSteps(steps, n) {
   return steps.map((step) => {
-    if (!/\b(?:ttsc|tsgo)\b/.test(step.cmd) || /--checkers\b/.test(step.cmd)) {
+    if (!/\bttsc\b/.test(step.cmd) || /--checkers\b/.test(step.cmd)) {
       return step;
     }
     return { ...step, cmd: `${step.cmd} --checkers ${n}` };
@@ -1318,10 +1300,10 @@ function diagnosticsSteps(steps) {
 }
 
 /**
- * Threading variants the bench measures for every ttsc / ttsc-lint / ttsc:tsgo
- * cell. Order is the spec the user asked for: serial baseline first, then the
- * 2/4/8 checker-pool sweep, so the dashboard rows read left-to-right as `single
- * → checkers2 → checkers4 → checkers8`.
+ * Threading variants the bench measures for every ttsc / ttsc-lint cell. Order
+ * is the spec the user asked for: serial baseline first, then the 2/4/8
+ * checker-pool sweep, so the dashboard rows read left-to-right as `single →
+ * checkers2 → checkers4 → checkers8`.
  *
  * Returned by a function rather than a top-level `const` so the call sites
  * (`projectCells`, invoked from `main()` near the top of the file) hit a
@@ -1611,7 +1593,6 @@ function projectReportFor(project, measurements) {
     typescript: displayLegacyTypescriptVersion(
       depVersion(cloneDir(project, "legacy"), "typescript"),
     ),
-    tsgo: TSGO_VERSION,
     measurements,
   };
 }
@@ -1674,7 +1655,6 @@ function hostSpec(projects) {
     typescript: displayLegacyTypescriptVersion(
       commonDepVersion(projects, "legacy", "typescript"),
     ),
-    tsgo: TSGO_VERSION,
   };
 }
 
@@ -1914,7 +1894,7 @@ function main() {
   if (!wantedProjects.some((project) => projectCells(project).length !== 0))
     throw new Error("no benchmark cells selected");
 
-  // Quiet-host gate. Short ttsc / tsgo cells (build/noEmit) finish in 2–8 s
+  // Quiet-host gate. Short ttsc cells (build/noEmit) finish in 2–8 s
   // and a noisy host (concurrent claude worktrees, ts-node jobs, video
   // playback) can move a single sample by 30–60 %. The threshold is the
   // 1-minute load average per logical CPU: 0.5 is the rule of thumb above
@@ -2070,23 +2050,6 @@ function projectCells(project) {
           });
         }
       }
-      if (branch === "ttsc" && (op === "build" || op === "noEmit")) {
-        const tsgoSteps =
-          branchCommands[op === "build" ? "tsgoBuild" : "tsgoNoEmit"];
-        if (tsgoSteps?.length) {
-          for (const variant of threadingVariants()) {
-            cells.push({
-              id: `${project.name}:${branch}:tsgo:${op}:${variant.name}`,
-              project,
-              branch,
-              tool: "tsgo",
-              op,
-              threading: variant.name,
-              steps: variant.apply(tsgoSteps),
-            });
-          }
-        }
-      }
     }
   }
   return filterCells(cells);
@@ -2099,10 +2062,7 @@ function projectBranches(project) {
 function filterCells(cells) {
   const predicates = [];
   if (flags.has("--ttsc-build-only") || flags.has("--only-ttsc-build")) {
-    predicates.push(
-      (cell) =>
-        cell.branch === "ttsc" && cell.op === "build" && cell.tool !== "tsgo",
-    );
+    predicates.push((cell) => cell.branch === "ttsc" && cell.op === "build");
   }
   if (flags.has("--lint-only")) {
     predicates.push(isLintComparisonCell);
@@ -2122,8 +2082,7 @@ function filterCells(cells) {
 function isLintComparisonCell(cell) {
   if (cell.branch === "legacy")
     return cell.op === "noEmit" || cell.op === "eslint";
-  if (cell.branch === "ttsc")
-    return cell.op === "noEmit" && cell.tool !== "tsgo";
+  if (cell.branch === "ttsc") return cell.op === "noEmit";
   return cell.branch === "ttsc-lint" && cell.op === "noEmit";
 }
 
