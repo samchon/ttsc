@@ -18,7 +18,11 @@ type TtscPluginContributor = {
 
 /** Descriptor shape returned to ttsc's plugin builder by the factory. */
 type TtscPluginDescriptor = {
-  capabilities?: { diagnosticsTiming?: boolean; threadingArgs?: boolean };
+  capabilities?: {
+    diagnosticsTiming?: boolean;
+    lsp?: boolean;
+    threadingArgs?: boolean;
+  };
   contributors?: TtscPluginContributor[];
   name: string;
   reportsTypeScriptDiagnostics?: boolean;
@@ -113,7 +117,7 @@ export default function createTtscPlugin(
   // declared, so consumers (and the existing key-shape regression
   // tests) see the same surface as before this feature shipped.
   const descriptor: TtscPluginDescriptor = {
-    capabilities: { diagnosticsTiming: true, threadingArgs: true },
+    capabilities: { diagnosticsTiming: true, lsp: true, threadingArgs: true },
     name: "@ttsc/lint",
     reportsTypeScriptDiagnostics: true,
     source: path.resolve(__dirname, "..", "plugin"),

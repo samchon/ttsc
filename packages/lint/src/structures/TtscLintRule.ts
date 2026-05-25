@@ -143,6 +143,7 @@ export type TtscLintRule =
   | "prefer-spread"
   | "prefer-template"
   | "radix"
+  | "react-refresh/only-export-components"
   | "require-yield"
   | "triple-slash-reference"
   | "use-isnan"

@@ -92,6 +92,12 @@ Apply these to `*.stories.ts`, `*.stories.tsx`, and `.storybook/main.ts` files a
 | `storybook/use-storybook-expect` | Requires importing `expect` from Storybook's test packages instead of using a global. |
 | `storybook/use-storybook-testing-library` | Rejects direct `@testing-library/*` imports in story files; import through `storybook/test`. |
 
+## React Fast Refresh
+
+| Rule | Effect |
+| ---- | ------ |
+| `react-refresh/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
+
 ## Promises and async
 
 | Rule | Effect |

@@ -2,7 +2,7 @@
 
 A guided source-code reading of every plugin that ships with `ttsc`. By the end you should be able to open `packages/<name>/` in your editor and follow what every line does.
 
-> **Prerequisite:** skim [Concepts](/docs/development/concepts). The tour assumes the vocabulary — *descriptor*, *sidecar*, *stage*, *subcommand*, *shim*, *auto-discovery* — and does not redefine those terms inline.
+> **Prerequisite:** skim [Concepts](/docs/development/concepts). The tour assumes the vocabulary — _descriptor_, _sidecar_, _stage_, _subcommand_, _shim_, _auto-discovery_ — and does not redefine those terms inline.
 
 The shipped plugins are ordered by difficulty:
 
@@ -22,21 +22,21 @@ packages/<name>/
 ├── package.json        ← "ttsc": { "plugin": { "transform": "@ttsc/<name>" } }
 ├── src/
 │   └── index.ts (or .cjs)   ← JS descriptor — exports { name, source, stage }
-├── go.mod              ← Go module declaration for the sidecar
+├── go.mod              ← Go module declaration for the native source
 └── plugin/
-    ├── main.go         ← Native sidecar entrypoint — the binary ttsc spawns
+    ├── main.go         ← Optional executable sidecar entrypoint
     └── <name>.go       ← Package-local helper
 └── driver/
     └── <name>.go       ← Optional linked transform package
 ```
 
-The JS descriptor lives in `node_modules` on consumer machines and tells `ttsc` *where* the Go source is. The Go sidecar is built once and cached; `ttsc` then spawns it with subcommands like `transform`, `build`, or `check`.
+The JS descriptor lives in `node_modules` on consumer machines and tells `ttsc` _where_ the Go source is. The selected Go source is built once and cached; executable `package main` sources are spawned with subcommands like `transform`, `build`, or `check`, while linked transform packages run inside the selected native host.
 
 If anything in that paragraph feels new, read [Concepts → Plugin protocol](/docs/development/concepts/protocol) first.
 
 ## Where the real logic lives
 
-The Go sidecars at `packages/banner/plugin/main.go`, `packages/strip/plugin/main.go`, and `packages/paths/plugin/main.go` are each small dispatchers. When you open `strip/plugin/main.go` to "learn the strip plugin," you are reading the process entrypoint; the statement-removal code lives in `packages/strip/driver/strip.go`.
+The package-local sidecars at `packages/banner/plugin/main.go`, `packages/strip/plugin/main.go`, and `packages/paths/plugin/main.go` are small standalone utility dispatchers. The published descriptors for those transform plugins point at `driver/`, so consumer builds run the linked transform package inside the selected native host; the statement-removal code lives in `packages/strip/driver/strip.go`.
 
 Transform packages can also expose linked Go packages instead of executable command packages. A linked package calls `driver.RegisterPlugin` from `init()` and implements `driver.SourcePreamblePlugin` and/or `driver.ProgramPlugin`; `ttsc` copies it into the selected native host at build time. This is capability-based, not package-name based: any transform descriptor whose `source` resolves to a non-`main` Go package uses the same path.
 
@@ -55,7 +55,7 @@ Each walkthrough has the same structure:
 2. **Directory layout.** Where every file lives in the repo, and which file is "the real one" to read.
 3. **JS descriptor.** Short — usually 10 lines — but it pins the descriptor shape every plugin must satisfy.
 4. **Go module file.** What goes in `go.mod` and why. Especially for Go beginners.
-5. **Native sidecar entrypoint.** The `main.go` dispatcher, line by line.
+5. **Native entrypoint or linked source.** The `main.go` dispatcher or `driver/` package, line by line.
 6. **The real logic.** The bulk of the page: a guided read of the actual transform / check code in production.
 7. **Beginner annotations.** Sidebars that explain Go-specific constructs (`flag.NewFlagSet`, pointer receivers, `defer`, etc.) the first time they appear.
 8. **What to copy, what to ignore.** Closing summary of which patterns generalize to plugin authors and which are just package-local implementation details.
@@ -77,7 +77,7 @@ After all four plugins look familiar, this is the smallest tsconfig that uses ev
 {
   "compilerOptions": {
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
     "rootDir": "src",
     "outDir": "dist",
@@ -86,10 +86,10 @@ After all four plugins look familiar, this is the smallest tsconfig that uses ev
       { "transform": "@ttsc/lint" },
       { "transform": "@ttsc/banner" },
       { "transform": "@ttsc/strip" },
-      { "transform": "@ttsc/paths" }
-    ]
+      { "transform": "@ttsc/paths" },
+    ],
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 
