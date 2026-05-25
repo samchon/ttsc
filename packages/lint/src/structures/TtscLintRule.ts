@@ -168,6 +168,7 @@ export type TtscLintRule =
   | "react-refresh/only-export-components"
   | "require-yield"
   | "triple-slash-reference"
+  | "tsdoc/syntax"
   | "use-isnan"
   | "valid-typeof"
   | "vars-on-top"

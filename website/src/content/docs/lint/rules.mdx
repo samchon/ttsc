@@ -44,6 +44,12 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-loss-of-precision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
 | `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
 
+## Documentation comments
+
+| Rule | Effect |
+| ---- | ------ |
+| `tsdoc/syntax` | Validate basic TSDoc syntax in `/** ... */` comments, including malformed block tags and malformed or unclosed inline tags. |
+
 ## Regular expressions
 
 The first `regexp/*` wave mirrors high-confidence `eslint-plugin-regexp`
