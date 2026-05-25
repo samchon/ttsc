@@ -257,6 +257,104 @@ func (noMisusedNew) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// noUnnecessaryParameterPropertyAssignment: parameter properties already
+// assign the constructor argument to `this.<name>` before the body runs.
+// A body-level `this.x = x` immediately repeats that initialization.
+type noUnnecessaryParameterPropertyAssignment struct{}
+
+func (noUnnecessaryParameterPropertyAssignment) Name() string {
+  return "noUnnecessaryParameterPropertyAssignment"
+}
+func (noUnnecessaryParameterPropertyAssignment) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindConstructor}
+}
+func (noUnnecessaryParameterPropertyAssignment) Check(ctx *Context, node *shimast.Node) {
+  parameterProperties := map[string]bool{}
+  for _, param := range node.Parameters() {
+    name, ok := parameterPropertyName(param)
+    if ok {
+      parameterProperties[name] = true
+    }
+  }
+  if len(parameterProperties) == 0 {
+    return
+  }
+  body := node.Body()
+  if body == nil || body.Kind != shimast.KindBlock {
+    return
+  }
+  block := body.AsBlock()
+  if block == nil || block.Statements == nil {
+    return
+  }
+  assigned := map[string]bool{}
+  for _, stmt := range block.Statements.Nodes {
+    property, value, ok := thisPropertyAssignment(stmt)
+    if !ok {
+      continue
+    }
+    if parameterProperties[property] && !assigned[property] && value == property {
+      ctx.Report(stmt, "This assignment repeats the constructor parameter property initialization.")
+    }
+    assigned[property] = true
+  }
+}
+
+func parameterPropertyName(param *shimast.Node) (string, bool) {
+  if param == nil || param.Kind != shimast.KindParameter {
+    return "", false
+  }
+  if !isParameterProperty(param) {
+    return "", false
+  }
+  decl := param.AsParameterDeclaration()
+  if decl == nil {
+    return "", false
+  }
+  name := identifierText(decl.Name())
+  return name, name != ""
+}
+
+func isParameterProperty(param *shimast.Node) bool {
+  return hasModifier(param, shimast.KindPublicKeyword) ||
+    hasModifier(param, shimast.KindPrivateKeyword) ||
+    hasModifier(param, shimast.KindProtectedKeyword) ||
+    hasModifier(param, shimast.KindReadonlyKeyword) ||
+    hasModifier(param, shimast.KindOverrideKeyword)
+}
+
+func thisPropertyAssignment(stmt *shimast.Node) (property string, value string, ok bool) {
+  if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+    return "", "", false
+  }
+  exprStmt := stmt.AsExpressionStatement()
+  if exprStmt == nil || exprStmt.Expression == nil {
+    return "", "", false
+  }
+  expr := stripParens(exprStmt.Expression)
+  if expr == nil || expr.Kind != shimast.KindBinaryExpression {
+    return "", "", false
+  }
+  binary := expr.AsBinaryExpression()
+  if binary == nil || binary.OperatorToken == nil || binary.OperatorToken.Kind != shimast.KindEqualsToken {
+    return "", "", false
+  }
+  left := stripParens(binary.Left)
+  if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
+    return "", "", false
+  }
+  access := left.AsPropertyAccessExpression()
+  if access == nil || access.Expression == nil || access.Expression.Kind != shimast.KindThisKeyword {
+    return "", "", false
+  }
+  property = identifierText(access.Name())
+  value = identifierText(stripParens(binary.Right))
+  if property == "" {
+    return "", "", false
+  }
+  return property, value, true
+}
+
 // preferEnumInitializers: every enum member should have an explicit
 // initializer (avoids order-dependent values).
 type preferEnumInitializers struct{}
@@ -374,6 +472,25 @@ func (preferFunctionType) Check(ctx *Context, node *shimast.Node) {
     return
   }
   ctx.Report(node, "Interface only has a call signature; use 'type' alias and function type instead.")
+}
+
+// methodSignatureStyle: prefer function-property signatures over method
+// shorthand in interfaces and type literals. This implements the default
+// @typescript-eslint mode (`property`) as a diagnostic-only rule.
+type methodSignatureStyle struct{}
+
+func (methodSignatureStyle) Name() string { return "methodSignatureStyle" }
+func (methodSignatureStyle) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindMethodSignature}
+}
+func (methodSignatureStyle) Check(ctx *Context, node *shimast.Node) {
+  if node.Parent == nil {
+    return
+  }
+  switch node.Parent.Kind {
+  case shimast.KindInterfaceDeclaration, shimast.KindTypeLiteral:
+    ctx.Report(node, "Use a function-property signature instead of a method signature.")
+  }
 }
 
 // preferNamespaceKeyword: `module Foo {}` (TS namespace via `module`
@@ -764,9 +881,11 @@ func init() {
   Register(noExtraNonNullAssertion{})
   Register(noNonNullAssertedOptionalChain{})
   Register(noMisusedNew{})
+  Register(noUnnecessaryParameterPropertyAssignment{})
   Register(preferEnumInitializers{})
   Register(preferForOf{})
   Register(preferFunctionType{})
+  Register(methodSignatureStyle{})
   Register(preferNamespaceKeyword{})
   Register(tripleSlashReference{})
   Register(noArrayDelete{})

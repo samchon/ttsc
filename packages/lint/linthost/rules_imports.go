@@ -94,6 +94,74 @@ func (noImportTypeSideEffects) Check(ctx *Context, node *shimast.Node) {
   ctx.ReportFix(node, message, edits...)
 }
 
+// noUselessEmptyExport: `export {}` is only useful as a module marker.
+// Once a file or namespace block already contains another import/export,
+// the empty export does not change module-ness and can be removed.
+type noUselessEmptyExport struct{}
+
+func (noUselessEmptyExport) Name() string { return "noUselessEmptyExport" }
+func (noUselessEmptyExport) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile, shimast.KindModuleBlock}
+}
+func (noUselessEmptyExport) Check(ctx *Context, node *shimast.Node) {
+  if ctx.File != nil && ctx.File.IsDeclarationFile {
+    return
+  }
+  statements := node.Statements()
+  if len(statements) == 0 {
+    return
+  }
+  emptyExports := []*shimast.Node{}
+  foundOtherModuleSyntax := false
+  for _, stmt := range statements {
+    if stmt == nil {
+      continue
+    }
+    if isEmptyExportDeclaration(stmt) {
+      emptyExports = append(emptyExports, stmt)
+      continue
+    }
+    if isModuleSyntaxStatement(stmt) {
+      foundOtherModuleSyntax = true
+    }
+  }
+  if !foundOtherModuleSyntax {
+    return
+  }
+  for _, stmt := range emptyExports {
+    ctx.Report(stmt, "Empty export does not change module-ness here.")
+  }
+}
+
+func isEmptyExportDeclaration(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindExportDeclaration {
+    return false
+  }
+  decl := node.AsExportDeclaration()
+  if decl == nil || decl.ExportClause == nil || decl.ModuleSpecifier != nil {
+    return false
+  }
+  if decl.ExportClause.Kind != shimast.KindNamedExports {
+    return false
+  }
+  named := decl.ExportClause.AsNamedExports()
+  return named != nil && (named.Elements == nil || len(named.Elements.Nodes) == 0)
+}
+
+func isModuleSyntaxStatement(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindImportDeclaration, shimast.KindImportEqualsDeclaration, shimast.KindExportAssignment:
+    return true
+  case shimast.KindExportDeclaration:
+    return !isEmptyExportDeclaration(node)
+  }
+  return hasModifier(node, shimast.KindExportKeyword)
+}
+
 func init() {
   Register(noImportTypeSideEffects{})
+  Register(noUselessEmptyExport{})
 }

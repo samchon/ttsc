@@ -65,6 +65,9 @@ export interface ITtscLintRules {
   /** `for (i = 0; i < 10; i--)` → fail. */
   forDirection?: TtscLintRuleSetting;
 
+  /** prefers function-property signatures over method shorthand signatures. */
+  methodSignatureStyle?: TtscLintRuleSetting;
+
   /** rejects `alert`, `confirm`, and `prompt`. */
   noAlert?: TtscLintRuleSetting;
 
@@ -317,6 +320,9 @@ export interface ITtscLintRules {
   /** rejects initializing to `undefined`. */
   noUndefInit?: TtscLintRuleSetting;
 
+  /** rejects constructor assignments already handled by parameter properties. */
+  noUnnecessaryParameterPropertyAssignment?: TtscLintRuleSetting;
+
   /** rejects the global `undefined` identifier. */
   noUndefined?: TtscLintRuleSetting;
 
@@ -358,6 +364,9 @@ export interface ITtscLintRules {
 
   /** rejects empty constructors with no parameters. */
   noUselessConstructor?: TtscLintRuleSetting;
+
+  /** rejects redundant empty `export {}` declarations in module files. */
+  noUselessEmptyExport?: TtscLintRuleSetting;
 
   /** Reject `\.` and friends when not required. Autofixable. */
   noUselessEscape?: TtscLintRuleSetting;
