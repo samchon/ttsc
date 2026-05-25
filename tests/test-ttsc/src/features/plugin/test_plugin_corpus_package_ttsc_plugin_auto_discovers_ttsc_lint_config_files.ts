@@ -21,9 +21,9 @@ import {
  * consumers.
  *
  * 1. Set up a project with `@ttsc/lint` in `devDependencies`, a `lint.config.json`
- *    enabling the `noVar` rule, and a source file that uses `var`.
+ *    enabling the `no-var` rule, and a source file that uses `var`.
  * 2. Run ttsc with `--noEmit` (no explicit lint plugin in tsconfig).
- * 3. Assert non-zero exit and `[noVar]` in stderr.
+ * 3. Assert non-zero exit and `[no-var]` in stderr.
  */
 export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_config_files =
   () => {
@@ -47,7 +47,7 @@ export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_con
     );
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: { noVar: "error" } }),
+      JSON.stringify({ rules: { "no-var": "error" } }),
     );
     fs.writeFileSync(
       path.join(root, "src", "main.ts"),
@@ -62,5 +62,5 @@ export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_con
       },
     });
     assert.notEqual(result.status, 0, "expected auto-discovered lint to run");
-    assert.match(result.stderr, /\[noVar\]/);
+    assert.match(result.stderr, /\[no-var\]/);
   };

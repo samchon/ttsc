@@ -32,8 +32,8 @@ export const test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check
         "lint.config.json": JSON.stringify({
           rules: {
             eqeqeq: "error",
-            noVar: "error",
-            preferConst: "error",
+            "no-var": "error",
+            "prefer-const": "error",
           },
         }),
       },

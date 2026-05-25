@@ -36,7 +36,7 @@ export const test_plugin_corpus_prepare_loads_typescript_lint_config_without_pat
 
 export default {
   rules: {
-    noVar: "error",
+    "no-var": "error",
   },
 } satisfies ITtscLintConfig;
 `,
