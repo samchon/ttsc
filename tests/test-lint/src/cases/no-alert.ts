@@ -1,3 +1,3 @@
 declare function alert(msg: string): void;
-// expect: noAlert error
+// expect: no-alert error
 alert("hi");

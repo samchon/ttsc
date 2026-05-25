@@ -401,8 +401,8 @@ func stripDirectiveDescription(payload string) string {
   return payload
 }
 
-// normalizeDirectiveRuleName strips common ESLint namespace prefixes and maps
-// legacy kebab-case built-in names to the same camelCase key diagnostics use.
+// normalizeDirectiveRuleName strips common ESLint namespace prefixes while
+// preserving the kebab/slash rule IDs diagnostics use.
 func normalizeDirectiveRuleName(name string) string {
   return normalizeBuiltinRuleName(name)
 }

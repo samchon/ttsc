@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusConsistentIndexedObjectStyle(t *testing.T) {
-  assertRuleCorpusCase(t, "consistent-indexed-object-style.ts", "// expect: consistentIndexedObjectStyle error\ntype Dict = { [key: string]: number };\nconst d: Dict = {};\nJSON.stringify(d);\n")
+  assertRuleCorpusCase(t, "consistent-indexed-object-style.ts", "// expect: consistent-indexed-object-style error\ntype Dict = { [key: string]: number };\nconst d: Dict = {};\nJSON.stringify(d);\n")
 }

@@ -13,5 +13,5 @@ import "testing"
 // 2. Run preferConst and apply any offered text edits.
 // 3. Assert diagnostics exist but no automatic edit is applied.
 func TestFixPreferConstSkipsMultiDeclarationList(t *testing.T) {
-  assertNoFixSnapshot(t, "preferConst", "let left = 1, right = 2;\nJSON.stringify(left + right);\n")
+  assertNoFixSnapshot(t, "prefer-const", "let left = 1, right = 2;\nJSON.stringify(left + right);\n")
 }

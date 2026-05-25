@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoControlRegex(t *testing.T) {
-  assertRuleCorpusCase(t, "no-control-regex.ts", "// expect: noControlRegex error\nconst r = /\\x1f/;\nJSON.stringify(r);\n")
+  assertRuleCorpusCase(t, "no-control-regex.ts", "// expect: no-control-regex error\nconst r = /\\x1f/;\nJSON.stringify(r);\n")
 }

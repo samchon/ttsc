@@ -1,5 +1,5 @@
 function f(x: any) {
-  // expect: noExtraBooleanCast error
+  // expect: no-extra-boolean-cast error
   if (!!x) {
     return 1;
   }

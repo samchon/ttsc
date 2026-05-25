@@ -24,10 +24,10 @@ func TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck(t *testing.T) {
   }
   enabled := resolver.EnabledRuleConfig()
   for _, name := range []string{
-    "formatSemi",
-    "formatQuotes",
-    "formatTrailingComma",
-    "formatPrintWidth",
+    "format/semi",
+    "format/quotes",
+    "format/trailing-comma",
+    "format/print-width",
   } {
     if _, ok := enabled[name]; ok {
       t.Errorf("expected %q to stay out of check diagnostics, got %v", name, enabled[name])
@@ -36,7 +36,7 @@ func TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck(t *testing.T) {
       t.Errorf("expected %q options to be available for format mode", name)
     }
   }
-  for _, name := range []string{"formatSortImports", "formatJsdoc"} {
+  for _, name := range []string{"format/sort-imports", "format/jsdoc"} {
     if _, ok := enabled[name]; ok {
       t.Errorf("expected %q to stay off (opt-in), got enabled", name)
     }

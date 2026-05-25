@@ -14,7 +14,7 @@ import "testing"
 func TestFixPreferConstReplacesSingleLetKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "preferConst",
+    "prefer-const",
     "let stable = 1;\nJSON.stringify(stable);\n",
     "const stable = 1;\nJSON.stringify(stable);\n",
   )

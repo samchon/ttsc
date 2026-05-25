@@ -4,11 +4,11 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 // noSelfAssign: detect `x = x` / `obj.foo = obj.foo`. Limited to the
 // cheap textual identity match — sufficient for the canonical cases and
-// matches the `noSelfAssign` ESLint behavior on simple identifiers.
+// matches the `no-self-assign` ESLint behavior on simple identifiers.
 // https://eslint.org/docs/latest/rules/no-self-assign
 type noSelfAssign struct{}
 
-func (noSelfAssign) Name() string           { return "noSelfAssign" }
+func (noSelfAssign) Name() string           { return "no-self-assign" }
 func (noSelfAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (noSelfAssign) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -51,7 +51,7 @@ func isAssignableLeftHand(node *shimast.Node) bool {
 // https://eslint.org/docs/latest/rules/no-self-compare
 type noSelfCompare struct{}
 
-func (noSelfCompare) Name() string           { return "noSelfCompare" }
+func (noSelfCompare) Name() string           { return "no-self-compare" }
 func (noSelfCompare) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (noSelfCompare) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()

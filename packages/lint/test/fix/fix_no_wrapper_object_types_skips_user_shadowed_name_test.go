@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoWrapperObjectTypesSkipsUserShadowedName verifies the round-2
-// shadow-bailout for `noWrapperObjectTypes`.
+// shadow-bailout for `no-wrapper-object-types`.
 //
 // Pre-repair, when a file declared its own `type String = { length:
 // number }`, the rule still fired on the `String` reference and the fix
@@ -18,7 +18,7 @@ import "testing"
 func TestFixNoWrapperObjectTypesSkipsUserShadowedName(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "noWrapperObjectTypes",
+    "no-wrapper-object-types",
     "type String = { length: number };\ndeclare const v: String;\nJSON.stringify(v.length);\n",
   )
 }

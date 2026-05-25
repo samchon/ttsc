@@ -28,7 +28,7 @@ func TestFormatTrailingCommaSkipsRestParameter(t *testing.T) {
     "}\n" +
     "f(\"x\", 1, 2);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (rest param disallows trailing comma), got %d:\n%v",

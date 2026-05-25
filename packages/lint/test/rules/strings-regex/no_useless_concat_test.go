@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUselessConcat(t *testing.T) {
-  assertRuleCorpusCase(t, "no-useless-concat.ts", "// expect: noUselessConcat error\nconst s = \"a\" + \"b\";\nJSON.stringify(s);\n")
+  assertRuleCorpusCase(t, "no-useless-concat.ts", "// expect: no-useless-concat error\nconst s = \"a\" + \"b\";\nJSON.stringify(s);\n")
 }

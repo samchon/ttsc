@@ -17,13 +17,13 @@ import (
 //
 //  1. Parse four lines: one before the directive, the directive itself, one suppressed,
 //     one after.
-//  2. Run the noVar engine.
+//  2. Run the no-var engine.
 //  3. Assert exactly two findings (before and after); the suppressed line is silent.
 func TestEngineRespectsESLintDisableNextLine(t *testing.T) {
-  engine := NewEngine(RuleConfig{"noVar": SeverityError})
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
   file := parseTS(t, `
     var before = 1;
-    // eslint-disable-next-line noVar -- deliberate fixture
+    // eslint-disable-next-line no-var -- deliberate fixture
     var skipped = 2;
     var after = 3;
   `)

@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUselessRenameDropsRenameTail(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noUselessRename",
+    "no-useless-rename",
     "import { foo as foo } from \"./fixture\";\nJSON.stringify(foo);\n",
     "import { foo } from \"./fixture\";\nJSON.stringify(foo);\n",
   )

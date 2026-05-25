@@ -22,10 +22,10 @@ func TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
   wrapper := filepath.Join(wrapperDir, "tsconfig.json")
   writeFile(t, wrapper, "{}")
   writeFile(t, filepath.Join(dir, "lint.config.json"), `{
-    "rules": { "noConsole": "error" }
+    "rules": { "no-console": "error" }
   }`)
   writeFile(t, filepath.Join(wrapperDir, "lint.config.json"), `{
-    "rules": { "noVar": "error" }
+    "rules": { "no-var": "error" }
   }`)
 
   discovered, err := findLintConfigFile(dir, wrapper)

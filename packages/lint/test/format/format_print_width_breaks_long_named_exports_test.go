@@ -17,7 +17,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongNamedExports(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "export { alpha, bravo, charlie };\n",
     `{"printWidth": 20}`,
     "export {\n  alpha,\n  bravo,\n  charlie,\n};\n",

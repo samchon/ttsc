@@ -19,7 +19,7 @@ import (
 // 3. Parse a source file with a var statement and assert zero findings.
 func TestEngineSkipsOffRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
-    "noVar": SeverityOff,
+    "no-var": SeverityOff,
   })
   if len(engine.EnabledRules()) != 0 {
     t.Fatalf("want 0 enabled, got %d", len(engine.EnabledRules()))

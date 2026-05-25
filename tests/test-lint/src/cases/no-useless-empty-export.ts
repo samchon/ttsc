@@ -1,6 +1,6 @@
 export const marker = 1;
 
-// expect: noUselessEmptyExport error
+// expect: no-useless-empty-export error
 export {};
 
 JSON.stringify(marker);

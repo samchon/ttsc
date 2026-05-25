@@ -19,7 +19,7 @@ export const test_lint_config_rejects_unknown_tsconfig_plugin_entry_key =
     const result = runLint({
       name: "config-rejects-unknown-tsconfig-key",
       source: SOURCE,
-      pluginConfig: { rules: { "noConsole": "error" } },
+      pluginConfig: { rules: { "no-console": "error" } },
     });
 
     assert.notEqual(result.status, 0, result.stderr);

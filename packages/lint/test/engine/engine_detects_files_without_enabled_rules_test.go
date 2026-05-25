@@ -21,9 +21,9 @@ func TestEngineDetectsFilesWithoutEnabledRules(t *testing.T) {
   }{
     {name: "nil", rules: nil, want: false},
     {name: "empty", rules: RuleConfig{}, want: false},
-    {name: "off", rules: RuleConfig{"noVar": SeverityOff}, want: false},
-    {name: "warning", rules: RuleConfig{"noVar": SeverityWarn}, want: true},
-    {name: "error", rules: RuleConfig{"noVar": SeverityError}, want: true},
+    {name: "off", rules: RuleConfig{"no-var": SeverityOff}, want: false},
+    {name: "warning", rules: RuleConfig{"no-var": SeverityWarn}, want: true},
+    {name: "error", rules: RuleConfig{"no-var": SeverityError}, want: true},
   }
 
   for _, tt := range cases {

@@ -8,7 +8,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-eval
 type noEval struct{}
 
-func (noEval) Name() string           { return "noEval" }
+func (noEval) Name() string           { return "no-eval" }
 func (noEval) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindCallExpression} }
 func (noEval) Check(ctx *Context, node *shimast.Node) {
   call := node.AsCallExpression()
@@ -25,7 +25,7 @@ func (noEval) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-script-url
 type noScriptURL struct{}
 
-func (noScriptURL) Name() string { return "noScriptUrl" }
+func (noScriptURL) Name() string { return "no-script-url" }
 func (noScriptURL) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
 }

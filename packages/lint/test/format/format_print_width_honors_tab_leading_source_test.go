@@ -25,7 +25,7 @@ import "testing"
 func TestFormatPrintWidthHonorsTabLeadingSource(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "\t\tconst x = { aa: 1, bb: 2, cc: 3 };\n",
     `{"printWidth": 24, "tabWidth": 4, "useTabs": true}`,
     "\t\tconst x = {\n\t\t\taa: 1,\n\t\t\tbb: 2,\n\t\t\tcc: 3,\n\t\t};\n",

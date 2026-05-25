@@ -33,7 +33,7 @@ func TestCommandFormatHonorsEntryIgnoresAlongsideRules(t *testing.T) {
       "semi": true,
     },
     "rules": map[string]string{
-      "noVar": "error",
+      "no-var": "error",
     },
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {

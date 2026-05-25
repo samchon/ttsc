@@ -22,19 +22,19 @@ import "testing"
 func TestFixNoUnneededTernaryRewritesBooleanLiteralBranches(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noUnneededTernary",
+    "no-unneeded-ternary",
     "function f(x: any) {\n  return x ? true : false;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  return Boolean(x);\n}\nJSON.stringify(f);\n",
   )
   assertFixSnapshot(
     t,
-    "noUnneededTernary",
+    "no-unneeded-ternary",
     "function f(a: any, b: any) {\n  return a || b ? false : true;\n}\nJSON.stringify(f);\n",
     "function f(a: any, b: any) {\n  return !(a || b);\n}\nJSON.stringify(f);\n",
   )
   assertFixSnapshot(
     t,
-    "noUnneededTernary",
+    "no-unneeded-ternary",
     "function f(x: any) {\n  return x ? false : true;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  return !x;\n}\nJSON.stringify(f);\n",
   )

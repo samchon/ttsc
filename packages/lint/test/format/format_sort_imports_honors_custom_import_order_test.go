@@ -36,9 +36,9 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   file := parseTSFile(t, filePath, source)
 
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatSortImports": SeverityError},
+    Rules: RuleConfig{"format/sort-imports": SeverityError},
     Options: RuleOptionsMap{
-      "formatSortImports": json.RawMessage(
+      "format/sort-imports": json.RawMessage(
         `{"importOrder":["<THIRD_PARTY_MODULES>","@api(.*)$","^[./]"]}`,
       ),
     },

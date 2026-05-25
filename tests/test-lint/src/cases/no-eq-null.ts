@@ -1,5 +1,5 @@
 function f(x: any) {
-  // expect: noEqNull error
+  // expect: no-eq-null error
   return x == null;
 }
 JSON.stringify(f);

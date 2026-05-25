@@ -1,11 +1,11 @@
 interface Service {
-  // expect: methodSignatureStyle error
+  // expect: method-signature-style error
   run(input: string): number;
   keep: (input: string) => number;
 }
 
 type Handler = {
-  // expect: methodSignatureStyle error
+  // expect: method-signature-style error
   handle(): void;
   keep: () => void;
 };

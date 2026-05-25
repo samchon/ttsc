@@ -15,7 +15,7 @@ import (
 // https://eslint.org/docs/latest/rules/no-extra-boolean-cast
 type noExtraBooleanCast struct{}
 
-func (noExtraBooleanCast) Name() string { return "noExtraBooleanCast" }
+func (noExtraBooleanCast) Name() string { return "no-extra-boolean-cast" }
 func (noExtraBooleanCast) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindCallExpression, shimast.KindPrefixUnaryExpression}
 }
@@ -153,7 +153,7 @@ func skipParents(node *shimast.Node) *shimast.Node {
 // https://eslint.org/docs/latest/rules/no-unsafe-negation
 type noUnsafeNegation struct{}
 
-func (noUnsafeNegation) Name() string           { return "noUnsafeNegation" }
+func (noUnsafeNegation) Name() string           { return "no-unsafe-negation" }
 func (noUnsafeNegation) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (noUnsafeNegation) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -251,7 +251,7 @@ func comparableLiteralKind(node *shimast.Node) string {
 // https://eslint.org/docs/latest/rules/use-isnan
 type useIsNaN struct{}
 
-func (useIsNaN) Name() string           { return "useIsNaN" }
+func (useIsNaN) Name() string           { return "use-isnan" }
 func (useIsNaN) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (useIsNaN) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -271,7 +271,7 @@ func (useIsNaN) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/valid-typeof
 type validTypeof struct{}
 
-func (validTypeof) Name() string           { return "validTypeof" }
+func (validTypeof) Name() string           { return "valid-typeof" }
 func (validTypeof) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (validTypeof) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -316,7 +316,7 @@ func isValidTypeofString(value string) bool {
 // https://eslint.org/docs/latest/rules/no-compare-neg-zero
 type noCompareNegZero struct{}
 
-func (noCompareNegZero) Name() string           { return "noCompareNegZero" }
+func (noCompareNegZero) Name() string           { return "no-compare-neg-zero" }
 func (noCompareNegZero) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (noCompareNegZero) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -348,7 +348,7 @@ func isNegZero(node *shimast.Node) bool {
 // https://eslint.org/docs/latest/rules/no-cond-assign
 type noCondAssign struct{}
 
-func (noCondAssign) Name() string { return "noCondAssign" }
+func (noCondAssign) Name() string { return "no-cond-assign" }
 func (noCondAssign) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindIfStatement,
@@ -423,7 +423,7 @@ func isAssignmentOperator(kind shimast.Kind) bool {
 // https://eslint.org/docs/latest/rules/no-constant-condition
 type noConstantCondition struct{}
 
-func (noConstantCondition) Name() string { return "noConstantCondition" }
+func (noConstantCondition) Name() string { return "no-constant-condition" }
 func (noConstantCondition) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindIfStatement,

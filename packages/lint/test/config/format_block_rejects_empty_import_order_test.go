@@ -8,7 +8,7 @@ import (
 // TestFormatBlockRejectsEmptyImportOrder verifies the loader rejects
 // `format: { importOrder: [] }` with an instructive error.
 //
-// Setting `importOrder` opts into `formatSortImports`; an empty
+// Setting `importOrder` opts into `format/sort-imports`; an empty
 // array is the rule's "no groups configured" state and would
 // silently enable a no-op rule. The doc-contract says "omit the
 // field to keep formatSortImports off"; the boundary check

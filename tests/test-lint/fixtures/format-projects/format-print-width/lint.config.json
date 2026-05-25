@@ -1,5 +1,5 @@
 {
   "rules": {
-    "formatPrintWidth": "error"
+    "format/print-width": "error"
   }
 }

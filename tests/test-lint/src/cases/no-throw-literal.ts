@@ -1,5 +1,5 @@
 function f() {
-  // expect: noThrowLiteral error
+  // expect: no-throw-literal error
   throw "literal";
 }
 JSON.stringify(f);

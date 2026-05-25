@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUnnecessaryTypeConstraintDropsExtendsClause(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noUnnecessaryTypeConstraint",
+    "no-unnecessary-type-constraint",
     "function box<T extends any>(value: T): T { return value; }\nJSON.stringify(box);\n",
     "function box<T>(value: T): T { return value; }\nJSON.stringify(box);\n",
   )

@@ -4,7 +4,7 @@ function f(a: any, b: any) {
   } else if (b) {
     return 2;
   }
-  // expect: noDupeElseIf error
+  // expect: no-dupe-else-if error
   else if (a) {
     return 3;
   }

@@ -6,7 +6,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-duplicate-case
 type noDuplicateCase struct{}
 
-func (noDuplicateCase) Name() string           { return "noDuplicateCase" }
+func (noDuplicateCase) Name() string           { return "no-duplicate-case" }
 func (noDuplicateCase) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSwitchStatement} }
 func (noDuplicateCase) Check(ctx *Context, node *shimast.Node) {
   sw := node.AsSwitchStatement()
@@ -42,7 +42,7 @@ func (noDuplicateCase) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-dupe-keys
 type noDupeKeys struct{}
 
-func (noDupeKeys) Name() string           { return "noDupeKeys" }
+func (noDupeKeys) Name() string           { return "no-dupe-keys" }
 func (noDupeKeys) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindObjectLiteralExpression} }
 func (noDupeKeys) Check(ctx *Context, node *shimast.Node) {
   obj := node.AsObjectLiteralExpression()
@@ -67,7 +67,7 @@ func (noDupeKeys) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-dupe-args
 type noDupeArgs struct{}
 
-func (noDupeArgs) Name() string { return "noDupeArgs" }
+func (noDupeArgs) Name() string { return "no-dupe-args" }
 func (noDupeArgs) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindFunctionDeclaration,

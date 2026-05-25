@@ -23,7 +23,7 @@ import "testing"
 func TestFormatPrintWidthKeepsShortCallWithCallbackHugged(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = new Singleton(\n      () => {\n  doStuff();\n        return 1;\n});\n",
     "const x = new Singleton(() => {\n  doStuff();\n  return 1;\n});\n",
   )

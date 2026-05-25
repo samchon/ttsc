@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoThisAlias(t *testing.T) {
-  assertRuleCorpusCase(t, "no-this-alias.ts", "class A {\n  m() {\n    // expect: noThisAlias error\n    const self = this;\n    return self;\n  }\n}\nJSON.stringify(A);\n")
+  assertRuleCorpusCase(t, "no-this-alias.ts", "class A {\n  m() {\n    // expect: no-this-alias error\n    const self = this;\n    return self;\n  }\n}\nJSON.stringify(A);\n")
 }

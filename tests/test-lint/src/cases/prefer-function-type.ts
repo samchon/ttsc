@@ -1,4 +1,4 @@
-// expect: preferFunctionType error
+// expect: prefer-function-type error
 interface F {
   (x: number): string;
 }

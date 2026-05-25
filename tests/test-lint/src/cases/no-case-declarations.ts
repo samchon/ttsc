@@ -1,7 +1,7 @@
 function f(x: number) {
   switch (x) {
     case 1:
-      // expect: noCaseDeclarations error
+      // expect: no-case-declarations error
       let y = 1;
       return y;
   }

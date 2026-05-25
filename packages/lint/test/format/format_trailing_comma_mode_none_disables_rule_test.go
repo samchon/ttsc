@@ -10,7 +10,7 @@ import (
 // TestFormatTrailingCommaModeNoneDisablesRule verifies that
 // `mode: "none"` short-circuits the entire rule.
 //
-// The `"none"` mode is the runtime equivalent of `"formatTrailingComma":
+// The `"none"` mode is the runtime equivalent of `"format/trailing-comma":
 // "off"`, with the difference that the rule remains registered (so
 // future severity bumps via overrides don't accidentally re-enable it
 // at a different mode). The early-return at the top of Check is the
@@ -25,9 +25,9 @@ func TestFormatTrailingCommaModeNoneDisablesRule(t *testing.T) {
   source := "const xs = [\n  1,\n  2,\n  3\n];\n"
   file := parseTS(t, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatTrailingComma": SeverityError},
+    Rules: RuleConfig{"format/trailing-comma": SeverityError},
     Options: RuleOptionsMap{
-      "formatTrailingComma": json.RawMessage(`{"mode":"none"}`),
+      "format/trailing-comma": json.RawMessage(`{"mode":"none"}`),
     },
   }
   findings := NewEngineWithResolver(resolver).

@@ -7,7 +7,7 @@ import "testing"
 // `namespace`.
 //
 // The replacement is length-changing (6 → 9). `keywordStart` is the same
-// helper the existing `noVar` fixer uses to anchor a keyword swap, so
+// helper the existing `no-var` fixer uses to anchor a keyword swap, so
 // the only thing this test pins beyond the existing infrastructure is the
 // rule wiring.
 //
@@ -17,7 +17,7 @@ import "testing"
 func TestFixPreferNamespaceKeywordReplacesModuleKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "preferNamespaceKeyword",
+    "prefer-namespace-keyword",
     "module Foo {\n  export const x = 1;\n}\nJSON.stringify(Foo.x);\n",
     "namespace Foo {\n  export const x = 1;\n}\nJSON.stringify(Foo.x);\n",
   )

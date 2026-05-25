@@ -23,8 +23,8 @@ func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   // Build an engine with two rules enabled. The walker should call
   // each rule only on the kinds it registered for.
   engine := NewEngine(RuleConfig{
-    "noVar":      SeverityError,
-    "noDebugger": SeverityWarn,
+    "no-var":      SeverityError,
+    "no-debugger": SeverityWarn,
   })
   if got := engine.EnabledRules(); len(got) != 2 {
     t.Fatalf("want 2 enabled rules, got %d", len(got))
@@ -42,7 +42,7 @@ func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   for _, f := range findings {
     names[f.Rule]++
   }
-  if names["noVar"] != 2 || names["noDebugger"] != 1 {
+  if names["no-var"] != 2 || names["no-debugger"] != 1 {
     t.Errorf("expected 2 noVar + 1 noDebugger, got %v", names)
   }
 }

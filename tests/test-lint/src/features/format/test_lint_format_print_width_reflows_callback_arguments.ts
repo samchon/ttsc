@@ -14,7 +14,7 @@ import path from "node:path";
  * body has a multi-line `if` the dispatcher cannot reflow. After `ttsc format`
  * the first three must reflow with each callback hugging the parens and
  * consistent indentation at every depth, while the last must abstain and stay
- * byte-identical — `formatPrintWidth` either reflows correctly or leaves the
+ * byte-identical — `format/print-width` either reflows correctly or leaves the
  * node untouched, never emitting the half-reflowed shape.
  *
  * 1. Copy `fixtures/format-projects/format-print-width` into a temp project.

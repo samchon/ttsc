@@ -28,5 +28,5 @@ func TestFormatTrailingCommaHonorsModeES5Option(t *testing.T) {
   want := "const xs = [\n  1,\n  2,\n];\n" +
     "function f(\n  a: number,\n  b: number\n): number { return a + b; }\n" +
     "f(1, 2);\n"
-  assertFixSnapshotWithOptions(t, "formatTrailingComma", source, `{"mode":"es5"}`, want)
+  assertFixSnapshotWithOptions(t, "format/trailing-comma", source, `{"mode":"es5"}`, want)
 }

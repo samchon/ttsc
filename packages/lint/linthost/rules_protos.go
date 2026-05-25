@@ -8,7 +8,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-iterator
 type noIterator struct{}
 
-func (noIterator) Name() string { return "noIterator" }
+func (noIterator) Name() string { return "no-iterator" }
 func (noIterator) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
@@ -27,7 +27,7 @@ func (noIterator) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-proto
 type noProto struct{}
 
-func (noProto) Name() string           { return "noProto" }
+func (noProto) Name() string           { return "no-proto" }
 func (noProto) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindPropertyAccessExpression} }
 func (noProto) Check(ctx *Context, node *shimast.Node) {
   access := node.AsPropertyAccessExpression()

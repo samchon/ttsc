@@ -17,7 +17,7 @@ import "testing"
 func TestFormatPrintWidthHonorsCRLFEndOfLine(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = { aa: 1, bb: 2, cc: 3 };\n",
     `{"printWidth": 20, "endOfLine": "crlf"}`,
     "const x = {\r\n  aa: 1,\r\n  bb: 2,\r\n  cc: 3,\r\n};\n",

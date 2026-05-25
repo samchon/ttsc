@@ -20,7 +20,7 @@ import (
 func TestNoVarSkipsDeclarationFileVars(t *testing.T) {
   file := parseTS(t, "declare var value: string;\n")
   file.IsDeclarationFile = true
-  findings := NewEngine(RuleConfig{"noVar": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  findings := NewEngine(RuleConfig{"no-var": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("noVar reported ambient declaration vars: %d findings", len(findings))
   }

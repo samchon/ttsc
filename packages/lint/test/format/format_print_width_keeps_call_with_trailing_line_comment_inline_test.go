@@ -23,7 +23,7 @@ import "testing"
 func TestFormatPrintWidthKeepsCallWithTrailingLineCommentInline(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "myCall(arg1, arg2, arg3); // hi\n",
     `{"printWidth": 30}`,
   )

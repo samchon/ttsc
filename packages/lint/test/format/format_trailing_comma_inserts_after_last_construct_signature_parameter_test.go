@@ -19,7 +19,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastConstructSignatureParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "interface PointFactory {\n  new (\n    x: number,\n    y: number\n  ): { x: number; y: number };\n}\nlet f: PointFactory;\nf;\n",
     "interface PointFactory {\n  new (\n    x: number,\n    y: number,\n  ): { x: number; y: number };\n}\nlet f: PointFactory;\nf;\n",
   )

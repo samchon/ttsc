@@ -20,7 +20,7 @@ import (
 // 3. Assert zero findings.
 func TestFormatQuotesSkipsDoubleQuotedLiterals(t *testing.T) {
   file := parseTS(t, `const greeting = "hello";`+"\n"+`JSON.stringify(greeting);`+"\n")
-  findings := NewEngine(RuleConfig{"formatQuotes": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

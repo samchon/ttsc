@@ -105,8 +105,8 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
   assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintConfig"/);
   assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintRules"/);
   assert.match(rulesDts, /export interface ITtscLintRules/);
-  assert.match(rulesDts, /noVar\?: TtscLintRuleSetting/);
-  assert.match(rulesDts, /formatPrintWidth\?: TtscLintRuleOptionsSetting/);
+  assert.match(rulesDts, /"no-var"\?: TtscLintRuleSetting/);
+  assert.match(rulesDts, /"format\/print-width"\?: TtscLintRuleOptionsSetting/);
   assert.doesNotMatch(structuresIndexDts, /TtscLintRuleEntry/);
   assert.doesNotMatch(structuresIndexDts, /TtscLintRuleMap/);
   assert.doesNotMatch(structuresIndexDts, /TtscLintPlugins/);

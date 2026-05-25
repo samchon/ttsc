@@ -1,3 +1,3 @@
 const o: any = {};
-// expect: noIterator error
+// expect: no-iterator error
 JSON.stringify(o.__iterator__);

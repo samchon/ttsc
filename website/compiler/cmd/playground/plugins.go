@@ -110,19 +110,19 @@ func ensureLintPluginsJSON(args []string) []string {
 // `console.log` smoke test surfaces real diagnostics instead of falling
 // silent when the user pastes a snippet.
 var playgroundLintRules = map[string]any{
-	"noVar":                   "error",
-	"preferConst":             "error",
+	"no-var":                   "error",
+	"prefer-const":             "error",
 	"eqeqeq":                  "error",
-	"noDebugger":              "error",
-	"noEmpty":                 "error",
-	"noConstantCondition":     "error",
-	"noDuplicateCase":         "error",
-	"noDupeKeys":              "error",
-	"noSelfCompare":           "error",
-	"noTemplateCurlyInString": "warn",
-	"noThrowLiteral":          "warn",
-	"preferAsConst":           "error",
-	"noUselessEscape":         "error",
+	"no-debugger":              "error",
+	"no-empty":                 "error",
+	"no-constant-condition":     "error",
+	"no-duplicate-case":         "error",
+	"no-dupe-keys":              "error",
+	"no-self-compare":           "error",
+	"no-template-curly-in-string": "warn",
+	"no-throw-literal":          "warn",
+	"prefer-as-const":           "error",
+	"no-useless-escape":         "error",
 }
 
 // runUtilityPlugin invokes `packages/ttsc/utility` with a synthetic

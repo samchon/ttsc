@@ -1,3 +1,3 @@
 const o: any = {};
-// expect: noPrototypeBuiltins error
+// expect: no-prototype-builtins error
 o.hasOwnProperty("x");

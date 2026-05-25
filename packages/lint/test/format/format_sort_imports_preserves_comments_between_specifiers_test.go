@@ -24,7 +24,7 @@ func TestFormatSortImportsPreservesCommentsBetweenSpecifiers(t *testing.T) {
   source := "import { b /* pin */, a } from \"./local\";\n" +
     "console.log(a, b);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (specifier-sort must not drop inline comments), got %d:\n%v",

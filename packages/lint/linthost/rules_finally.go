@@ -7,7 +7,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-unsafe-finally
 type noUnsafeFinally struct{}
 
-func (noUnsafeFinally) Name() string { return "noUnsafeFinally" }
+func (noUnsafeFinally) Name() string { return "no-unsafe-finally" }
 func (noUnsafeFinally) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindReturnStatement,
@@ -87,7 +87,7 @@ func keywordOfControl(node *shimast.Node) string {
 // https://eslint.org/docs/latest/rules/no-useless-catch
 type noUselessCatch struct{}
 
-func (noUselessCatch) Name() string           { return "noUselessCatch" }
+func (noUselessCatch) Name() string           { return "no-useless-catch" }
 func (noUselessCatch) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindCatchClause} }
 func (noUselessCatch) Check(ctx *Context, node *shimast.Node) {
   clause := node.AsCatchClause()

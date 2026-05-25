@@ -20,7 +20,7 @@ import (
 // 3. Assert zero findings.
 func TestFormatSemiSkipsAlreadyTerminatedStatements(t *testing.T) {
   file := parseTS(t, "const value = 1;\nJSON.stringify(value);\n")
-  findings := NewEngine(RuleConfig{"formatSemi": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/semi": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d", len(findings))

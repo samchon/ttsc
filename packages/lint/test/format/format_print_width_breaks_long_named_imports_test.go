@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongNamedImports(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "import { alpha, bravo, charlie } from \"x\";\n",
     `{"printWidth": 30}`,
     "import {\n  alpha,\n  bravo,\n  charlie,\n} from \"x\";\n",

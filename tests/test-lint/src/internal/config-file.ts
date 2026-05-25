@@ -9,8 +9,8 @@ const TTSX_BIN = TestProject.TTSX_BIN;
 
 /**
  * Minimal TypeScript source used by most config-file tests. Contains a `var`
- * declaration (triggers `noVar`) and a `console.log` call (triggers
- * `noConsole`), giving each test a choice of which rule to enable.
+ * declaration (triggers `no-var`) and a `console.log` call (triggers
+ * `no-console`), giving each test a choice of which rule to enable.
  */
 const SOURCE = `var value = 1;\nconsole.log(value);\n`;
 

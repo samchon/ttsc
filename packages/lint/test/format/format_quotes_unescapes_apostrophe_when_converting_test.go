@@ -18,7 +18,7 @@ import "testing"
 func TestFormatQuotesUnescapesApostropheWhenConverting(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatQuotes",
+    "format/quotes",
     "const phrase = 'don\\'t';\nJSON.stringify(phrase);\n",
     "const phrase = \"don't\";\nJSON.stringify(phrase);\n",
   )

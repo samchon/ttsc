@@ -19,7 +19,7 @@ import "testing"
 func TestFormatPrintWidthHugsArrowWithObjectBody(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "collect(\n  (item) => ({ id: item }),\n);\n",
     `{"printWidth": 25}`,
     "collect((item) => ({\n  id: item,\n}));\n",

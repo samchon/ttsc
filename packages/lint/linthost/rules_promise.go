@@ -18,7 +18,7 @@ import (
 // no shim addition.
 type awaitThenable struct{}
 
-func (awaitThenable) Name() string { return "awaitThenable" }
+func (awaitThenable) Name() string { return "await-thenable" }
 func (awaitThenable) NeedsTypeChecker() bool {
   return true
 }

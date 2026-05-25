@@ -21,5 +21,5 @@ import "testing"
 func TestFormatSemiHonorsPreferNeverOption(t *testing.T) {
   source := "JSON.stringify(1);\nclass A { x: number = 0; }\n"
   want := "JSON.stringify(1)\nclass A { x: number = 0; }\n"
-  assertFixSnapshotWithOptions(t, "formatSemi", source, `{"prefer":"never"}`, want)
+  assertFixSnapshotWithOptions(t, "format/semi", source, `{"prefer":"never"}`, want)
 }

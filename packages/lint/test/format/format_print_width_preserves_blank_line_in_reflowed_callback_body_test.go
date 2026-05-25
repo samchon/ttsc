@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthPreservesBlankLineInReflowedCallbackBody(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = new Singleton(() => {\n  setup();\n\n  teardown();\n});\n",
   )
 }

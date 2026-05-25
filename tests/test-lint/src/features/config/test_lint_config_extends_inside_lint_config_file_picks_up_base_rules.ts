@@ -15,8 +15,8 @@ import {
  *
  * 1. Materialize a fixture whose `lint.config.json` is a single object with
  *    `extends: "./base.config.json"` and no `rules` of its own.
- * 2. The base config file enables `noVar`; the source contains `var x = 1;`.
- * 3. Run ttsc; assert one inherited `noVar` error fires.
+ * 2. The base config file enables `no-var`; the source contains `var x = 1;`.
+ * 3. Run ttsc; assert one inherited `no-var` error fires.
  */
 export const test_lint_config_extends_inside_lint_config_file_picks_up_base_rules =
   () => {
@@ -29,7 +29,7 @@ export const test_lint_config_extends_inside_lint_config_file_picks_up_base_rule
           extends: "./base.config.json",
         }),
         "base.config.json": JSON.stringify({
-          rules: { "noVar": "error" },
+          rules: { "no-var": "error" },
         }),
       },
     });
@@ -38,7 +38,7 @@ export const test_lint_config_extends_inside_lint_config_file_picks_up_base_rule
       assert.notEqual(result.status, 0, result.stderr);
       assert.deepEqual(
         result.diagnostics.map((d) => [d.rule, d.severity]),
-        [["noVar", "error"]],
+        [["no-var", "error"]],
         result.stderr,
       );
     } finally {

@@ -22,19 +22,19 @@ import "testing"
 func TestFixNoExtraBooleanCastDropsRedundantCoercionAndKeepsMeaningfulOnes(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noExtraBooleanCast",
+    "no-extra-boolean-cast",
     "function f(x: any) {\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  if (x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
   )
   assertFixSnapshot(
     t,
-    "noExtraBooleanCast",
+    "no-extra-boolean-cast",
     "function f(x: any) {\n  if (Boolean(x)) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  if (x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
   )
   assertRuleSkipsSource(
     t,
-    "noExtraBooleanCast",
+    "no-extra-boolean-cast",
     "function f(x: any) {\n  const b = !!x;\n  return b;\n}\nJSON.stringify(f);\n",
   )
 }

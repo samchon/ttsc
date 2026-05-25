@@ -13,7 +13,7 @@ import "testing"
 // 2. Ask whether the engine needs a type checker.
 // 3. Assert the answer is true.
 func TestEngineRequiresTypeCheckerForTypeAwareRule(t *testing.T) {
-  engine := NewEngine(RuleConfig{"awaitThenable": SeverityError})
+  engine := NewEngine(RuleConfig{"await-thenable": SeverityError})
   if !engine.NeedsTypeChecker() {
     t.Fatal("awaitThenable did not request a type checker")
   }

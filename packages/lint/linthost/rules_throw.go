@@ -6,7 +6,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-throw-literal
 type noThrowLiteral struct{}
 
-func (noThrowLiteral) Name() string           { return "noThrowLiteral" }
+func (noThrowLiteral) Name() string           { return "no-throw-literal" }
 func (noThrowLiteral) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindThrowStatement} }
 func (noThrowLiteral) Check(ctx *Context, node *shimast.Node) {
   throw := node.AsThrowStatement()

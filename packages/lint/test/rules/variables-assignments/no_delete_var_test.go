@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDeleteVar(t *testing.T) {
-  assertRuleCorpusCase(t, "no-delete-var.ts", "let a: any = 1;\n// expect: noDeleteVar error\ndelete a;\nJSON.stringify(a);\n")
+  assertRuleCorpusCase(t, "no-delete-var.ts", "let a: any = 1;\n// expect: no-delete-var error\ndelete a;\nJSON.stringify(a);\n")
 }

@@ -17,7 +17,7 @@ import "testing"
 func TestFormatTrailingCommaHonorsModeEs5SkipsNewArgument(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "declare class Foo { constructor(a: number, b: number); }\nconst r = new Foo(\n  1,\n  2\n);\nr;\n",
     `{"mode":"es5"}`,
   )

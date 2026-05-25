@@ -18,7 +18,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastFunctionParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "function add(\n  left: number,\n  right: number\n): number {\n  return left + right;\n}\n",
     "function add(\n  left: number,\n  right: number,\n): number {\n  return left + right;\n}\n",
   )

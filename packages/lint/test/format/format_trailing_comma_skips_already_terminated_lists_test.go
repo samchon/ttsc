@@ -20,7 +20,7 @@ import (
 func TestFormatTrailingCommaSkipsAlreadyTerminatedLists(t *testing.T) {
   source := "const xs = [\n  1,\n  2,\n];\nconst obj = {\n  a: 1,\n  b: 2,\n};\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

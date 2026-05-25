@@ -12,7 +12,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  *
  * 1. Materialise a fixture with a `.ts` config that imports and uses
  *    `ITtscLintConfig`.
- * 2. Run ttsc; assert the `noVar` rule from the config fires correctly.
+ * 2. Run ttsc; assert the `no-var` rule from the config fires correctly.
  */
 export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint_types =
   () => {
@@ -27,8 +27,8 @@ export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint
 
       const config = {
         rules: {
-          "noVar": "error",
-          "noConsole": "off",
+          "no-var": "error",
+          "no-console": "off",
         },
       } satisfies ITtscLintConfig;
 
@@ -39,7 +39,7 @@ export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint
     assert.notEqual(result.status, 0);
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["noVar", "error"]],
+      [["no-var", "error"]],
       result.stderr,
     );
   };

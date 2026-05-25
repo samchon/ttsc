@@ -1,5 +1,5 @@
 function f(a: any) {
-  // expect: noNegatedCondition error
+  // expect: no-negated-condition error
   if (!a) {
     return 1;
   } else {

@@ -1,5 +1,5 @@
 function f(): void {
-  // expect: noDebugger error
+  // expect: no-debugger error
   debugger;
 }
 f();

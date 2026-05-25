@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusDotNotation(t *testing.T) {
-  assertRuleCorpusCase(t, "dot-notation.ts", "const box = { name: \"ttsc\", \"not-valid-key\": \"kept\" };\n\n// expect: dotNotation error\nconst value = box[\"name\"];\nconst kept = box[\"not-valid-key\"];\n\nJSON.stringify([value, kept]);\n")
+  assertRuleCorpusCase(t, "dot-notation.ts", "const box = { name: \"ttsc\", \"not-valid-key\": \"kept\" };\n\n// expect: dot-notation error\nconst value = box[\"name\"];\nconst kept = box[\"not-valid-key\"];\n\nJSON.stringify([value, kept]);\n")
 }

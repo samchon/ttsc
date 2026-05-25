@@ -1,4 +1,4 @@
 class Empty {
-  // expect: noUselessConstructor error
+  // expect: no-useless-constructor error
   constructor() {}
 }

@@ -21,8 +21,8 @@ import (
 //  3. Assert exactly two findings (one per rule on the non-suppressed line).
 func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
   engine := NewEngine(RuleConfig{
-    "noVar":      SeverityError,
-    "noDebugger": SeverityError,
+    "no-var":      SeverityError,
+    "no-debugger": SeverityError,
   })
   file := parseTS(t, `
     // eslint-disable-next-line

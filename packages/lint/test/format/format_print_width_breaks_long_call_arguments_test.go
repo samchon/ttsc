@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongCallArguments(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "process(aaaaaa, bbbbbb, cccccc);\n",
     `{"printWidth": 24}`,
     "process(\n  aaaaaa,\n  bbbbbb,\n  cccccc,\n);\n",

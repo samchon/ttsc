@@ -24,7 +24,7 @@ import "testing"
 func TestFormatPrintWidthReindentsCallbackBodyInsideIndentedBlock(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "function boot() {\n  const x = new Singleton(\n() => {\n          register();\n  return x;\n});\n}\n",
     "function boot() {\n  const x = new Singleton(() => {\n    register();\n    return x;\n  });\n}\n",
   )

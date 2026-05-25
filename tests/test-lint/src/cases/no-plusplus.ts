@@ -1,4 +1,4 @@
 let i = 0;
-// expect: noPlusplus error
+// expect: no-plusplus error
 i++;
 JSON.stringify(i);

@@ -19,7 +19,7 @@ import (
 func TestFormatJSDocSkipsCanonicalTags(t *testing.T) {
   source := "/**\n * @param name The name.\n * @returns The greeting.\n * @description Builds a greeting.\n */\nexport function greet(name: string): string { return name; }\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthAbstainsWhenInterMemberCommentPresent(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = { aa: 1, /* keep */ bb: 2 };\n",
     `{"printWidth": 10}`,
   )

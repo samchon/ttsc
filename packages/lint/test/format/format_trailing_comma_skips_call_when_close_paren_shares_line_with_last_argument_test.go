@@ -24,7 +24,7 @@ import "testing"
 func TestFormatTrailingCommaSkipsCallWhenCloseParenSharesLineWithLastArgument(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "JSON.stringify({\n  a: 1,\n  b: 2,\n});\n",
   )
 }

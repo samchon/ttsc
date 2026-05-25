@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferFunctionType(t *testing.T) {
-  assertRuleCorpusCase(t, "prefer-function-type.ts", "// expect: preferFunctionType error\ninterface F {\n  (x: number): string;\n}\ndeclare const f: F;\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "prefer-function-type.ts", "// expect: prefer-function-type error\ninterface F {\n  (x: number): string;\n}\ndeclare const f: F;\nJSON.stringify(f);\n")
 }

@@ -24,7 +24,7 @@ import "testing"
 func TestFormatTrailingCommaSkipsInlineBlockCommentBeforeCloseBracket(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "const xs = [\n  1,\n  2/* note */];\n",
   )
 }

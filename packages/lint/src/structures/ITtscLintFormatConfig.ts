@@ -19,7 +19,7 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   import type { ITtscLintConfig } from "@ttsc/lint";
  *
  *   export default {
- *   rules: { "noVar": "error" },
+ *   rules: { "no-var": "error" },
  *   format: {
  *   severity: "warning",
  *   printWidth: 100,
@@ -37,16 +37,16 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *
  *   Rule enablement matrix (when the `format` block is present):
  *
- *   - `formatSemi` — always on. `semi: false` flips it to `prefer:
+ *   - `format/semi` — always on. `semi: false` flips it to `prefer:
  *   "never"`.
- *   - `formatQuotes` — always on. `singleQuote: true` flips to
+ *   - `format/quotes` — always on. `singleQuote: true` flips to
  *   `prefer: "single"`.
- *   - `formatTrailingComma` — always on. `trailingComma: "none"`
+ *   - `format/trailing-comma` — always on. `trailingComma: "none"`
  *   disables the rule's edits without removing the surface.
- *   - `formatPrintWidth` — always on, driven by `printWidth`,
+ *   - `format/print-width` — always on, driven by `printWidth`,
  *   `tabWidth`, `useTabs`, `endOfLine`.
- *   - `formatSortImports` — opt-in. Setting `importOrder` enables it.
- *   - `formatJsdoc` — opt-in. Setting `jsdoc` enables it.
+ *   - `format/sort-imports` — opt-in. Setting `importOrder` enables it.
+ *   - `format/jsdoc` — opt-in. Setting `jsdoc` enables it.
  *
  *   Format findings produced from this block are off by default. Set `severity`
  *   only when a project intentionally wants check-time format diagnostics.
@@ -120,7 +120,7 @@ export interface ITtscLintFormatConfig {
   endOfLine?: "lf" | "crlf";
 
   /**
-   * Group order for `formatSortImports`. Setting this enables the rule;
+   * Group order for `format/sort-imports`. Setting this enables the rule;
    * mirrors `@trivago/prettier-plugin-sort-imports`' `importOrder`. The
    * `<THIRD_PARTY_MODULES>` literal is the catch-all placeholder for specifiers
    * that match no other group.
@@ -149,7 +149,7 @@ export interface ITtscLintFormatConfig {
   importOrderCaseInsensitive?: boolean;
 
   /**
-   * Enable `formatJsdoc`. Pass `true` to turn it on with built-in defaults, or
+   * Enable `format/jsdoc`. Pass `true` to turn it on with built-in defaults, or
    * an object to customize:
    *
    * - `tagSynonyms` — extra `from → to` rewrites layered on the built-in synonym

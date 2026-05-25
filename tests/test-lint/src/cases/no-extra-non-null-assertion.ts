@@ -1,5 +1,5 @@
 function f(x: number | null) {
-  // expect: noExtraNonNullAssertion error
+  // expect: no-extra-non-null-assertion error
   return x!!;
 }
 JSON.stringify(f);

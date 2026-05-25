@@ -2,7 +2,7 @@ function f(x: number) {
   switch (x) {
     case 1:
       return "a";
-    // expect: noDuplicateCase error
+    // expect: no-duplicate-case error
     case 1:
       return "b";
   }

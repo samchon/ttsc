@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusRequireYield(t *testing.T) {
-  assertRuleCorpusCase(t, "require-yield.ts", "// expect: requireYield error\nfunction* gen() {\n  return 1;\n}\nJSON.stringify(gen);\n")
+  assertRuleCorpusCase(t, "require-yield.ts", "// expect: require-yield error\nfunction* gen() {\n  return 1;\n}\nJSON.stringify(gen);\n")
 }

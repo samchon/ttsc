@@ -1,5 +1,5 @@
 {
   "rules": {
-    "formatTrailingComma": "error"
+    "format/trailing-comma": "error"
   }
 }

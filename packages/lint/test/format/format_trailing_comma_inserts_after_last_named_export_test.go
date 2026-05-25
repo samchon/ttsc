@@ -17,7 +17,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastNamedExport(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "const alpha = 1;\nconst beta = 2;\nexport {\n  alpha,\n  beta\n};\n",
     "const alpha = 1;\nconst beta = 2;\nexport {\n  alpha,\n  beta,\n};\n",
   )

@@ -16,7 +16,7 @@ import "testing"
 func TestFixObjectShorthandDropsValueTail(t *testing.T) {
   assertFixSnapshot(
     t,
-    "objectShorthand",
+    "object-shorthand",
     "const x = 1;\nconst obj = { x: x };\nJSON.stringify(obj);\n",
     "const x = 1;\nconst obj = { x };\nJSON.stringify(obj);\n",
   )

@@ -1,4 +1,4 @@
 let a: any = 1;
-// expect: noDeleteVar error
+// expect: no-delete-var error
 delete a;
 JSON.stringify(a);

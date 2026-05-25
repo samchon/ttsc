@@ -25,7 +25,7 @@ import "testing"
 func TestFormatPrintWidthReflowsCallWithNestedObjectArgument(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "register(\"svc\", {\n      name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",
     `{"printWidth": 30}`,
     "register(\"svc\", {\n  name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",

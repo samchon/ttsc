@@ -25,7 +25,7 @@ func TestCommandFormatAppliesPrintWidthReflow(t *testing.T) {
   root := seedLintProject(t, "const x = { aa: 1, bb: 2, cc: 3 };\n")
   seedLintConfig(t, root, map[string]any{
     "rules": map[string]any{
-      "formatPrintWidth": []any{"error", map[string]any{"printWidth": 20}},
+      "format/print-width": []any{"error", map[string]any{"printWidth": 20}},
     },
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {

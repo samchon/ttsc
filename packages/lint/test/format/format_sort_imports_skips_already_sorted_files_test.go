@@ -25,7 +25,7 @@ func TestFormatSortImportsSkipsAlreadySortedFiles(t *testing.T) {
     "import { reduce } from \"./local-b\";\n" +
     "JSON.stringify({ alpha, zebra, x, reduce });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

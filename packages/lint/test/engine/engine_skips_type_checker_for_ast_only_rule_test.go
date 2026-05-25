@@ -14,7 +14,7 @@ import "testing"
 // 2. Ask whether the engine needs a type checker.
 // 3. Assert the answer is false.
 func TestEngineSkipsTypeCheckerForAstOnlyRule(t *testing.T) {
-  engine := NewEngine(RuleConfig{"noVar": SeverityError})
+  engine := NewEngine(RuleConfig{"no-var": SeverityError})
   if engine.NeedsTypeChecker() {
     t.Fatal("noVar unexpectedly requested a type checker")
   }

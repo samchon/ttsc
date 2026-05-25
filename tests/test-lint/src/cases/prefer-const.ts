@@ -1,4 +1,4 @@
-// expect: preferConst error
+// expect: prefer-const error
 let stable = 1;
 let changing = 1;
 changing = 2;
@@ -7,7 +7,7 @@ for (let i = 0; i < 2; i++) {
   JSON.stringify(i);
 }
 
-// expect: preferConst error
+// expect: prefer-const error
 for (let item of [1, 2]) {
   JSON.stringify(item);
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoExAssign(t *testing.T) {
-  assertRuleCorpusCase(t, "no-ex-assign.ts", "try {\n  throw new Error(\"x\");\n} catch (e) {\n  // expect: noExAssign error\n  e = \"boom\";\n  console.log(e);\n}\n")
+  assertRuleCorpusCase(t, "no-ex-assign.ts", "try {\n  throw new Error(\"x\");\n} catch (e) {\n  // expect: no-ex-assign error\n  e = \"boom\";\n  console.log(e);\n}\n")
 }

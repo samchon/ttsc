@@ -144,7 +144,7 @@ harness overhead.
 
 **Format is almost pure parse + rule walk, with no checker pool to scale.**
 `ttsc format` does not need the TypeScript checker — the format rules
-(`formatSemi`, `formatQuotes`, `formatTrailingComma`, `formatPrintWidth`,
+(`format/semi`, `format/quotes`, `format/trailing-comma`, `format/print-width`,
 and friends) walk the AST and never resolve a type. The single-checker pin
 that the lint sidecar uses for type-aware rules therefore does not apply, and
 the only parallelism left to gate is the parse work group and the rule walk.

@@ -17,7 +17,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastTupleElement(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "type Pair = [\n  number,\n  string\n];\nconst p: Pair = [1, \"two\"];\n",
     "type Pair = [\n  number,\n  string,\n];\nconst p: Pair = [1, \"two\"];\n",
   )

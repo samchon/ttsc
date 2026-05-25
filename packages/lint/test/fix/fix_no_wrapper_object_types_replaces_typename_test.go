@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoWrapperObjectTypesReplacesTypename(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noWrapperObjectTypes",
+    "no-wrapper-object-types",
     "let label: String = \"x\";\nJSON.stringify(label);\n",
     "let label: string = \"x\";\nJSON.stringify(label);\n",
   )

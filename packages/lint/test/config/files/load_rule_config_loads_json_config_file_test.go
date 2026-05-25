@@ -20,7 +20,7 @@ func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "ttsc-lint.config.json"), `{
     "rules": {
-      "noVar": "error",
+      "no-var": "error",
       "eqeqeq": "warning"
     }
   }`)
@@ -33,8 +33,8 @@ func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("noVar") != SeverityError {
-    t.Errorf("noVar: want error, got %v", cfg.Severity("noVar"))
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("noVar: want error, got %v", cfg.Severity("no-var"))
   }
   if cfg.Severity("eqeqeq") != SeverityWarn {
     t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))

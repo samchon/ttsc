@@ -1,5 +1,5 @@
 for (let i = 0; i < 3; i++) {
-  // expect: noContinue error
+  // expect: no-continue error
   if (i === 1) continue;
   console.log(i);
 }

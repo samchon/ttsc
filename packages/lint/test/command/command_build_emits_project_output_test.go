@@ -23,7 +23,7 @@ import (
 // 3. Assert custom/main.js is written and contains the emitted export.
 func TestCommandBuildEmitsProjectOutput(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
-  seedLintRules(t, root, map[string]string{"noVar": "off"})
+  seedLintRules(t, root, map[string]string{"no-var": "off"})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "build",

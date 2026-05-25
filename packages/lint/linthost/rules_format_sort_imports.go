@@ -55,7 +55,7 @@ var defaultImportOrder = []string{thirdPartyModulesPlaceholder, `^\.`}
 // participate in the same group based on their module specifier.
 type formatSortImports struct{}
 
-func (formatSortImports) Name() string   { return "formatSortImports" }
+func (formatSortImports) Name() string   { return "format/sort-imports" }
 func (formatSortImports) IsFormat() bool { return true }
 func (formatSortImports) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}

@@ -6,7 +6,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-var
 type noVar struct{}
 
-func (noVar) Name() string           { return "noVar" }
+func (noVar) Name() string           { return "no-var" }
 func (noVar) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
 func (noVar) Check(ctx *Context, node *shimast.Node) {
   stmt := node.AsVariableStatement()
@@ -42,7 +42,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // ESLint canonical: https://eslint.org/docs/latest/rules/prefer-const
 type preferConst struct{}
 
-func (preferConst) Name() string           { return "preferConst" }
+func (preferConst) Name() string           { return "prefer-const" }
 func (preferConst) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (preferConst) Check(ctx *Context, node *shimast.Node) {
   type candidate struct {
@@ -158,7 +158,7 @@ func isConstEligibleLetDeclaration(node *shimast.Node, decl *shimast.VariableDec
 // ESLint canonical: https://eslint.org/docs/latest/rules/no-undef-init
 type noUndefInit struct{}
 
-func (noUndefInit) Name() string           { return "noUndefInit" }
+func (noUndefInit) Name() string           { return "no-undef-init" }
 func (noUndefInit) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableDeclaration} }
 func (noUndefInit) Check(ctx *Context, node *shimast.Node) {
   decl := node.AsVariableDeclaration()

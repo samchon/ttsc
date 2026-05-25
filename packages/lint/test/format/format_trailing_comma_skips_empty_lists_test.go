@@ -20,7 +20,7 @@ import (
 func TestFormatTrailingCommaSkipsEmptyLists(t *testing.T) {
   source := "function noop() {}\nfunction nullary(\n) {\n}\nconst empty = [];\nconst arr = [\n];\nconst obj = {};\nJSON.stringify();\nnew Date();\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

@@ -9,7 +9,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/default-param-last
 type defaultParamLast struct{}
 
-func (defaultParamLast) Name() string { return "defaultParamLast" }
+func (defaultParamLast) Name() string { return "default-param-last" }
 func (defaultParamLast) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindFunctionDeclaration,

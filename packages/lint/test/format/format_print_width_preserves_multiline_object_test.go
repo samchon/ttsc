@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthPreservesMultilineObject(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = {\n  a: 1,\n};\n",
   )
 }

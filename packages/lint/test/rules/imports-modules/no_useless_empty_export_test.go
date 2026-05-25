@@ -14,7 +14,7 @@ import "testing"
 func TestRuleCorpusNoUselessEmptyExport(t *testing.T) {
   assertRuleCorpusCase(t, "no-useless-empty-export.ts", `export const marker = 1;
 
-// expect: noUselessEmptyExport error
+// expect: no-useless-empty-export error
 export {};
 
 JSON.stringify(marker);

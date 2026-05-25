@@ -28,7 +28,7 @@ func TestFormatBlockPropagatesJsdocSortTagsOption(t *testing.T) {
     t.Fatalf("expandFormatBlock: unexpected error: %v", err)
   }
 
-  entry, ok := out["formatJsdoc"]
+  entry, ok := out["format/jsdoc"]
   if !ok {
     t.Fatal("formatJsdoc not present in output")
   }

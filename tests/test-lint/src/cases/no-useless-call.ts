@@ -1,3 +1,3 @@
 function f() {}
-// expect: noUselessCall error
+// expect: no-useless-call error
 f.call(undefined, 1);

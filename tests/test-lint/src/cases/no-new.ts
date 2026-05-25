@@ -1,3 +1,3 @@
 class Thing {}
-// expect: noNew error
+// expect: no-new error
 new Thing();

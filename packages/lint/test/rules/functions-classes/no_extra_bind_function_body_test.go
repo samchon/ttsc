@@ -16,7 +16,7 @@ import "testing"
 // 3. Assert the native Engine reports the annotated diagnostic.
 func TestRuleNoExtraBindFunctionBody(t *testing.T) {
   assertRuleCorpusCase(t, "no-extra-bind-function-body.ts", `const obj = {};
-// expect: noExtraBind error
+// expect: no-extra-bind error
 const f = function () { return 1; }.bind(obj);
 JSON.stringify(f);
 `)

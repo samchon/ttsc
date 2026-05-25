@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoProto(t *testing.T) {
-  assertRuleCorpusCase(t, "no-proto.ts", "const o: any = {};\n// expect: noProto error\nJSON.stringify(o.__proto__);\n")
+  assertRuleCorpusCase(t, "no-proto.ts", "const o: any = {};\n// expect: no-proto error\nJSON.stringify(o.__proto__);\n")
 }

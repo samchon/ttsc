@@ -24,7 +24,7 @@ func TestCommandFixTypeAwareRuleReceivesChecker(t *testing.T) {
 }
 void main();
 `)
-  seedLintRules(t, root, map[string]string{"awaitThenable": "error"})
+  seedLintRules(t, root, map[string]string{"await-thenable": "error"})
 
   code, _, stderr := captureCommandOutput(t, func() int {
     return RunFix([]string{

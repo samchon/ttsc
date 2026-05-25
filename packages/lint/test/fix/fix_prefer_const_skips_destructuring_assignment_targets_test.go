@@ -21,7 +21,7 @@ import "testing"
 func TestFixPreferConstSkipsDestructuringAssignmentTargets(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "preferConst",
+    "prefer-const",
     "let x = 1;\n"+
       "let y = 2;\n"+
       "[x, y] = [y, x];\n"+

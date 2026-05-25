@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUndefined(t *testing.T) {
-  assertRuleCorpusCase(t, "no-undefined.ts", "// expect: noUndefined error\nconst x = undefined;\nJSON.stringify(x);\n")
+  assertRuleCorpusCase(t, "no-undefined.ts", "// expect: no-undefined error\nconst x = undefined;\nJSON.stringify(x);\n")
 }

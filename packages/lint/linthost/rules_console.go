@@ -7,7 +7,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-console
 type noConsole struct{}
 
-func (noConsole) Name() string           { return "noConsole" }
+func (noConsole) Name() string           { return "no-console" }
 func (noConsole) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindCallExpression} }
 func (noConsole) Check(ctx *Context, node *shimast.Node) {
   call := node.AsCallExpression()

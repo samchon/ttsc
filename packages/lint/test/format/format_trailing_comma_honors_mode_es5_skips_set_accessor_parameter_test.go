@@ -20,7 +20,7 @@ import "testing"
 func TestFormatTrailingCommaHonorsModeEs5SkipsSetAccessorParameter(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "class Box {\n  private _value = 0;\n  set value(\n    next: number\n  ) {\n    this._value = next;\n  }\n}\nBox;\n",
     `{"mode":"es5"}`,
   )

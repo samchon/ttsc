@@ -25,7 +25,7 @@ import "testing"
 func TestFormatTrailingCommaSkipsUnparenthesizedArrowWithMultilineBody(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "declare function foo(x: number): number;\nconst f = a => {\n  return foo(\n    a,\n  );\n};\nf;\n",
   )
 }

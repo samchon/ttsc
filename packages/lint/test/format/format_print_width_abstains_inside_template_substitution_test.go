@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthAbstainsInsideTemplateSubstitution(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const u = `/x/${encodeURIComponent(value)}`;\n",
     `{"printWidth": 20}`,
   )

@@ -21,7 +21,7 @@ import (
 func TestEngineLintsSuppliedDeclarationFiles(t *testing.T) {
   file := parseTS(t, "debugger;")
   file.IsDeclarationFile = true
-  engine := NewEngine(RuleConfig{"noDebugger": SeverityError})
+  engine := NewEngine(RuleConfig{"no-debugger": SeverityError})
   findings := engine.Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 {
     t.Fatalf("declaration file was not linted; got %d findings", len(findings))

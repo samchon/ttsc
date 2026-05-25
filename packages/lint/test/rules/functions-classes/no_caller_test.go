@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoCaller(t *testing.T) {
-  assertRuleCorpusCase(t, "no-caller.ts", "function f() {\n  // expect: noCaller error\n  return arguments.callee;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-caller.ts", "function f() {\n  // expect: no-caller error\n  return arguments.callee;\n}\nJSON.stringify(f);\n")
 }

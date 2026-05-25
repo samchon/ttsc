@@ -23,19 +23,19 @@ import "testing"
 func TestFixPreferTemplateRewritesConcatChainIntoTemplateLiteral(t *testing.T) {
   assertFixSnapshot(
     t,
-    "preferTemplate",
+    "prefer-template",
     "const name = \"world\";\nconst s = \"hi \" + name + \"!\";\nJSON.stringify(s);\n",
     "const name = \"world\";\nconst s = `hi ${name}!`;\nJSON.stringify(s);\n",
   )
   assertFixSnapshot(
     t,
-    "preferTemplate",
+    "prefer-template",
     "const name = \"world\";\nconst s = \"a`b\" + name;\nJSON.stringify(s);\n",
     "const name = \"world\";\nconst s = `a\\`b${name}`;\nJSON.stringify(s);\n",
   )
   assertFixSnapshot(
     t,
-    "preferTemplate",
+    "prefer-template",
     "const a: any = 1;\nconst s = a + \"b\";\nJSON.stringify(s);\n",
     "const a: any = 1;\nconst s = `${a}b`;\nJSON.stringify(s);\n",
   )

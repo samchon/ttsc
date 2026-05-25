@@ -32,7 +32,7 @@ type formatQuotesOptions struct {
   Prefer string `json:"prefer"`
 }
 
-func (formatQuotes) Name() string   { return "formatQuotes" }
+func (formatQuotes) Name() string   { return "format/quotes" }
 func (formatQuotes) IsFormat() bool { return true }
 
 func (formatQuotes) Visits() []shimast.Kind {

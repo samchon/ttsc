@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthSkipsShortObjectLiteral(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = { a: 1 };\n",
   )
 }

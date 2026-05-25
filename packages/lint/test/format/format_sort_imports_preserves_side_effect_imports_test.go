@@ -27,7 +27,7 @@ func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
     "import alpha from \"alpha\";\n" +
     "JSON.stringify({ reduce, alpha });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings (side-effect imports inhibit sort), got %d:\n%v",

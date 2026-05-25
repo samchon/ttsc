@@ -19,7 +19,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterDecoratedParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "declare function inject(token: string): ParameterDecorator;\nclass Service {\n  method(\n    plain: number,\n    @inject(\"TOKEN\") tagged: number\n  ): number {\n    return plain + tagged;\n  }\n}\nService;\n",
     "declare function inject(token: string): ParameterDecorator;\nclass Service {\n  method(\n    plain: number,\n    @inject(\"TOKEN\") tagged: number,\n  ): number {\n    return plain + tagged;\n  }\n}\nService;\n",
   )

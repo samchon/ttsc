@@ -47,7 +47,7 @@ type formatTrailingCommaOptions struct {
   Mode string `json:"mode"`
 }
 
-func (formatTrailingComma) Name() string   { return "formatTrailingComma" }
+func (formatTrailingComma) Name() string   { return "format/trailing-comma" }
 func (formatTrailingComma) IsFormat() bool { return true }
 
 func (formatTrailingComma) Visits() []shimast.Kind {

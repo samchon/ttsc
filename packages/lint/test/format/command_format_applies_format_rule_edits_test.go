@@ -21,8 +21,8 @@ import (
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   seedLintRules(t, root, map[string]string{
-    "formatSemi": "error",
-    "noVar":      "error",
+    "format/semi": "error",
+    "no-var":      "error",
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{

@@ -1,4 +1,4 @@
-// expect: preferNamespaceKeyword error
+// expect: prefer-namespace-keyword error
 module Foo {
   export const x = 1;
 }

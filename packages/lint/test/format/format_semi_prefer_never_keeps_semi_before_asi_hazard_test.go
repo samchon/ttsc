@@ -29,9 +29,9 @@ func TestFormatSemiPreferNeverKeepsSemiBeforeASIHazard(t *testing.T) {
     "[1, 2].forEach((n) => n);\n"
   file := parseTS(t, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatSemi": SeverityError},
+    Rules: RuleConfig{"format/semi": SeverityError},
     Options: RuleOptionsMap{
-      "formatSemi": json.RawMessage(`{"prefer":"never"}`),
+      "format/semi": json.RawMessage(`{"prefer":"never"}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

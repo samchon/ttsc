@@ -35,7 +35,7 @@ type formatJSDocOptions struct {
   SortTags    bool              `json:"sortTags"`
 }
 
-func (formatJSDoc) Name() string   { return "formatJsdoc" }
+func (formatJSDoc) Name() string   { return "format/jsdoc" }
 func (formatJSDoc) IsFormat() bool { return true }
 func (formatJSDoc) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}

@@ -23,7 +23,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastMethodSignatureParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "interface Calculator {\n  add(\n    left: number,\n    right: number\n  ): number;\n}\nlet c: Calculator;\nc;\n",
     "interface Calculator {\n  add(\n    left: number,\n    right: number,\n  ): number;\n}\nlet c: Calculator;\nc;\n",
   )

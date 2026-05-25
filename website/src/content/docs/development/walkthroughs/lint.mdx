@@ -33,8 +33,8 @@ import type { ITtscLintConfig } from "@ttsc/lint";
 
 export default {
   rules: {
-    noVar: "error",
-    noConsole: "warn",
+    "no-var": "error",
+    "no-console": "warn",
   },
 } satisfies ITtscLintConfig;
 ```
@@ -50,7 +50,7 @@ export default {
 }
 ```
 
-With either configuration, `npx ttsc check` typechecks the project, runs every active rule, and renders findings through the same diagnostic format `tsgo --noEmit` uses. A `var x = 1;` lands as a red `noVar` error; the build fails.
+With either configuration, `npx ttsc check` typechecks the project, runs every active rule, and renders findings through the same diagnostic format `tsgo --noEmit` uses. A `var x = 1;` lands as a red `no-var` error; the build fails.
 
 ## Directory layout
 
@@ -225,7 +225,7 @@ The config layer lives in `linthost/config.go` — the longest file in `linthost
 - **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
 - **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}` — or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
 - **`extends` in a config file**: a `lint.config.*` file may set `extends` to a base config file's path. The base is loaded first, then this file's `plugins`, `rules`, and `format` fields override it. Cyclic and over-deep `extends` chains are rejected with a typed error rather than recursed into.
-- **Inline disable comments** in source files: `// ttsc-lint-disable-next-line noVar`.
+- **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 
 The config loader returns a `RuleResolver` interface:
 
@@ -256,7 +256,7 @@ type Rule interface {
 }
 ```
 
-Three methods. `Name()` is the user-facing rule name (`"noDebugger"`, `"demo/no-demo"`); `Visits()` returns the AST kinds the rule cares about; `Check` is invoked once per relevant node. The optional `FormatRule` extension adds an `IsFormat() bool` method that tags the rule as belonging to the format-class.
+Three methods. `Name()` is the user-facing rule name (`"no-debugger"`, `"demo/no-demo"`); `Visits()` returns the AST kinds the rule cares about; `Check` is invoked once per relevant node. The optional `FormatRule` extension adds an `IsFormat() bool` method that tags the rule as belonging to the format-class.
 
 ### Registry
 
@@ -334,7 +334,7 @@ Four things to take away:
 
 **Per-node fan-out by kind.** The map lookup is O(1); the inner loop is O(active rules for this kind). For 100 rules and 100,000 nodes, the work is roughly 100,000 × (lookup) + sum over rules × matching nodes.
 
-**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}` — the canonical shape for rules that scan comments or run once per file (e.g. `banTsComment`, the contributor demo's `no-todo-comment`) — fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need *both* per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
+**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}` — the canonical shape for rules that scan comments or run once per file (e.g. `ban-ts-comment`, the contributor demo's `no-todo-comment`) — fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need *both* per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
 
 **Severity is per-file.** `fileRules.Severity(name)` is queried at dispatch time, not engine bootstrap, because `files: ["src/**.test.ts"]` scopes can shift the severity per file.
 
@@ -383,23 +383,23 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-type noDebugger struct{}
+type no-debugger struct{}
 
-func (noDebugger) Name() string           { return "no-debugger" }
-func (noDebugger) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDebuggerStatement} }
-func (noDebugger) Check(ctx *Context, node *shimast.Node) {
+func (no-debugger) Name() string           { return "no-debugger" }
+func (no-debugger) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDebuggerStatement} }
+func (no-debugger) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Unexpected `debugger` statement.")
 }
 
 func init() {
-  Register(noDebugger{})
-  Register(noWith{})
+  Register(no-debugger{})
+  Register(no-with{})
 }
 ```
 
 Three observations:
 
-- **The rule is a value receiver.** `noDebugger{}` is an empty struct; the engine constructs `Context` and passes it by pointer, so the rule itself does not need fields. Most built-in rules are empty structs because rule state would leak across files.
+- **The rule is a value receiver.** `no-debugger{}` is an empty struct; the engine constructs `Context` and passes it by pointer, so the rule itself does not need fields. Most built-in rules are empty structs because rule state would leak across files.
 - **`Visits()` returns one kind.** The engine only invokes `Check` on `DebuggerStatement` nodes. Every other node kind walks past this rule.
 - **`init()` registers the rule.** Every `rules_*.go` file ends with one or more `Register` calls in `init()`. Two rules with the same `Name()` panic at startup — `Register` checks for the duplicate before storing — which is exactly the failure you want for a typo. (Within one file, `init` functions run in source order; across files in a package, the Go toolchain runs them in filename order. Either way the panic is reachable: only the file that reports it changes.)
 
@@ -618,8 +618,8 @@ export default {
   files: ["src/**/*.ts"],
   ignores: ["dist/**"],
   rules: {
-    noVar: "error",
-    noConsole: "off",
+    "no-var": "error",
+    "no-console": "off",
   },
 } satisfies ITtscLintConfig;
 ```

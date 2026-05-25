@@ -27,7 +27,7 @@ import {
  * 2. Create a separate wrapper directory with its own `lint.config.json` and a
  *    tsconfig that extends the project's tsconfig.
  * 3. Compile via `TtscCompiler` using the wrapper tsconfig; assert the wrapper's
- *    `noVar` rule fires (not the project's `noConsole` rule).
+ *    `no-var` rule fires (not the project's `no-console` rule).
  */
 export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config =
   () => {
@@ -37,7 +37,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
       pluginConfig: {},
       extraSources: {
         "lint.config.json": JSON.stringify({
-          rules: { "noConsole": "error" },
+          rules: { "no-console": "error" },
         }),
       },
     });
@@ -46,7 +46,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
       const tsconfig = path.join(wrapper, "tsconfig.json");
       fs.writeFileSync(
         path.join(wrapper, "lint.config.json"),
-        JSON.stringify({ rules: { "noVar": "error" } }),
+        JSON.stringify({ rules: { "no-var": "error" } }),
         "utf8",
       );
       fs.writeFileSync(
@@ -72,7 +72,7 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
         result.diagnostics.map((d) => [d.messageText, d.category]),
         [
           [
-            "[noVar] Unexpected var, use let or const instead.\n  ~~~",
+            "[no-var] Unexpected var, use let or const instead.\n  ~~~",
             "error",
           ],
         ],

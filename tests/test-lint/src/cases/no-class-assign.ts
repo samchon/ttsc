@@ -1,3 +1,3 @@
 class A {}
-// expect: noClassAssign error
+// expect: no-class-assign error
 A = function () {} as any;

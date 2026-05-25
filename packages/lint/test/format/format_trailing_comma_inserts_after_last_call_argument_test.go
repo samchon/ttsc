@@ -16,7 +16,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastCallArgument(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "JSON.stringify(\n  {\n    a: 1,\n    b: 2,\n  },\n  null,\n  2\n);\n",
     "JSON.stringify(\n  {\n    a: 1,\n    b: 2,\n  },\n  null,\n  2,\n);\n",
   )

@@ -11,7 +11,7 @@ import (
 // https://eslint.org/docs/latest/rules/no-template-curly-in-string
 type noTemplateCurlyInString struct{}
 
-func (noTemplateCurlyInString) Name() string { return "noTemplateCurlyInString" }
+func (noTemplateCurlyInString) Name() string { return "no-template-curly-in-string" }
 func (noTemplateCurlyInString) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindStringLiteral}
 }
@@ -50,7 +50,7 @@ func hasTemplatePlaceholder(text string) bool {
 // https://eslint.org/docs/latest/rules/no-multi-str
 type noMultiStr struct{}
 
-func (noMultiStr) Name() string           { return "noMultiStr" }
+func (noMultiStr) Name() string           { return "no-multi-str" }
 func (noMultiStr) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindStringLiteral} }
 func (noMultiStr) Check(ctx *Context, node *shimast.Node) {
   src := nodeText(ctx.File, node)
@@ -80,7 +80,7 @@ func hasBackslashLineContinuation(src string) bool {
 // https://eslint.org/docs/latest/rules/no-useless-concat
 type noUselessConcat struct{}
 
-func (noUselessConcat) Name() string           { return "noUselessConcat" }
+func (noUselessConcat) Name() string           { return "no-useless-concat" }
 func (noUselessConcat) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }
 func (noUselessConcat) Check(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
@@ -114,7 +114,7 @@ func isStringLikeLiteral(node *shimast.Node) bool {
 // https://eslint.org/docs/latest/rules/no-octal
 type noOctal struct{}
 
-func (noOctal) Name() string           { return "noOctal" }
+func (noOctal) Name() string           { return "no-octal" }
 func (noOctal) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindNumericLiteral} }
 func (noOctal) Check(ctx *Context, node *shimast.Node) {
   src := nodeText(ctx.File, node)

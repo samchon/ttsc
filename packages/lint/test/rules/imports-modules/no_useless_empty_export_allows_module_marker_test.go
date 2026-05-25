@@ -13,11 +13,11 @@ import (
 // that the corpus helper cannot express without an expected diagnostic.
 //
 // 1. Parse a file containing only an empty export and a value use.
-// 2. Enable `noUselessEmptyExport`.
+// 2. Enable `no-useless-empty-export`.
 // 3. Assert the native Engine reports no diagnostics.
 func TestNoUselessEmptyExportAllowsModuleMarker(t *testing.T) {
   file := parseTS(t, "export {};\nconst local = 1;\nJSON.stringify(local);\n")
-  findings := NewEngine(RuleConfig{"noUselessEmptyExport": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  findings := NewEngine(RuleConfig{"no-useless-empty-export": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected no findings, got %v", findingRules(findings))
   }

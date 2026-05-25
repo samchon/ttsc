@@ -21,7 +21,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongObjectLiteral(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = { aa: 1, bb: 2, cc: 3 };\n",
     `{"printWidth": 20}`,
     "const x = {\n  aa: 1,\n  bb: 2,\n  cc: 3,\n};\n",

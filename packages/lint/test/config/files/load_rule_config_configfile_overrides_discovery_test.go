@@ -23,10 +23,10 @@ func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "lint.config.json"), `{
-    "rules": { "noConsole": "error" }
+    "rules": { "no-console": "error" }
   }`)
   writeFile(t, filepath.Join(dir, "custom.config.json"), `{
-    "rules": { "noVar": "error" }
+    "rules": { "no-var": "error" }
   }`)
 
   cfg, err := LoadRuleConfig(&PluginEntry{
@@ -37,10 +37,10 @@ func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("noVar") != SeverityError {
-    t.Errorf("noVar: want error from configFile target, got %v", cfg.Severity("noVar"))
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("noVar: want error from configFile target, got %v", cfg.Severity("no-var"))
   }
-  if cfg.Severity("noConsole") != SeverityOff {
-    t.Errorf("noConsole: discoverable file must be ignored when configFile is set, got %v", cfg.Severity("noConsole"))
+  if cfg.Severity("no-console") != SeverityOff {
+    t.Errorf("noConsole: discoverable file must be ignored when configFile is set, got %v", cfg.Severity("no-console"))
   }
 }

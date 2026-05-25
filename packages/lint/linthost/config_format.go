@@ -9,7 +9,7 @@ import (
 // per-rule severity + options shape the existing rule parsers consume.
 // The result is a `map[string]any` that mirrors what a user would
 // have written under `rules` directly — entries like
-// `"formatSemi": ["off", {"prefer": "always"}]` — so the caller
+// `"format/semi": ["off", {"prefer": "always"}]` — so the caller
 // can route it through either `ParseRulesWithOptions` or
 // `parseExternalRuleMapInto` without duplicating option-decoding logic.
 //
@@ -20,12 +20,12 @@ import (
 //
 // The block's enablement matrix:
 //
-//   - `formatSemi` — always on. `semi: false` flips to `prefer: "never"`.
-//   - `formatQuotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
-//   - `formatTrailingComma` — always on with the requested mode.
-//   - `formatPrintWidth` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
-//   - `formatSortImports` — opt-in by setting `importOrder`.
-//   - `formatJsdoc` — opt-in by setting `jsdoc` truthy.
+//   - `format/semi` — always on. `semi: false` flips to `prefer: "never"`.
+//   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
+//   - `format/trailing-comma` — always on with the requested mode.
+//   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
+//   - `format/sort-imports` — opt-in by setting `importOrder`.
+//   - `format/jsdoc` — opt-in by setting `jsdoc` truthy.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
 // merge any user-supplied `rules` map on top of this one (rules-wins
@@ -58,7 +58,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       semiPrefer = "never"
     }
   }
-  out["formatSemi"] = ruleEntry(map[string]any{"prefer": semiPrefer})
+  out["format/semi"] = ruleEntry(map[string]any{"prefer": semiPrefer})
 
   // formatQuotes
   quotesPrefer := "double"
@@ -71,7 +71,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       quotesPrefer = "single"
     }
   }
-  out["formatQuotes"] = ruleEntry(map[string]any{"prefer": quotesPrefer})
+  out["format/quotes"] = ruleEntry(map[string]any{"prefer": quotesPrefer})
 
   // formatTrailingComma
   tcMode := "all"
@@ -87,13 +87,13 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       return nil, fmt.Errorf("@ttsc/lint: format.trailingComma must be \"all\", \"es5\", or \"none\"; got %q", s)
     }
   }
-  out["formatTrailingComma"] = ruleEntry(map[string]any{"mode": tcMode})
+  out["format/trailing-comma"] = ruleEntry(map[string]any{"mode": tcMode})
 
   // formatPrintWidth
   //
   // `trailingComma` is mirrored into the print-width rule's options so
   // the printer's broken-list reflow emits the same trailing-comma
-  // shape `formatTrailingComma` does. Without the mirror the two
+  // shape `format/trailing-comma` does. Without the mirror the two
   // rules disagree on `es5` / `none` projects and oscillate on every
   // cascade pass — the trailing-comma rule says "no comma" while the
   // printer adds one back. See `printArgList` in print_nodes_call.go.
@@ -135,7 +135,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
     pwOpts["endOfLine"] = s
   }
-  out["formatPrintWidth"] = ruleEntry(pwOpts)
+  out["format/print-width"] = ruleEntry(pwOpts)
 
   // formatSortImports — opt-in by `importOrder`.
   if v, ok := raw["importOrder"]; ok {
@@ -169,7 +169,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       }
       siOpts["importOrderCaseInsensitive"] = b
     }
-    out["formatSortImports"] = ruleEntry(siOpts)
+    out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
   // formatJsdoc — opt-in by `jsdoc` truthy (boolean or object).
@@ -211,7 +211,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       return nil, fmt.Errorf("@ttsc/lint: format.jsdoc must be a boolean or object, got %T", v)
     }
     if enabled {
-      out["formatJsdoc"] = ruleEntry(jdOpts)
+      out["format/jsdoc"] = ruleEntry(jdOpts)
     }
   }
 

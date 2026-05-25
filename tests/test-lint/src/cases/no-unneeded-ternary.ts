@@ -1,5 +1,5 @@
 function f(x: any) {
-  // expect: noUnneededTernary error
+  // expect: no-unneeded-ternary error
   return x ? true : false;
 }
 JSON.stringify(f);

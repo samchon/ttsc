@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Verifies lint formatJsdoc: rewrites synonym tags to canonical.
+ * Verifies lint "format/jsdoc": rewrites synonym tags to canonical.
  *
  * The fixture contains every synonym pair the rule's table covers: `@arg`,
  * `@argument`, `@return`, `@desc`. One launcher run must collapse them onto

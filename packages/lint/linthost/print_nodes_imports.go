@@ -142,9 +142,9 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   parts := []Doc{Text(prefix), named, Text(" from "), moduleSpec}
   if sourceHasStatementTerminator(ctx.Source, node.End()) {
     // Preserve the user's terminator decision. Emitting `;`
-    // unconditionally would collide with `formatSemi`'s
+    // unconditionally would collide with `format/semi`'s
     // zero-width insert on the same cascade pass and produce
-    // `;;` — `formatSemi` owns terminator placement.
+    // `;;` — `format/semi` owns terminator placement.
     parts = append(parts, Text(";"))
   }
   return Concat(parts...), covered

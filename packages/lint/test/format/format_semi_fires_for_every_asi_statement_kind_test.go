@@ -41,7 +41,7 @@ function loop() {
 debugger
 `
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatSemi": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/semi": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
 
   // 14 ASI-terminated kinds in the fixture: import, importEquals,
@@ -57,7 +57,7 @@ debugger
     if !finding.IsFormat {
       t.Fatalf("expected IsFormat=true on %s @ %d", finding.Rule, finding.Pos)
     }
-    if finding.Rule != "formatSemi" {
+    if finding.Rule != "format/semi" {
       t.Fatalf("unexpected rule %q in finding", finding.Rule)
     }
     if len(finding.Fix) != 1 {

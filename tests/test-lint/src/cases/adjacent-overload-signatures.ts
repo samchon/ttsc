@@ -1,7 +1,7 @@
 interface I {
   foo(): void;
   bar(): void;
-  // expect: adjacentOverloadSignatures error
+  // expect: adjacent-overload-signatures error
   foo(x: number): void;
 }
 declare const i: I;

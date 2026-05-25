@@ -295,7 +295,7 @@ const runLintImpl = async (
   // emits tsgo-style pretty diagnostics on stderr. We parse those lines back
   // into our IDiagnostic shape for the Lint tab; the playground's lint plugin
   // wrapper feeds in a default rule preset when no --plugins-json is passed,
-  // so a fresh paste already lights up noVar / preferConst / eqeqeq.
+  // so a fresh paste already lights up no-var / prefer-const / eqeqeq.
   try {
     const { api, host } = await getBoot();
     writeProject(host, projectFiles(props.source));

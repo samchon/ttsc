@@ -1,5 +1,5 @@
 function bad(
-  // expect: defaultParamLast error
+  // expect: default-param-last error
   a = 1,
   b: number,
 ): number {

@@ -7,7 +7,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/no-sparse-arrays
 type noSparseArrays struct{}
 
-func (noSparseArrays) Name() string { return "noSparseArrays" }
+func (noSparseArrays) Name() string { return "no-sparse-arrays" }
 func (noSparseArrays) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindArrayLiteralExpression}
 }
@@ -33,7 +33,7 @@ func (noSparseArrays) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-array-constructor
 type noArrayConstructor struct{}
 
-func (noArrayConstructor) Name() string { return "noArrayConstructor" }
+func (noArrayConstructor) Name() string { return "no-array-constructor" }
 func (noArrayConstructor) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNewExpression, shimast.KindCallExpression}
 }

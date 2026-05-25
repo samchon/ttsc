@@ -25,7 +25,7 @@ func TestFormatSortImportsPreservesCommentsBetweenImports(t *testing.T) {
     "import alpha from \"alpha\";\n" +
     "JSON.stringify({ zebra, alpha });\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatSortImports": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/sort-imports": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   for _, finding := range findings {
     if finding.Message == "Imports must be sorted into canonical groups." {

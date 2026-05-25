@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoSelfAssign(t *testing.T) {
-  assertRuleCorpusCase(t, "no-self-assign.ts", "let x = 1;\nconsole.log(x);\n// expect: noSelfAssign error\nx = x;\nconsole.log(x);\n")
+  assertRuleCorpusCase(t, "no-self-assign.ts", "let x = 1;\nconsole.log(x);\n// expect: no-self-assign error\nx = x;\nconsole.log(x);\n")
 }

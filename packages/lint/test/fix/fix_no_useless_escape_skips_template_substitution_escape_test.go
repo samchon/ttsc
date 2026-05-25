@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape verifies the
-// `\${` exception inside template literals for `noUselessEscape`.
+// `\${` exception inside template literals for `no-useless-escape`.
 //
 // Inside a template literal `\${` escapes the substitution opener so the
 // next two source bytes appear as literal `${` instead of starting a
@@ -27,7 +27,7 @@ import "testing"
 func TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "noUselessEscape",
+    "no-useless-escape",
     "const k = \"x\";\n"+
       "const head = `\\${${k}}`;\n"+
       "const nosub = `\\${k}`;\n"+

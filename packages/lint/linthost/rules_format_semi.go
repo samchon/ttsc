@@ -24,7 +24,7 @@ type formatSemiOptions struct {
   Prefer string `json:"prefer"`
 }
 
-func (formatSemi) Name() string   { return "formatSemi" }
+func (formatSemi) Name() string   { return "format/semi" }
 func (formatSemi) IsFormat() bool { return true }
 
 func (formatSemi) Visits() []shimast.Kind {

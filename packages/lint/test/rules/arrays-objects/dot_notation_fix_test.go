@@ -22,18 +22,18 @@ import "testing"
 func TestFixDotNotationRewritesBracketAccessAndSkipsReservedKeys(t *testing.T) {
   assertFixSnapshot(
     t,
-    "dotNotation",
+    "dot-notation",
     "const box: any = { name: \"ttsc\" };\nconst value = box[\"name\"];\nJSON.stringify(value);\n",
     "const box: any = { name: \"ttsc\" };\nconst value = box.name;\nJSON.stringify(value);\n",
   )
   assertNoFixSnapshot(
     t,
-    "dotNotation",
+    "dot-notation",
     "const box: any = { class: \"ttsc\" };\nconst value = box[\"class\"];\nJSON.stringify(value);\n",
   )
   assertRuleSkipsSource(
     t,
-    "dotNotation",
+    "dot-notation",
     "const box: any = { \"not-valid-key\": \"ttsc\" };\nconst value = box[\"not-valid-key\"];\nJSON.stringify(value);\n",
   )
 }

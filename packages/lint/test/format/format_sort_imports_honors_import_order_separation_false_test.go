@@ -32,9 +32,9 @@ func TestFormatSortImportsHonorsImportOrderSeparationFalse(t *testing.T) {
   file := parseTSFile(t, filePath, source)
 
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatSortImports": SeverityError},
+    Rules: RuleConfig{"format/sort-imports": SeverityError},
     Options: RuleOptionsMap{
-      "formatSortImports": json.RawMessage(`{"importOrderSeparation":false}`),
+      "format/sort-imports": json.RawMessage(`{"importOrderSeparation":false}`),
     },
   }
   findings := NewEngineWithResolver(resolver).

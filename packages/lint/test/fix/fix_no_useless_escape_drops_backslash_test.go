@@ -16,7 +16,7 @@ import "testing"
 func TestFixNoUselessEscapeDropsBackslash(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noUselessEscape",
+    "no-useless-escape",
     "const v = \"ab\\cdef\";\nJSON.stringify(v);\n",
     "const v = \"abcdef\";\nJSON.stringify(v);\n",
   )

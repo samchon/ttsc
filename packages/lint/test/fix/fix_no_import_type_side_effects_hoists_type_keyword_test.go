@@ -17,7 +17,7 @@ import "testing"
 func TestFixNoImportTypeSideEffectsHoistsTypeKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noImportTypeSideEffects",
+    "no-import-type-side-effects",
     "import { type A, type B } from \"./mod\";\nconst x: A | null = null;\nconst y: B | null = null;\nJSON.stringify([x, y]);\n",
     "import type { A, B } from \"./mod\";\nconst x: A | null = null;\nconst y: B | null = null;\nJSON.stringify([x, y]);\n",
   )

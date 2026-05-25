@@ -23,7 +23,7 @@ func TestLoadRuleConfigRejectsSelfReferentialExtends(t *testing.T) {
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "a.config.json"), `{
     "extends": "./a.config.json",
-    "rules": { "noVar": "error" }
+    "rules": { "no-var": "error" }
   }`)
 
   _, err := LoadRuleConfig(&PluginEntry{

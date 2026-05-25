@@ -20,7 +20,7 @@ import (
 // 3. Assert stdout contains the emitted JavaScript for the requested file.
 func TestCommandTransformOutputsRequestedFile(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
-  seedLintRules(t, root, map[string]string{"noVar": "off"})
+  seedLintRules(t, root, map[string]string{"no-var": "off"})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "transform",

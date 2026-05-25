@@ -20,7 +20,7 @@ import "testing"
 func TestFormatPrintWidthIdempotentOnHuggedCallbackCall(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "const x = new Singleton(() => {\n  doStuff();\n  return 1;\n});\n",
   )
 }

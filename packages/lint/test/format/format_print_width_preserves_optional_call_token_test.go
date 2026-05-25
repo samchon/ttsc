@@ -19,7 +19,7 @@ import "testing"
 func TestFormatPrintWidthPreservesOptionalCallToken(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "foo?.(aaaaaa, bbbbbb, cccccc);\n",
     `{"printWidth": 20}`,
     "foo?.(\n  aaaaaa,\n  bbbbbb,\n  cccccc,\n);\n",

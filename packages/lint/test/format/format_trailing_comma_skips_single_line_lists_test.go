@@ -23,7 +23,7 @@ func TestFormatTrailingCommaSkipsSingleLineLists(t *testing.T) {
     "const obj = { a: 1, b: 2 };\n" +
     "JSON.stringify({ a: 1, b: 2 }, null, 2);\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatTrailingComma": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/trailing-comma": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

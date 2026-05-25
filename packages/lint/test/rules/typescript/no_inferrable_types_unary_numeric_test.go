@@ -15,7 +15,7 @@ import "testing"
 // 2. Enable noInferrableTypes through the corpus helper.
 // 3. Assert the native Engine reports the annotated diagnostic.
 func TestRuleNoInferrableTypesUnaryNumeric(t *testing.T) {
-  assertRuleCorpusCase(t, "no-inferrable-types-unary-numeric.ts", `// expect: noInferrableTypes error
+  assertRuleCorpusCase(t, "no-inferrable-types-unary-numeric.ts", `// expect: no-inferrable-types error
 const value: number = -1;
 JSON.stringify(value);
 `)

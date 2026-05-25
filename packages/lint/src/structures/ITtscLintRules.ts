@@ -19,462 +19,445 @@ export type TtscLintRuleOptionsSetting<TOptions> =
   | readonly [TtscLintSeverity, TOptions];
 
 /**
- * Camel-case rule severity map accepted by `ITtscLintConfig.rules`.
+ * Rule severity map accepted by `ITtscLintConfig.rules`.
  *
  * Built-in rules are listed as concrete optional properties so TypeScript can
- * autocomplete rule names and reject typos. Contributor rules keep their
- * ESLint-style namespace with a slash, for example `demo/no-demo`.
+ * autocomplete rule names and reject typos. Built-in rule names intentionally
+ * mirror ESLint-style kebab-case IDs; contributor rules keep their namespace
+ * with a slash, for example `demo/no-demo`.
  */
 export interface ITtscLintRules {
   /** keeps overload declarations for the same member adjacent. */
-  adjacentOverloadSignatures?: TtscLintRuleSetting;
+  "adjacent-overload-signatures"?: TtscLintRuleSetting;
 
   /** prefers `T[]` and `readonly T[]` over array helper types. */
-  arrayType?: TtscLintRuleSetting;
+  "array-type"?: TtscLintRuleSetting;
 
   /** Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). */
-  awaitThenable?: TtscLintRuleSetting;
+  "await-thenable"?: TtscLintRuleSetting;
 
   /** rejects TypeScript suppression comments such as `@ts-ignore`. */
-  banTsComment?: TtscLintRuleSetting;
+  "ban-ts-comment"?: TtscLintRuleSetting;
 
   /** rejects obsolete `tslint:` comments. */
-  banTslintComment?: TtscLintRuleSetting;
+  "ban-tslint-comment"?: TtscLintRuleSetting;
 
   /** prefers `Record` for single index-signature object types. */
-  consistentIndexedObjectStyle?: TtscLintRuleSetting;
+  "consistent-indexed-object-style"?: TtscLintRuleSetting;
 
   /** prefers `as` type assertions over angle-bracket assertions. */
-  consistentTypeAssertions?: TtscLintRuleSetting;
+  "consistent-type-assertions"?: TtscLintRuleSetting;
 
   /** prefers interfaces for object-shaped type definitions. */
-  consistentTypeDefinitions?: TtscLintRuleSetting;
+  "consistent-type-definitions"?: TtscLintRuleSetting;
 
   /** Prefer `import type {}` when imports are types-only. */
-  consistentTypeImports?: TtscLintRuleSetting;
+  "consistent-type-imports"?: TtscLintRuleSetting;
 
   /** `(req, opt = 1, req2)` → fail. */
-  defaultParamLast?: TtscLintRuleSetting;
+  "default-param-last"?: TtscLintRuleSetting;
 
   /** prefers dot property access when a string-literal key is a valid identifier. */
-  dotNotation?: TtscLintRuleSetting;
+  "dot-notation"?: TtscLintRuleSetting;
 
   /** requires strict equality operators. */
   eqeqeq?: TtscLintRuleSetting;
 
   /** `for (i = 0; i < 10; i--)` → fail. */
-  forDirection?: TtscLintRuleSetting;
+  "for-direction"?: TtscLintRuleSetting;
 
   /** prefers function-property signatures over method shorthand signatures. */
-  methodSignatureStyle?: TtscLintRuleSetting;
+  "method-signature-style"?: TtscLintRuleSetting;
 
   /** rejects `alert`, `confirm`, and `prompt`. */
-  noAlert?: TtscLintRuleSetting;
+  "no-alert"?: TtscLintRuleSetting;
 
   /** rejects `Array` constructor calls. */
-  noArrayConstructor?: TtscLintRuleSetting;
+  "no-array-constructor"?: TtscLintRuleSetting;
 
   /** rejects `delete` on array elements. */
-  noArrayDelete?: TtscLintRuleSetting;
+  "no-array-delete"?: TtscLintRuleSetting;
 
   /** Reject `new Promise(async (...) => ...)`. */
-  noAsyncPromiseExecutor?: TtscLintRuleSetting;
+  "no-async-promise-executor"?: TtscLintRuleSetting;
 
   /** rejects bitwise operators. */
-  noBitwise?: TtscLintRuleSetting;
+  "no-bitwise"?: TtscLintRuleSetting;
 
   /** rejects `arguments.caller` and `arguments.callee`. */
-  noCaller?: TtscLintRuleSetting;
+  "no-caller"?: TtscLintRuleSetting;
 
   /** rejects lexical declarations directly inside `case` clauses. */
-  noCaseDeclarations?: TtscLintRuleSetting;
+  "no-case-declarations"?: TtscLintRuleSetting;
 
   /** rejects reassignment of class declarations. */
-  noClassAssign?: TtscLintRuleSetting;
+  "no-class-assign"?: TtscLintRuleSetting;
 
   /** rejects comparisons against `-0`. */
-  noCompareNegZero?: TtscLintRuleSetting;
+  "no-compare-neg-zero"?: TtscLintRuleSetting;
 
   /** rejects assignments inside conditions. */
-  noCondAssign?: TtscLintRuleSetting;
+  "no-cond-assign"?: TtscLintRuleSetting;
 
   /** rejects confusing non-null assertions next to equality checks. */
-  noConfusingNonNullAssertion?: TtscLintRuleSetting;
+  "no-confusing-non-null-assertion"?: TtscLintRuleSetting;
 
   /** rejects `console` calls. */
-  noConsole?: TtscLintRuleSetting;
+  "no-console"?: TtscLintRuleSetting;
 
   /** Reject `while (true)` and other constant test expressions. */
-  noConstantCondition?: TtscLintRuleSetting;
+  "no-constant-condition"?: TtscLintRuleSetting;
 
   /** rejects `continue` statements. */
-  noContinue?: TtscLintRuleSetting;
+  "no-continue"?: TtscLintRuleSetting;
 
   /** rejects control characters in regular expressions. */
-  noControlRegex?: TtscLintRuleSetting;
+  "no-control-regex"?: TtscLintRuleSetting;
 
   /** Reject `debugger`. */
-  noDebugger?: TtscLintRuleSetting;
+  "no-debugger"?: TtscLintRuleSetting;
 
   /** rejects deleting variables. */
-  noDeleteVar?: TtscLintRuleSetting;
+  "no-delete-var"?: TtscLintRuleSetting;
 
   /** Function declared with two parameters of the same name. */
-  noDupeArgs?: TtscLintRuleSetting;
+  "no-dupe-args"?: TtscLintRuleSetting;
 
   /** `if (a) ... else if (a) ...`. */
-  noDupeElseIf?: TtscLintRuleSetting;
+  "no-dupe-else-if"?: TtscLintRuleSetting;
 
   /** `{ a: 1, a: 2 }`. */
-  noDupeKeys?: TtscLintRuleSetting;
+  "no-dupe-keys"?: TtscLintRuleSetting;
 
   /** Same case label twice in a `switch`. */
-  noDuplicateCase?: TtscLintRuleSetting;
+  "no-duplicate-case"?: TtscLintRuleSetting;
 
   /** rejects duplicate enum member values. */
-  noDuplicateEnumValues?: TtscLintRuleSetting;
+  "no-duplicate-enum-values"?: TtscLintRuleSetting;
 
   /** rejects `delete` on dynamically computed property keys. */
-  noDynamicDelete?: TtscLintRuleSetting;
+  "no-dynamic-delete"?: TtscLintRuleSetting;
 
   /** Reject `if (x) {}`, `while (x) {}`, etc. */
-  noEmpty?: TtscLintRuleSetting;
+  "no-empty"?: TtscLintRuleSetting;
 
   /** rejects empty regex character classes. */
-  noEmptyCharacterClass?: TtscLintRuleSetting;
+  "no-empty-character-class"?: TtscLintRuleSetting;
 
   /** Reject `function f() {}`. */
-  noEmptyFunction?: TtscLintRuleSetting;
+  "no-empty-function"?: TtscLintRuleSetting;
 
   /** rejects empty interfaces. */
-  noEmptyInterface?: TtscLintRuleSetting;
+  "no-empty-interface"?: TtscLintRuleSetting;
 
   /** rejects empty object type literals. */
-  noEmptyObjectType?: TtscLintRuleSetting;
+  "no-empty-object-type"?: TtscLintRuleSetting;
 
   /** rejects empty destructuring patterns. */
-  noEmptyPattern?: TtscLintRuleSetting;
+  "no-empty-pattern"?: TtscLintRuleSetting;
 
   /** rejects empty class static blocks. */
-  noEmptyStaticBlock?: TtscLintRuleSetting;
+  "no-empty-static-block"?: TtscLintRuleSetting;
 
   /** rejects loose null comparisons. */
-  noEqNull?: TtscLintRuleSetting;
+  "no-eq-null"?: TtscLintRuleSetting;
 
   /** rejects `eval`. */
-  noEval?: TtscLintRuleSetting;
+  "no-eval"?: TtscLintRuleSetting;
 
   /** rejects reassignment of caught exceptions. */
-  noExAssign?: TtscLintRuleSetting;
+  "no-ex-assign"?: TtscLintRuleSetting;
 
   /** Reject `any` annotations. Typically `"warning"` during migrations. */
-  noExplicitAny?: TtscLintRuleSetting;
+  "no-explicit-any"?: TtscLintRuleSetting;
 
   /** rejects unnecessary `.bind()` calls. */
-  noExtraBind?: TtscLintRuleSetting;
+  "no-extra-bind"?: TtscLintRuleSetting;
 
   /** rejects redundant boolean casts. */
-  noExtraBooleanCast?: TtscLintRuleSetting;
+  "no-extra-boolean-cast"?: TtscLintRuleSetting;
 
   /** Reject `x!!`. Autofixable. */
-  noExtraNonNullAssertion?: TtscLintRuleSetting;
+  "no-extra-non-null-assertion"?: TtscLintRuleSetting;
 
   /** Reject `switch` case fall-through without an explicit comment. */
-  noFallthrough?: TtscLintRuleSetting;
+  "no-fallthrough"?: TtscLintRuleSetting;
 
   /** rejects reassignment of function declarations. */
-  noFuncAssign?: TtscLintRuleSetting;
+  "no-func-assign"?: TtscLintRuleSetting;
 
   /** Hoist inline `type` modifiers into a single `import type {}`. Autofixable. */
-  noImportTypeSideEffects?: TtscLintRuleSetting;
+  "no-import-type-side-effects"?: TtscLintRuleSetting;
 
   /** rejects type annotations TypeScript can infer. */
-  noInferrableTypes?: TtscLintRuleSetting;
+  "no-inferrable-types"?: TtscLintRuleSetting;
 
   /** rejects function declarations nested in blocks. */
-  noInnerDeclarations?: TtscLintRuleSetting;
+  "no-inner-declarations"?: TtscLintRuleSetting;
 
   /** rejects irregular whitespace. */
-  noIrregularWhitespace?: TtscLintRuleSetting;
+  "no-irregular-whitespace"?: TtscLintRuleSetting;
 
   /** rejects `__iterator__`. */
-  noIterator?: TtscLintRuleSetting;
+  "no-iterator"?: TtscLintRuleSetting;
 
   /** rejects labels. */
-  noLabels?: TtscLintRuleSetting;
+  "no-labels"?: TtscLintRuleSetting;
 
   /** rejects unnecessary standalone blocks. */
-  noLoneBlocks?: TtscLintRuleSetting;
+  "no-lone-blocks"?: TtscLintRuleSetting;
 
   /** rejects `if` as the only statement in an `else`. */
-  noLonelyIf?: TtscLintRuleSetting;
+  "no-lonely-if"?: TtscLintRuleSetting;
 
   /** Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. */
-  noLossOfPrecision?: TtscLintRuleSetting;
+  "no-loss-of-precision"?: TtscLintRuleSetting;
 
   /** rejects misleading regex character classes. */
-  noMisleadingCharacterClass?: TtscLintRuleSetting;
+  "no-misleading-character-class"?: TtscLintRuleSetting;
 
   /** rejects constructor-like signatures in interfaces. */
-  noMisusedNew?: TtscLintRuleSetting;
+  "no-misused-new"?: TtscLintRuleSetting;
 
   /** rejects enums that mix numeric and string members. */
-  noMixedEnums?: TtscLintRuleSetting;
+  "no-mixed-enums"?: TtscLintRuleSetting;
 
   /** Reject `a = b = 0` chains. */
-  noMultiAssign?: TtscLintRuleSetting;
+  "no-multi-assign"?: TtscLintRuleSetting;
 
   /** rejects multiline string escapes. */
-  noMultiStr?: TtscLintRuleSetting;
+  "no-multi-str"?: TtscLintRuleSetting;
 
   /** rejects non-ambient namespaces. */
-  noNamespace?: TtscLintRuleSetting;
+  "no-namespace"?: TtscLintRuleSetting;
 
   /** rejects negated conditions with an `else`. */
-  noNegatedCondition?: TtscLintRuleSetting;
+  "no-negated-condition"?: TtscLintRuleSetting;
 
   /** rejects nested ternary expressions. */
-  noNestedTernary?: TtscLintRuleSetting;
+  "no-nested-ternary"?: TtscLintRuleSetting;
 
   /** rejects `new` expressions used only for side effects. */
-  noNew?: TtscLintRuleSetting;
+  "no-new"?: TtscLintRuleSetting;
 
   /** rejects `Function` constructors. */
-  noNewFunc?: TtscLintRuleSetting;
+  "no-new-func"?: TtscLintRuleSetting;
 
   /** rejects primitive wrapper constructors. */
-  noNewWrappers?: TtscLintRuleSetting;
+  "no-new-wrappers"?: TtscLintRuleSetting;
 
   /** rejects non-null assertions next to `??`. */
-  noNonNullAssertedNullishCoalescing?: TtscLintRuleSetting;
+  "no-non-null-asserted-nullish-coalescing"?: TtscLintRuleSetting;
 
   /** rejects non-null assertions on optional chains. */
-  noNonNullAssertedOptionalChain?: TtscLintRuleSetting;
+  "no-non-null-asserted-optional-chain"?: TtscLintRuleSetting;
 
   /** rejects postfix non-null assertions. */
-  noNonNullAssertion?: TtscLintRuleSetting;
+  "no-non-null-assertion"?: TtscLintRuleSetting;
 
   /** rejects calling global objects as functions. */
-  noObjCalls?: TtscLintRuleSetting;
+  "no-obj-calls"?: TtscLintRuleSetting;
 
   /** rejects `new Object()`. */
-  noObjectConstructor?: TtscLintRuleSetting;
+  "no-object-constructor"?: TtscLintRuleSetting;
 
   /** Reject octal literals. */
-  noOctal?: TtscLintRuleSetting;
+  "no-octal"?: TtscLintRuleSetting;
 
   /** Reject `\08`-style escapes. */
-  noOctalEscape?: TtscLintRuleSetting;
+  "no-octal-escape"?: TtscLintRuleSetting;
 
   /** rejects `++` and `--`. */
-  noPlusplus?: TtscLintRuleSetting;
+  "no-plusplus"?: TtscLintRuleSetting;
 
   /** Reject `return` inside a Promise executor. */
-  noPromiseExecutorReturn?: TtscLintRuleSetting;
+  "no-promise-executor-return"?: TtscLintRuleSetting;
 
   /** Reject `obj.__proto__`. */
-  noProto?: TtscLintRuleSetting;
+  "no-proto"?: TtscLintRuleSetting;
 
   /** Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. */
-  noPrototypeBuiltins?: TtscLintRuleSetting;
+  "no-prototype-builtins"?: TtscLintRuleSetting;
 
   /** rejects repeated literal spaces in regexes. */
-  noRegexSpaces?: TtscLintRuleSetting;
+  "no-regex-spaces"?: TtscLintRuleSetting;
 
   /** Reject `require(...)` outside CommonJS modules. */
-  noRequireImports?: TtscLintRuleSetting;
+  "no-require-imports"?: TtscLintRuleSetting;
 
   /** rejects assignments in `return`. */
-  noReturnAssign?: TtscLintRuleSetting;
+  "no-return-assign"?: TtscLintRuleSetting;
 
   /** rejects `javascript:` URLs. */
-  noScriptUrl?: TtscLintRuleSetting;
+  "no-script-url"?: TtscLintRuleSetting;
 
   /** Reject `x = x`, including destructured forms. */
-  noSelfAssign?: TtscLintRuleSetting;
+  "no-self-assign"?: TtscLintRuleSetting;
 
   /** Reject `x === x` and friends. */
-  noSelfCompare?: TtscLintRuleSetting;
+  "no-self-compare"?: TtscLintRuleSetting;
 
   /** rejects comma expressions. */
-  noSequences?: TtscLintRuleSetting;
+  "no-sequences"?: TtscLintRuleSetting;
 
   /** rejects returned values from setters. */
-  noSetterReturn?: TtscLintRuleSetting;
+  "no-setter-return"?: TtscLintRuleSetting;
 
   /** rejects shadowing restricted globals. */
-  noShadowRestrictedNames?: TtscLintRuleSetting;
+  "no-shadow-restricted-names"?: TtscLintRuleSetting;
 
   /** rejects sparse arrays. */
-  noSparseArrays?: TtscLintRuleSetting;
+  "no-sparse-arrays"?: TtscLintRuleSetting;
 
   /** Reject `${}` inside non-template strings (probably a bug). */
-  noTemplateCurlyInString?: TtscLintRuleSetting;
+  "no-template-curly-in-string"?: TtscLintRuleSetting;
 
   /** rejects aliasing `this` to locals. */
-  noThisAlias?: TtscLintRuleSetting;
+  "no-this-alias"?: TtscLintRuleSetting;
 
   /** `throw "boom"` → fail. Use `throw new Error(...)`. */
-  noThrowLiteral?: TtscLintRuleSetting;
+  "no-throw-literal"?: TtscLintRuleSetting;
 
   /** rejects initializing to `undefined`. */
-  noUndefInit?: TtscLintRuleSetting;
+  "no-undef-init"?: TtscLintRuleSetting;
 
   /** rejects constructor assignments already handled by parameter properties. */
-  noUnnecessaryParameterPropertyAssignment?: TtscLintRuleSetting;
+  "no-unnecessary-parameter-property-assignment"?: TtscLintRuleSetting;
 
   /** rejects the global `undefined` identifier. */
-  noUndefined?: TtscLintRuleSetting;
+  "no-undefined"?: TtscLintRuleSetting;
 
   /** Reject `<T extends unknown>` and similar. Autofixable. */
-  noUnnecessaryTypeConstraint?: TtscLintRuleSetting;
+  "no-unnecessary-type-constraint"?: TtscLintRuleSetting;
 
   /** rejects redundant ternary expressions. */
-  noUnneededTernary?: TtscLintRuleSetting;
+  "no-unneeded-ternary"?: TtscLintRuleSetting;
 
   /** rejects unsafe class/interface declaration merging. */
-  noUnsafeDeclarationMerging?: TtscLintRuleSetting;
+  "no-unsafe-declaration-merging"?: TtscLintRuleSetting;
 
   /** Reject `return` / `throw` inside a `finally`. */
-  noUnsafeFinally?: TtscLintRuleSetting;
+  "no-unsafe-finally"?: TtscLintRuleSetting;
 
   /** rejects the unsafe `Function` type. */
-  noUnsafeFunctionType?: TtscLintRuleSetting;
+  "no-unsafe-function-type"?: TtscLintRuleSetting;
 
   /** rejects unsafe negation before relational checks. */
-  noUnsafeNegation?: TtscLintRuleSetting;
+  "no-unsafe-negation"?: TtscLintRuleSetting;
 
   /** rejects expression statements with no effect. */
-  noUnusedExpressions?: TtscLintRuleSetting;
+  "no-unused-expressions"?: TtscLintRuleSetting;
 
   /** rejects labels that no `break` or `continue` targets. */
-  noUnusedLabels?: TtscLintRuleSetting;
+  "no-unused-labels"?: TtscLintRuleSetting;
 
   /** rejects unnecessary `.call()` and `.apply()`. */
-  noUselessCall?: TtscLintRuleSetting;
+  "no-useless-call"?: TtscLintRuleSetting;
 
   /** rejects catch blocks that only rethrow. */
-  noUselessCatch?: TtscLintRuleSetting;
+  "no-useless-catch"?: TtscLintRuleSetting;
 
   /** rejects unnecessary computed property keys. */
-  noUselessComputedKey?: TtscLintRuleSetting;
+  "no-useless-computed-key"?: TtscLintRuleSetting;
 
   /** rejects unnecessary string concatenation. */
-  noUselessConcat?: TtscLintRuleSetting;
+  "no-useless-concat"?: TtscLintRuleSetting;
 
   /** rejects empty constructors with no parameters. */
-  noUselessConstructor?: TtscLintRuleSetting;
+  "no-useless-constructor"?: TtscLintRuleSetting;
 
   /** rejects redundant empty `export {}` declarations in module files. */
-  noUselessEmptyExport?: TtscLintRuleSetting;
+  "no-useless-empty-export"?: TtscLintRuleSetting;
 
   /** Reject `\.` and friends when not required. Autofixable. */
-  noUselessEscape?: TtscLintRuleSetting;
+  "no-useless-escape"?: TtscLintRuleSetting;
 
   /** Reject `{ x: x }` in destructuring. Autofixable. */
-  noUselessRename?: TtscLintRuleSetting;
+  "no-useless-rename"?: TtscLintRuleSetting;
 
   /** Reject `var`. Use `let` or `const`. Autofixable. */
-  noVar?: TtscLintRuleSetting;
+  "no-var"?: TtscLintRuleSetting;
 
   /** Reject `with (...)`. */
-  noWith?: TtscLintRuleSetting;
+  "no-with"?: TtscLintRuleSetting;
 
   /** Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. */
-  noWrapperObjectTypes?: TtscLintRuleSetting;
+  "no-wrapper-object-types"?: TtscLintRuleSetting;
 
   /** Reject `{ foo: foo }`. Autofixable. */
-  objectShorthand?: TtscLintRuleSetting;
+  "object-shorthand"?: TtscLintRuleSetting;
 
   /** prefers compound assignment operators. */
-  operatorAssignment?: TtscLintRuleSetting;
+  "operator-assignment"?: TtscLintRuleSetting;
 
   /** Reject `as Literal` when `as const` would do. Autofixable. */
-  preferAsConst?: TtscLintRuleSetting;
+  "prefer-as-const"?: TtscLintRuleSetting;
 
   /** When a `let` is never reassigned, demand `const`. Autofixable for single declarations. */
-  preferConst?: TtscLintRuleSetting;
+  "prefer-const"?: TtscLintRuleSetting;
 
   /** requires explicit enum member initializers. */
-  preferEnumInitializers?: TtscLintRuleSetting;
+  "prefer-enum-initializers"?: TtscLintRuleSetting;
 
   /** prefers `**` over `Math.pow`. */
-  preferExponentiationOperator?: TtscLintRuleSetting;
+  "prefer-exponentiation-operator"?: TtscLintRuleSetting;
 
   /** Prefer `for..of` when the index is unused. */
-  preferForOf?: TtscLintRuleSetting;
+  "prefer-for-of"?: TtscLintRuleSetting;
 
   /** prefers function type aliases over single-call interfaces. */
-  preferFunctionType?: TtscLintRuleSetting;
+  "prefer-function-type"?: TtscLintRuleSetting;
 
   /** prefers literal enum member initializers over computed expressions. */
-  preferLiteralEnumMember?: TtscLintRuleSetting;
+  "prefer-literal-enum-member"?: TtscLintRuleSetting;
 
   /** Use `namespace` not `module`. Autofixable. */
-  preferNamespaceKeyword?: TtscLintRuleSetting;
+  "prefer-namespace-keyword"?: TtscLintRuleSetting;
 
   /** prefers spread arguments over `.apply`. */
-  preferSpread?: TtscLintRuleSetting;
+  "prefer-spread"?: TtscLintRuleSetting;
 
   /** prefers template literals over string concatenation. */
-  preferTemplate?: TtscLintRuleSetting;
+  "prefer-template"?: TtscLintRuleSetting;
 
   /** requires a radix argument for `parseInt`. */
   radix?: TtscLintRuleSetting;
 
   /** requires generator functions to contain `yield`. */
-  requireYield?: TtscLintRuleSetting;
+  "require-yield"?: TtscLintRuleSetting;
 
   /** rejects triple-slash reference directives. */
-  tripleSlashReference?: TtscLintRuleSetting;
+  "triple-slash-reference"?: TtscLintRuleSetting;
 
   /** requires `Number.isNaN`/`isNaN` for `NaN` checks. */
-  useIsNaN?: TtscLintRuleSetting;
+  "use-isnan"?: TtscLintRuleSetting;
 
   /** restricts `typeof` comparisons to valid strings. */
-  validTypeof?: TtscLintRuleSetting;
+  "valid-typeof"?: TtscLintRuleSetting;
 
   /** requires `var` declarations at the top of their scope. */
-  varsOnTop?: TtscLintRuleSetting;
+  "vars-on-top"?: TtscLintRuleSetting;
 
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
   /** Insert or remove trailing semicolons on ASI-terminated statements. */
-  formatSemi?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;
+  "format/semi"?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;
 
   /** Convert quoted string literals to the configured quote style. */
-  formatQuotes?: TtscLintRuleOptionsSetting<ITtscLintQuotesRuleOptions>;
+  "format/quotes"?: TtscLintRuleOptionsSetting<ITtscLintQuotesRuleOptions>;
 
   /** Add or remove trailing commas in multi-line lists. */
-  formatTrailingComma?: TtscLintRuleOptionsSetting<ITtscLintTrailingCommaRuleOptions>;
+  "format/trailing-comma"?: TtscLintRuleOptionsSetting<ITtscLintTrailingCommaRuleOptions>;
 
   /** Reorder and group import declarations. */
-  formatSortImports?: TtscLintRuleOptionsSetting<ITtscLintSortImportsRuleOptions>;
+  "format/sort-imports"?: TtscLintRuleOptionsSetting<ITtscLintSortImportsRuleOptions>;
 
   /** Normalize JSDoc spacing, tag names, and tag layout. */
-  formatJsdoc?: TtscLintRuleOptionsSetting<ITtscLintJsdocRuleOptions>;
+  "format/jsdoc"?: TtscLintRuleOptionsSetting<ITtscLintJsdocRuleOptions>;
 
   /** Reflow supported list-shaped syntax when its flat form exceeds print width. */
-  formatPrintWidth?: TtscLintRuleOptionsSetting<ITtscLintPrintWidthRuleOptions>;
-
-  /** @deprecated Use `formatSemi`. */
-  "format/semi"?: never;
-
-  /** @deprecated Use `formatQuotes`. */
-  "format/quotes"?: never;
-
-  /** @deprecated Use `formatTrailingComma`. */
-  "format/trailing-comma"?: never;
-
-  /** @deprecated Use `formatSortImports`. */
-  "format/sort-imports"?: never;
-
-  /** @deprecated Use `formatJsdoc`. */
-  "format/jsdoc"?: never;
-
-  /** @deprecated Use `formatPrintWidth`. */
-  "format/print-width"?: never;
+  "format/print-width"?: TtscLintRuleOptionsSetting<ITtscLintPrintWidthRuleOptions>;
 
   /** Contributor plugin rules keyed by namespace, for example `demo/no-demo`. */
   [ruleName: `${string}/${string}`]:

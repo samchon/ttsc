@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusVarsOnTop(t *testing.T) {
-  assertRuleCorpusCase(t, "vars-on-top.ts", "function f() {\n  console.log(\"hi\");\n  // expect: varsOnTop error\n  var a = 1;\n  JSON.stringify(a);\n}\nf();\n")
+  assertRuleCorpusCase(t, "vars-on-top.ts", "function f() {\n  console.log(\"hi\");\n  // expect: vars-on-top error\n  var a = 1;\n  JSON.stringify(a);\n}\nf();\n")
 }

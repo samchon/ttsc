@@ -23,7 +23,7 @@ import "testing"
 func TestFixNoImportTypeSideEffectsPreservesLeadingComment(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noImportTypeSideEffects",
+    "no-import-type-side-effects",
     "import {\n  /* type alias for Foo */ type Foo,\n  /* type alias for Bar */ type Bar,\n} from \"./mod\";\nconst x: Foo | null = null;\nconst y: Bar | null = null;\nJSON.stringify([x, y]);\n",
     "import type {\n  /* type alias for Foo */ Foo,\n  /* type alias for Bar */ Bar,\n} from \"./mod\";\nconst x: Foo | null = null;\nconst y: Bar | null = null;\nJSON.stringify([x, y]);\n",
   )

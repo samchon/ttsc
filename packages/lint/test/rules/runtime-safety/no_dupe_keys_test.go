@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoDupeKeys(t *testing.T) {
-  assertRuleCorpusCase(t, "no-dupe-keys.ts", "const o = {\n  a: 1,\n  // expect: noDupeKeys error\n  a: 2,\n};\nJSON.stringify(o);\n")
+  assertRuleCorpusCase(t, "no-dupe-keys.ts", "const o = {\n  a: 1,\n  // expect: no-dupe-keys error\n  a: 2,\n};\nJSON.stringify(o);\n")
 }

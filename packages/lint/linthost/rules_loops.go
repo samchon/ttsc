@@ -6,7 +6,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // https://eslint.org/docs/latest/rules/for-direction
 type forDirection struct{}
 
-func (forDirection) Name() string           { return "forDirection" }
+func (forDirection) Name() string           { return "for-direction" }
 func (forDirection) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindForStatement} }
 func (forDirection) Check(ctx *Context, node *shimast.Node) {
   loop := node.AsForStatement()

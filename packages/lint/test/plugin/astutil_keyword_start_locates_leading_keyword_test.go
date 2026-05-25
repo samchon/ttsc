@@ -13,7 +13,7 @@ import (
 // TestAstutilKeywordStartLocatesLeadingKeyword verifies astutil.KeywordStart.
 //
 // Contributor fixers that swap a declaration keyword (`var → let`, the
-// `noVar` pattern) anchor their TextEdit via KeywordStart. A regression
+// `no-var` pattern) anchor their TextEdit via KeywordStart. A regression
 // that returned -1 or the wrong offset would break every such fixer.
 //
 // 1. Parse a `var x = 1;` source.

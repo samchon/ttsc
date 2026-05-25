@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoLabels(t *testing.T) {
-  assertRuleCorpusCase(t, "no-labels.ts", "// expect: noLabels error\nouter: for (let i = 0; i < 3; i++) {\n  break outer;\n}\n")
+  assertRuleCorpusCase(t, "no-labels.ts", "// expect: no-labels error\nouter: for (let i = 0; i < 3; i++) {\n  break outer;\n}\n")
 }

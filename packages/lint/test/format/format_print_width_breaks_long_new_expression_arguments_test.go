@@ -18,7 +18,7 @@ import "testing"
 func TestFormatPrintWidthBreaksLongNewExpressionArguments(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
-    "formatPrintWidth",
+    "format/print-width",
     "new Foo(aaaaaa, bbbbbb, cccccc);\n",
     `{"printWidth": 20}`,
     "new Foo(\n  aaaaaa,\n  bbbbbb,\n  cccccc,\n);\n",

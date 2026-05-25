@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoUselessRenameSkipsStringLiteralAlias verifies the round-2
-// kind-guard repair for `noUselessRename`.
+// kind-guard repair for `no-useless-rename`.
 //
 // Pre-repair, `import { "foo" as "bar" } from "./mod"` triggered the rule
 // because both PropertyName and Name are StringLiteral nodes and
@@ -18,7 +18,7 @@ import "testing"
 func TestFixNoUselessRenameSkipsStringLiteralAlias(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "noUselessRename",
+    "no-useless-rename",
     "import { \"foo\" as \"bar\" } from \"./mod\";\nJSON.stringify(\"bar\");\n",
   )
 }

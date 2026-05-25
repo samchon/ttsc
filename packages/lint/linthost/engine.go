@@ -460,7 +460,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
 
   // SourceFile dispatches into its statement list directly; we walk
   // statements explicitly so the file node itself can be inspected by
-  // rules (e.g., `banTsComment` reads CommentDirectives off the
+  // rules (e.g., `ban-ts-comment` reads CommentDirectives off the
   // SourceFile).
   for _, bound := range byKind[shimast.KindSourceFile] {
     runRuleCheck(bound.rule, bound.ctx, file.AsNode(), collect)

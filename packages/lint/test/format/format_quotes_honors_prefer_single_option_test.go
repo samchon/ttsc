@@ -18,5 +18,5 @@ import "testing"
 func TestFormatQuotesHonorsPreferSingleOption(t *testing.T) {
   source := "const greeting = \"hello\";\nJSON.stringify(greeting);\n"
   want := "const greeting = 'hello';\nJSON.stringify(greeting);\n"
-  assertFixSnapshotWithOptions(t, "formatQuotes", source, `{"prefer":"single"}`, want)
+  assertFixSnapshotWithOptions(t, "format/quotes", source, `{"prefer":"single"}`, want)
 }

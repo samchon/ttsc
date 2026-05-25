@@ -32,7 +32,7 @@ func TestFormatJSDocPreservesExampleBlockBody(t *testing.T) {
     " */\n" +
     "export const value = 1;\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 {
     t.Fatalf("expected 1 finding (only the outer @return → @returns), got %d:\n%v",

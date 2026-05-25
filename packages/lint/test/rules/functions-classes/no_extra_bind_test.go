@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoExtraBind(t *testing.T) {
-  assertRuleCorpusCase(t, "no-extra-bind.ts", "// expect: noExtraBind error\nconst f = (() => 1).bind({});\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "no-extra-bind.ts", "// expect: no-extra-bind error\nconst f = (() => 1).bind({});\nJSON.stringify(f);\n")
 }

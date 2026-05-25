@@ -1,5 +1,5 @@
 function f(a: any, b: any) {
-  // expect: noUnsafeNegation error
+  // expect: no-unsafe-negation error
   // @ts-ignore
   return !a in b;
 }

@@ -16,7 +16,7 @@ import "testing"
 func TestFormatSemiInsertsAfterMissingTerminator(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatSemi",
+    "format/semi",
     "JSON.stringify(1)\n",
     "JSON.stringify(1);\n",
   )

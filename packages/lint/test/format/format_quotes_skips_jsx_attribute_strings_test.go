@@ -25,9 +25,9 @@ func TestFormatQuotesSkipsJsxAttributeStrings(t *testing.T) {
   source := "const el = <div className=\"foo\" />;\n"
   file := parseTSXFile(t, "/virtual/main.tsx", source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatQuotes": SeverityError},
+    Rules: RuleConfig{"format/quotes": SeverityError},
     Options: RuleOptionsMap{
-      "formatQuotes": []byte(`{"prefer":"single"}`),
+      "format/quotes": []byte(`{"prefer":"single"}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

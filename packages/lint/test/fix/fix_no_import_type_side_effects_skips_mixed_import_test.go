@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixNoImportTypeSideEffectsSkipsMixedImport verifies the round-2
-// negative-path coverage for `noImportTypeSideEffects`.
+// negative-path coverage for `no-import-type-side-effects`.
 //
 // The rule's canonical contract requires EVERY named specifier to carry
 // the inline `type` modifier before hoisting is safe. A mixed import
@@ -19,7 +19,7 @@ import "testing"
 func TestFixNoImportTypeSideEffectsSkipsMixedImport(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "noImportTypeSideEffects",
+    "no-import-type-side-effects",
     "import { type A, B } from \"./mod\";\nconst a: A | null = null;\nconst b = B;\nJSON.stringify([a, b]);\n",
   )
 }

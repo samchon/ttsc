@@ -21,7 +21,7 @@ import (
 func TestFormatJSDocSkipsInlineAtText(t *testing.T) {
   source := "/**\n * Mailto: user@return-handler@example.com\n */\nexport const x = 1;\n"
   file := parseTS(t, source)
-  findings := NewEngine(RuleConfig{"formatJsdoc": SeverityError}).
+  findings := NewEngine(RuleConfig{"format/jsdoc": SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected zero findings, got %d: %+v", len(findings), findings)

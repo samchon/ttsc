@@ -26,11 +26,11 @@ func TestFormatJSDocRejectsMalformedTagSynonymValue(t *testing.T) {
   source := "/** @return number\n * @property name */\nexport const value = 1;\n"
   file := parseTS(t, source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"formatJsdoc": SeverityError},
+    Rules: RuleConfig{"format/jsdoc": SeverityError},
     Options: RuleOptionsMap{
       // `return` → "" is malformed (would emit bare `@`).
       // `property` → "prop" is well-formed and should fire.
-      "formatJsdoc": json.RawMessage(`{"tagSynonyms":{"return":"","property":"prop"}}`),
+      "format/jsdoc": json.RawMessage(`{"tagSynonyms":{"return":"","property":"prop"}}`),
     },
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

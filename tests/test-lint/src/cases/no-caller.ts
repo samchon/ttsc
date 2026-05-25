@@ -1,5 +1,5 @@
 function f() {
-  // expect: noCaller error
+  // expect: no-caller error
   return arguments.callee;
 }
 JSON.stringify(f);

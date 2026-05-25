@@ -34,7 +34,7 @@ func TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadConfigResolver: %v", err)
   }
-  raw := resolver.RuleOptions("formatSemi")
+  raw := resolver.RuleOptions("format/semi")
   if len(raw) == 0 {
     t.Fatal("format block was dropped: formatSemi has no options")
   }

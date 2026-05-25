@@ -1,6 +1,6 @@
 let a = 0;
 let b = 1;
-// expect: noCondAssign error
+// expect: no-cond-assign error
 if (a = b) {
   console.log(a);
 }

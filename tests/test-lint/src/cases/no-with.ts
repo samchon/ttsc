@@ -1,5 +1,5 @@
 function f(o: any) {
-  // expect: noWith error
+  // expect: no-with error
   with (o) {
     console.log("hi");
   }

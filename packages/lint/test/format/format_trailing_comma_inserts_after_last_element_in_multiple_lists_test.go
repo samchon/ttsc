@@ -22,7 +22,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastElementInMultipleLists(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "const xs = [\n  1,\n  2\n];\nconst ys = [\n  3,\n  4\n];\n",
     "const xs = [\n  1,\n  2,\n];\nconst ys = [\n  3,\n  4,\n];\n",
   )

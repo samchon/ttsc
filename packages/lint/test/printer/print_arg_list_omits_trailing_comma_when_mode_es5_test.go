@@ -11,7 +11,7 @@ import (
 // `trailingComma: "es5"`.
 //
 // Trailing commas in call arguments arrived in ES2017, so Prettier's
-// `es5` mode excludes them — the `formatTrailingComma` rule's
+// `es5` mode excludes them — the `format/trailing-comma` rule's
 // `KindCallExpression` arm has always honored that. The printer used
 // to add the comma back on every reflow, which oscillated against
 // Prettier on every benchmark pass (rxjs hit this on `ajax.ts`,

@@ -20,7 +20,7 @@ import "testing"
 func TestFormatTrailingCommaInsertsAfterLastArrowParameter(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "const add = (\n  left: number,\n  right: number\n): number => left + right;\nadd;\n",
     "const add = (\n  left: number,\n  right: number,\n): number => left + right;\nadd;\n",
   )

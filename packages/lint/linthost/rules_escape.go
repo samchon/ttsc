@@ -19,7 +19,7 @@ import (
 // would corrupt the file.
 type noUselessEscape struct{}
 
-func (noUselessEscape) Name() string { return "noUselessEscape" }
+func (noUselessEscape) Name() string { return "no-useless-escape" }
 func (noUselessEscape) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindStringLiteral,
@@ -204,7 +204,7 @@ func isUselessStringEscape(ch byte, whitelist string) bool {
     return false
   }
   // ASCII letters that aren't in the whitelist are user-error escapes
-  // like `\a`, `\m`. Digits 1-9 are octal-shaped (`noOctalEscape`
+  // like `\a`, `\m`. Digits 1-9 are octal-shaped (`no-octal-escape`
   // owns those). `0` is in the whitelist. Punctuation that isn't in the
   // whitelist (e.g., `\.`) is also redundant.
   return true

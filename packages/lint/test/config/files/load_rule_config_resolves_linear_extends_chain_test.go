@@ -21,11 +21,11 @@ func TestLoadRuleConfigResolvesLinearExtendsChain(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "b.config.json"), `{
-    "rules": { "noVar": "warning", "eqeqeq": "error" }
+    "rules": { "no-var": "warning", "eqeqeq": "error" }
   }`)
   writeFile(t, filepath.Join(dir, "a.config.json"), `{
     "extends": "./b.config.json",
-    "rules": { "noVar": "error" }
+    "rules": { "no-var": "error" }
   }`)
 
   cfg, err := LoadRuleConfig(&PluginEntry{
@@ -39,7 +39,7 @@ func TestLoadRuleConfigResolvesLinearExtendsChain(t *testing.T) {
   if cfg.Severity("eqeqeq") != SeverityError {
     t.Errorf("eqeqeq: want error inherited from base, got %v", cfg.Severity("eqeqeq"))
   }
-  if cfg.Severity("noVar") != SeverityError {
-    t.Errorf("noVar: want error from local override, got %v", cfg.Severity("noVar"))
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("noVar: want error from local override, got %v", cfg.Severity("no-var"))
   }
 }

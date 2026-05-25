@@ -1,7 +1,7 @@
 {
   "rules": {
     "eqeqeq": "warning",
-    "noVar": "error",
-    "preferConst": "error"
+    "no-var": "error",
+    "prefer-const": "error"
   }
 }

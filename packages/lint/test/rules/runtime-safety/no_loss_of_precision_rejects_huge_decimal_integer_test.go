@@ -24,6 +24,6 @@ func TestNoLossOfPrecisionRejectsHugeDecimalInteger(t *testing.T) {
   assertRuleCorpusCase(
     t,
     "no-loss-of-precision-huge-decimal-integer.ts",
-    "// expect: noLossOfPrecision error\nconst huge = "+huge+";\nJSON.stringify(huge);\n",
+    "// expect: no-loss-of-precision error\nconst huge = "+huge+";\nJSON.stringify(huge);\n",
   )
 }

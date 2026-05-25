@@ -30,7 +30,7 @@ func TestFormatBlockPropagatesImportOrderSeparationOptions(t *testing.T) {
     t.Fatalf("expandFormatBlock: unexpected error: %v", err)
   }
 
-  entry, ok := out["formatSortImports"]
+  entry, ok := out["format/sort-imports"]
   if !ok {
     t.Fatal("formatSortImports not present in output")
   }

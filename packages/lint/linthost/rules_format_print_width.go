@@ -56,7 +56,7 @@ type formatPrintWidth struct{}
 // TrailingComma reaches this rule because the printer's reflow decides
 // whether to emit a trailing comma on every multi-line list — and that
 // decision must match the user's `format.trailingComma` setting or the
-// reflow oscillates against `formatTrailingComma` on every cascade
+// reflow oscillates against `format/trailing-comma` on every cascade
 // pass. The config layer mirrors `format.trailingComma` into both
 // rules' option blobs (see `expandFormatBlock` in config_format.go).
 type formatPrintWidthOptions struct {
@@ -67,7 +67,7 @@ type formatPrintWidthOptions struct {
   TrailingComma *string `json:"trailingComma"`
 }
 
-func (formatPrintWidth) Name() string   { return "formatPrintWidth" }
+func (formatPrintWidth) Name() string   { return "format/print-width" }
 func (formatPrintWidth) IsFormat() bool { return true }
 
 func (formatPrintWidth) Visits() []shimast.Kind {
@@ -539,9 +539,9 @@ func isReflowKind(k shimast.Kind) bool {
 // inside an inter-child gap that the TS grammar would never tokenize
 // as a comment — effectively nil for valid TypeScript source.
 //
-// `formatSortImports` chose the opposite path on a similar shape:
+// `format/sort-imports` chose the opposite path on a similar shape:
 // it actively preserves inter-specifier comments by walking the
-// original byte ranges between elements. `formatPrintWidth`
+// original byte ranges between elements. `format/print-width`
 // abstains because the printer's separator (`,` + Line) is freshly
 // minted and has no carrier slot for trivia. Extending preservation
 // is a future slice; abstaining is byte-safe.

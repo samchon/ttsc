@@ -23,16 +23,16 @@ func TestFormatBlockSeverityWarningEnablesCheckDiagnostics(t *testing.T) {
   }
   enabled := resolver.EnabledRuleConfig()
   for _, name := range []string{
-    "formatSemi",
-    "formatQuotes",
-    "formatTrailingComma",
-    "formatPrintWidth",
+    "format/semi",
+    "format/quotes",
+    "format/trailing-comma",
+    "format/print-width",
   } {
     if got := enabled[name]; got != SeverityWarn {
       t.Errorf("expected %q at warning, got %v", name, got)
     }
   }
-  for _, name := range []string{"formatSortImports", "formatJsdoc"} {
+  for _, name := range []string{"format/sort-imports", "format/jsdoc"} {
     if _, ok := enabled[name]; ok {
       t.Errorf("expected %q to stay off (opt-in), got enabled", name)
     }

@@ -10,7 +10,7 @@ import (
 // than silently ignoring them.
 //
 // A `printwidth: 80` (lowercase w) typo without the boundary check
-// would leave `formatPrintWidth` rendered at the default 80
+// would leave `format/print-width` rendered at the default 80
 // without surfacing the user's intent. The reject prevents silent
 // no-op configs.
 //

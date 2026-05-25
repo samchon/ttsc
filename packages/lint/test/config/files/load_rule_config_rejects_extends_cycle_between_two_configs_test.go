@@ -25,7 +25,7 @@ func TestLoadRuleConfigRejectsExtendsCycleBetweenTwoConfigs(t *testing.T) {
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "a.config.json"), `{
     "extends": "./b.config.json",
-    "rules": { "noVar": "error" }
+    "rules": { "no-var": "error" }
   }`)
   writeFile(t, filepath.Join(dir, "b.config.json"), `{
     "extends": "./a.config.json",

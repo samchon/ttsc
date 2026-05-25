@@ -1,4 +1,4 @@
 class Holder {
-  // expect: noEmptyStaticBlock error
+  // expect: no-empty-static-block error
   static {}
 }

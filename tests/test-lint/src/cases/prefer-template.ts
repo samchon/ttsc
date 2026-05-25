@@ -1,4 +1,4 @@
 const name = "world";
-// expect: preferTemplate error
+// expect: prefer-template error
 const s = "hi " + name + "!";
 JSON.stringify(s);

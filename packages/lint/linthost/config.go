@@ -82,7 +82,7 @@ func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 }
 
 // RuleConfig captures the resolved per-rule severity. The map is keyed by
-// rule name (e.g. "noVar").
+// rule name (e.g. "no-var").
 type RuleConfig map[string]Severity
 
 // RuleOptionsMap captures the rule-specific options blob, keyed by rule
@@ -200,7 +200,7 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   if raw := r.Options[canonical]; len(raw) > 0 {
     return raw
   }
-  return r.Options[legacyRuleAlias(canonical)]
+  return nil
 }
 
 // ConfigStore holds the parsed representation of a lint config file. It
@@ -235,7 +235,7 @@ func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   if raw := s.options[canonical]; len(raw) > 0 {
     return raw
   }
-  return s.options[legacyRuleAlias(canonical)]
+  return nil
 }
 
 // ConfigEntry is the parsed form of one config file in the extends chain.
@@ -675,8 +675,8 @@ func rejectUnknownConfigKeys(value map[string]any, path string) error {
   return nil
 }
 
-// normalizeExternalRuleName strips standard TypeScript-ESLint namespaces and
-// maps legacy kebab-case built-in names onto the camelCase engine key.
+// normalizeExternalRuleName strips standard TypeScript-ESLint namespaces while
+// preserving @ttsc/lint's canonical kebab/slash rule IDs.
 func normalizeExternalRuleName(name string) string {
   return normalizeBuiltinRuleName(name)
 }
@@ -1734,9 +1734,6 @@ func (c RuleConfig) Severity(name string) Severity {
   canonical := normalizeExternalRuleName(name)
   if sev, ok := c[canonical]; ok {
     return sev
-  }
-  if alias := legacyRuleAlias(canonical); alias != "" {
-    return c[alias]
   }
   return SeverityOff
 }

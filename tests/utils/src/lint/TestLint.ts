@@ -340,7 +340,7 @@ export namespace TestLint {
    *
    * Blank lines and stacked `// expect:` annotations between the marker and its
    * target are skipped. A `@ts-expect-error` / `@ts-ignore` suppressor is also
-   * skipped unless the rule being tested is `banTsComment` itself.
+   * skipped unless the rule being tested is `ban-ts-comment` itself.
    */
   export function parseExpectations(source: string): ILintExpectation[] {
     const lines = source.split(/\r?\n/);
@@ -362,7 +362,7 @@ export namespace TestLint {
         target < lines.length &&
         (/^\s*$/.test(lines[target] ?? "") ||
           /^\s*\/\/\s*expect:/.test(lines[target] ?? "") ||
-          (rule !== "banTsComment" &&
+          (rule !== "ban-ts-comment" &&
             /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(
               lines[target] ?? "",
             )))

@@ -12,7 +12,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * 1. Materialise a fixture whose plugin entry sets `configFile:
  *    "./ttsc-lint.config.mts"`.
  * 2. The config default-exports an `ITtscLintConfig` object.
- * 3. Run ttsc; assert `noVar` fires from the loaded config.
+ * 3. Run ttsc; assert `no-var` fires from the loaded config.
  */
 export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
   const result = runLint({
@@ -23,7 +23,7 @@ export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
     },
     extraSources: {
       "ttsc-lint.config.mts": `export default {
-        rules: { "noVar": "error" },
+        rules: { "no-var": "error" },
       };\n`,
     },
   });
@@ -31,7 +31,7 @@ export const test_lint_config_file_mts_configs_load_through_ttsx = () => {
   assert.notEqual(result.status, 0);
   assert.deepEqual(
     result.diagnostics.map((d) => [d.rule, d.severity]),
-    [["noVar", "error"]],
+    [["no-var", "error"]],
     result.stderr,
   );
 };

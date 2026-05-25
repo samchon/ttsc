@@ -14,7 +14,7 @@ import { assert, runLint } from "../../internal/config-file";
  * one that follows the string-literal non-directive (must fire).
  *
  * 1. Construct a source with all seven patterns.
- * 2. Run ttsc with `noVar: error`, `noDebugger: error`, `noExplicitAny:
+ * 2. Run ttsc with `no-var: error`, `no-debugger: error`, `no-explicit-any:
  *    error`.
  * 3. Assert only lines 1, 8, and 10 produce diagnostics.
  */
@@ -23,20 +23,20 @@ export const test_lint_disable_comments_native_engine_respects_eslint_and_lint_d
     const result = runLint({
       name: "native-inline-disable-directives",
       source: `var before = 1;
-// eslint-disable-next-line noVar, @typescript-eslint/no-explicit-any -- deliberate
+// eslint-disable-next-line no-var, @typescript-eslint/no-explicit-any -- deliberate
 var skipped: any = 2;
-var sameLine = 3; debugger; // lint-disable-line noVar, noDebugger
-/* eslint-disable noVar */
+var sameLine = 3; debugger; // lint-disable-line no-var, no-debugger
+/* eslint-disable no-var */
 var blockSkipped = 4;
-/* eslint-enable noVar */
+/* eslint-enable no-var */
 var after = 5;
-const text = "// eslint-disable-next-line noVar";
+const text = "// eslint-disable-next-line no-var";
 var stringNotDirective = 6;
 `,
       rules: {
-        "noVar": "error",
-        "noDebugger": "error",
-        "noExplicitAny": "error",
+        "no-var": "error",
+        "no-debugger": "error",
+        "no-explicit-any": "error",
       },
     });
 
@@ -44,9 +44,9 @@ var stringNotDirective = 6;
     assert.deepEqual(
       result.diagnostics.map((d) => [d.rule, d.line]),
       [
-        ["noVar", 1],
-        ["noVar", 8],
-        ["noVar", 10],
+        ["no-var", 1],
+        ["no-var", 8],
+        ["no-var", 10],
       ],
       result.stderr,
     );

@@ -19,5 +19,5 @@ func TestFormatSortImportsAlphabetizesNamedSpecifiers(t *testing.T) {
     "readFileSync; writeFileSync;\n"
   expected := "import { readFileSync, writeFileSync } from \"node:fs\";\n" +
     "readFileSync; writeFileSync;\n"
-  assertFixSnapshot(t, "formatSortImports", source, expected)
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

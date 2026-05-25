@@ -35,7 +35,7 @@ func TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadConfigResolver: %v", err)
   }
-  raw := resolver.RuleOptions("formatPrintWidth")
+  raw := resolver.RuleOptions("format/print-width")
   if len(raw) == 0 {
     t.Fatal("format block was dropped: formatPrintWidth has no options")
   }

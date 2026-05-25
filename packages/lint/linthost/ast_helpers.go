@@ -9,8 +9,8 @@ import (
 
 // nodeText returns the source text under a node with all leading
 // trivia stripped — both whitespace AND comments. Used by rules that
-// compare textual identity (e.g. `noSelfAssign`, `noSelfCompare`,
-// `operatorAssignment`); naively reading `src[node.Pos():node.End()]`
+// compare textual identity (e.g. `no-self-assign`, `no-self-compare`,
+// `operator-assignment`); naively reading `src[node.Pos():node.End()]`
 // would include any preceding comment because tsgo's Pos points at
 // the start of leading trivia, not the actual token.
 func nodeText(file *shimast.SourceFile, node *shimast.Node) string {
@@ -200,7 +200,7 @@ func isLiteralBoolean(node *shimast.Node) (bool, bool) {
 }
 
 // isLiteralExpression returns true for nodes whose value is intrinsically
-// truthy / falsy at parse time — these flag `noConstantCondition` etc.
+// truthy / falsy at parse time — these flag `no-constant-condition` etc.
 func isLiteralExpression(node *shimast.Node) bool {
   if node == nil {
     return false
@@ -362,7 +362,7 @@ func collectAssignmentTargetNames(node *shimast.Node, names *[]string) {
 // isLiteralLike reports whether `node` (after stripping parentheses) is a
 // compile-time constant expression: a bare literal or a unary `+`/`-`
 // applied to a numeric or bigint literal. Used by rules that flag
-// constant-valued operands (e.g. `noConstantCondition`).
+// constant-valued operands (e.g. `no-constant-condition`).
 func isLiteralLike(node *shimast.Node) bool {
   node = stripParens(node)
   if node == nil {

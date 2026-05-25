@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoEval(t *testing.T) {
-  assertRuleCorpusCase(t, "no-eval.ts", "// expect: noEval error\neval(\"1\");\n")
+  assertRuleCorpusCase(t, "no-eval.ts", "// expect: no-eval error\neval(\"1\");\n")
 }

@@ -23,7 +23,7 @@ import "testing"
 func TestFormatTrailingCommaPlacesCommaBeforeTrailingLineComment(t *testing.T) {
   assertFixSnapshot(
     t,
-    "formatTrailingComma",
+    "format/trailing-comma",
     "const xs = [\n  1,\n  2 // trailing\n];\n",
     "const xs = [\n  1,\n  2, // trailing\n];\n",
   )

@@ -52,7 +52,7 @@ func (radix) Check(ctx *Context, node *shimast.Node) {
 // https://eslint.org/docs/latest/rules/no-new-wrappers
 type noNewWrappers struct{}
 
-func (noNewWrappers) Name() string           { return "noNewWrappers" }
+func (noNewWrappers) Name() string           { return "no-new-wrappers" }
 func (noNewWrappers) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindNewExpression} }
 func (noNewWrappers) Check(ctx *Context, node *shimast.Node) {
   ne := node.AsNewExpression()

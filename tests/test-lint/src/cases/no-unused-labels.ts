@@ -1,4 +1,4 @@
-// expect: noUnusedLabels error
+// expect: no-unused-labels error
 unused: {
   JSON.stringify("unused");
 }

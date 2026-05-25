@@ -1,5 +1,5 @@
 {
   "rules": {
-    "formatQuotes": "error"
+    "format/quotes": "error"
   }
 }

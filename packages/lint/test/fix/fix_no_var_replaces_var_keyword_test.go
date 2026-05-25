@@ -14,7 +14,7 @@ import "testing"
 func TestFixNoVarReplacesVarKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "noVar",
+    "no-var",
     "var legacy = 1;\nJSON.stringify(legacy);\n",
     "let legacy = 1;\nJSON.stringify(legacy);\n",
   )
