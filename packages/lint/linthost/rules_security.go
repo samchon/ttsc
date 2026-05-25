@@ -63,11 +63,14 @@ func (securityDetectChildProcess) Check(ctx *Context, node *shimast.Node) {
 	if call == nil {
 		return
 	}
+	bindings := collectSecurityBindings(ctx.File)
 	if module, ok := requireCallModule(call); ok && isChildProcessModule(module) {
+		if isInlineChildProcessExecRequire(node, bindings) {
+			return
+		}
 		ctx.Report(node, "Found require(\""+module+"\").")
 		return
 	}
-	bindings := collectSecurityBindings(ctx.File)
 	if call.Arguments == nil || len(call.Arguments.Nodes) == 0 ||
 		isSecurityStaticExpression(call.Arguments.Nodes[0], bindings, nil) {
 		return
@@ -328,6 +331,7 @@ func collectSecurityBindings(file *shimast.SourceFile) securityBindings {
 	if file == nil {
 		return bindings
 	}
+	assigned := collectSecurityAssignedNames(file.AsNode())
 	walkDescendants(file.AsNode(), func(node *shimast.Node) {
 		if node == nil {
 			return
@@ -336,10 +340,50 @@ func collectSecurityBindings(file *shimast.SourceFile) securityBindings {
 		case shimast.KindImportDeclaration:
 			collectSecurityImportBindings(node, bindings)
 		case shimast.KindVariableDeclaration:
-			collectSecurityVariableBinding(node, bindings)
+			collectSecurityVariableBinding(node, bindings, assigned)
 		}
 	})
 	return bindings
+}
+
+func collectSecurityAssignedNames(node *shimast.Node) map[string]bool {
+	assigned := map[string]bool{}
+	walkDescendants(node, func(child *shimast.Node) {
+		if child == nil {
+			return
+		}
+		switch child.Kind {
+		case shimast.KindBinaryExpression:
+			expr := child.AsBinaryExpression()
+			if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) {
+				return
+			}
+			for _, name := range assignmentTargetNames(expr.Left) {
+				assigned[name] = true
+			}
+		case shimast.KindPrefixUnaryExpression:
+			expr := child.AsPrefixUnaryExpression()
+			if expr == nil {
+				return
+			}
+			if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
+				if name := identifierText(expr.Operand); name != "" {
+					assigned[name] = true
+				}
+			}
+		case shimast.KindPostfixUnaryExpression:
+			expr := child.AsPostfixUnaryExpression()
+			if expr == nil {
+				return
+			}
+			if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
+				if name := identifierText(expr.Operand); name != "" {
+					assigned[name] = true
+				}
+			}
+		}
+	})
+	return assigned
 }
 
 func collectSecurityImportBindings(node *shimast.Node, bindings securityBindings) {
@@ -388,16 +432,21 @@ func collectSecurityImportBindings(node *shimast.Node, bindings securityBindings
 	}
 }
 
-func collectSecurityVariableBinding(node *shimast.Node, bindings securityBindings) {
+func collectSecurityVariableBinding(node *shimast.Node, bindings securityBindings, assigned map[string]bool) {
 	decl := node.AsVariableDeclaration()
 	if decl == nil || decl.Initializer == nil {
 		return
 	}
 	name := decl.Name()
 	if local := identifierText(name); local != "" {
-		collectSecurityIdentifierBinding(local, decl.Initializer, bindings)
-		if isSecurityStaticExpression(decl.Initializer, bindings, map[string]bool{local: true}) {
+		if isStableSecurityDeclaration(node, local, assigned) {
+			collectSecurityIdentifierBinding(local, decl.Initializer, bindings)
+		}
+		if isStableSecurityDeclaration(node, local, assigned) &&
+			isSecurityStaticExpression(decl.Initializer, bindings, map[string]bool{local: true}) {
 			bindings.Static[local] = true
+		} else {
+			delete(bindings.Static, local)
 		}
 		return
 	}
@@ -422,10 +471,17 @@ func collectSecurityVariableBinding(node *shimast.Node, bindings securityBinding
 		if binding.PropertyName != nil {
 			imported = identifierText(binding.PropertyName)
 		}
-		if local != "" && imported != "" {
+		if local != "" && imported != "" && isStableSecurityDeclaration(node, local, assigned) {
 			bindings.Named[local] = securityNamedBinding{Module: module, Import: imported}
 		}
 	}
+}
+
+func isStableSecurityDeclaration(node *shimast.Node, local string, assigned map[string]bool) bool {
+	if local == "" || assigned[local] {
+		return false
+	}
+	return shimast.IsConst(node) || shimast.IsLet(node) || shimast.IsVar(node)
 }
 
 func collectSecurityIdentifierBinding(local string, init *shimast.Node, bindings securityBindings) {
@@ -585,6 +641,27 @@ func isChildProcessExecCall(call *shimast.CallExpression, bindings securityBindi
 	}
 	module, ok := bindings.Modules[identifierText(obj)]
 	return ok && isChildProcessModule(module)
+}
+
+func isInlineChildProcessExecRequire(node *shimast.Node, bindings securityBindings) bool {
+	parent := node.Parent
+	if parent == nil || parent.Kind != shimast.KindPropertyAccessExpression {
+		return false
+	}
+	access := parent.AsPropertyAccessExpression()
+	if access == nil || access.Expression != node || identifierText(access.Name()) != "exec" {
+		return false
+	}
+	outerNode := parent.Parent
+	if outerNode == nil || outerNode.Kind != shimast.KindCallExpression {
+		return false
+	}
+	outer := outerNode.AsCallExpression()
+	if outer == nil || outer.Expression != parent || outer.Arguments == nil || len(outer.Arguments.Nodes) == 0 {
+		return false
+	}
+	return !isSecurityStaticExpression(outer.Arguments.Nodes[0], bindings, nil) &&
+		isChildProcessExecCall(outer, bindings)
 }
 
 func fsCallInfo(call *shimast.CallExpression, bindings securityBindings) (string, string, bool) {
