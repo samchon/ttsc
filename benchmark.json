@@ -10,8 +10,7 @@
     "ramGB": 29,
     "node": "v24.15.0",
     "ttsc": "0.13.0",
-    "typescript": "v6.0.3",
-    "tsgo": "7.0.0-dev.20260522.1"
+    "typescript": "v6.0.3"
   },
   "projects": [
     {
@@ -20,7 +19,6 @@
       "kind": "application monorepo",
       "files": 6093,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "vscode:legacy:build:multi",
@@ -108,27 +106,6 @@
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 34931.5509745,
-          "minMs": 34368.311165,
-          "samples": [
-            34971.214074,
-            34891.887875,
-            34629.724863,
-            34389.138837,
-            35138.507328,
-            34725.960135,
-            34368.311165,
-            35026.249214,
-            35183.357408,
-            35098.590469
-          ]
-        },
-        {
           "id": "vscode:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -142,27 +119,6 @@
             24704.649066,
             25481.15907,
             24820.389945
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 24997.6214255,
-          "minMs": 24460.08197,
-          "samples": [
-            24945.421793,
-            25049.821058,
-            25094.932178,
-            25050.985647,
-            24760.759233,
-            25146.178376,
-            24923.885378,
-            25050.038185,
-            24889.120209,
-            24460.08197
           ]
         },
         {
@@ -316,69 +272,6 @@
           ]
         },
         {
-          "id": "vscode:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 22117.519081,
-          "minMs": 21448.440995,
-          "samples": [
-            22529.007241,
-            22323.342554,
-            21927.500218,
-            21927.402245,
-            21768.189038,
-            21448.440995,
-            22324.392941,
-            22021.142716,
-            22213.895446,
-            22468.413388
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 16789.483105500003,
-          "minMs": 16114.71094,
-          "samples": [
-            16241.499298,
-            17316.097586,
-            16455.229088,
-            16114.71094,
-            16820.796953,
-            16715.242329,
-            17212.172665,
-            16960.578001,
-            16971.034044,
-            16758.169258
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 14024.408729,
-          "minMs": 13580.51606,
-          "samples": [
-            14998.896238,
-            14006.004977,
-            14042.812481,
-            14709.954991,
-            13647.860777,
-            14111.879701,
-            14088.049244,
-            13720.046487,
-            13580.51606,
-            13864.723393
-          ]
-        },
-        {
           "id": "vscode:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -424,69 +317,6 @@
             6654.432376,
             6582.34156,
             6518.160611
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 15851.9505015,
-          "minMs": 15482.860111,
-          "samples": [
-            16299.106587,
-            15712.963245,
-            16186.23639,
-            15868.816725,
-            15482.860111,
-            15788.773173,
-            16353.40755,
-            15835.084278,
-            15694.364898,
-            16187.566883
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 12093.136719,
-          "minMs": 11738.897275,
-          "samples": [
-            12179.007296,
-            11936.046018,
-            11916.847032,
-            12007.266142,
-            12434.448264,
-            11885.518096,
-            12725.533817,
-            12267.198615,
-            11738.897275,
-            12341.613997
-          ]
-        },
-        {
-          "id": "vscode:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 10156.637115500002,
-          "minMs": 9858.660608,
-          "samples": [
-            9887.1288,
-            9858.660608,
-            9868.779171,
-            10740.156648,
-            10100.693875,
-            10301.017805,
-            10212.580356,
-            10084.138112,
-            10644.830886,
-            10765.72281
           ]
         },
         {
@@ -662,7 +492,6 @@
       "kind": "backend framework monorepo",
       "files": 769,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "nestjs:legacy:build:multi",
@@ -750,27 +579,6 @@
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 6102.5391039999995,
-          "minMs": 5967.502393,
-          "samples": [
-            6100.174565,
-            5967.502393,
-            6053.706337,
-            6106.141245,
-            6104.903643,
-            6026.192876,
-            6129.137597,
-            6251.239829,
-            6340.354874,
-            6042.853666
-          ]
-        },
-        {
           "id": "nestjs:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -784,27 +592,6 @@
             4276.666143,
             4326.210027,
             4285.619388
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 5022.3483175,
-          "minMs": 4949.666465,
-          "samples": [
-            5150.732913,
-            5021.559482,
-            5025.843105,
-            4991.261065,
-            5023.137153,
-            5068.571173,
-            5091.219412,
-            4980.831652,
-            4949.666465,
-            5000.616183
           ]
         },
         {
@@ -958,69 +745,6 @@
           ]
         },
         {
-          "id": "nestjs:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 5536.6453825,
-          "minMs": 5442.743116,
-          "samples": [
-            5505.989549,
-            5590.577646,
-            5442.743116,
-            5452.90935,
-            5559.252686,
-            5471.733328,
-            5514.038079,
-            5654.858528,
-            5576.269067,
-            6198.296656
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 5306.633274,
-          "minMs": 5089.646606,
-          "samples": [
-            5304.796199,
-            5089.646606,
-            5339.734453,
-            5308.470349,
-            5388.819384,
-            5258.018229,
-            5299.941106,
-            5395.260766,
-            5220.516345,
-            5384.153588
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 5166.770092,
-          "minMs": 5045.721722,
-          "samples": [
-            5045.721722,
-            5127.564488,
-            5182.166802,
-            5187.203783,
-            5362.748489,
-            5076.31388,
-            5210.895729,
-            5151.373382,
-            5137.271912,
-            5280.995306
-          ]
-        },
-        {
           "id": "nestjs:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -1066,69 +790,6 @@
             3449.0075,
             3456.581653,
             3411.045402
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 4904.4645205,
-          "minMs": 4682.530209,
-          "samples": [
-            4868.691087,
-            4737.992215,
-            4815.592035,
-            5078.271339,
-            5201.013942,
-            4940.237954,
-            4982.380644,
-            5272.305429,
-            4856.960578,
-            4682.530209
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 4712.441065,
-          "minMs": 4603.733302,
-          "samples": [
-            4687.71347,
-            4811.704874,
-            4782.387781,
-            4613.484212,
-            4641.724829,
-            4650.834831,
-            4737.16866,
-            4603.733302,
-            5235.217057,
-            4962.62343
-          ]
-        },
-        {
-          "id": "nestjs:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 4575.038957999999,
-          "minMs": 4497.442781,
-          "samples": [
-            4602.40916,
-            4533.143439,
-            4647.114952,
-            4565.863909,
-            4637.633935,
-            4497.442781,
-            4508.839073,
-            4625.035927,
-            4546.800833,
-            4584.214007
           ]
         },
         {
@@ -1304,7 +965,6 @@
       "kind": "frontend monorepo",
       "files": 442,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "vue:legacy:build:multi",
@@ -1392,27 +1052,6 @@
           ]
         },
         {
-          "id": "vue:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 633.1114175,
-          "minMs": 612.323412,
-          "samples": [
-            640.526972,
-            613.776747,
-            635.680817,
-            632.527761,
-            635.559814,
-            626.048976,
-            638.752496,
-            632.010573,
-            633.695074,
-            612.323412
-          ]
-        },
-        {
           "id": "vue:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -1426,27 +1065,6 @@
             3086.306556,
             3044.16515,
             3158.196704
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 633.3313075,
-          "minMs": 617.443171,
-          "samples": [
-            657.483506,
-            635.344986,
-            632.064132,
-            658.141194,
-            634.952346,
-            617.443171,
-            622.490261,
-            623.966832,
-            617.611415,
-            634.598483
           ]
         },
         {
@@ -1604,69 +1222,6 @@
           ]
         },
         {
-          "id": "vue:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 441.4444145,
-          "minMs": 423.944017,
-          "samples": [
-            458.383618,
-            443.362133,
-            461.361376,
-            432.072291,
-            441.950869,
-            423.944017,
-            440.93796,
-            446.60899,
-            434.425704,
-            427.34104
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 444.1779545,
-          "minMs": 426.426163,
-          "samples": [
-            464.594567,
-            471.368301,
-            444.557044,
-            482.286641,
-            426.426163,
-            446.825829,
-            428.03485,
-            439.515598,
-            443.798865,
-            431.055548
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 444.5022105,
-          "minMs": 434.471607,
-          "samples": [
-            475.189212,
-            443.902515,
-            462.006144,
-            434.471607,
-            453.7541,
-            442.656892,
-            473.341046,
-            444.54161,
-            441.950091,
-            444.462811
-          ]
-        },
-        {
           "id": "vue:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -1712,69 +1267,6 @@
             1346.233091,
             1347.614587,
             1335.591803
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 435.968262,
-          "minMs": 419.760716,
-          "samples": [
-            455.656746,
-            441.978449,
-            431.826536,
-            435.522929,
-            419.760716,
-            451.353404,
-            459.373705,
-            430.526159,
-            428.408073,
-            436.413595
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 442.8114025,
-          "minMs": 431.335898,
-          "samples": [
-            479.50656,
-            446.368097,
-            469.293772,
-            431.335898,
-            435.149003,
-            451.59647,
-            463.683289,
-            439.254708,
-            433.133102,
-            434.267973
-          ]
-        },
-        {
-          "id": "vue:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 434.10159999999996,
-          "minMs": 424.821297,
-          "samples": [
-            477.75235,
-            475.793463,
-            431.68137,
-            432.272881,
-            452.85183,
-            424.821297,
-            425.212301,
-            435.930319,
-            455.315596,
-            429.054548
           ]
         },
         {
@@ -1962,7 +1454,6 @@
       "kind": "schema library monorepo",
       "files": 286,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "zod:legacy:build:multi",
@@ -2050,27 +1541,6 @@
           ]
         },
         {
-          "id": "zod:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1359.1700305,
-          "minMs": 1242.450648,
-          "samples": [
-            1609.063798,
-            1263.456664,
-            1383.037323,
-            1320.39787,
-            1335.302738,
-            1409.254366,
-            1518.747655,
-            1309.503592,
-            1242.450648,
-            1443.666987
-          ]
-        },
-        {
           "id": "zod:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -2084,27 +1554,6 @@
             2849.448124,
             2913.867537,
             2880.636074
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3399.813037,
-          "minMs": 3166.469214,
-          "samples": [
-            3488.802366,
-            3401.356909,
-            3285.597529,
-            3444.06144,
-            3356.483893,
-            3398.269165,
-            3487.681837,
-            3166.469214,
-            3348.381624,
-            3466.820513
           ]
         },
         {
@@ -2258,69 +1707,6 @@
           ]
         },
         {
-          "id": "zod:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 1267.69086,
-          "minMs": 1092.534895,
-          "samples": [
-            1414.232474,
-            1092.534895,
-            1314.258375,
-            1139.040452,
-            1391.909147,
-            1221.123345,
-            1141.43308,
-            1437.574358,
-            1153.506253,
-            1375.564199
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 1276.300154,
-          "minMs": 1124.432942,
-          "samples": [
-            1527.196704,
-            1236.943013,
-            1326.847534,
-            1253.862216,
-            1234.714267,
-            1345.995236,
-            1226.02527,
-            1298.738092,
-            1124.432942,
-            1328.186631
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 1297.878032,
-          "minMs": 1109.700407,
-          "samples": [
-            1351.378807,
-            1282.003863,
-            1342.128197,
-            1240.995157,
-            1228.643788,
-            1349.602056,
-            1109.700407,
-            1313.752201,
-            1189.174119,
-            1408.879843
-          ]
-        },
-        {
           "id": "zod:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -2366,69 +1752,6 @@
             1437.461552,
             1441.046373,
             1516.423895
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 2633.5614905,
-          "minMs": 2430.955456,
-          "samples": [
-            2633.384797,
-            2643.062657,
-            2582.102915,
-            2570.4294,
-            2641.807026,
-            2430.955456,
-            2644.796675,
-            2523.763038,
-            2633.738184,
-            2791.209824
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 2290.8753475,
-          "minMs": 2227.788115,
-          "samples": [
-            2227.788115,
-            2294.749849,
-            2339.245033,
-            2374.89411,
-            2302.149726,
-            2287.000846,
-            2344.357694,
-            2280.639828,
-            2280.679492,
-            2237.44328
-          ]
-        },
-        {
-          "id": "zod:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 2169.4465915,
-          "minMs": 2096.224844,
-          "samples": [
-            2300.461566,
-            2133.318586,
-            2176.982551,
-            2182.564346,
-            2096.224844,
-            2139.775858,
-            2325.54009,
-            2097.013053,
-            2161.910632,
-            2187.930973
           ]
         },
         {
@@ -2604,7 +1927,6 @@
       "kind": "ORM library",
       "files": 495,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "typeorm:legacy:build:multi",
@@ -2692,27 +2014,6 @@
           ]
         },
         {
-          "id": "typeorm:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 6174.610103499999,
-          "minMs": 5883.322904,
-          "samples": [
-            6379.532024,
-            6281.172918,
-            6818.677191,
-            6037.407693,
-            6042.171145,
-            5943.981145,
-            6174.52374,
-            6174.696467,
-            6246.906878,
-            5883.322904
-          ]
-        },
-        {
           "id": "typeorm:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -2726,27 +2027,6 @@
             2712.09,
             2741.316451,
             2720.208389
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 3112.0514,
-          "minMs": 3007.666793,
-          "samples": [
-            3031.710809,
-            3179.964748,
-            3059.929083,
-            3278.950315,
-            3153.825958,
-            3123.659734,
-            3100.443066,
-            3007.666793,
-            3078.725997,
-            3645.309735
           ]
         },
         {
@@ -2900,69 +2180,6 @@
           ]
         },
         {
-          "id": "typeorm:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 4008.8386235,
-          "minMs": 3844.214428,
-          "samples": [
-            3993.336266,
-            4098.506482,
-            4113.980643,
-            4024.340981,
-            4088.910739,
-            3906.996796,
-            3844.214428,
-            4044.43092,
-            3970.46352,
-            3989.485481
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 3487.398978,
-          "minMs": 3294.244597,
-          "samples": [
-            3524.745266,
-            3442.357083,
-            3486.251237,
-            3604.448653,
-            3499.630948,
-            3361.100459,
-            3294.244597,
-            3614.878278,
-            3488.546719,
-            3441.407007
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 3275.811809,
-          "minMs": 3075.98027,
-          "samples": [
-            3354.501674,
-            3305.432699,
-            3206.268833,
-            3191.808945,
-            3245.173241,
-            3644.874514,
-            3315.545995,
-            3075.98027,
-            3246.553936,
-            3305.069682
-          ]
-        },
-        {
           "id": "typeorm:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -3008,69 +2225,6 @@
             1750.602521,
             1934.240785,
             1750.327147
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 2378.3233835,
-          "minMs": 2221.670249,
-          "samples": [
-            2619.143547,
-            2411.714848,
-            2413.944483,
-            2308.21486,
-            2269.144554,
-            2403.445203,
-            2353.201564,
-            2341.497073,
-            2221.670249,
-            2618.832118
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1901.3674474999998,
-          "minMs": 1809.604285,
-          "samples": [
-            1897.766158,
-            1879.220805,
-            1994.084133,
-            1861.923297,
-            2044.042799,
-            1809.604285,
-            1840.369194,
-            1904.968737,
-            1957.121556,
-            1937.998894
-          ]
-        },
-        {
-          "id": "typeorm:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1749.8188169999999,
-          "minMs": 1624.655171,
-          "samples": [
-            1771.759729,
-            1740.147103,
-            1759.490531,
-            1680.668251,
-            1707.258771,
-            1873.375013,
-            1702.854026,
-            1797.351184,
-            1624.655171,
-            1817.523179
           ]
         },
         {
@@ -3246,7 +2400,6 @@
       "kind": "library monorepo",
       "files": 515,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "rxjs:legacy:build:multi",
@@ -3334,27 +2487,6 @@
           ]
         },
         {
-          "id": "rxjs:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 1118.8898685,
-          "minMs": 1096.628121,
-          "samples": [
-            1128.002216,
-            1128.207492,
-            1123.225717,
-            1166.505133,
-            1109.722204,
-            1134.980926,
-            1109.490176,
-            1114.55402,
-            1096.628121,
-            1101.677016
-          ]
-        },
-        {
           "id": "rxjs:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -3368,27 +2500,6 @@
             2800.592135,
             2686.604597,
             2815.894393
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 1114.614767,
-          "minMs": 1089.000506,
-          "samples": [
-            1155.838519,
-            1172.762865,
-            1115.909358,
-            1134.708574,
-            1093.545067,
-            1105.668637,
-            1113.320176,
-            1102.804108,
-            1125.347601,
-            1089.000506
           ]
         },
         {
@@ -3542,69 +2653,6 @@
           ]
         },
         {
-          "id": "rxjs:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 1080.478126,
-          "minMs": 1041.434686,
-          "samples": [
-            1087.842272,
-            1105.999791,
-            1132.383388,
-            1063.90767,
-            1083.067945,
-            1041.434686,
-            1058.682007,
-            1077.888307,
-            1066.465289,
-            1103.5144
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 1057.5249785,
-          "minMs": 1035.632305,
-          "samples": [
-            1056.200508,
-            1073.668475,
-            1047.868455,
-            1118.303675,
-            1057.91597,
-            1075.248405,
-            1064.4127,
-            1035.632305,
-            1057.133987,
-            1044.018012
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 1074.414948,
-          "minMs": 1044.708674,
-          "samples": [
-            1089.993712,
-            1044.708674,
-            1083.186492,
-            1046.942261,
-            1061.096898,
-            1084.236938,
-            1049.538183,
-            1105.740107,
-            1065.643404,
-            1083.562081
-          ]
-        },
-        {
           "id": "rxjs:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -3650,69 +2698,6 @@
             2576.93828,
             2597.44357,
             2581.984972
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 1040.3916995,
-          "minMs": 1031.191784,
-          "samples": [
-            1038.836945,
-            1031.191784,
-            1066.694216,
-            1039.911343,
-            1073.98565,
-            1070.597029,
-            1032.948795,
-            1082.674339,
-            1040.346162,
-            1040.437237
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 1064.0306495,
-          "minMs": 1024.600569,
-          "samples": [
-            1059.486423,
-            1075.843903,
-            1067.385008,
-            1076.065311,
-            1057.762469,
-            1024.600569,
-            1073.433575,
-            1046.074608,
-            1078.7466,
-            1060.676291
-          ]
-        },
-        {
-          "id": "rxjs:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 1061.702624,
-          "minMs": 1042.278082,
-          "samples": [
-            1068.226093,
-            1067.714131,
-            1060.654866,
-            1059.35638,
-            1047.966817,
-            1074.452938,
-            1062.750382,
-            1059.062372,
-            1073.696032,
-            1042.278082
           ]
         },
         {
@@ -3888,7 +2873,6 @@
       "kind": "type-level library",
       "files": 209,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "type-fest:legacy:build:multi",
@@ -3976,27 +2960,6 @@
           ]
         },
         {
-          "id": "type-fest:ttsc:tsgo:build:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "single",
-          "medianMs": 23539.454054499998,
-          "minMs": 23311.875535,
-          "samples": [
-            23311.875535,
-            23485.183293,
-            23687.483806,
-            23524.386327,
-            23544.627922,
-            23913.040436,
-            23534.280187,
-            23697.426442,
-            23646.947457,
-            23455.277279
-          ]
-        },
-        {
           "id": "type-fest:ttsc:noEmit:single",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -4010,27 +2973,6 @@
             27534.625834,
             27265.355893,
             27420.135306
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:single",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "single",
-          "medianMs": 23188.544176,
-          "minMs": 22886.450664,
-          "samples": [
-            24078.167292,
-            23710.56885,
-            23191.828153,
-            22886.450664,
-            23385.089514,
-            22999.005559,
-            23185.260199,
-            23060.534853,
-            23039.863431,
-            23712.301615
           ]
         },
         {
@@ -4184,69 +3126,6 @@
           ]
         },
         {
-          "id": "type-fest:ttsc:tsgo:build:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers2",
-          "medianMs": 19075.552443,
-          "minMs": 18965.438885,
-          "samples": [
-            19055.14417,
-            18974.138516,
-            18965.438885,
-            19425.403116,
-            19319.752223,
-            19940.746781,
-            19281.506161,
-            19015.779316,
-            19019.873304,
-            19095.960716
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers4",
-          "medianMs": 17949.32073,
-          "minMs": 17514.351004,
-          "samples": [
-            17627.156681,
-            17995.817313,
-            17856.700035,
-            18566.814331,
-            18394.769909,
-            18030.64449,
-            17902.824147,
-            18126.360953,
-            17514.351004,
-            17735.784639
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:build:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "build",
-          "threading": "checkers8",
-          "medianMs": 19764.3374925,
-          "minMs": 19126.544044,
-          "samples": [
-            19328.321336,
-            20616.840364,
-            20063.068825,
-            19886.237544,
-            19391.23121,
-            19126.544044,
-            20029.661321,
-            19642.437441,
-            20176.894673,
-            19578.429332
-          ]
-        },
-        {
           "id": "type-fest:ttsc:noEmit:checkers2",
           "branch": "ttsc",
           "tool": "ttsc",
@@ -4292,69 +3171,6 @@
             21999.192982,
             23628.556571,
             21991.531402
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers2",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers2",
-          "medianMs": 19343.445321,
-          "minMs": 18797.971321,
-          "samples": [
-            18797.971321,
-            19197.614722,
-            19770.861223,
-            19055.207696,
-            19334.467733,
-            19352.422909,
-            19668.007454,
-            19409.152694,
-            19386.219078,
-            19107.517625
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers4",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers4",
-          "medianMs": 18196.6438265,
-          "minMs": 17567.474421,
-          "samples": [
-            17891.627925,
-            18277.573203,
-            17754.767072,
-            18109.079407,
-            17567.474421,
-            18115.71445,
-            18818.19167,
-            19607.807944,
-            19929.330483,
-            19883.288819
-          ]
-        },
-        {
-          "id": "type-fest:ttsc:tsgo:noEmit:checkers8",
-          "branch": "ttsc",
-          "tool": "tsgo",
-          "op": "noEmit",
-          "threading": "checkers8",
-          "medianMs": 19712.518414,
-          "minMs": 19324.230686,
-          "samples": [
-            19644.522087,
-            21419.380846,
-            19324.230686,
-            19736.738429,
-            20406.299909,
-            19339.37749,
-            19688.298399,
-            19916.510274,
-            19573.055405,
-            20876.798377
           ]
         },
         {
@@ -4530,7 +3346,6 @@
       "kind": "plugin-heavy service",
       "files": 464,
       "typescript": "v6.0.3",
-      "tsgo": "7.0.0-dev.20260522.1",
       "measurements": [
         {
           "id": "shopping-backend:legacy:build:multi",
