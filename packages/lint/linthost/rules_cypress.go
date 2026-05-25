@@ -2,7 +2,6 @@ package linthost
 
 import (
   "encoding/json"
-  "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -122,33 +121,78 @@ func (cypressAssertionBeforeScreenshot) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (cypressAssertionBeforeScreenshot) Check(ctx *Context, node *shimast.Node) {
-  var calls []*shimast.Node
   walkDescendants(node, func(child *shimast.Node) {
-    if child != nil && child.Kind == shimast.KindCallExpression {
-      calls = append(calls, child)
+    if child == nil || child.Kind != shimast.KindCallExpression {
+      return
     }
-  })
-  sort.SliceStable(calls, func(i, j int) bool {
-    if calls[i].Pos() != calls[j].Pos() {
-      return calls[i].Pos() < calls[j].Pos()
-    }
-    return calls[i].End() < calls[j].End()
-  })
-  seenAssertion := false
-  for _, child := range calls {
     call := child.AsCallExpression()
-    if call == nil || !hasCypressRoot(call.Expression) {
+    if call == nil || cypressCallMethod(call) != "screenshot" || !hasCypressRoot(call.Expression) {
+      return
+    }
+    if cypressScreenshotHasAssertion(child, call) {
+      return
+    }
+    ctx.Report(child, "Add a Cypress assertion before taking a screenshot.")
+  })
+}
+
+func cypressScreenshotHasAssertion(node *shimast.Node, call *shimast.CallExpression) bool {
+  if call != nil && previousChainHasAnyMethod(call.Expression, "should", "and") {
+    return true
+  }
+  previous := cypressPreviousStatement(cypressContainingStatement(node))
+  return cypressStatementEndsWithAssertion(previous)
+}
+
+func cypressContainingStatement(node *shimast.Node) *shimast.Node {
+  for current := node; current != nil; current = current.Parent {
+    if current.Parent == nil {
       continue
     }
-    method := cypressCallMethod(call)
-    if method == "should" || method == "and" {
-      seenAssertion = true
-      continue
-    }
-    if method == "screenshot" && !seenAssertion && !previousChainHasAnyMethod(call.Expression, "should", "and") {
-      ctx.Report(child, "Add a Cypress assertion before taking a screenshot.")
+    for _, stmt := range parentStatements(current.Parent) {
+      if stmt == current {
+        return current
+      }
     }
   }
+  return nil
+}
+
+func cypressPreviousStatement(stmt *shimast.Node) *shimast.Node {
+  if stmt == nil || stmt.Parent == nil {
+    return nil
+  }
+  siblings := parentStatements(stmt.Parent)
+  for i, sibling := range siblings {
+    if sibling == stmt && i > 0 {
+      return siblings[i-1]
+    }
+  }
+  return nil
+}
+
+func cypressStatementEndsWithAssertion(stmt *shimast.Node) bool {
+  if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+    return false
+  }
+  exprStmt := stmt.AsExpressionStatement()
+  if exprStmt == nil {
+    return false
+  }
+  return cypressExpressionEndsWithAssertion(exprStmt.Expression)
+}
+
+func cypressExpressionEndsWithAssertion(node *shimast.Node) bool {
+  node = stripParens(node)
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil {
+    return false
+  }
+  method := cypressCallMethod(call)
+  return (method == "should" || method == "and") && hasCypressRoot(call.Expression)
 }
 
 func (cypressNoAsyncTests) Name() string { return "cypress/no-async-tests" }
