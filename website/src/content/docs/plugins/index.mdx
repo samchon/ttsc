@@ -1,6 +1,6 @@
 # Plugin Ecosystem
 
-`ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and the VS Code extension sees them. Diagnostics flow through the same stream as type errors.
+`ttsc` plugins are npm packages that hook into the compiler. Once installed, every `ttsc` build, `ttsx` run, and `@ttsc/unplugin` bundler pass sees them. Diagnostics flow through the same stream as type errors; the VS Code extension also surfaces diagnostics/actions from plugins that opt into the LSP protocol.
 
 ## First-party utility plugins
 

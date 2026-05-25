@@ -7,17 +7,17 @@
 - `ttsc` — build, check, watch, and source-to-source transform on top of `@typescript/native-preview`.
 - `ttsx` — run a TypeScript entrypoint after a real type-check (a typed `tsx`/`ts-node`).
 - `ttscserver` — Language Server Protocol host: wraps the project-selected `tsgo --lsp --stdio` process and proxies JSON-RPC traffic so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers merge into the same stream the editor consumes.
-- Plugins — Go sidecars that share TypeScript-Go's AST/Checker. `ttsc` builds plugin source on demand and caches the binary.
+- Plugins — Go source packages that share TypeScript-Go's AST/Checker. Executable `package main` sources build as sidecars; non-`main` transform packages link into a native host. `ttsc` builds plugin source on demand and caches the binary.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
 
 ### 1.2. Layout
 
-- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `internal/lspserver` is the byte-level LSP proxy used by ttscserver, while `driver.PluginSource` remains the public seam downstream pipelines (lint, format, third-party diagnostics) implement (reference client: `packages/vscode`).
+- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`) and `shim/` over TypeScript-Go internals; `internal/lspserver` is the byte-level LSP proxy used by ttscserver, and `driver.PluginSource` is the public seam embedders implement. `NativePluginSource` adapts `capabilities.lsp` sidecars; `@ttsc/lint` exposes those verbs from `packages/lint/linthost/lsp.go`; `packages/vscode` is the reference client and built-in lint/format command bridge, while custom plugin command ids are still advertised through `vscode-languageclient`.
 - `packages/{banner,paths,strip}`: utility transform plugins with package-owned `driver/` logic linked into a generic native host.
 - `packages/lint`: `@ttsc/lint` with its own native engine. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
 - `packages/unplugin`: bundler adapters.
-- `packages/vscode`: VSCode extension that wires `vscode-languageclient` to ttscserver and exposes ttsc-owned commands.
+- `packages/vscode`: VS Code extension that wires `vscode-languageclient` to ttscserver, exposes the built-in lint/format command bridge, and lets other plugin command ids execute through the language client with editor-applied `WorkspaceEdit`s.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
 - `tests/test-*`: feature-test packages (run via `pnpm test:features`).
@@ -43,7 +43,7 @@ pnpm test
 - Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style — don't create parallel structures.
 - Respect existing package boundaries. Don't hardcode consumer-specific behavior into the compiler host.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
-- Plugin configuration lives in dedicated `*.config.{ts,cts,mts,js,cjs,mjs,json}` files, auto-discovered by upward walk; the tsconfig plugin entry accepts only `configFile` (an explicit path). Don't reintroduce inline `compilerOptions.plugins` option keys — they were withdrawn so config has one typed, discoverable home.
+- First-party plugin configuration lives in dedicated `*.config.{ts,cts,mts,js,cjs,mjs,json}` files, auto-discovered by upward walk; shipped ttsc packages accept only `configFile` (an explicit path) beyond host-owned entry keys. Don't reintroduce inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, or `@ttsc/lint` — they were withdrawn so package config has one typed, discoverable home.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
 
@@ -54,23 +54,26 @@ pnpm test
 - **Go unit tests** live in `packages/*/test/`; one `Test*` per file. Run the real command entrypoint (e.g. `go run ./plugin`) so wrapper branches stay covered.
 - **TypeScript e2e tests** live in `tests/test-*/src/features/`. Each file exports exactly one `test_<snake_case>` function with a matching file name; `DynamicExecutor` discovers them by prefix. Materialize a temp project, spawn the real binary, and assert on observable output.
 
-Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious *why* (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.
+Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious _why_ (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.
 
 ```ts
 /**
  * Verifies plugin corpus: composes rejects cycle between two plugins.
  *
- * Locks the cycle-detection branch in `loadProjectPlugins.ts::composePluginSources`.
- * Composition is one hop only; reciprocal `composes` arrays would silently reswap
- * the binaries of both plugins, so ttsc throws an explicit error instead of
- * routing to the wrong binary.
+ * Locks the cycle-detection branch in
+ * `loadProjectPlugins.ts::composePluginSources`. Composition is one hop only;
+ * reciprocal `composes` arrays would silently reswap the binaries of both
+ * plugins, so ttsc throws an explicit error instead of routing to the wrong
+ * binary.
  *
  * 1. Two plugin descriptors each list the other in `composes`.
  * 2. Run ttsc.
  * 3. Assert non-zero exit and `composes cycle detected` in stderr.
  */
 export const test_plugin_corpus_composes_rejects_cycle_between_two_plugins =
-  () => { /* ... */ };
+  () => {
+    /* ... */
+  };
 ```
 
 Use the shared helpers in `tests/utils` and the per-suite `internal/` modules; do not reach into another suite's internals. Regressions that need a real directory layout (not just a synthetic temp file map) go under `tests/projects`.

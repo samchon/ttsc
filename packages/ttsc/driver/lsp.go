@@ -1,5 +1,5 @@
 // lsp.go re-exports the public LSP surface from internal/lspserver so that
-// downstream consumers (plugins, the VSCode extension, tests) import only the
+// downstream consumers (plugins, the VS Code extension, tests) import only the
 // driver package rather than reaching into the internal package directly. All
 // symbols are type aliases or var assignments so they are interchangeable with
 // the originals at the call site.
@@ -57,6 +57,21 @@ type PluginSource = lspserver.PluginSource
 // NullPluginSource is the driver-level alias for lspserver.NullPluginSource.
 type NullPluginSource = lspserver.NullPluginSource
 
+// NativePluginManifest is the driver-level alias for lspserver.NativePluginManifest.
+type NativePluginManifest = lspserver.NativePluginManifest
+
+// NativePluginConfigEntry is the driver-level alias for lspserver.NativePluginConfigEntry.
+type NativePluginConfigEntry = lspserver.NativePluginConfigEntry
+
+// NativeLSPPluginEntry is the driver-level alias for lspserver.NativeLSPPluginEntry.
+type NativeLSPPluginEntry = lspserver.NativeLSPPluginEntry
+
+// NativePluginSourceOptions is the driver-level alias for lspserver.NativePluginSourceOptions.
+type NativePluginSourceOptions = lspserver.NativePluginSourceOptions
+
+// NativePluginSource is the driver-level alias for lspserver.NativePluginSource.
+type NativePluginSource = lspserver.NativePluginSource
+
 // ProxyOptions is the driver-level alias for lspserver.ProxyOptions.
 type ProxyOptions = lspserver.ProxyOptions
 
@@ -94,6 +109,7 @@ var ErrLSPTsgoBinaryRequired = lspserver.ErrLSPTsgoBinaryRequired
 
 // Constructor and utility functions forwarded from lspserver.
 var NewProxy = lspserver.NewProxy
+var NewNativePluginSource = lspserver.NewNativePluginSource
 var NewFrameReader = lspserver.NewFrameReader
 var WriteFrame = lspserver.WriteFrame
 var ParseEnvelope = lspserver.ParseEnvelope

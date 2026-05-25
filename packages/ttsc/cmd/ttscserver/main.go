@@ -1,7 +1,8 @@
 // Command ttscserver is the Go LSP host shipped by ttsc. It wraps the
 // project-selected TypeScript-Go LSP server process and proxies traffic
-// between the editor and that server, splicing ttsc-plugin diagnostics,
-// code actions, and ttsc-owned executeCommand handling into the same stream.
+// between the editor and that server. The JavaScript launcher resolves project
+// plugins first and passes an LSP manifest so this command can merge plugin
+// diagnostics, code actions, and ttsc-owned executeCommand handling.
 //
 // The JavaScript launcher (`packages/ttsc/src/launcher/ttscserver.ts`)
 // resolves the native binary and forwards stdio so editors can spawn
@@ -86,8 +87,13 @@ func runLSP(args []string) int {
   fs.SetOutput(stderr)
   stdioFlag := fs.Bool("stdio", false, "communicate with the editor over stdin/stdout")
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
+  tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
   tsgoFlag := fs.String("tsgo", "", "absolute tsgo binary path (defaults to TTSC_TSGO_BINARY)")
-  progressDelayFlag := fs.Duration("progress-delay", 250*time.Millisecond, "delay before showing tsgo's progress UI")
+  progressDelayFlag := fs.Duration("progress-delay", 250*time.Millisecond, "accepted for compatibility; ignored by the external tsgo LSP process")
+  suppressExecuteCommandProviderFlag := fs.Bool("suppress-execute-command-provider", false, "do not advertise ttsc executeCommand ids during initialize")
+  suppressExecuteCommandIDsFlag := fs.String("suppress-execute-command-ids", "", "comma-separated ttsc executeCommand ids to omit during initialize")
+  executeCommandIDPrefixFlag := fs.String("execute-command-id-prefix", "", "prefix to apply to advertised executeCommand ids")
+  _ = fs.String("clientProcessId", "", "ignored VSCode language-client compatibility flag")
   if err := fs.Parse(args); err != nil {
     return 2
   }
@@ -114,14 +120,28 @@ func runLSP(args []string) int {
     tsgoBinary = strings.TrimSpace(os.Getenv("TTSC_TSGO_BINARY"))
   }
 
-  err := runLSPServer(ctx, lspserver.LSPServerOptions{
-    In:            stdin,
-    Out:           stdout,
-    Err:           stderr,
-    Cwd:           cwd,
-    TsgoBinary:    tsgoBinary,
-    Source:        lspserver.NullPluginSource{},
-    ProgressDelay: *progressDelayFlag,
+  source, err := lspserver.NewNativePluginSource(lspserver.NativePluginSourceOptions{
+    Cwd:          cwd,
+    Err:          stderr,
+    ManifestJSON: os.Getenv("TTSC_LSP_PLUGINS_JSON"),
+    Tsconfig:     strings.TrimSpace(*tsconfigFlag),
+  })
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscserver: %v\n", err)
+    return 2
+  }
+
+  err = runLSPServer(ctx, lspserver.LSPServerOptions{
+    In:                             stdin,
+    Out:                            stdout,
+    Err:                            stderr,
+    Cwd:                            cwd,
+    TsgoBinary:                     tsgoBinary,
+    Source:                         source,
+    SuppressExecuteCommandProvider: *suppressExecuteCommandProviderFlag,
+    SuppressedExecuteCommandIDs:    splitCSV(*suppressExecuteCommandIDsFlag),
+    ExecuteCommandIDPrefix:         strings.TrimSpace(*executeCommandIDPrefixFlag),
+    ProgressDelay:                  *progressDelayFlag,
   })
   if err != nil && !errors.Is(err, context.Canceled) {
     fmt.Fprintf(stderr, "ttscserver: %v\n", err)
@@ -155,14 +175,36 @@ Usage:
 Options:
   --stdio              Communicate with the editor over stdin/stdout.
   --cwd <dir>          Project root used as the tsgo server working directory.
+  --tsconfig <path>    Project config path used by ttsc plugin sidecars.
   --tsgo <path>        Absolute tsgo binary path (defaults to TTSC_TSGO_BINARY).
-  --progress-delay D   Accepted for compatibility; tsgo currently owns this value.
+  --suppress-execute-command-provider
+                       Do not advertise ttsc executeCommand ids during initialize.
+  --suppress-execute-command-ids <ids>
+                       Comma-separated executeCommand ids to omit during initialize.
+  --execute-command-id-prefix <prefix>
+                       Prefix advertised executeCommand ids for multi-client hosts.
+  --progress-delay D   Accepted for compatibility; currently ignored by the external tsgo LSP process.
 
 Typical embedding:
   Editors spawn ttscserver via the JavaScript launcher (resolves the
   per-platform native binary and passes the project tsgo path) and exchange
   LSP messages over stdio. The upstream tsgo server provides hover,
-  completion, definitions, and diagnostics; ttsc merges plugin diagnostics,
-  code actions, and ttsc-owned executeCommand handlers into the same stream.
+  completion, definitions, and diagnostics. LSP-capable ttsc sidecars are
+  discovered by the JavaScript launcher and merged into the same stream.
 `))
+}
+
+func splitCSV(value string) []string {
+  if value == "" {
+    return nil
+  }
+  fields := strings.Split(value, ",")
+  out := make([]string, 0, len(fields))
+  for _, field := range fields {
+    trimmed := strings.TrimSpace(field)
+    if trimmed != "" {
+      out = append(out, trimmed)
+    }
+  }
+  return out
 }

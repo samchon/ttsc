@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/vscode",
   "displayName": "ttsc",
-  "description": "Run ttscserver as a Language Server for TypeScript-Go projects, with lint/format plugin diagnostics merged into VSCode.",
+  "description": "Run the project-selected ttscserver in VS Code with TypeScript-Go and ttsc plugin LSP features.",
   "version": "0.13.1",
   "publisher": "samchon",
   "license": "MIT",
@@ -18,22 +18,13 @@
     "vscode": "^1.94.0",
     "node": ">=18"
   },
-  "categories": [
-    "Programming Languages",
-    "Linters",
-    "Formatters"
-  ],
+  "categories": ["Programming Languages"],
+  "extensionKind": ["workspace"],
   "main": "./lib/extension.js",
   "bin": {
     "ttsc-vscode": "./bin/install.js"
   },
-  "files": [
-    "bin",
-    "dist",
-    "lib",
-    "LICENSE",
-    "README.md"
-  ],
+  "files": ["bin", "dist", "lib", "LICENSE", "README.md"],
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
@@ -44,11 +35,11 @@
     "commands": [
       {
         "command": "ttsc.lint.fixAll",
-        "title": "ttsc: Apply lint fixes to current file"
+        "title": "ttsc: Fix all lint issues"
       },
       {
         "command": "ttsc.format.document",
-        "title": "ttsc: Format current document"
+        "title": "ttsc: Format document"
       },
       {
         "command": "ttsc.server.restart",
@@ -61,22 +52,20 @@
         "ttsc.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the ttscserver binary. Leave empty to resolve the binary shipped with the workspace's ttsc dependency."
+          "description": "Absolute path to a ttscserver launcher or native binary. Leave empty to use the project ttsc launcher, which builds TTSC_LSP_PLUGINS_JSON for plugin diagnostics/actions; direct native paths need that manifest supplied out of band.",
+          "scope": "resource"
         },
         "ttsc.trace.server": {
           "type": "string",
           "enum": ["off", "messages", "verbose"],
           "default": "off",
-          "description": "Trace LSP messages between VSCode and ttscserver."
+          "description": "Trace LSP messages between VS Code and ttscserver."
         }
       }
     }
   },
   "scripts": {
     "build": "rimraf lib dist && node build/build.cjs"
-  },
-  "dependencies": {
-    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "catalog:utils",
@@ -85,6 +74,7 @@
     "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.12",
     "rimraf": "catalog:utils",
-    "ttsc": "workspace:*"
+    "ttsc": "workspace:*",
+    "vscode-languageclient": "^9.0.1"
   }
 }

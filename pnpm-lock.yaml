@@ -183,10 +183,6 @@ importers:
         version: 7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
 
   packages/vscode:
-    dependencies:
-      vscode-languageclient:
-        specifier: ^9.0.1
-        version: 9.0.1
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -209,6 +205,9 @@ importers:
       ttsc:
         specifier: workspace:*
         version: link:../ttsc
+      vscode-languageclient:
+        specifier: ^9.0.1
+        version: 9.0.1
 
   packages/wasm:
     devDependencies:

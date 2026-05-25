@@ -38,7 +38,18 @@ const pathValue = fs.existsSync(localGoBin)
   ? `${localGoBin}${path.delimiter}${process.env.PATH ?? ""}`
   : process.env.PATH;
 const buildGo = resolveBuildGo();
-const goBuildFlags = ["-trimpath", "-ldflags=-s -w"];
+const buildVersion = manifest.version;
+const buildCommit = git(["rev-parse", "--short=12", "HEAD"]) ?? "unknown";
+const buildDate = new Date().toISOString();
+const goBuildFlags = [
+  "-trimpath",
+  [
+    "-ldflags=-s -w",
+    `-X main.version=${buildVersion}`,
+    `-X main.commit=${buildCommit}`,
+    `-X main.date=${buildDate}`,
+  ].join(" "),
+];
 
 console.log(`Building ${manifest.name} -> ${path.relative(root, outFile)}`);
 cp.execFileSync(
@@ -86,6 +97,20 @@ function resolveBuildGo() {
     return process.env.TTSC_GO_BINARY;
   }
   return "go";
+}
+
+function git(args) {
+  try {
+    return cp
+      .execFileSync("git", args, {
+        cwd: root,
+        encoding: "utf8",
+        windowsHide: true,
+      })
+      .trim();
+  } catch {
+    return undefined;
+  }
 }
 
 function embedGoToolchain() {

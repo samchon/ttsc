@@ -1,6 +1,6 @@
 # Plugin Protocol Reference
 
-This page is the contract between `ttsc` and a plugin package. It is one page on purpose — linked transform packages, `composes`, `contributors`, factory generics, and the wire JSON are all validated in one pipeline, and splitting them would force forward references between two co-canonical files. Most readers can start with the **Minimum contract** section (descriptor, the five subcommands, `--plugins-json`, exit codes); skip linked packages / composes / contributors / factory generics on the first read.
+This page is the contract between `ttsc` and a plugin package. It is one page on purpose — linked transform packages, `composes`, `contributors`, factory generics, and the wire JSON are all validated in one pipeline, and splitting them would force forward references between two co-canonical files. Most readers can start with **Manifest**, **Stages**, and **CLI Commands**; skip linked packages / composes / contributors / factory generics on the first read.
 
 > Looking for the two-halves model, vocabulary, or the stage/subcommand matrix? Start at [Concepts](/docs/development/concepts).
 
@@ -76,6 +76,7 @@ interface ITtscPlugin {
   stage?: "transform" | "check";
   capabilities?: {
     diagnosticsTiming?: boolean;
+    lsp?: boolean;
     threadingArgs?: boolean;
   };
   reportsTypeScriptDiagnostics?: boolean;
@@ -94,11 +95,12 @@ Field rules:
 - `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
-- `capabilities`: opt-in flags for host-owned CLI knobs a strict sidecar would
-  otherwise reject. Set `threadingArgs` only when the sidecar accepts
+- `capabilities`: optional host behaviors a strict sidecar would otherwise
+  reject or not understand. Set `threadingArgs` only when the sidecar accepts
   `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it
   accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail
-  to stdout.
+  to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP
+  verbs below.
 - `reportsTypeScriptDiagnostics`: check-stage capability flag. Set this only
   when the sidecar's `check` subcommand loads the project Program and reports
   normal TypeScript diagnostics itself; `ttsc` then skips the redundant
@@ -112,10 +114,10 @@ Field rules:
 
 Public stages are deliberately small:
 
-| Stage                   | Host behavior                                    | Subcommands the host invokes                                  |
-| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
-| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build`                                 |
-| `"check"`               | reports diagnostics before emit                  | `check`; opt-in `fix`, `format`                               |
+| Stage                   | Host behavior                                    | Subcommands the host invokes    |
+| ----------------------- | ------------------------------------------------ | ------------------------------- |
+| omitted / `"transform"` | participates in the TypeScript-Go transform path | `check`, `transform`, `build`   |
+| `"check"`               | reports diagnostics before emit                  | `check`; opt-in `fix`, `format` |
 
 There is no public `output` stage. Plugins do not receive generated JavaScript text or emitted file text for post-processing.
 
@@ -133,6 +135,44 @@ without applying lint rewrites. See [CLI Commands → `format`](#format)
 for the subcommand contract.
 
 **Transform-stage plugins do not see `fix` or `format`.** The host only spawns those subcommands against `stage: "check"` plugins; a transform-stage plugin's `default` branch will never receive them.
+
+## LSP sidecar verbs
+
+`ttscserver` loads the same project plugin descriptors as `ttsc`, then keeps
+only plugins whose descriptor sets `capabilities.lsp: true`. Those sidecars
+must implement these extra subcommands:
+
+| Verb                    | Purpose                                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `lsp-command-ids`       | Print a JSON string array of `workspace/executeCommand` ids the sidecar owns.                |
+| `lsp-code-action-kinds` | Print a JSON string array of CodeActionKind values the sidecar may return.                   |
+| `lsp-diagnostics`       | Print LSP diagnostics for `--uri`.                                                           |
+| `lsp-code-actions`      | Print LSP code actions for `--uri`, `--range-json`, and `--context-json`.                    |
+| `lsp-execute-command`   | Print a `changes`-map `WorkspaceEdit` or JSON `null` for `--command` and `--arguments-json`. |
+
+The host also passes `--cwd`, `--tsconfig`, and `--plugins-json` to each LSP
+verb. LSP sidecars currently compute diagnostics, code actions, and commands
+from the saved project state: they receive document URIs and reload the project
+from the selected tsconfig. Commands still return a `WorkspaceEdit`; the editor
+applies that edit only if the touched documents remain clean. While a document
+is dirty, `ttscserver` suppresses plugin diagnostics and code actions. For owned
+commands, the proxy also records the document generation when the request starts
+and returns JSON `null` if a dirty, saved, or closed document changed before the
+sidecar returned an edit for it.
+
+Each LSP verb has a 30-second timeout. The host reads at most 4 MiB from stdout
+and 1 MiB from stderr; oversized stdout is rejected before JSON decoding, and
+oversized failure stderr is truncated in the server log.
+
+Command ids are single-owner. If two LSP sidecars return the same
+`lsp-command-ids` entry, the first discovered owner wins and later duplicates
+are logged and ignored. `lsp-code-actions` should return command-backed actions
+whose `command.command` appears in that same sidecar's command id list. Actions
+without a command, with unowned commands, or with direct `edit` payloads are
+dropped by the host. A missing `edit` field or explicit `edit: null` is accepted.
+Use `lsp-execute-command` to return the final `WorkspaceEdit`; today ttscserver
+supports the minimal `changes` map shape, not `documentChanges`. Print JSON
+`null` when the command is handled but has no edit.
 
 ## Composition
 
@@ -261,7 +301,15 @@ Disabled entries are not resolved, built, or included in `--plugins-json`.
 
 ## CLI Commands
 
-The built Go binary receives subcommands. Unknown flags should be ignored so future `ttsc` minors can add optional flags. The host emits flags in **equals form** when spawning plugin binaries (`--cwd=/abs/path`, `--tsconfig=/abs/path`, `--plugins-json=[...]`); space-form (`--cwd /abs/path`) appears only in tsgo's own arg list and never reaches a plugin. Go's `flag.NewFlagSet` accepts both forms; hand-rolled parsers should accept equals-form at minimum.
+Executable `package main` plugin sources receive subcommands directly. Linked
+non-`main` transform packages do not see argv; they run inside the selected
+native host through `driver.RegisterPlugin`. Unknown flags should be ignored so
+future `ttsc` minors can add optional flags. The host emits flags in **equals
+form** when spawning plugin binaries (`--cwd=/abs/path`,
+`--tsconfig=/abs/path`, `--plugins-json=[...]`); space-form (`--cwd /abs/path`)
+appears only in tsgo's own arg list and never reaches a plugin. Go's
+`flag.NewFlagSet` accepts both forms; hand-rolled parsers should accept
+equals-form at minimum.
 
 > `ttsc` never spawns the `version` / `-v` / `--version` subcommand on a plugin process. First-party plugins implement it as a smoke verb for `go run ./plugin version`; third-party plugins may but are not required to.
 

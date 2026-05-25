@@ -66,6 +66,12 @@ function build(target: { dir: string; name: string; tarballName: string }) {
   if (!fs.existsSync(out)) {
     throw new Error(`package tarball was not created: ${target.name}`);
   }
+  if (target.tarballName === "vscode") {
+    cp.execFileSync("node", ["scripts/assert-vscode-package.cjs", out], {
+      cwd: root,
+      stdio: "inherit",
+    });
+  }
 }
 
 function clearOutputDirectory() {
@@ -95,7 +101,16 @@ function listTargets(baseDir: string) {
   // the typia / bun smoke flow. Full mode packs everything (release).
   const corePackages = CURRENT_ONLY
     ? ["ttsc", "banner", "lint", "paths", "strip", "unplugin"]
-    : ["ttsc", "banner", "lint", "paths", "strip", "unplugin", "wasm"];
+    : [
+        "ttsc",
+        "banner",
+        "lint",
+        "paths",
+        "strip",
+        "unplugin",
+        "vscode",
+        "wasm",
+      ];
   const names = [...corePackages, ...selectedPlatforms];
   return names.map((name) => {
     const dir = path.join(baseDir, name);
