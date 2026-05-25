@@ -111,6 +111,27 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Security
+
+The `security/*` family covers the TypeScript-source-relevant rule surface from `eslint-plugin-security@4.0.0`.
+
+| Rule | Effect |
+| ---- | ------ |
+| `security/detect-bidi-characters` | Detect Trojan Source bidi control characters. |
+| `security/detect-buffer-noassert` | Detect Buffer reads/writes with `noAssert` set to true. |
+| `security/detect-child-process` | Detect child_process imports and non-literal `exec` commands. |
+| `security/detect-disable-mustache-escape` | Detect object assignments that disable mustache-style escaping. |
+| `security/detect-eval-with-expression` | Detect `eval` calls fed by non-literal expressions. |
+| `security/detect-new-buffer` | Detect `new Buffer` with non-literal input. |
+| `security/detect-no-csrf-before-method-override` | Detect Express csrf middleware configured before methodOverride. |
+| `security/detect-non-literal-fs-filename` | Detect filesystem APIs with non-literal filename arguments. |
+| `security/detect-non-literal-regexp` | Detect RegExp construction from non-literal patterns. |
+| `security/detect-non-literal-require` | Detect `require` calls with non-literal module specifiers. |
+| `security/detect-object-injection` | Detect dynamic bracket access sinks. |
+| `security/detect-possible-timing-attacks` | Detect direct equality comparisons involving secret-like identifiers. |
+| `security/detect-pseudoRandomBytes` | Detect `crypto.pseudoRandomBytes`. |
+| `security/detect-unsafe-regex` | Detect high-confidence catastrophic backtracking regex shapes. |
+
 ## Format
 
 The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).

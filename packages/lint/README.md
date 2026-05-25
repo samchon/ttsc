@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-140+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
+150+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
@@ -162,7 +162,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
+The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, with package-local Go coverage for engine-focused families such as `security/*`. Each rule below links to its tested fixture where one exists:
 
 - [`adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
@@ -302,6 +302,25 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+
+### Security rules
+
+The `security/*` family ports the TypeScript-source-relevant `eslint-plugin-security@4.0.0` surface:
+
+- `security/detect-bidi-characters`: detects Trojan Source bidi control characters.
+- `security/detect-buffer-noassert`: detects Buffer reads/writes with `noAssert` set to true.
+- `security/detect-child-process`: detects child_process imports and non-literal `exec` commands.
+- `security/detect-disable-mustache-escape`: detects `escapeMarkup = false` on objects.
+- `security/detect-eval-with-expression`: detects `eval` fed by non-literal expressions.
+- `security/detect-new-buffer`: detects `new Buffer` with non-literal input.
+- `security/detect-no-csrf-before-method-override`: detects Express csrf middleware before methodOverride.
+- `security/detect-non-literal-fs-filename`: detects filesystem calls with non-literal filename arguments.
+- `security/detect-non-literal-regexp`: detects RegExp construction from non-literal patterns.
+- `security/detect-non-literal-require`: detects `require` calls with non-literal module specifiers.
+- `security/detect-object-injection`: detects dynamic bracket access sinks.
+- `security/detect-possible-timing-attacks`: detects direct equality comparisons involving secret-like identifiers.
+- `security/detect-pseudoRandomBytes`: detects `crypto.pseudoRandomBytes`.
+- `security/detect-unsafe-regex`: detects high-confidence catastrophic backtracking regex shapes.
 
 ## Third-party rule plugins
 
