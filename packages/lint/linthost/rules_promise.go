@@ -683,16 +683,104 @@ func isPromiseCallbackFunctionFor(fn *shimast.Node, method string) bool {
 }
 
 func blockReturnsOrThrows(block *shimast.Node) bool {
-	found := false
-	walkFunctionBody(block, func(child *shimast.Node) {
-		if found || child == nil {
-			return
+	if block == nil || block.Kind != shimast.KindBlock {
+		return false
+	}
+	return statementsReturnOrThrow(block.Statements())
+}
+
+func statementsReturnOrThrow(statements []*shimast.Node) bool {
+	for _, stmt := range statements {
+		if statementReturnsOrThrows(stmt) {
+			return true
 		}
-		if child.Kind == shimast.KindReturnStatement || child.Kind == shimast.KindThrowStatement {
-			found = true
+	}
+	return false
+}
+
+func statementReturnsOrThrows(stmt *shimast.Node) bool {
+	if stmt == nil {
+		return false
+	}
+	switch stmt.Kind {
+	case shimast.KindReturnStatement, shimast.KindThrowStatement:
+		return true
+	case shimast.KindBlock:
+		return statementsReturnOrThrow(stmt.Statements())
+	case shimast.KindIfStatement:
+		ifStmt := stmt.AsIfStatement()
+		if ifStmt == nil || ifStmt.ThenStatement == nil || ifStmt.ElseStatement == nil {
+			return false
 		}
-	})
-	return found
+		return statementReturnsOrThrows(ifStmt.ThenStatement) &&
+			statementReturnsOrThrows(ifStmt.ElseStatement)
+	case shimast.KindTryStatement:
+		return tryStatementReturnsOrThrows(stmt)
+	case shimast.KindSwitchStatement:
+		return switchStatementReturnsOrThrows(stmt)
+	case shimast.KindLabeledStatement:
+		labeled := stmt.AsLabeledStatement()
+		return labeled != nil && statementReturnsOrThrows(labeled.Statement)
+	}
+	return false
+}
+
+func tryStatementReturnsOrThrows(stmt *shimast.Node) bool {
+	tryStmt := stmt.AsTryStatement()
+	if tryStmt == nil {
+		return false
+	}
+	if tryStmt.FinallyBlock != nil && statementsReturnOrThrow(tryStmt.FinallyBlock.Statements()) {
+		return true
+	}
+	if tryStmt.TryBlock == nil || !statementsReturnOrThrow(tryStmt.TryBlock.Statements()) {
+		return false
+	}
+	if tryStmt.CatchClause == nil {
+		return true
+	}
+	catchClause := tryStmt.CatchClause.AsCatchClause()
+	return catchClause != nil &&
+		catchClause.Block != nil &&
+		statementsReturnOrThrow(catchClause.Block.Statements())
+}
+
+func switchStatementReturnsOrThrows(stmt *shimast.Node) bool {
+	switchStmt := stmt.AsSwitchStatement()
+	if switchStmt == nil || switchStmt.CaseBlock == nil {
+		return false
+	}
+	caseBlock := switchStmt.CaseBlock.AsCaseBlock()
+	if caseBlock == nil || caseBlock.Clauses == nil {
+		return false
+	}
+	clauses := caseBlock.Clauses.Nodes
+	hasDefault := false
+	for index, clauseNode := range clauses {
+		if clauseNode == nil {
+			return false
+		}
+		if clauseNode.Kind == shimast.KindDefaultClause {
+			hasDefault = true
+		}
+		if !switchClauseEntryReturnsOrThrows(clauses[index:]) {
+			return false
+		}
+	}
+	return hasDefault
+}
+
+func switchClauseEntryReturnsOrThrows(clauses []*shimast.Node) bool {
+	for _, clauseNode := range clauses {
+		clause := clauseNode.AsCaseOrDefaultClause()
+		if clause == nil || clause.Statements == nil {
+			return false
+		}
+		if statementsReturnOrThrow(clause.Statements.Nodes) {
+			return true
+		}
+	}
+	return false
 }
 
 func walkFunctionBody(root *shimast.Node, visit func(*shimast.Node)) {
