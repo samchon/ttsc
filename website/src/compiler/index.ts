@@ -8,14 +8,13 @@
 // The ICompilerService surface exposed over tgrid is the same one the
 // PlaygroundShell consumes. `compile` projects the user's TypeScript source
 // into a one-file in-memory project and asks the wasm to emit it.
-
-import { WorkerServer } from "tgrid";
 import {
-  bootTtsc,
-  parseResult,
   type IBootResult,
   type ITtscCompileResult,
+  bootTtsc,
+  parseResult,
 } from "@ttsc/wasm";
+import { WorkerServer } from "tgrid";
 
 import type { ICompilerService } from "./ICompilerService";
 import type { ITransformOptions } from "./ITransformOptions";
@@ -106,12 +105,33 @@ const writeProject = (
   }
 };
 
+const installDependencies = (
+  props: ICompilerService.IInstallDependenciesProps,
+): Promise<ICompilerService.IInstallDependenciesResult> =>
+  enqueue(async () => {
+    const { host } = await getBoot();
+    let fileCount = 0;
+    for (const [rel, text] of Object.entries(props.files)) {
+      const normalized = normalizeNodeModulePath(rel);
+      if (!normalized) continue;
+      host.writeFile(`${WORK_DIR}/${normalized}`, text);
+      fileCount++;
+    }
+    return { installed: props.packages, fileCount };
+  });
+
+const normalizeNodeModulePath = (path: string): string | null => {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized.startsWith("node_modules/")) return null;
+  if (normalized.split("/").some((segment) => segment === "..")) return null;
+  return normalized;
+};
+
 const lineColumnOf = (
   source: string,
   start: number | undefined,
 ): { line: number; column: number } => {
-  if (typeof start !== "number" || start < 0)
-    return { line: 1, column: 1 };
+  if (typeof start !== "number" || start < 0) return { line: 1, column: 1 };
   const slice = source.slice(0, Math.min(start, source.length));
   const newlines = slice.match(/\n/g);
   const line = newlines ? newlines.length + 1 : 1;
@@ -137,9 +157,7 @@ const mapDiagnostic = (
   };
 };
 
-const pickEmittedJS = (
-  output: Record<string, string>,
-): string | null => {
+const pickEmittedJS = (output: Record<string, string>): string | null => {
   const candidates = [
     "dist/playground.js",
     "dist/src/playground.js",
@@ -185,7 +203,9 @@ const buildWithTypia = async (
       return {
         type: "error",
         target: "javascript",
-        value: { message: raw.stderr || "ttsc: build failed without a result payload" },
+        value: {
+          message: raw.stderr || "ttsc: build failed without a result payload",
+        },
       };
     }
     const parsed = parseResult<ITtscCompileResult>(raw);
@@ -257,7 +277,9 @@ interface ITypiaTransformOutput {
   typescript: Record<string, string>;
 }
 
-const safeParseTypiaTransform = (text: string): ITypiaTransformOutput | null => {
+const safeParseTypiaTransform = (
+  text: string,
+): ITypiaTransformOutput | null => {
   try {
     const parsed = JSON.parse(text) as ITypiaTransformOutput;
     if (parsed && typeof parsed === "object" && parsed.typescript) {
@@ -283,9 +305,7 @@ const projectFilesForBundle = (source: string): Record<string, string> => ({
   [`${WORK_DIR}/${ENTRY_FILE}`]: source,
 });
 
-const runLint = (
-  props: IRunOptions,
-): Promise<ICompilerService.ILintResult> =>
+const runLint = (props: IRunOptions): Promise<ICompilerService.ILintResult> =>
   enqueue(() => runLintImpl(props));
 
 const runLintImpl = async (
@@ -374,6 +394,7 @@ const normalizeError = (error: unknown): unknown => {
 const main = async (): Promise<void> => {
   const worker = new WorkerServer();
   const provider: ICompilerService = {
+    installDependencies,
     compile: runCompile,
     bundle: runBundle,
     lint: runLint,

@@ -1,6 +1,9 @@
 import type { ITransformOptions } from "./ITransformOptions";
 
 export interface ICompilerService {
+  installDependencies(
+    props: ICompilerService.IInstallDependenciesProps,
+  ): Promise<ICompilerService.IInstallDependenciesResult>;
   compile(props: ICompilerService.IProps): Promise<ICompilerService.IResult>;
   bundle(props: ICompilerService.IProps): Promise<ICompilerService.IResult>;
   lint(props: ICompilerService.IProps): Promise<ICompilerService.ILintResult>;
@@ -10,6 +13,21 @@ export namespace ICompilerService {
   export interface IProps {
     source: string;
     options?: ITransformOptions;
+  }
+
+  export interface IInstallDependenciesProps {
+    files: Record<string, string>;
+    packages: IInstalledPackage[];
+  }
+
+  export interface IInstalledPackage {
+    name: string;
+    version: string;
+  }
+
+  export interface IInstallDependenciesResult {
+    installed: IInstalledPackage[];
+    fileCount: number;
   }
 
   export type IResult = ISuccess | IFailure | IError;

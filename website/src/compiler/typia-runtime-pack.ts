@@ -33,7 +33,10 @@ interface IPackJson {
 
 let cached: Promise<Record<string, string>> | null = null;
 
-/** Fetches the prebuilt runtime pack once. Re-entrant on the same in-flight promise. */
+/**
+ * Fetches the prebuilt runtime pack once. Re-entrant on the same in-flight
+ * promise.
+ */
 export async function loadTypiaRuntimePack(): Promise<Record<string, string>> {
   if (cached) return cached;
   cached = (async () => {
@@ -50,11 +53,15 @@ export async function loadTypiaRuntimePack(): Promise<Record<string, string>> {
 
 interface ISandboxRequireOptions {
   /** Console replacement injected into every sandbox module. */
-  console: Console | typeof globalThis.console | Record<string, (...args: unknown[]) => void>;
+  console:
+    | Console
+    | typeof globalThis.console
+    | Record<string, (...args: unknown[]) => void>;
 }
 
 /**
  * Build a sandboxed require function over a runtime pack. Resolves typia /
+ *
  * @typia / randexp specifiers from the pack; throws on anything else so the
  * caller sees the unsupported dependency.
  */
@@ -62,10 +69,11 @@ export function createSandboxRequire(
   pack: Record<string, string>,
   opts: ISandboxRequireOptions,
 ): (specifier: string) => unknown {
-  type ModuleObj = { exports: Record<string, unknown> };
+  type ModuleObj = { exports: unknown };
   const cache = new Map<string, ModuleObj>();
 
-  const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(pack, key);
+  const has = (key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(pack, key);
 
   const tryPaths = (...candidates: string[]): string | null => {
     for (const c of candidates) if (has(c)) return c;
@@ -73,7 +81,10 @@ export function createSandboxRequire(
   };
 
   // Read package.json from pack and resolve via main/exports.
-  const resolvePackageEntry = (pkg: string, subpath: string | null): string | null => {
+  const resolvePackageEntry = (
+    pkg: string,
+    subpath: string | null,
+  ): string | null => {
     const pjKey = `${pkg}/package.json`;
     if (!has(pjKey)) return null;
     let pj: IPackJson;
@@ -97,10 +108,14 @@ export function createSandboxRequire(
         return tryPaths(
           `${pkg}/${stripDotSlash(pj.main)}`,
           `${pkg}/${stripDotSlash(pj.main)}.js`,
+          `${pkg}/${stripDotSlash(pj.main)}.cjs`,
+          `${pkg}/${stripDotSlash(pj.main)}.mjs`,
+          `${pkg}/${stripDotSlash(pj.main)}.json`,
           `${pkg}/${stripDotSlash(pj.main)}/index.js`,
+          `${pkg}/${stripDotSlash(pj.main)}/index.cjs`,
         );
       }
-      return tryPaths(`${pkg}/index.js`);
+      return tryPaths(`${pkg}/index.js`, `${pkg}/index.cjs`);
     }
     // Subpath: honor exports["./subpath"] or exports["./subpath/*"] patterns.
     const exportsAny = pj.exports;
@@ -130,12 +145,23 @@ export function createSandboxRequire(
 
   // Resolve a specifier (with optional `fromKey` for relative imports) to a
   // pack key, or null if unknown.
-  const resolveSpecifier = (specifier: string, fromKey: string | null): string | null => {
+  const resolveSpecifier = (
+    specifier: string,
+    fromKey: string | null,
+  ): string | null => {
     if (specifier.startsWith("./") || specifier.startsWith("../")) {
       if (!fromKey) return null;
       const baseDir = dirname(fromKey);
       const joined = posixJoin(baseDir, specifier);
-      return tryPaths(joined, `${joined}.js`, `${joined}/index.js`);
+      return tryPaths(
+        joined,
+        `${joined}.js`,
+        `${joined}.cjs`,
+        `${joined}.mjs`,
+        `${joined}.json`,
+        `${joined}/index.js`,
+        `${joined}/index.cjs`,
+      );
     }
     // Bare specifier. Split into package name + subpath.
     const { pkg, subpath } = splitBareSpecifier(specifier);
@@ -146,7 +172,11 @@ export function createSandboxRequire(
     const direct = tryPaths(
       `${pkg}/${subpath}`,
       `${pkg}/${subpath}.js`,
+      `${pkg}/${subpath}.cjs`,
+      `${pkg}/${subpath}.mjs`,
+      `${pkg}/${subpath}.json`,
       `${pkg}/${subpath}/index.js`,
+      `${pkg}/${subpath}/index.cjs`,
     );
     if (direct) return direct;
     // Fall back to package.json exports map.
@@ -160,6 +190,10 @@ export function createSandboxRequire(
     const mod: ModuleObj = { exports: {} };
     // Cache before evaluation so cyclic requires see the partial exports.
     cache.set(key, mod);
+    if (key.endsWith(".json")) {
+      mod.exports = JSON.parse(code) as unknown;
+      return mod;
+    }
     const localRequire = (specifier: string): unknown => {
       const resolved = resolveSpecifier(specifier, key);
       if (!resolved) {
@@ -183,12 +217,19 @@ export function createSandboxRequire(
       ) as (
         req: (s: string) => unknown,
         m: ModuleObj,
-        e: ModuleObj["exports"],
+        e: Record<string, unknown>,
         d: string,
         f: string,
         c: unknown,
       ) => void;
-      factory(localRequire, mod, mod.exports, dir, filename, opts.console);
+      factory(
+        localRequire,
+        mod,
+        mod.exports as Record<string, unknown>,
+        dir,
+        filename,
+        opts.console,
+      );
     } catch (err) {
       // Surface eval-time errors with context so debugging the sandbox is
       // easier when typia ships a module that depends on something missing.
@@ -249,8 +290,7 @@ function splitBareSpecifier(specifier: string): {
     const slash1 = specifier.indexOf("/");
     if (slash1 < 0) return { pkg: specifier, subpath: null };
     const slash2 = specifier.indexOf("/", slash1 + 1);
-    if (slash2 < 0)
-      return { pkg: specifier, subpath: null };
+    if (slash2 < 0) return { pkg: specifier, subpath: null };
     return {
       pkg: specifier.slice(0, slash2),
       subpath: specifier.slice(slash2 + 1),
@@ -258,5 +298,8 @@ function splitBareSpecifier(specifier: string): {
   }
   const slash = specifier.indexOf("/");
   if (slash < 0) return { pkg: specifier, subpath: null };
-  return { pkg: specifier.slice(0, slash), subpath: specifier.slice(slash + 1) };
+  return {
+    pkg: specifier.slice(0, slash),
+    subpath: specifier.slice(slash + 1),
+  };
 }

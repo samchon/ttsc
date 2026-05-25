@@ -1,6 +1,12 @@
 "use client";
 
 import {
+  BUILT_IN_PLAYGROUND_PACKAGES,
+  type IPlaygroundDependencyProgress,
+  collectExternalPackageNames,
+  installPlaygroundDependencies,
+} from "@ttsc/playground";
+import {
   compressToEncodedURIComponent,
   decompressFromEncodedURIComponent,
 } from "lz-string";
@@ -18,6 +24,7 @@ import {
   loadTypiaRuntimePack,
 } from "../../compiler/typia-runtime-pack";
 import ConsoleViewer, { type IConsoleMessage } from "./ConsoleViewer";
+import DependencyProgressModal from "./DependencyProgressModal";
 import DiagnosticsPanel from "./DiagnosticsPanel";
 import ExamplePicker from "./ExamplePicker";
 import OptionsPanel from "./OptionsPanel";
@@ -83,8 +90,22 @@ export default function PlaygroundShell() {
   const [bundleError, setBundleError] = useState<string | null>(null);
   const [shareWarn, setShareWarn] = useState<string | null>(null);
   const [sourceFromURL, setSourceFromURL] = useState(false);
+  const [editorExtraLibs, setEditorExtraLibs] = useState<
+    Record<string, string>
+  >({});
+  const [dependencyProgress, setDependencyProgress] =
+    useState<IPlaygroundDependencyProgress | null>(null);
+  const [dependencyPackageNames, setDependencyPackageNames] = useState<
+    string[]
+  >([]);
   const debounce = useRef<number | null>(null);
   const shareToastTimer = useRef<number | null>(null);
+  const dependencyProgressTimer = useRef<number | null>(null);
+  const dependencyInstallChain = useRef<Promise<void>>(Promise.resolve());
+  const installedDependencyNames = useRef<Set<string>>(
+    new Set<string>(BUILT_IN_PLAYGROUND_PACKAGES),
+  );
+  const runtimeDependencyFiles = useRef<Record<string, string>>({});
   // Race guard: every `run` call bumps this epoch; only the call whose epoch
   // matches the latest at completion time wins the state update. Otherwise a
   // slow keystroke-N compile can overwrite a faster keystroke-N+1 result.
@@ -123,12 +144,97 @@ export default function PlaygroundShell() {
     };
   }, []);
 
+  const installDependenciesForSource = useCallback(
+    async (input: string): Promise<unknown | null> => {
+      const task = dependencyInstallChain.current.then(async () => {
+        const packageNames = collectExternalPackageNames(
+          input,
+          BUILT_IN_PLAYGROUND_PACKAGES,
+        );
+        const missing = packageNames.filter(
+          (name) => !installedDependencyNames.current.has(name),
+        );
+        if (missing.length === 0) return;
+
+        if (dependencyProgressTimer.current !== null) {
+          window.clearTimeout(dependencyProgressTimer.current);
+          dependencyProgressTimer.current = null;
+        }
+        setDependencyPackageNames(missing);
+        try {
+          const installed = await installPlaygroundDependencies(missing, {
+            installedPackages: installedDependencyNames.current,
+            ignoredPackages: BUILT_IN_PLAYGROUND_PACKAGES,
+            onProgress: setDependencyProgress,
+          });
+          if (Object.keys(installed.compilerFiles).length > 0) {
+            const service = await createCompilerService();
+            await service.installDependencies({
+              files: installed.compilerFiles,
+              packages: installed.packages.map(({ name, version }) => ({
+                name,
+                version,
+              })),
+            });
+          }
+          for (const pkg of installed.packages) {
+            installedDependencyNames.current.add(pkg.name);
+          }
+          if (Object.keys(installed.editorLibs).length > 0) {
+            setEditorExtraLibs((prev) => ({
+              ...prev,
+              ...installed.editorLibs,
+            }));
+          }
+          runtimeDependencyFiles.current = {
+            ...runtimeDependencyFiles.current,
+            ...installed.runtimeFiles,
+          };
+          dependencyProgressTimer.current = window.setTimeout(() => {
+            setDependencyProgress(null);
+            setDependencyPackageNames([]);
+            dependencyProgressTimer.current = null;
+          }, 350);
+          return null;
+        } catch (error) {
+          setDependencyProgress({
+            phase: "error",
+            packageName: missing[0],
+            completed: 0,
+            total: missing.length,
+            message: describeUnknownError(error),
+          });
+          dependencyProgressTimer.current = window.setTimeout(() => {
+            setDependencyProgress(null);
+            setDependencyPackageNames([]);
+            dependencyProgressTimer.current = null;
+          }, 2400);
+          return error;
+        }
+      });
+      dependencyInstallChain.current = task.then(() => {});
+      return task;
+    },
+    [],
+  );
+
   // ── Run compile when source / target / options change ──
   const run = useCallback(
     async (input: string, mode: Target, opts: ITransformOptions) => {
       const epoch = ++runEpoch.current;
       setRunning(true);
       try {
+        const dependencyError = await installDependenciesForSource(input);
+        if (runEpoch.current !== epoch) return;
+        if (dependencyError) {
+          setResult({
+            type: "error",
+            target: "javascript",
+            value: normalizeClientError(dependencyError),
+          });
+          setLintDiagnostics([]);
+          return;
+        }
         // Every diagnostic — type errors and lint findings — comes back
         // through the same worker-driven compile. We surface lint-only
         // diagnostics in the "Lint" tab and full diagnostics in the
@@ -151,7 +257,7 @@ export default function PlaygroundShell() {
         if (runEpoch.current === epoch) setRunning(false);
       }
     },
-    [],
+    [installDependenciesForSource],
   );
 
   useEffect(() => {
@@ -193,6 +299,8 @@ export default function PlaygroundShell() {
     () => () => {
       if (shareToastTimer.current !== null)
         window.clearTimeout(shareToastTimer.current);
+      if (dependencyProgressTimer.current !== null)
+        window.clearTimeout(dependencyProgressTimer.current);
     },
     [],
   );
@@ -219,6 +327,11 @@ export default function PlaygroundShell() {
       setConsoleMessages([...messages]);
     };
     try {
+      const dependencyError = await installDependenciesForSource(source);
+      if (dependencyError) {
+        push("error", [dependencyError]);
+        return;
+      }
       // Bundle the source through the worker. `service.bundle` runs the typia
       // TS transformer over the user's code, then asks the wasm to emit CJS.
       // The worker wraps the emit in `(function(require, module, exports,
@@ -229,8 +342,8 @@ export default function PlaygroundShell() {
         const message =
           typeof compiled.value === "string"
             ? compiled.value
-            : (compiled.value as { message?: string })?.message ??
-              "Bundle failed";
+            : ((compiled.value as { message?: string })?.message ??
+              "Bundle failed");
         setBundleError(message);
         push("error", [compiled.value]);
         return;
@@ -252,9 +365,10 @@ export default function PlaygroundShell() {
       // specifiers throw with the original specifier so the user sees the
       // unsupported dependency.
       const runtimePack = await loadTypiaRuntimePack();
-      const sandboxRequire = createSandboxRequire(runtimePack, {
-        console: sandboxConsole,
-      });
+      const sandboxRequire = createSandboxRequire(
+        { ...runtimePack, ...runtimeDependencyFiles.current },
+        { console: sandboxConsole },
+      );
       const moduleObj: { exports: Record<string, unknown> } = { exports: {} };
       try {
         const wrapped = `(function(require, module, exports, console) {\n${code}\n})`;
@@ -273,7 +387,7 @@ export default function PlaygroundShell() {
     } finally {
       setExecuting(false);
     }
-  }, [source, options]);
+  }, [source, options, installDependenciesForSource]);
 
   const allDiagnostics = useMemo(() => {
     const fromCompile =
@@ -318,9 +432,7 @@ export default function PlaygroundShell() {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center bg-neutral-950 text-neutral-200 gap-5 px-6 text-center">
         <span className="text-red-400 text-3xl">⚠</span>
-        <h1 className="text-lg font-mono">
-          Playground failed to boot.
-        </h1>
+        <h1 className="text-lg font-mono">Playground failed to boot.</h1>
         <pre className="max-w-xl text-[12px] font-mono text-neutral-400 whitespace-pre-wrap break-words">
           {(() => {
             const e = bootError;
@@ -396,7 +508,8 @@ export default function PlaygroundShell() {
       {/* ── Source-from-URL banner ── */}
       {sourceFromURL && (
         <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono text-amber-200 bg-amber-500/10 border-b border-amber-700/40">
-          Source loaded from share URL. Hit Reset to return to the default example.
+          Source loaded from share URL. Hit Reset to return to the default
+          example.
         </div>
       )}
 
@@ -448,7 +561,11 @@ export default function PlaygroundShell() {
             </span>
           </div>
           <div className="flex-1 min-h-0">
-            <SourceEditor value={source} onChange={setSource} />
+            <SourceEditor
+              value={source}
+              onChange={setSource}
+              extraLibs={editorExtraLibs}
+            />
           </div>
         </div>
 
@@ -528,8 +645,29 @@ export default function PlaygroundShell() {
           onClose={() => setOptionsOpen(false)}
         />
       )}
+
+      <DependencyProgressModal
+        progress={dependencyProgress}
+        packages={dependencyPackageNames}
+      />
     </div>
   );
+}
+
+function describeUnknownError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function normalizeClientError(error: unknown): unknown {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { name: "Error", message: describeUnknownError(error) };
 }
 
 function LintOnlyPane({
