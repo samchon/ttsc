@@ -13,13 +13,13 @@ const DIAGNOSTIC = [
   {
     code: "TS17397",
     path: "src/index.ts:2:5",
-    message: "[preferConst] Use const instead of let.",
+    message: "[prefer-const] Use const instead of let.",
     tone: "text-amber-300",
   },
   {
     code: "TS11966",
     path: "src/index.ts:1:1",
-    message: "[noVar] Unexpected var, use let or const instead.",
+    message: "[no-var] Unexpected var, use let or const instead.",
     tone: "text-amber-300",
   },
 ] as const;
