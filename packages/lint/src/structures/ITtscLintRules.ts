@@ -441,6 +441,54 @@ export interface ITtscLintRules {
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
+  /** requires explicit valid `type` values on JSX `button` elements. */
+  "react/button-has-type"?: TtscLintRuleSetting;
+
+  /** requires JSX `iframe` elements to include a sandbox attribute. */
+  "react/iframe-missing-sandbox"?: TtscLintRuleSetting;
+
+  /** requires `key` props for JSX elements produced by arrays or `.map()`. */
+  "react/jsx-key"?: TtscLintRuleSetting;
+
+  /** rejects duplicate JSX prop names on the same element. */
+  "react/jsx-no-duplicate-props"?: TtscLintRuleSetting;
+
+  /** rejects `javascript:` URLs in JSX URL-like props. */
+  "react/jsx-no-script-url"?: TtscLintRuleSetting;
+
+  /** rejects `key={index}` in JSX lists. */
+  "react/no-array-index-key"?: TtscLintRuleSetting;
+
+  /** rejects passing children through a JSX `children` prop. */
+  "react/no-children-prop"?: TtscLintRuleSetting;
+
+  /** rejects `dangerouslySetInnerHTML`. */
+  "react/no-danger"?: TtscLintRuleSetting;
+
+  /** rejects combining `dangerouslySetInnerHTML` with children. */
+  "react/no-danger-with-children"?: TtscLintRuleSetting;
+
+  /** rejects direct writes to `this.state` outside constructor initialization. */
+  "react/no-direct-mutation-state"?: TtscLintRuleSetting;
+
+  /** rejects `findDOMNode` calls. */
+  "react/no-find-dom-node"?: TtscLintRuleSetting;
+
+  /** rejects `isMounted` calls. */
+  "react/no-is-mounted"?: TtscLintRuleSetting;
+
+  /** rejects string JSX refs. */
+  "react/no-string-refs"?: TtscLintRuleSetting;
+
+  /** rejects unescaped `>`, `"`, `'`, and `}` in JSX text. */
+  "react/no-unescaped-entities"?: TtscLintRuleSetting;
+
+  /** rejects string literal JSX `style` prop values. */
+  "react/style-prop-object"?: TtscLintRuleSetting;
+
+  /** rejects children and HTML injection props on void DOM elements. */
+  "react/void-dom-elements-no-children"?: TtscLintRuleSetting;
+
   /** Insert or remove trailing semicolons on ASI-terminated statements. */
   "format/semi"?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;
 

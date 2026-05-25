@@ -77,6 +77,29 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
 | `no-promise-executor-return` | Reject `return` inside a Promise executor. |
 
+## React
+
+The `react/*` family covers high-confidence TypeScript/TSX checks from `eslint-plugin-react@7.37.5`. This first tranche avoids prop-types, component lifecycle inference, and formatting-style rules.
+
+| Rule | Effect |
+| ---- | ------ |
+| `react/button-has-type` | Require explicit valid `type` values on JSX `button` elements. |
+| `react/iframe-missing-sandbox` | Require JSX `iframe` elements to include a sandbox attribute. |
+| `react/jsx-key` | Require `key` props for JSX elements produced by arrays or `.map()`. |
+| `react/jsx-no-duplicate-props` | Reject duplicate JSX prop names on the same element. |
+| `react/jsx-no-script-url` | Reject `javascript:` URLs in JSX URL-like props. |
+| `react/no-array-index-key` | Reject `key={index}` in JSX lists. |
+| `react/no-children-prop` | Reject passing children through a JSX `children` prop. |
+| `react/no-danger` | Reject `dangerouslySetInnerHTML`. |
+| `react/no-danger-with-children` | Reject combining `dangerouslySetInnerHTML` with children. |
+| `react/no-direct-mutation-state` | Reject direct writes to `this.state` outside constructor initialization. |
+| `react/no-find-dom-node` | Reject `findDOMNode` calls. |
+| `react/no-is-mounted` | Reject `isMounted` calls. |
+| `react/no-string-refs` | Reject string JSX refs. |
+| `react/no-unescaped-entities` | Reject unescaped `>`, `"`, `'`, and `}` in JSX text. |
+| `react/style-prop-object` | Reject string literal JSX `style` prop values. |
+| `react/void-dom-elements-no-children` | Reject children and HTML injection props on void DOM elements. |
+
 ## Throw and control flow
 
 | Rule | Effect |
