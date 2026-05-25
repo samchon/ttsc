@@ -190,43 +190,33 @@ func (c eslintCommentContext) isBeforeFirstStatement(rec lintDirectiveRecord) bo
 
 func (c eslintCommentContext) replayDirectiveState(findings *[]*Finding) {
   var state activeDirectiveState
-  duplicateReported := map[int]struct{}{}
   lineState := map[int]*activeDirectiveState{}
   for _, rec := range c.directives.records {
-    if rec.kind != lintDirectiveDisableLine && rec.kind != lintDirectiveDisableNextLine {
-      continue
-    }
-    st := lineState[rec.targetLine]
-    if st == nil {
-      st = &activeDirectiveState{}
-      lineState[rec.targetLine] = st
-    }
-    if st.isDuplicateDisable(rec) || hasDuplicateRuleToken(rec.ruleList) {
-      c.reportOnce(findings, eslintCommentsNoDuplicateDisable, rec, "Duplicate eslint-disable directive.")
-      duplicateReported[rec.id] = struct{}{}
-    }
-    st.applyDisable(rec)
-  }
-
-  for _, event := range c.directives.events {
-    rec := c.directives.records[event.id]
-    if event.on {
+    switch rec.kind {
+    case lintDirectiveDisable:
       if state.isDuplicateDisable(rec) || hasDuplicateRuleToken(rec.ruleList) {
-        if _, done := duplicateReported[rec.id]; !done {
-          c.reportOnce(findings, eslintCommentsNoDuplicateDisable, rec, "Duplicate eslint-disable directive.")
-        }
+        c.reportOnce(findings, eslintCommentsNoDuplicateDisable, rec, "Duplicate eslint-disable directive.")
       }
       state.applyDisable(rec)
-      continue
+    case lintDirectiveEnable:
+      if rec.rules.all && state.hasNamedActive() && !state.hasAllActive() {
+        c.report(findings, eslintCommentsNoAggregatingEnable, rec, "eslint-enable should list the rules it enables.")
+      }
+      if !state.enableWouldChange(rec) {
+        c.report(findings, eslintCommentsNoUnusedEnable, rec, "Unused eslint-enable directive.")
+      }
+      state.applyEnable(rec)
+    case lintDirectiveDisableLine, lintDirectiveDisableNextLine:
+      st := lineState[rec.targetLine]
+      if st == nil {
+        st = &activeDirectiveState{}
+        lineState[rec.targetLine] = st
+      }
+      if state.isDuplicateDisable(rec) || st.isDuplicateDisable(rec) || hasDuplicateRuleToken(rec.ruleList) {
+        c.reportOnce(findings, eslintCommentsNoDuplicateDisable, rec, "Duplicate eslint-disable directive.")
+      }
+      st.applyDisable(rec)
     }
-
-    if rec.rules.all && state.hasNamedActive() && !state.hasAllActive() {
-      c.report(findings, eslintCommentsNoAggregatingEnable, rec, "eslint-enable should list the rules it enables.")
-    }
-    if !state.enableWouldChange(rec) {
-      c.report(findings, eslintCommentsNoUnusedEnable, rec, "Unused eslint-enable directive.")
-    }
-    state.applyEnable(rec)
   }
 }
 
@@ -263,16 +253,6 @@ func (c eslintCommentContext) usedDisableDirectives(rawFindings []*Finding) map[
   }
   sort.SliceStable(findings, func(i, j int) bool { return findings[i].Pos < findings[j].Pos })
 
-  for _, finding := range findings {
-    line := lineOfPosition(c.file, finding.Pos)
-    for _, id := range c.directives.lineRecords[line] {
-      rec := c.directives.records[id]
-      if rec.rules.matches(finding.Rule) {
-        used[id] = struct{}{}
-      }
-    }
-  }
-
   var state activeDirectiveState
   eventIdx := 0
   for _, finding := range findings {
@@ -286,8 +266,20 @@ func (c eslintCommentContext) usedDisableDirectives(rawFindings []*Finding) map[
       }
       eventIdx++
     }
-    for _, id := range state.matchingDisableIDs(finding.Rule) {
-      used[id] = struct{}{}
+    rangeIDs := state.matchingDisableIDs(finding.Rule)
+    if len(rangeIDs) > 0 {
+      for _, id := range rangeIDs {
+        used[id] = struct{}{}
+      }
+      continue
+    }
+
+    line := lineOfPosition(c.file, finding.Pos)
+    for _, id := range c.directives.lineRecords[line] {
+      rec := c.directives.records[id]
+      if rec.rules.matches(finding.Rule) {
+        used[id] = struct{}{}
+      }
     }
   }
   return used
