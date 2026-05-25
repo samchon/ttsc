@@ -535,7 +535,7 @@ func (s *solidState) reportSelfClosing(ctx *Context) {
     if elem == nil || elem.OpeningElement == nil || elem.Children == nil {
       continue
     }
-    if solidJSXChildrenEmpty(elem.Children.Nodes) {
+    if solidJSXChildrenEmpty(ctx.File, elem.Children.Nodes) {
       ctx.Report(elem.OpeningElement, "Empty Solid JSX elements should be self-closing.")
     }
   }
@@ -859,12 +859,12 @@ func solidCallPropertyName(call *shimast.CallExpression, name string) bool {
   return identifierText(call.Expression.AsPropertyAccessExpression().Name()) == name
 }
 
-func solidJSXChildrenEmpty(children []*shimast.Node) bool {
+func solidJSXChildrenEmpty(file *shimast.SourceFile, children []*shimast.Node) bool {
   for _, child := range children {
     if child == nil {
       continue
     }
-    if child.Kind == shimast.KindJsxText && strings.TrimSpace(nodeText(nil, child)) == "" {
+    if child.Kind == shimast.KindJsxText && strings.TrimSpace(nodeText(file, child)) == "" {
       continue
     }
     return false
@@ -883,7 +883,7 @@ func solidNumericLiteralNonZero(node *shimast.Node) bool {
   if node == nil || node.Kind != shimast.KindNumericLiteral {
     return false
   }
-  text := nodeText(nil, node)
+  text := numericLiteralText(node)
   return text != "" && text != "0"
 }
 
