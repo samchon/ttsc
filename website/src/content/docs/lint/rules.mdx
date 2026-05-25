@@ -85,6 +85,12 @@ These rules inspect `eslint-disable` / `eslint-enable` comments and the matching
 | `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
 | `no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
 
+## React Fast Refresh
+
+| Rule | Effect |
+| ---- | ------ |
+| `react-refresh/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
+
 ## Promises and async
 
 | Rule | Effect |

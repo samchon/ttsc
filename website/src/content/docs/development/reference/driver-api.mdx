@@ -1,6 +1,6 @@
 # Driver API
 
-`github.com/samchon/ttsc/packages/ttsc/driver` is the Go façade plugin authors should call instead of building a tsgo `Program` themselves. Every shipped third-party-shaped consumer in this repo — every command under `packages/ttsc/cmd/`, `packages/lint/linthost/host.go`, `packages/wasm/host/api.go`, and the `tests/projects/go-source-plugin*` fixtures — uses it.
+`github.com/samchon/ttsc/packages/ttsc/driver` is the Go façade plugin authors should call instead of building a tsgo `Program` themselves. Most shipped consumers in this repo use this path: `packages/ttsc/cmd/*`, `packages/wasm/host/api.go`, and the `tests/projects/go-source-plugin*` fixtures are driver-backed. `@ttsc/lint` owns a dedicated engine and exports driver-compatible LSP sidecar verbs through `linthost/lsp.go`; `ttscserver` embeds the driver LSP host instead of building a Program directly.
 
 This page is the curated, plugin-relevant surface. For the raw shim path (custom checker pool, in-memory-only Program, no `tsconfig.json`), see [AST & Checker → If you cannot use the driver](/docs/development/concepts/tsgo#if-you-cannot-use-the-driver).
 
@@ -25,6 +25,7 @@ checker := prog.Checker                  // type-aware queries
 ```
 
 `LoadProgram`:
+
 - parses `tsconfig.json` (relative paths resolve against `cwd`).
 - applies `LoadProgramOptions` overrides — `ForceEmit` / `ForceNoEmit` flip the emit decision; `OutDir` overrides the parsed `outDir`; `SourcePreamble` overlays a JSDoc preamble before parsing (the seam `@ttsc/banner` uses).
 - builds the tsgo `Program` through `shim/compiler.NewProgram` and leases a `*shimchecker.Checker` from the pool.
@@ -72,13 +73,13 @@ driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
 if driver.CountErrors(diags) > 0 { os.Exit(1) }
 ```
 
-| Symbol                                                | Notes                                                                                                              |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `NewLintDiagnostic(file, pos, end, code, sev, msg)`   | Wraps the offset pair into a `Diagnostic` with the file's path.                                                    |
-| `Diagnostic`                                          | The struct the host's renderer accepts.                                                                            |
-| `Severity` + `SeverityError` / `SeverityWarning`      | Constants the host's exit-code logic understands. `SeverityError` fails the build; `SeverityWarning` prints with warning coloring but keeps the exit code at zero. |
-| `CountErrors(diags []Diagnostic) int`                 | Returns the number of diagnostics that should fail the build (every diagnostic except explicit warnings).          |
-| `WritePrettyDiagnostics(w io.Writer, diags, cwd)`     | Renders to `w` using the same colorful format `ttsc` itself uses. No return value.                                 |
+| Symbol                                              | Notes                                                                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NewLintDiagnostic(file, pos, end, code, sev, msg)` | Wraps the offset pair into a `Diagnostic` with the file's path.                                                                                                    |
+| `Diagnostic`                                        | The struct the host's renderer accepts.                                                                                                                            |
+| `Severity` + `SeverityError` / `SeverityWarning`    | Constants the host's exit-code logic understands. `SeverityError` fails the build; `SeverityWarning` prints with warning coloring but keeps the exit code at zero. |
+| `CountErrors(diags []Diagnostic) int`               | Returns the number of diagnostics that should fail the build (every diagnostic except explicit warnings).                                                          |
+| `WritePrettyDiagnostics(w io.Writer, diags, cwd)`   | Renders to `w` using the same colorful format `ttsc` itself uses. No return value.                                                                                 |
 
 ## Rewrites
 
@@ -126,7 +127,7 @@ Implement `SourcePreamble(ctx)` when the plugin needs text before parsing, and `
 
 These symbols are for embedders of `ttscserver`, **not for plugin authors**. Skip this section unless you are building a `ttsc`-aware editor extension.
 
-`ttscserver` is a process wrapper around the project-selected `tsgo --lsp --stdio` binary. Resolve `@typescript/native-preview` in the user project, pass its absolute executable path as `TsgoBinary`, and keep plugin diagnostics/code actions in your `PluginSource`.
+`ttscserver` is a process wrapper around the project-selected `tsgo --lsp --stdio` binary. Resolve `@typescript/native-preview` in the user project, pass its absolute executable path as `TsgoBinary`, and keep plugin diagnostics, code actions, and `executeCommand` handlers in your `PluginSource`. `CommandIDs()` is the ownership gate: the proxy calls `ExecuteCommand()` only for ids returned there. Returning a nil `WorkspaceEdit` is a valid handled no-op. `ErrCommandNotHandled` is only for commands not listed by `CommandIDs()`; if `ExecuteCommand()` returns it for an advertised id, the proxy returns an LSP error instead of forwarding upstream. Implement an optional `CodeActionKinds() []string` method on the same source when your actions should be advertised in the initialize result. The shipped VS Code extension is the reference client for TypeScript-Go plus the built-in lint/format command bridge; it suppresses those two wrapper-owned command ids while leaving other plugin command ids advertised through `vscode-languageclient`. Because VS Code command ids are global, the extension also sets `ExecuteCommandIDPrefix` per project root so custom plugin commands from multiple roots do not collide; the proxy maps prefixed ids back before calling `ExecuteCommand()`. If an embedder relies on `vscode-languageclient` to register advertised plugin commands, it must still apply any returned `changes`-map `WorkspaceEdit`; the languageclient command handler only invokes `workspace/executeCommand`.
 
 ```go
 err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
@@ -136,28 +137,42 @@ err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
     Cwd:        projectRoot,
     TsgoBinary: tsgoBinary,
     Source:     source,             // your driver.PluginSource impl
+    SuppressExecuteCommandProvider: false,
+    SuppressedExecuteCommandIDs: []string{"ttsc.lint.fixAll", "ttsc.format.document"},
+    ExecuteCommandIDPrefix: "ttsc.my-editor.project-a.",
 })
 ```
 
-| Symbol                                                                                                              | Purpose                                                          |
-| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `PluginSource` interface, `NullPluginSource`                                                                        | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
-| `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`                                                          | Host-side entry points.                                          |
-| `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit`                              | Wire types in the LSP envelope.                                  |
+| Symbol                                                                                                                 | Purpose                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `PluginSource` interface, `NullPluginSource`                                                                           | The seam downstream pipelines implement to feed ttsc plugins into the LSP.                                     |
+| `NativePluginSource`, `NewNativePluginSource`, `NativePluginManifest`                                                  | Sidecar-backed `PluginSource` implementation used by the shipped `ttscserver` launcher.                        |
+| `RunLSPServer`, `LSPServerOptions`, `ErrCommandNotHandled`                                                             | Host-side entry points.                                                                                        |
+| `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit`                                 | Wire types in the LSP envelope.                                                                                |
 | `FrameReader`, `NewFrameReader`, `WriteFrame`, `MaxFrameBytes`, `MaxHeaderBytes`, `ErrFrameClosed`, `ErrFrameTooLarge` | Lower-level JSON-RPC framing helpers and safety caps for embedders that test or wrap the byte stream directly. |
-| `Envelope`, `ParseEnvelope`, `ErrInvalidJSONRPC`                                                                    | JSON-RPC envelope parsing helpers for embedders that need to inspect LSP payloads outside the proxy. |
+| `Envelope`, `ParseEnvelope`, `ErrInvalidJSONRPC`                                                                       | JSON-RPC envelope parsing helpers for embedders that need to inspect LSP payloads outside the proxy.           |
 
 `DenyNpmInstall` remains for older in-process embedders, but the shipped `ttscserver` no longer embeds tsgo and cannot override tsgo's internal ATA callback.
+
+Set `SuppressExecuteCommandProvider` when your editor extension registers its
+own user-facing wrapper commands and does not want ttsc-owned command ids
+advertised directly in the upstream initialize response. The proxy still handles
+owned `workspace/executeCommand` requests either way. Prefer
+`SuppressedExecuteCommandIDs` when only some command ids are editor-owned; other
+plugin command ids remain advertised and registered by the language client.
+Set `ExecuteCommandIDPrefix` when one editor process may host more than one
+`ttscserver` client and advertised plugin command ids would otherwise collide in
+the editor's global command registry.
 
 ## Lower-level helpers
 
 Use when `LoadProgram`'s defaults don't fit.
 
-| Symbol                       | Notes                                                                                              |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `DefaultFS()`                | The OS-backed VFS wrapped with the bundled library files.                                          |
-| `DefaultHost(cwd, fs)`       | A tsgo compiler host pre-wired with the FS and the bundled `lib.*.d.ts` paths.                     |
-| `ParseTSConfig(path, host)`  | Parses a `tsconfig.json` without building a Program.                                               |
+| Symbol                         | Notes                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `DefaultFS()`                  | The OS-backed VFS wrapped with the bundled library files.                                          |
+| `DefaultHost(cwd, fs)`         | A tsgo compiler host pre-wired with the FS and the bundled `lib.*.d.ts` paths.                     |
+| `ParseTSConfig(path, host)`    | Parses a `tsconfig.json` without building a Program.                                               |
 | `CreateProgramFromConfig(...)` | Builds a Program from a parsed config without going through `LoadProgram`'s convenience overrides. |
 
 ## Stability

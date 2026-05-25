@@ -7,7 +7,7 @@ Use two layers:
 
 ## Doc comment + one case per file
 
-Every test in this project — Go unit or TypeScript e2e — is **one assertion per file**, named after what it asserts, opened with a three-part doc comment: a `Verifies …` headline, a short paragraph stating the non-obvious *why*, and a 2–4-step numbered scenario. This is the same shape AGENTS.md §2.2 mandates for the in-repo tests; third-party plugins that adopt it stay copy-pasteable into the project's own test suite.
+Every test in this project — Go unit or TypeScript e2e — is **one assertion per file**, named after what it asserts, opened with a three-part doc comment: a `Verifies …` headline, a short paragraph stating the non-obvious _why_, and a 2–4-step numbered scenario. This is the same shape AGENTS.md §2.2 mandates for the in-repo tests; third-party plugins that adopt it stay copy-pasteable into the project's own test suite.
 
 - **Go unit tests** live in `packages/*/test/` (or `<your-package>/test/`). One `Test*` per file. File name: `<scope>_<assertion>_test.go`.
 - **TypeScript e2e tests** live in `tests/test-*/src/features/` (or the equivalent in your package). Each file exports one `test_<snake_case>` function with a matching filename; `DynamicExecutor` from `@nestia/e2e` discovers them by prefix.
@@ -17,34 +17,35 @@ Every test in this project — Go unit or TypeScript e2e — is **one assertion 
  * Verifies plugin corpus: composes rejects cycle between two plugins.
  *
  * Locks the cycle-detection branch in
- * `loadProjectPlugins.ts::composePluginSources`. Composition is one hop
- * only; reciprocal `composes` arrays would silently reswap the binaries
- * of both plugins, so ttsc throws an explicit error instead of routing
- * to the wrong binary.
+ * `loadProjectPlugins.ts::composePluginSources`. Composition is one hop only;
+ * reciprocal `composes` arrays would silently reswap the binaries of both
+ * plugins, so ttsc throws an explicit error instead of routing to the wrong
+ * binary.
  *
  * 1. Two plugin descriptors each list the other in `composes`.
  * 2. Run ttsc.
  * 3. Assert non-zero exit and `composes cycle detected` in stderr.
  */
 export const test_plugin_corpus_composes_rejects_cycle_between_two_plugins =
-  () => { /* ... */ };
+  () => {
+    /* ... */
+  };
 ```
 
 The Go shape mirrors it:
 
 ```go
-// Test_parsebanner_returns_configured_text_from_explicit_config_path
+// TestParseBannerReturnsConfiguredTextFromExplicitConfigPath verifies banner
+// config discovery: explicit config wins over banner.config.ts.
 //
-// Verifies banner config discovery: explicit config wins over banner.config.ts.
-//
-// Locks parseBanner's precedence rule — explicit `configFile: "./path"` on the
+// Locks parseBanner's precedence rule: explicit `configFile: "./path"` on the
 // plugin entry must shortcircuit before tsconfig-cwd banner.config.ts is
 // loaded; otherwise consumers cannot override the project default.
 //
 // 1. Materialize a fixture with both an explicit configFile path and a default banner.config.ts.
 // 2. Call parseBanner(map{"configFile": "./explicit.json"}, cwd, tsconfigPath).
 // 3. Assert the returned banner matches the explicit file, not the default.
-func Test_parsebanner_returns_configured_text_from_explicit_config_path(t *testing.T) { /* ... */ }
+func TestParseBannerReturnsConfiguredTextFromExplicitConfigPath(t *testing.T) { /* ... */ }
 ```
 
 ## Go Unit Tests
@@ -95,9 +96,9 @@ import path from "node:path";
 /**
  * Verifies my-plugin: debugger statements are removed from emit.
  *
- * Locks the AST-mutation path — if shimprinter.EmitSourceFile is not
- * called over the mutated tree, the JSON envelope round-trips the
- * unmutated source.Text() and the debugger survives the pipeline.
+ * Locks the AST-mutation path — if shimprinter.EmitSourceFile is not called
+ * over the mutated tree, the JSON envelope round-trips the unmutated
+ * source.Text() and the debugger survives the pipeline.
  *
  * 1. Materialize a fixture with `debugger; export const x = 1;`.
  * 2. Run `ttsc --emit` against it.
@@ -107,7 +108,10 @@ export const test_my_plugin_strips_debugger_statements_from_emit = () => {
   const ttscBin = require.resolve("ttsc/lib/launcher/ttsc.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "my-plugin-"));
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
-  fs.writeFileSync(path.join(root, "src/main.ts"), `debugger;\nexport const x = 1;\n`);
+  fs.writeFileSync(
+    path.join(root, "src/main.ts"),
+    `debugger;\nexport const x = 1;\n`,
+  );
   fs.writeFileSync(
     path.join(root, "tsconfig.json"),
     JSON.stringify({
@@ -152,8 +156,8 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Copy a project-shaped fixture into a writable temp directory.
- * Mirrors `tests/utils/src/TestProject.ts::copyProject`.
+ * Copy a project-shaped fixture into a writable temp directory. Mirrors
+ * `tests/utils/src/TestProject.ts::copyProject`.
  */
 export function copyProjectTo(fixtureRoot: string): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-fixture-"));
@@ -195,7 +199,8 @@ The host emits flags in equals form; construct your tests the same way.
 ```go
 // File: <your-package>/test/plugin_receives_ttsc_tsgo_binary_test.go
 //
-// Verifies: the host injects TTSC_TSGO_BINARY into the plugin process.
+// TestPluginReceivesTtscTsgoBinary verifies the host injects TTSC_TSGO_BINARY
+// into the plugin process.
 //
 // Locks the host-side seam (`runBuild.ts:21,32-34`) so plugins that re-spawn
 // tsgo for a typecheck second-pass have a deterministic path. Regressing this
@@ -205,7 +210,7 @@ The host emits flags in equals form; construct your tests the same way.
 // 1. Spawn `go run ./plugin transform` against a minimal fixture.
 // 2. Have the plugin write os.Getenv("TTSC_TSGO_BINARY") to stdout.
 // 3. Assert the value is non-empty and points at an executable.
-func Test_plugin_receives_ttsc_tsgo_binary(t *testing.T) { /* ... */ }
+func TestPluginReceivesTtscTsgoBinary(t *testing.T) { /* ... */ }
 ```
 
 For the re-spawn how-to (calling `exec.Command(os.Getenv("TTSC_TSGO_BINARY"), ...)` from inside your plugin), see [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin). This page only documents the assertion shape.
@@ -217,7 +222,9 @@ Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary'
 - **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir race the publish path.
 
   ```ts
-  const cache = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-plugin-cache-${workerId}-`));
+  const cache = fs.mkdtempSync(
+    path.join(os.tmpdir(), `ttsc-plugin-cache-${workerId}-`),
+  );
   process.env.TTSC_CACHE_DIR = cache;
   ```
 

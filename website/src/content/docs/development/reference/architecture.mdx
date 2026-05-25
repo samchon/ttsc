@@ -11,9 +11,20 @@ When `ttsc` sees a plugin `source` descriptor:
 3. Reuse the cached binary on hit.
 4. Copy source into a scratch directory on miss.
 5. Generate a `go.work` overlay pointing at `ttsc` and its shims, plus (when the plugin's `go.mod` does not declare `github.com/samchon/ttsc/packages/ttsc`) a synthesized `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => <workspace overlay>` block. The `replace` block is the seam that lets a plugin's bare `require github.com/samchon/ttsc/packages/ttsc v0.0.0` resolve to the workspace `ttsc` source at build time.
-6. Run `go build -o .ttsc-plugin <entry>` in the scratch directory. The leading-dot placeholder name makes the in-progress binary easy to spot in `go build` stderr; step 7 renames it to `plugin` (or `plugin.exe` on Windows) as it moves into the cache.
-7. Move the binary into the cache.
-8. Invoke the binary with `check`, `transform`, `build`, `fix`, or `format`.
+6. Classify the source package. A `package main` source is an executable
+   sidecar. A non-`main` transform source is a linked plugin package that must
+   register through `driver.RegisterPlugin`.
+7. For executable sidecars, run `go build -o .ttsc-plugin <entry>` in the
+   scratch directory. The leading-dot placeholder name makes the in-progress
+   binary easy to spot in `go build` stderr; the cache move renames it to
+   `plugin` (or `plugin.exe` on Windows).
+8. For linked transform sources, synthesize or select a native host that
+   blank-imports the copied package, then build that host binary instead.
+9. Move the built binary into the cache.
+10. Invoke executable sidecars with `check`, `transform`, `build`, `fix`, or
+    `format`. Linked transform packages do not receive argv directly; the
+    native host receives the subcommand and dispatches to registered driver
+    hooks.
 
 ## Cache Key Inputs
 
