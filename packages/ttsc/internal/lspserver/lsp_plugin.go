@@ -46,8 +46,10 @@ type LSPDiagnostic struct {
 }
 
 // LSPCodeAction is the minimal Code Action shape ttscserver returns from
-// the textDocument/codeAction handler. ttsc actions are always command-
-// driven (the server side does the heavy lifting) so Edit stays nil.
+// the textDocument/codeAction handler. Sidecar-backed NativePluginSource
+// accepts only command-driven actions and drops non-null direct edits; custom
+// in-process PluginSource implementations may still return Edit when they own
+// that policy.
 type LSPCodeAction struct {
   Title       string          `json:"title"`
   Kind        string          `json:"kind,omitempty"`
@@ -64,8 +66,9 @@ type LSPCommand struct {
 }
 
 // LSPCodeActionContext mirrors the context object the editor sends with
-// textDocument/codeAction. Only the diagnostics slice is consumed by
-// ttsc; the rest is opaque and forwarded by Proxy verbatim.
+// textDocument/codeAction. The proxy inspects Only to decide local routing, and
+// plugin sources may inspect Diagnostics, Only, and TriggerKind when filtering
+// their own actions.
 type LSPCodeActionContext struct {
   Diagnostics []json.RawMessage `json:"diagnostics,omitempty"`
   Only        []string          `json:"only,omitempty"`
@@ -112,13 +115,15 @@ type PluginSource interface {
   Diagnostics(doc LSPDocumentVersion) []LSPDiagnostic
 
   // CodeActions contributes additional actions for the given range. The
-  // proxy appends them to the upstream tsgo response.
+  // proxy appends them to upstream responses, or answers locally when
+  // the request is plugin-only / upstream advertised no provider.
   CodeActions(uri string, rng LSPRange, ctx LSPCodeActionContext) []LSPCodeAction
 
-  // ExecuteCommand handles workspace/executeCommand requests whose
-  // command id appears in CommandIDs. A nil edit
-  // means the command ran but produced no workspace changes; a non-nil
-  // error surfaces as an LSP error response.
+  // ExecuteCommand handles workspace/executeCommand requests whose command id
+  // appears in CommandIDs. A nil edit means the command ran but produced no
+  // workspace changes; a non-nil error surfaces as an LSP error response.
+  // Returning ErrCommandNotHandled for an advertised id is also treated as an
+  // error by the proxy because advertised commands are owned locally.
   ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error)
 
   // CommandIDs lists the workspace command ids ttsc handles locally so
@@ -128,8 +133,8 @@ type PluginSource interface {
 
 // NullPluginSource is the zero-contribution PluginSource used when the
 // LSP server is hosted without any ttsc plugin pipeline (smoke tests,
-// docs build). Every method returns an empty result so the proxy still
-// exercises its merge paths even with no plugin activity.
+// docs build). It returns no diagnostics/actions and no command ids so the
+// proxy still exercises its merge paths even with no plugin activity.
 type NullPluginSource struct{}
 
 // Diagnostics returns no plugin diagnostics.

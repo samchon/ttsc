@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/linux-x64",
   "version": "0.13.1",
-  "description": "Linux x64 native binary and bundled Go compiler for ttsc.",
+  "description": "Linux x64 native ttsc/ttscserver binaries and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["x64"],
   "scripts": {
@@ -13,11 +13,7 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
-  "files": [
-    "bin",
-    "package.json",
-    "README.md"
-  ],
+  "files": ["bin", "package.json", "README.md"],
   "publishConfig": {
     "access": "public"
   }

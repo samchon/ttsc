@@ -2,7 +2,7 @@
   "private": true,
   "name": "@ttsc/station",
   "version": "0.13.1",
-  "description": "Standalone TypeScript-Go compiler and runtime workspace.",
+  "description": "Standalone TypeScript-Go compiler, runtime, plugin host, and LSP host workspace.",
   "scripts": {
     "build": "node scripts/build-platforms.cjs",
     "build:current": "node scripts/build-current.cjs",
@@ -13,7 +13,8 @@
     "format:go": "git ls-files -z \"*.go\" | xargs -0 ./.vscode/gofmt-2spaces.sh -w",
     "gen:flags": "node --experimental-strip-types packages/ttsc/scripts/gen-flags.mts",
     "check:flags": "node packages/ttsc/scripts/check-flags.cjs",
-    "package:latest": "pnpm build && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
+    "package:latest": "pnpm build && pnpm run package:latest:publish",
+    "package:latest:publish": "pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",
     "package:next": "bash next.bash",
     "package:tgz": "node --experimental-strip-types experimental/tarballs/index.ts",
     "release": "bumpp -r",

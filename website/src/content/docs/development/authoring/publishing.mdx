@@ -15,7 +15,7 @@ A plugin is one npm package containing a JS descriptor and Go source.
       "transform": "my-ttsc-plugin"
     }
   },
-  "files": ["plugin.cjs", "plugin"],
+  "files": ["plugin.cjs", "plugin", "driver"],
   "engines": {
     "node": ">=18"
   },
@@ -32,7 +32,7 @@ The plugin protocol is stable across patch releases. Minor releases may add new 
 
 ```json
 "peerDependencies": {
-  "ttsc": ">=0.11.0 <0.12.0",
+  "ttsc": ">=0.13.0 <0.14.0",
   "@typescript/native-preview": "*"
 },
 "peerDependenciesMeta": {
@@ -48,7 +48,9 @@ The consumer project supplies `ttsc` and the active `@typescript/native-preview`
 The tarball must include:
 
 - `plugin.cjs` (or the built JS descriptor entry);
-- the Go source directory;
+- every Go source directory referenced by your descriptor (`plugin/` for an
+  executable sidecar, `driver/` or another non-`main` package for linked
+  transform source);
 - `go.mod`;
 - `go.sum`, when present;
 - `README.md` and license.
@@ -59,7 +61,10 @@ Verify before publish:
 npm pack --dry-run
 ```
 
-The tarball contains `plugin/main.go`; `ttsc` builds that source on the consumer machine.
+The tarball contains Go source, not a prebuilt plugin binary. `ttsc` builds that
+source on the consumer machine: executable `package main` sources become
+sidecars, while linked non-`main` transform packages are compiled into the
+selected native host.
 
 ## Dependencies
 
@@ -136,11 +141,11 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: "1.26" }
       - run: pnpm install --frozen-lockfile
+      - name: Pin Go binary for ttsc plugin builds
+        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
       - run: pnpm test
       - run: pnpm pack --pack-destination /tmp
       - name: Smoke-install into a clean fixture
-        env:
-          TTSC_GO_BINARY: ${{ steps.go.outputs.go-binary }}
         run: |
           # Adapt the Bash recipe above against /tmp/<your-package>-*.tgz
 ```

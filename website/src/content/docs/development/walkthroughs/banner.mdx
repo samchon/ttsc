@@ -11,8 +11,8 @@ Given a project that opts into `@ttsc/banner`:
 {
   "compilerOptions": {
     "outDir": "dist",
-    "plugins": [{ "transform": "@ttsc/banner" }]
-  }
+    "plugins": [{ "transform": "@ttsc/banner" }],
+  },
 }
 ```
 
@@ -32,9 +32,7 @@ Running `npx ttsc --emit` produces:
 ```js
 // dist/index.js
 /**
- * ----------------------------------------------------------------
- * License MIT
- * Copyright 2026 Example Corp
+ * License MIT Copyright 2026 Example Corp
  *
  * @packageDocumentation
  */
@@ -58,11 +56,11 @@ packages/banner/
 │       ├── ITtscBannerConfig.ts
 │       ├── ITtscBannerPluginConfig.ts
 │       └── index.ts
-├── go.mod                    ← Go module declaration for the sidecar
+├── go.mod                    ← Go module declaration for the native source
 ├── driver/
 │   └── banner.go             ← Linked transform logic
 └── plugin/
-    ├── main.go               ← Native sidecar entrypoint — 36 lines
+    ├── main.go               ← Standalone sidecar entrypoint — 36 lines
     └── banner.go             ← Blank-imports the linked driver package
 ```
 
@@ -134,7 +132,7 @@ Three load-bearing lines in the returned descriptor:
 
 - `name: "@ttsc/banner"` — optional diagnostic label. Routing is not based on this value.
 - `source: path.resolve(__dirname, "..", "driver")` — absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
-- `stage: "transform"` — declares this plugin participates in the AST transform path. The host will spawn `transform`, `build`, and `check` subcommands. Omit `stage` and you get the same default.
+- `stage: "transform"` — declares this plugin participates in the AST transform path. Because this descriptor points at linked `driver/`, the selected native host receives `check`, `transform`, and `build` while banner participates through `driver.RegisterPlugin`. Omit `stage` and you get the same default.
 
 The factory's one piece of factory-time work is validating `context.plugin` — the original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context — `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory — banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
 
@@ -161,9 +159,13 @@ Two things worth noting for Go newcomers:
 
 `shim/ast`, `shim/checker`, `shim/compiler`, `shim/printer`, `shim/scanner` (and a few more) are TypeScript-Go's internal AST, type checker, compiler, printer, and scanner packages, re-exported as a narrow boundary under `github.com/microsoft/typescript-go/shim/...`. Plugins import these packages to read the **same** AST that tsgo reads. The full surface is documented at [AST & Checker → Shim Model](/docs/development/concepts/tsgo#shim-model); for now, treat "shim" as ttsc's word for "stable TypeScript-Go API." Banner does not import any shim directly because source-preamble insertion is handled through the `driver.SourcePreamblePlugin` hook. The later walkthroughs use shims explicitly.
 
-## The sidecar (`plugin/main.go`)
+## The standalone sidecar (`plugin/main.go`)
 
-This is the file `ttsc` actually builds and spawns. The entire content:
+This is the standalone utility entrypoint for the package. The published
+`@ttsc/banner` descriptor points at `driver/`, so consumer builds link the
+driver package into the selected native host. Reading `plugin/main.go` is still
+useful because it shows the executable sidecar contract and is what the package
+Go tests run directly. The entire content:
 
 ```go
 // Native sidecar entrypoint for `@ttsc/banner`.
@@ -273,7 +275,12 @@ default:
 }
 ```
 
-The host always spawns the plugin with a subcommand as the first argument: `transform`, `build`, `check`. (For check-stage plugins the host also spawns `fix` and `format`; for transform-stage plugins like banner those subcommands never arrive, which is why they hit the `default` and exit 2.)
+Executable sidecars are always spawned with a subcommand as the first argument:
+`check`, `transform`, `build`, and for check-stage plugins also `fix` or
+`format`. Banner's published descriptor uses linked `driver/` instead, so in
+normal consumer builds the generic native host receives the subcommand and the
+banner driver runs through its registered hooks. This standalone dispatcher
+exists for package tests and as an executable-sidecar example.
 
 The `switch` is Go's `case` statement. Notable details:
 
@@ -322,9 +329,9 @@ The full transform code lives in [`packages/banner/driver/banner.go`](https://gi
 1. **`init`** calls `driver.RegisterPlugin(plugin{})`, making this package visible to whichever native host links it.
 2. **`SourcePreamble(ctx driver.PluginContext)`** receives the paired project plugin entry and calls `parseBanner(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)`.
 3. **`parseBanner`** delegates to **`resolveBannerText`** for config resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
-    - `config["configFile"]` path to a `banner.config.*` file (explicit override);
-    - upward filesystem walk from the tsconfig directory looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
-4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program *already contains* the JSDoc block at offset 0 — the printer round-trips it naturally.
+   - `config["configFile"]` path to a `banner.config.*` file (explicit override);
+   - upward filesystem walk from the tsconfig directory looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
+4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program _already contains_ the JSDoc block at offset 0 — the printer round-trips it naturally.
 5. **`makeSourcePreambleWriteFile`** in the generic host wraps `tsgo`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsgo generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
 
 The pattern is: **prefer source-level transformations over post-emit edits**. By overlaying the preamble at parse time, banner never has to deal with sourcemaps, declaration emit, or formatting variations — tsgo treats the preamble as ordinary source text.
@@ -345,7 +352,7 @@ Forget it and the lease leaks back to the pool. After a handful of invocations s
 
 ### Sidebar: why exit 2 on `fix` / `format`
 
-The `default` branch in `run` rejects `fix` and `format` with exit 2 because the host only spawns those subcommands against `stage: "check"` plugins. If a transform-stage plugin's dispatcher ever receives one, something is wrong upstream and the safe move is "fail loud." Conversely, a **check-stage plugin** that does not implement `fix` should also exit non-zero with a human-readable stderr message — the host treats every non-zero exit as failure and prints stderr verbatim, with no special-cased phrase ([Plugin protocol → Unsupported `fix`/`format`](/docs/development/concepts/protocol#unsupported-fix-format)). Returning `0` from an unknown subcommand is a bug: `ttsc fix` would silently no-op and the user would never know.
+The `default` branch in `run` rejects `fix` and `format` with exit 2 because the host only spawns those subcommands against executable `stage: "check"` plugins. If a transform-stage sidecar dispatcher ever receives one, something is wrong upstream and the safe move is "fail loud." Conversely, a **check-stage plugin** that does not implement `fix` should also exit non-zero with a human-readable stderr message — the host treats every non-zero exit as failure and prints stderr verbatim, with no special-cased phrase ([Plugin protocol → Unsupported `fix`/`format`](/docs/development/concepts/protocol#unsupported-fix-format)). Returning `0` from an unknown subcommand is a bug: `ttsc fix` would silently no-op and the user would never know.
 
 ## What to copy, what to ignore for your own plugin
 
