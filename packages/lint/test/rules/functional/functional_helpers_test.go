@@ -43,3 +43,10 @@ func assertFunctionalFinding(t *testing.T, ruleName string, findings []*Finding,
 	}
 	t.Fatalf("%s: no finding message contained %q; messages=%q", ruleName, messagePart, messages)
 }
+
+func assertNoFunctionalFinding(t *testing.T, ruleName string, findings []*Finding) {
+	t.Helper()
+	if len(findings) != 0 {
+		t.Fatalf("%s: expected no findings, got %#v", ruleName, findings)
+	}
+}

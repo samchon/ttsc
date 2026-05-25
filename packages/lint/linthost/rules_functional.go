@@ -134,6 +134,7 @@ func (functionalTypeDeclarationImmutability) Visits() []shimast.Kind {
 }
 
 type functionalNoLetOptions struct {
+	functionalPatternOptions
 	AllowInForLoopInit bool `json:"allowInForLoopInit"`
 	AllowInFunctions   bool `json:"allowInFunctions"`
 }
@@ -144,20 +145,36 @@ type functionalNoTryOptions struct {
 }
 
 type functionalImmutableDataOptions struct {
+	functionalPatternOptions
 	IgnoreMapsAndSets bool `json:"ignoreMapsAndSets"`
 }
 
 type functionalParametersOptions struct {
+	functionalPatternOptions
 	AllowRestParameter    bool        `json:"allowRestParameter"`
 	AllowArgumentsKeyword bool        `json:"allowArgumentsKeyword"`
 	EnforceParameterCount interface{} `json:"enforceParameterCount"`
+}
+
+type functionalPreferImmutableTypesOptions struct {
+	functionalPatternOptions
+}
+
+type functionalPreferReadonlyTypeOptions struct {
+	functionalPatternOptions
 }
 
 type functionalReadonlyTypeOptions struct {
 	Prefer string `json:"prefer"`
 }
 
+type functionalPatternOptions struct {
+	IgnoreIdentifierPattern interface{} `json:"ignoreIdentifierPattern"`
+	IgnoreCodePattern       interface{} `json:"ignoreCodePattern"`
+}
+
 type functionalImmutabilityDeclarationOptions struct {
+	functionalPatternOptions
 	Rules            []functionalImmutabilityRule `json:"rules"`
 	IgnoreInterfaces bool                         `json:"ignoreInterfaces"`
 }
@@ -173,10 +190,16 @@ func (functionalParameters) Check(ctx *Context, node *shimast.Node) {
 	case shimast.KindParameter:
 		param := node.AsParameterDeclaration()
 		if param != nil && param.DotDotDotToken != nil && !opts.AllowRestParameter {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, identifierText(param.Name())) {
+				return
+			}
 			ctx.Report(node, "Unexpected rest parameter. Use a regular parameter of array type instead.")
 		}
 	case shimast.KindIdentifier:
 		if opts.AllowArgumentsKeyword || identifierText(node) != "arguments" || isDeclarationName(node) {
+			return
+		}
+		if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, "arguments") {
 			return
 		}
 		ctx.Report(node, "Unexpected use of `arguments`. Use regular function arguments instead.")
@@ -185,6 +208,9 @@ func (functionalParameters) Check(ctx *Context, node *shimast.Node) {
 			return
 		}
 		if len(node.Parameters()) == 0 {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalFunctionLikeName(node)) {
+				return
+			}
 			ctx.Report(node, "Functions must have at least one parameter.")
 		}
 	}
@@ -200,21 +226,33 @@ func (functionalImmutableData) Check(ctx *Context, node *shimast.Node) {
 			return
 		}
 		if isMemberMutationTarget(expr.Left) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, expr.Left, functionalIdentifierTexts(expr.Left)...) {
+				return
+			}
 			ctx.Report(expr.Left, "Modifying an existing object/array is not allowed.")
 		}
 	case shimast.KindPrefixUnaryExpression:
 		expr := node.AsPrefixUnaryExpression()
 		if expr != nil && isUpdateOperator(expr.Operator) && isMemberMutationTarget(expr.Operand) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, expr.Operand, functionalIdentifierTexts(expr.Operand)...) {
+				return
+			}
 			ctx.Report(expr.Operand, "Modifying an existing object/array is not allowed.")
 		}
 	case shimast.KindPostfixUnaryExpression:
 		expr := node.AsPostfixUnaryExpression()
 		if expr != nil && isUpdateOperator(expr.Operator) && isMemberMutationTarget(expr.Operand) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, expr.Operand, functionalIdentifierTexts(expr.Operand)...) {
+				return
+			}
 			ctx.Report(expr.Operand, "Modifying an existing object/array is not allowed.")
 		}
 	case shimast.KindDeleteExpression:
 		expr := node.AsDeleteExpression()
 		if expr != nil && isMemberMutationTarget(expr.Expression) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, expr.Expression, functionalIdentifierTexts(expr.Expression)...) {
+				return
+			}
 			ctx.Report(expr.Expression, "Modifying an existing object/array is not allowed.")
 		}
 	case shimast.KindCallExpression:
@@ -228,6 +266,9 @@ func (functionalImmutableData) Check(ctx *Context, node *shimast.Node) {
 		}
 		method := identifierText(access.Name())
 		if isMutableArrayMethod(method) || (!opts.IgnoreMapsAndSets && isMutableCollectionMethod(method)) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, call.Expression, functionalIdentifierTexts(call.Expression)...) {
+				return
+			}
 			ctx.Report(call.Expression, "Modifying an existing object/array is not allowed.")
 		}
 	}
@@ -274,6 +315,9 @@ func (functionalNoLet) Check(ctx *Context, node *shimast.Node) {
 		return
 	}
 	if opts.AllowInFunctions && hasAncestor(node, isFunctionLikeKind) {
+		return
+	}
+	if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalVariableDeclarationListNames(node)...) {
 		return
 	}
 	start := keywordStart(ctx.File, node, "let")
@@ -355,8 +399,14 @@ func (functionalNoTryStatements) Check(ctx *Context, node *shimast.Node) {
 }
 
 func (functionalPreferImmutableTypes) Check(ctx *Context, node *shimast.Node) {
+	var opts functionalPreferImmutableTypesOptions
+	_ = ctx.DecodeOptions(&opts)
 	typeNode := declarationTypeNode(node)
 	if typeNode == nil || !functionalMutableType(typeNode) {
+		return
+	}
+	if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalDeclarationName(node)) ||
+		functionalShouldIgnore(ctx, opts.functionalPatternOptions, typeNode) {
 		return
 	}
 	ctx.Report(typeNode, "Type should be readonly or immutable.")
@@ -367,21 +417,35 @@ func (functionalPreferPropertySignatures) Check(ctx *Context, node *shimast.Node
 }
 
 func (functionalPreferReadonlyType) Check(ctx *Context, node *shimast.Node) {
+	var opts functionalPreferReadonlyTypeOptions
+	_ = ctx.DecodeOptions(&opts)
 	switch node.Kind {
 	case shimast.KindArrayType:
 		if !isReadonlyTypeNode(node) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node) {
+				return
+			}
 			ctx.Report(node, "Only readonly arrays allowed.")
 		}
 	case shimast.KindTupleType:
 		if !isReadonlyTypeNode(node) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node) {
+				return
+			}
 			ctx.Report(node, "Only readonly tuples allowed.")
 		}
 	case shimast.KindTypeReference:
 		if isMutableTypeReference(node) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalIdentifierTexts(node)...) {
+				return
+			}
 			ctx.Report(node, "Only readonly types allowed.")
 		}
 	case shimast.KindPropertySignature:
 		if !hasModifier(node, shimast.KindReadonlyKeyword) {
+			if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalDeclarationName(node)) {
+				return
+			}
 			ctx.Report(node, "A readonly modifier is required.")
 		}
 	}
@@ -420,6 +484,9 @@ func (functionalTypeDeclarationImmutability) Check(ctx *Context, node *shimast.N
 		return
 	}
 	name := functionalTypeDeclarationName(node)
+	if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, name) {
+		return
+	}
 	if !functionalDeclarationRuleApplies(opts, name) {
 		return
 	}
@@ -434,6 +501,18 @@ func isMemberMutationTarget(node *shimast.Node) bool {
 	}
 	node = stripParens(node)
 	return node != nil && (node.Kind == shimast.KindPropertyAccessExpression || node.Kind == shimast.KindElementAccessExpression)
+}
+
+func functionalShouldIgnore(ctx *Context, opts functionalPatternOptions, node *shimast.Node, identifiers ...string) bool {
+	if functionalPatternOptionMatches(opts.IgnoreCodePattern, strings.TrimSpace(nodeText(ctx.File, node))) {
+		return true
+	}
+	for _, name := range identifiers {
+		if functionalPatternOptionMatches(opts.IgnoreIdentifierPattern, name) {
+			return true
+		}
+	}
+	return false
 }
 
 func isUpdateOperator(kind shimast.Kind) bool {
@@ -540,6 +619,23 @@ func functionalReturnTypeText(ctx *Context, node *shimast.Node) string {
 	return strings.TrimSpace(nodeText(ctx.File, typeNode))
 }
 
+func functionalFunctionLikeName(node *shimast.Node) string {
+	if node == nil {
+		return ""
+	}
+	switch node.Kind {
+	case shimast.KindFunctionDeclaration:
+		if decl := node.AsFunctionDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindMethodDeclaration:
+		if decl := node.AsMethodDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	}
+	return ""
+}
+
 func declarationTypeNode(node *shimast.Node) *shimast.Node {
 	if node == nil {
 		return nil
@@ -563,6 +659,63 @@ func declarationTypeNode(node *shimast.Node) *shimast.Node {
 		}
 	}
 	return nil
+}
+
+func functionalDeclarationName(node *shimast.Node) string {
+	if node == nil {
+		return ""
+	}
+	switch node.Kind {
+	case shimast.KindVariableDeclaration:
+		if decl := node.AsVariableDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindParameter:
+		if decl := node.AsParameterDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindPropertyDeclaration:
+		if decl := node.AsPropertyDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindPropertySignature:
+		if decl := node.AsPropertySignatureDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindFunctionDeclaration:
+		if decl := node.AsFunctionDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	case shimast.KindMethodDeclaration:
+		if decl := node.AsMethodDeclaration(); decl != nil {
+			return identifierText(decl.Name())
+		}
+	}
+	return ""
+}
+
+func functionalVariableDeclarationListNames(node *shimast.Node) []string {
+	list := node.AsVariableDeclarationList()
+	if list == nil || list.Declarations == nil {
+		return nil
+	}
+	names := make([]string, 0, len(list.Declarations.Nodes))
+	for _, child := range list.Declarations.Nodes {
+		if name := functionalDeclarationName(child); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func functionalIdentifierTexts(node *shimast.Node) []string {
+	var names []string
+	walkDescendants(node, func(child *shimast.Node) {
+		if name := identifierText(child); name != "" {
+			names = append(names, name)
+		}
+	})
+	return names
 }
 
 func functionalMutableType(node *shimast.Node) bool {
@@ -713,20 +866,20 @@ func functionalDeclarationRuleApplies(opts functionalImmutabilityDeclarationOpti
 		return true
 	}
 	for _, rule := range opts.Rules {
-		if functionalIdentifierOptionMatches(rule.Identifiers, name) {
+		if functionalPatternOptionMatches(rule.Identifiers, name) {
 			return true
 		}
 	}
 	return false
 }
 
-func functionalIdentifierOptionMatches(raw interface{}, name string) bool {
+func functionalPatternOptionMatches(raw interface{}, text string) bool {
 	switch value := raw.(type) {
 	case string:
-		return functionalPatternMatches(value, name)
+		return functionalPatternMatches(value, text)
 	case []interface{}:
 		for _, item := range value {
-			if text, ok := item.(string); ok && functionalPatternMatches(text, name) {
+			if pattern, ok := item.(string); ok && functionalPatternMatches(pattern, text) {
 				return true
 			}
 		}
