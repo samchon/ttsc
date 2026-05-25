@@ -15,6 +15,9 @@ func (r solidRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (r solidRule) Check(ctx *Context, node *shimast.Node) {
+  if r.name == "jsx-uses-vars" {
+    return
+  }
   state := collectSolidState(ctx)
   if !state.hasSolid && r.name != "jsx-no-undef" {
     return
