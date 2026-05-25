@@ -111,6 +111,56 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Functional Policy
+
+The `functional/*` family is an opt-in strictness pack for projects that want
+immutable, expression-oriented TypeScript. These rules are intentionally not
+core defaults because they encode a programming style, not just bug prevention.
+They are diagnostic-only; `ttsc fix` does not rewrite architecture or control
+flow choices automatically.
+
+| Rule | Effect |
+| ---- | ------ |
+| `functional/functional-parameters` | Reject rest parameters, `arguments`, and optionally zero-parameter functions. |
+| `functional/immutable-data` | Reject writes through object/array members and mutable collection methods. |
+| `functional/no-class-inheritance` | Reject class inheritance and abstract classes. |
+| `functional/no-classes` | Reject class declarations and expressions. |
+| `functional/no-conditional-statements` | Reject `if` and `switch` statements. |
+| `functional/no-expression-statements` | Reject expression statements used for side effects. |
+| `functional/no-let` | Reject `let` declarations. |
+| `functional/no-loop-statements` | Reject imperative loop statements. |
+| `functional/no-mixed-types` | Reject type/interface declarations that mix member shapes. |
+| `functional/no-promise-reject` | Reject `Promise.reject(...)`. |
+| `functional/no-return-void` | Reject void returns and void-returning declarations. |
+| `functional/no-this-expressions` | Reject `this` expressions. |
+| `functional/no-throw-statements` | Reject `throw` statements. |
+| `functional/no-try-statements` | Reject `try`/`catch`/`finally` statements. |
+| `functional/prefer-immutable-types` | Prefer readonly/immutable type annotations. |
+| `functional/prefer-property-signatures` | Prefer function-property signatures over method signatures. |
+| `functional/prefer-readonly-type` | Require readonly array, tuple, and property type syntax. |
+| `functional/prefer-tacit` | Report simple one-argument forwarding wrappers. |
+| `functional/readonly-type` | Enforce the configured readonly type spelling. |
+| `functional/type-declaration-immutability` | Require matching type declarations to expose readonly member shapes. |
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "functional/no-let": "error",
+    "functional/no-loop-statements": "error",
+    "functional/no-conditional-statements": "error",
+    "functional/no-throw-statements": "error",
+    "functional/no-try-statements": "error",
+    "functional/no-classes": "error",
+    "functional/immutable-data": "error",
+    "functional/prefer-readonly-type": "error",
+    "functional/type-declaration-immutability": ["error", {
+      rules: [{ identifiers: ".*" }],
+    }],
+  },
+};
+```
+
 ## Format
 
 The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).

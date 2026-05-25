@@ -137,12 +137,169 @@ export interface ITtscLintJsdocRuleOptions {
   sortTags?: boolean;
 }
 
+/** Shared pattern option accepted by several `functional/*` rules. */
+export interface ITtscLintFunctionalPatternOptions {
+  /** Identifier regex string(s) the rule should skip. */
+  ignoreIdentifierPattern?: string | readonly string[];
+
+  /** Source-code regex string(s) the rule should skip. */
+  ignoreCodePattern?: string | readonly string[];
+}
+
+/** `functional/functional-parameters` rule options. */
+export interface ITtscLintFunctionalParametersRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  /** Allow rest parameters such as `(...args: readonly string[])`. */
+  allowRestParameter?: boolean;
+
+  /** Allow the legacy `arguments` object. */
+  allowArgumentsKeyword?: boolean;
+
+  /**
+   * Require functions to declare parameters. `true` maps to the conservative
+   * at-least-one policy.
+   */
+  enforceParameterCount?: boolean | "atLeastOne" | "exactlyOne";
+}
+
+/** `functional/immutable-data` rule options. */
+export interface ITtscLintFunctionalImmutableDataRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  /** Skip mutating `Map` and `Set` methods while still checking arrays/properties. */
+  ignoreMapsAndSets?: boolean;
+}
+
+/** `functional/no-let` rule options. */
+export interface ITtscLintFunctionalNoLetRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  /** Permit `let` in a `for` statement initializer. */
+  allowInForLoopInit?: boolean;
+
+  /** Permit `let` inside functions while still rejecting module-level `let`. */
+  allowInFunctions?: boolean;
+}
+
+/** `functional/no-conditional-statements` rule options. */
+export interface ITtscLintFunctionalNoConditionalStatementsRuleOptions {
+  /** Reserved for upstream-compatible configs; current native rule rejects all `if`/`switch` statements. */
+  allowReturningBranches?: boolean | "ifExhaustive";
+}
+
+/** `functional/no-try-statements` rule options. */
+export interface ITtscLintFunctionalNoTryStatementsRuleOptions {
+  /** Allow `try/catch` while still checking `finally` when present. */
+  allowCatch?: boolean;
+
+  /** Allow `try/finally` while still checking `catch` when present. */
+  allowFinally?: boolean;
+}
+
+/** `functional/no-throw-statements` rule options. */
+export interface ITtscLintFunctionalNoThrowStatementsRuleOptions {
+  /** Reserved for upstream-compatible configs; current native rule rejects all `throw` statements. */
+  allowToRejectPromises?: boolean;
+}
+
+/** `functional/no-mixed-types` rule options. */
+export interface ITtscLintFunctionalNoMixedTypesRuleOptions {
+  /** Check interface member kinds. */
+  checkInterfaces?: boolean;
+
+  /** Check type-literal member kinds. */
+  checkTypeLiterals?: boolean;
+}
+
+/** `functional/no-return-void` rule options. */
+export interface ITtscLintFunctionalNoReturnVoidRuleOptions {
+  allowNull?: boolean;
+  allowUndefined?: boolean;
+  ignoreInferredTypes?: boolean;
+}
+
+/** `functional/prefer-immutable-types` rule options. */
+export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  /** Minimum accepted immutability. The native subset treats any configured value as readonly-required. */
+  enforcement?: "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "None" | false;
+}
+
+/** `functional/prefer-readonly-type` rule options. */
+export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  allowLocalMutation?: boolean;
+  allowMutableReturnType?: boolean;
+  checkImplicit?: boolean;
+  ignoreCollections?: boolean;
+  ignoreClass?: boolean | "fieldsOnly";
+  ignoreInterface?: boolean;
+}
+
+/** `functional/prefer-tacit` rule options. */
+export interface ITtscLintFunctionalPreferTacitRuleOptions {
+  /** Check member expressions such as `x => service.map(x)`. */
+  checkMemberExpressions?: boolean;
+}
+
+/** `functional/readonly-type` rule options. */
+export interface ITtscLintFunctionalReadonlyTypeRuleOptions {
+  /**
+   * Preferred readonly spelling.
+   *
+   * @default "keyword"
+   */
+  prefer?: "keyword" | "generic";
+}
+
+/** `functional/type-declaration-immutability` declaration policy. */
+export interface ITtscLintFunctionalTypeDeclarationImmutabilityRule {
+  /** Type/interface name or regex string(s) this policy applies to. */
+  identifiers: string | readonly string[];
+
+  /** Reserved for upstream-compatible configs; current native subset treats all values as readonly-required. */
+  immutability?: "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "Mutable";
+
+  comparator?: "Less" | "AtMost" | "Exactly" | "AtLeast" | "More" | -2 | -1 | 0 | 1 | 2;
+}
+
+/** `functional/type-declaration-immutability` rule options. */
+export interface ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions
+  extends ITtscLintFunctionalPatternOptions {
+  /** Optional declaration-name policies. Empty means all type declarations. */
+  rules?: readonly ITtscLintFunctionalTypeDeclarationImmutabilityRule[];
+
+  /** Skip interface declarations and only check type aliases. */
+  ignoreInterfaces?: boolean;
+}
+
+/** Empty object options accepted by simple `functional/*` policy rules. */
+export interface ITtscLintFunctionalEmptyRuleOptions {}
+
 /**
  * Index from format rule name to its option object. Kept as a public lookup
  * type for consumers that want to derive option helpers from the same rule
  * names accepted by `ITtscLintRules`.
  */
 export interface ITtscLintRuleOptionsMap {
+  "functional/functional-parameters": ITtscLintFunctionalParametersRuleOptions;
+  "functional/immutable-data": ITtscLintFunctionalImmutableDataRuleOptions;
+  "functional/no-class-inheritance": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-classes": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-conditional-statements": ITtscLintFunctionalNoConditionalStatementsRuleOptions;
+  "functional/no-expression-statements": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-let": ITtscLintFunctionalNoLetRuleOptions;
+  "functional/no-loop-statements": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-mixed-types": ITtscLintFunctionalNoMixedTypesRuleOptions;
+  "functional/no-promise-reject": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-return-void": ITtscLintFunctionalNoReturnVoidRuleOptions;
+  "functional/no-this-expressions": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/no-throw-statements": ITtscLintFunctionalNoThrowStatementsRuleOptions;
+  "functional/no-try-statements": ITtscLintFunctionalNoTryStatementsRuleOptions;
+  "functional/prefer-immutable-types": ITtscLintFunctionalPreferImmutableTypesRuleOptions;
+  "functional/prefer-property-signatures": ITtscLintFunctionalEmptyRuleOptions;
+  "functional/prefer-readonly-type": ITtscLintFunctionalPreferReadonlyTypeRuleOptions;
+  "functional/prefer-tacit": ITtscLintFunctionalPreferTacitRuleOptions;
+  "functional/readonly-type": ITtscLintFunctionalReadonlyTypeRuleOptions;
+  "functional/type-declaration-immutability": ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions;
   "format/semi": ITtscLintSemiRuleOptions;
   "format/quotes": ITtscLintQuotesRuleOptions;
   "format/trailing-comma": ITtscLintTrailingCommaRuleOptions;

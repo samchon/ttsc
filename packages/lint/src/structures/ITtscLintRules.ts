@@ -1,4 +1,18 @@
 import type {
+  ITtscLintFunctionalEmptyRuleOptions,
+  ITtscLintFunctionalImmutableDataRuleOptions,
+  ITtscLintFunctionalNoConditionalStatementsRuleOptions,
+  ITtscLintFunctionalNoLetRuleOptions,
+  ITtscLintFunctionalNoMixedTypesRuleOptions,
+  ITtscLintFunctionalNoReturnVoidRuleOptions,
+  ITtscLintFunctionalNoThrowStatementsRuleOptions,
+  ITtscLintFunctionalNoTryStatementsRuleOptions,
+  ITtscLintFunctionalParametersRuleOptions,
+  ITtscLintFunctionalPreferImmutableTypesRuleOptions,
+  ITtscLintFunctionalPreferReadonlyTypeRuleOptions,
+  ITtscLintFunctionalPreferTacitRuleOptions,
+  ITtscLintFunctionalReadonlyTypeRuleOptions,
+  ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions,
   ITtscLintJsdocRuleOptions,
   ITtscLintPrintWidthRuleOptions,
   ITtscLintQuotesRuleOptions,
@@ -65,6 +79,66 @@ export interface ITtscLintRules {
 
   /** `for (i = 0; i < 10; i--)` → fail. */
   "for-direction"?: TtscLintRuleSetting;
+
+  /** Enforce functional parameter style: no rest args/`arguments`, and optional parameter-count policy. */
+  "functional/functional-parameters"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalParametersRuleOptions>;
+
+  /** Reject property, element, array, Map, and Set mutation. */
+  "functional/immutable-data"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalImmutableDataRuleOptions>;
+
+  /** Reject abstract classes and class inheritance. */
+  "functional/no-class-inheritance"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject class declarations and class expressions. */
+  "functional/no-classes"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject `if` and `switch` statements. */
+  "functional/no-conditional-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoConditionalStatementsRuleOptions>;
+
+  /** Reject expression statements that exist only for side effects. */
+  "functional/no-expression-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject `let` declarations. */
+  "functional/no-let"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoLetRuleOptions>;
+
+  /** Reject imperative loop statements. */
+  "functional/no-loop-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject interfaces/type literals that mix property, method, call, and index member kinds. */
+  "functional/no-mixed-types"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoMixedTypesRuleOptions>;
+
+  /** Reject `Promise.reject(...)`. */
+  "functional/no-promise-reject"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject void returns and functions explicitly typed as `void`. */
+  "functional/no-return-void"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoReturnVoidRuleOptions>;
+
+  /** Reject `this` expressions. */
+  "functional/no-this-expressions"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Reject `throw` statements. */
+  "functional/no-throw-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoThrowStatementsRuleOptions>;
+
+  /** Reject `try/catch` and `try/finally` statements. */
+  "functional/no-try-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoTryStatementsRuleOptions>;
+
+  /** Require declared variable, parameter, and property types to be readonly/immutable. */
+  "functional/prefer-immutable-types"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalPreferImmutableTypesRuleOptions>;
+
+  /** Prefer property signatures over method signatures. */
+  "functional/prefer-property-signatures"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
+
+  /** Prefer readonly array, tuple, collection, and property types. */
+  "functional/prefer-readonly-type"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalPreferReadonlyTypeRuleOptions>;
+
+  /** Reject trivial wrappers such as `x => f(x)`. */
+  "functional/prefer-tacit"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalPreferTacitRuleOptions>;
+
+  /** Enforce one readonly type spelling. */
+  "functional/readonly-type"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalReadonlyTypeRuleOptions>;
+
+  /** Enforce readonly/immutable type declarations by declaration-name policy. */
+  "functional/type-declaration-immutability"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions>;
 
   /** prefers function-property signatures over method shorthand signatures. */
   "method-signature-style"?: TtscLintRuleSetting;
