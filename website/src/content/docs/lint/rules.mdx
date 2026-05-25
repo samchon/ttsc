@@ -77,6 +77,28 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
 | `no-promise-executor-return` | Reject `return` inside a Promise executor. |
 
+## React Hooks
+
+These rules mirror `eslint-plugin-react-hooks` names. The first native slice implements the core Hook
+rules and an AST-local subset of the React Compiler-era checks; compiler rules that need whole-program
+React Compiler IR remain deferred.
+
+| Rule | Effect |
+| ---- | ------ |
+| `react-hooks/rules-of-hooks` | Reject Hooks outside components/custom Hooks, inside nested callbacks, or in conditional/loop control flow. |
+| `react-hooks/exhaustive-deps` | Reject high-confidence missing identifier dependencies in `useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, and `useCallback`. |
+| `react-hooks/component-hook-factories` | Reject nested component/Hook factories that call Hooks. |
+| `react-hooks/set-state-in-render` | Reject `useState`/`useReducer` setters called during render. |
+| `react-hooks/set-state-in-effect` | Reject synchronous setter calls inside `useEffect`. |
+| `react-hooks/immutability` | Reject local prop mutation in components and Hooks. |
+| `react-hooks/refs` | Reject reading or writing `ref.current` during render. |
+| `react-hooks/use-memo` | Reject block-bodied `useMemo` callbacks that do not return a value. |
+
+Deferred `eslint-plugin-react-hooks@7.1.1` targets include `config`, `error-boundaries`, `gating`,
+`globals`, `incompatible-library`, `preserve-manual-memoization`, `purity`, `static-components`,
+`unsupported-syntax`, `void-use-memo`, and other off-by-default compiler diagnostics such as
+`memo-dependencies`, `memoized-effect-dependencies`, and `exhaustive-effect-dependencies`.
+
 ## Throw and control flow
 
 | Rule | Effect |

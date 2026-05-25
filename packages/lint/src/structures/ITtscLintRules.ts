@@ -423,6 +423,30 @@ export interface ITtscLintRules {
   /** requires a radix argument for `parseInt`. */
   radix?: TtscLintRuleSetting;
 
+  /** enforces the Rules of Hooks in components and custom Hooks. */
+  "react-hooks/rules-of-hooks"?: TtscLintRuleSetting;
+
+  /** checks high-confidence missing identifiers in React Hook dependency arrays. */
+  "react-hooks/exhaustive-deps"?: TtscLintRuleSetting;
+
+  /** rejects nested component/Hook factories with local Hook calls. */
+  "react-hooks/component-hook-factories"?: TtscLintRuleSetting;
+
+  /** rejects local prop mutations in React components and Hooks. */
+  "react-hooks/immutability"?: TtscLintRuleSetting;
+
+  /** rejects reading or writing `ref.current` during render. */
+  "react-hooks/refs"?: TtscLintRuleSetting;
+
+  /** rejects synchronous state setter calls inside effects. */
+  "react-hooks/set-state-in-effect"?: TtscLintRuleSetting;
+
+  /** rejects state setter calls during render. */
+  "react-hooks/set-state-in-render"?: TtscLintRuleSetting;
+
+  /** rejects block-bodied `useMemo` callbacks that do not return a value. */
+  "react-hooks/use-memo"?: TtscLintRuleSetting;
+
   /** requires generator functions to contain `yield`. */
   "require-yield"?: TtscLintRuleSetting;
 
