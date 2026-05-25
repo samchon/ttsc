@@ -114,20 +114,20 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 ## TanStack Query
 
 These rules mirror `@tanstack/eslint-plugin-query` rule names under the
-`tanstack-query/*` namespace. The native implementation uses TypeScript AST
+`@tanstack/query/*` namespace. The native implementation uses TypeScript AST
 patterns that are stable inside the compiler-integrated lint pass; type-only
 edge cases stay conservative.
 
 | Rule | Effect |
 | ---- | ------ |
-| `tanstack-query/exhaustive-deps` | Require variables read by `queryFn` to also appear in the local `queryKey` array. |
-| `tanstack-query/infinite-query-property-order` | Require `queryFn` before `getPreviousPageParam` and `getNextPageParam` in infinite query options. |
-| `tanstack-query/mutation-property-order` | Require `onMutate` before `onError` and `onSettled` in mutation options. |
-| `tanstack-query/no-rest-destructuring` | Reject object rest destructuring and spreading over TanStack Query hook results. |
-| `tanstack-query/no-unstable-deps` | Reject whole query or mutation result objects in React dependency arrays. |
-| `tanstack-query/no-void-query-fn` | Reject AST-local `queryFn` callbacks that return no data. |
-| `tanstack-query/prefer-query-options` | Prefer extracting inline `queryKey`/`queryFn` options into reusable query options helpers. |
-| `tanstack-query/stable-query-client` | Reject `new QueryClient()` inside React component or hook bodies. |
+| `@tanstack/query/exhaustive-deps` | Require variables read by `queryFn` to also appear in the local `queryKey` array. |
+| `@tanstack/query/infinite-query-property-order` | Require `queryFn` before `getPreviousPageParam` and `getNextPageParam` in infinite query options. |
+| `@tanstack/query/mutation-property-order` | Require `onMutate` before `onError` and `onSettled` in mutation options. |
+| `@tanstack/query/no-rest-destructuring` | Reject object rest destructuring and spreading over TanStack Query hook results. |
+| `@tanstack/query/no-unstable-deps` | Reject whole query or mutation result objects in React dependency arrays. |
+| `@tanstack/query/no-void-query-fn` | Reject AST-local `queryFn` callbacks that return no data. |
+| `@tanstack/query/prefer-query-options` | Prefer extracting inline `queryKey`/`queryFn` options into reusable query options helpers. |
+| `@tanstack/query/stable-query-client` | Reject `new QueryClient()` inside React component or hook bodies. |
 
 ## Format
 

@@ -13,7 +13,7 @@ type tanstackQueryRule struct {
   run  func(*Context, *shimast.Node)
 }
 
-func (r tanstackQueryRule) Name() string           { return "tanstack-query/" + r.name }
+func (r tanstackQueryRule) Name() string           { return "@tanstack/query/" + r.name }
 func (r tanstackQueryRule) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (r tanstackQueryRule) Check(ctx *Context, node *shimast.Node) {
   if r.run != nil {
