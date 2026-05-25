@@ -1,6 +1,6 @@
 # `@ttsc/paths` — Module Specifier Rewriting
 
-`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the *output* file layout, not just the source — TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
+`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the _output_ file layout, not just the source — TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
 
 This page is also the canonical reference for **leaf-text AST mutation** — changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
 
@@ -18,11 +18,11 @@ If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this s
     "outDir": "dist",
     "declaration": true,
     "paths": {
-      "@lib/*": ["./src/modules/*"]
+      "@lib/*": ["./src/modules/*"],
     },
-    "plugins": [{ "transform": "@ttsc/paths" }]
+    "plugins": [{ "transform": "@ttsc/paths" }],
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 
@@ -38,13 +38,17 @@ export type Owner = User;
 ```js
 // dist/main.js (after)
 import { hello } from "./modules/greet.js";
+
 export const value = hello();
 ```
 
 ```ts
 // dist/main.d.ts (after)
 import type { User } from "./modules/types/user.js";
-export declare const value: ReturnType<typeof import("./modules/greet.js").hello>;
+
+export declare const value: ReturnType<
+  typeof import("./modules/greet.js").hello
+>;
 export type Owner = User;
 ```
 
@@ -65,7 +69,10 @@ packages/paths/
     └── paths.go         ← Blank-imports the linked driver package
 ```
 
-Identical shape to strip. The descriptor at `src/index.cjs` and the entrypoint at `plugin/main.go` are the same dispatcher you read in the [banner walkthrough](/docs/development/walkthroughs/banner#the-sidecar-pluginmaingo); the only difference is the plugin name string. Skip ahead to the real logic.
+Identical shape to strip. The descriptor at `src/index.cjs` points at linked
+`driver/` source, while `plugin/main.go` is a standalone utility dispatcher
+with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
+Skip ahead to the real logic.
 
 ## The real logic — `rewriter` in `driver/paths.go`
 
@@ -260,14 +267,14 @@ func isModuleSpecifierCall(call *shimast.CallExpression) bool {
 
 Six syntactic positions hold a module specifier in TypeScript. The visitor enumerates each one explicitly because the field name and depth differ per kind:
 
-| Source                       | Kind                              | Where the literal hides              |
-| ---------------------------- | --------------------------------- | ------------------------------------ |
-| `import x from "pkg"`        | `ImportDeclaration`               | `.ModuleSpecifier`                   |
-| `export { x } from "pkg"`    | `ExportDeclaration`               | `.ModuleSpecifier`                   |
-| `import x = require("pkg")`  | `ImportEqualsDeclaration`         | `.ModuleReference.AsExternalModuleReference().Expression` |
-| `type T = import("pkg").T`   | `ImportType`                      | `.Argument.AsLiteralTypeNode().Literal`    |
-| `declare module "pkg" {}`    | `ModuleDeclaration`               | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
-| `require("pkg")` / `import("pkg")` | `CallExpression`            | `.Arguments.Nodes[0]`                |
+| Source                             | Kind                      | Where the literal hides                                                                                                                                                                                              |
+| ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `import x from "pkg"`              | `ImportDeclaration`       | `.ModuleSpecifier`                                                                                                                                                                                                   |
+| `export { x } from "pkg"`          | `ExportDeclaration`       | `.ModuleSpecifier`                                                                                                                                                                                                   |
+| `import x = require("pkg")`        | `ImportEqualsDeclaration` | `.ModuleReference.AsExternalModuleReference().Expression`                                                                                                                                                            |
+| `type T = import("pkg").T`         | `ImportType`              | `.Argument.AsLiteralTypeNode().Literal`                                                                                                                                                                              |
+| `declare module "pkg" {}`          | `ModuleDeclaration`       | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
+| `require("pkg")` / `import("pkg")` | `CallExpression`          | `.Arguments.Nodes[0]`                                                                                                                                                                                                |
 
 After the switch, `node.ForEachChild` recurses into every child. This is what makes the visitor catch deeply-nested cases like `function f(x = await import("pkg")) {}` — the `CallExpression` is buried inside parameter default initializers, but every node still gets visited because we always recurse.
 
@@ -416,7 +423,7 @@ lit.Flags |= shimast.NodeFlagsSynthesized
 lit.Loc = shimcore.UndefinedTextRange()
 ```
 
-**The trap:** if you set `lit.Text = rewritten` and stop there, the printer silently emits the *old* specifier. The reason is buried inside tsgo's printer, but the upshot is:
+**The trap:** if you set `lit.Text = rewritten` and stop there, the printer silently emits the _old_ specifier. The reason is buried inside tsgo's printer, but the upshot is:
 
 > tsgo's printer reads leaf-token text through `getTextOfNode`, which checks whether the node is "real" — has a parent and is not flagged as synthesized — and, if so, slices the original source between `node.Pos()` and `node.End()`. That slice is the original `"@lib/greet"`. The printer never looks at your `Text` field.
 
@@ -434,7 +441,7 @@ The same invariant applies to:
 - `*NumericLiteral.Text`
 - any other "leaf token whose text is the entire payload."
 
-It does **not** apply to *structural mutations* — filtering `Statements.Nodes`, swapping child pointers, replacing one statement with another. Those round-trip cleanly through the printer because the printer iterates statement lists directly without reading source spans. This is why `@ttsc/strip`'s statement filter does not need the synthesize stamp.
+It does **not** apply to _structural mutations_ — filtering `Statements.Nodes`, swapping child pointers, replacing one statement with another. Those round-trip cleanly through the printer because the printer iterates statement lists directly without reading source spans. This is why `@ttsc/strip`'s statement filter does not need the synthesize stamp.
 
 ### Sidebar: how to know which mutations need the flag
 
@@ -450,7 +457,7 @@ When in doubt, set both — the cost is zero and the failure mode is silent.
 
 `rewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
 
-The pattern generalizes to any plugin that needs to query *project-level* information:
+The pattern generalizes to any plugin that needs to query _project-level_ information:
 
 - Need `compilerOptions.target` / `module` / `jsx`? Read them from `prog.ParsedConfig.ParsedConfig.CompilerOptions`.
 - Need the list of user source files? `prog.SourceFiles()`.

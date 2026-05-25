@@ -165,6 +165,7 @@ export type TtscLintRule =
   | "regexp/require-unicode-regexp"
   | "regexp/require-unicode-sets-regexp"
   | "regexp/sort-flags"
+  | "react-refresh/only-export-components"
   | "require-yield"
   | "triple-slash-reference"
   | "use-isnan"

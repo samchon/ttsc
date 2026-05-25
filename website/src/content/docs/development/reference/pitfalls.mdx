@@ -100,7 +100,10 @@ This works with TypeScript-Go's normal emit path:
 {
   "compilerOptions": {
     "plugins": [
-      { "transform": "@ttsc/banner", "configFile": "./config/banner.config.ts" },
+      {
+        "transform": "@ttsc/banner",
+        "configFile": "./config/banner.config.ts",
+      },
       { "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" },
     ],
   },
@@ -109,7 +112,7 @@ This works with TypeScript-Go's normal emit path:
 
 `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` point at linked non-`main` Go packages. `ttsc` links those packages into the selected native compiler host, or into a generic host when no executable transform host is present. This path is capability-based: any transform descriptor whose source package is non-`main` follows the same rules.
 
-This works when a check plugin runs before one transform sidecar that owns the source/emit pass:
+This works when a check plugin runs before one transform native source that owns the source/emit pass:
 
 ```jsonc
 {

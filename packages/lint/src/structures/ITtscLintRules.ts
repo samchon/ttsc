@@ -2,6 +2,7 @@ import type {
   ITtscLintJsdocRuleOptions,
   ITtscLintPrintWidthRuleOptions,
   ITtscLintQuotesRuleOptions,
+  ITtscLintReactRefreshOnlyExportComponentsRuleOptions,
   ITtscLintSemiRuleOptions,
   ITtscLintSortImportsRuleOptions,
   ITtscLintTrailingCommaRuleOptions,
@@ -491,6 +492,9 @@ export interface ITtscLintRules {
 
   /** requires generator functions to contain `yield`. */
   "require-yield"?: TtscLintRuleSetting;
+
+  /** keeps React Fast Refresh component modules from exporting non-components. */
+  "react-refresh/only-export-components"?: TtscLintRuleOptionsSetting<ITtscLintReactRefreshOnlyExportComponentsRuleOptions>;
 
   /** rejects triple-slash reference directives. */
   "triple-slash-reference"?: TtscLintRuleSetting;

@@ -37,8 +37,20 @@ jobs:
         run: |
           (cd packages/lint && pnpm pack --pack-destination /tmp)
           tar -tzf /tmp/ttsc-lint-*.tgz | grep -q linthost/
+      - name: Smoke @ttsc/vscode packed install shim
+        run: SKIP_BUILD=1 DRY_RUN=1 bash scripts/publish-vscode.sh
+      - name: Assert Linux platform binaries carry release metadata
+        run: |
+          ttsc_version="$(node -p "require('./packages/ttsc-linux-x64/package.json').version")"
+          ttsc_out="$(packages/ttsc-linux-x64/bin/ttsc --version)"
+          server_out="$(packages/ttsc-linux-x64/bin/ttscserver --version)"
+          echo "$ttsc_out"
+          echo "$server_out"
+          printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q "$ttsc_version"
+          ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q '0.0.0-dev'
+          ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q 'commit dev'
       - name: Publish to npm
-        run: pnpm run package:latest --no-git-checks --provenance
+        run: pnpm run package:latest:publish
   wasm-smoke:
     runs-on: ubuntu-latest
     needs: publish
@@ -56,9 +68,53 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           npm install "@ttsc/wasm@${VERSION}"
           node -e "if(!require('@ttsc/wasm'))process.exit(1)"
-  release:
+  vscode-smoke:
     runs-on: ubuntu-latest
     needs: publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org/
+      - name: Smoke-install @ttsc/vscode from the registry
+        run: |
+          mkdir -p /tmp/ttsc-vscode-smoke
+          cd /tmp/ttsc-vscode-smoke
+          npm init -y
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VERSION
+          npm install "@ttsc/vscode@${VERSION}"
+          node "$GITHUB_WORKSPACE/scripts/assert-vscode-package.cjs" node_modules/@ttsc/vscode
+          fake_bin="$(mktemp -d)"
+          cat > "$fake_bin/code" <<'SH'
+          #!/usr/bin/env bash
+          printf '%s\n' "$@" > "$FAKE_CODE_ARGS"
+          SH
+          chmod +x "$fake_bin/code"
+          export FAKE_CODE_ARGS="$PWD/code-args.txt"
+          PATH="$fake_bin:$PATH" node_modules/.bin/ttsc-vscode install
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const version = process.env.VERSION;
+          const args = fs.readFileSync(process.env.FAKE_CODE_ARGS, "utf8").trim().split("\n");
+          const expected = path.join(
+            process.cwd(),
+            "node_modules",
+            "@ttsc",
+            "vscode",
+            "dist",
+            `ttsc-vscode-${version}.vsix`,
+          );
+          const want = ["--install-extension", expected, "--force"];
+          if (JSON.stringify(args) !== JSON.stringify(want)) {
+            throw new Error(`unexpected code args: ${JSON.stringify(args)} !== ${JSON.stringify(want)}`);
+          }
+          NODE
+  release:
+    runs-on: ubuntu-latest
+    needs: [wasm-smoke, vscode-smoke]
     permissions:
       contents: write
     steps:
