@@ -143,6 +143,7 @@ export type TtscLintRule =
   | "prefer-spread"
   | "prefer-template"
   | "radix"
+  | "react-refresh/only-export-components"
   | "require-yield"
   | "jest/expect-expect"
   | "jest/max-expects"

@@ -3,13 +3,16 @@ import type { ITtscPluginContributor } from "../ITtscPluginContributor";
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 import type { TtscPluginStage } from "../TtscPluginStage";
 
-/** Native sidecar selected and built from one plugin descriptor. */
+/** Native plugin source selected and built from one plugin descriptor. */
 export interface ITtscLoadedNativePlugin {
   /** Executable produced by the lazy Go source build cache. */
   binary: string;
-  /** Capability flags declared by the descriptor (see `ITtscPluginCapabilities`). */
+  /**
+   * Capability flags declared by the descriptor (see
+   * `ITtscPluginCapabilities`).
+   */
   capabilities?: ITtscPluginCapabilities;
-  /** Original tsconfig plugin entry passed unchanged to the sidecar. */
+  /** Original tsconfig plugin entry passed unchanged to the native plugin. */
   config: ITtscProjectPluginConfig;
   /** Contributor Go sources statically linked into the binary, if any. */
   contributors?: readonly ITtscPluginContributor[];
@@ -21,6 +24,6 @@ export interface ITtscLoadedNativePlugin {
   reportsTypeScriptDiagnostics?: boolean;
   /** Go source directory selected by the plugin descriptor. */
   source: string;
-  /** Pipeline stage where the sidecar participates. */
+  /** Pipeline stage where the native source participates. */
   stage: TtscPluginStage;
 }

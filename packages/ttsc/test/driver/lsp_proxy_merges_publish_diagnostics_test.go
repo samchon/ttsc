@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "bytes"
   "encoding/json"
   "strings"
   "testing"
@@ -8,14 +9,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyMergesPublishDiagnostics is the core promise of ttscserver:
+// TestLSPProxyMergesPublishDiagnostics verifies ttscserver's core diagnostics
+// promise.
+//
 // plugin diagnostics ride alongside tsgo's typecheck findings in the
 // same publishDiagnostics notification. Editors render them together
 // without knowing two pipelines produced them.
 //
 // 1. Configure a PluginSource that contributes one diagnostic for /a.ts.
 // 2. Send upstream publishDiagnostics for /a.ts with one upstream entry.
-// 3. Assert the editor sees both entries.
+// 3. Assert upstream diagnostics are forwarded first.
+// 4. Assert the async plugin publish contains both entries.
 func TestLSPProxyMergesPublishDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{
@@ -31,6 +35,9 @@ func TestLSPProxyMergesPublishDiagnostics(t *testing.T) {
 
   upstream := []byte(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///a.ts","diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}},"severity":1,"message":"tsgo"}]}}`)
   h.sendUpstream(upstream)
+  if got := h.recvEditor(); !bytes.Equal(got, upstream) {
+    t.Fatalf("upstream diagnostics were not forwarded first:\ngot:  %s\nwant: %s", got, upstream)
+  }
   body := h.recvEditor()
 
   if !strings.Contains(string(body), `"trailing spaces"`) {

@@ -50,10 +50,11 @@ Every transform reads the actual TypeScript type — there is no separate schema
 
 - `ttsc --emit` for build,
 - `ttsx ./src/main.ts` for typed execution,
-- the VS Code extension's language service,
 - every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter (Vite, Webpack, esbuild, Rollup, Rspack).
 
-One install, one config; the transform fires everywhere TypeScript is compiled.
+One install; the transform runs anywhere `ttsc` owns compilation.
+VS Code uses the same project config for TypeScript-Go plus any LSP-facing
+plugin diagnostics/actions, but editor integration does not rewrite emit.
 
 ## Combine with other ttsc plugins
 

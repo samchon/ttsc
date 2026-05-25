@@ -10,13 +10,13 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
  *
  * The factory runs in Node.js while ttsc is loading `compilerOptions.plugins`.
  * It should only create the descriptor. Heavy validation and TypeScript-Go work
- * belong in the Go sidecar selected by {@link ITtscPlugin.source}.
+ * belong in the Go source plugin selected by {@link ITtscPlugin.source}.
  */
 export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   /**
    * Absolute ttsc native helper binary selected for this invocation.
    *
-   * This is the package's own native helper, not the plugin sidecar and not the
+   * This is the package's own native helper, not the plugin source and not the
    * JavaScript launcher. Most plugins do not need it; it is provided for
    * advanced factories that need to derive behavior from the active ttsc native
    * host.
@@ -37,7 +37,7 @@ export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
    *
    * Ttsc reserves `transform` and `enabled`. Every other property is
    * plugin-owned config and is later serialized unchanged into the native
-   * sidecar manifest.
+   * plugin manifest.
    */
   plugin: T;
 
