@@ -26,7 +26,7 @@ export namespace ITtscCompilerTransformation {
      * Transformed TypeScript source text keyed by project-relative file path.
      *
      * Values are TypeScript source text, never JavaScript, declaration files,
-     * or source maps. When no transform sidecar is configured, this map
+     * or source maps. When no transform native source is configured, this map
      * contains the unmodified TypeScript files loaded by the TypeScript-Go
      * Program.
      */
@@ -42,8 +42,8 @@ export namespace ITtscCompilerTransformation {
      * Transformed or partially transformed TypeScript source text keyed by
      * project-relative file path.
      *
-     * May be empty or partial when diagnostics prevented the transform sidecar
-     * from completing its pass.
+     * May be empty or partial when diagnostics prevented the transform native
+     * source from completing its pass.
      */
     typescript: Record<string, string>;
 

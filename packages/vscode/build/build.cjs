@@ -16,7 +16,7 @@ async function bundle() {
     target: "node18",
     format: "cjs",
     external: ["vscode"],
-    sourcemap: true,
+    sourcemap: false,
     logLevel: "info",
   });
 }
@@ -26,6 +26,7 @@ function packVsix() {
   fs.mkdirSync(distDir, { recursive: true });
   const out = path.join(distDir, `ttsc-vscode-${pkg.version}.vsix`);
   const vsce = require.resolve("@vscode/vsce/vsce");
+  removeLocalPackArtifacts();
 
   // vsce rejects scoped names (`@scope/name` produces "Invalid extension name").
   // Swap to an unscoped manifest just for the duration of `vsce package`, then
@@ -68,6 +69,14 @@ function packVsix() {
   console.log(
     `built ${path.relative(root, out)} (${(fs.statSync(out).size / 1024).toFixed(1)} KiB)`,
   );
+}
+
+function removeLocalPackArtifacts() {
+  for (const name of fs.readdirSync(root)) {
+    if (/^ttsc-vscode-.*\.tgz$/.test(name)) {
+      fs.rmSync(path.join(root, name), { force: true });
+    }
+  }
 }
 
 (async () => {

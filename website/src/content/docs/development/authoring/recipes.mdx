@@ -102,9 +102,10 @@ func stringOption(config map[string]any, key string) string {
 
 When modes need to cooperate inside one transform emit pass, keep those modes in one native binary and dispatch by explicit `mode` values. Check plugins are independent diagnostics passes.
 
-## Transform Plugin
+## Executable Transform Sidecar
 
-Declare a transform plugin descriptor:
+Declare a transform plugin descriptor that points at an executable
+`package main` source:
 
 ```js
 module.exports = {
@@ -123,6 +124,36 @@ my-plugin build     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-j
 ```
 
 `check` is a no-op for pure transforms. `transform` writes the transformed TypeScript JSON used by in-memory callers and bundler adapters; render each `*SourceFile` through `shimprinter.EmitSourceFile` so the AST mutation surfaces in the output (the host treats the value as opaque text). `build` loads the project, mutates TypeScript source AST, then lets TypeScript-Go print JavaScript, declarations, and source maps through `prog.EmitAllRaw(nil)`.
+
+## Linked Transform Package
+
+For a transform that should run inside the selected native host, point the
+descriptor at a non-`main` package:
+
+```js
+module.exports = {
+  name: "my-transform-plugin",
+  source: path.resolve(__dirname, "driver"),
+  stage: "transform",
+};
+```
+
+The linked package does not receive argv directly. It registers hooks from
+`init()` and the native host invokes those hooks during `check`, `transform`, or
+`build`:
+
+```go
+package driver
+
+import "github.com/samchon/ttsc/packages/ttsc/driver"
+
+func init() {
+    driver.RegisterPlugin(plugin{})
+}
+```
+
+Use this shape when your plugin only needs the shared transform hooks and does
+not need a custom executable process.
 
 ## Check Plugin
 
@@ -187,7 +218,7 @@ See [Driver API → Diagnostics](/docs/development/reference/driver-api#diagnost
 
 For structural mutations (filtering `Statements.Nodes`, swapping children), `shimprinter.EmitSourceFile` round-trips cleanly without further work.
 
-**For leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`), the printer reads original source text through `getTextOfNode` whenever the node is non-synthesized and has a parent. A naive `lit.AsStringLiteral().Text = "x"` silently vanishes: the printer reads the *old* span via `scanner.GetSourceTextOfNodeFromSourceFile` and ignores your `.Text`.
+**For leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`), the printer reads original source text through `getTextOfNode` whenever the node is non-synthesized and has a parent. A naive `lit.AsStringLiteral().Text = "x"` silently vanishes: the printer reads the _old_ span via `scanner.GetSourceTextOfNodeFromSourceFile` and ignores your `.Text`.
 
 The fix is two lines that detach the node from its parse-tree source span:
 

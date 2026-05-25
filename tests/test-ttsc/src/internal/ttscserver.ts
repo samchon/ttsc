@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { resolveTsgo } from "../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 import { resolveTtscserverBinary } from "../../../../packages/ttsc/lib/launcher/internal/resolveTtscserverBinary.js";
@@ -17,9 +18,14 @@ import { resolveTtscserverBinary } from "../../../../packages/ttsc/lib/launcher/
 export class TtscserverClient {
   private readonly child: ChildProcessWithoutNullStreams;
   private buffer = Buffer.alloc(0);
+  private stderr = "";
   private pending = new Map<
     string | number,
-    { resolve: (value: any) => void; reject: (err: Error) => void }
+    {
+      reject: (err: Error) => void;
+      resolve: (value: any) => void;
+      timer: NodeJS.Timeout;
+    }
   >();
   private notificationListeners = new Map<string, ((params: any) => void)[]>();
   private nextId = 1;
@@ -28,30 +34,61 @@ export class TtscserverClient {
     signal: NodeJS.Signals | null;
   }>;
 
-  constructor(binary: string, cwd: string) {
+  constructor(
+    binary: string,
+    cwd: string,
+    options: {
+      args?: readonly string[];
+      env?: NodeJS.ProcessEnv;
+      injectTtscserverBinary?: boolean;
+      useNode?: boolean;
+    } = {},
+  ) {
     const tsgoBinary =
       process.env.TTSC_TSGO_BINARY ??
       resolveTsgo({
         cwd,
         resolveFrom: path.join(ttscPackageRoot(), "package.json"),
       }).binary;
-    this.child = spawn(binary, ["--stdio", "--cwd", cwd], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        TTSC_TSGO_BINARY: tsgoBinary,
+    const args = options.args ?? ["--stdio", "--cwd", cwd];
+    const childEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      TTSC_BINARY: ttscNativeBinary(),
+      TTSC_NODE_BINARY: process.execPath,
+      TTSC_TTSX_BINARY: path.join(
+        ttscPackageRoot(),
+        "lib",
+        "launcher",
+        "ttsx.js",
+      ),
+      TTSC_TSGO_BINARY: tsgoBinary,
+      PATH: prependGoToPath(),
+      ...options.env,
+    };
+    if (options.injectTtscserverBinary === false) {
+      delete childEnv.TTSCSERVER_BINARY;
+    } else {
+      childEnv.TTSCSERVER_BINARY = resolveTtscserverBinary() ?? undefined;
+    }
+    this.child = spawn(
+      options.useNode ? process.execPath : binary,
+      [...(options.useNode ? [binary] : []), ...args],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: childEnv,
+        windowsHide: true,
       },
-      windowsHide: true,
-    });
-    this.child.stderr.on("data", () => {
+    );
+    this.child.stderr.on("data", (chunk: Buffer) => {
       // Drain stderr so upstream tsgo logs do not block the pipe.
+      this.stderr = (this.stderr + chunk.toString("utf8")).slice(-65536);
     });
     this.child.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
     this.exited = new Promise((resolve) => {
       this.child.on("close", (code, signal) => {
         this.rejectPending(
           new Error(
-            `ttscserver exited before response (code=${code}, signal=${signal})`,
+            `ttscserver exited before response (code=${code}, signal=${signal}, stderr=${this.stderr})`,
           ),
         );
         resolve({ code, signal });
@@ -74,10 +111,51 @@ export class TtscserverClient {
     return new TtscserverClient(binary, cwd);
   }
 
-  async request<T = unknown>(method: string, params?: unknown): Promise<T> {
+  /** Start the JavaScript launcher so tests cover project plugin discovery. */
+  static startLauncher(
+    cwd: string,
+    options: {
+      env?: NodeJS.ProcessEnv;
+      injectTtscserverBinary?: boolean;
+      tsconfig?: string;
+    } = {},
+  ): TtscserverClient {
+    const launcher = path.join(
+      ttscPackageRoot(),
+      "lib",
+      "launcher",
+      "ttscserver.js",
+    );
+    const args = [
+      "--stdio",
+      "--cwd",
+      cwd,
+      ...(options.tsconfig ? ["--tsconfig", options.tsconfig] : []),
+    ];
+    return new TtscserverClient(launcher, cwd, {
+      args,
+      env: options.env,
+      injectTtscserverBinary: options.injectTtscserverBinary,
+      useNode: true,
+    });
+  }
+
+  async request<T = unknown>(
+    method: string,
+    params?: unknown,
+    timeoutMs = 30_000,
+  ): Promise<T> {
     const id = this.nextId++;
     const promise = new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(
+          new Error(
+            `timed out waiting for ${method} response (stderr=${this.stderr})`,
+          ),
+        );
+      }, timeoutMs);
+      this.pending.set(id, { reject, resolve, timer });
     });
     this.send({ jsonrpc: "2.0", id, method, params });
     return promise;
@@ -93,9 +171,38 @@ export class TtscserverClient {
     this.notificationListeners.set(method, list);
   }
 
+  waitForNotification<T = unknown>(
+    method: string,
+    predicate: (params: T) => boolean = () => true,
+    timeoutMs = 30_000,
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      let listener: (params: T) => void = () => undefined;
+      const timer = setTimeout(() => {
+        this.off(method, listener);
+        reject(
+          new Error(
+            `timed out waiting for ${method} notification (stderr=${this.stderr})`,
+          ),
+        );
+      }, timeoutMs);
+      listener = (params: T) => {
+        if (!predicate(params)) return;
+        clearTimeout(timer);
+        this.off(method, listener);
+        resolve(params);
+      };
+      this.on(method, listener);
+    });
+  }
+
   async waitForExit(): Promise<number | null> {
     const { code } = await this.exited;
     return code;
+  }
+
+  stderrText(): string {
+    return this.stderr;
   }
 
   forceClose(): void {
@@ -120,6 +227,17 @@ export class TtscserverClient {
       "utf8",
     );
     this.child.stdin.write(Buffer.concat([header, body]));
+  }
+
+  private off(method: string, listener: (params: any) => void): void {
+    const list = this.notificationListeners.get(method);
+    if (!list) return;
+    const next = list.filter((entry) => entry !== listener);
+    if (next.length === 0) {
+      this.notificationListeners.delete(method);
+    } else {
+      this.notificationListeners.set(method, next);
+    }
   }
 
   private onData(chunk: Buffer): void {
@@ -156,6 +274,7 @@ export class TtscserverClient {
       const pending = this.pending.get(message.id);
       if (!pending) return;
       this.pending.delete(message.id);
+      clearTimeout(pending.timer);
       if (message.error) {
         pending.reject(
           new Error(`${message.error.code}: ${message.error.message}`),
@@ -177,10 +296,50 @@ export class TtscserverClient {
 
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
   }
+}
+
+export async function initializeTtscserverClient(
+  client: TtscserverClient,
+  root: string,
+): Promise<void> {
+  await client.request(
+    "initialize",
+    {
+      processId: process.pid,
+      rootUri: pathToFileURL(root).href,
+      capabilities: {},
+    },
+    120_000,
+  );
+  client.notify("initialized", {});
+}
+
+export async function shutdownTtscserverClient(
+  client: TtscserverClient,
+): Promise<void> {
+  const shutdownResult = await client
+    .request("shutdown", undefined, 500)
+    .then(() => "", formatUnknown);
+  client.notify("exit");
+  client.endStdin();
+  const code = await client.waitForExit();
+  const detail = `shutdownResponse=${shutdownResult}\nstderr=${client.stderrText()}`;
+  assert.equal(code, 0, `ttscserver should exit cleanly\n${detail}`);
+}
+
+function formatUnknown(value: unknown): string {
+  if (!value) {
+    return "";
+  }
+  if (value instanceof Error) {
+    return value.stack ?? value.message;
+  }
+  return String(value);
 }
 
 /**
@@ -189,6 +348,21 @@ export class TtscserverClient {
  */
 export function ttscPackageRoot(): string {
   return path.join(findWorkspaceRoot(process.cwd()), "packages", "ttsc");
+}
+
+export function ttscNativeBinary(): string {
+  const binary = path.join(
+    findWorkspaceRoot(process.cwd()),
+    "packages",
+    `ttsc-${process.platform}-${process.arch}`,
+    "bin",
+    process.platform === "win32" ? "ttsc.exe" : "ttsc",
+  );
+  assert.ok(
+    fs.existsSync(binary),
+    `ttsc native binary does not exist: ${binary}`,
+  );
+  return binary;
 }
 
 function findWorkspaceRoot(start: string): string {
@@ -201,6 +375,17 @@ function findWorkspaceRoot(start: string): string {
     }
     dir = parent;
   }
+}
+
+function prependGoToPath(): string | undefined {
+  const localGo = path.join(osHome(), "go-sdk", "go", "bin");
+  return fs.existsSync(localGo)
+    ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
+    : process.env.PATH;
+}
+
+function osHome(): string {
+  return process.env.HOME ?? process.env.USERPROFILE ?? "";
 }
 
 export { assert };

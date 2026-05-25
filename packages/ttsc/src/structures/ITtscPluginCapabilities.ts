@@ -1,12 +1,13 @@
 /**
- * Optional capability flags declared by a native ttsc plugin descriptor.
+ * Optional host behaviors declared by a native ttsc plugin descriptor.
  *
- * ttsc owns a small set of cross-cutting flags (`--singleThreaded`,
- * `--checkers`, …) that the lint sidecar accepts but a typical third-party
- * transform host (built with bare `flag.FlagSet`) would reject with exit 2.
- * Capabilities let the plugin author tell ttsc up front which of those flags
+ * Ttsc owns a small set of cross-cutting command-line flags
+ * (`--singleThreaded`, `--checkers`, …) that the lint sidecar accepts but a
+ * typical third-party transform host (built with bare `flag.FlagSet`) would
+ * reject with exit 2. Capabilities also cover opt-in host protocols such as LSP
+ * sidecar probing. They let the plugin author tell ttsc up front which behavior
  * the sidecar understands, instead of ttsc hard-checking the plugin name and
- * silently dropping the flag for anything else.
+ * silently dropping or probing behavior for anything else.
  *
  * Every field is optional and defaults to `false`. Plugin authors opt in by
  * setting only the capabilities their sidecar actually implements; ttsc keeps
@@ -24,6 +25,17 @@ export interface ITtscPluginCapabilities {
    * @default false
    */
   diagnosticsTiming?: boolean;
+
+  /**
+   * Whether the sidecar implements ttsc's LSP plugin protocol.
+   *
+   * LSP-capable sidecars may contribute diagnostics, code actions, and
+   * workspace/executeCommand handlers to `ttscserver`. The protocol is opt-in
+   * so older sidecars are never probed with unknown `lsp-*` subcommands.
+   *
+   * @default false
+   */
+  lsp?: boolean;
 
   /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
