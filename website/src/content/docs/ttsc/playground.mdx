@@ -1,0 +1,34 @@
+# Playground
+
+Reader: TypeScript library authors and maintainers who want to try ttsc in a
+browser before wiring it into a project.
+
+The hosted playground at [/playground](/playground) runs the same wasm-backed
+compiler worker as the website. Paste TypeScript source directly into the
+editor. When the source imports a package that is not bundled with the
+playground, the browser resolves the package from npm, downloads the package
+tarball, unpacks the files, and mounts them into the in-memory `node_modules`
+tree before compiling.
+
+While package files are being resolved, downloaded, unpacked, and installed, the
+playground shows a progress modal. Declaration files from the package are also
+registered with Monaco so editor diagnostics and completions can see the same
+type surface that the compiler sees.
+
+## Package Support
+
+The dependency loader starts from bare imports, dynamic imports, and
+`require("package")` calls in the source. It installs the imported package, its
+registry dependencies, non-optional peer dependencies, and a matching
+`@types/*` package when the package itself does not ship declarations.
+
+The `typia` packages used by the default examples remain bundled because the
+wasm-side typia adapter must match the exact typia source version linked into
+the playground compiler.
+
+## Reuse
+
+The browser-side dependency loader lives in `@ttsc/playground`. Playground
+hosts can use it to collect external imports, download npm tarballs, mount text
+package files into a wasm compiler, add declaration files to Monaco, and merge
+runtime JavaScript into an Execute sandbox.

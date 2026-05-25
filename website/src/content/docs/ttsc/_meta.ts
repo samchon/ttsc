@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   compile: "Compiler (ttsc)",
   execute: "Execute (ttsx)",
   bundler: "Bundler integration",
+  playground: "Playground",
   flags: "CLI flags",
 };
 export default meta;
