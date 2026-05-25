@@ -224,6 +224,13 @@ func parseJSDocBlock(src string, block jsdocBlock) parsedJSDocBlock {
         }
       } else if previousTag == -1 || parsed.tags[previousTag].lowerName == "description" {
         parsed.hasDescription = true
+        if previousTag != -1 {
+          parsed.tags[previousTag].contentEnd = lineEnd
+          parsed.tags[previousTag].content = strings.TrimSpace(parsed.tags[previousTag].content + "\n" + src[contentStart:lineEnd])
+        }
+      } else {
+        parsed.tags[previousTag].contentEnd = lineEnd
+        parsed.tags[previousTag].content = strings.TrimSpace(parsed.tags[previousTag].content + "\n" + src[contentStart:lineEnd])
       }
     }
     if lineEnd >= block.bodyEnd {
