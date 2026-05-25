@@ -68,6 +68,10 @@ func checkReactRulesOfHooksCall(ctx *Context, node *shimast.Node) {
   }
   if conditional := firstConditionalHookAncestor(node, fnNode); conditional != nil {
     ctx.Report(node, fmt.Sprintf("React Hook %q is called conditionally.", hookName))
+    return
+  }
+  if conditional := firstConditionalReturnBeforeHook(node, fnNode); conditional != nil {
+    ctx.Report(node, fmt.Sprintf("React Hook %q is called conditionally.", hookName))
   }
 }
 
@@ -513,6 +517,47 @@ func firstConditionalHookAncestor(node *shimast.Node, stop *shimast.Node) *shima
     }
   }
   return nil
+}
+
+func firstConditionalReturnBeforeHook(node *shimast.Node, fnNode *shimast.Node) *shimast.Node {
+  for cur := node; cur != nil && cur != fnNode; cur = cur.Parent {
+    parent := cur.Parent
+    if parent == nil || parent.Kind != shimast.KindBlock {
+      continue
+    }
+    for _, stmt := range parentStatements(parent) {
+      if stmt == cur {
+        break
+      }
+      if statementIsConditionalReturn(stmt, fnNode) {
+        return stmt
+      }
+    }
+  }
+  return nil
+}
+
+func statementIsConditionalReturn(stmt *shimast.Node, fnNode *shimast.Node) bool {
+  if stmt == nil || stmt.Kind != shimast.KindIfStatement {
+    return false
+  }
+  ifs := stmt.AsIfStatement()
+  if ifs == nil {
+    return false
+  }
+  return statementContainsOwnReturn(ifs.ThenStatement, fnNode) ||
+    statementContainsOwnReturn(ifs.ElseStatement, fnNode)
+}
+
+func statementContainsOwnReturn(stmt *shimast.Node, fnNode *shimast.Node) bool {
+  found := false
+  walkDescendants(stmt, func(node *shimast.Node) {
+    if found || node == nil || node.Kind != shimast.KindReturnStatement {
+      return
+    }
+    found = nearestFunctionNode(node) == fnNode
+  })
+  return found
 }
 
 func functionContainsReactHookCall(node *shimast.Node) bool {
