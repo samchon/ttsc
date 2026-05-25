@@ -14,7 +14,7 @@
  *   preventing ttsc from loading it.
  *
  * Every other property is preserved as plugin config. After ttsc loads and
- * builds the plugin, the original entry is serialized into the native sidecar
+ * builds the plugin, the original entry is serialized into the native plugin
  * manifest so Go code can read exactly the same plugin-specific options.
  */
 export interface ITtscProjectPluginConfig {
@@ -40,10 +40,10 @@ export interface ITtscProjectPluginConfig {
   transform?: string;
 
   /**
-   * Plugin-specific config passed through unchanged to the native sidecar.
+   * Plugin-specific config passed through unchanged to the native plugin.
    *
    * Ttsc does not validate these fields. Plugin packages should document their
-   * own config contract and validate it inside their factory or Go sidecar.
+   * own config contract and validate it inside their factory or Go source.
    */
   [key: string]: unknown;
 }

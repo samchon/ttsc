@@ -2,7 +2,7 @@
 
 This is the deep plugin-author chapter. Read it when your plugin needs to understand TypeScript source, walk AST nodes, inspect declarations, query types, or produce diagnostics tied to source ranges.
 
-> This page covers the *implementation* — how to bootstrap a Program, walk the AST, call the Checker, and emit diagnostics. If you haven't yet decided whether you need the Checker at all, see [Concepts → Do I need the Checker?](/docs/development/concepts#do-i-need-the-checker) first.
+> This page covers the _implementation_ — how to bootstrap a Program, walk the AST, call the Checker, and emit diagnostics. If you haven't yet decided whether you need the Checker at all, see [Concepts → Do I need the Checker?](/docs/development/concepts#do-i-need-the-checker) first.
 
 For a small source-AST transform, start with [Getting Started](/docs/development/authoring/getting-started). For the four shipped examples, read [Walkthroughs](/docs/development/walkthroughs). For the curated Go-side surface, see [Reference → Driver API](/docs/development/reference/driver-api).
 
@@ -62,20 +62,20 @@ require (
 
 Useful shim sub-packages:
 
-| Shim                    | Use                                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`                                                            |
-| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text                                                            |
-| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers                                                        |
-| `shim/printer`          | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand.            |
-| `shim/tsoptions`        | parse `tsconfig.json`                                                                                                             |
+| Shim                    | Use                                                                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`                                                                                                       |
+| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text                                                                                                       |
+| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers                                                                                                   |
+| `shim/printer`          | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand.                                                       |
+| `shim/tsoptions`        | parse `tsconfig.json`                                                                                                                                                        |
 | `shim/tspath`           | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
-| `shim/compiler`         | low-level Program creation. Most plugins should call `driver.LoadProgram` instead.                                                |
-| `shim/checker`          | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`.                                         |
-| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                     |
-| `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                   |
-| `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.           |
-| `shim/lsp`              | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors.                    |
+| `shim/compiler`         | low-level Program creation. Most plugins should call `driver.LoadProgram` instead.                                                                                           |
+| `shim/checker`          | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`.                                                                                    |
+| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                                                                |
+| `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                                                              |
+| `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.                                                      |
+| `shim/lsp`              | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors.                                                              |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
@@ -101,11 +101,12 @@ checker := prog.Checker         // ready to query
 
 `prog.SourceFiles()` filters declaration files for you. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()` — without it the checker pool fills up and subsequent loads stall.
 
-Every shipped third-party-shaped consumer in this repo uses this path:
+Most shipped third-party-shaped consumers in this repo use this path:
 
 - [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the generic linked transform host (`loadUtilityProgram`).
-- [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) — production diagnostics engine.
 - [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact Program/Checker fixture.
+
+`@ttsc/lint` is the exception: [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) inlines the same Program/Checker bootstrap so its standalone native engine and WASM build can share one package without importing the public `driver` facade.
 
 For the full driver surface (rewrites, emit, source preambles, LSP host), see [Reference → Driver API](/docs/development/reference/driver-api).
 
@@ -229,7 +230,7 @@ start := shimscanner.SkipTrivia(file.Text(), node.Pos())
 end := node.End()
 ```
 
-`Node.Pos()` is the position *before* leading trivia; `SkipTrivia` walks past whitespace and comment trivia and returns the first significant token's offset. `GetTokenPosOfNode` is also valid but no production code in this repo uses it for diagnostic ranges — prefer `SkipTrivia` for consistency.
+`Node.Pos()` is the position _before_ leading trivia; `SkipTrivia` walks past whitespace and comment trivia and returns the first significant token's offset. `GetTokenPosOfNode` is also valid but no production code in this repo uses it for diagnostic ranges — prefer `SkipTrivia` for consistency.
 
 For line/column diagnostics:
 

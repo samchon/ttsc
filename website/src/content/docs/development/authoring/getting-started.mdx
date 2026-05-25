@@ -56,7 +56,9 @@ module.exports = function createHelloPlugin() {
 
 - `name` — human-readable name shown in errors and logs.
 - `source` — Go command package directory. Absolute, derived from `__dirname`.
-- `stage: "transform"` — participate in the AST transform path. The host will spawn `transform` and `build` subcommands.
+- `stage: "transform"` — participate in the AST transform path. Because this
+  example points at an executable `package main` sidecar, the host can spawn
+  `check`, `transform`, and `build` subcommands.
 
 ## 3. Write the Go Module
 
@@ -203,7 +205,7 @@ func outputKey(cwd, fileName string) string {
 What matters:
 
 - The plugin calls `driver.LoadProgram` — the canonical bootstrap. See [Reference → Driver API](/docs/development/reference/driver-api).
-- `shimprinter.EmitSourceFile` renders each `*SourceFile` back to text. This is the *only* way to surface AST changes through the `transform` subcommand — the host treats the value at each `typescript[path]` as opaque text and does not re-render.
+- `shimprinter.EmitSourceFile` renders each `*SourceFile` back to text. This is the _only_ way to surface AST changes through the `transform` subcommand — the host treats the value at each `typescript[path]` as opaque text and does not re-render.
 - `defer prog.Close()` releases the leased checker back to the pool. Without it, subsequent loads stall.
 - `runBuild` uses `prog.EmitAllRaw(nil)` to let tsgo own JavaScript, declaration, and source-map printing.
 - The `version` subcommand is a smoke verb (`go run ./plugin version`); the host never invokes it.
@@ -241,9 +243,9 @@ Consumer `tsconfig.json` — use the explicit form so the wiring is unambiguous:
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "plugins": [{ "transform": "ttsc-plugin-hello" }]
+    "plugins": [{ "transform": "ttsc-plugin-hello" }],
   },
-  "include": ["src"]
+  "include": ["src"],
 }
 ```
 

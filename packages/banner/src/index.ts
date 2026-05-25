@@ -7,9 +7,9 @@ export * from "./structures/index";
 /**
  * The shape returned by a ttsc plugin factory function.
  *
- * Mirrors the `driver.PluginDescriptor` contract in the Go host. The `source`
- * field points to the Go source directory that the host will compile into a
- * plugin binary (cached under `.ttsc/`).
+ * Mirrors the ttsc plugin descriptor contract. The `source` field points to the
+ * Go source directory that the host will compile and cache as either an
+ * executable sidecar or linked native source.
  */
 type TtscPluginDescriptor = {
   /** Human-readable plugin name used in logs and error messages. */
@@ -18,7 +18,7 @@ type TtscPluginDescriptor = {
   source: string;
   /**
    * Pipeline stage. `"transform"` plugins may rewrite source files; `"check"`
-   * plugins only produce diagnostics. Defaults to `"check"`.
+   * plugins only produce diagnostics. The framework default is `"transform"`.
    */
   stage?: "check" | "transform";
 };
@@ -31,10 +31,7 @@ type TtscPluginDescriptor = {
  * factories ignore it.
  */
 type TtscPluginFactoryContext<TConfig> = {
-  /**
-   * Absolute path to the compiled plugin binary (not yet built at factory
-   * time).
-   */
+  /** Absolute path to the selected ttsc native helper, not a plugin binary. */
   binary: string;
   /** Working directory of the ttsc invocation. */
   cwd: string;

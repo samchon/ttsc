@@ -6,15 +6,19 @@
 
 ## What it does for the consumer
 
-`@ttsc/lint` is a check-stage plugin: it reports ESLint-shaped diagnostics from TypeScript-Go's Program and Checker before emit. The host invokes it through five subcommands:
+`@ttsc/lint` is a check-stage plugin: it reports ESLint-shaped diagnostics from TypeScript-Go's Program and Checker before emit. The build/check host invokes it through five primary subcommands:
 
-| Subcommand   | Trigger                                  | What it does                                                                                |
-| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `check`      | `ttsc check`                             | Typecheck + lint. No emit. Exit non-zero on any error-severity finding.                     |
-| `fix`        | `ttsc fix`                               | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled. |
-| `format`     | `ttsc format`                            | Apply *only* format-class rule edits. Write-only — no diagnostics, no emit.                 |
-| `build`      | `ttsc build`                             | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set.                        |
-| `transform`  | `@ttsc/unplugin` and programmatic API    | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command — the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
+| Subcommand  | Trigger                               | What it does                                                                                                                                                                                                                      |
+| ----------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`     | `ttsc check`                          | Typecheck + lint. No emit. Exit non-zero on any error-severity finding.                                                                                                                                                           |
+| `fix`       | `ttsc fix`                            | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled.                                                                                                                                       |
+| `format`    | `ttsc format`                         | Apply _only_ format-class rule edits. Write-only — no diagnostics, no emit.                                                                                                                                                       |
+| `build`     | `ttsc build`                          | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set.                                                                                                                                                              |
+| `transform` | `@ttsc/unplugin` and programmatic API | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command — the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
+
+The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets
+`capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`,
+`lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
 
 The minimum consumer wiring:
 
@@ -22,8 +26,8 @@ The minimum consumer wiring:
 // tsconfig.json
 {
   "compilerOptions": {
-    "plugins": [{ "transform": "@ttsc/lint" }]
-  }
+    "plugins": [{ "transform": "@ttsc/lint" }],
+  },
 }
 ```
 
@@ -45,8 +49,10 @@ export default {
 // tsconfig.json
 {
   "compilerOptions": {
-    "plugins": [{ "transform": "@ttsc/lint", "configFile": "./config/lint.config.ts" }]
-  }
+    "plugins": [
+      { "transform": "@ttsc/lint", "configFile": "./config/lint.config.ts" },
+    ],
+  },
 }
 ```
 
@@ -114,14 +120,16 @@ func Main(args []string) int { return run(args) }
 
 func run(args []string) int {
   if len(args) == 0 {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|format|build|transform|version)")
+    fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|format|build|transform|lsp-*|version)")
     return 2
   }
   switch args[0] {
   case "-v", "--version", "version":
     fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", Version)
     return 0
-  case "check", "fix", "format", "build", "transform":
+  case "check", "fix", "format", "build", "transform",
+       "lsp-command-ids", "lsp-code-action-kinds",
+       "lsp-diagnostics", "lsp-code-actions", "lsp-execute-command":
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
@@ -133,6 +141,11 @@ func run(args []string) int {
   case "format":    return RunFormat(args[1:])
   case "build":     return RunBuild(args[1:])
   case "transform": return RunTransform(args[1:])
+  case "lsp-command-ids":       return RunLSPCommandIDs(args[1:])
+  case "lsp-code-action-kinds": return RunLSPCodeActionKinds(args[1:])
+  case "lsp-diagnostics":       return RunLSPDiagnostics(args[1:])
+  case "lsp-code-actions":      return RunLSPCodeActions(args[1:])
+  case "lsp-execute-command":   return RunLSPExecuteCommand(args[1:])
   }
   return 2
 }
@@ -179,7 +192,11 @@ Two design decisions worth highlighting:
 
 > We don't import `github.com/samchon/ttsc/packages/ttsc/driver` from a source plugin because that would force every consumer of @ttsc/lint to have the in-tree samchon/ttsc/packages/ttsc module on their go.work — a dependency the public proxy cannot satisfy and that conflicts with ttsc's runtime-generated go.work overlay.
 
-In practice: `driver.LoadProgram` is the right choice for *third-party* plugins, but `@ttsc/lint` itself lives inside the monorepo and ships a pre-built sidecar that is also linked into the WASM playground. The library copy of the bootstrap keeps the dependency graph clean for both consumers.
+In practice: `driver.LoadProgram` is the right choice for _third-party_ plugins,
+but `@ttsc/lint` itself lives inside the monorepo and ships Go sidecar source
+that `ttsc` builds on demand; the same engine package is also linked into the
+WASM playground. The library copy of the bootstrap keeps the dependency graph
+clean for both consumers.
 
 **For your own plugin, ignore this complication.** Call `driver.LoadProgram` directly; the doc-comment caveat does not apply to plugins built and consumed outside this repo.
 
@@ -276,7 +293,7 @@ Every built-in rule registers from its file's `init()`. By the time `main.run` c
 
 ### Dispatch table
 
-`NewEngineWithResolver` builds a `map[shimast.Kind][]Rule`. The key is the AST kind; the value is the list of active rules that registered for that kind. Per-node dispatch is then linear in *active* rules of that kind, not total rules:
+`NewEngineWithResolver` builds a `map[shimast.Kind][]Rule`. The key is the AST kind; the value is the list of active rules that registered for that kind. Per-node dispatch is then linear in _active_ rules of that kind, not total rules:
 
 ```go
 type Engine struct {
@@ -334,7 +351,7 @@ Four things to take away:
 
 **Per-node fan-out by kind.** The map lookup is O(1); the inner loop is O(active rules for this kind). For 100 rules and 100,000 nodes, the work is roughly 100,000 × (lookup) + sum over rules × matching nodes.
 
-**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}` — the canonical shape for rules that scan comments or run once per file (e.g. `ban-ts-comment`, the contributor demo's `no-todo-comment`) — fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need *both* per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
+**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}` — the canonical shape for rules that scan comments or run once per file (e.g. `ban-ts-comment`, the contributor demo's `no-todo-comment`) — fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need _both_ per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
 
 **Severity is per-file.** `fileRules.Severity(name)` is queried at dispatch time, not engine bootstrap, because `files: ["src/**.test.ts"]` scopes can shift the severity per file.
 
@@ -370,7 +387,7 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
 }
 ```
 
-The pos is trimmed past leading trivia. This is the canonical token-start trick: `Node.Pos()` is the position *before* leading whitespace and comments, which would make every diagnostic banner point at the start of the line. `SkipTrivia` walks past trivia and returns the first significant token's offset.
+The pos is trimmed past leading trivia. This is the canonical token-start trick: `Node.Pos()` is the position _before_ leading whitespace and comments, which would make every diagnostic banner point at the start of the line. `SkipTrivia` walks past trivia and returns the first significant token's offset.
 
 This is the same trick built-in rules use. Contributors who use `ctx.Report(node, msg)` get the trivia-skipped pos for free; contributors who use `ctx.ReportRange(pos, end, msg)` are responsible for passing the right `pos` themselves.
 
@@ -448,7 +465,7 @@ Designing fixes that emit one contiguous edit per finding is the safest pattern.
 
 ## Fix cascade (`linthost/fix.go`)
 
-`ttsc fix` is more than "apply edits and exit." The host runs a *cascading* pass loop:
+`ttsc fix` is more than "apply edits and exit." The host runs a _cascading_ pass loop:
 
 ```text
 1. Run the engine over every user source file.
@@ -462,7 +479,7 @@ Designing fixes that emit one contiguous edit per finding is the safest pattern.
 
 The cascade is bounded — 10 iterations by default — because rule pairs can in principle oscillate (rule A's fix triggers rule B's fix, which re-triggers rule A's fix). Bounding the iteration count prevents fix-mode from hanging on adversarial inputs.
 
-After every iteration, the Program is **reloaded** so subsequent passes see the typechecker against the *fixed* source, not the original. This costs a tsgo re-parse per iteration; for projects with thousands of files the cost matters, which is why the cascade exists in `fix.go` (separate, optimisable) and not inline in `engine.go`.
+After every iteration, the Program is **reloaded** so subsequent passes see the typechecker against the _fixed_ source, not the original. This costs a tsgo re-parse per iteration; for projects with thousands of files the cost matters, which is why the cascade exists in `fix.go` (separate, optimisable) and not inline in `engine.go`.
 
 ## Format-only cascade (`linthost/format.go`)
 
@@ -476,7 +493,7 @@ The split is intentional: a developer can wire `ttsc format` into a pre-commit h
 
 ## Contributor adapter
 
-The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contributors use a **separate** Go package — [`github.com/samchon/ttsc/packages/lint/rule`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule) — that defines a *public* `rule.Rule` interface, structurally identical to the internal one. The adapter wraps each contributor rule onto the engine's internal interface:
+The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contributors use a **separate** Go package — [`github.com/samchon/ttsc/packages/lint/rule`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule) — that defines a _public_ `rule.Rule` interface, structurally identical to the internal one. The adapter wraps each contributor rule onto the engine's internal interface:
 
 ```go
 type contributorAdapter struct {
@@ -516,8 +533,8 @@ ttsc-lint-plugin-demo/
 The JS descriptor:
 
 ```ts
-import path from "node:path";
 import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
 
 const plugin = {
   meta: { name: "ttsc-lint-plugin-demo", version: "1.0.0", namespace: "demo" },
@@ -569,7 +586,7 @@ func init() {
 
 Several constraints, enforced by the plugin builder ([Pitfalls → Contributor merge failures](/docs/development/reference/pitfalls#contributor-merge-failures)):
 
-- **No `go.mod`.** Contributors ship Go source as a *package*, not a *module*. The host plugin's `go.mod` governs every transitive dependency, which closes the supply-chain surface a contributor `go.mod` would otherwise open.
+- **No `go.mod`.** Contributors ship Go source as a _package_, not a _module_. The host plugin's `go.mod` governs every transitive dependency, which closes the supply-chain surface a contributor `go.mod` would otherwise open.
 - **Go package name = post-transform namespace.** `react-hooks` becomes `package react_hooks` because Go identifiers cannot contain hyphens.
 - **`init()` registers the rule.** Build-time ttsc synthesizes a `ttsc_contributions.go` in the host plugin's main package with `import _ "github.com/samchon/ttsc/packages/lint/contrib/demo"` — that blank import fires the contributor's `init()` before `main`.
 - **Rule names are namespaced.** `demo/no-todo-comment` is the user-facing name. The convention prevents collisions with built-ins.
@@ -578,8 +595,8 @@ Wiring it on the consumer side via `lint.config.ts`:
 
 ```ts
 // lint.config.ts
-import demoPlugin from "ttsc-lint-plugin-demo";
 import type { ITtscLintConfig } from "@ttsc/lint";
+import demoPlugin from "ttsc-lint-plugin-demo";
 
 export default {
   plugins: { demo: demoPlugin },

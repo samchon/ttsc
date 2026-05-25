@@ -26,12 +26,20 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
       {
         source: string;
         stage: string;
-        capabilities?: { diagnosticsTiming?: boolean; threadingArgs?: boolean };
+        capabilities?: {
+          diagnosticsTiming?: boolean;
+          lsp?: boolean;
+          threadingArgs?: boolean;
+        };
         reportsTypeScriptDiagnostics?: boolean;
       }
     > = {
       lint: {
-        capabilities: { diagnosticsTiming: true, threadingArgs: true },
+        capabilities: {
+          diagnosticsTiming: true,
+          lsp: true,
+          threadingArgs: true,
+        },
         reportsTypeScriptDiagnostics: true,
         source: "plugin",
         stage: "check",
