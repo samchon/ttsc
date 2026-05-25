@@ -23,28 +23,38 @@ export interface ITtscPlugin {
   name?: string;
 
   /**
-   * Go command package directory, or a `go.mod` file, that ttsc lazily builds.
+   * Go package directory, or a `go.mod` file, that ttsc lazily builds.
    *
    * Ttsc accepts source only. It does not accept a prebuilt binary path: the
    * package-local Go compiler builds this source into the ttsc plugin cache on
    * demand.
    *
    * Directory sources search upward at most 3 parent directories for `go.mod`;
-   * direct `go.mod` sources build the module root as `.`.
+   * direct `go.mod` sources build the module root as `.`. A `package main`
+   * source builds as an executable sidecar; a non-`main` transform source is
+   * linked into the selected native host and must register through
+   * `driver.RegisterPlugin`.
+   *
+   * Relative paths are resolved from the consumer project root. Package
+   * descriptors published in npm packages should normally return absolute paths
+   * based on their own descriptor directory.
    *
    * Common layouts:
    *
-   * - `source: "src"` when the plugin package keeps its Go command in `src`.
-   * - `source: "plugin"` when the repository has a dedicated Go plugin folder.
-   * - `source: "lib"` only when the published package intentionally ships Go
-   *   source under `lib` instead of compiled JavaScript.
-   * - `source: "go.mod"` when the module root itself is the command package.
+   * - `source: path.resolve(__dirname, "src")` when a package descriptor keeps
+   *   its Go command in `src`.
+   * - `source: path.resolve(__dirname, "plugin")` when a published package has a
+   *   dedicated Go plugin folder.
+   * - `source: "plugin"` only for project-local descriptors where the consumer
+   *   project root owns the `plugin` directory.
+   * - `source: "go.mod"` when the consumer project root itself is the command
+   *   package; use an absolute `go.mod` path for npm package descriptors.
    */
   source: string;
 
   /**
    * Other transform plugin names or transform specifiers that this native
-   * sidecar can execute in the same compiler pass.
+   * source can execute in the same compiler pass.
    *
    * Package auto-discovery may find multiple transform packages that must share
    * one emit host. When one descriptor lists another entry here, ttsc keeps the
@@ -54,7 +64,7 @@ export interface ITtscPlugin {
   composes?: string[];
 
   /**
-   * Pipeline stage implemented by the sidecar.
+   * Pipeline stage implemented by the native source.
    *
    * Omit this field for normal compiler-transform plugins. The only explicit
    * non-transform stage is `"check"`. Check-stage plugins receive `check`
@@ -66,13 +76,12 @@ export interface ITtscPlugin {
   stage?: TtscPluginStage;
 
   /**
-   * Optional capability flags declared by the sidecar.
+   * Optional host behaviors declared by the native source.
    *
-   * ttsc carries a few cross-cutting flags (`--singleThreaded`, `--checkers`,
-   * …) the lint sidecar parses but a typical third-party transform host
-   * does not. Capability flags let the plugin author opt into those flags
-   * explicitly, instead of ttsc keeping a hard-coded allow-list keyed by
-   * plugin name. Every capability defaults to `false`.
+   * Ttsc carries a few cross-cutting command-line flags (`--singleThreaded`,
+   * `--checkers`, …) the lint sidecar parses but a typical third-party
+   * transform host does not. Capabilities also cover opt-in host protocols such
+   * as LSP sidecar probing. Every capability defaults to `false`.
    *
    * @see ITtscPluginCapabilities
    */

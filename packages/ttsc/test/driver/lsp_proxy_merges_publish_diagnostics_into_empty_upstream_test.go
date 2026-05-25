@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "bytes"
   "encoding/json"
   "strings"
   "testing"
@@ -22,7 +23,8 @@ import (
 //
 // 1. Configure a source that contributes one diagnostic for /a.ts.
 // 2. Send upstream publishDiagnostics for /a.ts with diagnostics:[].
-// 3. Assert the editor sees a single-entry array with only the plugin diagnostic.
+// 3. Assert the empty upstream publish is forwarded first.
+// 4. Assert the async plugin publish contains a single plugin diagnostic.
 func TestLSPProxyMergesPublishDiagnosticsIntoEmptyUpstream(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{
@@ -38,6 +40,9 @@ func TestLSPProxyMergesPublishDiagnosticsIntoEmptyUpstream(t *testing.T) {
 
   upstream := []byte(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///a.ts","diagnostics":[]}}`)
   h.sendUpstream(upstream)
+  if got := h.recvEditor(); !bytes.Equal(got, upstream) {
+    t.Fatalf("empty upstream diagnostics were not forwarded first:\ngot:  %s\nwant: %s", got, upstream)
+  }
   body := h.recvEditor()
 
   var decoded struct {

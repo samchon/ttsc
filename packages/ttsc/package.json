@@ -1,7 +1,7 @@
 {
   "name": "ttsc",
   "version": "0.13.1",
-  "description": "General-purpose TypeScript-Go compiler, plugin host, and runtime.",
+  "description": "General-purpose TypeScript-Go compiler, runtime, plugin host, and LSP host.",
   "main": "lib/index.js",
   "types": "src/index.ts",
   "bin": {
@@ -71,12 +71,6 @@
     "tools",
     "utility"
   ],
-  "keywords": [
-    "tsgo",
-    "runner",
-    "transformer",
-    "plugin-host",
-    "ttsc"
-  ],
+  "keywords": ["tsgo", "runner", "transformer", "plugin-host", "ttsc"],
   "packageManager": "pnpm@10.6.4"
 }

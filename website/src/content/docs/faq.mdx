@@ -77,16 +77,31 @@ npx ttsc-vscode
 
 The installer calls `code --install-extension` against the `.vsix` bundled in the package. Marketplace release is tracked for v1.
 
-## VSCode doesn't show lint diagnostics live — what's wrong?
+## VS Code doesn't show TypeScript-Go or plugin diagnostics — what's wrong?
 
 1. Confirm `ttsc` is installed in the project: `npx ttsc --version`.
-2. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
-3. Run **ttsc: Restart language server** from the command palette.
-4. Set `ttsc.trace.server` to `"verbose"` in VS Code settings if the log is empty.
+2. Confirm the same plugin diagnostics appear in the CLI:
+   `npx ttsc --noEmit -p <selected tsconfig>`.
+3. Make sure the plugin config is discoverable from the selected project root
+   or set `configFile` in the tsconfig plugin entry.
+4. Save the file before checking plugin diagnostics or running plugin-backed
+   fix/format commands. TypeScript-Go diagnostics are live; ttsc plugin
+   diagnostics, code actions, and command computation currently use the saved
+   project state, and fix/format commands return editor-applied
+   `WorkspaceEdit`s only while touched documents are clean.
+5. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
+6. Run **ttsc: Restart language server** from the command palette.
+7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.
 
 ## Does it work in a monorepo?
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.
+
+For VS Code, add packages as workspace folders when each package should keep
+its own active language-server context. Plugin diagnostics, code actions, and
+command computation currently use saved project state, so save files before
+relying on lint fixes or format edits; the edits themselves are returned as VS
+Code `WorkspaceEdit`s.
 
 ## Source maps and declaration maps?
 
