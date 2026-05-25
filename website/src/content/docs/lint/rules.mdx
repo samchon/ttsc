@@ -44,6 +44,37 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-loss-of-precision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
 | `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
 
+## Regular expressions
+
+The first `regexp/*` wave mirrors high-confidence `eslint-plugin-regexp`
+checks for regex literals. Dynamic `RegExp("...")` constructor strings are
+deferred until the lint engine has a shared literal-value helper.
+
+| Rule | Effect |
+| ---- | ------ |
+| `regexp/no-control-character` | Reject control characters in regex literals. Alias of the older bare regex check. |
+| `regexp/no-dupe-characters-character-class` | Reject duplicate literal characters in simple character classes. |
+| `regexp/no-empty-alternative` | Reject empty alternatives such as `/a\|\|b/`. |
+| `regexp/no-empty-capturing-group` | Reject empty capturing groups such as `/()/`. |
+| `regexp/no-empty-character-class` | Reject empty character classes. Alias of `no-empty-character-class`. |
+| `regexp/no-empty-group` | Reject empty non-capturing groups such as `/(?:)/`. |
+| `regexp/no-empty-lookarounds-assertion` | Reject empty lookaround assertions such as `/(?=)/`. |
+| `regexp/no-misleading-unicode-character` | Reject misleading Unicode characters in character classes. Alias of the older bare misleading-character check. |
+| `regexp/no-useless-character-class` | Reject single literal character classes such as `/[x]/`. |
+| `regexp/no-useless-escape` | Reject unnecessary regex escapes. Alias of `no-useless-escape` for regex literals. |
+| `regexp/no-useless-flag` | Reject flags that do not affect the literal, such as `/\d+/i`. |
+| `regexp/no-useless-quantifier` | Reject exact-one quantifiers such as `/a{1}/`. |
+| `regexp/no-useless-two-nums-quantifier` | Reject equal min/max quantifiers such as `/a{2,2}/`. |
+| `regexp/no-zero-quantifier` | Reject zero-repeat quantifiers such as `/a{0}/`. |
+| `regexp/prefer-d` | Prefer `\d` over `[0-9]`. |
+| `regexp/prefer-plus-quantifier` | Prefer `+` over `{1,}`. |
+| `regexp/prefer-question-quantifier` | Prefer `?` over `{0,1}`. |
+| `regexp/prefer-star-quantifier` | Prefer `*` over `{0,}`. |
+| `regexp/prefer-w` | Prefer `\w` over `[A-Za-z0-9_]`. |
+| `regexp/require-unicode-regexp` | Require the `u` or `v` flag. |
+| `regexp/require-unicode-sets-regexp` | Require the `v` flag. |
+| `regexp/sort-flags` | Require canonical flag order. |
+
 ## Wrapper objects and prototypes
 
 | Rule | Effect |

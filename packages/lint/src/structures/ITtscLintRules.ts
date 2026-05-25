@@ -424,6 +424,72 @@ export interface ITtscLintRules {
   /** requires a radix argument for `parseInt`. */
   radix?: TtscLintRuleSetting;
 
+  /** rejects control characters in regular expression literals. Alias of the bare regex check. */
+  "regexp/no-control-character"?: TtscLintRuleSetting;
+
+  /** rejects duplicate literal characters inside simple regex character classes. */
+  "regexp/no-dupe-characters-character-class"?: TtscLintRuleSetting;
+
+  /** rejects empty alternatives such as `/a||b/`. */
+  "regexp/no-empty-alternative"?: TtscLintRuleSetting;
+
+  /** rejects empty capturing groups such as `/()/`. */
+  "regexp/no-empty-capturing-group"?: TtscLintRuleSetting;
+
+  /** rejects empty regex character classes. Alias of `no-empty-character-class`. */
+  "regexp/no-empty-character-class"?: TtscLintRuleSetting;
+
+  /** rejects empty non-capturing groups such as `/(?:)/`. */
+  "regexp/no-empty-group"?: TtscLintRuleSetting;
+
+  /** rejects empty lookaround assertions such as `/(?=)/`. */
+  "regexp/no-empty-lookarounds-assertion"?: TtscLintRuleSetting;
+
+  /** rejects misleading Unicode characters in regex classes. Alias of the bare misleading-character check. */
+  "regexp/no-misleading-unicode-character"?: TtscLintRuleSetting;
+
+  /** rejects single literal character classes such as `/[x]/`. */
+  "regexp/no-useless-character-class"?: TtscLintRuleSetting;
+
+  /** rejects unnecessary regex escapes. Alias of `no-useless-escape` for regex literals. */
+  "regexp/no-useless-escape"?: TtscLintRuleSetting;
+
+  /** rejects flags that do not affect the regex literal. */
+  "regexp/no-useless-flag"?: TtscLintRuleSetting;
+
+  /** rejects exact-one quantifiers such as `/a{1}/`. */
+  "regexp/no-useless-quantifier"?: TtscLintRuleSetting;
+
+  /** rejects equal min/max quantifiers such as `/a{2,2}/`. */
+  "regexp/no-useless-two-nums-quantifier"?: TtscLintRuleSetting;
+
+  /** rejects zero-repeat quantifiers such as `/a{0}/`. */
+  "regexp/no-zero-quantifier"?: TtscLintRuleSetting;
+
+  /** prefers `\d` over `[0-9]` in regex literals. */
+  "regexp/prefer-d"?: TtscLintRuleSetting;
+
+  /** prefers `+` over `{1,}` in regex literals. */
+  "regexp/prefer-plus-quantifier"?: TtscLintRuleSetting;
+
+  /** prefers `?` over `{0,1}` in regex literals. */
+  "regexp/prefer-question-quantifier"?: TtscLintRuleSetting;
+
+  /** prefers `*` over `{0,}` in regex literals. */
+  "regexp/prefer-star-quantifier"?: TtscLintRuleSetting;
+
+  /** prefers `\w` over `[A-Za-z0-9_]` in regex literals. */
+  "regexp/prefer-w"?: TtscLintRuleSetting;
+
+  /** requires regex literals to use the `u` or `v` flag. */
+  "regexp/require-unicode-regexp"?: TtscLintRuleSetting;
+
+  /** requires regex literals to use the `v` flag. */
+  "regexp/require-unicode-sets-regexp"?: TtscLintRuleSetting;
+
+  /** requires regex flags to follow canonical order. */
+  "regexp/sort-flags"?: TtscLintRuleSetting;
+
   /** requires generator functions to contain `yield`. */
   "require-yield"?: TtscLintRuleSetting;
 
