@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm run prebuild && pnpm run build:next && pnpm run postbuild",
-    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss",
+    "prebuild": "pnpm --filter @ttsc/playground build && rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss",
     "build:next": "next build",
     "build:compiler": "node build/compiler.cjs",
     "build:blog:rss": "node build/blog.cjs",
@@ -13,7 +13,7 @@
     "build:pagefind": "pagefind --site .next/server/app --output-path out/_pagefind",
     "build:sitemap": "next-sitemap",
     "deploy": "node build/deploy.cjs",
-    "dev": "pnpm run build:compiler && next dev"
+    "dev": "pnpm --filter @ttsc/playground build && pnpm run build:compiler && next dev"
   },
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@tailwindcss/postcss": "^4.1.13",
+    "@ttsc/playground": "workspace:^",
     "@ttsc/wasm": "workspace:^",
     "@typia/core": "12.0.2",
     "@typia/interface": "12.0.2",

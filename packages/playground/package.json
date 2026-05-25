@@ -1,0 +1,38 @@
+{
+  "name": "@ttsc/playground",
+  "version": "0.13.1",
+  "description": "Reusable browser utilities for dependency-aware ttsc playgrounds.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rimraf lib && tsgo -p ."
+  },
+  "keywords": ["ttsc", "playground", "typescript", "wasm"],
+  "files": ["README.md", "lib", "src"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://ttsc.dev",
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "rimraf": "catalog:utils"
+  },
+  "sideEffects": false
+}
