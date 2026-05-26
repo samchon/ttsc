@@ -13,13 +13,13 @@ import "testing"
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusMethodSignatureStyle(t *testing.T) {
   assertRuleCorpusCase(t, "method-signature-style.ts", `interface Service {
-  // expect: method-signature-style error
+  // expect: typescript/method-signature-style error
   run(input: string): number;
   keep: (input: string) => number;
 }
 
 type Handler = {
-  // expect: method-signature-style error
+  // expect: typescript/method-signature-style error
   handle(): void;
   keep: () => void;
 };

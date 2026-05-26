@@ -15,7 +15,7 @@ import "testing"
 func TestFixPreferAsConstReplacesLiteralTypeWithConst(t *testing.T) {
   assertFixSnapshot(
     t,
-    "prefer-as-const",
+    "typescript/prefer-as-const",
     "const value = \"literal\" as \"literal\";\nJSON.stringify(value);\n",
     "const value = \"literal\" as const;\nJSON.stringify(value);\n",
   )

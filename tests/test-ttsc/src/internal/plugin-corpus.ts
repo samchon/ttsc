@@ -113,7 +113,9 @@ function parseExpectations(filePath: string): ILintExpectation[] {
   const expected: ILintExpectation[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
-    const match = line.match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
+    const match = line.match(
+      /\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/,
+    );
     if (!match) continue;
     const rule = match[1];
     const severity = match[2] as "warn" | "error" | undefined;
@@ -145,7 +147,7 @@ function parseDiagnostics(stderr: string, filePath: string): ILintDiagnostic[] {
   const lines = stripped.split(/\r?\n/);
   const fileBase = path.basename(filePath).replace(/\./g, "\\.");
   const banner = new RegExp(
-    `(?:^|[\\s/])[^\\s:]*${fileBase}:(\\d+):(\\d+)\\s+-\\s+(error|warning)\\s+TS\\d+:\\s*\\[([\\w-]+)\\]`,
+    `(?:^|[\\s/])[^\\s:]*${fileBase}:(\\d+):(\\d+)\\s+-\\s+(error|warning)\\s+TS\\d+:\\s*\\[([\\w][\\w/-]*)\\]`,
   );
   const out: ILintDiagnostic[] = [];
   for (const line of lines) {

@@ -314,7 +314,7 @@ func asStringSlice(field string, v any) ([]string, error) {
 
 // rejectUnknownFormatKeys surfaces typos in top-level format-block
 // keys at the boundary rather than silently ignoring them. The
-// key set mirrors `ITtscLintFormatConfig` exactly.
+// key set mirrors `ITtscLintFormat` exactly.
 func rejectUnknownFormatKeys(raw map[string]any) error {
   allowed := map[string]struct{}{
     "severity":                   {},
@@ -333,7 +333,7 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
   }
   for key := range raw {
     if _, ok := allowed[key]; !ok {
-      return fmt.Errorf("@ttsc/lint: format unknown key %q; see ITtscLintFormatConfig for the allowed surface", key)
+      return fmt.Errorf("@ttsc/lint: format unknown key %q; see ITtscLintFormat for the allowed surface", key)
     }
   }
   return nil

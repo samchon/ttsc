@@ -1,6 +1,6 @@
-import type { ITtscLintFormatConfig } from "./ITtscLintFormatConfig";
+import type { ITtscLintFormat } from "./ITtscLintFormat";
 import type { ITtscLintPlugin } from "./ITtscLintPlugin";
-import type { ITtscLintRules } from "./ITtscLintRules";
+import type { ITtscLintRules } from "./rules/ITtscLintRules";
 
 /**
  * Top-level object accepted by `@ttsc/lint` config files.
@@ -35,5 +35,5 @@ export interface ITtscLintConfig {
   rules?: ITtscLintRules;
 
   /** Prettier-style flat configuration for the format rules. */
-  format?: ITtscLintFormatConfig;
+  format?: ITtscLintFormat;
 }

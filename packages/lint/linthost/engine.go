@@ -247,12 +247,14 @@ func AllRuleNames() []string {
 // Engine binds a rule configuration to a Program and walks the AST once
 // per source file, dispatching each visited node to its interested rules.
 type Engine struct {
-  config           RuleResolver
-  rules            map[shimast.Kind][]Rule
-  enabled          map[string]Severity
-  unknown          []string
-  needsTypeChecker bool
-  serial           bool
+  config             RuleResolver
+  rules              map[shimast.Kind][]Rule
+  enabled            map[string]Severity
+  unknown            []string
+  unknownDirectives  map[string]struct{}
+  unknownDirectiveMu sync.Mutex
+  needsTypeChecker   bool
+  serial             bool
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -290,9 +292,10 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     config = RuleConfig{}
   }
   eng := &Engine{
-    config:  config,
-    rules:   make(map[shimast.Kind][]Rule),
-    enabled: make(map[string]Severity),
+    config:            config,
+    rules:             make(map[shimast.Kind][]Rule),
+    enabled:           make(map[string]Severity),
+    unknownDirectives: make(map[string]struct{}),
   }
   displaySeverities := config.EnabledRuleConfig()
   for _, name := range config.ActiveRuleNames() {
@@ -320,9 +323,78 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
   return eng
 }
 
-// UnknownRules returns the names of rules that appeared in the config but
-// have no registered implementation.
-func (e *Engine) UnknownRules() []string { return e.unknown }
+// UnknownRules returns the names of rules that appeared either in the
+// config or in an inline `eslint-disable*` directive but have no
+// registered implementation. Directive-side unknowns are deduped so the
+// same misspelling on every page doesn't flood the warning channel.
+func (e *Engine) UnknownRules() []string {
+  if e == nil {
+    return nil
+  }
+  e.unknownDirectiveMu.Lock()
+  extras := make([]string, 0, len(e.unknownDirectives))
+  for name := range e.unknownDirectives {
+    extras = append(extras, name)
+  }
+  e.unknownDirectiveMu.Unlock()
+  if len(extras) == 0 {
+    return e.unknown
+  }
+  seen := make(map[string]struct{}, len(e.unknown)+len(extras))
+  out := make([]string, 0, len(e.unknown)+len(extras))
+  for _, name := range e.unknown {
+    if _, dup := seen[name]; dup {
+      continue
+    }
+    seen[name] = struct{}{}
+    out = append(out, name)
+  }
+  for _, name := range extras {
+    if _, dup := seen[name]; dup {
+      continue
+    }
+    seen[name] = struct{}{}
+    out = append(out, name)
+  }
+  sort.Strings(out)
+  return out
+}
+
+// collectUnknownDirectiveRules walks every directive's rule list and
+// records names that don't resolve to a registered rule. Called once
+// per file after `parseLintInlineDirectives`.
+func (e *Engine) collectUnknownDirectiveRules(directives *lintInlineDirectives) {
+  if e == nil || directives == nil {
+    return
+  }
+  for _, rec := range directives.records {
+    for _, raw := range rec.ruleList {
+      name := normalizeDirectiveRuleName(raw)
+      if name == "" {
+        continue
+      }
+      if _, ok := registered.rules[name]; ok {
+        continue
+      }
+      e.recordUnknownDirectiveRule(name)
+    }
+  }
+}
+
+// recordUnknownDirectiveRule remembers a rule name referenced by an
+// `// eslint-disable*` directive that does not resolve to a registered
+// rule. Each unique name is recorded once across the engine run.
+func (e *Engine) recordUnknownDirectiveRule(name string) {
+  if e == nil || name == "" {
+    return
+  }
+  e.unknownDirectiveMu.Lock()
+  defer e.unknownDirectiveMu.Unlock()
+  if e.unknownDirectives == nil {
+    e.unknownDirectives = make(map[string]struct{})
+  }
+  e.unknownDirectives[name] = struct{}{}
+}
 
 // NeedsTypeChecker reports whether any active rule requires Context.Checker.
 func (e *Engine) NeedsTypeChecker() bool {
@@ -473,6 +545,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
     }
   }
   directives := parseLintInlineDirectives(file)
+  e.collectUnknownDirectiveRules(directives)
   collected = append(collected, collectEslintCommentFindings(file, collected, directives, fileRules, e.config)...)
   // Apply inline-disable filtering even for files with no statement
   // list. A SourceFile-level rule that fires on a `// ttsc-lint-disable`

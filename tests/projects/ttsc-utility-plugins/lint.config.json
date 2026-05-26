@@ -1,7 +1,7 @@
 {
   "rules": {
     "no-var": "error",
-    "no-explicit-any": "error",
+    "typescript/no-explicit-any": "error",
     "no-debugger": "off",
     "no-console": "off"
   }

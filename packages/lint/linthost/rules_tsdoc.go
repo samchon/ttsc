@@ -8,7 +8,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // and malformed or unclosed inline tags.
 type tsdocSyntax struct{}
 
-func (tsdocSyntax) Name() string           { return "tsdoc/syntax" }
+func (tsdocSyntax) Name() string           { return "jsdoc/tsdoc-syntax" }
 func (tsdocSyntax) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 
 func (tsdocSyntax) Check(ctx *Context, node *shimast.Node) {

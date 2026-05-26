@@ -28,7 +28,7 @@ func init() {
 type noMarkerComment struct{}
 
 // noMarkerCommentOptions mirrors the TS-side interface that augments
-// `TtscLintRuleOptionsMap["demo/no-marker-comment"]` in `src/index.ts`.
+// `ITtscLintRuleOptionsMap["demo/no-marker-comment"]` in `src/index.ts`.
 // The JSON tag matches the TS field name exactly — this is the
 // JSON-↔-interface parity contract every option-aware rule depends on.
 type noMarkerCommentOptions struct {

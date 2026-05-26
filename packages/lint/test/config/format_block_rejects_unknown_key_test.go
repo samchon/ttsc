@@ -28,7 +28,7 @@ func TestFormatBlockRejectsUnknownKey(t *testing.T) {
   if !strings.Contains(err.Error(), "printwidth") {
     t.Errorf("expected error to name the bad key, got %v", err)
   }
-  if !strings.Contains(err.Error(), "ITtscLintFormatConfig") {
-    t.Errorf("expected error to point at ITtscLintFormatConfig, got %v", err)
+  if !strings.Contains(err.Error(), "ITtscLintFormat") {
+    t.Errorf("expected error to point at ITtscLintFormat, got %v", err)
   }
 }

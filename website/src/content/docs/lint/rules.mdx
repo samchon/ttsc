@@ -4,7 +4,7 @@ A practical rule catalog by category. Each rule maps to an ESLint name where one
 
 If you're skimming: the `error`-severity defaults at the bottom of this page are what most projects end up with.
 
-> **Authoritative source:** the canonical rule-name union lives at [`packages/lint/src/structures/TtscLintRule.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/TtscLintRule.ts). This page documents what each rule does and when to keep it on.
+> **Authoritative source:** rule typings live under [`packages/lint/src/structures/rules/`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules) — each family interface (`ITtscLintCoreRules`, `ITtscLintReactRules`, …) owns its own rule keys; [`ITtscLintRules.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules/ITtscLintRules.ts) is the union accepted by `ITtscLintConfig.rules`. This page documents what each rule does and when to keep it on.
 
 ## Rule families and config types
 
@@ -12,30 +12,27 @@ Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscL
 
 | Family | Type | Rules | Namespace |
 | ------ | ---- | ----- | --------- |
-| Core JavaScript / TypeScript | `ITtscLintCoreRules` | 138 | none |
+| Core (ESLint-compatible) | `ITtscLintCoreRules` | 98 | none |
+| TypeScript | `ITtscLintTypeScriptRules` | 40 | `typescript/*` |
 | Architecture boundaries | `ITtscLintBoundariesRules` | 5 | `boundaries/*` |
 | Cypress | `ITtscLintCypressRules` | 13 | `cypress/*` |
 | Directive comments | `ITtscLintEslintCommentsRules` | 9 | `eslint-comments/*` |
 | Functional policy | `ITtscLintFunctionalRules` | 20 | `functional/*` |
 | Jest | `ITtscLintJestRules` | 19 | `jest/*` |
-| JSDoc | `ITtscLintJsdocRules` | 12 | `jsdoc/*` |
+| JSDoc | `ITtscLintJsdocRules` | 13 | `jsdoc/*` |
 | JSX accessibility | `ITtscLintJsxA11yRules` | 36 | `jsx-a11y/*` |
 | Next.js | `ITtscLintNextjsRules` | 21 | `nextjs/*` |
 | Playwright | `ITtscLintPlaywrightRules` | 31 | `playwright/*` |
 | Promise | `ITtscLintPromiseRules` | 17 | `promise/*` |
-| React | `ITtscLintReactRules` | 16 | `react/*` |
-| React Hooks | `ITtscLintReactHooksRules` | 8 | `react-hooks/*` |
+| React | `ITtscLintReactRules` | 25 | `react/*` |
 | React performance | `ITtscLintReactPerfRules` | 4 | `react-perf/*` |
-| React Fast Refresh | `ITtscLintReactRefreshRules` | 1 | `react-refresh/*` |
 | Regular expressions | `ITtscLintRegexpRules` | 22 | `regexp/*` |
 | Security | `ITtscLintSecurityRules` | 14 | `security/*` |
 | Solid | `ITtscLintSolidRules` | 20 | `solid/*` |
 | Storybook | `ITtscLintStorybookRules` | 16 | `storybook/*` |
-| TanStack Query | `ITtscLintTanstackQueryRules` | 8 | `@tanstack/query/*` |
+| TanStack Query | `ITtscLintTanstackQueryRules` | 8 | `tanstack-query/*` |
 | Testing Library | `ITtscLintTestingLibraryRules` | 29 | `testing-library/*` |
-| TSDoc | `ITtscLintTsdocRules` | 1 | `tsdoc/*` |
 | Vitest | `ITtscLintVitestRules` | 13 | `vitest/*` |
-| Format | `ITtscLintFormatRules` | 6 | `format/*` |
 | Contributor plugins | `ITtscLintContributorRules` | user-defined | `<namespace>/*` |
 
 ```ts
@@ -109,14 +106,14 @@ These rules inspect `eslint-disable` / `eslint-enable` comments and the matching
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-explicit-any` | Reject `any` annotations. Typically `"warning"` during migrations. |
-| `prefer-as-const` | Reject `as Literal` when `as const` would do. Autofixable. |
+| `typescript/no-explicit-any` | Reject `any` annotations. Typically `"warning"` during migrations. |
+| `typescript/prefer-as-const` | Reject `as Literal` when `as const` would do. Autofixable. |
 | `object-shorthand` | Reject `{ foo: foo }`. Autofixable. |
 | `no-useless-rename` | Reject `{ x: x }` in destructuring. Autofixable. |
-| `no-extra-non-null-assertion` | Reject `x!!`. Autofixable. |
-| `no-unnecessary-type-constraint` | Reject `<T extends unknown>` and similar. Autofixable. |
-| `prefer-namespace-keyword` | Use `namespace` not `module`. Autofixable. |
-| `method-signature-style` | Prefer function-property signatures over TypeScript method shorthand signatures. |
+| `typescript/no-extra-non-null-assertion` | Reject `x!!`. Autofixable. |
+| `typescript/no-unnecessary-type-constraint` | Reject `<T extends unknown>` and similar. Autofixable. |
+| `typescript/prefer-namespace-keyword` | Use `namespace` not `module`. Autofixable. |
+| `typescript/method-signature-style` | Prefer function-property signatures over TypeScript method shorthand signatures. |
 
 ## Strings and literals
 
@@ -132,7 +129,7 @@ These rules inspect `eslint-disable` / `eslint-enable` comments and the matching
 
 | Rule | Effect |
 | ---- | ------ |
-| `tsdoc/syntax` | Validate basic TSDoc syntax in `/** ... */` comments, including malformed block tags and malformed or unclosed inline tags. |
+| `jsdoc/tsdoc-syntax` | Validate basic TSDoc syntax in `/** ... */` comments, including malformed block tags and malformed or unclosed inline tags. |
 
 ## Regular expressions
 
@@ -169,7 +166,7 @@ deferred until the lint engine has a shared literal-value helper.
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-wrapper-object-types` | Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. |
+| `typescript/no-wrapper-object-types` | Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. |
 | `no-proto` | Reject `obj.__proto__`. |
 | `no-prototype-builtins` | Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. |
 
@@ -185,10 +182,10 @@ deferred until the lint engine has a shared literal-value helper.
 
 | Rule | Effect |
 | ---- | ------ |
-| `no-import-type-side-effects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
-| `consistent-type-imports` | Prefer `import type {}` when imports are types-only. |
-| `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
-| `no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
+| `typescript/no-import-type-side-effects` | Hoist inline `type` modifiers into a single `import type {}`. Autofixable. |
+| `typescript/consistent-type-imports` | Prefer `import type {}` when imports are types-only. |
+| `typescript/no-require-imports` | Reject `require(...)` outside CommonJS modules. |
+| `typescript/no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
 
 ## Storybook
 
@@ -259,12 +256,6 @@ export default {
 
 These diagnostics are not autofixable. A boundary violation usually needs a public API, a dependency inversion, or a config decision; rewriting the import path automatically would be unsafe.
 
-## React Fast Refresh
-
-| Rule | Effect |
-| ---- | ------ |
-| `react-refresh/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
-
 ## JSX accessibility
 
 The `jsx-a11y/*` rules mirror TSX-applicable checks from `eslint-plugin-jsx-a11y`
@@ -316,18 +307,21 @@ AST can prove locally.
 
 | Rule | Effect |
 | ---- | ------ |
-| `await-thenable` | Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). |
+| `typescript/await-thenable` | Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). |
 | `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
 | `no-promise-executor-return` | Reject `return` inside a Promise executor. |
 
 ## React
 
-The `react/*` family covers high-confidence TypeScript/TSX checks from `eslint-plugin-react@7.37.5`. This first tranche avoids prop-types, component lifecycle inference, and formatting-style rules.
+The `react/*` family bundles high-confidence TypeScript/TSX checks from `eslint-plugin-react`, `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` under one namespace, matching Oxlint's `react/*` plugin layout. Performance-only rules live separately in the [React performance](#react-performance) family.
 
 | Rule | Effect |
 | ---- | ------ |
 | `react/button-has-type` | Require explicit valid `type` values on JSX `button` elements. |
+| `react/component-hook-factories` | Reject nested component/Hook factories that call Hooks. |
+| `react/exhaustive-deps` | Reject high-confidence missing identifier dependencies in `useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, and `useCallback`. |
 | `react/iframe-missing-sandbox` | Require JSX `iframe` elements to include a sandbox attribute. |
+| `react/immutability` | Reject local prop mutation in components and Hooks. |
 | `react/jsx-key` | Require `key` props for JSX elements produced by arrays or `.map()`. |
 | `react/jsx-no-duplicate-props` | Reject duplicate JSX prop names on the same element. |
 | `react/jsx-no-script-url` | Reject `javascript:` URLs in JSX URL-like props. |
@@ -340,7 +334,13 @@ The `react/*` family covers high-confidence TypeScript/TSX checks from `eslint-p
 | `react/no-is-mounted` | Reject `isMounted` calls. |
 | `react/no-string-refs` | Reject string JSX refs. |
 | `react/no-unescaped-entities` | Reject unescaped `>`, `"`, `'`, and `}` in JSX text. |
+| `react/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
+| `react/refs` | Reject reading or writing `ref.current` during render. |
+| `react/rules-of-hooks` | Reject Hooks outside components/custom Hooks, inside nested callbacks, or in conditional/loop control flow. |
+| `react/set-state-in-effect` | Reject synchronous setter calls inside `useEffect`. |
+| `react/set-state-in-render` | Reject `useState`/`useReducer` setters called during render. |
 | `react/style-prop-object` | Reject string literal JSX `style` prop values. |
+| `react/use-memo` | Reject block-bodied `useMemo` callbacks that do not return a value. |
 | `react/void-dom-elements-no-children` | Reject children and HTML injection props on void DOM elements. |
 ## React performance
 
@@ -352,28 +352,6 @@ These rules run on `.tsx` files only. They mirror the static `eslint-plugin-reac
 | `react-perf/jsx-no-new-function-as-prop` | Reject inline function expressions, arrow functions, `Function()`, and `new Function()` passed as JSX props. |
 | `react-perf/jsx-no-new-object-as-prop` | Reject `{}`, `Object()`, `new Object()`, and fallback/conditional variants passed as JSX props. |
 | `react-perf/jsx-no-jsx-as-prop` | Reject freshly-created JSX elements or fragments passed as JSX props. |
-
-## React Hooks
-
-These rules mirror `eslint-plugin-react-hooks` names. The first native slice implements the core Hook
-rules and an AST-local subset of the React Compiler-era checks; compiler rules that need whole-program
-React Compiler IR remain deferred.
-
-| Rule | Effect |
-| ---- | ------ |
-| `react-hooks/rules-of-hooks` | Reject Hooks outside components/custom Hooks, inside nested callbacks, or in conditional/loop control flow. |
-| `react-hooks/exhaustive-deps` | Reject high-confidence missing identifier dependencies in `useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, and `useCallback`. |
-| `react-hooks/component-hook-factories` | Reject nested component/Hook factories that call Hooks. |
-| `react-hooks/set-state-in-render` | Reject `useState`/`useReducer` setters called during render. |
-| `react-hooks/set-state-in-effect` | Reject synchronous setter calls inside `useEffect`. |
-| `react-hooks/immutability` | Reject local prop mutation in components and Hooks. |
-| `react-hooks/refs` | Reject reading or writing `ref.current` during render. |
-| `react-hooks/use-memo` | Reject block-bodied `useMemo` callbacks that do not return a value. |
-
-Deferred `eslint-plugin-react-hooks@7.1.1` targets include `config`, `error-boundaries`, `gating`,
-`globals`, `incompatible-library`, `preserve-manual-memoization`, `purity`, `static-components`,
-`unsupported-syntax`, `void-use-memo`, and other off-by-default compiler diagnostics such as
-`memo-dependencies`, `memoized-effect-dependencies`, and `exhaustive-effect-dependencies`.
 
 ## Promise plugin
 
@@ -476,7 +454,7 @@ These rules mirror `eslint-plugin-testing-library` names under the `testing-libr
 | ---- | ------ |
 | `default-param-last` | `(req, opt = 1, req2)` → fail. |
 | `no-dupe-args` | Function declared with two parameters of the same name. |
-| `no-unnecessary-parameter-property-assignment` | Reject `this.x = x` when `x` is already a constructor parameter property. |
+| `typescript/no-unnecessary-parameter-property-assignment` | Reject `this.x = x` when `x` is already a constructor parameter property. |
 
 ## Duplicates
 
@@ -514,6 +492,7 @@ These rules inspect TypeScript source `/** ... */` comments. They are separate f
 | `jsdoc/require-property-description` | Require every `@property` tag with a name to include a description. |
 | `jsdoc/require-property-name` | Require every `@property` tag to include a property name. |
 | `jsdoc/require-returns-description` | Require every `@returns` tag to include a description. |
+| `jsdoc/tsdoc-syntax` | Validate basic TSDoc syntax in `/** ... */` comments, including malformed block tags and malformed or unclosed inline tags. |
 
 ## Next.js
 
@@ -684,20 +663,20 @@ configuration.
 ## TanStack Query
 
 These rules mirror `@tanstack/eslint-plugin-query` rule names under the
-`@tanstack/query/*` namespace. The native implementation uses TypeScript AST
+`tanstack-query/*` namespace. The native implementation uses TypeScript AST
 patterns that are stable inside the compiler-integrated lint pass; type-only
 edge cases stay conservative.
 
 | Rule | Effect |
 | ---- | ------ |
-| `@tanstack/query/exhaustive-deps` | Require variables read by `queryFn` to also appear in the local `queryKey` array. |
-| `@tanstack/query/infinite-query-property-order` | Require `queryFn` before `getPreviousPageParam` and `getNextPageParam` in infinite query options. |
-| `@tanstack/query/mutation-property-order` | Require `onMutate` before `onError` and `onSettled` in mutation options. |
-| `@tanstack/query/no-rest-destructuring` | Reject object rest destructuring and spreading over TanStack Query hook results. |
-| `@tanstack/query/no-unstable-deps` | Reject whole query or mutation result objects in React dependency arrays. |
-| `@tanstack/query/no-void-query-fn` | Reject AST-local `queryFn` callbacks that return no data. |
-| `@tanstack/query/prefer-query-options` | Prefer extracting inline `queryKey`/`queryFn` options into reusable query options helpers. |
-| `@tanstack/query/stable-query-client` | Reject `new QueryClient()` inside React component or hook bodies. |
+| `tanstack-query/exhaustive-deps` | Require variables read by `queryFn` to also appear in the local `queryKey` array. |
+| `tanstack-query/infinite-query-property-order` | Require `queryFn` before `getPreviousPageParam` and `getNextPageParam` in infinite query options. |
+| `tanstack-query/mutation-property-order` | Require `onMutate` before `onError` and `onSettled` in mutation options. |
+| `tanstack-query/no-rest-destructuring` | Reject object rest destructuring and spreading over TanStack Query hook results. |
+| `tanstack-query/no-unstable-deps` | Reject whole query or mutation result objects in React dependency arrays. |
+| `tanstack-query/no-void-query-fn` | Reject AST-local `queryFn` callbacks that return no data. |
+| `tanstack-query/prefer-query-options` | Prefer extracting inline `queryKey`/`queryFn` options into reusable query options helpers. |
+| `tanstack-query/stable-query-client` | Reject `new QueryClient()` inside React component or hook bodies. |
 
 ## Security
 
@@ -720,10 +699,6 @@ The `security/*` family covers the TypeScript-source-relevant rule surface from 
 | `security/detect-pseudoRandomBytes` | Detect `crypto.pseudoRandomBytes`. |
 | `security/detect-unsafe-regex` | Detect high-confidence catastrophic backtracking regex shapes. |
 
-## Format
-
-The `format*` rules cover Prettier's territory. They live on their own page — [Format rules](/docs/lint/format).
-
 ## A common starter set
 
 Most projects start here. Add and remove as you go.
@@ -743,39 +718,35 @@ export default {
     "no-self-compare": "error",
 
     // Suggestions
-    "no-explicit-any": "warning",
-    "prefer-as-const": "error",
+    "typescript/no-explicit-any": "warning",
+    "typescript/prefer-as-const": "error",
     "object-shorthand": "error",
     "no-useless-rename": "error",
 
     // Imports
-    "no-import-type-side-effects": "error",
-    "consistent-type-imports": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/consistent-type-imports": "error",
 
     // Misc safety
     "no-debugger": "error",
     "no-throw-literal": "error",
-    "await-thenable": "error",
-
-    // Format (see /docs/lint/format)
-    "format/semi": "error",
-    "format/quotes": ["error", { prefer: "double" }],
-    "format/trailing-comma": "error",
-    "format/print-width": ["error", { printWidth: 80 }],
+    "typescript/await-thenable": "error",
   },
 } satisfies ITtscLintConfig;
 ```
+
+Formatter behavior is configured separately through the top-level `format` block (typed as `ITtscLintFormat`) — see [Format rules](/docs/lint/format).
 
 ## Autofix coverage at a glance
 
 `ttsc fix` autofixes a subset. Native fixers cover:
 
 - `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`
-- `no-wrapper-object-types` (primitives only; `Object` is detection-only)
-- `prefer-as-const`, `no-useless-rename`, `object-shorthand`, `no-extra-non-null-assertion`
-- `no-unnecessary-type-constraint`, `prefer-namespace-keyword`, `no-useless-escape`
-- `no-import-type-side-effects` (hoists inline `type` modifiers)
-- `await-thenable` (type-aware — drops `await` on non-thenable operands)
+- `typescript/no-wrapper-object-types` (primitives only; `Object` is detection-only)
+- `typescript/prefer-as-const`, `no-useless-rename`, `object-shorthand`, `typescript/no-extra-non-null-assertion`
+- `typescript/no-unnecessary-type-constraint`, `typescript/prefer-namespace-keyword`, `no-useless-escape`
+- `typescript/no-import-type-side-effects` (hoists inline `type` modifiers)
+- `typescript/await-thenable` (type-aware — drops `await` on non-thenable operands)
 - Every format rule
 
 ## See also

@@ -12,7 +12,7 @@ import (
 // stylistic: https://typescript-eslint.io/rules/no-import-type-side-effects/
 type noImportTypeSideEffects struct{}
 
-func (noImportTypeSideEffects) Name() string { return "no-import-type-side-effects" }
+func (noImportTypeSideEffects) Name() string { return "typescript/no-import-type-side-effects" }
 func (noImportTypeSideEffects) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportDeclaration}
 }
@@ -99,7 +99,7 @@ func (noImportTypeSideEffects) Check(ctx *Context, node *shimast.Node) {
 // the empty export does not change module-ness and can be removed.
 type noUselessEmptyExport struct{}
 
-func (noUselessEmptyExport) Name() string { return "no-useless-empty-export" }
+func (noUselessEmptyExport) Name() string { return "typescript/no-useless-empty-export" }
 func (noUselessEmptyExport) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile, shimast.KindModuleBlock}
 }

@@ -19,7 +19,7 @@ import "testing"
 func TestFixNoImportTypeSideEffectsSkipsMixedImport(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "no-import-type-side-effects",
+    "typescript/no-import-type-side-effects",
     "import { type A, B } from \"./mod\";\nconst a: A | null = null;\nconst b = B;\nJSON.stringify([a, b]);\n",
   )
 }

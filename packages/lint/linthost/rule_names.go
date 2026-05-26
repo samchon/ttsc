@@ -2,12 +2,13 @@ package linthost
 
 import "strings"
 
-// normalizeBuiltinRuleName strips standard ESLint namespace prefixes while
-// leaving @ttsc/lint's canonical kebab/slash rule IDs intact.
+// normalizeBuiltinRuleName strips the optional `eslint/` namespace prefix
+// so users may write either the bare rule id or the explicit `eslint/<id>`
+// form. `@ttsc/lint` deliberately rejects the legacy `@typescript-eslint/`
+// and `typescript-eslint/` prefixes — TypeScript-only rules live under
+// the canonical `typescript/<id>` namespace.
 func normalizeBuiltinRuleName(name string) string {
   name = strings.TrimSpace(name)
-  name = strings.TrimPrefix(name, "@typescript-eslint/")
-  name = strings.TrimPrefix(name, "typescript-eslint/")
   name = strings.TrimPrefix(name, "eslint/")
   return name
 }

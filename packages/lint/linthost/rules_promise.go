@@ -20,7 +20,7 @@ const promiseRulePrefix = "promise/"
 // no shim addition.
 type awaitThenable struct{}
 
-func (awaitThenable) Name() string { return "await-thenable" }
+func (awaitThenable) Name() string { return "typescript/await-thenable" }
 func (awaitThenable) NeedsTypeChecker() bool {
 	return true
 }

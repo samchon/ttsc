@@ -18,9 +18,9 @@ func TestRuleCorpusNoUnnecessaryParameterPropertyAssignment(t *testing.T) {
     private readonly count: number,
     normal: string,
   ) {
-    // expect: no-unnecessary-parameter-property-assignment error
+    // expect: typescript/no-unnecessary-parameter-property-assignment error
     this.value = value;
-    // expect: no-unnecessary-parameter-property-assignment error
+    // expect: typescript/no-unnecessary-parameter-property-assignment error
     this.count = count;
     this.normal = normal;
   }
