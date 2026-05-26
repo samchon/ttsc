@@ -173,6 +173,114 @@ export interface ITtscLintRules {
   /** `for (i = 0; i < 10; i--)` → fail. */
   "for-direction"?: TtscLintRuleSetting;
 
+  /** requires image-like JSX elements to expose alt text or an ARIA label. */
+  "jsx-a11y/alt-text"?: TtscLintRuleSetting;
+
+  /** rejects empty JSX anchors with no accessible content. */
+  "jsx-a11y/anchor-has-content"?: TtscLintRuleSetting;
+
+  /** rejects missing, hash-only, empty, and javascript: anchor href values. */
+  "jsx-a11y/anchor-is-valid"?: TtscLintRuleSetting;
+
+  /** requires tabIndex when aria-activedescendant is present. */
+  "jsx-a11y/aria-activedescendant-has-tabindex"?: TtscLintRuleSetting;
+
+  /** rejects unknown aria-* JSX attributes. */
+  "jsx-a11y/aria-props"?: TtscLintRuleSetting;
+
+  /** validates known literal ARIA property values. */
+  "jsx-a11y/aria-proptypes"?: TtscLintRuleSetting;
+
+  /** rejects unknown ARIA role tokens. */
+  "jsx-a11y/aria-role"?: TtscLintRuleSetting;
+
+  /** rejects ARIA roles and attributes on elements that cannot expose them. */
+  "jsx-a11y/aria-unsupported-elements"?: TtscLintRuleSetting;
+
+  /** rejects unknown literal autocomplete tokens. */
+  "jsx-a11y/autocomplete-valid"?: TtscLintRuleSetting;
+
+  /** requires keyboard handlers alongside clicks on non-interactive JSX elements. */
+  "jsx-a11y/click-events-have-key-events"?: TtscLintRuleSetting;
+
+  /** requires interactive controls to have an accessible label. */
+  "jsx-a11y/control-has-associated-label"?: TtscLintRuleSetting;
+
+  /** rejects empty JSX headings with no accessible content. */
+  "jsx-a11y/heading-has-content"?: TtscLintRuleSetting;
+
+  /** requires JSX html elements to declare lang. */
+  "jsx-a11y/html-has-lang"?: TtscLintRuleSetting;
+
+  /** requires iframes to have a non-empty title. */
+  "jsx-a11y/iframe-has-title"?: TtscLintRuleSetting;
+
+  /** rejects redundant words such as image, photo, and picture in img alt text. */
+  "jsx-a11y/img-redundant-alt"?: TtscLintRuleSetting;
+
+  /** requires elements with interactive roles to be focusable. */
+  "jsx-a11y/interactive-supports-focus"?: TtscLintRuleSetting;
+
+  /** requires labels to reference or wrap a form control. */
+  "jsx-a11y/label-has-associated-control"?: TtscLintRuleSetting;
+
+  /** compatibility alias for label association checks. */
+  "jsx-a11y/label-has-for"?: TtscLintRuleSetting;
+
+  /** validates statically known lang attribute values. */
+  "jsx-a11y/lang"?: TtscLintRuleSetting;
+
+  /** requires audio and video elements to provide caption tracks. */
+  "jsx-a11y/media-has-caption"?: TtscLintRuleSetting;
+
+  /** requires mouseover/mouseout handlers to have focus/blur parity. */
+  "jsx-a11y/mouse-events-have-key-events"?: TtscLintRuleSetting;
+
+  /** rejects accessKey on JSX elements. */
+  "jsx-a11y/no-access-key"?: TtscLintRuleSetting;
+
+  /** rejects aria-hidden on focusable JSX elements. */
+  "jsx-a11y/no-aria-hidden-on-focusable"?: TtscLintRuleSetting;
+
+  /** rejects autoFocus/autofocus JSX attributes. */
+  "jsx-a11y/no-autofocus"?: TtscLintRuleSetting;
+
+  /** rejects distracting blink and marquee elements. */
+  "jsx-a11y/no-distracting-elements"?: TtscLintRuleSetting;
+
+  /** rejects non-interactive roles on native interactive elements. */
+  "jsx-a11y/no-interactive-element-to-noninteractive-role"?: TtscLintRuleSetting;
+
+  /** rejects interaction handlers on known non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-element-interactions"?: TtscLintRuleSetting;
+
+  /** rejects interactive roles on known non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-element-to-interactive-role"?: TtscLintRuleSetting;
+
+  /** rejects tabIndex on non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-tabindex"?: TtscLintRuleSetting;
+
+  /** rejects explicit roles that duplicate native JSX element semantics. */
+  "jsx-a11y/no-redundant-roles"?: TtscLintRuleSetting;
+
+  /** requires static elements with interaction handlers to declare a role. */
+  "jsx-a11y/no-static-element-interactions"?: TtscLintRuleSetting;
+
+  /** prefers native JSX tags over div/span plus an equivalent role. */
+  "jsx-a11y/prefer-tag-over-role"?: TtscLintRuleSetting;
+
+  /** requires ARIA properties mandated by the element role. */
+  "jsx-a11y/role-has-required-aria-props"?: TtscLintRuleSetting;
+
+  /** rejects ARIA properties unsupported by the element role. */
+  "jsx-a11y/role-supports-aria-props"?: TtscLintRuleSetting;
+
+  /** restricts scope to table header cells. */
+  "jsx-a11y/scope"?: TtscLintRuleSetting;
+
+  /** rejects positive tabIndex values. */
+  "jsx-a11y/tabindex-no-positive"?: TtscLintRuleSetting;
+
   /** Enforce functional parameter style: no rest args/`arguments`, and optional parameter-count policy. */
   "functional/functional-parameters"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalParametersRuleOptions>;
 

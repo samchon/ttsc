@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-160+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
+170+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
@@ -223,13 +223,13 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path and engine-focused families with package-local Go coverage, such as `boundaries/*` and `security/*`, link to their Go tests. Each rule below links to its tested fixture where one exists:
+
 Vitest source rules use the `vitest/*` namespace. The native set focuses on
 high-confidence AST checks shared with Jest-style test linting: focused or
 disabled tests, duplicate titles, missing or conditional assertions, standalone
 `expect` calls, done callbacks, invalid `expect` chains, invalid titles,
 returned test values, and `.length` assertions that should use `toHaveLength`.
-
-Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path and engine-focused families with package-local Go coverage, such as `boundaries/*` and `security/*`, link to their Go tests. Each rule below links to its tested fixture where one exists:
 
 Storybook projects can enable the `storybook/*` family on `*.stories.ts(x)` and `.storybook/main.ts` files. It covers CSF metadata shape, named story exports, deprecated `storiesOf`, interaction-test imports, direct renderer-package imports, and addon installation checks. `storybook/no-uninstalled-addons` accepts `{ packageJsonLocation?: string; ignore?: string[] }`; without an explicit path it walks upward from the linted Storybook config file to find `package.json`.
 
@@ -462,6 +462,12 @@ The `security/*` family ports the TypeScript-source-relevant `eslint-plugin-secu
 - `security/detect-possible-timing-attacks`: detects direct equality comparisons involving secret-like identifiers.
 - `security/detect-pseudoRandomBytes`: detects `crypto.pseudoRandomBytes`.
 - `security/detect-unsafe-regex`: detects high-confidence catastrophic backtracking regex shapes.
+
+### JSX accessibility
+
+`jsx-a11y/*` rules are available for TSX projects that want native accessibility diagnostics without a separate ESLint pass. They mirror TSX-applicable checks from `eslint-plugin-jsx-a11y` for intrinsic JSX elements and are diagnostic-only. Component alias settings, router-specific anchor settings, and autofixes are deferred.
+
+Implemented rules: `jsx-a11y/alt-text`, `jsx-a11y/anchor-has-content`, `jsx-a11y/anchor-is-valid`, `jsx-a11y/aria-activedescendant-has-tabindex`, `jsx-a11y/aria-props`, `jsx-a11y/aria-proptypes`, `jsx-a11y/aria-role`, `jsx-a11y/aria-unsupported-elements`, `jsx-a11y/autocomplete-valid`, `jsx-a11y/click-events-have-key-events`, `jsx-a11y/control-has-associated-label`, `jsx-a11y/heading-has-content`, `jsx-a11y/html-has-lang`, `jsx-a11y/iframe-has-title`, `jsx-a11y/img-redundant-alt`, `jsx-a11y/interactive-supports-focus`, `jsx-a11y/label-has-associated-control`, `jsx-a11y/label-has-for`, `jsx-a11y/lang`, `jsx-a11y/media-has-caption`, `jsx-a11y/mouse-events-have-key-events`, `jsx-a11y/no-access-key`, `jsx-a11y/no-aria-hidden-on-focusable`, `jsx-a11y/no-autofocus`, `jsx-a11y/no-distracting-elements`, `jsx-a11y/no-interactive-element-to-noninteractive-role`, `jsx-a11y/no-noninteractive-element-interactions`, `jsx-a11y/no-noninteractive-element-to-interactive-role`, `jsx-a11y/no-noninteractive-tabindex`, `jsx-a11y/no-redundant-roles`, `jsx-a11y/no-static-element-interactions`, `jsx-a11y/prefer-tag-over-role`, `jsx-a11y/role-has-required-aria-props`, `jsx-a11y/role-supports-aria-props`, `jsx-a11y/scope`, and `jsx-a11y/tabindex-no-positive`.
 
 ## Third-party rule plugins
 

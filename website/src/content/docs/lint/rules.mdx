@@ -217,6 +217,53 @@ These diagnostics are not autofixable. A boundary violation usually needs a publ
 | ---- | ------ |
 | `react-refresh/only-export-components` | Reject non-component exports in TSX component modules so React Fast Refresh can preserve component state. Supports `extraHOCs`, `allowExportNames`, `allowConstantExport`, and `checkJS` options. |
 
+## JSX accessibility
+
+The `jsx-a11y/*` rules mirror TSX-applicable checks from `eslint-plugin-jsx-a11y`
+for intrinsic JSX elements. They are diagnostic-only in this release. Component
+alias settings and router-specific anchor settings are deferred, so these rules
+focus on static tag, attribute, role, and child-content checks that the TypeScript
+AST can prove locally.
+
+| Rule | Effect |
+| ---- | ------ |
+| `jsx-a11y/alt-text` | Require text alternatives on `img`, `area`, image inputs, and `object`. |
+| `jsx-a11y/anchor-has-content` | Reject empty anchors without text or an accessible label. |
+| `jsx-a11y/anchor-is-valid` | Reject missing, empty, hash-only, and `javascript:` anchor href values. |
+| `jsx-a11y/aria-activedescendant-has-tabindex` | Require `tabIndex` on elements with `aria-activedescendant`. |
+| `jsx-a11y/aria-props` | Reject unknown `aria-*` attributes. |
+| `jsx-a11y/aria-proptypes` | Validate statically known ARIA boolean, tristate, and numeric values. |
+| `jsx-a11y/aria-role` | Reject unknown ARIA role tokens. |
+| `jsx-a11y/aria-unsupported-elements` | Reject ARIA attributes and roles on unsupported elements such as `meta`. |
+| `jsx-a11y/autocomplete-valid` | Reject unknown literal `autocomplete` / `autoComplete` tokens. |
+| `jsx-a11y/click-events-have-key-events` | Require keyboard handlers alongside `onClick` on non-interactive elements. |
+| `jsx-a11y/control-has-associated-label` | Require interactive controls to have an accessible label. |
+| `jsx-a11y/heading-has-content` | Reject empty headings. |
+| `jsx-a11y/html-has-lang` | Require `lang` on `html`. |
+| `jsx-a11y/iframe-has-title` | Require non-empty iframe titles. |
+| `jsx-a11y/img-redundant-alt` | Reject redundant words such as image, photo, and picture in image alt text. |
+| `jsx-a11y/interactive-supports-focus` | Require focusability for elements with interactive roles. |
+| `jsx-a11y/label-has-associated-control` | Require labels to reference or wrap a control. |
+| `jsx-a11y/label-has-for` | Compatibility alias for label association checks. |
+| `jsx-a11y/lang` | Validate statically known `lang` values. |
+| `jsx-a11y/media-has-caption` | Require caption or subtitle tracks under `audio` and `video`. |
+| `jsx-a11y/mouse-events-have-key-events` | Pair mouseover/mouseout handlers with focus/blur handlers. |
+| `jsx-a11y/no-access-key` | Reject `accessKey`. |
+| `jsx-a11y/no-aria-hidden-on-focusable` | Reject `aria-hidden` on focusable elements. |
+| `jsx-a11y/no-autofocus` | Reject `autoFocus` / `autofocus`. |
+| `jsx-a11y/no-distracting-elements` | Reject `blink` and `marquee`. |
+| `jsx-a11y/no-interactive-element-to-noninteractive-role` | Reject non-interactive roles on native interactive elements. |
+| `jsx-a11y/no-noninteractive-element-interactions` | Reject interaction handlers on known non-interactive elements. |
+| `jsx-a11y/no-noninteractive-element-to-interactive-role` | Reject interactive roles on known non-interactive elements. |
+| `jsx-a11y/no-noninteractive-tabindex` | Reject `tabIndex` on non-interactive elements. |
+| `jsx-a11y/no-redundant-roles` | Reject explicit roles that duplicate native semantics. |
+| `jsx-a11y/no-static-element-interactions` | Require a role on static elements with interaction handlers. |
+| `jsx-a11y/prefer-tag-over-role` | Prefer native tags over `div` / `span` plus equivalent roles. |
+| `jsx-a11y/role-has-required-aria-props` | Require ARIA properties mandated by a role. |
+| `jsx-a11y/role-supports-aria-props` | Reject ARIA properties unsupported by a role. |
+| `jsx-a11y/scope` | Restrict `scope` to `th`. |
+| `jsx-a11y/tabindex-no-positive` | Reject positive `tabIndex` values. |
+
 ## Promises and async
 
 | Rule | Effect |
