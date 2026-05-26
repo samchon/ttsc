@@ -295,6 +295,24 @@ These rules mirror `eslint-plugin-testing-library` names under the `testing-libr
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Vitest
+
+| Rule | Effect |
+| ---- | ------ |
+| `vitest/expect-expect` | Reject Vitest tests that do not contain an assertion call. |
+| `vitest/no-conditional-expect` | Reject `expect` calls guarded by conditionals inside tests. |
+| `vitest/no-conditional-tests` | Reject `test`, `it`, and `describe` declarations inside conditional control flow. |
+| `vitest/no-disabled-tests` | Reject `test.skip`, `test.todo`, and `x*` disabled test declarations. |
+| `vitest/no-done-callback` | Reject done-callback parameters in tests and hooks. |
+| `vitest/no-focused-tests` | Reject focused tests such as `test.only` and `describe.only`. |
+| `vitest/no-identical-title` | Reject duplicate static titles within the same suite scope. |
+| `vitest/no-standalone-expect` | Reject `expect` calls outside tests and hooks. |
+| `vitest/no-test-return-statement` | Reject `return` statements directly inside test callbacks. |
+| `vitest/prefer-to-have-length` | Prefer `toHaveLength` over asserting on `.length`. |
+| `vitest/valid-describe-callback` | Require `describe` callbacks to be synchronous functions. |
+| `vitest/valid-expect` | Require `expect(...)` to have an argument and a matcher call. |
+| `vitest/valid-title` | Require non-empty static titles for Vitest tests and suites. |
+
 ## Jest
 
 These rules mirror high-confidence `eslint-plugin-jest` checks under the

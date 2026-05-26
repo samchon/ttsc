@@ -222,6 +222,12 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+Vitest source rules use the `vitest/*` namespace. The native set focuses on
+high-confidence AST checks shared with Jest-style test linting: focused or
+disabled tests, duplicate titles, missing or conditional assertions, standalone
+`expect` calls, done callbacks, invalid `expect` chains, invalid titles,
+returned test values, and `.length` assertions that should use `toHaveLength`.
+
 Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path and engine-focused families with package-local Go coverage, such as `boundaries/*` and `security/*`, link to their Go tests. Each rule below links to its tested fixture where one exists:
 
 Storybook projects can enable the `storybook/*` family on `*.stories.ts(x)` and `.storybook/main.ts` files. It covers CSF metadata shape, named story exports, deprecated `storiesOf`, interaction-test imports, direct renderer-package imports, and addon installation checks. `storybook/no-uninstalled-addons` accepts `{ packageJsonLocation?: string; ignore?: string[] }`; without an explicit path it walks upward from the linted Storybook config file to find `package.json`.

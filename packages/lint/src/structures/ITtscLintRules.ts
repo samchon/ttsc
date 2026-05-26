@@ -851,6 +851,45 @@ export interface ITtscLintRules {
   /** requires `var` declarations at the top of their scope. */
   "vars-on-top"?: TtscLintRuleSetting;
 
+  /** requires every Vitest test body to contain an assertion. */
+  "vitest/expect-expect"?: TtscLintRuleSetting;
+
+  /** rejects Vitest assertions inside conditional control flow. */
+  "vitest/no-conditional-expect"?: TtscLintRuleSetting;
+
+  /** rejects Vitest test declarations inside conditional control flow. */
+  "vitest/no-conditional-tests"?: TtscLintRuleSetting;
+
+  /** rejects skipped or todo Vitest tests. */
+  "vitest/no-disabled-tests"?: TtscLintRuleSetting;
+
+  /** rejects done-callback parameters in Vitest tests and hooks. */
+  "vitest/no-done-callback"?: TtscLintRuleSetting;
+
+  /** rejects focused Vitest tests such as `test.only`. */
+  "vitest/no-focused-tests"?: TtscLintRuleSetting;
+
+  /** rejects duplicate Vitest titles within the same suite scope. */
+  "vitest/no-identical-title"?: TtscLintRuleSetting;
+
+  /** rejects `expect` calls outside Vitest tests and hooks. */
+  "vitest/no-standalone-expect"?: TtscLintRuleSetting;
+
+  /** rejects return statements directly inside Vitest test callbacks. */
+  "vitest/no-test-return-statement"?: TtscLintRuleSetting;
+
+  /** prefers `toHaveLength` over asserting on `.length`. */
+  "vitest/prefer-to-have-length"?: TtscLintRuleSetting;
+
+  /** requires synchronous function callbacks for `describe`. */
+  "vitest/valid-describe-callback"?: TtscLintRuleSetting;
+
+  /** requires `expect(...)` to receive an argument and reach a matcher. */
+  "vitest/valid-expect"?: TtscLintRuleSetting;
+
+  /** requires non-empty static Vitest titles. */
+  "vitest/valid-title"?: TtscLintRuleSetting;
+
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
