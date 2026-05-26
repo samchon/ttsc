@@ -154,7 +154,7 @@ func (s *reactRefreshScan) handleStatement(stmt *shimast.Node) {
       s.handleFunctionDeclaration(stmt)
       return
     }
-    if isReactComponentName(identifierText(stmt.Name())) {
+    if isReactRefreshComponentName(identifierText(stmt.Name())) {
       s.localComponents = append(s.localComponents, stmt.Name())
     }
 
@@ -229,7 +229,7 @@ func (s *reactRefreshScan) collectLocalVariableComponents(node *shimast.Node) {
   }
   for _, declNode := range list.Declarations.Nodes {
     decl := declNode.AsVariableDeclaration()
-    if decl == nil || decl.Initializer == nil || !isReactComponentName(identifierText(decl.Name())) {
+    if decl == nil || decl.Initializer == nil || !isReactRefreshComponentName(identifierText(decl.Name())) {
       continue
     }
     if s.isExpressionReactComponent(decl.Initializer) != reactComponentExpressionNo {
@@ -253,7 +253,7 @@ func (s *reactRefreshScan) handleClassDeclaration(node *shimast.Node) {
     s.ctx.Report(node, reactRefreshAnonymousMessage)
     return
   }
-  if isReactComponentName(identifierText(name)) && classHasRenderMethod(node) {
+  if isReactRefreshComponentName(identifierText(name)) && classHasRenderMethod(node) {
     s.hasReactExport = true
     return
   }
@@ -303,7 +303,7 @@ func (s *reactRefreshScan) handleExportIdentifier(nameNode *shimast.Node, init *
     return
   }
   if init == nil {
-    if isReactComponentName(name) {
+    if isReactRefreshComponentName(name) {
       s.hasReactExport = true
       return
     }
@@ -319,7 +319,7 @@ func (s *reactRefreshScan) handleExportIdentifier(nameNode *shimast.Node, init *
     s.reactContextExports = append(s.reactContextExports, nameNode)
     return
   }
-  if isReactComponentName(name) && s.isExpressionReactComponent(init) != reactComponentExpressionNo {
+  if isReactRefreshComponentName(name) && s.isExpressionReactComponent(init) != reactComponentExpressionNo {
     s.hasReactExport = true
     return
   }
@@ -350,7 +350,7 @@ func (s *reactRefreshScan) report() {
   }
 }
 
-func isReactComponentName(name string) bool {
+func isReactRefreshComponentName(name string) bool {
   if name == "" {
     return false
   }
@@ -398,7 +398,7 @@ func (s *reactRefreshScan) isExpressionReactComponent(node *shimast.Node) reactC
   }
   switch node.Kind {
   case shimast.KindIdentifier:
-    if isReactComponentName(identifierText(node)) {
+    if isReactRefreshComponentName(identifierText(node)) {
       return reactComponentExpressionYes
     }
   case shimast.KindArrowFunction:
@@ -408,7 +408,7 @@ func (s *reactRefreshScan) isExpressionReactComponent(node *shimast.Node) reactC
     if name == "" {
       return reactComponentExpressionNeedName
     }
-    if isReactComponentName(name) {
+    if isReactRefreshComponentName(name) {
       return reactComponentExpressionYes
     }
   case shimast.KindConditionalExpression:
@@ -453,7 +453,7 @@ func (s *reactRefreshScan) isCallExpressionReactComponent(node *shimast.Node) re
   }
   switch arg.Kind {
   case shimast.KindIdentifier:
-    if isReactComponentName(identifierText(arg)) {
+    if isReactRefreshComponentName(identifierText(arg)) {
       return reactComponentExpressionYes
     }
   case shimast.KindFunctionExpression:
@@ -461,7 +461,7 @@ func (s *reactRefreshScan) isCallExpressionReactComponent(node *shimast.Node) re
     if name == "" {
       return reactComponentExpressionNeedName
     }
-    if isReactComponentName(name) {
+    if isReactRefreshComponentName(name) {
       return reactComponentExpressionYes
     }
   case shimast.KindArrowFunction:
