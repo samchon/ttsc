@@ -893,6 +893,57 @@ export interface ITtscLintRules {
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
+  /** requires every `then()` callback to return or throw. */
+  "promise/always-return"?: TtscLintRuleSetting;
+
+  /** discourages direct `new Promise(...)` construction outside adapters. */
+  "promise/avoid-new"?: TtscLintRuleSetting;
+
+  /** requires unreturned promise chains to end with `catch()`. */
+  "promise/catch-or-return"?: TtscLintRuleSetting;
+
+  /** rejects callback invocations inside `then()`/`catch()` handlers. */
+  "promise/no-callback-in-promise"?: TtscLintRuleSetting;
+
+  /** detects Promise executors that resolve or reject more than once. */
+  "promise/no-multiple-resolved"?: TtscLintRuleSetting;
+
+  /** rejects implicit use of the native global `Promise`. */
+  "promise/no-native"?: TtscLintRuleSetting;
+
+  /** rejects nested `then()`/`catch()` calls inside promise callbacks. */
+  "promise/no-nesting"?: TtscLintRuleSetting;
+
+  /** rejects `new Promise.resolve()` and other constructed Promise statics. */
+  "promise/no-new-statics"?: TtscLintRuleSetting;
+
+  /** rejects promise chains inside error-first callbacks. */
+  "promise/no-promise-in-callback"?: TtscLintRuleSetting;
+
+  /** rejects returning a value from a promise `finally()` callback. */
+  "promise/no-return-in-finally"?: TtscLintRuleSetting;
+
+  /** rejects `return Promise.resolve(...)` and `Promise.reject(...)` from promise callbacks. */
+  "promise/no-return-wrap"?: TtscLintRuleSetting;
+
+  /** enforces `resolve`/`reject` executor parameter names. */
+  "promise/param-names"?: TtscLintRuleSetting;
+
+  /** prefers async/await to callback-shaped APIs. */
+  "promise/prefer-await-to-callbacks"?: TtscLintRuleSetting;
+
+  /** prefers `await` over `then()`/`catch()`/`finally()` chains. */
+  "promise/prefer-await-to-then"?: TtscLintRuleSetting;
+
+  /** prefers `catch()` over the second argument to `then()`. */
+  "promise/prefer-catch"?: TtscLintRuleSetting;
+
+  /** rejects non-standard `Promise` static and prototype methods. */
+  "promise/spec-only"?: TtscLintRuleSetting;
+
+  /** enforces argument counts for Promise statics and chain methods. */
+  "promise/valid-params"?: TtscLintRuleSetting;
+
   /** requires a supported `display` query on Google Fonts stylesheet links. */
   "nextjs/google-font-display"?: TtscLintRuleSetting;
 

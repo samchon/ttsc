@@ -225,6 +225,30 @@ These diagnostics are not autofixable. A boundary violation usually needs a publ
 | `no-async-promise-executor` | Reject `new Promise(async (...) => ...)`. |
 | `no-promise-executor-return` | Reject `return` inside a Promise executor. |
 
+## Promise plugin
+
+The `promise/*` family covers the TypeScript-source-relevant rule surface from `eslint-plugin-promise@7.3.0`.
+
+| Rule | Effect |
+| ---- | ------ |
+| `promise/always-return` | Require every `then()` callback to return or throw. |
+| `promise/avoid-new` | Discourage direct `new Promise(...)` construction outside adapter utilities. |
+| `promise/catch-or-return` | Require unreturned promise chains to end with `catch()`. |
+| `promise/no-callback-in-promise` | Reject callback invocations inside `then()`/`catch()` handlers. |
+| `promise/no-multiple-resolved` | Detect Promise executors that call `resolve`/`reject` more than once. |
+| `promise/no-native` | Reject implicit use of the native global `Promise` in ES5-targeted code. |
+| `promise/no-nesting` | Reject nested `then()`/`catch()` calls inside promise callbacks. |
+| `promise/no-new-statics` | Reject `new Promise.resolve()` and other constructed Promise statics. |
+| `promise/no-promise-in-callback` | Reject promise chains inside error-first callbacks. |
+| `promise/no-return-in-finally` | Reject returning a value from a promise `finally()` callback. |
+| `promise/no-return-wrap` | Reject `return Promise.resolve(...)` and `Promise.reject(...)` from promise callbacks. |
+| `promise/param-names` | Enforce `resolve`/`reject` executor parameter names. |
+| `promise/prefer-await-to-callbacks` | Prefer async/await to callback-shaped APIs. |
+| `promise/prefer-await-to-then` | Prefer `await` over `then()`/`catch()`/`finally()` chains. |
+| `promise/prefer-catch` | Prefer `catch()` over the second argument to `then()`. |
+| `promise/spec-only` | Reject non-standard `Promise` static and prototype methods. |
+| `promise/valid-params` | Enforce argument counts for Promise statics and chain methods. |
+
 ## Solid
 
 The `solid/*` family mirrors `eslint-plugin-solid` rule names for TSX files. The native implementation uses direct AST patterns and activates Solid-specific reports after Solid imports are present; `solid/jsx-uses-vars` is registered for config compatibility but does not emit diagnostics because @ttsc/lint does not run ESLint's unused-variable scope marker.
