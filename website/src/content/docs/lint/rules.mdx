@@ -13,6 +13,42 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-var` | Reject `var`. Use `let` or `const`. Autofixable. |
 | `prefer-const` | When a `let` is never reassigned, demand `const`. Autofixable for single declarations. |
 
+## Cypress
+
+These rules inspect high-confidence Cypress and Mocha test shapes in TS/TSX specs, including `cy.*` command chains and `it` / `before` callbacks.
+
+| Rule | Effect |
+| ---- | ------ |
+| `cypress/assertion-before-screenshot` | Require a Cypress assertion before `cy.screenshot()`. |
+| `cypress/no-and` | Prefer `.should()` over `.and()` when starting Cypress assertion chains. |
+| `cypress/no-assigning-return-values` | Reject assigning the return value of Cypress commands. |
+| `cypress/no-async-before` | Reject async `before` and `beforeEach` callbacks. |
+| `cypress/no-async-tests` | Reject async Cypress test callbacks. |
+| `cypress/no-chained-get` | Reject chained `.get()` calls; use `.find()` from the previous subject. |
+| `cypress/no-debug` | Reject `cy.debug()` and chained `.debug()` commands. |
+| `cypress/no-force` | Reject `{ force: true }` on Cypress action commands. |
+| `cypress/no-pause` | Reject `cy.pause()` and chained `.pause()` commands. |
+| `cypress/no-unnecessary-waiting` | Reject numeric `cy.wait(...)` sleeps. |
+| `cypress/no-xpath` | Reject deprecated `cy.xpath()` selectors. |
+| `cypress/require-data-selectors` | Require statically known `cy.get()` selectors to target `data-*` attributes. |
+| `cypress/unsafe-to-chain-command` | Reject chaining more commands after Cypress action commands. Option: `{ methods?: string[] }`. |
+
+## Directive comments
+
+These rules inspect `eslint-disable` / `eslint-enable` comments and the matching `lint-disable` aliases supported by `@ttsc/lint`.
+
+| Rule | Effect |
+| ---- | ------ |
+| `eslint-comments/disable-enable-pair` | Require range `eslint-disable` directives to have a later matching `eslint-enable`. Option: `{ allowWholeFile?: boolean }`. |
+| `eslint-comments/no-aggregating-enable` | Reject bare `eslint-enable` comments that re-enable named disables at once. |
+| `eslint-comments/no-duplicate-disable` | Reject repeated disables for a rule that is already disabled. |
+| `eslint-comments/no-restricted-disable` | Reject disables for configured protected rules. Option: `{ rules: string[] }`. |
+| `eslint-comments/no-unlimited-disable` | Reject disable comments with no explicit rule list. |
+| `eslint-comments/no-unused-disable` | Reject disable comments that suppress no diagnostic. |
+| `eslint-comments/no-unused-enable` | Reject enable comments that do not re-enable anything. |
+| `eslint-comments/no-use` | Reject lint directive comments entirely. Option: `{ allow?: string[] }`. |
+| `eslint-comments/require-description` | Require directive comments to include a `--` description. |
+
 ## Equality and comparison
 
 | Rule | Effect |
@@ -44,6 +80,43 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `no-loss-of-precision` | Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. |
 | `no-template-curly-in-string` | Reject `${}` inside non-template strings (probably a bug). |
 
+## Documentation comments
+
+| Rule | Effect |
+| ---- | ------ |
+| `tsdoc/syntax` | Validate basic TSDoc syntax in `/** ... */` comments, including malformed block tags and malformed or unclosed inline tags. |
+
+## Regular expressions
+
+The first `regexp/*` wave mirrors high-confidence `eslint-plugin-regexp`
+checks for regex literals. Dynamic `RegExp("...")` constructor strings are
+deferred until the lint engine has a shared literal-value helper.
+
+| Rule | Effect |
+| ---- | ------ |
+| `regexp/no-control-character` | Reject control characters in regex literals. Alias of the older bare regex check. |
+| `regexp/no-dupe-characters-character-class` | Reject duplicate literal characters in simple character classes. |
+| `regexp/no-empty-alternative` | Reject empty alternatives such as `/a\|\|b/`. |
+| `regexp/no-empty-capturing-group` | Reject empty capturing groups such as `/()/`. |
+| `regexp/no-empty-character-class` | Reject empty character classes. Alias of `no-empty-character-class`. |
+| `regexp/no-empty-group` | Reject empty non-capturing groups such as `/(?:)/`. |
+| `regexp/no-empty-lookarounds-assertion` | Reject empty lookaround assertions such as `/(?=)/`. |
+| `regexp/no-misleading-unicode-character` | Reject misleading Unicode characters in character classes. Alias of the older bare misleading-character check. |
+| `regexp/no-useless-character-class` | Reject single literal character classes such as `/[x]/`. |
+| `regexp/no-useless-escape` | Reject unnecessary regex escapes. Alias of `no-useless-escape` for regex literals. |
+| `regexp/no-useless-flag` | Reject flags that do not affect the literal, such as `/\d+/i`. |
+| `regexp/no-useless-quantifier` | Reject exact-one quantifiers such as `/a{1}/`. |
+| `regexp/no-useless-two-nums-quantifier` | Reject equal min/max quantifiers such as `/a{2,2}/`. |
+| `regexp/no-zero-quantifier` | Reject zero-repeat quantifiers such as `/a{0}/`. |
+| `regexp/prefer-d` | Prefer `\d` over `[0-9]`. |
+| `regexp/prefer-plus-quantifier` | Prefer `+` over `{1,}`. |
+| `regexp/prefer-question-quantifier` | Prefer `?` over `{0,1}`. |
+| `regexp/prefer-star-quantifier` | Prefer `*` over `{0,}`. |
+| `regexp/prefer-w` | Prefer `\w` over `[A-Za-z0-9_]`. |
+| `regexp/require-unicode-regexp` | Require the `u` or `v` flag. |
+| `regexp/require-unicode-sets-regexp` | Require the `v` flag. |
+| `regexp/sort-flags` | Require canonical flag order. |
+
 ## Wrapper objects and prototypes
 
 | Rule | Effect |
@@ -68,6 +141,75 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 | `consistent-type-imports` | Prefer `import type {}` when imports are types-only. |
 | `no-require-imports` | Reject `require(...)` outside CommonJS modules. |
 | `no-useless-empty-export` | Reject redundant empty `export {}` declarations in files that already use import/export syntax. |
+
+## Storybook
+
+Apply these to `*.stories.ts`, `*.stories.tsx`, and `.storybook/main.ts` files as appropriate.
+
+| Rule | Effect |
+| ---- | ------ |
+| `storybook/await-interactions` | Requires awaiting Storybook interaction helpers such as `userEvent`, `waitFor`, `findBy*`, and composed `play` calls. |
+| `storybook/context-in-play-function` | Requires passing the active context when invoking another story's `play` function. |
+| `storybook/csf-component` | Requires default CSF meta to declare `component`. |
+| `storybook/default-exports` | Requires story files to export default CSF metadata. |
+| `storybook/hierarchy-separator` | Rejects deprecated `|` separators in `title` metadata. |
+| `storybook/meta-inline-properties` | Requires statically inline `title` and `args` meta properties. |
+| `storybook/meta-satisfies-type` | Requires CSF meta objects to use TypeScript `satisfies`. |
+| `storybook/no-redundant-story-name` | Rejects `name` / `storyName` metadata that duplicates the export-derived story name. |
+| `storybook/no-renderer-packages` | Rejects direct imports from renderer packages such as `@storybook/react`; use framework packages instead. |
+| `storybook/no-stories-of` | Rejects deprecated `storiesOf` imports and calls. |
+| `storybook/no-title-property-in-meta` | Rejects explicit `title` in CSF strict meta. |
+| `storybook/no-uninstalled-addons` | Validates Storybook addon names in `.storybook/main.ts` against `dependencies` and `devDependencies`. Options: `{ packageJsonLocation?: string; ignore?: string[] }`. |
+| `storybook/prefer-pascal-case` | Requires PascalCase named story exports. |
+| `storybook/story-exports` | Requires at least one usable named story export after `includeStories` / `excludeStories` filtering. |
+| `storybook/use-storybook-expect` | Requires importing `expect` from Storybook's test packages instead of using a global. |
+| `storybook/use-storybook-testing-library` | Rejects direct `@testing-library/*` imports in story files; import through `storybook/test`. |
+
+## Architecture boundaries
+
+These rules are inspired by `eslint-plugin-boundaries`, but `@ttsc/lint` implements a conservative TypeScript source-path subset. They inspect static `import` and `export ... from` module specifiers, resolve relative imports to real source files, and classify files with the rule option's `elements` array.
+
+| Rule | Effect |
+| ---- | ------ |
+| `boundaries/element-types` | Enforce allowed dependency directions between configured source-path element types. |
+| `boundaries/external` | Restrict external package imports by package/specifier pattern. |
+| `boundaries/entry-point` | Require imports into an element to target that element's configured public entry files. |
+| `boundaries/no-private` | Reject imports of configured private files from outside their element. |
+| `boundaries/no-unknown` | Reject relative imports whose resolved source file matches no configured element. |
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "boundaries/element-types": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts", private: "internal/**" },
+      ],
+      rules: [{ from: "app", disallow: "domain" }],
+    }],
+    "boundaries/entry-point": ["error", {
+      elements: [
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts" },
+      ],
+    }],
+    "boundaries/no-private": ["error", {
+      elements: [
+        { type: "domain", pattern: "src/domain/**", private: "internal/**" },
+      ],
+    }],
+    "boundaries/no-unknown": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**" },
+      ],
+    }],
+    "boundaries/external": ["error", { disallow: ["@legacy/sdk"] }],
+  },
+};
+```
+
+These diagnostics are not autofixable. A boundary violation usually needs a public API, a dependency inversion, or a config decision; rewriting the import path automatically would be unsafe.
 
 ## React Fast Refresh
 
@@ -152,6 +294,135 @@ These rules mirror `eslint-plugin-testing-library` names under the `testing-libr
 | `no-empty-function` | Reject `function f() {}`. |
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
+
+## Functional Policy
+
+The `functional/*` family is an opt-in strictness pack for projects that want
+immutable, expression-oriented TypeScript. These rules are intentionally not
+core defaults because they encode a programming style, not just bug prevention.
+They are diagnostic-only; `ttsc fix` does not rewrite architecture or control
+flow choices automatically.
+
+| Rule | Effect |
+| ---- | ------ |
+| `functional/functional-parameters` | Reject rest parameters, `arguments`, and optionally zero-parameter functions. |
+| `functional/immutable-data` | Reject writes through object/array members and mutable collection methods. |
+| `functional/no-class-inheritance` | Reject class inheritance and abstract classes. |
+| `functional/no-classes` | Reject class declarations and expressions. |
+| `functional/no-conditional-statements` | Reject `if` and `switch` statements. |
+| `functional/no-expression-statements` | Reject expression statements used for side effects. |
+| `functional/no-let` | Reject `let` declarations. |
+| `functional/no-loop-statements` | Reject imperative loop statements. |
+| `functional/no-mixed-types` | Reject type/interface declarations that mix member shapes. |
+| `functional/no-promise-reject` | Reject `Promise.reject(...)`. |
+| `functional/no-return-void` | Reject void returns and void-returning declarations. |
+| `functional/no-this-expressions` | Reject `this` expressions. |
+| `functional/no-throw-statements` | Reject `throw` statements. |
+| `functional/no-try-statements` | Reject `try`/`catch`/`finally` statements. |
+| `functional/prefer-immutable-types` | Prefer readonly/immutable type annotations. |
+| `functional/prefer-property-signatures` | Prefer function-property signatures over method signatures. |
+| `functional/prefer-readonly-type` | Require readonly array, tuple, and property type syntax. |
+| `functional/prefer-tacit` | Report simple one-argument forwarding wrappers. |
+| `functional/readonly-type` | Enforce the configured readonly type spelling. |
+| `functional/type-declaration-immutability` | Require matching type declarations to expose readonly member shapes. |
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "functional/no-let": "error",
+    "functional/no-loop-statements": "error",
+    "functional/no-conditional-statements": "error",
+    "functional/no-throw-statements": "error",
+    "functional/no-try-statements": "error",
+    "functional/no-classes": "error",
+    "functional/immutable-data": "error",
+    "functional/prefer-readonly-type": "error",
+    "functional/type-declaration-immutability": ["error", {
+      rules: [{ identifiers: ".*" }],
+    }],
+  },
+};
+```
+## Playwright
+
+These rules mirror high-confidence `eslint-plugin-playwright` checks under the
+`playwright/*` namespace. The native implementation focuses on TS test-source
+AST patterns that do not require ESLint's scope manager or Playwright runtime
+configuration.
+
+| Rule | Effect |
+| ---- | ------ |
+| `playwright/expect-expect` | Require Playwright test bodies to contain an assertion. |
+| `playwright/max-expects` | Limit excessive assertion counts inside one test body. |
+| `playwright/no-conditional-expect` | Reject `expect` calls inside conditionals. |
+| `playwright/no-conditional-in-test` | Reject conditionals inside Playwright test bodies. |
+| `playwright/no-duplicate-hooks` | Reject duplicate Playwright hooks in the same file. |
+| `playwright/no-duplicate-slow` | Reject repeated `test.slow()` markers. |
+| `playwright/no-element-handle` | Reject direct element-handle APIs such as `$`, `$$`, and `elementHandle`. |
+| `playwright/no-eval` | Reject Playwright page and locator evaluation APIs. |
+| `playwright/no-focused-test` | Reject `test.only` and `test.describe.only`. |
+| `playwright/no-force-option` | Reject `{ force: true }` Playwright action options. |
+| `playwright/no-get-by-title` | Prefer stronger locators over `getByTitle`. |
+| `playwright/no-hooks` | Reject Playwright hook registration. |
+| `playwright/no-nested-step` | Reject nested `test.step()` calls. |
+| `playwright/no-networkidle` | Reject `networkidle` load-state and `waitUntil` usage. |
+| `playwright/no-nth-methods` | Reject brittle `.first()`, `.last()`, and `.nth()` locator indexing. |
+| `playwright/no-page-pause` | Reject committed `page.pause()` debugging calls. |
+| `playwright/no-skipped-test` | Reject `test.skip` and `test.describe.skip`. |
+| `playwright/no-slowed-test` | Reject `test.slow()` usage. |
+| `playwright/no-standalone-expect` | Require `expect` calls to appear inside tests, describes, hooks, or steps. |
+| `playwright/no-wait-for-navigation` | Reject `page.waitForNavigation()`. |
+| `playwright/no-wait-for-selector` | Reject `page.waitForSelector()`. |
+| `playwright/no-wait-for-timeout` | Reject fixed `page.waitForTimeout()` waits. |
+| `playwright/prefer-locator` | Prefer locator APIs over direct page selector calls. |
+| `playwright/prefer-to-have-count` | Prefer `toHaveCount` over count comparisons. |
+| `playwright/prefer-to-have-length` | Prefer `toHaveLength` over length comparisons. |
+| `playwright/prefer-web-first-assertions` | Prefer locator/web-first assertions over awaited state plus generic matchers. |
+| `playwright/require-to-pass-timeout` | Require an explicit timeout option for `expect(...).toPass()`. |
+| `playwright/require-to-throw-message` | Require `toThrow` assertions to include an expected message. |
+| `playwright/valid-describe-callback` | Require `test.describe` callbacks to be synchronous. |
+| `playwright/valid-expect` | Require `expect` calls to receive an actual value. |
+| `playwright/valid-title` | Require Playwright test and describe titles to be non-empty strings. |
+
+## TanStack Query
+
+These rules mirror `@tanstack/eslint-plugin-query` rule names under the
+`@tanstack/query/*` namespace. The native implementation uses TypeScript AST
+patterns that are stable inside the compiler-integrated lint pass; type-only
+edge cases stay conservative.
+
+| Rule | Effect |
+| ---- | ------ |
+| `@tanstack/query/exhaustive-deps` | Require variables read by `queryFn` to also appear in the local `queryKey` array. |
+| `@tanstack/query/infinite-query-property-order` | Require `queryFn` before `getPreviousPageParam` and `getNextPageParam` in infinite query options. |
+| `@tanstack/query/mutation-property-order` | Require `onMutate` before `onError` and `onSettled` in mutation options. |
+| `@tanstack/query/no-rest-destructuring` | Reject object rest destructuring and spreading over TanStack Query hook results. |
+| `@tanstack/query/no-unstable-deps` | Reject whole query or mutation result objects in React dependency arrays. |
+| `@tanstack/query/no-void-query-fn` | Reject AST-local `queryFn` callbacks that return no data. |
+| `@tanstack/query/prefer-query-options` | Prefer extracting inline `queryKey`/`queryFn` options into reusable query options helpers. |
+| `@tanstack/query/stable-query-client` | Reject `new QueryClient()` inside React component or hook bodies. |
+
+## Security
+
+The `security/*` family covers the TypeScript-source-relevant rule surface from `eslint-plugin-security@4.0.0`.
+
+| Rule | Effect |
+| ---- | ------ |
+| `security/detect-bidi-characters` | Detect Trojan Source bidi control characters. |
+| `security/detect-buffer-noassert` | Detect Buffer reads/writes with `noAssert` set to true. |
+| `security/detect-child-process` | Detect child_process imports and non-literal `exec` commands. |
+| `security/detect-disable-mustache-escape` | Detect object assignments that disable mustache-style escaping. |
+| `security/detect-eval-with-expression` | Detect `eval` calls fed by non-literal expressions. |
+| `security/detect-new-buffer` | Detect `new Buffer` with non-literal input. |
+| `security/detect-no-csrf-before-method-override` | Detect Express csrf middleware configured before methodOverride. |
+| `security/detect-non-literal-fs-filename` | Detect filesystem APIs with non-literal filename arguments. |
+| `security/detect-non-literal-regexp` | Detect RegExp construction from non-literal patterns. |
+| `security/detect-non-literal-require` | Detect `require` calls with non-literal module specifiers. |
+| `security/detect-object-injection` | Detect dynamic bracket access sinks. |
+| `security/detect-possible-timing-attacks` | Detect direct equality comparisons involving secret-like identifiers. |
+| `security/detect-pseudoRandomBytes` | Detect `crypto.pseudoRandomBytes`. |
+| `security/detect-unsafe-regex` | Detect high-confidence catastrophic backtracking regex shapes. |
 
 ## Format
 

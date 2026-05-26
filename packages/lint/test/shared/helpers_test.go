@@ -23,7 +23,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([\w-]+)\s+(error|warn)\s*$`)
+var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
 
 type ruleExpectation struct {
   Rule     string
