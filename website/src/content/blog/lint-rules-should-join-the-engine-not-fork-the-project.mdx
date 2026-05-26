@@ -1,0 +1,203 @@
+---
+title: "Lint Rules Should Join The Engine, Not Fork The Project"
+description: "@ttsc/lint contributor packages link Go rule sources into one lint binary, avoiding one process and one Program per rule pack."
+date: "2026-06-10"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - lint
+  - plugins
+  - go
+---
+
+> ## TL;DR
+>
+> Third-party lint rules should not each become a separate compiler process.
+>
+> `@ttsc/lint` supports contributor packages:
+>
+> ```text
+> @ttsc/lint host
+>   + contributor rule package
+>   + another contributor rule package
+>   -> one cached native lint binary
+> ```
+>
+> Rules join the engine.
+>
+> They do not fork the project.
+
+---
+
+## 1. The ESLint Plugin Model Is Familiar
+
+ESLint plugins are easy to understand:
+
+```bash
+npm install -D eslint-plugin-react-hooks
+```
+
+Then config points at the plugin and rules run inside ESLint.
+
+That is the right high-level shape.
+
+The rule package extends the lint engine.
+
+It does not start a second ESLint process.
+
+`@ttsc/lint` needs the same idea, but in a TypeScript-Go world.
+
+---
+
+## 2. Why Separate Processes Would Be Wrong
+
+A naive native lint plugin ecosystem could do this:
+
+```text
+@ttsc/lint
+custom-rule-pack-a
+custom-rule-pack-b
+custom-rule-pack-c
+```
+
+Each as a separate check-stage plugin.
+
+Each loads the project.
+
+Each walks files.
+
+Each asks the checker questions.
+
+That would work functionally.
+
+It would also throw away the whole performance model.
+
+The point of `@ttsc/lint` is to run rules in one native engine over one loaded compiler world.
+
+Rule packs should join that engine.
+
+---
+
+## 3. Contributors
+
+The protocol feature is called `contributors`.
+
+A host plugin can declare additional Go source packages to statically link into its binary.
+
+During plugin build, `ttsc`:
+
+1. copies the host plugin source;
+2. copies contributor sources into scratch space;
+3. generates blank imports so contributor `init()` functions run;
+4. hashes contributor source into the cache key;
+5. builds one binary.
+
+The result is:
+
+```text
+one process
+one lint engine
+one rule registry
+one Program path
+```
+
+That is the important part.
+
+---
+
+## 4. Why Contributors Are Packages, Not Modules
+
+Contributor source is merged into the host plugin's module.
+
+That means a contributor should ship as a Go package, not a separate Go module with its own `go.mod`.
+
+This is deliberate.
+
+If every contributor pulled arbitrary Go modules during consumer builds, the supply-chain surface would be much worse.
+
+The host plugin owns the dependency graph.
+
+The contributor adds rule source.
+
+That is a safer boundary.
+
+---
+
+## 5. What A Rule Wants
+
+A rule wants a few things:
+
+- AST nodes;
+- source text;
+- positions;
+- optional Checker access;
+- a diagnostic builder;
+- optional fix edits;
+- a way to register itself.
+
+It does not need:
+
+- a new TypeScript Program;
+- a new parser;
+- a new process;
+- its own file discovery;
+- a new renderer.
+
+That is why linking into the host is the right shape.
+
+The rule should describe what it visits and what it reports.
+
+The engine should own traversal and output.
+
+---
+
+## 6. The Cache Still Works
+
+Contributors are part of the plugin binary.
+
+So their source hashes enter the cache key.
+
+Change a contributor package, rebuild.
+
+Keep the same contributor set, reuse the binary.
+
+Declaration order does not need to poison the cache. The build path sorts contributor hashes by contributor name.
+
+This matters because large projects should not rebuild native lint binaries just because config order changed.
+
+The logical set of contributors is the identity.
+
+---
+
+## 7. Why This Matters For AI Era Rules
+
+AI coding will create more project-specific rules.
+
+Not only generic rules like `no-var`.
+
+Rules like:
+
+- "generated SDK files cannot be edited";
+- "controller routes must have typed validators";
+- "this package cannot import from that package";
+- "AI-generated migrations must include dry-run support";
+- "public API types must be serializable."
+
+Those rules should be cheap to run.
+
+If every team-specific rule pack adds another project pass, nobody will run them often enough.
+
+Contributor linking is how those rules stay part of the main harness.
+
+---
+
+## 8. The Takeaway
+
+The lint ecosystem should be extensible.
+
+It should also not regress into N separate compiler passes.
+
+`@ttsc/lint` contributors let rule packages join the native engine instead of forking the project.
+
+That is the only extension model that matches the one-compilation-pass goal.

@@ -1,0 +1,241 @@
+---
+title: "The Autofix Loop I Want For TypeScript"
+description: "ttsc fix applies lint and format edits, then re-checks the project. It is the local cleanup command before CI runs ttsc --noEmit."
+date: "2026-06-04"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - lint
+  - dx
+  - ci
+---
+
+> ## TL;DR
+>
+> `ttsc fix` is the aggressive local cleanup command:
+>
+> ```bash
+> npx ttsc fix
+> ```
+>
+> It applies autofixable lint and format edits, then runs a no-emit check.
+>
+> `ttsc format` is narrower:
+>
+> ```bash
+> npx ttsc format
+> ```
+>
+> It applies format rules only.
+>
+> CI usually wants:
+>
+> ```bash
+> npx ttsc --noEmit
+> ```
+
+---
+
+## 1. Autofix Is A Workflow, Not A Checkbox
+
+Autofix sounds simple until you put it in a real project.
+
+Some fixes are purely textual:
+
+```ts
+var x = 1;
+```
+
+becomes:
+
+```ts
+let x = 1;
+```
+
+Some fixes are formatting:
+
+```ts
+const user = { id: "a", name: "Sam", email: "sam@example.com" };
+```
+
+becomes multi-line because it exceeds `printWidth`.
+
+Some fixes are type-aware:
+
+```ts
+await value;
+```
+
+may drop `await` only if the Checker can prove `value` is not thenable.
+
+Those are not the same risk level.
+
+So `@ttsc/lint` gives them different command shapes.
+
+---
+
+## 2. The Three Commands
+
+The mental model:
+
+```text
+ttsc format   -> format-only writes
+ttsc fix      -> lint + format writes, then re-check
+ttsc --noEmit -> diagnostics only
+```
+
+`format` is safe to run often.
+
+`fix` is what you run when you are intentionally cleaning a branch.
+
+`--noEmit` is what CI runs to decide whether the project passes.
+
+That division keeps "write source" and "gate source" from becoming one ambiguous command.
+
+---
+
+## 3. Why `fix` Re-Checks
+
+An autofix pass can change the project.
+
+After it writes files, the only honest next step is to check the result.
+
+That is why `ttsc fix` is not just "apply edits and exit."
+
+The useful local command is:
+
+```bash
+npx ttsc fix
+```
+
+not:
+
+```bash
+npx ttsc fix && npx ttsc --noEmit
+```
+
+The command should tell you whether the fixed project still has errors.
+
+If it exits non-zero, your source can still be modified. That is intentional.
+
+Fixes that were safe to apply should not be rolled back just because other diagnostics remain.
+
+---
+
+## 4. Why `fix` Rejects Watch And Emit
+
+`ttsc fix` is a one-shot project pass.
+
+It rejects combinations like:
+
+```bash
+npx ttsc fix --watch
+npx ttsc fix --emit
+```
+
+That is deliberate.
+
+Fixing source and emitting build artifacts in the same command creates a confusing state:
+
+- Did the emitted output reflect the original source or the fixed source?
+- What happens if a later fix makes a previous emitted file stale?
+- Should watch keep applying edits forever?
+
+The answer is to keep the command narrow.
+
+Run fix.
+
+Review source.
+
+Then build or check.
+
+---
+
+## 5. What Native Fixers Cover
+
+The current native fixer set covers the common wins:
+
+- `no-var`;
+- single-declaration `prefer-const`;
+- safe `eqeqeq`;
+- primitive wrapper object types;
+- `prefer-as-const`;
+- `object-shorthand`;
+- `no-useless-rename`;
+- extra non-null assertions;
+- unnecessary type constraints;
+- namespace keyword;
+- useless escapes;
+- type import hoisting;
+- type-aware `await-thenable`;
+- every format rule.
+
+That list is not "everything ESLint ever fixed."
+
+It is the starter set that lets a TypeScript project clean itself without a second parser and rule runtime.
+
+---
+
+## 6. AI Agents Need This Loop
+
+AI agents are good at producing a lot of code.
+
+They are also good at producing almost-correct code.
+
+That makes the autofix loop more important:
+
+```bash
+npx ttsc format
+npx ttsc fix
+npx ttsc --noEmit
+```
+
+The formatter handles shape.
+
+The fixer handles safe mechanical cleanup.
+
+The checker decides whether the final project is acceptable.
+
+That loop is a harness.
+
+It is not style theater.
+
+---
+
+## 7. The Review Benefit
+
+Autofix should reduce review noise.
+
+If a branch has 50 generated edits and half of them are obvious style or mechanical lint issues, a reviewer should not spend attention on them.
+
+Run the fixers first.
+
+Then review the remaining diff.
+
+The native toolchain helps because diagnostics, fixes, and format rules all speak the same project language.
+
+The reviewer sees fewer accidental distractions.
+
+The project gate stays strict.
+
+---
+
+## 8. The Takeaway
+
+`ttsc fix` is not a magic cleanup wand.
+
+It is a controlled write command.
+
+It applies the fixes the engine knows how to make, then checks the project it produced.
+
+That is the local loop I want before CI:
+
+```bash
+npx ttsc fix
+npx ttsc --noEmit
+```
+
+Fast enough to run often.
+
+Strict enough to trust.

@@ -1,0 +1,217 @@
+---
+title: "Your Editor Should Run The Project's Compiler"
+description: "@ttsc/vscode resolves the workspace-installed ttsc instead of shipping its own compiler, so editor diagnostics match the build."
+date: "2026-06-13"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - vscode
+  - lsp
+  - tooling
+---
+
+> ## TL;DR
+>
+> The VS Code extension for `ttsc` does not try to be the compiler.
+>
+> It resolves the `ttsc` installed in your project and starts that project's `ttscserver`.
+>
+> That matters because editor diagnostics should match the build:
+>
+> ```text
+> same ttsc version
+> same TypeScript-Go version
+> same plugins
+> same lint config
+> same project root
+> ```
+
+---
+
+## 1. Editor Drift Is A Toolchain Smell
+
+You have probably seen this:
+
+```text
+VS Code says fine.
+CI says broken.
+```
+
+or:
+
+```text
+VS Code shows an error.
+The build passes.
+```
+
+Sometimes that is unavoidable.
+
+Often it is because the editor and the build are not using the same toolchain.
+
+Compiler plugins make this more important.
+
+If a plugin reports diagnostics or transforms code in the build, the editor should know about it too.
+
+Otherwise developers learn about project rules too late.
+
+---
+
+## 2. Why The Extension Does Not Bundle ttsc
+
+`@ttsc/vscode` intentionally does not ship its own compiler version.
+
+Instead, it resolves:
+
+```text
+ttsc/lib/launcher/ttscserver.js
+```
+
+from the active file's project or workspace folder.
+
+That means a monorepo package can pin its own `ttsc` version and the editor follows it.
+
+This is the same idea as TypeScript's workspace version selection:
+
+The project owns the compiler.
+
+The editor launches it.
+
+---
+
+## 3. What ttscserver Does
+
+`ttscserver` is the language-server host.
+
+At a high level:
+
+```text
+VS Code
+  -> vscode-languageclient
+  -> project ttscserver
+  -> project tsgo --lsp --stdio
+  -> ttsc plugin diagnostics/code actions
+```
+
+The server wraps the project-selected TypeScript-Go LSP process and merges plugin diagnostics, code actions, and command handlers into the same stream the editor consumes.
+
+Users should not need to think about that protocol shape.
+
+They should see the result:
+
+- lint underlines;
+- plugin diagnostics;
+- quick fixes;
+- command palette actions;
+- same `TSxxxxx`-style errors as the build.
+
+---
+
+## 4. Why Project Resolution Starts At The Active File
+
+Monorepos are normal.
+
+One workspace may contain:
+
+```text
+packages/api
+packages/web
+packages/sdk
+```
+
+Each package may have its own `node_modules`, tsconfig, plugin set, or `@typescript/native-preview` version.
+
+The extension resolves from the active editor path first, then workspace folders.
+
+That makes the local file context matter.
+
+Opening `packages/api/src/main.ts` should not accidentally use the root's unrelated compiler install.
+
+---
+
+## 5. The User Install Is Still Simple
+
+Current install:
+
+```bash
+npm install -D @ttsc/vscode
+npx ttsc-vscode
+```
+
+The installer calls VS Code's `code --install-extension` on the bundled `.vsix`.
+
+Marketplace release can remove that step later.
+
+But the important part will remain:
+
+The extension uses the project `ttsc`.
+
+That is the invariant.
+
+---
+
+## 6. Debugging Should Be Visible
+
+If diagnostics do not appear, users need a place to look.
+
+The extension exposes an output channel.
+
+The settings include:
+
+```json
+{
+  "ttsc.trace.server": "verbose"
+}
+```
+
+and:
+
+```json
+{
+  "ttsc.serverPath": "/absolute/path/to/server"
+}
+```
+
+Most users should not need `serverPath`.
+
+But when debugging a language server, an explicit override is valuable.
+
+Tooling should have escape hatches without making them the common path.
+
+---
+
+## 7. Why This Matters For AI Coding
+
+If an AI agent edits code in the editor, diagnostics should appear immediately.
+
+Not after a full CI run.
+
+Not after a human remembers to run a command.
+
+If the project has a local rule like:
+
+> never call this unsafe helper
+
+or:
+
+> generated SDK files cannot be edited
+
+then that diagnostic belongs in the editor too.
+
+The build gate and editor loop should share the same source of truth.
+
+---
+
+## 8. The Takeaway
+
+The editor should not be a parallel TypeScript universe.
+
+It should be the project compiler with an interactive face.
+
+That is why `@ttsc/vscode` resolves the workspace-installed `ttsc`, starts `ttscserver`, and lets the project own its compiler/plugins.
+
+Same project.
+
+Same diagnostics.
+
+Earlier feedback.

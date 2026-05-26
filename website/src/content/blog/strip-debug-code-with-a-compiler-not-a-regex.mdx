@@ -1,0 +1,211 @@
+---
+title: "Strip Debug Code With A Compiler, Not A Regex"
+description: "@ttsc/strip removes exactly configured statement-level calls and debugger statements during emit, without pretending to be a minifier."
+date: "2026-06-16"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - compiler
+  - plugins
+  - build
+---
+
+> ## TL;DR
+>
+> `@ttsc/strip` is a small plugin with a strict job:
+>
+> ```ts
+> console.log("debug");
+> debugger;
+> ```
+>
+> disappear from emitted output.
+>
+> It is not a minifier.
+>
+> It is not a tree-shaker.
+>
+> It removes exactly the patterns you configure, at statement level, inside the compiler pass.
+
+---
+
+## 1. The Temptation
+
+Every project eventually wants to remove debug noise:
+
+```ts
+console.log("user", user);
+debugger;
+assert.deepStrictEqual(value, expected);
+```
+
+The quick answer is a regex or a minifier option.
+
+The better answer depends on what you mean.
+
+If you want dead-code elimination, use a minifier.
+
+If you want to remove exactly `console.log`, `console.debug`, `assert.*`, and `debugger` statements from TypeScript emit, a compiler plugin is a cleaner shape.
+
+That is `@ttsc/strip`.
+
+---
+
+## 2. Defaults
+
+With no extra config, `@ttsc/strip` removes:
+
+- `console.log`;
+- `console.debug`;
+- `assert.*`;
+- `debugger`.
+
+Setup:
+
+```bash
+npm install -D @ttsc/strip
+```
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "@ttsc/strip" }],
+  },
+}
+```
+
+Run:
+
+```bash
+npx ttsc
+```
+
+The source stays the same.
+
+The emit drops the configured statements.
+
+---
+
+## 3. Custom Patterns
+
+Use `strip.config.ts`:
+
+```ts
+import type { ITtscStripConfig } from "@ttsc/strip";
+
+export default {
+  calls: ["logger.debug", "metrics.devOnly", "assert.*"],
+  statements: ["debugger"],
+} satisfies ITtscStripConfig;
+```
+
+The config is deliberately narrow:
+
+- `calls` are statement-level call expressions;
+- `.*` works as a suffix wildcard;
+- `statements` currently covers `debugger`.
+
+This is not a programmable minifier DSL.
+
+That restraint is the feature.
+
+---
+
+## 4. Statement-Level Means Statement-Level
+
+This is removed:
+
+```ts
+console.log("debug");
+```
+
+This is not:
+
+```ts
+const value = console.log("debug");
+```
+
+Why?
+
+Because the second expression has a value position.
+
+Removing it may change runtime behavior in a way the plugin should not guess about.
+
+`@ttsc/strip` is safe because it refuses to be clever.
+
+It removes configured calls only when the whole statement is the call.
+
+---
+
+## 5. Why Compiler Pass Beats Post-Process
+
+A post-build script sees emitted text.
+
+The compiler pass sees syntax.
+
+That means the plugin can distinguish:
+
+- a call expression;
+- a property access;
+- a statement;
+- a string literal containing the words `console.log`;
+- a comment;
+- declaration emit boundaries.
+
+A regex cannot reliably do that.
+
+The compiler already parsed the project.
+
+Use the parsed tree.
+
+---
+
+## 6. What It Is Good For
+
+Good use cases:
+
+- remove debug logs from production builds;
+- remove `debugger` statements before publishing;
+- strip `assert.*` from package emit when assertions are internal;
+- remove project-specific dev-only wrappers like `metrics.devOnly(...)`.
+
+Bad use cases:
+
+- minification;
+- tree shaking;
+- dead branch pruning;
+- environment replacement;
+- bundler-level code splitting.
+
+Use esbuild, Terser, SWC, or your bundler for those.
+
+---
+
+## 7. The Bigger Point
+
+Small compiler plugins are underrated.
+
+`@ttsc/strip` is not a platform.
+
+It is a narrow emit-time transform that solves one annoying production-build problem.
+
+That is exactly the kind of thing a plugin host should make easy.
+
+Not every plugin needs to be `typia`.
+
+Some should just remove `console.log` without breaking code.
+
+---
+
+## 8. The Takeaway
+
+Strip debug code with syntax, not string search.
+
+Keep the rule narrow.
+
+Keep the source unchanged.
+
+Emit cleaner JavaScript.
+
+That is the whole job.

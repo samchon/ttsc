@@ -1,0 +1,274 @@
+---
+title: "Replace tsc First, Then Replace The Toolchain"
+description: "ttsc can start as a drop-in TypeScript-Go compiler path. The larger eslint/prettier/plugin migration can happen one layer at a time."
+date: "2026-06-05"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - migration
+  - ci
+  - tooling
+---
+
+> ## TL;DR
+>
+> The least risky `ttsc` migration is not "replace everything today."
+>
+> Start with the compiler:
+>
+> ```bash
+> npx ttsc --noEmit
+> ```
+>
+> Then add the pieces that make sense:
+>
+> - `@ttsc/lint`;
+> - `ttsc format`;
+> - `ttsx`;
+> - transform plugins like `typia`;
+> - bundler adapters;
+> - VS Code diagnostics.
+>
+> Make the compiler path boring first.
+
+---
+
+## 1. Big Toolchain Rewrites Fail For Boring Reasons
+
+Developers usually do not reject new tooling because the idea is bad.
+
+They reject it because the migration is too wide.
+
+If one PR changes:
+
+- the compiler;
+- lint rules;
+- formatter output;
+- runtime scripts;
+- bundler config;
+- editor extension;
+- CI cache;
+- generated files;
+
+then nobody can tell what broke.
+
+That is not a tooling problem.
+
+That is a rollout problem.
+
+`ttsc` should be adopted in layers.
+
+---
+
+## 2. Layer One: Replace The Compiler Command
+
+Start here:
+
+```bash
+npx ttsc --noEmit
+```
+
+or:
+
+```bash
+npx ttsc
+```
+
+`ttsc` reads `tsconfig.json` and runs on `@typescript/native-preview`.
+
+If you have no plugins enabled, this is mostly the TypeScript-Go compiler path with the `ttsc` launcher around it.
+
+That is the first thing to prove:
+
+> Can this project type-check and emit through TypeScript-Go?
+
+Do not start by changing every lint rule.
+
+Do not start by changing every formatted file.
+
+Make the compiler path pass first.
+
+---
+
+## 3. Layer Two: Add @ttsc/lint
+
+Once the compiler path is boring, add:
+
+```bash
+npm install -D @ttsc/lint
+```
+
+Then create `lint.config.ts`.
+
+Start with a small set:
+
+```ts
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    eqeqeq: "error",
+    "no-explicit-any": "warning",
+  },
+  format: {
+    printWidth: 100,
+  },
+};
+```
+
+Do not try to recreate a decade of ESLint config in one pass.
+
+Move the rules that matter most.
+
+Let CI prove the new gate.
+
+Then tighten.
+
+---
+
+## 4. Layer Three: Split Format And Fix
+
+Formatting can be the loudest part of a migration.
+
+So make it explicit:
+
+```bash
+npx ttsc format
+```
+
+Commit format churn separately if needed.
+
+Use:
+
+```bash
+npx ttsc fix
+```
+
+when you want lint autofixes too.
+
+Use:
+
+```bash
+npx ttsc --noEmit
+```
+
+as the final gate.
+
+Reviewers will thank you for not mixing semantic code changes with formatting churn.
+
+---
+
+## 5. Layer Four: Replace Script Runners
+
+If you run TypeScript entrypoints with `tsx` or `ts-node`, migrate the important ones to:
+
+```bash
+npx ttsx scripts/seed.ts
+```
+
+Pick scripts where type safety matters:
+
+- database migrations;
+- release scripts;
+- code generators;
+- integration test entrypoints;
+- local admin tools.
+
+`ttsx` type-checks first and runs configured `ttsc` plugins before execution.
+
+That makes it a better fit for scripts that should not run in a broken project.
+
+---
+
+## 6. Layer Five: Add Compiler-Powered Libraries
+
+Now the fun part:
+
+```bash
+npm install -D typia
+```
+
+or:
+
+```bash
+npm install -D typia @nestia/core @nestia/sdk
+```
+
+These packages can be auto-discovered through `package.json#ttsc.plugin`.
+
+At this layer, the user experience should feel like a normal npm package install.
+
+The underlying transform is not normal.
+
+But the edge should be.
+
+---
+
+## 7. Layer Six: Bring The Same Path To Editors And Bundlers
+
+After the CLI is stable, extend the same plugin path to the places developers actually work.
+
+For VS Code:
+
+```bash
+npm install -D @ttsc/vscode
+npx ttsc-vscode
+```
+
+For Vite:
+
+```ts
+import ttsc from "@ttsc/unplugin/vite";
+
+export default {
+  plugins: [ttsc()],
+};
+```
+
+Do this after the CLI works.
+
+The editor and bundler should reflect the project contract, not be the first place you debug it.
+
+---
+
+## 8. Keep tsc During The Transition If You Need To
+
+You can run both:
+
+```bash
+npx tsc --noEmit
+npx ttsc --noEmit
+```
+
+That is not the end state I want.
+
+But it can be useful during migration if a project has conservative CI requirements.
+
+The key is to make the overlap temporary and explicit.
+
+Once `ttsc` is trusted, remove the duplicate pass.
+
+---
+
+## 9. The Takeaway
+
+Do not migrate the whole universe in one PR.
+
+Replace `tsc` first.
+
+Then replace the slow parts one at a time.
+
+`ttsc` is a compiler, a lint host, a runner, a plugin host, an editor path, and a browser playground foundation.
+
+You do not have to adopt all of that on day one.
+
+But every layer should point toward the same final shape:
+
+```bash
+npx ttsc --noEmit
+```
+
+One project gate.
+
+One compiler path.

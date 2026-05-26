@@ -1,0 +1,228 @@
+---
+title: "The Browser Playground Should Run The Real Compiler"
+description: "@ttsc/wasm lets docs, tutorials, and plugin demos run TypeScript-Go in a Web Worker with an in-memory project."
+date: "2026-06-14"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - wasm
+  - playground
+  - browser
+---
+
+> ## TL;DR
+>
+> A compiler playground should not fake the compiler.
+>
+> `@ttsc/wasm` packages TypeScript-Go for browser workers, adds an in-memory filesystem, and exposes compile/check/transform APIs.
+>
+> That lets a docs site run real `ttsc` behavior in the tab:
+>
+> ```text
+> user edits TypeScript
+>   -> Worker writes virtual files
+>   -> wasm compiler checks/builds/transforms
+>   -> UI renders diagnostics/output
+> ```
+
+---
+
+## 1. Fake Playgrounds Lie
+
+A playground is often the first place a user tries a compiler-powered library.
+
+If the playground is fake, trust is gone.
+
+For a library like `typia`, a fake playground might:
+
+- parse a snippet with a custom script;
+- pretend a transform happened;
+- show precomputed output;
+- skip real TypeScript diagnostics;
+- ignore project config.
+
+That is fine for a marketing demo.
+
+It is not fine for a compiler tool.
+
+The user should be able to break it.
+
+The playground should respond like the real compiler.
+
+---
+
+## 2. What @ttsc/wasm Provides
+
+`@ttsc/wasm` is the browser runtime layer.
+
+It ships:
+
+- a base `ttsc.wasm` binary;
+- Go's `wasm_exec.js` loader;
+- JavaScript boot helpers;
+- an in-memory filesystem;
+- typed APIs like `check`, `build`, and `transform`;
+- a host package for custom plugin wasm binaries.
+
+The normal flow is:
+
+1. Start a Web Worker.
+2. Boot the wasm compiler.
+3. Write `/work/tsconfig.json`.
+4. Write source files.
+5. Call `api.check`, `api.build`, or `api.transform`.
+6. Parse the result and render it in the UI.
+
+No server compiler needed.
+
+No source upload needed.
+
+---
+
+## 3. Why Worker Matters
+
+Go's wasm runtime stays alive.
+
+Booting it on the main thread can freeze the page.
+
+So the playground runs the compiler in a Worker.
+
+That is not an implementation detail to ignore.
+
+Compiler work is real work.
+
+The UI thread should stay responsive while the compiler reads a virtual project, parses TypeScript, and emits output.
+
+If a playground feels frozen, users blame the compiler.
+
+Sometimes they are right.
+
+Sometimes the demo architecture is wrong.
+
+---
+
+## 4. MemFS Is The Project Boundary
+
+The in-memory filesystem is how the browser pretends to be a project:
+
+```text
+/work/tsconfig.json
+/work/src/index.ts
+/work/node_modules/...
+```
+
+Your app writes files into that tree before each compile.
+
+The compiler reads from it like a normal project filesystem.
+
+This is important because TypeScript is not a one-file language in practice.
+
+Even a small demo needs:
+
+- `tsconfig.json`;
+- library files;
+- package declarations;
+- runtime type declarations;
+- sometimes plugin source packs.
+
+The browser playground has to model that world.
+
+---
+
+## 5. Custom Plugin Wasm
+
+The base wasm binary is plugin-agnostic.
+
+That is useful for plain TypeScript-Go demos.
+
+Plugin demos can build a custom wasm binary:
+
+```go
+//go:build js && wasm
+
+package main
+
+import (
+  "github.com/samchon/ttsc/packages/wasm/host"
+  yourplugin "example.com/your-plugin"
+)
+
+func main() {
+  host.Expose("yourApi", host.Config{
+    Plugins: []host.Plugin{yourplugin.New()},
+  })
+}
+```
+
+Then the browser can call:
+
+```ts
+api.plugin({ name: "example-plugin", command: "transform", cwd: "/work" });
+```
+
+That means the playground can demonstrate the real plugin code path.
+
+Not a JavaScript imitation.
+
+---
+
+## 6. Why ttsc.dev Needs This
+
+`ttsc` is not just a CLI.
+
+It is a compiler path, lint path, plugin path, and playground path.
+
+The website playground should let users feel that without installing a project first.
+
+That matters for:
+
+- `typia` transforms;
+- lint diagnostics;
+- emitted JavaScript;
+- docs examples;
+- workshops;
+- debugging reports.
+
+If a user can reproduce a compiler issue in a URL or a browser snippet, the feedback loop gets much better.
+
+---
+
+## 7. The Limit
+
+The browser is not the production build path.
+
+The CLI is smaller, faster to cache in CI, and easier to integrate with real repositories.
+
+`@ttsc/wasm` is for:
+
+- playgrounds;
+- docs;
+- demos;
+- tutorials;
+- workshops;
+- plugin previews.
+
+Use the right surface for the job.
+
+The browser compiler is powerful because it is real.
+
+It is not a replacement for your build pipeline.
+
+---
+
+## 8. The Takeaway
+
+If a project is about compiler-powered TypeScript, the playground should run the compiler.
+
+`@ttsc/wasm` is the bridge:
+
+```text
+TypeScript-Go
+  -> WebAssembly
+  -> Worker
+  -> MemFS
+  -> playground UI
+```
+
+That is how a docs page becomes more than screenshots.

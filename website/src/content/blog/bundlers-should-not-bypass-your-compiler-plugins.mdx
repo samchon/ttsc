@@ -1,0 +1,195 @@
+---
+title: "Bundlers Should Not Bypass Your Compiler Plugins"
+description: "@ttsc/unplugin brings the ttsc plugin pass into Vite, Webpack, Rollup, esbuild, Rspack, Next.js, Farm, and Bun."
+date: "2026-06-15"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - bundler
+  - vite
+  - plugins
+---
+
+> ## TL;DR
+>
+> If your app is built by Vite, Webpack, Rspack, Rollup, esbuild, Next.js, Farm, or Bun, your `ttsc` plugins still need to run.
+>
+> That is what `@ttsc/unplugin` is for:
+>
+> ```ts
+> import ttsc from "@ttsc/unplugin/vite";
+>
+> export default {
+>   plugins: [ttsc()],
+> };
+> ```
+>
+> Bundlers should not become the backdoor around compiler-powered libraries.
+
+---
+
+## 1. The CLI Is Not Always The Build
+
+For a Node library, the build may be:
+
+```bash
+npx ttsc
+```
+
+For a frontend app, it is probably:
+
+```bash
+npx vite build
+```
+
+or:
+
+```bash
+npx next build
+```
+
+or Webpack, Rspack, Rollup, esbuild, Farm, Bun.
+
+If `ttsc` plugins only run in the CLI, frontend projects lose them.
+
+That is a problem for transform packages like `typia`.
+
+The code that runs in production must be the transformed code.
+
+---
+
+## 2. The Adapter
+
+`@ttsc/unplugin` uses the unplugin ecosystem to support multiple bundlers through one adapter family.
+
+Vite:
+
+```ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+Webpack:
+
+```js
+import ttsc from "@ttsc/unplugin/webpack";
+
+export default {
+  plugins: [ttsc()],
+};
+```
+
+Next.js:
+
+```js
+import withTtsc from "@ttsc/unplugin/next";
+
+export default withTtsc({
+  // your Next config
+});
+```
+
+Same plugin contract.
+
+Different build surface.
+
+---
+
+## 3. Why Project-Scoped Transform Matters
+
+Bundlers often ask plugins to transform one file at a time.
+
+Compiler plugins often need the whole project.
+
+`@ttsc/unplugin` treats the transform as project-scoped:
+
+1. Resolve the owning tsconfig.
+2. Build a project transform.
+3. Cache the result for sibling files in the same build.
+4. Return the transformed source for the current module.
+
+That is more expensive than a naive single-file Babel transform.
+
+It is also the correct shape for TypeScript compiler plugins.
+
+If a plugin needs generic types, declarations, imports, or project config, one file is not enough.
+
+---
+
+## 4. Cache Or It Falls Apart
+
+Bundlers call transform hooks many times.
+
+If each call spawned a full compiler transform, the adapter would be unusable.
+
+So the adapter caches project transforms by a stable key:
+
+- tsconfig path;
+- compiler options overlay;
+- plugin list;
+- alias paths.
+
+It also hashes input files to decide whether a cached project result still matches the source the bundler is asking about.
+
+That is the difference between "works in a demo" and "works in a dev server."
+
+---
+
+## 5. Alias Integration
+
+Bundlers have their own alias systems.
+
+TypeScript has `paths`.
+
+The adapter has to bridge these worlds carefully.
+
+If Vite or Webpack knows that `@app` points to `src`, the `ttsc` transform needs a matching TypeScript view of that alias.
+
+Otherwise the compiler plugin may see different module resolution than the bundler.
+
+This is why adapter options include cwd/project/compilerOptions-level overrides.
+
+The goal is not to replace bundler resolution.
+
+The goal is to make the compiler plugin see the same project the bundler is building.
+
+---
+
+## 6. Where This Matters
+
+Use `@ttsc/unplugin` when:
+
+- frontend code uses `typia`;
+- a bundler owns a NestJS backend build;
+- a monorepo has libraries built by `ttsc` and apps built by Vite;
+- transform plugins must run before bundling;
+- diagnostics should surface through the bundler output.
+
+Do not use it when a plain CLI build owns the project.
+
+Then just run:
+
+```bash
+npx ttsc
+```
+
+The adapter is for the bundler world.
+
+---
+
+## 7. The Takeaway
+
+Compiler plugins should follow TypeScript into the build tool the project actually uses.
+
+For CLI builds, that is `ttsc`.
+
+For scripts, that is `ttsx`.
+
+For bundlers, that is `@ttsc/unplugin`.
+
+The plugin contract should stay the same even when the outer build surface changes.

@@ -1,0 +1,296 @@
+---
+title: "I Made TypeScript Plugins Install Like Normal npm Packages"
+description: "typia and nestia no longer need fragile tsconfig plugin ceremony in ttsc. Install the package, keep the marker, and the host discovers it."
+date: "2026-05-27"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - npm
+  - compiler
+  - typia
+---
+
+> ## TL;DR
+>
+> The best compiler plugin setup is the one users do not have to memorize.
+>
+> With [`ttsc`](https://github.com/samchon/ttsc), packages like [`typia`](https://typia.io) and [`@nestia/core`](https://nestia.io) can ship a `package.json#ttsc.plugin` marker.
+>
+> Then this is enough:
+>
+> ```bash
+> npm install -D ttsc @typescript/native-preview typia
+> npx ttsc
+> ```
+>
+> No `ttypescript`.
+>
+> No patching `typescript`.
+>
+> No copying a transform object into `compilerOptions.plugins[]` unless you explicitly want that control.
+
+---
+
+## 1. Compiler Plugins Had Bad UX
+
+For years, TypeScript transformer setup felt like a secret handshake.
+
+You installed the library.
+
+Then you installed a compiler patcher.
+
+Then you edited `tsconfig.json`.
+
+Then you hoped the exact TypeScript version, patcher version, and transformer package still agreed about internal compiler shapes.
+
+That is a lot of ceremony for a user who only wanted this:
+
+```ts
+import typia from "typia";
+
+export const validateUser = typia.createValidate<User>();
+```
+
+The value is obvious.
+
+The setup was not.
+
+---
+
+## 2. What Changed In ttsc
+
+`ttsc` supports explicit plugin entries:
+
+```jsonc
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "my-plugin" }],
+  },
+}
+```
+
+That still matters for fixtures, tests, local development, and cases where you need per-entry config.
+
+But users should not have to write that for common plugin packages.
+
+So `ttsc` also supports package auto-discovery.
+
+A plugin package can publish this in `package.json`:
+
+```jsonc
+{
+  "name": "typia",
+  "ttsc": {
+    "plugin": {
+      "transform": "typia",
+    },
+  },
+}
+```
+
+When the consumer installs `typia` as a direct dependency or devDependency, `ttsc` reads the marker and loads the plugin.
+
+That is the whole trick.
+
+The package declares how it joins the compiler.
+
+The consumer installs the package.
+
+The host connects the two.
+
+---
+
+## 3. The User Story
+
+For `typia`, the setup becomes:
+
+```bash
+npm install -D ttsc @typescript/native-preview typia
+npx ttsc
+```
+
+Then a call like this:
+
+```ts
+const isUser = typia.createIs<User>();
+```
+
+is transformed at build time into a dedicated runtime checker.
+
+For `nestia`, the setup is similar:
+
+```bash
+npm install -D ttsc @typescript/native-preview typia @nestia/core @nestia/sdk
+npx ttsc
+```
+
+Both `typia` and `@nestia/core` can be discovered from package metadata. The user does not have to know which one owns which transformer host on day one.
+
+That is the point.
+
+Compiler-powered libraries should feel like libraries.
+
+---
+
+## 4. The Rule That Keeps It Honest
+
+Auto-discovery is intentionally narrow.
+
+`ttsc` does not scan the entire dependency tree looking for packages that might want compiler access.
+
+It reads direct dependencies from the nearest consumer `package.json`.
+
+That gives the project owner control.
+
+If a transitive package could silently install a compiler plugin, that would be a supply-chain footgun. Compiler plugins are powerful. They can change emitted code. They can report diagnostics. They can fail builds.
+
+So the rule is:
+
+```text
+direct dependency + package.json#ttsc.plugin marker = auto-discovered plugin
+```
+
+No marker, no plugin.
+
+Not a direct dependency, no plugin.
+
+If you want absolute explicitness, `compilerOptions.plugins[]` still wins.
+
+---
+
+## 5. Why Name Matching Matters
+
+There is one detail plugin authors cannot fake:
+
+The package name must match the dependency string.
+
+If the consumer installs:
+
+```jsonc
+{
+  "devDependencies": {
+    "typia": "^x.y.z",
+  },
+}
+```
+
+then the installed package has to be named `typia`.
+
+That sounds obvious until you have monorepos, aliases, local packages, and renamed forks.
+
+`ttsc` treats the dependency entry as the user's intent. If the package metadata does not line up, the host should not guess.
+
+Plugins are too powerful for guessing.
+
+---
+
+## 6. Why This Matters More Than It Looks
+
+The installation story changes how people evaluate a tool.
+
+If a library says:
+
+```bash
+npm install -D typia
+```
+
+developers try it.
+
+If it says:
+
+```bash
+npm install -D typia ttypescript
+patch your compiler
+modify this JSON
+watch out for this TypeScript version
+```
+
+many developers decide it is not worth the risk.
+
+That is not a technical objection.
+
+It is a trust objection.
+
+`ttsc` cannot make compiler transforms boring internally.
+
+But it can make them boring at the edge.
+
+---
+
+## 7. What Happens Under The Hood
+
+The install path is short, but the host still does real work.
+
+When `ttsc` sees a project:
+
+1. It reads the project config.
+2. It finds explicit `compilerOptions.plugins[]` entries.
+3. It reads direct dependencies and devDependencies.
+4. It resolves packages with a `ttsc.plugin` marker.
+5. It loads each package's JavaScript descriptor.
+6. It resolves the Go source sidecar.
+7. It builds the sidecar into the plugin cache if needed.
+8. It runs check-stage plugins first, transform-stage plugins second.
+
+The user should not care about most of that.
+
+The plugin author should care a lot.
+
+That division is healthy.
+
+---
+
+## 8. Why typia Is The Canonical Example
+
+`typia` is exactly the kind of package that benefits from this.
+
+It is not a "compiler plugin demo."
+
+It is a runtime library with a compiler-powered implementation:
+
+- validators;
+- assertions;
+- JSON serializers;
+- Protocol Buffer codecs;
+- random fixture generators;
+- LLM function-calling schemas.
+
+The user thinks in TypeScript types:
+
+```ts
+type User = {
+  id: string & typia.tags.Format<"uuid">;
+  email: string & typia.tags.Format<"email">;
+};
+```
+
+The compiler sees the type and generates code.
+
+That is a normal product experience only if setup is normal too.
+
+---
+
+## 9. The Bigger Bet
+
+TypeScript developers already accept build-time tools.
+
+They accept bundlers.
+
+They accept code generators.
+
+They accept test runners.
+
+They accept linters.
+
+What they do not accept is a fragile compiler modification ritual for every project.
+
+So the bet is simple:
+
+> If TypeScript compiler plugins are going to survive TypeScript-Go, they must install like ordinary npm packages.
+
+`ttsc` is the host.
+
+Auto-discovery is the handshake.
+
+`typia` and `nestia` are the first proof points.

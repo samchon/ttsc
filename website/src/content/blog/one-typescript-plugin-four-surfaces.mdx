@@ -1,0 +1,268 @@
+---
+title: "One TypeScript Plugin, Four Surfaces"
+description: "A ttsc plugin is not just a CLI hook. The same compiler-powered package can run in ttsc, ttsx, bundlers, VS Code, and browser playgrounds."
+date: "2026-05-31"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - vscode
+  - bundler
+  - wasm
+---
+
+> ## TL;DR
+>
+> A compiler plugin is only useful if it runs where TypeScript is actually used.
+>
+> `ttsc` is not just:
+>
+> ```bash
+> npx ttsc
+> ```
+>
+> The same plugin contract is meant to show up in:
+>
+> - the CLI;
+> - `ttsx`;
+> - bundlers through `@ttsc/unplugin`;
+> - VS Code through `@ttsc/vscode`;
+> - browser playgrounds through `@ttsc/wasm`.
+>
+> One plugin. Several surfaces. Same project contract.
+
+---
+
+## 1. Compiler Plugins Fail When They Are Trapped
+
+A TypeScript plugin that only works in one command is a demo.
+
+Real projects compile TypeScript in several places:
+
+- local CLI builds;
+- CI type checks;
+- dev servers;
+- bundlers;
+- editor diagnostics;
+- one-off scripts;
+- browser playgrounds and documentation demos.
+
+If the plugin only runs in the production build, developers see errors too late.
+
+If it only runs in the editor, CI cannot trust it.
+
+If it only runs in a bundler, scripts and tests bypass it.
+
+The plugin has to follow the project.
+
+---
+
+## 2. The Core Surface: ttsc
+
+The obvious surface is:
+
+```bash
+npx ttsc
+npx ttsc --noEmit
+npx ttsc format
+```
+
+This is the standalone compiler path.
+
+It reads the project, resolves plugins, builds sidecars if needed, runs check-stage plugins, runs transform-stage plugins, and emits or gates depending on the command.
+
+For libraries, backend services, CI, and package builds, this is the base.
+
+But it is not the only place the plugin needs to run.
+
+---
+
+## 3. The Script Surface: ttsx
+
+Scripts are the easiest way to accidentally bypass your build system.
+
+You add:
+
+```bash
+tsx scripts/seed.ts
+```
+
+and suddenly that entrypoint does not use the same transform path as the app.
+
+`ttsx` closes that gap:
+
+```bash
+npx ttsx scripts/seed.ts
+```
+
+It type-checks the owning project, runs configured plugins, emits JavaScript into a runtime cache, and executes the entry.
+
+For a plugin like `typia`, that matters.
+
+Your script should not call untransformed `typia.createAssert<T>()`.
+
+It should run the same compiler-powered code as the rest of the project.
+
+---
+
+## 4. The Bundler Surface: @ttsc/unplugin
+
+Frontend projects often do not call `ttsc` directly.
+
+They call Vite, Webpack, Rspack, Rollup, esbuild, Next.js, Bun, or another bundler.
+
+That is why `@ttsc/unplugin` exists.
+
+Minimal Vite setup:
+
+```ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+The adapter reads the same `tsconfig.json`, same plugin declarations, and same plugin configs.
+
+The implementation is project-scoped: it transforms the whole tsconfig project and caches the result for sibling module transforms inside the build.
+
+That is important because compiler plugins are rarely single-file tools.
+
+They usually need the project.
+
+---
+
+## 5. The Editor Surface: @ttsc/vscode
+
+Compiler diagnostics should not wait for CI.
+
+`@ttsc/vscode` wires VS Code to the project's installed `ttsc` language server.
+
+The extension intentionally does not ship its own compiler version. It resolves the `ttsc` installed in the workspace, then starts that project's `ttscserver`.
+
+That choice matters.
+
+The editor should not run a different plugin host than the build.
+
+The same project-pinned `ttsc` version should own both.
+
+With the extension installed, lint and plugin diagnostics appear as editor underlines, and autofixable rules can surface quick fixes.
+
+This is how a compiler plugin becomes part of the typing loop instead of a surprise at build time.
+
+---
+
+## 6. The Browser Surface: @ttsc/wasm
+
+The browser is the weird one.
+
+But it matters for docs, playgrounds, tutorials, and plugin demos.
+
+`@ttsc/wasm` packages the TypeScript-Go compiler as WebAssembly, adds a Worker-friendly boot helper, and gives the runtime an in-memory filesystem.
+
+That lets a playground do this:
+
+```text
+user edits source in browser
+  -> Worker writes /work/tsconfig.json and /work/src/index.ts
+  -> wasm compiler checks/builds/transforms
+  -> UI shows diagnostics or emitted output
+```
+
+The base wasm binary has no plugins linked in.
+
+Plugin playgrounds can build their own wasm binary against the same host package.
+
+That means a library can demonstrate the real transform in the browser, not a fake simulation.
+
+---
+
+## 7. Why One Contract Matters
+
+Without one plugin contract, every surface becomes a separate integration:
+
+```text
+CLI plugin
+bundler plugin
+editor plugin
+playground plugin
+script runner plugin
+```
+
+That is how drift starts.
+
+One surface supports a rule.
+
+Another surface misses it.
+
+One surface transforms output.
+
+Another surface executes the untransformed source.
+
+One surface reports a diagnostic.
+
+Another ignores it.
+
+`ttsc` tries to make the plugin package the unit of integration.
+
+The host surface changes.
+
+The compiler contract stays recognizable.
+
+---
+
+## 8. The typia Example
+
+`typia` is a good example because it should run everywhere.
+
+In a library build:
+
+```bash
+npx ttsc
+```
+
+In a script:
+
+```bash
+npx ttsx scripts/generate.ts
+```
+
+In Vite:
+
+```ts
+plugins: [ttsc()];
+```
+
+In a docs playground:
+
+```text
+custom wasm binary with typia linked
+```
+
+If those surfaces disagree, users lose trust.
+
+If they share a host protocol, the package starts to feel like a normal part of the TypeScript toolchain.
+
+---
+
+## 9. The Goal
+
+The goal is not "ttsc everywhere" as branding.
+
+The goal is:
+
+> compiler-powered TypeScript packages should not disappear when the user changes how they run TypeScript.
+
+Build with a CLI.
+
+Run a script.
+
+Bundle a frontend.
+
+Edit in VS Code.
+
+Try it in a browser playground.
+
+The plugin should still mean the same thing.

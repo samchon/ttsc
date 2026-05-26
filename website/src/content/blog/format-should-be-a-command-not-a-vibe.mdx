@@ -1,0 +1,261 @@
+---
+title: "Format Should Be A Command, Not A Vibe"
+description: "ttsc format is deliberately separate from ttsc --noEmit. Formatting writes source, lint gates source, and mixing the two makes the toolchain harder to trust."
+date: "2026-06-03"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - prettier
+  - formatting
+  - lint
+---
+
+> ## TL;DR
+>
+> `@ttsc/lint` includes format rules, but formatting is not secretly part of `ttsc --noEmit`.
+>
+> The split is:
+>
+> ```bash
+> npx ttsc --noEmit  # type-check + lint diagnostics
+> npx ttsc format    # rewrite source with format rules
+> ```
+>
+> Same package.
+>
+> Separate commands.
+>
+> That boundary is one of the most important design choices in `@ttsc/lint`.
+
+---
+
+## 1. Formatting Is Not Just Another Error
+
+Most JavaScript projects treat formatting as a check:
+
+```bash
+npx prettier --check .
+```
+
+That is useful in CI.
+
+But local formatting is a write operation:
+
+```bash
+npx prettier --write .
+```
+
+Those two modes get mentally blurred because Prettier owns both.
+
+`@ttsc/lint` makes the distinction explicit.
+
+`ttsc --noEmit` answers:
+
+> Is the project acceptable?
+
+`ttsc format` answers:
+
+> Rewrite the project into the configured format.
+
+Those are different commands because they have different blast radiuses.
+
+---
+
+## 2. The Format Block
+
+Formatting lives in `lint.config.ts`:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+    importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
+    jsdoc: true,
+  },
+} satisfies ITtscLintConfig;
+```
+
+The format block drives rules like:
+
+- `format/semi`;
+- `format/quotes`;
+- `format/trailing-comma`;
+- `format/print-width`;
+- `format/sort-imports`;
+- `format/jsdoc`.
+
+This is intentionally familiar if you know `.prettierrc`.
+
+But the execution model is different.
+
+---
+
+## 3. `format.severity` Is The Gate
+
+By default, a `format` block configures `ttsc format`.
+
+It does not automatically make `ttsc --noEmit` fail on formatting.
+
+That is controlled by:
+
+```ts
+format: {
+  severity: "warning",
+}
+```
+
+or:
+
+```ts
+format: {
+  severity: "error",
+}
+```
+
+Use `"off"` when formatting is write-only.
+
+Use `"warning"` when you want visibility without blocking.
+
+Use `"error"` when CI must reject drift.
+
+That is a better knob than pretending every team wants the same format gate.
+
+---
+
+## 4. Why ttsc format Is A Separate Command
+
+`ttsc format` applies only format-class edits.
+
+It does not apply every lint autofix.
+
+That matters because formatting is supposed to be safe, repeated, and unsurprising:
+
+```bash
+npx ttsc format
+```
+
+It should not also rewrite `var` to `let`, hoist type imports, remove `await`, or apply semantic lint fixers.
+
+Those belong to:
+
+```bash
+npx ttsc fix
+```
+
+The difference is simple:
+
+```text
+format -> shape source
+fix    -> apply lint + format edits, then re-check
+check  -> report diagnostics
+```
+
+Three verbs.
+
+Three responsibilities.
+
+---
+
+## 5. Why This Can Be Fast
+
+Formatting with `ttsc format` is not type-checking.
+
+It does not need the TypeScript checker.
+
+It parses source, walks TypeScript-Go AST nodes, applies format rules, and writes edits.
+
+That is why the benchmark separates format from lint.
+
+On the VS Code fixture, `ttsc format` is around 70x faster than `prettier --check` in the published benchmark.
+
+That is not because formatting became logically free.
+
+It is because the native command is doing a narrower job with a narrower host.
+
+---
+
+## 6. What It Does Not Try To Be
+
+`ttsc format` is not yet the entire Prettier ecosystem.
+
+It does not support Prettier plugins.
+
+It does not cover every syntax shape Prettier has accumulated over years.
+
+Some rules deliberately abstain when comments or unsupported node shapes make the safe rewrite unclear.
+
+That is the right failure mode.
+
+A formatter should leave code alone before it performs a confident but wrong rewrite.
+
+The scope is practical:
+
+- semicolons;
+- quotes;
+- trailing commas;
+- print width reflow;
+- import sorting;
+- JSDoc normalization.
+
+That is enough to replace the common Prettier core for many TypeScript projects.
+
+---
+
+## 7. The Loop
+
+The loop I want is:
+
+```bash
+npx ttsc format
+npx ttsc --noEmit
+```
+
+When you are deliberately cleaning up:
+
+```bash
+npx ttsc fix
+npx ttsc --noEmit
+```
+
+When CI gates formatting:
+
+```ts
+format: {
+  severity: "error";
+}
+```
+
+Then:
+
+```bash
+npx ttsc --noEmit
+```
+
+One check command.
+
+One source-writing format command.
+
+No second formatting universe unless you still need Prettier plugin coverage.
+
+---
+
+## 8. The Takeaway
+
+Formatting should be fast.
+
+It should be repeatable.
+
+It should be explicit about when it writes files.
+
+That is why `ttsc format` is not hidden inside `ttsc --noEmit`.
+
+The compiler gate should gate.
+
+The formatter should write.
+
+The names should say what they do.

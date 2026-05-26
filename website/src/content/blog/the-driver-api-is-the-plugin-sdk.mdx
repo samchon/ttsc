@@ -1,0 +1,230 @@
+---
+title: "The Driver API Is The Plugin SDK"
+description: "ttsc plugin authors should start from github.com/samchon/ttsc/packages/ttsc/driver, not raw TypeScript-Go internals."
+date: "2026-06-11"
+author: "Jeongho Nam"
+ogImage: "/og.jpg"
+tags:
+  - typescript
+  - go
+  - plugins
+  - compiler
+---
+
+> ## TL;DR
+>
+> If you write a `ttsc` plugin, start with the driver package:
+>
+> ```go
+> import "github.com/samchon/ttsc/packages/ttsc/driver"
+> ```
+>
+> It gives you:
+>
+> - `LoadProgram`;
+> - source-file filtering;
+> - diagnostics helpers;
+> - emit helpers;
+> - rewrite helpers;
+> - linked plugin hooks.
+>
+> Raw TypeScript-Go shims are there when you need them.
+>
+> The driver is the SDK-shaped path.
+
+---
+
+## 1. Compiler Internals Are Sharp
+
+TypeScript-Go exposes powerful internals.
+
+That is good.
+
+It is also dangerous.
+
+If every plugin author starts by wiring parser, host, file system, Program, Checker, diagnostics, emit, and source maps directly, the ecosystem will fragment immediately.
+
+One plugin will forget to close a checker lease.
+
+Another will render diagnostics differently.
+
+Another will parse tsconfig paths differently.
+
+Another will mishandle declaration files.
+
+So `ttsc` has a driver package.
+
+---
+
+## 2. LoadProgram Is The Starting Point
+
+The core call:
+
+```go
+prog, parseDiags, err := driver.LoadProgram(
+    cwd,
+    "tsconfig.json",
+    driver.LoadProgramOptions{},
+)
+if err != nil {
+    return 2
+}
+defer prog.Close()
+```
+
+That does the boring setup:
+
+- parse `tsconfig.json`;
+- resolve paths relative to `cwd`;
+- build a TypeScript-Go Program;
+- lease a Checker;
+- wrap the host and filesystem;
+- expose source files and diagnostics through `driver.Program`.
+
+The `defer prog.Close()` line matters.
+
+It releases the checker lease back to the pool.
+
+That is exactly the kind of detail the SDK should make visible.
+
+---
+
+## 3. Diagnostics Should Look Like Diagnostics
+
+A plugin diagnostic should not be a random log line.
+
+The driver gives a small lint-style flow:
+
+```go
+diags = append(diags, driver.NewLintDiagnostic(
+    file,
+    start,
+    end,
+    9001,
+    driver.SeverityError,
+    "[my-rule] explanation here",
+))
+
+driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+if driver.CountErrors(diags) > 0 {
+    return 1
+}
+```
+
+That gives the user the same mental model as TypeScript errors:
+
+```text
+file.ts:1:1 - error TS9001: [my-rule] explanation here
+```
+
+Plugins should not invent a new diagnostic language unless they have a very good reason.
+
+---
+
+## 4. Emit Is Parallel, Your Callback Is Not
+
+TypeScript-Go can emit files in parallel.
+
+But plugin output rewriting often wants ordinary maps and cursors.
+
+The driver's emit helpers serialize the write callback.
+
+That means a plugin can intercept output without protecting its own callback state with a mutex.
+
+The expensive compiler work still parallelizes.
+
+The tiny write callback becomes predictable.
+
+That is a good API tradeoff.
+
+---
+
+## 5. Rewrites Need Idempotency
+
+Text rewrites are easy to apply twice by mistake.
+
+The driver has a rewrite path and an idempotency sentinel.
+
+The goal is not to make every plugin text-rewrite based.
+
+The goal is to make the plugin-owned rewrite cases safe enough when they exist.
+
+For example, a plugin can collect call-expression replacements and apply them during emit.
+
+The host should not double-patch already rewritten output.
+
+Compiler plugins need these boring safety rails.
+
+---
+
+## 6. Linked Plugins Use The Driver Too
+
+Not every transform plugin is an executable sidecar.
+
+Some first-party utility plugins are linked Go packages.
+
+They register with:
+
+```go
+func init() {
+    driver.RegisterPlugin(plugin{})
+}
+```
+
+Then implement hooks like:
+
+```go
+func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
+    return nil
+}
+```
+
+This is how small transforms can ride inside a shared host instead of owning a separate executable compiler process.
+
+Again, the driver is the stable surface.
+
+---
+
+## 7. When To Drop Lower
+
+Sometimes the driver is not enough.
+
+Plugin authors may need lower-level shim APIs:
+
+- parser;
+- scanner;
+- printer;
+- checker methods;
+- AST helpers.
+
+That is fine.
+
+But the driver should still own the project lifecycle when possible.
+
+The escape hatch should be deliberate.
+
+Start high.
+
+Drop low only for the specific operation that needs it.
+
+---
+
+## 8. The Takeaway
+
+The `ttsc` plugin protocol is only useful if authors can build real plugins without memorizing every TypeScript-Go internal.
+
+That is what the driver API is for.
+
+It is not a wall around the compiler.
+
+It is a paved road into it.
+
+Load the Program.
+
+Report diagnostics.
+
+Emit safely.
+
+Close the lease.
+
+Then reach lower only when the plugin earns it.
