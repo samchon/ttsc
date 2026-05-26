@@ -610,6 +610,99 @@ export interface ITtscLintRules {
   /** keeps React Fast Refresh component modules from exporting non-components. */
   "react-refresh/only-export-components"?: TtscLintRuleOptionsSetting<ITtscLintReactRefreshOnlyExportComponentsRuleOptions>;
 
+  /** requires Playwright tests to contain at least one assertion. */
+  "playwright/expect-expect"?: TtscLintRuleSetting;
+
+  /** limits assertion count in a Playwright test body. */
+  "playwright/max-expects"?: TtscLintRuleSetting;
+
+  /** rejects expect calls under conditional branches in Playwright tests. */
+  "playwright/no-conditional-expect"?: TtscLintRuleSetting;
+
+  /** rejects conditional logic in Playwright test bodies. */
+  "playwright/no-conditional-in-test"?: TtscLintRuleSetting;
+
+  /** rejects duplicate Playwright setup and teardown hooks. */
+  "playwright/no-duplicate-hooks"?: TtscLintRuleSetting;
+
+  /** rejects repeated test.slow calls inside the same Playwright test. */
+  "playwright/no-duplicate-slow"?: TtscLintRuleSetting;
+
+  /** rejects ElementHandle-style Playwright APIs. */
+  "playwright/no-element-handle"?: TtscLintRuleSetting;
+
+  /** rejects page.$eval and page.$$eval. */
+  "playwright/no-eval"?: TtscLintRuleSetting;
+
+  /** rejects focused Playwright tests. */
+  "playwright/no-focused-test"?: TtscLintRuleSetting;
+
+  /** rejects Playwright force options. */
+  "playwright/no-force-option"?: TtscLintRuleSetting;
+
+  /** rejects getByTitle locators. */
+  "playwright/no-get-by-title"?: TtscLintRuleSetting;
+
+  /** rejects Playwright hooks. */
+  "playwright/no-hooks"?: TtscLintRuleSetting;
+
+  /** rejects nested test.step calls. */
+  "playwright/no-nested-step"?: TtscLintRuleSetting;
+
+  /** rejects networkidle load state and waitUntil options. */
+  "playwright/no-networkidle"?: TtscLintRuleSetting;
+
+  /** rejects first, last, and nth locator methods. */
+  "playwright/no-nth-methods"?: TtscLintRuleSetting;
+
+  /** rejects page.pause debugging calls. */
+  "playwright/no-page-pause"?: TtscLintRuleSetting;
+
+  /** rejects skipped Playwright tests. */
+  "playwright/no-skipped-test"?: TtscLintRuleSetting;
+
+  /** rejects slowed Playwright tests. */
+  "playwright/no-slowed-test"?: TtscLintRuleSetting;
+
+  /** rejects expect calls outside Playwright test blocks. */
+  "playwright/no-standalone-expect"?: TtscLintRuleSetting;
+
+  /** rejects page.waitForNavigation calls. */
+  "playwright/no-wait-for-navigation"?: TtscLintRuleSetting;
+
+  /** rejects page.waitForSelector calls. */
+  "playwright/no-wait-for-selector"?: TtscLintRuleSetting;
+
+  /** rejects page.waitForTimeout calls. */
+  "playwright/no-wait-for-timeout"?: TtscLintRuleSetting;
+
+  /** prefers locator-based Playwright APIs over page methods. */
+  "playwright/prefer-locator"?: TtscLintRuleSetting;
+
+  /** prefers toHaveCount for awaited count checks. */
+  "playwright/prefer-to-have-count"?: TtscLintRuleSetting;
+
+  /** prefers toHaveLength for awaited length checks. */
+  "playwright/prefer-to-have-length"?: TtscLintRuleSetting;
+
+  /** prefers Playwright web-first assertions. */
+  "playwright/prefer-web-first-assertions"?: TtscLintRuleSetting;
+
+  /** requires timeout options on toPass assertions. */
+  "playwright/require-to-pass-timeout"?: TtscLintRuleSetting;
+
+  /** requires a message on toThrow assertions. */
+  "playwright/require-to-throw-message"?: TtscLintRuleSetting;
+
+  /** validates Playwright describe callbacks. */
+  "playwright/valid-describe-callback"?: TtscLintRuleSetting;
+
+  /** validates Playwright expect call arity. */
+  "playwright/valid-expect"?: TtscLintRuleSetting;
+
+  /** validates Playwright test and describe titles. */
+  "playwright/valid-title"?: TtscLintRuleSetting;
+
   /** rejects triple-slash reference directives. */
   "triple-slash-reference"?: TtscLintRuleSetting;
 
