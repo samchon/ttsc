@@ -132,7 +132,7 @@ func objectPropertyValue(file *shimast.SourceFile, object *shimast.Node, key str
   return stripParens(assignment.Initializer)
 }
 
-func isTrueLiteral(node *shimast.Node) bool {
+func isPlaywrightTrueLiteral(node *shimast.Node) bool {
   return node != nil && node.Kind == shimast.KindTrueKeyword
 }
 
@@ -324,7 +324,7 @@ func runPlaywrightNoForceOption(ctx *Context, root *shimast.Node) {
     }
     options := callArgument(call, lastArg)
     prop := objectPropertyNode(ctx.File, options, "force")
-    if prop != nil && isTrueLiteral(objectPropertyValue(ctx.File, options, "force")) {
+    if prop != nil && isPlaywrightTrueLiteral(objectPropertyValue(ctx.File, options, "force")) {
       ctx.Report(prop, "Unexpected Playwright force option.")
     }
   })
