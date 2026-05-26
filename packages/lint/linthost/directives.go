@@ -34,8 +34,12 @@ const (
 
 // lintDirective is the parsed representation of one directive comment.
 type lintDirective struct {
-  kind  lintDirectiveKind
-  rules lintDirectiveRules
+  kind           lintDirectiveKind
+  marker         string
+  rules          lintDirectiveRules
+  ruleList       []string
+  description    string
+  hasDescription bool
 }
 
 // lintDirectiveRules holds the rule scope of a directive. When `all` is
@@ -51,8 +55,27 @@ type lintDirectiveRules struct {
 // disable event and false for an enable event.
 type lintDirectiveEvent struct {
   pos   int
+  id    int
   rules lintDirectiveRules
   on    bool
+}
+
+// lintDirectiveRecord preserves the source location and raw parsing details of
+// one directive comment. Suppression only needs `rules`, but eslint-comments
+// hygiene rules need to report on the directive token itself and distinguish
+// explicit rule lists from unlimited disables.
+type lintDirectiveRecord struct {
+  id             int
+  kind           lintDirectiveKind
+  marker         string
+  rules          lintDirectiveRules
+  ruleList       []string
+  description    string
+  hasDescription bool
+  pos            int
+  end            int
+  startLine      int
+  targetLine     int
 }
 
 // lintInlineDirectives accumulates the per-file directive information
@@ -60,8 +83,10 @@ type lintDirectiveEvent struct {
 // number to any disable-line / disable-next-line directives on that line.
 // `events` is the ordered list of range-style disable/enable transitions.
 type lintInlineDirectives struct {
-  lines  map[int][]lintDirectiveRules
-  events []lintDirectiveEvent
+  lines       map[int][]lintDirectiveRules
+  lineRecords map[int][]int
+  events      []lintDirectiveEvent
+  records     []lintDirectiveRecord
 }
 
 // lintDisableState tracks the cumulative suppress/allow state as
@@ -80,6 +105,13 @@ func filterInlineDisabledFindings(file *shimast.SourceFile, findings []*Finding)
     return findings
   }
   directives := parseLintInlineDirectives(file)
+  return filterInlineDisabledFindingsWithDirectives(file, findings, directives)
+}
+
+func filterInlineDisabledFindingsWithDirectives(file *shimast.SourceFile, findings []*Finding, directives *lintInlineDirectives) []*Finding {
+  if len(findings) == 0 || file == nil {
+    return findings
+  }
   if directives.empty() {
     return findings
   }
@@ -109,7 +141,8 @@ func filterInlineDisabledFindings(file *shimast.SourceFile, findings []*Finding)
 // substitution.
 func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
   directives := &lintInlineDirectives{
-    lines: make(map[int][]lintDirectiveRules),
+    lines:       make(map[int][]lintDirectiveRules),
+    lineRecords: make(map[int][]int),
   }
   scanner := shimscanner.NewScanner()
   scanner.SetText(file.Text())
@@ -168,24 +201,44 @@ scan:
     if end > start {
       endLine = shimscanner.GetECMALineOfPosition(file, end-1)
     }
+    id := len(directives.records)
+    record := lintDirectiveRecord{
+      id:             id,
+      kind:           directive.kind,
+      marker:         directive.marker,
+      rules:          directive.rules,
+      ruleList:       append([]string(nil), directive.ruleList...),
+      description:    directive.description,
+      hasDescription: directive.hasDescription,
+      pos:            start,
+      end:            end,
+      startLine:      startLine,
+      targetLine:     startLine,
+    }
     switch directive.kind {
     case lintDirectiveDisableLine:
       directives.lines[startLine] = append(directives.lines[startLine], directive.rules)
+      directives.lineRecords[startLine] = append(directives.lineRecords[startLine], id)
     case lintDirectiveDisableNextLine:
       directives.lines[endLine+1] = append(directives.lines[endLine+1], directive.rules)
+      directives.lineRecords[endLine+1] = append(directives.lineRecords[endLine+1], id)
+      record.targetLine = endLine + 1
     case lintDirectiveDisable:
       directives.events = append(directives.events, lintDirectiveEvent{
         pos:   start,
+        id:    id,
         rules: directive.rules,
         on:    true,
       })
     case lintDirectiveEnable:
       directives.events = append(directives.events, lintDirectiveEvent{
         pos:   start,
+        id:    id,
         rules: directive.rules,
         on:    false,
       })
     }
+    directives.records = append(directives.records, record)
   }
   return directives
 }
@@ -193,7 +246,7 @@ scan:
 // empty reports whether no directives were found in the file, allowing the
 // caller to skip the filtering step entirely.
 func (d *lintInlineDirectives) empty() bool {
-  return d == nil || (len(d.lines) == 0 && len(d.events) == 0)
+  return d == nil || (len(d.lines) == 0 && len(d.events) == 0 && len(d.records) == 0)
 }
 
 // suppresses reports whether the directive set causes `finding` to be
@@ -202,6 +255,9 @@ func (d *lintInlineDirectives) empty() bool {
 // compute the range-style disable/enable state at the finding's position.
 func (d *lintInlineDirectives) suppresses(file *shimast.SourceFile, finding *Finding) bool {
   if d == nil || finding == nil || file == nil {
+    return false
+  }
+  if strings.HasPrefix(finding.Rule, "eslint-comments/") {
     return false
   }
   line := shimscanner.GetECMALineOfPosition(file, finding.Pos)
@@ -336,9 +392,14 @@ func parseLintDirectiveLine(text string) (lintDirective, bool) {
       if !ok {
         continue
       }
+      parsed := parseDirectivePayload(payload)
       return lintDirective{
-        kind:  form.kind,
-        rules: parseDirectiveRules(payload),
+        kind:           form.kind,
+        marker:         marker,
+        rules:          parsed.rules,
+        ruleList:       parsed.ruleList,
+        description:    parsed.description,
+        hasDescription: parsed.hasDescription,
       }, true
     }
   }
@@ -363,10 +424,22 @@ func directivePayload(text, marker string) (string, bool) {
 // marker) into a lintDirectiveRules value. The `--` separator strips an
 // optional human-readable description. An empty rule list means "all rules".
 func parseDirectiveRules(payload string) lintDirectiveRules {
-  payload = stripDirectiveDescription(payload)
-  payload = strings.ReplaceAll(payload, ",", " ")
-  fields := strings.Fields(payload)
+  return parseDirectivePayload(payload).rules
+}
+
+type parsedDirectivePayload struct {
+  rules          lintDirectiveRules
+  ruleList       []string
+  description    string
+  hasDescription bool
+}
+
+func parseDirectivePayload(payload string) parsedDirectivePayload {
+  ruleText, description, hasDescription := splitDirectiveDescription(payload)
+  ruleText = strings.ReplaceAll(ruleText, ",", " ")
+  fields := strings.Fields(ruleText)
   rules := make(map[string]struct{}, len(fields))
+  ruleList := make([]string, 0, len(fields))
   for _, field := range fields {
     if strings.HasPrefix(field, "--") {
       break
@@ -374,12 +447,22 @@ func parseDirectiveRules(payload string) lintDirectiveRules {
     name := normalizeDirectiveRuleName(field)
     if name != "" {
       rules[name] = struct{}{}
+      ruleList = append(ruleList, name)
     }
   }
   if len(rules) == 0 {
-    return lintDirectiveRules{all: true}
+    return parsedDirectivePayload{
+      rules:          lintDirectiveRules{all: true},
+      description:    description,
+      hasDescription: hasDescription,
+    }
   }
-  return lintDirectiveRules{rules: rules}
+  return parsedDirectivePayload{
+    rules:          lintDirectiveRules{rules: rules},
+    ruleList:       ruleList,
+    description:    description,
+    hasDescription: hasDescription,
+  }
 }
 
 // stripDirectiveDescription returns the portion of `payload` before the
@@ -387,6 +470,11 @@ func parseDirectiveRules(payload string) lintDirectiveRules {
 // be surrounded by whitespace or be at a string boundary to avoid
 // stripping `--` from rule names like `no--foo`.
 func stripDirectiveDescription(payload string) string {
+  rules, _, _ := splitDirectiveDescription(payload)
+  return rules
+}
+
+func splitDirectiveDescription(payload string) (string, string, bool) {
   for i := 0; i < len(payload)-1; i++ {
     if payload[i] != '-' || payload[i+1] != '-' {
       continue
@@ -395,10 +483,10 @@ func stripDirectiveDescription(payload string) string {
     next := i + 2
     nextOK := next >= len(payload) || payload[next] == ' ' || payload[next] == '\t'
     if prevOK && nextOK {
-      return strings.TrimSpace(payload[:i])
+      return strings.TrimSpace(payload[:i]), strings.TrimSpace(payload[next:]), true
     }
   }
-  return payload
+  return strings.TrimSpace(payload), "", false
 }
 
 // normalizeDirectiveRuleName strips common ESLint namespace prefixes while

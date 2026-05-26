@@ -137,6 +137,115 @@ export interface ITtscLintJsdocRuleOptions {
   sortTags?: boolean;
 }
 
+/** One source-path element used by the `boundaries/*` rules. */
+export interface ITtscLintBoundariesElement {
+  /** Element type name used by `boundaries/element-types` policies. */
+  type: string;
+
+  /**
+   * Glob-like source path pattern. Relative patterns are matched against any
+   * project-path suffix, so `src/app/**` works in temporary and monorepo roots.
+   */
+  pattern: string;
+
+  /**
+   * File(s) inside the element that may be imported from outside that element.
+   * Used by `boundaries/entry-point`.
+   */
+  entry?: string | readonly string[];
+
+  /**
+   * File(s) inside the element that may only be imported by the same element.
+   * Used by `boundaries/no-private`.
+   */
+  private?: string | readonly string[];
+}
+
+/** Dependency policy used by `boundaries/element-types`. */
+export interface ITtscLintBoundariesElementTypesRule {
+  /** Source element type(s) the policy applies to. Omit to match all sources. */
+  from?: string | readonly string[];
+
+  /** Target element type(s) allowed from the matching source. */
+  allow?: string | readonly string[];
+
+  /** Target element type(s) rejected from the matching source. */
+  disallow?: string | readonly string[];
+
+  /** Optional diagnostic override. */
+  message?: string;
+}
+
+/** Shared element declaration block used by TypeScript source-path rules. */
+export interface ITtscLintBoundariesElementsOptions {
+  /** Source path elements used to classify importers and imported files. */
+  elements?: readonly ITtscLintBoundariesElement[];
+}
+
+/** `boundaries/element-types` rule options. */
+export interface ITtscLintBoundariesElementTypesRuleOptions
+  extends ITtscLintBoundariesElementsOptions {
+  /**
+   * Fallback policy when no rule matches.
+   *
+   * @default "allow"
+   */
+  default?: "allow" | "disallow";
+
+  /** Ordered dependency policies. First matching policy wins. */
+  rules?: readonly ITtscLintBoundariesElementTypesRule[];
+}
+
+/** `boundaries/external` rule options. */
+export interface ITtscLintBoundariesExternalRuleOptions {
+  /** External package/specifier patterns that are allowed. Empty means all. */
+  allow?: string | readonly string[];
+
+  /** External package/specifier patterns that are rejected. */
+  disallow?: string | readonly string[];
+
+  /** Optional diagnostic override. */
+  message?: string;
+}
+
+/** `boundaries/entry-point` rule options. */
+export type ITtscLintBoundariesEntryPointRuleOptions =
+  ITtscLintBoundariesElementsOptions;
+
+/** `boundaries/no-private` rule options. */
+export type ITtscLintBoundariesNoPrivateRuleOptions =
+  ITtscLintBoundariesElementsOptions;
+
+/** `boundaries/no-unknown` rule options. */
+export type ITtscLintBoundariesNoUnknownRuleOptions =
+  ITtscLintBoundariesElementsOptions;
+
+/** `eslint-comments/disable-enable-pair` rule options. */
+export interface ITtscLintDisableEnablePairRuleOptions {
+  /**
+   * Allow a file-leading range disable to stay open through the end of the file.
+   *
+   * @default false
+   */
+  allowWholeFile?: boolean;
+}
+
+/** `eslint-comments/no-restricted-disable` rule options. */
+export interface ITtscLintNoRestrictedDisableRuleOptions {
+  /** Rule names that inline disable comments may not suppress. */
+  rules?: readonly string[];
+}
+
+/** `eslint-comments/no-use` rule options. */
+export interface ITtscLintNoUseRuleOptions {
+  /**
+   * Directive markers that remain allowed, such as `"eslint-disable-next-line"`.
+   *
+   * @default []
+   */
+  allow?: readonly string[];
+}
+
 /** `react-refresh/only-export-components` rule options. */
 export interface ITtscLintReactRefreshOnlyExportComponentsRuleOptions {
   /**
@@ -176,6 +285,14 @@ export interface ITtscLintReactRefreshOnlyExportComponentsRuleOptions {
  * names accepted by `ITtscLintRules`.
  */
 export interface ITtscLintRuleOptionsMap {
+  "boundaries/element-types": ITtscLintBoundariesElementTypesRuleOptions;
+  "boundaries/entry-point": ITtscLintBoundariesEntryPointRuleOptions;
+  "boundaries/external": ITtscLintBoundariesExternalRuleOptions;
+  "boundaries/no-private": ITtscLintBoundariesNoPrivateRuleOptions;
+  "boundaries/no-unknown": ITtscLintBoundariesNoUnknownRuleOptions;
+  "eslint-comments/disable-enable-pair": ITtscLintDisableEnablePairRuleOptions;
+  "eslint-comments/no-restricted-disable": ITtscLintNoRestrictedDisableRuleOptions;
+  "eslint-comments/no-use": ITtscLintNoUseRuleOptions;
   "format/semi": ITtscLintSemiRuleOptions;
   "format/quotes": ITtscLintQuotesRuleOptions;
   "format/trailing-comma": ITtscLintTrailingCommaRuleOptions;
