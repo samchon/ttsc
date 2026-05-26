@@ -147,6 +147,31 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+### Functional policy
+
+The `functional/*` rules are an opt-in strictness pack for immutable,
+expression-oriented TypeScript. They are diagnostic-only: `ttsc fix` does not
+rewrite mutation, classes, exceptions, loops, or branching into a functional
+design.
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "functional/no-let": "error",
+    "functional/no-loop-statements": "error",
+    "functional/no-conditional-statements": "error",
+    "functional/no-throw-statements": "error",
+    "functional/no-try-statements": "error",
+    "functional/no-classes": "error",
+    "functional/immutable-data": "error",
+    "functional/prefer-readonly-type": "error",
+    "functional/type-declaration-immutability": ["error", {
+      rules: [{ identifiers: ".*" }],
+    }],
+  },
+} satisfies ITtscLintConfig;
+```
 ### Architecture boundaries
 
 The `boundaries/*` rules implement a conservative TypeScript source-path subset inspired by `eslint-plugin-boundaries`: static `import` and `export ... from` specifiers are resolved to source files, then classified with per-rule `elements` options.
@@ -239,6 +264,26 @@ Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path and
 - [`dot-notation`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/dot-notation.ts): prefers dot property access when a string-literal key is a valid identifier.
 - [`eqeqeq`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/eqeqeq.ts): requires strict equality operators.
 - [`for-direction`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/for-direction.ts): catches loop counters updated in the wrong direction.
+- [`functional/functional-parameters`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_parameters_rejects_rest_parameter_test.go): rejects rest parameters, `arguments`, and optionally zero-parameter functions.
+- [`functional/immutable-data`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_immutable_data_rejects_property_assignment_test.go): rejects writes through object/array members and mutable collection methods.
+- [`functional/no-class-inheritance`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_class_inheritance_rejects_extends_test.go): rejects class inheritance and abstract classes.
+- [`functional/no-classes`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_classes_rejects_class_declaration_test.go): rejects class declarations and expressions.
+- [`functional/no-conditional-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_conditional_statements_rejects_if_test.go): rejects `if` and `switch` statements.
+- [`functional/no-expression-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_expression_statements_rejects_call_test.go): rejects expression statements used for side effects.
+- [`functional/no-let`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_let_rejects_let_declaration_test.go): rejects `let` declarations.
+- [`functional/no-loop-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_loop_statements_rejects_for_test.go): rejects imperative loop statements.
+- [`functional/no-mixed-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_mixed_types_rejects_method_and_property_test.go): rejects type/interface declarations that mix member shapes.
+- [`functional/no-promise-reject`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_promise_reject_rejects_static_call_test.go): rejects `Promise.reject(...)`.
+- [`functional/no-return-void`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_return_void_rejects_void_return_test.go): rejects void returns and void-returning declarations.
+- [`functional/no-this-expressions`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_this_expressions_rejects_this_test.go): rejects `this` expressions.
+- [`functional/no-throw-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_throw_statements_rejects_throw_test.go): rejects `throw` statements.
+- [`functional/no-try-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_try_statements_rejects_catch_test.go): rejects `try`/`catch`/`finally` statements.
+- [`functional/prefer-immutable-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_immutable_types_rejects_mutable_parameter_array_test.go): prefers readonly/immutable type annotations.
+- [`functional/prefer-property-signatures`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_property_signatures_rejects_method_signature_test.go): prefers function-property signatures over method signatures.
+- [`functional/prefer-readonly-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_readonly_type_rejects_array_type_test.go): requires readonly array, tuple, and property type syntax.
+- [`functional/prefer-tacit`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_tacit_rejects_trivial_wrapper_test.go): reports simple one-argument forwarding wrappers.
+- [`functional/readonly-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_readonly_type_rejects_readonly_array_generic_test.go): enforces the configured readonly type spelling.
+- [`functional/type-declaration-immutability`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_type_declaration_immutability_rejects_mutable_interface_test.go): requires matching type declarations to expose readonly member shapes.
 - [`method-signature-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/method-signature-style.ts): prefers function-property signatures over method shorthand signatures.
 - [`no-alert`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-alert.ts): rejects `alert`, `confirm`, and `prompt`.
 - [`no-array-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-array-constructor.ts): rejects `Array` constructor calls.
