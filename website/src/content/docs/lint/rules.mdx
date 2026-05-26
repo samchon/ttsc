@@ -6,6 +6,54 @@ If you're skimming: the `error`-severity defaults at the bottom of this page are
 
 > **Authoritative source:** the canonical rule-name union lives at [`packages/lint/src/structures/TtscLintRule.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/TtscLintRule.ts). This page documents what each rule does and when to keep it on.
 
+## Rule families and config types
+
+Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscLintRules` type is an intersection of family-specific interfaces, so a complete `rules` object and smaller family objects share the same checked property names and option tuples.
+
+| Family | Type | Rules | Namespace |
+| ------ | ---- | ----- | --------- |
+| Core JavaScript / TypeScript | `ITtscLintCoreRules` | 138 | none |
+| Architecture boundaries | `ITtscLintBoundariesRules` | 5 | `boundaries/*` |
+| Cypress | `ITtscLintCypressRules` | 13 | `cypress/*` |
+| Directive comments | `ITtscLintEslintCommentsRules` | 9 | `eslint-comments/*` |
+| Functional policy | `ITtscLintFunctionalRules` | 20 | `functional/*` |
+| Jest | `ITtscLintJestRules` | 19 | `jest/*` |
+| JSDoc | `ITtscLintJsdocRules` | 12 | `jsdoc/*` |
+| JSX accessibility | `ITtscLintJsxA11yRules` | 36 | `jsx-a11y/*` |
+| Next.js | `ITtscLintNextjsRules` | 21 | `nextjs/*` |
+| Playwright | `ITtscLintPlaywrightRules` | 31 | `playwright/*` |
+| Promise | `ITtscLintPromiseRules` | 17 | `promise/*` |
+| React | `ITtscLintReactRules` | 16 | `react/*` |
+| React Hooks | `ITtscLintReactHooksRules` | 8 | `react-hooks/*` |
+| React performance | `ITtscLintReactPerfRules` | 4 | `react-perf/*` |
+| React Fast Refresh | `ITtscLintReactRefreshRules` | 1 | `react-refresh/*` |
+| Regular expressions | `ITtscLintRegexpRules` | 22 | `regexp/*` |
+| Security | `ITtscLintSecurityRules` | 14 | `security/*` |
+| Solid | `ITtscLintSolidRules` | 20 | `solid/*` |
+| Storybook | `ITtscLintStorybookRules` | 16 | `storybook/*` |
+| TanStack Query | `ITtscLintTanstackQueryRules` | 8 | `@tanstack/query/*` |
+| Testing Library | `ITtscLintTestingLibraryRules` | 29 | `testing-library/*` |
+| TSDoc | `ITtscLintTsdocRules` | 1 | `tsdoc/*` |
+| Vitest | `ITtscLintVitestRules` | 13 | `vitest/*` |
+| Format | `ITtscLintFormatRules` | 6 | `format/*` |
+| Contributor plugins | `ITtscLintContributorRules` | user-defined | `<namespace>/*` |
+
+```ts
+import type { ITtscLintConfig, ITtscLintReactRules } from "@ttsc/lint";
+
+const reactRules = {
+  "react/jsx-key": "error",
+  "react/no-danger": "warning",
+} satisfies ITtscLintReactRules;
+
+export default {
+  rules: {
+    "no-var": "error",
+    ...reactRules,
+  },
+} satisfies ITtscLintConfig;
+```
+
 ## Variable declarations
 
 | Rule | Effect |

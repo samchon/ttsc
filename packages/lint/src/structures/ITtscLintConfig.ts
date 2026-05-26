@@ -26,11 +26,11 @@ export interface ITtscLintConfig {
   plugins?: Record<string, ITtscLintPlugin>;
 
   /**
-   * Camel-case built-in rule severities plus namespaced contributor rules.
+   * Kebab-case built-in rule severities plus namespaced contributor rules.
    *
-   * Built-in rules are concrete interface properties for autocomplete and
-   * typo checking. Contributor rules use the familiar namespace form such as
-   * `demo/no-demo`.
+   * Built-in rules are concrete interface properties for autocomplete and typo
+   * checking. Namespaced families and contributor rules use the familiar slash
+   * form such as `react/jsx-key` or `demo/no-demo`.
    */
   rules?: ITtscLintRules;
 

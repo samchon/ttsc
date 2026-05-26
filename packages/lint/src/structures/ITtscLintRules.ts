@@ -1,4 +1,11 @@
 import type {
+  ITtscLintBoundariesElementTypesRuleOptions,
+  ITtscLintBoundariesEntryPointRuleOptions,
+  ITtscLintBoundariesExternalRuleOptions,
+  ITtscLintBoundariesNoPrivateRuleOptions,
+  ITtscLintBoundariesNoUnknownRuleOptions,
+  ITtscLintCypressUnsafeToChainCommandRuleOptions,
+  ITtscLintDisableEnablePairRuleOptions,
   ITtscLintFunctionalEmptyRuleOptions,
   ITtscLintFunctionalImmutableDataRuleOptions,
   ITtscLintFunctionalNoConditionalStatementsRuleOptions,
@@ -13,13 +20,6 @@ import type {
   ITtscLintFunctionalPreferTacitRuleOptions,
   ITtscLintFunctionalReadonlyTypeRuleOptions,
   ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions,
-  ITtscLintBoundariesElementTypesRuleOptions,
-  ITtscLintBoundariesEntryPointRuleOptions,
-  ITtscLintBoundariesExternalRuleOptions,
-  ITtscLintBoundariesNoPrivateRuleOptions,
-  ITtscLintBoundariesNoUnknownRuleOptions,
-  ITtscLintCypressUnsafeToChainCommandRuleOptions,
-  ITtscLintDisableEnablePairRuleOptions,
   ITtscLintJsdocRuleOptions,
   ITtscLintNoRestrictedDisableRuleOptions,
   ITtscLintNoUseRuleOptions,
@@ -48,115 +48,65 @@ export type TtscLintRuleOptionsSetting<TOptions> =
 /**
  * Rule severity map accepted by `ITtscLintConfig.rules`.
  *
- * Built-in rules are listed as concrete optional properties so TypeScript can
- * autocomplete rule names and reject typos. Built-in rule names intentionally
- * mirror ESLint-style kebab-case IDs; contributor rules keep their namespace
- * with a slash, for example `demo/no-demo`.
+ * Built-in rule families are exposed as separate interfaces so users can import
+ * a narrow family type when composing configs. `ITtscLintRules` is the
+ * intersection of every built-in family plus contributor plugin rules. Built-in
+ * rule names intentionally mirror ESLint-style kebab-case IDs; contributor
+ * rules keep their namespace with a slash, for example `demo/no-demo`.
  */
-export interface ITtscLintRules {
-  /** keeps overload declarations for the same member adjacent. */
+export type ITtscLintRules = ITtscLintCoreRules &
+  ITtscLintBoundariesRules &
+  ITtscLintCypressRules &
+  ITtscLintEslintCommentsRules &
+  ITtscLintFunctionalRules &
+  ITtscLintJestRules &
+  ITtscLintJsdocRules &
+  ITtscLintJsxA11yRules &
+  ITtscLintNextjsRules &
+  ITtscLintPlaywrightRules &
+  ITtscLintPromiseRules &
+  ITtscLintReactRules &
+  ITtscLintReactHooksRules &
+  ITtscLintReactPerfRules &
+  ITtscLintReactRefreshRules &
+  ITtscLintRegexpRules &
+  ITtscLintSecurityRules &
+  ITtscLintSolidRules &
+  ITtscLintStorybookRules &
+  ITtscLintTanstackQueryRules &
+  ITtscLintTestingLibraryRules &
+  ITtscLintTsdocRules &
+  ITtscLintVitestRules &
+  ITtscLintFormatRules &
+  ITtscLintContributorRules;
+
+/** Unnamespaced ESLint and TypeScript-ESLint-compatible rules. */
+export interface ITtscLintCoreRules {
+  /** Keeps overload declarations for the same member adjacent. */
   "adjacent-overload-signatures"?: TtscLintRuleSetting;
 
-  /** prefers `T[]` and `readonly T[]` over array helper types. */
+  /** Prefers `T[]` and `readonly T[]` over array helper types. */
   "array-type"?: TtscLintRuleSetting;
 
-  /** Reject `await` on non-thenable operands. **Type-aware** — uses the Checker. Autofixable (drops the `await`). */
+  /**
+   * Reject `await` on non-thenable operands. **Type-aware** — uses the Checker.
+   * Autofixable (drops the `await`).
+   */
   "await-thenable"?: TtscLintRuleSetting;
 
-  /** rejects TypeScript suppression comments such as `@ts-ignore`. */
+  /** Rejects TypeScript suppression comments such as `@ts-ignore`. */
   "ban-ts-comment"?: TtscLintRuleSetting;
 
-  /** rejects obsolete `tslint:` comments. */
+  /** Rejects obsolete `tslint:` comments. */
   "ban-tslint-comment"?: TtscLintRuleSetting;
 
-  /** Enforce allowed dependency directions between configured source-path element types. */
-  "boundaries/element-types"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesElementTypesRuleOptions>;
-
-  /** Require cross-element imports to target the element's configured public entry files. */
-  "boundaries/entry-point"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesEntryPointRuleOptions>;
-
-  /** Restrict external package imports by package/specifier pattern. */
-  "boundaries/external"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesExternalRuleOptions>;
-
-  /** Reject imports of configured private files from outside their source-path element. */
-  "boundaries/no-private"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoPrivateRuleOptions>;
-
-  /** Reject relative imports whose resolved source file matches no configured element. */
-  "boundaries/no-unknown"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoUnknownRuleOptions>;
-
-  /** requires a Cypress assertion before `cy.screenshot()`. */
-  "cypress/assertion-before-screenshot"?: TtscLintRuleSetting;
-
-  /** prefers `.should()` over `.and()` when starting Cypress assertion chains. */
-  "cypress/no-and"?: TtscLintRuleSetting;
-
-  /** rejects assigning the return value of Cypress commands. */
-  "cypress/no-assigning-return-values"?: TtscLintRuleSetting;
-
-  /** rejects async `before` and `beforeEach` callbacks in Cypress specs. */
-  "cypress/no-async-before"?: TtscLintRuleSetting;
-
-  /** rejects async Cypress test callbacks. */
-  "cypress/no-async-tests"?: TtscLintRuleSetting;
-
-  /** rejects chained `.get()` calls. */
-  "cypress/no-chained-get"?: TtscLintRuleSetting;
-
-  /** rejects `cy.debug()` and chained `.debug()` commands. */
-  "cypress/no-debug"?: TtscLintRuleSetting;
-
-  /** rejects `{ force: true }` on Cypress action commands. */
-  "cypress/no-force"?: TtscLintRuleSetting;
-
-  /** rejects `cy.pause()` and chained `.pause()` commands. */
-  "cypress/no-pause"?: TtscLintRuleSetting;
-
-  /** rejects numeric `cy.wait(...)` sleeps. */
-  "cypress/no-unnecessary-waiting"?: TtscLintRuleSetting;
-
-  /** rejects deprecated `cy.xpath()` selectors. */
-  "cypress/no-xpath"?: TtscLintRuleSetting;
-
-  /** requires `cy.get()` selectors to target `data-*` attributes when statically known. */
-  "cypress/require-data-selectors"?: TtscLintRuleSetting;
-
-  /** rejects chaining more commands after Cypress action commands. */
-  "cypress/unsafe-to-chain-command"?: TtscLintRuleOptionsSetting<ITtscLintCypressUnsafeToChainCommandRuleOptions>;
-
-  /** requires range `eslint-disable` directives to be paired with `eslint-enable`. */
-  "eslint-comments/disable-enable-pair"?: TtscLintRuleOptionsSetting<ITtscLintDisableEnablePairRuleOptions>;
-
-  /** rejects bare `eslint-enable` comments that re-enable named disables at once. */
-  "eslint-comments/no-aggregating-enable"?: TtscLintRuleSetting;
-
-  /** rejects disable directives that repeat an already active disable. */
-  "eslint-comments/no-duplicate-disable"?: TtscLintRuleSetting;
-
-  /** rejects disable directives for configured protected rules. */
-  "eslint-comments/no-restricted-disable"?: TtscLintRuleOptionsSetting<ITtscLintNoRestrictedDisableRuleOptions>;
-
-  /** rejects disable directives with no explicit rule list. */
-  "eslint-comments/no-unlimited-disable"?: TtscLintRuleSetting;
-
-  /** rejects disable directives that suppress no finding. */
-  "eslint-comments/no-unused-disable"?: TtscLintRuleSetting;
-
-  /** rejects enable directives that do not re-enable anything. */
-  "eslint-comments/no-unused-enable"?: TtscLintRuleSetting;
-
-  /** rejects inline lint directive comments. */
-  "eslint-comments/no-use"?: TtscLintRuleOptionsSetting<ITtscLintNoUseRuleOptions>;
-
-  /** requires lint directive comments to include a `--` description. */
-  "eslint-comments/require-description"?: TtscLintRuleSetting;
-
-  /** prefers `Record` for single index-signature object types. */
+  /** Prefers `Record` for single index-signature object types. */
   "consistent-indexed-object-style"?: TtscLintRuleSetting;
 
-  /** prefers `as` type assertions over angle-bracket assertions. */
+  /** Prefers `as` type assertions over angle-bracket assertions. */
   "consistent-type-assertions"?: TtscLintRuleSetting;
 
-  /** prefers interfaces for object-shaped type definitions. */
+  /** Prefers interfaces for object-shaped type definitions. */
   "consistent-type-definitions"?: TtscLintRuleSetting;
 
   /** Prefer `import type {}` when imports are types-only. */
@@ -165,160 +115,523 @@ export interface ITtscLintRules {
   /** `(req, opt = 1, req2)` → fail. */
   "default-param-last"?: TtscLintRuleSetting;
 
-  /** prefers dot property access when a string-literal key is a valid identifier. */
+  /**
+   * Prefers dot property access when a string-literal key is a valid
+   * identifier.
+   */
   "dot-notation"?: TtscLintRuleSetting;
 
-  /** requires strict equality operators. */
+  /** Requires strict equality operators. */
   eqeqeq?: TtscLintRuleSetting;
 
   /** `for (i = 0; i < 10; i--)` → fail. */
   "for-direction"?: TtscLintRuleSetting;
 
-  /** rejects unknown JSDoc block tag names. */
-  "jsdoc/check-tag-names"?: TtscLintRuleSetting;
+  /** Prefers function-property signatures over method shorthand signatures. */
+  "method-signature-style"?: TtscLintRuleSetting;
 
-  /** validates closed-set JSDoc tag values such as `@access`. */
-  "jsdoc/check-values"?: TtscLintRuleSetting;
+  /** Rejects `alert`, `confirm`, and `prompt`. */
+  "no-alert"?: TtscLintRuleSetting;
 
-  /** rejects content on marker-only JSDoc tags such as `@async`. */
-  "jsdoc/empty-tags"?: TtscLintRuleSetting;
+  /** Rejects `Array` constructor calls. */
+  "no-array-constructor"?: TtscLintRuleSetting;
 
-  /** rejects redundant JSDoc type braces in TypeScript source comments. */
-  "jsdoc/no-types"?: TtscLintRuleSetting;
+  /** Rejects `delete` on array elements. */
+  "no-array-delete"?: TtscLintRuleSetting;
 
-  /** rejects `any` and `*` inside JSDoc type braces. */
-  "jsdoc/reject-any-type"?: TtscLintRuleSetting;
+  /** Reject `new Promise(async (...) => ...)`. */
+  "no-async-promise-executor"?: TtscLintRuleSetting;
 
-  /** rejects the unsafe `Function` type inside JSDoc type braces. */
-  "jsdoc/reject-function-type"?: TtscLintRuleSetting;
+  /** Rejects bitwise operators. */
+  "no-bitwise"?: TtscLintRuleSetting;
 
-  /** requires JSDoc blocks to include block-level description text. */
-  "jsdoc/require-description"?: TtscLintRuleSetting;
+  /** Rejects `arguments.caller` and `arguments.callee`. */
+  "no-caller"?: TtscLintRuleSetting;
 
-  /** requires every `@param` tag with a name to include a description. */
-  "jsdoc/require-param-description"?: TtscLintRuleSetting;
+  /** Rejects lexical declarations directly inside `case` clauses. */
+  "no-case-declarations"?: TtscLintRuleSetting;
 
-  /** requires every `@param` tag to include a parameter name. */
-  "jsdoc/require-param-name"?: TtscLintRuleSetting;
+  /** Rejects reassignment of class declarations. */
+  "no-class-assign"?: TtscLintRuleSetting;
 
-  /** requires every `@property` tag with a name to include a description. */
-  "jsdoc/require-property-description"?: TtscLintRuleSetting;
+  /** Rejects comparisons against `-0`. */
+  "no-compare-neg-zero"?: TtscLintRuleSetting;
 
-  /** requires every `@property` tag to include a property name. */
-  "jsdoc/require-property-name"?: TtscLintRuleSetting;
+  /** Rejects assignments inside conditions. */
+  "no-cond-assign"?: TtscLintRuleSetting;
 
-  /** requires every `@returns` tag to include a description. */
-  "jsdoc/require-returns-description"?: TtscLintRuleSetting;
+  /** Rejects confusing non-null assertions next to equality checks. */
+  "no-confusing-non-null-assertion"?: TtscLintRuleSetting;
 
-  /** requires image-like JSX elements to expose alt text or an ARIA label. */
-  "jsx-a11y/alt-text"?: TtscLintRuleSetting;
+  /** Rejects `console` calls. */
+  "no-console"?: TtscLintRuleSetting;
 
-  /** rejects empty JSX anchors with no accessible content. */
-  "jsx-a11y/anchor-has-content"?: TtscLintRuleSetting;
+  /** Reject `while (true)` and other constant test expressions. */
+  "no-constant-condition"?: TtscLintRuleSetting;
 
-  /** rejects missing, hash-only, empty, and javascript: anchor href values. */
-  "jsx-a11y/anchor-is-valid"?: TtscLintRuleSetting;
+  /** Rejects `continue` statements. */
+  "no-continue"?: TtscLintRuleSetting;
 
-  /** requires tabIndex when aria-activedescendant is present. */
-  "jsx-a11y/aria-activedescendant-has-tabindex"?: TtscLintRuleSetting;
+  /** Rejects control characters in regular expressions. */
+  "no-control-regex"?: TtscLintRuleSetting;
 
-  /** rejects unknown aria-* JSX attributes. */
-  "jsx-a11y/aria-props"?: TtscLintRuleSetting;
+  /** Reject `debugger`. */
+  "no-debugger"?: TtscLintRuleSetting;
 
-  /** validates known literal ARIA property values. */
-  "jsx-a11y/aria-proptypes"?: TtscLintRuleSetting;
+  /** Rejects deleting variables. */
+  "no-delete-var"?: TtscLintRuleSetting;
 
-  /** rejects unknown ARIA role tokens. */
-  "jsx-a11y/aria-role"?: TtscLintRuleSetting;
+  /** Function declared with two parameters of the same name. */
+  "no-dupe-args"?: TtscLintRuleSetting;
 
-  /** rejects ARIA roles and attributes on elements that cannot expose them. */
-  "jsx-a11y/aria-unsupported-elements"?: TtscLintRuleSetting;
+  /** `if (a) ... else if (a) ...`. */
+  "no-dupe-else-if"?: TtscLintRuleSetting;
 
-  /** rejects unknown literal autocomplete tokens. */
-  "jsx-a11y/autocomplete-valid"?: TtscLintRuleSetting;
+  /** `{ a: 1, a: 2 }`. */
+  "no-dupe-keys"?: TtscLintRuleSetting;
 
-  /** requires keyboard handlers alongside clicks on non-interactive JSX elements. */
-  "jsx-a11y/click-events-have-key-events"?: TtscLintRuleSetting;
+  /** Same case label twice in a `switch`. */
+  "no-duplicate-case"?: TtscLintRuleSetting;
 
-  /** requires interactive controls to have an accessible label. */
-  "jsx-a11y/control-has-associated-label"?: TtscLintRuleSetting;
+  /** Rejects duplicate enum member values. */
+  "no-duplicate-enum-values"?: TtscLintRuleSetting;
 
-  /** rejects empty JSX headings with no accessible content. */
-  "jsx-a11y/heading-has-content"?: TtscLintRuleSetting;
+  /** Rejects `delete` on dynamically computed property keys. */
+  "no-dynamic-delete"?: TtscLintRuleSetting;
 
-  /** requires JSX html elements to declare lang. */
-  "jsx-a11y/html-has-lang"?: TtscLintRuleSetting;
+  /** Reject `if (x) {}`, `while (x) {}`, etc. */
+  "no-empty"?: TtscLintRuleSetting;
 
-  /** requires iframes to have a non-empty title. */
-  "jsx-a11y/iframe-has-title"?: TtscLintRuleSetting;
+  /** Rejects empty regex character classes. */
+  "no-empty-character-class"?: TtscLintRuleSetting;
 
-  /** rejects redundant words such as image, photo, and picture in img alt text. */
-  "jsx-a11y/img-redundant-alt"?: TtscLintRuleSetting;
+  /** Reject `function f() {}`. */
+  "no-empty-function"?: TtscLintRuleSetting;
 
-  /** requires elements with interactive roles to be focusable. */
-  "jsx-a11y/interactive-supports-focus"?: TtscLintRuleSetting;
+  /** Rejects empty interfaces. */
+  "no-empty-interface"?: TtscLintRuleSetting;
 
-  /** requires labels to reference or wrap a form control. */
-  "jsx-a11y/label-has-associated-control"?: TtscLintRuleSetting;
+  /** Rejects empty object type literals. */
+  "no-empty-object-type"?: TtscLintRuleSetting;
 
-  /** compatibility alias for label association checks. */
-  "jsx-a11y/label-has-for"?: TtscLintRuleSetting;
+  /** Rejects empty destructuring patterns. */
+  "no-empty-pattern"?: TtscLintRuleSetting;
 
-  /** validates statically known lang attribute values. */
-  "jsx-a11y/lang"?: TtscLintRuleSetting;
+  /** Rejects empty class static blocks. */
+  "no-empty-static-block"?: TtscLintRuleSetting;
 
-  /** requires audio and video elements to provide caption tracks. */
-  "jsx-a11y/media-has-caption"?: TtscLintRuleSetting;
+  /** Rejects loose null comparisons. */
+  "no-eq-null"?: TtscLintRuleSetting;
 
-  /** requires mouseover/mouseout handlers to have focus/blur parity. */
-  "jsx-a11y/mouse-events-have-key-events"?: TtscLintRuleSetting;
+  /** Rejects `eval`. */
+  "no-eval"?: TtscLintRuleSetting;
 
-  /** rejects accessKey on JSX elements. */
-  "jsx-a11y/no-access-key"?: TtscLintRuleSetting;
+  /** Rejects reassignment of caught exceptions. */
+  "no-ex-assign"?: TtscLintRuleSetting;
 
-  /** rejects aria-hidden on focusable JSX elements. */
-  "jsx-a11y/no-aria-hidden-on-focusable"?: TtscLintRuleSetting;
+  /** Reject `any` annotations. Typically `"warning"` during migrations. */
+  "no-explicit-any"?: TtscLintRuleSetting;
 
-  /** rejects autoFocus/autofocus JSX attributes. */
-  "jsx-a11y/no-autofocus"?: TtscLintRuleSetting;
+  /** Rejects unnecessary `.bind()` calls. */
+  "no-extra-bind"?: TtscLintRuleSetting;
 
-  /** rejects distracting blink and marquee elements. */
-  "jsx-a11y/no-distracting-elements"?: TtscLintRuleSetting;
+  /** Rejects redundant boolean casts. */
+  "no-extra-boolean-cast"?: TtscLintRuleSetting;
 
-  /** rejects non-interactive roles on native interactive elements. */
-  "jsx-a11y/no-interactive-element-to-noninteractive-role"?: TtscLintRuleSetting;
+  /** Reject `x!!`. Autofixable. */
+  "no-extra-non-null-assertion"?: TtscLintRuleSetting;
 
-  /** rejects interaction handlers on known non-interactive JSX elements. */
-  "jsx-a11y/no-noninteractive-element-interactions"?: TtscLintRuleSetting;
+  /** Reject `switch` case fall-through without an explicit comment. */
+  "no-fallthrough"?: TtscLintRuleSetting;
 
-  /** rejects interactive roles on known non-interactive JSX elements. */
-  "jsx-a11y/no-noninteractive-element-to-interactive-role"?: TtscLintRuleSetting;
+  /** Rejects reassignment of function declarations. */
+  "no-func-assign"?: TtscLintRuleSetting;
 
-  /** rejects tabIndex on non-interactive JSX elements. */
-  "jsx-a11y/no-noninteractive-tabindex"?: TtscLintRuleSetting;
+  /** Hoist inline `type` modifiers into a single `import type {}`. Autofixable. */
+  "no-import-type-side-effects"?: TtscLintRuleSetting;
 
-  /** rejects explicit roles that duplicate native JSX element semantics. */
-  "jsx-a11y/no-redundant-roles"?: TtscLintRuleSetting;
+  /** Rejects type annotations TypeScript can infer. */
+  "no-inferrable-types"?: TtscLintRuleSetting;
 
-  /** requires static elements with interaction handlers to declare a role. */
-  "jsx-a11y/no-static-element-interactions"?: TtscLintRuleSetting;
+  /** Rejects function declarations nested in blocks. */
+  "no-inner-declarations"?: TtscLintRuleSetting;
 
-  /** prefers native JSX tags over div/span plus an equivalent role. */
-  "jsx-a11y/prefer-tag-over-role"?: TtscLintRuleSetting;
+  /** Rejects irregular whitespace. */
+  "no-irregular-whitespace"?: TtscLintRuleSetting;
 
-  /** requires ARIA properties mandated by the element role. */
-  "jsx-a11y/role-has-required-aria-props"?: TtscLintRuleSetting;
+  /** Rejects `__iterator__`. */
+  "no-iterator"?: TtscLintRuleSetting;
 
-  /** rejects ARIA properties unsupported by the element role. */
-  "jsx-a11y/role-supports-aria-props"?: TtscLintRuleSetting;
+  /** Rejects labels. */
+  "no-labels"?: TtscLintRuleSetting;
 
-  /** restricts scope to table header cells. */
-  "jsx-a11y/scope"?: TtscLintRuleSetting;
+  /** Rejects unnecessary standalone blocks. */
+  "no-lone-blocks"?: TtscLintRuleSetting;
 
-  /** rejects positive tabIndex values. */
-  "jsx-a11y/tabindex-no-positive"?: TtscLintRuleSetting;
+  /** Rejects `if` as the only statement in an `else`. */
+  "no-lonely-if"?: TtscLintRuleSetting;
 
-  /** Enforce functional parameter style: no rest args/`arguments`, and optional parameter-count policy. */
+  /**
+   * Reject decimal integer literals whose source text cannot round-trip as a
+   * JavaScript Number, including overflow-scale values.
+   */
+  "no-loss-of-precision"?: TtscLintRuleSetting;
+
+  /** Rejects misleading regex character classes. */
+  "no-misleading-character-class"?: TtscLintRuleSetting;
+
+  /** Rejects constructor-like signatures in interfaces. */
+  "no-misused-new"?: TtscLintRuleSetting;
+
+  /** Rejects enums that mix numeric and string members. */
+  "no-mixed-enums"?: TtscLintRuleSetting;
+
+  /** Reject `a = b = 0` chains. */
+  "no-multi-assign"?: TtscLintRuleSetting;
+
+  /** Rejects multiline string escapes. */
+  "no-multi-str"?: TtscLintRuleSetting;
+
+  /** Rejects non-ambient namespaces. */
+  "no-namespace"?: TtscLintRuleSetting;
+
+  /** Rejects negated conditions with an `else`. */
+  "no-negated-condition"?: TtscLintRuleSetting;
+
+  /** Rejects nested ternary expressions. */
+  "no-nested-ternary"?: TtscLintRuleSetting;
+
+  /** Rejects `new` expressions used only for side effects. */
+  "no-new"?: TtscLintRuleSetting;
+
+  /** Rejects `Function` constructors. */
+  "no-new-func"?: TtscLintRuleSetting;
+
+  /** Rejects primitive wrapper constructors. */
+  "no-new-wrappers"?: TtscLintRuleSetting;
+
+  /** Rejects non-null assertions next to `??`. */
+  "no-non-null-asserted-nullish-coalescing"?: TtscLintRuleSetting;
+
+  /** Rejects non-null assertions on optional chains. */
+  "no-non-null-asserted-optional-chain"?: TtscLintRuleSetting;
+
+  /** Rejects postfix non-null assertions. */
+  "no-non-null-assertion"?: TtscLintRuleSetting;
+
+  /** Rejects calling global objects as functions. */
+  "no-obj-calls"?: TtscLintRuleSetting;
+
+  /** Rejects `new Object()`. */
+  "no-object-constructor"?: TtscLintRuleSetting;
+
+  /** Reject octal literals. */
+  "no-octal"?: TtscLintRuleSetting;
+
+  /** Reject `\08`-style escapes. */
+  "no-octal-escape"?: TtscLintRuleSetting;
+
+  /** Rejects `++` and `--`. */
+  "no-plusplus"?: TtscLintRuleSetting;
+
+  /** Reject `return` inside a Promise executor. */
+  "no-promise-executor-return"?: TtscLintRuleSetting;
+
+  /** Reject `obj.__proto__`. */
+  "no-proto"?: TtscLintRuleSetting;
+
+  /**
+   * Reject `obj.hasOwnProperty(...)`; use
+   * `Object.prototype.hasOwnProperty.call`.
+   */
+  "no-prototype-builtins"?: TtscLintRuleSetting;
+
+  /** Rejects repeated literal spaces in regexes. */
+  "no-regex-spaces"?: TtscLintRuleSetting;
+
+  /** Reject `require(...)` outside CommonJS modules. */
+  "no-require-imports"?: TtscLintRuleSetting;
+
+  /** Rejects assignments in `return`. */
+  "no-return-assign"?: TtscLintRuleSetting;
+
+  /** Rejects `javascript:` URLs. */
+  "no-script-url"?: TtscLintRuleSetting;
+
+  /** Reject `x = x`, including destructured forms. */
+  "no-self-assign"?: TtscLintRuleSetting;
+
+  /** Reject `x === x` and friends. */
+  "no-self-compare"?: TtscLintRuleSetting;
+
+  /** Rejects comma expressions. */
+  "no-sequences"?: TtscLintRuleSetting;
+
+  /** Rejects returned values from setters. */
+  "no-setter-return"?: TtscLintRuleSetting;
+
+  /** Rejects shadowing restricted globals. */
+  "no-shadow-restricted-names"?: TtscLintRuleSetting;
+
+  /** Rejects sparse arrays. */
+  "no-sparse-arrays"?: TtscLintRuleSetting;
+
+  /** Reject `${}` inside non-template strings (probably a bug). */
+  "no-template-curly-in-string"?: TtscLintRuleSetting;
+
+  /** Rejects aliasing `this` to locals. */
+  "no-this-alias"?: TtscLintRuleSetting;
+
+  /** `throw "boom"` → fail. Use `throw new Error(...)`. */
+  "no-throw-literal"?: TtscLintRuleSetting;
+
+  /** Rejects initializing to `undefined`. */
+  "no-undef-init"?: TtscLintRuleSetting;
+
+  /** Rejects constructor assignments already handled by parameter properties. */
+  "no-unnecessary-parameter-property-assignment"?: TtscLintRuleSetting;
+
+  /** Rejects the global `undefined` identifier. */
+  "no-undefined"?: TtscLintRuleSetting;
+
+  /** Reject `<T extends unknown>` and similar. Autofixable. */
+  "no-unnecessary-type-constraint"?: TtscLintRuleSetting;
+
+  /** Rejects redundant ternary expressions. */
+  "no-unneeded-ternary"?: TtscLintRuleSetting;
+
+  /** Rejects unsafe class/interface declaration merging. */
+  "no-unsafe-declaration-merging"?: TtscLintRuleSetting;
+
+  /** Reject `return` / `throw` inside a `finally`. */
+  "no-unsafe-finally"?: TtscLintRuleSetting;
+
+  /** Rejects the unsafe `Function` type. */
+  "no-unsafe-function-type"?: TtscLintRuleSetting;
+
+  /** Rejects unsafe negation before relational checks. */
+  "no-unsafe-negation"?: TtscLintRuleSetting;
+
+  /** Rejects expression statements with no effect. */
+  "no-unused-expressions"?: TtscLintRuleSetting;
+
+  /** Rejects labels that no `break` or `continue` targets. */
+  "no-unused-labels"?: TtscLintRuleSetting;
+
+  /** Rejects unnecessary `.call()` and `.apply()`. */
+  "no-useless-call"?: TtscLintRuleSetting;
+
+  /** Rejects catch blocks that only rethrow. */
+  "no-useless-catch"?: TtscLintRuleSetting;
+
+  /** Rejects unnecessary computed property keys. */
+  "no-useless-computed-key"?: TtscLintRuleSetting;
+
+  /** Rejects unnecessary string concatenation. */
+  "no-useless-concat"?: TtscLintRuleSetting;
+
+  /** Rejects empty constructors with no parameters. */
+  "no-useless-constructor"?: TtscLintRuleSetting;
+
+  /** Rejects redundant empty `export {}` declarations in module files. */
+  "no-useless-empty-export"?: TtscLintRuleSetting;
+
+  /** Reject `\.` and friends when not required. Autofixable. */
+  "no-useless-escape"?: TtscLintRuleSetting;
+
+  /** Reject `{ x: x }` in destructuring. Autofixable. */
+  "no-useless-rename"?: TtscLintRuleSetting;
+
+  /** Reject `var`. Use `let` or `const`. Autofixable. */
+  "no-var"?: TtscLintRuleSetting;
+
+  /** Reject `with (...)`. */
+  "no-with"?: TtscLintRuleSetting;
+
+  /**
+   * Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable.
+   * `Object` stays detection-only.
+   */
+  "no-wrapper-object-types"?: TtscLintRuleSetting;
+
+  /** Reject `{ foo: foo }`. Autofixable. */
+  "object-shorthand"?: TtscLintRuleSetting;
+
+  /** Prefers compound assignment operators. */
+  "operator-assignment"?: TtscLintRuleSetting;
+
+  /** Reject `as Literal` when `as const` would do. Autofixable. */
+  "prefer-as-const"?: TtscLintRuleSetting;
+
+  /**
+   * When a `let` is never reassigned, demand `const`. Autofixable for single
+   * declarations.
+   */
+  "prefer-const"?: TtscLintRuleSetting;
+
+  /** Requires explicit enum member initializers. */
+  "prefer-enum-initializers"?: TtscLintRuleSetting;
+
+  /** Prefers `**` over `Math.pow`. */
+  "prefer-exponentiation-operator"?: TtscLintRuleSetting;
+
+  /** Prefer `for..of` when the index is unused. */
+  "prefer-for-of"?: TtscLintRuleSetting;
+
+  /** Prefers function type aliases over single-call interfaces. */
+  "prefer-function-type"?: TtscLintRuleSetting;
+
+  /** Prefers literal enum member initializers over computed expressions. */
+  "prefer-literal-enum-member"?: TtscLintRuleSetting;
+
+  /** Use `namespace` not `module`. Autofixable. */
+  "prefer-namespace-keyword"?: TtscLintRuleSetting;
+
+  /** Prefers spread arguments over `.apply`. */
+  "prefer-spread"?: TtscLintRuleSetting;
+
+  /** Prefers template literals over string concatenation. */
+  "prefer-template"?: TtscLintRuleSetting;
+
+  /** Requires a radix argument for `parseInt`. */
+  radix?: TtscLintRuleSetting;
+
+  /** Requires generator functions to contain `yield`. */
+  "require-yield"?: TtscLintRuleSetting;
+
+  /** Rejects triple-slash reference directives. */
+  "triple-slash-reference"?: TtscLintRuleSetting;
+
+  /** Requires `Number.isNaN`/`isNaN` for `NaN` checks. */
+  "use-isnan"?: TtscLintRuleSetting;
+
+  /** Restricts `typeof` comparisons to valid strings. */
+  "valid-typeof"?: TtscLintRuleSetting;
+
+  /** Requires `var` declarations at the top of their scope. */
+  "vars-on-top"?: TtscLintRuleSetting;
+
+  /** Rejects literal-first comparisons. */
+  yoda?: TtscLintRuleSetting;
+}
+
+/** Architecture-boundary rules for TypeScript source imports. */
+export interface ITtscLintBoundariesRules {
+  /**
+   * Enforce allowed dependency directions between configured source-path
+   * element types.
+   */
+  "boundaries/element-types"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesElementTypesRuleOptions>;
+
+  /**
+   * Require cross-element imports to target the element's configured public
+   * entry files.
+   */
+  "boundaries/entry-point"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesEntryPointRuleOptions>;
+
+  /** Restrict external package imports by package/specifier pattern. */
+  "boundaries/external"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesExternalRuleOptions>;
+
+  /**
+   * Reject imports of configured private files from outside their source-path
+   * element.
+   */
+  "boundaries/no-private"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoPrivateRuleOptions>;
+
+  /**
+   * Reject relative imports whose resolved source file matches no configured
+   * element.
+   */
+  "boundaries/no-unknown"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoUnknownRuleOptions>;
+}
+
+/** Cypress and Mocha-shaped test rules. */
+export interface ITtscLintCypressRules {
+  /** Requires a Cypress assertion before `cy.screenshot()`. */
+  "cypress/assertion-before-screenshot"?: TtscLintRuleSetting;
+
+  /** Prefers `.should()` over `.and()` when starting Cypress assertion chains. */
+  "cypress/no-and"?: TtscLintRuleSetting;
+
+  /** Rejects assigning the return value of Cypress commands. */
+  "cypress/no-assigning-return-values"?: TtscLintRuleSetting;
+
+  /** Rejects async `before` and `beforeEach` callbacks in Cypress specs. */
+  "cypress/no-async-before"?: TtscLintRuleSetting;
+
+  /** Rejects async Cypress test callbacks. */
+  "cypress/no-async-tests"?: TtscLintRuleSetting;
+
+  /** Rejects chained `.get()` calls. */
+  "cypress/no-chained-get"?: TtscLintRuleSetting;
+
+  /** Rejects `cy.debug()` and chained `.debug()` commands. */
+  "cypress/no-debug"?: TtscLintRuleSetting;
+
+  /** Rejects `{ force: true }` on Cypress action commands. */
+  "cypress/no-force"?: TtscLintRuleSetting;
+
+  /** Rejects `cy.pause()` and chained `.pause()` commands. */
+  "cypress/no-pause"?: TtscLintRuleSetting;
+
+  /** Rejects numeric `cy.wait(...)` sleeps. */
+  "cypress/no-unnecessary-waiting"?: TtscLintRuleSetting;
+
+  /** Rejects deprecated `cy.xpath()` selectors. */
+  "cypress/no-xpath"?: TtscLintRuleSetting;
+
+  /**
+   * Requires `cy.get()` selectors to target `data-*` attributes when statically
+   * known.
+   */
+  "cypress/require-data-selectors"?: TtscLintRuleSetting;
+
+  /** Rejects chaining more commands after Cypress action commands. */
+  "cypress/unsafe-to-chain-command"?: TtscLintRuleOptionsSetting<ITtscLintCypressUnsafeToChainCommandRuleOptions>;
+}
+
+/** Lint directive comment rules. */
+export interface ITtscLintEslintCommentsRules {
+  /**
+   * Requires range `eslint-disable` directives to be paired with
+   * `eslint-enable`.
+   */
+  "eslint-comments/disable-enable-pair"?: TtscLintRuleOptionsSetting<ITtscLintDisableEnablePairRuleOptions>;
+
+  /**
+   * Rejects bare `eslint-enable` comments that re-enable named disables at
+   * once.
+   */
+  "eslint-comments/no-aggregating-enable"?: TtscLintRuleSetting;
+
+  /** Rejects disable directives that repeat an already active disable. */
+  "eslint-comments/no-duplicate-disable"?: TtscLintRuleSetting;
+
+  /** Rejects disable directives for configured protected rules. */
+  "eslint-comments/no-restricted-disable"?: TtscLintRuleOptionsSetting<ITtscLintNoRestrictedDisableRuleOptions>;
+
+  /** Rejects disable directives with no explicit rule list. */
+  "eslint-comments/no-unlimited-disable"?: TtscLintRuleSetting;
+
+  /** Rejects disable directives that suppress no finding. */
+  "eslint-comments/no-unused-disable"?: TtscLintRuleSetting;
+
+  /** Rejects enable directives that do not re-enable anything. */
+  "eslint-comments/no-unused-enable"?: TtscLintRuleSetting;
+
+  /** Rejects inline lint directive comments. */
+  "eslint-comments/no-use"?: TtscLintRuleOptionsSetting<ITtscLintNoUseRuleOptions>;
+
+  /** Requires lint directive comments to include a `--` description. */
+  "eslint-comments/require-description"?: TtscLintRuleSetting;
+}
+
+/** Functional-programming policy rules. */
+export interface ITtscLintFunctionalRules {
+  /**
+   * Enforce functional parameter style: no rest args/`arguments`, and optional
+   * parameter-count policy.
+   */
   "functional/functional-parameters"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalParametersRuleOptions>;
 
   /** Reject property, element, array, Map, and Set mutation. */
@@ -342,7 +655,10 @@ export interface ITtscLintRules {
   /** Reject imperative loop statements. */
   "functional/no-loop-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
 
-  /** Reject interfaces/type literals that mix property, method, call, and index member kinds. */
+  /**
+   * Reject interfaces/type literals that mix property, method, call, and index
+   * member kinds.
+   */
   "functional/no-mixed-types"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoMixedTypesRuleOptions>;
 
   /** Reject `Promise.reject(...)`. */
@@ -360,7 +676,10 @@ export interface ITtscLintRules {
   /** Reject `try/catch` and `try/finally` statements. */
   "functional/no-try-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoTryStatementsRuleOptions>;
 
-  /** Require declared variable, parameter, and property types to be readonly/immutable. */
+  /**
+   * Require declared variable, parameter, and property types to be
+   * readonly/immutable.
+   */
   "functional/prefer-immutable-types"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalPreferImmutableTypesRuleOptions>;
 
   /** Prefer property signatures over method signatures. */
@@ -377,1104 +696,964 @@ export interface ITtscLintRules {
 
   /** Enforce readonly/immutable type declarations by declaration-name policy. */
   "functional/type-declaration-immutability"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions>;
-
-  /** prefers function-property signatures over method shorthand signatures. */
-  "method-signature-style"?: TtscLintRuleSetting;
-
-  /** rejects `alert`, `confirm`, and `prompt`. */
-  "no-alert"?: TtscLintRuleSetting;
-
-  /** rejects `Array` constructor calls. */
-  "no-array-constructor"?: TtscLintRuleSetting;
-
-  /** rejects `delete` on array elements. */
-  "no-array-delete"?: TtscLintRuleSetting;
-
-  /** Reject `new Promise(async (...) => ...)`. */
-  "no-async-promise-executor"?: TtscLintRuleSetting;
-
-  /** rejects bitwise operators. */
-  "no-bitwise"?: TtscLintRuleSetting;
-
-  /** rejects `arguments.caller` and `arguments.callee`. */
-  "no-caller"?: TtscLintRuleSetting;
-
-  /** rejects lexical declarations directly inside `case` clauses. */
-  "no-case-declarations"?: TtscLintRuleSetting;
-
-  /** rejects reassignment of class declarations. */
-  "no-class-assign"?: TtscLintRuleSetting;
-
-  /** rejects comparisons against `-0`. */
-  "no-compare-neg-zero"?: TtscLintRuleSetting;
-
-  /** rejects assignments inside conditions. */
-  "no-cond-assign"?: TtscLintRuleSetting;
-
-  /** rejects confusing non-null assertions next to equality checks. */
-  "no-confusing-non-null-assertion"?: TtscLintRuleSetting;
-
-  /** rejects `console` calls. */
-  "no-console"?: TtscLintRuleSetting;
-
-  /** Reject `while (true)` and other constant test expressions. */
-  "no-constant-condition"?: TtscLintRuleSetting;
-
-  /** rejects `continue` statements. */
-  "no-continue"?: TtscLintRuleSetting;
-
-  /** rejects control characters in regular expressions. */
-  "no-control-regex"?: TtscLintRuleSetting;
-
-  /** Reject `debugger`. */
-  "no-debugger"?: TtscLintRuleSetting;
-
-  /** rejects deleting variables. */
-  "no-delete-var"?: TtscLintRuleSetting;
-
-  /** Function declared with two parameters of the same name. */
-  "no-dupe-args"?: TtscLintRuleSetting;
-
-  /** `if (a) ... else if (a) ...`. */
-  "no-dupe-else-if"?: TtscLintRuleSetting;
-
-  /** `{ a: 1, a: 2 }`. */
-  "no-dupe-keys"?: TtscLintRuleSetting;
-
-  /** Same case label twice in a `switch`. */
-  "no-duplicate-case"?: TtscLintRuleSetting;
-
-  /** rejects duplicate enum member values. */
-  "no-duplicate-enum-values"?: TtscLintRuleSetting;
-
-  /** rejects `delete` on dynamically computed property keys. */
-  "no-dynamic-delete"?: TtscLintRuleSetting;
-
-  /** Reject `if (x) {}`, `while (x) {}`, etc. */
-  "no-empty"?: TtscLintRuleSetting;
-
-  /** rejects empty regex character classes. */
-  "no-empty-character-class"?: TtscLintRuleSetting;
-
-  /** Reject `function f() {}`. */
-  "no-empty-function"?: TtscLintRuleSetting;
-
-  /** rejects empty interfaces. */
-  "no-empty-interface"?: TtscLintRuleSetting;
-
-  /** rejects empty object type literals. */
-  "no-empty-object-type"?: TtscLintRuleSetting;
-
-  /** rejects empty destructuring patterns. */
-  "no-empty-pattern"?: TtscLintRuleSetting;
-
-  /** rejects empty class static blocks. */
-  "no-empty-static-block"?: TtscLintRuleSetting;
-
-  /** rejects loose null comparisons. */
-  "no-eq-null"?: TtscLintRuleSetting;
-
-  /** rejects `eval`. */
-  "no-eval"?: TtscLintRuleSetting;
-
-  /** rejects reassignment of caught exceptions. */
-  "no-ex-assign"?: TtscLintRuleSetting;
-
-  /** Reject `any` annotations. Typically `"warning"` during migrations. */
-  "no-explicit-any"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary `.bind()` calls. */
-  "no-extra-bind"?: TtscLintRuleSetting;
-
-  /** rejects redundant boolean casts. */
-  "no-extra-boolean-cast"?: TtscLintRuleSetting;
-
-  /** Reject `x!!`. Autofixable. */
-  "no-extra-non-null-assertion"?: TtscLintRuleSetting;
-
-  /** Reject `switch` case fall-through without an explicit comment. */
-  "no-fallthrough"?: TtscLintRuleSetting;
-
-  /** rejects reassignment of function declarations. */
-  "no-func-assign"?: TtscLintRuleSetting;
-
-  /** Hoist inline `type` modifiers into a single `import type {}`. Autofixable. */
-  "no-import-type-side-effects"?: TtscLintRuleSetting;
-
-  /** rejects type annotations TypeScript can infer. */
-  "no-inferrable-types"?: TtscLintRuleSetting;
-
-  /** rejects function declarations nested in blocks. */
-  "no-inner-declarations"?: TtscLintRuleSetting;
-
-  /** rejects irregular whitespace. */
-  "no-irregular-whitespace"?: TtscLintRuleSetting;
-
-  /** rejects `__iterator__`. */
-  "no-iterator"?: TtscLintRuleSetting;
-
-  /** rejects labels. */
-  "no-labels"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary standalone blocks. */
-  "no-lone-blocks"?: TtscLintRuleSetting;
-
-  /** rejects `if` as the only statement in an `else`. */
-  "no-lonely-if"?: TtscLintRuleSetting;
-
-  /** Reject decimal integer literals whose source text cannot round-trip as a JavaScript Number, including overflow-scale values. */
-  "no-loss-of-precision"?: TtscLintRuleSetting;
-
-  /** rejects misleading regex character classes. */
-  "no-misleading-character-class"?: TtscLintRuleSetting;
-
-  /** rejects constructor-like signatures in interfaces. */
-  "no-misused-new"?: TtscLintRuleSetting;
-
-  /** rejects enums that mix numeric and string members. */
-  "no-mixed-enums"?: TtscLintRuleSetting;
-
-  /** Reject `a = b = 0` chains. */
-  "no-multi-assign"?: TtscLintRuleSetting;
-
-  /** rejects multiline string escapes. */
-  "no-multi-str"?: TtscLintRuleSetting;
-
-  /** rejects non-ambient namespaces. */
-  "no-namespace"?: TtscLintRuleSetting;
-
-  /** rejects negated conditions with an `else`. */
-  "no-negated-condition"?: TtscLintRuleSetting;
-
-  /** rejects nested ternary expressions. */
-  "no-nested-ternary"?: TtscLintRuleSetting;
-
-  /** rejects `new` expressions used only for side effects. */
-  "no-new"?: TtscLintRuleSetting;
-
-  /** rejects `Function` constructors. */
-  "no-new-func"?: TtscLintRuleSetting;
-
-  /** rejects primitive wrapper constructors. */
-  "no-new-wrappers"?: TtscLintRuleSetting;
-
-  /** rejects non-null assertions next to `??`. */
-  "no-non-null-asserted-nullish-coalescing"?: TtscLintRuleSetting;
-
-  /** rejects non-null assertions on optional chains. */
-  "no-non-null-asserted-optional-chain"?: TtscLintRuleSetting;
-
-  /** rejects postfix non-null assertions. */
-  "no-non-null-assertion"?: TtscLintRuleSetting;
-
-  /** rejects calling global objects as functions. */
-  "no-obj-calls"?: TtscLintRuleSetting;
-
-  /** rejects `new Object()`. */
-  "no-object-constructor"?: TtscLintRuleSetting;
-
-  /** Reject octal literals. */
-  "no-octal"?: TtscLintRuleSetting;
-
-  /** Reject `\08`-style escapes. */
-  "no-octal-escape"?: TtscLintRuleSetting;
-
-  /** rejects `++` and `--`. */
-  "no-plusplus"?: TtscLintRuleSetting;
-
-  /** Reject `return` inside a Promise executor. */
-  "no-promise-executor-return"?: TtscLintRuleSetting;
-
-  /** Reject `obj.__proto__`. */
-  "no-proto"?: TtscLintRuleSetting;
-
-  /** Reject `obj.hasOwnProperty(...)`; use `Object.prototype.hasOwnProperty.call`. */
-  "no-prototype-builtins"?: TtscLintRuleSetting;
-
-  /** rejects repeated literal spaces in regexes. */
-  "no-regex-spaces"?: TtscLintRuleSetting;
-
-  /** Reject `require(...)` outside CommonJS modules. */
-  "no-require-imports"?: TtscLintRuleSetting;
-
-  /** rejects assignments in `return`. */
-  "no-return-assign"?: TtscLintRuleSetting;
-
-  /** rejects `javascript:` URLs. */
-  "no-script-url"?: TtscLintRuleSetting;
-
-  /** Reject `x = x`, including destructured forms. */
-  "no-self-assign"?: TtscLintRuleSetting;
-
-  /** Reject `x === x` and friends. */
-  "no-self-compare"?: TtscLintRuleSetting;
-
-  /** rejects comma expressions. */
-  "no-sequences"?: TtscLintRuleSetting;
-
-  /** rejects returned values from setters. */
-  "no-setter-return"?: TtscLintRuleSetting;
-
-  /** rejects shadowing restricted globals. */
-  "no-shadow-restricted-names"?: TtscLintRuleSetting;
-
-  /** rejects sparse arrays. */
-  "no-sparse-arrays"?: TtscLintRuleSetting;
-
-  /** Reject `${}` inside non-template strings (probably a bug). */
-  "no-template-curly-in-string"?: TtscLintRuleSetting;
-
-  /** rejects aliasing `this` to locals. */
-  "no-this-alias"?: TtscLintRuleSetting;
-
-  /** `throw "boom"` → fail. Use `throw new Error(...)`. */
-  "no-throw-literal"?: TtscLintRuleSetting;
-
-  /** rejects initializing to `undefined`. */
-  "no-undef-init"?: TtscLintRuleSetting;
-
-  /** rejects constructor assignments already handled by parameter properties. */
-  "no-unnecessary-parameter-property-assignment"?: TtscLintRuleSetting;
-
-  /** rejects the global `undefined` identifier. */
-  "no-undefined"?: TtscLintRuleSetting;
-
-  /** Reject `<T extends unknown>` and similar. Autofixable. */
-  "no-unnecessary-type-constraint"?: TtscLintRuleSetting;
-
-  /** rejects redundant ternary expressions. */
-  "no-unneeded-ternary"?: TtscLintRuleSetting;
-
-  /** rejects unsafe class/interface declaration merging. */
-  "no-unsafe-declaration-merging"?: TtscLintRuleSetting;
-
-  /** Reject `return` / `throw` inside a `finally`. */
-  "no-unsafe-finally"?: TtscLintRuleSetting;
-
-  /** rejects the unsafe `Function` type. */
-  "no-unsafe-function-type"?: TtscLintRuleSetting;
-
-  /** rejects unsafe negation before relational checks. */
-  "no-unsafe-negation"?: TtscLintRuleSetting;
-
-  /** rejects expression statements with no effect. */
-  "no-unused-expressions"?: TtscLintRuleSetting;
-
-  /** rejects labels that no `break` or `continue` targets. */
-  "no-unused-labels"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary `.call()` and `.apply()`. */
-  "no-useless-call"?: TtscLintRuleSetting;
-
-  /** rejects catch blocks that only rethrow. */
-  "no-useless-catch"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary computed property keys. */
-  "no-useless-computed-key"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary string concatenation. */
-  "no-useless-concat"?: TtscLintRuleSetting;
-
-  /** rejects empty constructors with no parameters. */
-  "no-useless-constructor"?: TtscLintRuleSetting;
-
-  /** rejects redundant empty `export {}` declarations in module files. */
-  "no-useless-empty-export"?: TtscLintRuleSetting;
-
-  /** Reject `\.` and friends when not required. Autofixable. */
-  "no-useless-escape"?: TtscLintRuleSetting;
-
-  /** Reject `{ x: x }` in destructuring. Autofixable. */
-  "no-useless-rename"?: TtscLintRuleSetting;
-
-  /** Reject `var`. Use `let` or `const`. Autofixable. */
-  "no-var"?: TtscLintRuleSetting;
-
-  /** Reject `with (...)`. */
-  "no-with"?: TtscLintRuleSetting;
-
-  /** Reject `String` / `Number` / `Boolean` / `Symbol` / `BigInt`. Autofixable. `Object` stays detection-only. */
-  "no-wrapper-object-types"?: TtscLintRuleSetting;
-
-  /** Reject `{ foo: foo }`. Autofixable. */
-  "object-shorthand"?: TtscLintRuleSetting;
-
-  /** prefers compound assignment operators. */
-  "operator-assignment"?: TtscLintRuleSetting;
-
-  /** Reject `as Literal` when `as const` would do. Autofixable. */
-  "prefer-as-const"?: TtscLintRuleSetting;
-
-  /** When a `let` is never reassigned, demand `const`. Autofixable for single declarations. */
-  "prefer-const"?: TtscLintRuleSetting;
-
-  /** requires explicit enum member initializers. */
-  "prefer-enum-initializers"?: TtscLintRuleSetting;
-
-  /** prefers `**` over `Math.pow`. */
-  "prefer-exponentiation-operator"?: TtscLintRuleSetting;
-
-  /** Prefer `for..of` when the index is unused. */
-  "prefer-for-of"?: TtscLintRuleSetting;
-
-  /** prefers function type aliases over single-call interfaces. */
-  "prefer-function-type"?: TtscLintRuleSetting;
-
-  /** prefers literal enum member initializers over computed expressions. */
-  "prefer-literal-enum-member"?: TtscLintRuleSetting;
-
-  /** Use `namespace` not `module`. Autofixable. */
-  "prefer-namespace-keyword"?: TtscLintRuleSetting;
-
-  /** prefers spread arguments over `.apply`. */
-  "prefer-spread"?: TtscLintRuleSetting;
-
-  /** prefers template literals over string concatenation. */
-  "prefer-template"?: TtscLintRuleSetting;
-
-  /** requires a radix argument for `parseInt`. */
-  radix?: TtscLintRuleSetting;
-
-  /** rejects freshly-created arrays passed as JSX props in TSX files. */
-  "react-perf/jsx-no-new-array-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
-
-  /** rejects freshly-created functions passed as JSX props in TSX files. */
-  "react-perf/jsx-no-new-function-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
-
-  /** rejects freshly-created objects passed as JSX props in TSX files. */
-  "react-perf/jsx-no-new-object-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
-
-  /** rejects freshly-created JSX elements/fragments passed as JSX props in TSX files. */
-  "react-perf/jsx-no-jsx-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
-
-  /** enforces the Rules of Hooks in components and custom Hooks. */
-  "react-hooks/rules-of-hooks"?: TtscLintRuleSetting;
-
-  /** checks high-confidence missing identifiers in React Hook dependency arrays. */
-  "react-hooks/exhaustive-deps"?: TtscLintRuleSetting;
-
-  /** rejects nested component/Hook factories with local Hook calls. */
-  "react-hooks/component-hook-factories"?: TtscLintRuleSetting;
-
-  /** rejects local prop mutations in React components and Hooks. */
-  "react-hooks/immutability"?: TtscLintRuleSetting;
-
-  /** rejects reading or writing `ref.current` during render. */
-  "react-hooks/refs"?: TtscLintRuleSetting;
-
-  /** rejects synchronous state setter calls inside effects. */
-  "react-hooks/set-state-in-effect"?: TtscLintRuleSetting;
-
-  /** rejects state setter calls during render. */
-  "react-hooks/set-state-in-render"?: TtscLintRuleSetting;
-
-  /** rejects block-bodied `useMemo` callbacks that do not return a value. */
-  "react-hooks/use-memo"?: TtscLintRuleSetting;
-
-  /** rejects control characters in regular expression literals. Alias of the bare regex check. */
-  "regexp/no-control-character"?: TtscLintRuleSetting;
-
-  /** rejects duplicate literal characters inside simple regex character classes. */
-  "regexp/no-dupe-characters-character-class"?: TtscLintRuleSetting;
-
-  /** rejects empty alternatives such as `/a||b/`. */
-  "regexp/no-empty-alternative"?: TtscLintRuleSetting;
-
-  /** rejects empty capturing groups such as `/()/`. */
-  "regexp/no-empty-capturing-group"?: TtscLintRuleSetting;
-
-  /** rejects empty regex character classes. Alias of `no-empty-character-class`. */
-  "regexp/no-empty-character-class"?: TtscLintRuleSetting;
-
-  /** rejects empty non-capturing groups such as `/(?:)/`. */
-  "regexp/no-empty-group"?: TtscLintRuleSetting;
-
-  /** rejects empty lookaround assertions such as `/(?=)/`. */
-  "regexp/no-empty-lookarounds-assertion"?: TtscLintRuleSetting;
-
-  /** rejects misleading Unicode characters in regex classes. Alias of the bare misleading-character check. */
-  "regexp/no-misleading-unicode-character"?: TtscLintRuleSetting;
-
-  /** rejects single literal character classes such as `/[x]/`. */
-  "regexp/no-useless-character-class"?: TtscLintRuleSetting;
-
-  /** rejects unnecessary regex escapes. Alias of `no-useless-escape` for regex literals. */
-  "regexp/no-useless-escape"?: TtscLintRuleSetting;
-
-  /** rejects flags that do not affect the regex literal. */
-  "regexp/no-useless-flag"?: TtscLintRuleSetting;
-
-  /** rejects exact-one quantifiers such as `/a{1}/`. */
-  "regexp/no-useless-quantifier"?: TtscLintRuleSetting;
-
-  /** rejects equal min/max quantifiers such as `/a{2,2}/`. */
-  "regexp/no-useless-two-nums-quantifier"?: TtscLintRuleSetting;
-
-  /** rejects zero-repeat quantifiers such as `/a{0}/`. */
-  "regexp/no-zero-quantifier"?: TtscLintRuleSetting;
-
-  /** prefers `\d` over `[0-9]` in regex literals. */
-  "regexp/prefer-d"?: TtscLintRuleSetting;
-
-  /** prefers `+` over `{1,}` in regex literals. */
-  "regexp/prefer-plus-quantifier"?: TtscLintRuleSetting;
-
-  /** prefers `?` over `{0,1}` in regex literals. */
-  "regexp/prefer-question-quantifier"?: TtscLintRuleSetting;
-
-  /** prefers `*` over `{0,}` in regex literals. */
-  "regexp/prefer-star-quantifier"?: TtscLintRuleSetting;
-
-  /** prefers `\w` over `[A-Za-z0-9_]` in regex literals. */
-  "regexp/prefer-w"?: TtscLintRuleSetting;
-
-  /** requires regex literals to use the `u` or `v` flag. */
-  "regexp/require-unicode-regexp"?: TtscLintRuleSetting;
-
-  /** requires regex literals to use the `v` flag. */
-  "regexp/require-unicode-sets-regexp"?: TtscLintRuleSetting;
-
-  /** requires regex flags to follow canonical order. */
-  "regexp/sort-flags"?: TtscLintRuleSetting;
-
-  /** requires generator functions to contain `yield`. */
-  "require-yield"?: TtscLintRuleSetting;
-
-  /** requires TanStack Query keys to include variables read by queryFn. */
-  "@tanstack/query/exhaustive-deps"?: TtscLintRuleSetting;
-
-  /** requires infinite query page-param callbacks to appear after queryFn. */
-  "@tanstack/query/infinite-query-property-order"?: TtscLintRuleSetting;
-
-  /** requires mutation lifecycle callbacks to keep onMutate before error/settled handlers. */
-  "@tanstack/query/mutation-property-order"?: TtscLintRuleSetting;
-
-  /** rejects object rest destructuring over TanStack Query hook results. */
-  "@tanstack/query/no-rest-destructuring"?: TtscLintRuleSetting;
-
-  /** rejects passing whole TanStack Query hook results to React dependency arrays. */
-  "@tanstack/query/no-unstable-deps"?: TtscLintRuleSetting;
-
-  /** rejects queryFn callbacks that return no data in AST-local cases. */
-  "@tanstack/query/no-void-query-fn"?: TtscLintRuleSetting;
-
-  /** prefers extracted TanStack Query options over inline queryKey/queryFn objects. */
-  "@tanstack/query/prefer-query-options"?: TtscLintRuleSetting;
-
-  /** rejects creating QueryClient inside React component or hook bodies. */
-  "@tanstack/query/stable-query-client"?: TtscLintRuleSetting;
-
-  /** keeps React Fast Refresh component modules from exporting non-components. */
-  "react-refresh/only-export-components"?: TtscLintRuleOptionsSetting<ITtscLintReactRefreshOnlyExportComponentsRuleOptions>;
-
-  /** requires Jest tests to contain at least one assertion. */
+}
+
+/** Jest test-source rules. */
+export interface ITtscLintJestRules {
+  /** Requires Jest tests to contain at least one assertion. */
   "jest/expect-expect"?: TtscLintRuleSetting;
 
-  /** limits assertion count in a Jest test body. */
+  /** Limits assertion count in a Jest test body. */
   "jest/max-expects"?: TtscLintRuleSetting;
 
-  /** rejects expect calls under conditional branches in Jest tests. */
+  /** Rejects expect calls under conditional branches in Jest tests. */
   "jest/no-conditional-expect"?: TtscLintRuleSetting;
 
-  /** rejects conditional logic in Jest test bodies. */
+  /** Rejects conditional logic in Jest test bodies. */
   "jest/no-conditional-in-test"?: TtscLintRuleSetting;
 
-  /** rejects skipped or disabled Jest tests. */
+  /** Rejects skipped or disabled Jest tests. */
   "jest/no-disabled-tests"?: TtscLintRuleSetting;
 
-  /** rejects done callback parameters in Jest tests and hooks. */
+  /** Rejects done callback parameters in Jest tests and hooks. */
   "jest/no-done-callback"?: TtscLintRuleSetting;
 
-  /** rejects duplicate Jest setup and teardown hooks. */
+  /** Rejects duplicate Jest setup and teardown hooks. */
   "jest/no-duplicate-hooks"?: TtscLintRuleSetting;
 
-  /** rejects exports from Jest test files. */
+  /** Rejects exports from Jest test files. */
   "jest/no-export"?: TtscLintRuleSetting;
 
-  /** rejects focused Jest tests. */
+  /** Rejects focused Jest tests. */
   "jest/no-focused-tests"?: TtscLintRuleSetting;
 
-  /** rejects Jest hooks. */
+  /** Rejects Jest hooks. */
   "jest/no-hooks"?: TtscLintRuleSetting;
 
-  /** rejects duplicate Jest test and describe titles at the same suite level. */
+  /** Rejects duplicate Jest test and describe titles at the same suite level. */
   "jest/no-identical-title"?: TtscLintRuleSetting;
 
-  /** rejects expect calls outside Jest tests. */
+  /** Rejects expect calls outside Jest tests. */
   "jest/no-standalone-expect"?: TtscLintRuleSetting;
 
-  /** rejects xit, fit, and related Jest test prefix aliases. */
+  /** Rejects xit, fit, and related Jest test prefix aliases. */
   "jest/no-test-prefixes"?: TtscLintRuleSetting;
 
-  /** rejects return statements from Jest tests. */
+  /** Rejects return statements from Jest tests. */
   "jest/no-test-return-statement"?: TtscLintRuleSetting;
 
-  /** prefers toHaveLength for length checks. */
+  /** Prefers toHaveLength for length checks. */
   "jest/prefer-to-have-length"?: TtscLintRuleSetting;
 
-  /** requires a message on toThrow assertions. */
+  /** Requires a message on toThrow assertions. */
   "jest/require-to-throw-message"?: TtscLintRuleSetting;
 
-  /** validates Jest describe callbacks. */
+  /** Validates Jest describe callbacks. */
   "jest/valid-describe-callback"?: TtscLintRuleSetting;
 
-  /** validates Jest expect call shape. */
+  /** Validates Jest expect call shape. */
   "jest/valid-expect"?: TtscLintRuleSetting;
 
-  /** validates Jest test and describe titles. */
+  /** Validates Jest test and describe titles. */
   "jest/valid-title"?: TtscLintRuleSetting;
+}
 
-  /** requires Playwright tests to contain at least one assertion. */
-  "playwright/expect-expect"?: TtscLintRuleSetting;
+/** JSDoc comment lint rules. */
+export interface ITtscLintJsdocRules {
+  /** Rejects unknown JSDoc block tag names. */
+  "jsdoc/check-tag-names"?: TtscLintRuleSetting;
 
-  /** limits assertion count in a Playwright test body. */
-  "playwright/max-expects"?: TtscLintRuleSetting;
+  /** Validates closed-set JSDoc tag values such as `@access`. */
+  "jsdoc/check-values"?: TtscLintRuleSetting;
 
-  /** rejects expect calls under conditional branches in Playwright tests. */
-  "playwright/no-conditional-expect"?: TtscLintRuleSetting;
+  /** Rejects content on marker-only JSDoc tags such as `@async`. */
+  "jsdoc/empty-tags"?: TtscLintRuleSetting;
 
-  /** rejects conditional logic in Playwright test bodies. */
-  "playwright/no-conditional-in-test"?: TtscLintRuleSetting;
+  /** Rejects redundant JSDoc type braces in TypeScript source comments. */
+  "jsdoc/no-types"?: TtscLintRuleSetting;
 
-  /** rejects duplicate Playwright setup and teardown hooks. */
-  "playwright/no-duplicate-hooks"?: TtscLintRuleSetting;
+  /** Rejects `any` and `*` inside JSDoc type braces. */
+  "jsdoc/reject-any-type"?: TtscLintRuleSetting;
 
-  /** rejects repeated test.slow calls inside the same Playwright test. */
-  "playwright/no-duplicate-slow"?: TtscLintRuleSetting;
+  /** Rejects the unsafe `Function` type inside JSDoc type braces. */
+  "jsdoc/reject-function-type"?: TtscLintRuleSetting;
 
-  /** rejects ElementHandle-style Playwright APIs. */
-  "playwright/no-element-handle"?: TtscLintRuleSetting;
+  /** Requires JSDoc blocks to include block-level description text. */
+  "jsdoc/require-description"?: TtscLintRuleSetting;
 
-  /** rejects page.$eval and page.$$eval. */
-  "playwright/no-eval"?: TtscLintRuleSetting;
+  /** Requires every `@param` tag with a name to include a description. */
+  "jsdoc/require-param-description"?: TtscLintRuleSetting;
 
-  /** rejects focused Playwright tests. */
-  "playwright/no-focused-test"?: TtscLintRuleSetting;
+  /** Requires every `@param` tag to include a parameter name. */
+  "jsdoc/require-param-name"?: TtscLintRuleSetting;
 
-  /** rejects Playwright force options. */
-  "playwright/no-force-option"?: TtscLintRuleSetting;
+  /** Requires every `@property` tag with a name to include a description. */
+  "jsdoc/require-property-description"?: TtscLintRuleSetting;
 
-  /** rejects getByTitle locators. */
-  "playwright/no-get-by-title"?: TtscLintRuleSetting;
+  /** Requires every `@property` tag to include a property name. */
+  "jsdoc/require-property-name"?: TtscLintRuleSetting;
 
-  /** rejects Playwright hooks. */
-  "playwright/no-hooks"?: TtscLintRuleSetting;
+  /** Requires every `@returns` tag to include a description. */
+  "jsdoc/require-returns-description"?: TtscLintRuleSetting;
+}
 
-  /** rejects nested test.step calls. */
-  "playwright/no-nested-step"?: TtscLintRuleSetting;
+/** JSX accessibility rules for TSX source. */
+export interface ITtscLintJsxA11yRules {
+  /** Requires image-like JSX elements to expose alt text or an ARIA label. */
+  "jsx-a11y/alt-text"?: TtscLintRuleSetting;
 
-  /** rejects networkidle load state and waitUntil options. */
-  "playwright/no-networkidle"?: TtscLintRuleSetting;
+  /** Rejects empty JSX anchors with no accessible content. */
+  "jsx-a11y/anchor-has-content"?: TtscLintRuleSetting;
 
-  /** rejects first, last, and nth locator methods. */
-  "playwright/no-nth-methods"?: TtscLintRuleSetting;
+  /** Rejects missing, hash-only, empty, and javascript: anchor href values. */
+  "jsx-a11y/anchor-is-valid"?: TtscLintRuleSetting;
 
-  /** rejects page.pause debugging calls. */
-  "playwright/no-page-pause"?: TtscLintRuleSetting;
+  /** Requires tabIndex when aria-activedescendant is present. */
+  "jsx-a11y/aria-activedescendant-has-tabindex"?: TtscLintRuleSetting;
 
-  /** rejects skipped Playwright tests. */
-  "playwright/no-skipped-test"?: TtscLintRuleSetting;
+  /** Rejects unknown aria-* JSX attributes. */
+  "jsx-a11y/aria-props"?: TtscLintRuleSetting;
 
-  /** rejects slowed Playwright tests. */
-  "playwright/no-slowed-test"?: TtscLintRuleSetting;
+  /** Validates known literal ARIA property values. */
+  "jsx-a11y/aria-proptypes"?: TtscLintRuleSetting;
 
-  /** rejects expect calls outside Playwright test blocks. */
-  "playwright/no-standalone-expect"?: TtscLintRuleSetting;
+  /** Rejects unknown ARIA role tokens. */
+  "jsx-a11y/aria-role"?: TtscLintRuleSetting;
 
-  /** rejects page.waitForNavigation calls. */
-  "playwright/no-wait-for-navigation"?: TtscLintRuleSetting;
+  /** Rejects ARIA roles and attributes on elements that cannot expose them. */
+  "jsx-a11y/aria-unsupported-elements"?: TtscLintRuleSetting;
 
-  /** rejects page.waitForSelector calls. */
-  "playwright/no-wait-for-selector"?: TtscLintRuleSetting;
+  /** Rejects unknown literal autocomplete tokens. */
+  "jsx-a11y/autocomplete-valid"?: TtscLintRuleSetting;
 
-  /** rejects page.waitForTimeout calls. */
-  "playwright/no-wait-for-timeout"?: TtscLintRuleSetting;
+  /**
+   * Requires keyboard handlers alongside clicks on non-interactive JSX
+   * elements.
+   */
+  "jsx-a11y/click-events-have-key-events"?: TtscLintRuleSetting;
 
-  /** prefers locator-based Playwright APIs over page methods. */
-  "playwright/prefer-locator"?: TtscLintRuleSetting;
+  /** Requires interactive controls to have an accessible label. */
+  "jsx-a11y/control-has-associated-label"?: TtscLintRuleSetting;
 
-  /** prefers toHaveCount for awaited count checks. */
-  "playwright/prefer-to-have-count"?: TtscLintRuleSetting;
+  /** Rejects empty JSX headings with no accessible content. */
+  "jsx-a11y/heading-has-content"?: TtscLintRuleSetting;
 
-  /** prefers toHaveLength for awaited length checks. */
-  "playwright/prefer-to-have-length"?: TtscLintRuleSetting;
+  /** Requires JSX html elements to declare lang. */
+  "jsx-a11y/html-has-lang"?: TtscLintRuleSetting;
 
-  /** prefers Playwright web-first assertions. */
-  "playwright/prefer-web-first-assertions"?: TtscLintRuleSetting;
+  /** Requires iframes to have a non-empty title. */
+  "jsx-a11y/iframe-has-title"?: TtscLintRuleSetting;
 
-  /** requires timeout options on toPass assertions. */
-  "playwright/require-to-pass-timeout"?: TtscLintRuleSetting;
+  /** Rejects redundant words such as image, photo, and picture in img alt text. */
+  "jsx-a11y/img-redundant-alt"?: TtscLintRuleSetting;
 
-  /** requires a message on toThrow assertions. */
-  "playwright/require-to-throw-message"?: TtscLintRuleSetting;
+  /** Requires elements with interactive roles to be focusable. */
+  "jsx-a11y/interactive-supports-focus"?: TtscLintRuleSetting;
 
-  /** validates Playwright describe callbacks. */
-  "playwright/valid-describe-callback"?: TtscLintRuleSetting;
+  /** Requires labels to reference or wrap a form control. */
+  "jsx-a11y/label-has-associated-control"?: TtscLintRuleSetting;
 
-  /** validates Playwright expect call arity. */
-  "playwright/valid-expect"?: TtscLintRuleSetting;
+  /** Compatibility alias for label association checks. */
+  "jsx-a11y/label-has-for"?: TtscLintRuleSetting;
 
-  /** validates Playwright test and describe titles. */
-  "playwright/valid-title"?: TtscLintRuleSetting;
+  /** Validates statically known lang attribute values. */
+  "jsx-a11y/lang"?: TtscLintRuleSetting;
 
-  /** rejects triple-slash reference directives. */
-  "triple-slash-reference"?: TtscLintRuleSetting;
+  /** Requires audio and video elements to provide caption tracks. */
+  "jsx-a11y/media-has-caption"?: TtscLintRuleSetting;
 
-  /** validates basic TSDoc syntax in documentation comments. */
-  "tsdoc/syntax"?: TtscLintRuleSetting;
+  /** Requires mouseover/mouseout handlers to have focus/blur parity. */
+  "jsx-a11y/mouse-events-have-key-events"?: TtscLintRuleSetting;
 
-  /** requires `Number.isNaN`/`isNaN` for `NaN` checks. */
-  "use-isnan"?: TtscLintRuleSetting;
+  /** Rejects accessKey on JSX elements. */
+  "jsx-a11y/no-access-key"?: TtscLintRuleSetting;
 
-  /** restricts `typeof` comparisons to valid strings. */
-  "valid-typeof"?: TtscLintRuleSetting;
+  /** Rejects aria-hidden on focusable JSX elements. */
+  "jsx-a11y/no-aria-hidden-on-focusable"?: TtscLintRuleSetting;
 
-  /** requires `var` declarations at the top of their scope. */
-  "vars-on-top"?: TtscLintRuleSetting;
+  /** Rejects autoFocus/autofocus JSX attributes. */
+  "jsx-a11y/no-autofocus"?: TtscLintRuleSetting;
 
-  /** requires every Vitest test body to contain an assertion. */
-  "vitest/expect-expect"?: TtscLintRuleSetting;
+  /** Rejects distracting blink and marquee elements. */
+  "jsx-a11y/no-distracting-elements"?: TtscLintRuleSetting;
 
-  /** rejects Vitest assertions inside conditional control flow. */
-  "vitest/no-conditional-expect"?: TtscLintRuleSetting;
+  /** Rejects non-interactive roles on native interactive elements. */
+  "jsx-a11y/no-interactive-element-to-noninteractive-role"?: TtscLintRuleSetting;
 
-  /** rejects Vitest test declarations inside conditional control flow. */
-  "vitest/no-conditional-tests"?: TtscLintRuleSetting;
+  /** Rejects interaction handlers on known non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-element-interactions"?: TtscLintRuleSetting;
 
-  /** rejects skipped or todo Vitest tests. */
-  "vitest/no-disabled-tests"?: TtscLintRuleSetting;
+  /** Rejects interactive roles on known non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-element-to-interactive-role"?: TtscLintRuleSetting;
 
-  /** rejects done-callback parameters in Vitest tests and hooks. */
-  "vitest/no-done-callback"?: TtscLintRuleSetting;
+  /** Rejects tabIndex on non-interactive JSX elements. */
+  "jsx-a11y/no-noninteractive-tabindex"?: TtscLintRuleSetting;
 
-  /** rejects focused Vitest tests such as `test.only`. */
-  "vitest/no-focused-tests"?: TtscLintRuleSetting;
+  /** Rejects explicit roles that duplicate native JSX element semantics. */
+  "jsx-a11y/no-redundant-roles"?: TtscLintRuleSetting;
 
-  /** rejects duplicate Vitest titles within the same suite scope. */
-  "vitest/no-identical-title"?: TtscLintRuleSetting;
+  /** Requires static elements with interaction handlers to declare a role. */
+  "jsx-a11y/no-static-element-interactions"?: TtscLintRuleSetting;
 
-  /** rejects `expect` calls outside Vitest tests and hooks. */
-  "vitest/no-standalone-expect"?: TtscLintRuleSetting;
+  /** Prefers native JSX tags over div/span plus an equivalent role. */
+  "jsx-a11y/prefer-tag-over-role"?: TtscLintRuleSetting;
 
-  /** rejects return statements directly inside Vitest test callbacks. */
-  "vitest/no-test-return-statement"?: TtscLintRuleSetting;
+  /** Requires ARIA properties mandated by the element role. */
+  "jsx-a11y/role-has-required-aria-props"?: TtscLintRuleSetting;
 
-  /** prefers `toHaveLength` over asserting on `.length`. */
-  "vitest/prefer-to-have-length"?: TtscLintRuleSetting;
+  /** Rejects ARIA properties unsupported by the element role. */
+  "jsx-a11y/role-supports-aria-props"?: TtscLintRuleSetting;
 
-  /** requires synchronous function callbacks for `describe`. */
-  "vitest/valid-describe-callback"?: TtscLintRuleSetting;
+  /** Restricts scope to table header cells. */
+  "jsx-a11y/scope"?: TtscLintRuleSetting;
 
-  /** requires `expect(...)` to receive an argument and reach a matcher. */
-  "vitest/valid-expect"?: TtscLintRuleSetting;
+  /** Rejects positive tabIndex values. */
+  "jsx-a11y/tabindex-no-positive"?: TtscLintRuleSetting;
+}
 
-  /** requires non-empty static Vitest titles. */
-  "vitest/valid-title"?: TtscLintRuleSetting;
-
-  /** rejects literal-first comparisons. */
-  yoda?: TtscLintRuleSetting;
-
-  /** requires explicit valid `type` values on JSX `button` elements. */
-  "react/button-has-type"?: TtscLintRuleSetting;
-
-  /** requires JSX `iframe` elements to include a sandbox attribute. */
-  "react/iframe-missing-sandbox"?: TtscLintRuleSetting;
-
-  /** requires `key` props for JSX elements produced by arrays or `.map()`. */
-  "react/jsx-key"?: TtscLintRuleSetting;
-
-  /** rejects duplicate JSX prop names on the same element. */
-  "react/jsx-no-duplicate-props"?: TtscLintRuleSetting;
-
-  /** rejects `javascript:` URLs in JSX URL-like props. */
-  "react/jsx-no-script-url"?: TtscLintRuleSetting;
-
-  /** rejects `key={index}` in JSX lists. */
-  "react/no-array-index-key"?: TtscLintRuleSetting;
-
-  /** rejects passing children through a JSX `children` prop. */
-  "react/no-children-prop"?: TtscLintRuleSetting;
-
-  /** rejects `dangerouslySetInnerHTML`. */
-  "react/no-danger"?: TtscLintRuleSetting;
-
-  /** rejects combining `dangerouslySetInnerHTML` with children. */
-  "react/no-danger-with-children"?: TtscLintRuleSetting;
-
-  /** rejects direct writes to `this.state` outside constructor initialization. */
-  "react/no-direct-mutation-state"?: TtscLintRuleSetting;
-
-  /** rejects `findDOMNode` calls. */
-  "react/no-find-dom-node"?: TtscLintRuleSetting;
-
-  /** rejects `isMounted` calls. */
-  "react/no-is-mounted"?: TtscLintRuleSetting;
-
-  /** rejects string JSX refs. */
-  "react/no-string-refs"?: TtscLintRuleSetting;
-
-  /** rejects unescaped `>`, `"`, `'`, and `}` in JSX text. */
-  "react/no-unescaped-entities"?: TtscLintRuleSetting;
-
-  /** rejects string literal JSX `style` prop values. */
-  "react/style-prop-object"?: TtscLintRuleSetting;
-
-  /** rejects children and HTML injection props on void DOM elements. */
-  "react/void-dom-elements-no-children"?: TtscLintRuleSetting;
-  /** requires every `then()` callback to return or throw. */
-  "promise/always-return"?: TtscLintRuleSetting;
-
-  /** discourages direct `new Promise(...)` construction outside adapters. */
-  "promise/avoid-new"?: TtscLintRuleSetting;
-
-  /** requires unreturned promise chains to end with `catch()`. */
-  "promise/catch-or-return"?: TtscLintRuleSetting;
-
-  /** rejects callback invocations inside `then()`/`catch()` handlers. */
-  "promise/no-callback-in-promise"?: TtscLintRuleSetting;
-
-  /** detects Promise executors that resolve or reject more than once. */
-  "promise/no-multiple-resolved"?: TtscLintRuleSetting;
-
-  /** rejects implicit use of the native global `Promise`. */
-  "promise/no-native"?: TtscLintRuleSetting;
-
-  /** rejects nested `then()`/`catch()` calls inside promise callbacks. */
-  "promise/no-nesting"?: TtscLintRuleSetting;
-
-  /** rejects `new Promise.resolve()` and other constructed Promise statics. */
-  "promise/no-new-statics"?: TtscLintRuleSetting;
-
-  /** rejects promise chains inside error-first callbacks. */
-  "promise/no-promise-in-callback"?: TtscLintRuleSetting;
-
-  /** rejects returning a value from a promise `finally()` callback. */
-  "promise/no-return-in-finally"?: TtscLintRuleSetting;
-
-  /** rejects `return Promise.resolve(...)` and `Promise.reject(...)` from promise callbacks. */
-  "promise/no-return-wrap"?: TtscLintRuleSetting;
-
-  /** enforces `resolve`/`reject` executor parameter names. */
-  "promise/param-names"?: TtscLintRuleSetting;
-
-  /** prefers async/await to callback-shaped APIs. */
-  "promise/prefer-await-to-callbacks"?: TtscLintRuleSetting;
-
-  /** prefers `await` over `then()`/`catch()`/`finally()` chains. */
-  "promise/prefer-await-to-then"?: TtscLintRuleSetting;
-
-  /** prefers `catch()` over the second argument to `then()`. */
-  "promise/prefer-catch"?: TtscLintRuleSetting;
-
-  /** rejects non-standard `Promise` static and prototype methods. */
-  "promise/spec-only"?: TtscLintRuleSetting;
-
-  /** enforces argument counts for Promise statics and chain methods. */
-  "promise/valid-params"?: TtscLintRuleSetting;
-
-  /** requires a supported `display` query on Google Fonts stylesheet links. */
+/** Next.js TS/TSX source rules. */
+export interface ITtscLintNextjsRules {
+  /** Requires a supported `display` query on Google Fonts stylesheet links. */
   "nextjs/google-font-display"?: TtscLintRuleSetting;
 
-  /** requires `rel="preconnect"` for fonts.gstatic.com links. */
+  /** Requires `rel="preconnect"` for fonts.gstatic.com links. */
   "nextjs/google-font-preconnect"?: TtscLintRuleSetting;
 
-  /** requires an `id` on inline `next/script` blocks. */
+  /** Requires an `id` on inline `next/script` blocks. */
   "nextjs/inline-script-id"?: TtscLintRuleSetting;
 
-  /** prefers Next.js Google Analytics helpers over handwritten gtag scripts. */
+  /** Prefers Next.js Google Analytics helpers over handwritten gtag scripts. */
   "nextjs/next-script-for-ga"?: TtscLintRuleSetting;
 
-  /** rejects local declarations named `module`. */
+  /** Rejects local declarations named `module`. */
   "nextjs/no-assign-module-variable"?: TtscLintRuleSetting;
 
-  /** rejects async React client components. */
+  /** Rejects async React client components. */
   "nextjs/no-async-client-component"?: TtscLintRuleSetting;
 
-  /** restricts `beforeInteractive` scripts to pages/_document. */
+  /** Restricts `beforeInteractive` scripts to pages/_document. */
   "nextjs/no-before-interactive-script-outside-document"?: TtscLintRuleSetting;
 
-  /** rejects raw stylesheet `<link>` tags. */
+  /** Rejects raw stylesheet `<link>` tags. */
   "nextjs/no-css-tags"?: TtscLintRuleSetting;
 
-  /** restricts `next/document` imports to pages/_document. */
+  /** Restricts `next/document` imports to pages/_document. */
   "nextjs/no-document-import-in-page"?: TtscLintRuleSetting;
 
-  /** rejects multiple `Head` elements from `next/document` in pages/_document. */
+  /** Rejects multiple `Head` elements from `next/document` in pages/_document. */
   "nextjs/no-duplicate-head"?: TtscLintRuleSetting;
 
-  /** rejects raw `<head>` elements outside the app directory. */
+  /** Rejects raw `<head>` elements outside the app directory. */
   "nextjs/no-head-element"?: TtscLintRuleSetting;
 
-  /** rejects `next/head` imports inside pages/_document. */
+  /** Rejects `next/head` imports inside pages/_document. */
   "nextjs/no-head-import-in-document"?: TtscLintRuleSetting;
 
-  /** prefers `next/link` for static internal anchor hrefs. */
+  /** Prefers `next/link` for static internal anchor hrefs. */
   "nextjs/no-html-link-for-pages"?: TtscLintRuleSetting;
 
-  /** prefers `next/image` over raw `<img>` elements. */
+  /** Prefers `next/image` over raw `<img>` elements. */
   "nextjs/no-img-element"?: TtscLintRuleSetting;
 
-  /** rejects Google font links in regular pages files. */
+  /** Rejects Google font links in regular pages files. */
   "nextjs/no-page-custom-font"?: TtscLintRuleSetting;
 
-  /** rejects `next/script` inside `next/head`. */
+  /** Rejects `next/script` inside `next/head`. */
   "nextjs/no-script-component-in-head"?: TtscLintRuleSetting;
 
-  /** rejects styled-jsx tags inside pages/_document. */
+  /** Rejects styled-jsx tags inside pages/_document. */
   "nextjs/no-styled-jsx-in-document"?: TtscLintRuleSetting;
 
-  /** requires `async` or `defer` on external raw script tags. */
+  /** Requires `async` or `defer` on external raw script tags. */
   "nextjs/no-sync-scripts"?: TtscLintRuleSetting;
 
-  /** rejects `<title>` inside `Head` from `next/document`. */
+  /** Rejects `<title>` inside `Head` from `next/document`. */
   "nextjs/no-title-in-document-head"?: TtscLintRuleSetting;
 
-  /** catches one-edit typos in Next.js data-fetching export names. */
+  /** Catches one-edit typos in Next.js data-fetching export names. */
   "nextjs/no-typos"?: TtscLintRuleSetting;
 
-  /** rejects Polyfill.io script URLs. */
+  /** Rejects Polyfill.io script URLs. */
   "nextjs/no-unwanted-polyfillio"?: TtscLintRuleSetting;
+}
 
-  /** detects Trojan Source bidi control characters. */
+/** Playwright test-source rules. */
+export interface ITtscLintPlaywrightRules {
+  /** Requires Playwright tests to contain at least one assertion. */
+  "playwright/expect-expect"?: TtscLintRuleSetting;
+
+  /** Limits assertion count in a Playwright test body. */
+  "playwright/max-expects"?: TtscLintRuleSetting;
+
+  /** Rejects expect calls under conditional branches in Playwright tests. */
+  "playwright/no-conditional-expect"?: TtscLintRuleSetting;
+
+  /** Rejects conditional logic in Playwright test bodies. */
+  "playwright/no-conditional-in-test"?: TtscLintRuleSetting;
+
+  /** Rejects duplicate Playwright setup and teardown hooks. */
+  "playwright/no-duplicate-hooks"?: TtscLintRuleSetting;
+
+  /** Rejects repeated test.slow calls inside the same Playwright test. */
+  "playwright/no-duplicate-slow"?: TtscLintRuleSetting;
+
+  /** Rejects ElementHandle-style Playwright APIs. */
+  "playwright/no-element-handle"?: TtscLintRuleSetting;
+
+  /** Rejects page.$eval and page.$$eval. */
+  "playwright/no-eval"?: TtscLintRuleSetting;
+
+  /** Rejects focused Playwright tests. */
+  "playwright/no-focused-test"?: TtscLintRuleSetting;
+
+  /** Rejects Playwright force options. */
+  "playwright/no-force-option"?: TtscLintRuleSetting;
+
+  /** Rejects getByTitle locators. */
+  "playwright/no-get-by-title"?: TtscLintRuleSetting;
+
+  /** Rejects Playwright hooks. */
+  "playwright/no-hooks"?: TtscLintRuleSetting;
+
+  /** Rejects nested test.step calls. */
+  "playwright/no-nested-step"?: TtscLintRuleSetting;
+
+  /** Rejects networkidle load state and waitUntil options. */
+  "playwright/no-networkidle"?: TtscLintRuleSetting;
+
+  /** Rejects first, last, and nth locator methods. */
+  "playwright/no-nth-methods"?: TtscLintRuleSetting;
+
+  /** Rejects page.pause debugging calls. */
+  "playwright/no-page-pause"?: TtscLintRuleSetting;
+
+  /** Rejects skipped Playwright tests. */
+  "playwright/no-skipped-test"?: TtscLintRuleSetting;
+
+  /** Rejects slowed Playwright tests. */
+  "playwright/no-slowed-test"?: TtscLintRuleSetting;
+
+  /** Rejects expect calls outside Playwright test blocks. */
+  "playwright/no-standalone-expect"?: TtscLintRuleSetting;
+
+  /** Rejects page.waitForNavigation calls. */
+  "playwright/no-wait-for-navigation"?: TtscLintRuleSetting;
+
+  /** Rejects page.waitForSelector calls. */
+  "playwright/no-wait-for-selector"?: TtscLintRuleSetting;
+
+  /** Rejects page.waitForTimeout calls. */
+  "playwright/no-wait-for-timeout"?: TtscLintRuleSetting;
+
+  /** Prefers locator-based Playwright APIs over page methods. */
+  "playwright/prefer-locator"?: TtscLintRuleSetting;
+
+  /** Prefers toHaveCount for awaited count checks. */
+  "playwright/prefer-to-have-count"?: TtscLintRuleSetting;
+
+  /** Prefers toHaveLength for awaited length checks. */
+  "playwright/prefer-to-have-length"?: TtscLintRuleSetting;
+
+  /** Prefers Playwright web-first assertions. */
+  "playwright/prefer-web-first-assertions"?: TtscLintRuleSetting;
+
+  /** Requires timeout options on toPass assertions. */
+  "playwright/require-to-pass-timeout"?: TtscLintRuleSetting;
+
+  /** Requires a message on toThrow assertions. */
+  "playwright/require-to-throw-message"?: TtscLintRuleSetting;
+
+  /** Validates Playwright describe callbacks. */
+  "playwright/valid-describe-callback"?: TtscLintRuleSetting;
+
+  /** Validates Playwright expect call arity. */
+  "playwright/valid-expect"?: TtscLintRuleSetting;
+
+  /** Validates Playwright test and describe titles. */
+  "playwright/valid-title"?: TtscLintRuleSetting;
+}
+
+/** Promise correctness and style rules. */
+export interface ITtscLintPromiseRules {
+  /** Requires every `then()` callback to return or throw. */
+  "promise/always-return"?: TtscLintRuleSetting;
+
+  /** Discourages direct `new Promise(...)` construction outside adapters. */
+  "promise/avoid-new"?: TtscLintRuleSetting;
+
+  /** Requires unreturned promise chains to end with `catch()`. */
+  "promise/catch-or-return"?: TtscLintRuleSetting;
+
+  /** Rejects callback invocations inside `then()`/`catch()` handlers. */
+  "promise/no-callback-in-promise"?: TtscLintRuleSetting;
+
+  /** Detects Promise executors that resolve or reject more than once. */
+  "promise/no-multiple-resolved"?: TtscLintRuleSetting;
+
+  /** Rejects implicit use of the native global `Promise`. */
+  "promise/no-native"?: TtscLintRuleSetting;
+
+  /** Rejects nested `then()`/`catch()` calls inside promise callbacks. */
+  "promise/no-nesting"?: TtscLintRuleSetting;
+
+  /** Rejects `new Promise.resolve()` and other constructed Promise statics. */
+  "promise/no-new-statics"?: TtscLintRuleSetting;
+
+  /** Rejects promise chains inside error-first callbacks. */
+  "promise/no-promise-in-callback"?: TtscLintRuleSetting;
+
+  /** Rejects returning a value from a promise `finally()` callback. */
+  "promise/no-return-in-finally"?: TtscLintRuleSetting;
+
+  /**
+   * Rejects `return Promise.resolve(...)` and `Promise.reject(...)` from
+   * promise callbacks.
+   */
+  "promise/no-return-wrap"?: TtscLintRuleSetting;
+
+  /** Enforces `resolve`/`reject` executor parameter names. */
+  "promise/param-names"?: TtscLintRuleSetting;
+
+  /** Prefers async/await to callback-shaped APIs. */
+  "promise/prefer-await-to-callbacks"?: TtscLintRuleSetting;
+
+  /** Prefers `await` over `then()`/`catch()`/`finally()` chains. */
+  "promise/prefer-await-to-then"?: TtscLintRuleSetting;
+
+  /** Prefers `catch()` over the second argument to `then()`. */
+  "promise/prefer-catch"?: TtscLintRuleSetting;
+
+  /** Rejects non-standard `Promise` static and prototype methods. */
+  "promise/spec-only"?: TtscLintRuleSetting;
+
+  /** Enforces argument counts for Promise statics and chain methods. */
+  "promise/valid-params"?: TtscLintRuleSetting;
+}
+
+/** React TSX rules. */
+export interface ITtscLintReactRules {
+  /** Requires explicit valid `type` values on JSX `button` elements. */
+  "react/button-has-type"?: TtscLintRuleSetting;
+
+  /** Requires JSX `iframe` elements to include a sandbox attribute. */
+  "react/iframe-missing-sandbox"?: TtscLintRuleSetting;
+
+  /** Requires `key` props for JSX elements produced by arrays or `.map()`. */
+  "react/jsx-key"?: TtscLintRuleSetting;
+
+  /** Rejects duplicate JSX prop names on the same element. */
+  "react/jsx-no-duplicate-props"?: TtscLintRuleSetting;
+
+  /** Rejects `javascript:` URLs in JSX URL-like props. */
+  "react/jsx-no-script-url"?: TtscLintRuleSetting;
+
+  /** Rejects `key={index}` in JSX lists. */
+  "react/no-array-index-key"?: TtscLintRuleSetting;
+
+  /** Rejects passing children through a JSX `children` prop. */
+  "react/no-children-prop"?: TtscLintRuleSetting;
+
+  /** Rejects `dangerouslySetInnerHTML`. */
+  "react/no-danger"?: TtscLintRuleSetting;
+
+  /** Rejects combining `dangerouslySetInnerHTML` with children. */
+  "react/no-danger-with-children"?: TtscLintRuleSetting;
+
+  /** Rejects direct writes to `this.state` outside constructor initialization. */
+  "react/no-direct-mutation-state"?: TtscLintRuleSetting;
+
+  /** Rejects `findDOMNode` calls. */
+  "react/no-find-dom-node"?: TtscLintRuleSetting;
+
+  /** Rejects `isMounted` calls. */
+  "react/no-is-mounted"?: TtscLintRuleSetting;
+
+  /** Rejects string JSX refs. */
+  "react/no-string-refs"?: TtscLintRuleSetting;
+
+  /** Rejects unescaped `>`, `"`, `'`, and `}` in JSX text. */
+  "react/no-unescaped-entities"?: TtscLintRuleSetting;
+
+  /** Rejects string literal JSX `style` prop values. */
+  "react/style-prop-object"?: TtscLintRuleSetting;
+
+  /** Rejects children and HTML injection props on void DOM elements. */
+  "react/void-dom-elements-no-children"?: TtscLintRuleSetting;
+}
+
+/** React Hooks rules. */
+export interface ITtscLintReactHooksRules {
+  /** Enforces the Rules of Hooks in components and custom Hooks. */
+  "react-hooks/rules-of-hooks"?: TtscLintRuleSetting;
+
+  /** Checks high-confidence missing identifiers in React Hook dependency arrays. */
+  "react-hooks/exhaustive-deps"?: TtscLintRuleSetting;
+
+  /** Rejects nested component/Hook factories with local Hook calls. */
+  "react-hooks/component-hook-factories"?: TtscLintRuleSetting;
+
+  /** Rejects local prop mutations in React components and Hooks. */
+  "react-hooks/immutability"?: TtscLintRuleSetting;
+
+  /** Rejects reading or writing `ref.current` during render. */
+  "react-hooks/refs"?: TtscLintRuleSetting;
+
+  /** Rejects synchronous state setter calls inside effects. */
+  "react-hooks/set-state-in-effect"?: TtscLintRuleSetting;
+
+  /** Rejects state setter calls during render. */
+  "react-hooks/set-state-in-render"?: TtscLintRuleSetting;
+
+  /** Rejects block-bodied `useMemo` callbacks that do not return a value. */
+  "react-hooks/use-memo"?: TtscLintRuleSetting;
+}
+
+/** React JSX performance rules. */
+export interface ITtscLintReactPerfRules {
+  /** Rejects freshly-created arrays passed as JSX props in TSX files. */
+  "react-perf/jsx-no-new-array-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
+
+  /** Rejects freshly-created functions passed as JSX props in TSX files. */
+  "react-perf/jsx-no-new-function-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
+
+  /** Rejects freshly-created objects passed as JSX props in TSX files. */
+  "react-perf/jsx-no-new-object-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
+
+  /**
+   * Rejects freshly-created JSX elements/fragments passed as JSX props in TSX
+   * files.
+   */
+  "react-perf/jsx-no-jsx-as-prop"?: TtscLintRuleOptionsSetting<ITtscLintReactPerfRuleOptions>;
+}
+
+/** React Fast Refresh rules. */
+export interface ITtscLintReactRefreshRules {
+  /** Keeps React Fast Refresh component modules from exporting non-components. */
+  "react-refresh/only-export-components"?: TtscLintRuleOptionsSetting<ITtscLintReactRefreshOnlyExportComponentsRuleOptions>;
+}
+
+/** Regular-expression rules. */
+export interface ITtscLintRegexpRules {
+  /**
+   * Rejects control characters in regular expression literals. Alias of the
+   * bare regex check.
+   */
+  "regexp/no-control-character"?: TtscLintRuleSetting;
+
+  /** Rejects duplicate literal characters inside simple regex character classes. */
+  "regexp/no-dupe-characters-character-class"?: TtscLintRuleSetting;
+
+  /** Rejects empty alternatives such as `/a||b/`. */
+  "regexp/no-empty-alternative"?: TtscLintRuleSetting;
+
+  /** Rejects empty capturing groups such as `/()/`. */
+  "regexp/no-empty-capturing-group"?: TtscLintRuleSetting;
+
+  /** Rejects empty regex character classes. Alias of `no-empty-character-class`. */
+  "regexp/no-empty-character-class"?: TtscLintRuleSetting;
+
+  /** Rejects empty non-capturing groups such as `/(?:)/`. */
+  "regexp/no-empty-group"?: TtscLintRuleSetting;
+
+  /** Rejects empty lookaround assertions such as `/(?=)/`. */
+  "regexp/no-empty-lookarounds-assertion"?: TtscLintRuleSetting;
+
+  /**
+   * Rejects misleading Unicode characters in regex classes. Alias of the bare
+   * misleading-character check.
+   */
+  "regexp/no-misleading-unicode-character"?: TtscLintRuleSetting;
+
+  /** Rejects single literal character classes such as `/[x]/`. */
+  "regexp/no-useless-character-class"?: TtscLintRuleSetting;
+
+  /**
+   * Rejects unnecessary regex escapes. Alias of `no-useless-escape` for regex
+   * literals.
+   */
+  "regexp/no-useless-escape"?: TtscLintRuleSetting;
+
+  /** Rejects flags that do not affect the regex literal. */
+  "regexp/no-useless-flag"?: TtscLintRuleSetting;
+
+  /** Rejects exact-one quantifiers such as `/a{1}/`. */
+  "regexp/no-useless-quantifier"?: TtscLintRuleSetting;
+
+  /** Rejects equal min/max quantifiers such as `/a{2,2}/`. */
+  "regexp/no-useless-two-nums-quantifier"?: TtscLintRuleSetting;
+
+  /** Rejects zero-repeat quantifiers such as `/a{0}/`. */
+  "regexp/no-zero-quantifier"?: TtscLintRuleSetting;
+
+  /** Prefers `\d` over `[0-9]` in regex literals. */
+  "regexp/prefer-d"?: TtscLintRuleSetting;
+
+  /** Prefers `+` over `{1,}` in regex literals. */
+  "regexp/prefer-plus-quantifier"?: TtscLintRuleSetting;
+
+  /** Prefers `?` over `{0,1}` in regex literals. */
+  "regexp/prefer-question-quantifier"?: TtscLintRuleSetting;
+
+  /** Prefers `*` over `{0,}` in regex literals. */
+  "regexp/prefer-star-quantifier"?: TtscLintRuleSetting;
+
+  /** Prefers `\w` over `[A-Za-z0-9_]` in regex literals. */
+  "regexp/prefer-w"?: TtscLintRuleSetting;
+
+  /** Requires regex literals to use the `u` or `v` flag. */
+  "regexp/require-unicode-regexp"?: TtscLintRuleSetting;
+
+  /** Requires regex literals to use the `v` flag. */
+  "regexp/require-unicode-sets-regexp"?: TtscLintRuleSetting;
+
+  /** Requires regex flags to follow canonical order. */
+  "regexp/sort-flags"?: TtscLintRuleSetting;
+}
+
+/** Security-focused TypeScript source rules. */
+export interface ITtscLintSecurityRules {
+  /** Detects Trojan Source bidi control characters. */
   "security/detect-bidi-characters"?: TtscLintRuleSetting;
 
-  /** detects Buffer reads/writes with `noAssert` set to true. */
+  /** Detects Buffer reads/writes with `noAssert` set to true. */
   "security/detect-buffer-noassert"?: TtscLintRuleSetting;
 
-  /** detects child_process imports and non-literal exec commands. */
+  /** Detects child_process imports and non-literal exec commands. */
   "security/detect-child-process"?: TtscLintRuleSetting;
 
-  /** detects disabling mustache-style escaping through `escapeMarkup = false`. */
+  /** Detects disabling mustache-style escaping through `escapeMarkup = false`. */
   "security/detect-disable-mustache-escape"?: TtscLintRuleSetting;
 
-  /** detects `eval` calls fed by non-literal expressions. */
+  /** Detects `eval` calls fed by non-literal expressions. */
   "security/detect-eval-with-expression"?: TtscLintRuleSetting;
 
-  /** detects `new Buffer` with non-literal input. */
+  /** Detects `new Buffer` with non-literal input. */
   "security/detect-new-buffer"?: TtscLintRuleSetting;
 
-  /** detects Express csrf middleware configured before methodOverride. */
+  /** Detects Express csrf middleware configured before methodOverride. */
   "security/detect-no-csrf-before-method-override"?: TtscLintRuleSetting;
 
-  /** detects filesystem calls with non-literal filename arguments. */
+  /** Detects filesystem calls with non-literal filename arguments. */
   "security/detect-non-literal-fs-filename"?: TtscLintRuleSetting;
 
-  /** detects RegExp construction from non-literal patterns. */
+  /** Detects RegExp construction from non-literal patterns. */
   "security/detect-non-literal-regexp"?: TtscLintRuleSetting;
 
-  /** detects `require` calls with non-literal module specifiers. */
+  /** Detects `require` calls with non-literal module specifiers. */
   "security/detect-non-literal-require"?: TtscLintRuleSetting;
 
-  /** detects dynamic bracket access that can hide object injection sinks. */
+  /** Detects dynamic bracket access that can hide object injection sinks. */
   "security/detect-object-injection"?: TtscLintRuleSetting;
 
-  /** detects direct equality comparisons involving secret-like identifiers. */
+  /** Detects direct equality comparisons involving secret-like identifiers. */
   "security/detect-possible-timing-attacks"?: TtscLintRuleSetting;
 
-  /** detects use of `crypto.pseudoRandomBytes`. */
+  /** Detects use of `crypto.pseudoRandomBytes`. */
   "security/detect-pseudoRandomBytes"?: TtscLintRuleSetting;
 
   /**
-   * detects regular expressions with high-confidence catastrophic backtracking
+   * Detects regular expressions with high-confidence catastrophic backtracking
    * shapes.
    */
   "security/detect-unsafe-regex"?: TtscLintRuleSetting;
+}
 
-  /** reject early and conditional returns from Solid components. */
+/** Solid TSX rules. */
+export interface ITtscLintSolidRules {
+  /** Reject early and conditional returns from Solid components. */
   "solid/components-return-once"?: TtscLintRuleSetting;
 
-  /** enforce Solid DOM event handler naming. */
+  /** Enforce Solid DOM event handler naming. */
   "solid/event-handlers"?: TtscLintRuleSetting;
 
-  /** enforce canonical imports from `solid-js`, `solid-js/web`, and `solid-js/store`. */
+  /**
+   * Enforce canonical imports from `solid-js`, `solid-js/web`, and
+   * `solid-js/store`.
+   */
   "solid/imports"?: TtscLintRuleSetting;
 
-  /** reject duplicate JSX props. */
+  /** Reject duplicate JSX props. */
   "solid/jsx-no-duplicate-props"?: TtscLintRuleSetting;
 
-  /** reject `javascript:` URLs in JSX attributes. */
+  /** Reject `javascript:` URLs in JSX attributes. */
   "solid/jsx-no-script-url"?: TtscLintRuleSetting;
 
-  /** reject JSX component names that are not declared or imported. */
+  /** Reject JSX component names that are not declared or imported. */
   "solid/jsx-no-undef"?: TtscLintRuleSetting;
 
-  /** scope-marker compatibility rule; the native engine emits no diagnostics. */
+  /** Scope-marker compatibility rule; the native engine emits no diagnostics. */
   "solid/jsx-uses-vars"?: TtscLintRuleSetting;
 
-  /** reject array values passed as Solid event handlers. */
+  /** Reject array values passed as Solid event handlers. */
   "solid/no-array-handlers"?: TtscLintRuleSetting;
 
-  /** reject destructured component props. */
+  /** Reject destructured component props. */
   "solid/no-destructure"?: TtscLintRuleSetting;
 
-  /** reject `innerHTML` and `dangerouslySetInnerHTML`. */
+  /** Reject `innerHTML` and `dangerouslySetInnerHTML`. */
   "solid/no-innerhtml"?: TtscLintRuleSetting;
 
-  /** reject Proxy-backed Solid APIs for proxy-free targets. */
+  /** Reject Proxy-backed Solid APIs for proxy-free targets. */
   "solid/no-proxy-apis"?: TtscLintRuleSetting;
 
-  /** reject React-style dependency arrays in Solid tracked scopes. */
+  /** Reject React-style dependency arrays in Solid tracked scopes. */
   "solid/no-react-deps"?: TtscLintRuleSetting;
 
-  /** reject React-specific JSX props such as `className` and `htmlFor`. */
+  /** Reject React-specific JSX props such as `className` and `htmlFor`. */
   "solid/no-react-specific-props"?: TtscLintRuleSetting;
 
-  /** reject unknown or component-level JSX namespaces. */
+  /** Reject unknown or component-level JSX namespaces. */
   "solid/no-unknown-namespaces"?: TtscLintRuleSetting;
 
-  /** prefer Solid `classList` over classnames helpers. */
+  /** Prefer Solid `classList` over classnames helpers. */
   "solid/prefer-classlist"?: TtscLintRuleSetting;
 
-  /** prefer `<For>` over array `.map()` inside JSX. */
+  /** Prefer `<For>` over array `.map()` inside JSX. */
   "solid/prefer-for"?: TtscLintRuleSetting;
 
-  /** prefer `<Show>` over conditional JSX expressions. */
+  /** Prefer `<Show>` over conditional JSX expressions. */
   "solid/prefer-show"?: TtscLintRuleSetting;
 
-  /** reject common Solid reactivity breakages. */
+  /** Reject common Solid reactivity breakages. */
   "solid/reactivity"?: TtscLintRuleSetting;
 
-  /** reject empty non-self-closing JSX elements. */
+  /** Reject empty non-self-closing JSX elements. */
   "solid/self-closing-comp"?: TtscLintRuleSetting;
 
-  /** enforce Solid style prop object and kebab-case conventions. */
+  /** Enforce Solid style prop object and kebab-case conventions. */
   "solid/style-prop"?: TtscLintRuleSetting;
+}
 
-  /** requires awaited Storybook interaction helpers in play functions. */
+/** Storybook CSF and config rules. */
+export interface ITtscLintStorybookRules {
+  /** Requires awaited Storybook interaction helpers in play functions. */
   "storybook/await-interactions"?: TtscLintRuleSetting;
 
-  /** requires forwarding context when composing another story's play function. */
+  /** Requires forwarding context when composing another story's play function. */
   "storybook/context-in-play-function"?: TtscLintRuleSetting;
 
-  /** requires CSF default meta to declare a component. */
+  /** Requires CSF default meta to declare a component. */
   "storybook/csf-component"?: TtscLintRuleSetting;
 
-  /** requires story files to export default CSF metadata. */
+  /** Requires story files to export default CSF metadata. */
   "storybook/default-exports"?: TtscLintRuleSetting;
 
-  /** rejects deprecated `|` separators in Storybook title metadata. */
+  /** Rejects deprecated `|` separators in Storybook title metadata. */
   "storybook/hierarchy-separator"?: TtscLintRuleSetting;
 
-  /** requires statically inline `title` and `args` meta properties. */
+  /** Requires statically inline `title` and `args` meta properties. */
   "storybook/meta-inline-properties"?: TtscLintRuleSetting;
 
-  /** requires CSF meta objects to use TypeScript `satisfies`. */
+  /** Requires CSF meta objects to use TypeScript `satisfies`. */
   "storybook/meta-satisfies-type"?: TtscLintRuleSetting;
 
-  /** rejects story name metadata that duplicates the export-derived name. */
+  /** Rejects story name metadata that duplicates the export-derived name. */
   "storybook/no-redundant-story-name"?: TtscLintRuleSetting;
 
-  /** rejects direct imports from Storybook renderer packages. */
+  /** Rejects direct imports from Storybook renderer packages. */
   "storybook/no-renderer-packages"?: TtscLintRuleSetting;
 
-  /** rejects deprecated `storiesOf` usage. */
+  /** Rejects deprecated `storiesOf` usage. */
   "storybook/no-stories-of"?: TtscLintRuleSetting;
 
-  /** rejects explicit `title` in CSF strict meta. */
+  /** Rejects explicit `title` in CSF strict meta. */
   "storybook/no-title-property-in-meta"?: TtscLintRuleSetting;
 
-  /** validates Storybook addon names against package dependencies. */
+  /** Validates Storybook addon names against package dependencies. */
   "storybook/no-uninstalled-addons"?: TtscLintRuleOptionsSetting<ITtscLintStorybookNoUninstalledAddonsRuleOptions>;
 
-  /** requires PascalCase named story exports. */
+  /** Requires PascalCase named story exports. */
   "storybook/prefer-pascal-case"?: TtscLintRuleSetting;
 
-  /** requires at least one usable named story export. */
+  /** Requires at least one usable named story export. */
   "storybook/story-exports"?: TtscLintRuleSetting;
 
-  /** requires Storybook's expect helper in play assertions. */
+  /** Requires Storybook's expect helper in play assertions. */
   "storybook/use-storybook-expect"?: TtscLintRuleSetting;
 
-  /** rejects direct Testing Library imports in story files. */
+  /** Rejects direct Testing Library imports in story files. */
   "storybook/use-storybook-testing-library"?: TtscLintRuleSetting;
+}
 
-  /** require awaiting async user-event methods. */
+/** TanStack Query rules. */
+export interface ITtscLintTanstackQueryRules {
+  /** Requires TanStack Query keys to include variables read by queryFn. */
+  "@tanstack/query/exhaustive-deps"?: TtscLintRuleSetting;
+
+  /** Requires infinite query page-param callbacks to appear after queryFn. */
+  "@tanstack/query/infinite-query-property-order"?: TtscLintRuleSetting;
+
+  /**
+   * Requires mutation lifecycle callbacks to keep onMutate before error/settled
+   * handlers.
+   */
+  "@tanstack/query/mutation-property-order"?: TtscLintRuleSetting;
+
+  /** Rejects object rest destructuring over TanStack Query hook results. */
+  "@tanstack/query/no-rest-destructuring"?: TtscLintRuleSetting;
+
+  /**
+   * Rejects passing whole TanStack Query hook results to React dependency
+   * arrays.
+   */
+  "@tanstack/query/no-unstable-deps"?: TtscLintRuleSetting;
+
+  /** Rejects queryFn callbacks that return no data in AST-local cases. */
+  "@tanstack/query/no-void-query-fn"?: TtscLintRuleSetting;
+
+  /**
+   * Prefers extracted TanStack Query options over inline queryKey/queryFn
+   * objects.
+   */
+  "@tanstack/query/prefer-query-options"?: TtscLintRuleSetting;
+
+  /** Rejects creating QueryClient inside React component or hook bodies. */
+  "@tanstack/query/stable-query-client"?: TtscLintRuleSetting;
+}
+
+/** Testing Library test-source rules. */
+export interface ITtscLintTestingLibraryRules {
+  /** Require awaiting async user-event methods. */
   "testing-library/await-async-events"?: TtscLintRuleSetting;
 
-  /** require awaiting `findBy*` and `findAllBy*` queries. */
+  /** Require awaiting `findBy*` and `findAllBy*` queries. */
   "testing-library/await-async-queries"?: TtscLintRuleSetting;
 
-  /** require awaiting `waitFor` and other async Testing Library utilities. */
+  /** Require awaiting `waitFor` and other async Testing Library utilities. */
   "testing-library/await-async-utils"?: TtscLintRuleSetting;
 
-  /** validate configured JSX test-id attribute values. */
+  /** Validate configured JSX test-id attribute values. */
   "testing-library/consistent-data-testid"?: TtscLintRuleOptionsSetting<ITtscLintTestingLibraryConsistentDataTestIdRuleOptions>;
 
-  /** reject unnecessary `await` before synchronous event helpers. */
+  /** Reject unnecessary `await` before synchronous event helpers. */
   "testing-library/no-await-sync-events"?: TtscLintRuleSetting;
 
-  /** reject unnecessary `await` before synchronous queries. */
+  /** Reject unnecessary `await` before synchronous queries. */
   "testing-library/no-await-sync-queries"?: TtscLintRuleSetting;
 
-  /** reject `container` destructuring and DOM query methods. */
+  /** Reject `container` destructuring and DOM query methods. */
   "testing-library/no-container"?: TtscLintRuleSetting;
 
-  /** reject `debug`, `prettyDOM`, and related debugging utilities. */
+  /** Reject `debug`, `prettyDOM`, and related debugging utilities. */
   "testing-library/no-debugging-utils"?: TtscLintRuleSetting;
 
-  /** reject direct `@testing-library/dom` imports in framework tests. */
+  /** Reject direct `@testing-library/dom` imports in framework tests. */
   "testing-library/no-dom-import"?: TtscLintRuleSetting;
 
-  /** reject global RegExp flags in query text matchers. */
+  /** Reject global RegExp flags in query text matchers. */
   "testing-library/no-global-regexp-flag-in-query"?: TtscLintRuleSetting;
 
-  /** reject manual `cleanup()` calls. */
+  /** Reject manual `cleanup()` calls. */
   "testing-library/no-manual-cleanup"?: TtscLintRuleSetting;
 
-  /** reject direct DOM node traversal from query results. */
+  /** Reject direct DOM node traversal from query results. */
   "testing-library/no-node-access"?: TtscLintRuleSetting;
 
-  /** reject Promise-producing expressions passed to `fireEvent`. */
+  /** Reject Promise-producing expressions passed to `fireEvent`. */
   "testing-library/no-promise-in-fire-event"?: TtscLintRuleSetting;
 
-  /** reject `render()` inside lifecycle hooks. */
+  /** Reject `render()` inside lifecycle hooks. */
   "testing-library/no-render-in-lifecycle"?: TtscLintRuleSetting;
 
-  /** reject `*ByTestId` queries. */
+  /** Reject `*ByTestId` queries. */
   "testing-library/no-test-id-queries"?: TtscLintRuleSetting;
 
-  /** reject `act()` wrappers around Testing Library helpers. */
+  /** Reject `act()` wrappers around Testing Library helpers. */
   "testing-library/no-unnecessary-act"?: TtscLintRuleSetting;
 
-  /** reject multiple assertions inside one `waitFor`. */
+  /** Reject multiple assertions inside one `waitFor`. */
   "testing-library/no-wait-for-multiple-assertions"?: TtscLintRuleSetting;
 
-  /** reject side effects inside `waitFor`. */
+  /** Reject side effects inside `waitFor`. */
   "testing-library/no-wait-for-side-effects"?: TtscLintRuleSetting;
 
-  /** reject snapshots inside `waitFor`. */
+  /** Reject snapshots inside `waitFor`. */
   "testing-library/no-wait-for-snapshot"?: TtscLintRuleSetting;
 
-  /** require explicit assertions for standalone queries. */
+  /** Require explicit assertions for standalone queries. */
   "testing-library/prefer-explicit-assert"?: TtscLintRuleSetting;
 
-  /** prefer `findBy*` over `waitFor` plus `getBy*`. */
+  /** Prefer `findBy*` over `waitFor` plus `getBy*`. */
   "testing-library/prefer-find-by"?: TtscLintRuleSetting;
 
-  /** avoid redundant `toBeInTheDocument` around throwing queries. */
+  /** Avoid redundant `toBeInTheDocument` around throwing queries. */
   "testing-library/prefer-implicit-assert"?: TtscLintRuleSetting;
 
-  /** match presence and absence assertions to `getBy*` or `queryBy*`. */
+  /** Match presence and absence assertions to `getBy*` or `queryBy*`. */
   "testing-library/prefer-presence-queries"?: TtscLintRuleSetting;
 
-  /** prefer `queryBy*` when waiting for disappearance. */
+  /** Prefer `queryBy*` when waiting for disappearance. */
   "testing-library/prefer-query-by-disappearance"?: TtscLintRuleSetting;
 
-  /** prefer jest-dom document matchers for Testing Library queries. */
+  /** Prefer jest-dom document matchers for Testing Library queries. */
   "testing-library/prefer-query-matchers"?: TtscLintRuleSetting;
 
-  /** prefer `screen.*` over render-result queries. */
+  /** Prefer `screen.*` over render-result queries. */
   "testing-library/prefer-screen-queries"?: TtscLintRuleSetting;
 
-  /** prefer `userEvent` over `fireEvent`. */
+  /** Prefer `userEvent` over `fireEvent`. */
   "testing-library/prefer-user-event"?: TtscLintRuleSetting;
 
-  /** prefer `userEvent.setup()` over direct `userEvent.*` calls. */
+  /** Prefer `userEvent.setup()` over direct `userEvent.*` calls. */
   "testing-library/prefer-user-event-setup"?: TtscLintRuleSetting;
 
-  /** require conventional names for variables assigned from `render()`. */
+  /** Require conventional names for variables assigned from `render()`. */
   "testing-library/render-result-naming-convention"?: TtscLintRuleSetting;
+}
 
+/** TSDoc comment syntax rules. */
+export interface ITtscLintTsdocRules {
+  /** Validates basic TSDoc syntax in documentation comments. */
+  "tsdoc/syntax"?: TtscLintRuleSetting;
+}
+
+/** Vitest test-source rules. */
+export interface ITtscLintVitestRules {
+  /** Requires every Vitest test body to contain an assertion. */
+  "vitest/expect-expect"?: TtscLintRuleSetting;
+
+  /** Rejects Vitest assertions inside conditional control flow. */
+  "vitest/no-conditional-expect"?: TtscLintRuleSetting;
+
+  /** Rejects Vitest test declarations inside conditional control flow. */
+  "vitest/no-conditional-tests"?: TtscLintRuleSetting;
+
+  /** Rejects skipped or todo Vitest tests. */
+  "vitest/no-disabled-tests"?: TtscLintRuleSetting;
+
+  /** Rejects done-callback parameters in Vitest tests and hooks. */
+  "vitest/no-done-callback"?: TtscLintRuleSetting;
+
+  /** Rejects focused Vitest tests such as `test.only`. */
+  "vitest/no-focused-tests"?: TtscLintRuleSetting;
+
+  /** Rejects duplicate Vitest titles within the same suite scope. */
+  "vitest/no-identical-title"?: TtscLintRuleSetting;
+
+  /** Rejects `expect` calls outside Vitest tests and hooks. */
+  "vitest/no-standalone-expect"?: TtscLintRuleSetting;
+
+  /** Rejects return statements directly inside Vitest test callbacks. */
+  "vitest/no-test-return-statement"?: TtscLintRuleSetting;
+
+  /** Prefers `toHaveLength` over asserting on `.length`. */
+  "vitest/prefer-to-have-length"?: TtscLintRuleSetting;
+
+  /** Requires synchronous function callbacks for `describe`. */
+  "vitest/valid-describe-callback"?: TtscLintRuleSetting;
+
+  /** Requires `expect(...)` to receive an argument and reach a matcher. */
+  "vitest/valid-expect"?: TtscLintRuleSetting;
+
+  /** Requires non-empty static Vitest titles. */
+  "vitest/valid-title"?: TtscLintRuleSetting;
+}
+
+/**
+ * Format-command rules configured by the top-level `format` block or explicit
+ * rule entries.
+ */
+export interface ITtscLintFormatRules {
   /** Insert or remove trailing semicolons on ASI-terminated statements. */
   "format/semi"?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;
 
@@ -1492,8 +1671,10 @@ export interface ITtscLintRules {
 
   /** Reflow supported list-shaped syntax when its flat form exceeds print width. */
   "format/print-width"?: TtscLintRuleOptionsSetting<ITtscLintPrintWidthRuleOptions>;
+}
 
-  /** Contributor plugin rules keyed by namespace, for example `demo/no-demo`. */
+/** Contributor plugin rules keyed by namespace, for example `demo/no-demo`. */
+export interface ITtscLintContributorRules {
   [ruleName: `${string}/${string}`]:
     | TtscLintRuleSetting
     | readonly [TtscLintSeverity, unknown]

@@ -67,8 +67,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
     },
   };
 
-  // Negative cases TypeScript enforces through the intersection-of-
-  // mapped-types pattern. Each lives in its own const so TS evaluates
+  // Negative cases TypeScript enforces through the family-interface
+  // intersection pattern. Each lives in its own const so TS evaluates
   // them independently — bundling four broken cases into one object
   // literal makes TS skip the first excess-property error once other
   // assignment errors fire on later entries, masking the rule-name
