@@ -6,6 +6,174 @@
     <description>Engineering notes, releases, and deep dives from ttsc.</description>
     <language>en</language>
     <item>
+      <title>Monorepos Need Project-Local Compiler Truth</title>
+      <link>https://ttsc.dev/blog/monorepos-need-project-local-compiler-truth/</link>
+      <guid>https://ttsc.dev/blog/monorepos-need-project-local-compiler-truth/</guid>
+      <pubDate>Thu, 18 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc resolves tsconfig, package plugins, config files, ttsx runtime layout, and VS Code server paths from the project that owns the file.</description>
+    </item>
+    <item>
+      <title>Boring Banners Matter For Published TypeScript Packages</title>
+      <link>https://ttsc.dev/blog/boring-banners-matter-for-published-typescript-packages/</link>
+      <guid>https://ttsc.dev/blog/boring-banners-matter-for-published-typescript-packages/</guid>
+      <pubDate>Wed, 17 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/banner adds package documentation headers to emitted JavaScript and declarations. It is small, but package polish is often small.</description>
+    </item>
+    <item>
+      <title>Strip Debug Code With A Compiler, Not A Regex</title>
+      <link>https://ttsc.dev/blog/strip-debug-code-with-a-compiler-not-a-regex/</link>
+      <guid>https://ttsc.dev/blog/strip-debug-code-with-a-compiler-not-a-regex/</guid>
+      <pubDate>Tue, 16 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/strip removes exactly configured statement-level calls and debugger statements during emit, without pretending to be a minifier.</description>
+    </item>
+    <item>
+      <title>Bundlers Should Not Bypass Your Compiler Plugins</title>
+      <link>https://ttsc.dev/blog/bundlers-should-not-bypass-your-compiler-plugins/</link>
+      <guid>https://ttsc.dev/blog/bundlers-should-not-bypass-your-compiler-plugins/</guid>
+      <pubDate>Mon, 15 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/unplugin brings the ttsc plugin pass into Vite, Webpack, Rollup, esbuild, Rspack, Next.js, Farm, and Bun.</description>
+    </item>
+    <item>
+      <title>The Browser Playground Should Run The Real Compiler</title>
+      <link>https://ttsc.dev/blog/the-browser-playground-should-run-the-real-compiler/</link>
+      <guid>https://ttsc.dev/blog/the-browser-playground-should-run-the-real-compiler/</guid>
+      <pubDate>Sun, 14 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/wasm lets docs, tutorials, and plugin demos run TypeScript-Go in a Web Worker with an in-memory project.</description>
+    </item>
+    <item>
+      <title>Your Editor Should Run The Project&apos;s Compiler</title>
+      <link>https://ttsc.dev/blog/your-editor-should-run-the-projects-compiler/</link>
+      <guid>https://ttsc.dev/blog/your-editor-should-run-the-projects-compiler/</guid>
+      <pubDate>Sat, 13 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/vscode resolves the workspace-installed ttsc instead of shipping its own compiler, so editor diagnostics match the build.</description>
+    </item>
+    <item>
+      <title>The Plugin Pitfalls I Already Hit For You</title>
+      <link>https://ttsc.dev/blog/the-plugin-pitfalls-i-already-hit-for-you/</link>
+      <guid>https://ttsc.dev/blog/the-plugin-pitfalls-i-already-hit-for-you/</guid>
+      <pubDate>Fri, 12 Jun 2026 00:00:00 GMT</pubDate>
+      <description>Most ttsc plugin failures are predictable: missing source, wrong package name, bad composition, stale Go env, and unsafe AST assumptions.</description>
+    </item>
+    <item>
+      <title>The Driver API Is The Plugin SDK</title>
+      <link>https://ttsc.dev/blog/the-driver-api-is-the-plugin-sdk/</link>
+      <guid>https://ttsc.dev/blog/the-driver-api-is-the-plugin-sdk/</guid>
+      <pubDate>Thu, 11 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc plugin authors should start from github.com/samchon/ttsc/packages/ttsc/driver, not raw TypeScript-Go internals.</description>
+    </item>
+    <item>
+      <title>Lint Rules Should Join The Engine, Not Fork The Project</title>
+      <link>https://ttsc.dev/blog/lint-rules-should-join-the-engine-not-fork-the-project/</link>
+      <guid>https://ttsc.dev/blog/lint-rules-should-join-the-engine-not-fork-the-project/</guid>
+      <pubDate>Wed, 10 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/lint contributor packages link Go rule sources into one lint binary, avoiding one process and one Program per rule pack.</description>
+    </item>
+    <item>
+      <title>CI Should Warm The Compiler, Not Fear It</title>
+      <link>https://ttsc.dev/blog/ci-should-warm-the-compiler-not-fear-it/</link>
+      <guid>https://ttsc.dev/blog/ci-should-warm-the-compiler-not-fear-it/</guid>
+      <pubDate>Tue, 09 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc prepare prebuilds plugin binaries so CI can separate cold plugin compilation from steady-state type-check and lint measurements.</description>
+    </item>
+    <item>
+      <title>One Flag Table To Rule The CLI</title>
+      <link>https://ttsc.dev/blog/one-flag-table-to-rule-the-cli/</link>
+      <guid>https://ttsc.dev/blog/one-flag-table-to-rule-the-cli/</guid>
+      <pubDate>Mon, 08 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc and ttsx share a generated flag schema so launcher parsing, docs, and native plugin allow-lists do not drift.</description>
+    </item>
+    <item>
+      <title>Typed Config Files Beat JSON Soup</title>
+      <link>https://ttsc.dev/blog/typed-config-files-beat-json-soup/</link>
+      <guid>https://ttsc.dev/blog/typed-config-files-beat-json-soup/</guid>
+      <pubDate>Sun, 07 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc plugins use dedicated config files such as lint.config.ts and strip.config.ts. The tsconfig plugin entry stays small and discoverable.</description>
+    </item>
+    <item>
+      <title>Benchmarks Are Boring Until They Save Your Architecture</title>
+      <link>https://ttsc.dev/blog/benchmarks-are-boring-until-they-save-your-architecture/</link>
+      <guid>https://ttsc.dev/blog/benchmarks-are-boring-until-they-save-your-architecture/</guid>
+      <pubDate>Sat, 06 Jun 2026 00:00:00 GMT</pubDate>
+      <description>The ttsc benchmark is not just a chart. It is how I keep compiler, lint, and format claims honest across real projects.</description>
+    </item>
+    <item>
+      <title>Replace tsc First, Then Replace The Toolchain</title>
+      <link>https://ttsc.dev/blog/replace-tsc-first-then-replace-the-toolchain/</link>
+      <guid>https://ttsc.dev/blog/replace-tsc-first-then-replace-the-toolchain/</guid>
+      <pubDate>Fri, 05 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc can start as a drop-in TypeScript-Go compiler path. The larger eslint/prettier/plugin migration can happen one layer at a time.</description>
+    </item>
+    <item>
+      <title>The Autofix Loop I Want For TypeScript</title>
+      <link>https://ttsc.dev/blog/the-autofix-loop-i-want-for-typescript/</link>
+      <guid>https://ttsc.dev/blog/the-autofix-loop-i-want-for-typescript/</guid>
+      <pubDate>Thu, 04 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc fix applies lint and format edits, then re-checks the project. It is the local cleanup command before CI runs ttsc --noEmit.</description>
+    </item>
+    <item>
+      <title>Format Should Be A Command, Not A Vibe</title>
+      <link>https://ttsc.dev/blog/format-should-be-a-command-not-a-vibe/</link>
+      <guid>https://ttsc.dev/blog/format-should-be-a-command-not-a-vibe/</guid>
+      <pubDate>Wed, 03 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc format is deliberately separate from ttsc --noEmit. Formatting writes source, lint gates source, and mixing the two makes the toolchain harder to trust.</description>
+    </item>
+    <item>
+      <title>Stop Shipping tsconfig Paths To Runtime</title>
+      <link>https://ttsc.dev/blog/stop-shipping-tsconfig-paths-to-runtime/</link>
+      <guid>https://ttsc.dev/blog/stop-shipping-tsconfig-paths-to-runtime/</guid>
+      <pubDate>Tue, 02 Jun 2026 00:00:00 GMT</pubDate>
+      <description>@ttsc/paths is the boring plugin that fixes a real build problem: TypeScript path aliases are compiler hints, not JavaScript runtime imports.</description>
+    </item>
+    <item>
+      <title>Writing TypeScript Plugins In Go Is Less Weird Than It Sounds</title>
+      <link>https://ttsc.dev/blog/writing-typescript-plugins-in-go-is-less-weird-than-it-sounds/</link>
+      <guid>https://ttsc.dev/blog/writing-typescript-plugins-in-go-is-less-weird-than-it-sounds/</guid>
+      <pubDate>Mon, 01 Jun 2026 00:00:00 GMT</pubDate>
+      <description>ttsc plugins use a JavaScript descriptor and a Go sidecar. That split looks unusual until you map it to TypeScript-Go&apos;s AST, Checker, and emit pipeline.</description>
+    </item>
+    <item>
+      <title>One TypeScript Plugin, Four Surfaces</title>
+      <link>https://ttsc.dev/blog/one-typescript-plugin-four-surfaces/</link>
+      <guid>https://ttsc.dev/blog/one-typescript-plugin-four-surfaces/</guid>
+      <pubDate>Sun, 31 May 2026 00:00:00 GMT</pubDate>
+      <description>A ttsc plugin is not just a CLI hook. The same compiler-powered package can run in ttsc, ttsx, bundlers, VS Code, and browser playgrounds.</description>
+    </item>
+    <item>
+      <title>Why ttsc Builds Plugins From Go Source</title>
+      <link>https://ttsc.dev/blog/why-ttsc-builds-plugins-from-go-source/</link>
+      <guid>https://ttsc.dev/blog/why-ttsc-builds-plugins-from-go-source/</guid>
+      <pubDate>Sat, 30 May 2026 00:00:00 GMT</pubDate>
+      <description>ttsc plugins are npm packages, but their compiler logic is Go source built once into a content-addressed cache. Here is why that tradeoff exists.</description>
+    </item>
+    <item>
+      <title>AI Code Needs A Compiler Harness, Not More CI Steps</title>
+      <link>https://ttsc.dev/blog/ai-code-needs-a-compiler-harness-not-more-ci-steps/</link>
+      <guid>https://ttsc.dev/blog/ai-code-needs-a-compiler-harness-not-more-ci-steps/</guid>
+      <pubDate>Fri, 29 May 2026 00:00:00 GMT</pubDate>
+      <description>In AI-heavy codebases, lint is no longer style police. It is the harness that keeps generated code mergeable, and it belongs in the compilation pass.</description>
+    </item>
+    <item>
+      <title>ttsx: The TypeScript Runner That Refuses To Run Broken Code</title>
+      <link>https://ttsc.dev/blog/ttsx-the-typescript-runner-that-refuses-to-run-broken-code/</link>
+      <guid>https://ttsc.dev/blog/ttsx-the-typescript-runner-that-refuses-to-run-broken-code/</guid>
+      <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
+      <description>ttsx keeps the tsx-style workflow, but gates execution behind a real TypeScript-Go project check and the same ttsc plugin pipeline.</description>
+    </item>
+    <item>
+      <title>I Made TypeScript Plugins Install Like Normal npm Packages</title>
+      <link>https://ttsc.dev/blog/i-made-typescript-plugins-install-like-normal-npm-packages/</link>
+      <guid>https://ttsc.dev/blog/i-made-typescript-plugins-install-like-normal-npm-packages/</guid>
+      <pubDate>Wed, 27 May 2026 00:00:00 GMT</pubDate>
+      <description>typia and nestia no longer need fragile tsconfig plugin ceremony in ttsc. Install the package, keep the marker, and the host discovers it.</description>
+    </item>
+    <item>
+      <title>TypeScript Transformers Were Dying, So I Built ttsc</title>
+      <link>https://ttsc.dev/blog/typescript-transformers-were-dying-so-i-built-ttsc/</link>
+      <guid>https://ttsc.dev/blog/typescript-transformers-were-dying-so-i-built-ttsc/</guid>
+      <pubDate>Tue, 26 May 2026 00:00:00 GMT</pubDate>
+      <description>TypeScript-Go changes the ground under custom transformers. ttsc exists because typia, nestia, autobe, and the next compiler-powered tools need a real host.</description>
+    </item>
+    <item>
       <title>500x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go</title>
       <link>https://ttsc.dev/blog/500x-faster-typescript-lint/</link>
       <guid>https://ttsc.dev/blog/500x-faster-typescript-lint/</guid>
