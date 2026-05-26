@@ -18,7 +18,7 @@ import "testing"
 func TestFixNoWrapperObjectTypesSkipsUserShadowedName(t *testing.T) {
   assertRuleSkipsSource(
     t,
-    "no-wrapper-object-types",
+    "typescript/no-wrapper-object-types",
     "type String = { length: number };\ndeclare const v: String;\nJSON.stringify(v.length);\n",
   )
 }

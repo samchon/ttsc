@@ -17,7 +17,7 @@ import "testing"
 func TestFixPreferNamespaceKeywordReplacesModuleKeyword(t *testing.T) {
   assertFixSnapshot(
     t,
-    "prefer-namespace-keyword",
+    "typescript/prefer-namespace-keyword",
     "module Foo {\n  export const x = 1;\n}\nJSON.stringify(Foo.x);\n",
     "namespace Foo {\n  export const x = 1;\n}\nJSON.stringify(Foo.x);\n",
   )

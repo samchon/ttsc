@@ -17,7 +17,7 @@ import (
 // 3. Assert the native Engine reports no diagnostics.
 func TestNoUselessEmptyExportAllowsModuleMarker(t *testing.T) {
   file := parseTS(t, "export {};\nconst local = 1;\nJSON.stringify(local);\n")
-  findings := NewEngine(RuleConfig{"no-useless-empty-export": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  findings := NewEngine(RuleConfig{"typescript/no-useless-empty-export": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("expected no findings, got %v", findingRules(findings))
   }

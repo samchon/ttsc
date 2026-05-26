@@ -1,5 +1,5 @@
 enum E {
-  // expect: prefer-enum-initializers error
+  // expect: typescript/prefer-enum-initializers error
   A,
 }
 JSON.stringify(E.A);

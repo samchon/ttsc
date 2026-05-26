@@ -169,7 +169,7 @@ func parseRuleExpectations(t *testing.T, source string) []ruleExpectation {
 				target++
 				continue
 			}
-			if match[1] != "ban-ts-comment" &&
+			if match[1] != "typescript/ban-ts-comment" &&
 				regexp.MustCompile(`^\s*//\s*@ts-(?:expect-error|ignore)\b`).MatchString(candidate) {
 				target++
 				continue

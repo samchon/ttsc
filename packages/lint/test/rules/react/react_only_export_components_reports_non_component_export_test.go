@@ -6,17 +6,17 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestOnlyExportComponentsReportsNonComponentExport verifies react-refresh/only-export-components.
+// TestReactOnlyExportComponentsReportsNonComponentExport verifies react/only-export-components.
 //
 // Locks the React Fast Refresh module-boundary branch where a TSX file already
 // exports a component and then adds a non-component export. That mixed export
 // shape forces refresh invalidation, so the rule must point at the shared value.
 //
 //  1. Parse a TSX module with one component export and one value export.
-//  2. Run only react-refresh/only-export-components.
+//  2. Run only react/only-export-components.
 //  3. Assert the native Engine reports the non-component export line.
-func TestOnlyExportComponentsReportsNonComponentExport(t *testing.T) {
-  const ruleName = "react-refresh/only-export-components"
+func TestReactOnlyExportComponentsReportsNonComponentExport(t *testing.T) {
+  const ruleName = "react/only-export-components"
   source := `export const version = "1.0.0";
 export function App() {
   return <main />;

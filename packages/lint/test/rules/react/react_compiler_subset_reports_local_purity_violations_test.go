@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestReactHooksCompilerSubsetReportsLocalPurityViolations verifies AST-local compiler-era rules.
+// TestReactCompilerSubsetReportsLocalPurityViolations verifies AST-local compiler-era rules.
 //
 // Several eslint-plugin-react-hooks 7.x rules are backed by React Compiler analysis upstream. The
 // native subset deliberately keeps the first PR to local syntax that is low-risk: prop/state
@@ -16,7 +16,7 @@ import (
 // 1. Parse a component containing one violation for each implemented compiler-era subset.
 // 2. Enable component-hook-factories, immutability, refs, and use-memo.
 // 3. Assert the native Engine reports the expected rule names and counts.
-func TestReactHooksCompilerSubsetReportsLocalPurityViolations(t *testing.T) {
+func TestReactCompilerSubsetReportsLocalPurityViolations(t *testing.T) {
   source := `
 function Widget(props: { item: { count: number } }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -34,18 +34,18 @@ function Widget(props: { item: { count: number } }) {
 `
   file := parseTSFile(t, "/virtual/react-hooks-compiler-subset.ts", source)
   findings := NewEngine(RuleConfig{
-    "react-hooks/component-hook-factories": SeverityError,
-    "react-hooks/immutability":             SeverityError,
-    "react-hooks/refs":                     SeverityError,
-    "react-hooks/use-memo":                 SeverityError,
+    "react/component-hook-factories": SeverityError,
+    "react/immutability":             SeverityError,
+    "react/refs":                     SeverityError,
+    "react/use-memo":                 SeverityError,
   }).Run([]*shimast.SourceFile{file}, nil)
 
   rules := findingRules(findings)
   expected := []string{
-    "react-hooks/component-hook-factories",
-    "react-hooks/immutability",
-    "react-hooks/refs",
-    "react-hooks/use-memo",
+    "react/component-hook-factories",
+    "react/immutability",
+    "react/refs",
+    "react/use-memo",
   }
   if len(rules) != len(expected) {
     t.Fatalf("want %v, got %v", expected, rules)

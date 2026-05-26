@@ -1,4 +1,4 @@
-import type { ITtscLintFormatConfig } from "./structures/ITtscLintFormatConfig";
+import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
 
 /**
  * Documented defaults for the `format` block's _always-on_ rules
@@ -29,4 +29,4 @@ export const defaultFormat = Object.freeze({
   tabWidth: 2,
   useTabs: false,
   endOfLine: "lf",
-} satisfies ITtscLintFormatConfig);
+} satisfies ITtscLintFormat);

@@ -16,34 +16,34 @@ type reactHooksRule struct {
 func (r reactHooksRule) Name() string { return r.name }
 func (r reactHooksRule) Visits() []shimast.Kind {
   switch r.name {
-  case "react-hooks/rules-of-hooks", "react-hooks/exhaustive-deps", "react-hooks/use-memo":
+  case "react/rules-of-hooks", "react/exhaustive-deps", "react/use-memo":
     return []shimast.Kind{shimast.KindCallExpression}
   }
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (r reactHooksRule) Check(ctx *Context, node *shimast.Node) {
   switch r.name {
-  case "react-hooks/rules-of-hooks":
+  case "react/rules-of-hooks":
     checkReactRulesOfHooksCall(ctx, node)
     return
-  case "react-hooks/exhaustive-deps":
+  case "react/exhaustive-deps":
     checkReactExhaustiveDepsCall(ctx, node)
     return
-  case "react-hooks/use-memo":
+  case "react/use-memo":
     checkReactUseMemoCall(ctx, node)
     return
   }
   analyzer := newReactHooksAnalyzer(ctx, node)
   switch r.name {
-  case "react-hooks/component-hook-factories":
+  case "react/component-hook-factories":
     analyzer.checkComponentHookFactories(node)
-  case "react-hooks/set-state-in-render":
+  case "react/set-state-in-render":
     analyzer.checkSetStateInRender(node)
-  case "react-hooks/set-state-in-effect":
+  case "react/set-state-in-effect":
     analyzer.checkSetStateInEffect(node)
-  case "react-hooks/immutability":
+  case "react/immutability":
     analyzer.checkImmutability(node)
-  case "react-hooks/refs":
+  case "react/refs":
     analyzer.checkRefs(node)
   }
 }
@@ -837,12 +837,12 @@ func formatQuotedList(names []string) string {
 }
 
 func init() {
-  Register(reactHooksRule{name: "react-hooks/rules-of-hooks"})
-  Register(reactHooksRule{name: "react-hooks/exhaustive-deps"})
-  Register(reactHooksRule{name: "react-hooks/component-hook-factories"})
-  Register(reactHooksRule{name: "react-hooks/set-state-in-render"})
-  Register(reactHooksRule{name: "react-hooks/set-state-in-effect"})
-  Register(reactHooksRule{name: "react-hooks/immutability"})
-  Register(reactHooksRule{name: "react-hooks/refs"})
-  Register(reactHooksRule{name: "react-hooks/use-memo"})
+  Register(reactHooksRule{name: "react/rules-of-hooks"})
+  Register(reactHooksRule{name: "react/exhaustive-deps"})
+  Register(reactHooksRule{name: "react/component-hook-factories"})
+  Register(reactHooksRule{name: "react/set-state-in-render"})
+  Register(reactHooksRule{name: "react/set-state-in-effect"})
+  Register(reactHooksRule{name: "react/immutability"})
+  Register(reactHooksRule{name: "react/refs"})
+  Register(reactHooksRule{name: "react/use-memo"})
 }

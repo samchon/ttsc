@@ -1,4 +1,4 @@
-// expect: consistent-type-definitions error
+// expect: typescript/consistent-type-definitions error
 type Shape = {
   name: string;
 };

@@ -453,7 +453,7 @@ Storybook projects can enable the `storybook/*` family on `*.stories.ts(x)` and 
 - [`react-perf/jsx-no-new-function-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_new_function_as_prop_test.go): rejects freshly-created functions passed as JSX props in TSX files.
 - [`react-perf/jsx-no-new-object-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_new_object_as_prop_test.go): rejects freshly-created objects passed as JSX props in TSX files.
 - [`react-perf/jsx-no-jsx-as-prop`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-perf/react_perf_jsx_no_jsx_as_prop_test.go): rejects freshly-created JSX elements or fragments passed as JSX props in TSX files.
-- [`react-refresh/only-export-components`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react-refresh/only_export_components_reports_non_component_export_test.go): keeps React Fast Refresh component modules from exporting non-components.
+- [`react/only-export-components`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/only_export_components_reports_non_component_export_test.go): keeps React Fast Refresh component modules from exporting non-components.
 - [`require-yield`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/require-yield.ts): requires generator functions to contain `yield`.
 - [`triple-slash-reference`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/triple-slash-reference/violation.ts): rejects triple-slash reference directives.
 - [`use-isnan`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/use-isnan.ts): requires `Number.isNaN`/`isNaN` for `NaN` checks.
@@ -476,7 +476,7 @@ Storybook projects can enable the `storybook/*` family on `*.stories.ts(x)` and 
 - [`react/no-unescaped-entities`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_no_unescaped_entities_reports_quote_text_test.go): rejects unescaped `>`, `"`, `'`, and `}` in JSX text.
 - [`react/style-prop-object`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_style_prop_object_reports_string_style_test.go): rejects string literal JSX `style` prop values.
 - [`react/void-dom-elements-no-children`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/react/react_void_dom_elements_no_children_reports_img_child_test.go): rejects children and HTML injection props on void DOM elements.
-- [`tsdoc/syntax`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/comments-directives/tsdoc_syntax_test.go): validates malformed TSDoc block tags and inline tags in `/** ... */` comments.
+- [`jsdoc/tsdoc-syntax`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/comments-directives/tsdoc_syntax_test.go): validates malformed TSDoc block tags and inline tags in `/** ... */` comments.
 
 ### Security rules
 

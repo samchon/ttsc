@@ -6,7 +6,7 @@ import (
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestTSDocSyntaxReportsMalformedDocTags verifies tsdoc/syntax catches malformed TSDoc tags.
+// TestTSDocSyntaxReportsMalformedDocTags verifies jsdoc/tsdoc-syntax catches malformed TSDoc tags.
 //
 // Locks the source-scanning branch that validates JSDoc comments without
 // relying on attached AST comment trivia. The rule should report only real
@@ -14,7 +14,7 @@ import (
 // fenced example code alone.
 //
 // 1. Parse a TypeScript file containing malformed inline and block TSDoc tags.
-// 2. Run the native Engine with only tsdoc/syntax enabled.
+// 2. Run the native Engine with only jsdoc/tsdoc-syntax enabled.
 // 3. Assert the diagnostic lines match the malformed doc comment lines.
 func TestTSDocSyntaxReportsMalformedDocTags(t *testing.T) {
 	source := `const shadow = "/** {@link Missing */";
@@ -40,12 +40,12 @@ export function three(name: string): string { return name; }
 export const ok = 1;
 `
 	file := parseTS(t, source)
-	findings := NewEngine(RuleConfig{"tsdoc/syntax": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+	findings := NewEngine(RuleConfig{"jsdoc/tsdoc-syntax": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
 	actual := normalizeRuleFindings(file, findings)
 	expected := []ruleExpectation{
-		{Rule: "tsdoc/syntax", Severity: SeverityError, Line: 3},
-		{Rule: "tsdoc/syntax", Severity: SeverityError, Line: 7},
-		{Rule: "tsdoc/syntax", Severity: SeverityError, Line: 12},
+		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 3},
+		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 7},
+		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 12},
 	}
 	if len(actual) != len(expected) {
 		t.Fatalf("want %v, got %v", expected, actual)

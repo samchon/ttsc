@@ -1,4 +1,4 @@
-// expect: no-namespace error
+// expect: typescript/no-namespace error
 namespace Foo {
   export const x = 1;
 }

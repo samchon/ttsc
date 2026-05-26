@@ -51,7 +51,7 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   Format findings produced from this block are off by default. Set `severity`
  *   only when a project intentionally wants check-time format diagnostics.
  */
-export interface ITtscLintFormatConfig {
+export interface ITtscLintFormat {
   /**
    * Check-time severity for format findings generated from this block.
    *

@@ -49,7 +49,7 @@ const (
 )
 
 func (onlyExportComponents) Name() string {
-  return "react-refresh/only-export-components"
+  return "react/only-export-components"
 }
 
 func (onlyExportComponents) Visits() []shimast.Kind {

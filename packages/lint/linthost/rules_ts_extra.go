@@ -14,7 +14,7 @@ import (
 // noConfusingNonNullAssertion: `a! == b` reads ambiguously.
 type noConfusingNonNullAssertion struct{}
 
-func (noConfusingNonNullAssertion) Name() string { return "no-confusing-non-null-assertion" }
+func (noConfusingNonNullAssertion) Name() string { return "typescript/no-confusing-non-null-assertion" }
 func (noConfusingNonNullAssertion) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindBinaryExpression}
 }
@@ -41,7 +41,7 @@ func (noConfusingNonNullAssertion) Check(ctx *Context, node *shimast.Node) {
 // silently collapse.
 type noDuplicateEnumValues struct{}
 
-func (noDuplicateEnumValues) Name() string { return "no-duplicate-enum-values" }
+func (noDuplicateEnumValues) Name() string { return "typescript/no-duplicate-enum-values" }
 func (noDuplicateEnumValues) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindEnumDeclaration}
 }
@@ -83,7 +83,7 @@ func (noDuplicateEnumValues) Check(ctx *Context, node *shimast.Node) {
 // https://typescript-eslint.io/rules/no-mixed-enums/
 type noMixedEnums struct{}
 
-func (noMixedEnums) Name() string { return "no-mixed-enums" }
+func (noMixedEnums) Name() string { return "typescript/no-mixed-enums" }
 func (noMixedEnums) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindEnumDeclaration}
 }
@@ -140,7 +140,7 @@ func (noMixedEnums) Check(ctx *Context, node *shimast.Node) {
 // noExtraNonNullAssertion: `a!!` / `a!?.b` collapses two assertions.
 type noExtraNonNullAssertion struct{}
 
-func (noExtraNonNullAssertion) Name() string { return "no-extra-non-null-assertion" }
+func (noExtraNonNullAssertion) Name() string { return "typescript/no-extra-non-null-assertion" }
 func (noExtraNonNullAssertion) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNonNullExpression}
 }
@@ -173,7 +173,7 @@ func (noExtraNonNullAssertion) Check(ctx *Context, node *shimast.Node) {
 // undefined; asserting non-null on the whole chain defeats the chain.
 type noNonNullAssertedOptionalChain struct{}
 
-func (noNonNullAssertedOptionalChain) Name() string { return "no-non-null-asserted-optional-chain" }
+func (noNonNullAssertedOptionalChain) Name() string { return "typescript/no-non-null-asserted-optional-chain" }
 func (noNonNullAssertedOptionalChain) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNonNullExpression}
 }
@@ -229,7 +229,7 @@ func containsOptionalChain(node *shimast.Node) bool {
 // authors expect.
 type noMisusedNew struct{}
 
-func (noMisusedNew) Name() string { return "no-misused-new" }
+func (noMisusedNew) Name() string { return "typescript/no-misused-new" }
 func (noMisusedNew) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindInterfaceDeclaration, shimast.KindTypeAliasDeclaration}
 }
@@ -263,7 +263,7 @@ func (noMisusedNew) Check(ctx *Context, node *shimast.Node) {
 type noUnnecessaryParameterPropertyAssignment struct{}
 
 func (noUnnecessaryParameterPropertyAssignment) Name() string {
-  return "no-unnecessary-parameter-property-assignment"
+  return "typescript/no-unnecessary-parameter-property-assignment"
 }
 func (noUnnecessaryParameterPropertyAssignment) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindConstructor}
@@ -359,7 +359,7 @@ func thisPropertyAssignment(stmt *shimast.Node) (property string, value string, 
 // initializer (avoids order-dependent values).
 type preferEnumInitializers struct{}
 
-func (preferEnumInitializers) Name() string { return "prefer-enum-initializers" }
+func (preferEnumInitializers) Name() string { return "typescript/prefer-enum-initializers" }
 func (preferEnumInitializers) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindEnumDeclaration}
 }
@@ -455,7 +455,7 @@ func isCounterIncrement(node *shimast.Node, counter string) bool {
 //  interface F { (x: number): string }   -> type F = (x: number) => string
 type preferFunctionType struct{}
 
-func (preferFunctionType) Name() string { return "prefer-function-type" }
+func (preferFunctionType) Name() string { return "typescript/prefer-function-type" }
 func (preferFunctionType) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindInterfaceDeclaration}
 }
@@ -479,7 +479,7 @@ func (preferFunctionType) Check(ctx *Context, node *shimast.Node) {
 // @typescript-eslint mode (`property`) as a diagnostic-only rule.
 type methodSignatureStyle struct{}
 
-func (methodSignatureStyle) Name() string { return "method-signature-style" }
+func (methodSignatureStyle) Name() string { return "typescript/method-signature-style" }
 func (methodSignatureStyle) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindMethodSignature}
 }
@@ -497,7 +497,7 @@ func (methodSignatureStyle) Check(ctx *Context, node *shimast.Node) {
 // keyword) → `namespace Foo {}`.
 type preferNamespaceKeyword struct{}
 
-func (preferNamespaceKeyword) Name() string { return "prefer-namespace-keyword" }
+func (preferNamespaceKeyword) Name() string { return "typescript/prefer-namespace-keyword" }
 func (preferNamespaceKeyword) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindModuleDeclaration}
 }
@@ -529,7 +529,7 @@ func (preferNamespaceKeyword) Check(ctx *Context, node *shimast.Node) {
 // Discouraged in modern code in favor of `import`.
 type tripleSlashReference struct{}
 
-func (tripleSlashReference) Name() string           { return "triple-slash-reference" }
+func (tripleSlashReference) Name() string           { return "typescript/triple-slash-reference" }
 func (tripleSlashReference) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (tripleSlashReference) Check(ctx *Context, node *shimast.Node) {
   if ctx.File == nil {
@@ -546,7 +546,7 @@ func (tripleSlashReference) Check(ctx *Context, node *shimast.Node) {
 // noArrayDelete: `delete arr[0]` leaves a sparse hole. Use `splice`.
 type noArrayDelete struct{}
 
-func (noArrayDelete) Name() string           { return "no-array-delete" }
+func (noArrayDelete) Name() string           { return "typescript/no-array-delete" }
 func (noArrayDelete) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDeleteExpression} }
 func (noArrayDelete) Check(ctx *Context, node *shimast.Node) {
   del := node.AsDeleteExpression()
@@ -579,7 +579,7 @@ func (noArrayDelete) Check(ctx *Context, node *shimast.Node) {
 // common case.
 type consistentTypeImports struct{}
 
-func (consistentTypeImports) Name() string { return "consistent-type-imports" }
+func (consistentTypeImports) Name() string { return "typescript/consistent-type-imports" }
 func (consistentTypeImports) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportDeclaration}
 }
@@ -671,7 +671,7 @@ func allUsesAreTypeOnly(root *shimast.Node, names []string) bool {
 // satisfies `{}`).
 type noEmptyObjectType struct{}
 
-func (noEmptyObjectType) Name() string           { return "no-empty-object-type" }
+func (noEmptyObjectType) Name() string           { return "typescript/no-empty-object-type" }
 func (noEmptyObjectType) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindTypeLiteral} }
 func (noEmptyObjectType) Check(ctx *Context, node *shimast.Node) {
   lit := node.AsTypeLiteralNode()
@@ -686,7 +686,7 @@ func (noEmptyObjectType) Check(ctx *Context, node *shimast.Node) {
 // arrayType: `Array<T>` vs `T[]`. ESLint default mode prefers `T[]`.
 type arrayType struct{}
 
-func (arrayType) Name() string           { return "array-type" }
+func (arrayType) Name() string           { return "typescript/array-type" }
 func (arrayType) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindTypeReference} }
 func (arrayType) Check(ctx *Context, node *shimast.Node) {
   ref := node.AsTypeReferenceNode()
@@ -711,7 +711,7 @@ func (arrayType) Check(ctx *Context, node *shimast.Node) {
 // `Record<string, T>`. ESLint default prefers `Record`.
 type consistentIndexedObjectStyle struct{}
 
-func (consistentIndexedObjectStyle) Name() string { return "consistent-indexed-object-style" }
+func (consistentIndexedObjectStyle) Name() string { return "typescript/consistent-indexed-object-style" }
 func (consistentIndexedObjectStyle) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindTypeLiteral}
 }
@@ -738,7 +738,7 @@ func (consistentIndexedObjectStyle) Check(ctx *Context, node *shimast.Node) {
 // referencing it should be cleaned up.
 type banTslintComment struct{}
 
-func (banTslintComment) Name() string           { return "ban-tslint-comment" }
+func (banTslintComment) Name() string           { return "typescript/ban-tslint-comment" }
 func (banTslintComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (banTslintComment) Check(ctx *Context, node *shimast.Node) {
   if ctx.File == nil {
@@ -766,7 +766,7 @@ func (banTslintComment) Check(ctx *Context, node *shimast.Node) {
 // when overloads are interleaved with other members.
 type adjacentOverloadSignatures struct{}
 
-func (adjacentOverloadSignatures) Name() string { return "adjacent-overload-signatures" }
+func (adjacentOverloadSignatures) Name() string { return "typescript/adjacent-overload-signatures" }
 func (adjacentOverloadSignatures) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindInterfaceDeclaration, shimast.KindTypeLiteral, shimast.KindClassDeclaration, shimast.KindClassExpression, shimast.KindModuleBlock, shimast.KindSourceFile}
 }

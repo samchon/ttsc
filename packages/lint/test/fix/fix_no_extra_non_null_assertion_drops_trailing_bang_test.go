@@ -15,7 +15,7 @@ import "testing"
 func TestFixNoExtraNonNullAssertionDropsTrailingBang(t *testing.T) {
   assertFixSnapshot(
     t,
-    "no-extra-non-null-assertion",
+    "typescript/no-extra-non-null-assertion",
     "declare const a: number | null;\nconst x = a!!;\nJSON.stringify(x);\n",
     "declare const a: number | null;\nconst x = a!;\nJSON.stringify(x);\n",
   )

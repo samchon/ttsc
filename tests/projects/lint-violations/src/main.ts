@@ -11,13 +11,13 @@
 var legacy = 1;
 
 function takesAnyArg(
-  // expect: no-explicit-any warn
+  // expect: typescript/no-explicit-any warn
   x: any,
 ): number {
   return Number(x);
 }
 
-// expect: no-explicit-any warn
+// expect: typescript/no-explicit-any warn
 function returnsAny(): any {
   return null;
 }
@@ -32,7 +32,7 @@ function loose(x: number, y: number): boolean {
   return x == y;
 }
 
-// expect: no-empty-interface warn
+// expect: typescript/no-empty-interface warn
 interface Empty {}
 
 function suspect(arr: number[]): void {
@@ -43,7 +43,7 @@ function suspect(arr: number[]): void {
 }
 
 function nullably(x: number | null, y: number): boolean {
-  // expect: no-confusing-non-null-assertion error
+  // expect: typescript/no-confusing-non-null-assertion error
   return x! === y;
 }
 
