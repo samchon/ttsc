@@ -686,6 +686,63 @@ export interface ITtscLintRules {
   /** keeps React Fast Refresh component modules from exporting non-components. */
   "react-refresh/only-export-components"?: TtscLintRuleOptionsSetting<ITtscLintReactRefreshOnlyExportComponentsRuleOptions>;
 
+  /** requires Jest tests to contain at least one assertion. */
+  "jest/expect-expect"?: TtscLintRuleSetting;
+
+  /** limits assertion count in a Jest test body. */
+  "jest/max-expects"?: TtscLintRuleSetting;
+
+  /** rejects expect calls under conditional branches in Jest tests. */
+  "jest/no-conditional-expect"?: TtscLintRuleSetting;
+
+  /** rejects conditional logic in Jest test bodies. */
+  "jest/no-conditional-in-test"?: TtscLintRuleSetting;
+
+  /** rejects skipped or disabled Jest tests. */
+  "jest/no-disabled-tests"?: TtscLintRuleSetting;
+
+  /** rejects done callback parameters in Jest tests and hooks. */
+  "jest/no-done-callback"?: TtscLintRuleSetting;
+
+  /** rejects duplicate Jest setup and teardown hooks. */
+  "jest/no-duplicate-hooks"?: TtscLintRuleSetting;
+
+  /** rejects exports from Jest test files. */
+  "jest/no-export"?: TtscLintRuleSetting;
+
+  /** rejects focused Jest tests. */
+  "jest/no-focused-tests"?: TtscLintRuleSetting;
+
+  /** rejects Jest hooks. */
+  "jest/no-hooks"?: TtscLintRuleSetting;
+
+  /** rejects duplicate Jest test and describe titles at the same suite level. */
+  "jest/no-identical-title"?: TtscLintRuleSetting;
+
+  /** rejects expect calls outside Jest tests. */
+  "jest/no-standalone-expect"?: TtscLintRuleSetting;
+
+  /** rejects xit, fit, and related Jest test prefix aliases. */
+  "jest/no-test-prefixes"?: TtscLintRuleSetting;
+
+  /** rejects return statements from Jest tests. */
+  "jest/no-test-return-statement"?: TtscLintRuleSetting;
+
+  /** prefers toHaveLength for length checks. */
+  "jest/prefer-to-have-length"?: TtscLintRuleSetting;
+
+  /** requires a message on toThrow assertions. */
+  "jest/require-to-throw-message"?: TtscLintRuleSetting;
+
+  /** validates Jest describe callbacks. */
+  "jest/valid-describe-callback"?: TtscLintRuleSetting;
+
+  /** validates Jest expect call shape. */
+  "jest/valid-expect"?: TtscLintRuleSetting;
+
+  /** validates Jest test and describe titles. */
+  "jest/valid-title"?: TtscLintRuleSetting;
+
   /** requires Playwright tests to contain at least one assertion. */
   "playwright/expect-expect"?: TtscLintRuleSetting;
 
