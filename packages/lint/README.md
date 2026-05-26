@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-140+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
+160+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
@@ -103,6 +103,7 @@ Two top-level keys in `lint.config.ts`:
 
 - `format` is a Prettier-style block that drives format autofixes. Format diagnostics are warnings and do not define compile failure policy.
 - `rules` sets severity per lint rule. `"error"` fails the build; `"warning"` prints without affecting the exit code; `"off"` disables the rule.
+- `nextjs/*` rules cover static TS/TSX Next.js source patterns such as raw `<img>`, blocking scripts, Google Fonts links, document-only imports, and common data export typos. Rules that need non-TypeScript files or runtime filesystem route discovery are intentionally conservative.
 
 ### Format
 
@@ -146,6 +147,66 @@ export default {
   rules: { "format/semi": "off" },
 } satisfies ITtscLintConfig;
 ```
+
+### Functional policy
+
+The `functional/*` rules are an opt-in strictness pack for immutable,
+expression-oriented TypeScript. They are diagnostic-only: `ttsc fix` does not
+rewrite mutation, classes, exceptions, loops, or branching into a functional
+design.
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "functional/no-let": "error",
+    "functional/no-loop-statements": "error",
+    "functional/no-conditional-statements": "error",
+    "functional/no-throw-statements": "error",
+    "functional/no-try-statements": "error",
+    "functional/no-classes": "error",
+    "functional/immutable-data": "error",
+    "functional/prefer-readonly-type": "error",
+    "functional/type-declaration-immutability": ["error", {
+      rules: [{ identifiers: ".*" }],
+    }],
+  },
+} satisfies ITtscLintConfig;
+```
+### Architecture boundaries
+
+The `boundaries/*` rules implement a conservative TypeScript source-path subset inspired by `eslint-plugin-boundaries`: static `import` and `export ... from` specifiers are resolved to source files, then classified with per-rule `elements` options.
+
+```ts
+// lint.config.ts
+export default {
+  rules: {
+    "boundaries/element-types": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**", entry: "index.ts", private: "internal/**" },
+      ],
+      rules: [{ from: "app", disallow: "domain" }],
+    }],
+    "boundaries/entry-point": ["error", {
+      elements: [{ type: "domain", pattern: "src/domain/**", entry: "index.ts" }],
+    }],
+    "boundaries/no-private": ["error", {
+      elements: [{ type: "domain", pattern: "src/domain/**", private: "internal/**" }],
+    }],
+    "boundaries/no-unknown": ["error", {
+      elements: [
+        { type: "app", pattern: "src/app/**" },
+        { type: "domain", pattern: "src/domain/**" },
+      ],
+    }],
+    "boundaries/external": ["error", { disallow: ["@legacy/sdk"] }],
+  },
+} satisfies ITtscLintConfig;
+```
+
+Boundary diagnostics do not offer autofixes. A violation usually needs an API or architecture decision, not a mechanical import rewrite.
+
 ### Rules
 
 Rules are off until you enable them:
@@ -162,13 +223,71 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best place to check the exact patterns currently covered. Each rule below links to its tested fixture:
+Vitest source rules use the `vitest/*` namespace. The native set focuses on
+high-confidence AST checks shared with Jest-style test linting: focused or
+disabled tests, duplicate titles, missing or conditional assertions, standalone
+`expect` calls, done callbacks, invalid `expect` chains, invalid titles,
+returned test values, and `.length` assertions that should use `toHaveLength`.
+
+Most rule corpus cases live in `tests/test-lint/src/cases/*.ts`; source-path and engine-focused families with package-local Go coverage, such as `boundaries/*` and `security/*`, link to their Go tests. Each rule below links to its tested fixture where one exists:
+
+Storybook projects can enable the `storybook/*` family on `*.stories.ts(x)` and `.storybook/main.ts` files. It covers CSF metadata shape, named story exports, deprecated `storiesOf`, interaction-test imports, direct renderer-package imports, and addon installation checks. `storybook/no-uninstalled-addons` accepts `{ packageJsonLocation?: string; ignore?: string[] }`; without an explicit path it walks upward from the linted Storybook config file to find `package.json`.
+
+### Testing Library
+
+`@ttsc/lint` also ships the `testing-library/*` family from `eslint-plugin-testing-library` for TS/TSX test files. These rules are AST-only and report only after a Testing Library import is present in the file.
+
+- `testing-library/await-async-events`, `testing-library/await-async-queries`, `testing-library/await-async-utils`: require handling Promise-returning user-event methods, `findBy*` queries, and async utilities.
+- `testing-library/no-await-sync-events`, `testing-library/no-await-sync-queries`: reject unnecessary `await` on synchronous `fireEvent`, `getBy*`, and `queryBy*` calls.
+- `testing-library/no-container`, `testing-library/no-node-access`, `testing-library/prefer-screen-queries`: prefer `screen.*` queries over container access, DOM traversal, and render-result query functions.
+- `testing-library/no-debugging-utils`, `testing-library/no-dom-import`, `testing-library/no-manual-cleanup`, `testing-library/no-test-id-queries`: catch committed debug helpers, direct DOM package imports, manual cleanup, and test-id queries.
+- `testing-library/no-wait-for-multiple-assertions`, `testing-library/no-wait-for-side-effects`, `testing-library/no-wait-for-snapshot`, `testing-library/prefer-find-by`, `testing-library/prefer-query-by-disappearance`: keep `waitFor` callbacks focused and prefer purpose-built queries.
+- `testing-library/prefer-user-event`, `testing-library/prefer-user-event-setup`, `testing-library/no-promise-in-fire-event`, `testing-library/no-render-in-lifecycle`, `testing-library/no-unnecessary-act`: catch common event, render, and `act()` anti-patterns.
+- `testing-library/consistent-data-testid`, `testing-library/prefer-explicit-assert`, `testing-library/prefer-implicit-assert`, `testing-library/prefer-presence-queries`, `testing-library/prefer-query-matchers`, `testing-library/render-result-naming-convention`: cover configured test-id naming, assertion style, presence matchers, and render result names.
+
+### Solid
+
+`@ttsc/lint` ships the `solid/*` family from `eslint-plugin-solid` for TSX source. These rules are AST-only and focus on high-confidence Solid patterns after a Solid import is present.
+
+- `solid/reactivity`, `solid/no-destructure`, `solid/components-return-once`: catch common Solid reactivity breakages in components.
+- `solid/jsx-no-undef`, `solid/jsx-no-duplicate-props`, `solid/jsx-no-script-url`, `solid/no-innerhtml`, `solid/no-unknown-namespaces`: guard JSX correctness and unsafe DOM attributes.
+- `solid/event-handlers`, `solid/no-array-handlers`, `solid/no-react-specific-props`: keep DOM event and prop shapes aligned with Solid rather than React.
+- `solid/imports`, `solid/no-react-deps`, `solid/no-proxy-apis`: enforce canonical Solid imports and non-React/non-Proxy call patterns.
+- `solid/prefer-for`, `solid/prefer-show`, `solid/prefer-classlist`, `solid/self-closing-comp`, `solid/style-prop`: cover Solid rendering and style preferences.
+- `solid/jsx-uses-vars`: accepted for config compatibility; it does not emit native diagnostics because @ttsc/lint does not implement ESLint's unused-variable marker pass.
 
 - [`adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
 - [`await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable (type-aware).
 - [`ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
 - [`ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
+- [`boundaries/element-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_element_types_rejects_disallowed_import_test.go): enforces allowed dependency directions between configured source-path element types.
+- [`boundaries/entry-point`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_entry_point_rejects_non_entry_import_test.go): requires imports into an element to target its configured public entry files.
+- [`boundaries/external`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_external_rejects_disallowed_package_test.go): restricts external package imports by package/specifier pattern.
+- [`boundaries/no-private`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_no_private_rejects_cross_element_private_import_test.go): rejects imports of configured private files from outside their element.
+- [`boundaries/no-unknown`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/boundaries/boundaries_no_unknown_rejects_unknown_import_target_test.go): rejects relative imports whose resolved source file matches no configured element.
+- `cypress/assertion-before-screenshot`: requires a Cypress assertion before `cy.screenshot()`.
+- `cypress/no-and`: prefers `.should()` over `.and()` when starting Cypress assertion chains.
+- `cypress/no-assigning-return-values`: rejects assigning the return value of Cypress commands.
+- `cypress/no-async-before`: rejects async `before` and `beforeEach` callbacks.
+- `cypress/no-async-tests`: rejects async Cypress test callbacks.
+- `cypress/no-chained-get`: rejects chained `.get()` calls.
+- `cypress/no-debug`: rejects `cy.debug()` and chained `.debug()` commands.
+- `cypress/no-force`: rejects `{ force: true }` on Cypress action commands.
+- `cypress/no-pause`: rejects `cy.pause()` and chained `.pause()` commands.
+- `cypress/no-unnecessary-waiting`: rejects numeric `cy.wait(...)` sleeps.
+- `cypress/no-xpath`: rejects deprecated `cy.xpath()` selectors.
+- `cypress/require-data-selectors`: requires statically known `cy.get()` selectors to target `data-*` attributes.
+- `cypress/unsafe-to-chain-command`: rejects chaining more commands after Cypress action commands.
+- `eslint-comments/disable-enable-pair`: requires range `eslint-disable` directives to be paired with `eslint-enable`.
+- `eslint-comments/no-aggregating-enable`: rejects bare `eslint-enable` comments that re-enable named disables at once.
+- `eslint-comments/no-duplicate-disable`: rejects repeated disables for a rule that is already disabled.
+- `eslint-comments/no-restricted-disable`: rejects disables for configured protected rules.
+- `eslint-comments/no-unlimited-disable`: rejects disable comments with no explicit rule list.
+- `eslint-comments/no-unused-disable`: rejects disable comments that suppress no diagnostic.
+- `eslint-comments/no-unused-enable`: rejects enable comments that do not re-enable anything.
+- `eslint-comments/no-use`: rejects lint directive comments entirely.
+- `eslint-comments/require-description`: requires directive comments to include a `--` description.
 - [`consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
 - [`consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
 - [`consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.
@@ -177,6 +296,26 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`dot-notation`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/dot-notation.ts): prefers dot property access when a string-literal key is a valid identifier.
 - [`eqeqeq`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/eqeqeq.ts): requires strict equality operators.
 - [`for-direction`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/for-direction.ts): catches loop counters updated in the wrong direction.
+- [`functional/functional-parameters`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_parameters_rejects_rest_parameter_test.go): rejects rest parameters, `arguments`, and optionally zero-parameter functions.
+- [`functional/immutable-data`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_immutable_data_rejects_property_assignment_test.go): rejects writes through object/array members and mutable collection methods.
+- [`functional/no-class-inheritance`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_class_inheritance_rejects_extends_test.go): rejects class inheritance and abstract classes.
+- [`functional/no-classes`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_classes_rejects_class_declaration_test.go): rejects class declarations and expressions.
+- [`functional/no-conditional-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_conditional_statements_rejects_if_test.go): rejects `if` and `switch` statements.
+- [`functional/no-expression-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_expression_statements_rejects_call_test.go): rejects expression statements used for side effects.
+- [`functional/no-let`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_let_rejects_let_declaration_test.go): rejects `let` declarations.
+- [`functional/no-loop-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_loop_statements_rejects_for_test.go): rejects imperative loop statements.
+- [`functional/no-mixed-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_mixed_types_rejects_method_and_property_test.go): rejects type/interface declarations that mix member shapes.
+- [`functional/no-promise-reject`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_promise_reject_rejects_static_call_test.go): rejects `Promise.reject(...)`.
+- [`functional/no-return-void`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_return_void_rejects_void_return_test.go): rejects void returns and void-returning declarations.
+- [`functional/no-this-expressions`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_this_expressions_rejects_this_test.go): rejects `this` expressions.
+- [`functional/no-throw-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_throw_statements_rejects_throw_test.go): rejects `throw` statements.
+- [`functional/no-try-statements`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_no_try_statements_rejects_catch_test.go): rejects `try`/`catch`/`finally` statements.
+- [`functional/prefer-immutable-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_immutable_types_rejects_mutable_parameter_array_test.go): prefers readonly/immutable type annotations.
+- [`functional/prefer-property-signatures`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_property_signatures_rejects_method_signature_test.go): prefers function-property signatures over method signatures.
+- [`functional/prefer-readonly-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_readonly_type_rejects_array_type_test.go): requires readonly array, tuple, and property type syntax.
+- [`functional/prefer-tacit`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_prefer_tacit_rejects_trivial_wrapper_test.go): reports simple one-argument forwarding wrappers.
+- [`functional/readonly-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_readonly_type_rejects_readonly_array_generic_test.go): enforces the configured readonly type spelling.
+- [`functional/type-declaration-immutability`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/functional/functional_type_declaration_immutability_rejects_mutable_interface_test.go): requires matching type declarations to expose readonly member shapes.
 - [`method-signature-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/method-signature-style.ts): prefers function-property signatures over method shorthand signatures.
 - [`no-alert`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-alert.ts): rejects `alert`, `confirm`, and `prompt`.
 - [`no-array-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-array-constructor.ts): rejects `Array` constructor calls.
@@ -303,6 +442,26 @@ The rule corpus is tested in `tests/test-lint/src/cases/*.ts`, which is the best
 - [`valid-typeof`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/valid-typeof.ts): restricts `typeof` comparisons to valid strings.
 - [`vars-on-top`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/vars-on-top.ts): requires `var` declarations at the top of their scope.
 - [`yoda`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/yoda.ts): rejects literal-first comparisons.
+- [`tsdoc/syntax`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/comments-directives/tsdoc_syntax_test.go): validates malformed TSDoc block tags and inline tags in `/** ... */` comments.
+
+### Security rules
+
+The `security/*` family ports the TypeScript-source-relevant `eslint-plugin-security@4.0.0` surface:
+
+- `security/detect-bidi-characters`: detects Trojan Source bidi control characters.
+- `security/detect-buffer-noassert`: detects Buffer reads/writes with `noAssert` set to true.
+- `security/detect-child-process`: detects child_process imports and non-literal `exec` commands.
+- `security/detect-disable-mustache-escape`: detects `escapeMarkup = false` on objects.
+- `security/detect-eval-with-expression`: detects `eval` fed by non-literal expressions.
+- `security/detect-new-buffer`: detects `new Buffer` with non-literal input.
+- `security/detect-no-csrf-before-method-override`: detects Express csrf middleware before methodOverride.
+- `security/detect-non-literal-fs-filename`: detects filesystem calls with non-literal filename arguments.
+- `security/detect-non-literal-regexp`: detects RegExp construction from non-literal patterns.
+- `security/detect-non-literal-require`: detects `require` calls with non-literal module specifiers.
+- `security/detect-object-injection`: detects dynamic bracket access sinks.
+- `security/detect-possible-timing-attacks`: detects direct equality comparisons involving secret-like identifiers.
+- `security/detect-pseudoRandomBytes`: detects `crypto.pseudoRandomBytes`.
+- `security/detect-unsafe-regex`: detects high-confidence catastrophic backtracking regex shapes.
 
 ## Third-party rule plugins
 
