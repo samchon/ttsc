@@ -564,6 +564,51 @@ export interface ITtscLintRules {
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
+  /** detects Trojan Source bidi control characters. */
+  "security/detect-bidi-characters"?: TtscLintRuleSetting;
+
+  /** detects Buffer reads/writes with `noAssert` set to true. */
+  "security/detect-buffer-noassert"?: TtscLintRuleSetting;
+
+  /** detects child_process imports and non-literal exec commands. */
+  "security/detect-child-process"?: TtscLintRuleSetting;
+
+  /** detects disabling mustache-style escaping through `escapeMarkup = false`. */
+  "security/detect-disable-mustache-escape"?: TtscLintRuleSetting;
+
+  /** detects `eval` calls fed by non-literal expressions. */
+  "security/detect-eval-with-expression"?: TtscLintRuleSetting;
+
+  /** detects `new Buffer` with non-literal input. */
+  "security/detect-new-buffer"?: TtscLintRuleSetting;
+
+  /** detects Express csrf middleware configured before methodOverride. */
+  "security/detect-no-csrf-before-method-override"?: TtscLintRuleSetting;
+
+  /** detects filesystem calls with non-literal filename arguments. */
+  "security/detect-non-literal-fs-filename"?: TtscLintRuleSetting;
+
+  /** detects RegExp construction from non-literal patterns. */
+  "security/detect-non-literal-regexp"?: TtscLintRuleSetting;
+
+  /** detects `require` calls with non-literal module specifiers. */
+  "security/detect-non-literal-require"?: TtscLintRuleSetting;
+
+  /** detects dynamic bracket access that can hide object injection sinks. */
+  "security/detect-object-injection"?: TtscLintRuleSetting;
+
+  /** detects direct equality comparisons involving secret-like identifiers. */
+  "security/detect-possible-timing-attacks"?: TtscLintRuleSetting;
+
+  /** detects use of `crypto.pseudoRandomBytes`. */
+  "security/detect-pseudoRandomBytes"?: TtscLintRuleSetting;
+
+  /**
+   * detects regular expressions with high-confidence catastrophic backtracking
+   * shapes.
+   */
+  "security/detect-unsafe-regex"?: TtscLintRuleSetting;
+
   /** Insert or remove trailing semicolons on ASI-terminated statements. */
   "format/semi"?: TtscLintRuleOptionsSetting<ITtscLintSemiRuleOptions>;
 
