@@ -322,6 +322,34 @@ These rules mirror `eslint-plugin-testing-library` names under the `testing-libr
 | `no-with` | Reject `with (...)`. |
 | `no-multi-assign` | Reject `a = b = 0` chains. |
 
+## Next.js
+
+The `nextjs/*` family covers static TS/TSX source patterns from Next.js projects. Rules stay conservative when the original ESLint behavior depends on non-TypeScript files or filesystem route discovery.
+
+| Rule | Effect |
+| ---- | ------ |
+| `nextjs/google-font-display` | Require a supported `display` query on Google Fonts stylesheet links. |
+| `nextjs/google-font-preconnect` | Require `rel="preconnect"` for fonts.gstatic.com links. |
+| `nextjs/inline-script-id` | Require an `id` on inline `next/script` blocks. |
+| `nextjs/next-script-for-ga` | Prefer Next.js Google Analytics helpers over handwritten gtag scripts. |
+| `nextjs/no-assign-module-variable` | Reject local declarations named `module`. |
+| `nextjs/no-async-client-component` | Reject async React client components in `"use client"` files. |
+| `nextjs/no-before-interactive-script-outside-document` | Restrict `beforeInteractive` scripts to pages/_document. |
+| `nextjs/no-css-tags` | Reject raw stylesheet `<link>` tags. |
+| `nextjs/no-document-import-in-page` | Restrict `next/document` imports to pages/_document. |
+| `nextjs/no-duplicate-head` | Reject multiple `Head` elements from `next/document` in pages/_document. |
+| `nextjs/no-head-element` | Reject raw `<head>` elements outside the app directory. |
+| `nextjs/no-head-import-in-document` | Reject `next/head` imports inside pages/_document. |
+| `nextjs/no-html-link-for-pages` | Prefer `next/link` for static internal anchor hrefs. |
+| `nextjs/no-img-element` | Prefer `next/image` over raw `<img>` elements. |
+| `nextjs/no-page-custom-font` | Reject Google font links in regular pages files. |
+| `nextjs/no-script-component-in-head` | Reject `next/script` inside `next/head`. |
+| `nextjs/no-styled-jsx-in-document` | Reject styled-jsx tags inside pages/_document. |
+| `nextjs/no-sync-scripts` | Require `async` or `defer` on external raw script tags. |
+| `nextjs/no-title-in-document-head` | Reject `<title>` inside `Head` from `next/document`. |
+| `nextjs/no-typos` | Catch one-edit typos in Next.js data-fetching export names. |
+| `nextjs/no-unwanted-polyfillio` | Reject Polyfill.io script URLs. |
+
 ## Vitest
 
 | Rule | Effect |

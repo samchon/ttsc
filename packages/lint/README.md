@@ -11,7 +11,7 @@
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
-150+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
+160+ rules. Lint violations surface as `error TSxxxxx` from a single compile pass; the formatter applies via `ttsc format`.
 
 ## Demonstration
 
@@ -103,6 +103,7 @@ Two top-level keys in `lint.config.ts`:
 
 - `format` is a Prettier-style block that drives format autofixes. Format diagnostics are warnings and do not define compile failure policy.
 - `rules` sets severity per lint rule. `"error"` fails the build; `"warning"` prints without affecting the exit code; `"off"` disables the rule.
+- `nextjs/*` rules cover static TS/TSX Next.js source patterns such as raw `<img>`, blocking scripts, Google Fonts links, document-only imports, and common data export typos. Rules that need non-TypeScript files or runtime filesystem route discovery are intentionally conservative.
 
 ### Format
 

@@ -893,6 +893,69 @@ export interface ITtscLintRules {
   /** rejects literal-first comparisons. */
   yoda?: TtscLintRuleSetting;
 
+  /** requires a supported `display` query on Google Fonts stylesheet links. */
+  "nextjs/google-font-display"?: TtscLintRuleSetting;
+
+  /** requires `rel="preconnect"` for fonts.gstatic.com links. */
+  "nextjs/google-font-preconnect"?: TtscLintRuleSetting;
+
+  /** requires an `id` on inline `next/script` blocks. */
+  "nextjs/inline-script-id"?: TtscLintRuleSetting;
+
+  /** prefers Next.js Google Analytics helpers over handwritten gtag scripts. */
+  "nextjs/next-script-for-ga"?: TtscLintRuleSetting;
+
+  /** rejects local declarations named `module`. */
+  "nextjs/no-assign-module-variable"?: TtscLintRuleSetting;
+
+  /** rejects async React client components. */
+  "nextjs/no-async-client-component"?: TtscLintRuleSetting;
+
+  /** restricts `beforeInteractive` scripts to pages/_document. */
+  "nextjs/no-before-interactive-script-outside-document"?: TtscLintRuleSetting;
+
+  /** rejects raw stylesheet `<link>` tags. */
+  "nextjs/no-css-tags"?: TtscLintRuleSetting;
+
+  /** restricts `next/document` imports to pages/_document. */
+  "nextjs/no-document-import-in-page"?: TtscLintRuleSetting;
+
+  /** rejects multiple `Head` elements from `next/document` in pages/_document. */
+  "nextjs/no-duplicate-head"?: TtscLintRuleSetting;
+
+  /** rejects raw `<head>` elements outside the app directory. */
+  "nextjs/no-head-element"?: TtscLintRuleSetting;
+
+  /** rejects `next/head` imports inside pages/_document. */
+  "nextjs/no-head-import-in-document"?: TtscLintRuleSetting;
+
+  /** prefers `next/link` for static internal anchor hrefs. */
+  "nextjs/no-html-link-for-pages"?: TtscLintRuleSetting;
+
+  /** prefers `next/image` over raw `<img>` elements. */
+  "nextjs/no-img-element"?: TtscLintRuleSetting;
+
+  /** rejects Google font links in regular pages files. */
+  "nextjs/no-page-custom-font"?: TtscLintRuleSetting;
+
+  /** rejects `next/script` inside `next/head`. */
+  "nextjs/no-script-component-in-head"?: TtscLintRuleSetting;
+
+  /** rejects styled-jsx tags inside pages/_document. */
+  "nextjs/no-styled-jsx-in-document"?: TtscLintRuleSetting;
+
+  /** requires `async` or `defer` on external raw script tags. */
+  "nextjs/no-sync-scripts"?: TtscLintRuleSetting;
+
+  /** rejects `<title>` inside `Head` from `next/document`. */
+  "nextjs/no-title-in-document-head"?: TtscLintRuleSetting;
+
+  /** catches one-edit typos in Next.js data-fetching export names. */
+  "nextjs/no-typos"?: TtscLintRuleSetting;
+
+  /** rejects Polyfill.io script URLs. */
+  "nextjs/no-unwanted-polyfillio"?: TtscLintRuleSetting;
+
   /** detects Trojan Source bidi control characters. */
   "security/detect-bidi-characters"?: TtscLintRuleSetting;
 

@@ -117,6 +117,39 @@ func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
   }
 }
 
+// assertRuleCorpusCaseTSX runs one annotated TSX fixture through the native
+// rule engine.
+//
+// JSX-focused families need ScriptKindTSX so intrinsic tags and component tags
+// surface as JSX nodes instead of parse errors. This mirrors assertRuleCorpusCase
+// while preserving the caller's virtual file path for path-sensitive rules.
+//
+//  1. Parse expectation annotations from `// expect:` comments.
+//  2. Parse the source as TSX under the requested virtual path.
+//  3. Compare normalized Engine findings against the annotations.
+func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
+  t.Helper()
+  expected := parseRuleExpectations(t, source)
+  if len(expected) == 0 {
+    t.Fatalf("%s has no rule expectations", relativeFile)
+  }
+  rules := RuleConfig{}
+  for _, exp := range expected {
+    rules[exp.Rule] = exp.Severity
+  }
+  file := parseTSXFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
+  findings := NewEngine(rules).Run([]*shimast.SourceFile{file}, nil)
+  actual := normalizeRuleFindings(file, findings)
+  if len(actual) != len(expected) {
+    t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
+  }
+  for i := range expected {
+    if actual[i] != expected[i] {
+      t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
+    }
+  }
+}
+
 // parseRuleExpectations mirrors the TypeScript fixture helper's annotation
 // parser. `// expect:` comments pin to the next non-blank target line, while
 // stacked expectation comments can share the same target.
