@@ -431,7 +431,7 @@ func isReactComponentName(name string) bool {
   if name == "" {
     return false
   }
-  first, _ := utf8FirstRune(name)
+	first, _ := reactHooksFirstRune(name)
   return unicode.IsUpper(first)
 }
 
@@ -439,11 +439,11 @@ func isReactHookName(name string) bool {
   if len(name) < 4 || !strings.HasPrefix(name, "use") {
     return false
   }
-  r, _ := utf8FirstRune(name[3:])
+	r, _ := reactHooksFirstRune(name[3:])
   return unicode.IsUpper(r) || unicode.IsDigit(r)
 }
 
-func utf8FirstRune(text string) (rune, int) {
+func reactHooksFirstRune(text string) (rune, int) {
   for i, r := range text {
     return r, i
   }
