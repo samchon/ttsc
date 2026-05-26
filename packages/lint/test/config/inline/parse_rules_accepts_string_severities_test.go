@@ -18,7 +18,7 @@ import (
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
   cfg, err := ParseRules(map[string]any{
     "no-var":         "error",
-    "no-explicit-any": "warning",
+    "typescript/no-explicit-any": "warning",
     "no-debugger":    "off",
     "eqeqeq":        "warn",
   })
@@ -28,8 +28,8 @@ func TestParseRulesAcceptsStringSeverities(t *testing.T) {
   if cfg.Severity("no-var") != SeverityError {
     t.Errorf("noVar: want error, got %v", cfg.Severity("no-var"))
   }
-  if cfg.Severity("no-explicit-any") != SeverityWarn {
-    t.Errorf("noExplicitAny: want warning, got %v", cfg.Severity("no-explicit-any"))
+  if cfg.Severity("typescript/no-explicit-any") != SeverityWarn {
+    t.Errorf("noExplicitAny: want warning, got %v", cfg.Severity("typescript/no-explicit-any"))
   }
   if cfg.Severity("no-debugger") != SeverityOff {
     t.Errorf("noDebugger: want off, got %v", cfg.Severity("no-debugger"))

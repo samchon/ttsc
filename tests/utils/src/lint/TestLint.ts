@@ -347,22 +347,24 @@ export namespace TestLint {
     const expected: ILintExpectation[] = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i] ?? "";
-      const match = line.match(/\/\/\s*expect:\s*([\w-]+)\s+(error|warn)\s*$/);
+      const match = line.match(
+        /\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/,
+      );
       if (!match) continue;
       const rule = match[1];
       const severity = match[2] as LintSeverity | undefined;
       if (!rule || !severity) continue;
       // Skip blank lines and other `// expect:` annotations stacked
       // above the same target, but NOT regular comment lines — rules
-      // like banTsComment / tripleSlashReference fire on a comment
-      // itself, and the convention is to put the annotation right above
-      // the line it pins.
+      // like typescript/ban-ts-comment / typescript/triple-slash-reference
+      // fire on a comment itself, and the convention is to put the
+      // annotation right above the line it pins.
       let target = i + 1;
       while (
         target < lines.length &&
         (/^\s*$/.test(lines[target] ?? "") ||
           /^\s*\/\/\s*expect:/.test(lines[target] ?? "") ||
-          (rule !== "ban-ts-comment" &&
+          (rule !== "typescript/ban-ts-comment" &&
             /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(
               lines[target] ?? "",
             )))

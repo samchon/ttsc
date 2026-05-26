@@ -1,12 +1,12 @@
 {
   "rules": {
     "no-var": "error",
-    "no-explicit-any": "warn",
-    "no-non-null-assertion": "off",
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-non-null-assertion": "off",
     "no-debugger": "error",
     "eqeqeq": "error",
-    "no-empty-interface": "warn",
+    "typescript/no-empty-interface": "warn",
     "prefer-for-of": "warn",
-    "no-confusing-non-null-assertion": "error"
+    "typescript/no-confusing-non-null-assertion": "error"
   }
 }

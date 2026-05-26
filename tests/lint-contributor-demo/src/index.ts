@@ -36,7 +36,7 @@ const plugin = {
 } satisfies ITtscLintPlugin;
 
 // `demo/no-marker-comment` accepts a `{ markers: string[] }` options
-// blob. Augmenting `TtscLintRuleOptionsMap` here is what unlocks the
+// blob. Augmenting `ITtscLintRuleOptionsMap` here is what unlocks the
 // `[severity, options]` tuple form in user configs — the autocomplete
 // for `markers` flows from this interface declaration into the
 // `ITtscLintRules` interface the user writes against. The Go
@@ -44,7 +44,7 @@ const plugin = {
 // `rules/no_marker_comment.go`) uses matching JSON tags so the wire
 // payload decodes cleanly on the host side.
 declare module "@ttsc/lint" {
-  interface TtscLintRuleOptionsMap {
+  interface ITtscLintRuleOptionsMap {
     "demo/no-marker-comment": {
       /** Comment substrings to flag. Defaults to `["TODO", "FIXME"]`. */
       markers?: readonly string[];

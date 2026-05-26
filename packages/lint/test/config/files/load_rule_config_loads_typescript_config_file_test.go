@@ -21,7 +21,7 @@ func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "ttsc-lint.config.ts"), `const config = {
     rules: {
-      "no-explicit-any": "error",
+      "typescript/no-explicit-any": "error",
     },
   };
   export default config;`)
@@ -34,7 +34,7 @@ func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
   if err != nil {
     t.Fatalf("LoadRuleConfig: %v", err)
   }
-  if cfg.Severity("no-explicit-any") != SeverityError {
-    t.Errorf("noExplicitAny: want error, got %v", cfg.Severity("no-explicit-any"))
+  if cfg.Severity("typescript/no-explicit-any") != SeverityError {
+    t.Errorf("noExplicitAny: want error, got %v", cfg.Severity("typescript/no-explicit-any"))
   }
 }

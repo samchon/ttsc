@@ -47,7 +47,7 @@ function nullably(x: number | null, y: number): boolean {
   return x! === y;
 }
 
-// `no-non-null-assertion` is configured "off" — `x!` below is silent.
+// `typescript/no-non-null-assertion` is configured "off" — `x!` below is silent.
 function probe(x: number | null): number {
   return x!;
 }

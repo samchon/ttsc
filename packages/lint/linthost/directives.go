@@ -315,8 +315,11 @@ func (s *lintDisableState) apply(event lintDirectiveEvent) {
 }
 
 // matches reports whether `rule` is currently suppressed given this state.
-// The name is normalized before lookup so that `@typescript-eslint/` prefixes
-// do not prevent a match.
+// The name is normalized before lookup so an optional `eslint/` prefix in
+// the directive does not prevent a match against the canonical rule id.
+// Legacy `@typescript-eslint/` / `react-hooks/` / `tsdoc/syntax` prefixes
+// are NOT normalized — they fall through to the unknown-rule path and
+// surface as `Engine.UnknownRules()` so users see the migration loudly.
 func (s lintDisableState) matches(rule string) bool {
   normalized := normalizeDirectiveRuleName(rule)
   if _, ok := s.rules[normalized]; ok {
