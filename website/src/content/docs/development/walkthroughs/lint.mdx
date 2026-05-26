@@ -543,7 +543,7 @@ const plugin = {
 } satisfies ITtscLintPlugin;
 
 declare module "@ttsc/lint" {
-  interface TtscLintRuleOptionsMap {
+  interface ITtscLintRuleOptionsMap {
     "demo/no-todo-comment": { markers?: readonly string[] };
   }
 }
