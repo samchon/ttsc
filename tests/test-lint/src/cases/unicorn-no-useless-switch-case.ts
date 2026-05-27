@@ -1,1 +1,10 @@
-// @ttsc-corpus-skip: unicorn/no-useless-switch-case not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const x: number;
+switch (x) {
+  case 1:
+    void 0;
+    break;
+  // expect: unicorn/no-useless-switch-case error
+  case 2:
+  default:
+    void 0;
+}

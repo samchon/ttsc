@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/prefer-negative-index not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const a = [1, 2, 3];
+// expect: unicorn/prefer-negative-index error
+const tail = a.slice(a.length - 1);
+void tail;

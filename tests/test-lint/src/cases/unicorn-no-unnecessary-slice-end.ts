@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/no-unnecessary-slice-end not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const arr = [1, 2, 3];
+// expect: unicorn/no-unnecessary-slice-end error
+const c = arr.slice(0, arr.length);
+void c;

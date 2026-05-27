@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/prefer-reflect-apply not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+function f(a: number, b: number) { return a + b; }
+// expect: unicorn/prefer-reflect-apply error
+const r = Function.prototype.apply.call(f, null, [1, 2]);
+void r;

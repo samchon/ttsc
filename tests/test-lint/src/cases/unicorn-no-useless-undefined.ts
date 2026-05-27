@@ -1,1 +1,5 @@
-// @ttsc-corpus-skip: unicorn/no-useless-undefined not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+function f() {
+  // expect: unicorn/no-useless-undefined error
+  return undefined;
+}
+void f;

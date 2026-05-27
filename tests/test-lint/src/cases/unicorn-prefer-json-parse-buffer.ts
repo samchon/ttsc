@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/prefer-json-parse-buffer not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const buf: Buffer;
+// expect: unicorn/prefer-json-parse-buffer error
+const data = JSON.parse(buf.toString());
+void data;

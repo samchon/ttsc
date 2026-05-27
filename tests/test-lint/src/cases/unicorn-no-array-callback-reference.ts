@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-array-callback-reference not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+function isEven(n: number) { return n % 2 === 0; }
+// expect: unicorn/no-array-callback-reference error
+const evens = [1, 2, 3].filter(isEven);

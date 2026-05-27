@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-keyword-prefix not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+// expect: unicorn/no-keyword-prefix error
+const newFoo = 1;
+void newFoo;

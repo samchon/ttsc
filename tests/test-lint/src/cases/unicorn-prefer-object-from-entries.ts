@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/prefer-object-from-entries not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const entries: Array<[string, number]> = [["a", 1]];
+// expect: unicorn/prefer-object-from-entries error
+const obj = entries.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
+void obj;

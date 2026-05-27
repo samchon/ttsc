@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-useless-iterator-to-array not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const arr = [1, 2];
+// expect: unicorn/no-useless-iterator-to-array error
+for (const e of [...arr.entries()]) { void e; }

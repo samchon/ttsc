@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-for-loop not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const xs = [1, 2, 3];
+// expect: unicorn/no-for-loop error
+for (let i = 0; i < xs.length; i++) { void xs[i]; }

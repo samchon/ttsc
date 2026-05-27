@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/prefer-modern-math-apis not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const x: number;
+// expect: unicorn/prefer-modern-math-apis error
+const l = Math.log(x) * Math.LOG10E;
+void l;

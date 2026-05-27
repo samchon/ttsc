@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-unreadable-array-destructuring not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+// expect: unicorn/no-unreadable-array-destructuring error
+const [, , , , a] = [1, 2, 3, 4, 5];
+void a;

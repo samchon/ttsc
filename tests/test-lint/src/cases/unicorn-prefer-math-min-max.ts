@@ -1,1 +1,5 @@
-// @ttsc-corpus-skip: unicorn/prefer-math-min-max not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const a: number;
+declare const b: number;
+// expect: unicorn/prefer-math-min-max error
+const m = a < b ? a : b;
+void m;
