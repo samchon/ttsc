@@ -2,7 +2,6 @@ import type { ITtscLintBoundariesRules } from "./ITtscLintBoundariesRules";
 import type { ITtscLintContributorRules } from "./ITtscLintContributorRules";
 import type { ITtscLintCoreRules } from "./ITtscLintCoreRules";
 import type { ITtscLintCypressRules } from "./ITtscLintCypressRules";
-import type { ITtscLintEslintCommentsRules } from "./ITtscLintEslintCommentsRules";
 import type { ITtscLintFunctionalRules } from "./ITtscLintFunctionalRules";
 import type { ITtscLintJestRules } from "./ITtscLintJestRules";
 import type { ITtscLintJsdocRules } from "./ITtscLintJsdocRules";
@@ -58,7 +57,6 @@ export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTypeScriptRules &
   ITtscLintBoundariesRules &
   ITtscLintCypressRules &
-  ITtscLintEslintCommentsRules &
   ITtscLintFunctionalRules &
   ITtscLintJestRules &
   ITtscLintJsdocRules &
