@@ -121,12 +121,33 @@ export interface ITtscLintTypeScriptRules {
   "typescript/consistent-type-definitions"?: TtscLintRuleSetting;
 
   /**
+   * Require type-only re-exports to use `export type { ... }` instead
+   * of the value form `export { ... }` when the exported binding only
+   * refers to a type alias or interface in the same file. The type
+   * form has no runtime cost and signals intent to the downstream
+   * import.
+   *
+   * @reference https://typescript-eslint.io/rules/consistent-type-exports
+   */
+  "typescript/consistent-type-exports"?: TtscLintRuleSetting;
+
+  /**
    * Require imports that only reference types to use `import type {}`
    * so the import has no runtime cost.
    *
    * @reference https://typescript-eslint.io/rules/consistent-type-imports
    */
   "typescript/consistent-type-imports"?: TtscLintRuleSetting;
+
+  /**
+   * Require every exported function and method declaration to carry an
+   * explicit return-type annotation. Implicit return types let
+   * downstream consumers depend on inference details that can shift
+   * with future edits; the explicit annotation pins the contract.
+   *
+   * @reference https://typescript-eslint.io/rules/explicit-function-return-type
+   */
+  "typescript/explicit-function-return-type"?: TtscLintRuleSetting;
 
   /**
    * Require an explicit accessibility modifier (`public`, `private`,
@@ -419,6 +440,22 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-redundant-type-constituents"?: TtscLintRuleSetting;
 
   /**
+   * Reject specific type-reference names that are almost always a
+   * mistake — by default the global wrapper types `Object`, `Function`,
+   * `Number`, `String`, and `Boolean`. The lowercase primitives
+   * (`number`, `string`, `boolean`) and explicit call signatures
+   * convey the intended type without the runtime-boxing semantics that
+   * the wrapper names imply.
+   *
+   * AST-only baseline: shadow guard reuses the same file-scope check
+   * as `no-wrapper-object-types` so a user-declared `interface String
+   * {}` is not flagged as the global wrapper.
+   *
+   * @reference https://typescript-eslint.io/rules/no-restricted-types
+   */
+  "typescript/no-restricted-types"?: TtscLintRuleSetting;
+
+  /**
    * Reject `require(...)` calls and `import x = require(...)`
    * declarations.
    *
@@ -598,6 +635,23 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/prefer-optional-chain
    */
   "typescript/prefer-optional-chain"?: TtscLintRuleSetting;
+
+  /**
+   * Reject private class fields that could carry `readonly`.
+   *
+   * AST-only baseline: fires on a `PropertyDeclaration` inside a class
+   * body that is `private` (or uses the `#name` private-hash form),
+   * does not already carry `readonly`, and is initialized at the
+   * declaration site. A field initialized at declaration time is set
+   * before the constructor runs, so locking it as `readonly` rules out
+   * accidental reassignments without changing runtime behavior. The
+   * fully type-aware upstream rule also walks assignments inside the
+   * constructor and other methods; the AST baseline targets the
+   * narrow but safe shape.
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-readonly
+   */
+  "typescript/prefer-readonly"?: TtscLintRuleSetting;
 
   /**
    * Require `arr.sort()` and `arr.toSorted()` calls to pass an

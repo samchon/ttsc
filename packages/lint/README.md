@@ -456,13 +456,13 @@ Testing Library test source rules for TS/TSX test files. AST-only; rules report 
 
 Source: [`eslint-plugin-testing-library`](https://github.com/testing-library/eslint-plugin-testing-library) (MIT).
 
-- `testing-library/await-async-events`, `testing-library/await-async-queries`, `testing-library/await-async-utils` — require handling Promise-returning user-event methods, `findBy*` queries, and async utilities.
-- `testing-library/no-await-sync-events`, `testing-library/no-await-sync-queries` — reject unnecessary `await` on synchronous `fireEvent`, `getBy*`, and `queryBy*` calls.
-- `testing-library/no-container`, `testing-library/no-node-access`, `testing-library/prefer-screen-queries` — prefer `screen.*` queries over container access, DOM traversal, and render-result query functions.
-- `testing-library/no-debugging-utils`, `testing-library/no-dom-import`, `testing-library/no-manual-cleanup`, `testing-library/no-test-id-queries` — catch committed debug helpers, direct DOM package imports, manual cleanup, and test-id queries.
-- `testing-library/no-wait-for-multiple-assertions`, `testing-library/no-wait-for-side-effects`, `testing-library/no-wait-for-snapshot`, `testing-library/prefer-find-by`, `testing-library/prefer-query-by-disappearance` — keep `waitFor` callbacks focused and prefer purpose-built queries.
-- `testing-library/prefer-user-event`, `testing-library/prefer-user-event-setup`, `testing-library/no-promise-in-fire-event`, `testing-library/no-render-in-lifecycle`, `testing-library/no-unnecessary-act` — catch common event, render, and `act()` anti-patterns.
-- `testing-library/consistent-data-testid`, `testing-library/no-global-regexp-flag-in-query`, `testing-library/prefer-explicit-assert`, `testing-library/prefer-implicit-assert`, `testing-library/prefer-presence-queries`, `testing-library/prefer-query-matchers`, `testing-library/render-result-naming-convention` — cover configured test-id naming, assertion style, presence matchers, and render result names.
+- [`testing-library/await-async-events`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/async_query_event_and_util_promises_test.go), [`testing-library/await-async-queries`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/async_query_event_and_util_promises_test.go), [`testing-library/await-async-utils`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/async_query_event_and_util_promises_test.go) — require handling Promise-returning user-event methods, `findBy*` queries, and async utilities.
+- [`testing-library/no-await-sync-events`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/async_query_event_and_util_promises_test.go), [`testing-library/no-await-sync-queries`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/async_query_event_and_util_promises_test.go) — reject unnecessary `await` on synchronous `fireEvent`, `getBy*`, and `queryBy*` calls.
+- [`testing-library/no-container`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/render_result_dom_access_and_events_test.go), [`testing-library/no-node-access`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/render_result_dom_access_and_events_test.go), [`testing-library/prefer-screen-queries`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_screen_queries_test.go) — prefer `screen.*` queries over container access, DOM traversal, and render-result query functions.
+- [`testing-library/no-debugging-utils`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/render_result_dom_access_and_events_test.go), [`testing-library/no-dom-import`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go), [`testing-library/no-manual-cleanup`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go), [`testing-library/no-test-id-queries`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go) — catch committed debug helpers, direct DOM package imports, manual cleanup, and test-id queries.
+- [`testing-library/no-wait-for-multiple-assertions`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/wait_for_assertion_and_side_effect_guards_test.go), [`testing-library/no-wait-for-side-effects`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/wait_for_assertion_and_side_effect_guards_test.go), [`testing-library/no-wait-for-snapshot`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/wait_for_assertion_and_side_effect_guards_test.go), [`testing-library/prefer-find-by`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/wait_for_assertion_and_side_effect_guards_test.go), [`testing-library/prefer-query-by-disappearance`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_query_by_disappearance_test.go) — keep `waitFor` callbacks focused and prefer purpose-built queries.
+- [`testing-library/prefer-user-event`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/render_result_dom_access_and_events_test.go), [`testing-library/prefer-user-event-setup`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_user_event_setup_ignores_setup_call_test.go), [`testing-library/no-promise-in-fire-event`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/no_promise_in_fire_event_test.go), [`testing-library/no-render-in-lifecycle`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/no_render_in_lifecycle_test.go), [`testing-library/no-unnecessary-act`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/no_unnecessary_act_test.go) — catch common event, render, and `act()` anti-patterns.
+- [`testing-library/consistent-data-testid`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go), [`testing-library/no-global-regexp-flag-in-query`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go), [`testing-library/prefer-explicit-assert`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_explicit_assert_test.go), [`testing-library/prefer-implicit-assert`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_implicit_assert_test.go), [`testing-library/prefer-presence-queries`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_presence_queries_test.go), [`testing-library/prefer-query-matchers`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/prefer_query_matchers_test.go), [`testing-library/render-result-naming-convention`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go) — cover configured test-id naming, assertion style, presence matchers, and render result names.
 
 ### Playwright
 
@@ -470,37 +470,37 @@ Playwright end-to-end test rules applied to TypeScript test files driven by the 
 
 Source: [`eslint-plugin-playwright`](https://github.com/playwright-community/eslint-plugin-playwright) (MIT).
 
-- `playwright/expect-expect` — require every Playwright test body to contain at least one `expect(...)` call.
-- `playwright/max-expects` — limit the assertion count inside a single Playwright test body.
-- `playwright/no-conditional-expect` — reject `expect(...)` calls under conditional branches in Playwright tests.
-- `playwright/no-conditional-in-test` — reject conditional logic inside Playwright test bodies.
-- `playwright/no-duplicate-hooks` — reject duplicate Playwright setup/teardown hook calls in the same `test.describe`.
-- `playwright/no-duplicate-slow` — reject repeated `test.slow()` calls inside the same test.
-- `playwright/no-element-handle` — reject the legacy `ElementHandle`-style Playwright API (`page.$`, `page.$$`).
-- `playwright/no-eval` — reject `page.$eval` and `page.$$eval`.
-- `playwright/no-focused-test` — reject `test.only`, `test.describe.only`, and similar focused Playwright tests.
-- `playwright/no-force-option` — reject Playwright `{ force: true }` options on actionable commands.
-- `playwright/no-get-by-title` — reject `getByTitle(...)` locators.
-- `playwright/no-hooks` — reject Playwright `test.beforeEach` / `test.afterEach` / etc.
-- `playwright/no-nested-step` — reject nested `test.step(...)` calls.
-- `playwright/no-networkidle` — reject the `networkidle` load-state in `page.waitForLoadState` and navigation options.
-- `playwright/no-nth-methods` — reject `.first()`, `.last()`, and `.nth(...)` on locators.
-- `playwright/no-page-pause` — reject `page.pause()` debugging calls.
-- `playwright/no-skipped-test` — reject `test.skip`, `test.describe.skip`, and the conditional `test.skip()` annotation.
-- `playwright/no-slowed-test` — reject `test.slow()` marks on Playwright tests.
-- `playwright/no-standalone-expect` — reject `expect(...)` calls outside the body of a Playwright test or lifecycle hook.
-- `playwright/no-wait-for-navigation` — reject `page.waitForNavigation`.
-- `playwright/no-wait-for-selector` — reject `page.waitForSelector`.
-- `playwright/no-wait-for-timeout` — reject `page.waitForTimeout(ms)` sleeps.
-- `playwright/prefer-locator` — prefer locator-based Playwright APIs over page-level convenience methods.
-- `playwright/prefer-to-have-count` — prefer `expect(locator).toHaveCount(n)` over asserting on `await locator.count()`.
-- `playwright/prefer-to-have-length` — prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly.
-- `playwright/prefer-web-first-assertions` — prefer Playwright web-first assertions over composed manual waits.
-- `playwright/require-to-pass-timeout` — require an explicit `timeout` option on `expect(...).toPass(...)`.
-- `playwright/require-to-throw-message` — require a message argument on `expect(...).toThrow(...)`.
-- `playwright/valid-describe-callback` — validate the shape of Playwright `test.describe` callbacks.
-- `playwright/valid-expect` — validate `expect(...)` arity and matcher chaining.
-- `playwright/valid-title` — require non-empty static Playwright test and `describe` titles.
+- [`playwright/expect-expect`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_expect_expect_test.go) — require every Playwright test body to contain at least one `expect(...)` call.
+- [`playwright/max-expects`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_max_expects_test.go) — limit the assertion count inside a single Playwright test body.
+- [`playwright/no-conditional-expect`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_conditional_expect_test.go) — reject `expect(...)` calls under conditional branches in Playwright tests.
+- [`playwright/no-conditional-in-test`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_conditional_in_test_test.go) — reject conditional logic inside Playwright test bodies.
+- [`playwright/no-duplicate-hooks`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_duplicate_hooks_test.go) — reject duplicate Playwright setup/teardown hook calls in the same `test.describe`.
+- [`playwright/no-duplicate-slow`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_duplicate_slow_test.go) — reject repeated `test.slow()` calls inside the same test.
+- [`playwright/no-element-handle`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_element_handle_test.go) — reject the legacy `ElementHandle`-style Playwright API (`page.$`, `page.$$`).
+- [`playwright/no-eval`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_eval_test.go) — reject `page.$eval` and `page.$$eval`.
+- [`playwright/no-focused-test`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_focused_test_test.go) — reject `test.only`, `test.describe.only`, and similar focused Playwright tests.
+- [`playwright/no-force-option`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_force_option_test.go) — reject Playwright `{ force: true }` options on actionable commands.
+- [`playwright/no-get-by-title`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_get_by_title_test.go) — reject `getByTitle(...)` locators.
+- [`playwright/no-hooks`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_hooks_test.go) — reject Playwright `test.beforeEach` / `test.afterEach` / etc.
+- [`playwright/no-nested-step`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_nested_step_test.go) — reject nested `test.step(...)` calls.
+- [`playwright/no-networkidle`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_networkidle_test.go) — reject the `networkidle` load-state in `page.waitForLoadState` and navigation options.
+- [`playwright/no-nth-methods`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_nth_methods_test.go) — reject `.first()`, `.last()`, and `.nth(...)` on locators.
+- [`playwright/no-page-pause`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_page_pause_test.go) — reject `page.pause()` debugging calls.
+- [`playwright/no-skipped-test`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_skipped_test_test.go) — reject `test.skip`, `test.describe.skip`, and the conditional `test.skip()` annotation.
+- [`playwright/no-slowed-test`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_slowed_test_test.go) — reject `test.slow()` marks on Playwright tests.
+- [`playwright/no-standalone-expect`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_standalone_expect_test.go) — reject `expect(...)` calls outside the body of a Playwright test or lifecycle hook.
+- [`playwright/no-wait-for-navigation`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_wait_for_navigation_test.go) — reject `page.waitForNavigation`.
+- [`playwright/no-wait-for-selector`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_wait_for_selector_test.go) — reject `page.waitForSelector`.
+- [`playwright/no-wait-for-timeout`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_no_wait_for_timeout_test.go) — reject `page.waitForTimeout(ms)` sleeps.
+- [`playwright/prefer-locator`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_prefer_locator_test.go) — prefer locator-based Playwright APIs over page-level convenience methods.
+- [`playwright/prefer-to-have-count`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_prefer_to_have_count_test.go) — prefer `expect(locator).toHaveCount(n)` over asserting on `await locator.count()`.
+- [`playwright/prefer-to-have-length`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_prefer_to_have_length_test.go) — prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly.
+- [`playwright/prefer-web-first-assertions`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_prefer_web_first_assertions_test.go) — prefer Playwright web-first assertions over composed manual waits.
+- [`playwright/require-to-pass-timeout`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_require_to_pass_timeout_test.go) — require an explicit `timeout` option on `expect(...).toPass(...)`.
+- [`playwright/require-to-throw-message`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_require_to_throw_message_test.go) — require a message argument on `expect(...).toThrow(...)`.
+- [`playwright/valid-describe-callback`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_valid_describe_callback_test.go) — validate the shape of Playwright `test.describe` callbacks.
+- [`playwright/valid-expect`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_valid_expect_test.go) — validate `expect(...)` arity and matcher chaining.
+- [`playwright/valid-title`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/playwright/playwright_valid_title_test.go) — require non-empty static Playwright test and `describe` titles.
 
 ### Cypress
 
@@ -508,19 +508,19 @@ Cypress end-to-end test rules. Apply to TypeScript/TSX sources that use the Cypr
 
 Source: [`eslint-plugin-cypress`](https://github.com/cypress-io/eslint-plugin-cypress) (MIT).
 
-- `cypress/assertion-before-screenshot` — require a Cypress assertion before `cy.screenshot()`.
-- `cypress/no-and` — prefer `.should()` over `.and()` when starting Cypress assertion chains.
-- `cypress/no-assigning-return-values` — reject assigning the return value of Cypress commands.
-- `cypress/no-async-before` — reject async `before` and `beforeEach` callbacks.
-- `cypress/no-async-tests` — reject async Cypress test callbacks.
-- `cypress/no-chained-get` — reject chained `.get()` calls.
-- `cypress/no-debug` — reject `cy.debug()` and chained `.debug()` commands.
-- `cypress/no-force` — reject `{ force: true }` on Cypress action commands.
-- `cypress/no-pause` — reject `cy.pause()` and chained `.pause()` commands.
-- `cypress/no-unnecessary-waiting` — reject numeric `cy.wait(...)` sleeps.
-- `cypress/no-xpath` — reject deprecated `cy.xpath()` selectors.
-- `cypress/require-data-selectors` — require statically known `cy.get()` selectors to target `data-*` attributes.
-- `cypress/unsafe-to-chain-command` — reject chaining more commands after Cypress action commands.
+- [`cypress/assertion-before-screenshot`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_assertion_before_screenshot_reports_unchecked_screenshot_test.go) — require a Cypress assertion before `cy.screenshot()`.
+- [`cypress/no-and`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_and_reports_chain_starting_and_test.go) — prefer `.should()` over `.and()` when starting Cypress assertion chains.
+- [`cypress/no-assigning-return-values`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_assigning_return_values_reports_cy_assignment_test.go) — reject assigning the return value of Cypress commands.
+- [`cypress/no-async-before`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_async_before_reports_async_before_each_test.go) — reject async `before` and `beforeEach` callbacks.
+- [`cypress/no-async-tests`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_async_tests_reports_async_it_test.go) — reject async Cypress test callbacks.
+- [`cypress/no-chained-get`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_chained_get_reports_second_get_test.go) — reject chained `.get()` calls.
+- [`cypress/no-debug`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_debug_reports_debug_command_test.go) — reject `cy.debug()` and chained `.debug()` commands.
+- [`cypress/no-force`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_force_reports_force_true_option_test.go) — reject `{ force: true }` on Cypress action commands.
+- [`cypress/no-pause`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_pause_reports_pause_command_test.go) — reject `cy.pause()` and chained `.pause()` commands.
+- [`cypress/no-unnecessary-waiting`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_unnecessary_waiting_reports_numeric_wait_test.go) — reject numeric `cy.wait(...)` sleeps.
+- [`cypress/no-xpath`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_no_xpath_reports_xpath_command_test.go) — reject deprecated `cy.xpath()` selectors.
+- [`cypress/require-data-selectors`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_require_data_selectors_reports_class_selector_test.go) — require statically known `cy.get()` selectors to target `data-*` attributes.
+- [`cypress/unsafe-to-chain-command`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/cypress/cypress_unsafe_to_chain_command_reports_action_middle_test.go) — reject chaining more commands after Cypress action commands.
 
 ### Storybook
 
@@ -528,22 +528,22 @@ Storybook CSF and configuration rules. Apply to `*.stories.ts(x)` and `.storyboo
 
 Source: [`eslint-plugin-storybook`](https://github.com/storybookjs/eslint-plugin-storybook) (MIT).
 
-- `storybook/await-interactions` — require play-function interactions to be awaited.
-- `storybook/context-in-play-function` — require forwarding the play-function `context` argument when invoking another story's `play` function.
-- `storybook/csf-component` — require the CSF default meta object to declare a `component`.
-- `storybook/default-exports` — require every story file to provide the CSF default export.
-- `storybook/hierarchy-separator` — reject the legacy `|` separator in Storybook story titles.
-- `storybook/meta-inline-properties` — require `title` and `args` in CSF meta to be inline literals.
-- `storybook/meta-satisfies-type` — require CSF meta objects to type-check with `satisfies Meta<…>` rather than a `: Meta<…>` annotation or `as` cast.
-- `storybook/no-redundant-story-name` — reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
-- `storybook/no-renderer-packages` — reject direct imports from Storybook renderer packages.
-- `storybook/no-stories-of` — reject the legacy `storiesOf(...)` builder API.
-- `storybook/no-title-property-in-meta` — reject the `title` property in CSF meta when the project uses Storybook's auto-title generation.
-- `storybook/no-uninstalled-addons` — validate Storybook addon names against the project's dependencies.
-- `storybook/prefer-pascal-case` — require named story exports to use PascalCase.
-- `storybook/story-exports` — require every story file to export at least one named story alongside the default meta.
-- `storybook/use-storybook-expect` — require `expect` to be imported from `@storybook/test` in play functions.
-- `storybook/use-storybook-testing-library` — reject direct Testing Library imports inside story files; use the Storybook-bundled re-exports.
+- [`storybook/await-interactions`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/await_interactions_test.go) — require play-function interactions to be awaited.
+- [`storybook/context-in-play-function`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/context_in_play_function_test.go) — require forwarding the play-function `context` argument when invoking another story's `play` function.
+- [`storybook/csf-component`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/csf_component_test.go) — require the CSF default meta object to declare a `component`.
+- [`storybook/default-exports`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/default_exports_test.go) — require every story file to provide the CSF default export.
+- [`storybook/hierarchy-separator`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/hierarchy_separator_test.go) — reject the legacy `|` separator in Storybook story titles.
+- [`storybook/meta-inline-properties`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/meta_inline_properties_test.go) — require `title` and `args` in CSF meta to be inline literals.
+- [`storybook/meta-satisfies-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/meta_satisfies_type_test.go) — require CSF meta objects to type-check with `satisfies Meta<…>` rather than a `: Meta<…>` annotation or `as` cast.
+- [`storybook/no-redundant-story-name`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/no_redundant_story_name_test.go) — reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
+- [`storybook/no-renderer-packages`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/no_renderer_packages_test.go) — reject direct imports from Storybook renderer packages.
+- [`storybook/no-stories-of`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/no_stories_of_test.go) — reject the legacy `storiesOf(...)` builder API.
+- [`storybook/no-title-property-in-meta`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/no_title_property_in_meta_test.go) — reject the `title` property in CSF meta when the project uses Storybook's auto-title generation.
+- [`storybook/no-uninstalled-addons`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/no_uninstalled_addons_test.go) — validate Storybook addon names against the project's dependencies.
+- [`storybook/prefer-pascal-case`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/prefer_pascal_case_test.go) — require named story exports to use PascalCase.
+- [`storybook/story-exports`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/story_exports_test.go) — require every story file to export at least one named story alongside the default meta.
+- [`storybook/use-storybook-expect`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/use_storybook_expect_test.go) — require `expect` to be imported from `@storybook/test` in play functions.
+- [`storybook/use-storybook-testing-library`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/storybook/use_storybook_testing_library_test.go) — reject direct Testing Library imports inside story files; use the Storybook-bundled re-exports.
 
 ### TanStack Query
 
@@ -551,14 +551,14 @@ TanStack Query rules. Guard the ergonomic and correctness contracts of TanStack 
 
 Source: [`@tanstack/eslint-plugin-query`](https://github.com/TanStack/query/tree/main/packages/eslint-plugin-query) (MIT).
 
-- `tanstack-query/exhaustive-deps` — require `queryKey` arrays to enumerate every reactive identifier the `queryFn` reads.
-- `tanstack-query/infinite-query-property-order` — require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery` to appear in the order TanStack Query documents.
-- `tanstack-query/mutation-property-order` — require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
-- `tanstack-query/no-rest-destructuring` — reject `...rest` destructuring on TanStack Query hook results.
-- `tanstack-query/no-unstable-deps` — reject passing entire TanStack Query hook results into React dependency arrays.
-- `tanstack-query/no-void-query-fn` — reject `queryFn` callbacks that resolve to `void`.
-- `tanstack-query/prefer-query-options` — prefer wrapping query options in the `queryOptions()` helper.
-- `tanstack-query/stable-query-client` — reject creating a `QueryClient` inside a React component or hook body.
+- [`tanstack-query/exhaustive-deps`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_exhaustive_deps_test.go) — require `queryKey` arrays to enumerate every reactive identifier the `queryFn` reads.
+- [`tanstack-query/infinite-query-property-order`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_infinite_query_property_order_test.go) — require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery` to appear in the order TanStack Query documents.
+- [`tanstack-query/mutation-property-order`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_mutation_property_order_test.go) — require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
+- [`tanstack-query/no-rest-destructuring`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_no_rest_destructuring_test.go) — reject `...rest` destructuring on TanStack Query hook results.
+- [`tanstack-query/no-unstable-deps`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_no_unstable_deps_test.go) — reject passing entire TanStack Query hook results into React dependency arrays.
+- [`tanstack-query/no-void-query-fn`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_no_void_query_fn_test.go) — reject `queryFn` callbacks that resolve to `void`.
+- [`tanstack-query/prefer-query-options`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_prefer_query_options_test.go) — prefer wrapping query options in the `queryOptions()` helper.
+- [`tanstack-query/stable-query-client`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/tanstack-query/tanstack_query_stable_query_client_test.go) — reject creating a `QueryClient` inside a React component or hook body.
 
 ### Promise
 
@@ -566,23 +566,23 @@ Promise correctness and style rules. Check the chain shape of Promise-using code
 
 Source: [`eslint-plugin-promise`](https://github.com/eslint-community/eslint-plugin-promise) (ISC).
 
-- `promise/always-return` — require `.then(...)` callbacks to return a value or throw.
-- `promise/avoid-new` — reject every `new Promise(...)` construction.
-- `promise/catch-or-return` — require unreturned promise chains to terminate with `catch()`.
-- `promise/no-callback-in-promise` — reject direct invocation of an error-first callback inside a `then()` or `catch()` handler.
-- `promise/no-multiple-resolved` — detect Promise executor bodies with more than one resolve/reject call.
-- `promise/no-native` — require every file that uses `Promise` to import or require the implementation explicitly.
-- `promise/no-nesting` — reject nested `then()`/`catch()` calls inside the body of a Promise callback.
-- `promise/no-new-statics` — reject `new` applied to Promise statics such as `new Promise.resolve(x)`.
-- `promise/no-promise-in-callback` — reject building a promise chain inside the body of an error-first callback.
-- `promise/no-return-in-finally` — reject `return` from inside a `finally()` callback.
-- `promise/no-return-wrap` — reject `return Promise.resolve(x)` and `return Promise.reject(x)` inside promise callbacks.
-- `promise/param-names` — enforce canonical parameter names (`resolve`, `reject`) on Promise executor functions.
-- `promise/prefer-await-to-callbacks` — flag continuation-passing callback shapes and suggest an `async`/`await` rewrite.
-- `promise/prefer-await-to-then` — prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains inside `async` functions.
-- `promise/prefer-catch` — prefer `.catch(handler)` over the two-argument form `.then(onFulfilled, onRejected)`.
-- `promise/spec-only` — reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`, or library-specific extensions shimmed onto the global.
-- `promise/valid-params` — enforce the argument counts the Promise spec defines for each method.
+- [`promise/always-return`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_always_return_test.go) — require `.then(...)` callbacks to return a value or throw.
+- [`promise/avoid-new`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_avoid_new_test.go) — reject every `new Promise(...)` construction.
+- [`promise/catch-or-return`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_catch_or_return_test.go) — require unreturned promise chains to terminate with `catch()`.
+- [`promise/no-callback-in-promise`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_callback_in_promise_test.go) — reject direct invocation of an error-first callback inside a `then()` or `catch()` handler.
+- [`promise/no-multiple-resolved`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_multiple_resolved_test.go) — detect Promise executor bodies with more than one resolve/reject call.
+- [`promise/no-native`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_native_test.go) — require every file that uses `Promise` to import or require the implementation explicitly.
+- [`promise/no-nesting`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_nesting_test.go) — reject nested `then()`/`catch()` calls inside the body of a Promise callback.
+- [`promise/no-new-statics`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_new_statics_test.go) — reject `new` applied to Promise statics such as `new Promise.resolve(x)`.
+- [`promise/no-promise-in-callback`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_promise_in_callback_test.go) — reject building a promise chain inside the body of an error-first callback.
+- [`promise/no-return-in-finally`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_return_in_finally_test.go) — reject `return` from inside a `finally()` callback.
+- [`promise/no-return-wrap`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_no_return_wrap_test.go) — reject `return Promise.resolve(x)` and `return Promise.reject(x)` inside promise callbacks.
+- [`promise/param-names`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_param_names_test.go) — enforce canonical parameter names (`resolve`, `reject`) on Promise executor functions.
+- [`promise/prefer-await-to-callbacks`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_prefer_await_to_callbacks_test.go) — flag continuation-passing callback shapes and suggest an `async`/`await` rewrite.
+- [`promise/prefer-await-to-then`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_prefer_await_to_then_test.go) — prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains inside `async` functions.
+- [`promise/prefer-catch`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_prefer_catch_test.go) — prefer `.catch(handler)` over the two-argument form `.then(onFulfilled, onRejected)`.
+- [`promise/spec-only`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_spec_only_test.go) — reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`, or library-specific extensions shimmed onto the global.
+- [`promise/valid-params`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/promise/promise_valid_params_test.go) — enforce the argument counts the Promise spec defines for each method.
 
 ### Regular expressions
 
@@ -590,28 +590,28 @@ Regex-shape rules. Check the structure of regex literals — emptiness, uselessn
 
 Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-regexp) (MIT).
 
-- `regexp/no-control-character` — reject control characters (`\x00`–`\x1F`) embedded in regex literals.
-- `regexp/no-dupe-characters-character-class` — reject duplicate literal characters inside simple regex character classes (`/[aa]/`).
-- `regexp/no-empty-alternative` — reject empty alternatives in a disjunction (`/a||b/`).
-- `regexp/no-empty-capturing-group` — reject empty capturing groups such as `/()/`.
-- `regexp/no-empty-character-class` — reject empty regex character classes (`[]`).
-- `regexp/no-empty-group` — reject empty non-capturing groups such as `/(?:)/`.
-- `regexp/no-empty-lookarounds-assertion` — reject empty lookaround assertions such as `/(?=)/` or `/(?!)/`.
-- `regexp/no-misleading-unicode-character` — reject misleading Unicode characters in regex classes.
-- `regexp/no-useless-character-class` — reject single-character character classes such as `/[x]/`.
-- `regexp/no-useless-escape` — reject unnecessary escapes inside regex literals.
-- `regexp/no-useless-flag` — reject regex flags that the literal does not exercise.
-- `regexp/no-useless-quantifier` — reject quantifiers that do not change the match.
-- `regexp/no-useless-two-nums-quantifier` — reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
-- `regexp/no-zero-quantifier` — reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`).
-- `regexp/prefer-d` — prefer `\d` over `[0-9]` in regex literals.
-- `regexp/prefer-plus-quantifier` — prefer `+` over `{1,}` in regex literals.
-- `regexp/prefer-question-quantifier` — prefer `?` over `{0,1}` in regex literals.
-- `regexp/prefer-star-quantifier` — prefer `*` over `{0,}` in regex literals.
-- `regexp/prefer-w` — prefer `\w` over `[A-Za-z0-9_]` in regex literals.
-- `regexp/require-unicode-regexp` — require regex literals to use the `u` or `v` flag.
-- `regexp/require-unicode-sets-regexp` — require regex literals to use the `v` flag specifically.
-- `regexp/sort-flags` — require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
+- [`regexp/no-control-character`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_alias_rules_test.go) — reject control characters (`\x00`–`\x1F`) embedded in regex literals.
+- [`regexp/no-dupe-characters-character-class`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject duplicate literal characters inside simple regex character classes (`/[aa]/`).
+- [`regexp/no-empty-alternative`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject empty alternatives in a disjunction (`/a||b/`).
+- [`regexp/no-empty-capturing-group`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject empty capturing groups such as `/()/`.
+- [`regexp/no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_alias_rules_test.go) — reject empty regex character classes (`[]`).
+- [`regexp/no-empty-group`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject empty non-capturing groups such as `/(?:)/`.
+- [`regexp/no-empty-lookarounds-assertion`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject empty lookaround assertions such as `/(?=)/` or `/(?!)/`.
+- [`regexp/no-misleading-unicode-character`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_alias_rules_test.go) — reject misleading Unicode characters in regex classes.
+- [`regexp/no-useless-character-class`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — reject single-character character classes such as `/[x]/`.
+- [`regexp/no-useless-escape`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_alias_rules_test.go) — reject unnecessary escapes inside regex literals.
+- [`regexp/no-useless-flag`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — reject regex flags that the literal does not exercise.
+- [`regexp/no-useless-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — reject quantifiers that do not change the match.
+- [`regexp/no-useless-two-nums-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
+- [`regexp/no-zero-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`).
+- [`regexp/prefer-d`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — prefer `\d` over `[0-9]` in regex literals.
+- [`regexp/prefer-plus-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — prefer `+` over `{1,}` in regex literals.
+- [`regexp/prefer-question-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — prefer `?` over `{0,1}` in regex literals.
+- [`regexp/prefer-star-quantifier`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — prefer `*` over `{0,}` in regex literals.
+- [`regexp/prefer-w`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_character_class_and_group_rules_test.go) — prefer `\w` over `[A-Za-z0-9_]` in regex literals.
+- [`regexp/require-unicode-regexp`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — require regex literals to use the `u` or `v` flag.
+- [`regexp/require-unicode-sets-regexp`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — require regex literals to use the `v` flag specifically.
+- [`regexp/sort-flags`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/strings-regex/regexp_quantifier_and_flag_rules_test.go) — require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
 
 ### Security
 
@@ -619,20 +619,20 @@ Security-focused TypeScript source rules. Report likely security smells — non-
 
 Source: [`eslint-plugin-security@4.0.0`](https://github.com/eslint-community/eslint-plugin-security) (Apache-2.0 — distribution requires propagating the upstream NOTICE attribution).
 
-- `security/detect-bidi-characters` — detect Trojan Source bidi control characters.
-- `security/detect-buffer-noassert` — detect Buffer reads/writes with `noAssert` set to true.
-- `security/detect-child-process` — detect child_process imports and non-literal `exec` commands.
-- `security/detect-disable-mustache-escape` — detect `escapeMarkup = false` on objects.
-- `security/detect-eval-with-expression` — detect `eval` fed by non-literal expressions.
-- `security/detect-new-buffer` — detect `new Buffer` with non-literal input.
-- `security/detect-no-csrf-before-method-override` — detect Express csrf middleware before methodOverride.
-- `security/detect-non-literal-fs-filename` — detect filesystem calls with non-literal filename arguments.
-- `security/detect-non-literal-regexp` — detect RegExp construction from non-literal patterns.
-- `security/detect-non-literal-require` — detect `require` calls with non-literal module specifiers.
-- `security/detect-object-injection` — detect dynamic bracket access sinks.
-- `security/detect-possible-timing-attacks` — detect direct equality comparisons involving secret-like identifiers.
-- `security/detect-pseudoRandomBytes` — detect `crypto.pseudoRandomBytes`.
-- `security/detect-unsafe-regex` — detect high-confidence catastrophic backtracking regex shapes.
+- [`security/detect-bidi-characters`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_bidi_characters_test.go) — detect Trojan Source bidi control characters.
+- [`security/detect-buffer-noassert`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_buffer_noassert_test.go) — detect Buffer reads/writes with `noAssert` set to true.
+- [`security/detect-child-process`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_child_process_test.go) — detect child_process imports and non-literal `exec` commands.
+- [`security/detect-disable-mustache-escape`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_disable_mustache_escape_test.go) — detect `escapeMarkup = false` on objects.
+- [`security/detect-eval-with-expression`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_eval_with_expression_test.go) — detect `eval` fed by non-literal expressions.
+- [`security/detect-new-buffer`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_new_buffer_test.go) — detect `new Buffer` with non-literal input.
+- [`security/detect-no-csrf-before-method-override`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_no_csrf_before_method_override_test.go) — detect Express csrf middleware before methodOverride.
+- [`security/detect-non-literal-fs-filename`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_non_literal_fs_filename_test.go) — detect filesystem calls with non-literal filename arguments.
+- [`security/detect-non-literal-regexp`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_non_literal_regexp_test.go) — detect RegExp construction from non-literal patterns.
+- [`security/detect-non-literal-require`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_non_literal_require_test.go) — detect `require` calls with non-literal module specifiers.
+- [`security/detect-object-injection`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_object_injection_test.go) — detect dynamic bracket access sinks.
+- [`security/detect-possible-timing-attacks`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_possible_timing_attacks_test.go) — detect direct equality comparisons involving secret-like identifiers.
+- [`security/detect-pseudoRandomBytes`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_pseudo_random_bytes_test.go) — detect `crypto.pseudoRandomBytes`.
+- [`security/detect-unsafe-regex`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/security/security_detect_unsafe_regex_test.go) — detect high-confidence catastrophic backtracking regex shapes.
 
 ### JSDoc
 
@@ -640,18 +640,18 @@ Documentation-comment validation rules. Bundles `eslint-plugin-jsdoc` content ch
 
 Source: [`eslint-plugin-jsdoc`](https://github.com/gajus/eslint-plugin-jsdoc) (BSD-3-Clause — attribution required), [`eslint-plugin-tsdoc`](https://github.com/microsoft/tsdoc) (MIT).
 
-- `jsdoc/check-tag-names` — reject unknown JSDoc block tag names.
-- `jsdoc/check-values` — validate closed-set JSDoc tag values such as `@access`.
-- `jsdoc/empty-tags` — reject content on marker-only JSDoc tags such as `@async`.
-- `jsdoc/no-types` — reject redundant JSDoc type braces in TypeScript source comments.
-- `jsdoc/reject-any-type` — reject `any` and `*` inside JSDoc type braces.
-- `jsdoc/reject-function-type` — reject the unsafe `Function` type inside JSDoc type braces.
-- `jsdoc/require-description` — require JSDoc blocks to include block-level description text.
-- `jsdoc/require-param-description` — require every `@param` tag with a name to include a description.
-- `jsdoc/require-param-name` — require every `@param` tag to include a parameter name.
-- `jsdoc/require-property-description` — require every `@property` tag with a name to include a description.
-- `jsdoc/require-property-name` — require every `@property` tag to include a property name.
-- `jsdoc/require-returns-description` — require every `@returns` tag to include a description.
+- [`jsdoc/check-tag-names`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/check_tag_names_test.go) — reject unknown JSDoc block tag names.
+- [`jsdoc/check-values`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/check_values_test.go) — validate closed-set JSDoc tag values such as `@access`.
+- [`jsdoc/empty-tags`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/empty_tags_test.go) — reject content on marker-only JSDoc tags such as `@async`.
+- [`jsdoc/no-types`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/no_types_test.go) — reject redundant JSDoc type braces in TypeScript source comments.
+- [`jsdoc/reject-any-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/reject_any_type_test.go) — reject `any` and `*` inside JSDoc type braces.
+- [`jsdoc/reject-function-type`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/reject_function_type_test.go) — reject the unsafe `Function` type inside JSDoc type braces.
+- [`jsdoc/require-description`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_description_test.go) — require JSDoc blocks to include block-level description text.
+- [`jsdoc/require-param-description`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_param_description_test.go) — require every `@param` tag with a name to include a description.
+- [`jsdoc/require-param-name`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_param_name_test.go) — require every `@param` tag to include a parameter name.
+- [`jsdoc/require-property-description`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_property_description_test.go) — require every `@property` tag with a name to include a description.
+- [`jsdoc/require-property-name`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_property_name_test.go) — require every `@property` tag to include a property name.
+- [`jsdoc/require-returns-description`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/jsdoc/require_returns_description_test.go) — require every `@returns` tag to include a description.
 - [`jsdoc/tsdoc-syntax`](https://github.com/samchon/ttsc/blob/master/packages/lint/test/rules/comments-directives/tsdoc_syntax_test.go) — validate malformed TSDoc block tags and inline tags in `/** ... */` comments.
 
 ### Functional

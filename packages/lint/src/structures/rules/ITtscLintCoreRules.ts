@@ -495,6 +495,17 @@ export interface ITtscLintCoreRules {
   "no-lonely-if"?: TtscLintRuleSetting;
 
   /**
+   * Reject function declarations defined inside the body of a loop.
+   * Each iteration of the loop allocates a fresh function whose
+   * closure captures the surrounding `let`/`var` binding — a class
+   * of bugs where every captured function reads the iteration's
+   * final value instead of its own.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-loop-func
+   */
+  "no-loop-func"?: TtscLintRuleSetting;
+
+  /**
    * Reject numeric literals whose source text cannot round-trip
    * through `Number` without losing digits, including overflow.
    *
@@ -852,6 +863,19 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/no-unused-labels
    */
   "no-unused-labels"?: TtscLintRuleSetting;
+
+  /**
+   * Reject an assignment whose value is immediately overwritten by the
+   * very next statement without an intervening read of the same
+   * identifier. The conservative baseline only fires on two
+   * syntactically adjacent `x = <expr>;` statements where the
+   * left-hand sides are the same bare identifier and the second
+   * statement's right-hand side does not reference `x` itself — almost
+   * always a leftover from refactoring.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-useless-assignment
+   */
+  "no-useless-assignment"?: TtscLintRuleSetting;
 
   /**
    * Reject unnecessary `.call()` / `.apply()` calls (such as
