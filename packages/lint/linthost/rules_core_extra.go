@@ -377,9 +377,168 @@ func objectLiteralIsEmpty(node *shimast.Node) bool {
 	return len(lit.Properties.Nodes) == 0
 }
 
+// noDuplicateImports reports two import declarations that resolve to
+// the same module specifier. Consolidating them into one import keeps
+// the dependency graph at the head of the file readable and avoids
+// surprising load-order interactions when the import has side effects.
+// https://eslint.org/docs/latest/rules/no-duplicate-imports
+//
+// The check is textual on the module specifier string — two imports
+// with the same exact string literal collide. `import type { … } from`
+// is folded together with value imports because the runtime sees only
+// one module load.
+type noDuplicateImports struct{}
+
+func (noDuplicateImports) Name() string { return "no-duplicate-imports" }
+func (noDuplicateImports) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindSourceFile}
+}
+func (noDuplicateImports) Check(ctx *Context, node *shimast.Node) {
+	seen := map[string]bool{}
+	node.ForEachChild(func(child *shimast.Node) bool {
+		if child == nil || child.Kind != shimast.KindImportDeclaration {
+			return false
+		}
+		decl := child.AsImportDeclaration()
+		if decl == nil || decl.ModuleSpecifier == nil {
+			return false
+		}
+		spec := stringLiteralText(decl.ModuleSpecifier)
+		if spec == "" {
+			return false
+		}
+		if seen[spec] {
+			ctx.Report(child, "Module `"+spec+"` is already imported above; consolidate the imports.")
+			return false
+		}
+		seen[spec] = true
+		return false
+	})
+}
+
+// getterReturn reports a `get` accessor whose body completes without
+// returning a value. The runtime returns `undefined` from such a
+// getter; in practice that is always a bug — the caller expects the
+// property to have a value.
+// https://eslint.org/docs/latest/rules/getter-return
+type getterReturn struct{}
+
+func (getterReturn) Name() string { return "getter-return" }
+func (getterReturn) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindGetAccessor}
+}
+func (getterReturn) Check(ctx *Context, node *shimast.Node) {
+	accessor := node.AsGetAccessorDeclaration()
+	if accessor == nil || accessor.Body == nil {
+		return
+	}
+	if !getterBodyAlwaysReturns(accessor.Body) {
+		ctx.Report(node, "Getter must return a value.")
+	}
+}
+
+// getterBodyAlwaysReturns walks a `get` accessor body and reports
+// whether every reachable exit point returns a value. This is a
+// shallow approximation — sufficient for the common case where the
+// getter's body is a sequence of statements ending in `return X`.
+func getterBodyAlwaysReturns(body *shimast.Node) bool {
+	if body == nil || body.Kind != shimast.KindBlock {
+		return false
+	}
+	statements := body.Statements()
+	if len(statements) == 0 {
+		return false
+	}
+	last := statements[len(statements)-1]
+	return statementReturnsValue(last)
+}
+
+// statementReturnsValue checks if a statement is a value-returning
+// `return X;`, a `throw`, a block that ends in one of those, or a
+// conditional whose every branch returns a value.
+func statementReturnsValue(stmt *shimast.Node) bool {
+	if stmt == nil {
+		return false
+	}
+	switch stmt.Kind {
+	case shimast.KindReturnStatement:
+		ret := stmt.AsReturnStatement()
+		return ret != nil && ret.Expression != nil
+	case shimast.KindThrowStatement:
+		return true
+	case shimast.KindBlock:
+		stmts := stmt.Statements()
+		if len(stmts) == 0 {
+			return false
+		}
+		return statementReturnsValue(stmts[len(stmts)-1])
+	case shimast.KindIfStatement:
+		ifStmt := stmt.AsIfStatement()
+		if ifStmt == nil || ifStmt.ThenStatement == nil || ifStmt.ElseStatement == nil {
+			return false
+		}
+		return statementReturnsValue(ifStmt.ThenStatement) && statementReturnsValue(ifStmt.ElseStatement)
+	}
+	return false
+}
+
+// noNewSymbol reports `new Symbol(...)`. `Symbol` is a function but not
+// a constructor; calling it with `new` throws a TypeError at runtime.
+// https://eslint.org/docs/latest/rules/no-new-symbol — the upstream
+// rule has been renamed `no-new-native-nonconstructor` but kept as an
+// alias; we expose the legacy name because it remains the more readable
+// pointer for this specific check.
+type noNewSymbol struct{}
+
+func (noNewSymbol) Name() string { return "no-new-symbol" }
+func (noNewSymbol) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindNewExpression}
+}
+func (noNewSymbol) Check(ctx *Context, node *shimast.Node) {
+	ne := node.AsNewExpression()
+	if ne == nil {
+		return
+	}
+	if identifierText(ne.Expression) == "Symbol" {
+		ctx.Report(node, "`Symbol` cannot be called with `new`.")
+	}
+}
+
+// noConstructorReturn reports a constructor body that contains a
+// `return X;` statement (i.e., the return statement carries a value).
+// The returned value is ignored when the constructor is invoked with
+// `new` unless it happens to be an object; relying on that behavior is
+// always a misunderstanding of the constructor protocol.
+// https://eslint.org/docs/latest/rules/no-constructor-return
+type noConstructorReturn struct{}
+
+func (noConstructorReturn) Name() string { return "no-constructor-return" }
+func (noConstructorReturn) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindConstructor}
+}
+func (noConstructorReturn) Check(ctx *Context, node *shimast.Node) {
+	ctor := node.AsConstructorDeclaration()
+	if ctor == nil || ctor.Body == nil {
+		return
+	}
+	walkConstructorBody(ctor.Body, func(child *shimast.Node) {
+		if child == nil || child.Kind != shimast.KindReturnStatement {
+			return
+		}
+		ret := child.AsReturnStatement()
+		if ret != nil && ret.Expression != nil {
+			ctx.Report(child, "Class constructors should not return a value.")
+		}
+	})
+}
+
 func init() {
 	Register(noAwaitInLoop{})
+	Register(noConstructorReturn{})
 	Register(noDupeClassMembers{})
+	Register(noDuplicateImports{})
+	Register(noNewSymbol{})
 	Register(noThisBeforeSuper{})
+	Register(getterReturn{})
 	Register(preferObjectSpread{})
 }

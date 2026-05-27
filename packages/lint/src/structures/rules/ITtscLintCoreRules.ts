@@ -63,6 +63,16 @@ export interface ITtscLintCoreRules {
   "for-direction"?: TtscLintRuleSetting;
 
   /**
+   * Require a `get` accessor's body to return a value on every
+   * reachable exit. A getter that falls through returns `undefined`
+   * to the caller, which is almost never the intent and turns into a
+   * silent bug that only surfaces when the property is finally read.
+   *
+   * @reference https://eslint.org/docs/latest/rules/getter-return
+   */
+  "getter-return"?: TtscLintRuleSetting;
+
+  /**
    * Reject calls to `alert`, `confirm`, and `prompt`.
    *
    * These browser dialogs block the main thread and are almost always
@@ -202,6 +212,16 @@ export interface ITtscLintCoreRules {
   "no-continue"?: TtscLintRuleSetting;
 
   /**
+   * Reject `return X;` (with a value) inside a class constructor. The
+   * returned value is ignored when the constructor is invoked with
+   * `new` unless it happens to be an object; relying on that behavior
+   * is always a misunderstanding of the constructor protocol.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-constructor-return
+   */
+  "no-constructor-return"?: TtscLintRuleSetting;
+
+  /**
    * Reject ASCII control characters (`\x00`–`\x1F`) inside regular
    * expression literals and `RegExp` strings.
    *
@@ -277,6 +297,16 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/no-duplicate-case
    */
   "no-duplicate-case"?: TtscLintRuleSetting;
+
+  /**
+   * Reject two import declarations that resolve to the same module
+   * specifier. The runtime sees one module load either way; the
+   * duplicated declaration is purely noise at the head of the file
+   * and obscures the dependency graph.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-duplicate-imports
+   */
+  "no-duplicate-imports"?: TtscLintRuleSetting;
 
   /**
    * Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch
@@ -518,6 +548,17 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/no-new-wrappers
    */
   "no-new-wrappers"?: TtscLintRuleSetting;
+
+  /**
+   * Reject `new Symbol(...)`. `Symbol` is a function but not a
+   * constructor; calling it with `new` throws a TypeError at runtime.
+   * The upstream rule was renamed `no-new-native-nonconstructor`; the
+   * legacy name remains the more readable pointer for this specific
+   * Symbol check.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-new-symbol
+   */
+  "no-new-symbol"?: TtscLintRuleSetting;
 
   /**
    * Reject calling global non-callable objects as functions, such as
