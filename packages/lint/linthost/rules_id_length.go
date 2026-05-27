@@ -13,6 +13,8 @@
 package linthost
 
 import (
+	"strconv"
+
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
@@ -67,27 +69,7 @@ func (idLength) Check(ctx *Context, node *shimast.Node) {
 	if len([]rune(name)) >= idLengthMinimum {
 		return
 	}
-	ctx.Report(nameNode, "Identifier name '"+name+"' is too short (< "+itoa(idLengthMinimum)+").")
-}
-
-// itoa renders a small positive int without pulling in strconv at the
-// call site. Inlining keeps the rule file self-contained alongside its
-// sibling style rules.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	if n < 0 {
-		return "-" + itoa(-n)
-	}
-	buf := [20]byte{}
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
+	ctx.Report(nameNode, "Identifier name '"+name+"' is too short (< "+strconv.Itoa(idLengthMinimum)+").")
 }
 
 func init() {
