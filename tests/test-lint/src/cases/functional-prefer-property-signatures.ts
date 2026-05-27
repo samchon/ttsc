@@ -1,5 +1,5 @@
-// expect: functional/prefer-property-signatures error
 interface Api {
+  // expect: functional/prefer-property-signatures error
   run(): void;
 }
 
