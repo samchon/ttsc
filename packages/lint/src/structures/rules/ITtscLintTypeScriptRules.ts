@@ -542,6 +542,36 @@ export interface ITtscLintTypeScriptRules {
   "typescript/prefer-namespace-keyword"?: TtscLintRuleSetting;
 
   /**
+   * Prefer `??` over `||` (and `??=` over `||=`, and `??` over the
+   * ternary `x ? x : y`) when the intent is to default `null` /
+   * `undefined`.
+   *
+   * `||` short-circuits on every falsy value (0, "", false, NaN), so
+   * "default this if missing" silently coerces legitimate zeros and
+   * empty strings. The AST-only baseline skips operands the surrounding
+   * context already coerces to boolean (`if (a || b)`, `!(a || b)`,
+   * ternary condition, etc.).
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-nullish-coalescing
+   */
+  "typescript/prefer-nullish-coalescing"?: TtscLintRuleSetting;
+
+  /**
+   * Prefer an optional chain (`a?.b?.c`) over chained boolean guards
+   * such as `a && a.b && a.b.c` or `a != null && a.b`.
+   *
+   * The optional-chain form is shorter and short-circuits to
+   * `undefined` instead of the leftmost falsy value, which is almost
+   * always the intent when guarding a property access against a
+   * nullish base. AST-only: the rule matches by the textual identity
+   * of the guard against the receiver of the right-hand access, and
+   * skips chains that cross a call expression with arguments.
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-optional-chain
+   */
+  "typescript/prefer-optional-chain"?: TtscLintRuleSetting;
+
+  /**
    * Reject `async` functions whose body contains no `await`
    * expression.
    *
