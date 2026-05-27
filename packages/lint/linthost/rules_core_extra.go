@@ -532,13 +532,199 @@ func (noConstructorReturn) Check(ctx *Context, node *shimast.Node) {
 	})
 }
 
+// noUnsafeOptionalChaining reports member access or call expressions
+// that chain off an optional chain WITHOUT continuing the optional
+// chain. `(obj?.foo).bar` throws a TypeError if obj is null/undefined,
+// because the outer `.bar` is no longer optional. Same for `obj?.foo()`
+// followed by `.bar` — once the chain terminates, downstream accesses
+// are unsafe again.
+// https://eslint.org/docs/latest/rules/no-unsafe-optional-chaining
+type noUnsafeOptionalChaining struct{}
+
+func (noUnsafeOptionalChaining) Name() string { return "no-unsafe-optional-chaining" }
+func (noUnsafeOptionalChaining) Visits() []shimast.Kind {
+	return []shimast.Kind{
+		shimast.KindPropertyAccessExpression,
+		shimast.KindElementAccessExpression,
+		shimast.KindCallExpression,
+	}
+}
+func (noUnsafeOptionalChaining) Check(ctx *Context, node *shimast.Node) {
+	var receiver *shimast.Node
+	switch node.Kind {
+	case shimast.KindPropertyAccessExpression:
+		access := node.AsPropertyAccessExpression()
+		if access == nil {
+			return
+		}
+		// If this access is itself optional, the chain continues — safe.
+		if access.QuestionDotToken != nil {
+			return
+		}
+		receiver = access.Expression
+	case shimast.KindElementAccessExpression:
+		access := node.AsElementAccessExpression()
+		if access == nil {
+			return
+		}
+		if access.QuestionDotToken != nil {
+			return
+		}
+		receiver = access.Expression
+	case shimast.KindCallExpression:
+		call := node.AsCallExpression()
+		if call == nil {
+			return
+		}
+		if call.QuestionDotToken != nil {
+			return
+		}
+		receiver = call.Expression
+	}
+	if receiverEndsWithOptionalChain(receiver) {
+		ctx.Report(node, "Unsafe access after an optional chain — continue the chain with `?.` or check for nullish above.")
+	}
+}
+
+// receiverEndsWithOptionalChain reports whether the receiver expression
+// terminates in an optional `?.` operator. If so, the result of the
+// receiver may be undefined and subsequent member access is unsafe.
+func receiverEndsWithOptionalChain(node *shimast.Node) bool {
+	node = stripParens(node)
+	if node == nil {
+		return false
+	}
+	switch node.Kind {
+	case shimast.KindPropertyAccessExpression:
+		access := node.AsPropertyAccessExpression()
+		return access != nil && access.QuestionDotToken != nil
+	case shimast.KindElementAccessExpression:
+		access := node.AsElementAccessExpression()
+		return access != nil && access.QuestionDotToken != nil
+	case shimast.KindCallExpression:
+		call := node.AsCallExpression()
+		return call != nil && call.QuestionDotToken != nil
+	}
+	return false
+}
+
+// preferObjectHasOwn reports calls of the form
+// `Object.prototype.hasOwnProperty.call(obj, key)` and suggests the
+// `Object.hasOwn(obj, key)` shorthand introduced in ES2022. The new
+// helper is shorter, less error-prone (no chance of a redefined
+// `hasOwnProperty` on the host object), and matches the form linters
+// elsewhere recommend.
+// https://eslint.org/docs/latest/rules/prefer-object-has-own
+type preferObjectHasOwn struct{}
+
+func (preferObjectHasOwn) Name() string { return "prefer-object-has-own" }
+func (preferObjectHasOwn) Visits() []shimast.Kind {
+	return []shimast.Kind{shimast.KindCallExpression}
+}
+func (preferObjectHasOwn) Check(ctx *Context, node *shimast.Node) {
+	call := node.AsCallExpression()
+	if call == nil || call.Expression == nil {
+		return
+	}
+	// Pattern: Object.prototype.hasOwnProperty.call(obj, key)
+	outer, method, ok := promisePropertyAccessParts(call.Expression)
+	if !ok || method != "call" {
+		return
+	}
+	inner, name, ok := promisePropertyAccessParts(outer)
+	if !ok || name != "hasOwnProperty" {
+		return
+	}
+	base, prop, ok := promisePropertyAccessParts(inner)
+	if !ok || prop != "prototype" {
+		return
+	}
+	if identifierText(base) != "Object" {
+		return
+	}
+	ctx.Report(node, "Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.")
+}
+
+// noImplicitCoercion reports the most common implicit coercion idioms:
+// `!!x` for boolean coercion, `+x` for number, `"" + x` for string. ES
+// has explicit coercion functions (`Boolean(x)`, `Number(x)`,
+// `String(x)`) that read more clearly and avoid surprise around the
+// edge cases (e.g. `+null === 0` vs `+undefined === NaN`).
+// https://eslint.org/docs/latest/rules/no-implicit-coercion
+type noImplicitCoercion struct{}
+
+func (noImplicitCoercion) Name() string { return "no-implicit-coercion" }
+func (noImplicitCoercion) Visits() []shimast.Kind {
+	return []shimast.Kind{
+		shimast.KindPrefixUnaryExpression,
+		shimast.KindBinaryExpression,
+	}
+}
+func (noImplicitCoercion) Check(ctx *Context, node *shimast.Node) {
+	switch node.Kind {
+	case shimast.KindPrefixUnaryExpression:
+		prefix := node.AsPrefixUnaryExpression()
+		if prefix == nil || prefix.Operand == nil {
+			return
+		}
+		switch prefix.Operator {
+		case shimast.KindExclamationToken:
+			// `!!x` → Boolean(x). The inner expression must be another `!`.
+			inner := stripParens(prefix.Operand)
+			if inner == nil || inner.Kind != shimast.KindPrefixUnaryExpression {
+				return
+			}
+			innerPrefix := inner.AsPrefixUnaryExpression()
+			if innerPrefix != nil && innerPrefix.Operator == shimast.KindExclamationToken {
+				ctx.Report(node, "Prefer `Boolean(x)` over `!!x` for explicit boolean coercion.")
+			}
+		case shimast.KindPlusToken:
+			// `+x` where x is not a numeric literal → Number(x). Skip
+			// numeric literals because `+0` / `+1` are the canonical form
+			// for explicit positive numbers.
+			operand := stripParens(prefix.Operand)
+			if operand == nil || operand.Kind == shimast.KindNumericLiteral {
+				return
+			}
+			ctx.Report(node, "Prefer `Number(x)` over `+x` for explicit number coercion.")
+		}
+	case shimast.KindBinaryExpression:
+		bin := node.AsBinaryExpression()
+		if bin == nil || bin.OperatorToken == nil || bin.OperatorToken.Kind != shimast.KindPlusToken {
+			return
+		}
+		// `"" + x` or `x + ""` → String(x).
+		left := stripParens(bin.Left)
+		right := stripParens(bin.Right)
+		if isEmptyStringLiteral(left) && right != nil && !isEmptyStringLiteral(right) {
+			ctx.Report(node, "Prefer `String(x)` over `\"\" + x` for explicit string coercion.")
+			return
+		}
+		if isEmptyStringLiteral(right) && left != nil && !isEmptyStringLiteral(left) {
+			ctx.Report(node, "Prefer `String(x)` over `x + \"\"` for explicit string coercion.")
+		}
+	}
+}
+
+// isEmptyStringLiteral reports whether node is the literal `""` or
+// `''` (an empty-string string literal).
+func isEmptyStringLiteral(node *shimast.Node) bool {
+	if node == nil || node.Kind != shimast.KindStringLiteral {
+		return false
+	}
+	return stringLiteralText(node) == ""
+}
+
 func init() {
 	Register(noAwaitInLoop{})
 	Register(noConstructorReturn{})
 	Register(noDupeClassMembers{})
 	Register(noDuplicateImports{})
+	Register(noImplicitCoercion{})
 	Register(noNewSymbol{})
 	Register(noThisBeforeSuper{})
+	Register(noUnsafeOptionalChaining{})
 	Register(getterReturn{})
+	Register(preferObjectHasOwn{})
 	Register(preferObjectSpread{})
 }

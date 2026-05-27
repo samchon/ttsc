@@ -418,6 +418,16 @@ export interface ITtscLintCoreRules {
   "no-func-assign"?: TtscLintRuleSetting;
 
   /**
+   * Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in
+   * favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)`
+   * conversions. The explicit forms are more readable and avoid
+   * surprise around primitive edge cases.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-implicit-coercion
+   */
+  "no-implicit-coercion"?: TtscLintRuleSetting;
+
+  /**
    * Reject `function` and `var` declarations nested in non-function
    * blocks (loops, `if`, etc.) — they hoist in surprising ways.
    *
@@ -780,6 +790,16 @@ export interface ITtscLintCoreRules {
   "no-unsafe-negation"?: TtscLintRuleSetting;
 
   /**
+   * Reject member access or call expressions that chain off an
+   * optional chain without continuing the chain. `(obj?.foo).bar`
+   * throws a TypeError if obj is null/undefined; the chain must
+   * continue with `?.` to remain safe.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-unsafe-optional-chaining
+   */
+  "no-unsafe-optional-chaining"?: TtscLintRuleSetting;
+
+  /**
    * Reject expression statements with no observable effect, like a
    * bare `x;` or `'use strict' && f();`.
    *
@@ -912,6 +932,16 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/prefer-for-of
    */
   "prefer-for-of"?: TtscLintRuleSetting;
+
+  /**
+   * Prefer `Object.hasOwn(obj, key)` over
+   * `Object.prototype.hasOwnProperty.call(obj, key)`. The new helper
+   * is shorter, less error-prone, and matches the form linters
+   * elsewhere recommend.
+   *
+   * @reference https://eslint.org/docs/latest/rules/prefer-object-has-own
+   */
+  "prefer-object-has-own"?: TtscLintRuleSetting;
 
   /**
    * Prefer object-spread `{ ...a, ...b }` over `Object.assign({}, a, b)`.
