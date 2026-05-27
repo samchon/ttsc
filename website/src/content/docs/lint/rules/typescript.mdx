@@ -58,7 +58,10 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/no-unnecessary-type-assertion` — Reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type — the assertion adds nothing (type-aware).
 - `typescript/no-unnecessary-type-constraint` — Reject `<T extends unknown>` and similar constraints that match everything.
 - `typescript/no-unsafe-declaration-merging` — Reject declaration merging between an `interface` and a `class` with the same name.
+- `typescript/no-unsafe-enum-comparison` — Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string` of the same widened primitive — the comparison silently accepts unrelated enums and raw literals that happen to share the underlying primitive.
 - `typescript/no-unsafe-function-type` — Reject the unsafe `Function` type, which matches every callable regardless of signature.
+- `typescript/no-unsafe-return` — Reject a `return` expression whose static type is `any` from a function whose declared return type is a concrete (non-`any` / non-`unknown` / non-`void`) shape — the `any` leaks past the type boundary and disables every downstream check on the returned value.
+- `typescript/no-unsafe-unary-minus` — Reject the unary `-` operator applied to an operand whose static type is not number-like or bigint-like — `-x` silently coerces strings, objects, and other shapes via `Number(x)` and almost always indicates a bug.
 - `typescript/no-useless-empty-export` — Reject redundant `export {}` declarations in module files.
 - `typescript/no-wrapper-object-types` — Reject the wrapper object types `String`, `Number`, `Boolean`, `Symbol`, and `BigInt`.
 - `typescript/non-nullable-type-assertion-style` — reject `x as Foo` assertions whose target type is the non-nullable version of `x`'s static type — replace with the shorter `x!` non-null assertion.

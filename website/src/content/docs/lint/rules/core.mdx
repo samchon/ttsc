@@ -37,6 +37,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `no-dupe-keys` — Reject `{ a: 1, a: 2 }` — duplicate property keys in an object literal silently overwrite earlier values.
 - `no-duplicate-case` — Reject the same `case` label appearing twice in a `switch` — later duplicates are unreachable.
 - `no-duplicate-imports` — Reject two import declarations that resolve to the same module specifier.
+- `no-else-return` — Reject an `else` block whose preceding `if` branch already terminates control flow with `return` / `throw` / `break` / `continue`.
 - `no-empty` — Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch (e) {}` etc.) that almost always indicate forgotten code.
 - `no-empty-character-class` — Reject empty regex character classes (`[]`).
 - `no-empty-function` — Reject empty function and method bodies (`function f() {}`, `() => {}`).
@@ -116,11 +117,13 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `object-shorthand` — Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`.
 - `operator-assignment` — Prefer compound assignment (`x += y`) over the long form (`x = x + y`) where the two are equivalent.
 - `prefer-const` — Require `const` for variables that are never reassigned after declaration.
+- `prefer-destructuring` — Reject single-property and single-index variable declarations (`const a = obj.a`) that destructuring would replace verbatim.
 - `prefer-exponentiation-operator` — Prefer the `**` operator over `Math.pow(base, exp)`.
 - `prefer-for-of` — Prefer `for..of` over a traditional `for (let i = 0; i < arr.length; i++)` loop when the index is never used inside the body.
 - `prefer-numeric-literals` — Prefer ES2015+ numeric literal forms (`0b…`, `0o…`, `0x…`) over `parseInt(string, 2 | 8 | 16)`.
 - `prefer-object-has-own` — Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.
 - `prefer-object-spread` — Prefer object-spread `{ ...a, ...b }` over `Object.assign({}, a, b)`.
+- `prefer-rest-params` — Reject reading from `arguments` in a non-arrow function body — prefer the rest-parameter form `(...args)`.
 - `prefer-spread` — Prefer spread arguments `f(...args)` over `f.apply(null, args)`.
 - `prefer-template` — Prefer template literals over string concatenation when any operand is non-literal.
 - `radix` — Require an explicit radix argument for `parseInt(str, radix)`.

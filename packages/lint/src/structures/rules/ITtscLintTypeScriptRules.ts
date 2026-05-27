@@ -706,6 +706,18 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-unsafe-function-type"?: TtscLintRuleSetting;
 
   /**
+   * Reject property access on a receiver whose static type is `any`.
+   * The lookup still resolves at runtime, but the property type is
+   * `any` and spreads through the rest of the program.
+   *
+   * Type-aware via the Checker. Visits dot access and computed
+   * element access. `unknown` is not flagged.
+   *
+   * @reference https://typescript-eslint.io/rules/no-unsafe-member-access
+   */
+  "typescript/no-unsafe-member-access"?: TtscLintRuleSetting;
+
+  /**
    * Reject a `return` expression whose static type is `any` from a
    * function whose declared return type is a concrete (non-`any` /
    * non-`unknown` / non-`void`) shape — the `any` leaks past the type
@@ -735,18 +747,6 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/no-unsafe-unary-minus
    */
   "typescript/no-unsafe-unary-minus"?: TtscLintRuleSetting;
-
-  /**
-   * Reject property access on a receiver whose static type is `any`.
-   * The lookup still resolves at runtime, but the property type is
-   * `any` and spreads through the rest of the program.
-   *
-   * Type-aware via the Checker. Visits dot access and computed
-   * element access. `unknown` is not flagged.
-   *
-   * @reference https://typescript-eslint.io/rules/no-unsafe-member-access
-   */
-  "typescript/no-unsafe-member-access"?: TtscLintRuleSetting;
 
   /**
    * Reject redundant `export {}` declarations in module files.

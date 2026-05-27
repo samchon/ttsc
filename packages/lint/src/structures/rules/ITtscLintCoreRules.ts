@@ -387,6 +387,15 @@ export interface ITtscLintCoreRules {
   "no-duplicate-imports"?: TtscLintRuleSetting;
 
   /**
+   * Reject an `else` block whose preceding `if` branch already
+   * terminates control flow with `return`, `throw`, `break`, or
+   * `continue` — flatten the body into the surrounding scope.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-else-return
+   */
+  "no-else-return"?: TtscLintRuleSetting;
+
+  /**
    * Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch
    * (e) {}` etc.) that almost always indicate forgotten code.
    *
@@ -1128,6 +1137,15 @@ export interface ITtscLintCoreRules {
   "prefer-const"?: TtscLintRuleSetting;
 
   /**
+   * Reject single-property and single-index variable declarations
+   * (`const a = obj.a`, `const x = arr[0]`) that destructuring would
+   * replace verbatim.
+   *
+   * @reference https://eslint.org/docs/latest/rules/prefer-destructuring
+   */
+  "prefer-destructuring"?: TtscLintRuleSetting;
+
+  /**
    * Prefer the `**` operator over `Math.pow(base, exp)`.
    *
    * @reference https://eslint.org/docs/latest/rules/prefer-exponentiation-operator
@@ -1171,6 +1189,15 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/prefer-numeric-literals
    */
   "prefer-numeric-literals"?: TtscLintRuleSetting;
+
+  /**
+   * Reject reading from `arguments` in a non-arrow function body —
+   * prefer the ES2015 rest-parameter form `(...args)`, which declares
+   * the variadic contract on the signature and yields a real array.
+   *
+   * @reference https://eslint.org/docs/latest/rules/prefer-rest-params
+   */
+  "prefer-rest-params"?: TtscLintRuleSetting;
 
   /**
    * Prefer spread arguments `f(...args)` over `f.apply(null, args)`.
