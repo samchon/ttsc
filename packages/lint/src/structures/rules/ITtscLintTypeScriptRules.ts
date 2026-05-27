@@ -125,6 +125,25 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-array-delete"?: TtscLintRuleSetting;
 
   /**
+   * Prefer `for ... of` over `Array.prototype.forEach()`. The for-of
+   * form supports early termination (`break`/`return`) and `await`,
+   * while `forEach` swallows both.
+   *
+   * @reference https://typescript-eslint.io/rules/no-array-for-each
+   */
+  "typescript/no-array-for-each"?: TtscLintRuleSetting;
+
+  /**
+   * Reject classes that exist purely as a namespace for static members
+   * or that are entirely empty. A namespace import or plain functions
+   * are clearer than `class Util { static foo() {} }` — the class adds
+   * indirection without providing instance behavior.
+   *
+   * @reference https://typescript-eslint.io/rules/no-extraneous-class
+   */
+  "typescript/no-extraneous-class"?: TtscLintRuleSetting;
+
+  /**
    * Reject non-null assertions placed where they visually merge with
    * a following operator — `a! == b` (reads as `!=`), `a! in b`, or
    * `a! instanceof B`.
@@ -221,6 +240,19 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/no-inferrable-types
    */
   "typescript/no-inferrable-types"?: TtscLintRuleSetting;
+
+  /**
+   * Reject `void` used as anything other than a function return type.
+   * `void` in a union (`string | void`) or as a non-allow-listed
+   * generic argument is almost always a confusion with `undefined`.
+   * Allowed positions: function/method/arrow return-type annotations
+   * and generic arguments to `Promise` / `Generator` /
+   * `AsyncGenerator` / `Iterator` / `AsyncIterator` /
+   * `IterableIterator` / `AsyncIterableIterator`.
+   *
+   * @reference https://typescript-eslint.io/rules/no-invalid-void-type
+   */
+  "typescript/no-invalid-void-type"?: TtscLintRuleSetting;
 
   /**
    * Reject signatures that fake a constructor or an instance `new`
