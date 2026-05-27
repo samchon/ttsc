@@ -1,4 +1,3 @@
-declare module "@testing-library/react" { const x: any; export = x; }
 declare const render: any;
 declare const screen: any;
 declare const fireEvent: any;
@@ -16,6 +15,8 @@ declare const act: any;
  * 2. Call `screen.findByText(...)` as a standalone statement.
  * 3. Assert the matching diagnostic.
  */
+// @ts-ignore — virtual @testing-library/* import; the lint rule
+// only needs the import shape to activate.
 import { screen } from "@testing-library/react";
 
 function testCase() {

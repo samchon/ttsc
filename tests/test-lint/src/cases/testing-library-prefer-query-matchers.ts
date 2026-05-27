@@ -1,4 +1,3 @@
-declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/prefer-query-matchers: truthiness matchers around queries are rejected.
  *
@@ -10,6 +9,8 @@ declare module "@testing-library/react" { const x: any; export = x; }
  * 2. Assert a `queryBy*` result with `toBeNull()`.
  * 3. Assert the matching diagnostic.
  */
+// @ts-ignore — virtual @testing-library/* import; the lint rule
+// only needs the import shape to activate.
 import { screen } from "@testing-library/react";
 
 declare const expect: (value: unknown) => { toBeNull(): void };

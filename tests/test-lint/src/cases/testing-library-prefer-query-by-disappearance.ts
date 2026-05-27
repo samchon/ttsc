@@ -1,4 +1,3 @@
-declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/prefer-query-by-disappearance: disappearance waits must use `queryBy*`.
  *
@@ -10,6 +9,8 @@ declare module "@testing-library/react" { const x: any; export = x; }
  * 2. Wait for `not.toBeInTheDocument()` around `screen.getByText(...)`.
  * 3. Assert the matching diagnostic.
  */
+// @ts-ignore — virtual @testing-library/* import; the lint rule
+// only needs the import shape to activate.
 import { screen, waitFor } from "@testing-library/react";
 
 declare const expect: (value: unknown) => {

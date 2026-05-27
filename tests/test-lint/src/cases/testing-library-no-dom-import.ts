@@ -1,5 +1,3 @@
-declare module "@testing-library/dom" { const x: any; export = x; }
-declare module "@testing-library/react" { const x: any; export = x; }
 declare const render: any;
 declare const screen: any;
 declare const fireEvent: any;
@@ -18,7 +16,11 @@ declare const act: any;
  * 3. Assert the matching diagnostic.
  */
 // expect: testing-library/no-dom-import error
+// @ts-ignore — virtual @testing-library/* import; the lint rule
+// only needs the import shape to activate.
 import { prettyDOM } from "@testing-library/dom";
+// @ts-ignore — virtual @testing-library/* import; the lint rule
+// only needs the import shape to activate.
 import { render } from "@testing-library/react";
 
 declare const node: unknown;
