@@ -1,0 +1,59 @@
+{
+  "name": "@ttsc/playground",
+  "version": "0.13.1",
+  "description": "Reusable React + Web Worker scaffolding for in-browser ttsc playgrounds built on @ttsc/wasm.",
+  "main": "lib/src/index.js",
+  "types": "lib/src/index.d.ts",
+  "files": [
+    "lib",
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rimraf lib && tsgo -p ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://ttsc.dev",
+  "dependencies": {
+    "lz-string": "^1.5.0"
+  },
+  "peerDependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@ttsc/wasm": "workspace:^",
+    "monaco-editor": "^0.52.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tgrid": "^1.0.3"
+  },
+  "devDependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@ttsc/wasm": "workspace:^",
+    "@types/node": "catalog:utils",
+    "@types/react": "^18.3.1",
+    "@typescript/native-preview": "catalog:tsgo",
+    "monaco-editor": "^0.52.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rimraf": "catalog:utils",
+    "tgrid": "^1.0.3"
+  },
+  "keywords": ["ttsc", "playground", "typescript", "browser", "wasm", "react"]
+}
