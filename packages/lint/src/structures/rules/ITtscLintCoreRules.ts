@@ -438,6 +438,18 @@ export interface ITtscLintCoreRules {
   "no-implicit-coercion"?: TtscLintRuleSetting;
 
   /**
+   * Reject writes to a binding introduced by an `import` declaration —
+   * assignment (`x = …`), compound assignment, or increment/decrement
+   * of an imported name, plus property mutations of a namespace import
+   * (`ns.foo = …`). Imported bindings are read-only at runtime; mutating
+   * them either throws under strict mode or silently desynchronises the
+   * module's view of its own exports.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-import-assign
+   */
+  "no-import-assign"?: TtscLintRuleSetting;
+
+  /**
    * Reject `function` and `var` declarations nested in non-function
    * blocks (loops, `if`, etc.) — they hoist in surprising ways.
    *
@@ -692,6 +704,17 @@ export interface ITtscLintCoreRules {
   "no-prototype-builtins"?: TtscLintRuleSetting;
 
   /**
+   * Reject declaring the same binding more than once in the same scope
+   * (`var x = 1; var x = 2;`, two `function foo()` declarations side by
+   * side, or a parameter rebound by a later `var` in the body). The
+   * second declaration silently overwrites the first; shadowing the
+   * binding in a nested scope is left alone.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-redeclare
+   */
+  "no-redeclare"?: TtscLintRuleSetting;
+
+  /**
    * Reject more than one consecutive literal space in a regex; use
    * `{N}` quantifiers for clarity.
    *
@@ -814,6 +837,20 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/no-unneeded-ternary
    */
   "no-unneeded-ternary"?: TtscLintRuleSetting;
+
+  /**
+   * Reject statements that follow an unconditional `return`, `throw`,
+   * `break`, or `continue` in the same block — control flow has already
+   * left the block, so any later statement is dead code.
+   *
+   * The conservative baseline scans the immediate statement list of a
+   * block (or the top-level source / module body) only; hoistable
+   * function declarations following the terminator are exempt because
+   * they are hoisted above the unreachable point.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-unreachable
+   */
+  "no-unreachable"?: TtscLintRuleSetting;
 
   /**
    * Reject `return` and `throw` inside a `finally` block, which

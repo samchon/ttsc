@@ -45,6 +45,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `no-fallthrough` — Reject `switch` case fall-through unless preceded by an explicit `// falls through` comment.
 - `no-func-assign` — Reject reassignment of function declarations (`function f() {}; f = 0;`).
 - `no-implicit-coercion` — Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
+- `no-import-assign` — Reject writes to a binding introduced by an `import` declaration — assignment, compound assignment, or `++`/`--` of an imported name, plus property mutations of a namespace import (`ns.foo = ...`).
 - `no-inner-declarations` — Reject `function` and `var` declarations nested in non-function blocks (loops, `if`, etc.) — they hoist in surprising ways.
 - `no-irregular-whitespace` — Reject irregular whitespace characters (zero-width space, non-breaking space, etc.) in source — typically copy-paste artifacts from rich-text editors.
 - `no-iterator` — Reject the legacy `__iterator__` property — a SpiderMonkey-only extension predating ES2015 iterators.

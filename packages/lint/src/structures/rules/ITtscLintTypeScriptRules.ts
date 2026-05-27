@@ -189,6 +189,21 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-array-for-each"?: TtscLintRuleSetting;
 
   /**
+   * Reject string-coercion contexts (`` `${x}` ``, `x + ""`, `String(x)`)
+   * where `x` has a type whose `toString` resolves to the default
+   * `Object.prototype.toString` and would print `"[object Object]"`.
+   *
+   * Type-aware via the Checker. Stringish primitives, `Date`, `Error`,
+   * arrays, regexes, and any object that overrides `toString` are safe;
+   * plain `{}` literals, `Record<...>` shapes, and structural interfaces
+   * with no `toString` member are the ones that produce the useless
+   * default string.
+   *
+   * @reference https://typescript-eslint.io/rules/no-base-to-string
+   */
+  "typescript/no-base-to-string"?: TtscLintRuleSetting;
+
+  /**
    * Reject classes that exist purely as a namespace for static members
    * or that are entirely empty. A namespace import or plain functions
    * are clearer than `class Util { static foo() {} }` — the class adds
@@ -682,6 +697,36 @@ export interface ITtscLintTypeScriptRules {
   "typescript/require-await"?: TtscLintRuleSetting;
 
   /**
+   * Reject `+` expressions whose operands are not both `number`,
+   * both `string`, or both `bigint`.
+   *
+   * Type-aware via the Checker. `1 + "a"`, `null + 5`, and
+   * `obj + 1` are silently coerced by the runtime — almost always
+   * a bug. Mixed `number`/`string` concatenations are likewise
+   * rejected: the author should convert explicitly with `String(x)`
+   * or use a template literal.
+   *
+   * @reference https://typescript-eslint.io/rules/restrict-plus-operands
+   */
+  "typescript/restrict-plus-operands"?: TtscLintRuleSetting;
+
+  /**
+   * Reject template-literal interpolations whose expression carries a
+   * type that does not stringify cleanly — `${obj}` prints
+   * `"[object Object]"`, `${null}` prints `"null"`, and so on.
+   *
+   * Type-aware via the Checker. Each `${...}` span's type must be
+   * string-like, number-like, bigint-like, or boolean-like; `any`,
+   * `unknown`, and `never` pass through to avoid false positives on
+   * generic helpers, matching upstream `allowAny` / `allowNever`
+   * defaults. Union and intersection types must have every
+   * constituent stringify cleanly.
+   *
+   * @reference https://typescript-eslint.io/rules/restrict-template-expressions
+   */
+  "typescript/restrict-template-expressions"?: TtscLintRuleSetting;
+
+  /**
    * Reject `return promise` inside `try`, `catch`, or `finally`;
    * require `return await promise`.
    *
@@ -692,6 +737,38 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/return-await
    */
   "typescript/return-await"?: TtscLintRuleSetting;
+
+  /**
+   * Reject non-boolean values used in a boolean context.
+   *
+   * Type-aware via the Checker. Fires when the test of an `if`,
+   * `while`, `do`, `for`, or ternary, the operand of `!`, or either
+   * side of `&&` / `||` carries a type whose flags are not pure
+   * boolean. Numbers (`if (count)` is truthy for any non-zero),
+   * strings (`""` is falsy), and nullable objects (`if (obj)`
+   * conflates `null` / `undefined` with a present object) all silently
+   * coerce in boolean position; an explicit comparison (`count !== 0`,
+   * `str.length > 0`, `obj != null`) names the intent.
+   *
+   * @reference https://typescript-eslint.io/rules/strict-boolean-expressions
+   */
+  "typescript/strict-boolean-expressions"?: TtscLintRuleSetting;
+
+  /**
+   * Require every member of a union or `enum` discriminant to be
+   * covered by an explicit `case`, unless a `default` clause is
+   * present.
+   *
+   * Type-aware via the Checker. The rule resolves the discriminant
+   * type, walks each constituent of the union (or each member of the
+   * enum), matches it against the `case` expressions in the body, and
+   * flags the switch when at least one constituent is uncovered and no
+   * `default` clause is present. A `default` clause covers the
+   * remaining shape and silences the rule.
+   *
+   * @reference https://typescript-eslint.io/rules/switch-exhaustiveness-check
+   */
+  "typescript/switch-exhaustiveness-check"?: TtscLintRuleSetting;
 
   /**
    * Reject `/// <reference path="..." />`, `/// <reference types=""
