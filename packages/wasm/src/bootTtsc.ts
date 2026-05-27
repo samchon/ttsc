@@ -16,29 +16,37 @@ import type { ITtscApi } from "./structures/ITtscApi";
 declare const importScripts: (...urls: string[]) => void;
 
 /**
- * Per-apiName single-flight cache for in-flight boots. A second bootTtsc
- * call with the same apiName joins the in-flight promise instead of
- * overwriting the Ready resolver (which would silently strand the first
- * caller's await forever).
+ * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName
+ * alone would let a second call with the same apiName but a different
+ * wasmUrl silently return the cached IBootResult of the first wasm — the
+ * caller would think they booted a fresh binary while the cached one
+ * stayed in place. The composite key lets HMR / cache-busting query
+ * strings get a fresh boot while still single-flighting genuine concurrent
+ * duplicate calls.
  */
 const bootsInFlight = new Map<string, Promise<IBootResult>>();
+
+function bootKey(apiName: string, wasmUrl: string): string {
+  return `${apiName}|${wasmUrl}`;
+}
 
 /**
  * Boot a host-built wasm. Re-entrant only if you reuse the same `host`.
  *
- * Concurrent calls with the same `apiName` share the same in-flight boot
- * (single-flight cache). On rejection the cache entry is cleared so the
- * next call retries from scratch.
+ * Concurrent calls with the same `(apiName, wasmUrl)` pair share the same
+ * in-flight boot. On rejection the cache entry is cleared so the next
+ * call retries from scratch.
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
-  const inflight = bootsInFlight.get(apiName);
+  const key = bootKey(apiName, options.wasmUrl);
+  const inflight = bootsInFlight.get(key);
   if (inflight) return inflight;
   const promise = bootTtscOnce(options, apiName).catch((err) => {
-    bootsInFlight.delete(apiName);
+    bootsInFlight.delete(key);
     throw err;
   });
-  bootsInFlight.set(apiName, promise);
+  bootsInFlight.set(key, promise);
   return promise;
 }
 
@@ -75,7 +83,12 @@ async function bootTtscOnce(
     };
   });
 
-  const goCtor = (globalAny as { Go: new () => IGoInstance }).Go;
+  const goCtor = (globalAny as { Go?: new () => IGoInstance }).Go;
+  if (typeof goCtor !== "function") {
+    throw new Error(
+      `bootTtsc: globalThis.Go was not installed by ${wasmExecUrl} — the file may not have loaded (CSP block, wrong content type, 404), or it is not the wasm_exec.js shipped with the Go toolchain.`,
+    );
+  }
   const go = new goCtor();
 
   const response = await fetch(wasmUrl);

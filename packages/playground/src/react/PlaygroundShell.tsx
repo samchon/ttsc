@@ -88,6 +88,11 @@ export function PlaygroundShell({
   const dependencyProgressTimer = useRef<number | null>(null);
   const dependencyInstallChain = useRef<Promise<void>>(Promise.resolve());
   const dependencyAbort = useRef<AbortController | null>(null);
+  // The ref tracks names the wasm MemFS already has — preinstalled at boot
+  // (via `preinstalledPackages`) plus everything `installPlaygroundDependencies`
+  // has added across the session. A useEffect below merges fresh
+  // preinstalledPackages prop values into the ref so a parent that swaps
+  // the prop later does not race a now-stale Set.
   const installedDependencyNames = useRef<Set<string>>(
     new Set<string>(preinstalledPackages),
   );
@@ -99,10 +104,14 @@ export function PlaygroundShell({
   const runtimeDependencyFiles = useRef<Record<string, string>>({});
   const sourceVersion = useRef(0);
   const latestSource = useRef(source);
-  // Race guard: every `run` call bumps this epoch; only the call whose epoch
-  // matches the latest at completion time wins the state update. Otherwise a
-  // slow keystroke-N compile can overwrite a faster keystroke-N+1 result.
-  const runEpoch = useRef(0);
+  // Race guards: each pipeline (compile/run vs Execute) owns its own epoch.
+  // Sharing one epoch would make a fresh Execute click invalidate an in-
+  // flight compile (and vice versa) and leave the spinner/button flags
+  // stuck because the older pipeline's finally would see a stale epoch.
+  // `updateSource` bumps the COMPILE epoch only — typing aborts a stale
+  // compile but does not interrupt a click-driven Execute.
+  const compileEpoch = useRef(0);
+  const executeEpoch = useRef(0);
 
   const mergedExtraLibs = useMemo(
     () => ({ ...staticEditorLibs, ...editorExtraLibs }),
@@ -112,12 +121,22 @@ export function PlaygroundShell({
   const updateSource = useCallback((next: string) => {
     sourceVersion.current++;
     latestSource.current = next;
-    runEpoch.current++;
+    compileEpoch.current++;
     dependencyAbort.current?.abort(createAbortError("source changed"));
     setDependencyProgress(null);
     setDependencyPackageNames([]);
     setSource(next);
   }, []);
+
+  // ── Sync installedDependencyNames when preinstalledPackages prop changes ──
+  // The ref captures the initial value on mount; without this effect a
+  // parent that swaps `preinstalledPackages` later would race a stale
+  // Set against the fresh prop used in `ignoredPackages` below.
+  useEffect(() => {
+    for (const name of preinstalledPackages) {
+      installedDependencyNames.current.add(name);
+    }
+  }, [preinstalledPackages]);
 
   // ── Decode source from URL on mount ──
   useEffect(() => {
@@ -263,21 +282,22 @@ export function PlaygroundShell({
       opts: ITransformOptions,
       version: number,
     ) => {
-      const epoch = ++runEpoch.current;
+      const epoch = ++compileEpoch.current;
       setRunning(true);
       try {
         const dependencyError = await installDependenciesForSource(
           input,
           version,
         );
-        if (runEpoch.current !== epoch) return;
+        if (compileEpoch.current !== epoch) return;
         if (dependencyError) {
           setResult({
             type: "error",
             target: "javascript",
             value: normalizeClientError(dependencyError),
           });
-          setLintDiagnostics([]);
+          // Keep prior lintDiagnostics intact — a dependency-install blip
+          // shouldn't wipe the user's most recent successful lint output.
           return;
         }
         const service = await createCompilerService();
@@ -285,36 +305,38 @@ export function PlaygroundShell({
           source: input,
           options: opts,
         });
-        if (runEpoch.current !== epoch) return;
+        if (compileEpoch.current !== epoch) return;
         setResult(next);
         if (opts.lint !== false) {
           const lint = await service.lint({ source: input, options: opts });
-          if (runEpoch.current !== epoch) return;
+          if (compileEpoch.current !== epoch) return;
           setLintDiagnostics(lint.diagnostics);
         } else {
           setLintDiagnostics([]);
         }
         void mode;
       } catch (err) {
-        if (runEpoch.current !== epoch) return;
+        if (compileEpoch.current !== epoch) return;
         // Surface the error in the diagnostics pane via an error result —
         // a transient compile/lint/install rejection (tgrid timeout,
         // message-channel disconnect) must NOT tear the playground into
         // the fatal boot-error screen and force a worker rebuild. Only
-        // the eager boot useEffect at line 130 may flip bootPhase to
-        // "failed".
+        // the eager boot useEffect may flip bootPhase to "failed".
         setResult({
           type: "error",
           target: "javascript",
           value: normalizeClientError(err),
         });
-        setLintDiagnostics([]);
+        // Leave lintDiagnostics alone — clearing them on a transient
+        // compile blip would wipe the user's last good lint output.
       } finally {
-        // Always clear the running flag, even if the epoch advanced. Gating
-        // on epoch leaves the "compiling…" indicator stuck forever when a
-        // faster keystroke or an Execute click bumped the epoch mid-flight.
-        // The latest pipeline will set running=true again on its own turn.
-        setRunning(false);
+        // Only the winning epoch clears the flag. Older pipelines that
+        // returned early on an epoch mismatch must NOT clear running, or
+        // a fresh in-flight compile would show "ready" while it's still
+        // working. compileEpoch is bumped only by updateSource and by the
+        // next run() — Execute uses its own executeEpoch — so this guard
+        // does not stick the spinner across pipeline boundaries.
+        if (compileEpoch.current === epoch) setRunning(false);
       }
     },
     [createCompilerService, installDependenciesForSource],
@@ -383,15 +405,15 @@ export function PlaygroundShell({
 
   const onExecute = useCallback(async () => {
     if (!executeBundle) return;
-    // Bump the run epoch so a second Execute click (or an edit that
-    // started a compile) invalidates the in-flight pipeline; later state
-    // writes from the previous run are gated on this epoch matching.
-    const epoch = ++runEpoch.current;
+    // Bump the executeEpoch so a second Execute click invalidates the
+    // in-flight Execute. compileEpoch is unaffected — the user can edit
+    // the source mid-Execute without the running compile being torn down.
+    const epoch = ++executeEpoch.current;
     setExecuting(true);
     setBundleError(null);
     const messages: IConsoleMessage[] = [];
     const push = (type: IConsoleMessage["type"], args: unknown[]) => {
-      if (runEpoch.current !== epoch) return;
+      if (executeEpoch.current !== epoch) return;
       messages.push({ type, value: args });
       setConsoleMessages([...messages]);
     };
@@ -400,14 +422,14 @@ export function PlaygroundShell({
         source,
         sourceVersion.current,
       );
-      if (runEpoch.current !== epoch) return;
+      if (executeEpoch.current !== epoch) return;
       if (dependencyError) {
         push("error", [dependencyError]);
         return;
       }
       const service = await createCompilerService();
       const compiled = await service.bundle({ source, options });
-      if (runEpoch.current !== epoch) return;
+      if (executeEpoch.current !== epoch) return;
       if (compiled.type === "error") {
         const message =
           typeof compiled.value === "string"
@@ -437,11 +459,13 @@ export function PlaygroundShell({
         push("error", [error]);
       }
     } catch (error) {
-      if (runEpoch.current !== epoch) return;
+      if (executeEpoch.current !== epoch) return;
       push("error", [error]);
     } finally {
-      // Always clear executing — same reasoning as setRunning above.
-      setExecuting(false);
+      // Only the winning epoch clears the flag — same rationale as
+      // compileEpoch above. With a separate executeEpoch this is robust
+      // against concurrent click + edit interleavings.
+      if (executeEpoch.current === epoch) setExecuting(false);
     }
   }, [
     createCompilerService,
@@ -523,15 +547,30 @@ export function PlaygroundShell({
         </pre>
         <button
           onClick={() => {
-            client.reset();
-            setBootError(null);
-            setBootPhase("booting");
-            createCompilerService().then(
-              () => setBootPhase("ready"),
-              (err) => {
+            let cancelled = false;
+            void (async () => {
+              await client.reset();
+              if (cancelled) return;
+              setBootError(null);
+              setBootPhase("booting");
+              try {
+                await createCompilerService();
+                if (!cancelled) setBootPhase("ready");
+              } catch (err) {
+                if (cancelled) return;
                 setBootError(err);
                 setBootPhase("failed");
+              }
+            })();
+            // Cancel the in-flight retry when the user navigates away
+            // from the failure screen before it resolves; matches the
+            // eager-boot useEffect's cleanup at the top of the component.
+            window.addEventListener(
+              "beforeunload",
+              () => {
+                cancelled = true;
               },
+              { once: true },
             );
           }}
           className="px-5 py-2 text-xs font-mono text-neutral-900 bg-white rounded-md hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-shadow"
@@ -658,7 +697,8 @@ export function PlaygroundShell({
                   result === null
                     ? ""
                     : result.type === "error"
-                      ? JSON.stringify(result.value, null, 2)
+                      ? (JSON.stringify(result.value, null, 2) ??
+                        String(result.value))
                       : result.value
                 }
               />

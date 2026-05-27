@@ -296,7 +296,16 @@ function classifyException(
         ? error
         : "";
   if (
-    /^ttsc:\s*plugin\b|^ttsc:\s*package\b|^ttsc\.transform[.:]|^ttsc-plugin:|go toolchain/i.test(
+    // Match every plugin-origin shape: the bare `ttsc: plugin "..."` and
+    // `ttsc: package "..."` from loadProjectPlugins.ts, the wrapper
+    // `ttsc: building plugin "..."` / `ttsc: reading go.mod for plugin
+    // "..."` from buildSourcePlugin.ts, the transform-time spawn errors
+    // `ttsc.transform:` / `ttsc.transform.check:`, plus the Go-toolchain
+    // missing envelope. The two `^ttsc:.*\bplugin\b` etc patterns are
+    // anchored at the start of the message and require the literal token
+    // `plugin` somewhere on the first line — this catches messages whose
+    // verb is "building"/"reading"/etc rather than just "plugin"/"package".
+    /^ttsc:\s*plugin\b|^ttsc:\s*package\b|^ttsc:[^\n]*\bplugin\b|^ttsc\.transform[.:]|^ttsc-plugin:|go toolchain/i.test(
       message,
     )
   ) {
