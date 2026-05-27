@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "nextra-theme-docs/style.css";
 
+/* Scan @ttsc/playground's compiled output so Tailwind 4 finds the utility
+   classes baked into the shared PlaygroundShell / SourceEditor / etc.
+   Tailwind 4's @source takes a literal glob (relative to this CSS file),
+   not a bare package specifier — the path below works under pnpm via
+   the symlink at website/node_modules/@ttsc/playground, and under npm
+   hoisting it resolves to the published tarball at the same node_modules
+   path. */
+@source "../../node_modules/@ttsc/playground/lib/**/*.js";
+
 /* ── Landing page: full-bleed canvas ── */
 :has(.ttsc-landing) article {
   max-width: 100% !important;

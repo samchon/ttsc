@@ -1,0 +1,250 @@
+# Programmatic API (`ttsc` JS class)
+
+For tool authors that need to drive `ttsc` from JavaScript or TypeScript.
+
+This page is for embedders — anyone wrapping `ttsc` inside a Node program
+(test harnesses, dev-server middleware, playground hosts, code-generation
+pipelines). Day-to-day users should keep using the `ttsc`, `ttsx`, and
+`ttscserver` [CLIs](/docs/ttsc/compile) instead.
+
+For browser embedding (running `ttsc` inside a Web Worker / WebAssembly), see
+the [WASM guide](/docs/wasm) and the [`@ttsc/playground`](/docs/playground)
+package built on top of it.
+
+## When to use
+
+Reach for the programmatic API when you need to:
+
+- Compile or type-check a project from inside another Node tool and consume
+  the result as structured data, not parsed terminal output.
+- Capture every emitted text artifact in memory without writing JS or `.d.ts`
+  files into the user's project tree.
+- Pay the lazy plugin-build cost ahead of time in CI warmup steps.
+- Manage the ttsc cache directory from your tool's own lifecycle.
+
+If you only need to run the same command a user would type, shell out to
+`npx ttsc` instead — the CLI is the public, stable surface for that.
+
+## Install
+
+```bash
+npm install ttsc @typescript/native-preview
+```
+
+Both packages are runtime dependencies. `@typescript/native-preview` ships the
+TypeScript-Go binary that `ttsc` drives.
+
+## Minimal example
+
+```ts
+import { TtscCompiler } from "ttsc";
+
+const compiler = new TtscCompiler({
+  cwd: "/abs/path/to/project",
+  // tsconfig: "tsconfig.build.json",  // optional; auto-discovered when omitted
+});
+
+const result = compiler.compile();
+
+if (result.type === "success") {
+  for (const [path, text] of Object.entries(result.output)) {
+    // path is project-relative ("dist/index.js", "dist/index.d.ts", ...)
+    console.log(path, text.length);
+  }
+} else if (result.type === "failure") {
+  for (const diag of result.diagnostics) {
+    console.error(`${diag.file}:${diag.line}:${diag.character} ${diag.messageText}`);
+  }
+} else {
+  // type === "exception"
+  console.error("ttsc host failed:", result.error);
+}
+```
+
+## Lifecycle
+
+`TtscCompiler` is **construct-once, reuse**. The constructor captures one
+project context (working directory, tsconfig, plugin list, cache root, env)
+and every operation runs against that context. The context is intentionally
+not replaceable per call — create another instance to compile a different
+project.
+
+```ts
+// One compiler per project, kept around across calls.
+const compiler = new TtscCompiler({ cwd: projectDir });
+
+await ensurePluginsReady(compiler);   // optional warmup
+const first  = compiler.compile();
+const second = compiler.compile();    // safe to call again
+```
+
+The context is defensively copied at construction, so mutating the original
+options object after the fact has no effect on the instance.
+
+## Operations
+
+### `compile()`
+
+Runs the configured project through the TypeScript-Go pipeline and returns
+the structured result as a discriminated union.
+
+For projects with no plugins, ttsc uses its in-process TypeScript-Go host and
+captures every `WriteFile` callback into the `output` map. For projects with
+plugins, ttsc runs the plugin pipeline against a temporary output directory
+under the configured cache root, reads the generated text back into memory,
+and removes the temp directory before returning.
+
+**Result shape** ([`ITtscCompilerResult`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerResult.ts)):
+
+```ts
+type ITtscCompilerResult =
+  | { type: "success"; diagnostics?: ITtscCompilerDiagnostic[]; output: Record<string, string> }
+  | { type: "failure"; diagnostics: ITtscCompilerDiagnostic[]; output: Record<string, string> }
+  | { type: "exception"; error: unknown };
+```
+
+- `success` — TypeScript-Go completed with no error-class diagnostics. The
+  `output` map contains every text artifact (JS, `.d.ts`, source maps,
+  declaration maps). `diagnostics` is omitted when empty; warnings appear
+  here when present.
+- `failure` — Compilation ran but produced error-class diagnostics. `output`
+  may still be partial — TypeScript-Go can emit before erroring.
+- `exception` — The host could not run normally (cache lockup, missing
+  binary, plugin sidecar crash, etc.). Treat the `error` field as opaque
+  diagnostic material; do not assume it's an `Error` instance.
+
+### `transform()`
+
+Source-to-source. Returns a `typescript` map (project-relative path →
+TypeScript text), never JS or `.d.ts`.
+
+```ts
+const t = compiler.transform();
+if (t.type === "success") {
+  // t.typescript["src/index.ts"] holds the post-transform source
+}
+```
+
+When no transform-stage plugin is configured, the map contains the unmodified
+files as TypeScript-Go loaded them. With a transform plugin (e.g. typia's),
+the map contains the rewritten text.
+
+### `prepare()`
+
+Builds every configured Go source plugin into the cache up front. Use this
+in CI warmup steps so the first user-triggered compile doesn't pay the
+plugin build cost.
+
+```ts
+compiler.prepare();   // returns compiled binary paths (debug aid)
+```
+
+`prepare()` does not run diagnostics, does not create a Program, and does not
+emit files. It is purely a cache warmer.
+
+### `clean()`
+
+Removes the cache directories owned by this compiler's context. Returns the
+list of paths that were actually removed (existing directories only).
+
+```ts
+compiler.clean();
+```
+
+Cleanup target order:
+
+1. If `cacheDir` was passed to the constructor → remove exactly that.
+2. Else if `TTSC_CACHE_DIR` is set (in `context.env` or `process.env`) →
+   remove that override's plugin cache plus legacy project-local caches.
+3. Otherwise → remove the default global plugin cache plus legacy
+   project-local caches.
+
+## Context options
+
+[`ITtscCompilerContext`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerContext.ts):
+
+| Field         | Purpose                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `cwd`         | Working directory. Defaults to `process.cwd()`.                                                                        |
+| `tsconfig`    | Path to a project config file. Relative paths resolve against `cwd`. Omit to auto-discover the nearest tsconfig.       |
+| `projectRoot` | Override the project root used for plugin resolution and cache anchoring. Most callers leave this unset.               |
+| `binary`      | Pin a specific TypeScript-Go binary. For test rigs and embedded toolchains; normal callers omit it.                    |
+| `env`         | Extra environment variables merged over `process.env` for child compiler processes.                                    |
+| `cacheDir`    | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR` or the user cache. |
+| `plugins`     | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries.      |
+
+## Diagnostics
+
+[`ITtscCompilerDiagnostic`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerDiagnostic.ts) is a
+flat, JSON-friendly shape independent of TypeScript-Go's internal Go types.
+
+```ts
+interface ITtscCompilerDiagnostic {
+  file: string | null;             // null for global diagnostics
+  category: "error" | "warning" | "suggestion" | "message";
+  code: number | string;           // numeric for TS, string for plugin codes
+  start?: number;                  // 0-based char offset
+  length?: number;
+  line?: number;                   // 1-based, display convention
+  character?: number;              // 1-based, display convention
+  messageText: string;             // chains are pre-flattened
+}
+```
+
+When the host process exits non-zero but produced no parsable diagnostics,
+ttsc synthesizes a `{ code: "TTSC_PROCESS", category: "error" }` entry that
+carries the captured stderr/stdout. Embedders can branch on `code` to detect
+this synthesized case.
+
+## Plugins
+
+Project plugins are taken from `compilerOptions.plugins` in the project's
+tsconfig and from installed package markers. The constructor's `plugins`
+field lets embedders override that resolution for one compiler instance:
+
+```ts
+// Run the project without any plugins at all.
+const bare = new TtscCompiler({ cwd, plugins: false });
+
+// Run the project with a different plugin set than the tsconfig requests.
+const lintOnly = new TtscCompiler({
+  cwd,
+  plugins: [{ name: "@ttsc/lint" }],
+});
+```
+
+See [`ITtscProjectPluginConfig`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscProjectPluginConfig.ts) for the
+entry shape and [Plugin authoring](/docs/development) for how to ship a
+plugin package.
+
+## Patterns
+
+### Long-lived service
+
+Build one `TtscCompiler` per watched project at startup. Call `prepare()`
+once, then `compile()` whenever you need a fresh build. There is no
+incremental mode today — every `compile()` reloads the project — so the
+construction cost is just descriptor wiring, not the compile itself.
+
+### CI warmup
+
+```ts
+const compiler = new TtscCompiler({ cwd });
+compiler.prepare();   // pre-build native plugins into cache
+```
+
+Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild
+on subsequent invocations.
+
+### Driving a Web Worker / Browser
+
+`TtscCompiler` is a Node API — it spawns native processes. For browser
+embedding, use [`@ttsc/wasm`](/docs/wasm) directly or the higher-level
+[`@ttsc/playground`](/docs/playground) package.
+
+## Stability
+
+`TtscCompiler`, the result types, and `ITtscCompilerContext` are the public
+programmatic surface. CLI launchers, binary resolution helpers, project
+config parsing utilities, and native build helpers stay internal — depending
+on them will break. The package `exports` field enforces this.

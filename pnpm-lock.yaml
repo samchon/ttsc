@@ -80,6 +80,43 @@ importers:
 
   packages/paths: {}
 
+  packages/playground:
+    dependencies:
+      lz-string:
+        specifier: ^1.5.0
+        version: 1.5.0
+    devDependencies:
+      '@monaco-editor/react':
+        specifier: ^4.6.0
+        version: 4.7.0(monaco-editor@0.52.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@ttsc/wasm':
+        specifier: workspace:^
+        version: link:../wasm
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.9.1
+      '@types/react':
+        specifier: ^18.3.1
+        version: 18.3.29
+      '@typescript/native-preview':
+        specifier: catalog:tsgo
+        version: 7.0.0-dev.20260526.1
+      monaco-editor:
+        specifier: ^0.52.0
+        version: 0.52.2
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      rimraf:
+        specifier: catalog:utils
+        version: 6.1.3
+      tgrid:
+        specifier: ^1.0.3
+        version: 1.2.1
+
   packages/strip: {}
 
   packages/ttsc:
@@ -406,6 +443,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.13
         version: 4.3.0
+      '@ttsc/playground':
+        specifier: workspace:^
+        version: link:../packages/playground
       '@ttsc/wasm':
         specifier: workspace:^
         version: link:../packages/wasm

@@ -1,0 +1,93 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import type { IPlaygroundExample } from "../structures/IPlaygroundExample";
+
+interface ExamplePickerProps {
+  examples: readonly IPlaygroundExample[];
+  onPick: (id: string) => void;
+  /** Display labels for groups. Maps `group` key → rendered heading. */
+  groupLabels?: Record<string, string>;
+}
+
+export function ExamplePicker({
+  examples,
+  onPick,
+  groupLabels,
+}: ExamplePickerProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const grouped = useMemo(() => {
+    return examples.reduce<Record<string, IPlaygroundExample[]>>((acc, e) => {
+      const key = e.group ?? "Examples";
+      (acc[key] ??= []).push(e);
+      return acc;
+    }, {});
+  }, [examples]);
+
+  if (examples.length === 0) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        data-playground-examples-toggle
+        onClick={() => setOpen((v) => !v)}
+        className="px-3 py-1.5 text-xs font-mono text-neutral-300 border border-neutral-800 rounded-md hover:border-neutral-600 hover:bg-neutral-900 transition-colors"
+        title="Cmd/Ctrl+K"
+      >
+        Examples ▾
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-neutral-800 bg-neutral-950 shadow-[0_10px_40px_rgba(0,0,0,0.6)] z-10 overflow-hidden">
+          {Object.entries(grouped).map(([group, items]) => (
+            <div
+              key={group}
+              className="border-b border-neutral-900 last:border-b-0"
+            >
+              <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-neutral-600">
+                {groupLabels?.[group] ?? group}
+              </div>
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onPick(item.id);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-neutral-900 transition-colors"
+                >
+                  <div className="text-[12px] font-mono text-neutral-100">
+                    {item.title}
+                  </div>
+                  <div className="text-[10px] text-neutral-500 mt-0.5 leading-snug">
+                    {item.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

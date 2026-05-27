@@ -246,6 +246,7 @@ function runProject(task: () => ProjectResult): ITtscCompilerResult {
   } catch (error) {
     return {
       error: normalizeError(error),
+      kind: classifyException(error),
       type: "exception",
     };
   }
@@ -259,9 +260,70 @@ function runTransformation(
   } catch (error) {
     return {
       error: normalizeError(error),
+      kind: classifyException(error),
       type: "exception",
     };
   }
+}
+
+/**
+ * Best-effort classifier for the `kind` field of `IException`. Pattern-
+ * matches the real prefixes thrown inside this package:
+ *
+ *   - Plugin: messages from `loadProjectPlugins.ts` / `buildSourcePlugin.ts`
+ *     start with `ttsc: plugin "..."` or `ttsc: package "..." declares ...`,
+ *     and transform-time spawn failures start with `ttsc.transform:` /
+ *     `ttsc.transform.check:`. The Go-toolchain missing envelope also
+ *     surfaces here.
+ *   - Host: everything else under the `ttsc:` umbrella — the bare
+ *     `ttsc:` strings from `paths.ts`, `ttsc: TypeScript-Go executable
+ *     not found` (`resolveTsgo.ts`), `ttsc: failed to spawn native
+ *     compiler host` (`transformProjectInMemory.ts`), and tsconfig /
+ *     extended-tsconfig shapes from `readProjectConfig.ts`.
+ *   - Anything else falls back to `"unknown"` so embedders always see the
+ *     field set per the documented contract.
+ *
+ * Order matters: plugin patterns must run before the generic `ttsc:` test
+ * because every plugin message also starts with `ttsc:`.
+ */
+function classifyException(
+  error: unknown,
+): "plugin" | "host" | "unknown" {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  if (
+    // Match every plugin-origin shape with verb-anchored patterns so a
+    // host-path containing the literal token `plugin` (e.g.
+    // `TTSC_BINARY=/opt/cache/plugins/ttsc-bin`) does not misclassify
+    // as kind="plugin". Each alternative anchors at the start of the
+    // message to capture the verb, not anywhere later in the line:
+    //
+    //   - `ttsc: plugin "..."` / `ttsc: package "..."` — from
+    //     loadProjectPlugins.ts
+    //   - `ttsc: building plugin "..."` / `ttsc: reading go.mod for
+    //     plugin "..."` — from buildSourcePlugin.ts
+    //   - `ttsc.transform:` / `ttsc.transform.check:` — from
+    //     transformProjectInMemory.ts
+    //   - `ttsc-plugin:` — legacy prefix kept for compatibility
+    //   - `go toolchain` — the goToolchainNotFoundMessage envelope
+    /^ttsc:\s*plugin\b|^ttsc:\s*package\b|^ttsc:\s*building plugin\b|^ttsc:\s*reading go\.mod for plugin\b|^ttsc\.transform[.:]|^ttsc-plugin:|go toolchain/i.test(
+      message,
+    )
+  ) {
+    return "plugin";
+  }
+  if (
+    /^ttsc:|tsconfig|extended tsconfig|TypeScript-Go|native compiler host/i.test(
+      message,
+    )
+  ) {
+    return "host";
+  }
+  return "unknown";
 }
 
 function toCompilerResult(project: ProjectResult): ITtscCompilerResult {

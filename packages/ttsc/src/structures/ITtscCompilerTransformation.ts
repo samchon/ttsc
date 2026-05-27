@@ -56,6 +56,18 @@ export namespace ITtscCompilerTransformation {
     /** Indicates that transformation could not complete normally. */
     type: "exception";
 
+    /**
+     * Optional classifier so embedders can branch on the failure mode without
+     * pattern-matching error messages. Omitted when ttsc cannot determine the
+     * origin. Treat as `"unknown"` when missing.
+     *
+     * - `"plugin"`: a native plugin sidecar crashed or exited non-zero.
+     * - `"host"`: the TypeScript-Go host could not start (missing binary,
+     *   cache lock, invalid config).
+     * - `"unknown"`: any other host-level failure.
+     */
+    kind?: "plugin" | "host" | "unknown";
+
     /** Raw error thrown by the ttsc host. */
     error: unknown;
   }

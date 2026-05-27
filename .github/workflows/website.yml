@@ -51,8 +51,14 @@ jobs:
       # The website's `build:compiler` step links against
       # `packages/wasm/dist/wasm_exec.js` and consumes `@ttsc/wasm`'s host
       # helper, so the wasm package must be built before `next build`.
+      # @ttsc/playground is the website worker's `@ttsc/playground` import;
+      # rspack resolves the package via its `main` field (`lib/src/index.js`),
+      # which only exists after `tsgo -p .` runs.
       - name: Build @ttsc/wasm
         run: pnpm --filter @ttsc/wasm build
+
+      - name: Build @ttsc/playground
+        run: pnpm --filter @ttsc/playground build
 
       - name: Build Website
         working-directory: website

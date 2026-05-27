@@ -28,6 +28,7 @@
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@tailwindcss/postcss": "^4.1.13",
+    "@ttsc/playground": "workspace:^",
     "@ttsc/wasm": "workspace:^",
     "@typia/core": "12.0.2",
     "@typia/interface": "12.0.2",
