@@ -16,8 +16,7 @@ declare const act: any;
  * 2. Bind a `render(...)` result to a non-conventional name.
  * 3. Assert the matching diagnostic.
  */
-// @ts-ignore — virtual @testing-library/* import; the lint rule
-// only needs the import shape to activate.
+// @ts-ignore
 import { render } from "@testing-library/react";
 
 declare const node: unknown;

@@ -9,8 +9,7 @@
  * 2. Wait for `not.toBeInTheDocument()` around `screen.getByText(...)`.
  * 3. Assert the matching diagnostic.
  */
-// @ts-ignore — virtual @testing-library/* import; the lint rule
-// only needs the import shape to activate.
+// @ts-ignore
 import { screen, waitFor } from "@testing-library/react";
 
 declare const expect: (value: unknown) => {

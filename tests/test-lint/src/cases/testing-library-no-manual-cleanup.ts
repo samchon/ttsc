@@ -15,8 +15,7 @@ declare const act: any;
  * 2. Call `cleanup()` directly.
  * 3. Assert the matching diagnostic.
  */
-// @ts-ignore — virtual @testing-library/* import; the lint rule
-// only needs the import shape to activate.
+// @ts-ignore
 import { cleanup } from "@testing-library/react";
 
 function testCase() {

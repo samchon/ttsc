@@ -28,10 +28,7 @@ async function catchErrorAnnotation(): Promise<void> {
 // Positive: `.then` second arg with no annotation.
 async function thenSecondArgNoAnnotation(): Promise<void> {
   // expect: typescript/use-unknown-in-catch-callback-variable error
-  getPromise().then(
-    (value) => sideEffect(),
-    (err) => sideEffect(),
-  );
+  getPromise().then((value) => sideEffect(), (err) => sideEffect());
 }
 
 // Negative: `.catch` callback annotated `unknown` — compliant.

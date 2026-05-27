@@ -26,11 +26,10 @@ while (emptyString) {
   break;
 }
 
-// Positive: a `0`-typed binding in a `do ... while` is always falsy.
+// Positive: a `0`-typed binding used as a ternary discriminant is
+// always falsy.
 // expect: typescript/no-unnecessary-condition error
-do {
-  break;
-} while (zero);
+const fromZero = zero ? "yes" : "no";
 
 // Positive: `!` on a non-nullable object — always-truthy operand.
 // expect: typescript/no-unnecessary-condition error

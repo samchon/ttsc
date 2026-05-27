@@ -16,8 +16,7 @@ declare const act: any;
  * 2. Wrap a `fireEvent.click(...)` call in `act(() => ...)`.
  * 3. Assert the matching diagnostic.
  */
-// @ts-ignore — virtual @testing-library/* import; the lint rule
-// only needs the import shape to activate.
+// @ts-ignore
 import { act, fireEvent, screen } from "@testing-library/react";
 
 function testCase() {
