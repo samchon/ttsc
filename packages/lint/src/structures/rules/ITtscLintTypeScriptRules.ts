@@ -273,6 +273,19 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-floating-promises"?: TtscLintRuleSetting;
 
   /**
+   * Reject `for (const k in arr)` where `arr` is statically typed as an
+   * array or tuple.
+   *
+   * Type-aware via the Checker. `for...in` iterates enumerable property
+   * names (yielded as strings, including any inherited or custom-added
+   * members), not array values or numeric indices — almost always a
+   * mistake for `for...of`, `Array#forEach`, or an indexed `for` loop.
+   *
+   * @reference https://typescript-eslint.io/rules/no-for-in-array
+   */
+  "typescript/no-for-in-array"?: TtscLintRuleSetting;
+
+  /**
    * Hoist inline `type` modifiers on individual imports into a single
    * top-level `import type {}`. Autofixable.
    *
@@ -572,6 +585,21 @@ export interface ITtscLintTypeScriptRules {
   "typescript/prefer-optional-chain"?: TtscLintRuleSetting;
 
   /**
+   * Require `arr.sort()` and `arr.toSorted()` calls to pass an
+   * explicit `compareFunction`.
+   *
+   * Without a comparator both methods coerce elements to strings and
+   * sort lexically, so `[10, 2, 1].sort()` returns `[1, 10, 2]` —
+   * almost never the intent. Type-aware via the Checker: only fires
+   * when the receiver is provably an array or tuple, so user-defined
+   * methods named `sort` / `toSorted` on non-array types do not
+   * trigger the rule.
+   *
+   * @reference https://typescript-eslint.io/rules/require-array-sort-compare
+   */
+  "typescript/require-array-sort-compare"?: TtscLintRuleSetting;
+
+  /**
    * Reject `async` functions whose body contains no `await`
    * expression.
    *
@@ -606,6 +634,24 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/triple-slash-reference
    */
   "typescript/triple-slash-reference"?: TtscLintRuleSetting;
+
+  /**
+   * Reject referencing a class instance method as a value instead of
+   * calling it (`obj.method` passed as a callback, aliased to a
+   * variable, or stored on another object).
+   *
+   * Type-aware via the Checker. JavaScript methods are not bound to
+   * their receiver — once extracted, `this` resolves to whatever the
+   * caller supplies (usually `undefined` in strict mode or the host
+   * object the value lands on). Safe positions — immediate call
+   * (`obj.method()`), assignment target, `typeof` / `delete` operand,
+   * `instanceof` / `in` operand, and tagged-template tag — pass
+   * through; static methods are exempt because the constructor is
+   * stably bound.
+   *
+   * @reference https://typescript-eslint.io/rules/unbound-method
+   */
+  "typescript/unbound-method"?: TtscLintRuleSetting;
 
   /**
    * Require the callback parameter of `.catch(...)` and the second

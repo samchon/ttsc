@@ -18,17 +18,39 @@ type boundariesEntryPoint struct{}
 type boundariesNoPrivate struct{}
 type boundariesNoUnknown struct{}
 
+// boundariesDependencies is a v1 stub for the upstream unified
+// `boundaries/dependencies` rule, which replaces the legacy
+// `element-types` / `entry-point` / `external` / `no-private` /
+// `no-unknown` rules with a single direction-aware policy block.
+//
+// The native engine accepts the same `elements` + `rules` config shape so
+// projects can claim the rule id today, but the full direction
+// validation is deferred. Until then this rule registers, decodes
+// options without crashing, and emits no diagnostics.
+type boundariesDependencies struct{}
+
 func (boundariesElementTypes) Name() string { return "boundaries/element-types" }
 func (boundariesExternal) Name() string     { return "boundaries/external" }
 func (boundariesEntryPoint) Name() string   { return "boundaries/entry-point" }
 func (boundariesNoPrivate) Name() string    { return "boundaries/no-private" }
 func (boundariesNoUnknown) Name() string    { return "boundaries/no-unknown" }
+func (boundariesDependencies) Name() string { return "boundaries/dependencies" }
 
 func (boundariesElementTypes) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesExternal) Visits() []shimast.Kind     { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesEntryPoint) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesNoPrivate) Visits() []shimast.Kind    { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesNoUnknown) Visits() []shimast.Kind    { return []shimast.Kind{shimast.KindSourceFile} }
+func (boundariesDependencies) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+
+// Check is intentionally a no-op for the v1 stub. The rule accepts the
+// upstream config shape via the shared `boundariesOptions` decoder so
+// downstream configs type-check and load, then exits without reporting
+// findings. Replace this body when the unified direction validation
+// lands.
+func (boundariesDependencies) Check(ctx *Context, node *shimast.Node) {
+	_ = decodeBoundariesOptions(ctx)
+}
 
 func (boundariesElementTypes) Check(ctx *Context, node *shimast.Node) {
 	opts := decodeBoundariesOptions(ctx)
@@ -506,4 +528,5 @@ func init() {
 	Register(boundariesEntryPoint{})
 	Register(boundariesNoPrivate{})
 	Register(boundariesNoUnknown{})
+	Register(boundariesDependencies{})
 }

@@ -61,6 +61,8 @@ func (r solidRule) Check(ctx *Context, node *shimast.Node) {
     state.reportSelfClosing(ctx)
   case "style-prop":
     state.reportStyleProp(ctx)
+  case "validate-jsx-nesting":
+    state.reportValidateJSXNesting(ctx)
   }
 }
 
@@ -578,6 +580,111 @@ func (s *solidState) reportStyleProp(ctx *Context) {
   }
 }
 
+// reportValidateJSXNesting flags JSX elements nested in HTML-illegal ways.
+//
+// The HTML parsing algorithm aborts certain nestings (a `<p>` inside another
+// `<p>`, a `<div>` inside `<p>`, an anchor inside an anchor, an interactive
+// inside `<button>`) and silently restructures the DOM at runtime, so the
+// rendered tree never matches the JSX. The baseline subset matches the
+// upstream `solid/validate-jsx-nesting` rule's HTML5 phrasing-content and
+// interactive-content checks; anything more nuanced (transparent content
+// models, table-section sequencing) is left to the upstream rule.
+//
+// For each container element of interest the rule scans descendants until it
+// crosses into another function boundary, and reports each forbidden child at
+// the offending element so the diagnostic points at the inner tag rather than
+// the outer container.
+func (s *solidState) reportValidateJSXNesting(ctx *Context) {
+  for _, opening := range s.jsxOpenings {
+    parentTag := strings.ToLower(solidJSXOpeningTag(opening))
+    forbidden := solidJSXForbiddenChildren(parentTag)
+    if len(forbidden) == 0 {
+      continue
+    }
+    container := opening.Parent
+    if container == nil || container.Kind != shimast.KindJsxElement {
+      continue
+    }
+    elem := container.AsJsxElement()
+    if elem == nil || elem.Children == nil {
+      continue
+    }
+    for _, child := range elem.Children.Nodes {
+      solidWalkJSXChildren(child, func(child *shimast.Node) {
+        childOpening := solidJSXChildOpening(child)
+        if childOpening == nil {
+          return
+        }
+        childTag := strings.ToLower(solidJSXOpeningTag(childOpening))
+        if !forbidden[childTag] {
+          return
+        }
+        ctx.Report(childOpening, "JSX <"+childTag+"> cannot be nested inside <"+parentTag+">.")
+      })
+    }
+  }
+}
+
+// solidJSXForbiddenChildren returns the set of HTML tag names that may not
+// appear as descendants of the given container tag. Tag names are lower-case
+// because HTML element nesting is case-insensitive.
+func solidJSXForbiddenChildren(parent string) map[string]bool {
+  switch parent {
+  case "p":
+    return map[string]bool{
+      "div": true, "p": true, "table": true, "form": true,
+      "ul": true, "ol": true, "dl": true, "hr": true,
+      "pre": true, "blockquote": true,
+    }
+  case "a":
+    return map[string]bool{"a": true}
+  case "button":
+    return map[string]bool{
+      "button": true, "input": true,
+      "select": true, "textarea": true,
+    }
+  }
+  return nil
+}
+
+// solidJSXChildOpening returns the opening node of a JSX child if the child
+// is itself a JSX element. Self-closing elements are their own opening node;
+// element/fragment containers expose the opening through `OpeningElement`.
+func solidJSXChildOpening(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindJsxElement:
+    elem := node.AsJsxElement()
+    if elem == nil {
+      return nil
+    }
+    return elem.OpeningElement
+  case shimast.KindJsxSelfClosingElement:
+    return node
+  }
+  return nil
+}
+
+// solidWalkJSXChildren visits every JSX-descendant of node, stopping at
+// function boundaries so the outer container does not own JSX rendered inside
+// a nested component. JSX expression containers are entered so JSX returned
+// from `{cond ? <a /> : <b />}` is still inspected.
+func solidWalkJSXChildren(node *shimast.Node, visit func(*shimast.Node)) {
+  if node == nil {
+    return
+  }
+  visit(node)
+  if solidIsFunction(node) {
+    return
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    solidWalkJSXChildren(child, visit)
+    return false
+  })
+}
+
 func (s *solidState) callName(call *shimast.CallExpression) string {
   if call == nil {
     return ""
@@ -959,6 +1066,7 @@ func init() {
     "reactivity",
     "self-closing-comp",
     "style-prop",
+    "validate-jsx-nesting",
   } {
     Register(solidRule{name: name})
   }

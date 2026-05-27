@@ -104,3 +104,25 @@ export type ITtscLintBoundariesNoPrivateRuleOptions =
 /** `boundaries/no-unknown` rule options. */
 export type ITtscLintBoundariesNoUnknownRuleOptions =
   ITtscLintBoundariesElementsOptions;
+
+/**
+ * `boundaries/dependencies` rule options.
+ *
+ * The upstream unified rule subsumes `element-types`, `entry-point`,
+ * `external`, `no-private`, and `no-unknown` behind a single
+ * direction-aware policy block. The v1 native port registers the rule
+ * name and decodes this config shape but does not yet emit diagnostics
+ * (`v1 stub; full validation deferred` — see `rules_boundaries.go`).
+ */
+export interface ITtscLintBoundariesDependenciesRuleOptions
+  extends ITtscLintBoundariesElementsOptions {
+  /**
+   * Fallback policy when no rule matches.
+   *
+   * @default "allow"
+   */
+  default?: "allow" | "disallow";
+
+  /** Ordered dependency policies. First matching policy wins. */
+  rules?: readonly ITtscLintBoundariesElementTypesRule[];
+}

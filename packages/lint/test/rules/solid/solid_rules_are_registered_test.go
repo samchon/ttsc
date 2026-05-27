@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 /**
- * Verifies solid rule family: registers the 20 eslint-plugin-solid rule ids.
+ * Verifies solid rule family: registers the 21 eslint-plugin-solid rule ids.
  *
  * Locks the public `solid/*` rule surface before individual behavior tests cover
  * representative AST-only patterns. A missing registration would make user
@@ -35,6 +35,7 @@ func TestSolidRulesAreRegistered(t *testing.T) {
     "reactivity",
     "self-closing-comp",
     "style-prop",
+    "validate-jsx-nesting",
   }
   for _, name := range names {
     if LookupRule("solid/"+name) == nil {

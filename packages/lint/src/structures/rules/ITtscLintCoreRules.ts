@@ -874,6 +874,17 @@ export interface ITtscLintCoreRules {
   "no-useless-rename"?: TtscLintRuleSetting;
 
   /**
+   * Reject a bare `return;` whose only effect is to end a function
+   * body that would have returned anyway. The conservative baseline
+   * only fires on the last statement of a function-like's immediate
+   * body — earlier `return;` inside a branch or loop may still be
+   * load-bearing.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-useless-return
+   */
+  "no-useless-return"?: TtscLintRuleSetting;
+
+  /**
    * Reject `var` declarations.
    *
    * Use `let` for mutable bindings and `const` for immutable ones.

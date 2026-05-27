@@ -29,6 +29,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/no-extra-non-null-assertion` — Reject `x!!` — chained non-null assertions where the inner one already removes nullability.
 - `typescript/no-extraneous-class` — Reject classes that exist purely as a namespace for static members or that are entirely empty.
 - `typescript/no-floating-promises` — Reject Promise-typed expressions whose result is discarded — most often a bare `getPromise();` expression statement.
+- `typescript/no-for-in-array` — Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple — `for...in` yields enumerable property names, not array values.
 - `typescript/no-import-type-side-effects` — Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`.
 - `typescript/no-inferrable-types` — Reject explicit type annotations that TypeScript can already infer from the initializer (`const x: number = 1`).
 - `typescript/no-invalid-void-type` — Reject `void` used as anything other than a function return type.

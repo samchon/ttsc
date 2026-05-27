@@ -1,4 +1,5 @@
 import type {
+  ITtscLintBoundariesDependenciesRuleOptions,
   ITtscLintBoundariesElementTypesRuleOptions,
   ITtscLintBoundariesEntryPointRuleOptions,
   ITtscLintBoundariesExternalRuleOptions,
@@ -75,4 +76,20 @@ export interface ITtscLintBoundariesRules {
    * @reference https://github.com/javierbrea/eslint-plugin-boundaries/blob/master/docs/rules/no-unknown.md
    */
   "boundaries/no-unknown"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesNoUnknownRuleOptions>;
+
+  /**
+   * Unified dependency-direction rule from upstream
+   * `eslint-plugin-boundaries`, intended to replace
+   * `element-types` / `entry-point` / `external` / `no-private` /
+   * `no-unknown` with a single policy block.
+   *
+   * The native port registers the rule name and accepts the same
+   * `elements` + `rules` config shape as `element-types`, but does not
+   * emit diagnostics yet (v1 stub; full direction validation
+   * deferred). Configure it today to claim the upstream rule id; the
+   * legacy split rules continue to enforce policy.
+   *
+   * @reference https://github.com/javierbrea/eslint-plugin-boundaries/blob/master/docs/rules/dependencies.md
+   */
+  "boundaries/dependencies"?: TtscLintRuleOptionsSetting<ITtscLintBoundariesDependenciesRuleOptions>;
 }

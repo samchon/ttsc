@@ -189,4 +189,14 @@ export interface ITtscLintSolidRules {
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/style-prop.md
    */
   "solid/style-prop"?: TtscLintRuleSetting;
+
+  /**
+   * Reject JSX nestings that the HTML parser would silently restructure
+   * at runtime — `<p>` cannot contain block-level children, `<a>` cannot
+   * contain another `<a>`, and `<button>` cannot contain other
+   * interactive elements.
+   *
+   * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/validate-jsx-nesting.md
+   */
+  "solid/validate-jsx-nesting"?: TtscLintRuleSetting;
 }
