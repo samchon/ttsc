@@ -589,10 +589,19 @@ func (noUnsafeOptionalChaining) Check(ctx *Context, node *shimast.Node) {
 // receiverEndsWithOptionalChain reports whether the receiver expression
 // terminates in an optional `?.` operator. If so, the result of the
 // receiver may be undefined and subsequent member access is unsafe.
+// A non-null assertion (`!`) does NOT make the access safe — at lint
+// time the developer is suppressing the static-undefined warning, but
+// at runtime the chain still resolves to undefined when the optional
+// link short-circuits, so we look through `NonNullExpression` too.
 func receiverEndsWithOptionalChain(node *shimast.Node) bool {
 	node = stripParens(node)
 	if node == nil {
 		return false
+	}
+	if node.Kind == shimast.KindNonNullExpression {
+		if nn := node.AsNonNullExpression(); nn != nil {
+			return receiverEndsWithOptionalChain(nn.Expression)
+		}
 	}
 	switch node.Kind {
 	case shimast.KindPropertyAccessExpression:

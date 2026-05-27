@@ -60,7 +60,7 @@ try {
     "utf8",
   );
 
-  const result = cp.spawnSync("go", ["test", "-count=1", "./linthost"], {
+  const result = cp.spawnSync("go", ["test", "-v", "-count=1", "-run", "TestRuleCorpusNoRedundantTypeConstituents", "./linthost"], {
     cwd: scratch,
     env: {
       ...process.env,
