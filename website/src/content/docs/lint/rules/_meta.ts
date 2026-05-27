@@ -21,6 +21,7 @@ const meta: MetaRecord = {
   "tanstack-query": "TanStack Query",
   "testing-library": "Testing Library",
   typescript: "TypeScript",
+  unicorn: "Unicorn",
   vitest: "Vitest",
 };
 export default meta;
