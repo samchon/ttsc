@@ -41,13 +41,16 @@ func (noUselessEscape) Check(ctx *Context, node *shimast.Node) {
   if isInsideTaggedTemplate(node) {
     return
   }
-  src := ctx.File.Text()
-  pos := node.Pos()
-  end := node.End()
-  if pos < 0 || end > len(src) || pos >= end {
+  // tsgo's `node.Pos()` points at the start of leading trivia; the regex
+  // scanner relies on `raw[0] == '/'`, so we have to anchor on the
+  // post-trivia token start. String/template scans tolerate leading
+  // trivia bytes by accident, but using `tokenRange` for every branch
+  // keeps reported offsets aligned with the actual literal.
+  pos, end := tokenRange(ctx.File, node)
+  if pos < 0 || pos >= end {
     return
   }
-  raw := src[pos:end]
+  raw := ctx.File.Text()[pos:end]
   // Determine quote/scan delimiters based on node kind so the
   // single-char escape whitelist matches ESLint per-context.
   switch node.Kind {
@@ -66,12 +69,18 @@ func (noUselessEscape) Check(ctx *Context, node *shimast.Node) {
 const stringValidEscapes = "'\"\\bfnrtv0xuU\n\r"
 const templateValidEscapes = "`'\"\\bfnrtv0xuU$\n\r"
 
-// regexValidEscapes covers characters that are *always* meaningful when
-// preceded by `\` in a regex pattern. Character classes and group syntax
-// inside a regex add more legitimate escapes (`\d`, `\w`, …); we handle
-// those by allowing every ASCII letter (which makes the fix conservative
-// — it never deletes a backslash whose meaning could be context-sensitive).
-const regexValidEscapes = "^$\\.*+?()[]{}|/-\n\r"
+// regexNonClassValidEscapes covers characters that are meaningful when
+// preceded by `\` outside a character class — every regex meta-char plus
+// the line terminators. Inside a `[...]` most of these characters lose
+// their special meaning (`.`, `*`, `+`, `?`, `(`, `)`, `{`, `}`, `|`, `$`,
+// `/` are all literal in a class), so the in-class allowlist is narrower:
+// backslash, the class-delimiting `]`, the range operator `-`, and `^`
+// (which would otherwise turn the class into a negation if the escape
+// were stripped). Standard shorthand escapes (`\d`, `\w`, …) and the
+// Unicode/hex/control escapes are handled separately in
+// `isUselessRegexEscape` and apply in both contexts.
+const regexNonClassValidEscapes = "^$\\.*+?()[]{}|/-\n\r"
+const regexClassValidEscapes = "\\]-^\n\r"
 
 // reportStringEscapes walks the raw source bytes of a string or template
 // literal and reports each backslash whose following character is not in
@@ -212,28 +221,39 @@ func isUselessStringEscape(ch byte, whitelist string) bool {
 
 // isUselessRegexEscape reports whether a backslash before `ch` is redundant
 // in a regex pattern. `inClass` is true when the escape occurs inside a `[…]`
-// character class, which widens the set of meaningful escapes.
+// character class, which narrows the set of meaningful meta-char escapes:
+// most regex meta-chars (`.`, `*`, `+`, `?`, `(`, `)`, `{`, `}`, `|`, `^`,
+// `$`, `/`) are literal inside a class, so escaping them there is noise.
 func isUselessRegexEscape(ch byte, inClass bool) bool {
   if ch < 0x20 {
     return false
   }
-  // Regex meta-chars and their friends.
-  if strings.IndexByte(regexValidEscapes, ch) >= 0 {
-    return false
-  }
-  // Inside a character class `]`, `\`, and `-` are still meaningful
-  // beyond the always-list; everything else stays useless.
   if inClass {
-    switch ch {
-    case ']', '\\', '-', 'b':
+    if strings.IndexByte(regexClassValidEscapes, ch) >= 0 {
       return false
     }
-  }
-  // Common regex shorthand: \d \D \w \W \s \S \b \B \f \n \r \t \v \0
-  switch ch {
-  case 'd', 'D', 'w', 'W', 's', 'S', 'b', 'B', 'f', 'n', 'r', 't', 'v', '0',
-    'x', 'u', 'c', 'p', 'P', 'k', 'q':
+  } else if strings.IndexByte(regexNonClassValidEscapes, ch) >= 0 {
     return false
+  }
+  // Common regex shorthand: \d \D \w \W \s \S \b \f \n \r \t \v \0 \x \u \c \p \P,
+  // plus decimal back-references \1..\9. `\B` (non-word-boundary) and `\k<name>`
+  // (named backref) are only meaningful outside a character class; `\q{...}` is
+  // a v-flag string-disjunction escape that is also class-only-meaningful.
+  switch ch {
+  case 'd', 'D', 'w', 'W', 's', 'S', 'b', 'f', 'n', 'r', 't', 'v', '0',
+    'x', 'u', 'c', 'p', 'P',
+    '1', '2', '3', '4', '5', '6', '7', '8', '9':
+    return false
+  }
+  if !inClass {
+    switch ch {
+    case 'B', 'k':
+      return false
+    }
+  } else {
+    if ch == 'q' {
+      return false
+    }
   }
   return true
 }
