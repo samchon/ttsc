@@ -5,20 +5,8 @@
 // (`host/`) is shipped alongside on disk but loaded via `go build`, not
 // imported from JS.
 
-export { bootTtsc } from "./instantiate";
-export type { IBootTtscOptions, IBootResult } from "./instantiate";
-
-export { createMemFS, MemFSError } from "./MemFS";
-export type { IMemFSHost, IWasmExecFS, IFileStats } from "./MemFS";
-
-export type {
-  ITtscApi,
-  ITtscVersion,
-  ITtscBuildOpts,
-  ITtscPluginOpts,
-  ITtscResult,
-  ITtscCompileResult,
-  ITtscTransformResult,
-  ITtscDiagnostic,
-} from "./api";
-export { parseResult } from "./api";
+export * from "./bootTtsc";
+export * from "./createMemFS";
+export * from "./MemFSError";
+export * from "./parseResult";
+export * from "./structures/index";

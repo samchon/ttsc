@@ -7,38 +7,13 @@
 // The boot helper is parameterized by `apiName` so any wasm built with
 // `host.Expose(...)` can be loaded the same way. The base wasm uses "ttsc";
 // downstream consumers pick their own (e.g. "ttscPlayground", "ttscTypia").
-import { type IMemFSHost, createMemFS } from "./MemFS";
-import type { ITtscApi } from "./api";
+
+import { createMemFS } from "./createMemFS";
+import type { IBootResult } from "./structures/IBootResult";
+import type { IBootTtscOptions } from "./structures/IBootTtscOptions";
+import type { ITtscApi } from "./structures/ITtscApi";
 
 declare const importScripts: (...urls: string[]) => void;
-
-/** Options for `bootTtsc`. All fields except `wasmUrl` have sensible defaults. */
-export interface IBootTtscOptions {
-  /** URL of the .wasm to fetch. */
-  wasmUrl: string;
-  /** URL of wasm_exec.js. Defaults to the same directory as wasmUrl. */
-  wasmExecUrl?: string;
-  /**
-   * GlobalThis property name the wasm binds. Must match the value the wasm was
-   * built with (the `apiName` passed to `host.Expose`). Defaults to "ttsc".
-   */
-  apiName?: string;
-  /**
-   * Optional pre-existing MemFS host. When omitted, a fresh one is created and
-   * stored on the returned BootResult. Pass an existing host when you want to
-   * boot multiple wasms over the same filesystem (e.g. base ttsc + a typia
-   * wasm) so they share project sources.
-   */
-  host?: IMemFSHost;
-}
-
-/** Handle returned by `bootTtsc` once the wasm is ready. */
-export interface IBootResult {
-  /** The typed API proxy bound by the wasm to `globalThis[apiName]`. */
-  api: ITtscApi;
-  /** The MemFS instance shared with the wasm's virtual filesystem. */
-  host: IMemFSHost;
-}
 
 /** Boot a host-built wasm. Re-entrant only if you reuse the same `host`. */
 export async function bootTtsc(
@@ -112,8 +87,8 @@ interface IGoInstance {
  *
  * Go's js/wasm bridge reads `process.pid`, `process.ppid`, and calls
  * `process.cwd()`. `getuid`/`getgid` and friends return `-1` (root-less).
- * `umask` and `getgroups` are never exercised by the compiler but are included
- * for completeness so unexpected calls surface as clear errors.
+ * `umask` and `getgroups` are never exercised by the compiler but are
+ * included for completeness so unexpected calls surface as clear errors.
  */
 function createProcessShim(): Record<string, unknown> {
   return {

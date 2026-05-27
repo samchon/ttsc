@@ -121,6 +121,63 @@ binding; pick a unique `apiName` per binary. `bootTtsc` also installs shared
 `fs` and `process` globals in its Worker, so use separate Workers when binaries
 need independent filesystems.
 
+## Fountain API (snapshot, AST, type checker)
+
+For embedders that want `embed-typescript`-style raw access to the program — diagnostics, AST nodes, the type checker at a position — the same `globalThis[apiName]` object also exposes fountain verbs. They share the standard `{code, stdout, stderr, result}` envelope; `result` is JSON.
+
+```ts
+import { bootTtsc, parseResult } from "@ttsc/wasm";
+import type {
+  ITtscSnapshotResult,
+  ITtscTypeAtPositionResult,
+} from "@ttsc/wasm";
+
+const { api, host } = await bootTtsc({ wasmUrl, apiName });
+
+host.writeFile("/work/tsconfig.json", "{}");
+host.writeFile("/work/src/index.ts", "export const x: number = 1;");
+
+const snap = parseResult<ITtscSnapshotResult>(
+  await api.snapshot({ cwd: "/work" }),
+);
+const handle = snap!.handle;
+
+try {
+  const typeAt = parseResult<ITtscTypeAtPositionResult>(
+    await api.getTypeAtPosition({
+      handle,
+      path: "src/index.ts",
+      position: 18, // byte offset of `x`
+    }),
+  );
+  console.log(typeAt?.type?.text); // → "number"
+} finally {
+  await api.releaseSnapshot({ handle });
+}
+```
+
+Verbs and payload types:
+
+| Verb | Payload type |
+| ---- | ------------ |
+| `snapshot({ cwd, tsconfig? })` | `ITtscSnapshotResult` `{ handle }` |
+| `releaseSnapshot({ handle })` | `ITtscReleaseSnapshotResult` `{ released }` |
+| `snapshots()` | `ITtscSnapshotsResult` `{ handles }` |
+| `getSourceFiles({ handle })` | `ITtscSourceFilesResult` `{ files }` |
+| `getSourceFileText({ handle, path })` | `ITtscSourceFileTextResult` `{ text }` |
+| `getDiagnostics({ handle, file? })` | `ITtscFountainDiagnosticsResult` `{ diagnostics }` |
+| `getNodeAtPosition({ handle, path, position })` | `ITtscNodeAtPositionResult` `{ node }` |
+| `getTypeAtPosition({ handle, path, position })` | `ITtscTypeAtPositionResult` `{ type }` |
+| `getSymbolAtPosition({ handle, path, position })` | `ITtscSymbolAtPositionResult` `{ symbol }` |
+
+`position` is a **byte offset** into the source text — the same coordinate
+TypeScript-Go uses internally. JS callers that have a UTF-16 `(line,
+character)` pair (e.g. from Monaco) must convert it before calling.
+
+**Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST,
+checker pool lease, every source file) alive until you call
+`releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
+
 ## Plugin contract
 
 `host.Plugin` matches ttsc's existing CLI sidecar dispatch:

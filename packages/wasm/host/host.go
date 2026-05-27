@@ -73,6 +73,9 @@ func Expose(apiName string, cfg Config) {
     "plugin":    js.FuncOf(jsPluginDispatch(plugins)),
     "plugins":   js.FuncOf(jsPluginsList(pluginNames)),
   }
+  for verb, fn := range fountainAPIMap() {
+    api[verb] = fn
+  }
   js.Global().Set(apiName, js.ValueOf(api))
 
   if ready := js.Global().Get(apiName + "Ready"); ready.Type() == js.TypeFunction {
