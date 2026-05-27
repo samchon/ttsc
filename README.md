@@ -169,6 +169,34 @@ const matched = (() => {
 console.log(matched); // true
 ```
 
+## Programmatic API
+
+Embed `ttsc` from another Node tool with the `TtscCompiler` class:
+
+```ts
+import { TtscCompiler } from "ttsc";
+
+const compiler = new TtscCompiler({ cwd: "./project" });
+const result = compiler.compile();
+
+if (result.type === "success") {
+  for (const [path, text] of Object.entries(result.output)) {
+    // path is project-relative ("dist/index.js", "dist/index.d.ts", ...)
+    console.log(path, text.length);
+  }
+} else if (result.type === "failure") {
+  for (const d of result.diagnostics) {
+    console.error(`${d.file}:${d.line}:${d.character} ${d.messageText}`);
+  }
+}
+```
+
+See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full
+lifecycle, plugin overrides, and patterns. For browser embedding, see
+[`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and
+the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground)
+package.
+
 ### List of Plugins
 
 `ttsc` ships a few small utility plugins in this repository.
