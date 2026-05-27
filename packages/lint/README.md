@@ -797,35 +797,6 @@ Source: [`eslint-plugin-promise`](https://github.com/eslint-community/eslint-plu
 - [`promise/spec-only`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/promise-spec-only.ts): reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`, or library-specific extensions shimmed onto the global.
 - [`promise/valid-params`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/promise-valid-params.ts): enforce the argument counts the Promise spec defines for each method.
 
-### Regular expressions
-
-Regex-shape rules. Check the structure of regex literals — emptiness, uselessness, flag ordering, shorthand classes, Unicode support. Some rules supersede the regex-related rules in [ESLint core](#eslint-core); both ids exist so projects can keep the legacy ESLint names alongside the regexp-plugin variants.
-
-Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-regexp).
-
-- [`regexp/no-control-character`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-control-character.ts): reject control characters (`\x00`–`\x1F`) embedded in regex literals.
-- [`regexp/no-dupe-characters-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-dupe-characters-character-class.ts): reject duplicate literal characters inside simple regex character classes (`/[aa]/`).
-- [`regexp/no-empty-alternative`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-alternative.ts): reject empty alternatives in a disjunction (`/a||b/`).
-- [`regexp/no-empty-capturing-group`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-capturing-group.ts): reject empty capturing groups such as `/()/`.
-- [`regexp/no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-character-class.ts): reject empty regex character classes (`[]`).
-- [`regexp/no-empty-group`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-group.ts): reject empty non-capturing groups such as `/(?:)/`.
-- [`regexp/no-empty-lookarounds-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-lookarounds-assertion.ts): reject empty lookaround assertions such as `/(?=)/` or `/(?!)/`.
-- [`regexp/no-misleading-unicode-character`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-misleading-unicode-character.ts): reject misleading Unicode characters in regex classes.
-- [`regexp/no-useless-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-character-class.ts): reject single-character character classes such as `/[x]/`.
-- [`regexp/no-useless-escape`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-escape.ts): reject unnecessary escapes inside regex literals.
-- [`regexp/no-useless-flag`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-flag.ts): reject regex flags that the literal does not exercise.
-- [`regexp/no-useless-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-quantifier.ts): reject quantifiers that do not change the match.
-- [`regexp/no-useless-two-nums-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-two-nums-quantifier.ts): reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
-- [`regexp/no-zero-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-zero-quantifier.ts): reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`).
-- [`regexp/prefer-d`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-d.ts): prefer `\d` over `[0-9]` in regex literals.
-- [`regexp/prefer-plus-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-plus-quantifier.ts): prefer `+` over `{1,}` in regex literals.
-- [`regexp/prefer-question-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-question-quantifier.ts): prefer `?` over `{0,1}` in regex literals.
-- [`regexp/prefer-star-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-star-quantifier.ts): prefer `*` over `{0,}` in regex literals.
-- [`regexp/prefer-w`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-w.ts): prefer `\w` over `[A-Za-z0-9_]` in regex literals.
-- [`regexp/require-unicode-regexp`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-require-unicode-regexp.ts): require regex literals to use the `u` or `v` flag.
-- [`regexp/require-unicode-sets-regexp`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-require-unicode-sets-regexp.ts): require regex literals to use the `v` flag specifically.
-- [`regexp/sort-flags`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-sort-flags.ts): require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
-
 ### Unicorn
 
 Modernization and style rules spanning array iteration, string and regex idioms, Node.js APIs, error handling, module syntax, DOM APIs, and code shape. Rewrite legacy patterns into their modern counterparts (`for...of` over `forEach`, `Array#flatMap` over `map().flat()`, `String#replaceAll` over a global-regex `replace`, `Math.trunc` over `| 0`), forbid known anti-patterns (`null` literals, abusive `eslint-disable`, `new Buffer`, `process.exit`, `instanceof Array`), and pin a consistent style for things [ESLint core](#eslint-core) and [TypeScript](#typescript) leave underspecified (filename case, numeric separators, catch-binding names, expiring TODOs, escape-sequence case, switch-case braces). Pure-AST; no checker dependencies.
@@ -978,6 +949,35 @@ Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-
 - [`unicorn/template-indent`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-template-indent.ts): re-indent the body of tagged template literals (`html`, `gql`, `sql`) to the indentation of the opening backtick.
 - [`unicorn/text-encoding-identifier-case`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-text-encoding-identifier-case.ts): enforce a canonical case for text-encoding identifiers — `"utf-8"` (not `"UTF-8"` / `"utf8"`).
 - [`unicorn/throw-new-error`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-throw-new-error.ts): require `throw new Error(...)` over `throw Error(...)`.
+
+### Regular expressions
+
+Regex-shape rules. Check the structure of regex literals — emptiness, uselessness, flag ordering, shorthand classes, Unicode support. Some rules supersede the regex-related rules in [ESLint core](#eslint-core); both ids exist so projects can keep the legacy ESLint names alongside the regexp-plugin variants.
+
+Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-regexp).
+
+- [`regexp/no-control-character`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-control-character.ts): reject control characters (`\x00`–`\x1F`) embedded in regex literals.
+- [`regexp/no-dupe-characters-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-dupe-characters-character-class.ts): reject duplicate literal characters inside simple regex character classes (`/[aa]/`).
+- [`regexp/no-empty-alternative`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-alternative.ts): reject empty alternatives in a disjunction (`/a||b/`).
+- [`regexp/no-empty-capturing-group`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-capturing-group.ts): reject empty capturing groups such as `/()/`.
+- [`regexp/no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-character-class.ts): reject empty regex character classes (`[]`).
+- [`regexp/no-empty-group`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-group.ts): reject empty non-capturing groups such as `/(?:)/`.
+- [`regexp/no-empty-lookarounds-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-empty-lookarounds-assertion.ts): reject empty lookaround assertions such as `/(?=)/` or `/(?!)/`.
+- [`regexp/no-misleading-unicode-character`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-misleading-unicode-character.ts): reject misleading Unicode characters in regex classes.
+- [`regexp/no-useless-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-character-class.ts): reject single-character character classes such as `/[x]/`.
+- [`regexp/no-useless-escape`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-escape.ts): reject unnecessary escapes inside regex literals.
+- [`regexp/no-useless-flag`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-flag.ts): reject regex flags that the literal does not exercise.
+- [`regexp/no-useless-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-quantifier.ts): reject quantifiers that do not change the match.
+- [`regexp/no-useless-two-nums-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-useless-two-nums-quantifier.ts): reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
+- [`regexp/no-zero-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-no-zero-quantifier.ts): reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`).
+- [`regexp/prefer-d`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-d.ts): prefer `\d` over `[0-9]` in regex literals.
+- [`regexp/prefer-plus-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-plus-quantifier.ts): prefer `+` over `{1,}` in regex literals.
+- [`regexp/prefer-question-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-question-quantifier.ts): prefer `?` over `{0,1}` in regex literals.
+- [`regexp/prefer-star-quantifier`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-star-quantifier.ts): prefer `*` over `{0,}` in regex literals.
+- [`regexp/prefer-w`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-prefer-w.ts): prefer `\w` over `[A-Za-z0-9_]` in regex literals.
+- [`regexp/require-unicode-regexp`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-require-unicode-regexp.ts): require regex literals to use the `u` or `v` flag.
+- [`regexp/require-unicode-sets-regexp`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-require-unicode-sets-regexp.ts): require regex literals to use the `v` flag specifically.
+- [`regexp/sort-flags`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/regexp-sort-flags.ts): require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
 
 ### Security
 

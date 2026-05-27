@@ -2,7 +2,7 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  boundaries: "Architecture boundaries",
+  boundaries: "Boundaries",
   core: "Core",
   cypress: "Cypress",
   functional: "Functional",
