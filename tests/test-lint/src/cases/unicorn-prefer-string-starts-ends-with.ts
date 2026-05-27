@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/prefer-string-starts-ends-with not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const s: string;
+// expect: unicorn/prefer-string-starts-ends-with error
+const b = s.slice(0, 4) === "http";

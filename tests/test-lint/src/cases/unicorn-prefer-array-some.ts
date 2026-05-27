@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/prefer-array-some not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const xs = [1, 2, 3];
+// expect: unicorn/prefer-array-some error
+const any = xs.filter((x) => x > 1).length > 0;

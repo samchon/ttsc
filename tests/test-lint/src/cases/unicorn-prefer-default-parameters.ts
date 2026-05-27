@@ -1,1 +1,5 @@
-// @ttsc-corpus-skip: unicorn/prefer-default-parameters not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+function f(name?: string) {
+  // expect: unicorn/prefer-default-parameters error
+  name = name ?? "guest";
+  return name;
+}
