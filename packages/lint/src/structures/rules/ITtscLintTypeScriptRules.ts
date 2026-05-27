@@ -473,6 +473,20 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-wrapper-object-types"?: TtscLintRuleSetting;
 
   /**
+   * Reject `x as Foo` assertions whose target type is the non-nullable
+   * version of `x`'s static type — replace with the shorter `x!`
+   * non-null assertion.
+   *
+   * Type-aware via the Checker. Fires when the source expression's
+   * static type is `Foo | null`, `Foo | undefined`, or
+   * `Foo | null | undefined`, and the asserted type equals the
+   * non-nullable subset.
+   *
+   * @reference https://typescript-eslint.io/rules/non-nullable-type-assertion-style
+   */
+  "typescript/non-nullable-type-assertion-style"?: TtscLintRuleSetting;
+
+  /**
    * Reject `throw X` where `X` is statically known not to derive from
    * `Error` — string literals, numbers, plain object literals, and the
    * like.

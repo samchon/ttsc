@@ -1,0 +1,19 @@
+# Vitest
+
+Vitest test source rules from `@vitest/eslint-plugin`. Vitest reuses much of Jest's testing surface but ships its own runner and configuration. These rules mirror the ergonomic subset of `eslint-plugin-jest` adapted for Vitest semantics — focused tests, identical titles, conditional logic, valid `expect` shape.
+
+Source: [`@vitest/eslint-plugin`](https://github.com/vitest-dev/eslint-plugin-vitest) (MIT).
+
+- `vitest/expect-expect` — Require every Vitest test body to contain at least one `expect(...)` call.
+- `vitest/no-conditional-expect` — Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Vitest tests.
+- `vitest/no-conditional-tests` — Reject `test(...)`/`it(...)` declarations inside loops or `if` branches.
+- `vitest/no-disabled-tests` — Reject `test.skip`, `it.skip`, `describe.skip`, and `.todo` variants.
+- `vitest/no-done-callback` — Reject `done` callback parameters in Vitest tests and lifecycle hooks.
+- `vitest/no-focused-tests` — Reject `test.only`, `it.only`, and `describe.only`.
+- `vitest/no-identical-title` — Reject duplicate Vitest test or `describe` titles within the same suite scope.
+- `vitest/no-standalone-expect` — Reject `expect(...)` calls outside Vitest tests and hooks.
+- `vitest/no-test-return-statement` — Reject `return` statements that return non-Promise values from a Vitest test callback.
+- `vitest/prefer-to-have-length` — Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` with `toBe`.
+- `vitest/valid-describe-callback` — Validate the shape of Vitest `describe` callbacks.
+- `vitest/valid-expect` — Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
+- `vitest/valid-title` — Require non-empty static Vitest test and `describe` titles.

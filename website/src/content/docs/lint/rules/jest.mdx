@@ -1,0 +1,25 @@
+# Jest
+
+Jest test source rules from `eslint-plugin-jest`. Apply to TypeScript test files that use the Jest runner (`describe`, `test`/`it`, `expect`, lifecycle hooks). They guard test-quality patterns the type system cannot detect — unended assertions, focused tests left behind, duplicate hook calls.
+
+Source: [`eslint-plugin-jest`](https://github.com/jest-community/eslint-plugin-jest) (MIT).
+
+- `jest/expect-expect` — Require every Jest test body to contain at least one `expect(...)` call.
+- `jest/max-expects` — Limit the number of `expect(...)` calls inside a single Jest test body.
+- `jest/no-conditional-expect` — Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Jest tests.
+- `jest/no-conditional-in-test` — Reject conditional logic (`if`/`switch`/ternary) inside Jest test bodies.
+- `jest/no-disabled-tests` — Reject `test.skip`, `xit`, `xdescribe`, and other disabled Jest tests.
+- `jest/no-done-callback` — Reject `done` callback parameters in Jest tests and hooks.
+- `jest/no-duplicate-hooks` — Reject duplicate setup/teardown hook calls (`beforeEach`/`beforeAll`/etc.) within the same `describe` block.
+- `jest/no-export` — Reject `export` declarations in Jest test files.
+- `jest/no-focused-tests` — Reject `test.only`, `fit`, `fdescribe`, and other focused Jest tests.
+- `jest/no-hooks` — Reject Jest setup/teardown hooks altogether.
+- `jest/no-identical-title` — Reject duplicate test or `describe` titles at the same suite level — the runner cannot distinguish two tests with the same name in error output.
+- `jest/no-standalone-expect` — Reject `expect(...)` calls outside the body of a Jest test or lifecycle hook.
+- `jest/no-test-prefixes` — Reject `xit`, `fit`, `xdescribe`, `fdescribe`, and the rest of the single-letter Jest test prefix aliases.
+- `jest/no-test-return-statement` — Reject non-Promise `return` statements from Jest test bodies.
+- `jest/prefer-to-have-length` — Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly with `toBe`.
+- `jest/require-to-throw-message` — Require a message argument on `expect(...).toThrow(...)` so a regression with a different error type still surfaces clearly.
+- `jest/valid-describe-callback` — Validate the shape of Jest `describe` callbacks.
+- `jest/valid-expect` — Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
+- `jest/valid-title` — Require non-empty static Jest test and `describe` titles.

@@ -1,0 +1,10 @@
+# React performance
+
+React JSX performance rules from `eslint-plugin-react-perf`. Detects freshly-allocated reference values (arrays, objects, functions, JSX elements) passed as JSX props. A new reference invalidates `React.memo` / `useMemo` shallow checks on every render. Useful for performance-critical render paths; usually unnecessary for top-level pages. Diagnostics only fire on `.tsx` source files — JSX heuristics rely on the file extension, so `.ts` files are skipped even when they contain JSX-like syntax. Each rule accepts `nativeAllowList?: "all" | string[]` to skip lowercase/native JSX elements globally or by prop name while still checking custom components.
+
+Source: [`eslint-plugin-react-perf`](https://github.com/cvazac/eslint-plugin-react-perf) (MIT).
+
+- `react-perf/jsx-no-new-array-as-prop` — Reject array literals (`[...]`) passed inline as a JSX prop.
+- `react-perf/jsx-no-new-function-as-prop` — Reject inline `function` expressions / arrow functions passed as a JSX prop.
+- `react-perf/jsx-no-new-object-as-prop` — Reject inline object literals (`{...}`) passed as a JSX prop.
+- `react-perf/jsx-no-jsx-as-prop` — Reject JSX expressions and fragments passed as a JSX prop — each evaluation creates a new React element.

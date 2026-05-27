@@ -1,0 +1,47 @@
+# Functional
+
+Functional-programming policy rules from `eslint-plugin-functional`. Pushes code toward immutability, side-effect-free expressions, and expression-style control flow. Most rules are useful in pieces — projects rarely enable the whole family at `"error"`. Enabling the whole set together expresses a strict functional-core / imperative-shell discipline. Diagnostic-only: `ttsc fix` does not rewrite mutation, classes, exceptions, loops, or branching into a functional design.
+
+Source: [`eslint-plugin-functional`](https://github.com/eslint-functional/eslint-plugin-functional) (MIT).
+
+- `functional/functional-parameters` — Enforce functional parameter style: reject `arguments`, reject rest parameters, and optionally enforce a per-function parameter-count policy.
+- `functional/immutable-data` — Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods.
+- `functional/no-class-inheritance` — Reject `abstract` classes and `extends` clauses on class declarations; prefer composition and structural typing.
+- `functional/no-classes` — Reject `class` declarations and class expressions altogether.
+- `functional/no-conditional-statements` — Reject `if` and `switch` *statements*.
+- `functional/no-expression-statements` — Reject expression statements that exist purely for their side effects (`mutate(x);`); pure code is built up from expressions with assigned or returned results.
+- `functional/no-let` — Reject `let` declarations so every binding is `const`.
+- `functional/no-loop-statements` — Reject `for`, `while`, and `do/while` loop statements; use recursive helpers or array methods (`map`, `reduce`) instead.
+- `functional/no-mixed-types` — Reject interfaces and type literals that mix property, method, call, and index member kinds; mixed shapes make composition harder.
+- `functional/no-promise-reject` — Reject any call to `Promise.reject(...)`; resolve with an `Option` / `Result` shape so failures stay in the value channel.
+- `functional/no-return-void` — Reject void returns and functions whose declared return type is `void`; functions should always return a value.
+- `functional/no-this-expressions` — Reject any `this` expression.
+- `functional/no-throw-statements` — Reject `throw` statements; functional code surfaces failures through return values (`Either`, `Result`) instead.
+- `functional/no-try-statements` — Reject `try/catch` and `try/finally` statements as a corollary of `functional/no-throw-statements`.
+- `functional/prefer-immutable-types` — Require declared variable, parameter, and property types to be `readonly` or otherwise structurally immutable.
+- `functional/prefer-property-signatures` — Prefer function-property signatures (`fn: () => T`) over method shorthand (`fn(): T`) in interfaces and type literals.
+- `functional/prefer-readonly-type` — Prefer `readonly` array, tuple, collection, and property types over their mutable counterparts.
+- `functional/prefer-tacit` — Reject trivial wrappers such as `x => f(x)` in favor of the tacit form `f`; reduces noise in functional pipelines.
+- `functional/readonly-type` — Enforce one consistent spelling for readonly types — `readonly T[]` vs `ReadonlyArray<T>` — across the project.
+- `functional/type-declaration-immutability` — Enforce readonly/immutable type declarations by *declaration name* policy — for projects that want only types matching certain naming conventions to be locked down.
+
+```ts
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "functional/no-let": "error",
+    "functional/no-loop-statements": "error",
+    "functional/no-conditional-statements": "error",
+    "functional/no-throw-statements": "error",
+    "functional/no-try-statements": "error",
+    "functional/no-classes": "error",
+    "functional/immutable-data": "error",
+    "functional/prefer-readonly-type": "error",
+    "functional/type-declaration-immutability": ["error", {
+      rules: [{ identifiers: ".*" }],
+    }],
+  },
+} satisfies ITtscLintConfig;
+```

@@ -1,0 +1,104 @@
+# Rules
+
+A practical rule catalog by family. Each rule maps to an ESLint name where one exists. Severity in `lint.config.ts` is one of `"error"` (fails the build), `"warning"` (prints, exit code 0), `"off"` (skipped).
+
+> **Authoritative source:** rule typings live under [`packages/lint/src/structures/rules/`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules) — each family interface (`ITtscLintCoreRules`, `ITtscLintReactRules`, …) owns its own rule keys; [`ITtscLintRules.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules/ITtscLintRules.ts) is the union accepted by `ITtscLintConfig.rules`. The per-family pages below document what each rule does and when to keep it on.
+
+## Rule families and config types
+
+Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscLintRules` type is an intersection of family-specific interfaces, so a complete `rules` object and smaller family objects share the same checked property names and option tuples.
+
+| Family | Type | Rules | Namespace |
+| ------ | ---- | ----- | --------- |
+| [Core (ESLint-compatible)](./core) | `ITtscLintCoreRules` | 110 | none |
+| [TypeScript](./typescript) | `ITtscLintTypeScriptRules` | 54 | `typescript/*` |
+| [React](./react) | `ITtscLintReactRules` | 26 | `react/*` |
+| [React performance](./react-perf) | `ITtscLintReactPerfRules` | 4 | `react-perf/*` |
+| [JSX accessibility](./jsx-a11y) | `ITtscLintJsxA11yRules` | 37 | `jsx-a11y/*` |
+| [Next.js](./nextjs) | `ITtscLintNextjsRules` | 21 | `nextjs/*` |
+| [Solid](./solid) | `ITtscLintSolidRules` | 20 | `solid/*` |
+| [Jest](./jest) | `ITtscLintJestRules` | 19 | `jest/*` |
+| [Vitest](./vitest) | `ITtscLintVitestRules` | 13 | `vitest/*` |
+| [Testing Library](./testing-library) | `ITtscLintTestingLibraryRules` | 29 | `testing-library/*` |
+| [Playwright](./playwright) | `ITtscLintPlaywrightRules` | 31 | `playwright/*` |
+| [Cypress](./cypress) | `ITtscLintCypressRules` | 13 | `cypress/*` |
+| [Storybook](./storybook) | `ITtscLintStorybookRules` | 16 | `storybook/*` |
+| [TanStack Query](./tanstack-query) | `ITtscLintTanstackQueryRules` | 8 | `tanstack-query/*` |
+| [Promise](./promise) | `ITtscLintPromiseRules` | 17 | `promise/*` |
+| [Regular expressions](./regexp) | `ITtscLintRegexpRules` | 22 | `regexp/*` |
+| [Security](./security) | `ITtscLintSecurityRules` | 14 | `security/*` |
+| [JSDoc](./jsdoc) | `ITtscLintJsdocRules` | 13 | `jsdoc/*` |
+| [Functional](./functional) | `ITtscLintFunctionalRules` | 20 | `functional/*` |
+| [Architecture boundaries](./boundaries) | `ITtscLintBoundariesRules` | 5 | `boundaries/*` |
+| Contributor plugins | `ITtscLintContributorRules` | user-defined | `<namespace>/*` |
+
+```ts
+import type { ITtscLintConfig, ITtscLintReactRules } from "@ttsc/lint";
+
+const reactRules = {
+  "react/jsx-key": "error",
+  "react/no-danger": "warning",
+} satisfies ITtscLintReactRules;
+
+export default {
+  rules: {
+    "no-var": "error",
+    ...reactRules,
+  },
+} satisfies ITtscLintConfig;
+```
+
+## A common starter set
+
+Most projects start here. Add and remove as you go.
+
+```ts
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    // Variables
+    "no-var": "error",
+    "prefer-const": "error",
+
+    // Comparison
+    "eqeqeq": "error",
+    "no-self-compare": "error",
+
+    // Suggestions
+    "typescript/no-explicit-any": "warning",
+    "typescript/prefer-as-const": "error",
+    "object-shorthand": "error",
+    "no-useless-rename": "error",
+
+    // Imports
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/consistent-type-imports": "error",
+
+    // Misc safety
+    "no-debugger": "error",
+    "no-throw-literal": "error",
+    "typescript/await-thenable": "error",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Formatter behavior is configured separately through the top-level `format` block (typed as `ITtscLintFormat`) — see [Format rules](/docs/lint/format).
+
+## Autofix coverage at a glance
+
+`ttsc fix` autofixes a subset. Native fixers cover:
+
+- `no-var`, single-declaration `prefer-const`, ESLint-safe `eqeqeq`
+- `typescript/no-wrapper-object-types` (primitives only; `Object` is detection-only)
+- `typescript/prefer-as-const`, `no-useless-rename`, `object-shorthand`, `typescript/no-extra-non-null-assertion`
+- `typescript/no-unnecessary-type-constraint`, `typescript/prefer-namespace-keyword`, `no-useless-escape`
+- `typescript/no-import-type-side-effects` (hoists inline `type` modifiers)
+- `typescript/await-thenable` (type-aware — drops `await` on non-thenable operands)
+- Every format rule
+
+## See also
+
+- [Format](/docs/lint/format) — the format rule set (including `format/print-width`).
+- [Overview](/docs/lint) — the `ttsc fix` / `ttsc format` command summary.

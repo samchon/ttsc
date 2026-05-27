@@ -1,0 +1,20 @@
+# Security
+
+Security-focused TypeScript source rules from `eslint-plugin-security`. Reports likely security smells — non-literal sinks for eval, file I/O, regex construction, child-process spawning, cryptographic primitives — that warrant human review even if no exploit is statically provable. Treat findings as *hints*, not proofs.
+
+Source: [`eslint-plugin-security@4.0.0`](https://github.com/eslint-community/eslint-plugin-security) (Apache-2.0 — distribution requires propagating the upstream NOTICE attribution).
+
+- `security/detect-bidi-characters` — Detect Trojan-Source bidi control characters (U+202A, U+202E, ...) hidden inside source.
+- `security/detect-buffer-noassert` — Detect Buffer reads/writes called with `noAssert = true`, which skips Node's offset/length bounds checks.
+- `security/detect-child-process` — Detect any import of `child_process` and any `exec`/`execSync` call whose command argument is not a string literal.
+- `security/detect-disable-mustache-escape` — Detect assignments setting `escapeMarkup = false` (or the equivalent option on Handlebars/Mustache-style engines), which turns off HTML entity escaping in template output.
+- `security/detect-eval-with-expression` — Detect `eval(...)` calls whose argument is not a string literal.
+- `security/detect-new-buffer` — Detect `new Buffer(input)` constructions with non-literal input — historical source of allocation-disclosure bugs.
+- `security/detect-no-csrf-before-method-override` — Detect Express applications mounting `csrf` middleware before `methodOverride`, which lets the CSRF token be bypassed.
+- `security/detect-non-literal-fs-filename` — Detect `fs` calls (`readFile`, `writeFile`, `createReadStream`, ...) whose filename argument is not a string literal.
+- `security/detect-non-literal-regexp` — Detect `new RegExp(...)` construction whose pattern argument is not a string literal.
+- `security/detect-non-literal-require` — Detect `require(...)` calls whose specifier is computed at runtime.
+- `security/detect-object-injection` — Detect dynamic bracket-access such as `obj[req.body.x] = ...`, which can let caller-controlled keys overwrite prototype-shaped properties or pull out unintended fields.
+- `security/detect-possible-timing-attacks` — Detect direct equality comparisons involving secret-like identifiers (`if (token === expected)`) — use `crypto.timingSafeEqual` instead.
+- `security/detect-pseudoRandomBytes` — Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptographically secure.
+- `security/detect-unsafe-regex` — Detect regex literals with catastrophic backtracking potential (ReDoS) — typically nested or overlapping quantifiers over the same character set.

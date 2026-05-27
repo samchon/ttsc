@@ -1,0 +1,14 @@
+# TanStack Query
+
+TanStack Query rules from `@tanstack/eslint-plugin-query`. Guards the ergonomic and correctness contracts of TanStack Query (`useQuery`, `useMutation`, query-options factories) inside React TypeScript sources.
+
+Source: [`@tanstack/eslint-plugin-query`](https://github.com/TanStack/query/tree/main/packages/eslint-plugin-query) (MIT).
+
+- `tanstack-query/exhaustive-deps` — Require TanStack Query `queryKey` arrays to include every variable read by the `queryFn` body, mirroring React Hooks dependency tracking.
+- `tanstack-query/infinite-query-property-order` — Require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery` to appear in the order TanStack Query documents.
+- `tanstack-query/mutation-property-order` — Require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
+- `tanstack-query/no-rest-destructuring` — Reject `...rest` destructuring on TanStack Query hook results.
+- `tanstack-query/no-unstable-deps` — Reject passing entire TanStack Query hook results into React dependency arrays.
+- `tanstack-query/no-void-query-fn` — Reject `queryFn` callbacks that resolve to `void`.
+- `tanstack-query/prefer-query-options` — Prefer wrapping query options in the `queryOptions()` helper over inline `{ queryKey, queryFn }` literals.
+- `tanstack-query/stable-query-client` — Reject creating a `QueryClient` inside a React component or hook body — the client must be stable across renders.

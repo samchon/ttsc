@@ -1,0 +1,19 @@
+# JSDoc
+
+Documentation-comment validation rules. Bundles `eslint-plugin-jsdoc` content checks (tag names, parameter coverage, descriptions) with the lone `eslint-plugin-tsdoc` syntax check (`jsdoc/tsdoc-syntax`) — both target `/** ... */` comments. Formatting concerns (alignment, indentation) are configured through the top-level [`format`](/docs/lint/format) block, not here.
+
+Source: [`eslint-plugin-jsdoc`](https://github.com/gajus/eslint-plugin-jsdoc) (BSD-3-Clause — attribution required), [`eslint-plugin-tsdoc`](https://github.com/microsoft/tsdoc) (MIT).
+
+- `jsdoc/check-tag-names` — Reject unknown JSDoc block-tag names.
+- `jsdoc/check-values` — Validate `@access` values against the closed set `public`, `protected`, `private`, `package`.
+- `jsdoc/empty-tags` — Reject content on marker-only JSDoc tags (`@async`, `@public`, `@override`, ...) — these tags take no value.
+- `jsdoc/no-types` — Reject JSDoc type braces in TypeScript sources, since the surrounding TypeScript already carries the type.
+- `jsdoc/reject-any-type` — Reject `any` and `*` inside JSDoc type braces — these escape the documented type system the same way TypeScript `any` does.
+- `jsdoc/reject-function-type` — Reject the unsafe `Function` type inside JSDoc type braces.
+- `jsdoc/require-description` — Require JSDoc blocks to include a leading block-level description — every documented identifier should explain itself.
+- `jsdoc/require-param-description` — Require every `@param` tag that names a parameter to also carry a description after the name.
+- `jsdoc/require-param-name` — Require every `@param` tag to include the parameter name it documents.
+- `jsdoc/require-property-description` — Require every `@property` tag that names a property to also carry a description.
+- `jsdoc/require-property-name` — Require every `@property` tag to include the property name it documents.
+- `jsdoc/require-returns-description` — Require every `@returns` tag to carry a description of the returned value.
+- `jsdoc/tsdoc-syntax` — Detect structural TSDoc problems in documentation comments: malformed top-level block tags (`@` followed by non-letter) and malformed or unclosed inline tags (`{@link ...}`).

@@ -1,0 +1,22 @@
+# Storybook
+
+Storybook CSF and configuration rules from `eslint-plugin-storybook`. Checks Component Story Format conventions (default export meta, named story exports, play-function shape) and configuration pitfalls in `.storybook/main.ts`. Apply to `*.stories.ts(x)` and `.storybook/main.ts` files.
+
+Source: [`eslint-plugin-storybook`](https://github.com/storybookjs/eslint-plugin-storybook) (MIT).
+
+- `storybook/await-interactions` — Require `await` on Storybook interaction helpers (`userEvent`, `expect`, `waitFor`, ...) inside a `play` function.
+- `storybook/context-in-play-function` — Require forwarding the play-function `context` argument when invoking another story's `play` function.
+- `storybook/csf-component` — Require the CSF default meta object to declare a `component`.
+- `storybook/default-exports` — Require every story file to provide the CSF default export.
+- `storybook/hierarchy-separator` — Reject the legacy `|` separator in Storybook story titles (`"Foo|Bar"`).
+- `storybook/meta-inline-properties` — Require `title` and `args` in CSF meta to be inline literals, not references to outside variables or function calls.
+- `storybook/meta-satisfies-type` — Require CSF meta objects to type-check with `satisfies Meta<…>` rather than a `: Meta<…>` annotation or `as` cast.
+- `storybook/no-redundant-story-name` — Reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
+- `storybook/no-renderer-packages` — Reject direct imports from Storybook renderer packages (`@storybook/react`, etc.); use the user-facing package surface.
+- `storybook/no-stories-of` — Reject the legacy `storiesOf(...)` builder API.
+- `storybook/no-title-property-in-meta` — Reject the `title` property in CSF meta when the project uses Storybook's auto-title generation.
+- `storybook/no-uninstalled-addons` — Validate Storybook addon names against the project's dependencies, so misspelled addon ids surface at lint time.
+- `storybook/prefer-pascal-case` — Require named story exports to use PascalCase.
+- `storybook/story-exports` — Require every story file to export at least one named story alongside the default meta.
+- `storybook/use-storybook-expect` — Require `expect` to be imported from `@storybook/test` in play functions, not from Jest.
+- `storybook/use-storybook-testing-library` — Reject direct Testing Library imports inside story files; use the Storybook-bundled re-exports.

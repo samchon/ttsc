@@ -1,0 +1,28 @@
+# Regular expressions
+
+Regular-expression rules from `eslint-plugin-regexp`. These rules check the structure of regex literals — emptiness, uselessness, flag ordering, shorthand classes, Unicode support. Some rules duplicate (and supersede) the regex-related rules in [Core](./core); both ids exist so projects can keep the legacy ESLint names alongside the regexp-plugin variants. Dynamic `RegExp("...")` constructor strings are deferred until the lint engine has a shared literal-value helper.
+
+Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-regexp) (MIT).
+
+- `regexp/no-control-character` — Reject ASCII control characters in regex literals.
+- `regexp/no-dupe-characters-character-class` — Reject duplicate literal characters inside simple regex character classes (`/[aa]/`).
+- `regexp/no-empty-alternative` — Reject empty alternatives in a disjunction (`/a||b/`), which silently match the empty string.
+- `regexp/no-empty-capturing-group` — Reject empty capturing groups such as `/()/`.
+- `regexp/no-empty-character-class` — Reject empty regex character classes (`[]`).
+- `regexp/no-empty-group` — Reject empty non-capturing groups such as `/(?:)/`.
+- `regexp/no-empty-lookarounds-assertion` — Reject empty lookaround assertions such as `/(?=)/` or `/(?!)/`.
+- `regexp/no-misleading-unicode-character` — Reject misleading Unicode characters in regex classes.
+- `regexp/no-useless-character-class` — Reject single-character character classes such as `/[x]/` — `/x/` is equivalent.
+- `regexp/no-useless-escape` — Reject unnecessary escapes inside regex literals.
+- `regexp/no-useless-flag` — Reject regex flags that the literal does not exercise — `i` on a pattern without case-variable characters, `m` without `^`/`$`, `s` without `.`, and similar dead flags on `g`/`y`.
+- `regexp/no-useless-quantifier` — Reject quantifiers that do not change the match — constant-one counts (`/a{1}/`), `?` on patterns already matching the empty string, and quantifiers on non-consuming atoms.
+- `regexp/no-useless-two-nums-quantifier` — Reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
+- `regexp/no-zero-quantifier` — Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom never matches, so the quantifier is either dead code or a typo for `{1,…}`.
+- `regexp/prefer-d` — Prefer `\d` over `[0-9]` in regex literals.
+- `regexp/prefer-plus-quantifier` — Prefer `+` over `{1,}` in regex literals.
+- `regexp/prefer-question-quantifier` — Prefer `?` over `{0,1}` in regex literals.
+- `regexp/prefer-star-quantifier` — Prefer `*` over `{0,}` in regex literals.
+- `regexp/prefer-w` — Prefer `\w` over `[A-Za-z0-9_]` in regex literals.
+- `regexp/require-unicode-regexp` — Require regex literals to use the `u` or `v` flag, so Unicode-property escapes and surrogate-pair handling stay predictable.
+- `regexp/require-unicode-sets-regexp` — Require regex literals to use the `v` flag specifically — the stricter Unicode-sets mode that enables set notation, string properties, and stricter escape rules on top of `u`.
+- `regexp/sort-flags` — Require regex flags to appear in canonical alphabetical order (`dgimsuvy`).

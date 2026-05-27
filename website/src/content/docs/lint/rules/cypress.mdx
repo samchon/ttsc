@@ -1,0 +1,19 @@
+# Cypress
+
+Cypress end-to-end test rules. Apply to TypeScript/TSX sources that use the Cypress runner (`cy.*` commands and Mocha-style `describe`/`it` blocks). Mirror the rule set from `eslint-plugin-cypress` and detect Cypress-specific anti-patterns such as async test bodies, missing assertions before screenshots, or deprecated XPath selectors.
+
+Source: [`eslint-plugin-cypress`](https://github.com/cypress-io/eslint-plugin-cypress) (MIT).
+
+- `cypress/assertion-before-screenshot` — Require at least one Cypress assertion before `cy.screenshot()`.
+- `cypress/no-and` — Prefer `cy.should()` over `.and()` when starting a Cypress assertion chain — `.and()` only makes sense after a preceding `.should()`.
+- `cypress/no-assigning-return-values` — Reject assigning the return value of a Cypress command.
+- `cypress/no-async-before` — Reject `async` Cypress `before` / `beforeEach` hooks.
+- `cypress/no-async-tests` — Reject `async` Cypress `it`/`specify` test callbacks.
+- `cypress/no-chained-get` — Reject chained `.get(...).get(...)` calls.
+- `cypress/no-debug` — Reject `cy.debug()` and chained `.debug()` commands.
+- `cypress/no-force` — Reject `{ force: true }` on Cypress action commands such as `.click({ force: true })`.
+- `cypress/no-pause` — Reject `cy.pause()` and chained `.pause()` commands.
+- `cypress/no-unnecessary-waiting` — Reject numeric `cy.wait(ms)` sleeps — they create flaky tests.
+- `cypress/no-xpath` — Reject `cy.xpath(...)` selectors.
+- `cypress/require-data-selectors` — Require `cy.get()` selectors to target a `data-*` attribute when the selector is a string literal — separates testing concerns from styling.
+- `cypress/unsafe-to-chain-command` — Reject chaining further Cypress commands after action commands.

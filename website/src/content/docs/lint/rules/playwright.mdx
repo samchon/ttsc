@@ -1,0 +1,37 @@
+# Playwright
+
+Playwright end-to-end test rules from `eslint-plugin-playwright`, applied to TypeScript test files driven by the `@playwright/test` runner. Guard Playwright-specific patterns — locator usage, web-first assertions, focused/slowed tests — that would otherwise compile and run silently.
+
+Source: [`eslint-plugin-playwright`](https://github.com/playwright-community/eslint-plugin-playwright) (MIT).
+
+- `playwright/expect-expect` — Require every Playwright test body to contain at least one `expect(...)` call.
+- `playwright/max-expects` — Limit the assertion count inside a single Playwright test body.
+- `playwright/no-conditional-expect` — Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Playwright tests.
+- `playwright/no-conditional-in-test` — Reject conditional logic (`if`/`switch`/ternary) inside Playwright test bodies.
+- `playwright/no-duplicate-hooks` — Reject duplicate Playwright setup/teardown hook calls (`test.beforeEach`/`test.afterEach`/etc.) in the same `test.describe`.
+- `playwright/no-duplicate-slow` — Reject repeated `test.slow()` calls inside the same test — the first call already marks the test slow.
+- `playwright/no-element-handle` — Reject the legacy `ElementHandle`-style Playwright API (`page.$`, `page.$$`).
+- `playwright/no-eval` — Reject `page.$eval` and `page.$$eval`.
+- `playwright/no-focused-test` — Reject `test.only`, `test.describe.only`, and similar focused Playwright tests.
+- `playwright/no-force-option` — Reject Playwright `{ force: true }` options on actionable commands (`click`, `fill`, ...).
+- `playwright/no-get-by-title` — Reject `getByTitle(...)` locators.
+- `playwright/no-hooks` — Reject Playwright `test.beforeEach`/`test.afterEach`/etc. hooks.
+- `playwright/no-nested-step` — Reject nested `test.step(...)` calls.
+- `playwright/no-networkidle` — Reject the `networkidle` load-state in `page.waitForLoadState` and navigation options.
+- `playwright/no-nth-methods` — Reject `.first()`, `.last()`, and `.nth(...)` on locators.
+- `playwright/no-page-pause` — Reject `page.pause()` debugging calls.
+- `playwright/no-skipped-test` — Reject `test.skip`, `test.describe.skip`, and the conditional `test.skip()` annotation.
+- `playwright/no-slowed-test` — Reject `test.slow()` marks on Playwright tests.
+- `playwright/no-standalone-expect` — Reject `expect(...)` calls outside the body of a Playwright test or lifecycle hook.
+- `playwright/no-wait-for-navigation` — Reject `page.waitForNavigation`.
+- `playwright/no-wait-for-selector` — Reject `page.waitForSelector`.
+- `playwright/no-wait-for-timeout` — Reject `page.waitForTimeout(ms)` sleeps.
+- `playwright/prefer-locator` — Prefer locator-based Playwright APIs (`page.locator(sel).click()`) over page-level convenience methods (`page.click(selector)`).
+- `playwright/prefer-to-have-count` — Prefer `expect(locator).toHaveCount(n)` over asserting on `await locator.count()`.
+- `playwright/prefer-to-have-length` — Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly.
+- `playwright/prefer-web-first-assertions` — Prefer Playwright web-first assertions (`expect(locator).toBeVisible()`, `.toHaveText(...)`) over composed manual waits.
+- `playwright/require-to-pass-timeout` — Require an explicit `timeout` option on `expect(...).toPass(...)`.
+- `playwright/require-to-throw-message` — Require a message argument on `expect(...).toThrow(...)`.
+- `playwright/valid-describe-callback` — Validate the shape of Playwright `test.describe` callbacks.
+- `playwright/valid-expect` — Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
+- `playwright/valid-title` — Require non-empty static Playwright test and `describe` titles.

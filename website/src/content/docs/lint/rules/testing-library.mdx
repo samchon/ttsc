@@ -1,0 +1,35 @@
+# Testing Library
+
+Testing Library test source rules from `eslint-plugin-testing-library`. Apply to TypeScript test sources that use any `@testing-library/*` package and detect Testing Library anti-patterns — `container` access, `ByTestId` overuse, missing `await` on async queries. AST-only; rules report only after a Testing Library import is present in the file.
+
+Source: [`eslint-plugin-testing-library`](https://github.com/testing-library/eslint-plugin-testing-library) (MIT).
+
+- `testing-library/await-async-events` — Require awaiting async user-event methods (`userEvent.click`, `userEvent.type`, ...) under the v14+ Promise-returning API.
+- `testing-library/await-async-queries` — Require awaiting `findBy*` and `findAllBy*` queries.
+- `testing-library/await-async-utils` — Require awaiting `waitFor`, `waitForElementToBeRemoved`, and the other async Testing Library utilities.
+- `testing-library/consistent-data-testid` — Validate JSX `data-testid` attribute values against a regex pattern.
+- `testing-library/no-await-sync-events` — Reject unnecessary `await` before synchronous event helpers (`fireEvent.click(...)`).
+- `testing-library/no-await-sync-queries` — Reject unnecessary `await` before synchronous queries (`getBy*`, `queryBy*`).
+- `testing-library/no-container` — Reject `container` destructuring and DOM query methods on the render result.
+- `testing-library/no-debugging-utils` — Reject `debug`, `prettyDOM`, `logTestingPlaygroundURL`, and related debugging utilities in committed tests.
+- `testing-library/no-dom-import` — Reject direct `@testing-library/dom` imports when a framework-specific package is installed.
+- `testing-library/no-global-regexp-flag-in-query` — Reject global RegExp flags (`/foo/g`) inside query text matchers.
+- `testing-library/no-manual-cleanup` — Reject manual `cleanup()` calls.
+- `testing-library/no-node-access` — Reject direct DOM node traversal from query results (`.parentElement`, `.firstChild`, `.children`, ...).
+- `testing-library/no-promise-in-fire-event` — Reject Promise-producing expressions passed to `fireEvent`, since `fireEvent` is synchronous and the Promise is dropped.
+- `testing-library/no-render-in-lifecycle` — Reject `render(...)` inside lifecycle hooks (`beforeEach`, etc.).
+- `testing-library/no-test-id-queries` — Reject `*ByTestId` queries.
+- `testing-library/no-unnecessary-act` — Reject unnecessary `act(...)` wrappers around Testing Library helpers.
+- `testing-library/no-wait-for-multiple-assertions` — Reject multiple assertions inside one `waitFor` callback — split into separate `waitFor`s so each retry boundary is narrow.
+- `testing-library/no-wait-for-side-effects` — Reject side effects inside `waitFor` callbacks — `waitFor` retries the callback, so side effects fire repeatedly.
+- `testing-library/no-wait-for-snapshot` — Reject snapshot assertions inside `waitFor`.
+- `testing-library/prefer-explicit-assert` — Require explicit assertions on the result of standalone queries.
+- `testing-library/prefer-find-by` — Prefer `findBy*` over `waitFor` wrapping a `getBy*`.
+- `testing-library/prefer-implicit-assert` — Avoid redundant `toBeInTheDocument()` around `getBy*` queries.
+- `testing-library/prefer-presence-queries` — Match presence and absence assertions to the query variant that already encodes the same semantic: `getBy*` for presence (throws when missing), `queryBy*` for absence (returns `null` when missing).
+- `testing-library/prefer-query-by-disappearance` — Prefer `queryBy*` inside `waitForElementToBeRemoved`.
+- `testing-library/prefer-query-matchers` — Prefer jest-dom document matchers (`toBeVisible`, `toHaveTextContent`, ...) over generic equality checks on Testing Library queries.
+- `testing-library/prefer-screen-queries` — Prefer `screen.*` over queries on the render-result object.
+- `testing-library/prefer-user-event` — Prefer `userEvent` over `fireEvent`.
+- `testing-library/prefer-user-event-setup` — Prefer `userEvent.setup()` (the v14+ instance pattern) over the static `userEvent.*` calls.
+- `testing-library/render-result-naming-convention` — Require the variable assigned from `render(...)` to use one of the conventional names (`view`, `result`, ...).

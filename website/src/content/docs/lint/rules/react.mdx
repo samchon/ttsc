@@ -1,0 +1,32 @@
+# React
+
+React TSX rules. Bundles rules from `eslint-plugin-react`, `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` under one namespace, matching Oxlint's `react/*` plugin layout. Performance-only rules live separately in the [React performance](./react-perf) family because they are opt-in toggles rather than correctness checks.
+
+Source: [`eslint-plugin-react`](https://github.com/jsx-eslint/eslint-plugin-react) (MIT), [`eslint-plugin-react-hooks`](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) (MIT), [`eslint-plugin-react-refresh`](https://github.com/ArnaudBarre/eslint-plugin-react-refresh) (MIT).
+
+- `react/button-has-type` — Require explicit, valid `type` values on JSX `<button>` elements (`"button"`, `"submit"`, `"reset"`) — the HTML default of `"submit"` causes accidental form submissions.
+- `react/component-hook-factories` — Reject declaring a component or custom Hook inside another component or Hook body.
+- `react/exhaustive-deps` — Detect high-confidence missing identifiers in React Hook dependency arrays (`useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, `useCallback`).
+- `react/iframe-missing-sandbox` — Require JSX `<iframe>` elements to declare a `sandbox` attribute, which restricts what embedded content can do (scripts, forms, navigation).
+- `react/immutability` — Reject mutating props, state, or Hook return values inside a component or Hook.
+- `react/jsx-key` — Require `key` props on JSX elements produced from arrays or `.map(...)` calls — React uses the key to track list identity across renders.
+- `react/jsx-no-duplicate-props` — Reject duplicate JSX prop names on the same element — later occurrences silently overwrite earlier ones.
+- `react/jsx-no-script-url` — Reject `javascript:` URLs in JSX URL-like props such as `href` and `src`.
+- `react/jsx-no-target-blank` — Reject `<a target="_blank">` (or any JSX element with `target="_blank"`) that does not also carry `rel="noreferrer"` (or `rel="noopener noreferrer"`).
+- `react/no-array-index-key` — Reject `key={index}` patterns inside JSX lists — array index keys reorder incorrectly on insertion.
+- `react/no-children-prop` — Reject passing children through an explicit `children` JSX prop.
+- `react/no-danger` — Reject `dangerouslySetInnerHTML` altogether.
+- `react/no-danger-with-children` — Reject combining `dangerouslySetInnerHTML` with JSX children — React throws at runtime in this case.
+- `react/no-direct-mutation-state` — Reject direct writes to `this.state` outside constructor initialization.
+- `react/no-find-dom-node` — Reject `findDOMNode(...)` calls.
+- `react/no-is-mounted` — Reject `this.isMounted()` calls on class components.
+- `react/no-string-refs` — Reject string-form JSX refs (`ref="myInput"`).
+- `react/no-unescaped-entities` — Reject unescaped `>`, `"`, `'`, and `}` characters in JSX text content — they render literally and almost always come from forgotten HTML escaping.
+- `react/only-export-components` — Keep React Fast Refresh component modules from exporting non-component values.
+- `react/refs` — Reject reading or writing `ref.current` during render.
+- `react/rules-of-hooks` — Enforce the Rules of Hooks: only call Hooks at the top level of a component or custom Hook, never inside conditionals, loops, or nested functions.
+- `react/set-state-in-effect` — Reject unconditional `setState` calls in `useEffect` bodies.
+- `react/set-state-in-render` — Reject calling `setState` during render.
+- `react/style-prop-object` — Reject string-form `style` values such as `style="color: red"`.
+- `react/use-memo` — Reject `useMemo` calculation callbacks that do not return a value.
+- `react/void-dom-elements-no-children` — Reject `children` or `dangerouslySetInnerHTML` on void DOM elements (`<img>`, `<br>`, `<input>`, etc.).
