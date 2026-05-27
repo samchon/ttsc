@@ -43,7 +43,9 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/no-non-null-assertion` — Reject postfix `!` non-null assertions altogether.
 - `typescript/no-require-imports` — Reject `require(...)` calls and `import x = require(...)` declarations.
 - `typescript/no-this-alias` — Reject aliasing `this` to a local (`const self = this`, `const that = this`, destructuring `const { x } = this`).
+- `typescript/no-unnecessary-condition` — Reject conditions whose static type proves the runtime truthiness is fixed — `if ({})`, `if (null)`, `while ("")`, `0 && f()`.
 - `typescript/no-unnecessary-parameter-property-assignment` — Reject `this.x = x` in a constructor body when `x` is already declared as a parameter property — TypeScript performs the assignment automatically.
+- `typescript/no-unnecessary-type-assertion` — Reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type — the assertion adds nothing (type-aware).
 - `typescript/no-unnecessary-type-constraint` — Reject `<T extends unknown>` and similar constraints that match everything.
 - `typescript/no-unsafe-declaration-merging` — Reject declaration merging between an `interface` and a `class` with the same name.
 - `typescript/no-unsafe-function-type` — Reject the unsafe `Function` type, which matches every callable regardless of signature.
@@ -53,8 +55,12 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/prefer-as-const` — Prefer `as const` over `as "literal"` assertions.
 - `typescript/prefer-enum-initializers` — Require every `enum` member to have an explicit initializer.
 - `typescript/prefer-function-type` — Prefer a type alias over an interface that declares only a single call signature — the type form composes better with structural typing.
+- `typescript/prefer-includes` — Prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes) on array, tuple, and string receivers.
 - `typescript/prefer-literal-enum-member` — Prefer literal initializers (`= 0`, `= "FOO"`) for enum members over computed expressions, so the value is decidable at compile time.
 - `typescript/prefer-namespace-keyword` — Prefer the `namespace` keyword over the legacy `module Foo {}` form.
+- `typescript/prefer-promise-reject-errors` — Reject `Promise.reject(value)` where `value` is statically known not to derive from `Error` — type-aware analog of `only-throw-error` for the rejection side of the promise contract.
+- `typescript/prefer-string-starts-ends-with` — Prefer `str.startsWith(p)` / `str.endsWith(p)` over `str.indexOf(p) === 0`, `str.indexOf(p, str.length - p.length) !== -1`, `str.lastIndexOf(p) === str.length - p.length`, and the anchored-regex `/^p/.test(str)` / `/p$/.test(str)` idioms.
+- `typescript/promise-function-async` — Require functions whose return type is `Promise<T>` to be declared with the `async` keyword so synchronous throws surface as a rejected Promise.
 - `typescript/require-await` — Reject `async` functions whose body contains no `await` expression.
 - `typescript/return-await` — Reject `return promise` inside `try`, `catch`, or `finally`; require `return await promise`.
 - `typescript/strict-boolean-expressions` — Reject non-boolean values used in a boolean context such as `if`, `&&`, `||`, or `!` — name the intent with an explicit comparison.

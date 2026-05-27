@@ -302,16 +302,17 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/consistent-indexed-object-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-indexed-object-style.ts): prefers `Record` for single index-signature object types.
 - [`typescript/consistent-type-assertions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-assertions.ts): prefers `as` type assertions over angle-bracket assertions.
 - [`typescript/consistent-type-definitions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-definitions.ts): prefers interfaces for object-shaped type definitions.
-- [`typescript/consistent-type-exports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-consistent-type-exports.ts): require type-only re-exports to use `export type { ...
+- [`typescript/consistent-type-exports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-consistent-type-exports.ts): require type-only re-exports to use `export type { ... }` instead of mixing them with value-level re-exports.
 - [`typescript/consistent-type-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/consistent-type-imports/violation.ts): uses `import type` when imported names are type-only.
 - [`typescript/explicit-function-return-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-explicit-function-return-type.ts): require every exported function and method declaration to carry an explicit return-type annotation.
 - [`typescript/explicit-member-accessibility`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-explicit-member-accessibility.ts): require an explicit accessibility modifier (`public`, `private`, or `protected`) on every class member declaration.
 - [`typescript/method-signature-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/method-signature-style.ts): prefers function-property signatures over method shorthand signatures.
 - [`typescript/no-array-delete`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-array-delete.ts): rejects `delete` on array elements.
-- [`typescript/no-array-for-each`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-array-for-each.ts): prefer `for ...
+- [`typescript/no-array-for-each`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-array-for-each.ts): prefer `for ... of` over `Array.prototype.forEach()`.
 - [`typescript/no-base-to-string`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-base-to-string.ts): rejects string coercion of values whose `toString` resolves to the default `Object.prototype.toString` (type-aware).
 - [`typescript/no-confusing-non-null-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-confusing-non-null-assertion.ts): rejects confusing non-null assertions next to equality checks.
 - [`typescript/no-confusing-void-expression`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-confusing-void-expression.ts): reject `void X` expressions used in any position where the surrounding context expects a value — initializer, call argument, `return` operand, conditional, binary, or ternary subexpression.
+- [`typescript/no-deprecated`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-deprecated.ts): reject references to declarations annotated `@deprecated` in their JSDoc, with the deprecation comment surfaced at the reference site (type-aware).
 - [`typescript/no-duplicate-enum-values`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-enum-values.ts): rejects duplicate enum member values.
 - [`typescript/no-dynamic-delete`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dynamic-delete.ts): rejects `delete` on dynamically computed property keys.
 - [`typescript/no-empty-interface`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-interface.ts): rejects empty interfaces.
@@ -336,7 +337,11 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/no-require-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-require-imports.ts): rejects CommonJS `require` imports.
 - [`typescript/no-restricted-types`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-restricted-types.ts): reject specific type-reference names that are almost always a mistake — by default the global wrapper types `Object`, `Function`, `Number`, `String`, and `Boolean`.
 - [`typescript/no-this-alias`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-this-alias.ts): rejects aliasing `this` to locals.
+- [`typescript/no-unnecessary-boolean-literal-compare`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-boolean-literal-compare.ts): reject direct comparison of a boolean-typed value with `true` / `false` literals — `x === true` is just `x`, `x !== false` is just `x`.
+- [`typescript/no-unnecessary-condition`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-condition.ts): reject conditions whose static type proves the runtime truthiness is fixed — `if ({})`, `if (null)`, `while ("")`, `0 && f()` (type-aware).
 - [`typescript/no-unnecessary-parameter-property-assignment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unnecessary-parameter-property-assignment.ts): rejects constructor assignments already handled by parameter properties.
+- [`typescript/no-unnecessary-template-expression`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-template-expression.ts): reject template literals that collapse to a regular string — `` `${"abc"}` ``, `` `${name}` `` around a string-typed value, or a plain `` `abc` `` with no escaped backticks (type-aware).
+- [`typescript/no-unnecessary-type-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-type-assertion.ts): reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type — the assertion adds nothing (type-aware).
 - [`typescript/no-unnecessary-type-constraint`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unnecessary-type-constraint.ts): rejects redundant `extends any` and `extends unknown` constraints.
 - [`typescript/no-unsafe-declaration-merging`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-declaration-merging.ts): rejects unsafe class/interface declaration merging.
 - [`typescript/no-unsafe-function-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-function-type.ts): rejects the unsafe `Function` type.
@@ -347,11 +352,15 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/prefer-as-const`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-as-const.ts): prefers `as const` for literal assertions.
 - [`typescript/prefer-enum-initializers`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-enum-initializers.ts): requires explicit enum member initializers.
 - [`typescript/prefer-function-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-function-type.ts): prefers function type aliases over single-call interfaces.
+- [`typescript/prefer-includes`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-includes.ts): prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes) on array, tuple, and string receivers (type-aware).
 - [`typescript/prefer-literal-enum-member`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-literal-enum-member.ts): prefers literal enum member initializers over computed expressions.
 - [`typescript/prefer-namespace-keyword`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-namespace-keyword.ts): prefers `namespace` over TypeScript's legacy `module` keyword.
 - [`typescript/prefer-nullish-coalescing`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-nullish-coalescing.ts): prefer `??` over `||` (and `??=` over `||=`, and `??` over the ternary `x ? x : y`) when the intent is to default `null` / `undefined`.
 - [`typescript/prefer-optional-chain`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-optional-chain.ts): prefer an optional chain (`a?.b?.c`) over chained boolean guards such as `a && a.b && a.b.c` or `a != null && a.b`.
+- [`typescript/prefer-promise-reject-errors`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-promise-reject-errors.ts): reject `Promise.reject(value)` where `value` is statically known not to derive from `Error` — type-aware analog of `only-throw-error` for the rejection side of the promise contract.
 - [`typescript/prefer-readonly`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-readonly.ts): reject private class fields that could carry `readonly`.
+- [`typescript/prefer-string-starts-ends-with`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-prefer-string-starts-ends-with.ts): prefer `str.startsWith(p)` / `str.endsWith(p)` over `str.indexOf(p) === 0`, `str.indexOf(p, str.length - p.length) !== -1`, `str.lastIndexOf(p) === str.length - p.length`, and the anchored-regex `/^p/.test(str)` / `/p$/.test(str)` idioms (type-aware).
+- [`typescript/promise-function-async`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-promise-function-async.ts): require functions whose return type is `Promise<T>` to be declared with the `async` keyword so synchronous throws surface as a rejected Promise (type-aware).
 - [`typescript/require-array-sort-compare`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-require-array-sort-compare.ts): require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
 - [`typescript/require-await`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/require-await.ts): reject `async` functions whose body contains no `await` expression.
 - [`typescript/restrict-plus-operands`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-restrict-plus-operands.ts): rejects `+` expressions whose operands are not both `number`, both `string`, or both `bigint` (type-aware).
@@ -873,6 +882,33 @@ export default {
 - [`boundaries/no-private`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/boundaries-no-private.ts): rejects imports of configured private files from outside their element.
 - [`boundaries/no-unknown`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/boundaries-no-unknown.ts): rejects relative imports whose resolved source file matches no configured element.
 
+## Third-party rule plugins
+
+Other npm packages can ship lint rules that compile into the same `@ttsc/lint` binary and report through the same diagnostic stream as built-ins. Declare them in `lint.config.ts`:
+
+```ts
+// lint.config.ts
+import demoPlugin from "ttsc-lint-plugin-demo";
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  plugins: { demo: demoPlugin },
+  rules: { "demo/no-todo-comment": "error" },
+} satisfies ITtscLintConfig;
+```
+
+`ttsc` copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in the [`@ttsc/lint` walkthrough → How a contributor package ships](https://ttsc.dev/docs/development/walkthroughs/lint#how-a-contributor-package-ships).
+
+Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [contributor autofix path](https://ttsc.dev/docs/development/walkthroughs/lint#the-contributor-autofix-path) section for the full contract and an example.
+
+## Sponsors
+
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+
 ## References
 
 `@ttsc/lint` ports the rule semantics from each of the following upstream projects. Each family in [Rules](#rules) cites its origin under a `Source:` line; this section is the consolidated index.
@@ -905,33 +941,7 @@ export default {
 
 To the maintainers of every plugin listed above: the rule semantics under `react/*`, `jest/*`, `playwright/*`, `tanstack-query/*`, `promise/*`, and the other family namespaces inside `@ttsc/lint` are a Go re-implementation of your work for the TypeScript-Go Checker. The intent is convenience — projects on `ttsc` get your rules without standing up a separate ESLint process — not ownership.
 
-If you would prefer to publish a first-party `@ttsc/lint` plugin for your family yourself, you are welcome to take the Go sources under [`packages/lint/linthost/rules_*.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost) and the fixtures under [`tests/test-lint/src/cases/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) and ship them as your own contributor plugin. Open an issue at [samchon/ttsc](https://github.com/samchon/ttsc/issues) when the upstream package is ready, and we will retire the in-tree port and add a redirect line under [Rules](#rules) pointing at your package. Same offer for partial coverage — name a subset and we will remove just those rules.
+If you would prefer to publish a first-party `@ttsc/lint` plugin for your family yourself, you are welcome to take the Go sources under [`packages/lint/linthost/rules_*.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost) and the fixtures under [`tests/test-lint/src/cases/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) and ship them as your own contributor plugin. Open an issue at [samchon/ttsc](https://github.com/samchon/ttsc/issues) when the upstream package is ready, and I will retire the in-tree port and add a redirect line under [Rules](#rules) pointing at your package. Same offer for partial coverage — name a subset and I will remove just those rules.
 
 The contributor-plugin walkthrough is the [`@ttsc/lint` development guide](https://ttsc.dev/docs/development/walkthroughs/lint).
 
-## Third-party rule plugins
-
-Other npm packages can ship lint rules that compile into the same `@ttsc/lint` binary and report through the same diagnostic stream as built-ins. Declare them in `lint.config.ts`:
-
-```ts
-// lint.config.ts
-import demoPlugin from "ttsc-lint-plugin-demo";
-import type { ITtscLintConfig } from "@ttsc/lint";
-
-export default {
-  plugins: { demo: demoPlugin },
-  rules: { "demo/no-todo-comment": "error" },
-} satisfies ITtscLintConfig;
-```
-
-`ttsc` copies each declared contributor's Go source into a sub-package of `@ttsc/lint`'s module at build time, so the resulting binary has both built-in and contributor rules registered before `main`. Authoring instructions and the public Go API live in the [`@ttsc/lint` walkthrough → How a contributor package ships](https://ttsc.dev/docs/development/walkthroughs/lint#how-a-contributor-package-ships).
-
-Contributor rules emit autofixes the same way built-ins do — call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [contributor autofix path](https://ttsc.dev/docs/development/walkthroughs/lint#the-contributor-autofix-path) section for the full contract and an example.
-
-## Sponsors
-
-[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
-
-Thanks for your support.
-
-Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.

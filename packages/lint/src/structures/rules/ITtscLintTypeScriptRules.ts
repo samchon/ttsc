@@ -239,6 +239,21 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-confusing-void-expression"?: TtscLintRuleSetting;
 
   /**
+   * Reject references to declarations marked `@deprecated` in their
+   * JSDoc.
+   *
+   * Type-aware via the Checker. The rule resolves the symbol at each
+   * identifier, property access, call, `new`, or JSX tag-name location,
+   * walks the symbol's declarations for an attached `@deprecated`
+   * JSDoc tag, and reports at the reference. References inside the
+   * same declaration block as the deprecation marker are skipped so
+   * the deprecation site itself doesn't fire.
+   *
+   * @reference https://typescript-eslint.io/rules/no-deprecated
+   */
+  "typescript/no-deprecated"?: TtscLintRuleSetting;
+
+  /**
    * Reject `enum` declarations whose members share the same literal
    * value.
    *
@@ -493,6 +508,38 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-this-alias"?: TtscLintRuleSetting;
 
   /**
+   * Reject direct comparison of a boolean-typed value with `true` /
+   * `false` literals — `x === true` is just `x`, `x !== false` is
+   * just `x`. The literal compare adds noise without changing the
+   * result whenever the non-literal side is provably pure boolean.
+   *
+   * Type-aware via the Checker. Skipped when the value side carries
+   * `null` / `undefined` — the literal compare is also stripping
+   * nullability there, and the rewrite would lose information.
+   *
+   * @reference https://typescript-eslint.io/rules/no-unnecessary-boolean-literal-compare
+   */
+  "typescript/no-unnecessary-boolean-literal-compare"?: TtscLintRuleSetting;
+
+  /**
+   * Reject conditions whose static type proves the runtime truthiness
+   * is fixed — `if ({})`, `if (null)`, `while ("")`, `0 && f()`. The
+   * conditional becomes either dead code (the always-false arm) or
+   * unconditional execution (the always-true arm); the explicit shape
+   * (`if (true)`, deleting the dead branch, or widening the type)
+   * names the intent.
+   *
+   * Type-aware via the Checker. The rule stays silent on `any`,
+   * `unknown`, plain `boolean`, plain `string`, plain `number`,
+   * unions that mix truthy and falsy outcomes, and any other shape
+   * whose runtime truthiness is not statically decidable — only the
+   * provably always-truthy / always-falsy positions are flagged.
+   *
+   * @reference https://typescript-eslint.io/rules/no-unnecessary-condition
+   */
+  "typescript/no-unnecessary-condition"?: TtscLintRuleSetting;
+
+  /**
    * Reject `this.x = x` in a constructor body when `x` is already
    * declared as a parameter property — TypeScript performs the
    * assignment automatically.
@@ -500,6 +547,37 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/no-unnecessary-parameter-property-assignment
    */
   "typescript/no-unnecessary-parameter-property-assignment"?: TtscLintRuleSetting;
+
+  /**
+   * Reject template literals that carry no template-only behavior — a
+   * `` `${"abc"}` `` interpolation, a lone `` `${name}` `` span around
+   * a string-typed value, or a `` `abc` `` no-substitution literal with
+   * no escaped backticks. Each of these collapses to a regular string
+   * literal without changing meaning, so the backtick form is just noise.
+   *
+   * Type-aware via the Checker. The interpolation forms are flagged only
+   * when the span's expression statically resolves to a string-like type
+   * and the surrounding head / tail text is empty — the runtime coercion
+   * is then a no-op, mirroring the upstream rule.
+   *
+   * @reference https://typescript-eslint.io/rules/no-unnecessary-template-expression
+   */
+  "typescript/no-unnecessary-template-expression"?: TtscLintRuleSetting;
+
+  /**
+   * Reject `x as T` and `<T>x` assertions whose target type is the same
+   * as `x`'s already-known static type — the assertion adds nothing.
+   *
+   * Also rejects `x!` non-null assertions when `x` is already
+   * statically non-nullable. The `as const` syntax is excluded because
+   * it produces a strictly different type and is handled by the
+   * `prefer-as-const` rule.
+   *
+   * Type-aware via the Checker.
+   *
+   * @reference https://typescript-eslint.io/rules/no-unnecessary-type-assertion
+   */
+  "typescript/no-unnecessary-type-assertion"?: TtscLintRuleSetting;
 
   /**
    * Reject `<T extends unknown>` and similar constraints that match
@@ -605,6 +683,20 @@ export interface ITtscLintTypeScriptRules {
   "typescript/prefer-function-type"?: TtscLintRuleSetting;
 
   /**
+   * Prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the
+   * matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes).
+   *
+   * Type-aware via the Checker. Fires only when the receiver of
+   * `indexOf` is provably an array, tuple, or string. The
+   * `includes`-style call states the intent directly and avoids the
+   * sentinel-vs-position confusion that comes with comparing an
+   * `indexOf` return value against `-1`.
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-includes
+   */
+  "typescript/prefer-includes"?: TtscLintRuleSetting;
+
+  /**
    * Prefer literal initializers (`= 0`, `= "FOO"`) for enum members
    * over computed expressions, so the value is decidable at compile
    * time.
@@ -652,6 +744,25 @@ export interface ITtscLintTypeScriptRules {
   "typescript/prefer-optional-chain"?: TtscLintRuleSetting;
 
   /**
+   * Reject `Promise.reject(value)` where `value` is statically known
+   * not to derive from `Error` — string literals, numbers, plain
+   * primitives, and the like.
+   *
+   * Type-aware via the Checker. Mirrors `typescript/only-throw-error`
+   * for the rejection side of the promise contract: a non-Error
+   * rejection loses the structured stack trace and breaks downstream
+   * `instanceof Error` checks in `.catch(...)` / `try { await … } catch
+   * (err)` handlers. Covers `Promise.reject(arg)`, `<promise>.reject(arg)`
+   * on a Promise-typed receiver, and `reject(arg)` calls bound to the
+   * second parameter of a `new Promise((_, reject) => …)` executor.
+   * `any` and `unknown` pass through, matching upstream's
+   * `allowThrowingAny` / `allowThrowingUnknown` defaults.
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-promise-reject-errors
+   */
+  "typescript/prefer-promise-reject-errors"?: TtscLintRuleSetting;
+
+  /**
    * Reject private class fields that could carry `readonly`.
    *
    * AST-only baseline: fires on a `PropertyDeclaration` inside a class
@@ -667,6 +778,39 @@ export interface ITtscLintTypeScriptRules {
    * @reference https://typescript-eslint.io/rules/prefer-readonly
    */
   "typescript/prefer-readonly"?: TtscLintRuleSetting;
+
+  /**
+   * Prefer `str.startsWith(prefix)` / `str.endsWith(suffix)` over the
+   * `indexOf` / `lastIndexOf` and anchored-regex idioms — `str.indexOf(p)
+   * === 0`, `str.indexOf(p, str.length - p.length) !== -1`,
+   * `str.lastIndexOf(p) === str.length - p.length`, `/^prefix/.test(str)`,
+   * and `/suffix$/.test(str)`.
+   *
+   * Type-aware via the Checker. Fires only when the string-position
+   * subject is provably a `string`-like type. The dedicated methods
+   * state the intent directly and avoid the off-by-one arithmetic and
+   * regex-anchor pitfalls of the older shapes.
+   *
+   * @reference https://typescript-eslint.io/rules/prefer-string-starts-ends-with
+   */
+  "typescript/prefer-string-starts-ends-with"?: TtscLintRuleSetting;
+
+  /**
+   * Require functions whose return type is `Promise<T>` (or a
+   * Promise-like thenable) to be declared with the `async` keyword.
+   *
+   * Type-aware via the Checker. An `async` function wraps a synchronous
+   * `throw` into a rejected Promise so the caller's `await` /
+   * `.catch(...)` observes it; the non-async equivalent throws
+   * synchronously and bypasses every Promise-aware handler downstream.
+   * Marking the function `async` keeps the rejection channel
+   * consistent with the declared return type. Overload signatures,
+   * abstract methods, and declaration-merging hosts (functions with
+   * no body) are skipped — there is no body to wrap.
+   *
+   * @reference https://typescript-eslint.io/rules/promise-function-async
+   */
+  "typescript/promise-function-async"?: TtscLintRuleSetting;
 
   /**
    * Require `arr.sort()` and `arr.toSorted()` calls to pass an
