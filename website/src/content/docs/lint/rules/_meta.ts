@@ -2,7 +2,7 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  boundaries: "Architecture boundaries",
+  boundaries: "Boundaries",
   core: "Core",
   cypress: "Cypress",
   functional: "Functional",
@@ -21,6 +21,7 @@ const meta: MetaRecord = {
   "tanstack-query": "TanStack Query",
   "testing-library": "Testing Library",
   typescript: "TypeScript",
+  unicorn: "Unicorn",
   vitest: "Vitest",
 };
 export default meta;
