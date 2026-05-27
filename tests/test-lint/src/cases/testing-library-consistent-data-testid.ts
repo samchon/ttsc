@@ -1,3 +1,4 @@
+// @ttsc-corpus-skip: rule requires a configured `testIdPattern` option; the corpus runner enables every rule with a bare `error` severity and does not synthesize per-rule options.
 declare const render: any;
 declare const screen: any;
 declare const fireEvent: any;

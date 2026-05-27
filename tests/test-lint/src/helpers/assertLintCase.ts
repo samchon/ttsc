@@ -12,6 +12,11 @@ const casesRoot = path.join(process.cwd(), "src", "cases");
  * Iterates all `.ts` files in the cases tree that contain at least one `//
  * expect:` annotation and delegates to `assertLintCase` for each. Fails
  * immediately if the corpus is empty (guards against accidental tree-removal).
+ *
+ * A fixture may opt out with a `// @ttsc-corpus-skip: <reason>` directive on
+ * the first non-blank line. The reason is required and acts as the inline
+ * docstring for the exclusion. Skipped fixtures are still required to live
+ * in the tree (their Go-side rule corpus test stays the source of truth).
  */
 export function assertAllLintCases(): void {
   const cases = listLintCases();
@@ -30,11 +35,26 @@ export function assertAllLintCases(): void {
  * Extra sources in the same subdirectory (e.g. `src/` fixtures for multi-file
  * rules) are gathered by `collectExtraSources`.
  *
+ * Honors the `// @ttsc-corpus-skip: <reason>` directive: a fixture marked
+ * with one is loaded and validated against the directive shape but the
+ * native lint run is skipped — useful for rules whose contract requires
+ * project-level inputs the flat corpus runner does not synthesize (a
+ * `src/pages/...` path, a sibling `package.json`, rule-specific options).
+ *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
  *   separated, e.g. `"consistentTypeImports/violation.ts"`).
  */
 export function assertLintCase(relativeFile: string): void {
   const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
+  const skip = parseCorpusSkip(source);
+  if (skip !== null) {
+    assert.notEqual(
+      skip.length,
+      0,
+      `${relativeFile}: \`// @ttsc-corpus-skip:\` requires a non-empty reason`,
+    );
+    return;
+  }
   const expected = TestLint.parseExpectations(source);
   const result = TestLint.run({
     name: relativeFile,
@@ -57,6 +77,24 @@ export function assertLintCase(relativeFile: string): void {
     expected.map(({ rule, severity, line }) => ({ rule, severity, line })),
     result.stderr,
   );
+}
+
+/**
+ * Read the first `// @ttsc-corpus-skip: <reason>` directive from the source,
+ * if any. Returns the reason string (possibly empty — assertLintCase rejects
+ * empty reasons), or `null` when the directive is absent.
+ *
+ * The directive may appear on any line; it is not required to be the first
+ * line. Callers iterate the fixture tree once, so a linear scan is fine.
+ */
+function parseCorpusSkip(source: string): string | null {
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/^\s*\/\/\s*@ttsc-corpus-skip:\s*(.*?)\s*$/);
+    if (match) {
+      return match[1] ?? "";
+    }
+  }
+  return null;
 }
 
 /**
