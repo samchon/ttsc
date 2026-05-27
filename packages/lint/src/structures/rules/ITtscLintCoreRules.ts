@@ -382,6 +382,16 @@ export interface ITtscLintCoreRules {
   "no-ex-assign"?: TtscLintRuleSetting;
 
   /**
+   * Reject assignments to a built-in prototype such as
+   * `Array.prototype.foo = bar`. Only `<Builtin>.prototype.<key> = …`
+   * is flagged; assigning to `Object.foo = …` (a static property) is
+   * left alone.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-extend-native
+   */
+  "no-extend-native"?: TtscLintRuleSetting;
+
+  /**
    * Reject unnecessary `Function.prototype.bind()` calls — for
    * example, binding without arguments or binding an arrow function
    * (which ignores `this`).
@@ -502,6 +512,32 @@ export interface ITtscLintCoreRules {
   "no-misleading-character-class"?: TtscLintRuleSetting;
 
   /**
+   * Reject mixing operators of different precedence families in the
+   * same expression without explicit parentheses around the inner
+   * sub-expression. The conservative baseline flags logical mixed with
+   * a different logical (`&&` next to `||` / `??`).
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-mixed-operators
+   */
+  "no-mixed-operators"?: TtscLintRuleSetting;
+
+  /**
+   * Reject mixing operators of different precedence families in the
+   * same expression without explicit parentheses around the inner
+   * sub-expression. The famous case is `a && b || c`: readers expect
+   * left-to-right grouping but the parser sees `(a && b) || c` because
+   * `&&` binds tighter than `||`.
+   *
+   * The conservative baseline only flags the highest-confusion mixes —
+   * logical mixed with a different logical (`&&` next to `||` / `??`),
+   * and bitwise (`&`, `|`, `^`) next to a comparison or logical.
+   * Wrapping the inner sub-expression in parens suppresses the report.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-mixed-operators
+   */
+  "no-mixed-operators"?: TtscLintRuleSetting;
+
+  /**
    * Reject chained assignment such as `a = b = 0`, which obscures
    * intent and surprises readers who expect comparison.
    *
@@ -605,6 +641,16 @@ export interface ITtscLintCoreRules {
    * @reference https://eslint.org/docs/latest/rules/no-octal-escape
    */
   "no-octal-escape"?: TtscLintRuleSetting;
+
+  /**
+   * Reject reassigning a function parameter inside the body of the
+   * function it belongs to. The parameter name stops pointing at the
+   * caller's argument after the write. Property mutations
+   * (`param.foo = …`) are not flagged.
+   *
+   * @reference https://eslint.org/docs/latest/rules/no-param-reassign
+   */
+  "no-param-reassign"?: TtscLintRuleSetting;
 
   /**
    * Reject `++` and `--` operators.

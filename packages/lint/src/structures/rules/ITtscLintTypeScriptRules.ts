@@ -404,6 +404,21 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-non-null-assertion"?: TtscLintRuleSetting;
 
   /**
+   * Reject union and intersection type constituents that the type
+   * system absorbs anyway — `string | any` collapses to `any`,
+   * `T & never` collapses to `never`, `T & unknown` collapses to `T`,
+   * and repeated constituents add nothing.
+   *
+   * AST-only baseline: only the literal `any` / `unknown` / `never`
+   * keyword constituents and duplicates matched by textual identity
+   * are reported. Subset relations such as `string | "foo"` and
+   * generic alias resolution still require the type-aware path.
+   *
+   * @reference https://typescript-eslint.io/rules/no-redundant-type-constituents
+   */
+  "typescript/no-redundant-type-constituents"?: TtscLintRuleSetting;
+
+  /**
    * Reject `require(...)` calls and `import x = require(...)`
    * declarations.
    *

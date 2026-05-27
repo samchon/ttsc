@@ -53,6 +53,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `no-lonely-if` — Reject `if (cond) { if (...) { ... } }` where the inner `if` is the only statement in an `else` — prefer `else if`.
 - `no-loss-of-precision` — Reject numeric literals whose source text cannot round-trip through `Number` without losing digits, including overflow.
 - `no-misleading-character-class` — Reject regex character classes that contain combined Unicode sequences (e.g. surrogate pairs) which most readers will not realize represent multiple code units.
+- `no-mixed-operators` — Reject mixing operators of different precedence families (`a && b || c`, `a | b && c`) without explicit parentheses around the inner sub-expression.
 - `no-multi-assign` — Reject chained assignment such as `a = b = 0`, which obscures intent and surprises readers who expect comparison.
 - `no-multi-str` — Reject backslash-newline multiline string literals; use template literals instead.
 - `no-negated-condition` — Reject `if (!cond) { ... } else { ... }` — flip the branches so the positive condition reads first.
