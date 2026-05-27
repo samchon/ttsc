@@ -1,3 +1,4 @@
+declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/prefer-presence-queries: presence and absence must use matching query families.
  *

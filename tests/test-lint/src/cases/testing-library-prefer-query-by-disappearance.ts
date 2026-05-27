@@ -1,3 +1,4 @@
+declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/prefer-query-by-disappearance: disappearance waits must use `queryBy*`.
  *

@@ -1,3 +1,4 @@
+declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/no-wait-for-snapshot: snapshot matchers inside `waitFor` are rejected.
  *

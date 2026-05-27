@@ -1,3 +1,4 @@
+declare module "@testing-library/react" { const x: any; export = x; }
 declare const render: any;
 declare const screen: any;
 declare const fireEvent: any;

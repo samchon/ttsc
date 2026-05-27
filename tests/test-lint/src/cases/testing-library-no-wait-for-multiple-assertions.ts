@@ -1,3 +1,4 @@
+declare module "@testing-library/react" { const x: any; export = x; }
 /**
  * Verifies testing-library/no-wait-for-multiple-assertions: multiple expects inside `waitFor` are rejected.
  *
