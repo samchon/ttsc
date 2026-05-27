@@ -514,16 +514,6 @@ export interface ITtscLintCoreRules {
   /**
    * Reject mixing operators of different precedence families in the
    * same expression without explicit parentheses around the inner
-   * sub-expression. The conservative baseline flags logical mixed with
-   * a different logical (`&&` next to `||` / `??`).
-   *
-   * @reference https://eslint.org/docs/latest/rules/no-mixed-operators
-   */
-  "no-mixed-operators"?: TtscLintRuleSetting;
-
-  /**
-   * Reject mixing operators of different precedence families in the
-   * same expression without explicit parentheses around the inner
    * sub-expression. The famous case is `a && b || c`: readers expect
    * left-to-right grouping but the parser sees `(a && b) || c` because
    * `&&` binds tighter than `||`.
