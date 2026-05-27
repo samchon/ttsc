@@ -1,1 +1,8 @@
-// @ttsc-corpus-skip: unicorn/prefer-type-error not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+function f(x: unknown) {
+  if (typeof x !== "number") {
+    // expect: unicorn/prefer-type-error error
+    throw new Error("must be number");
+  }
+  return x;
+}
+void f;

@@ -1,1 +1,5 @@
-// @ttsc-corpus-skip: unicorn/consistent-empty-array-spread not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const cond: boolean;
+declare const x: number;
+// expect: unicorn/consistent-empty-array-spread error
+const a = [1, ...(cond ? [x] : 2 as unknown as number[])];
+void a;

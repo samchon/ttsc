@@ -1,1 +1,7 @@
-// @ttsc-corpus-skip: unicorn/explicit-length-check not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const xs: number[];
+if (
+  // expect: unicorn/explicit-length-check error
+  xs.length
+) {
+  void 0;
+}

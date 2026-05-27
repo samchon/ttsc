@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/consistent-date-clone not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const original = new Date();
+// expect: unicorn/consistent-date-clone error
+const clone = new Date(original.getTime());
+void clone;

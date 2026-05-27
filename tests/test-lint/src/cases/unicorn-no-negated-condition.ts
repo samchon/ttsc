@@ -1,1 +1,7 @@
-// @ttsc-corpus-skip: unicorn/no-negated-condition not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const x: number;
+// expect: unicorn/no-negated-condition error
+if (x !== 0) {
+  void "nonzero";
+} else {
+  void "zero";
+}

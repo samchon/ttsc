@@ -1,1 +1,6 @@
-// @ttsc-corpus-skip: unicorn/no-unnecessary-await not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+async function f() {
+  // expect: unicorn/no-unnecessary-await error
+  const x = await 42;
+  void x;
+}
+void f;

@@ -1,1 +1,9 @@
-// @ttsc-corpus-skip: unicorn/prefer-switch not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const k: string;
+// expect: unicorn/prefer-switch error
+if (k === "a") {
+  void 0;
+} else if (k === "b") {
+  void 0;
+} else if (k === "c") {
+  void 0;
+}

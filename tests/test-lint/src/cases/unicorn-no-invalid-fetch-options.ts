@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/no-invalid-fetch-options not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare function fetch(input: string, init: object): Promise<unknown>;
+// expect: unicorn/no-invalid-fetch-options error
+fetch("https://example.com", { method: "GET", body: "x" });

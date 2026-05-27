@@ -1,1 +1,3 @@
-// @ttsc-corpus-skip: unicorn/consistent-assert not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+import assert from "node:assert";
+// expect: unicorn/consistent-assert error
+assert.equal(1, 1);

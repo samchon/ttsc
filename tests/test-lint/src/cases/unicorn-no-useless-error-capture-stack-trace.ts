@@ -1,1 +1,8 @@
-// @ttsc-corpus-skip: unicorn/no-useless-error-capture-stack-trace not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+class MyError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    // expect: unicorn/no-useless-error-capture-stack-trace error
+    Error.captureStackTrace(this, MyError);
+  }
+}
+void new MyError("x");

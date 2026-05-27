@@ -1,1 +1,4 @@
-// @ttsc-corpus-skip: unicorn/consistent-existence-index-check not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const arr = [1, 2, 3];
+// expect: unicorn/consistent-existence-index-check error
+const found = arr.indexOf(2) >= 0;
+void found;
