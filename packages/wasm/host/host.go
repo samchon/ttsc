@@ -56,8 +56,19 @@ func Expose(apiName string, cfg Config) {
   // the first batch (Go pins js.Funcs and they're not GC'd), spin a second
   // keepalive goroutine forever, and overwrite the ready resolver so JS
   // may await against a different generation than the api globals.
+  //
+  // Surface the refusal as console.error + a JS-visible reject signal
+  // (`globalThis[apiName+"Failed"](err)`) and return without panicking.
+  // A panic would terminate the Go runtime before any Ready resolver
+  // could fire, and bootTtsc's `await ready` (no timeout) would hang
+  // indefinitely with no observable cause.
   if !exposed.CompareAndSwap(false, true) {
-    panic("host.Expose: must be called at most once per wasm instance")
+    msg := "host.Expose: must be called at most once per wasm instance"
+    fmt.Fprintln(os.Stderr, msg)
+    if failed := js.Global().Get(apiName + "Failed"); failed.Type() == js.TypeFunction {
+      failed.Invoke(js.Global().Get("Error").New(msg))
+    }
+    return
   }
   plugins := map[string]Plugin{}
   pluginNames := make([]string, 0, len(cfg.Plugins))

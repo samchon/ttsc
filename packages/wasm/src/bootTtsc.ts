@@ -15,13 +15,39 @@ import type { ITtscApi } from "./structures/ITtscApi";
 
 declare const importScripts: (...urls: string[]) => void;
 
-/** Boot a host-built wasm. Re-entrant only if you reuse the same `host`. */
-export async function bootTtsc(
+/**
+ * Per-apiName single-flight cache for in-flight boots. A second bootTtsc
+ * call with the same apiName joins the in-flight promise instead of
+ * overwriting the Ready resolver (which would silently strand the first
+ * caller's await forever).
+ */
+const bootsInFlight = new Map<string, Promise<IBootResult>>();
+
+/**
+ * Boot a host-built wasm. Re-entrant only if you reuse the same `host`.
+ *
+ * Concurrent calls with the same `apiName` share the same in-flight boot
+ * (single-flight cache). On rejection the cache entry is cleared so the
+ * next call retries from scratch.
+ */
+export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
+  const apiName = options.apiName ?? "ttsc";
+  const inflight = bootsInFlight.get(apiName);
+  if (inflight) return inflight;
+  const promise = bootTtscOnce(options, apiName).catch((err) => {
+    bootsInFlight.delete(apiName);
+    throw err;
+  });
+  bootsInFlight.set(apiName, promise);
+  return promise;
+}
+
+async function bootTtscOnce(
   options: IBootTtscOptions,
+  apiName: string,
 ): Promise<IBootResult> {
   const wasmUrl = options.wasmUrl;
   const wasmExecUrl = options.wasmExecUrl ?? defaultWasmExecUrl(wasmUrl);
-  const apiName = options.apiName ?? "ttsc";
 
   const host = options.host ?? createMemFS();
   const globalAny = globalThis as Record<string, unknown>;
@@ -34,8 +60,19 @@ export async function bootTtsc(
   // module-eval time, so this import must follow the assignment above.
   importScripts(wasmExecUrl);
 
-  const ready = new Promise<void>((resolve) => {
-    globalAny[apiName + "Ready"] = resolve;
+  // Race the Ready resolver against a Failed signal so a wasm-side fault
+  // (e.g. `host.Expose` refusing a duplicate call) surfaces here instead of
+  // hanging on `await ready` forever. `go.run` is fire-and-forget so its
+  // own rejection cannot reach this promise without an explicit channel.
+  const ready = new Promise<void>((resolve, reject) => {
+    globalAny[apiName + "Ready"] = () => {
+      delete globalAny[apiName + "Failed"];
+      resolve();
+    };
+    globalAny[apiName + "Failed"] = (err: unknown) => {
+      delete globalAny[apiName + "Ready"];
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
   });
 
   const goCtor = (globalAny as { Go: new () => IGoInstance }).Go;

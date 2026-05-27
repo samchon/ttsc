@@ -310,7 +310,11 @@ export function PlaygroundShell({
         });
         setLintDiagnostics([]);
       } finally {
-        if (runEpoch.current === epoch) setRunning(false);
+        // Always clear the running flag, even if the epoch advanced. Gating
+        // on epoch leaves the "compiling…" indicator stuck forever when a
+        // faster keystroke or an Execute click bumped the epoch mid-flight.
+        // The latest pipeline will set running=true again on its own turn.
+        setRunning(false);
       }
     },
     [createCompilerService, installDependenciesForSource],
@@ -436,7 +440,8 @@ export function PlaygroundShell({
       if (runEpoch.current !== epoch) return;
       push("error", [error]);
     } finally {
-      if (runEpoch.current === epoch) setExecuting(false);
+      // Always clear executing — same reasoning as setRunning above.
+      setExecuting(false);
     }
   }, [
     createCompilerService,
@@ -447,8 +452,27 @@ export function PlaygroundShell({
   ]);
 
   const allDiagnostics = useMemo(() => {
-    const fromCompile =
-      result && result.type === "failure" ? result.diagnostics : [];
+    const fromCompile: ICompilerService.IDiagnostic[] = [];
+    if (result?.type === "failure") {
+      fromCompile.push(...result.diagnostics);
+    } else if (result?.type === "error") {
+      // Host-level exceptions (worker transport blip, wasm rejection)
+      // surface as a synthetic diagnostic so the diagnostics strip
+      // doesn't say "0 errors" while the result pane shows an error.
+      const message =
+        typeof result.value === "string"
+          ? result.value
+          : (((result.value as { message?: string })?.message ??
+              "ttsc: unexpected error") as string);
+      fromCompile.push({
+        line: 1,
+        column: 1,
+        length: 1,
+        severity: "error",
+        message,
+        code: "TTSC_RUNTIME",
+      });
+    }
     const set = new Set<string>();
     return [...fromCompile, ...lintDiagnostics].filter((d) => {
       const key = `${d.line}:${d.column}:${d.code ?? ""}:${d.message}`;

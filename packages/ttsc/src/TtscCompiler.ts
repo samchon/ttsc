@@ -267,13 +267,24 @@ function runTransformation(
 }
 
 /**
- * Best-effort classifier for the `kind` field of `IException`. The error
- * messages thrown inside this package follow stable prefixes — plugin build
- * failures start with `ttsc-plugin:` (buildSourcePlugin.ts), tsconfig /
- * project setup failures start with `ttsc:` (readProjectConfig.ts), and Go
- * toolchain failures share the `goToolchainNotFoundMessage` envelope.
- * Anything else falls back to `"unknown"` so embedders always see the field
- * set per the documented contract.
+ * Best-effort classifier for the `kind` field of `IException`. Pattern-
+ * matches the real prefixes thrown inside this package:
+ *
+ *   - Plugin: messages from `loadProjectPlugins.ts` / `buildSourcePlugin.ts`
+ *     start with `ttsc: plugin "..."` or `ttsc: package "..." declares ...`,
+ *     and transform-time spawn failures start with `ttsc.transform:` /
+ *     `ttsc.transform.check:`. The Go-toolchain missing envelope also
+ *     surfaces here.
+ *   - Host: everything else under the `ttsc:` umbrella — the bare
+ *     `ttsc:` strings from `paths.ts`, `ttsc: TypeScript-Go executable
+ *     not found` (`resolveTsgo.ts`), `ttsc: failed to spawn native
+ *     compiler host` (`transformProjectInMemory.ts`), and tsconfig /
+ *     extended-tsconfig shapes from `readProjectConfig.ts`.
+ *   - Anything else falls back to `"unknown"` so embedders always see the
+ *     field set per the documented contract.
+ *
+ * Order matters: plugin patterns must run before the generic `ttsc:` test
+ * because every plugin message also starts with `ttsc:`.
  */
 function classifyException(
   error: unknown,
@@ -284,10 +295,18 @@ function classifyException(
       : typeof error === "string"
         ? error
         : "";
-  if (/^ttsc-plugin:|plugin build|go toolchain/i.test(message)) {
+  if (
+    /^ttsc:\s*plugin\b|^ttsc:\s*package\b|^ttsc\.transform[.:]|^ttsc-plugin:|go toolchain/i.test(
+      message,
+    )
+  ) {
     return "plugin";
   }
-  if (/^ttsc:|tsconfig|extended tsconfig|TypeScript-Go/i.test(message)) {
+  if (
+    /^ttsc:|tsconfig|extended tsconfig|TypeScript-Go|native compiler host/i.test(
+      message,
+    )
+  ) {
     return "host";
   }
   return "unknown";
