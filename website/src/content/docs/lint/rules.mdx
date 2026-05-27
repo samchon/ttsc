@@ -16,7 +16,6 @@ Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscL
 | TypeScript | `ITtscLintTypeScriptRules` | 40 | `typescript/*` |
 | Architecture boundaries | `ITtscLintBoundariesRules` | 5 | `boundaries/*` |
 | Cypress | `ITtscLintCypressRules` | 13 | `cypress/*` |
-| Directive comments | `ITtscLintEslintCommentsRules` | 9 | `eslint-comments/*` |
 | Functional policy | `ITtscLintFunctionalRules` | 20 | `functional/*` |
 | Jest | `ITtscLintJestRules` | 19 | `jest/*` |
 | JSDoc | `ITtscLintJsdocRules` | 13 | `jsdoc/*` |
@@ -77,22 +76,6 @@ These rules inspect high-confidence Cypress and Mocha test shapes in TS/TSX spec
 | `cypress/no-xpath` | Reject deprecated `cy.xpath()` selectors. |
 | `cypress/require-data-selectors` | Require statically known `cy.get()` selectors to target `data-*` attributes. |
 | `cypress/unsafe-to-chain-command` | Reject chaining more commands after Cypress action commands. Option: `{ methods?: string[] }`. |
-
-## Directive comments
-
-These rules inspect `eslint-disable` / `eslint-enable` comments and the matching `lint-disable` aliases supported by `@ttsc/lint`.
-
-| Rule | Effect |
-| ---- | ------ |
-| `eslint-comments/disable-enable-pair` | Require range `eslint-disable` directives to have a later matching `eslint-enable`. Option: `{ allowWholeFile?: boolean }`. |
-| `eslint-comments/no-aggregating-enable` | Reject bare `eslint-enable` comments that re-enable named disables at once. |
-| `eslint-comments/no-duplicate-disable` | Reject repeated disables for a rule that is already disabled. |
-| `eslint-comments/no-restricted-disable` | Reject disables for configured protected rules. Option: `{ rules: string[] }`. |
-| `eslint-comments/no-unlimited-disable` | Reject disable comments with no explicit rule list. |
-| `eslint-comments/no-unused-disable` | Reject disable comments that suppress no diagnostic. |
-| `eslint-comments/no-unused-enable` | Reject enable comments that do not re-enable anything. |
-| `eslint-comments/no-use` | Reject lint directive comments entirely. Option: `{ allow?: string[] }`. |
-| `eslint-comments/require-description` | Require directive comments to include a `--` description. |
 
 ## Equality and comparison
 

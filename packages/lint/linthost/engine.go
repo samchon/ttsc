@@ -546,7 +546,6 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   }
   directives := parseLintInlineDirectives(file)
   e.collectUnknownDirectiveRules(directives)
-  collected = append(collected, collectEslintCommentFindings(file, collected, directives, fileRules, e.config)...)
   // Apply inline-disable filtering even for files with no statement
   // list. A SourceFile-level rule that fires on a `// ttsc-lint-disable`
   // comment must still honor the directive; early-returning before

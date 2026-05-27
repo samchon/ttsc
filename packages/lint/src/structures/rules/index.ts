@@ -4,8 +4,6 @@ export * from "./ITtscLintContributorRules";
 export * from "./ITtscLintCoreRules";
 export * from "./ITtscLintCypressRuleOptions";
 export * from "./ITtscLintCypressRules";
-export * from "./ITtscLintEslintCommentsRuleOptions";
-export * from "./ITtscLintEslintCommentsRules";
 export * from "./ITtscLintFunctionalRuleOptions";
 export * from "./ITtscLintFunctionalRules";
 export * from "./ITtscLintJestRules";

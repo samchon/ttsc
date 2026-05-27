@@ -7,11 +7,6 @@ import type {
 } from "./ITtscLintBoundariesRuleOptions";
 import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLintCypressRuleOptions";
 import type {
-  ITtscLintDisableEnablePairRuleOptions,
-  ITtscLintNoRestrictedDisableRuleOptions,
-  ITtscLintNoUseRuleOptions,
-} from "./ITtscLintEslintCommentsRuleOptions";
-import type {
   ITtscLintFunctionalEmptyRuleOptions,
   ITtscLintFunctionalImmutableDataRuleOptions,
   ITtscLintFunctionalNoConditionalStatementsRuleOptions,
@@ -83,9 +78,6 @@ export interface ITtscLintRuleOptionsMap {
   "boundaries/external": ITtscLintBoundariesExternalRuleOptions;
   "boundaries/no-private": ITtscLintBoundariesNoPrivateRuleOptions;
   "boundaries/no-unknown": ITtscLintBoundariesNoUnknownRuleOptions;
-  "eslint-comments/disable-enable-pair": ITtscLintDisableEnablePairRuleOptions;
-  "eslint-comments/no-restricted-disable": ITtscLintNoRestrictedDisableRuleOptions;
-  "eslint-comments/no-use": ITtscLintNoUseRuleOptions;
   "react-perf/jsx-no-new-array-as-prop": ITtscLintReactPerfRuleOptions;
   "react-perf/jsx-no-new-function-as-prop": ITtscLintReactPerfRuleOptions;
   "react-perf/jsx-no-new-object-as-prop": ITtscLintReactPerfRuleOptions;
