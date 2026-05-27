@@ -10,9 +10,9 @@ declare const vi: any;
 declare const process: any;
 declare const ready: any;
 declare const value: any;
-// expect: vitest/no-conditional-expect error
 it("checks conditionally", () => {
   if (ready) {
+// expect: vitest/no-conditional-expect error
     expect(value).toBe(1);
   }
 });

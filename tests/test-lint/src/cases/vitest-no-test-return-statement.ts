@@ -9,7 +9,7 @@ declare const afterAll: any;
 declare const vi: any;
 declare const process: any;
 declare const buildValue: any;
-// expect: vitest/no-test-return-statement error
 test("returns", () => {
+// expect: vitest/no-test-return-statement error
   return buildValue();
 });

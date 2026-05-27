@@ -9,7 +9,7 @@ declare const afterAll: any;
 declare const vi: any;
 declare const process: any;
 declare const value: any;
-// expect: vitest/valid-expect error
 test("bare", () => {
+// expect: vitest/valid-expect error
   expect(value);
 });
