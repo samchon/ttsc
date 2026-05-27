@@ -21,12 +21,12 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 type unicornNoUnnecessaryPolyfills struct{}
 
-func (unicornNoUnnecessaryPolyfills) Name() string         { return "unicorn/no-unnecessary-polyfills" }
+func (unicornNoUnnecessaryPolyfills) Name() string           { return "unicorn/no-unnecessary-polyfills" }
 func (unicornNoUnnecessaryPolyfills) Visits() []shimast.Kind { return nil }
 func (unicornNoUnnecessaryPolyfills) Check(_ *Context, _ *shimast.Node) {
-	// Intentionally empty — see file header for the escape-hatch rationale.
+  // Intentionally empty — see file header for the escape-hatch rationale.
 }
 
 func init() {
-	Register(unicornNoUnnecessaryPolyfills{})
+  Register(unicornNoUnnecessaryPolyfills{})
 }

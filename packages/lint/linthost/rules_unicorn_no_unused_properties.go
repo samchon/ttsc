@@ -19,12 +19,12 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 type unicornNoUnusedProperties struct{}
 
-func (unicornNoUnusedProperties) Name() string         { return "unicorn/no-unused-properties" }
+func (unicornNoUnusedProperties) Name() string           { return "unicorn/no-unused-properties" }
 func (unicornNoUnusedProperties) Visits() []shimast.Kind { return nil }
 func (unicornNoUnusedProperties) Check(_ *Context, _ *shimast.Node) {
-	// Intentionally empty — see file header for the escape-hatch rationale.
+  // Intentionally empty — see file header for the escape-hatch rationale.
 }
 
 func init() {
-	Register(unicornNoUnusedProperties{})
+  Register(unicornNoUnusedProperties{})
 }
