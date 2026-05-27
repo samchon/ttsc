@@ -126,7 +126,15 @@ export function PlaygroundShell({
   const updateSource = useCallback((next: string) => {
     sourceVersion.current++;
     latestSource.current = next;
+    // Bump BOTH epochs: typing must abort an in-flight compile (the
+    // result would be stale) AND an in-flight Execute (the bundled code
+    // would not match what's on screen). Without bumping executeEpoch,
+    // an Execute whose dependency install was aborted by this typing
+    // would silently treat the abort as success and bundle against an
+    // incomplete MemFS — emitting JS for packages the user just edited
+    // away from, or failing in confusing ways.
     compileEpoch.current++;
+    executeEpoch.current++;
     dependencyAbort.current?.abort(createAbortError("source changed"));
     setDependencyProgress(null);
     setDependencyPackageNames([]);
@@ -279,11 +287,16 @@ export function PlaygroundShell({
     [createCompilerService, preinstalledPackages],
   );
 
-  // ── Run compile when source / target / options change ──
+  // ── Run compile when source / options change ──
+  //
+  // `target` (the active tab) is intentionally NOT a trigger here: the
+  // compile produces the same result + lintDiagnostics regardless of
+  // which tab the user is looking at; the tab choice only swaps which
+  // pane is rendered. Re-running the wasm-heavy pipeline on every tab
+  // click would burn multiple seconds of work per click.
   const run = useCallback(
     async (
       input: string,
-      mode: Tab,
       opts: ITransformOptions,
       version: number,
     ) => {
@@ -319,7 +332,6 @@ export function PlaygroundShell({
         } else {
           setLintDiagnostics([]);
         }
-        void mode;
       } catch (err) {
         if (compileEpoch.current !== epoch) return;
         // Surface the error in the diagnostics pane via an error result —
@@ -352,12 +364,15 @@ export function PlaygroundShell({
     if (debounce.current !== null) window.clearTimeout(debounce.current);
     const version = sourceVersion.current;
     debounce.current = window.setTimeout(() => {
-      void run(source, target, options, version);
+      void run(source, options, version);
     }, 280);
     return () => {
       if (debounce.current !== null) window.clearTimeout(debounce.current);
     };
-  }, [source, target, options, run, bootPhase]);
+    // `target` (the active tab) is intentionally NOT a dep — see the
+    // comment on `run` above. Re-running the wasm pipeline per tab
+    // click would burn seconds of work for an identical result.
+  }, [source, options, run, bootPhase]);
 
   const onShare = useCallback(() => {
     const url = new URL(window.location.href);
@@ -494,13 +509,12 @@ export function PlaygroundShell({
       // against concurrent click + edit interleavings.
       if (executeEpoch.current === epoch) setExecuting(false);
     }
-  }, [
-    createCompilerService,
-    executeBundle,
-    installDependenciesForSource,
-    options,
-    source,
-  ]);
+    // `source` is intentionally NOT a dep: the body snapshots
+    // `latestSource.current` (always fresh ref) rather than reading the
+    // React state, so including `source` here would re-create the
+    // callback per keystroke and propagate into the global keydown
+    // useEffect, churning event-listener add/remove every character.
+  }, [createCompilerService, executeBundle, installDependenciesForSource, options]);
 
   const allDiagnostics = useMemo(() => {
     const fromCompile: ICompilerService.IDiagnostic[] = [];
