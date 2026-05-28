@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-ttsc",
-  "version": "0.13.1",
+  "version": "0.14.0-dev.20260528.1",
   "description": "Compiler, API, plugin host, platform, and utility plugin integration tests for ttsc.",
   "type": "module",
   "scripts": {

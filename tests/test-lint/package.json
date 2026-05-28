@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-lint",
-  "version": "0.13.1",
+  "version": "0.14.0-dev.20260528.1",
   "description": "@ttsc/lint descriptor, config, and rule corpus tests.",
   "type": "module",
   "scripts": {
