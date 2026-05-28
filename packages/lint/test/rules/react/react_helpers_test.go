@@ -14,6 +14,9 @@ func assertReactRuleFinds(t *testing.T, ruleName, source, messagePart string) {
 	if len(findings) != 1 {
 		t.Fatalf("%s: expected one finding, got %d: %+v", ruleName, len(findings), findings)
 	}
+	if findings[0].Rule != ruleName {
+		t.Fatalf("%s: finding came from rule %q, not %q", ruleName, findings[0].Rule, ruleName)
+	}
 	if messagePart != "" && !strings.Contains(findings[0].Message, messagePart) {
 		t.Fatalf("%s: message %q does not contain %q", ruleName, findings[0].Message, messagePart)
 	}
