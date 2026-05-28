@@ -75,6 +75,14 @@ const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
 // traces are written. Human runs leave it off and read milestone lines only.
 const VERBOSE = flags.has("--verbose");
 const BRANCHES = ["legacy", "ttsc", "ttsc-lint"];
+// Sequential mode deletes each clone after measuring it, so by the time the
+// final report is built every clone may be gone. The cache lets sequential
+// mode stash file counts and the legacy `typescript` version while the clone
+// still exists; batch mode leaves it empty and reads from disk as before.
+// Declared up here (before `main()` is invoked at line 442) so the helpers
+// further down the file that touch it aren't tripped by a temporal-dead-zone
+// reference when `createReport` -> `projectReportFor` runs during startup.
+const projectMetaCache = new Map();
 const TTSC_VERSION = JSON.parse(
   fs.readFileSync(path.join(REPO_ROOT, "packages/ttsc/package.json"), "utf8"),
 ).version;
@@ -1581,12 +1589,6 @@ function ensureProjectReport(report, project) {
   }
   return projectReport;
 }
-
-// Sequential mode deletes each clone after measuring it, so by the time the
-// final report is built every clone may be gone. The cache lets sequential
-// mode stash file counts and the legacy `typescript` version while the clone
-// still exists; batch mode leaves it empty and reads from disk as before.
-const projectMetaCache = new Map();
 
 function cacheProjectMeta(projectName, updates) {
   const existing = projectMetaCache.get(projectName) ?? {};
