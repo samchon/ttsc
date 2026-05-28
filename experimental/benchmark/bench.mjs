@@ -1979,6 +1979,15 @@ function main() {
   fs.mkdirSync(WORK, { recursive: true });
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
 
+  // Pack-only mode: produce the local ttsc tarballs in TGZ and exit. Used by
+  // the CI `pack` job to seed a shared artifact that subsequent matrix jobs
+  // unpack into their own `TTSC_BENCH_TGZ` with `--no-pack`.
+  if (flags.has("--pack-only")) {
+    packTarballs();
+    process.stdout.write(`Pack complete in ${TGZ}\n`);
+    return;
+  }
+
   if (sequential) {
     runSequential(totalStart);
     return;
@@ -2088,7 +2097,11 @@ function runSequential(totalStart) {
       }
 
       removeClone(project, branch);
-      writeReports(report, { publishWebsite: true });
+      // Verify-only runs add no measurements; their per-cycle publish would
+      // otherwise rewrite the host block and `date` and trigger a noisy
+      // `chore(benchmark): refresh ...` commit on master without any real
+      // measurement deltas. Skip the website write in that mode.
+      writeReports(report, { publishWebsite: !flags.has("--verify-only") });
     }
   }
 

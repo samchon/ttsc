@@ -33,6 +33,7 @@ Option families:
 - **Host gate** — `TTSC_BENCH_REQUIRE_QUIET=1` upgrades the load-average warning into a hard error and is set for every publication run; `TTSC_BENCH_SKIP_LOAD_CHECK=1` silences it for development iterations.
 - **Output** — `--no-website` skips merging into `website/public/benchmark.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
 - **Disk-cheap mode** — `--sequential` (env `TTSC_BENCH_SEQUENTIAL=1`) holds only one `(project, branch)` clone in `.work/` at a time: clone, measure, delete, next. Used by the GitHub Actions workflow `.github/workflows/benchmark.yml`. Incompatible with `--setup-only` / `--no-setup`.
+- **CI fan-out** — `.github/workflows/benchmark.yml` is a `prepare → pack → measure (21-job matrix) → publish` DAG. `pack` packs the tarballs once and shares them as an artifact; each `measure` job runs `--sequential --cell-filter='^${proj}:${branch}:'` against a single `(project, branch)`; `publish` merges the partials via `experimental/benchmark/merge-website.mjs` and pushes `website/public/benchmark.json` back to master with `[skip ci]`. `--pack-only` and `merge-website.mjs` exist for this pipeline.
 
 Publication sweep:
 

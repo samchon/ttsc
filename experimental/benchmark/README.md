@@ -79,6 +79,7 @@ Per-project commands, install/prepare overrides, and prerequisites live in
 | `--setup-only` | Pack + clone + install + `ttsc prepare`. No measurement. |
 | `--verify-only` | Run each selected cell once and fail loudly on any error. |
 | `--sequential` | Clone, measure, and delete one `(project, branch)` at a time instead of holding all clones in `.work/` simultaneously. Disk-cheap mode for GitHub Actions and other space-constrained CI. Mutually exclusive with `--setup-only` / `--no-setup`. Env: `TTSC_BENCH_SEQUENTIAL=1`. |
+| `--pack-only` | Build and pack the local ttsc / @ttsc/lint / platform tarballs into `TTSC_BENCH_TGZ` and exit. No clones, no measurements. Used by the CI `pack` job to seed a shared artifact that the matrix `measure` jobs consume with `--no-pack`. |
 | `--no-setup` | Skip pack/clone/install; measure the existing clones. |
 | `--no-install` | Skip the install step inside setup. |
 | `--no-pack` | Reuse tarballs already in `TTSC_BENCH_TGZ` (same as `TTSC_BENCH_SKIP_PACK=1`). |
@@ -129,7 +130,17 @@ Per-project commands, install/prepare overrides, and prerequisites live in
   version, host spec) is captured while each clone exists and reused for the
   final report. The published `website/public/benchmark.json` is merged in
   place after every cycle, so an interrupted sequential run leaves a
-  resumable snapshot just like batch mode.
+  resumable snapshot just like batch mode. Verify-only runs skip the
+  per-cycle website write to avoid noisy host-metadata-only commits.
+- `.github/workflows/benchmark.yml` parallelises a full sweep by fanning out
+  `--sequential --cell-filter='^${project}:${branch}:'` across a 21-job
+  matrix (7 fixtures × 3 branches), each job producing one partial
+  `report.json` artifact. A single `publish` job downloads every partial and
+  invokes `merge-website.mjs` to fold the cells into
+  `website/public/benchmark.json` by id — missing partials keep their
+  previous cells intact, fresh partials replace by id, and only the freshest
+  partial that *carries measurements* rotates the top-level `date` / `host`
+  block.
 - At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio
   exceeds 0.5 — the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 %
   on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error
