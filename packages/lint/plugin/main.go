@@ -34,6 +34,7 @@ package main
 import (
   "fmt"
   "os"
+  "runtime"
   "runtime/pprof"
 
   "github.com/samchon/ttsc/packages/lint/linthost"
@@ -63,6 +64,18 @@ func main() {
   if profileFile != nil {
     pprof.StopCPUProfile()
     profileFile.Close()
+  }
+  if path := os.Getenv("TTSC_LINT_MEMPROFILE"); path != "" {
+    f, err := os.Create(path)
+    if err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: cannot create memprofile %q: %v\n", path, err)
+    } else {
+      runtime.GC()
+      if err := pprof.WriteHeapProfile(f); err != nil {
+        fmt.Fprintf(os.Stderr, "@ttsc/lint: pprof.WriteHeapProfile: %v\n", err)
+      }
+      f.Close()
+    }
   }
   os.Exit(code)
 }
