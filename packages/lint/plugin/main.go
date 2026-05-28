@@ -32,11 +32,37 @@
 package main
 
 import (
+  "fmt"
   "os"
+  "runtime/pprof"
 
   "github.com/samchon/ttsc/packages/lint/linthost"
 )
 
 func main() {
-  os.Exit(linthost.Main(os.Args[1:]))
+  // Opt-in CPU profile capture for the lint binary. Set
+  // `TTSC_LINT_CPUPROFILE=/path/to/out.prof` before running `ttsc check`
+  // to record where the in-process lint engine spends time on a real
+  // project. The file is flushed before the process exits; the binary's
+  // exit code is unchanged. NOTE: `os.Exit` skips deferred calls, so the
+  // profile must be stopped explicitly before exit — `defer
+  // pprof.StopCPUProfile()` would silently produce a zero-byte file.
+  var profileFile *os.File
+  if path := os.Getenv("TTSC_LINT_CPUPROFILE"); path != "" {
+    f, err := os.Create(path)
+    if err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: cannot create cpuprofile %q: %v\n", path, err)
+    } else if err := pprof.StartCPUProfile(f); err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: pprof.StartCPUProfile: %v\n", err)
+      f.Close()
+    } else {
+      profileFile = f
+    }
+  }
+  code := linthost.Main(os.Args[1:])
+  if profileFile != nil {
+    pprof.StopCPUProfile()
+    profileFile.Close()
+  }
+  os.Exit(code)
 }
