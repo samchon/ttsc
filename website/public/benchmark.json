@@ -1,15 +1,15 @@
 {
-  "date": "2026-05-28T16:24:23.931Z",
+  "date": "2026-05-28T16:59:12.194Z",
   "runs": 5,
   "warmup": 1,
   "host": {
-    "os": "Ubuntu 26.04 LTS",
-    "kernel": "6.6.87.2-microsoft-standard-WSL2",
-    "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
-    "cores": 32,
-    "ramGB": 29,
-    "node": "v24.15.0",
-    "ttsc": "0.13.1",
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1015-azure",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "ramGB": 16,
+    "node": "v24.16.0",
+    "ttsc": "0.14.0-dev.20260528.1",
     "typescript": "v6.0.3"
   },
   "projects": [
