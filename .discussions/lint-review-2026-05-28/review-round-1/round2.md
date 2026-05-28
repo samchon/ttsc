@@ -1,0 +1,27 @@
+# Round 2 — Cross-References and Reactions
+
+Lead (scribe): agents now react to overlaps and contradictions across their slices.
+
+## Agent 1 (reacting to Agent 2 and Agent 5)
+
+Agent 2's point that 70+ react/jsx-a11y tests and 12 vitest tests don't assert rule name lands directly on my rule-logic findings — if I rename `consistent-assert` to match its real behavior (which I think we must), those tests would not detect the rename. So Agent 2's helper-tightening proposal isn't cosmetic; it's a prerequisite for the kind of rule-renaming Agent 1's findings imply. On Agent 5's "Unicorn missing from the rule families table": all my logic bugs are in unicorn rules, so a fix pass that doesn't also surface the family in the rule-count narrative is half-told. Concrete coupling: when I fix `no-useless-collection-argument`, the existing test (`unicorn_no_useless_collection_argument_test.go`) probably passes today because the rule fires on the fixture. Once I invert the return, that test will fail — I need to look at the fixture to confirm it tests the right shape.
+
+## Agent 2 (reacting to Agent 1 and Agent 6)
+
+Agent 1's correctness findings give me a list of unicorn rules whose tests I should re-read with extra suspicion: `no-useless-collection-argument`, `no-unreadable-array-destructuring`, `no-negation-in-equality-check`, `prefer-includes`, `consistent-existence-index-check`, `consistent-assert`, `no-useless-length-check`, `no-useless-fallback-in-spread`, `no-for-loop`, `prefer-optional-catch-binding`. Several of these likely have tests that test the *current* (buggy) behavior — a test that asserts `new Set()` triggers `no-useless-collection-argument` is asserting the bug. Those tests need rewriting alongside the rule. On Agent 6's "jest and vitest share ~45 identical rules": that's relevant to my coverage report too — most of the option-arm gaps I flagged for jest/vitest would be closed implicitly by a shared driver if it's parameterized over options. But the missing-rule discussion belongs in a follow-up round per Agent 6's own scoping; my round-1 priority is the doc-boilerplate cluster, the rule-name assertion gap, and the four multi-assertion `*_fix_test.go` files.
+
+## Agent 3 (reacting to Agent 4 and Agent 5)
+
+Agent 4's severity-constant link assertion is also a TS-side concern: `TtscLintSeverity.ts` declares the literal union but doesn't import or test against the Go constant. The drift is bidirectional — TS values and Go values both need a shared assertion or a single source of truth. Agent 5's "boundaries/dependencies missing from `ITtscLintRuleOptionsMap`" matches my own surface finding at line 244. We landed independently on the same hole, which makes it high-confidence. On Agent 4's `plugin/main.go:1-16` stale verb list: that doesn't touch `src/`, but it does explain why my scope brief listed eight nonexistent subdirs — the documentation across the package is collectively drifting from the implementation.
+
+## Agent 4 (reacting to Agent 1 and Agent 3)
+
+Agent 1's findings on rule URLs (`no-array-reverse`/`no-array-sort`/`no-immediate-mutation` pointing at nonexistent upstream docs) connect to my `plugin/main.go` finding — both are stale-comment problems. The fix shape is the same: comments need to reference a canonical source-of-truth file rather than restating it. Agent 3's `unwrapDefault` / `extractPluginSource` asymmetry is the JS-side mirror of my `astutil.NodeText` doc-impl mismatch: two near-identical helpers that diverged subtly. Both pairs need a single helper. On Agent 3's `boundaries/dependencies` map gap — Agent 5 hit the same. Three of us in the same spot is consensus: add it (or document why it's intentional).
+
+## Agent 5 (reacting to Agent 1, Agent 2, and Agent 6)
+
+Agent 1's "rules with phantom upstream URLs" overlaps directly with my docs work — `README.md` and `rules/unicorn.mdx` will need to be re-checked once Agent 1's rule renames or removals land. Agent 6's "10 families are 100% complete" is a piece of good news I want to surface in the docs: the rule-families table in `rules/index.mdx` is a perfect place to add a coverage column, and the "580+ rules" claim becomes "725 across 21 families, 10 of them at full upstream parity." That's a concrete sentence that documents the project's competitive status. Agent 2's "test/rules/README.md should document the engine-direct contract" is downstream of my work too — the README I'm proposing to slim down already has this contract; we should preserve it during the trim. Agent 6's "dom-node-dataset" rename in unicorn is the kind of one-line slug change that lands in the linthost (Agent 1) but only matters if README / unicorn.mdx are updated in lockstep (mine).
+
+## Agent 6 (reacting to Agent 1 and Agent 5)
+
+Agent 1's correctness bugs in implemented unicorn rules are my "before you add new rules, fix the ones you have" reminder — the seven correctness bugs are worth more than the one cheap unicorn rename. Agent 5's note that the "580+" claim is stale by ~145 rules is a clean opportunity: once the rule-families table is re-counted, the table itself becomes the single source of truth and the "X+ lint rules" phrasing can disappear. On the "ten 100%-complete families" — verify by name against Agent 5's per-family count once that recount is done, since interface-key count and `linthost/` registered count aren't guaranteed to match (e.g., aggregate files registering multiple slugs per type). That cross-check belongs in Round 3.
