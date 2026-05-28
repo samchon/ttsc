@@ -22,6 +22,7 @@ node experimental/benchmark/bench.mjs                              # full matrix
 node experimental/benchmark/bench.mjs --project=vue --no-website   # one fixture, do not touch dashboard
 node experimental/benchmark/bench.mjs --verify-only                # one pass per cell, no timing
 node experimental/benchmark/bench.mjs --list                       # print resolved grid
+node experimental/benchmark/bench.mjs --sequential                 # clone→measure→delete one fixture at a time (CI / low-disk)
 ```
 
 Option families:
@@ -31,6 +32,7 @@ Option families:
 - **Sampling** — `TTSC_BENCH_RUNS` (5), `TTSC_BENCH_WARMUP` (1), `TTSC_BENCH_RETRIES` (2, applied only to `race`-classified failures). The reported number is the median; `min` and the full sample list stay in `report.json` for audit.
 - **Host gate** — `TTSC_BENCH_REQUIRE_QUIET=1` upgrades the load-average warning into a hard error and is set for every publication run; `TTSC_BENCH_SKIP_LOAD_CHECK=1` silences it for development iterations.
 - **Output** — `--no-website` skips merging into `website/public/benchmark.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
+- **Disk-cheap mode** — `--sequential` (env `TTSC_BENCH_SEQUENTIAL=1`) holds only one `(project, branch)` clone in `.work/` at a time: clone, measure, delete, next. Used by the GitHub Actions workflow `.github/workflows/benchmark.yml`. Incompatible with `--setup-only` / `--no-setup`.
 
 Publication sweep:
 

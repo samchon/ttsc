@@ -78,6 +78,7 @@ Per-project commands, install/prepare overrides, and prerequisites live in
 | `--format-only` | Only `format` cells. |
 | `--setup-only` | Pack + clone + install + `ttsc prepare`. No measurement. |
 | `--verify-only` | Run each selected cell once and fail loudly on any error. |
+| `--sequential` | Clone, measure, and delete one `(project, branch)` at a time instead of holding all clones in `.work/` simultaneously. Disk-cheap mode for GitHub Actions and other space-constrained CI. Mutually exclusive with `--setup-only` / `--no-setup`. Env: `TTSC_BENCH_SEQUENTIAL=1`. |
 | `--no-setup` | Skip pack/clone/install; measure the existing clones. |
 | `--no-install` | Skip the install step inside setup. |
 | `--no-pack` | Reuse tarballs already in `TTSC_BENCH_TGZ` (same as `TTSC_BENCH_SKIP_PACK=1`). |
@@ -121,6 +122,14 @@ Per-project commands, install/prepare overrides, and prerequisites live in
   is retried up to `RETRIES` times and the clean timing kept; a deterministic
   `error` is recorded as failed without retry.
 - Cells are measured **sequentially** so they do not compete for CPU.
+- `--sequential` is a separate, disk-cheap top-level mode: instead of cloning
+  all fixtures up front, it clones one `(project, branch)`, measures its
+  cells, deletes the clone, and moves to the next. The tarball pack runs once
+  at the start. Per-project metadata (file count, legacy `typescript`
+  version, host spec) is captured while each clone exists and reused for the
+  final report. The published `website/public/benchmark.json` is merged in
+  place after every cycle, so an interrupted sequential run leaves a
+  resumable snapshot just like batch mode.
 - At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio
   exceeds 0.5 — the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 %
   on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error

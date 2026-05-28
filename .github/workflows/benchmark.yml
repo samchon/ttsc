@@ -1,0 +1,126 @@
+name: benchmark
+
+# Refresh website/public/benchmark.json by running the sequential benchmark
+# matrix on a GitHub-hosted runner, then committing the updated JSON back to
+# master.
+#
+# Triggers:
+#   - push to master that touches pnpm-workspace.yaml (the catalog file pins
+#     the @typescript/native-preview baseline that ttsc rides on — any bump
+#     there changes the comparison surface and warrants a re-measure)
+#   - GitHub release published (post-release sweep so the dashboard reflects
+#     the version users actually install)
+#   - pull_request touching benchmark plumbing — runs a cheap smoke
+#     (`--project=vue --verify-only`) on the PR branch so workflow edits get
+#     exercised before they reach master. Commit & push is gated off for PR
+#     runs since their GITHUB_TOKEN cannot write to master anyway.
+#   - manual dispatch with optional `project` / `verify_only` inputs, useful
+#     for ad-hoc subset runs after the workflow lands on master.
+#
+# The runner uses `--sequential`: clone one (project, branch), measure its
+# cells, delete the clone, repeat. This keeps `.work/` to a single fixture
+# at a time so the standard ubuntu-latest disk (~14 GB free) survives the
+# heavier fixtures (vscode, nestjs).
+#
+# TTSC_BENCH_SKIP_LOAD_CHECK=1 silences the quiet-host gate because a
+# shared CI runner cannot guarantee a quiet baseline. Numbers from this
+# workflow drift more than a publication-grade local sweep; treat them as
+# directional rather than authoritative.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - pnpm-workspace.yaml
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - .github/workflows/benchmark.yml
+      - experimental/benchmark/**
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Comma-separated --project filter (empty = all fixtures)'
+        required: false
+        default: ''
+      verify_only:
+        description: 'Run --verify-only (one pass per cell, no timing)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: benchmark-${{ github.event_name == 'pull_request' && github.head_ref || 'master' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On PRs check out the PR HEAD so workflow/runner changes from the
+          # PR are exercised. On master push, release, and dispatch, check
+          # out master so the commit step has something to push to.
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'master' }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: packages/ttsc/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run sequential benchmark
+        env:
+          TTSC_BENCH_SEQUENTIAL: '1'
+          TTSC_BENCH_SKIP_LOAD_CHECK: '1'
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PROJECT: ${{ inputs.project }}
+          INPUT_VERIFY_ONLY: ${{ inputs.verify_only }}
+        run: |
+          set -euo pipefail
+          args=(--sequential)
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # PR smoke: exercise the sequential pipeline end-to-end on one
+            # fixture without paying for a full timed sweep.
+            args+=(--project=vue --verify-only --no-website)
+          else
+            if [ -n "${INPUT_PROJECT:-}" ]; then
+              args+=("--project=${INPUT_PROJECT}")
+            fi
+            if [ "${INPUT_VERIFY_ONLY:-}" = "true" ]; then
+              args+=(--verify-only)
+            fi
+          fi
+          echo "running: node experimental/benchmark/bench.mjs ${args[*]}"
+          node experimental/benchmark/bench.mjs "${args[@]}"
+
+      - name: Commit & push benchmark.json
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          if ! git diff --quiet -- website/public/benchmark.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add website/public/benchmark.json
+            git commit -m "chore(benchmark): refresh website/public/benchmark.json [skip ci]"
+            git push origin HEAD:master
+          else
+            echo "website/public/benchmark.json unchanged; nothing to commit"
+          fi
