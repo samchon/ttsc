@@ -102,11 +102,10 @@ const FRAMEWORK_KEYS = new Set<string>([
  * upward from the tsconfig directory.
  *
  * The factory locates the config file, evaluates it (via ttsx for TS / ESM
- * sources, `require` for CommonJS, `JSON.parse` for JSON), reads its `plugins`
- * map, and forwards each contributor's Go source directory to ttsc's plugin
- * builder via the descriptor's `contributors` field.
- *
- * @internal
+ * sources, `require` for CommonJS, `JSON.parse` for JSON), reads every
+ * `plugins` map (top-level and inside array-form flat configs), and forwards
+ * each contributor's Go source directory to ttsc's plugin builder via the
+ * descriptor's `contributors` field.
  */
 export default function createTtscPlugin(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
@@ -259,14 +258,24 @@ function findLintConfigFile(
   // as ambiguous and skipped (the Go side raises a hard error on the
   // duplicate; here we leave it to the binary's own discovery to surface
   // the issue once with one canonical message).
+  const candidateSet = new Set<string>(LINT_CONFIG_FILENAMES);
   let dir = tsconfigBaseDir(context);
   while (true) {
-    const matches = LINT_CONFIG_FILENAMES.map((name) =>
-      path.join(dir, name),
-    ).filter(
-      (candidate) =>
-        fs.existsSync(candidate) && fs.statSync(candidate).isFile(),
-    );
+    // One `readdirSync` per directory level beats 14 `existsSync`+
+    // `statSync` pairs (= 28 stat syscalls) per level; intersect the
+    // listing with the candidate set instead.
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    const matches: string[] = [];
+    for (const entry of entries) {
+      if (!candidateSet.has(entry.name)) continue;
+      if (!entry.isFile() && !entry.isSymbolicLink()) continue;
+      matches.push(path.join(dir, entry.name));
+    }
     if (matches.length === 1) {
       return matches[0];
     }
@@ -380,7 +389,6 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
 const TTSX_EXTRACTOR_SCRIPT = `import * as importedConfig from %CONFIG_IMPORT%;
 
 declare const process: {
-  argv: string[];
   cwd(): string;
   stdout: { write(value: string): void };
   stderr: { write(value: string): void };
@@ -448,7 +456,10 @@ function extractPluginSource(value: unknown): string | undefined {
   // contributors authored as plain \`module.exports = plugin\` both
   // resolve identically.
   let current: Record<string, unknown> = value;
-  for (let i = 0; i < 4; i++) {
+  // 8 hops to match the outer-process unwrapDefault helper; previously
+  // 4, which silently misrouted deeply re-exported plugins while
+  // unwrapDefault would have unwrapped them.
+  for (let i = 0; i < 8; i++) {
     if (typeof current.source === "string") break;
     const next = current.default;
     if (!isObject(next)) break;
@@ -802,7 +813,16 @@ function normalizePluginValue(
         }`,
       );
     }
-    const mod = requireFromConfig(resolved);
+    let mod: unknown;
+    try {
+      mod = requireFromConfig(resolved);
+    } catch (error) {
+      throw new Error(
+        `@ttsc/lint: lint config ${configPath} plugin ${JSON.stringify(namespace)} failed to load from ${resolved}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     const plugin = validatePluginShape(unwrapDefault(mod), namespace, resolved);
     return { namespace, source: plugin.source };
   }

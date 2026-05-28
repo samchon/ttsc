@@ -7,18 +7,21 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
  *
  * Exported so users can spread defaults next to overrides:
  *
- * Import { defaultFormat, type ITtscLintConfig } from "@ttsc/lint";
+ * ```ts
+ * import { defaultFormat, type ITtscLintConfig } from "@ttsc/lint";
  *
- * Export default { format: { ...defaultFormat, printWidth: 100 }, } satisfies
- * ITtscLintConfig;
+ * export default {
+ *   format: { ...defaultFormat, printWidth: 100 },
+ * } satisfies ITtscLintConfig;
+ * ```
  *
  * The values mirror Prettier 1:1 except for the documented `endOfLine`
  * narrowing (no `"cr"` / `"auto"`).
  *
  * Notably absent: `importOrder` and `jsdoc`. `format/sort-imports` and
- * `format/jsdoc` are opt-in by setting their corresponding fields; the defaults
- * const only seeds the rules that turn on unconditionally with a non-empty
- * `format` block.
+ * `format/jsdoc` are opt-in by setting their corresponding fields; this
+ * const documents only the rules that turn on unconditionally with a
+ * non-empty `format` block — the Go host owns runtime activation.
  */
 export const defaultFormat = Object.freeze({
   severity: "off",

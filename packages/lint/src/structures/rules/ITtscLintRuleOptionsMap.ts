@@ -1,4 +1,5 @@
 import type {
+  ITtscLintBoundariesDependenciesRuleOptions,
   ITtscLintBoundariesElementTypesRuleOptions,
   ITtscLintBoundariesEntryPointRuleOptions,
   ITtscLintBoundariesExternalRuleOptions,
@@ -73,6 +74,7 @@ export interface ITtscLintRuleOptionsMap {
   "functional/readonly-type": ITtscLintFunctionalReadonlyTypeRuleOptions;
   "functional/type-declaration-immutability": ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions;
   "cypress/unsafe-to-chain-command": ITtscLintCypressUnsafeToChainCommandRuleOptions;
+  "boundaries/dependencies": ITtscLintBoundariesDependenciesRuleOptions;
   "boundaries/element-types": ITtscLintBoundariesElementTypesRuleOptions;
   "boundaries/entry-point": ITtscLintBoundariesEntryPointRuleOptions;
   "boundaries/external": ITtscLintBoundariesExternalRuleOptions;
