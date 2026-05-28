@@ -1144,17 +1144,22 @@ function rewriteTextTarballs(file, targets) {
   let changed = false;
   // Match any historical ttsc tarball reference for this target — not just
   // the current `{stem}-{TTSC_VERSION}.tgz` file name. After a version bump
-  // (e.g. 0.12.4 -> 0.13.0) the pack pid changes and the new tarball ships
-  // under a new file name, so a stale `pnpm-workspace.yaml` override left
-  // by an earlier prepared clone (the vue fixture pins
-  // `'@ttsc/linux-x64'` through `overrides`) would otherwise survive the
-  // scrub and pnpm would fail to open the now-deleted `/tmp/ttsc-tgz-OLD/`
-  // path with ENOENT (exit 254). Pin the stem so `ttsc-` and
-  // `ttsc-linux-x64-` do not cross-rewrite.
+  // (e.g. 0.12.4 -> 0.13.0, or 0.13.1 -> 0.14.0-dev.20260528.1) the pack
+  // pid changes and the new tarball ships under a new file name, so a
+  // stale `pnpm-workspace.yaml` override left by an earlier prepared clone
+  // (the vue fixture pins `'@ttsc/linux-x64'` through `overrides`) would
+  // otherwise survive the scrub and pnpm would fail to open the
+  // now-deleted `/tmp/ttsc-tgz-OLD/` path with ENOENT (exit 254). Pin the
+  // stem by stripping the current version suffix literally so `ttsc-` and
+  // `ttsc-linux-x64-` do not cross-rewrite, and accept any old version
+  // suffix (release or pre-release like `-dev.YYYYMMDD.N`) in the regex.
+  const versionSuffix = `-${TTSC_VERSION}.tgz`;
   for (const target of targets) {
-    const stem = target.file.replace(/-\d+\.\d+\.\d+\.tgz$/, "");
+    const stem = target.file.endsWith(versionSuffix)
+      ? target.file.slice(0, -versionSuffix.length)
+      : target.file.replace(/-[\d][\w.-]*\.tgz$/, "");
     const pattern = new RegExp(
-      `(?:file:)?[^\\s'",}]*ttsc-tgz[^\\s'",}]*/${escapeRegExp(stem)}-\\d+\\.\\d+\\.\\d+\\.tgz`,
+      `(?:file:)?[^\\s'",}]*ttsc-tgz[^\\s'",}]*/${escapeRegExp(stem)}-[\\d][\\w.-]*\\.tgz`,
       "g",
     );
     const next = text.replace(pattern, `file:${path.join(TGZ, target.file)}`);
