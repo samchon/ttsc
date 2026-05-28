@@ -5,8 +5,10 @@
 //
 // AST-only: a `CallExpression` whose callee is `.flat` AND whose
 // receiver is itself a `CallExpression` whose callee is `.map` matches.
-// The diagnostic anchors on the outer call so editors highlight the
-// whole `.map(...).flat(...)` chain.
+// The `.flat(...)` call must be argument-less or explicitly `.flat(1)`
+// — `.map(fn).flat(2)` is NOT equivalent to `.flatMap(fn)` because the
+// latter only flattens one level. The diagnostic anchors on the outer
+// call so editors highlight the whole `.map(...).flat(...)` chain.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-array-flat-map.md
 package linthost
 
@@ -27,6 +29,18 @@ func (unicornPreferArrayFlatMap) Check(ctx *Context, node *shimast.Node) {
 	outerAccess := call.Expression.AsPropertyAccessExpression()
 	if outerAccess == nil || identifierText(outerAccess.Name()) != "flat" {
 		return
+	}
+	// `.flat(2)` and deeper are NOT equivalent to `.flatMap` — only the
+	// default depth (no arg) or explicit depth 1 collapse cleanly.
+	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+		if len(call.Arguments.Nodes) != 1 {
+			return
+		}
+		arg := stripParens(call.Arguments.Nodes[0])
+		if arg == nil || arg.Kind != shimast.KindNumericLiteral ||
+			numericLiteralText(arg) != "1" {
+			return
+		}
 	}
 	receiver := stripParens(outerAccess.Expression)
 	if receiver == nil || receiver.Kind != shimast.KindCallExpression {

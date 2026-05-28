@@ -6,11 +6,14 @@
 // comparison reads as math rather than as a presence check.
 //
 // AST-only: visit each `BinaryExpression`. Fire when the operator is
-// `<` or `>=` and one operand is a `0` literal AND the other operand
-// is a `CallExpression(PropertyAccess(_, methodName))` whose method
-// name is one of the index-returning Array prototype methods. The
-// `=== -1` / `!== -1` orientation is the desired form, so it does not
-// fire.
+// `<` or `>=`, the LEFT operand is a `CallExpression(PropertyAccess(_,
+// methodName))` whose method name is one of the index-returning Array
+// prototype methods, AND the right operand is a `0` literal. Only the
+// canonical orientation (`indexOf(x) < 0` / `indexOf(x) >= 0`) is
+// flagged; the swapped form (`0 < indexOf(x)`) has different
+// semantics ("found at index >= 1") and is intentionally not
+// recognized. The `=== -1` / `!== -1` orientation is the desired form,
+// so it does not fire.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-existence-index-check.md
 package linthost
 
@@ -43,8 +46,7 @@ func (unicornConsistentExistenceIndexCheck) Check(ctx *Context, node *shimast.No
 	}
 	left := stripParens(bin.Left)
 	right := stripParens(bin.Right)
-	if unicornConsistentExistenceIndexCheckMatch(left, right) ||
-		unicornConsistentExistenceIndexCheckMatch(right, left) {
+	if unicornConsistentExistenceIndexCheckMatch(left, right) {
 		ctx.Report(node, "Use a consistent existence-check form for `indexOf` / `findIndex` — prefer `=== -1` / `!== -1` over magnitude comparisons.")
 	}
 }

@@ -6,9 +6,13 @@
 // `this.<X>` inside the `<X>` accessor as a recursion bug.
 //
 // AST-only: visit both `KindGetAccessor` and `KindSetAccessor`. Take
-// the accessor's own name, walk its body, and report every
-// `KindPropertyAccessExpression(KindThisKeyword, <name>)` that matches.
-// `walkDescendants` already does the depth-first traversal.
+// the accessor's own name and walk its body, reporting every
+// `KindPropertyAccessExpression(KindThisKeyword, <name>)` that
+// matches. The walk does NOT descend into nested non-arrow function
+// bodies (`FunctionDeclaration`, `FunctionExpression`,
+// `MethodDeclaration`, `GetAccessor`, `SetAccessor`,
+// `Constructor`), because those rebind `this`. Arrow functions
+// preserve the outer `this` and are walked through.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-accessor-recursion.md
 package linthost
 
@@ -33,7 +37,7 @@ func (unicornNoAccessorRecursion) Check(ctx *Context, node *shimast.Node) {
 	if body == nil {
 		return
 	}
-	walkDescendants(body, func(child *shimast.Node) {
+	unicornAccessorRecursionWalkRespectingThisBoundary(body, func(child *shimast.Node) {
 		if child == nil || child.Kind != shimast.KindPropertyAccessExpression {
 			return
 		}
@@ -48,6 +52,33 @@ func (unicornNoAccessorRecursion) Check(ctx *Context, node *shimast.Node) {
 			return
 		}
 		ctx.Report(child, fmt.Sprintf("Reading `this.%s` inside the `%s` accessor recurses forever.", name, name))
+	})
+}
+
+// unicornAccessorRecursionWalkRespectingThisBoundary walks `node` and
+// its descendants depth-first, but does not descend into bodies that
+// rebind `this`. Arrow functions are walked through because they
+// capture the outer `this`.
+func unicornAccessorRecursionWalkRespectingThisBoundary(node *shimast.Node, visit func(*shimast.Node)) {
+	if node == nil {
+		return
+	}
+	visit(node)
+	node.ForEachChild(func(child *shimast.Node) bool {
+		if child == nil {
+			return false
+		}
+		switch child.Kind {
+		case shimast.KindFunctionDeclaration,
+			shimast.KindFunctionExpression,
+			shimast.KindMethodDeclaration,
+			shimast.KindGetAccessor,
+			shimast.KindSetAccessor,
+			shimast.KindConstructor:
+			return false
+		}
+		unicornAccessorRecursionWalkRespectingThisBoundary(child, visit)
+		return false
 	})
 }
 

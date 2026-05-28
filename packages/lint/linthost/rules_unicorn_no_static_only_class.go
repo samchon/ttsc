@@ -9,6 +9,9 @@
 // separate rule) and every member must be a method, property, getter,
 // or setter declaration with the `static` modifier. Constructors,
 // index signatures, and any non-static member disqualify the class.
+// Classes with heritage clauses (`extends`, `implements`) are also
+// skipped — the inheritance IS the reason the class exists, so it
+// can't be replaced by a plain object.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-static-only-class.md
 package linthost
 
@@ -21,6 +24,9 @@ func (unicornNoStaticOnlyClass) Visits() []shimast.Kind {
 	return []shimast.Kind{shimast.KindClassDeclaration, shimast.KindClassExpression}
 }
 func (unicornNoStaticOnlyClass) Check(ctx *Context, node *shimast.Node) {
+	if classHasHeritage(node) {
+		return
+	}
 	members := classMembers(node)
 	if len(members) == 0 {
 		// Empty classes are out of scope — separate rule territory.

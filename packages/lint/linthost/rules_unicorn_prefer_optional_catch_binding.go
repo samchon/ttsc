@@ -8,17 +8,26 @@
 // AST-only: visit each `CatchClause`, restrict to the common-case
 // binding names `e` and `error` (true scope analysis would require a
 // resolver), and confirm the body's source text does not contain the
-// binding name as a substring. The text scan is a loose proxy for
-// "binding never referenced" — false negatives are acceptable because
-// the rule is conservative by design.
+// binding name as a word-bounded identifier. The previous substring
+// scan was load-bearing-wrong: `strings.Contains(body, "e")` matches
+// nearly any English identifier, hiding the rule entirely; word
+// boundaries (`\bname\b`) correctly distinguish `e` from `error`,
+// `error` from `errorMessage`, etc. False positives on `name` inside
+// string literals or comments are acceptable because the rule is
+// conservative by design.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-optional-catch-binding.md
 package linthost
 
 import (
-	"strings"
+	"regexp"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 )
+
+var unicornPreferOptionalCatchBindingNamePattern = map[string]*regexp.Regexp{
+	"e":     regexp.MustCompile(`\be\b`),
+	"error": regexp.MustCompile(`\berror\b`),
+}
 
 type unicornPreferOptionalCatchBinding struct{}
 
@@ -38,10 +47,11 @@ func (unicornPreferOptionalCatchBinding) Check(ctx *Context, node *shimast.Node)
 		return
 	}
 	name := identifierText(binding)
-	if name != "e" && name != "error" {
+	pattern, ok := unicornPreferOptionalCatchBindingNamePattern[name]
+	if !ok {
 		return
 	}
-	if strings.Contains(nodeText(ctx.File, catch.Block), name) {
+	if pattern.MatchString(nodeText(ctx.File, catch.Block)) {
 		return
 	}
 	ctx.Report(binding, "Prefer optional catch binding `catch { ... }` when the error is unused.")

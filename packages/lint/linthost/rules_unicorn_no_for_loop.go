@@ -5,10 +5,12 @@
 // with one keyword.
 //
 // AST-only and syntactic: dispatch on `ForStatement` and match the
-// three classic shapes — `let i = 0` initializer, `i < <length>`
-// condition, `i++` incrementor. The length operand is not required to
-// resolve to an array at the type level; the syntactic shape is the
-// signal the rule wants to discourage.
+// three classic shapes — `let i = 0` initializer, `i < X.length`
+// condition (the RHS must be a `.length` access; bare counters
+// `i < n` are not flagged because the suggested `for…of` rewrite does
+// not apply), and `i++` incrementor. The length operand is not
+// required to resolve to an array at the type level; the syntactic
+// shape is the signal the rule wants to discourage.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-for-loop.md
 package linthost
 
@@ -56,10 +58,11 @@ func indexInitializerName(init *shimast.Node) string {
 	return identifierText(decl.Name())
 }
 
-// isLessThanCondition reports whether `cond` has the shape `<name> < X`
-// where X is plausibly a length read or array reference. The check is
-// purely syntactic — any right-hand operand is accepted as long as the
-// `<` operator and the index identifier line up.
+// isLessThanCondition reports whether `cond` has the shape
+// `<name> < <something>.length`. The right-hand operand must be a
+// property access ending in `length`; bare counter loops such as
+// `for (let i = 0; i < n; i++)` are NOT flagged because the rule's
+// suggested rewrite (`for…of`) only applies to array iteration.
 func isLessThanCondition(cond *shimast.Node, name string) bool {
 	node := stripParens(cond)
 	if node == nil || node.Kind != shimast.KindBinaryExpression {
@@ -70,7 +73,15 @@ func isLessThanCondition(cond *shimast.Node, name string) bool {
 		bin.OperatorToken.Kind != shimast.KindLessThanToken {
 		return false
 	}
-	return identifierText(stripParens(bin.Left)) == name
+	if identifierText(stripParens(bin.Left)) != name {
+		return false
+	}
+	right := stripParens(bin.Right)
+	if right == nil || right.Kind != shimast.KindPropertyAccessExpression {
+		return false
+	}
+	access := right.AsPropertyAccessExpression()
+	return access != nil && identifierText(access.Name()) == "length"
 }
 
 // isPostfixIncrementOf reports whether `inc` has the shape `<name>++`.

@@ -2,15 +2,15 @@
 // `new WeakSet()`, and `new WeakMap()` already start empty. Passing an
 // explicit `null`, `undefined`, or `[]` reads as if the author meant to
 // seed the collection with entries but came up empty — it adds noise
-// without changing behavior.
+// without changing behavior. Zero-argument calls are the canonical
+// correct form and are NOT flagged.
 //
 // AST-only and identifier-text-driven: visit every `NewExpression`
 // whose callee identifier is one of the four collection constructors,
-// then match either zero arguments or a single argument that is a
-// `null`/`undefined` literal, an `undefined` identifier, or an empty
-// array literal. The receiver chain is not inspected; shadowed
-// `Set`/`Map` bindings are out of scope, mirroring the other
-// constructor-name-only unicorn rules.
+// then match a single argument that is a `null`/`undefined` literal,
+// an `undefined` identifier, or an empty array literal. The receiver
+// chain is not inspected; shadowed `Set`/`Map` bindings are out of
+// scope, mirroring the other constructor-name-only unicorn rules.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-collection-argument.md
 package linthost
 
@@ -34,11 +34,7 @@ func (unicornNoUselessCollectionArgument) Check(ctx *Context, node *shimast.Node
 	default:
 		return
 	}
-	if ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
-		ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
-		return
-	}
-	if len(ne.Arguments.Nodes) != 1 {
+	if ne.Arguments == nil || len(ne.Arguments.Nodes) != 1 {
 		return
 	}
 	arg := stripParens(ne.Arguments.Nodes[0])

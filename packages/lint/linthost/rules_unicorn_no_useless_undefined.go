@@ -34,7 +34,7 @@ func (unicornNoUselessUndefined) Check(ctx *Context, node *shimast.Node) {
 		return
 	}
 	if expr.Kind == shimast.KindUndefinedKeyword || identifierText(expr) == "undefined" {
-		ctx.Report(node, "Don't `return undefined;` — bare `return;` and `return;` have the same effect.")
+		ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
 		return
 	}
 	if expr.Kind == shimast.KindVoidExpression {
@@ -45,7 +45,7 @@ func (unicornNoUselessUndefined) Check(ctx *Context, node *shimast.Node) {
 		operand := stripParens(void.Expression)
 		if operand != nil && operand.Kind == shimast.KindNumericLiteral &&
 			numericLiteralText(operand) == "0" {
-			ctx.Report(node, "Don't `return undefined;` — bare `return;` and `return;` have the same effect.")
+			ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
 		}
 	}
 }

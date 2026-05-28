@@ -9,6 +9,12 @@
 // in its trailing flag block matches. The flag is read from the raw
 // source text — the AST does not split pattern from flags — using the
 // shared `nodeText` accessor.
+//
+// To preserve semantics, the pattern body must also be literal — any
+// regex metacharacter (`\`, `.`, `*`, `+`, `?`, `[`, `]`, `(`, `)`,
+// `{`, `}`, `|`, `^`, `$`) disqualifies the rewrite, because
+// `/<pat>/g` and `.replaceAll(<pat>, ...)` mean different things when
+// the pattern is anything but a fixed string.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-string-replace-all.md
 package linthost
 
@@ -45,6 +51,9 @@ func (unicornPreferStringReplaceAll) Check(ctx *Context, node *shimast.Node) {
 	if !unicornPreferStringReplaceAllHasGlobalFlag(raw) {
 		return
 	}
+	if !unicornPreferStringReplaceAllIsLiteralPattern(raw) {
+		return
+	}
 	ctx.Report(node, "Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.")
 }
 
@@ -61,6 +70,24 @@ func unicornPreferStringReplaceAllHasGlobalFlag(raw string) bool {
 	}
 	flags := raw[closing+1:]
 	return strings.ContainsRune(flags, 'g')
+}
+
+// unicornPreferStringReplaceAllIsLiteralPattern returns true when the
+// pattern body of `raw` (the source text of a RegularExpressionLiteral)
+// contains no regex metacharacters. Conservative: any metachar — even
+// an escaped one like `\.` — disqualifies the rewrite, because
+// recovering the original character cleanly from raw source requires
+// regex-aware parsing we don't do here.
+func unicornPreferStringReplaceAllIsLiteralPattern(raw string) bool {
+	if len(raw) < 3 || raw[0] != '/' {
+		return false
+	}
+	closing := strings.LastIndexByte(raw, '/')
+	if closing <= 0 {
+		return false
+	}
+	body := raw[1:closing]
+	return !strings.ContainsAny(body, `\.*+?[](){}|^$`)
 }
 
 func init() {

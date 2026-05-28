@@ -5,9 +5,10 @@
 // the comparison operator (`a !== b`) or wrap the negation in parens.
 //
 // AST-only: visit each `BinaryExpression`, match the operator against
-// the four equality tokens, and check whether the LEFT operand (after
-// stripping parens) is a `!` prefix-unary expression. Fire on the
-// binary expression so the report covers the full ambiguous shape.
+// the four equality tokens, and check whether the LEFT operand is a
+// `!` prefix-unary expression. Parens are the documented escape hatch
+// (`(!a) === b`), so the check does NOT strip them. Fire on the binary
+// expression so the report covers the full ambiguous shape.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-negation-in-equality-check.md
 package linthost
 
@@ -34,11 +35,10 @@ func (unicornNoNegationInEqualityCheck) Check(ctx *Context, node *shimast.Node) 
 	default:
 		return
 	}
-	left := stripParens(bin.Left)
-	if left == nil || left.Kind != shimast.KindPrefixUnaryExpression {
+	if bin.Left.Kind != shimast.KindPrefixUnaryExpression {
 		return
 	}
-	prefix := left.AsPrefixUnaryExpression()
+	prefix := bin.Left.AsPrefixUnaryExpression()
 	if prefix == nil || prefix.Operator != shimast.KindExclamationToken {
 		return
 	}

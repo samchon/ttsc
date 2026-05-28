@@ -8,8 +8,12 @@
 // AST-only: a `BinaryExpression` whose operator is one of the
 // recognized comparisons and whose operands are `<call>.indexOf(...)`
 // vs. one of `-1` / `0` (allowing the literal-or-unary-minus shape for
-// `-1`) matches. Either operand may carry the call; the rule
-// normalizes the orientation.
+// `-1`) matches. For symmetric operators (`===`, `!==`, `==`, `!=`)
+// either operand may carry the call. For asymmetric operators (`<`,
+// `>=`, `>`) only the canonical orientation `indexOf(x) <op> <literal>`
+// is recognized; the swapped form (`0 < indexOf(x)`) has different
+// semantics (e.g. "found at index >= 1") and is intentionally NOT
+// rewritten to `includes`.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-includes.md
 package linthost
 
@@ -50,8 +54,21 @@ func (unicornPreferIncludes) Check(ctx *Context, node *shimast.Node) {
 	}
 	left := stripParens(bin.Left)
 	right := stripParens(bin.Right)
-	if unicornPreferIncludesMatches(left, right, op, wantNegOne, wantZero) ||
-		unicornPreferIncludesMatches(right, left, op, wantNegOne, wantZero) {
+	matched := unicornPreferIncludesMatches(left, right, op, wantNegOne, wantZero)
+	// Equality is symmetric — also try the swapped orientation.
+	// Asymmetric operators (`<`, `>=`, `>`) only match the canonical
+	// orientation; swapping `indexOf(x) < 0` to `0 < indexOf(x)` changes
+	// the meaning ("found at index >= 1") and must not be rewritten.
+	if !matched {
+		switch op {
+		case shimast.KindEqualsEqualsEqualsToken,
+			shimast.KindExclamationEqualsEqualsToken,
+			shimast.KindEqualsEqualsToken,
+			shimast.KindExclamationEqualsToken:
+			matched = unicornPreferIncludesMatches(right, left, op, wantNegOne, wantZero)
+		}
+	}
+	if matched {
 		ctx.Report(node, "Prefer `Array#includes()` / `String#includes()` over `indexOf` comparisons.")
 	}
 }

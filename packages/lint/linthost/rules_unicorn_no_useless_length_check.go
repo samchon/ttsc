@@ -1,17 +1,23 @@
-// unicorn/no-useless-length-check: `arr.length > 0 && arr.every(…)`
-// short-circuits on an empty array, but `arr.every(…)` already returns
-// `true` for the empty case and `arr.some(…)` already returns `false`,
-// so the leading length check is redundant. The same goes for `forEach`,
-// `map`, and `filter` which simply produce nothing when given an empty
-// array. The rule prunes the dead check so the call shape is the only
-// thing the reader has to track.
+// unicorn/no-useless-length-check: `arr.length > 0 && arr.some(…)`
+// short-circuits on an empty array, but `arr.some(…)` already returns
+// `false` for the empty case, so the leading length check is redundant.
+// The same goes for `forEach` (returns `undefined` either way). The
+// rule prunes the dead check so the call shape is the only thing the
+// reader has to track.
+//
+// `every`, `map`, and `filter` are deliberately excluded from the `&&`
+// set: `every` returns `true` on an empty array (so the length check
+// IS load-bearing); `map` and `filter` return `[]` which is truthy
+// (the length check changes the truthiness of the whole expression).
+// Upstream covers those under the complementary `||` pattern
+// (`array.length === 0 || array.every(…)`), which this MVP does not
+// implement yet.
 //
 // AST-only MVP: visit each `BinaryExpression`, match operator `&&`,
 // require LHS to be `PropertyAccess(X, length) > 0` or `!== 0`, and
 // require RHS to be `CallExpression(PropertyAccess(X, name), …)` where
-// `name` is one of `every` / `some` / `forEach` / `map` / `filter` and
-// the textual form of the two `X` expressions matches. Fire on the
-// binary expression.
+// `name` is one of `some` / `forEach` and the textual form of the two
+// `X` expressions matches. Fire on the binary expression.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-length-check.md
 package linthost
 
@@ -22,11 +28,8 @@ import (
 )
 
 var unicornNoUselessLengthCheckMethods = map[string]struct{}{
-	"every":   {},
 	"some":    {},
 	"forEach": {},
-	"map":     {},
-	"filter":  {},
 }
 
 type unicornNoUselessLengthCheck struct{}

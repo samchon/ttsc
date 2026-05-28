@@ -1,9 +1,11 @@
 // unicorn/no-unreadable-array-destructuring: a destructuring pattern
-// like `[, , , , a]` uses a long run of comma holes to skip array
-// positions before the binding the caller actually wants. The hole run
-// is positional, silent, and trivial to miscount, so the rule flags
-// patterns with three or more consecutive holes followed by a real
-// element. The recommended replacement is an indexed read (`arr[4]`).
+// like `[, , a]` uses a run of comma holes to skip array positions
+// before the binding the caller actually wants. The hole run is
+// positional, silent, and trivial to miscount, so the rule flags
+// patterns with two or more consecutive holes followed by a real
+// element. A single leading hole (`[, second]`) is a common idiom and
+// is not flagged. The recommended replacement is an indexed read
+// (`arr[2]`).
 //
 // AST-only and syntactic: dispatch on `ArrayBindingPattern` for
 // declaration / parameter destructuring AND `ArrayLiteralExpression`
@@ -55,7 +57,7 @@ func (unicornNoUnreadableArrayDestructuring) Check(ctx *Context, node *shimast.N
 			run++
 			continue
 		}
-		if run >= 3 {
+		if run >= 2 {
 			ctx.Report(node, "Don't use unreadable array destructuring with long hole runs.")
 			return
 		}
