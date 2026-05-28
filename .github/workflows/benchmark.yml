@@ -61,6 +61,12 @@ on:
 
 permissions:
   contents: write
+  # The publish job dispatches `.github/workflows/website.yml` after pushing
+  # benchmark.json so the dashboard redeploys with fresh data. GITHUB_TOKEN
+  # pushes by design do not trigger downstream workflows (anti-loop
+  # guardrail), so we need an explicit `gh workflow run` and the
+  # `actions: write` scope to let that call succeed.
+  actions: write
 
 concurrency:
   group: benchmark-${{ github.event_name == 'pull_request' && github.head_ref || 'master' }}
@@ -247,9 +253,11 @@ jobs:
             "${{ runner.temp }}/partials" \
             website/public/benchmark.json
       - name: Commit & push benchmark.json
+        id: commit
         run: |
           if git diff --quiet -- website/public/benchmark.json; then
             echo "website/public/benchmark.json unchanged; nothing to commit"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -258,8 +266,16 @@ jobs:
           # No `[skip ci]` tag — the benchmark workflow's `push` trigger is
           # already pinned to `paths: [pnpm-workspace.yaml]`, so a
           # benchmark.json-only commit cannot re-enter this workflow.
-          # Letting the commit through allows `.github/workflows/website.yml`
-          # (which watches `website/**`) to redeploy the dashboard with the
-          # fresh data.
           git commit -m "chore(benchmark): refresh website/public/benchmark.json"
           git push origin HEAD:master
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Redeploy dashboard
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The push above used GITHUB_TOKEN, which by GitHub's anti-loop
+        # guardrail does not trigger downstream workflows like website.yml.
+        # `workflow_dispatch` is the explicit escape hatch; it works with
+        # GITHUB_TOKEN as long as the calling workflow holds `actions: write`.
+        run: gh workflow run website.yml --ref master
