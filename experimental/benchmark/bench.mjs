@@ -871,6 +871,27 @@ function setupClone(project, branch) {
         label: `checkout ${project.repoName}@${branch}`,
       });
     }
+    // Pull upstream changes so a fixture commit (e.g. a type-error
+    // fix on the upstream branch) reaches every reused clone without
+    // forcing the operator to `rm -rf .work/<repo>@<branch>`. Hard-
+    // reset to `origin/<branch>` after fetching so local edits made
+    // by previous runs (`cleanupBenchmarkWorktree`'s `git restore`
+    // would catch tracked files, but stray new files won't) cannot
+    // mask the upstream state. Skip the fetch only on `--no-install`
+    // because that flag declares the operator's intent to bench
+    // exactly the disk state they already have.
+    if (!flags.has("--no-install")) {
+      sh(`git fetch --depth=1 origin ${quote(branch)}`, dir, {
+        quiet: true,
+        check: false,
+        label: `fetch ${project.repoName}@${branch}`,
+      });
+      sh(`git reset --hard FETCH_HEAD`, dir, {
+        quiet: true,
+        check: false,
+        label: `reset ${project.repoName}@${branch}`,
+      });
+    }
     cleanupBenchmarkWorktree(dir, project);
     ensurePnpmWorkspaceBoundary(project, dir);
 
