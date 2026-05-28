@@ -1509,6 +1509,16 @@ function isAllowedBenchmarkDirtyPath(file, project) {
     ".yarn-cache",
     ".pnpm-store",
     ".husky/_",
+    // Lockfile mutations are benign for the measurement step (cells only
+    // invoke tsc / eslint / prettier / ttsc, never the package manager).
+    // `yarn install --update-checksums` rewrites yarn.lock on first install
+    // against a fresh clone; `pnpm install --no-frozen-lockfile` does the
+    // same to pnpm-lock.yaml; `npm install --legacy-peer-deps` to
+    // package-lock.json. The user's local runs masked this because they
+    // reused a populated node_modules and skipped the install step.
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "package-lock.json",
     ...(project?.packageManager === "pnpm" ? ["pnpm-workspace.yaml"] : []),
     ...(project?.cleanExcludes ?? []),
   ];
