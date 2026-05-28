@@ -27,8 +27,6 @@ const panelClass =
   "overflow-hidden rounded-md border border-[#262b36] bg-[#0f1115] shadow-[0_12px_30px_rgba(0,0,0,0.22)]";
 const panelHeaderClass =
   "flex flex-wrap items-end justify-between gap-2 border-b border-[#262b36] bg-[#121620] px-4 py-3";
-const HEADLINE_LINT_PROJECT = "vscode";
-const HEADLINE_LINT_FACTOR = 500;
 
 export default function BenchmarkDashboard() {
   const [report, setReport] = useState<BenchmarkReport | null>(null);
@@ -193,7 +191,7 @@ function Snapshot({ report }: { report: BenchmarkReport }) {
 function SummaryTab({ report }: { report: BenchmarkReport }) {
   const build = bestOperationProject(report, "build");
   const check = bestOperationProject(report, "noEmit");
-  const lint = headlineLintProject(report, "noEmit");
+  const lint = bestLintProject(report, "noEmit");
   const format = bestFormatProject(report);
 
   return (
@@ -202,7 +200,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
       <section className={panelClass}>
         <TableHeader
           title="Summary Winners"
-          description="Build, type-check, and format keep the fastest project; lint uses VS Code as the public headline fixture."
+          description="Each row picks the project that posts the biggest measured speedup for that operation."
           suffix={`${[build, check, lint, format].filter(Boolean).length} fields`}
         />
         <div className="divide-y divide-[#252b36]">
@@ -225,7 +223,6 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
               project={lint.project}
               op="noEmit"
               title="Lint"
-              bestFactorOverride={lint.factor}
             />
           ) : null}
           {format ? (
@@ -348,7 +345,7 @@ function LintTab({ report }: { report: BenchmarkReport }) {
   const projects = report.projects.filter((project) =>
     hasComparableLint(project, "noEmit"),
   );
-  const hero = headlineLintProject(report, "noEmit");
+  const hero = bestLintProject(report, "noEmit");
 
   return (
     <div className="space-y-4">
@@ -407,12 +404,10 @@ function ProjectLintRows({
   project,
   op,
   title,
-  bestFactorOverride,
 }: {
   project: BenchmarkProject;
   op: Operation;
   title?: string;
-  bestFactorOverride?: number;
 }) {
   const rows = lintRowsForProject(project, op);
   const baseline = rows.find((row) => row.baseline);
@@ -438,7 +433,7 @@ function ProjectLintRows({
         project={project}
         title={title}
         baselineMs={baseline.totalMs}
-        bestFactor={bestFactorOverride ?? best?.factor}
+        bestFactor={best?.factor}
         bestLabel={best?.label}
       />
       <div className="space-y-1.5">
@@ -958,7 +953,7 @@ function bestRatio(report: BenchmarkReport): Winner | undefined {
   return [
     bestOperationProject(report, "build"),
     bestOperationProject(report, "noEmit"),
-    headlineLintProject(report, "noEmit"),
+    bestLintProject(report, "noEmit"),
     bestFormatProject(report),
   ].reduce<Winner | undefined>(
     (best, current) =>
@@ -1024,22 +1019,6 @@ function bestLintProject(
     const winner = lintWinnerForProject(project, op);
     return winner && (!best || winner.factor > best.factor) ? winner : best;
   }, undefined);
-}
-
-function headlineLintProject(
-  report: BenchmarkReport,
-  op: Operation,
-): Winner | undefined {
-  const project = report.projects.find(
-    (candidate) => candidate.name === HEADLINE_LINT_PROJECT,
-  );
-  const winner = project ? lintWinnerForProject(project, op) : undefined;
-  return winner
-    ? {
-        ...winner,
-        factor: HEADLINE_LINT_FACTOR,
-      }
-    : bestLintProject(report, op);
 }
 
 function lintWinnerForProject(
