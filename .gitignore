@@ -18,7 +18,6 @@ coverage/
 
 # AI assistant data
 .claude/
-.codex/
 .discussions/
 
 # Local Go workspace overlays
