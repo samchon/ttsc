@@ -91,6 +91,15 @@ jobs:
         env:
           TTSC_BENCH_SEQUENTIAL: '1'
           TTSC_BENCH_SKIP_LOAD_CHECK: '1'
+          # Fixture devDependencies (puppeteer in vue, etc.) trigger heavy
+          # browser downloads in postinstall that the benchmark never uses.
+          # Skip them so a flaky download doesn't fail the install step and
+          # so install time isn't dominated by Chrome fetch traffic.
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: '1'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          CYPRESS_INSTALL_BINARY: '0'
+          HUSKY: '0'
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PROJECT: ${{ inputs.project }}
           INPUT_VERIFY_ONLY: ${{ inputs.verify_only }}
