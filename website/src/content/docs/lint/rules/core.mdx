@@ -9,6 +9,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `curly` — Require block statements for every `if`, `else`, `while`, `for`, and `do` body — reject the single-statement shorthand.
 - `default-case` — Require `switch` statements to include a `default` clause so unhandled discriminants surface explicitly instead of silently falling through.
 - `default-case-last` — Require the `default` clause of a `switch` statement to appear last, so the fall-through path matches the visual order of the labels.
+- `consistent-return` — Reject functions where some `return` statements return a value and others fall through without one — pick one shape so callers can rely on the return type.
 - `default-param-last` — Reject `(req, opt = 1, req2)` and similar parameter lists where a required parameter follows an optional or default-valued one.
 - `dot-notation` — Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when the string key is a valid JavaScript identifier.
 - `eqeqeq` — Require strict equality operators `===` / `!==` over `==` / `!=`.
@@ -104,6 +105,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 - `no-self-compare` — Reject comparing a value to itself (`x === x`).
 - `no-sequences` — Reject comma expressions (`a, b`) outside the heads of `for` statements.
 - `no-setter-return` — Reject explicit `return` from a setter — setters' return values are ignored.
+- `no-shadow` — Reject a nested scope binding (`let`, `const`, `function`, parameter) that shadows a same-name binding from an outer scope, so the reader can rely on a single identifier referring to a single declaration.
 - `no-shadow-restricted-names` — Reject redeclaring restricted globals (`NaN`, `Infinity`, `undefined`, etc.).
 - `no-sparse-arrays` — Reject array literals with elision (`[, 1, , 3]`), which read surprisingly and rarely express intent.
 - `no-template-curly-in-string` — Reject `${expr}` inside ordinary single- or double-quoted strings — almost always a missing template-literal backtick.

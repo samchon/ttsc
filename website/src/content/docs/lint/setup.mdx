@@ -37,6 +37,21 @@ The `format` block configures the formatter — keys mirror `.prettierrc`. Prese
 
 A `lint.config.{ts,js,mjs}` file is evaluated once and the result is cached, keyed by the file's contents — so a monorepo build that runs `ttsc` once per package does not re-evaluate the config each time. Editing the config invalidates the cache automatically. The one case it does not cover is a config that `import`s a separate file: change that imported file without touching the config itself, and set `TTSC_LINT_DISABLE_CONFIG_CACHE=1` to force a fresh evaluation.
 
+By default `@ttsc/lint` discovers `lint.config.{ts,cts,mts,js,cjs,mjs,json}` by walking upward from the tsconfig directory. To override that discovery with an explicit path, pass `configFile` on the plugin entry in `tsconfig.json`:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "name": "@ttsc/lint", "configFile": "./tools/lint.config.ts" }
+    ]
+  }
+}
+```
+
+`configFile` is the only host-owned key beyond `name`, `enabled`, `stage`, and `transform` — every other configuration lives inside the resolved `lint.config.*`.
+
 ## See it
 
 ```ts

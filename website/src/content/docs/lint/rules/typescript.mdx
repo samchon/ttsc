@@ -54,13 +54,18 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/no-unnecessary-boolean-literal-compare` — reject direct comparison of a boolean-typed value with `true` / `false` literals — `x === true` is just `x`, `x !== false` is just `x`.
 - `typescript/no-unnecessary-condition` — Reject conditions whose static type proves the runtime truthiness is fixed — `if ({})`, `if (null)`, `while ("")`, `0 && f()`.
 - `typescript/no-unnecessary-parameter-property-assignment` — Reject `this.x = x` in a constructor body when `x` is already declared as a parameter property — TypeScript performs the assignment automatically.
+- `typescript/no-unnecessary-qualifier` — Reject namespace/enum qualifiers that the surrounding scope makes unnecessary — inside `namespace Foo { Foo.bar }` the `Foo.` prefix can be dropped.
 - `typescript/no-unnecessary-template-expression` — reject template literals that carry no template-only behavior — a `` `${"abc"}` `` interpolation, a lone `` `${name}` `` span around a string-typed value, or a `` `abc` `` no-substitution literal with no escaped backticks.
 - `typescript/no-unnecessary-type-arguments` — reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default.
 - `typescript/no-unnecessary-type-assertion` — Reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type — the assertion adds nothing (type-aware).
 - `typescript/no-unnecessary-type-constraint` — Reject `<T extends unknown>` and similar constraints that match everything.
+- `typescript/no-unsafe-argument` — Reject passing an `any`-typed value to a parameter whose declared type is concrete — the `any` enters the callee with type-checking disabled (type-aware).
+- `typescript/no-unsafe-assignment` — Reject assigning an `any`-typed value to a variable, parameter, or property whose declared type is concrete (type-aware).
+- `typescript/no-unsafe-call` — Reject calling a value whose static type is `any` (type-aware).
 - `typescript/no-unsafe-declaration-merging` — Reject declaration merging between an `interface` and a `class` with the same name.
 - `typescript/no-unsafe-enum-comparison` — Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string` of the same widened primitive — the comparison silently accepts unrelated enums and raw literals that happen to share the underlying primitive.
 - `typescript/no-unsafe-function-type` — Reject the unsafe `Function` type, which matches every callable regardless of signature.
+- `typescript/no-unsafe-member-access` — Reject member access (`x.foo`, `x[key]`) on a value whose static type is `any` (type-aware).
 - `typescript/no-unsafe-return` — Reject a `return` expression whose static type is `any` from a function whose declared return type is a concrete (non-`any` / non-`unknown` / non-`void`) shape — the `any` leaks past the type boundary and disables every downstream check on the returned value.
 - `typescript/no-unsafe-unary-minus` — Reject the unary `-` operator applied to an operand whose static type is not number-like or bigint-like — `-x` silently coerces strings, objects, and other shapes via `Number(x)` and almost always indicates a bug.
 - `typescript/no-useless-constructor` — TypeScript-aware extension of `no-useless-constructor` that tolerates a constructor existing solely to expose parameter properties.
@@ -71,6 +76,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/parameter-properties` — Reject TypeScript parameter-property constructors (`constructor(public foo: T)`) — prefer plain field declarations so the class shape is visible from the member list instead of buried in the constructor parameter list.
 - `typescript/prefer-as-const` — Prefer `as const` over `as "literal"` assertions.
 - `typescript/prefer-enum-initializers` — Require every `enum` member to have an explicit initializer.
+- `typescript/prefer-find` — Prefer `array.find(predicate)` over `array.filter(predicate)[0]` / `.shift()` when only the first match is needed.
 - `typescript/prefer-function-type` — Prefer a type alias over an interface that declares only a single call signature — the type form composes better with structural typing.
 - `typescript/prefer-includes` — Prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes) on array, tuple, and string receivers.
 - `typescript/prefer-literal-enum-member` — Prefer literal initializers (`= 0`, `= "FOO"`) for enum members over computed expressions, so the value is decidable at compile time.
@@ -80,6 +86,8 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/prefer-promise-reject-errors` — Reject `Promise.reject(value)` where `value` is statically known not to derive from `Error` — type-aware analog of `only-throw-error` for the rejection side of the promise contract.
 - `typescript/prefer-readonly` — reject private class fields that could carry `readonly`.
 - `typescript/prefer-reduce-type-parameter` — Prefer `arr.reduce<T>(..., initial)` over `arr.reduce(..., initial as T)` so the accumulator type is fixed at the call site instead of widened inside the initial-value assertion.
+- `typescript/prefer-regexp-exec` — Prefer `regex.exec(str)` over `str.match(regex)` when the regex carries the `g` flag, where `.match` returns only the matched substrings and discards capture groups.
+- `typescript/prefer-return-this-type` — Prefer the explicit `this` return type for chainable methods over the surrounding class name — fluent subclasses preserve their concrete `this` instead of widening to the base.
 - `typescript/prefer-string-starts-ends-with` — Prefer `str.startsWith(p)` / `str.endsWith(p)` over `str.indexOf(p) === 0`, `str.indexOf(p, str.length - p.length) !== -1`, `str.lastIndexOf(p) === str.length - p.length`, and the anchored-regex `/^p/.test(str)` / `/p$/.test(str)` idioms.
 - `typescript/promise-function-async` — Require functions whose return type is `Promise<T>` to be declared with the `async` keyword so synchronous throws surface as a rejected Promise.
 - `typescript/related-getter-setter-pairs` — Reject a `get` accessor whose declared return type does not match the parameter type of its companion `set` accessor on the same class — readers should not observe a type the writer cannot accept (type-aware).
@@ -88,6 +96,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - `typescript/restrict-plus-operands` — reject `+` expressions whose operands are not both `number`, both `string`, or both `bigint`.
 - `typescript/restrict-template-expressions` — reject template-literal interpolations whose expression carries a type that does not stringify cleanly — `${obj}` prints `"[object Object]"`, `${null}` prints `"null"`, and so on.
 - `typescript/return-await` — Reject `return promise` inside `try`, `catch`, or `finally`; require `return await promise`.
+- `typescript/sort-type-constituents` — Sort the members of union (`A | B | C`) and intersection (`A & B & C`) types into a canonical order so reorderings don't show up as diffs.
 - `typescript/strict-boolean-expressions` — Reject non-boolean values used in a boolean context such as `if`, `&&`, `||`, or `!` — name the intent with an explicit comparison.
 - `typescript/switch-exhaustiveness-check` — require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
 - `typescript/triple-slash-reference` — Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
