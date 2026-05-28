@@ -110,17 +110,19 @@ type Reporter interface {
 }
 
 // FixReporter is the optional extension a host implements to receive
-// autofix edits alongside a finding. The public `rule.Context` type-asserts
-// against this shape so any host whose reporter exposes both methods opts
-// into fix support without depending on a private interface name.
+// autofix edits alongside a finding. The public `rule.Context`
+// type-asserts against this shape so any host whose reporter exposes
+// both methods opts into fix support without depending on a private
+// interface name.
 //
-// Contributor rules do NOT implement this interface — it is the host-side
-// counterpart to `Context.ReportFix` / `Context.ReportRangeFix`. A
-// contributor authoring a fake reporter for unit tests can declare
-// `var _ rule.FixReporter = &myReporter{}` to compile-check that the fake
-// satisfies the fix surface. Go interface satisfaction is all-or-nothing:
-// a fake that wants the fix path must implement BOTH `ReportFix` and
-// `ReportRangeFix`.
+// Rule production code does NOT touch FixReporter directly — call
+// `ctx.ReportFix` / `ctx.ReportRangeFix`, and the host's reporter
+// receives the edits. The only place a contributor sees this interface
+// is in test code that fakes the reporter: such a fake must implement
+// BOTH `Reporter` (`Report` + `ReportRange`) AND `FixReporter`
+// (`ReportFix` + `ReportRangeFix`), because Go interface satisfaction
+// is all-or-nothing. Declaring `var _ rule.FixReporter = &myFake{}`
+// compile-checks the fake covers the fix surface.
 type FixReporter interface {
   ReportFix(node *shimast.Node, message string, edits ...TextEdit)
   ReportRangeFix(pos, end int, message string, edits ...TextEdit)

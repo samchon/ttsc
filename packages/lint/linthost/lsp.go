@@ -69,9 +69,14 @@ type lspCommandOptions struct {
   contextJSON   string
   cwd           string
   pluginsJSON   string
-  rangeJSON     string
-  tsconfig      string
-  uri           string
+  // rangeJSON is accepted from the ttsc LSP server
+  // (`internal/lspserver/lsp_native_plugin_source.go`) for forward
+  // compatibility, but no current code path consumes it — code actions
+  // always operate on the full file. Range-aware actions can read this
+  // field once they're implemented.
+  rangeJSON string
+  tsconfig  string
+  uri       string
 }
 
 // RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
@@ -500,6 +505,13 @@ func copyLSPCommandWorkspaceEntry(src string, dst string, seenDirs map[string]st
         if _, ok := seenDirs[realDir]; ok {
           return nil
         }
+        // Track the real path only for the active recursion branch.
+        // Releasing it on return lets sibling aliases pointing at the
+        // same real directory (e.g. `src-a -> real-src` and
+        // `src-b -> real-src` in different tsconfig entries) each get
+        // materialized; the test
+        // `TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories`
+        // pins this contract.
         seenDirs[realDir] = struct{}{}
         defer delete(seenDirs, realDir)
       }
@@ -642,6 +654,9 @@ func projectRelativePath(cwd string, file string) (string, bool) {
 }
 
 func firstURIArgument(raw string) (string, error) {
+  if strings.TrimSpace(raw) == "" {
+    return "", errors.New("@ttsc/lint lsp-execute-command: missing URI argument")
+  }
   var args []json.RawMessage
   if err := json.Unmarshal([]byte(raw), &args); err != nil {
     return "", fmt.Errorf("@ttsc/lint lsp-execute-command: invalid arguments JSON: %w", err)

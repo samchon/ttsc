@@ -19,10 +19,17 @@ import (
 )
 
 // NodeText returns the source text under `node` with leading trivia
-// (whitespace + comments) stripped. Mirrors `nodeText` in the built-in
+// (whitespace + comments) stripped AND trailing ASCII whitespace
+// (` `, `\t`, `\r`, `\n`) trimmed. Mirrors `nodeText` in the built-in
 // engine — useful for rules that compare textual identity (the
-// `no-self-assign` / `no-self-compare` shape) or that splice a sub-node's
-// text into a fix string.
+// `no-self-assign` / `no-self-compare` shape) or that splice a
+// sub-node's text into a fix string.
+//
+// The trailing trim is deliberate so callers using the returned text
+// as the right-hand side of a `TextEdit{End: ...}` splice don't drag
+// in a node's trailing newline. Callers that need the literal byte
+// range without trimming should call `TokenRange` and read `file.Text()`
+// directly.
 //
 // Returns "" when `file` or `node` is nil, or when the computed range
 // falls outside the file (defensive — shouldn't happen for engine-supplied

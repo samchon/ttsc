@@ -1,7 +1,7 @@
 // Command @ttsc/lint is the native backend for the `@ttsc/lint` plugin.
 //
-// The plugin host (ttsc / ttsx) spawns this binary with one of six
-// subcommands:
+// The plugin host (ttsc / ttsx) spawns this binary with one of these
+// subcommands (canonical list lives in `linthost/dispatch.go`):
 //
 //   - `version` / `-v` / `--version` — print the binary banner.
 //   - `check` — typecheck + lint without emit. Failure exit code if any
@@ -13,6 +13,13 @@
 //   - `build` — typecheck + lint, then run the standard tsgo emit pipeline
 //     so JS files land on disk.
 //   - `transform --file=PATH` — single-file emit with the same lint pass.
+//   - `lsp-command-ids` — print workspace/executeCommand ids owned by
+//     `@ttsc/lint`.
+//   - `lsp-code-action-kinds` — print CodeActionKind values offered.
+//   - `lsp-diagnostics` — produce LSP diagnostic JSON for one file URI.
+//   - `lsp-code-actions` — produce LSP code actions for one file URI.
+//   - `lsp-execute-command` — return a WorkspaceEdit for a lint-owned
+//     command.
 //
 // Diagnostics share the renderer with tsgo's own output, so warnings come
 // out yellow, errors come out red, and the trailing `Found N errors`
