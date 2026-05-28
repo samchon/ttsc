@@ -579,6 +579,12 @@ function installTarballs() {
     "--ignore-scripts",
     "--no-audit",
     "--no-fund",
+    // Retry transient npm registry errors (ECONNRESET / 5xx mid-stream
+    // resets) before failing the run. Default `--fetch-retries=2` was
+    // not enough on macOS runners; bump to 5 with explicit timeouts.
+    "--fetch-retries=5",
+    "--fetch-retry-mintimeout=10000",
+    "--fetch-retry-maxtimeout=60000",
     ...registryDependencies,
     tarball("ttsc"),
     tarball(platformTarball),
