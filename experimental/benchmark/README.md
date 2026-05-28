@@ -16,7 +16,7 @@ can be built and packed into tarballs.
 
 ```bash
 node bench.mjs                          # full sweep
-node bench.mjs --project=type-fest      # one fixture
+node bench.mjs --project=vue            # one fixture
 node bench.mjs --setup-only             # clone + install, no measurement
 node bench.mjs --list                   # print the cell grid and exit
 node bench.mjs --verbose                # tee child stdio for debugging
@@ -58,7 +58,6 @@ the op for raw native-preview cells (e.g. `vue:ttsc:tsgo:build:single`). Run
 | --- | --- | --- | --- |
 | `vue` | `samchon/ttsc-benchmark-vue` | frontend monorepo | pnpm |
 | `rxjs` | `samchon/ttsc-benchmark-rxjs` | library monorepo (cjs / esm / types per package) | yarn |
-| `type-fest` | `samchon/ttsc-benchmark-type-fest` | type-level library | pnpm |
 | `typeorm` | `samchon/ttsc-benchmark-typeorm` | ORM library | pnpm |
 | `zod` | `samchon/ttsc-benchmark-zod` | schema library monorepo | pnpm |
 | `nestjs` | `samchon/ttsc-benchmark-nestjs` | backend framework monorepo (9 packages per op) | npm |

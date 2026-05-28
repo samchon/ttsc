@@ -8,7 +8,7 @@ import (
 // TestLoadProgramLeavesCheckerPoolForAstOnlyRules verifies AST-only lint does
 // not pin TypeScript-Go's checker pool.
 //
-// Vue and type-fest benchmark configs enable only AST rules. Clamping their
+// Vue and shopping-backend benchmark configs enable only AST rules. Clamping their
 // programs to one checker serializes semantic diagnostics even though no rule
 // receives Context.Checker, so loadProgram should preserve the requested
 // checker count until a type-aware rule asks for the checker.

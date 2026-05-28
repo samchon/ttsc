@@ -15,12 +15,12 @@
  *
  * - `node bench.mjs --setup-only`
  * - `node bench.mjs --verify-only`
- * - `node bench.mjs --project vue --project type-fest`
- * - `node bench.mjs --project=type-fest --ttsc-build-only`
- * - `node bench.mjs --project=type-fest --only-ttsc-build --reset`
- * - `node bench.mjs --project=type-fest --only-ttsc-build --no-website`
- * - `node bench.mjs --project=type-fest --lint-only`
- * - `node bench.mjs --cell-filter=':ttsc:build:' vue type-fest`
+ * - `node bench.mjs --project vue --project rxjs`
+ * - `node bench.mjs --project=vue --ttsc-build-only`
+ * - `node bench.mjs --project=vue --only-ttsc-build --reset`
+ * - `node bench.mjs --project=vue --only-ttsc-build --no-website`
+ * - `node bench.mjs --project=vue --lint-only`
+ * - `node bench.mjs --cell-filter=':ttsc:build:' vue zod`
  *
  * Default output is milestone-only: phase timers, per-cell `run i: N ms`, and
  * short status lines ("Cloning X", "Installing X", "Reusing X"). Child process
@@ -194,41 +194,6 @@ const PACKAGE_CONFIGS = {
       },
     }),
   },
-  "type-fest": {
-    kind: "type-level library",
-    repoName: "ttsc-benchmark-type-fest",
-    repo: "https://github.com/samchon/ttsc-benchmark-type-fest.git",
-    packageManager: "pnpm",
-    filesRoot: ".",
-    commands: compilerCommands({
-      build: (tool) => [
-        {
-          cmd: `pnpm exec ${tool} -p tsconfig.json`,
-          env: { NODE_OPTIONS: "--max-old-space-size=6144" },
-        },
-      ],
-      noEmit: (tool) => [
-        {
-          cmd: `pnpm exec ${tool} -p tsconfig.json --noEmit`,
-          env: { NODE_OPTIONS: "--max-old-space-size=6144" },
-        },
-      ],
-      eslint: [
-        `pnpm exec eslint --no-ignore --quiet ${tsconfigFiles("tsconfig.json")}`,
-      ],
-      format: {
-        legacy: [
-          `pnpm exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
-        ],
-        ttscLint: [
-          {
-            cmd: "pnpm exec ttsc format -p tsconfig.json",
-            env: { NODE_OPTIONS: "--max-old-space-size=6144" },
-          },
-        ],
-      },
-    }),
-  },
   typeorm: {
     kind: "ORM library",
     repoName: "ttsc-benchmark-typeorm",
@@ -394,7 +359,6 @@ const PROJECT_ORDER_BY_STARS = [
   "zod",
   "typeorm",
   "rxjs",
-  "type-fest",
   "shopping-backend",
 ];
 

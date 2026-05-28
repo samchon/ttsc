@@ -153,13 +153,12 @@ On a representative format cell (per-phase timings on this host with
 
 | Project       | Files | Parse MT  | Parse ST  | Engine.Run MT | Engine.Run ST |
 | ------------- | ----- | --------- | --------- | ------------- | ------------- |
-| `type-fest`   | 209   | ~140 ms   | ~230 ms   | ~30 ms        | ~70 ms        |
 | `vue`         | 437   | ~270 ms   | ~900 ms   | ~130 ms       | ~900 ms       |
 | `vscode`      | 6 097 | ~2 200 ms | ~5 700 ms | ~1 000 ms     | ~1 000 ms     |
 | `nestjs/core` | 352   | ~165 ms   | ~230 ms   | ~13 ms        | ~13 ms        |
 
-Three patterns fall out of that table. On small file counts (`nestjs/core`,
-`type-fest`), the rule walk is in the tens of milliseconds — under the
+Two patterns fall out of that table. On small file counts (`nestjs/core`),
+the rule walk is in the tens of milliseconds — under the
 goroutine pool's coordination overhead — so making it parallel does not move
 the needle. On a single-program mid-size fixture (`vue`), both parse and the
 rule walk parallelize cleanly and MT is roughly 4× the ST time inside the
@@ -181,7 +180,7 @@ fixed cost and MT / ST converge.
 The published numbers reflect those mechanics — large single-program fixtures
 (`vue`, `typeorm`, `vscode`) show a clear MT win on the Format chart;
 multi-program fixtures (`rxjs`, `nestjs`) and small single-program fixtures
-(`type-fest`, `zod`, `shopping-backend`) sit within noise of each other. The
+(`zod`, `shopping-backend`) sit within noise of each other. The
 type-check (`noEmit`) column has a wider spread because the checker pass adds
 parallelizable work on top of parse and scales with file count. The summary
 chart's "single-threaded" column is the right comparison when you want to know

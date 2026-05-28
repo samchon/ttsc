@@ -141,7 +141,7 @@ func parseBenchTSFile(b *testing.B, fileName, source string) *shimast.SourceFile
 }
 
 // engineBenchSource returns a synthetic TS source mixing the AST
-// patterns the lint rules in the bench fixtures (rxjs / type-fest)
+// patterns the lint rules in the bench fixtures (rxjs / vue)
 // actually fire on. The body is repeated to amortize parser cost
 // across enough nodes that lint dispatch dominates the timing.
 func engineBenchSource() string {

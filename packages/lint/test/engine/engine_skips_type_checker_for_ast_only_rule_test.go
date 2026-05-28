@@ -6,7 +6,7 @@ import "testing"
 // request Context.Checker.
 //
 // The checker gate is computed from the active rule set before Program
-// creation. A common Vue/type-fest rule such as noVar must therefore keep the
+// creation. A common Vue/shopping-backend rule such as noVar must therefore keep the
 // engine on the AST-only path, otherwise those projects still pay the old
 // single-checker cost.
 //
