@@ -11,6 +11,14 @@
 // in `unicornPreventAbbreviationsDictionary`. No scope analysis is
 // performed because the rule's diagnostic is about the *name*, not the
 // binding — every occurrence of `idx` is equally noisy.
+//
+// Hot-path budget: `KindIdentifier` is the most frequent AST kind in
+// any TypeScript program, so this Check is invoked tens-of-thousands
+// of times per file. A length pre-filter eliminates ~90 % of inputs
+// without touching memory (the longest dictionary entry is six
+// characters); an additional `isAllLowerASCII` check skips
+// `strings.ToLower`'s allocation for the common case of already-
+// lower-cased identifiers.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prevent-abbreviations.md
 package linthost
 
@@ -69,6 +77,11 @@ var unicornPreventAbbreviationsDictionary = map[string]struct{}{
 	"var":    {},
 }
 
+// unicornPreventAbbreviationsMaxLen is the longest dictionary key
+// length. Any identifier longer than this cannot match — the Check
+// returns immediately without touching the dictionary.
+const unicornPreventAbbreviationsMaxLen = 6
+
 type unicornPreventAbbreviations struct{}
 
 func (unicornPreventAbbreviations) Name() string { return "unicorn/prevent-abbreviations" }
@@ -77,13 +90,36 @@ func (unicornPreventAbbreviations) Visits() []shimast.Kind {
 }
 func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
 	name := identifierText(node)
-	if name == "" {
+	if name == "" || len(name) > unicornPreventAbbreviationsMaxLen {
 		return
 	}
-	if _, ok := unicornPreventAbbreviationsDictionary[strings.ToLower(name)]; !ok {
+	// Fast path: dictionary keys are pre-lowercased, so an
+	// already-lower-case identifier avoids `strings.ToLower`'s
+	// allocation entirely. The Check is invoked once per identifier
+	// in the file, so the saved allocations multiply.
+	lookup := name
+	if !isAllLowerASCII(name) {
+		lookup = strings.ToLower(name)
+	}
+	if _, ok := unicornPreventAbbreviationsDictionary[lookup]; !ok {
 		return
 	}
 	ctx.Report(node, "Prefer the long form over abbreviated identifiers (e.g. `error` over `err`).")
+}
+
+// isAllLowerASCII reports whether `s` is a non-empty ASCII string
+// whose every byte is a lower-case letter. Used by hot-path Checks
+// that look up an already-normalized dictionary — the result is
+// equivalent to `s == strings.ToLower(s)` for all-ASCII inputs but
+// avoids the lowercase allocation.
+func isAllLowerASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 func init() {

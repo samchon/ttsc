@@ -269,15 +269,40 @@ func stringLiteralText(node *shimast.Node) string {
 }
 
 // walkDescendants visits node and every child below it, depth-first.
+//
+// The naive recursive shape `node.ForEachChild(func(child) bool {
+// walkDescendants(child, visit); return false })` allocates one
+// closure per recursive call (the inner func captures `visit` and
+// the outer function reference), so a subtree of N nodes costs N
+// closure allocations. The struct walker below caches the
+// `ForEachChild` callback as a method value bound once to the
+// walker, dropping that cost to one allocation per `walkDescendants`
+// call regardless of subtree size.
 func walkDescendants(node *shimast.Node, visit func(*shimast.Node)) {
   if node == nil {
     return
   }
-  visit(node)
-  node.ForEachChild(func(child *shimast.Node) bool {
-    walkDescendants(child, visit)
-    return false
-  })
+  w := &descendantsWalker{visit: visit}
+  w.childCB = w.visitChild
+  w.walk(node)
+}
+
+type descendantsWalker struct {
+  visit   func(*shimast.Node)
+  childCB func(*shimast.Node) bool
+}
+
+func (w *descendantsWalker) walk(node *shimast.Node) {
+  if node == nil {
+    return
+  }
+  w.visit(node)
+  node.ForEachChild(w.childCB)
+}
+
+func (w *descendantsWalker) visitChild(child *shimast.Node) bool {
+  w.walk(child)
+  return false
 }
 
 // assignmentTargetNames collects the identifier names written by an
