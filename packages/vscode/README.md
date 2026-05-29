@@ -55,4 +55,8 @@ No diagnostics? Confirm `ttsc` runs in the project (`npx ttsc --version`), then 
 
 ## Sponsors
 
-Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development. Thanks for your support.
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.png)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
