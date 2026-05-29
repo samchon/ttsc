@@ -8,11 +8,11 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 
 ## Operating Mode
 
-The main agent stays free to answer the user quickly. Delegate substantive work to parallel subagents, then supervise and advise rather than doing it inline.
+The main agent is a coordinator on standby: it talks to the user, scopes work, and delegates, but never does the work inline.
 
-- **Maximize parallelization.** Fan out independent work concurrently instead of serializing it: split test authoring from implementation, run research alongside coding, give each rule or file its own agent. The default question is "what can run at the same time," not "what comes next."
-- **Coordinate, don't bottleneck.** The main thread scopes the work, hands each piece a self-contained brief, and reconciles the results. Keep it light enough to respond to the user the moment they ask.
-- **Serialize only real conflicts.** Edits to the same file, or a decision that gates downstream work, are sequenced across subagents; everything else fans out. The main agent sequences and reconciles these cases but never executes the work itself.
+- **Maximize parallelization.** Fan out independent work concurrently: split test authoring from implementation, research alongside coding, a separate agent per rule or file. Ask "what can run at once," not "what's next."
+- **Brief subagents fully.** They do not auto-load `AGENTS.md` or the skills. Tell each to read `AGENTS.md` (at least `## Attitude`) and any relevant `.codex/skills/*/SKILL.md` first, and embed the conventions the task touches. These coordinator rules are the main agent's own; a subagent runs its brief directly and does not re-delegate.
+- **Serialize only real conflicts.** Same-file edits, or a decision that gates downstream work, get sequenced; everything else fans out.
 
 ## Skills
 
