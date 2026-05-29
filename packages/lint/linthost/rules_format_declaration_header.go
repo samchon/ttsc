@@ -22,17 +22,19 @@ import (
 //
 //   - Single heritage type, no type parameters -> kept inline (Prettier
 //     never breaks a lone `extends X<Y>`), so the rule abstains.
-//   - One clause with multiple types -> break before the keyword, then
-//     one type per line:
+//   - One clause with multiple types -> break before the keyword and keep
+//     the types inline; explode them one-per-line only when that inline
+//     line still overflows:
 //         interface B
-//           extends
-//             First,
-//             Second {
-//   - Multiple clauses -> break before each keyword, types inline, `{`
-//     on its own line:
+//           extends First, Second {
+//   - Multiple clauses -> break before each keyword, types inline:
 //         class C
 //           extends Base
-//           implements First, Second {
+//           implements First, Second
+//         {
+//   - Opening brace placement -> Prettier moves `{` onto its own line only
+//     for a class with a non-empty body; an interface and any empty body
+//     keep it glued to the last header line (so `… implements X {}`).
 //   - Type-parameter list overflow -> explode the `<...>` list (trailing
 //     comma, `>` at the base indent), heritage inline after `>`:
 //         interface D<
@@ -160,7 +162,14 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
   if startCol+visualWidth(flat, layout.tabWidth) <= layout.printWidth {
     target = flat
   } else {
-    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout)
+    // Prettier drops the opening brace onto its own line only for a class
+    // with a non-empty body; an interface (any body) and an empty body
+    // keep `{` glued to the last header line (so an empty body reads
+    // `… {}`). isClass && !emptyBody captures that.
+    isClass := node.Kind == shimast.KindClassDeclaration
+    emptyBody := headerBodyIsEmpty(src, bracePos)
+    brace := headerBrace(isClass, emptyBody, base)
+    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace)
     if !ok {
       return // unverified combination: abstain
     }
@@ -316,6 +325,7 @@ func brokenDeclarationHeader(
   paramTexts []string,
   clauses []heritageClauseText,
   layout declarationHeaderLayout,
+  brace string,
 ) (string, bool) {
   hasTypeParams := len(paramTexts) > 0
   switch {
@@ -323,12 +333,12 @@ func brokenDeclarationHeader(
     if hasTypeParams {
       return "", false
     }
-    return multiClauseHeader(prefix, clauses, layout, base), true
+    return multiClauseHeader(prefix, clauses, layout, base, brace), true
   case len(clauses) == 1 && len(clauses[0].types) >= 2:
     if hasTypeParams {
       return "", false
     }
-    return multiTypeHeader(prefix, clauses[0], layout, base), true
+    return multiTypeHeader(prefix, clauses[0], layout, base, brace), true
   case hasTypeParams:
     if len(clauses) == 1 && len(clauses[0].types) >= 2 {
       return "", false
@@ -338,8 +348,10 @@ func brokenDeclarationHeader(
   return "", false
 }
 
-// multiClauseHeader: break before each keyword, types inline, `{` own line.
-func multiClauseHeader(prefix string, clauses []heritageClauseText, layout declarationHeaderLayout, base string) string {
+// multiClauseHeader: break before each keyword, types inline per clause.
+// Only a class carries multiple clauses (`extends` + `implements`), so
+// `brace` is the class brace placement decided by the caller.
+func multiClauseHeader(prefix string, clauses []heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
   var b strings.Builder
   b.WriteString(prefix)
   for _, c := range clauses {
@@ -349,18 +361,31 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
     b.WriteString(" ")
     b.WriteString(strings.Join(c.types, ", "))
   }
-  b.WriteString("\n")
-  b.WriteString(base)
-  b.WriteString("{")
+  b.WriteString(brace)
   return b.String()
 }
 
-// multiTypeHeader: single clause, break the keyword then one type per line.
-func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base string) string {
+// multiTypeHeader renders a single heritage clause with two or more types.
+// Prettier breaks before the keyword and first tries to keep the types
+// inline on that continuation line (`extends A, B, C`); it only explodes
+// them one-per-line when the inline line itself still overflows. `brace`
+// carries the caller's brace placement; when glued it shares the final
+// line, so it is charged against the width budget for the tier decision.
+func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
+  indent1 := layout.indent(base, 1)
+  inline := indent1 + clause.keyword + " " + strings.Join(clause.types, ", ")
+  inlineWidth := visualWidth(inline, layout.tabWidth)
+  if !strings.HasPrefix(brace, "\n") {
+    inlineWidth += visualWidth(brace, layout.tabWidth)
+  }
+  if inlineWidth <= layout.printWidth {
+    return prefix + "\n" + inline + brace
+  }
+
   var b strings.Builder
   b.WriteString(prefix)
   b.WriteString("\n")
-  b.WriteString(layout.indent(base, 1))
+  b.WriteString(indent1)
   b.WriteString(clause.keyword)
   for i, t := range clause.types {
     b.WriteString("\n")
@@ -369,10 +394,39 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
     if i < len(clause.types)-1 {
       b.WriteString(",")
     } else {
-      b.WriteString(" {")
+      b.WriteString(brace)
     }
   }
   return b.String()
+}
+
+// headerBrace returns the opening-brace fragment that closes a broken
+// header. Prettier puts `{` on its own line only for a class with a
+// non-empty body; an interface and any empty body keep it glued to the
+// last header line.
+func headerBrace(isClass, emptyBody bool, base string) string {
+  if isClass && !emptyBody {
+    return "\n" + base + "{"
+  }
+  return " {"
+}
+
+// headerBodyIsEmpty reports whether the body opened at bracePos holds no
+// members — its first non-whitespace byte is the closing `}`. A body with
+// a comment counts as non-empty (conservative: the comment keeps the
+// brace where the source had it rather than forcing a glue).
+func headerBodyIsEmpty(src string, bracePos int) bool {
+  for i := bracePos + 1; i < len(src); i++ {
+    switch src[i] {
+    case ' ', '\t', '\r', '\n':
+      continue
+    case '}':
+      return true
+    default:
+      return false
+    }
+  }
+  return false
 }
 
 // typeParamExplodeHeader: explode the `<...>` list, heritage inline after `>`.
