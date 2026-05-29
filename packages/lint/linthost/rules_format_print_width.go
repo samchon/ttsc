@@ -136,6 +136,35 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
+
+  // trailingWidth is the column span of the tokens that stay on the
+  // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
+  // replaces only [start, end) and cannot move them, so both the fast
+  // path and the layout budget must reserve those columns; otherwise
+  // the rule emits a line that overflows by exactly the suffix.
+  trailingWidth := trailingLineWidth(src, end, printOpts.TabWidth)
+
+  // Fast path: if the node's existing single-line bytes already fit
+  // the printWidth budget — prefix column, node width and trailing
+  // suffix all charged — the reflowed output cannot differ from the
+  // source (the printer would render the same flat shape). Skip the
+  // Doc build + render entirely. This is the common case on
+  // well-formatted code — every short call, every short literal —
+  // and saves the allocations from PrintNode + Print.
+  //
+  // This runs before the abstain guards below on purpose: those guards
+  // only ever return (they never emit an edit), so for a node that
+  // already fits the outcome is identical whichever fires first — and
+  // the fast path is far cheaper than the guards' ancestor walks and
+  // the per-byte comment scan in hasNonChildComments. Charging that
+  // cost only on nodes that actually overflow keeps the hot path on
+  // well-formatted code allocation- and scan-free.
+  if !sliceContainsNewline(src, start, end) &&
+    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
+    return
+  }
+
   // Skip nested-print fires: if the visiting node has an ancestor
   // that also belongs to the rule's set, the outer reflow already
   // includes us. Acting at every level would emit overlapping edits
@@ -165,31 +194,11 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
-  printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
   // A node reflowed on a ternary-arm continuation line (`? expr` or
   // `: expr`) hangs its broken continuation under the arm's expression,
   // two columns past the `?`/`:` marker — not under the marker itself.
   printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth) +
     ternaryArmIndentBonus(src, start)
-
-  // trailingWidth is the column span of the tokens that stay on the
-  // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
-  // replaces only [start, end) and cannot move them, so both the fast
-  // path and the layout budget must reserve those columns; otherwise
-  // the rule emits a line that overflows by exactly the suffix.
-  trailingWidth := trailingLineWidth(src, end, printOpts.TabWidth)
-
-  // Fast path: if the node's existing single-line bytes already fit
-  // the printWidth budget — prefix column, node width and trailing
-  // suffix all charged — the reflowed output cannot differ from the
-  // source (the printer would render the same flat shape). Skip the
-  // Doc build + render entirely. This is the common case on
-  // well-formatted code — every short call, every short literal —
-  // and saves the allocations from PrintNode + Print.
-  if !sliceContainsNewline(src, start, end) &&
-    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
-    return
-  }
 
   printCtx := NewPrintContext(ctx.File, printOpts)
   doc, covered := PrintNode(printCtx, node)

@@ -206,12 +206,6 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   return doc, covered
 }
 
-// blankLineBetweenStatements reports whether the source gap between the
-// end of one block statement and the start of the next contains a blank
-// line — two or more newlines. printBlock uses it to keep a single
-// user-authored blank line between statements. blockHasNonStatementComment
-// has already guaranteed the gap holds no comment when the block is
-// covered, so the gap is pure whitespace and counting newlines suffices.
 // rangeHasNewline reports whether src[start:end) contains a newline. Used
 // to detect whether a leading-semicolon guard sits on the same line as
 // the statement it protects.
@@ -227,6 +221,12 @@ func rangeHasNewline(src string, start, end int) bool {
   return false
 }
 
+// blankLineBetweenStatements reports whether the source gap between the
+// end of one block statement and the start of the next contains a blank
+// line — two or more newlines. printBlock uses it to keep a single
+// user-authored blank line between statements. blockHasNonStatementComment
+// has already guaranteed the gap holds no comment when the block is
+// covered, so the gap is pure whitespace and counting newlines suffices.
 func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
   nextStart := shimscanner.SkipTrivia(src, nextPos)
   if prevEnd < 0 || nextStart > len(src) || nextStart <= prevEnd {

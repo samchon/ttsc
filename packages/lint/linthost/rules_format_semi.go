@@ -147,8 +147,11 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
 //   - `[`  — bracket access continues an expression
 //   - `(`  — call expression continues
 //   - “ ` “ — tagged template literal continues
-//   - `+`, `-`, `*`, `/` — binary operator continues
+//   - `+`, `-`, `*` — binary operator continues
 //   - `,`  — comma operator continues
+//   - `/`  — division operator or regex literal continues; handled by
+//     the comment-or-regex branch below (a leading `//` or `/*` is not a
+//     hazard, a bare `/` is), so it is absent from the token switch.
 func nextStatementHasASIHazard(src string, end int) bool {
   for i := end; i < len(src); i++ {
     c := src[i]
