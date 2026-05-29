@@ -1,6 +1,6 @@
 # Pull Request Submission
 
-When the user explicitly asks for a pull request, follow this flow.
+Only act on this skill when the user explicitly asks for a pull request. Never open, propose, or push a new PR on your own initiative, not as a "helpful" follow-up to a finished change, not because the work looks done. (This bounds PR creation only; it does not change how you commit to a branch.) When the user does ask, follow this flow.
 
 ## Branch from the target
 

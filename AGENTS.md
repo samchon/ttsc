@@ -1,3 +1,19 @@
+## Attitude
+
+Follow the literal request; it is the contract, not a hint at what the user "really" wants.
+
+- **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given.
+- **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
+- **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
+
+## Operating Mode
+
+The main agent stays free to answer the user quickly. Delegate substantive work to parallel subagents, then supervise and advise rather than doing it inline.
+
+- **Maximize parallelization.** Fan out independent work concurrently instead of serializing it: split test authoring from implementation, run research alongside coding, give each rule or file its own agent. The default question is "what can run at the same time," not "what comes next."
+- **Coordinate, don't bottleneck.** The main thread scopes the work, hands each piece a self-contained brief, and reconciles the results. Keep it light enough to respond to the user the moment they ask.
+- **Serialize only real conflicts.** Edits to the same file, or a decision that gates downstream work, are done on the main thread or sequenced; everything else fans out.
+
 ## Skills
 
 All conventions and workflows live as skills under `.codex/skills/`. Read the linked file when its topic applies.
@@ -20,7 +36,7 @@ Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKIL
 
 ### Pull Request Submission
 
-PR submission flow, `.codex/skills/pull-request/SKILL.md`. Read when the user asks for a pull request.
+PR submission flow, `.codex/skills/pull-request/SKILL.md`. Read only when the user explicitly asks for a pull request; never open, push, or propose a PR on your own initiative.
 
 ### Benchmark
 
@@ -40,7 +56,7 @@ AGENTS.md and SKILL.md files are read by humans as well as agents.
 
 ### AGENTS.md
 
-The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The only H2s are `## Skills` and `## Maintenance`.
+The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The H2s are `## Attitude`, `## Operating Mode`, `## Skills`, and `## Maintenance`. `## Attitude` and `## Operating Mode` are the two places global agent-behavior rules live; everything else points to a skill.
 
 Update only for repository-contract changes: a new skill area, a renamed or merged skill, a workflow that no longer fits an existing skill, a release-process change, or a coding-agent rule that applies globally before any skill loads.
 
