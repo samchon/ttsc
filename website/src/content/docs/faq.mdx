@@ -82,7 +82,7 @@ The installer calls `code --install-extension` against the `.vsix` bundled in th
 1. Confirm `ttsc` is installed in the project: `npx ttsc --version`.
 2. Confirm the same plugin diagnostics appear in the CLI: `npx ttsc --noEmit -p <selected tsconfig>`.
 3. Make sure the plugin config is discoverable from the selected project root or set `configFile` in the tsconfig plugin entry.
-4. Save the file before checking plugin diagnostics or running plugin-backed fix/format commands. TypeScript-Go diagnostics are live; ttsc plugin diagnostics, code actions, and command computation currently use the saved project state, and fix/format commands return editor-applied `WorkspaceEdit`s only while touched documents are clean.
+4. Save the file before checking plugin diagnostics or running the command-palette `ttsc: Fix all lint issues` / `ttsc: Format document` commands. TypeScript-Go diagnostics are live; ttsc plugin diagnostics, code actions, and those command-palette commands use the saved project state, returning editor-applied `WorkspaceEdit`s only while touched documents are clean. Editor format-on-save is the exception — it formats the live unsaved buffer.
 5. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
 6. Run **ttsc: Restart language server** from the command palette.
 7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.

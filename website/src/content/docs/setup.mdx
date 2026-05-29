@@ -114,6 +114,17 @@ What it adds:
 - `ttsc: Fix all lint issues` and `ttsc: Format document` are always registered by the extension, but they return edits only when the selected file's server has an LSP-capable owner such as `@ttsc/lint`. Other plugin-owned command ids are advertised through `vscode-languageclient`; when they return a `changes`-map `WorkspaceEdit`, the extension applies it with the same clean-document guard.
 - Leave `ttsc.serverPath` empty for plugin diagnostics/actions. The default project `ttsc` launcher builds the plugin manifest before starting the native server; a direct native binary path is useful only when that manifest is supplied by the caller.
 
+To turn on format-on-save, point the default formatter at `samchon.ttsc` and enable `editor.formatOnSave` in `.vscode/settings.json`:
+
+```jsonc
+"[typescript][typescriptreact][javascript][javascriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
+Lint **fixes** stay off-save by default (they can change code meaning) — opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
 If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
 
 Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
