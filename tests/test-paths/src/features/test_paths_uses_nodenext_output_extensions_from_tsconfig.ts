@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestPaths } from "../internal/TestPaths";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/paths plugin: NodeNext output extensions come from
@@ -65,7 +66,7 @@ export const test_paths_uses_nodenext_output_extensions_from_tsconfig = () => {
       cwd: root,
       env: {
         PATH: TestPaths.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-paths-nodenext-extensions-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

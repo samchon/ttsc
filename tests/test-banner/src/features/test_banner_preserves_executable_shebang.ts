@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: banner preserves executable shebang.
@@ -46,7 +47,7 @@ export const test_banner_preserves_executable_shebang = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-banner-shebang-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

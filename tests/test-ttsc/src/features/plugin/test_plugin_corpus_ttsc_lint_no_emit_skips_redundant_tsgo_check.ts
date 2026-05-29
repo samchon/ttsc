@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   commonJsProject,
@@ -71,7 +70,7 @@ export const test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check =
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-noemit-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         TTSC_TSGO_BINARY: fakeTsgo,
       },
     });

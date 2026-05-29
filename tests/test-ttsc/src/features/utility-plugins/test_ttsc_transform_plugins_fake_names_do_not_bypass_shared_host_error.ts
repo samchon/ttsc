@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies ttsc transform plugins: fake names do not bypass shared-host errors.
@@ -56,7 +57,7 @@ export const test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_er
         cwd: root,
         env: {
           PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-fake-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
       },
     );

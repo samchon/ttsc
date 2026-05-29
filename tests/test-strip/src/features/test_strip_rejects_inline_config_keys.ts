@@ -2,6 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: rejects inline configuration keys in the
@@ -45,7 +46,7 @@ export const test_strip_rejects_inline_config_keys = () => {
       cwd: root,
       env: {
         PATH: TestStrip.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-strip-reject-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

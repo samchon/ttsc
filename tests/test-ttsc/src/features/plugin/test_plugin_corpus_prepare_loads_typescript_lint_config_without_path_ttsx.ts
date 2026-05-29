@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -45,7 +44,7 @@ export default {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       PATH: goPath(),
-      TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-prepare-"),
+      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     };
     delete env.TTSC_TTSX_BINARY;
     delete env.TTSC_NODE_BINARY;

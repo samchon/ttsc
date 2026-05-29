@@ -12,6 +12,10 @@ on:
       - "pnpm-workspace.yaml"
   workflow_dispatch:
 
+concurrency:
+  group: bun-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   Unplugin:
     runs-on: ubuntu-latest

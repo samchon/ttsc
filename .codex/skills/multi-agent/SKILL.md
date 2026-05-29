@@ -12,6 +12,10 @@ Form a team of six agents. For looped modes, replace the team with six different
 
 The lead agent coordinates the team. In modes that produce proposals, the lead rechecks every proposal against the codebase and applies only changes that are technically sound and relevant. In modes that produce transcripts, the lead moderates and scribes, writing each statement in speaking order, recording the live discussion (not a retrospective summary), and not narrowing the topic unless the user did.
 
+### Briefing subagents
+
+Subagents start blind: they carry no conversation history and do not auto-load `AGENTS.md` or the skills. Give each a self-contained brief with the objective, the constraints, the context it needs, the output format, and which `AGENTS.md` sections (at least `## Attitude`) and `.codex/skills/*/SKILL.md` to read. State the evidence and the constraints, not a pre-chosen answer; a leading hypothesis steers the agent to a shallow fix. A subagent runs its brief directly and does not re-delegate.
+
 ### Topic directory
 
 Create `.discussions/<topic>/` with a short filesystem-safe topic name. Do not delete or overwrite existing discussion directories unless the user explicitly requests it.

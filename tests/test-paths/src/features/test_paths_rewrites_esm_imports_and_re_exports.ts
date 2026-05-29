@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestPaths } from "../internal/TestPaths";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/paths plugin: paths rewrites ESM imports and re-exports.
@@ -72,7 +73,7 @@ export const test_paths_rewrites_esm_imports_and_re_exports = () => {
       cwd: root,
       env: {
         PATH: TestPaths.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-paths-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

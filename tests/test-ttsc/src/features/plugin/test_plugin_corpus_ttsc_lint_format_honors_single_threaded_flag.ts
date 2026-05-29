@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -56,7 +55,7 @@ export const test_plugin_corpus_ttsc_lint_format_honors_single_threaded_flag =
     const sourcePath = path.join(root, "src", "main.ts");
     fs.writeFileSync(sourcePath, `export const value = 'single';\n`);
 
-    const cacheDir = TestProject.tmpdir("ttsc-lint-format-singlethread-");
+    const cacheDir = SHARED_PLUGIN_CACHE_DIR;
     const result = spawn(
       ttscBin,
       [

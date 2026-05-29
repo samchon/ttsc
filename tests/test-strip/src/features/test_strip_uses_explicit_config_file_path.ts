@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: honors an explicit configFile path from the
@@ -55,7 +56,7 @@ export const test_strip_uses_explicit_config_file_path = () => {
       cwd: root,
       env: {
         PATH: TestStrip.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-strip-configfile-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

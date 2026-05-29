@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint fix: contributor rule single-edit applies through the native
  * fix engine.
@@ -58,7 +60,7 @@ export const test_lint_fix_contributor_rule_single_edit_applies_through_native_e
           cwd: root,
           env: {
             PATH: goPath(),
-            TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-fix-contrib-cache-"),
+            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
             TTSC_GO_BINARY: goBinary(),
           },
         },

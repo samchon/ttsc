@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: banner injects JavaScript and declaration
@@ -50,7 +51,7 @@ export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-banner-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

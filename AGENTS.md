@@ -1,3 +1,11 @@
+## Attitude
+
+Follow the literal request; it is the contract, not a hint at what the user "really" wants.
+
+- **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given.
+- **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
+- **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
+
 ## Skills
 
 All conventions and workflows live as skills under `.codex/skills/`. Read the linked file when its topic applies.
@@ -16,11 +24,11 @@ READMEs and website guides, `.codex/skills/documentation/SKILL.md`. Read before 
 
 ### Multi-Agent Workflows
 
-Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Read only when the user explicitly asks for a named mode.
+Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Read the Briefing subagents rule before delegating to any subagent; read in full only when the user asks for a named mode.
 
 ### Pull Request Submission
 
-PR submission flow, `.codex/skills/pull-request/SKILL.md`. Read when the user asks for a pull request.
+PR submission flow, `.codex/skills/pull-request/SKILL.md`. Read only when the user explicitly asks for a pull request; never open, push, or propose a PR on your own initiative.
 
 ### Benchmark
 
@@ -40,7 +48,7 @@ AGENTS.md and SKILL.md files are read by humans as well as agents.
 
 ### AGENTS.md
 
-The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The only H2s are `## Skills` and `## Maintenance`.
+The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The H2s are `## Attitude`, `## Skills`, and `## Maintenance`. `## Attitude` is the one place global agent-behavior rules live; everything else points to a skill.
 
 Update only for repository-contract changes: a new skill area, a renamed or merged skill, a workflow that no longer fits an existing skill, a release-process change, or a coding-agent rule that applies globally before any skill loads.
 

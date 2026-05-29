@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: banner follows removeComments.
@@ -48,7 +49,7 @@ export const test_banner_respects_remove_comments = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-banner-remove-comments-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

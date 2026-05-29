@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -67,7 +66,7 @@ export const test_plugin_corpus_ttsc_lint_ignores_future_optional_flags =
     const previousPath = process.env.PATH;
     const previousCacheDir = process.env.TTSC_CACHE_DIR;
     process.env.PATH = goPath();
-    process.env.TTSC_CACHE_DIR = TestProject.tmpdir("ttsc-lint-future-flag-");
+    process.env.TTSC_CACHE_DIR = SHARED_PLUGIN_CACHE_DIR;
     let loaded;
     try {
       loaded = loadProjectPlugins({

@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   commonJsProject,
@@ -61,7 +60,7 @@ export const test_plugin_corpus_package_relative_auto_plugins_do_not_collide_by_
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-package-relative-plugins-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);

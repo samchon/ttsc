@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -30,7 +29,7 @@ export const test_plugin_corpus_ttsc_lint_clean_project_exits_zero = () => {
     path.join(root, "src", "main.ts"),
     `export const value: string = "hi";\nconst _value: number = value.length;\nvoid _value;\n`,
   );
-  const cacheDir = TestProject.tmpdir("ttsc-lint-clean-");
+  const cacheDir = SHARED_PLUGIN_CACHE_DIR;
   const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

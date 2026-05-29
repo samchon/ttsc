@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: package ttsc.plugin auto-discovers banner
@@ -40,7 +41,7 @@ export const test_banner_package_auto_discovers_config_file = () => {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-banner-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );

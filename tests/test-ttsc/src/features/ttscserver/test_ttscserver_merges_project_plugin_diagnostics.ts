@@ -1,8 +1,9 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   TtscserverClient,
   assert,
@@ -39,11 +40,10 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
     rules: { "no-var": "error" },
     source: "var legacy = 1;\nconsole.log(legacy);\n",
   });
-  const cache = TestProject.tmpdir("ttscserver-lsp-cache-");
   const file = path.join(project.tmpdir, "src", "main.ts");
   const uri = pathToFileURL(file).href;
   const client = TtscserverClient.startLauncher(project.tmpdir, {
-    env: { TTSC_CACHE_DIR: cache },
+    env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
   });
 
   try {
@@ -54,9 +54,13 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
         params.uri === uri &&
         (params.diagnostics ?? []).some(
           (diagnostic) =>
-            diagnostic.source === "ttsc/lint" && diagnostic.code === "no-var",
+            diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
         ),
-      120_000,
+      // The shared content-addressed plugin cache means an earlier test has
+      // usually already built `@ttsc/lint`, so this wait normally races a warm
+      // sidecar. The margin still covers the one case where this test happens
+      // to warm the cache first; a cold lint build stays well under it.
+      60_000,
     );
     client.notify("textDocument/didOpen", {
       textDocument: {
@@ -70,7 +74,7 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
     const params = await diagnostics;
     const lintDiagnostic = (params.diagnostics ?? []).find(
       (diagnostic) =>
-        diagnostic.source === "ttsc/lint" && diagnostic.code === "no-var",
+        diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
     );
     assert.ok(lintDiagnostic, "expected @ttsc/lint diagnostic");
     assert.match(

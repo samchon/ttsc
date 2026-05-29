@@ -45,6 +45,11 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   disables the rule's edits without removing the surface.
  *   - `format/print-width` — always on, driven by `printWidth`,
  *   `tabWidth`, `useTabs`, `endOfLine`.
+ *   - `format/statement-split` — always on, driven by `tabWidth`,
+ *   `useTabs`, `endOfLine`.
+ *   - `format/indent` — always on, driven by `tabWidth`, `useTabs`,
+ *   `endOfLine`.
+ *   - `format/whitespace` — always on, driven by `endOfLine`.
  *   - `format/sort-imports` — opt-in. Setting `importOrder` enables it.
  *   - `format/jsdoc` — opt-in. Setting `jsdoc` enables it.
  *

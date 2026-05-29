@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -55,7 +54,7 @@ export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_f
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-lint-missing-config-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     assert.notEqual(result.status, 0, "expected missing lint config to fail");

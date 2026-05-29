@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -29,7 +28,7 @@ export const test_plugin_corpus_source_plugins_build_with_the_bundled_go_compile
       cwd: root,
       env: {
         PATH: "/nonexistent",
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-bundled-go-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     assert.equal(result.status, 0, result.stderr);
