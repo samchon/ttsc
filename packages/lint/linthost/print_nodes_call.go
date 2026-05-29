@@ -51,7 +51,11 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if hasNilEntry(call.Arguments) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  argDoc, argCovered := printArgList(ctx, call.Arguments)
+  // Prettier never appends a trailing comma inside a dynamic
+  // `import(...)`, so the printer's reflow must agree with
+  // format/trailing-comma's same exception (see isDynamicImportCall).
+  addComma := ctx.allowsCallArgumentTrailingComma() && !isDynamicImportCall(call)
+  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma)
   parts = append(parts, argDoc)
   return Concat(parts...), covered && argCovered
 }
@@ -83,7 +87,7 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     if hasNilEntry(ne.Arguments) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    argDoc, argCovered := printArgList(ctx, ne.Arguments)
+    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma())
     parts = append(parts, argDoc)
     covered = covered && argCovered
   }
@@ -116,7 +120,14 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // layout, so the parens stay attached and the preceding arguments are
 // not exploded onto their own lines. This is the Prettier behavior for
 // `foo(x, () => { … })`.
-func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
+// `addComma` is supplied by the caller (which honors `format.trailingComma`
+// and the dynamic-import exception) rather than read here, so call and new
+// expressions can diverge on the comma without printArgList knowing the
+// callee. Call / new argument lists accepted trailing commas only in
+// ES2017+, so Prettier's "es5" and "none" modes pass false; otherwise the
+// printer would oscillate against format/trailing-comma on every cascade
+// pass (rxjs hit this on ajax.ts and several operators / testing helpers).
+func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc, bool) {
   if list == nil {
     return Text("()"), true
   }
@@ -127,20 +138,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
-  // AddComma honors `format.trailingComma`: call / new argument lists
-  // accepted trailing commas only in ES2017+, so Prettier's "es5" and
-  // "none" modes skip them here. Hardcoding `true` would oscillate
-  // against Prettier on every cascade pass on any project configured
-  // with "es5" (rxjs hit this on ajax.ts and several operators / testing
-  // helpers — the rule said "no comma needed" while the printer added
-  // one back on its own reflow).
+  // Last-argument hugging wins when both predicates match; first-arg
+  // hugging only applies to the two-argument `callback, simpleArg` shape.
+  hugLast := shouldHugLastArgument(list.Nodes)
   shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
     Items:    items,
     Space:    false,
-    AddComma: ctx.allowsCallArgumentTrailingComma(),
-    HugLast:  shouldHugLastArgument(list.Nodes),
+    AddComma: addComma,
+    HugLast:  hugLast,
+    HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
   }
   return printList(ctx, shape), covered
 }
@@ -191,6 +199,65 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
       shimast.KindArrayLiteralExpression:
       return true
     }
+  }
+  return false
+}
+
+// shouldHugFirstArgument reports whether a call's argument list takes
+// Prettier's "first-argument hugging" shape: exactly two arguments where
+// the first is a block-bodied callback and the second is a short, simple
+// value. `foo(() => { … }, target)` keeps the callback attached to the
+// open paren and flows `, target)` after its closing brace, instead of
+// exploding both arguments onto their own lines.
+//
+// Mirrors Prettier's shouldGroupFirstArg: it declines when the second
+// argument is itself a function, arrow, conditional, or any expandable
+// shape, so `both(() => {}, () => {})` falls through to the exploded
+// list rather than hugging.
+func shouldHugFirstArgument(args []*shimast.Node) bool {
+  if len(args) != 2 {
+    return false
+  }
+  first, second := args[0], args[1]
+  if first == nil || second == nil {
+    return false
+  }
+  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(second)
+}
+
+// isFirstArgHuggableCallback reports whether `node` is the callback shape
+// Prettier hugs in the first-argument position: a function expression or
+// an arrow with a block body. An expression-bodied arrow is excluded
+// because it carries no internal break point.
+func isFirstArgHuggableCallback(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindFunctionExpression:
+    return true
+  case shimast.KindArrowFunction:
+    arrow := node.AsArrowFunction()
+    return arrow != nil && arrow.Body != nil && arrow.Body.Kind == shimast.KindBlock
+  }
+  return false
+}
+
+// isSimpleTrailingArg reports whether `node` is a short, non-expandable
+// value that may trail a hugged first-argument callback. Anything that
+// can itself expand (functions, objects, arrays, calls, conditionals)
+// returns false so first-argument hugging declines, matching Prettier's
+// isHopefullyShortCallArgument / couldGroupArg gate.
+func isSimpleTrailingArg(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindThisKeyword,
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression:
+    return true
   }
   return false
 }
