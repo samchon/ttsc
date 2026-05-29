@@ -18,49 +18,49 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornNoInstanceofBuiltinsNames = map[string]struct{}{
-	"Array":          {},
-	"Error":          {},
-	"EvalError":      {},
-	"RangeError":     {},
-	"ReferenceError": {},
-	"SyntaxError":    {},
-	"TypeError":      {},
-	"URIError":       {},
-	"AggregateError": {},
-	"Map":            {},
-	"Set":            {},
-	"WeakMap":        {},
-	"WeakSet":        {},
-	"Date":           {},
-	"RegExp":         {},
-	"Promise":        {},
-	"Function":       {},
+  "Array":          {},
+  "Error":          {},
+  "EvalError":      {},
+  "RangeError":     {},
+  "ReferenceError": {},
+  "SyntaxError":    {},
+  "TypeError":      {},
+  "URIError":       {},
+  "AggregateError": {},
+  "Map":            {},
+  "Set":            {},
+  "WeakMap":        {},
+  "WeakSet":        {},
+  "Date":           {},
+  "RegExp":         {},
+  "Promise":        {},
+  "Function":       {},
 }
 
 type unicornNoInstanceofBuiltins struct{}
 
 func (unicornNoInstanceofBuiltins) Name() string { return "unicorn/no-instanceof-builtins" }
 func (unicornNoInstanceofBuiltins) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornNoInstanceofBuiltins) Check(ctx *Context, node *shimast.Node) {
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil || bin.Right == nil {
-		return
-	}
-	if bin.OperatorToken.Kind != shimast.KindInstanceOfKeyword {
-		return
-	}
-	name := identifierText(bin.Right)
-	if name == "" {
-		return
-	}
-	if _, ok := unicornNoInstanceofBuiltinsNames[name]; !ok {
-		return
-	}
-	ctx.Report(node, "Don't use `instanceof <Builtin>` — it breaks across realms and for subclasses. Use a type predicate or duck-typing instead.")
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil || bin.Right == nil {
+    return
+  }
+  if bin.OperatorToken.Kind != shimast.KindInstanceOfKeyword {
+    return
+  }
+  name := identifierText(bin.Right)
+  if name == "" {
+    return
+  }
+  if _, ok := unicornNoInstanceofBuiltinsNames[name]; !ok {
+    return
+  }
+  ctx.Report(node, "Don't use `instanceof <Builtin>` — it breaks across realms and for subclasses. Use a type predicate or duck-typing instead.")
 }
 
 func init() {
-	Register(unicornNoInstanceofBuiltins{})
+  Register(unicornNoInstanceofBuiltins{})
 }

@@ -15,5 +15,5 @@ import "testing"
 // 2. Declare a class with only a static helper method.
 // 3. Assert the class declaration is reported.
 func TestRuleCorpusUnicornNoStaticOnlyClass(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-static-only-class.ts", "// expect: unicorn/no-static-only-class error\nclass Utility {\n  static helper() { return 42; }\n}\nvoid Utility;\n")
+  assertRuleCorpusCase(t, "unicorn/no-static-only-class.ts", "// expect: unicorn/no-static-only-class error\nclass Utility {\n  static helper() { return 42; }\n}\nvoid Utility;\n")
 }

@@ -16,39 +16,39 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type noMeaninglessVoidOperator struct{}
 
 func (noMeaninglessVoidOperator) Name() string {
-	return "typescript/no-meaningless-void-operator"
+  return "typescript/no-meaningless-void-operator"
 }
 func (noMeaninglessVoidOperator) NeedsTypeChecker() bool { return true }
 func (noMeaninglessVoidOperator) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindVoidExpression}
+  return []shimast.Kind{shimast.KindVoidExpression}
 }
 func (noMeaninglessVoidOperator) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	expr := node.AsVoidExpression()
-	if expr == nil || expr.Expression == nil {
-		return
-	}
-	operand := stripParens(expr.Expression)
-	if operand == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(operand)
-	if t == nil {
-		return
-	}
-	if !isVoidOnlyType(t) {
-		return
-	}
-	ctx.Report(node, "The `void` operator on a value already typed `void` adds nothing — drop the operator.")
+  if ctx.Checker == nil {
+    return
+  }
+  expr := node.AsVoidExpression()
+  if expr == nil || expr.Expression == nil {
+    return
+  }
+  operand := stripParens(expr.Expression)
+  if operand == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(operand)
+  if t == nil {
+    return
+  }
+  if !isVoidOnlyType(t) {
+    return
+  }
+  ctx.Report(node, "The `void` operator on a value already typed `void` adds nothing — drop the operator.")
 }
 
 // isVoidOnlyType reports whether t is the bare `void` type or a union
@@ -57,28 +57,28 @@ func (noMeaninglessVoidOperator) Check(ctx *Context, node *shimast.Node) {
 // number` operand still needs the operator to discard the runtime
 // value, so it is left alone.
 func isVoidOnlyType(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&shimchecker.TypeFlagsVoid != 0 {
-		return true
-	}
-	if flags&shimchecker.TypeFlagsUnion != 0 {
-		parts := t.Types()
-		if len(parts) == 0 {
-			return false
-		}
-		for _, part := range parts {
-			if !isVoidOnlyType(part) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+  if t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&shimchecker.TypeFlagsVoid != 0 {
+    return true
+  }
+  if flags&shimchecker.TypeFlagsUnion != 0 {
+    parts := t.Types()
+    if len(parts) == 0 {
+      return false
+    }
+    for _, part := range parts {
+      if !isVoidOnlyType(part) {
+        return false
+      }
+    }
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(noMeaninglessVoidOperator{})
+  Register(noMeaninglessVoidOperator{})
 }

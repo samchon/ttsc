@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/prefer-immutable-types.
 // 3. Assert the annotation reports and offers no autofix.
 func TestFunctionalPreferImmutableTypesRejectsArrayType(t *testing.T) {
-	const ruleName = "functional/prefer-immutable-types"
-	findings := runFunctionalRule(t, ruleName, `const values: string[] = [];`)
-	assertFunctionalFinding(t, ruleName, findings, "readonly")
+  const ruleName = "functional/prefer-immutable-types"
+  findings := runFunctionalRule(t, ruleName, `const values: string[] = [];`)
+  assertFunctionalFinding(t, ruleName, findings, "readonly")
 }

@@ -18,23 +18,23 @@ type unicornPreferDomNodeAppend struct{}
 
 func (unicornPreferDomNodeAppend) Name() string { return "unicorn/prefer-dom-node-append" }
 func (unicornPreferDomNodeAppend) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferDomNodeAppend) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "appendChild" {
-		return
-	}
-	ctx.Report(node, "Prefer `Node#append()` over `Node#appendChild()`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "appendChild" {
+    return
+  }
+  ctx.Report(node, "Prefer `Node#append()` over `Node#appendChild()`.")
 }
 
 func init() {
-	Register(unicornPreferDomNodeAppend{})
+  Register(unicornPreferDomNodeAppend{})
 }

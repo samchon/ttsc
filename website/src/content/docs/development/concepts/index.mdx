@@ -6,7 +6,7 @@ The shared vocabulary you need before authoring. Two pages follow this one: [Plu
 
 A `ttsc` plugin is **one npm package with two halves**:
 
-1. A **JS descriptor** in `node_modules` that tells `ttsc` what the plugin does — its name, stage, and the Go source directory.
+1. A **JS descriptor** in `node_modules` that tells `ttsc` what the plugin does, its name, stage, and the Go source directory.
 2. A **Go source plugin** that holds the actual transform or check logic. `ttsc` builds it on the consumer machine the first time it is used, then caches the result. Executable `package main` sources become sidecars; non-`main` transform packages are linked into a native host.
 
 ```text
@@ -36,10 +36,10 @@ One npm package, one contract, one enablement entry in `compilerOptions.plugins[
 
 `ttsc` knows two stages. Set one on the descriptor with `stage: "transform"` or `stage: "check"`. Executable sidecars receive a fixed set of subcommands per stage; linked transform sources do not receive argv and instead run inside the selected native host:
 
-| Stage         | Subcommands the host spawns                | What the plugin does                                   |
-| ------------- | ------------------------------------------ | ------------------------------------------------------ |
-| `"transform"` | `check`, `transform`, `build`              | mutates TypeScript AST before emit                     |
-| `"check"`     | `check`, `fix` (opt-in), `format` (opt-in) | reports diagnostics; optionally applies edits in-place |
+| Stage | Subcommands the host spawns | What the plugin does |
+| --- | --- | --- |
+| `"transform"` | `check`, `transform`, `build` | mutates TypeScript AST before emit |
+| `"check"` | `check`, `fix` (opt-in), `format` (opt-in) | reports diagnostics; optionally applies edits in-place |
 
 Non-zero exit means failure; the host prints `stderr` verbatim and aborts. `version` is a smoke verb the host never invokes. For exit-code rules, the verbatim-passthrough rule for `transform`, and what is fictional in older docs (e.g. `<plugin>: fix not supported`), see [Plugin protocol](/docs/development/concepts/protocol).
 
@@ -68,35 +68,35 @@ A consumer can enable a plugin two ways:
   }
   ```
 
-**The `name` field is load-bearing.** Auto-discovery matches the consumer's `dependencies`/`devDependencies` entry string against your plugin's `package.json` `name` exactly. If the consumer writes `"ttsc-plugin-debugger-strip"` but your `name` is `"my-plugin"`, ttsc loads nothing, emits unchanged, and exits 0 — no error, no diagnostic.
+**The `name` field is load-bearing.** Auto-discovery matches the consumer's `dependencies`/`devDependencies` entry string against your plugin's `package.json` `name` exactly. If the consumer writes `"ttsc-plugin-debugger-strip"` but your `name` is `"my-plugin"`, ttsc loads nothing, emits unchanged, and exits 0, no error, no diagnostic.
 
 ## Do I need the Checker?
 
-| If your plugin…                                                                                                         | Then use…                                                            |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Only inspects syntax (banner stripping, comment walking, statement filtering, JSX-tag rewriting)                        | `shimparser.ParseSourceFile` — no Program, no Checker, no `tsconfig` |
-| Inspects types, resolves symbols, follows imports, or checks signatures (validator generation, schema, type-aware lint) | `driver.LoadProgram` to get a `*Program` with a leased `Checker`     |
+| If your plugin… | Then use… |
+| --- | --- |
+| Only inspects syntax (banner stripping, comment walking, statement filtering, JSX-tag rewriting) | `shimparser.ParseSourceFile`, no Program, no Checker, no `tsconfig` |
+| Inspects types, resolves symbols, follows imports, or checks signatures (validator generation, schema, type-aware lint) | `driver.LoadProgram` to get a `*Program` with a leased `Checker` |
 
-When in doubt, start with `driver.LoadProgram` — the cost is one tsconfig parse and one checker-pool lease; the gain is you can introduce types later without rewriting. The implementation lives in [AST & Checker](/docs/development/concepts/tsgo).
+When in doubt, start with `driver.LoadProgram`. The cost is one tsconfig parse and one checker-pool lease; the gain is you can introduce types later without rewriting. The implementation lives in [AST & Checker](/docs/development/concepts/tsgo).
 
 ## Glossary
 
-- **Descriptor** — the JS object (or factory) every plugin package exports. Carries `name`, `source`, `stage`, optional `composes`/`contributors`. Lives in `node_modules`.
-- **Plugin source** — the Go source package `ttsc` builds from the descriptor's `source`. Executable `package main` sources build as sidecars; non-`main` transform packages link into a native host through `driver.RegisterPlugin`.
-- **Sidecar** — an executable Go binary built from a `package main` plugin source. Receives subcommands over CLI; communicates over `stdout` (JSON for `transform`) and `stderr` (human messages).
-- **Stage** — the `stage` field on the descriptor. Either `"transform"` (mutates AST before emit) or `"check"` (diagnostics; optionally `fix`/`format`).
-- **Subcommand** — the first CLI argument the host passes to an executable native host or sidecar (`check`, `transform`, `build`, `fix`, `format`; and `lsp-*` verbs when `ttscserver` talks to an LSP-capable plugin). Linked packages do not receive argv directly; they run inside the selected host through `driver.RegisterPlugin`.
-- **Shim** — the narrow Go API at `github.com/microsoft/typescript-go/shim/...` that exposes tsgo's AST, Checker, parser, scanner, printer, and FS. The plugin boundary into tsgo.
-- **Overlay** — the synthesized `go.work` workspace `ttsc` writes into the scratch build directory so the plugin's `go 1.x` module sees `ttsc` and shim packages locally.
-- **Contributor** — a Go-source package statically linked into a host plugin's binary at build time. Used by `@ttsc/lint` to compose third-party rule packages. Contributors ship as **packages, not modules** — see [Plugin protocol → Contributors](/docs/development/concepts/protocol#contributors).
-- **Host** — the `ttsc` JavaScript launcher process that resolves descriptors, builds source plugins, spawns executable sidecars or links non-`main` transform sources into a native host, and consumes the result. Not the same as the "compiler host" of tsgo.
-- **Cache** — the on-disk store of built plugin binaries at the user-level ttsc cache (`~/.cache/ttsc/plugins/<key>/plugin` on Linux, platform equivalents elsewhere) or `$TTSC_CACHE_DIR/plugins/...` when overridden. Cache key folds in ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, Go compiler content, and the Go build environment. See [Architecture](/docs/development/reference/architecture).
-- **Transform path** — the pipeline `ttsc` runs when a `transform`-stage plugin is active: parse → run plugin AST mutations → run tsgo's printer → emit JS / d.ts / source maps.
-- **Factory context** — the object `ttsc` passes to factory-form descriptors: `{ binary, cwd, plugin, projectRoot, tsconfig }`. The TypeScript surface for advanced descriptors that need to inspect the active host or the consumer's tsconfig entry.
-- **`--plugins-json`** — the JSON array `ttsc` passes to every plugin subcommand (per-plugin `{name, stage, config}`). Wire shape and ordering: [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
+- **Descriptor**: the JS object (or factory) every plugin package exports. Carries `name`, `source`, `stage`, optional `composes`/`contributors`. Lives in `node_modules`.
+- **Plugin source**: the Go source package `ttsc` builds from the descriptor's `source`. Executable `package main` sources build as sidecars; non-`main` transform packages link into a native host through `driver.RegisterPlugin`.
+- **Sidecar**: an executable Go binary built from a `package main` plugin source. Receives subcommands over CLI; communicates over `stdout` (JSON for `transform`) and `stderr` (human messages).
+- **Stage**: the `stage` field on the descriptor. Either `"transform"` (mutates AST before emit) or `"check"` (diagnostics; optionally `fix`/`format`).
+- **Subcommand**: the first CLI argument the host passes to an executable native host or sidecar (`check`, `transform`, `build`, `fix`, `format`; and `lsp-*` verbs when `ttscserver` talks to an LSP-capable plugin). Linked packages do not receive argv directly; they run inside the selected host through `driver.RegisterPlugin`.
+- **Shim**: the narrow Go API at `github.com/microsoft/typescript-go/shim/...` that exposes tsgo's AST, Checker, parser, scanner, printer, and FS. The plugin boundary into tsgo.
+- **Overlay**: the synthesized `go.work` workspace `ttsc` writes into the scratch build directory so the plugin's `go 1.x` module sees `ttsc` and shim packages locally.
+- **Contributor**: a Go-source package statically linked into a host plugin's binary at build time. Used by `@ttsc/lint` to compose third-party rule packages. Contributors ship as **packages, not modules**. See [Plugin protocol → Contributors](/docs/development/concepts/protocol#contributors).
+- **Host**: the `ttsc` JavaScript launcher process that resolves descriptors, builds source plugins, spawns executable sidecars or links non-`main` transform sources into a native host, and consumes the result. Not the same as the "compiler host" of tsgo.
+- **Cache**: the on-disk store of built plugin binaries at the user-level ttsc cache (`~/.cache/ttsc/plugins/<key>/plugin` on Linux, platform equivalents elsewhere) or `$TTSC_CACHE_DIR/plugins/...` when overridden. Cache key folds in ttsc version, tsgo version, platform, plugin source hash, overlay hash, contributor hashes, Go compiler content, and the Go build environment. See [Architecture](/docs/development/reference/architecture).
+- **Transform path**: the pipeline `ttsc` runs when a `transform`-stage plugin is active: parse → run plugin AST mutations → run tsgo's printer → emit JS / d.ts / source maps.
+- **Factory context**: the object `ttsc` passes to factory-form descriptors: `{ binary, cwd, plugin, projectRoot, tsconfig }`. The TypeScript surface for advanced descriptors that need to inspect the active host or the consumer's tsconfig entry.
+- **`--plugins-json`**: the JSON array `ttsc` passes to every plugin subcommand (per-plugin `{name, stage, config}`). Wire shape and ordering: [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
 
 ## Next
 
-→ [Plugin protocol](/docs/development/concepts/protocol) — the wire contract in detail.
+→ [Plugin protocol](/docs/development/concepts/protocol), the wire contract in detail.
 
-→ [Authoring → Getting started](/docs/development/authoring/getting-started) — write your first plugin.
+→ [Authoring → Getting started](/docs/development/authoring/getting-started). Write your first plugin.

@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.reverse()` on an inline array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoArrayReverse(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-reverse.ts", "// expect: unicorn/no-array-reverse error\nconst r = [1, 2, 3].reverse();\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-reverse.ts", "// expect: unicorn/no-array-reverse error\nconst r = [1, 2, 3].reverse();\n")
 }

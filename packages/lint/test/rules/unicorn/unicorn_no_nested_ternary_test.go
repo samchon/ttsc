@@ -15,5 +15,5 @@ import "testing"
 // 2. Chain two ternaries through the else branch.
 // 3. Assert the inner conditional is reported.
 func TestRuleCorpusUnicornNoNestedTernary(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-nested-ternary.ts", "declare const x: number;\n// expect: unicorn/no-nested-ternary error\nconst r = x === 0 ? \"zero\" : x > 0 ? \"pos\" : \"neg\";\nJSON.stringify(r);\n")
+  assertRuleCorpusCase(t, "unicorn/no-nested-ternary.ts", "declare const x: number;\n// expect: unicorn/no-nested-ternary error\nconst r = x === 0 ? \"zero\" : x > 0 ? \"pos\" : \"neg\";\nJSON.stringify(r);\n")
 }

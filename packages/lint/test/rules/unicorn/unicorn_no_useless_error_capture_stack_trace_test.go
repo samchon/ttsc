@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `Error.captureStackTrace(this, MyError)` inside an Error subclass.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoUselessErrorCaptureStackTrace(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-error-capture-stack-trace.ts", "class MyError extends Error {\n  constructor(msg: string) {\n    super(msg);\n    // expect: unicorn/no-useless-error-capture-stack-trace error\n    Error.captureStackTrace(this, MyError);\n  }\n}\nvoid new MyError(\"x\");\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-error-capture-stack-trace.ts", "class MyError extends Error {\n  constructor(msg: string) {\n    super(msg);\n    // expect: unicorn/no-useless-error-capture-stack-trace error\n    Error.captureStackTrace(this, MyError);\n  }\n}\nvoid new MyError(\"x\");\n")
 }

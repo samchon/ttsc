@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferStringStartsEndsWith verifies the lint rule corpus
@@ -22,27 +22,27 @@ import (
 // the minimum-viable trigger (`str.indexOf(p) === 0`) so a future
 // shim regression surfaces here without depending on the full fixture.
 //
-// 1. Seed a project that compares `str.indexOf(needle) === 0` against
-//    a `string` receiver.
-// 2. Run `check` with typescript/prefer-string-starts-ends-with
-//    enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that compares `str.indexOf(needle) === 0` against
+//     a `string` receiver.
+//  2. Run `check` with typescript/prefer-string-starts-ends-with
+//     enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferStringStartsEndsWith(t *testing.T) {
-	root := seedLintProject(t, `declare const text: string;
+  root := seedLintProject(t, `declare const text: string;
 declare const needle: string;
 const startsWith = text.indexOf(needle) === 0;
 JSON.stringify(startsWith);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-string-starts-ends-with": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-string-starts-ends-with": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-string-starts-ends-with]") {
-		t.Fatalf("prefer-string-starts-ends-with diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-string-starts-ends-with]") {
+    t.Fatalf("prefer-string-starts-ends-with diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

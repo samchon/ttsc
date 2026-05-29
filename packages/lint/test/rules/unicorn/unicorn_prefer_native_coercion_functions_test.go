@@ -15,5 +15,5 @@ import "testing"
 // 2. Map an array through `(x) => Number(x)`.
 // 3. Assert the arrow expression is reported.
 func TestRuleCorpusUnicornPreferNativeCoercionFunctions(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-native-coercion-functions.ts", "// expect: unicorn/prefer-native-coercion-functions error\nconst xs = [\"1\", \"2\"].map((x) => Number(x));\nvoid xs;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-native-coercion-functions.ts", "// expect: unicorn/prefer-native-coercion-functions error\nconst xs = [\"1\", \"2\"].map((x) => Number(x));\nvoid xs;\n")
 }

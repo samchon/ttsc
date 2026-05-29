@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only `security/detect-no-csrf-before-method-override`.
 // 3. Assert the later methodOverride call is reported.
 func TestSecurityDetectNoCSRFBeforeMethodOverride(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-no-csrf-before-method-override.ts", `
+  assertRuleCorpusCase(t, "security/detect-no-csrf-before-method-override.ts", `
 express.methodOverride();
 express.csrf();
 // expect: security/detect-no-csrf-before-method-override error

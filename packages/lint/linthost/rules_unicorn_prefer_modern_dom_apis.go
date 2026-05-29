@@ -15,33 +15,33 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornPreferModernDomApisMethods = map[string]struct{}{
-	"insertBefore":       {},
-	"replaceChild":       {},
-	"insertAdjacentText": {},
+  "insertBefore":       {},
+  "replaceChild":       {},
+  "insertAdjacentText": {},
 }
 
 type unicornPreferModernDomApis struct{}
 
 func (unicornPreferModernDomApis) Name() string { return "unicorn/prefer-modern-dom-apis" }
 func (unicornPreferModernDomApis) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferModernDomApis) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if _, ok := unicornPreferModernDomApisMethods[method]; !ok {
-		return
-	}
-	ctx.Report(node, "Prefer `before` / `after` / `replaceWith` over `"+method+"`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if _, ok := unicornPreferModernDomApisMethods[method]; !ok {
+    return
+  }
+  ctx.Report(node, "Prefer `before` / `after` / `replaceWith` over `"+method+"`.")
 }
 
 func init() {
-	Register(unicornPreferModernDomApis{})
+  Register(unicornPreferModernDomApis{})
 }

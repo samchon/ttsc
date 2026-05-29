@@ -10,8 +10,8 @@ export interface IBuildTsconfigOptions {
   /** Source root relative to project root. Defaults to `"src"`. */
   rootDir?: string;
   /**
-   * Extra entries spliced into `compilerOptions`. Use for plugins, paths,
-   * lib overrides, etc.
+   * Extra entries spliced into `compilerOptions`. Use for plugins, paths, lib
+   * overrides, etc.
    */
   compilerOptions?: Record<string, unknown>;
   /** Project `include` globs. Defaults to `["src"]`. */

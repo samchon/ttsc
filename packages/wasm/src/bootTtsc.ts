@@ -7,7 +7,6 @@
 // The boot helper is parameterized by `apiName` so any wasm built with
 // `host.Expose(...)` can be loaded the same way. The base wasm uses "ttsc";
 // downstream consumers pick their own (e.g. "ttscPlayground", "ttscTypia").
-
 import { createMemFS } from "./createMemFS";
 import type { IBootResult } from "./structures/IBootResult";
 import type { IBootTtscOptions } from "./structures/IBootTtscOptions";
@@ -16,23 +15,22 @@ import type { ITtscApi } from "./structures/ITtscApi";
 declare const importScripts: (...urls: string[]) => void;
 
 /**
- * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName
- * alone would let a second call with the same apiName but a different
- * wasmUrl silently return the cached IBootResult of the first wasm — the
- * caller would think they booted a fresh binary while the cached one
- * stayed in place. The composite key lets HMR / cache-busting query
- * strings get a fresh boot while still single-flighting genuine concurrent
- * duplicate calls.
+ * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName alone
+ * would let a second call with the same apiName but a different wasmUrl
+ * silently return the cached IBootResult of the first wasm — the caller would
+ * think they booted a fresh binary while the cached one stayed in place. The
+ * composite key lets HMR / cache-busting query strings get a fresh boot while
+ * still single-flighting genuine concurrent duplicate calls.
  */
 const bootsInFlight = new Map<string, Promise<IBootResult>>();
 
 /**
- * Per-apiName serialization chain. Two concurrent boots with the same
- * apiName but different wasmUrls each install their own `globalThis[apiName
- * + "Ready"]` resolver — they would race and the second would overwrite
- * the first, stranding the first boot's await. The chain serializes them
- * so one boot's Go-side `Ready.Invoke()` always lands on the resolver
- * that boot installed.
+ * Per-apiName serialization chain. Two concurrent boots with the same apiName
+ * but different wasmUrls each install their own `globalThis[apiName
+ *
+ * - "Ready"]`resolver — they would race and the second would overwrite the first,
+ *   stranding the first boot's await. The chain serializes them so one boot's
+ *   Go-side`Ready.Invoke()` always lands on the resolver that boot installed.
  */
 const bootChainByApiName = new Map<string, Promise<unknown>>();
 
@@ -41,11 +39,11 @@ function bootKey(apiName: string, wasmUrl: string): string {
 }
 
 /**
- * Resolve `wasmUrl` against the current document base before keying so
- * that `./playground.wasm`, `/compiler/playground.wasm`, and the fully
- * qualified absolute href all collapse to the same cache entry instead
- * of spawning duplicate boots. Falls back to the raw string when no
- * base is available (Node-side tests, non-DOM workers).
+ * Resolve `wasmUrl` against the current document base before keying so that
+ * `./playground.wasm`, `/compiler/playground.wasm`, and the fully qualified
+ * absolute href all collapse to the same cache entry instead of spawning
+ * duplicate boots. Falls back to the raw string when no base is available
+ * (Node-side tests, non-DOM workers).
  */
 function resolveWasmUrl(wasmUrl: string): string {
   try {
@@ -61,19 +59,19 @@ function resolveWasmUrl(wasmUrl: string): string {
  * Boot a host-built wasm. Re-entrant only if you reuse the same `host`.
  *
  * Concurrent calls with the same `(apiName, wasmUrl)` pair share the same
- * in-flight boot. Calls with the same `apiName` but different `wasmUrl`
- * are serialized via `bootChainByApiName` so they don't race on the
- * shared `globalThis[apiName+"Ready"]` resolver slot. On rejection the
- * cache entries are cleared so the next call retries from scratch.
+ * in-flight boot. Calls with the same `apiName` but different `wasmUrl` are
+ * serialized via `bootChainByApiName` so they don't race on the shared
+ * `globalThis[apiName+"Ready"]` resolver slot. On rejection the cache entries
+ * are cleared so the next call retries from scratch.
  *
- * **Single-Worker caveat.** Even with the chain, a second boot loaded
- * into the SAME Worker after a first boot completes will overlay its
- * Go runtime on top of the first — `importScripts(wasmExecUrl)` rebinds
- * `globalThis.Go`, and the first wasm's keepalive goroutine keeps
- * running through the new runtime's js-bridge tables. The serialization
- * is sufficient for the typical use case (one boot per Worker over the
- * page's lifetime) but DOES NOT make a Worker safe to host two wasm
- * instances at once. Create a fresh Worker per concurrent wasm.
+ * **Single-Worker caveat.** Even with the chain, a second boot loaded into the
+ * SAME Worker after a first boot completes will overlay its Go runtime on top
+ * of the first — `importScripts(wasmExecUrl)` rebinds `globalThis.Go`, and the
+ * first wasm's keepalive goroutine keeps running through the new runtime's
+ * js-bridge tables. The serialization is sufficient for the typical use case
+ * (one boot per Worker over the page's lifetime) but DOES NOT make a Worker
+ * safe to host two wasm instances at once. Create a fresh Worker per concurrent
+ * wasm.
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
@@ -189,8 +187,8 @@ interface IGoInstance {
  *
  * Go's js/wasm bridge reads `process.pid`, `process.ppid`, and calls
  * `process.cwd()`. `getuid`/`getgid` and friends return `-1` (root-less).
- * `umask` and `getgroups` are never exercised by the compiler but are
- * included for completeness so unexpected calls surface as clear errors.
+ * `umask` and `getgroups` are never exercised by the compiler but are included
+ * for completeness so unexpected calls surface as clear errors.
  */
 function createProcessShim(): Record<string, unknown> {
   return {

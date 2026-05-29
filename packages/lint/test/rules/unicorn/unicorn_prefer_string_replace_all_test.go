@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.replace(/a/g, "x")` on a string literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferStringReplaceAll(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-string-replace-all.ts", "// expect: unicorn/prefer-string-replace-all error\nconst out = \"abc\".replace(/a/g, \"x\");\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-string-replace-all.ts", "// expect: unicorn/prefer-string-replace-all error\nconst out = \"abc\".replace(/a/g, \"x\");\n")
 }

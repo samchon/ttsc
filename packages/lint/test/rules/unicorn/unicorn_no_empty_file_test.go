@@ -15,5 +15,5 @@ import "testing"
 // 2. Use a single `;` as the file body.
 // 3. Assert the empty statement is reported.
 func TestRuleCorpusUnicornNoEmptyFile(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-empty-file.ts", "// expect: unicorn/no-empty-file error\n;\n")
+  assertRuleCorpusCase(t, "unicorn/no-empty-file.ts", "// expect: unicorn/no-empty-file error\n;\n")
 }

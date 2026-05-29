@@ -18,52 +18,52 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type sortImports struct{}
 
 func (sortImports) Name() string { return "sort-imports" }
 func (sortImports) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration}
+  return []shimast.Kind{shimast.KindImportDeclaration}
 }
 func (sortImports) Check(ctx *Context, node *shimast.Node) {
-	decl := node.AsImportDeclaration()
-	if decl == nil || decl.ImportClause == nil {
-		return
-	}
-	clause := decl.ImportClause.AsImportClause()
-	if clause == nil || clause.NamedBindings == nil {
-		return
-	}
-	if clause.NamedBindings.Kind != shimast.KindNamedImports {
-		return
-	}
-	named := clause.NamedBindings.AsNamedImports()
-	if named == nil || named.Elements == nil || len(named.Elements.Nodes) < 2 {
-		return
-	}
-	previous := ""
-	for i, spec := range named.Elements.Nodes {
-		if spec == nil {
-			return
-		}
-		s := spec.AsImportSpecifier()
-		if s == nil {
-			return
-		}
-		name := identifierText(s.Name())
-		if name == "" {
-			return
-		}
-		if i > 0 && name < previous {
-			ctx.Report(spec, "Member '"+name+"' of the import declaration should be sorted alphabetically.")
-			return
-		}
-		previous = name
-	}
+  decl := node.AsImportDeclaration()
+  if decl == nil || decl.ImportClause == nil {
+    return
+  }
+  clause := decl.ImportClause.AsImportClause()
+  if clause == nil || clause.NamedBindings == nil {
+    return
+  }
+  if clause.NamedBindings.Kind != shimast.KindNamedImports {
+    return
+  }
+  named := clause.NamedBindings.AsNamedImports()
+  if named == nil || named.Elements == nil || len(named.Elements.Nodes) < 2 {
+    return
+  }
+  previous := ""
+  for i, spec := range named.Elements.Nodes {
+    if spec == nil {
+      return
+    }
+    s := spec.AsImportSpecifier()
+    if s == nil {
+      return
+    }
+    name := identifierText(s.Name())
+    if name == "" {
+      return
+    }
+    if i > 0 && name < previous {
+      ctx.Report(spec, "Member '"+name+"' of the import declaration should be sorted alphabetically.")
+      return
+    }
+    previous = name
+  }
 }
 
 func init() {
-	Register(sortImports{})
+  Register(sortImports{})
 }

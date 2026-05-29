@@ -19,7 +19,7 @@ declare namespace createTtscStrip {
    *
    * Both keys are optional. The built-in defaults (`calls: ["console.log",
    * "console.debug", "assert.*"]`, `statements: ["debugger"]`) apply only when
-   * *both* keys are omitted; declaring either key replaces both defaults with
+   * _both_ keys are omitted; declaring either key replaces both defaults with
    * exactly what the file lists.
    */
   export interface ITtscStripConfig {

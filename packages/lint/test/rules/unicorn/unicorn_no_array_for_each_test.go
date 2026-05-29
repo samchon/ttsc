@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.forEach` on an inline array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoArrayForEach(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-for-each.ts", "// expect: unicorn/no-array-for-each error\n[1, 2, 3].forEach((x) => { console.log(x); });\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-for-each.ts", "// expect: unicorn/no-array-for-each error\n[1, 2, 3].forEach((x) => { console.log(x); });\n")
 }

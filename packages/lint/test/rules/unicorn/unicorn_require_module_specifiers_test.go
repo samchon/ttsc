@@ -14,5 +14,5 @@ import "testing"
 // 2. Write a side-effect import with no binding clause.
 // 3. Assert the import declaration is reported.
 func TestRuleCorpusUnicornRequireModuleSpecifiers(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/require-module-specifiers.ts", "// expect: unicorn/require-module-specifiers error\nimport \"./side-effect.js\";\n")
+  assertRuleCorpusCase(t, "unicorn/require-module-specifiers.ts", "// expect: unicorn/require-module-specifiers error\nimport \"./side-effect.js\";\n")
 }

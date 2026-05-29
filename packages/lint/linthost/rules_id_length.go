@@ -13,9 +13,9 @@
 package linthost
 
 import (
-	"strconv"
+  "strconv"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // idLengthMinimum is the default minimum identifier length. ESLint
@@ -27,51 +27,51 @@ type idLength struct{}
 
 func (idLength) Name() string { return "id-length" }
 func (idLength) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindVariableDeclaration,
-		shimast.KindParameter,
-		shimast.KindFunctionDeclaration,
-		shimast.KindClassDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindVariableDeclaration,
+    shimast.KindParameter,
+    shimast.KindFunctionDeclaration,
+    shimast.KindClassDeclaration,
+  }
 }
 func (idLength) Check(ctx *Context, node *shimast.Node) {
-	var nameNode *shimast.Node
-	switch node.Kind {
-	case shimast.KindVariableDeclaration:
-		decl := node.AsVariableDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindParameter:
-		decl := node.AsParameterDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindFunctionDeclaration:
-		decl := node.AsFunctionDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindClassDeclaration:
-		decl := node.AsClassDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	}
-	name := identifierText(nameNode)
-	if name == "" {
-		return
-	}
-	if len([]rune(name)) >= idLengthMinimum {
-		return
-	}
-	ctx.Report(nameNode, "Identifier name '"+name+"' is too short (< "+strconv.Itoa(idLengthMinimum)+").")
+  var nameNode *shimast.Node
+  switch node.Kind {
+  case shimast.KindVariableDeclaration:
+    decl := node.AsVariableDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindParameter:
+    decl := node.AsParameterDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindFunctionDeclaration:
+    decl := node.AsFunctionDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindClassDeclaration:
+    decl := node.AsClassDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  }
+  name := identifierText(nameNode)
+  if name == "" {
+    return
+  }
+  if len([]rune(name)) >= idLengthMinimum {
+    return
+  }
+  ctx.Report(nameNode, "Identifier name '"+name+"' is too short (< "+strconv.Itoa(idLengthMinimum)+").")
 }
 
 func init() {
-	Register(idLength{})
+  Register(idLength{})
 }

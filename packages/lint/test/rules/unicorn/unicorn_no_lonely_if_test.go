@@ -14,5 +14,5 @@ import "testing"
 // 2. Nest an `if` as the only statement of an outer `else` block.
 // 3. Assert the inner if-statement is reported.
 func TestRuleCorpusUnicornNoLonelyIf(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-lonely-if.ts", "if (1 === 1) {\n  void 0;\n} else {\n  // expect: unicorn/no-lonely-if error\n  if (2 === 2) {\n    void 0;\n  }\n}\n")
+  assertRuleCorpusCase(t, "unicorn/no-lonely-if.ts", "if (1 === 1) {\n  void 0;\n} else {\n  // expect: unicorn/no-lonely-if error\n  if (2 === 2) {\n    void 0;\n  }\n}\n")
 }

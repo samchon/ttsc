@@ -18,25 +18,25 @@ type unicornSwitchCaseBraces struct{}
 
 func (unicornSwitchCaseBraces) Name() string { return "unicorn/switch-case-braces" }
 func (unicornSwitchCaseBraces) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCaseClause, shimast.KindDefaultClause}
+  return []shimast.Kind{shimast.KindCaseClause, shimast.KindDefaultClause}
 }
 func (unicornSwitchCaseBraces) Check(ctx *Context, node *shimast.Node) {
-	clause := node.AsCaseOrDefaultClause()
-	if clause == nil || clause.Statements == nil {
-		return
-	}
-	stmts := clause.Statements.Nodes
-	if len(stmts) == 0 {
-		// Empty fall-through (`case "a":` followed immediately by another
-		// clause) is not the "missing braces" shape the rule targets.
-		return
-	}
-	if len(stmts) == 1 && stmts[0] != nil && stmts[0].Kind == shimast.KindBlock {
-		return
-	}
-	ctx.Report(node, "Wrap `case` clause body in a block (`case x: { ... }`).")
+  clause := node.AsCaseOrDefaultClause()
+  if clause == nil || clause.Statements == nil {
+    return
+  }
+  stmts := clause.Statements.Nodes
+  if len(stmts) == 0 {
+    // Empty fall-through (`case "a":` followed immediately by another
+    // clause) is not the "missing braces" shape the rule targets.
+    return
+  }
+  if len(stmts) == 1 && stmts[0] != nil && stmts[0].Kind == shimast.KindBlock {
+    return
+  }
+  ctx.Report(node, "Wrap `case` clause body in a block (`case x: { ... }`).")
 }
 
 func init() {
-	Register(unicornSwitchCaseBraces{})
+  Register(unicornSwitchCaseBraces{})
 }

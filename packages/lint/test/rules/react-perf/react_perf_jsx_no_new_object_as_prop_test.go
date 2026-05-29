@@ -13,14 +13,14 @@ import "testing"
 // 2. Enable `react-perf/jsx-no-new-object-as-prop`.
 // 3. Assert each newly-created object value is reported.
 func TestReactPerfJsxNoNewObjectAsProp(t *testing.T) {
-	source := "const stable = {};\n" +
-		"const view = <>\n" +
-		"  <Item config={{}} />\n" +
-		"  <Item config={new Object()} />\n" +
-		"  <Item config={Object()} />\n" +
-		"  <Item config={props.config || {}} />\n" +
-		"  <Item config={props.config ? props.config : {}} />\n" +
-		"  <Item config={stable} />\n" +
-		"</>;\n"
-	reactPerfAssertLines(t, "react-perf/jsx-no-new-object-as-prop", source, []int{3, 4, 5, 6, 7})
+  source := "const stable = {};\n" +
+    "const view = <>\n" +
+    "  <Item config={{}} />\n" +
+    "  <Item config={new Object()} />\n" +
+    "  <Item config={Object()} />\n" +
+    "  <Item config={props.config || {}} />\n" +
+    "  <Item config={props.config ? props.config : {}} />\n" +
+    "  <Item config={stable} />\n" +
+    "</>;\n"
+  reactPerfAssertLines(t, "react-perf/jsx-no-new-object-as-prop", source, []int{3, 4, 5, 6, 7})
 }

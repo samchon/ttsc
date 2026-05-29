@@ -2,17 +2,11 @@
 
 ![banner of ttsc](https://ttsc.dev/og.jpg)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
-[![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
-[![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
-[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
-[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
-[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc) [![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
-Benchmarked on the VS Code fixture: up to **10x** faster type checks and a
-**500x** faster measured lint pass.
+Benchmarked on the VS Code fixture: up to **10x** faster type checks and a **500x** faster measured lint pass.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
@@ -55,17 +49,26 @@ Rewrite source files in place with the `@ttsc/lint` format rules:
 npx ttsc format
 ```
 
-### Editor
+### VSCode Extension
 
-Install the VS Code extension for live TypeScript-Go editor features plus
-saved-state ttsc plugin diagnostics and actions:
+Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
-npm install -D @ttsc/vscode
-npx ttsc-vscode
+npx @ttsc/vscode
 ```
 
-See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements, settings, and uninstall.
+Then turn on format-on-save in `.vscode/settings.json`:
+
+```jsonc
+"[typescript][typescriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
+Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
+See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
 
 ### Bundlers
 
@@ -191,11 +194,7 @@ if (result.type === "success") {
 }
 ```
 
-See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full
-lifecycle, plugin overrides, and patterns. For browser embedding, see
-[`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and
-the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground)
-package.
+See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full lifecycle, plugin overrides, and patterns. For browser embedding, see [`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground) package.
 
 ### List of Plugins
 

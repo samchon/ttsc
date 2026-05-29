@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferRegexpExec verifies the lint rule corpus fixture
@@ -25,20 +25,20 @@ import (
 // 2. Run `check` with typescript/prefer-regexp-exec enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferRegexpExec(t *testing.T) {
-	root := seedLintProject(t, `declare const text: string;
+  root := seedLintProject(t, `declare const text: string;
 const m = text.match(/foo/);
 JSON.stringify(m);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-regexp-exec": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-regexp-exec": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-regexp-exec]") {
-		t.Fatalf("prefer-regexp-exec diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-regexp-exec]") {
+    t.Fatalf("prefer-regexp-exec diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

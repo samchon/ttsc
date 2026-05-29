@@ -11,7 +11,7 @@ import "testing"
 // 2. Read with an identifier bracket key.
 // 3. Assert only the identifier access is reported.
 func TestSecurityDetectObjectInjection(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-object-injection.ts", `
+  assertRuleCorpusCase(t, "security/detect-object-injection.ts", `
 object["safe"];
 // expect: security/detect-object-injection error
 object[key];

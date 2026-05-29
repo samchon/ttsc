@@ -12,12 +12,12 @@ import "testing"
 // 2. Enable only functional/immutable-data with a matching `ignoreCodePattern`.
 // 3. Assert the mutation is skipped.
 func TestFunctionalImmutableDataIgnoresCodePattern(t *testing.T) {
-	const ruleName = "functional/immutable-data"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`const state = { count: 0 }; state.count = 1;`,
-		`{"ignoreCodePattern":["state\\.count"]}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/immutable-data"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `const state = { count: 0 }; state.count = 1;`,
+    `{"ignoreCodePattern":["state\\.count"]}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

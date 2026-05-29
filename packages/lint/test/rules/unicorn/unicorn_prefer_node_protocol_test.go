@@ -14,5 +14,5 @@ import "testing"
 // 2. Import the `fs` built-in without the `node:` prefix.
 // 3. Assert the module specifier literal is reported.
 func TestRuleCorpusUnicornPreferNodeProtocol(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-node-protocol.ts", "// expect: unicorn/prefer-node-protocol error\nimport * as fs from \"fs\";\nvoid fs;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-node-protocol.ts", "// expect: unicorn/prefer-node-protocol error\nimport * as fs from \"fs\";\nvoid fs;\n")
 }

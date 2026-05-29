@@ -1,7 +1,7 @@
 import type { ITtscBuildOpts } from "./ITtscBuildOpts";
+import type { ITtscFileQuery } from "./ITtscFileQuery";
 import type { ITtscPluginOpts } from "./ITtscPluginOpts";
 import type { ITtscPositionQuery } from "./ITtscPositionQuery";
-import type { ITtscFileQuery } from "./ITtscFileQuery";
 import type { ITtscResult } from "./ITtscResult";
 import type { ITtscSnapshotHandle } from "./ITtscSnapshotHandle";
 import type { ITtscVersion } from "./ITtscVersion";
@@ -38,8 +38,8 @@ export interface ITtscApi {
 
   /**
    * Dispatch a registered plugin's subcommand. Returns the captured stdout /
-   * stderr (the same streams the native sidecar binary would write to)
-   * together with the exit code.
+   * stderr (the same streams the native sidecar binary would write to) together
+   * with the exit code.
    */
   plugin(opts: ITtscPluginOpts): Promise<ITtscResult>;
 
@@ -76,8 +76,8 @@ export interface ITtscApi {
   getSourceFileText(opts: ITtscFileQuery): Promise<ITtscResult>;
 
   /**
-   * Diagnostics from the snapshot's program. Pass `file` to filter to a
-   * single project-relative path.
+   * Diagnostics from the snapshot's program. Pass `file` to filter to a single
+   * project-relative path.
    */
   getDiagnostics(
     opts: ITtscSnapshotHandle & { file?: string },

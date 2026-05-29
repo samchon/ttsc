@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `Array.from(a)` with a single iterable argument.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferSpread(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-spread.ts", "const a = [1, 2, 3];\n// expect: unicorn/prefer-spread error\nconst b = Array.from(a);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-spread.ts", "const a = [1, 2, 3];\n// expect: unicorn/prefer-spread error\nconst b = Array.from(a);\n")
 }

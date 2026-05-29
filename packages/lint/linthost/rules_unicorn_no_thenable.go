@@ -19,56 +19,56 @@ type unicornNoThenable struct{}
 
 func (unicornNoThenable) Name() string { return "unicorn/no-thenable" }
 func (unicornNoThenable) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindPropertyAssignment,
-		shimast.KindMethodDeclaration,
-		shimast.KindShorthandPropertyAssignment,
-		shimast.KindGetAccessor,
-		shimast.KindSetAccessor,
-	}
+  return []shimast.Kind{
+    shimast.KindPropertyAssignment,
+    shimast.KindMethodDeclaration,
+    shimast.KindShorthandPropertyAssignment,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+  }
 }
 func (unicornNoThenable) Check(ctx *Context, node *shimast.Node) {
-	var name *shimast.Node
-	switch node.Kind {
-	case shimast.KindPropertyAssignment:
-		if a := node.AsPropertyAssignment(); a != nil {
-			name = a.Name()
-		}
-	case shimast.KindMethodDeclaration:
-		if m := node.AsMethodDeclaration(); m != nil {
-			name = m.Name()
-		}
-	case shimast.KindShorthandPropertyAssignment:
-		if s := node.AsShorthandPropertyAssignment(); s != nil {
-			name = s.Name()
-		}
-	case shimast.KindGetAccessor:
-		if g := node.AsGetAccessorDeclaration(); g != nil {
-			name = g.Name()
-		}
-	case shimast.KindSetAccessor:
-		if s := node.AsSetAccessorDeclaration(); s != nil {
-			name = s.Name()
-		}
-	}
-	if name == nil {
-		return
-	}
-	switch name.Kind {
-	case shimast.KindIdentifier:
-		if identifierText(name) != "then" {
-			return
-		}
-	case shimast.KindStringLiteral:
-		if stringLiteralText(name) != "then" {
-			return
-		}
-	default:
-		return
-	}
-	ctx.Report(node, "Don't define a property named `then` — it makes the object accidentally thenable.")
+  var name *shimast.Node
+  switch node.Kind {
+  case shimast.KindPropertyAssignment:
+    if a := node.AsPropertyAssignment(); a != nil {
+      name = a.Name()
+    }
+  case shimast.KindMethodDeclaration:
+    if m := node.AsMethodDeclaration(); m != nil {
+      name = m.Name()
+    }
+  case shimast.KindShorthandPropertyAssignment:
+    if s := node.AsShorthandPropertyAssignment(); s != nil {
+      name = s.Name()
+    }
+  case shimast.KindGetAccessor:
+    if g := node.AsGetAccessorDeclaration(); g != nil {
+      name = g.Name()
+    }
+  case shimast.KindSetAccessor:
+    if s := node.AsSetAccessorDeclaration(); s != nil {
+      name = s.Name()
+    }
+  }
+  if name == nil {
+    return
+  }
+  switch name.Kind {
+  case shimast.KindIdentifier:
+    if identifierText(name) != "then" {
+      return
+    }
+  case shimast.KindStringLiteral:
+    if stringLiteralText(name) != "then" {
+      return
+    }
+  default:
+    return
+  }
+  ctx.Report(node, "Don't define a property named `then` — it makes the object accidentally thenable.")
 }
 
 func init() {
-	Register(unicornNoThenable{})
+  Register(unicornNoThenable{})
 }

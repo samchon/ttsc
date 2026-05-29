@@ -1,4 +1,4 @@
-# Performance Results — Round 1 perf commit (3922a0cf)
+# Performance Results: Round 1 perf commit (3922a0cf)
 
 ## Method
 
@@ -8,7 +8,7 @@
   fixture with `master` and `fix/lint-review-round-1` tarballs in
   alternation, then captures the plugin's self-reported timing via
   `--diagnostics` (line `@ttsc/lint time: NNNs`). This is **pure lint
-  time** — excludes parser and tsgo Checker work.
+  time**, excludes parser and tsgo Checker work.
 - Five measured runs per fixture per branch, on the same WSL host with
   no other heavy load.
 

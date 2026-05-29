@@ -11,7 +11,7 @@ import "testing"
 // 2. Assign `false` to an object's `escapeMarkup` property.
 // 3. Assert only the property assignment is reported.
 func TestSecurityDetectDisableMustacheEscape(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-disable-mustache-escape.ts", `
+  assertRuleCorpusCase(t, "security/detect-disable-mustache-escape.ts", `
 escapeMarkup = false;
 // expect: security/detect-disable-mustache-escape error
 view.escapeMarkup = false;

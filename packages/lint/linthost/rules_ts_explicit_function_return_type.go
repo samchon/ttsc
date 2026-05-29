@@ -17,51 +17,51 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type explicitFunctionReturnType struct{}
 
 func (explicitFunctionReturnType) Name() string {
-	return "typescript/explicit-function-return-type"
+  return "typescript/explicit-function-return-type"
 }
 func (explicitFunctionReturnType) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindMethodDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindMethodDeclaration,
+  }
 }
 func (explicitFunctionReturnType) Check(ctx *Context, node *shimast.Node) {
-	var typeNode *shimast.Node
-	switch node.Kind {
-	case shimast.KindFunctionDeclaration:
-		decl := node.AsFunctionDeclaration()
-		if decl == nil {
-			return
-		}
-		// Overload signatures (no body) already separate the return type
-		// onto each declaration; skip the implementation signature when
-		// it has no body either.
-		if decl.Body == nil {
-			return
-		}
-		typeNode = decl.Type
-	case shimast.KindMethodDeclaration:
-		decl := node.AsMethodDeclaration()
-		if decl == nil {
-			return
-		}
-		if decl.Body == nil {
-			return
-		}
-		typeNode = decl.Type
-	}
-	if typeNode != nil {
-		return
-	}
-	ctx.Report(node, "Missing return type on function — add an explicit return-type annotation.")
+  var typeNode *shimast.Node
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration:
+    decl := node.AsFunctionDeclaration()
+    if decl == nil {
+      return
+    }
+    // Overload signatures (no body) already separate the return type
+    // onto each declaration; skip the implementation signature when
+    // it has no body either.
+    if decl.Body == nil {
+      return
+    }
+    typeNode = decl.Type
+  case shimast.KindMethodDeclaration:
+    decl := node.AsMethodDeclaration()
+    if decl == nil {
+      return
+    }
+    if decl.Body == nil {
+      return
+    }
+    typeNode = decl.Type
+  }
+  if typeNode != nil {
+    return
+  }
+  ctx.Report(node, "Missing return type on function — add an explicit return-type annotation.")
 }
 
 func init() {
-	Register(explicitFunctionReturnType{})
+  Register(explicitFunctionReturnType{})
 }

@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferReturnThisType verifies the lint rule corpus
@@ -23,13 +23,13 @@ import (
 // name whose body is exactly `return this;`) so a future shim
 // regression surfaces here without depending on the full fixture.
 //
-// 1. Seed a project with a class method that returns `this` but is
-//    annotated to return the class name.
-// 2. Run `check` with typescript/prefer-return-this-type enabled as
-//    error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project with a class method that returns `this` but is
+//     annotated to return the class name.
+//  2. Run `check` with typescript/prefer-return-this-type enabled as
+//     error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferReturnThisType(t *testing.T) {
-	root := seedLintProject(t, `class Chainable {
+  root := seedLintProject(t, `class Chainable {
   setName(name: string): Chainable {
     JSON.stringify(name);
     return this;
@@ -37,16 +37,16 @@ func TestRuleCorpusPreferReturnThisType(t *testing.T) {
 }
 JSON.stringify(new Chainable());
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-return-this-type": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-return-this-type": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-return-this-type]") {
-		t.Fatalf("prefer-return-this-type diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-return-this-type]") {
+    t.Fatalf("prefer-return-this-type diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

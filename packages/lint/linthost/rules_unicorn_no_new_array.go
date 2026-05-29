@@ -19,12 +19,12 @@ type unicornNoNewArray struct{}
 func (unicornNoNewArray) Name() string           { return "unicorn/no-new-array" }
 func (unicornNoNewArray) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindNewExpression} }
 func (unicornNoNewArray) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne != nil && identifierText(ne.Expression) == "Array" {
-		ctx.Report(node, "Don't use `new Array(...)` — use an array literal or `Array.from`/`Array.of` instead.")
-	}
+  ne := node.AsNewExpression()
+  if ne != nil && identifierText(ne.Expression) == "Array" {
+    ctx.Report(node, "Don't use `new Array(...)` — use an array literal or `Array.from`/`Array.of` instead.")
+  }
 }
 
 func init() {
-	Register(unicornNoNewArray{})
+  Register(unicornNoNewArray{})
 }

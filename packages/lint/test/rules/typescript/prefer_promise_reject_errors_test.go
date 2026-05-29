@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferPromiseRejectErrors verifies the lint rule corpus
@@ -20,21 +20,21 @@ import (
 // 2. Run `check` with typescript/prefer-promise-reject-errors enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferPromiseRejectErrors(t *testing.T) {
-	root := seedLintProject(t, `function bad(): Promise<never> {
+  root := seedLintProject(t, `function bad(): Promise<never> {
   return Promise.reject("boom");
 }
 void bad();
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-promise-reject-errors": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-promise-reject-errors": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-promise-reject-errors]") {
-		t.Fatalf("prefer-promise-reject-errors diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-promise-reject-errors]") {
+    t.Fatalf("prefer-promise-reject-errors diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

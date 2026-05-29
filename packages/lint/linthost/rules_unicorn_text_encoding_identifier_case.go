@@ -14,9 +14,9 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type unicornTextEncodingIdentifierCase struct{}
@@ -25,48 +25,48 @@ type unicornTextEncodingIdentifierCase struct{}
 // spelling. Authors who already wrote the canonical form pass; anything
 // else with the same lowercased label fires.
 var unicornCanonicalTextEncodings = map[string]string{
-	"utf-8":        "utf-8",
-	"utf-16le":     "utf-16le",
-	"utf-16be":     "utf-16be",
-	"ascii":        "ascii",
-	"latin1":       "latin1",
-	"iso-8859-1":   "iso-8859-1",
-	"windows-1252": "windows-1252",
+  "utf-8":        "utf-8",
+  "utf-16le":     "utf-16le",
+  "utf-16be":     "utf-16be",
+  "ascii":        "ascii",
+  "latin1":       "latin1",
+  "iso-8859-1":   "iso-8859-1",
+  "windows-1252": "windows-1252",
 }
 
 func (unicornTextEncodingIdentifierCase) Name() string {
-	return "unicorn/text-encoding-identifier-case"
+  return "unicorn/text-encoding-identifier-case"
 }
 func (unicornTextEncodingIdentifierCase) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
+  return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
 }
 func (unicornTextEncodingIdentifierCase) Check(ctx *Context, node *shimast.Node) {
-	text := stringLiteralText(node)
-	if text == "" {
-		return
-	}
-	lower := strings.ToLower(text)
-	canonical, ok := unicornCanonicalTextEncodings[lower]
-	if !ok {
-		// `utf8`/`UTF8` share a canonical form with `utf-8` but lowercase
-		// differently — handle the hyphen-stripped aliases explicitly.
-		switch lower {
-		case "utf8":
-			canonical = "utf-8"
-		case "utf16le":
-			canonical = "utf-16le"
-		case "utf16be":
-			canonical = "utf-16be"
-		default:
-			return
-		}
-	}
-	if text == canonical {
-		return
-	}
-	ctx.Report(node, "Use the canonical lowercase form for text-encoding identifiers (e.g. `utf-8`).")
+  text := stringLiteralText(node)
+  if text == "" {
+    return
+  }
+  lower := strings.ToLower(text)
+  canonical, ok := unicornCanonicalTextEncodings[lower]
+  if !ok {
+    // `utf8`/`UTF8` share a canonical form with `utf-8` but lowercase
+    // differently — handle the hyphen-stripped aliases explicitly.
+    switch lower {
+    case "utf8":
+      canonical = "utf-8"
+    case "utf16le":
+      canonical = "utf-16le"
+    case "utf16be":
+      canonical = "utf-16be"
+    default:
+      return
+    }
+  }
+  if text == canonical {
+    return
+  }
+  ctx.Report(node, "Use the canonical lowercase form for text-encoding identifiers (e.g. `utf-8`).")
 }
 
 func init() {
-	Register(unicornTextEncodingIdentifierCase{})
+  Register(unicornTextEncodingIdentifierCase{})
 }

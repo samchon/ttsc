@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `xs.findIndex((x) => x === 2)` against a numeric literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferArrayIndexOf(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-array-index-of.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-index-of error\nconst i = xs.findIndex((x) => x === 2);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-array-index-of.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-index-of error\nconst i = xs.findIndex((x) => x === 2);\n")
 }

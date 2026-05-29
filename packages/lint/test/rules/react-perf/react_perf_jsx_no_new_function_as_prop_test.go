@@ -12,15 +12,15 @@ import "testing"
 // 2. Enable `react-perf/jsx-no-new-function-as-prop`.
 // 3. Assert stable callback references are left alone.
 func TestReactPerfJsxNoNewFunctionAsProp(t *testing.T) {
-	source := "const stable = () => undefined;\n" +
-		"const view = <>\n" +
-		"  <Item callback={function () {}} />\n" +
-		"  <Item callback={() => undefined} />\n" +
-		"  <Item callback={new Function(\"return 1\")} />\n" +
-		"  <Item callback={Function(\"return 1\")} />\n" +
-		"  <Item callback={props.callback || function () {}} />\n" +
-		"  <Item callback={props.callback ? props.callback : () => undefined} />\n" +
-		"  <Item callback={stable} />\n" +
-		"</>;\n"
-	reactPerfAssertLines(t, "react-perf/jsx-no-new-function-as-prop", source, []int{3, 4, 5, 6, 7, 8})
+  source := "const stable = () => undefined;\n" +
+    "const view = <>\n" +
+    "  <Item callback={function () {}} />\n" +
+    "  <Item callback={() => undefined} />\n" +
+    "  <Item callback={new Function(\"return 1\")} />\n" +
+    "  <Item callback={Function(\"return 1\")} />\n" +
+    "  <Item callback={props.callback || function () {}} />\n" +
+    "  <Item callback={props.callback ? props.callback : () => undefined} />\n" +
+    "  <Item callback={stable} />\n" +
+    "</>;\n"
+  reactPerfAssertLines(t, "react-perf/jsx-no-new-function-as-prop", source, []int{3, 4, 5, 6, 7, 8})
 }

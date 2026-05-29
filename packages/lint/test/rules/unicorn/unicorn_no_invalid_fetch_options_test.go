@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `fetch` with a GET method and a `body` property.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoInvalidFetchOptions(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-invalid-fetch-options.ts", "declare function fetch(input: string, init: object): Promise<unknown>;\n// expect: unicorn/no-invalid-fetch-options error\nfetch(\"https://example.com\", { method: \"GET\", body: \"x\" });\n")
+  assertRuleCorpusCase(t, "unicorn/no-invalid-fetch-options.ts", "declare function fetch(input: string, init: object): Promise<unknown>;\n// expect: unicorn/no-invalid-fetch-options error\nfetch(\"https://example.com\", { method: \"GET\", body: \"x\" });\n")
 }

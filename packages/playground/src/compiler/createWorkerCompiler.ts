@@ -5,7 +5,6 @@
 // the site's chosen module shape, registers the typia/lint plugin verbs (or
 // the site-provided overrides), and serializes every MemFS-mutating call onto
 // a single chain so concurrent compiles never corrupt each other.
-
 import {
   type IBootResult,
   type ITtscCompileResult,
@@ -16,12 +15,12 @@ import {
 import type { ICompilerService } from "../structures/ICompilerService";
 import type { ICreateWorkerCompilerOptions } from "../structures/ICreateWorkerCompilerOptions";
 import type { ITransformOptions } from "../structures/ITransformOptions";
-import { buildTsconfigJSON } from "./buildTsconfigJSON";
 import { DEFAULT_ENTRY_FILE } from "./DEFAULT_ENTRY_FILE";
 import { DEFAULT_LINT_PLUGIN_NAME } from "./DEFAULT_LINT_PLUGIN_NAME";
 import { DEFAULT_TSCONFIG_PATH } from "./DEFAULT_TSCONFIG_PATH";
 import { DEFAULT_TYPIA_PLUGIN_NAME } from "./DEFAULT_TYPIA_PLUGIN_NAME";
 import { DEFAULT_WORK_DIR } from "./DEFAULT_WORK_DIR";
+import { buildTsconfigJSON } from "./buildTsconfigJSON";
 import { installDependenciesIntoMemFS } from "./installDependenciesIntoMemFS";
 import { joinUnder } from "./internal/joinUnder";
 import { parseLintDiagnostics } from "./internal/parseLintDiagnostics";

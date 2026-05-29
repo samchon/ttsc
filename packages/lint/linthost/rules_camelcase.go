@@ -14,56 +14,56 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type camelcase struct{}
 
 func (camelcase) Name() string { return "camelcase" }
 func (camelcase) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindVariableDeclaration,
-		shimast.KindParameter,
-		shimast.KindFunctionDeclaration,
-		shimast.KindClassDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindVariableDeclaration,
+    shimast.KindParameter,
+    shimast.KindFunctionDeclaration,
+    shimast.KindClassDeclaration,
+  }
 }
 func (camelcase) Check(ctx *Context, node *shimast.Node) {
-	var nameNode *shimast.Node
-	switch node.Kind {
-	case shimast.KindVariableDeclaration:
-		decl := node.AsVariableDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindParameter:
-		decl := node.AsParameterDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindFunctionDeclaration:
-		decl := node.AsFunctionDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	case shimast.KindClassDeclaration:
-		decl := node.AsClassDeclaration()
-		if decl == nil {
-			return
-		}
-		nameNode = decl.Name()
-	}
-	name := identifierText(nameNode)
-	if name == "" {
-		return
-	}
-	if isCamelOrPascalCaseName(name) {
-		return
-	}
-	ctx.Report(nameNode, "Identifier '"+name+"' is not in camelCase.")
+  var nameNode *shimast.Node
+  switch node.Kind {
+  case shimast.KindVariableDeclaration:
+    decl := node.AsVariableDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindParameter:
+    decl := node.AsParameterDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindFunctionDeclaration:
+    decl := node.AsFunctionDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  case shimast.KindClassDeclaration:
+    decl := node.AsClassDeclaration()
+    if decl == nil {
+      return
+    }
+    nameNode = decl.Name()
+  }
+  name := identifierText(nameNode)
+  if name == "" {
+    return
+  }
+  if isCamelOrPascalCaseName(name) {
+    return
+  }
+  ctx.Report(nameNode, "Identifier '"+name+"' is not in camelCase.")
 }
 
 // isCamelOrPascalCaseName reports whether `name` matches the convention
@@ -76,58 +76,58 @@ func (camelcase) Check(ctx *Context, node *shimast.Node) {
 // SCREAMING_SNAKE constant and accepted; everything else with an
 // interior underscore is reported.
 func isCamelOrPascalCaseName(name string) bool {
-	if name == "" {
-		return true
-	}
-	trimmed := trimUnderscores(name)
-	if trimmed == "" {
-		return true
-	}
-	if !containsUnderscore(trimmed) {
-		return true
-	}
-	return isAllUpperOrUnderscore(trimmed)
+  if name == "" {
+    return true
+  }
+  trimmed := trimUnderscores(name)
+  if trimmed == "" {
+    return true
+  }
+  if !containsUnderscore(trimmed) {
+    return true
+  }
+  return isAllUpperOrUnderscore(trimmed)
 }
 
 func trimUnderscores(s string) string {
-	start, end := 0, len(s)
-	for start < end && s[start] == '_' {
-		start++
-	}
-	for end > start && s[end-1] == '_' {
-		end--
-	}
-	return s[start:end]
+  start, end := 0, len(s)
+  for start < end && s[start] == '_' {
+    start++
+  }
+  for end > start && s[end-1] == '_' {
+    end--
+  }
+  return s[start:end]
 }
 
 func containsUnderscore(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '_' {
-			return true
-		}
-	}
-	return false
+  for i := 0; i < len(s); i++ {
+    if s[i] == '_' {
+      return true
+    }
+  }
+  return false
 }
 
 // isAllUpperOrUnderscore returns true when every character is either an
 // uppercase ASCII letter, a digit, or an underscore. Lowercase letters
 // disqualify the string and force the rule to report.
 func isAllUpperOrUnderscore(s string) bool {
-	hasUpper := false
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		switch {
-		case ch >= 'A' && ch <= 'Z':
-			hasUpper = true
-		case ch >= '0' && ch <= '9':
-		case ch == '_':
-		default:
-			return false
-		}
-	}
-	return hasUpper
+  hasUpper := false
+  for i := 0; i < len(s); i++ {
+    ch := s[i]
+    switch {
+    case ch >= 'A' && ch <= 'Z':
+      hasUpper = true
+    case ch >= '0' && ch <= '9':
+    case ch == '_':
+    default:
+      return false
+    }
+  }
+  return hasUpper
 }
 
 func init() {
-	Register(camelcase{})
+  Register(camelcase{})
 }

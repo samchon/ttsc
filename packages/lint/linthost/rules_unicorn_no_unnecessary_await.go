@@ -19,33 +19,33 @@ type unicornNoUnnecessaryAwait struct{}
 
 func (unicornNoUnnecessaryAwait) Name() string { return "unicorn/no-unnecessary-await" }
 func (unicornNoUnnecessaryAwait) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindAwaitExpression}
+  return []shimast.Kind{shimast.KindAwaitExpression}
 }
 func (unicornNoUnnecessaryAwait) Check(ctx *Context, node *shimast.Node) {
-	await := node.AsAwaitExpression()
-	if await == nil || await.Expression == nil {
-		return
-	}
-	operand := stripParens(await.Expression)
-	if operand == nil {
-		return
-	}
-	switch operand.Kind {
-	case shimast.KindStringLiteral,
-		shimast.KindNumericLiteral,
-		shimast.KindBigIntLiteral,
-		shimast.KindNoSubstitutionTemplateLiteral,
-		shimast.KindTemplateExpression,
-		shimast.KindRegularExpressionLiteral,
-		shimast.KindTrueKeyword,
-		shimast.KindFalseKeyword,
-		shimast.KindNullKeyword,
-		shimast.KindArrayLiteralExpression,
-		shimast.KindObjectLiteralExpression:
-		ctx.Report(node, "Don't `await` a non-thenable expression.")
-	}
+  await := node.AsAwaitExpression()
+  if await == nil || await.Expression == nil {
+    return
+  }
+  operand := stripParens(await.Expression)
+  if operand == nil {
+    return
+  }
+  switch operand.Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindNoSubstitutionTemplateLiteral,
+    shimast.KindTemplateExpression,
+    shimast.KindRegularExpressionLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindArrayLiteralExpression,
+    shimast.KindObjectLiteralExpression:
+    ctx.Report(node, "Don't `await` a non-thenable expression.")
+  }
 }
 
 func init() {
-	Register(unicornNoUnnecessaryAwait{})
+  Register(unicornNoUnnecessaryAwait{})
 }

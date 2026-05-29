@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/role-supports-aria-props`.
 // 3. Assert no diagnostic is reported.
 func TestJsxA11yRoleSupportsAriaPropsAllowsNativeButtonPressed(t *testing.T) {
-	assertJsxA11yRuleSkips(t, "jsx-a11y/role-supports-aria-props", `const Component = () => <button aria-pressed="true">Bold</button>;`)
+  assertJsxA11yRuleSkips(t, "jsx-a11y/role-supports-aria-props", `const Component = () => <button aria-pressed="true">Bold</button>;`)
 }

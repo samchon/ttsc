@@ -5,6 +5,7 @@ import (
   "errors"
   "flag"
   "fmt"
+  "io"
   "io/fs"
   "net/url"
   "os"
@@ -12,6 +13,10 @@ import (
   "strings"
   "unicode/utf16"
   "unicode/utf8"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 const (
@@ -67,8 +72,13 @@ type lspCommandOptions struct {
   argumentsJSON string
   command       string
   contextJSON   string
-  cwd           string
-  pluginsJSON   string
+  // contentStdin reports whether the caller passed --content-stdin. When
+  // set, RunLSPExecuteCommand reads the FULL document buffer from os.Stdin
+  // (to EOF) and formats that text in memory instead of reading the target
+  // file from disk. See lspFormatBuffer.
+  contentStdin bool
+  cwd          string
+  pluginsJSON  string
   // rangeJSON is accepted from the ttsc LSP server
   // (`internal/lspserver/lsp_native_plugin_source.go`) for forward
   // compatibility, but no current code path consumes it — code actions
@@ -180,6 +190,24 @@ func RunLSPExecuteCommand(args []string) int {
     return 2
   }
   opts.uri = uri
+  // --content-stdin selects the lightweight in-memory format path: the full
+  // document buffer is read from stdin and formatted with AST+source rules
+  // only, with no temp-workspace copy and no tsgo Program. It applies to
+  // ttsc.format.document; ttsc.lint.fixAll under --content-stdin is out of
+  // scope (lint-class fixes can require a type checker), so it falls back to
+  // the disk-based path below.
+  if opts.contentStdin && opts.command == commandFormatDocument {
+    content, err := io.ReadAll(os.Stdin)
+    if err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint lsp-execute-command: read --content-stdin: %v\n", err)
+      return 2
+    }
+    edit, code := lspFormatBuffer(string(content), opts)
+    if code != 0 {
+      return code
+    }
+    return writeJSON(edit)
+  }
   edit, code := lspWorkspaceEditForCommand(opts)
   if code != 0 {
     return code
@@ -198,6 +226,7 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
   contextJSON := fs.String("context-json", "", "")
   command := fs.String("command", "", "")
   argumentsJSON := fs.String("arguments-json", "", "")
+  contentStdin := fs.Bool("content-stdin", false, "")
   if err := fs.Parse(args); err != nil {
     return nil, false
   }
@@ -210,6 +239,7 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
     argumentsJSON: *argumentsJSON,
     command:       *command,
     contextJSON:   *contextJSON,
+    contentStdin:  *contentStdin,
     cwd:           resolvedCwd,
     pluginsJSON:   *pluginsJSON,
     rangeJSON:     *rangeJSON,
@@ -272,7 +302,7 @@ func findingToLSPDiagnostic(finding *Finding) lspDiagnostic {
     Range:    lspRangeForFinding(finding),
     Severity: lspSeverity(finding.Severity),
     Code:     finding.Rule,
-    Source:   "ttsc/lint",
+    Source:   "@ttsc/lint",
     Message:  finding.Message,
   }
 }
@@ -419,6 +449,123 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     return nil, 2
   }
   return workspaceEditForFullDocument(opts.uri, string(original), string(next)), 0
+}
+
+// lspFormatBuffer formats an in-memory document buffer using only the
+// format-class rules, with no tsgo Program and no temp-workspace copy. It is
+// the lightweight path behind --content-stdin for ttsc.format.document.
+//
+// Format rules are AST+source only (`IsFormat() == true`); none implement
+// typeAwareRule, so the engine runs them with a nil checker. The document
+// content comes entirely from `content` — the file on disk at opts.uri is
+// never read — so an editor can format an unsaved buffer without paying the
+// disk-copy + full-program-load cost of lspWorkspaceEditForCommand.
+//
+// Returns the same WorkspaceEdit shape as the disk path, or (nil, 0) on a
+// no-op (no fixable findings, or text unchanged after convergence).
+func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit, int) {
+  target, err := filePathFromURI(opts.uri)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, 2
+  }
+  // Guard rails mirror lspWorkspaceEditForCommand: skip targets outside the
+  // project root or inside node_modules.
+  if _, ok := projectRelativePath(opts.cwd, target); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
+    return nil, 2
+  }
+  if projectPathHasSegment(opts.cwd, target, "node_modules") {
+    return nil, 0
+  }
+
+  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, 2
+  }
+  rules = formatCommandResolver{inner: rules}
+  engine := NewEngineWithResolver(rules)
+  if engine.NeedsTypeChecker() {
+    // A format-class contributor rule (formatContributorAdapter) needs the type
+    // checker, which the single-file in-memory parse can't supply. Fall back to
+    // the disk path, which builds a full program with a checker, so the result
+    // matches `ttsc format`; the dirty buffer can't be honored for these rules.
+    // Built-in format rules are AST-only, so they keep the fast in-memory path.
+    return lspWorkspaceEditForCommand(opts)
+  }
+  scriptKind := scriptKindForPath(target)
+
+  text := content
+  converged := false
+  for pass := 0; pass < maxFormatPasses; pass++ {
+    file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: target}, text, scriptKind)
+    if file == nil {
+      // Match the disk path: a buffer we can't parse is a benign no-op, not a
+      // hard error — don't fight the editor's own diagnostics on a dirty buffer.
+      return nil, 0
+    }
+    findings := filterFormatFindings(engine.Run([]*shimast.SourceFile{file}, nil))
+    next, applied := applyFindingFixesToText(text, findings)
+    if applied == 0 {
+      converged = true
+      break
+    }
+    text = next
+  }
+  if !converged {
+    fmt.Fprintf(os.Stderr,
+      "@ttsc/lint: LSP %s cascade did not converge after %d passes\n",
+      opts.command, maxFormatPasses)
+    return nil, 2
+  }
+  return workspaceEditForFullDocument(opts.uri, content, text), 0
+}
+
+// scriptKindForPath maps a file extension to the tsgo ScriptKind the parser
+// needs so TS/JSX-only syntax is recognized. Mirrors the test helpers'
+// ScriptKind selection (helpers_test.go parseTSFile/parseTSXFile).
+func scriptKindForPath(path string) shimcore.ScriptKind {
+  switch strings.ToLower(filepath.Ext(path)) {
+  case ".tsx":
+    return shimcore.ScriptKindTSX
+  case ".jsx":
+    return shimcore.ScriptKindJSX
+  case ".js", ".cjs", ".mjs":
+    return shimcore.ScriptKindJS
+  default:
+    return shimcore.ScriptKindTS
+  }
+}
+
+// applyFindingFixesToText is the in-memory counterpart of
+// applyFindingFixes/applyTextEditsToFile (fix.go): it collects every fixable
+// finding's TextEdit, selects a non-overlapping set with the same
+// selectTextEdits logic, applies them right-to-left to `text`, and returns the
+// new string plus the number of edits applied. It never writes to disk and
+// never reloads a Program. Findings carry byte offsets into the same `text`
+// that was just parsed, so no per-file grouping is needed.
+func applyFindingFixesToText(text string, findings []*Finding) (string, int) {
+  edits := make([]TextEdit, 0, len(findings))
+  for _, finding := range findings {
+    if finding == nil || len(finding.Fix) == 0 {
+      continue
+    }
+    edits = append(edits, finding.Fix...)
+  }
+  selected := selectTextEdits(len(text), edits)
+  if len(selected) == 0 {
+    return text, 0
+  }
+  next := text
+  for i := len(selected) - 1; i >= 0; i-- {
+    edit := selected[i]
+    next = next[:edit.Pos] + edit.Text + next[edit.End:]
+  }
+  if next == text {
+    return text, 0
+  }
+  return next, len(selected)
 }
 
 func workspaceEditForFullDocument(uri string, original string, next string) *lspWorkspaceEdit {

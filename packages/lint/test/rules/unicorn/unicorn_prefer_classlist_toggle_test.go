@@ -12,10 +12,10 @@ import "testing"
 // is the report anchor because the entire two-statement rewrite is
 // what the suggestion replaces.
 //
-// 1. Enable unicorn/prefer-classlist-toggle via an expect annotation.
-// 2. Open an if/else where then-branch calls `.classList.add("active")`
-//    and else-branch calls `.classList.remove("active")`.
-// 3. Assert the if-statement is reported.
+//  1. Enable unicorn/prefer-classlist-toggle via an expect annotation.
+//  2. Open an if/else where then-branch calls `.classList.add("active")`
+//     and else-branch calls `.classList.remove("active")`.
+//  3. Assert the if-statement is reported.
 func TestRuleCorpusUnicornPreferClasslistToggle(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-classlist-toggle.ts", "declare const el: Element;\ndeclare const cond: boolean;\n// expect: unicorn/prefer-classlist-toggle error\nif (cond) {\n  el.classList.add(\"active\");\n} else {\n  el.classList.remove(\"active\");\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-classlist-toggle.ts", "declare const el: Element;\ndeclare const cond: boolean;\n// expect: unicorn/prefer-classlist-toggle error\nif (cond) {\n  el.classList.add(\"active\");\n} else {\n  el.classList.remove(\"active\");\n}\n")
 }

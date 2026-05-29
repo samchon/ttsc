@@ -13,5 +13,5 @@ import "testing"
 // 2. Write `arr.indexOf(2) >= 0`.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornConsistentExistenceIndexCheck(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/consistent-existence-index-check.ts", "const arr = [1, 2, 3];\n// expect: unicorn/consistent-existence-index-check error\nconst found = arr.indexOf(2) >= 0;\nvoid found;\n")
+  assertRuleCorpusCase(t, "unicorn/consistent-existence-index-check.ts", "const arr = [1, 2, 3];\n// expect: unicorn/consistent-existence-index-check error\nconst found = arr.indexOf(2) >= 0;\nvoid found;\n")
 }

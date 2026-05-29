@@ -3,10 +3,10 @@ import type { IInstallTypiaSourcePackOptions } from "../structures/IInstallTypia
 const packCache = new Map<string, Promise<Record<string, string>>>();
 
 /**
- * Fetch the typia source pack JSON. Cached per URL across calls. On
- * rejection the cache entry is cleared so the next call retries —
- * otherwise a transient fetch failure during the first boot would wedge
- * every later boot through `getBoot`'s typiaPlugin.mount path.
+ * Fetch the typia source pack JSON. Cached per URL across calls. On rejection
+ * the cache entry is cleared so the next call retries — otherwise a transient
+ * fetch failure during the first boot would wedge every later boot through
+ * `getBoot`'s typiaPlugin.mount path.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,

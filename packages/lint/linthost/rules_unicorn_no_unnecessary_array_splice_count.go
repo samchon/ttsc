@@ -17,54 +17,54 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUnnecessaryArraySpliceCount struct{}
 
 func (unicornNoUnnecessaryArraySpliceCount) Name() string {
-	return "unicorn/no-unnecessary-array-splice-count"
+  return "unicorn/no-unnecessary-array-splice-count"
 }
 func (unicornNoUnnecessaryArraySpliceCount) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoUnnecessaryArraySpliceCount) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if method != "splice" && method != "toSpliced" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
-		return
-	}
-	second := stripParens(call.Arguments.Nodes[1])
-	if !unicornUnnecessaryCountArgument(second) {
-		return
-	}
-	ctx.Report(call.Arguments.Nodes[1], "Use `splice(start)` without the count — `.length` / `Infinity` is the default.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if method != "splice" && method != "toSpliced" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
+    return
+  }
+  second := stripParens(call.Arguments.Nodes[1])
+  if !unicornUnnecessaryCountArgument(second) {
+    return
+  }
+  ctx.Report(call.Arguments.Nodes[1], "Use `splice(start)` without the count — `.length` / `Infinity` is the default.")
 }
 
 // unicornUnnecessaryCountArgument reports whether `node` is one of the
 // two redundant "until the end" shapes — a `.length` property access on
 // any receiver, or the bare `Infinity` identifier.
 func unicornUnnecessaryCountArgument(node *shimast.Node) bool {
-	if node == nil {
-		return false
-	}
-	if node.Kind == shimast.KindPropertyAccessExpression {
-		access := node.AsPropertyAccessExpression()
-		if access == nil {
-			return false
-		}
-		return identifierText(access.Name()) == "length"
-	}
-	if node.Kind == shimast.KindIdentifier {
-		return identifierText(node) == "Infinity"
-	}
-	return false
+  if node == nil {
+    return false
+  }
+  if node.Kind == shimast.KindPropertyAccessExpression {
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return false
+    }
+    return identifierText(access.Name()) == "length"
+  }
+  if node.Kind == shimast.KindIdentifier {
+    return identifierText(node) == "Infinity"
+  }
+  return false
 }
 
 func init() {
-	Register(unicornNoUnnecessaryArraySpliceCount{})
+  Register(unicornNoUnnecessaryArraySpliceCount{})
 }

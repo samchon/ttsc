@@ -14,5 +14,5 @@ import "testing"
 // 2. Read `event.keyCode` from a declared KeyboardEvent binding.
 // 3. Assert the property-access expression is reported.
 func TestRuleCorpusUnicornPreferKeyboardEventKey(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-keyboard-event-key.ts", "declare const event: KeyboardEvent;\n// expect: unicorn/prefer-keyboard-event-key error\nvoid event.keyCode;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-keyboard-event-key.ts", "declare const event: KeyboardEvent;\n// expect: unicorn/prefer-keyboard-event-key error\nvoid event.keyCode;\n")
 }

@@ -17,34 +17,34 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoNegationInEqualityCheck struct{}
 
 func (unicornNoNegationInEqualityCheck) Name() string {
-	return "unicorn/no-negation-in-equality-check"
+  return "unicorn/no-negation-in-equality-check"
 }
 func (unicornNoNegationInEqualityCheck) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornNoNegationInEqualityCheck) Check(ctx *Context, node *shimast.Node) {
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil || bin.Left == nil {
-		return
-	}
-	switch bin.OperatorToken.Kind {
-	case shimast.KindEqualsEqualsEqualsToken,
-		shimast.KindEqualsEqualsToken,
-		shimast.KindExclamationEqualsEqualsToken,
-		shimast.KindExclamationEqualsToken:
-	default:
-		return
-	}
-	if bin.Left.Kind != shimast.KindPrefixUnaryExpression {
-		return
-	}
-	prefix := bin.Left.AsPrefixUnaryExpression()
-	if prefix == nil || prefix.Operator != shimast.KindExclamationToken {
-		return
-	}
-	ctx.Report(node, "Don't negate the left operand of an equality check — use `!==` directly, or wrap in parens.")
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil || bin.Left == nil {
+    return
+  }
+  switch bin.OperatorToken.Kind {
+  case shimast.KindEqualsEqualsEqualsToken,
+    shimast.KindEqualsEqualsToken,
+    shimast.KindExclamationEqualsEqualsToken,
+    shimast.KindExclamationEqualsToken:
+  default:
+    return
+  }
+  if bin.Left.Kind != shimast.KindPrefixUnaryExpression {
+    return
+  }
+  prefix := bin.Left.AsPrefixUnaryExpression()
+  if prefix == nil || prefix.Operator != shimast.KindExclamationToken {
+    return
+  }
+  ctx.Report(node, "Don't negate the left operand of an equality check — use `!==` directly, or wrap in parens.")
 }
 
 func init() {
-	Register(unicornNoNegationInEqualityCheck{})
+  Register(unicornNoNegationInEqualityCheck{})
 }

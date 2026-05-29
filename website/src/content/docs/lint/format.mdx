@@ -1,6 +1,6 @@
 # Format rules
 
-The format rule set in `@ttsc/lint` — semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and column-aware print-width reflow. This is what replaces Prettier in a `ttsc` project.
+The format rule set in `@ttsc/lint`, semicolons, quotes, trailing commas, import ordering, JSDoc normalization, and column-aware print-width reflow. This is what replaces Prettier in a `ttsc` project.
 
 ## The `format` block (canonical)
 
@@ -50,7 +50,7 @@ format: { severity: "off" }
 
 ### Per-rule overrides
 
-To bump (or relax) one specific rule, drop a sibling `rules` entry — `rules` wins on conflict:
+To bump (or relax) one specific rule, drop a sibling `rules` entry, `rules` wins on conflict:
 
 ```ts
 export default {
@@ -71,7 +71,7 @@ One quote style throughout. Pick `"double"` (default) or `"single"`. Backticks a
 
 ### `format/trailing-comma`
 
-Enforce trailing commas in **multiline** literals — object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
+Enforce trailing commas in **multiline** literals, object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
 
 ### `format/sort-imports`
 
@@ -102,7 +102,7 @@ Autofixable. Set `format.jsdoc: true` (or an options object) to enable.
 
 ### `format/print-width`
 
-Column-aware reflow. Mirrors Prettier's `printWidth`, `tabWidth`, `useTabs`, and `endOfLine`. The most distinctive rule in the format set — the one that actually reshapes your code.
+Column-aware reflow. Mirrors Prettier's `printWidth`, `tabWidth`, `useTabs`, and `endOfLine`. The most distinctive rule in the format set, the one that actually reshapes your code.
 
 Driven by `format.printWidth`, `format.tabWidth`, `format.useTabs`, `format.endOfLine` (defaults: `80`, `2`, `false`, `"lf"`).
 
@@ -110,8 +110,8 @@ Driven by `format.printWidth`, `format.tabWidth`, `format.useTabs`, `format.endO
 
 For each list-shaped expression in the file (object literals, array literals, function arguments, named imports, named exports, …), the rule considers two layouts:
 
-- **Flat** — one line, no internal breaks.
-- **Broken** — opening punctuator on the head line, one entry per indented line, closing punctuator on its own line. The trailing comma on the last entry honors `format.trailingComma`: `"all"` keeps one on every list, `"es5"` keeps one on arrays / objects / named imports / exports but not on call or `new` argument lists, and `"none"` drops it everywhere. The setting flows into the reflow automatically.
+- **Flat**: one line, no internal breaks.
+- **Broken**: opening punctuator on the head line, one entry per indented line, closing punctuator on its own line. The trailing comma on the last entry honors `format.trailingComma`: `"all"` keeps one on every list, `"es5"` keeps one on arrays / objects / named imports / exports but not on call or `new` argument lists, and `"none"` drops it everywhere. The setting flows into the reflow automatically.
 
 It measures the flat form. If flat fits within `printWidth` (counting the column where the node starts), the flat layout is kept. If it doesn't fit, the broken layout is emitted.
 
@@ -127,14 +127,14 @@ const user = {
 };
 ```
 
-When the rule can't reflow a node (a shape it doesn't recognize, or a comment sits inside it), it abstains — no edits applied, original bytes pass through verbatim.
+When the rule can't reflow a node (a shape it doesn't recognize, or a comment sits inside it), it abstains, no edits applied, original bytes pass through verbatim.
 
-Trailing `//` line comments do not count against the budget. A line comment runs to the end of the source line by definition, so a node whose only overflow is its trailing comment stays flat — matching Prettier's behavior. The un-movable punctuation suffix (`;`, `) {`, `,`) is still charged.
+Trailing `//` line comments do not count against the budget. A line comment runs to the end of the source line by definition, so a node whose only overflow is its trailing comment stays flat, matching Prettier's behavior. The un-movable punctuation suffix (`;`, `) {`, `,`) is still charged.
 
 #### What it reflows
 
 | Shape | Example before | Example after (`printWidth: 20`) |
-| ----- | -------------- | -------------------------------- |
+| --- | --- | --- |
 | Object literal | `const x = { aaa: 1, bbb: 2, ccc: 3 };` | multi-line with trailing comma |
 | Array literal | `const x = ["alpha", "beta", "gamma"];` | multi-line with trailing comma |
 | Call expression | `process(aaaaaa, bbbbbb, cccccc);` | callee on head line, one arg per indented line |
@@ -145,7 +145,7 @@ Trailing `//` line comments do not count against the budget. A line comment runs
 | Named exports | `export { alpha, bravo, charlie };` | multi-line specifier list |
 | `import type { … }` | preserves the `type` modifier | same |
 
-A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument *hugging* the parentheses — Prettier's last-argument hugging — instead of exploding the whole argument list. The callback body is re-indented to its new column:
+A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument _hugging_ the parentheses, Prettier's last-argument hugging, instead of exploding the whole argument list. The callback body is re-indented to its new column:
 
 ```ts
 register("compile", async (ctx) => {
@@ -171,12 +171,12 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
 - No "magic comma" hint (Prettier's preserve-multi-line trick). Width is the only factor in the reflow decision.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
-- A callback body that contains a statement the printer does not yet cover — a multi-line `if`, `switch`, or assignment — makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
+- A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
 
 ## Back-compat: per-rule tuple form
 
-The rule-level tuple form still works and is occasionally useful when you need a one-off override without adding a `format` block. Treat it as legacy — new projects should use the `format` block above.
+The rule-level tuple form still works and is occasionally useful when you need a one-off override without adding a `format` block. Treat it as legacy, new projects should use the `format` block above.
 
 ```ts
 // lint.config.ts
@@ -194,11 +194,11 @@ export default {
 
 ## Rule interactions
 
-`format/print-width` and `format/trailing-comma` overlap in one place: the broken layout that `format/print-width` emits always has a trailing comma (structurally, not because of the rule). So leaving `format/trailing-comma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals — only from manually-written ones.
+`format/print-width` and `format/trailing-comma` overlap in one place: the broken layout that `format/print-width` emits always has a trailing comma (structurally, not because of the rule). So leaving `format/trailing-comma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals, only from manually-written ones.
 
 `ttsc format` re-runs every enabled rule until the file is stable, so rule order in `lint.config.ts` doesn't affect the final result.
 
 ## See also
 
-- [Overview](/docs/lint) — the `ttsc fix` / `ttsc format` command summary lives here.
-- [Rules](/docs/lint/rules) — the full lint-rule catalog.
+- [Overview](/docs/lint): the `ttsc fix` / `ttsc format` command summary lives here.
+- [Rules](/docs/lint/rules): the full lint-rule catalog.

@@ -9,10 +9,10 @@
 package linthost
 
 import (
-	"fmt"
+  "fmt"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // maxLinesPerFunctionLimit is the line-span ceiling. Above this value
@@ -24,34 +24,34 @@ type maxLinesPerFunction struct{}
 
 func (maxLinesPerFunction) Name() string { return "max-lines-per-function" }
 func (maxLinesPerFunction) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindFunctionExpression,
-		shimast.KindArrowFunction,
-		shimast.KindMethodDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+  }
 }
 func (maxLinesPerFunction) Check(ctx *Context, node *shimast.Node) {
-	if node == nil || ctx == nil || ctx.File == nil {
-		return
-	}
-	body := node.Body()
-	if body == nil || body.Kind != shimast.KindBlock {
-		return
-	}
-	startPos := shimscanner.SkipTrivia(ctx.File.Text(), body.Pos())
-	endPos := body.End()
-	if endPos > startPos {
-		endPos--
-	}
-	startLine := shimscanner.GetECMALineOfPosition(ctx.File, startPos)
-	endLine := shimscanner.GetECMALineOfPosition(ctx.File, endPos)
-	lines := endLine - startLine + 1
-	if lines > maxLinesPerFunctionLimit {
-		ctx.Report(node, fmt.Sprintf("Function has too many lines (%d). Maximum allowed is %d.", lines, maxLinesPerFunctionLimit))
-	}
+  if node == nil || ctx == nil || ctx.File == nil {
+    return
+  }
+  body := node.Body()
+  if body == nil || body.Kind != shimast.KindBlock {
+    return
+  }
+  startPos := shimscanner.SkipTrivia(ctx.File.Text(), body.Pos())
+  endPos := body.End()
+  if endPos > startPos {
+    endPos--
+  }
+  startLine := shimscanner.GetECMALineOfPosition(ctx.File, startPos)
+  endLine := shimscanner.GetECMALineOfPosition(ctx.File, endPos)
+  lines := endLine - startLine + 1
+  if lines > maxLinesPerFunctionLimit {
+    ctx.Report(node, fmt.Sprintf("Function has too many lines (%d). Maximum allowed is %d.", lines, maxLinesPerFunctionLimit))
+  }
 }
 
 func init() {
-	Register(maxLinesPerFunction{})
+  Register(maxLinesPerFunction{})
 }

@@ -8,8 +8,8 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // preferPromiseRejectErrors reports `Promise.reject(arg)`, `p.reject(arg)`
@@ -27,39 +27,39 @@ import (
 type preferPromiseRejectErrors struct{}
 
 func (preferPromiseRejectErrors) Name() string {
-	return "typescript/prefer-promise-reject-errors"
+  return "typescript/prefer-promise-reject-errors"
 }
 func (preferPromiseRejectErrors) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (preferPromiseRejectErrors) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (preferPromiseRejectErrors) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if !preferPromiseRejectErrorsIsRejectCall(ctx, call, node) {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(arg)
-	if t == nil {
-		return
-	}
-	if preferPromiseRejectErrorsIsNonError(ctx.Checker, t) {
-		ctx.Report(node, "Reject promises with an Error object instead of a non-Error value.")
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if !preferPromiseRejectErrorsIsRejectCall(ctx, call, node) {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(arg)
+  if t == nil {
+    return
+  }
+  if preferPromiseRejectErrorsIsNonError(ctx.Checker, t) {
+    ctx.Report(node, "Reject promises with an Error object instead of a non-Error value.")
+  }
 }
 
 // preferPromiseRejectErrorsIsRejectCall returns true when `call` is one of
@@ -70,25 +70,25 @@ func (preferPromiseRejectErrors) Check(ctx *Context, node *shimast.Node) {
 //
 // `node` is the AST node form of `call`, used for the parent walk.
 func preferPromiseRejectErrorsIsRejectCall(ctx *Context, call *shimast.CallExpression, node *shimast.Node) bool {
-	receiver, method, ok := promisePropertyAccessParts(call.Expression)
-	if ok && method == "reject" {
-		if identifierText(receiver) == "Promise" {
-			return true
-		}
-		if ctx.Checker != nil && receiver != nil {
-			if t := ctx.Checker.GetTypeAtLocation(receiver); t != nil &&
-				isPromiseTypedExpression(ctx.Checker, t) {
-				return true
-			}
-		}
-		return false
-	}
-	// Bare identifier call — check Promise executor binding.
-	name := callCalleeName(call)
-	if name == "" {
-		return false
-	}
-	return preferPromiseRejectErrorsIsExecutorReject(node, name)
+  receiver, method, ok := promisePropertyAccessParts(call.Expression)
+  if ok && method == "reject" {
+    if identifierText(receiver) == "Promise" {
+      return true
+    }
+    if ctx.Checker != nil && receiver != nil {
+      if t := ctx.Checker.GetTypeAtLocation(receiver); t != nil &&
+        isPromiseTypedExpression(ctx.Checker, t) {
+        return true
+      }
+    }
+    return false
+  }
+  // Bare identifier call — check Promise executor binding.
+  name := callCalleeName(call)
+  if name == "" {
+    return false
+  }
+  return preferPromiseRejectErrorsIsExecutorReject(node, name)
 }
 
 // preferPromiseRejectErrorsIsExecutorReject walks parent function-like
@@ -97,19 +97,19 @@ func preferPromiseRejectErrorsIsRejectCall(ctx *Context, call *shimast.CallExpre
 // parameter is named `name`. Mirrors the param walking used by
 // `promiseNoMultipleResolved`.
 func preferPromiseRejectErrorsIsExecutorReject(node *shimast.Node, name string) bool {
-	for fn := nearestFunctionLike(node); fn != nil; fn = nearestFunctionLike(fn) {
-		if !preferPromiseRejectErrorsIsPromiseExecutorFn(fn) {
-			continue
-		}
-		params := fn.Parameters()
-		if len(params) < 2 {
-			continue
-		}
-		if parameterIdentifierName(params[1]) == name {
-			return true
-		}
-	}
-	return false
+  for fn := nearestFunctionLike(node); fn != nil; fn = nearestFunctionLike(fn) {
+    if !preferPromiseRejectErrorsIsPromiseExecutorFn(fn) {
+      continue
+    }
+    params := fn.Parameters()
+    if len(params) < 2 {
+      continue
+    }
+    if parameterIdentifierName(params[1]) == name {
+      return true
+    }
+  }
+  return false
 }
 
 // preferPromiseRejectErrorsIsPromiseExecutorFn reports whether `fn` is
@@ -118,22 +118,22 @@ func preferPromiseRejectErrorsIsExecutorReject(node *shimast.Node, name string) 
 // does in rules_promise.go so `new Promise(((_, reject) => …))` still
 // matches.
 func preferPromiseRejectErrorsIsPromiseExecutorFn(fn *shimast.Node) bool {
-	if fn == nil || !isFunctionLikeKind(fn) {
-		return false
-	}
-	cur := fn
-	for parent := cur.Parent; parent != nil && parent.Kind == shimast.KindParenthesizedExpression; parent = parent.Parent {
-		cur = parent
-	}
-	newExpr := cur.Parent
-	if newExpr == nil || newExpr.Kind != shimast.KindNewExpression {
-		return false
-	}
-	ne := newExpr.AsNewExpression()
-	if ne == nil || identifierText(ne.Expression) != "Promise" || ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
-		return false
-	}
-	return stripParens(ne.Arguments.Nodes[0]) == fn
+  if fn == nil || !isFunctionLikeKind(fn) {
+    return false
+  }
+  cur := fn
+  for parent := cur.Parent; parent != nil && parent.Kind == shimast.KindParenthesizedExpression; parent = parent.Parent {
+    cur = parent
+  }
+  newExpr := cur.Parent
+  if newExpr == nil || newExpr.Kind != shimast.KindNewExpression {
+    return false
+  }
+  ne := newExpr.AsNewExpression()
+  if ne == nil || identifierText(ne.Expression) != "Promise" || ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
+    return false
+  }
+  return stripParens(ne.Arguments.Nodes[0]) == fn
 }
 
 // preferPromiseRejectErrorsIsNonError mirrors `onlyThrowErrorIsPrimitive`
@@ -143,34 +143,34 @@ func preferPromiseRejectErrorsIsPromiseExecutorFn(fn *shimast.Node) bool {
 // Union and intersection types recurse: a constituent that is primitive
 // is enough to fire, matching the throw-side baseline.
 func preferPromiseRejectErrorsIsNonError(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-	if checker == nil || t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return false
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if preferPromiseRejectErrorsIsNonError(checker, part) {
-				return true
-			}
-		}
-		return false
-	}
-	const primitiveMask = shimchecker.TypeFlagsStringLike |
-		shimchecker.TypeFlagsNumberLike |
-		shimchecker.TypeFlagsBigIntLike |
-		shimchecker.TypeFlagsBooleanLike |
-		shimchecker.TypeFlagsVoid |
-		shimchecker.TypeFlagsUndefined |
-		shimchecker.TypeFlagsNull
-	return flags&primitiveMask != 0
+  if checker == nil || t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return false
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if preferPromiseRejectErrorsIsNonError(checker, part) {
+        return true
+      }
+    }
+    return false
+  }
+  const primitiveMask = shimchecker.TypeFlagsStringLike |
+    shimchecker.TypeFlagsNumberLike |
+    shimchecker.TypeFlagsBigIntLike |
+    shimchecker.TypeFlagsBooleanLike |
+    shimchecker.TypeFlagsVoid |
+    shimchecker.TypeFlagsUndefined |
+    shimchecker.TypeFlagsNull
+  return flags&primitiveMask != 0
 }
 
 func init() {
-	Register(preferPromiseRejectErrors{})
+  Register(preferPromiseRejectErrors{})
 }

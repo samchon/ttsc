@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable only `react/no-array-index-key`.
 // 3. Assert `key={idx}` is reported.
 func TestReactNoArrayIndexKeyReportsRenamedIndexKey(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, idx) => <li key={idx}>{item}</li>);`, "index")
+  assertReactRuleFinds(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, idx) => <li key={idx}>{item}</li>);`, "index")
 }

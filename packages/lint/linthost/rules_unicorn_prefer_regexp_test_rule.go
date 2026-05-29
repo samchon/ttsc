@@ -19,62 +19,62 @@ type unicornPreferRegexpTest struct{}
 
 func (unicornPreferRegexpTest) Name() string { return "unicorn/prefer-regexp-test" }
 func (unicornPreferRegexpTest) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferRegexpTest) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "match", "exec":
-	default:
-		return
-	}
-	if !unicornPreferRegexpTestInBooleanPosition(node) {
-		return
-	}
-	ctx.Report(node, "Prefer `RegExp#test()` over `String#match()` / `RegExp#exec()` in a boolean context.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "match", "exec":
+  default:
+    return
+  }
+  if !unicornPreferRegexpTestInBooleanPosition(node) {
+    return
+  }
+  ctx.Report(node, "Prefer `RegExp#test()` over `String#match()` / `RegExp#exec()` in a boolean context.")
 }
 
 // unicornPreferRegexpTestInBooleanPosition reports whether `node` sits in
 // a position that consumes only its truthiness: the condition of an
 // `if` / ternary, the operand of `!`, or one side of `&&` / `||` / `??`.
 func unicornPreferRegexpTestInBooleanPosition(node *shimast.Node) bool {
-	parent := node.Parent
-	if parent == nil {
-		return false
-	}
-	switch parent.Kind {
-	case shimast.KindIfStatement:
-		ifStmt := parent.AsIfStatement()
-		return ifStmt != nil && ifStmt.Expression == node
-	case shimast.KindConditionalExpression:
-		cond := parent.AsConditionalExpression()
-		return cond != nil && cond.Condition == node
-	case shimast.KindPrefixUnaryExpression:
-		pre := parent.AsPrefixUnaryExpression()
-		return pre != nil && pre.Operator == shimast.KindExclamationToken
-	case shimast.KindBinaryExpression:
-		bin := parent.AsBinaryExpression()
-		if bin == nil || bin.OperatorToken == nil {
-			return false
-		}
-		switch bin.OperatorToken.Kind {
-		case shimast.KindAmpersandAmpersandToken,
-			shimast.KindBarBarToken,
-			shimast.KindQuestionQuestionToken:
-			return true
-		}
-	}
-	return false
+  parent := node.Parent
+  if parent == nil {
+    return false
+  }
+  switch parent.Kind {
+  case shimast.KindIfStatement:
+    ifStmt := parent.AsIfStatement()
+    return ifStmt != nil && ifStmt.Expression == node
+  case shimast.KindConditionalExpression:
+    cond := parent.AsConditionalExpression()
+    return cond != nil && cond.Condition == node
+  case shimast.KindPrefixUnaryExpression:
+    pre := parent.AsPrefixUnaryExpression()
+    return pre != nil && pre.Operator == shimast.KindExclamationToken
+  case shimast.KindBinaryExpression:
+    bin := parent.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil {
+      return false
+    }
+    switch bin.OperatorToken.Kind {
+    case shimast.KindAmpersandAmpersandToken,
+      shimast.KindBarBarToken,
+      shimast.KindQuestionQuestionToken:
+      return true
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(unicornPreferRegexpTest{})
+  Register(unicornPreferRegexpTest{})
 }

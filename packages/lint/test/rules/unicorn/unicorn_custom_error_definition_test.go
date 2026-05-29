@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare `class MyError extends Error` with an empty constructor.
 // 3. Assert the class declaration is reported.
 func TestRuleCorpusUnicornCustomErrorDefinition(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/custom-error-definition.ts", "// expect: unicorn/custom-error-definition error\nclass MyError extends Error {\n  constructor() {\n    void 0;\n  }\n}\nvoid MyError;\n")
+  assertRuleCorpusCase(t, "unicorn/custom-error-definition.ts", "// expect: unicorn/custom-error-definition error\nclass MyError extends Error {\n  constructor() {\n    void 0;\n  }\n}\nvoid MyError;\n")
 }

@@ -15,14 +15,14 @@ export interface ICreateWorkerCompilerOptions {
 
   /** In-MemFS project root. Defaults to `/work`. */
   workDir?: string;
-  /** tsconfig path relative to `workDir`. Defaults to `tsconfig.json`. */
+  /** Tsconfig path relative to `workDir`. Defaults to `tsconfig.json`. */
   tsconfigPath?: string;
   /** Entry source path relative to `workDir`. Defaults to `src/playground.ts`. */
   entryFile?: string;
 
   /**
-   * Typia integration. Pass `false` to disable. When omitted, defaults to
-   * `{ name: "typia", transformModule: "typia/lib/transform" }` — and only
+   * Typia integration. Pass `false` to disable. When omitted, defaults to `{
+   * name: "typia", transformModule: "typia/lib/transform" }` — and only
    * actually runs when the per-call `options.typia` is not `false`.
    */
   typiaPlugin?: ITypiaPluginConfig | false;
@@ -32,9 +32,9 @@ export interface ICreateWorkerCompilerOptions {
 
   /**
    * Extra entries spliced into the tsconfig's `compilerOptions`. Use to wire
-   * site-specific plugins, paths, or lib overrides. The typia plugin entry
-   * is appended automatically when `typiaPlugin` is enabled — sites should
-   * NOT include it here.
+   * site-specific plugins, paths, or lib overrides. The typia plugin entry is
+   * appended automatically when `typiaPlugin` is enabled — sites should NOT
+   * include it here.
    */
   extraCompilerOptions?: Record<string, unknown>;
 }

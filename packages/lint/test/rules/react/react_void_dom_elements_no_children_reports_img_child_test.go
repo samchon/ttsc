@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/void-dom-elements-no-children`.
 // 3. Assert the img opening element is reported.
 func TestReactVoidDOMElementsNoChildrenReportsImgChild(t *testing.T) {
-	assertReactRuleFinds(t, "react/void-dom-elements-no-children", `const C = () => <img>fallback</img>;`, "Void")
+  assertReactRuleFinds(t, "react/void-dom-elements-no-children", `const C = () => <img>fallback</img>;`, "Void")
 }

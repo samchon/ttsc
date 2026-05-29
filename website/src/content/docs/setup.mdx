@@ -5,7 +5,7 @@ Three packages, one `lint.config.ts`, one VS Code extension. Five minutes.
 ## Requirements
 
 - **Node.js** 18 or later.
-- A TypeScript project — anything with a `tsconfig.json` works.
+- A TypeScript project: anything with a `tsconfig.json` works.
 
 ## Install
 
@@ -15,7 +15,7 @@ npm install -D ttsc @ttsc/lint @typescript/native-preview
 
 `pnpm` / `yarn` / `bun` work the same way (substitute `add` for `install`).
 
-`@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package — pin it in your project and `ttsc` picks it up from `node_modules`.
+`@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package, pin it in your project and `ttsc` picks it up from `node_modules`.
 
 ## Minimal `tsconfig.json`
 
@@ -35,7 +35,7 @@ If you don't already have one:
 }
 ```
 
-Same shape as a `tsc` project — `ttsc` reads the same fields.
+Same shape as a `tsc` project, `ttsc` reads the same fields.
 
 ## Minimal `lint.config.ts`
 
@@ -59,7 +59,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`rules` sets severity per lint rule. `format` is a Prettier-style block — the keys mirror `.prettierrc`. See [Lint & Prettier](/docs/lint) for the full catalog.
+`rules` sets severity per lint rule. `format` is a Prettier-style block, the keys mirror `.prettierrc`. See [Lint & Prettier](/docs/lint) for the full catalog.
 
 ## First build
 
@@ -83,63 +83,52 @@ node dist/index.js  # run the emit
 
 That's it. From here you can:
 
-- **Run a script directly** — `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
-- **Add a transform plugin** — e.g. [typia](https://typia.io) for runtime validators generated from your types.
-- **Wire your editor** — install the VS Code extension below for the project
-  TypeScript-Go language server plus LSP-capable ttsc plugin diagnostics.
+- **Run a script directly**: `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
+- **Add a transform plugin**: e.g. [typia](https://typia.io) for runtime validators generated from your types.
+- **Wire your editor**: install the VS Code extension below for the project TypeScript-Go language server plus LSP-capable ttsc plugin diagnostics.
 
 ## Editor (VS Code)
 
-The VS Code extension starts the `ttscserver` launcher from your project's own
-`ttsc` dependency, so VS Code uses the same TypeScript-Go language server your
-project pins.
+The VS Code extension starts the `ttscserver` launcher from your project's own `ttsc` dependency, so VS Code uses the same TypeScript-Go language server your project pins.
 
-Not yet on the VS Code Marketplace. For now it ships as an npm package with a one-shot installer:
+Not yet on the VS Code Marketplace. For now it ships as an npm package with a one-shot installer. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
-npm install -D @ttsc/vscode
-npx ttsc-vscode
+npx @ttsc/vscode
 ```
 
-`npx ttsc-vscode` invokes `code --install-extension` against the `.vsix` bundled inside the package. To uninstall:
+`npx @ttsc/vscode` invokes `code --install-extension` against the `.vsix` bundled inside the package. To uninstall:
 
 ```bash
-npx ttsc-vscode uninstall
+npx @ttsc/vscode uninstall
 ```
 
 What it adds:
 
-- TypeScript-Go hover, navigation, completions, and diagnostics through the
-  project-selected `tsgo --lsp --stdio` process.
-- LSP-capable ttsc plugin diagnostics, code actions, and executeCommand
-  handlers. `@ttsc/lint` contributes lint diagnostics, fix-all actions, and
-  document format edits. Plugin diagnostics, code actions, and command
-  computation use the saved project state today; commands return VS Code
-  `WorkspaceEdit`s and VS Code applies them only while touched documents are
-  still clean.
-- Multi-root workspaces start server contexts from the active file and
-  workspace folders. Add packages as VS Code workspace folders when each
-  package should keep its own `ttsc`, `@typescript/native-preview`, and plugin
-  config active.
-- `ttsc: Restart language server` in the Command Palette.
-- `ttsc: Fix all lint issues` and `ttsc: Format document` are always
-  registered by the extension, but they return edits only when the selected
-  file's server has an LSP-capable owner such as `@ttsc/lint`. Other
-  plugin-owned command ids are advertised through `vscode-languageclient`; when
-  they return a `changes`-map `WorkspaceEdit`, the extension applies it with the
-  same clean-document guard.
-- Leave `ttsc.serverPath` empty for plugin diagnostics/actions. The default
-  project `ttsc` launcher builds the plugin manifest before starting the native
-  server; a direct native binary path is useful only when that manifest is
-  supplied by the caller.
+- TypeScript-Go hover, navigation, completions, and diagnostics through the project-selected `tsgo --lsp --stdio` process.
+- ttsc plugin diagnostics and actions: `@ttsc/lint` contributes lint diagnostics plus fix-all and format actions. These read your **saved** file (save before relying on a lint fix), except format-on-save, which works on the live buffer.
+- **Format on save** with `@ttsc/lint`'s format rules: formats the live (unsaved) buffer on every save. Lint fixes stay off-save by default. Enable it below.
+- Multi-root workspaces start server contexts from the active file and workspace folders. Add packages as VS Code workspace folders when each package should keep its own `ttsc`, `@typescript/native-preview`, and plugin config active.
+- Command Palette: `ttsc: Restart language server`, `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and format commands need a plugin that provides them, such as `@ttsc/lint`.
+- Leave `ttsc.serverPath` empty for plugin diagnostics/actions. The default project `ttsc` launcher builds the plugin manifest before starting the native server; a direct native binary path is useful only when that manifest is supplied by the caller.
 
-If diagnostics don't appear after install, open **View → Output**, select
-**ttsc** from the dropdown, and read the server log.
+To turn on format-on-save, point the default formatter at `samchon.ttsc` and enable `editor.formatOnSave` in `.vscode/settings.json`:
+
+```jsonc
+"[typescript][typescriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
+Lint **fixes** stay off-save by default (they can change code meaning), opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
+If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
 
 Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
 
 ## See also
 
-- [FAQ](/docs/faq) — common questions, gotchas, and migration tips.
-- [TTSC · Compile](/docs/ttsc/compile) — every flag and subcommand.
-- [Lint & Prettier](/docs/lint) — `lint.config.ts`, the rule catalog, and the format block.
+- [FAQ](/docs/faq): common questions, gotchas, and migration tips.
+- [TTSC · Compile](/docs/ttsc/compile): every flag and subcommand.
+- [Lint & Prettier](/docs/lint): `lint.config.ts`, the rule catalog, and the format block.

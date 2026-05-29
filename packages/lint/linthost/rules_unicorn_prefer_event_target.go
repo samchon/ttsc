@@ -18,19 +18,19 @@ type unicornPreferEventTarget struct{}
 
 func (unicornPreferEventTarget) Name() string { return "unicorn/prefer-event-target" }
 func (unicornPreferEventTarget) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindNewExpression}
 }
 func (unicornPreferEventTarget) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne == nil || ne.Expression == nil {
-		return
-	}
-	if identifierText(ne.Expression) != "EventEmitter" {
-		return
-	}
-	ctx.Report(node, "Prefer `EventTarget` over `EventEmitter` when sharing code between Node and the browser.")
+  ne := node.AsNewExpression()
+  if ne == nil || ne.Expression == nil {
+    return
+  }
+  if identifierText(ne.Expression) != "EventEmitter" {
+    return
+  }
+  ctx.Report(node, "Prefer `EventTarget` over `EventEmitter` when sharing code between Node and the browser.")
 }
 
 func init() {
-	Register(unicornPreferEventTarget{})
+  Register(unicornPreferEventTarget{})
 }

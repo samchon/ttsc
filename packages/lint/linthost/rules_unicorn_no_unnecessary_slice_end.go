@@ -16,33 +16,33 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUnnecessarySliceEnd struct{}
 
 func (unicornNoUnnecessarySliceEnd) Name() string {
-	return "unicorn/no-unnecessary-slice-end"
+  return "unicorn/no-unnecessary-slice-end"
 }
 func (unicornNoUnnecessarySliceEnd) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoUnnecessarySliceEnd) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "slice" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
-		return
-	}
-	second := stripParens(call.Arguments.Nodes[1])
-	if !unicornUnnecessaryCountArgument(second) {
-		return
-	}
-	ctx.Report(call.Arguments.Nodes[1], "Use `slice(start)` without the end — `.length` / `Infinity` is the default.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "slice" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
+    return
+  }
+  second := stripParens(call.Arguments.Nodes[1])
+  if !unicornUnnecessaryCountArgument(second) {
+    return
+  }
+  ctx.Report(call.Arguments.Nodes[1], "Use `slice(start)` without the end — `.length` / `Infinity` is the default.")
 }
 
 func init() {
-	Register(unicornNoUnnecessarySliceEnd{})
+  Register(unicornNoUnnecessarySliceEnd{})
 }

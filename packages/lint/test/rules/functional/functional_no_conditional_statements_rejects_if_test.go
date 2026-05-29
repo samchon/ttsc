@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-conditional-statements.
 // 3. Assert the if statement reports and offers no autofix.
 func TestFunctionalNoConditionalStatementsRejectsIf(t *testing.T) {
-	const ruleName = "functional/no-conditional-statements"
-	findings := runFunctionalRule(t, ruleName, `if (flag) { run(); }`)
-	assertFunctionalFinding(t, ruleName, findings, "if")
+  const ruleName = "functional/no-conditional-statements"
+  findings := runFunctionalRule(t, ruleName, `if (flag) { run(); }`)
+  assertFunctionalFinding(t, ruleName, findings, "if")
 }

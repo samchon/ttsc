@@ -12,14 +12,14 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornConsistentTemplateLiteralEscape struct{}
 
 func (unicornConsistentTemplateLiteralEscape) Name() string {
-	return "unicorn/consistent-template-literal-escape"
+  return "unicorn/consistent-template-literal-escape"
 }
 func (unicornConsistentTemplateLiteralEscape) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornConsistentTemplateLiteralEscape) Check(ctx *Context, node *shimast.Node) {
 }
 
 func init() {
-	Register(unicornConsistentTemplateLiteralEscape{})
+  Register(unicornConsistentTemplateLiteralEscape{})
 }

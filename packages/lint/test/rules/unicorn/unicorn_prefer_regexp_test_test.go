@@ -16,5 +16,5 @@ import "testing"
 // 2. Use `"abc".match(/a/)` as an `if` condition.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferRegexpTest(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-regexp-test.ts", "// expect: unicorn/prefer-regexp-test error\nif (\"abc\".match(/a/)) {\n  void 0;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-regexp-test.ts", "// expect: unicorn/prefer-regexp-test error\nif (\"abc\".match(/a/)) {\n  void 0;\n}\n")
 }

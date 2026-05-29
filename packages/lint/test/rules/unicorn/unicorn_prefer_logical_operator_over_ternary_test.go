@@ -15,5 +15,5 @@ import "testing"
 // 2. Declare `const y = x ? x : 0;`.
 // 3. Assert the conditional expression is reported.
 func TestRuleCorpusUnicornPreferLogicalOperatorOverTernary(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-logical-operator-over-ternary.ts", "declare const x: number | undefined;\n// expect: unicorn/prefer-logical-operator-over-ternary error\nconst y = x ? x : 0;\nvoid y;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-logical-operator-over-ternary.ts", "declare const x: number | undefined;\n// expect: unicorn/prefer-logical-operator-over-ternary error\nconst y = x ? x : 0;\nvoid y;\n")
 }

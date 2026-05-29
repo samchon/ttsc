@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnsafeEnumComparison verifies the lint rule corpus
@@ -21,27 +21,27 @@ import (
 // minimum-viable trigger (`Color === "red"`) so a future shim
 // regression surfaces here without depending on the full fixture.
 //
-// 1. Seed a project that compares a string enum value against a raw
-//    string literal.
-// 2. Run `check` with typescript/no-unsafe-enum-comparison enabled as
-//    error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that compares a string enum value against a raw
+//     string literal.
+//  2. Run `check` with typescript/no-unsafe-enum-comparison enabled as
+//     error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnsafeEnumComparison(t *testing.T) {
-	root := seedLintProject(t, `enum Color { Red = "red", Blue = "blue" }
+  root := seedLintProject(t, `enum Color { Red = "red", Blue = "blue" }
 declare const color: Color;
 const matchesRed = color === "red";
 JSON.stringify(matchesRed);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unsafe-enum-comparison": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unsafe-enum-comparison": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-enum-comparison]") {
-		t.Fatalf("no-unsafe-enum-comparison diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-enum-comparison]") {
+    t.Fatalf("no-unsafe-enum-comparison diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

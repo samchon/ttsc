@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a function that does `return undefined;`.
 // 3. Assert the return statement is reported.
 func TestRuleCorpusUnicornNoUselessUndefined(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-undefined.ts", "function f() {\n  // expect: unicorn/no-useless-undefined error\n  return undefined;\n}\nvoid f;\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-undefined.ts", "function f() {\n  // expect: unicorn/no-useless-undefined error\n  return undefined;\n}\nvoid f;\n")
 }

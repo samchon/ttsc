@@ -1,11 +1,10 @@
 /**
  * Options shapes for every rule in {@link ITtscLintBoundariesRules}.
  *
- * The `boundaries/*` family classifies each source file as belonging to a
- * named *element* (a layer, feature, or app within the project). Every
- * rule below shares the same element-declaration block, so the helper
- * interfaces in this file describe that block first and then layer the
- * per-rule options on top.
+ * The `boundaries/*` family classifies each source file as belonging to a named
+ * _element_ (a layer, feature, or app within the project). Every rule below
+ * shares the same element-declaration block, so the helper interfaces in this
+ * file describe that block first and then layer the per-rule options on top.
  *
  * @reference https://github.com/javierbrea/eslint-plugin-boundaries
  */
@@ -16,31 +15,28 @@ export interface ITtscLintBoundariesElement {
   type: string;
 
   /**
-   * Glob-like source path pattern. Relative patterns are matched against
-   * any project-path suffix, so `src/app/**` works in temporary and
-   * monorepo roots alike.
+   * Glob-like source path pattern. Relative patterns are matched against any
+   * project-path suffix, so `src/app/**` works in temporary and monorepo roots
+   * alike.
    */
   pattern: string;
 
   /**
-   * File(s) inside the element that may be imported from outside that
-   * element. Used by `boundaries/entry-point`.
+   * File(s) inside the element that may be imported from outside that element.
+   * Used by `boundaries/entry-point`.
    */
   entry?: string | readonly string[];
 
   /**
-   * File(s) inside the element that may only be imported by the same
-   * element. Used by `boundaries/no-private`.
+   * File(s) inside the element that may only be imported by the same element.
+   * Used by `boundaries/no-private`.
    */
   private?: string | readonly string[];
 }
 
 /** Dependency policy used by `boundaries/element-types`. */
 export interface ITtscLintBoundariesElementTypesRule {
-  /**
-   * Source element type(s) the policy applies to. Omit to match all
-   * sources.
-   */
+  /** Source element type(s) the policy applies to. Omit to match all sources. */
   from?: string | readonly string[];
 
   /** Target element type(s) allowed from the matching source. */
@@ -58,15 +54,12 @@ export interface ITtscLintBoundariesElementTypesRule {
  * `boundaries/*` rule.
  */
 export interface ITtscLintBoundariesElementsOptions {
-  /**
-   * Source path elements used to classify importers and imported files.
-   */
+  /** Source path elements used to classify importers and imported files. */
   elements?: readonly ITtscLintBoundariesElement[];
 }
 
 /** `boundaries/element-types` rule options. */
-export interface ITtscLintBoundariesElementTypesRuleOptions
-  extends ITtscLintBoundariesElementsOptions {
+export interface ITtscLintBoundariesElementTypesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**
    * Fallback policy when no rule matches.
    *
@@ -80,10 +73,7 @@ export interface ITtscLintBoundariesElementTypesRuleOptions
 
 /** `boundaries/external` rule options. */
 export interface ITtscLintBoundariesExternalRuleOptions {
-  /**
-   * External package/specifier patterns that are allowed. Empty means
-   * all.
-   */
+  /** External package/specifier patterns that are allowed. Empty means all. */
   allow?: string | readonly string[];
 
   /** External package/specifier patterns that are rejected. */
@@ -109,13 +99,12 @@ export type ITtscLintBoundariesNoUnknownRuleOptions =
  * `boundaries/dependencies` rule options.
  *
  * The upstream unified rule subsumes `element-types`, `entry-point`,
- * `external`, `no-private`, and `no-unknown` behind a single
- * direction-aware policy block. The v1 native port registers the rule
- * name and decodes this config shape but does not yet emit diagnostics
- * (`v1 stub; full validation deferred` — see `rules_boundaries.go`).
+ * `external`, `no-private`, and `no-unknown` behind a single direction-aware
+ * policy block. The v1 native port registers the rule name and decodes this
+ * config shape but does not yet emit diagnostics (`v1 stub; full validation
+ * deferred` — see `rules_boundaries.go`).
  */
-export interface ITtscLintBoundariesDependenciesRuleOptions
-  extends ITtscLintBoundariesElementsOptions {
+export interface ITtscLintBoundariesDependenciesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**
    * Fallback policy when no rule matches.
    *

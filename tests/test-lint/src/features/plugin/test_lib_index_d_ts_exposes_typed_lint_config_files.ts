@@ -14,17 +14,17 @@ import { TestLintPlugin } from "../../internal/TestLintPlugin";
  * but the file must not leak `defineConfig`, `TtscLintRule`,
  * `TtscLintRuleEntry`, `TtscLintPlugins`, or `PluginRuleNames`. Each rule
  * family lives in its own file under `lib/structures/rules/`; the barrel
- * re-exports `./rules/index` so consumers can import either the
- * intersection (`ITtscLintRules`) or a narrow family interface
- * (e.g. `ITtscLintCoreRules`). Formatter behavior is configured through
- * the top-level `format` block typed as `ITtscLintFormat`, so the rules
- * surface must not expose a `format/*` family. Without this test, adding
- * or removing an export in `structures/index.d.ts` or in the barrel would
- * silently break or bloat the public API.
+ * re-exports `./rules/index` so consumers can import either the intersection
+ * (`ITtscLintRules`) or a narrow family interface (e.g. `ITtscLintCoreRules`).
+ * Formatter behavior is configured through the top-level `format` block typed
+ * as `ITtscLintFormat`, so the rules surface must not expose a `format/*`
+ * family. Without this test, adding or removing an export in
+ * `structures/index.d.ts` or in the barrel would silently break or bloat the
+ * public API.
  *
  * 1. Read `lib/index.d.ts`, `lib/structures/ITtscLintConfig.d.ts`,
- *    `lib/structures/ITtscLintPluginConfig.d.ts`, the rules-family barrel,
- *    and the core-family declaration.
+ *    `lib/structures/ITtscLintPluginConfig.d.ts`, the rules-family barrel, and
+ *    the core-family declaration.
  * 2. Assert that the barrel re-exports `./structures/index` and does not import
  *    from `"ttsc"`.
  * 3. Assert presence and absence of specific fields/exports in each file.

@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/scope`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yScopeRejectsScopeOnTd(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/scope", `const Component = () => <td scope="col">Value</td>;`, "scope")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/scope", `const Component = () => <td scope="col">Value</td>;`, "scope")
 }

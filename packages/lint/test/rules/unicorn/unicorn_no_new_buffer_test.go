@@ -15,5 +15,5 @@ import "testing"
 // 2. Construct `new Buffer(10)` at the top level.
 // 3. Assert the new-expression is reported.
 func TestRuleCorpusUnicornNoNewBuffer(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-new-buffer.ts", "// expect: unicorn/no-new-buffer error\nconst b = new Buffer(10);\n")
+  assertRuleCorpusCase(t, "unicorn/no-new-buffer.ts", "// expect: unicorn/no-new-buffer error\nconst b = new Buffer(10);\n")
 }

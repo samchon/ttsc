@@ -13,5 +13,5 @@ import "testing"
 // 2. Flatten two array literals with `[].concat(...)`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferArrayFlat(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-array-flat.ts", "// expect: unicorn/prefer-array-flat error\nconst flat = [].concat([1, 2], [3, 4]);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-array-flat.ts", "// expect: unicorn/prefer-array-flat error\nconst flat = [].concat([1, 2], [3, 4]);\n")
 }

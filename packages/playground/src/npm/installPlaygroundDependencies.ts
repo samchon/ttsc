@@ -4,10 +4,10 @@ import type { IPlaygroundDependencyProgressPhase } from "../structures/IPlaygrou
 import { BUILT_IN_PLAYGROUND_PACKAGES } from "./BUILT_IN_PLAYGROUND_PACKAGES";
 import {
   DECLARATION_FILE_REGEXP,
+  type IQueueItem,
   downloadTarball,
   enqueuePackageDependencies,
   fetchNpmMetadata,
-  type IQueueItem,
   mountPackageFiles,
   selectVersion,
   throwIfAborted,
@@ -24,8 +24,8 @@ const DEFAULT_MAX_PACKAGES = 48;
  *
  * Transitive dependencies are followed via the resolved `package.json`'s
  * `dependencies` and (non-optional) `peerDependencies` fields. The walk is
- * bounded by `maxPackages` to keep a single keystroke from exhausting the
- * tab's network/memory budget.
+ * bounded by `maxPackages` to keep a single keystroke from exhausting the tab's
+ * network/memory budget.
  */
 export async function installPlaygroundDependencies(
   packageNames: Iterable<string>,

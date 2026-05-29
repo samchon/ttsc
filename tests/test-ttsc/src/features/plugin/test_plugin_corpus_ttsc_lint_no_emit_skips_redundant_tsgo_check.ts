@@ -15,10 +15,10 @@ import {
  * Verifies plugin corpus: @ttsc/lint noEmit skips redundant tsgo check.
  *
  * `@ttsc/lint` loads the project Program and reports normal TypeScript
- * diagnostics during its `check` subcommand. Running a second plain
- * `tsgo --noEmit` afterward rebuilds the checker graph and doubles the
- * expensive part of lint benchmarks, so ttsc must trust the lint descriptor's
- * diagnostics capability instead of appending the guard.
+ * diagnostics during its `check` subcommand. Running a second plain `tsgo
+ * --noEmit` afterward rebuilds the checker graph and doubles the expensive part
+ * of lint benchmarks, so ttsc must trust the lint descriptor's diagnostics
+ * capability instead of appending the guard.
  *
  * 1. Create a clean project with only `@ttsc/lint` as a check-stage plugin.
  * 2. Point `TTSC_TSGO_BINARY` at a fake tsgo that fails on build/check calls.

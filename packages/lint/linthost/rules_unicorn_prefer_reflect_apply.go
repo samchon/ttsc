@@ -18,19 +18,19 @@ type unicornPreferReflectApply struct{}
 
 func (unicornPreferReflectApply) Name() string { return "unicorn/prefer-reflect-apply" }
 func (unicornPreferReflectApply) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferReflectApply) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if nodeText(ctx.File, call.Expression) != "Function.prototype.apply.call" {
-		return
-	}
-	ctx.Report(node, "Prefer `Reflect.apply` over `Function.prototype.apply.call`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if nodeText(ctx.File, call.Expression) != "Function.prototype.apply.call" {
+    return
+  }
+  ctx.Report(node, "Prefer `Reflect.apply` over `Function.prototype.apply.call`.")
 }
 
 func init() {
-	Register(unicornPreferReflectApply{})
+  Register(unicornPreferReflectApply{})
 }

@@ -68,11 +68,11 @@ import "strings"
 //
 //   - "all"  (default)  every multi-line list gets one.
 //   - "es5"             arrays, objects, named imports / exports get one;
-//                       call arguments, parameter lists, and type-level
-//                       lists do not — those positions accepted trailing
-//                       commas only in ES2017+, so es5 mode skips them
-//                       to match Prettier and avoid oscillating against
-//                       the formatter on every cascade pass.
+//     call arguments, parameter lists, and type-level
+//     lists do not — those positions accepted trailing
+//     commas only in ES2017+, so es5 mode skips them
+//     to match Prettier and avoid oscillating against
+//     the formatter on every cascade pass.
 //   - "none"            no list gets one.
 //
 // An empty string is treated as "all", which keeps `DefaultPrintOptions()`

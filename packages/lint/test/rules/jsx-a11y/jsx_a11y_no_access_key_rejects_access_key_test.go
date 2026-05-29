@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/no-access-key`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yNoAccessKeyRejectsAccessKey(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/no-access-key", `const Component = () => <button accessKey="s">Save</button>;`, "accessKey")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/no-access-key", `const Component = () => <button accessKey="s">Save</button>;`, "accessKey")
 }

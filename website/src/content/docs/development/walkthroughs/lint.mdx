@@ -1,24 +1,22 @@
-# `@ttsc/lint` — Diagnostics Engine (Deep Dive)
+# `@ttsc/lint`: Diagnostics Engine (Deep Dive)
 
 `@ttsc/lint` is the advanced tier of the tour. The first three plugins (`banner`, `strip`, `paths`) each keep transform logic in package-owned `driver/` files; `@ttsc/lint` ships ~13,000 lines of Go across 50 files, plus a TypeScript-side factory that evaluates `lint.config.ts` through `ttsx`, plus a public Go module for third-party rule contributors. This walkthrough is long because the engine is multi-file, but every section corresponds to one concrete file you can open in [`packages/lint/`](https://github.com/samchon/ttsc/tree/master/packages/lint).
 
-**Prerequisites.** From the tour: [banner](/docs/development/walkthroughs/banner) (the `main` → `run` → `switch` dispatcher, exit-code conventions), [strip](/docs/development/walkthroughs/strip) (NodeList filtering, the `dottedName` recursion), and [paths](/docs/development/walkthroughs/paths) (the constructor-caches-Program shape that `linthost/host.go` mirrors). The synthesize-flag invariant from paths does **not** apply here — lint never mutates leaf-text. The `recover()` panic barrier is introduced for the first time on this page. Optional: skim [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics) before reading "A type-aware rule" below.
+**Prerequisites.** From the tour: [banner](/docs/development/walkthroughs/banner) (the `main` → `run` → `switch` dispatcher, exit-code conventions), [strip](/docs/development/walkthroughs/strip) (NodeList filtering, the `dottedName` recursion), and [paths](/docs/development/walkthroughs/paths) (the constructor-caches-Program shape that `linthost/host.go` mirrors). The synthesize-flag invariant from paths does **not** apply here, lint never mutates leaf-text. The `recover()` panic barrier is introduced for the first time on this page. Optional: skim [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics) before reading "A type-aware rule" below.
 
 ## What it does for the consumer
 
 `@ttsc/lint` is a check-stage plugin: it reports ESLint-shaped diagnostics from TypeScript-Go's Program and Checker before emit. The build/check host invokes it through five primary subcommands:
 
-| Subcommand  | Trigger                               | What it does                                                                                                                                                                                                                      |
-| ----------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check`     | `ttsc check`                          | Typecheck + lint. No emit. Exit non-zero on any error-severity finding.                                                                                                                                                           |
-| `fix`       | `ttsc fix`                            | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled.                                                                                                                                       |
-| `format`    | `ttsc format`                         | Apply _only_ format-class rule edits. Write-only — no diagnostics, no emit.                                                                                                                                                       |
-| `build`     | `ttsc build`                          | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set.                                                                                                                                                              |
-| `transform` | `@ttsc/unplugin` and programmatic API | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command — the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
+| Subcommand | Trigger | What it does |
+| --- | --- | --- |
+| `check` | `ttsc check` | Typecheck + lint. No emit. Exit non-zero on any error-severity finding. |
+| `fix` | `ttsc fix` | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled. |
+| `format` | `ttsc format` | Apply _only_ format-class rule edits. Write-only, no diagnostics, no emit. |
+| `build` | `ttsc build` | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set. |
+| `transform` | `@ttsc/unplugin` and programmatic API | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command, the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
 
-The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets
-`capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`,
-`lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
+The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets `capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`, `lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
 
 The minimum consumer wiring:
 
@@ -93,7 +91,7 @@ Two things are different from the earlier transform plugins:
 1. **The sidecar is a one-liner.** `plugin/main.go` is just `linthost.Main(os.Args[1:])`. The dispatcher lives in the library package `linthost`, which is also linked by the WASM playground at `packages/wasm/`. Keeping the dispatch logic in a library lets two different binaries (native + WASM) share one entrypoint.
 2. **The "real logic" is reusable.** Every symbol in `linthost/` is callable by anyone who imports the package. Third-party plugins that want the same "check + fix + format" surface can copy this pattern verbatim.
 
-If you are building a complex plugin yourself, **this is the shape to copy** — not banner/strip/paths.
+If you are building a complex plugin yourself, **this is the shape to copy**, not banner/strip/paths.
 
 ## The sidecar (`plugin/main.go`)
 
@@ -190,21 +188,13 @@ Two design decisions worth highlighting:
 
 **Why not `driver.LoadProgram`?** The doc-comment in `host.go` explains:
 
-> We don't import `github.com/samchon/ttsc/packages/ttsc/driver` from a source plugin because that would force every consumer of @ttsc/lint to have the in-tree samchon/ttsc/packages/ttsc module on their go.work — a dependency the public proxy cannot satisfy and that conflicts with ttsc's runtime-generated go.work overlay.
+> We don't import `github.com/samchon/ttsc/packages/ttsc/driver` from a source plugin because that would force every consumer of @ttsc/lint to have the in-tree samchon/ttsc/packages/ttsc module on their go.work. A dependency the public proxy cannot satisfy and that conflicts with ttsc's runtime-generated go.work overlay.
 
-In practice: `driver.LoadProgram` is the right choice for _third-party_ plugins,
-but `@ttsc/lint` itself lives inside the monorepo and ships Go sidecar source
-that `ttsc` builds on demand; the same engine package is also linked into the
-WASM playground. The library copy of the bootstrap keeps the dependency graph
-clean for both consumers.
+In practice: `driver.LoadProgram` is the right choice for _third-party_ plugins, but `@ttsc/lint` itself lives inside the monorepo and ships Go sidecar source that `ttsc` builds on demand; the same engine package is also linked into the WASM playground. The library copy of the bootstrap keeps the dependency graph clean for both consumers.
 
 **For your own plugin, ignore this complication.** Call `driver.LoadProgram` directly; the doc-comment caveat does not apply to plugins built and consumed outside this repo.
 
-**`userSourceFiles` follows tsconfig roots.** Every lint pass walks the TS/JS
-source roots from `parsedConfig.fileNames`, including user-authored `*.d.ts`
-files. Imported implementation files, library declarations, generated output,
-and JSON modules may still appear in `Program.SourceFiles()`, so `host.go`
-filters them before lint and format run.
+**`userSourceFiles` follows tsconfig roots.** Every lint pass walks the TS/JS source roots from `parsedConfig.fileNames`, including user-authored `*.d.ts` files. Imported implementation files, library declarations, generated output, and JSON modules may still appear in `Program.SourceFiles()`, so `host.go` filters them before lint and format run.
 
 ## Subcommand orchestration (`linthost/compile.go`)
 
@@ -233,14 +223,14 @@ func RunTransform(args []string) int { ... } // single-file emit
 7. If `opts.noEmit` is false, calls `prog.tsProgram.Emit(EmitOptions{})` to write JavaScript and declarations.
 8. Returns exit code based on `CountErrors(astDiags) + CountErrors(lintDiags)`.
 
-The `Run*` functions are intentionally thin wrappers; the shared work is in `runProject` and `collectDiagnostics`. This is the same separation you saw between `main`/`run` in banner — testable functions with explicit inputs, exit codes returned not called.
+The `Run*` functions are intentionally thin wrappers; the shared work is in `runProject` and `collectDiagnostics`. This is the same separation you saw between `main`/`run` in banner, testable functions with explicit inputs, exit codes returned not called.
 
 ## Config resolution
 
-The config layer lives in `linthost/config.go` — the longest file in `linthost/` (~1,470 LOC) because it owns every way a user can declare rules:
+The config layer lives in `linthost/config.go`. The longest file in `linthost/` (~1,470 LOC) because it owns every way a user can declare rules:
 
 - **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
-- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}` — or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
+- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}`, or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
 - **`extends` in a config file**: a `lint.config.*` file may set `extends` to a base config file's path. The base is loaded first, then this file's `plugins`, `rules`, and `format` fields override it. Cyclic and over-deep `extends` chains are rejected with a typed error rather than recursed into.
 - **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 
@@ -257,7 +247,7 @@ type RuleResolver interface {
 
 The engine queries this resolver per file, so two files with different scopes can get different rule sets. The resolver also handles the `.gitignore`-like `ignores` field, returning a `ResolvedRuleConfig` with `Ignored: true` for excluded paths so the engine can short-circuit without walking the AST.
 
-For the TypeScript-side discovery (`lint.config.ts` evaluation through `ttsx`), see [`packages/lint/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/index.ts) — the JS factory spawns `ttsx` against a synthesized loader that extracts the user's `plugins` map, then writes the result to stdout as JSON. The Go side parses that JSON and feeds the resulting `contributors` into the plugin descriptor.
+For the TypeScript-side discovery (`lint.config.ts` evaluation through `ttsx`), see [`packages/lint/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/index.ts), the JS factory spawns `ttsx` against a synthesized loader that extracts the user's `plugins` map, then writes the result to stdout as JSON. The Go side parses that JSON and feeds the resulting `contributors` into the plugin descriptor.
 
 ## The engine (`linthost/engine.go`)
 
@@ -304,7 +294,7 @@ type Engine struct {
 }
 ```
 
-The constructor also deduplicates kinds per rule — if a contributor accidentally listed `KindCallExpression` twice in `Visits()`, it only registers once. This is a deliberate kindness; the alternative would be a rule that silently fires twice per call.
+The constructor also deduplicates kinds per rule, if a contributor accidentally listed `KindCallExpression` twice in `Visits()`, it only registers once. This is a deliberate kindness; the alternative would be a rule that silently fires twice per call.
 
 `unknown` collects names from the user's config that have no registered implementation. The CLI surfaces these as configuration warnings instead of silent typos.
 
@@ -351,11 +341,11 @@ Four things to take away:
 
 **Per-node fan-out by kind.** The map lookup is O(1); the inner loop is O(active rules for this kind). For 100 rules and 100,000 nodes, the work is roughly 100,000 × (lookup) + sum over rules × matching nodes.
 
-**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}` — the canonical shape for rules that scan comments or run once per file (e.g. `ban-ts-comment`, the contributor demo's `no-todo-comment`) — fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need _both_ per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
+**`KindSourceFile` rules are dispatched separately.** A rule whose `Visits()` returns `[]shimast.Kind{shimast.KindSourceFile}`. The canonical shape for rules that scan comments or run once per file (e.g. `ban-ts-comment`, the contributor demo's `no-todo-comment`). Fires from the pre-walk block, not from inside the closure. The closure only ever receives statement nodes. If you ever need _both_ per-file-and-per-node dispatch in one rule, register multiple kinds in `Visits()` and branch on `node.Kind` inside `Check`.
 
 **Severity is per-file.** `fileRules.Severity(name)` is queried at dispatch time, not engine bootstrap, because `files: ["src/**.test.ts"]` scopes can shift the severity per file.
 
-**`runRuleCheck` has a `recover()` barrier.** A panicking rule does not abort the whole `ttsc check` run; the panic is converted into a `SeverityError` finding tagged with the rule's name. This is the only place in the repo where `recover()` is part of the design — the engine treats third-party rule code as adversarial input.
+**`runRuleCheck` has a `recover()` barrier.** A panicking rule does not abort the whole `ttsc check` run; the panic is converted into a `SeverityError` finding tagged with the rule's name. This is the only place in the repo where `recover()` is part of the design, the engine treats third-party rule code as adversarial input.
 
 ```go
 func runRuleCheck(rule Rule, ctx *Context, node *shimast.Node, collect func(*Finding)) {
@@ -418,13 +408,13 @@ Three observations:
 
 - **The rule is a value receiver.** `no-debugger{}` is an empty struct; the engine constructs `Context` and passes it by pointer, so the rule itself does not need fields. Most built-in rules are empty structs because rule state would leak across files.
 - **`Visits()` returns one kind.** The engine only invokes `Check` on `DebuggerStatement` nodes. Every other node kind walks past this rule.
-- **`init()` registers the rule.** Every `rules_*.go` file ends with one or more `Register` calls in `init()`. Two rules with the same `Name()` panic at startup — `Register` checks for the duplicate before storing — which is exactly the failure you want for a typo. (Within one file, `init` functions run in source order; across files in a package, the Go toolchain runs them in filename order. Either way the panic is reachable: only the file that reports it changes.)
+- **`init()` registers the rule.** Every `rules_*.go` file ends with one or more `Register` calls in `init()`. Two rules with the same `Name()` panic at startup, `Register` checks for the duplicate before storing, which is exactly the failure you want for a typo. (Within one file, `init` functions run in source order; across files in a package, the Go toolchain runs them in filename order. Either way the panic is reachable: only the file that reports it changes.)
 
 `no-console` (in `rules_console.go`) is the next-simplest case, adding a dotted-name check on the callee. The pattern is the same `dottedName` recursion you read in the [strip walkthrough](/docs/development/walkthroughs/strip#6-match-call-patterns).
 
 ## A type-aware rule: `await-thenable`
 
-For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `isThenableType` helper detects whether a type carries a callable `.then` member — exactly the structural test ECMAScript uses for `await`:
+For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `isThenableType` helper detects whether a type carries a callable `.then` member, exactly the structural test ECMAScript uses for `await`:
 
 ```go
 func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
@@ -438,10 +428,10 @@ func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
 
 The rule's `Check` first calls `checker.GetTypeAtLocation(expr)` on the awaited expression, then passes that `*Type` here. Two Checker calls inside the helper:
 
-- `GetPropertyOfType(t, "then")` — look up a member by name. Returns `*Symbol` or nil.
-- `GetSignaturesOfType(thenT, SignatureKindCall)` — get every callable signature on the property type.
+- `GetPropertyOfType(t, "then")`: look up a member by name. Returns `*Symbol` or nil.
+- `GetSignaturesOfType(thenT, SignatureKindCall)`: get every callable signature on the property type.
 
-If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding; `--fix` could autosuggest removing the `await` (though `await-thenable` does not — that's a design choice, not a technical constraint).
+If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding; `--fix` could autosuggest removing the `await` (though `await-thenable` does not, that's a design choice, not a technical constraint).
 
 For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics).
 
@@ -477,7 +467,7 @@ Designing fixes that emit one contiguous edit per finding is the safest pattern.
 7. Re-lint without applying anything and render any remaining findings.
 ```
 
-The cascade is bounded — 10 iterations by default — because rule pairs can in principle oscillate (rule A's fix triggers rule B's fix, which re-triggers rule A's fix). Bounding the iteration count prevents fix-mode from hanging on adversarial inputs.
+The cascade is bounded, 10 iterations by default, because rule pairs can in principle oscillate (rule A's fix triggers rule B's fix, which re-triggers rule A's fix). Bounding the iteration count prevents fix-mode from hanging on adversarial inputs.
 
 After every iteration, the Program is **reloaded** so subsequent passes see the typechecker against the _fixed_ source, not the original. This costs a tsgo re-parse per iteration; for projects with thousands of files the cost matters, which is why the cascade exists in `fix.go` (separate, optimisable) and not inline in `engine.go`.
 
@@ -493,7 +483,7 @@ The split is intentional: a developer can wire `ttsc format` into a pre-commit h
 
 ## Contributor adapter
 
-The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contributors use a **separate** Go package — [`github.com/samchon/ttsc/packages/lint/rule`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule) — that defines a _public_ `rule.Rule` interface, structurally identical to the internal one. The adapter wraps each contributor rule onto the engine's internal interface:
+The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contributors use a **separate** Go package, [`github.com/samchon/ttsc/packages/lint/rule`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule), that defines a _public_ `rule.Rule` interface, structurally identical to the internal one. The adapter wraps each contributor rule onto the engine's internal interface:
 
 ```go
 type contributorAdapter struct {
@@ -511,7 +501,7 @@ func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
 }
 ```
 
-Two adapters, not one — `contributorAdapter` for lint-class rules, `formatContributorAdapter` for format-class. The format variant adds a single `IsFormat() bool { return true }` method by **struct embedding** (`type formatContributorAdapter struct { contributorAdapter }`) — Go's substitute for inheritance, where the inner struct's fields and methods are promoted onto the outer struct, and any new method on the outer struct (here `IsFormat`) is added on top.
+Two adapters, not one, `contributorAdapter` for lint-class rules, `formatContributorAdapter` for format-class. The format variant adds a single `IsFormat() bool { return true }` method by **struct embedding** (`type formatContributorAdapter struct { contributorAdapter }`), Go's substitute for inheritance, where the inner struct's fields and methods are promoted onto the outer struct, and any new method on the outer struct (here `IsFormat`) is added on top.
 
 **Why two parallel interfaces?** The engine's internal `Rule` is allowed to evolve freely; the public `rule.Rule` is the stability boundary contributors compile against. By separating the two and bridging through an adapter, we can refactor the internal engine without breaking every published contributor.
 
@@ -588,7 +578,7 @@ Several constraints, enforced by the plugin builder ([Pitfalls → Contributor m
 
 - **No `go.mod`.** Contributors ship Go source as a _package_, not a _module_. The host plugin's `go.mod` governs every transitive dependency, which closes the supply-chain surface a contributor `go.mod` would otherwise open.
 - **Go package name = post-transform namespace.** `react-hooks` becomes `package react_hooks` because Go identifiers cannot contain hyphens.
-- **`init()` registers the rule.** Build-time ttsc synthesizes a `ttsc_contributions.go` in the host plugin's main package with `import _ "github.com/samchon/ttsc/packages/lint/contrib/demo"` — that blank import fires the contributor's `init()` before `main`.
+- **`init()` registers the rule.** Build-time ttsc synthesizes a `ttsc_contributions.go` in the host plugin's main package with `import _ "github.com/samchon/ttsc/packages/lint/contrib/demo"`, that blank import fires the contributor's `init()` before `main`.
 - **Rule names are namespaced.** `demo/no-todo-comment` is the user-facing name. The convention prevents collisions with built-ins.
 
 Wiring it on the consumer side via `lint.config.ts`:
@@ -619,7 +609,7 @@ ctx.ReportFix(node, "drop TODO comment", rule.TextEdit{
 `rule.Context.ReportFix` lives in the public `rule` package; it forwards to the host's `FixReporter` via a type assertion. The contract:
 
 - Older hosts (and most unit-test fake reporters) implement only the legacy `Report` / `ReportRange` methods. In that case, `ReportFix` falls back to `Report` and drops the edits silently. **Design the rule so the diagnostic alone is useful**; treat fixes as best-effort.
-- The host applies edits between the cascading native passes and the final no-emit check. If the user invoked `ttsc check` (no fix mode), edits are dropped entirely — `check` is read-only.
+- The host applies edits between the cascading native passes and the final no-emit check. If the user invoked `ttsc check` (no fix mode), edits are dropped entirely, `check` is read-only.
 
 For more autofix shapes, [`rule/astutil`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule/astutil) ships four byte-oriented helpers built-in rules already use: `NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`.
 
@@ -662,17 +652,17 @@ export default {
 
 Lint is the most-tested package in the repo:
 
-- **Go unit tests** in [`packages/lint/test/`](https://github.com/samchon/ttsc/tree/master/packages/lint/test/) — direct calls into `linthost` helpers, AST helper coverage.
-- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/) — over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `config/`, `plugin/`, `contributor/`.
-- **Contributor demo plugin** at [`tests/lint-contributor-demo/`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/) — the canonical "build a contributor from scratch" reference, used by every contributor-related e2e test.
+- **Go unit tests** in [`packages/lint/test/`](https://github.com/samchon/ttsc/tree/master/packages/lint/test/): direct calls into `linthost` helpers, AST helper coverage.
+- **End-to-end TypeScript tests** in [`tests/test-lint/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/): over 200 cases, every rule pinned by at least one assertion. Subdirectories: `rules/`, `fix/`, `format/`, `config/`, `plugin/`, `contributor/`.
+- **Contributor demo plugin** at [`tests/lint-contributor-demo/`](https://github.com/samchon/ttsc/tree/master/tests/lint-contributor-demo/): the canonical "build a contributor from scratch" reference, used by every contributor-related e2e test.
 
-When you write your own rule, start by copying the test shape from [`tests/test-lint/src/features/rules/no-debugger/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/rules/) — one assertion per file, materialize a fixture, run the real `ttsc check`, assert exit code and stderr substring.
+When you write your own rule, start by copying the test shape from [`tests/test-lint/src/features/rules/no-debugger/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/features/rules/). One assertion per file, materialize a fixture, run the real `ttsc check`, assert exit code and stderr substring.
 
 ## Where to read next
 
 Operational follow-ups:
 
-- [Architecture](/docs/development/reference/architecture) — the cache, the Go toolchain resolver, the `TTSC_*_BINARY` env vars `@ttsc/lint` itself relies on.
-- [Driver API](/docs/development/reference/driver-api) — the curated façade your own plugins should call (the same surface `@ttsc/lint` would call if it lived outside this monorepo).
-- [Pitfalls](/docs/development/reference/pitfalls) — every failure mode this tour referenced, with exact host error strings.
-- [Authoring → Recipes](/docs/development/authoring/recipes) — copy-paste patterns for the techniques the tour explained at depth.
+- [Architecture](/docs/development/reference/architecture): the cache, the Go toolchain resolver, the `TTSC_*_BINARY` env vars `@ttsc/lint` itself relies on.
+- [Driver API](/docs/development/reference/driver-api): the curated façade your own plugins should call (the same surface `@ttsc/lint` would call if it lived outside this monorepo).
+- [Pitfalls](/docs/development/reference/pitfalls): every failure mode this tour referenced, with exact host error strings.
+- [Authoring → Recipes](/docs/development/authoring/recipes): copy-paste patterns for the techniques the tour explained at depth.

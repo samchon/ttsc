@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-mixed-types.
 // 3. Assert the mixed member reports and offers no autofix.
 func TestFunctionalNoMixedTypesRejectsMethodAndProperty(t *testing.T) {
-	const ruleName = "functional/no-mixed-types"
-	findings := runFunctionalRule(t, ruleName, `interface Mixed { value: string; run(): void; }`)
-	assertFunctionalFinding(t, ruleName, findings, "same kind")
+  const ruleName = "functional/no-mixed-types"
+  findings := runFunctionalRule(t, ruleName, `interface Mixed { value: string; run(): void; }`)
+  assertFunctionalFinding(t, ruleName, findings, "same kind")
 }

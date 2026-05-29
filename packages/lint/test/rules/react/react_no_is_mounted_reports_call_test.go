@@ -10,5 +10,5 @@ import "testing"
 // 2. Enable only `react/no-is-mounted`.
 // 3. Assert the call is reported.
 func TestReactNoIsMountedReportsCall(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-is-mounted", `class C { check() { return this.isMounted(); } }`, "isMounted")
+  assertReactRuleFinds(t, "react/no-is-mounted", `class C { check() { return this.isMounted(); } }`, "isMounted")
 }

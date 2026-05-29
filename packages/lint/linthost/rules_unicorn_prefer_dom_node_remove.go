@@ -16,26 +16,26 @@ type unicornPreferDomNodeRemove struct{}
 
 func (unicornPreferDomNodeRemove) Name() string { return "unicorn/prefer-dom-node-remove" }
 func (unicornPreferDomNodeRemove) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferDomNodeRemove) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "removeChild" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	ctx.Report(node, "Prefer `ChildNode#remove()` over `parentNode.removeChild(child)`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "removeChild" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  ctx.Report(node, "Prefer `ChildNode#remove()` over `parentNode.removeChild(child)`.")
 }
 
 func init() {
-	Register(unicornPreferDomNodeRemove{})
+  Register(unicornPreferDomNodeRemove{})
 }

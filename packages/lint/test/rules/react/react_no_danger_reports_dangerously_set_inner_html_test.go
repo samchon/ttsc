@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/no-danger`.
 // 3. Assert the prop is reported.
 func TestReactNoDangerReportsDangerouslySetInnerHTML(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-danger", `const C = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }} />;`, "dangerouslySetInnerHTML")
+  assertReactRuleFinds(t, "react/no-danger", `const C = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }} />;`, "dangerouslySetInnerHTML")
 }

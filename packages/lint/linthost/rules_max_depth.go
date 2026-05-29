@@ -8,9 +8,9 @@
 package linthost
 
 import (
-	"fmt"
+  "fmt"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // maxDepthLimit is the block-nesting ceiling. Above this value the rule
@@ -22,22 +22,22 @@ type maxDepth struct{}
 
 func (maxDepth) Name() string { return "max-depth" }
 func (maxDepth) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindFunctionExpression,
-		shimast.KindArrowFunction,
-		shimast.KindMethodDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+  }
 }
 func (maxDepth) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	body := node.Body()
-	if body == nil || body.Kind != shimast.KindBlock {
-		return
-	}
-	walkMaxDepthBody(body, node, 0, ctx)
+  if node == nil {
+    return
+  }
+  body := node.Body()
+  if body == nil || body.Kind != shimast.KindBlock {
+    return
+  }
+  walkMaxDepthBody(body, node, 0, ctx)
 }
 
 // walkMaxDepthBody descends through `root` counting nested block-bearing
@@ -50,34 +50,34 @@ func (maxDepth) Check(ctx *Context, node *shimast.Node) {
 // recursive walk continues so independent over-limit branches each get
 // their own diagnostic.
 func walkMaxDepthBody(node *shimast.Node, fn *shimast.Node, depth int, ctx *Context) {
-	if node == nil {
-		return
-	}
-	if node != fn && isFunctionLikeKind(node) {
-		return
-	}
-	switch node.Kind {
-	case shimast.KindIfStatement,
-		shimast.KindForStatement,
-		shimast.KindForInStatement,
-		shimast.KindForOfStatement,
-		shimast.KindWhileStatement,
-		shimast.KindDoStatement,
-		shimast.KindSwitchStatement,
-		shimast.KindTryStatement,
-		shimast.KindCatchClause,
-		shimast.KindWithStatement:
-		depth++
-		if depth > maxDepthLimit {
-			ctx.Report(node, fmt.Sprintf("Blocks are nested too deeply (%d). Maximum allowed is %d.", depth, maxDepthLimit))
-		}
-	}
-	node.ForEachChild(func(child *shimast.Node) bool {
-		walkMaxDepthBody(child, fn, depth, ctx)
-		return false
-	})
+  if node == nil {
+    return
+  }
+  if node != fn && isFunctionLikeKind(node) {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindIfStatement,
+    shimast.KindForStatement,
+    shimast.KindForInStatement,
+    shimast.KindForOfStatement,
+    shimast.KindWhileStatement,
+    shimast.KindDoStatement,
+    shimast.KindSwitchStatement,
+    shimast.KindTryStatement,
+    shimast.KindCatchClause,
+    shimast.KindWithStatement:
+    depth++
+    if depth > maxDepthLimit {
+      ctx.Report(node, fmt.Sprintf("Blocks are nested too deeply (%d). Maximum allowed is %d.", depth, maxDepthLimit))
+    }
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    walkMaxDepthBody(child, fn, depth, ctx)
+    return false
+  })
 }
 
 func init() {
-	Register(maxDepth{})
+  Register(maxDepth{})
 }

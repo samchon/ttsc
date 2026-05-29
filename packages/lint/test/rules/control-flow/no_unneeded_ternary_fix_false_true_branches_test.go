@@ -15,10 +15,10 @@ import "testing"
 // 2. Apply `no-unneeded-ternary` fix.
 // 3. Assert the result is `!x` with no parens.
 func TestFixNoUnneededTernaryRewritesFalseTrueBranches(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"no-unneeded-ternary",
-		"function f(x: any) {\n  return x ? false : true;\n}\nJSON.stringify(f);\n",
-		"function f(x: any) {\n  return !x;\n}\nJSON.stringify(f);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "no-unneeded-ternary",
+    "function f(x: any) {\n  return x ? false : true;\n}\nJSON.stringify(f);\n",
+    "function f(x: any) {\n  return !x;\n}\nJSON.stringify(f);\n",
+  )
 }

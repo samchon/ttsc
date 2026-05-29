@@ -15,5 +15,5 @@ import "testing"
 // 2. Iterate `[...arr.entries()]` with a `for…of` loop.
 // 3. Assert the outer array literal is reported.
 func TestRuleCorpusUnicornNoUselessIteratorToArray(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-iterator-to-array.ts", "const arr = [1, 2];\n// expect: unicorn/no-useless-iterator-to-array error\nfor (const e of [...arr.entries()]) { void e; }\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-iterator-to-array.ts", "const arr = [1, 2];\n// expect: unicorn/no-useless-iterator-to-array error\nfor (const e of [...arr.entries()]) { void e; }\n")
 }

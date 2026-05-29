@@ -18,22 +18,22 @@ type defaultCase struct{}
 func (defaultCase) Name() string           { return "default-case" }
 func (defaultCase) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSwitchStatement} }
 func (defaultCase) Check(ctx *Context, node *shimast.Node) {
-	sw := node.AsSwitchStatement()
-	if sw == nil || sw.CaseBlock == nil {
-		return
-	}
-	block := sw.CaseBlock.AsCaseBlock()
-	if block == nil || block.Clauses == nil {
-		return
-	}
-	for _, clause := range block.Clauses.Nodes {
-		if clause != nil && clause.Kind == shimast.KindDefaultClause {
-			return
-		}
-	}
-	ctx.Report(node, "Expected a default case.")
+  sw := node.AsSwitchStatement()
+  if sw == nil || sw.CaseBlock == nil {
+    return
+  }
+  block := sw.CaseBlock.AsCaseBlock()
+  if block == nil || block.Clauses == nil {
+    return
+  }
+  for _, clause := range block.Clauses.Nodes {
+    if clause != nil && clause.Kind == shimast.KindDefaultClause {
+      return
+    }
+  }
+  ctx.Report(node, "Expected a default case.")
 }
 
 func init() {
-	Register(defaultCase{})
+  Register(defaultCase{})
 }

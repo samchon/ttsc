@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnsafeMemberAccess verifies the lint rule corpus
@@ -27,20 +27,20 @@ import (
 // 2. Run `check` with typescript/no-unsafe-member-access enabled.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnsafeMemberAccess(t *testing.T) {
-	root := seedLintProject(t, `declare const anyValue: any;
+  root := seedLintProject(t, `declare const anyValue: any;
 const prop = anyValue.foo;
 JSON.stringify({ prop });
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unsafe-member-access": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unsafe-member-access": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-member-access]") {
-		t.Fatalf("no-unsafe-member-access diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-member-access]") {
+    t.Fatalf("no-unsafe-member-access diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

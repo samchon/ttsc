@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusRelatedGetterSetterPairs verifies the lint rule corpus
@@ -17,14 +17,14 @@ import (
 // `restrict-plus-operands`: materialize a tsconfig project, run
 // `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// 1. Seed a project where a class declares `get value(): string` and
-//    `set value(next: number)` — the reader sees `string`, the writer
-//    accepts only `number`.
-// 2. Run `check` with typescript/related-getter-setter-pairs enabled as
-//    error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project where a class declares `get value(): string` and
+//     `set value(next: number)` — the reader sees `string`, the writer
+//     accepts only `number`.
+//  2. Run `check` with typescript/related-getter-setter-pairs enabled as
+//     error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusRelatedGetterSetterPairs(t *testing.T) {
-	root := seedLintProject(t, `class Mismatch {
+  root := seedLintProject(t, `class Mismatch {
   private _value = "abc";
   get value(): string {
     return this._value;
@@ -35,16 +35,16 @@ func TestRuleCorpusRelatedGetterSetterPairs(t *testing.T) {
 }
 JSON.stringify({ Mismatch });
 `)
-	seedLintRules(t, root, map[string]string{"typescript/related-getter-setter-pairs": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/related-getter-setter-pairs": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/related-getter-setter-pairs]") {
-		t.Fatalf("related-getter-setter-pairs diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/related-getter-setter-pairs]") {
+    t.Fatalf("related-getter-setter-pairs diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

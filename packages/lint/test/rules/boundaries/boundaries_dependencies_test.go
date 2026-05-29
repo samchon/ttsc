@@ -17,11 +17,11 @@ import "testing"
 // 2. Configure `boundaries/dependencies` with the equivalent policy.
 // 3. Assert zero findings (stub behavior).
 func TestBoundariesDependenciesLoadsWithoutDiagnostics(t *testing.T) {
-	const ruleName = "boundaries/dependencies"
-	if LookupRule(ruleName) == nil {
-		t.Fatalf("missing %s rule registration", ruleName)
-	}
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/dependencies"
+  if LookupRule(ruleName) == nil {
+    t.Fatalf("missing %s rule registration", ruleName)
+  }
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "../domain/internal";
     import "./local";
   `, `{
@@ -33,10 +33,10 @@ func TestBoundariesDependenciesLoadsWithoutDiagnostics(t *testing.T) {
       { "from": "app", "disallow": "domain" }
     ]
   }`, map[string]string{
-		"src/app/local.ts":       "export {};",
-		"src/domain/internal.ts": "export {};",
-	})
-	if len(findings) != 0 {
-		t.Fatalf("%s v1 stub must not emit diagnostics yet, got %d (%+v)", ruleName, len(findings), findings)
-	}
+    "src/app/local.ts":       "export {};",
+    "src/domain/internal.ts": "export {};",
+  })
+  if len(findings) != 0 {
+    t.Fatalf("%s v1 stub must not emit diagnostics yet, got %d (%+v)", ruleName, len(findings), findings)
+  }
 }

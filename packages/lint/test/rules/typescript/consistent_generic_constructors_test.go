@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusTypescriptConsistentGenericConstructors(t *testing.T) {
-	assertRuleCorpusCase(t, "typescript-consistent-generic-constructors.ts", "// expect: typescript/consistent-generic-constructors error\nconst m: Map<string, number> = new Map<string, number>();\nJSON.stringify(m);\n")
+  assertRuleCorpusCase(t, "typescript-consistent-generic-constructors.ts", "// expect: typescript/consistent-generic-constructors error\nconst m: Map<string, number> = new Map<string, number>();\nJSON.stringify(m);\n")
 }

@@ -8,8 +8,8 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // requireArraySortCompare reports `<arr>.sort()` and `<arr>.toSorted()`
@@ -19,42 +19,42 @@ import (
 type requireArraySortCompare struct{}
 
 func (requireArraySortCompare) Name() string {
-	return "typescript/require-array-sort-compare"
+  return "typescript/require-array-sort-compare"
 }
 func (requireArraySortCompare) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (requireArraySortCompare) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (requireArraySortCompare) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	// Only fire when the callee is a property access ending in `.sort`
-	// or `.toSorted` and the call passes zero arguments.
-	receiver, method, ok := promisePropertyAccessParts(call.Expression)
-	if !ok || (method != "sort" && method != "toSorted") {
-		return
-	}
-	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-		return
-	}
-	if receiver == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(receiver)
-	if t == nil {
-		return
-	}
-	if !requireArraySortCompareIsArrayLike(ctx.Checker, t) {
-		return
-	}
-	ctx.Report(node, "Require an explicit compareFunction for `."+method+"()` — without one, elements are coerced to strings before being ordered.")
+  if ctx.Checker == nil {
+    return
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  // Only fire when the callee is a property access ending in `.sort`
+  // or `.toSorted` and the call passes zero arguments.
+  receiver, method, ok := promisePropertyAccessParts(call.Expression)
+  if !ok || (method != "sort" && method != "toSorted") {
+    return
+  }
+  if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    return
+  }
+  if receiver == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(receiver)
+  if t == nil {
+    return
+  }
+  if !requireArraySortCompareIsArrayLike(ctx.Checker, t) {
+    return
+  }
+  ctx.Report(node, "Require an explicit compareFunction for `."+method+"()` — without one, elements are coerced to strings before being ordered.")
 }
 
 // requireArraySortCompareIsArrayLike reports whether t is provably an
@@ -64,33 +64,33 @@ func (requireArraySortCompare) Check(ctx *Context, node *shimast.Node) {
 // are intentionally NOT treated as array-like — they propagate from
 // generic helpers and would explode the false-positive volume.
 func requireArraySortCompareIsArrayLike(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-	if checker == nil || t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return false
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if !requireArraySortCompareIsArrayLike(checker, part) {
-				return false
-			}
-		}
-		return true
-	}
-	if shimchecker.Checker_isArrayType(checker, t) {
-		return true
-	}
-	if shimchecker.IsTupleType(t) {
-		return true
-	}
-	return false
+  if checker == nil || t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return false
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if !requireArraySortCompareIsArrayLike(checker, part) {
+        return false
+      }
+    }
+    return true
+  }
+  if shimchecker.Checker_isArrayType(checker, t) {
+    return true
+  }
+  if shimchecker.IsTupleType(t) {
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(requireArraySortCompare{})
+  Register(requireArraySortCompare{})
 }

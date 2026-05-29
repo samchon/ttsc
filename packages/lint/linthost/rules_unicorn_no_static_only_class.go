@@ -21,36 +21,36 @@ type unicornNoStaticOnlyClass struct{}
 
 func (unicornNoStaticOnlyClass) Name() string { return "unicorn/no-static-only-class" }
 func (unicornNoStaticOnlyClass) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindClassDeclaration, shimast.KindClassExpression}
+  return []shimast.Kind{shimast.KindClassDeclaration, shimast.KindClassExpression}
 }
 func (unicornNoStaticOnlyClass) Check(ctx *Context, node *shimast.Node) {
-	if classHasHeritage(node) {
-		return
-	}
-	members := classMembers(node)
-	if len(members) == 0 {
-		// Empty classes are out of scope — separate rule territory.
-		return
-	}
-	for _, member := range members {
-		if member == nil {
-			return
-		}
-		switch member.Kind {
-		case shimast.KindMethodDeclaration,
-			shimast.KindPropertyDeclaration,
-			shimast.KindGetAccessor,
-			shimast.KindSetAccessor:
-			if !hasModifier(member, shimast.KindStaticKeyword) {
-				return
-			}
-		default:
-			return
-		}
-	}
-	ctx.Report(node, "A class with only static members can be replaced by a plain object or module namespace.")
+  if classHasHeritage(node) {
+    return
+  }
+  members := classMembers(node)
+  if len(members) == 0 {
+    // Empty classes are out of scope — separate rule territory.
+    return
+  }
+  for _, member := range members {
+    if member == nil {
+      return
+    }
+    switch member.Kind {
+    case shimast.KindMethodDeclaration,
+      shimast.KindPropertyDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor:
+      if !hasModifier(member, shimast.KindStaticKeyword) {
+        return
+      }
+    default:
+      return
+    }
+  }
+  ctx.Report(node, "A class with only static members can be replaced by a plain object or module namespace.")
 }
 
 func init() {
-	Register(unicornNoStaticOnlyClass{})
+  Register(unicornNoStaticOnlyClass{})
 }

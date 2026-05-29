@@ -15,5 +15,5 @@ import "testing"
 // 2. Declare `const obj = entries.reduce(reducer, {});`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferObjectFromEntries(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-object-from-entries.ts", "const entries: Array<[string, number]> = [[\"a\", 1]];\n// expect: unicorn/prefer-object-from-entries error\nconst obj = entries.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});\nvoid obj;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-object-from-entries.ts", "const entries: Array<[string, number]> = [[\"a\", 1]];\n// expect: unicorn/prefer-object-from-entries error\nconst obj = entries.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});\nvoid obj;\n")
 }

@@ -1,9 +1,9 @@
 package linthost
 
 import (
-	"testing"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestTSDocSyntaxReportsMalformedDocTags verifies jsdoc/tsdoc-syntax catches malformed TSDoc tags.
@@ -17,7 +17,7 @@ import (
 // 2. Run the native Engine with only jsdoc/tsdoc-syntax enabled.
 // 3. Assert the diagnostic lines match the malformed doc comment lines.
 func TestTSDocSyntaxReportsMalformedDocTags(t *testing.T) {
-	source := `const shadow = "/** {@link Missing */";
+  source := `const shadow = "/** {@link Missing */";
 /**
  * Links to {@link Missing
  */
@@ -39,20 +39,20 @@ export function three(name: string): string { return name; }
  */
 export const ok = 1;
 `
-	file := parseTS(t, source)
-	findings := NewEngine(RuleConfig{"jsdoc/tsdoc-syntax": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	actual := normalizeRuleFindings(file, findings)
-	expected := []ruleExpectation{
-		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 3},
-		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 7},
-		{Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 12},
-	}
-	if len(actual) != len(expected) {
-		t.Fatalf("want %v, got %v", expected, actual)
-	}
-	for i := range expected {
-		if actual[i] != expected[i] {
-			t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
-		}
-	}
+  file := parseTS(t, source)
+  findings := NewEngine(RuleConfig{"jsdoc/tsdoc-syntax": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  actual := normalizeRuleFindings(file, findings)
+  expected := []ruleExpectation{
+    {Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 3},
+    {Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 7},
+    {Rule: "jsdoc/tsdoc-syntax", Severity: SeverityError, Line: 12},
+  }
+  if len(actual) != len(expected) {
+    t.Fatalf("want %v, got %v", expected, actual)
+  }
+  for i := range expected {
+    if actual[i] != expected[i] {
+      t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
+    }
+  }
 }

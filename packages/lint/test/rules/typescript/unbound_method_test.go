@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusUnboundMethod verifies the lint rule corpus fixture
@@ -25,7 +25,7 @@ import (
 // 2. Run `check` with typescript/unbound-method enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusUnboundMethod(t *testing.T) {
-	root := seedLintProject(t, `class Greeter {
+  root := seedLintProject(t, `class Greeter {
   public name = "world";
   public greet(): string {
     return this.name;
@@ -35,16 +35,16 @@ const g = new Greeter();
 const fn = g.greet;
 JSON.stringify(fn);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/unbound-method": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/unbound-method": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/unbound-method]") {
-		t.Fatalf("unbound-method diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/unbound-method]") {
+    t.Fatalf("unbound-method diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

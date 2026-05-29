@@ -20,55 +20,55 @@ type unicornPreferNegativeIndex struct{}
 
 func (unicornPreferNegativeIndex) Name() string { return "unicorn/prefer-negative-index" }
 func (unicornPreferNegativeIndex) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferNegativeIndex) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "slice", "splice", "toSpliced", "at", "lastIndexOf":
-	default:
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-		return
-	}
-	first := stripParens(call.Arguments.Nodes[0])
-	if first == nil || first.Kind != shimast.KindBinaryExpression {
-		return
-	}
-	bin := first.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil ||
-		bin.OperatorToken.Kind != shimast.KindMinusToken {
-		return
-	}
-	left := stripParens(bin.Left)
-	if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	prop := left.AsPropertyAccessExpression()
-	if prop == nil || identifierText(prop.Name()) != "length" {
-		return
-	}
-	right := stripParens(bin.Right)
-	if right == nil || right.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	if !unicornPreferAtIsPositiveInteger(numericLiteralText(right)) {
-		return
-	}
-	ctx.Report(first, "Use a negative index (`-N`) instead of `arr.length - N`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "slice", "splice", "toSpliced", "at", "lastIndexOf":
+  default:
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  first := stripParens(call.Arguments.Nodes[0])
+  if first == nil || first.Kind != shimast.KindBinaryExpression {
+    return
+  }
+  bin := first.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil ||
+    bin.OperatorToken.Kind != shimast.KindMinusToken {
+    return
+  }
+  left := stripParens(bin.Left)
+  if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  prop := left.AsPropertyAccessExpression()
+  if prop == nil || identifierText(prop.Name()) != "length" {
+    return
+  }
+  right := stripParens(bin.Right)
+  if right == nil || right.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  if !unicornPreferAtIsPositiveInteger(numericLiteralText(right)) {
+    return
+  }
+  ctx.Report(first, "Use a negative index (`-N`) instead of `arr.length - N`.")
 }
 
 func init() {
-	Register(unicornPreferNegativeIndex{})
+  Register(unicornPreferNegativeIndex{})
 }

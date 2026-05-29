@@ -17,45 +17,45 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornThrowNewErrorBuiltinNames = map[string]struct{}{
-	"Error":          {},
-	"TypeError":      {},
-	"RangeError":     {},
-	"SyntaxError":    {},
-	"ReferenceError": {},
-	"EvalError":      {},
-	"URIError":       {},
-	"AggregateError": {},
+  "Error":          {},
+  "TypeError":      {},
+  "RangeError":     {},
+  "SyntaxError":    {},
+  "ReferenceError": {},
+  "EvalError":      {},
+  "URIError":       {},
+  "AggregateError": {},
 }
 
 type unicornThrowNewError struct{}
 
 func (unicornThrowNewError) Name() string { return "unicorn/throw-new-error" }
 func (unicornThrowNewError) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindThrowStatement}
+  return []shimast.Kind{shimast.KindThrowStatement}
 }
 func (unicornThrowNewError) Check(ctx *Context, node *shimast.Node) {
-	throw := node.AsThrowStatement()
-	if throw == nil {
-		return
-	}
-	expr := stripParens(throw.Expression)
-	if expr == nil || expr.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := expr.AsCallExpression()
-	if call == nil {
-		return
-	}
-	name := identifierText(call.Expression)
-	if name == "" {
-		return
-	}
-	if _, ok := unicornThrowNewErrorBuiltinNames[name]; !ok {
-		return
-	}
-	ctx.Report(expr, "Use `new` when throwing an error.")
+  throw := node.AsThrowStatement()
+  if throw == nil {
+    return
+  }
+  expr := stripParens(throw.Expression)
+  if expr == nil || expr.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := expr.AsCallExpression()
+  if call == nil {
+    return
+  }
+  name := identifierText(call.Expression)
+  if name == "" {
+    return
+  }
+  if _, ok := unicornThrowNewErrorBuiltinNames[name]; !ok {
+    return
+  }
+  ctx.Report(expr, "Use `new` when throwing an error.")
 }
 
 func init() {
-	Register(unicornThrowNewError{})
+  Register(unicornThrowNewError{})
 }

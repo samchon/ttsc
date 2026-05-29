@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/aria-unsupported-elements`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yAriaUnsupportedElementsRejectsMetaAria(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/aria-unsupported-elements", `const Component = () => <meta aria-label="description" />;`, "ARIA")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/aria-unsupported-elements", `const Component = () => <meta aria-label="description" />;`, "ARIA")
 }

@@ -20,12 +20,12 @@ type unicornNoNewBuffer struct{}
 func (unicornNoNewBuffer) Name() string           { return "unicorn/no-new-buffer" }
 func (unicornNoNewBuffer) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindNewExpression} }
 func (unicornNoNewBuffer) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne != nil && identifierText(ne.Expression) == "Buffer" {
-		ctx.Report(node, "`new Buffer()` is deprecated, use `Buffer.from()` or `Buffer.alloc()` instead.")
-	}
+  ne := node.AsNewExpression()
+  if ne != nil && identifierText(ne.Expression) == "Buffer" {
+    ctx.Report(node, "`new Buffer()` is deprecated, use `Buffer.from()` or `Buffer.alloc()` instead.")
+  }
 }
 
 func init() {
-	Register(unicornNoNewBuffer{})
+  Register(unicornNoNewBuffer{})
 }

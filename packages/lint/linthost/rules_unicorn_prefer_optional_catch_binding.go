@@ -19,44 +19,44 @@
 package linthost
 
 import (
-	"regexp"
+  "regexp"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 var unicornPreferOptionalCatchBindingNamePattern = map[string]*regexp.Regexp{
-	"e":     regexp.MustCompile(`\be\b`),
-	"error": regexp.MustCompile(`\berror\b`),
+  "e":     regexp.MustCompile(`\be\b`),
+  "error": regexp.MustCompile(`\berror\b`),
 }
 
 type unicornPreferOptionalCatchBinding struct{}
 
 func (unicornPreferOptionalCatchBinding) Name() string {
-	return "unicorn/prefer-optional-catch-binding"
+  return "unicorn/prefer-optional-catch-binding"
 }
 func (unicornPreferOptionalCatchBinding) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCatchClause}
+  return []shimast.Kind{shimast.KindCatchClause}
 }
 func (unicornPreferOptionalCatchBinding) Check(ctx *Context, node *shimast.Node) {
-	catch := node.AsCatchClause()
-	if catch == nil || catch.VariableDeclaration == nil || catch.Block == nil {
-		return
-	}
-	binding := catch.VariableDeclaration.Name()
-	if binding == nil || binding.Kind != shimast.KindIdentifier {
-		return
-	}
-	name := identifierText(binding)
-	pattern, ok := unicornPreferOptionalCatchBindingNamePattern[name]
-	if !ok {
-		return
-	}
-	if pattern.MatchString(nodeText(ctx.File, catch.Block)) {
-		return
-	}
-	ctx.Report(binding, "Prefer optional catch binding `catch { ... }` when the error is unused.")
+  catch := node.AsCatchClause()
+  if catch == nil || catch.VariableDeclaration == nil || catch.Block == nil {
+    return
+  }
+  binding := catch.VariableDeclaration.Name()
+  if binding == nil || binding.Kind != shimast.KindIdentifier {
+    return
+  }
+  name := identifierText(binding)
+  pattern, ok := unicornPreferOptionalCatchBindingNamePattern[name]
+  if !ok {
+    return
+  }
+  if pattern.MatchString(nodeText(ctx.File, catch.Block)) {
+    return
+  }
+  ctx.Report(binding, "Prefer optional catch binding `catch { ... }` when the error is unused.")
 }
 
 func init() {
-	Register(unicornPreferOptionalCatchBinding{})
+  Register(unicornPreferOptionalCatchBinding{})
 }

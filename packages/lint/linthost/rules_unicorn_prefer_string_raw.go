@@ -16,28 +16,28 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type unicornPreferStringRaw struct{}
 
 func (unicornPreferStringRaw) Name() string { return "unicorn/prefer-string-raw" }
 func (unicornPreferStringRaw) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
+  return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
 }
 func (unicornPreferStringRaw) Check(ctx *Context, node *shimast.Node) {
-	raw := nodeText(ctx.File, node)
-	if raw == "" {
-		return
-	}
-	if !strings.Contains(raw, `\\`) {
-		return
-	}
-	ctx.Report(node, "Prefer `String.raw` for strings with backslash escapes.")
+  raw := nodeText(ctx.File, node)
+  if raw == "" {
+    return
+  }
+  if !strings.Contains(raw, `\\`) {
+    return
+  }
+  ctx.Report(node, "Prefer `String.raw` for strings with backslash escapes.")
 }
 
 func init() {
-	Register(unicornPreferStringRaw{})
+  Register(unicornPreferStringRaw{})
 }

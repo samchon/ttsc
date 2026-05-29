@@ -15,5 +15,5 @@ import "testing"
 // 2. Invoke the global `isNaN(0)`.
 // 3. Assert the identifier is reported.
 func TestRuleCorpusUnicornPreferNumberProperties(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-number-properties.ts", "// expect: unicorn/prefer-number-properties error\nvoid isNaN(0);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-number-properties.ts", "// expect: unicorn/prefer-number-properties error\nvoid isNaN(0);\n")
 }

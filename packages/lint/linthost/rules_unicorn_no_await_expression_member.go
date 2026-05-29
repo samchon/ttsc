@@ -18,23 +18,23 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoAwaitExpressionMember struct{}
 
 func (unicornNoAwaitExpressionMember) Name() string {
-	return "unicorn/no-await-expression-member"
+  return "unicorn/no-await-expression-member"
 }
 func (unicornNoAwaitExpressionMember) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornNoAwaitExpressionMember) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindAwaitExpression {
-		return
-	}
-	ctx.Report(node, "Don't use member access on an `await` expression — assign the awaited value to a variable first.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindAwaitExpression {
+    return
+  }
+  ctx.Report(node, "Don't use member access on an `await` expression — assign the awaited value to a variable first.")
 }
 
 func init() {
-	Register(unicornNoAwaitExpressionMember{})
+  Register(unicornNoAwaitExpressionMember{})
 }

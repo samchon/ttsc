@@ -36,17 +36,22 @@ function quoteWindowsArg(arg) {
   return `"${String(arg).replace(/"/g, '\\"').replace(/%/g, "%%")}"`;
 }
 
-function runCode(args, vsixForFallback) {
+function spawnCode(args, vsixForFallback) {
   const command = createCodeCommand(args);
   const r = cp.spawnSync(command.command, command.args, { stdio: "inherit" });
   if (r.error && r.error.code === "ENOENT") {
     printCodeNotFound(vsixForFallback);
     process.exit(1);
   }
-  if (process.platform === "win32" && (r.status ?? 1) !== 0) {
-    printCodeFailed(r.status ?? 1, vsixForFallback);
+  return r.status ?? 1;
+}
+
+function runCode(args, vsixForFallback) {
+  const status = spawnCode(args, vsixForFallback);
+  if (process.platform === "win32" && status !== 0) {
+    printCodeFailed(status, vsixForFallback);
   }
-  process.exit(r.status ?? 1);
+  process.exit(status);
 }
 
 function printCodeNotFound(vsixForFallback) {
@@ -81,11 +86,14 @@ function main(argv = process.argv.slice(2)) {
       );
       process.exit(1);
     }
+    // Remove any previously installed version first so versions do not pile up
+    // in VS Code. Ignore its exit status: the extension may not be installed.
+    spawnCode(["--uninstall-extension", extensionId], vsix);
     runCode(["--install-extension", vsix, "--force"], vsix);
   } else if (sub === "uninstall") {
     runCode(["--uninstall-extension", extensionId]);
   } else {
-    console.error(`Usage: ttsc-vscode <install|uninstall>`);
+    console.error(`Usage: npx @ttsc/vscode <install|uninstall>`);
     process.exit(1);
   }
 }

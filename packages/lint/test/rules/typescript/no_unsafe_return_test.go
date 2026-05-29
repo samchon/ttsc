@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnsafeReturn verifies the lint rule corpus fixture
@@ -22,27 +22,27 @@ import (
 // whose declared return type is `number`) so a future shim regression
 // surfaces here without depending on the full fixture.
 //
-// 1. Seed a project that returns an `any`-typed value from a function
-//    declared to return `number`.
-// 2. Run `check` with typescript/no-unsafe-return enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that returns an `any`-typed value from a function
+//     declared to return `number`.
+//  2. Run `check` with typescript/no-unsafe-return enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnsafeReturn(t *testing.T) {
-	root := seedLintProject(t, `declare const anyValue: any;
+  root := seedLintProject(t, `declare const anyValue: any;
 function asNumber(): number {
   return anyValue;
 }
 JSON.stringify(asNumber());
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unsafe-return": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unsafe-return": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-return]") {
-		t.Fatalf("no-unsafe-return diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-return]") {
+    t.Fatalf("no-unsafe-return diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

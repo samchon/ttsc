@@ -15,5 +15,5 @@ import "testing"
 // 2. Construct `new Response(JSON.stringify({ ok: true }))`.
 // 3. Assert the new expression is reported.
 func TestRuleCorpusUnicornPreferResponseStaticJson(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-response-static-json.ts", "// expect: unicorn/prefer-response-static-json error\nconst r = new Response(JSON.stringify({ ok: true }));\nvoid r;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-response-static-json.ts", "// expect: unicorn/prefer-response-static-json error\nconst r = new Response(JSON.stringify({ ok: true }));\nvoid r;\n")
 }

@@ -18,46 +18,46 @@ type unicornPreferArrayFlatMap struct{}
 
 func (unicornPreferArrayFlatMap) Name() string { return "unicorn/prefer-array-flat-map" }
 func (unicornPreferArrayFlatMap) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferArrayFlatMap) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	outerAccess := call.Expression.AsPropertyAccessExpression()
-	if outerAccess == nil || identifierText(outerAccess.Name()) != "flat" {
-		return
-	}
-	// `.flat(2)` and deeper are NOT equivalent to `.flatMap` — only the
-	// default depth (no arg) or explicit depth 1 collapse cleanly.
-	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-		if len(call.Arguments.Nodes) != 1 {
-			return
-		}
-		arg := stripParens(call.Arguments.Nodes[0])
-		if arg == nil || arg.Kind != shimast.KindNumericLiteral ||
-			numericLiteralText(arg) != "1" {
-			return
-		}
-	}
-	receiver := stripParens(outerAccess.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindCallExpression {
-		return
-	}
-	innerCall := receiver.AsCallExpression()
-	if innerCall == nil || innerCall.Expression == nil ||
-		innerCall.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	innerAccess := innerCall.Expression.AsPropertyAccessExpression()
-	if innerAccess == nil || identifierText(innerAccess.Name()) != "map" {
-		return
-	}
-	ctx.Report(node, "Prefer `Array#flatMap` over `Array#map().flat()`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  outerAccess := call.Expression.AsPropertyAccessExpression()
+  if outerAccess == nil || identifierText(outerAccess.Name()) != "flat" {
+    return
+  }
+  // `.flat(2)` and deeper are NOT equivalent to `.flatMap` — only the
+  // default depth (no arg) or explicit depth 1 collapse cleanly.
+  if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    if len(call.Arguments.Nodes) != 1 {
+      return
+    }
+    arg := stripParens(call.Arguments.Nodes[0])
+    if arg == nil || arg.Kind != shimast.KindNumericLiteral ||
+      numericLiteralText(arg) != "1" {
+      return
+    }
+  }
+  receiver := stripParens(outerAccess.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindCallExpression {
+    return
+  }
+  innerCall := receiver.AsCallExpression()
+  if innerCall == nil || innerCall.Expression == nil ||
+    innerCall.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  innerAccess := innerCall.Expression.AsPropertyAccessExpression()
+  if innerAccess == nil || identifierText(innerAccess.Name()) != "map" {
+    return
+  }
+  ctx.Report(node, "Prefer `Array#flatMap` over `Array#map().flat()`.")
 }
 
 func init() {
-	Register(unicornPreferArrayFlatMap{})
+  Register(unicornPreferArrayFlatMap{})
 }

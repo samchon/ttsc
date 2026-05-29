@@ -10,9 +10,9 @@ const packCache = new Map<string, Promise<Record<string, string>>>();
 
 /**
  * Fetches the prebuilt runtime pack once per URL. Re-entrant on the same
- * in-flight promise. On rejection the cache entry is cleared so the next
- * call retries — otherwise a transient fetch failure (CDN blip, offline
- * at first Execute) would permanently break every later Execute attempt.
+ * in-flight promise. On rejection the cache entry is cleared so the next call
+ * retries — otherwise a transient fetch failure (CDN blip, offline at first
+ * Execute) would permanently break every later Execute attempt.
  */
 export async function loadTypiaRuntimePack(
   url: string,

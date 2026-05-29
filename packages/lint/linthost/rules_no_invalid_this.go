@@ -13,7 +13,7 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noInvalidThis struct{}
@@ -21,10 +21,10 @@ type noInvalidThis struct{}
 func (noInvalidThis) Name() string           { return "no-invalid-this" }
 func (noInvalidThis) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindThisKeyword} }
 func (noInvalidThis) Check(ctx *Context, node *shimast.Node) {
-	if hasThisBindingAncestor(node) {
-		return
-	}
-	ctx.Report(node, "Unexpected 'this'.")
+  if hasThisBindingAncestor(node) {
+    return
+  }
+  ctx.Report(node, "Unexpected 'this'.")
 }
 
 // hasThisBindingAncestor reports whether `node` is lexically enclosed by
@@ -32,21 +32,21 @@ func (noInvalidThis) Check(ctx *Context, node *shimast.Node) {
 // because they capture `this` from the surrounding scope; the walk only
 // stops on a real binding site or at the SourceFile root.
 func hasThisBindingAncestor(node *shimast.Node) bool {
-	for cur := node.Parent; cur != nil; cur = cur.Parent {
-		switch cur.Kind {
-		case shimast.KindFunctionDeclaration,
-			shimast.KindFunctionExpression,
-			shimast.KindMethodDeclaration,
-			shimast.KindGetAccessor,
-			shimast.KindSetAccessor,
-			shimast.KindConstructor,
-			shimast.KindClassStaticBlockDeclaration:
-			return true
-		}
-	}
-	return false
+  for cur := node.Parent; cur != nil; cur = cur.Parent {
+    switch cur.Kind {
+    case shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindMethodDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor,
+      shimast.KindConstructor,
+      shimast.KindClassStaticBlockDeclaration:
+      return true
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(noInvalidThis{})
+  Register(noInvalidThis{})
 }

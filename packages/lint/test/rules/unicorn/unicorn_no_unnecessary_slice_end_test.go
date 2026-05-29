@@ -16,5 +16,5 @@ import "testing"
 // 2. Call `arr.slice(0, arr.length)` on a local array.
 // 3. Assert the second argument is reported.
 func TestRuleCorpusUnicornNoUnnecessarySliceEnd(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-unnecessary-slice-end.ts", "const arr = [1, 2, 3];\n// expect: unicorn/no-unnecessary-slice-end error\nconst c = arr.slice(0, arr.length);\nvoid c;\n")
+  assertRuleCorpusCase(t, "unicorn/no-unnecessary-slice-end.ts", "const arr = [1, 2, 3];\n// expect: unicorn/no-unnecessary-slice-end error\nconst c = arr.slice(0, arr.length);\nvoid c;\n")
 }

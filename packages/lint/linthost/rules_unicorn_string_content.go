@@ -23,5 +23,5 @@ func (unicornStringContent) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornStringContent{})
+  Register(unicornStringContent{})
 }

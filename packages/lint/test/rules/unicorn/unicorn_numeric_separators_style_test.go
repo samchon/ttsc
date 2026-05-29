@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to `1_2345`.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornNumericSeparatorsStyle(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/numeric-separators-style.ts", "// expect: unicorn/numeric-separators-style error\nconst big = 1_2345;\n")
+  assertRuleCorpusCase(t, "unicorn/numeric-separators-style.ts", "// expect: unicorn/numeric-separators-style error\nconst big = 1_2345;\n")
 }

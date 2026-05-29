@@ -13,5 +13,5 @@ import "testing"
 // 2. Read `el.innerText` from a declared element.
 // 3. Assert the property access is reported.
 func TestRuleCorpusUnicornPreferDomNodeTextContent(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-dom-node-text-content.ts", "declare const el: HTMLElement;\n// expect: unicorn/prefer-dom-node-text-content error\nel.innerText;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-dom-node-text-content.ts", "declare const el: HTMLElement;\n// expect: unicorn/prefer-dom-node-text-content error\nel.innerText;\n")
 }

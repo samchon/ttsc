@@ -22,22 +22,22 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noConfusingVoidExpression struct{}
 
 func (noConfusingVoidExpression) Name() string {
-	return "typescript/no-confusing-void-expression"
+  return "typescript/no-confusing-void-expression"
 }
 func (noConfusingVoidExpression) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindVoidExpression}
+  return []shimast.Kind{shimast.KindVoidExpression}
 }
 func (noConfusingVoidExpression) Check(ctx *Context, node *shimast.Node) {
-	if isValidVoidExpressionPosition(node) {
-		return
-	}
-	ctx.Report(node, "Placing `void` operator in a value position is confusing — use it only as a statement, an arrow concise body, or inside another `void`.")
+  if isValidVoidExpressionPosition(node) {
+    return
+  }
+  ctx.Report(node, "Placing `void` operator in a value position is confusing — use it only as a statement, an arrow concise body, or inside another `void`.")
 }
 
 // isValidVoidExpressionPosition reports whether the `void X`
@@ -45,28 +45,28 @@ func (noConfusingVoidExpression) Check(ctx *Context, node *shimast.Node) {
 // Parenthesized expressions are transparent — `(void x)` keeps the
 // same effective context as `void x` for the surrounding code.
 func isValidVoidExpressionPosition(node *shimast.Node) bool {
-	parent := node.Parent
-	for parent != nil && parent.Kind == shimast.KindParenthesizedExpression {
-		node = parent
-		parent = parent.Parent
-	}
-	if parent == nil {
-		return false
-	}
-	switch parent.Kind {
-	case shimast.KindExpressionStatement:
-		return true
-	case shimast.KindVoidExpression:
-		// `void void x` — the inner `void` is the operand of another
-		// `void`, which discards the result anyway.
-		return true
-	case shimast.KindArrowFunction:
-		arrow := parent.AsArrowFunction()
-		return arrow != nil && arrow.Body == node
-	}
-	return false
+  parent := node.Parent
+  for parent != nil && parent.Kind == shimast.KindParenthesizedExpression {
+    node = parent
+    parent = parent.Parent
+  }
+  if parent == nil {
+    return false
+  }
+  switch parent.Kind {
+  case shimast.KindExpressionStatement:
+    return true
+  case shimast.KindVoidExpression:
+    // `void void x` — the inner `void` is the operand of another
+    // `void`, which discards the result anyway.
+    return true
+  case shimast.KindArrowFunction:
+    arrow := parent.AsArrowFunction()
+    return arrow != nil && arrow.Body == node
+  }
+  return false
 }
 
 func init() {
-	Register(noConfusingVoidExpression{})
+  Register(noConfusingVoidExpression{})
 }

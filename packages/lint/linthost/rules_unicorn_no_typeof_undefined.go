@@ -19,40 +19,40 @@ type unicornNoTypeofUndefined struct{}
 
 func (unicornNoTypeofUndefined) Name() string { return "unicorn/no-typeof-undefined" }
 func (unicornNoTypeofUndefined) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornNoTypeofUndefined) Check(ctx *Context, node *shimast.Node) {
-	expr := node.AsBinaryExpression()
-	if expr == nil || expr.OperatorToken == nil {
-		return
-	}
-	switch expr.OperatorToken.Kind {
-	case shimast.KindEqualsEqualsEqualsToken,
-		shimast.KindEqualsEqualsToken,
-		shimast.KindExclamationEqualsEqualsToken,
-		shimast.KindExclamationEqualsToken:
-	default:
-		return
-	}
-	left := stripParens(expr.Left)
-	right := stripParens(expr.Right)
-	if left == nil || right == nil {
-		return
-	}
-	var literal *shimast.Node
-	if left.Kind == shimast.KindTypeOfExpression {
-		literal = right
-	} else if right.Kind == shimast.KindTypeOfExpression {
-		literal = left
-	} else {
-		return
-	}
-	if stringLiteralText(literal) != "undefined" {
-		return
-	}
-	ctx.Report(node, "Compare with `undefined` directly instead of using `typeof`.")
+  expr := node.AsBinaryExpression()
+  if expr == nil || expr.OperatorToken == nil {
+    return
+  }
+  switch expr.OperatorToken.Kind {
+  case shimast.KindEqualsEqualsEqualsToken,
+    shimast.KindEqualsEqualsToken,
+    shimast.KindExclamationEqualsEqualsToken,
+    shimast.KindExclamationEqualsToken:
+  default:
+    return
+  }
+  left := stripParens(expr.Left)
+  right := stripParens(expr.Right)
+  if left == nil || right == nil {
+    return
+  }
+  var literal *shimast.Node
+  if left.Kind == shimast.KindTypeOfExpression {
+    literal = right
+  } else if right.Kind == shimast.KindTypeOfExpression {
+    literal = left
+  } else {
+    return
+  }
+  if stringLiteralText(literal) != "undefined" {
+    return
+  }
+  ctx.Report(node, "Compare with `undefined` directly instead of using `typeof`.")
 }
 
 func init() {
-	Register(unicornNoTypeofUndefined{})
+  Register(unicornNoTypeofUndefined{})
 }

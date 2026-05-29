@@ -16,22 +16,22 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferDomNodeTextContent struct{}
 
 func (unicornPreferDomNodeTextContent) Name() string {
-	return "unicorn/prefer-dom-node-text-content"
+  return "unicorn/prefer-dom-node-text-content"
 }
 func (unicornPreferDomNodeTextContent) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornPreferDomNodeTextContent) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "innerText" {
-		return
-	}
-	ctx.Report(node, "Prefer `Node#textContent` over `HTMLElement#innerText`.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "innerText" {
+    return
+  }
+  ctx.Report(node, "Prefer `Node#textContent` over `HTMLElement#innerText`.")
 }
 
 func init() {
-	Register(unicornPreferDomNodeTextContent{})
+  Register(unicornPreferDomNodeTextContent{})
 }

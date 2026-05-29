@@ -18,38 +18,38 @@ type unicornNoUselessSwitchCase struct{}
 
 func (unicornNoUselessSwitchCase) Name() string { return "unicorn/no-useless-switch-case" }
 func (unicornNoUselessSwitchCase) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSwitchStatement}
+  return []shimast.Kind{shimast.KindSwitchStatement}
 }
 func (unicornNoUselessSwitchCase) Check(ctx *Context, node *shimast.Node) {
-	sw := node.AsSwitchStatement()
-	if sw == nil || sw.CaseBlock == nil {
-		return
-	}
-	block := sw.CaseBlock.AsCaseBlock()
-	if block == nil || block.Clauses == nil {
-		return
-	}
-	clauses := block.Clauses.Nodes
-	for i := 0; i < len(clauses)-1; i++ {
-		clause := clauses[i]
-		if clause == nil || clause.Kind != shimast.KindCaseClause {
-			continue
-		}
-		next := clauses[i+1]
-		if next == nil || next.Kind != shimast.KindDefaultClause {
-			continue
-		}
-		cd := clause.AsCaseOrDefaultClause()
-		if cd == nil {
-			continue
-		}
-		if cd.Statements != nil && len(cd.Statements.Nodes) != 0 {
-			continue
-		}
-		ctx.Report(clause, "Useless `case` clause — it falls through to the `default` which would handle this value anyway.")
-	}
+  sw := node.AsSwitchStatement()
+  if sw == nil || sw.CaseBlock == nil {
+    return
+  }
+  block := sw.CaseBlock.AsCaseBlock()
+  if block == nil || block.Clauses == nil {
+    return
+  }
+  clauses := block.Clauses.Nodes
+  for i := 0; i < len(clauses)-1; i++ {
+    clause := clauses[i]
+    if clause == nil || clause.Kind != shimast.KindCaseClause {
+      continue
+    }
+    next := clauses[i+1]
+    if next == nil || next.Kind != shimast.KindDefaultClause {
+      continue
+    }
+    cd := clause.AsCaseOrDefaultClause()
+    if cd == nil {
+      continue
+    }
+    if cd.Statements != nil && len(cd.Statements.Nodes) != 0 {
+      continue
+    }
+    ctx.Report(clause, "Useless `case` clause — it falls through to the `default` which would handle this value anyway.")
+  }
 }
 
 func init() {
-	Register(unicornNoUselessSwitchCase{})
+  Register(unicornNoUselessSwitchCase{})
 }

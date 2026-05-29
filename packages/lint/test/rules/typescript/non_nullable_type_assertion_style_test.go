@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNonNullableTypeAssertionStyle verifies the lint rule corpus
@@ -16,28 +16,28 @@ import (
 // `no-floating-promises` and `await-thenable`: materialize a tsconfig
 // project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// 1. Seed a project whose source assertion strips `undefined` and is
-//    therefore equivalent to a `!` non-null assertion.
-// 2. Run `check` with typescript/non-nullable-type-assertion-style enabled
-//    as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project whose source assertion strips `undefined` and is
+//     therefore equivalent to a `!` non-null assertion.
+//  2. Run `check` with typescript/non-nullable-type-assertion-style enabled
+//     as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNonNullableTypeAssertionStyle(t *testing.T) {
-	root := seedLintProject(t, `declare const maybeUndefined: string | undefined;
+  root := seedLintProject(t, `declare const maybeUndefined: string | undefined;
 const value = maybeUndefined as string;
 JSON.stringify(value);
 `)
-	seedLintRules(t, root, map[string]string{
-		"typescript/non-nullable-type-assertion-style": "error",
-	})
+  seedLintRules(t, root, map[string]string{
+    "typescript/non-nullable-type-assertion-style": "error",
+  })
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/non-nullable-type-assertion-style]") {
-		t.Fatalf("non-nullable-type-assertion-style diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/non-nullable-type-assertion-style]") {
+    t.Fatalf("non-nullable-type-assertion-style diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

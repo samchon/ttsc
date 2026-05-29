@@ -17,49 +17,49 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornNoArrayCallbackReferenceMethods = map[string]struct{}{
-	"every":         {},
-	"filter":        {},
-	"find":          {},
-	"findIndex":     {},
-	"findLast":      {},
-	"findLastIndex": {},
-	"flatMap":       {},
-	"forEach":       {},
-	"map":           {},
-	"some":          {},
+  "every":         {},
+  "filter":        {},
+  "find":          {},
+  "findIndex":     {},
+  "findLast":      {},
+  "findLastIndex": {},
+  "flatMap":       {},
+  "forEach":       {},
+  "map":           {},
+  "some":          {},
 }
 
 type unicornNoArrayCallbackReference struct{}
 
 func (unicornNoArrayCallbackReference) Name() string {
-	return "unicorn/no-array-callback-reference"
+  return "unicorn/no-array-callback-reference"
 }
 func (unicornNoArrayCallbackReference) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoArrayCallbackReference) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if _, ok := unicornNoArrayCallbackReferenceMethods[method]; !ok {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-		return
-	}
-	first := call.Arguments.Nodes[0]
-	if first == nil || first.Kind != shimast.KindIdentifier {
-		return
-	}
-	ctx.Report(first, "Don't pass a function reference directly to `Array#"+method+"` — wrap it in an arrow that takes only the value.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if _, ok := unicornNoArrayCallbackReferenceMethods[method]; !ok {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  first := call.Arguments.Nodes[0]
+  if first == nil || first.Kind != shimast.KindIdentifier {
+    return
+  }
+  ctx.Report(first, "Don't pass a function reference directly to `Array#"+method+"` — wrap it in an arrow that takes only the value.")
 }
 
 func init() {
-	Register(unicornNoArrayCallbackReference{})
+  Register(unicornNoArrayCallbackReference{})
 }

@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.flat(1)` on an array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoUnnecessaryArrayFlatDepth(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-unnecessary-array-flat-depth.ts", "// expect: unicorn/no-unnecessary-array-flat-depth error\nconst flat = [1, [2]].flat(1);\nvoid flat;\n")
+  assertRuleCorpusCase(t, "unicorn/no-unnecessary-array-flat-depth.ts", "// expect: unicorn/no-unnecessary-array-flat-depth error\nconst flat = [1, [2]].flat(1);\nvoid flat;\n")
 }

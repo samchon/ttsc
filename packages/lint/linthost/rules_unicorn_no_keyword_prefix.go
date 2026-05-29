@@ -20,17 +20,17 @@ type unicornNoKeywordPrefix struct{}
 
 func (unicornNoKeywordPrefix) Name() string { return "unicorn/no-keyword-prefix" }
 func (unicornNoKeywordPrefix) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindIdentifier}
+  return []shimast.Kind{shimast.KindIdentifier}
 }
 func (unicornNoKeywordPrefix) Check(ctx *Context, node *shimast.Node) {
-	name := identifierText(node)
-	if !hasKeywordPrefix(name) {
-		return
-	}
-	if !isUnicornDeclarationPositionIdentifier(node) {
-		return
-	}
-	ctx.Report(node, "Don't prefix identifiers with a reserved word (`new` / `class`).")
+  name := identifierText(node)
+  if !hasKeywordPrefix(name) {
+    return
+  }
+  if !isUnicornDeclarationPositionIdentifier(node) {
+    return
+  }
+  ctx.Report(node, "Don't prefix identifiers with a reserved word (`new` / `class`).")
 }
 
 // hasKeywordPrefix reports whether `name` starts with `new` or `class`
@@ -40,19 +40,19 @@ func (unicornNoKeywordPrefix) Check(ctx *Context, node *shimast.Node) {
 // share the prefix bytes but not the camelCase break and are out of
 // scope.
 func hasKeywordPrefix(name string) bool {
-	for _, prefix := range []string{"new", "class"} {
-		if len(name) <= len(prefix) {
-			continue
-		}
-		if name[:len(prefix)] != prefix {
-			continue
-		}
-		next := name[len(prefix)]
-		if next >= 'A' && next <= 'Z' {
-			return true
-		}
-	}
-	return false
+  for _, prefix := range []string{"new", "class"} {
+    if len(name) <= len(prefix) {
+      continue
+    }
+    if name[:len(prefix)] != prefix {
+      continue
+    }
+    next := name[len(prefix)]
+    if next >= 'A' && next <= 'Z' {
+      return true
+    }
+  }
+  return false
 }
 
 // isUnicornDeclarationPositionIdentifier reports whether `node` (a bare
@@ -61,41 +61,41 @@ func hasKeywordPrefix(name string) bool {
 // property keys on accesses, type references, and labels are filtered
 // out so the rule only fires on declarations.
 func isUnicornDeclarationPositionIdentifier(node *shimast.Node) bool {
-	if node == nil || node.Kind != shimast.KindIdentifier || node.Parent == nil {
-		return false
-	}
-	parent := node.Parent
-	switch parent.Kind {
-	case shimast.KindVariableDeclaration:
-		decl := parent.AsVariableDeclaration()
-		return decl != nil && decl.Name() == node
-	case shimast.KindBindingElement:
-		elem := parent.AsBindingElement()
-		return elem != nil && elem.Name() == node
-	case shimast.KindParameter:
-		param := parent.AsParameterDeclaration()
-		return param != nil && param.Name() == node
-	case shimast.KindFunctionDeclaration:
-		fn := parent.AsFunctionDeclaration()
-		return fn != nil && fn.Name() == node
-	case shimast.KindFunctionExpression:
-		fn := parent.AsFunctionExpression()
-		return fn != nil && fn.Name() == node
-	case shimast.KindClassDeclaration:
-		cls := parent.AsClassDeclaration()
-		return cls != nil && cls.Name() == node
-	case shimast.KindClassExpression:
-		cls := parent.AsClassExpression()
-		return cls != nil && cls.Name() == node
-	case shimast.KindMethodDeclaration,
-		shimast.KindGetAccessor,
-		shimast.KindSetAccessor,
-		shimast.KindPropertyDeclaration:
-		return true
-	}
-	return false
+  if node == nil || node.Kind != shimast.KindIdentifier || node.Parent == nil {
+    return false
+  }
+  parent := node.Parent
+  switch parent.Kind {
+  case shimast.KindVariableDeclaration:
+    decl := parent.AsVariableDeclaration()
+    return decl != nil && decl.Name() == node
+  case shimast.KindBindingElement:
+    elem := parent.AsBindingElement()
+    return elem != nil && elem.Name() == node
+  case shimast.KindParameter:
+    param := parent.AsParameterDeclaration()
+    return param != nil && param.Name() == node
+  case shimast.KindFunctionDeclaration:
+    fn := parent.AsFunctionDeclaration()
+    return fn != nil && fn.Name() == node
+  case shimast.KindFunctionExpression:
+    fn := parent.AsFunctionExpression()
+    return fn != nil && fn.Name() == node
+  case shimast.KindClassDeclaration:
+    cls := parent.AsClassDeclaration()
+    return cls != nil && cls.Name() == node
+  case shimast.KindClassExpression:
+    cls := parent.AsClassExpression()
+    return cls != nil && cls.Name() == node
+  case shimast.KindMethodDeclaration,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+    shimast.KindPropertyDeclaration:
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(unicornNoKeywordPrefix{})
+  Register(unicornNoKeywordPrefix{})
 }

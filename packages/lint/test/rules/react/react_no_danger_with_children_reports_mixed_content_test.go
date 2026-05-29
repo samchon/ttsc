@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/no-danger-with-children`.
 // 3. Assert the dangerous prop is reported.
 func TestReactNoDangerWithChildrenReportsMixedContent(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-danger-with-children", `const C = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }}>fallback</div>;`, "children")
+  assertReactRuleFinds(t, "react/no-danger-with-children", `const C = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }}>fallback</div>;`, "children")
 }

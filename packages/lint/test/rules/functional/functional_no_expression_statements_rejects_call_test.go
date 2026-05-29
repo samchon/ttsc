@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-expression-statements.
 // 3. Assert the statement reports and offers no autofix.
 func TestFunctionalNoExpressionStatementsRejectsCall(t *testing.T) {
-	const ruleName = "functional/no-expression-statements"
-	findings := runFunctionalRule(t, ruleName, `commit();`)
-	assertFunctionalFinding(t, ruleName, findings, "side effects")
+  const ruleName = "functional/no-expression-statements"
+  findings := runFunctionalRule(t, ruleName, `commit();`)
+  assertFunctionalFinding(t, ruleName, findings, "side effects")
 }

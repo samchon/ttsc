@@ -16,5 +16,5 @@ import "testing"
 // 2. Call `console.log` with a trailing-space literal and a clean literal.
 // 3. Assert the trailing-space literal is reported.
 func TestRuleCorpusUnicornNoConsoleSpaces(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-console-spaces.ts", "// expect: unicorn/no-console-spaces error\nconsole.log(\"hello \", \"world\");\n")
+  assertRuleCorpusCase(t, "unicorn/no-console-spaces.ts", "// expect: unicorn/no-console-spaces error\nconsole.log(\"hello \", \"world\");\n")
 }

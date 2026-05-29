@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/prefer-property-signatures.
 // 3. Assert the method signature reports and offers no autofix.
 func TestFunctionalPreferPropertySignaturesRejectsMethodSignature(t *testing.T) {
-	const ruleName = "functional/prefer-property-signatures"
-	findings := runFunctionalRule(t, ruleName, `interface Api { run(): void; }`)
-	assertFunctionalFinding(t, ruleName, findings, "property signature")
+  const ruleName = "functional/prefer-property-signatures"
+  findings := runFunctionalRule(t, ruleName, `interface Api { run(): void; }`)
+  assertFunctionalFinding(t, ruleName, findings, "property signature")
 }

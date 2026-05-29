@@ -18,105 +18,105 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // unicornPreferNodeProtocolBuiltins enumerates the bare Node built-in
 // module specifiers that must be rewritten to use the `node:` prefix.
 var unicornPreferNodeProtocolBuiltins = map[string]struct{}{
-	"assert":              {},
-	"assert/strict":       {},
-	"async_hooks":         {},
-	"buffer":              {},
-	"child_process":       {},
-	"cluster":             {},
-	"console":             {},
-	"constants":           {},
-	"crypto":              {},
-	"dgram":               {},
-	"diagnostics_channel": {},
-	"dns":                 {},
-	"dns/promises":        {},
-	"domain":              {},
-	"events":              {},
-	"fs":                  {},
-	"fs/promises":         {},
-	"http":                {},
-	"http2":               {},
-	"https":               {},
-	"inspector":           {},
-	"module":              {},
-	"net":                 {},
-	"os":                  {},
-	"path":                {},
-	"path/posix":          {},
-	"path/win32":          {},
-	"perf_hooks":          {},
-	"process":             {},
-	"punycode":            {},
-	"querystring":         {},
-	"readline":            {},
-	"readline/promises":   {},
-	"repl":                {},
-	"stream":              {},
-	"stream/consumers":    {},
-	"stream/promises":     {},
-	"stream/web":          {},
-	"string_decoder":      {},
-	"sys":                 {},
-	"timers":              {},
-	"timers/promises":     {},
-	"tls":                 {},
-	"trace_events":        {},
-	"tty":                 {},
-	"url":                 {},
-	"util":                {},
-	"util/types":          {},
-	"v8":                  {},
-	"vm":                  {},
-	"wasi":                {},
-	"worker_threads":      {},
-	"zlib":                {},
+  "assert":              {},
+  "assert/strict":       {},
+  "async_hooks":         {},
+  "buffer":              {},
+  "child_process":       {},
+  "cluster":             {},
+  "console":             {},
+  "constants":           {},
+  "crypto":              {},
+  "dgram":               {},
+  "diagnostics_channel": {},
+  "dns":                 {},
+  "dns/promises":        {},
+  "domain":              {},
+  "events":              {},
+  "fs":                  {},
+  "fs/promises":         {},
+  "http":                {},
+  "http2":               {},
+  "https":               {},
+  "inspector":           {},
+  "module":              {},
+  "net":                 {},
+  "os":                  {},
+  "path":                {},
+  "path/posix":          {},
+  "path/win32":          {},
+  "perf_hooks":          {},
+  "process":             {},
+  "punycode":            {},
+  "querystring":         {},
+  "readline":            {},
+  "readline/promises":   {},
+  "repl":                {},
+  "stream":              {},
+  "stream/consumers":    {},
+  "stream/promises":     {},
+  "stream/web":          {},
+  "string_decoder":      {},
+  "sys":                 {},
+  "timers":              {},
+  "timers/promises":     {},
+  "tls":                 {},
+  "trace_events":        {},
+  "tty":                 {},
+  "url":                 {},
+  "util":                {},
+  "util/types":          {},
+  "v8":                  {},
+  "vm":                  {},
+  "wasi":                {},
+  "worker_threads":      {},
+  "zlib":                {},
 }
 
 type unicornPreferNodeProtocol struct{}
 
 func (unicornPreferNodeProtocol) Name() string { return "unicorn/prefer-node-protocol" }
 func (unicornPreferNodeProtocol) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindCallExpression}
 }
 func (unicornPreferNodeProtocol) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindImportDeclaration:
-		imp := node.AsImportDeclaration()
-		if imp == nil || imp.ModuleSpecifier == nil {
-			return
-		}
-		if imp.ModuleSpecifier.Kind != shimast.KindStringLiteral {
-			return
-		}
-		specifier := stringLiteralText(imp.ModuleSpecifier)
-		if _, ok := unicornPreferNodeProtocolBuiltins[specifier]; !ok {
-			return
-		}
-		ctx.Report(imp.ModuleSpecifier, "Prefer `node:` protocol when importing Node built-ins.")
-	case shimast.KindCallExpression:
-		call := node.AsCallExpression()
-		if call == nil || call.Expression == nil {
-			return
-		}
-		if identifierText(call.Expression) != "require" {
-			return
-		}
-		if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-			return
-		}
-		arg := call.Arguments.Nodes[0]
-		if arg == nil || arg.Kind != shimast.KindStringLiteral {
-			return
-		}
-		specifier := stringLiteralText(arg)
-		if _, ok := unicornPreferNodeProtocolBuiltins[specifier]; !ok {
-			return
-		}
-		ctx.Report(arg, "Prefer `node:` protocol when importing Node built-ins.")
-	}
+  switch node.Kind {
+  case shimast.KindImportDeclaration:
+    imp := node.AsImportDeclaration()
+    if imp == nil || imp.ModuleSpecifier == nil {
+      return
+    }
+    if imp.ModuleSpecifier.Kind != shimast.KindStringLiteral {
+      return
+    }
+    specifier := stringLiteralText(imp.ModuleSpecifier)
+    if _, ok := unicornPreferNodeProtocolBuiltins[specifier]; !ok {
+      return
+    }
+    ctx.Report(imp.ModuleSpecifier, "Prefer `node:` protocol when importing Node built-ins.")
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    if call == nil || call.Expression == nil {
+      return
+    }
+    if identifierText(call.Expression) != "require" {
+      return
+    }
+    if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+      return
+    }
+    arg := call.Arguments.Nodes[0]
+    if arg == nil || arg.Kind != shimast.KindStringLiteral {
+      return
+    }
+    specifier := stringLiteralText(arg)
+    if _, ok := unicornPreferNodeProtocolBuiltins[specifier]; !ok {
+      return
+    }
+    ctx.Report(arg, "Prefer `node:` protocol when importing Node built-ins.")
+  }
 }
 
 func init() {
-	Register(unicornPreferNodeProtocol{})
+  Register(unicornPreferNodeProtocol{})
 }

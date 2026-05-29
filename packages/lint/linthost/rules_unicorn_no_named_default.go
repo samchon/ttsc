@@ -21,34 +21,34 @@ type unicornNoNamedDefault struct{}
 
 func (unicornNoNamedDefault) Name() string { return "unicorn/no-named-default" }
 func (unicornNoNamedDefault) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration}
+  return []shimast.Kind{shimast.KindImportDeclaration}
 }
 func (unicornNoNamedDefault) Check(ctx *Context, node *shimast.Node) {
-	decl := node.AsImportDeclaration()
-	if decl == nil || decl.ImportClause == nil {
-		return
-	}
-	clause := decl.ImportClause.AsImportClause()
-	if clause == nil || clause.NamedBindings == nil ||
-		clause.NamedBindings.Kind != shimast.KindNamedImports {
-		return
-	}
-	named := clause.NamedBindings.AsNamedImports()
-	if named == nil || named.Elements == nil {
-		return
-	}
-	for _, spec := range named.Elements.Nodes {
-		s := spec.AsImportSpecifier()
-		if s == nil || s.PropertyName == nil {
-			continue
-		}
-		if moduleExportNameText(s.PropertyName) != "default" {
-			continue
-		}
-		ctx.Report(spec, "Don't import a default export under a named alias — use `import X from \"...\"` instead.")
-	}
+  decl := node.AsImportDeclaration()
+  if decl == nil || decl.ImportClause == nil {
+    return
+  }
+  clause := decl.ImportClause.AsImportClause()
+  if clause == nil || clause.NamedBindings == nil ||
+    clause.NamedBindings.Kind != shimast.KindNamedImports {
+    return
+  }
+  named := clause.NamedBindings.AsNamedImports()
+  if named == nil || named.Elements == nil {
+    return
+  }
+  for _, spec := range named.Elements.Nodes {
+    s := spec.AsImportSpecifier()
+    if s == nil || s.PropertyName == nil {
+      continue
+    }
+    if moduleExportNameText(s.PropertyName) != "default" {
+      continue
+    }
+    ctx.Report(spec, "Don't import a default export under a named alias — use `import X from \"...\"` instead.")
+  }
 }
 
 func init() {
-	Register(unicornNoNamedDefault{})
+  Register(unicornNoNamedDefault{})
 }

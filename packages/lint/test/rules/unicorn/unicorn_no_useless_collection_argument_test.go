@@ -15,5 +15,5 @@ import "testing"
 // 2. Construct a `Set` with an explicit empty array literal.
 // 3. Assert the new expression is reported.
 func TestRuleCorpusUnicornNoUselessCollectionArgument(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-collection-argument.ts", "// expect: unicorn/no-useless-collection-argument error\nconst s = new Set([]);\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-collection-argument.ts", "// expect: unicorn/no-useless-collection-argument error\nconst s = new Set([]);\n")
 }

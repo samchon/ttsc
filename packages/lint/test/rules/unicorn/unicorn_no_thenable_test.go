@@ -14,5 +14,5 @@ import "testing"
 // 2. Define an object literal with a method named `then`.
 // 3. Assert the method declaration is reported.
 func TestRuleCorpusUnicornNoThenable(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-thenable.ts", "const o = {\n  // expect: unicorn/no-thenable error\n  then() {\n    return 1;\n  },\n};\nvoid o;\n")
+  assertRuleCorpusCase(t, "unicorn/no-thenable.ts", "const o = {\n  // expect: unicorn/no-thenable error\n  then() {\n    return 1;\n  },\n};\nvoid o;\n")
 }

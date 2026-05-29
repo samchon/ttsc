@@ -27,13 +27,13 @@ node experimental/benchmark/bench.mjs --sequential                 # clone→mea
 
 Option families:
 
-- **Scope** — `--project`, `--cell-filter`, `--lint-only`, `--format-only`, `--ttsc-build-only`. Every targeted run pairs with `--no-website` so the dashboard stays consistent.
-- **Setup** — `--setup-only`, `--no-setup`, `--no-install`, `--no-pack` (or `TTSC_BENCH_SKIP_PACK=1`), `--force-install`. Setup packs the local `ttsc` workspace into tarballs, clones the fixtures, installs the tarballs, and runs `ttsc prepare` so plugin binaries are warm before any measured cell.
-- **Sampling** — `TTSC_BENCH_RUNS` (5), `TTSC_BENCH_WARMUP` (1), `TTSC_BENCH_RETRIES` (2, applied only to `race`-classified failures). The reported number is the median; `min` and the full sample list stay in `report.json` for audit.
-- **Host gate** — `TTSC_BENCH_REQUIRE_QUIET=1` upgrades the load-average warning into a hard error and is set for every publication run; `TTSC_BENCH_SKIP_LOAD_CHECK=1` silences it for development iterations.
-- **Output** — `--no-website` skips merging into `website/public/benchmark.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
-- **Disk-cheap mode** — `--sequential` (env `TTSC_BENCH_SEQUENTIAL=1`) holds only one `(project, branch)` clone in `.work/` at a time: clone, measure, delete, next. Used by the GitHub Actions workflow `.github/workflows/benchmark.yml`. Incompatible with `--setup-only` / `--no-setup`.
-- **CI fan-out** — `.github/workflows/benchmark.yml` is a `prepare → pack → measure (7-job matrix, one per fixture) → publish` DAG. `pack` packs the tarballs once and shares them as an artifact; each `measure` job runs `--sequential --project=${proj}` so `legacy → ttsc → ttsc-lint` measure on the **same runner** (within-fixture comparisons like ttsc-vs-tsc must come from one physical machine to mean anything); `publish` merges the partials via `experimental/benchmark/merge-website.mjs` and pushes `website/public/benchmark.json` back to master. `--pack-only` and `merge-website.mjs` exist for this pipeline.
+- **Scope**: `--project`, `--cell-filter`, `--lint-only`, `--format-only`, `--ttsc-build-only`. Every targeted run pairs with `--no-website` so the dashboard stays consistent.
+- **Setup**: `--setup-only`, `--no-setup`, `--no-install`, `--no-pack` (or `TTSC_BENCH_SKIP_PACK=1`), `--force-install`. Setup packs the local `ttsc` workspace into tarballs, clones the fixtures, installs the tarballs, and runs `ttsc prepare` so plugin binaries are warm before any measured cell.
+- **Sampling**: `TTSC_BENCH_RUNS` (5), `TTSC_BENCH_WARMUP` (1), `TTSC_BENCH_RETRIES` (2, applied only to `race`-classified failures). The reported number is the median; `min` and the full sample list stay in `report.json` for audit.
+- **Host gate**: `TTSC_BENCH_REQUIRE_QUIET=1` upgrades the load-average warning into a hard error and is set for every publication run; `TTSC_BENCH_SKIP_LOAD_CHECK=1` silences it for development iterations.
+- **Output**: `--no-website` skips merging into `website/public/benchmark.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
+- **Disk-cheap mode**: `--sequential` (env `TTSC_BENCH_SEQUENTIAL=1`) holds only one `(project, branch)` clone in `.work/` at a time: clone, measure, delete, next. Used by the GitHub Actions workflow `.github/workflows/benchmark.yml`. Incompatible with `--setup-only` / `--no-setup`.
+- **CI fan-out**: `.github/workflows/benchmark.yml` is a `prepare → pack → measure (7-job matrix, one per fixture) → publish` DAG. `pack` packs the tarballs once and shares them as an artifact; each `measure` job runs `--sequential --project=${proj}` so `legacy → ttsc → ttsc-lint` measure on the **same runner** (within-fixture comparisons like ttsc-vs-tsc must come from one physical machine to mean anything); `publish` merges the partials via `experimental/benchmark/merge-website.mjs` and pushes `website/public/benchmark.json` back to master. `--pack-only` and `merge-website.mjs` exist for this pipeline.
 
 Publication sweep:
 
@@ -47,13 +47,13 @@ After the sweep, inspect the diff against `website/public/benchmark.json`: every
 
 Each fixture is a forked GitHub repo at `samchon/ttsc-benchmark-<name>`, plus `samchon/shopping-backend` for the plugin-heavy case. Every fixture carries three independent branches:
 
-- **`legacy`** — upstream source with stock `tsc`, `eslint`, and `prettier`. TypeScript pinned to the Legacy TypeScript version shown on the dashboard host panel (currently `v6.0.3`).
-- **`ttsc`** — same source as `legacy`, with `tsc` swapped for `ttsc` on `@typescript/native-preview` and the workspace configured to install `ttsc` from the tarball the runner packs.
-- **`ttsc-lint`** — same source as `ttsc`, with `@ttsc/lint` folded into the compile pass so the `eslint` step is no longer invoked.
+- **`legacy`**: upstream source with stock `tsc`, `eslint`, and `prettier`. TypeScript pinned to the Legacy TypeScript version shown on the dashboard host panel (currently `v6.0.3`).
+- **`ttsc`**: same source as `legacy`, with `tsc` swapped for `ttsc` on `@typescript/native-preview` and the workspace configured to install `ttsc` from the tarball the runner packs.
+- **`ttsc-lint`**: same source as `ttsc`, with `@ttsc/lint` folded into the compile pass so the `eslint` step is no longer invoked.
 
 ### Source parity
 
-The three branches differ only in tooling — `package.json`, `tsconfig*.json`, `eslint.config.*`, `.prettierrc*`, lockfile, `ttsc` plugin descriptors. Application source is identical across `legacy`, `ttsc`, and `ttsc-lint`, so a cell delta reflects tool cost rather than workload drift.
+The three branches differ only in tooling, `package.json`, `tsconfig*.json`, `eslint.config.*`, `.prettierrc*`, lockfile, `ttsc` plugin descriptors. Application source is identical across `legacy`, `ttsc`, and `ttsc-lint`, so a cell delta reflects tool cost rather than workload drift.
 
 ### Lint and format scope is the tsconfig program
 
@@ -67,7 +67,7 @@ Edits go to the fixture repo on GitHub, not to the local clone. Setup runs `fetc
 
 Finish every fixture-branch edit by running the branch's own build, format, and lint commands (e.g. `pnpm build`, `prettier --write` or `ttsc format`, `eslint --fix`) until the tree is green, then commit and push. A half-finished tip pollutes every later run because the runner pulls upstream every setup.
 
-READMEs and prose docs inside a fixture repo follow the same writing rules as ttsc itself — see AGENTS.md `## Maintenance § Writing style` and `.codex/skills/documentation/SKILL.md § READMEs`.
+READMEs and prose docs inside a fixture repo follow the same writing rules as ttsc itself. See AGENTS.md `## Maintenance § Writing style` and `.codex/skills/documentation/SKILL.md § READMEs`.
 
 ### Other rules
 

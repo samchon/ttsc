@@ -16,5 +16,5 @@ import "testing"
 // 2. Assign `(() => Math.random())()` to a const.
 // 3. Assert the outer call is reported.
 func TestRuleCorpusUnicornNoUnreadableIife(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-unreadable-iife.ts", "// expect: unicorn/no-unreadable-iife error\nconst r = (() => Math.random())();\nvoid r;\n")
+  assertRuleCorpusCase(t, "unicorn/no-unreadable-iife.ts", "// expect: unicorn/no-unreadable-iife error\nconst r = (() => Math.random())();\nvoid r;\n")
 }

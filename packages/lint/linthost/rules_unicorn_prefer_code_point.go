@@ -20,30 +20,30 @@ type unicornPreferCodePoint struct{}
 
 func (unicornPreferCodePoint) Name() string { return "unicorn/prefer-code-point" }
 func (unicornPreferCodePoint) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferCodePoint) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "charCodeAt":
-		// Instance call — receiver type is irrelevant.
-		ctx.Report(node, "Prefer `String#codePointAt()` / `String.fromCodePoint()` over `charCodeAt` / `fromCharCode`.")
-	case "fromCharCode":
-		// Static call — only the `String.fromCharCode(...)` shape.
-		if identifierText(access.Expression) != "String" {
-			return
-		}
-		ctx.Report(node, "Prefer `String#codePointAt()` / `String.fromCodePoint()` over `charCodeAt` / `fromCharCode`.")
-	}
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "charCodeAt":
+    // Instance call — receiver type is irrelevant.
+    ctx.Report(node, "Prefer `String#codePointAt()` / `String.fromCodePoint()` over `charCodeAt` / `fromCharCode`.")
+  case "fromCharCode":
+    // Static call — only the `String.fromCharCode(...)` shape.
+    if identifierText(access.Expression) != "String" {
+      return
+    }
+    ctx.Report(node, "Prefer `String#codePointAt()` / `String.fromCodePoint()` over `charCodeAt` / `fromCharCode`.")
+  }
 }
 
 func init() {
-	Register(unicornPreferCodePoint{})
+  Register(unicornPreferCodePoint{})
 }

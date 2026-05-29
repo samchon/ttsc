@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-throw-statements.
 // 3. Assert the statement reports and offers no autofix.
 func TestFunctionalNoThrowStatementsRejectsThrow(t *testing.T) {
-	const ruleName = "functional/no-throw-statements"
-	findings := runFunctionalRule(t, ruleName, `throw new Error("boom");`)
-	assertFunctionalFinding(t, ruleName, findings, "throw")
+  const ruleName = "functional/no-throw-statements"
+  findings := runFunctionalRule(t, ruleName, `throw new Error("boom");`)
+  assertFunctionalFinding(t, ruleName, findings, "throw")
 }

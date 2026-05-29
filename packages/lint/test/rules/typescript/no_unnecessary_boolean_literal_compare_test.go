@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnnecessaryBooleanLiteralCompare verifies the lint
@@ -23,25 +23,25 @@ import (
 // future shim regression surfaces here without depending on the full
 // fixture.
 //
-// 1. Seed a project that compares a `boolean` with the `true` literal.
-// 2. Run `check` with typescript/no-unnecessary-boolean-literal-compare
-//    enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that compares a `boolean` with the `true` literal.
+//  2. Run `check` with typescript/no-unnecessary-boolean-literal-compare
+//     enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnnecessaryBooleanLiteralCompare(t *testing.T) {
-	root := seedLintProject(t, `declare const flag: boolean;
+  root := seedLintProject(t, `declare const flag: boolean;
 const yes = flag === true;
 JSON.stringify(yes);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unnecessary-boolean-literal-compare": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unnecessary-boolean-literal-compare": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unnecessary-boolean-literal-compare]") {
-		t.Fatalf("no-unnecessary-boolean-literal-compare diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unnecessary-boolean-literal-compare]") {
+    t.Fatalf("no-unnecessary-boolean-literal-compare diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

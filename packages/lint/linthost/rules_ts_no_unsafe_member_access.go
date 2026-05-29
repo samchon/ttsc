@@ -13,46 +13,46 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noUnsafeMemberAccess struct{}
 
 func (noUnsafeMemberAccess) Name() string { return "typescript/no-unsafe-member-access" }
 func (noUnsafeMemberAccess) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnsafeMemberAccess) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindPropertyAccessExpression,
-		shimast.KindElementAccessExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression,
+  }
 }
 func (noUnsafeMemberAccess) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	var receiver *shimast.Node
-	switch node.Kind {
-	case shimast.KindPropertyAccessExpression:
-		if access := node.AsPropertyAccessExpression(); access != nil {
-			receiver = access.Expression
-		}
-	case shimast.KindElementAccessExpression:
-		if access := node.AsElementAccessExpression(); access != nil {
-			receiver = access.Expression
-		}
-	}
-	if receiver == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(receiver)
-	if !typeIsUnsafeAny(t) {
-		return
-	}
-	ctx.Report(node, "Unsafe member access on a value typed as `any`. Narrow the receiver to a concrete type before reading a property.")
+  if ctx.Checker == nil {
+    return
+  }
+  var receiver *shimast.Node
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    if access := node.AsPropertyAccessExpression(); access != nil {
+      receiver = access.Expression
+    }
+  case shimast.KindElementAccessExpression:
+    if access := node.AsElementAccessExpression(); access != nil {
+      receiver = access.Expression
+    }
+  }
+  if receiver == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(receiver)
+  if !typeIsUnsafeAny(t) {
+    return
+  }
+  ctx.Report(node, "Unsafe member access on a value typed as `any`. Narrow the receiver to a concrete type before reading a property.")
 }
 
 func init() {
-	Register(noUnsafeMemberAccess{})
+  Register(noUnsafeMemberAccess{})
 }

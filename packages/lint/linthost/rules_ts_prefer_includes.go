@@ -16,40 +16,40 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type preferIncludes struct{}
 
 func (preferIncludes) Name() string { return "typescript/prefer-includes" }
 func (preferIncludes) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (preferIncludes) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (preferIncludes) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil {
-		return
-	}
-	// One side of the comparison must be a `.indexOf(...)` call; the
-	// other side must be a numeric sentinel (-1 or 0) and the operator
-	// chosen so the boolean meaning is "is the value present".
-	if !preferIncludesIsTargetedComparison(bin.OperatorToken.Kind) {
-		return
-	}
-	if preferIncludesCheckSide(ctx, bin.Left, bin.Right, bin.OperatorToken.Kind, false) {
-		ctx.Report(node, preferIncludesMessage)
-		return
-	}
-	if preferIncludesCheckSide(ctx, bin.Right, bin.Left, bin.OperatorToken.Kind, true) {
-		ctx.Report(node, preferIncludesMessage)
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil {
+    return
+  }
+  // One side of the comparison must be a `.indexOf(...)` call; the
+  // other side must be a numeric sentinel (-1 or 0) and the operator
+  // chosen so the boolean meaning is "is the value present".
+  if !preferIncludesIsTargetedComparison(bin.OperatorToken.Kind) {
+    return
+  }
+  if preferIncludesCheckSide(ctx, bin.Left, bin.Right, bin.OperatorToken.Kind, false) {
+    ctx.Report(node, preferIncludesMessage)
+    return
+  }
+  if preferIncludesCheckSide(ctx, bin.Right, bin.Left, bin.OperatorToken.Kind, true) {
+    ctx.Report(node, preferIncludesMessage)
+  }
 }
 
 const preferIncludesMessage = "Prefer `.includes(x)` over `.indexOf(x)` compared against `-1` / `0` — `.includes` states the containment intent directly."
@@ -59,18 +59,18 @@ const preferIncludesMessage = "Prefer `.includes(x)` over `.indexOf(x)` compared
 // rule fires on `===`, `!==`, `==`, `!=`, `<`, `<=`, `>`, `>=`; other
 // operators leave the binary alone.
 func preferIncludesIsTargetedComparison(kind shimast.Kind) bool {
-	switch kind {
-	case shimast.KindEqualsEqualsToken,
-		shimast.KindEqualsEqualsEqualsToken,
-		shimast.KindExclamationEqualsToken,
-		shimast.KindExclamationEqualsEqualsToken,
-		shimast.KindLessThanToken,
-		shimast.KindLessThanEqualsToken,
-		shimast.KindGreaterThanToken,
-		shimast.KindGreaterThanEqualsToken:
-		return true
-	}
-	return false
+  switch kind {
+  case shimast.KindEqualsEqualsToken,
+    shimast.KindEqualsEqualsEqualsToken,
+    shimast.KindExclamationEqualsToken,
+    shimast.KindExclamationEqualsEqualsToken,
+    shimast.KindLessThanToken,
+    shimast.KindLessThanEqualsToken,
+    shimast.KindGreaterThanToken,
+    shimast.KindGreaterThanEqualsToken:
+    return true
+  }
+  return false
 }
 
 // preferIncludesCheckSide reports whether `call` is the
@@ -79,49 +79,49 @@ func preferIncludesIsTargetedComparison(kind shimast.Kind) bool {
 // direction of ordering operators so `arr.indexOf(x) > -1` and
 // `-1 < arr.indexOf(x)` both match.
 func preferIncludesCheckSide(
-	ctx *Context,
-	call, sentinel *shimast.Node,
-	op shimast.Kind,
-	reversed bool,
+  ctx *Context,
+  call, sentinel *shimast.Node,
+  op shimast.Kind,
+  reversed bool,
 ) bool {
-	call = stripParens(call)
-	sentinel = stripParens(sentinel)
-	if call == nil || sentinel == nil {
-		return false
-	}
-	if call.Kind != shimast.KindCallExpression {
-		return false
-	}
-	callExpr := call.AsCallExpression()
-	if callExpr == nil || callExpr.Expression == nil {
-		return false
-	}
-	receiver, method, ok := promisePropertyAccessParts(callExpr.Expression)
-	if !ok || method != "indexOf" {
-		return false
-	}
-	if callExpr.Arguments == nil || len(callExpr.Arguments.Nodes) != 1 {
-		return false
-	}
-	value, ok := preferIncludesSentinelValue(sentinel)
-	if !ok {
-		return false
-	}
-	effectiveOp := op
-	if reversed {
-		effectiveOp = preferIncludesFlipOperator(op)
-	}
-	if !preferIncludesIsPresenceComparison(effectiveOp, value) {
-		return false
-	}
-	if receiver == nil {
-		return false
-	}
-	t := ctx.Checker.GetTypeAtLocation(receiver)
-	if t == nil {
-		return false
-	}
-	return preferIncludesIsArrayOrString(ctx.Checker, t)
+  call = stripParens(call)
+  sentinel = stripParens(sentinel)
+  if call == nil || sentinel == nil {
+    return false
+  }
+  if call.Kind != shimast.KindCallExpression {
+    return false
+  }
+  callExpr := call.AsCallExpression()
+  if callExpr == nil || callExpr.Expression == nil {
+    return false
+  }
+  receiver, method, ok := promisePropertyAccessParts(callExpr.Expression)
+  if !ok || method != "indexOf" {
+    return false
+  }
+  if callExpr.Arguments == nil || len(callExpr.Arguments.Nodes) != 1 {
+    return false
+  }
+  value, ok := preferIncludesSentinelValue(sentinel)
+  if !ok {
+    return false
+  }
+  effectiveOp := op
+  if reversed {
+    effectiveOp = preferIncludesFlipOperator(op)
+  }
+  if !preferIncludesIsPresenceComparison(effectiveOp, value) {
+    return false
+  }
+  if receiver == nil {
+    return false
+  }
+  t := ctx.Checker.GetTypeAtLocation(receiver)
+  if t == nil {
+    return false
+  }
+  return preferIncludesIsArrayOrString(ctx.Checker, t)
 }
 
 // preferIncludesSentinelValue returns the numeric sentinel encoded by
@@ -129,46 +129,46 @@ func preferIncludesCheckSide(
 // constants the rule's shapes reduce to). Returns ok=false for any
 // other expression.
 func preferIncludesSentinelValue(node *shimast.Node) (int, bool) {
-	if node == nil {
-		return 0, false
-	}
-	if node.Kind == shimast.KindNumericLiteral {
-		switch numericLiteralText(node) {
-		case "0":
-			return 0, true
-		case "1":
-			return 1, true
-		}
-		return 0, false
-	}
-	if node.Kind != shimast.KindPrefixUnaryExpression {
-		return 0, false
-	}
-	prefix := node.AsPrefixUnaryExpression()
-	if prefix == nil || prefix.Operand == nil {
-		return 0, false
-	}
-	if prefix.Operand.Kind != shimast.KindNumericLiteral {
-		return 0, false
-	}
-	text := numericLiteralText(prefix.Operand)
-	switch prefix.Operator {
-	case shimast.KindMinusToken:
-		if text == "1" {
-			return -1, true
-		}
-		if text == "0" {
-			return 0, true
-		}
-	case shimast.KindPlusToken:
-		if text == "0" {
-			return 0, true
-		}
-		if text == "1" {
-			return 1, true
-		}
-	}
-	return 0, false
+  if node == nil {
+    return 0, false
+  }
+  if node.Kind == shimast.KindNumericLiteral {
+    switch numericLiteralText(node) {
+    case "0":
+      return 0, true
+    case "1":
+      return 1, true
+    }
+    return 0, false
+  }
+  if node.Kind != shimast.KindPrefixUnaryExpression {
+    return 0, false
+  }
+  prefix := node.AsPrefixUnaryExpression()
+  if prefix == nil || prefix.Operand == nil {
+    return 0, false
+  }
+  if prefix.Operand.Kind != shimast.KindNumericLiteral {
+    return 0, false
+  }
+  text := numericLiteralText(prefix.Operand)
+  switch prefix.Operator {
+  case shimast.KindMinusToken:
+    if text == "1" {
+      return -1, true
+    }
+    if text == "0" {
+      return 0, true
+    }
+  case shimast.KindPlusToken:
+    if text == "0" {
+      return 0, true
+    }
+    if text == "1" {
+      return 1, true
+    }
+  }
+  return 0, false
 }
 
 // preferIncludesFlipOperator returns the operator that has the same
@@ -176,17 +176,17 @@ func preferIncludesSentinelValue(node *shimast.Node) (int, bool) {
 // `b > a`, `a >= b` flipped is `b <= a`, and equality operators are
 // symmetric so they are returned unchanged.
 func preferIncludesFlipOperator(kind shimast.Kind) shimast.Kind {
-	switch kind {
-	case shimast.KindLessThanToken:
-		return shimast.KindGreaterThanToken
-	case shimast.KindLessThanEqualsToken:
-		return shimast.KindGreaterThanEqualsToken
-	case shimast.KindGreaterThanToken:
-		return shimast.KindLessThanToken
-	case shimast.KindGreaterThanEqualsToken:
-		return shimast.KindLessThanEqualsToken
-	}
-	return kind
+  switch kind {
+  case shimast.KindLessThanToken:
+    return shimast.KindGreaterThanToken
+  case shimast.KindLessThanEqualsToken:
+    return shimast.KindGreaterThanEqualsToken
+  case shimast.KindGreaterThanToken:
+    return shimast.KindLessThanToken
+  case shimast.KindGreaterThanEqualsToken:
+    return shimast.KindLessThanEqualsToken
+  }
+  return kind
 }
 
 // preferIncludesIsPresenceComparison reports whether `op` paired with
@@ -195,21 +195,21 @@ func preferIncludesFlipOperator(kind shimast.Kind) shimast.Kind {
 // mean "absent". Either polarity is rewritable to `includes(x)` (the
 // "absent" cases negate the call), so both pass.
 func preferIncludesIsPresenceComparison(op shimast.Kind, value int) bool {
-	switch op {
-	case shimast.KindExclamationEqualsToken, shimast.KindExclamationEqualsEqualsToken:
-		return value == -1
-	case shimast.KindEqualsEqualsToken, shimast.KindEqualsEqualsEqualsToken:
-		return value == -1
-	case shimast.KindGreaterThanEqualsToken:
-		return value == 0
-	case shimast.KindGreaterThanToken:
-		return value == -1
-	case shimast.KindLessThanToken:
-		return value == 0
-	case shimast.KindLessThanEqualsToken:
-		return value == -1
-	}
-	return false
+  switch op {
+  case shimast.KindExclamationEqualsToken, shimast.KindExclamationEqualsEqualsToken:
+    return value == -1
+  case shimast.KindEqualsEqualsToken, shimast.KindEqualsEqualsEqualsToken:
+    return value == -1
+  case shimast.KindGreaterThanEqualsToken:
+    return value == 0
+  case shimast.KindGreaterThanToken:
+    return value == -1
+  case shimast.KindLessThanToken:
+    return value == 0
+  case shimast.KindLessThanEqualsToken:
+    return value == -1
+  }
+  return false
 }
 
 // preferIncludesIsArrayOrString reports whether t is provably an
@@ -220,36 +220,36 @@ func preferIncludesIsPresenceComparison(op shimast.Kind, value int) bool {
 // matching — they leak from generic helpers and would explode the
 // false-positive volume on user-defined `indexOf` methods.
 func preferIncludesIsArrayOrString(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-	if checker == nil || t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return false
-	}
-	if flags&shimchecker.TypeFlagsStringLike != 0 {
-		return true
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if !preferIncludesIsArrayOrString(checker, part) {
-				return false
-			}
-		}
-		return true
-	}
-	if shimchecker.Checker_isArrayType(checker, t) {
-		return true
-	}
-	if shimchecker.IsTupleType(t) {
-		return true
-	}
-	return false
+  if checker == nil || t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return false
+  }
+  if flags&shimchecker.TypeFlagsStringLike != 0 {
+    return true
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if !preferIncludesIsArrayOrString(checker, part) {
+        return false
+      }
+    }
+    return true
+  }
+  if shimchecker.Checker_isArrayType(checker, t) {
+    return true
+  }
+  if shimchecker.IsTupleType(t) {
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(preferIncludes{})
+  Register(preferIncludes{})
 }

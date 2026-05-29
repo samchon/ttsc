@@ -17,38 +17,38 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornConsistentDateClone struct{}
 
 func (unicornConsistentDateClone) Name() string {
-	return "unicorn/consistent-date-clone"
+  return "unicorn/consistent-date-clone"
 }
 func (unicornConsistentDateClone) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindNewExpression}
 }
 func (unicornConsistentDateClone) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne == nil || identifierText(ne.Expression) != "Date" {
-		return
-	}
-	if ne.Arguments == nil || len(ne.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(ne.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := arg.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "getTime" {
-		return
-	}
-	if call.Arguments != nil && len(call.Arguments.Nodes) != 0 {
-		return
-	}
-	ctx.Report(node, "Pass the `Date` directly to `new Date(...)` — `getTime()` is redundant.")
+  ne := node.AsNewExpression()
+  if ne == nil || identifierText(ne.Expression) != "Date" {
+    return
+  }
+  if ne.Arguments == nil || len(ne.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(ne.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := arg.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "getTime" {
+    return
+  }
+  if call.Arguments != nil && len(call.Arguments.Nodes) != 0 {
+    return
+  }
+  ctx.Report(node, "Pass the `Date` directly to `new Date(...)` — `getTime()` is redundant.")
 }
 
 func init() {
-	Register(unicornConsistentDateClone{})
+  Register(unicornConsistentDateClone{})
 }

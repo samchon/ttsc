@@ -20,61 +20,61 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornConsistentExistenceIndexCheckMethods = map[string]struct{}{
-	"indexOf":       {},
-	"findIndex":     {},
-	"lastIndexOf":   {},
-	"findLastIndex": {},
+  "indexOf":       {},
+  "findIndex":     {},
+  "lastIndexOf":   {},
+  "findLastIndex": {},
 }
 
 type unicornConsistentExistenceIndexCheck struct{}
 
 func (unicornConsistentExistenceIndexCheck) Name() string {
-	return "unicorn/consistent-existence-index-check"
+  return "unicorn/consistent-existence-index-check"
 }
 func (unicornConsistentExistenceIndexCheck) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornConsistentExistenceIndexCheck) Check(ctx *Context, node *shimast.Node) {
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil || bin.Left == nil || bin.Right == nil {
-		return
-	}
-	switch bin.OperatorToken.Kind {
-	case shimast.KindLessThanToken, shimast.KindGreaterThanEqualsToken:
-	default:
-		return
-	}
-	left := stripParens(bin.Left)
-	right := stripParens(bin.Right)
-	if unicornConsistentExistenceIndexCheckMatch(left, right) {
-		ctx.Report(node, "Use a consistent existence-check form for `indexOf` / `findIndex` — prefer `=== -1` / `!== -1` over magnitude comparisons.")
-	}
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil || bin.Left == nil || bin.Right == nil {
+    return
+  }
+  switch bin.OperatorToken.Kind {
+  case shimast.KindLessThanToken, shimast.KindGreaterThanEqualsToken:
+  default:
+    return
+  }
+  left := stripParens(bin.Left)
+  right := stripParens(bin.Right)
+  if unicornConsistentExistenceIndexCheckMatch(left, right) {
+    ctx.Report(node, "Use a consistent existence-check form for `indexOf` / `findIndex` — prefer `=== -1` / `!== -1` over magnitude comparisons.")
+  }
 }
 
 func unicornConsistentExistenceIndexCheckMatch(callSide, literalSide *shimast.Node) bool {
-	if callSide == nil || literalSide == nil {
-		return false
-	}
-	if literalSide.Kind != shimast.KindNumericLiteral ||
-		numericLiteralText(literalSide) != "0" {
-		return false
-	}
-	if callSide.Kind != shimast.KindCallExpression {
-		return false
-	}
-	call := callSide.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return false
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return false
-	}
-	_, ok := unicornConsistentExistenceIndexCheckMethods[identifierText(access.Name())]
-	return ok
+  if callSide == nil || literalSide == nil {
+    return false
+  }
+  if literalSide.Kind != shimast.KindNumericLiteral ||
+    numericLiteralText(literalSide) != "0" {
+    return false
+  }
+  if callSide.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := callSide.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return false
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return false
+  }
+  _, ok := unicornConsistentExistenceIndexCheckMethods[identifierText(access.Name())]
+  return ok
 }
 
 func init() {
-	Register(unicornConsistentExistenceIndexCheck{})
+  Register(unicornConsistentExistenceIndexCheck{})
 }

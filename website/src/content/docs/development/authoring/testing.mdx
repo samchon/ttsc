@@ -7,7 +7,7 @@ Use two layers:
 
 ## Doc comment + one case per file
 
-Every test in this project — Go unit or TypeScript e2e — is **one assertion per file**, named after what it asserts, opened with a three-part doc comment: a `Verifies …` headline, a short paragraph stating the non-obvious _why_, and a 2–4-step numbered scenario. This is the same shape AGENTS.md §2.2 mandates for the in-repo tests; third-party plugins that adopt it stay copy-pasteable into the project's own test suite.
+Every test in this project, Go unit or TypeScript e2e, is **one assertion per file**, named after what it asserts, opened with a three-part doc comment: a `Verifies …` headline, a short paragraph stating the non-obvious _why_, and a 2–4-step numbered scenario. This is the same shape AGENTS.md §2.2 mandates for the in-repo tests; third-party plugins that adopt it stay copy-pasteable into the project's own test suite.
 
 - **Go unit tests** live in `packages/*/test/` (or `<your-package>/test/`). One `Test*` per file. File name: `<scope>_<assertion>_test.go`.
 - **TypeScript e2e tests** live in `tests/test-*/src/features/` (or the equivalent in your package). Each file exports one `test_<snake_case>` function with a matching filename; `DynamicExecutor` from `@nestia/e2e` discovers them by prefix.
@@ -57,7 +57,7 @@ Keep the core logic callable without CLI flags. Use the real shipped signature s
 banner, err := parseBanner(config, cwd, tsconfigPath)
 ```
 
-The real signature is `parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error)`. There is no `applyBanner` in the repo — the function name matters because readers grep for it.
+The real signature is `parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error)`. There is no `applyBanner` in the repo, the function name matters because readers grep for it.
 
 Unit tests should cover:
 
@@ -140,13 +140,13 @@ export const test_my_plugin_strips_debugger_statements_from_emit = () => {
 
 ## Project-shaped fixtures
 
-When a regression depends on a real directory layout — entry discovery, package boundaries, `compilerOptions.plugins[]` resolution — check the fixture into `tests/projects/<name>/` and copy it into a temp dir at test time. The canonical "third-party shape" for project fixtures is what this repo's own `tests/projects/` ships: nine fixtures, every one uses **explicit `compilerOptions.plugins[]`** (no `package.json` auto-discovery), so the wiring is unambiguous.
+When a regression depends on a real directory layout, entry discovery, package boundaries, `compilerOptions.plugins[]` resolution. Check the fixture into `tests/projects/<name>/` and copy it into a temp dir at test time. The canonical "third-party shape" for project fixtures is what this repo's own `tests/projects/` ships: nine fixtures, every one uses **explicit `compilerOptions.plugins[]`** (no `package.json` auto-discovery), so the wiring is unambiguous.
 
 Worked exemplars in this repo:
 
-- [`tests/projects/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin/) — minimal Go source plugin.
-- [`tests/projects/go-source-plugin-checker/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) — Checker-using plugin.
-- [`tests/projects/go-source-plugin-properties/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) — properties round-trip.
+- [`tests/projects/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin/): minimal Go source plugin.
+- [`tests/projects/go-source-plugin-checker/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/): Checker-using plugin.
+- [`tests/projects/go-source-plugin-properties/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/): properties round-trip.
 
 The materialize-into-tempdir pattern is one helper a third-party author can paste without depending on `@ttsc/testing` (which is private to this repo):
 
@@ -176,7 +176,7 @@ function copyDirectory(src: string, dst: string): void {
 }
 ```
 
-For Checker-using plugins, the bootstrap inside the fixture's `plugin/main.go` should use `driver.LoadProgram` — see [AST & Checker → Bootstrap with the driver](/docs/development/concepts/tsgo#bootstrap-with-the-driver).
+For Checker-using plugins, the bootstrap inside the fixture's `plugin/main.go` should use `driver.LoadProgram`. See [AST & Checker → Bootstrap with the driver](/docs/development/concepts/tsgo#bootstrap-with-the-driver).
 
 ## Direct-shell smoke
 
@@ -217,7 +217,7 @@ For the re-spawn how-to (calling `exec.Command(os.Getenv("TTSC_TSGO_BINARY"), ..
 
 ## Cache isolation
 
-Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary's content identity — see [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs) for the full formula. Three knobs make tests deterministic:
+Plugin builds are cache-keyed by `GO_BUILD_ENV_KEYS` and the resolved Go binary's content identity. See [Architecture → Cache key inputs](/docs/development/reference/architecture#cache-key-inputs) for the full formula. Three knobs make tests deterministic:
 
 - **`TTSC_CACHE_DIR` per worker**, not per suite. Parallel workers that share a cache dir race the publish path.
 
@@ -274,4 +274,4 @@ Generated shim re-export files and the shim generator under `packages/ttsc/shim`
 
 ## Next
 
-→ [Publishing](/docs/development/authoring/publishing) — package shape, `peerDependencies`, Pre-Publish Check CI recipe.
+→ [Publishing](/docs/development/authoring/publishing), package shape, `peerDependencies`, Pre-Publish Check CI recipe.

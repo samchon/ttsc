@@ -8,19 +8,18 @@ import assert from "node:assert/strict";
  * Commit 502942b on PR #124 fixed a regression CI caught: the schema-based
  * parser was bundling every token after the entry file into
  * `result.passthrough`, which `runTtsx::parseCLI` then forwarded to tsgo as
- * `tsgoFlags`. So `ttsx typia.ts generate --input X` exited 2 with
- * "Unknown compiler option '--input'" from tsgo instead of reaching the
- * entry's `process.argv`. The sibling test
- * `test_ttsx_forwards_argv_after_and_runs_preload_modules` only exercises
- * the `--` separator path; this case pins the no-`--` path the typia
- * fixture actually trips, so the original regression cannot recur.
+ * `tsgoFlags`. So `ttsx typia.ts generate --input X` exited 2 with "Unknown
+ * compiler option '--input'" from tsgo instead of reaching the entry's
+ * `process.argv`. The sibling test
+ * `test_ttsx_forwards_argv_after_and_runs_preload_modules` only exercises the
+ * `--` separator path; this case pins the no-`--` path the typia fixture
+ * actually trips, so the original regression cannot recur.
  *
  * 1. Create a CJS entry that prints `process.argv.slice(2)` as JSON.
  * 2. Run `ttsx src/main.ts generate --input X --output Y` with NO `--`.
- * 3. Assert zero exit and that the entry received the full tail
- *    `["generate", "--input", "X", "--output", "Y"]` — confirming the
- *    `tail` sink in `parseFlags` (added by 502942b) keeps script argv out
- *    of `tsgoFlags`.
+ * 3. Assert zero exit and that the entry received the full tail `["generate",
+ *    "--input", "X", "--output", "Y"]` — confirming the `tail` sink in
+ *    `parseFlags` (added by 502942b) keeps script argv out of `tsgoFlags`.
  */
 export const test_ttsx_post_entry_argv_without_double_dash_reaches_script =
   () => {

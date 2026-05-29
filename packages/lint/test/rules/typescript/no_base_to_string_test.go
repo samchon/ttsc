@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoBaseToString verifies the lint rule corpus fixture
@@ -22,25 +22,25 @@ import (
 // future shim regression surfaces here without depending on the full
 // fixture.
 //
-// 1. Seed a project that calls `String(obj)` on a plain `{ id: number }`
-//    object.
-// 2. Run `check` with typescript/no-base-to-string enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that calls `String(obj)` on a plain `{ id: number }`
+//     object.
+//  2. Run `check` with typescript/no-base-to-string enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoBaseToString(t *testing.T) {
-	root := seedLintProject(t, `declare const obj: { id: number };
+  root := seedLintProject(t, `declare const obj: { id: number };
 const out = String(obj);
 JSON.stringify(out);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-base-to-string": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-base-to-string": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-base-to-string]") {
-		t.Fatalf("no-base-to-string diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-base-to-string]") {
+    t.Fatalf("no-base-to-string diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

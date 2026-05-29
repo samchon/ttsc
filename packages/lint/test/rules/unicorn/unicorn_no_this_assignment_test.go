@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare `const self = this;` inside a class method body.
 // 3. Assert the declaration is reported.
 func TestRuleCorpusUnicornNoThisAssignment(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-this-assignment.ts", "class C {\n  m() {\n    // expect: unicorn/no-this-assignment error\n    const self = this;\n    return self;\n  }\n}\n")
+  assertRuleCorpusCase(t, "unicorn/no-this-assignment.ts", "class C {\n  m() {\n    // expect: unicorn/no-this-assignment error\n    const self = this;\n    return self;\n  }\n}\n")
 }

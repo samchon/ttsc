@@ -1,6 +1,6 @@
 # typia
 
-[`typia`](https://typia.io) is a transformer that generates **runtime validators, JSON serializers, Protocol Buffer codecs, random-data generators, and LLM function-calling schemas** from your TypeScript types — at **build time, with no manual schema work**.
+[`typia`](https://typia.io) is a transformer that generates **runtime validators, JSON serializers, Protocol Buffer codecs, random-data generators, and LLM function-calling schemas** from your TypeScript types, at **build time, with no manual schema work**.
 
 It is the canonical third-party `ttsc` plugin: same protocol, same `compilerOptions.plugins[]` wiring, same in-source AST transform pass.
 
@@ -10,7 +10,7 @@ It is the canonical third-party `ttsc` plugin: same protocol, same `compilerOpti
 npm install -D ttsc @typescript/native-preview typia
 ```
 
-That's it. `typia` ships the `ttsc.plugin` auto-discovery marker in its `package.json`, so `ttsc` picks it up the moment you list it in `dependencies` / `devDependencies` — no `compilerOptions.plugins[]` entry needed.
+That's it. `typia` ships the `ttsc.plugin` auto-discovery marker in its `package.json`, so `ttsc` picks it up the moment you list it in `dependencies` / `devDependencies`, no `compilerOptions.plugins[]` entry needed.
 
 Run `ttsc --emit` (or any `ttsc` / `ttsx` / unplugin bundler that runs `ttsc` plugins). On every build, `typia.*` calls in your code are replaced with optimized, type-aware generated functions.
 
@@ -30,21 +30,21 @@ interface User {
 export const validateUser = typia.createValidate<User>();
 ```
 
-After `ttsc`, `validateUser` becomes a hand-rolled validator that checks every property against the type contract — no `zod`/`joi`/`yup` schema duplication, no runtime reflection.
+After `ttsc`, `validateUser` becomes a hand-rolled validator that checks every property against the type contract, no `zod`/`joi`/`yup` schema duplication, no runtime reflection.
 
 The same shape covers:
 
-- **Validation** — `typia.assert<T>(input)`, `typia.is<T>(input)`, `typia.validate<T>(input)`.
-- **JSON** — `typia.json.stringify<T>(value)` (5-20× faster than `JSON.stringify`), `typia.json.assertParse<T>(text)`.
-- **Protocol Buffer** — `typia.protobuf.encode<T>(value)`, `typia.protobuf.decode<T>(bytes)`.
-- **Random** — `typia.random<T>()` produces a fixture matching the type's tags and constraints.
-- **LLM** — `typia.llm.application<App>()` generates an OpenAI / Claude / Gemini function-calling schema for every method of an interface.
+- **Validation**: `typia.assert<T>(input)`, `typia.is<T>(input)`, `typia.validate<T>(input)`.
+- **JSON**: `typia.json.stringify<T>(value)` (5-20× faster than `JSON.stringify`), `typia.json.assertParse<T>(text)`.
+- **Protocol Buffer**: `typia.protobuf.encode<T>(value)`, `typia.protobuf.decode<T>(bytes)`.
+- **Random**: `typia.random<T>()` produces a fixture matching the type's tags and constraints.
+- **LLM**: `typia.llm.application<App>()` generates an OpenAI / Claude / Gemini function-calling schema for every method of an interface.
 
-Every transform reads the actual TypeScript type — there is no separate schema file to drift.
+Every transform reads the actual TypeScript type. There is no separate schema file to drift.
 
 ## Why `ttsc`
 
-`typia` is a TypeScript compiler transformer. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts (along with `ts-patch`). On the `ttsc` side, `typia` is auto-discovered from `package.json` (no `compilerOptions.plugins[]` entry needed) — `ttsc` resolves the package, builds and caches `typia`'s compiled sidecar, and routes the TypeScript-Go AST through it before emit.
+`typia` is a TypeScript compiler transformer. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts (along with `ts-patch`). On the `ttsc` side, `typia` is auto-discovered from `package.json` (no `compilerOptions.plugins[]` entry needed), `ttsc` resolves the package, builds and caches `typia`'s compiled sidecar, and routes the TypeScript-Go AST through it before emit.
 
 `typia` works in every place `ttsc` runs:
 
@@ -52,13 +52,11 @@ Every transform reads the actual TypeScript type — there is no separate schema
 - `ttsx ./src/main.ts` for typed execution,
 - every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter (Vite, Webpack, esbuild, Rollup, Rspack).
 
-One install; the transform runs anywhere `ttsc` owns compilation.
-VS Code uses the same project config for TypeScript-Go plus any LSP-facing
-plugin diagnostics/actions, but editor integration does not rewrite emit.
+One install; the transform runs anywhere `ttsc` owns compilation. VS Code uses the same project config for TypeScript-Go plus any LSP-facing plugin diagnostics/actions, but editor integration does not rewrite emit.
 
 ## Combine with other ttsc plugins
 
-`typia` composes with `@ttsc/lint`, `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in the same `compilerOptions.plugins[]` array. Lint runs before emit; linked transforms (banner, paths, strip) ride inside the selected compiler host. Two independent executable transform hosts cannot share one emit pass — if you need typia and another executable transformer together, see the `composes` field in [Plugin protocol → Combining plugins from different vendors](/docs/development/concepts/protocol#combining-plugins-from-different-vendors).
+`typia` composes with `@ttsc/lint`, `@ttsc/banner`, `@ttsc/paths`, and `@ttsc/strip` in the same `compilerOptions.plugins[]` array. Lint runs before emit; linked transforms (banner, paths, strip) ride inside the selected compiler host. Two independent executable transform hosts cannot share one emit pass, if you need typia and another executable transformer together, see the `composes` field in [Plugin protocol → Combining plugins from different vendors](/docs/development/concepts/protocol#combining-plugins-from-different-vendors).
 
 ## Reference
 
@@ -70,6 +68,6 @@ plugin diagnostics/actions, but editor integration does not rewrite emit.
 
 ## See also
 
-- [`nestia`](/docs/plugins/nestia) — NestJS controllers, OpenAPI, SDK generation built on typia.
-- [Plugin Ecosystem overview](/docs/plugins) — the full catalogue.
-- [Plugin Development](/docs/development) — write your own ttsc plugin.
+- [`nestia`](/docs/plugins/nestia): NestJS controllers, OpenAPI, SDK generation built on typia.
+- [Plugin Ecosystem overview](/docs/plugins): the full catalogue.
+- [Plugin Development](/docs/development): write your own ttsc plugin.

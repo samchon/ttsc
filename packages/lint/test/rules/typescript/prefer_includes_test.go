@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferIncludes verifies the lint rule corpus fixture
@@ -22,25 +22,25 @@ import (
 // future shim regression surfaces here without depending on the full
 // fixture.
 //
-// 1. Seed a project that calls `.indexOf` on a `string[]` and compares
-//    against `-1`.
-// 2. Run `check` with typescript/prefer-includes enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that calls `.indexOf` on a `string[]` and compares
+//     against `-1`.
+//  2. Run `check` with typescript/prefer-includes enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferIncludes(t *testing.T) {
-	root := seedLintProject(t, `declare const arr: string[];
+  root := seedLintProject(t, `declare const arr: string[];
 const found = arr.indexOf("a") !== -1;
 JSON.stringify(found);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-includes": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-includes": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-includes]") {
-		t.Fatalf("prefer-includes diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-includes]") {
+    t.Fatalf("prefer-includes diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

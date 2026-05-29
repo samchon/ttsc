@@ -10,9 +10,9 @@
 package linthost
 
 import (
-	"fmt"
+  "fmt"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // maxStatementsLimit is the statement-count ceiling. Above this value
@@ -24,36 +24,36 @@ type maxStatements struct{}
 
 func (maxStatements) Name() string { return "max-statements" }
 func (maxStatements) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindFunctionExpression,
-		shimast.KindArrowFunction,
-		shimast.KindMethodDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+  }
 }
 func (maxStatements) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	body := node.Body()
-	if body == nil || body.Kind != shimast.KindBlock {
-		return
-	}
-	block := body.AsBlock()
-	if block == nil || block.Statements == nil {
-		return
-	}
-	count := 0
-	for _, stmt := range block.Statements.Nodes {
-		if stmt != nil {
-			count++
-		}
-	}
-	if count > maxStatementsLimit {
-		ctx.Report(node, fmt.Sprintf("Function has too many statements (%d). Maximum allowed is %d.", count, maxStatementsLimit))
-	}
+  if node == nil {
+    return
+  }
+  body := node.Body()
+  if body == nil || body.Kind != shimast.KindBlock {
+    return
+  }
+  block := body.AsBlock()
+  if block == nil || block.Statements == nil {
+    return
+  }
+  count := 0
+  for _, stmt := range block.Statements.Nodes {
+    if stmt != nil {
+      count++
+    }
+  }
+  if count > maxStatementsLimit {
+    ctx.Report(node, fmt.Sprintf("Function has too many statements (%d). Maximum allowed is %d.", count, maxStatementsLimit))
+  }
 }
 
 func init() {
-	Register(maxStatements{})
+  Register(maxStatements{})
 }

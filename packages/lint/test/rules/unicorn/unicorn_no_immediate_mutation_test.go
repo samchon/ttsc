@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.push(4)` on `[1, 2, 3]` directly.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoImmediateMutation(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-immediate-mutation.ts", "// expect: unicorn/no-immediate-mutation error\nconst last = [1, 2, 3].push(4);\nvoid last;\n")
+  assertRuleCorpusCase(t, "unicorn/no-immediate-mutation.ts", "// expect: unicorn/no-immediate-mutation error\nconst last = [1, 2, 3].push(4);\nvoid last;\n")
 }

@@ -62,8 +62,8 @@ export namespace ITtscCompilerTransformation {
      * origin. Treat as `"unknown"` when missing.
      *
      * - `"plugin"`: a native plugin sidecar crashed or exited non-zero.
-     * - `"host"`: the TypeScript-Go host could not start (missing binary,
-     *   cache lock, invalid config).
+     * - `"host"`: the TypeScript-Go host could not start (missing binary, cache
+     *   lock, invalid config).
      * - `"unknown"`: any other host-level failure.
      */
     kind?: "plugin" | "host" | "unknown";

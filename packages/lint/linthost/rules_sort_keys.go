@@ -17,7 +17,7 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type sortKeys struct{}
@@ -25,37 +25,37 @@ type sortKeys struct{}
 func (sortKeys) Name() string           { return "sort-keys" }
 func (sortKeys) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindObjectLiteralExpression} }
 func (sortKeys) Check(ctx *Context, node *shimast.Node) {
-	obj := node.AsObjectLiteralExpression()
-	if obj == nil || obj.Properties == nil {
-		return
-	}
-	previous := ""
-	hasPrevious := false
-	for _, prop := range obj.Properties.Nodes {
-		if prop == nil {
-			continue
-		}
-		// A spread divider resets the sort baseline; keys after the
-		// spread restart their own ordered group.
-		if prop.Kind == shimast.KindSpreadAssignment {
-			previous = ""
-			hasPrevious = false
-			continue
-		}
-		key := sortKeysName(prop)
-		if key == "" {
-			// Dynamic computed key (`[expr]`) — cannot compare; reset
-			// the baseline so the next static key starts a fresh group.
-			previous = ""
-			hasPrevious = false
-			continue
-		}
-		if hasPrevious && key < previous {
-			ctx.Report(prop, "Expected object keys to be in ascending order. '"+key+"' should be before '"+previous+"'.")
-		}
-		previous = key
-		hasPrevious = true
-	}
+  obj := node.AsObjectLiteralExpression()
+  if obj == nil || obj.Properties == nil {
+    return
+  }
+  previous := ""
+  hasPrevious := false
+  for _, prop := range obj.Properties.Nodes {
+    if prop == nil {
+      continue
+    }
+    // A spread divider resets the sort baseline; keys after the
+    // spread restart their own ordered group.
+    if prop.Kind == shimast.KindSpreadAssignment {
+      previous = ""
+      hasPrevious = false
+      continue
+    }
+    key := sortKeysName(prop)
+    if key == "" {
+      // Dynamic computed key (`[expr]`) — cannot compare; reset
+      // the baseline so the next static key starts a fresh group.
+      previous = ""
+      hasPrevious = false
+      continue
+    }
+    if hasPrevious && key < previous {
+      ctx.Report(prop, "Expected object keys to be in ascending order. '"+key+"' should be before '"+previous+"'.")
+    }
+    previous = key
+    hasPrevious = true
+  }
 }
 
 // sortKeysName returns the comparable name for a property in an object
@@ -64,35 +64,35 @@ func (sortKeys) Check(ctx *Context, node *shimast.Node) {
 // (dynamic computed names) return "" so the caller resets the sort
 // baseline.
 func sortKeysName(prop *shimast.Node) string {
-	if prop == nil {
-		return ""
-	}
-	var name *shimast.Node
-	switch prop.Kind {
-	case shimast.KindPropertyAssignment:
-		if a := prop.AsPropertyAssignment(); a != nil {
-			name = a.Name()
-		}
-	case shimast.KindShorthandPropertyAssignment:
-		if a := prop.AsShorthandPropertyAssignment(); a != nil {
-			name = a.Name()
-		}
-	case shimast.KindMethodDeclaration:
-		if a := prop.AsMethodDeclaration(); a != nil {
-			name = a.Name()
-		}
-	case shimast.KindGetAccessor:
-		if a := prop.AsGetAccessorDeclaration(); a != nil {
-			name = a.Name()
-		}
-	case shimast.KindSetAccessor:
-		if a := prop.AsSetAccessorDeclaration(); a != nil {
-			name = a.Name()
-		}
-	default:
-		return ""
-	}
-	return propertyNameText(name)
+  if prop == nil {
+    return ""
+  }
+  var name *shimast.Node
+  switch prop.Kind {
+  case shimast.KindPropertyAssignment:
+    if a := prop.AsPropertyAssignment(); a != nil {
+      name = a.Name()
+    }
+  case shimast.KindShorthandPropertyAssignment:
+    if a := prop.AsShorthandPropertyAssignment(); a != nil {
+      name = a.Name()
+    }
+  case shimast.KindMethodDeclaration:
+    if a := prop.AsMethodDeclaration(); a != nil {
+      name = a.Name()
+    }
+  case shimast.KindGetAccessor:
+    if a := prop.AsGetAccessorDeclaration(); a != nil {
+      name = a.Name()
+    }
+  case shimast.KindSetAccessor:
+    if a := prop.AsSetAccessorDeclaration(); a != nil {
+      name = a.Name()
+    }
+  default:
+    return ""
+  }
+  return propertyNameText(name)
 }
 
 // propertyNameText extracts a comparable string from a property-name
@@ -101,34 +101,34 @@ func sortKeysName(prop *shimast.Node) string {
 // Dynamic computed expressions return "" so the caller treats the
 // property as a sort-baseline reset.
 func propertyNameText(name *shimast.Node) string {
-	if name == nil {
-		return ""
-	}
-	switch name.Kind {
-	case shimast.KindIdentifier:
-		return identifierText(name)
-	case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
-		return stringLiteralText(name)
-	case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
-		return numericLiteralText(name)
-	case shimast.KindComputedPropertyName:
-		// Only static literal payloads are comparable; dynamic
-		// expressions yield "" so the caller resets the sort baseline.
-		computed := name.AsComputedPropertyName()
-		if computed == nil || computed.Expression == nil {
-			return ""
-		}
-		inner := computed.Expression
-		switch inner.Kind {
-		case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
-			return stringLiteralText(inner)
-		case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
-			return numericLiteralText(inner)
-		}
-	}
-	return ""
+  if name == nil {
+    return ""
+  }
+  switch name.Kind {
+  case shimast.KindIdentifier:
+    return identifierText(name)
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(name)
+  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+    return numericLiteralText(name)
+  case shimast.KindComputedPropertyName:
+    // Only static literal payloads are comparable; dynamic
+    // expressions yield "" so the caller resets the sort baseline.
+    computed := name.AsComputedPropertyName()
+    if computed == nil || computed.Expression == nil {
+      return ""
+    }
+    inner := computed.Expression
+    switch inner.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      return stringLiteralText(inner)
+    case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+      return numericLiteralText(inner)
+    }
+  }
+  return ""
 }
 
 func init() {
-	Register(sortKeys{})
+  Register(sortKeys{})
 }

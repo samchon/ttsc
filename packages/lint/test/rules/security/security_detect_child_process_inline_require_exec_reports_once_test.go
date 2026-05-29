@@ -13,7 +13,7 @@ import "testing"
 // 2. Pass a non-literal command argument.
 // 3. Assert exactly one `security/detect-child-process` finding is emitted.
 func TestSecurityDetectChildProcessInlineRequireExecReportsOnce(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-child-process-inline-require-exec.ts", `
+  assertRuleCorpusCase(t, "security/detect-child-process-inline-require-exec.ts", `
 // expect: security/detect-child-process error
 require("child_process").exec(command);
 `)

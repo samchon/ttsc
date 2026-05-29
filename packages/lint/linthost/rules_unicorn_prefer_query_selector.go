@@ -17,40 +17,40 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornPreferQuerySelectorMethods = map[string]struct{}{
-	"getElementById":         {},
-	"getElementsByClassName": {},
-	"getElementsByTagName":   {},
+  "getElementById":         {},
+  "getElementsByClassName": {},
+  "getElementsByTagName":   {},
 }
 
 type unicornPreferQuerySelector struct{}
 
 func (unicornPreferQuerySelector) Name() string { return "unicorn/prefer-query-selector" }
 func (unicornPreferQuerySelector) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferQuerySelector) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if _, ok := unicornPreferQuerySelectorMethods[method]; !ok {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := call.Arguments.Nodes[0]
-	if arg == nil || arg.Kind != shimast.KindStringLiteral {
-		return
-	}
-	ctx.Report(node, "Prefer `querySelector` / `querySelectorAll` over `"+method+"`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if _, ok := unicornPreferQuerySelectorMethods[method]; !ok {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := call.Arguments.Nodes[0]
+  if arg == nil || arg.Kind != shimast.KindStringLiteral {
+    return
+  }
+  ctx.Report(node, "Prefer `querySelector` / `querySelectorAll` over `"+method+"`.")
 }
 
 func init() {
-	Register(unicornPreferQuerySelector{})
+  Register(unicornPreferQuerySelector{})
 }

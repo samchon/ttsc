@@ -15,5 +15,5 @@ import "testing"
 // 2. Write a `catch (e)` block that never reads `e`.
 // 3. Assert the binding identifier is reported on the catch line.
 func TestRuleCorpusUnicornPreferOptionalCatchBinding(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-optional-catch-binding.ts", "try {\n  throw new Error(\"x\");\n  // expect: unicorn/prefer-optional-catch-binding error\n} catch (e) {\n  void 0;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-optional-catch-binding.ts", "try {\n  throw new Error(\"x\");\n  // expect: unicorn/prefer-optional-catch-binding error\n} catch (e) {\n  void 0;\n}\n")
 }

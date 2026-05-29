@@ -19,13 +19,13 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornSwitchCaseBreakPosition struct{}
 
 func (unicornSwitchCaseBreakPosition) Name() string {
-	return "unicorn/switch-case-break-position"
+  return "unicorn/switch-case-break-position"
 }
 func (unicornSwitchCaseBreakPosition) Visits() []shimast.Kind { return nil }
 func (unicornSwitchCaseBreakPosition) Check(*Context, *shimast.Node) {
-	// Intentionally empty; see file-level comment.
+  // Intentionally empty; see file-level comment.
 }
 
 func init() {
-	Register(unicornSwitchCaseBreakPosition{})
+  Register(unicornSwitchCaseBreakPosition{})
 }

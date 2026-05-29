@@ -18,49 +18,49 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferImportMetaProperties struct{}
 
 func (unicornPreferImportMetaProperties) Name() string {
-	return "unicorn/prefer-import-meta-properties"
+  return "unicorn/prefer-import-meta-properties"
 }
 func (unicornPreferImportMetaProperties) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferImportMetaProperties) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if identifierText(call.Expression) != "fileURLToPath" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := arg.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "url" {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil {
-		return
-	}
-	// `import.meta` parses as either a MetaProperty token or a
-	// PropertyAccess(import, meta) chain depending on the path; both
-	// resolve textually to the same source span.
-	if receiver.Kind == shimast.KindMetaProperty {
-		ctx.Report(node, "Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath(import.meta.url)`.")
-		return
-	}
-	if isMatchingPropertyAccess(receiver, "import", "meta") {
-		ctx.Report(node, "Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath(import.meta.url)`.")
-	}
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if identifierText(call.Expression) != "fileURLToPath" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := arg.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "url" {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil {
+    return
+  }
+  // `import.meta` parses as either a MetaProperty token or a
+  // PropertyAccess(import, meta) chain depending on the path; both
+  // resolve textually to the same source span.
+  if receiver.Kind == shimast.KindMetaProperty {
+    ctx.Report(node, "Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath(import.meta.url)`.")
+    return
+  }
+  if isMatchingPropertyAccess(receiver, "import", "meta") {
+    ctx.Report(node, "Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath(import.meta.url)`.")
+  }
 }
 
 func init() {
-	Register(unicornPreferImportMetaProperties{})
+  Register(unicornPreferImportMetaProperties{})
 }

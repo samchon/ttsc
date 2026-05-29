@@ -11,12 +11,12 @@ import "testing"
 // 2. Enable only functional/type-declaration-immutability with `ignoreIdentifierPattern`.
 // 3. Assert the declaration is skipped.
 func TestFunctionalTypeDeclarationImmutabilityIgnoresIdentifierPattern(t *testing.T) {
-	const ruleName = "functional/type-declaration-immutability"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`interface MutableSnapshot { value: string[]; }`,
-		`{"ignoreIdentifierPattern":"^MutableSnapshot$"}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/type-declaration-immutability"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `interface MutableSnapshot { value: string[]; }`,
+    `{"ignoreIdentifierPattern":"^MutableSnapshot$"}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

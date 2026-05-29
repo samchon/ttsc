@@ -42,8 +42,8 @@ func TestCommandFormatPrintWidthCascadesWithSemiAndQuotes(t *testing.T) {
   seedLintConfig(t, root, map[string]any{
     "rules": map[string]any{
       "format/print-width":    []any{"error", map[string]any{"printWidth": 20}},
-      "format/semi":          "error",
-      "format/quotes":        "error",
+      "format/semi":           "error",
+      "format/quotes":         "error",
       "format/trailing-comma": "error",
     },
   })

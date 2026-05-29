@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/aria-activedescendant-has-tabindex`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yAriaActivedescendantHasTabindexRequiresFocusTarget(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/aria-activedescendant-has-tabindex", `const Component = () => <div aria-activedescendant="item-1" />;`, "tabIndex")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/aria-activedescendant-has-tabindex", `const Component = () => <div aria-activedescendant="item-1" />;`, "tabIndex")
 }

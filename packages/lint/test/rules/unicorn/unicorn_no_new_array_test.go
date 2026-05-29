@@ -14,5 +14,5 @@ import "testing"
 // 2. Construct `new Array(3)` at the top level.
 // 3. Assert the new-expression is reported.
 func TestRuleCorpusUnicornNoNewArray(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-new-array.ts", "// expect: unicorn/no-new-array error\nconst a = new Array(3);\n")
+  assertRuleCorpusCase(t, "unicorn/no-new-array.ts", "// expect: unicorn/no-new-array error\nconst a = new Array(3);\n")
 }

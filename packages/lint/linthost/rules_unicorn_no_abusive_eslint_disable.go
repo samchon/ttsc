@@ -15,10 +15,10 @@
 package linthost
 
 import (
-	"regexp"
+  "regexp"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 var unicornNoAbusiveEslintDisablePattern = regexp.MustCompile(`^eslint-disable(?:-next-line|-line)?$`)
@@ -27,37 +27,37 @@ type unicornNoAbusiveEslintDisable struct{}
 
 func (unicornNoAbusiveEslintDisable) Name() string { return "unicorn/no-abusive-eslint-disable" }
 func (unicornNoAbusiveEslintDisable) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornNoAbusiveEslintDisable) Check(ctx *Context, node *shimast.Node) {
-	if ctx.File == nil {
-		return
-	}
-	src := ctx.File.Text()
-	scanner := shimscanner.NewScanner()
-	scanner.SetText(src)
-	scanner.SetSkipTrivia(false)
-	for {
-		kind := scanner.Scan()
-		if kind == shimast.KindEndOfFile {
-			break
-		}
-		if kind != shimast.KindSingleLineCommentTrivia && kind != shimast.KindMultiLineCommentTrivia {
-			continue
-		}
-		start := scanner.TokenStart()
-		end := scanner.TokenEnd()
-		if start < 0 || end > len(src) || end <= start {
-			continue
-		}
-		body := stripCommentDelimiters(src[start:end])
-		if !unicornNoAbusiveEslintDisablePattern.MatchString(body) {
-			continue
-		}
-		ctx.ReportRange(start, end, "Specify the rules to disable in each `eslint-disable*` directive.")
-	}
+  if ctx.File == nil {
+    return
+  }
+  src := ctx.File.Text()
+  scanner := shimscanner.NewScanner()
+  scanner.SetText(src)
+  scanner.SetSkipTrivia(false)
+  for {
+    kind := scanner.Scan()
+    if kind == shimast.KindEndOfFile {
+      break
+    }
+    if kind != shimast.KindSingleLineCommentTrivia && kind != shimast.KindMultiLineCommentTrivia {
+      continue
+    }
+    start := scanner.TokenStart()
+    end := scanner.TokenEnd()
+    if start < 0 || end > len(src) || end <= start {
+      continue
+    }
+    body := stripCommentDelimiters(src[start:end])
+    if !unicornNoAbusiveEslintDisablePattern.MatchString(body) {
+      continue
+    }
+    ctx.ReportRange(start, end, "Specify the rules to disable in each `eslint-disable*` directive.")
+  }
 }
 
 func init() {
-	Register(unicornNoAbusiveEslintDisable{})
+  Register(unicornNoAbusiveEslintDisable{})
 }

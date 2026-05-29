@@ -14,5 +14,5 @@ import "testing"
 // 2. Assign an arrow function to `el.onclick` on a declared element shim.
 // 3. Assert the assignment expression is reported.
 func TestRuleCorpusUnicornPreferAddEventListener(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-add-event-listener.ts", "declare const el: { onclick: any };\n// expect: unicorn/prefer-add-event-listener error\nel.onclick = () => {};\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-add-event-listener.ts", "declare const el: { onclick: any };\n// expect: unicorn/prefer-add-event-listener error\nel.onclick = () => {};\n")
 }

@@ -24,51 +24,51 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoAnonymousDefaultExport struct{}
 
 func (unicornNoAnonymousDefaultExport) Name() string {
-	return "unicorn/no-anonymous-default-export"
+  return "unicorn/no-anonymous-default-export"
 }
 func (unicornNoAnonymousDefaultExport) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindExportAssignment,
-		shimast.KindFunctionDeclaration,
-		shimast.KindClassDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindExportAssignment,
+    shimast.KindFunctionDeclaration,
+    shimast.KindClassDeclaration,
+  }
 }
 func (unicornNoAnonymousDefaultExport) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindExportAssignment:
-		assign := node.AsExportAssignment()
-		if assign == nil || assign.IsExportEquals || assign.Expression == nil {
-			return
-		}
-		expr := stripParens(assign.Expression)
-		if expr == nil {
-			return
-		}
-		switch expr.Kind {
-		case shimast.KindFunctionExpression:
-			if fn := expr.AsFunctionExpression(); fn != nil && fn.Name() == nil {
-				ctx.Report(node, "Give a name to the default export.")
-			}
-		case shimast.KindArrowFunction:
-			// Arrow functions never bind a name; an `export default` of
-			// one is always anonymous.
-			ctx.Report(node, "Give a name to the default export.")
-		case shimast.KindClassExpression:
-			if cls := expr.AsClassExpression(); cls != nil && cls.Name() == nil {
-				ctx.Report(node, "Give a name to the default export.")
-			}
-		}
-	case shimast.KindFunctionDeclaration, shimast.KindClassDeclaration:
-		if !hasModifier(node, shimast.KindExportKeyword) ||
-			!hasModifier(node, shimast.KindDefaultKeyword) {
-			return
-		}
-		if node.Name() == nil {
-			ctx.Report(node, "Give a name to the default export.")
-		}
-	}
+  switch node.Kind {
+  case shimast.KindExportAssignment:
+    assign := node.AsExportAssignment()
+    if assign == nil || assign.IsExportEquals || assign.Expression == nil {
+      return
+    }
+    expr := stripParens(assign.Expression)
+    if expr == nil {
+      return
+    }
+    switch expr.Kind {
+    case shimast.KindFunctionExpression:
+      if fn := expr.AsFunctionExpression(); fn != nil && fn.Name() == nil {
+        ctx.Report(node, "Give a name to the default export.")
+      }
+    case shimast.KindArrowFunction:
+      // Arrow functions never bind a name; an `export default` of
+      // one is always anonymous.
+      ctx.Report(node, "Give a name to the default export.")
+    case shimast.KindClassExpression:
+      if cls := expr.AsClassExpression(); cls != nil && cls.Name() == nil {
+        ctx.Report(node, "Give a name to the default export.")
+      }
+    }
+  case shimast.KindFunctionDeclaration, shimast.KindClassDeclaration:
+    if !hasModifier(node, shimast.KindExportKeyword) ||
+      !hasModifier(node, shimast.KindDefaultKeyword) {
+      return
+    }
+    if node.Name() == nil {
+      ctx.Report(node, "Give a name to the default export.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoAnonymousDefaultExport{})
+  Register(unicornNoAnonymousDefaultExport{})
 }

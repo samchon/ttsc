@@ -24,5 +24,5 @@ func (unicornImportStyle) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornImportStyle{})
+  Register(unicornImportStyle{})
 }

@@ -2,94 +2,62 @@
 
 ![banner of @ttsc/vscode](https://ttsc.dev/og.jpg)
 
-MIT licensed · [npm](https://www.npmjs.com/package/@ttsc/vscode) · [docs](https://ttsc.dev/docs) · [Discord](https://discord.gg/E94XhzrUCZ)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-VS Code extension for [`ttsc`](https://ttsc.dev) projects.
+VS Code extension for [`ttsc`](https://ttsc.dev) projects. It shows TypeScript-Go diagnostics and `@ttsc/lint` lint and format inside your editor.
 
-It starts the `ttscserver` language-server launcher from your project's own
-`ttsc` dependency, so VS Code uses the same TypeScript-Go version your project
-pins.
+## Setup
 
-## Requirements
+### Requirements
 
 - **VS Code** 1.94 or later
 - **Node.js** 18 or later
-- **`ttsc` installed in your project** — the extension uses the language server
-  that ships with your project's `ttsc` package
+- **`ttsc`, `@ttsc/lint`, and `@typescript/native-preview` in your project.** `@typescript/native-preview` is the TypeScript-Go engine `ttsc` runs on; it is a separate package that `ttsc` does not bundle.
 
 ```bash
-npm install -D ttsc @typescript/native-preview
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 ```
 
-## Install
+### Install
 
-The extension is not on the VS Code Marketplace yet. For now it ships as an npm package with a one-shot installer:
+Not on the VS Code Marketplace yet. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
-npm install -D @ttsc/vscode
-npx ttsc-vscode
+npx @ttsc/vscode
 ```
 
-`npx ttsc-vscode` calls `code --install-extension` with the `.vsix` bundled in the npm tarball — VS Code picks it up immediately, no restart needed.
+If the `code` CLI isn't on your `PATH`, run **Shell Command: Install 'code' command in PATH** from VS Code's command palette, then re-run `npx @ttsc/vscode`.
 
-If the `code` CLI isn't on your `PATH`, open VS Code first, run **Shell Command: Install 'code' command in PATH** from the command palette, then re-run `npx ttsc-vscode`. (As a manual fallback, VS Code → Extensions → "…" menu → **Install from VSIX** also works on the file `npx ttsc-vscode` would have used — it lives under `node_modules/@ttsc/vscode/dist/`.)
+### Format on save
 
-To uninstall:
+Set `samchon.ttsc` as the default formatter and turn on `editor.formatOnSave` in `.vscode/settings.json`:
 
-```bash
-npx ttsc-vscode uninstall
+```jsonc
+"[typescript][typescriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
 ```
 
-Marketplace release is tracked for v1; once it lands, the `npx` step goes away.
+Lint **fixes** stay off-save by default because they can change code meaning. Run `ttsc: Fix all lint issues` from the command palette, or opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
+The format rules come from your project's `lint.config`, so format-on-save does nothing until that config has a `format` block.
 
 ## What it adds
 
-The extension activates on TypeScript, JavaScript, TSX, and JSX files, then
-starts a server only when it can resolve a project-local `ttscserver`.
-
-- **Project-local language server.** The extension resolves `ttscserver` from
-  the active file's package/workspace, then starts the project-selected
-  `tsgo --lsp --stdio` process behind it.
-- **TypeScript-Go diagnostics and editor features.** Hover, navigation,
-  completions, and TypeScript-Go diagnostics come from the upstream `tsgo` LSP
-  process.
-- **ttsc plugin diagnostics and actions.** LSP-capable plugins are discovered
-  from the same project config and merged into the editor stream. `@ttsc/lint`
-  currently contributes lint diagnostics, fix-all actions, and document format
-  edits. Plugin diagnostics, code actions, and command computation use the
-  saved project state today; commands return VS Code `WorkspaceEdit`s and the
-  editor applies them only while the touched documents are still clean.
-- **Monorepo-aware server roots.** Multi-root workspaces start server contexts
-  from the active file and workspace folders, resolved from the nearest
-  `tsconfig*.json` / `jsconfig*.json`. Add packages as VS Code workspace
-  folders when you want each package to keep its own active server context.
-- **Command palette entries:** `ttsc: Restart language server`,
-  `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and
-  format commands require an LSP-capable plugin that owns those command ids,
-  such as `@ttsc/lint`. The VS Code extension registers wrapper commands for
-  those built-in lint/format flows; other plugin command ids are advertised
-  through the language client and their returned `changes`-map `WorkspaceEdit`s
-  are applied with the same clean-document guard.
-
-The extension's identifier inside VS Code is `samchon.ttsc`.
-
-## Settings
-
-Open VS Code's settings (`Ctrl+,` / `Cmd+,`) and search for `ttsc`, or edit `settings.json` directly:
-
-| Setting             | Default | Effect                                                                                                                                                                                                                                 |
-| ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ttsc.serverPath`   | `""`    | Absolute path to a `ttscserver` launcher or native binary. Empty uses the project's `ttsc` launcher, which builds `TTSC_LSP_PLUGINS_JSON` for plugin diagnostics/actions. Direct native paths need that manifest supplied out of band. |
-| `ttsc.trace.server` | `"off"` | Set to `"messages"` or `"verbose"` to log LSP traffic. The trace goes to **View → Output → ttsc (trace)**; server logs stay under **ttsc**. Useful when diagnostics don't show up.                                                     |
+- TypeScript-Go diagnostics, hover, navigation, and completions.
+- `@ttsc/lint` lint diagnostics, plus `ttsc: Fix all lint issues` and `ttsc: Format document` in the command palette.
+- Format on save with `@ttsc/lint`'s rules, shown above.
+- Monorepo-aware: each package uses its own `tsconfig` and `lint.config`.
 
 ## Troubleshooting
 
-If TypeScript-Go or ttsc plugin diagnostics don't appear after install:
+No diagnostics? Confirm `ttsc` runs in the project (`npx ttsc --version`), then check **View → Output → ttsc** for the server log. For LSP tracing, set `ttsc.trace.server` to `"verbose"`.
 
-1. **Check the project has `ttsc`:** `npx ttsc --version`. If this errors, install `ttsc @typescript/native-preview` in the project first.
-2. **Check the same config in the CLI:** run `npx ttsc --noEmit -p <selected tsconfig>` from the project root and confirm the plugin diagnostics appear there.
-3. **Read the server log:** open **View → Output**, pick **ttsc** from the dropdown.
-4. **Restart the server:** command palette → `ttsc: Restart language server`.
-5. **Verbose tracing:** set `ttsc.trace.server` to `"verbose"`, then read **View → Output → ttsc (trace)**.
+## Sponsors
 
-If `npx ttsc-vscode` errors with `\`code\` CLI not found on PATH`: open VS Code → command palette → **Shell Command: Install 'code' command in PATH**, then retry the install.
+[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.png)](https://github.com/sponsors/samchon)
+
+Thanks for your support.
+
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.

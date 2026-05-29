@@ -12,5 +12,5 @@ import "testing"
 // 2. Access a non-standard Promise.delay method.
 // 3. Assert the property access is reported.
 func TestRuleCorpusPromiseSpecOnly(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/spec-only.ts", "// expect: promise/spec-only error\nPromise.delay(1);\n")
+  assertRuleCorpusCase(t, "promise/spec-only.ts", "// expect: promise/spec-only error\nPromise.delay(1);\n")
 }

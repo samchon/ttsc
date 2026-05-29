@@ -19,7 +19,7 @@ import (
 func TestEngineRecordsUnknownRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "never-existed": SeverityError,
-    "no-var":         SeverityError,
+    "no-var":        SeverityError,
   })
   unknown := engine.UnknownRules()
   if len(unknown) != 1 || unknown[0] != "never-existed" {

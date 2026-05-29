@@ -34,8 +34,8 @@ const BUILTIN_MODULES = new Set([
 /**
  * Extract the package name from a module specifier.
  *
- * Returns `null` for relative paths, hash imports, URL specifiers, and
- * Node built-in modules — the caller doesn't install those from npm.
+ * Returns `null` for relative paths, hash imports, URL specifiers, and Node
+ * built-in modules — the caller doesn't install those from npm.
  */
 export function packageNameFromSpecifier(specifier: string): string | null {
   if (

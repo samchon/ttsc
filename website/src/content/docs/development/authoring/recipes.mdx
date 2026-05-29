@@ -20,7 +20,7 @@ func parsePlugins(text string) ([]PluginEntry, error) {
 }
 ```
 
-The `Config` map carries plugin-owned options (`mode`, `calls`, `text`, …). For the wire contract — verbatim passthrough, deterministic check-first ordering, what to ignore — see [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
+The `Config` map carries plugin-owned options (`mode`, `calls`, `text`, …). For the wire contract, verbatim passthrough, deterministic check-first ordering, what to ignore. See [Plugin protocol → `--plugins-json`](/docs/development/concepts/protocol#--plugins-json).
 
 ## Auto-discovery
 
@@ -104,8 +104,7 @@ When modes need to cooperate inside one transform emit pass, keep those modes in
 
 ## Executable Transform Sidecar
 
-Declare a transform plugin descriptor that points at an executable
-`package main` source:
+Declare a transform plugin descriptor that points at an executable `package main` source:
 
 ```js
 module.exports = {
@@ -127,8 +126,7 @@ my-plugin build     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-j
 
 ## Linked Transform Package
 
-For a transform that should run inside the selected native host, point the
-descriptor at a non-`main` package:
+For a transform that should run inside the selected native host, point the descriptor at a non-`main` package:
 
 ```js
 module.exports = {
@@ -138,9 +136,7 @@ module.exports = {
 };
 ```
 
-The linked package does not receive argv directly. It registers hooks from
-`init()` and the native host invokes those hooks during `check`, `transform`, or
-`build`:
+The linked package does not receive argv directly. It registers hooks from `init()` and the native host invokes those hooks during `check`, `transform`, or `build`:
 
 ```go
 package driver
@@ -152,8 +148,7 @@ func init() {
 }
 ```
 
-Use this shape when your plugin only needs the shared transform hooks and does
-not need a custom executable process.
+Use this shape when your plugin only needs the shared transform hooks and does not need a custom executable process.
 
 ## Check Plugin
 
@@ -175,7 +170,7 @@ my-plugin fix    --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json
 my-plugin format --cwd=/project --tsconfig=/project/tsconfig.json --plugins-json='[...]'  # optional
 ```
 
-Exit non-zero when error-severity diagnostics exist. If you do not implement `fix` or `format`, exit non-zero with a stderr message — the host treats every non-zero exit as failure (there is no specific phrase it recognizes).
+Exit non-zero when error-severity diagnostics exist. If you do not implement `fix` or `format`, exit non-zero with a stderr message. The host treats every non-zero exit as failure (there is no specific phrase it recognizes).
 
 ## Pretty diagnostics with `driver.NewLintDiagnostic`
 
@@ -212,7 +207,7 @@ func runCheck(opts options) int {
 }
 ```
 
-See [Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics) for the symbol reference. For token-aligned ranges (skip leading trivia), use `shimscanner.SkipTrivia(file.Text(), node.Pos())` — see [AST & Checker → Text Ranges](/docs/development/concepts/tsgo#text-ranges-and-trivia).
+See [Driver API → Diagnostics](/docs/development/reference/driver-api#diagnostics) for the symbol reference. For token-aligned ranges (skip leading trivia), use `shimscanner.SkipTrivia(file.Text(), node.Pos())`. See [AST & Checker → Text Ranges](/docs/development/concepts/tsgo#text-ranges-and-trivia).
 
 ## Mutating leaf-text nodes
 
@@ -229,7 +224,7 @@ lit.Flags |= shimast.NodeFlagsSynthesized
 lit.Loc   = shimcore.UndefinedTextRange()
 ```
 
-Structural mutations do **not** need this — the printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/strip/driver/strip.go::stripRewriter`) round-trips without the synthesize stamp.
+Structural mutations do **not** need this. The printer iterates `Statements.Nodes` directly without reading source spans, which is why `@ttsc/strip`'s statement filter (`packages/strip/driver/strip.go::stripRewriter`) round-trips without the synthesize stamp.
 
 See [AST & Checker → Mutating the AST](/docs/development/concepts/tsgo#mutating-the-ast) for the underlying mechanism.
 
@@ -258,7 +253,7 @@ func reTypecheck(cwd string) error {
 }
 ```
 
-Always guard for empty values — if a third-party harness spawns the plugin binary directly (without going through `ttsc`), the var will be missing.
+Always guard for empty values, if a third-party harness spawns the plugin binary directly (without going through `ttsc`), the var will be missing.
 
 ## Text Edits
 
@@ -286,7 +281,7 @@ fmt.Fprintf(os.Stderr, "my-plugin: %s: invalid config\n", tsconfig)
 return 2
 ```
 
-Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does not catch or symbolize them. Wrap rule bodies in `recover()` if you need graceful per-rule reporting — see `packages/lint/linthost/engine.go`.
+Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does not catch or symbolize them. Wrap rule bodies in `recover()` if you need graceful per-rule reporting. See `packages/lint/linthost/engine.go`.
 
 ## Source Maps
 

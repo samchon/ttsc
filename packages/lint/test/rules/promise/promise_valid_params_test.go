@@ -12,5 +12,5 @@ import "testing"
 // 2. Call Promise.all with no arguments.
 // 3. Assert the invalid call is reported.
 func TestRuleCorpusPromiseValidParams(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/valid-params.ts", "// expect: promise/valid-params error\nPromise.all();\n")
+  assertRuleCorpusCase(t, "promise/valid-params.ts", "// expect: promise/valid-params error\nPromise.all();\n")
 }

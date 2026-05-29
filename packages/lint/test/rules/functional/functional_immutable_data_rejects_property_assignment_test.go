@@ -13,7 +13,7 @@ import "testing"
 // 2. Enable only functional/immutable-data.
 // 3. Assert the property write reports and offers no autofix.
 func TestFunctionalImmutableDataRejectsPropertyAssignment(t *testing.T) {
-	const ruleName = "functional/immutable-data"
-	findings := runFunctionalRule(t, ruleName, `const state = { count: 0 }; state.count = 1;`)
-	assertFunctionalFinding(t, ruleName, findings, "Modifying")
+  const ruleName = "functional/immutable-data"
+  findings := runFunctionalRule(t, ruleName, `const state = { count: 0 }; state.count = 1;`)
+  assertFunctionalFinding(t, ruleName, findings, "Modifying")
 }

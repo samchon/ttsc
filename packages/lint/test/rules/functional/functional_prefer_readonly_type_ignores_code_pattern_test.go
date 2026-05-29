@@ -11,12 +11,12 @@ import "testing"
 // 2. Enable only functional/prefer-readonly-type with `ignoreCodePattern`.
 // 3. Assert the array type is skipped.
 func TestFunctionalPreferReadonlyTypeIgnoresCodePattern(t *testing.T) {
-	const ruleName = "functional/prefer-readonly-type"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`type Values = string[];`,
-		`{"ignoreCodePattern":"string\\[\\]"}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/prefer-readonly-type"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `type Values = string[];`,
+    `{"ignoreCodePattern":"string\\[\\]"}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

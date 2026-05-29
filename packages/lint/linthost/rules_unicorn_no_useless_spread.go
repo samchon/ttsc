@@ -21,47 +21,47 @@ type unicornNoUselessSpread struct{}
 
 func (unicornNoUselessSpread) Name() string { return "unicorn/no-useless-spread" }
 func (unicornNoUselessSpread) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindArrayLiteralExpression, shimast.KindObjectLiteralExpression}
+  return []shimast.Kind{shimast.KindArrayLiteralExpression, shimast.KindObjectLiteralExpression}
 }
 func (unicornNoUselessSpread) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindArrayLiteralExpression:
-		arr := node.AsArrayLiteralExpression()
-		if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
-			return
-		}
-		only := arr.Elements.Nodes[0]
-		if only == nil || only.Kind != shimast.KindSpreadElement {
-			return
-		}
-		spread := only.AsSpreadElement()
-		if spread == nil {
-			return
-		}
-		inner := stripParens(spread.Expression)
-		if inner != nil && inner.Kind == shimast.KindArrayLiteralExpression {
-			ctx.Report(node, "Don't wrap an already-spread literal in another spread.")
-		}
-	case shimast.KindObjectLiteralExpression:
-		obj := node.AsObjectLiteralExpression()
-		if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 1 {
-			return
-		}
-		only := obj.Properties.Nodes[0]
-		if only == nil || only.Kind != shimast.KindSpreadAssignment {
-			return
-		}
-		spread := only.AsSpreadAssignment()
-		if spread == nil {
-			return
-		}
-		inner := stripParens(spread.Expression)
-		if inner != nil && inner.Kind == shimast.KindObjectLiteralExpression {
-			ctx.Report(node, "Don't wrap an already-spread literal in another spread.")
-		}
-	}
+  switch node.Kind {
+  case shimast.KindArrayLiteralExpression:
+    arr := node.AsArrayLiteralExpression()
+    if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
+      return
+    }
+    only := arr.Elements.Nodes[0]
+    if only == nil || only.Kind != shimast.KindSpreadElement {
+      return
+    }
+    spread := only.AsSpreadElement()
+    if spread == nil {
+      return
+    }
+    inner := stripParens(spread.Expression)
+    if inner != nil && inner.Kind == shimast.KindArrayLiteralExpression {
+      ctx.Report(node, "Don't wrap an already-spread literal in another spread.")
+    }
+  case shimast.KindObjectLiteralExpression:
+    obj := node.AsObjectLiteralExpression()
+    if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 1 {
+      return
+    }
+    only := obj.Properties.Nodes[0]
+    if only == nil || only.Kind != shimast.KindSpreadAssignment {
+      return
+    }
+    spread := only.AsSpreadAssignment()
+    if spread == nil {
+      return
+    }
+    inner := stripParens(spread.Expression)
+    if inner != nil && inner.Kind == shimast.KindObjectLiteralExpression {
+      ctx.Report(node, "Don't wrap an already-spread literal in another spread.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoUselessSpread{})
+  Register(unicornNoUselessSpread{})
 }

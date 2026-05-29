@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/interactive-supports-focus`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yInteractiveSupportsFocusRequiresTabindex(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/interactive-supports-focus", `const Component = () => <div role="button" />;`, "focusable")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/interactive-supports-focus", `const Component = () => <div role="button" />;`, "focusable")
 }

@@ -8,14 +8,14 @@ import {
 /**
  * Verifies `ttsc -p &lt;directory&gt;` accepts a bare directory path (RC-3).
  *
- * tsgo's own `-p` accepts either a tsconfig file path or the directory that
+ * Tsgo's own `-p` accepts either a tsconfig file path or the directory that
  * contains one; the directory form is the documented shorthand for a project
- * subfolder. Before the flag-schema cutover, ttsc's launcher classified a
- * `-p` value through `isBuildAlias` and only accepted `.json/.ts/.tsx/...`
+ * subfolder. Before the flag-schema cutover, ttsc's launcher classified a `-p`
+ * value through `isBuildAlias` and only accepted `.json/.ts/.tsx/...`
  * extensions, so `ttsc -p packages/foo` exited 2 with "unknown command" even
  * though `tsgo -p packages/foo` would have worked. The schema's `--tsconfig`
- * entry no longer constrains the value to an extension list, so the
- * launcher hands the directory to tsgo which finds the tsconfig.
+ * entry no longer constrains the value to an extension list, so the launcher
+ * hands the directory to tsgo which finds the tsconfig.
  *
  * 1. Create a project where the tsconfig lives in a subdirectory.
  * 2. Run `ttsc -p &lt;subdir&gt; --noEmit` from outside that subdirectory.

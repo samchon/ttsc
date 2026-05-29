@@ -18,31 +18,31 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferLogicalOperatorOverTernary struct{}
 
 func (unicornPreferLogicalOperatorOverTernary) Name() string {
-	return "unicorn/prefer-logical-operator-over-ternary"
+  return "unicorn/prefer-logical-operator-over-ternary"
 }
 func (unicornPreferLogicalOperatorOverTernary) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindConditionalExpression}
+  return []shimast.Kind{shimast.KindConditionalExpression}
 }
 func (unicornPreferLogicalOperatorOverTernary) Check(ctx *Context, node *shimast.Node) {
-	cond := node.AsConditionalExpression()
-	if cond == nil {
-		return
-	}
-	condExpr := stripParens(cond.Condition)
-	whenTrue := stripParens(cond.WhenTrue)
-	if condExpr == nil || whenTrue == nil {
-		return
-	}
-	condText := nodeText(ctx.File, condExpr)
-	if condText == "" {
-		return
-	}
-	if condText != nodeText(ctx.File, whenTrue) {
-		return
-	}
-	ctx.Report(node, "Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.")
+  cond := node.AsConditionalExpression()
+  if cond == nil {
+    return
+  }
+  condExpr := stripParens(cond.Condition)
+  whenTrue := stripParens(cond.WhenTrue)
+  if condExpr == nil || whenTrue == nil {
+    return
+  }
+  condText := nodeText(ctx.File, condExpr)
+  if condText == "" {
+    return
+  }
+  if condText != nodeText(ctx.File, whenTrue) {
+    return
+  }
+  ctx.Report(node, "Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.")
 }
 
 func init() {
-	Register(unicornPreferLogicalOperatorOverTernary{})
+  Register(unicornPreferLogicalOperatorOverTernary{})
 }

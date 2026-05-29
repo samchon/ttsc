@@ -1,6 +1,6 @@
 # Bundler integration
 
-When a bundler (Vite, Webpack, Rollup, …) owns your build, you still want the `ttsc` plugin pass to run. `@ttsc/unplugin` is the adapter — same plugin contract, embedded inside the bundler.
+When a bundler (Vite, Webpack, Rollup, …) owns your build, you still want the `ttsc` plugin pass to run. `@ttsc/unplugin` is the adapter, same plugin contract, embedded inside the bundler.
 
 ## Install
 
@@ -100,7 +100,7 @@ await Bun.build({
 
 ## Configuration
 
-`@ttsc/unplugin` reads your existing `tsconfig.json` — same plugins, same configs (`lint.config.ts`, `banner.config.ts`, …). For most projects no adapter-specific options are needed.
+`@ttsc/unplugin` reads your existing `tsconfig.json`, same plugins, same configs (`lint.config.ts`, `banner.config.ts`, …). For most projects no adapter-specific options are needed.
 
 If the bundler invokes from a different cwd, or you want a non-default tsconfig:
 
@@ -114,16 +114,16 @@ ttsc({
 ## When do I use this vs the `ttsc` CLI?
 
 | Setup | Use |
-| ----- | --- |
+| --- | --- |
 | Pure Node library, no bundler | `npx ttsc` |
 | Frontend with Vite / Webpack / Rspack | `@ttsc/unplugin` inside the bundler |
 | Backend (e.g., NestJS) bundled with Webpack | `@ttsc/unplugin` |
-| Both — monorepo with library + frontend | CLI for the library, `@ttsc/unplugin` for the frontend |
+| Both, monorepo with library + frontend | CLI for the library, `@ttsc/unplugin` for the frontend |
 
 The plugin pass is identical either way. Diagnostics show up wherever the bundler surfaces them.
 
 ## See also
 
-- [TTSC · `ttsc` CLI](/docs/ttsc/compile) — the standalone path.
-- [Lint & Prettier](/docs/lint) — the linter that runs inside the same pass.
-- [FAQ](/docs/faq) — bundler-specific gotchas and monorepo notes.
+- [TTSC · `ttsc` CLI](/docs/ttsc/compile): the standalone path.
+- [Lint & Prettier](/docs/lint): the linter that runs inside the same pass.
+- [FAQ](/docs/faq): bundler-specific gotchas and monorepo notes.

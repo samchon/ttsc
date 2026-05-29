@@ -21,31 +21,31 @@ type unicornNoMagicArrayFlatDepth struct{}
 
 func (unicornNoMagicArrayFlatDepth) Name() string { return "unicorn/no-magic-array-flat-depth" }
 func (unicornNoMagicArrayFlatDepth) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoMagicArrayFlatDepth) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "flat" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	if numericLiteralText(arg) == "1" {
-		return
-	}
-	ctx.Report(node, "Don't use a magic-number depth in `Array#flat()` — use `Infinity` or a named constant.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "flat" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  if numericLiteralText(arg) == "1" {
+    return
+  }
+  ctx.Report(node, "Don't use a magic-number depth in `Array#flat()` — use `Infinity` or a named constant.")
 }
 
 func init() {
-	Register(unicornNoMagicArrayFlatDepth{})
+  Register(unicornNoMagicArrayFlatDepth{})
 }

@@ -20,19 +20,19 @@ type unicornPreferKeyboardEventKey struct{}
 
 func (unicornPreferKeyboardEventKey) Name() string { return "unicorn/prefer-keyboard-event-key" }
 func (unicornPreferKeyboardEventKey) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornPreferKeyboardEventKey) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "keyCode", "charCode", "which":
-		ctx.Report(node, "Prefer `KeyboardEvent#key` over the deprecated `keyCode` / `charCode` / `which`.")
-	}
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "keyCode", "charCode", "which":
+    ctx.Report(node, "Prefer `KeyboardEvent#key` over the deprecated `keyCode` / `charCode` / `which`.")
+  }
 }
 
 func init() {
-	Register(unicornPreferKeyboardEventKey{})
+  Register(unicornPreferKeyboardEventKey{})
 }

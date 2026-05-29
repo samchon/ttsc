@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/no-noninteractive-element-interactions`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yNoNoninteractiveElementInteractionsRejectsLiClick(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-element-interactions", `const Component = () => <li onClick={() => {}}>Item</li>;`, "Non-interactive")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-element-interactions", `const Component = () => <li onClick={() => {}}>Item</li>;`, "Non-interactive")
 }

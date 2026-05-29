@@ -22,60 +22,60 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUselessFallbackInSpread struct{}
 
 func (unicornNoUselessFallbackInSpread) Name() string {
-	return "unicorn/no-useless-fallback-in-spread"
+  return "unicorn/no-useless-fallback-in-spread"
 }
 func (unicornNoUselessFallbackInSpread) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSpreadElement, shimast.KindSpreadAssignment}
+  return []shimast.Kind{shimast.KindSpreadElement, shimast.KindSpreadAssignment}
 }
 func (unicornNoUselessFallbackInSpread) Check(ctx *Context, node *shimast.Node) {
-	var operand *shimast.Node
-	switch node.Kind {
-	case shimast.KindSpreadElement:
-		// Only flag array-literal spread. Call-argument spread of a
-		// null/undefined operand throws TypeError at runtime, so the
-		// `?? []` / `|| []` fallback is load-bearing in that position.
-		if node.Parent == nil || node.Parent.Kind != shimast.KindArrayLiteralExpression {
-			return
-		}
-		if spread := node.AsSpreadElement(); spread != nil {
-			operand = spread.Expression
-		}
-	case shimast.KindSpreadAssignment:
-		if spread := node.AsSpreadAssignment(); spread != nil {
-			operand = spread.Expression
-		}
-	}
-	inner := stripParens(operand)
-	if inner == nil || inner.Kind != shimast.KindBinaryExpression {
-		return
-	}
-	bin := inner.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil {
-		return
-	}
-	switch bin.OperatorToken.Kind {
-	case shimast.KindQuestionQuestionToken, shimast.KindBarBarToken:
-	default:
-		return
-	}
-	right := stripParens(bin.Right)
-	if right == nil {
-		return
-	}
-	switch right.Kind {
-	case shimast.KindObjectLiteralExpression:
-		if obj := right.AsObjectLiteralExpression(); obj != nil &&
-			(obj.Properties == nil || len(obj.Properties.Nodes) == 0) {
-			ctx.Report(node, "Don't use a useless `?? {}` or `?? []` fallback when spreading — `...null` and `...undefined` are no-ops.")
-		}
-	case shimast.KindArrayLiteralExpression:
-		if arr := right.AsArrayLiteralExpression(); arr != nil &&
-			(arr.Elements == nil || len(arr.Elements.Nodes) == 0) {
-			ctx.Report(node, "Don't use a useless `?? {}` or `?? []` fallback when spreading — `...null` and `...undefined` are no-ops.")
-		}
-	}
+  var operand *shimast.Node
+  switch node.Kind {
+  case shimast.KindSpreadElement:
+    // Only flag array-literal spread. Call-argument spread of a
+    // null/undefined operand throws TypeError at runtime, so the
+    // `?? []` / `|| []` fallback is load-bearing in that position.
+    if node.Parent == nil || node.Parent.Kind != shimast.KindArrayLiteralExpression {
+      return
+    }
+    if spread := node.AsSpreadElement(); spread != nil {
+      operand = spread.Expression
+    }
+  case shimast.KindSpreadAssignment:
+    if spread := node.AsSpreadAssignment(); spread != nil {
+      operand = spread.Expression
+    }
+  }
+  inner := stripParens(operand)
+  if inner == nil || inner.Kind != shimast.KindBinaryExpression {
+    return
+  }
+  bin := inner.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil {
+    return
+  }
+  switch bin.OperatorToken.Kind {
+  case shimast.KindQuestionQuestionToken, shimast.KindBarBarToken:
+  default:
+    return
+  }
+  right := stripParens(bin.Right)
+  if right == nil {
+    return
+  }
+  switch right.Kind {
+  case shimast.KindObjectLiteralExpression:
+    if obj := right.AsObjectLiteralExpression(); obj != nil &&
+      (obj.Properties == nil || len(obj.Properties.Nodes) == 0) {
+      ctx.Report(node, "Don't use a useless `?? {}` or `?? []` fallback when spreading — `...null` and `...undefined` are no-ops.")
+    }
+  case shimast.KindArrayLiteralExpression:
+    if arr := right.AsArrayLiteralExpression(); arr != nil &&
+      (arr.Elements == nil || len(arr.Elements.Nodes) == 0) {
+      ctx.Report(node, "Don't use a useless `?? {}` or `?? []` fallback when spreading — `...null` and `...undefined` are no-ops.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoUselessFallbackInSpread{})
+  Register(unicornNoUselessFallbackInSpread{})
 }

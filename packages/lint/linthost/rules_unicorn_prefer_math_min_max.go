@@ -19,42 +19,42 @@ type unicornPreferMathMinMax struct{}
 
 func (unicornPreferMathMinMax) Name() string { return "unicorn/prefer-math-min-max" }
 func (unicornPreferMathMinMax) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindConditionalExpression}
+  return []shimast.Kind{shimast.KindConditionalExpression}
 }
 func (unicornPreferMathMinMax) Check(ctx *Context, node *shimast.Node) {
-	cond := node.AsConditionalExpression()
-	if cond == nil {
-		return
-	}
-	condExpr := stripParens(cond.Condition)
-	if condExpr == nil || condExpr.Kind != shimast.KindBinaryExpression {
-		return
-	}
-	bin := condExpr.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil {
-		return
-	}
-	switch bin.OperatorToken.Kind {
-	case shimast.KindLessThanToken,
-		shimast.KindLessThanEqualsToken,
-		shimast.KindGreaterThanToken,
-		shimast.KindGreaterThanEqualsToken:
-	default:
-		return
-	}
-	leftText := nodeText(ctx.File, stripParens(bin.Left))
-	rightText := nodeText(ctx.File, stripParens(bin.Right))
-	if leftText == "" || rightText == "" {
-		return
-	}
-	trueText := nodeText(ctx.File, stripParens(cond.WhenTrue))
-	falseText := nodeText(ctx.File, stripParens(cond.WhenFalse))
-	if (leftText == trueText && rightText == falseText) ||
-		(leftText == falseText && rightText == trueText) {
-		ctx.Report(node, "Prefer `Math.min` / `Math.max` over a conditional comparing the same two values.")
-	}
+  cond := node.AsConditionalExpression()
+  if cond == nil {
+    return
+  }
+  condExpr := stripParens(cond.Condition)
+  if condExpr == nil || condExpr.Kind != shimast.KindBinaryExpression {
+    return
+  }
+  bin := condExpr.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil {
+    return
+  }
+  switch bin.OperatorToken.Kind {
+  case shimast.KindLessThanToken,
+    shimast.KindLessThanEqualsToken,
+    shimast.KindGreaterThanToken,
+    shimast.KindGreaterThanEqualsToken:
+  default:
+    return
+  }
+  leftText := nodeText(ctx.File, stripParens(bin.Left))
+  rightText := nodeText(ctx.File, stripParens(bin.Right))
+  if leftText == "" || rightText == "" {
+    return
+  }
+  trueText := nodeText(ctx.File, stripParens(cond.WhenTrue))
+  falseText := nodeText(ctx.File, stripParens(cond.WhenFalse))
+  if (leftText == trueText && rightText == falseText) ||
+    (leftText == falseText && rightText == trueText) {
+    ctx.Report(node, "Prefer `Math.min` / `Math.max` over a conditional comparing the same two values.")
+  }
 }
 
 func init() {
-	Register(unicornPreferMathMinMax{})
+  Register(unicornPreferMathMinMax{})
 }

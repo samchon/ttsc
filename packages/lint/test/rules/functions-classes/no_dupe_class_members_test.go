@@ -15,5 +15,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusNoDupeClassMembers(t *testing.T) {
-	assertRuleCorpusCase(t, "no-dupe-class-members.ts", "class Foo {\n  run(): number {\n    return 1;\n  }\n  // expect: no-dupe-class-members error\n  run(): number {\n    return 2;\n  }\n}\nJSON.stringify(Foo);\n")
+  assertRuleCorpusCase(t, "no-dupe-class-members.ts", "class Foo {\n  run(): number {\n    return 1;\n  }\n  // expect: no-dupe-class-members error\n  run(): number {\n    return 2;\n  }\n}\nJSON.stringify(Foo);\n")
 }

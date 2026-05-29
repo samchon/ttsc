@@ -19,28 +19,28 @@ type unicornCatchErrorName struct{}
 
 func (unicornCatchErrorName) Name() string { return "unicorn/catch-error-name" }
 func (unicornCatchErrorName) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCatchClause}
+  return []shimast.Kind{shimast.KindCatchClause}
 }
 func (unicornCatchErrorName) Check(ctx *Context, node *shimast.Node) {
-	catch := node.AsCatchClause()
-	if catch == nil || catch.VariableDeclaration == nil {
-		return
-	}
-	binding := catch.VariableDeclaration.Name()
-	if binding == nil {
-		return
-	}
-	// Destructuring (object/array binding pattern) is out of scope.
-	if binding.Kind != shimast.KindIdentifier {
-		return
-	}
-	name := identifierText(binding)
-	if name == "" || name == "error" {
-		return
-	}
-	ctx.Report(binding, "The catch parameter should be named `error`.")
+  catch := node.AsCatchClause()
+  if catch == nil || catch.VariableDeclaration == nil {
+    return
+  }
+  binding := catch.VariableDeclaration.Name()
+  if binding == nil {
+    return
+  }
+  // Destructuring (object/array binding pattern) is out of scope.
+  if binding.Kind != shimast.KindIdentifier {
+    return
+  }
+  name := identifierText(binding)
+  if name == "" || name == "error" {
+    return
+  }
+  ctx.Report(binding, "The catch parameter should be named `error`.")
 }
 
 func init() {
-	Register(unicornCatchErrorName{})
+  Register(unicornCatchErrorName{})
 }

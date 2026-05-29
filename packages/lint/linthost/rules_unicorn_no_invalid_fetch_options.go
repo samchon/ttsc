@@ -12,68 +12,68 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type unicornNoInvalidFetchOptions struct{}
 
 func (unicornNoInvalidFetchOptions) Name() string { return "unicorn/no-invalid-fetch-options" }
 func (unicornNoInvalidFetchOptions) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoInvalidFetchOptions) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil {
-		return
-	}
-	if identifierText(call.Expression) != "fetch" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
-		return
-	}
-	init := stripParens(call.Arguments.Nodes[1])
-	if init == nil || init.Kind != shimast.KindObjectLiteralExpression {
-		return
-	}
-	obj := init.AsObjectLiteralExpression()
-	if obj == nil || obj.Properties == nil {
-		return
-	}
-	hasBody := false
-	methodIsBodyless := false
-	for _, prop := range obj.Properties.Nodes {
-		if prop == nil || prop.Kind != shimast.KindPropertyAssignment {
-			continue
-		}
-		assignment := prop.AsPropertyAssignment()
-		if assignment == nil || assignment.Name() == nil {
-			continue
-		}
-		key := identifierText(assignment.Name())
-		if key == "" && assignment.Name().Kind == shimast.KindStringLiteral {
-			key = stringLiteralText(assignment.Name())
-		}
-		switch key {
-		case "body":
-			hasBody = true
-		case "method":
-			value := stripParens(assignment.Initializer)
-			if value != nil && value.Kind == shimast.KindStringLiteral {
-				m := strings.ToLower(stringLiteralText(value))
-				if m == "get" || m == "head" {
-					methodIsBodyless = true
-				}
-			}
-		}
-	}
-	if hasBody && methodIsBodyless {
-		ctx.Report(node, "Don't pass `body` with GET/HEAD `fetch` — it throws at runtime.")
-	}
+  call := node.AsCallExpression()
+  if call == nil {
+    return
+  }
+  if identifierText(call.Expression) != "fetch" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
+    return
+  }
+  init := stripParens(call.Arguments.Nodes[1])
+  if init == nil || init.Kind != shimast.KindObjectLiteralExpression {
+    return
+  }
+  obj := init.AsObjectLiteralExpression()
+  if obj == nil || obj.Properties == nil {
+    return
+  }
+  hasBody := false
+  methodIsBodyless := false
+  for _, prop := range obj.Properties.Nodes {
+    if prop == nil || prop.Kind != shimast.KindPropertyAssignment {
+      continue
+    }
+    assignment := prop.AsPropertyAssignment()
+    if assignment == nil || assignment.Name() == nil {
+      continue
+    }
+    key := identifierText(assignment.Name())
+    if key == "" && assignment.Name().Kind == shimast.KindStringLiteral {
+      key = stringLiteralText(assignment.Name())
+    }
+    switch key {
+    case "body":
+      hasBody = true
+    case "method":
+      value := stripParens(assignment.Initializer)
+      if value != nil && value.Kind == shimast.KindStringLiteral {
+        m := strings.ToLower(stringLiteralText(value))
+        if m == "get" || m == "head" {
+          methodIsBodyless = true
+        }
+      }
+    }
+  }
+  if hasBody && methodIsBodyless {
+    ctx.Report(node, "Don't pass `body` with GET/HEAD `fetch` — it throws at runtime.")
+  }
 }
 
 func init() {
-	Register(unicornNoInvalidFetchOptions{})
+  Register(unicornNoInvalidFetchOptions{})
 }

@@ -5,8 +5,8 @@
  * The package is organized by concern: the `compiler/*` modules implement the
  * worker-side `ICompilerService` contract; the `npm/*` modules install
  * on-the-fly npm dependencies into the wasm MemFS; the `sandbox/*` modules
- * drive an in-page `new Function` execute sandbox; the `react/*` modules
- * render the shell, editor, and result panes.
+ * drive an in-page `new Function` execute sandbox; the `react/*` modules render
+ * the shell, editor, and result panes.
  *
  * The package root re-exports everything; sub-path imports are not needed.
  */

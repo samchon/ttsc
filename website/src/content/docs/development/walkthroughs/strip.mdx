@@ -1,12 +1,8 @@
-# `@ttsc/strip` — Statement Removal
+# `@ttsc/strip`: Statement Removal
 
-`@ttsc/strip` deletes `debugger;` statements and call expressions whose callee matches a pattern like `console.log` or `assert.*` from TypeScript source before emit. The package introduces the patterns every "remove a syntactic construct" plugin uses: matching call shapes, filtering `NodeList.Nodes`, recursing into block-bodied statements, and the embedded-statement substitution trick (replacing `if (x) console.log(y)` with `if (x);` rather than `if (x)` — which would be invalid).
+`@ttsc/strip` deletes `debugger;` statements and call expressions whose callee matches a pattern like `console.log` or `assert.*` from TypeScript source before emit. The package introduces the patterns every "remove a syntactic construct" plugin uses: matching call shapes, filtering `NodeList.Nodes`, recursing into block-bodied statements, and the embedded-statement substitution trick (replacing `if (x) console.log(y)` with `if (x);` rather than `if (x)`, which would be invalid).
 
-If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the
-standalone `main.go` dispatcher will look familiar — strip's is identical
-except for the package name. The published descriptor points at linked
-`driver/` source, so the new material on this page is the linked rewriter in
-`driver/strip.go`.
+If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the standalone `main.go` dispatcher will look familiar, strip's is identical except for the package name. The published descriptor points at linked `driver/` source, so the new material on this page is the linked rewriter in `driver/strip.go`.
 
 ## What it does for the consumer
 
@@ -50,8 +46,8 @@ export default {
 
 Two configuration knobs:
 
-- **`calls`** — match call statements by dotted name. `console.log` matches exactly `console.log(...)`; `myLogger.*` matches `myLogger.<anything>(...)` for any single property access. Wildcards are only supported at the **end** of a pattern.
-- **`statements`** — match statement-level syntax. Today only `debugger` is supported; the slot exists so future statement kinds can be added without a breaking change.
+- **`calls`**: match call statements by dotted name. `console.log` matches exactly `console.log(...)`; `myLogger.*` matches `myLogger.<anything>(...)` for any single property access. Wildcards are only supported at the **end** of a pattern.
+- **`statements`**: match statement-level syntax. Today only `debugger` is supported; the slot exists so future statement kinds can be added without a breaking change.
 
 `@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry: `{ "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" }`.
 
@@ -72,7 +68,7 @@ packages/strip/
     └── strip.go         ← Blank-imports the linked driver package
 ```
 
-Strip's descriptor is a hand-written CommonJS file with a hand-written `index.d.ts` alongside it — no `lib/`, no compile step. The `.d.ts` exports `ITtscStripConfig`, the shape of a `strip.config.*` file.
+Strip's descriptor is a hand-written CommonJS file with a hand-written `index.d.ts` alongside it, no `lib/`, no compile step. The `.d.ts` exports `ITtscStripConfig`, the shape of a `strip.config.*` file.
 
 ## The JS descriptor (`src/index.cjs`)
 
@@ -116,14 +112,11 @@ module.exports = function createTtscStrip(context) {
 
 This is the same descriptor shape as banner, written in CommonJS. The `// @ts-check` pragma asks the TypeScript checker to validate this file even though it has no `.ts` source. Useful when the manifest is hand-edited.
 
-`module.exports` is CommonJS's "default export" — the host calls this function to get the descriptor object.
+`module.exports` is CommonJS's "default export". The host calls this function to get the descriptor object.
 
 ## The standalone sidecar (`plugin/main.go`)
 
-Identical structure to banner's standalone sidecar, with `@ttsc/strip` in the
-package name and error messages. Consumer builds use the linked `driver/`
-source through the selected native host; this command is still useful as a
-package test target and executable-sidecar example:
+Identical structure to banner's standalone sidecar, with `@ttsc/strip` in the package name and error messages. Consumer builds use the linked `driver/` source through the selected native host; this command is still useful as a package test target and executable-sidecar example:
 
 ```go
 package main
@@ -160,19 +153,17 @@ func run(args []string) int {
 }
 ```
 
-Same `run` shape, same exit codes, same subcommand surface as
-[banner](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
-The interesting code lives in the shared host.
+Same `run` shape, same exit codes, same subcommand surface as [banner](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). The interesting code lives in the shared host.
 
-## The real logic — `stripRewriter` in `driver/strip.go`
+## The real logic: `stripRewriter` in `driver/strip.go`
 
 The strip-specific code in [`packages/strip/driver/strip.go`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/strip.go) is roughly five components. We walk each one in the order they execute at runtime:
 
-1. **Parse the config** — load `strip.config.*` (or use defaults) into a `*stripRewriter` value.
-2. **Apply to every source file** — for each `SourceFile` in the Program, filter top-level statements and recurse.
-3. **Recurse into block-bodied statements** — function bodies, blocks, etc. carry their own statement lists.
-4. **Substitute embedded statements** — `if (x) <strip-me>;` becomes `if (x);` (an `EmptyStatement`) so the parent syntax stays valid.
-5. **Match call patterns** — turn `call.Expression` into a dotted name and test against the pattern set.
+1. **Parse the config**: load `strip.config.*` (or use defaults) into a `*stripRewriter` value.
+2. **Apply to every source file**: for each `SourceFile` in the Program, filter top-level statements and recurse.
+3. **Recurse into block-bodied statements**: function bodies, blocks, etc. Carry their own statement lists.
+4. **Substitute embedded statements**: `if (x) <strip-me>;` becomes `if (x);` (an `EmptyStatement`) so the parent syntax stays valid.
+5. **Match call patterns**: turn `call.Expression` into a dotted name and test against the pattern set.
 
 ### 1. Parsing the config
 
@@ -232,23 +223,23 @@ Three details:
 _, hasCalls := config["calls"]
 ```
 
-The second return value is a boolean — `true` if the key was present, even when the stored value is the zero value (e.g. `nil` for an `any` map). This is how Go distinguishes "key absent" from "key present with zero value."
+The second return value is a boolean, `true` if the key was present, even when the stored value is the zero value (e.g. `nil` for an `any` map). This is how Go distinguishes "key absent" from "key present with zero value."
 
 **Error wrapping with `%w`.** `fmt.Errorf("@ttsc/strip: %w", err)` wraps the inner error so `errors.Is` and `errors.Unwrap` can still recover the original. Use `%w` when you want callers to inspect the cause; `%v` when you just want a formatted string.
 
-**`[]any` is Go's `unknown[]`.** `config` arrives as a `map[string]any` (decoded from JSON). Every value pulled out needs a type assertion before use: `text, ok := raw.(string)`, `arr, ok := raw.([]any)`. Numbers come out as `float64` regardless of the source. The `, ok` form is mandatory — a bare `raw.(string)` panics on the wrong type, surfacing as exit 2 with a stack trace the user cannot fix. The helper `stringArrayConfig` type-asserts each element to `string` and returns a typed `[]string`; if any element is the wrong type, the helper returns an error — the kind that pops out of `parseStrip` as `@ttsc/strip: "calls"[1] must be a non-empty string`. The cleaner alternative for richer configs is `json.Marshal` → `json.Unmarshal` into a typed struct; see [Recipes → Typed Config](/docs/development/authoring/recipes#typed-config).
+**`[]any` is Go's `unknown[]`.** `config` arrives as a `map[string]any` (decoded from JSON). Every value pulled out needs a type assertion before use: `text, ok := raw.(string)`, `arr, ok := raw.([]any)`. Numbers come out as `float64` regardless of the source. The `, ok` form is mandatory. A bare `raw.(string)` panics on the wrong type, surfacing as exit 2 with a stack trace the user cannot fix. The helper `stringArrayConfig` type-asserts each element to `string` and returns a typed `[]string`; if any element is the wrong type, the helper returns an error. The kind that pops out of `parseStrip` as `@ttsc/strip: "calls"[1] must be a non-empty string`. The cleaner alternative for richer configs is `json.Marshal` → `json.Unmarshal` into a typed struct; see [Recipes → Typed Config](/docs/development/authoring/recipes#typed-config).
 
 ### Sidebar: pointer receivers and constructors
 
-`parseStrip` returns `*stripRewriter` — a pointer to a freshly-allocated struct. The convention is that mutating methods take a pointer receiver:
+`parseStrip` returns `*stripRewriter`. A pointer to a freshly-allocated struct. The convention is that mutating methods take a pointer receiver:
 
 ```go
 func (s *stripRewriter) apply(file *shimast.SourceFile) { ... }
 ```
 
-The `s *stripRewriter` is the receiver; calling `r.apply(file)` is sugar for the _method expression_ `(*stripRewriter).apply(r, file)` — Go passes the receiver `r` as the first argument behind the scenes. By taking `*stripRewriter` instead of `stripRewriter`, the method can mutate the value the caller holds without copying it.
+The `s *stripRewriter` is the receiver; calling `r.apply(file)` is sugar for the _method expression_ `(*stripRewriter).apply(r, file)`, Go passes the receiver `r` as the first argument behind the scenes. By taking `*stripRewriter` instead of `stripRewriter`, the method can mutate the value the caller holds without copying it.
 
-Go has no `class` keyword and no constructors — you call a function like `parseStrip` that returns the value. The convention is `newX` or `parseX` for these "constructor-like" functions.
+Go has no `class` keyword and no constructors. You call a function like `parseStrip` that returns the value. The convention is `newX` or `parseX` for these "constructor-like" functions.
 
 ### 2. Apply to every source file
 
@@ -268,7 +259,7 @@ func applySourceTransforms(prog *driver.Program, state transformState) error {
 }
 ```
 
-`prog.SourceFiles()` already drops declaration files, so `file` is always user-authored TypeScript. The order is important — paths first, then strip — but for strip in isolation that does not matter.
+`prog.SourceFiles()` already drops declaration files, so `file` is always user-authored TypeScript. The order is important, paths first, then strip, but for strip in isolation that does not matter.
 
 Then `(*stripRewriter).apply`:
 
@@ -281,7 +272,7 @@ func (s *stripRewriter) apply(file *shimast.SourceFile) {
 }
 ```
 
-**`s == nil` check.** Defensive. Strip is constructed by `newStripRewriter`, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil — the panic only happens at the first field deref. The body _does_ deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
+**`s == nil` check.** Defensive. Strip is constructed by `newStripRewriter`, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil. The panic only happens at the first field deref. The body _does_ deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
 
 **`file.Statements`** is a `*shimast.NodeList`. NodeList is a small wrapper: `{ Pos, End, Nodes []*shimast.Node }`. Mutating the slice underneath is how strip removes statements.
 
@@ -304,17 +295,17 @@ func filterStatements(list *shimast.NodeList, strip *stripRewriter) {
 }
 ```
 
-- **`make([]T, 0, capacity)`** — allocates the backing array with `capacity` slots but exposes length 0; `append` fills slots without reallocation until the cap is exhausted. Useful when you know an upper bound on the final length (here, `len(list.Nodes)`). Length and capacity are independent; newcomers conflate them.
-- **`for _, stmt := range list.Nodes`** — iterate over a slice. The first value is the index (we discard it with `_`); the second is a copy of the element. For pointer-element slices like `[]*Node`, the copy is the pointer, not the underlying struct. Since Go 1.22 the loop variable `stmt` is scoped _per iteration_, so closures capture distinct values each pass. Pre-1.22 code reused one variable across iterations — a classic foot-gun when saving `stmt` into a goroutine or callback.
-- **`continue`** — skip to the next iteration. Here it means "drop this statement; do not append to `out`."
-- **`append(out, stmt)`** — Go's variadic list-extend. `append` returns a (possibly new) slice; you must reassign the result.
-- **`list.Nodes = out`** — replace the underlying slice. The original `list.Nodes` is garbage-collected once nothing references it.
+- **`make([]T, 0, capacity)`**: allocates the backing array with `capacity` slots but exposes length 0; `append` fills slots without reallocation until the cap is exhausted. Useful when you know an upper bound on the final length (here, `len(list.Nodes)`). Length and capacity are independent; newcomers conflate them.
+- **`for _, stmt := range list.Nodes`**: iterate over a slice. The first value is the index (we discard it with `_`); the second is a copy of the element. For pointer-element slices like `[]*Node`, the copy is the pointer, not the underlying struct. Since Go 1.22 the loop variable `stmt` is scoped _per iteration_, so closures capture distinct values each pass. Pre-1.22 code reused one variable across iterations, a classic foot-gun when saving `stmt` into a goroutine or callback.
+- **`continue`**: skip to the next iteration. Here it means "drop this statement; do not append to `out`."
+- **`append(out, stmt)`**: Go's variadic list-extend. `append` returns a (possibly new) slice; you must reassign the result.
+- **`list.Nodes = out`**: replace the underlying slice. The original `list.Nodes` is garbage-collected once nothing references it.
 
 The function is in-place: it mutates `list.Nodes` to a smaller slice and is therefore visible to anyone holding a pointer to the same `*NodeList`. This is exactly what the printer reads when it renders the file back to TypeScript text.
 
 ### Sidebar: why filtering, not deleting?
 
-There is no `Node.Remove()` API. The `shimast` package treats AST nodes as plain data; structural mutation is just slice manipulation. This keeps the model simple — the printer iterates `Statements.Nodes` directly without any deletion bookkeeping — at the cost of forcing the plugin author to think in terms of list rewrites.
+There is no `Node.Remove()` API. The `shimast` package treats AST nodes as plain data; structural mutation is just slice manipulation. This keeps the model simple, the printer iterates `Statements.Nodes` directly without any deletion bookkeeping, at the cost of forcing the plugin author to think in terms of list rewrites.
 
 For _leaf-text mutations_ (changing an identifier or string literal in place), the picture is different and you need the synthesize-flag invariant. See the [`@ttsc/paths` walkthrough](/docs/development/walkthroughs/paths#6-mutating-a-string-literal--the-synthesize-flag-invariant) for the canonical pattern.
 
@@ -339,14 +330,14 @@ func filterChildStatements(node *shimast.Node, strip *stripRewriter) {
 Three things happen per node:
 
 1. **`filterEmbeddedStatements`** handles statements that live in _single-statement slots_ (the body of `if (x) <stmt>`, `while (x) <stmt>`, etc.). See step 5 below.
-2. **`node.CanHaveStatements()`** is true for `Block`, `SourceFile`, `ModuleDeclaration`, `CaseClause`, etc. — every node kind whose body is a `NodeList` of statements. When true, recurse into the body's statement list with the same `filterStatements`. (`CanHaveStatements` and `StatementList` are methods on `*shimast.Node` itself; the full surface is in [AST & Checker](/docs/development/concepts/tsgo#ast-basics).)
+2. **`node.CanHaveStatements()`** is true for `Block`, `SourceFile`, `ModuleDeclaration`, `CaseClause`, etc.: every node kind whose body is a `NodeList` of statements. When true, recurse into the body's statement list with the same `filterStatements`. (`CanHaveStatements` and `StatementList` are methods on `*shimast.Node` itself; the full surface is in [AST & Checker](/docs/development/concepts/tsgo#ast-basics).)
 3. **`node.ForEachChild(fn)`** iterates child nodes regardless of kind. We recurse into each one to find nested function bodies, lambdas, arrow expressions, etc.
 
 The visitor passes `func(child) bool` returning `false`. The contract: returning `true` short-circuits the iteration; returning `false` keeps going. Strip never short-circuits, so it always returns `false`.
 
 ### Sidebar: closures and the `func(...) bool` shape
 
-`node.ForEachChild` takes a function literal — Go's closure syntax:
+`node.ForEachChild` takes a function literal, Go's closure syntax:
 
 ```go
 node.ForEachChild(func(child *shimast.Node) bool {
@@ -355,11 +346,11 @@ node.ForEachChild(func(child *shimast.Node) bool {
 })
 ```
 
-Closures in Go capture variables **by reference**, not by value — the inner function sees later mutations to the captured variable. Here `strip` is captured so the recursive call still has the rewriter state; nothing mutates `strip` after the closure is created, so the capture-by-reference detail is invisible. It matters when you capture a loop variable you intend to reassign or pass into a goroutine — the pre-1.22 loop-variable trap mentioned above is exactly this. This closure shape is the standard Go pattern for tree walking; you will see it again in the `@ttsc/paths` `rewriter`.
+Closures in Go capture variables **by reference**, not by value. The inner function sees later mutations to the captured variable. Here `strip` is captured so the recursive call still has the rewriter state; nothing mutates `strip` after the closure is created, so the capture-by-reference detail is invisible. It matters when you capture a loop variable you intend to reassign or pass into a goroutine. The pre-1.22 loop-variable trap mentioned above is exactly this. This closure shape is the standard Go pattern for tree walking; you will see it again in the `@ttsc/paths` `rewriter`.
 
-### Sidebar: `node.AsX()` returns nil — branch on `Kind` first
+### Sidebar: `node.AsX()` returns nil, branch on `Kind` first
 
-`node.AsCallExpression()`, `node.AsIfStatement()`, etc. return `nil` when `node.Kind` does not match instead of panicking. The `case shimast.KindIfStatement: stmt := node.AsIfStatement()` pattern in `filterEmbeddedStatements` is safe only because the `case` already proved the kind. Outside a kind-checked `switch` — for example after a `ForEachChild` that yields heterogeneous children — check `if stmt == nil { return }` before dereferencing any field. `node.AsCallExpression().Expression` on a non-call panics with a nil-deref, which the host surfaces as exit 2 with a Go stack on stderr. The same rule applies to `node.Symbol()`, which is nil for non-declaration nodes; see [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+`node.AsCallExpression()`, `node.AsIfStatement()`, etc. Return `nil` when `node.Kind` does not match instead of panicking. The `case shimast.KindIfStatement: stmt := node.AsIfStatement()` pattern in `filterEmbeddedStatements` is safe only because the `case` already proved the kind. Outside a kind-checked `switch`, for example after a `ForEachChild` that yields heterogeneous children. Check `if stmt == nil { return }` before dereferencing any field. `node.AsCallExpression().Expression` on a non-call panics with a nil-deref, which the host surfaces as exit 2 with a Go stack on stderr. The same rule applies to `node.Symbol()`, which is nil for non-declaration nodes; see [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
 
 ### 5. Substitute embedded statements
 
@@ -369,7 +360,7 @@ This is the subtle case:
 if (x) console.log("oops");
 ```
 
-If we removed the `console.log` outright, we would be left with `if (x)` followed by no statement — a syntax error. Strip's solution is to swap the embedded statement for an `EmptyStatement` (`;`):
+If we removed the `console.log` outright, we would be left with `if (x)` followed by no statement. A syntax error. Strip's solution is to swap the embedded statement for an `EmptyStatement` (`;`):
 
 ```js
 if (x);
@@ -433,9 +424,9 @@ Three details in `emptyStatement`:
 
 Three rules of thumb:
 
-1. **Structural mutations (filtering a `NodeList`, swapping a child pointer) — no flag needed.** The printer iterates lists directly without source spans.
-2. **New nodes constructed via `NewNodeFactory.NewX()` — set `NodeFlagsSynthesized`.** The printer needs to know the node has no original source-text mapping.
-3. **Leaf-text mutations on an existing node (changing an identifier's `Text` field) — set `NodeFlagsSynthesized` and reset `Loc` to `shimcore.UndefinedTextRange()`.** Without this, the printer reads the _old_ text from the file's source span and silently ignores your change. The `@ttsc/paths` walkthrough has the worked example.
+1. **Structural mutations (filtering a `NodeList`, swapping a child pointer): no flag needed.** The printer iterates lists directly without source spans.
+2. **New nodes constructed via `NewNodeFactory.NewX()`: set `NodeFlagsSynthesized`.** The printer needs to know the node has no original source-text mapping.
+3. **Leaf-text mutations on an existing node (changing an identifier's `Text` field). Set `NodeFlagsSynthesized` and reset `Loc` to `shimcore.UndefinedTextRange()`.** Without this, the printer reads the _old_ text from the file's source span and silently ignores your change. The `@ttsc/paths` walkthrough has the worked example.
 
 ### 6. Match call patterns
 
@@ -491,9 +482,9 @@ func dottedName(expr *shimast.Node) (string, bool) {
 - `console.log` is a `PropertyAccessExpression` with expression `console` (an `Identifier`) and name `log` (another `Identifier`).
 - The recursion: `dottedName(console.log)` → `dottedName(console)` returns `"console"`, then `"console" + "." + "log"` → `"console.log"`.
 
-For more complex shapes — `obj["log"]()`, `(this as Logger).log()`, optional chaining — `dottedName` returns `("", false)` because those node kinds are not in the switch. Strip deliberately handles only the simple syntactic shape; if a user wants to strip a complex callee, they can use a regular `console.log` (or change the call site).
+For more complex shapes, `obj["log"]()`, `(this as Logger).log()`, optional chaining, `dottedName` returns `("", false)` because those node kinds are not in the switch. Strip deliberately handles only the simple syntactic shape; if a user wants to strip a complex callee, they can use a regular `console.log` (or change the call site).
 
-`expr.Text()` is safe inside the `case shimast.KindIdentifier:` branch because the kind check filters out kinds where `Text()` would panic — see [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+`expr.Text()` is safe inside the `case shimast.KindIdentifier:` branch because the kind check filters out kinds where `Text()` would panic. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
 
 The matcher itself:
 
@@ -519,15 +510,15 @@ func (p callPattern) matches(name string) bool {
 }
 ```
 
-For `console.log`, `parts = ["console", "log"]`. A pattern `console.log` with `wildcard: false` requires exact length and element-equality. A pattern `console.*` (parsed into `parts: ["console"], wildcard: true`) requires _strictly more_ name segments than pattern segments — note the early-return `if len(parts) <= len(p.parts) { return false }` — so `console.*` matches `console.log` but **not** the bare identifier `console`. After that guard, the prefix segments must match element-wise.
+For `console.log`, `parts = ["console", "log"]`. A pattern `console.log` with `wildcard: false` requires exact length and element-equality. A pattern `console.*` (parsed into `parts: ["console"], wildcard: true`) requires _strictly more_ name segments than pattern segments. Note the early-return `if len(parts) <= len(p.parts) { return false }`, so `console.*` matches `console.log` but **not** the bare identifier `console`. After that guard, the prefix segments must match element-wise.
 
-That's the whole matcher — 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
+That's the whole matcher, 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
 
 ## What to copy, what to ignore
 
 **Copy:**
 
-- The `filterStatements` shape — `make` a fresh slice, conditionally `append`, then assign back. This is the canonical Go pattern for in-place list filtering.
+- The `filterStatements` shape: `make` a fresh slice, conditionally `append`, then assign back. This is the canonical Go pattern for in-place list filtering.
 - The `filterEmbeddedStatements` enumeration of statement kinds. If you ever need to walk single-statement-bearing nodes, this list is exhaustive for ES2022.
 - The `emptyStatement` constructor pattern: factory → set `Synthesized` flag → preserve `Loc`. This is the right shape whenever your rewrite must substitute a placeholder for a removed node.
 - The `dottedName` recursion. It is the same shape `@ttsc/lint`'s console rule uses; copy it whenever you need to recognize `pkg.fn` or `obj.method` callees.
@@ -541,13 +532,13 @@ That's the whole matcher — 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
 
 The `stripRewriter` is exercised two ways:
 
-- **Package-local Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/) — run the binary through `go run ./plugin` against fixture projects, one assertion per file in the AGENTS.md §2.2 shape.
-- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/) — spawn the real `ttsc` launcher and assert on emitted `dist/` files.
+- **Package-local Go tests** in [`packages/strip/test`](https://github.com/samchon/ttsc/tree/master/packages/strip/test/): run the binary through `go run ./plugin` against fixture projects, one assertion per file in the AGENTS.md §2.2 shape.
+- **End-to-end TypeScript fixtures** under [`tests/test-ttsc/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/): spawn the real `ttsc` launcher and assert on emitted `dist/` files.
 
-Pick the strip tests as your template when you write your own — they cover the structural-mutation shape your plugin probably also has.
+Pick the strip tests as your template when you write your own. They cover the structural-mutation shape your plugin probably also has.
 
 ## Where to read next
 
-- [`@ttsc/paths`](/docs/development/walkthroughs/paths) — leaf-text mutation, the synthesize-flag invariant, and Program-backed alias resolution.
-- [AST & Checker → Recognizing Calls](/docs/development/concepts/tsgo#recognizing-calls) — the same `dottedName` pattern, in the protocol docs.
-- [Authoring → End-to-end transform](/docs/development/authoring/end-to-end) — write your own `debugger;` remover from scratch, following the third-party plugin shape.
+- [`@ttsc/paths`](/docs/development/walkthroughs/paths): leaf-text mutation, the synthesize-flag invariant, and Program-backed alias resolution.
+- [AST & Checker → Recognizing Calls](/docs/development/concepts/tsgo#recognizing-calls): the same `dottedName` pattern, in the protocol docs.
+- [Authoring → End-to-end transform](/docs/development/authoring/end-to-end): write your own `debugger;` remover from scratch, following the third-party plugin shape.

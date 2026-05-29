@@ -17,27 +17,27 @@ type unicornNoNestedTernary struct{}
 
 func (unicornNoNestedTernary) Name() string { return "unicorn/no-nested-ternary" }
 func (unicornNoNestedTernary) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindConditionalExpression}
+  return []shimast.Kind{shimast.KindConditionalExpression}
 }
 func (unicornNoNestedTernary) Check(ctx *Context, node *shimast.Node) {
-	cond := node.AsConditionalExpression()
-	if cond == nil {
-		return
-	}
-	if hasUnicornNestedConditional(cond.WhenTrue) {
-		ctx.Report(stripParens(cond.WhenTrue), "Do not nest ternary expressions.")
-		return
-	}
-	if hasUnicornNestedConditional(cond.WhenFalse) {
-		ctx.Report(stripParens(cond.WhenFalse), "Do not nest ternary expressions.")
-	}
+  cond := node.AsConditionalExpression()
+  if cond == nil {
+    return
+  }
+  if hasUnicornNestedConditional(cond.WhenTrue) {
+    ctx.Report(stripParens(cond.WhenTrue), "Do not nest ternary expressions.")
+    return
+  }
+  if hasUnicornNestedConditional(cond.WhenFalse) {
+    ctx.Report(stripParens(cond.WhenFalse), "Do not nest ternary expressions.")
+  }
 }
 
 func hasUnicornNestedConditional(node *shimast.Node) bool {
-	expr := stripParens(node)
-	return expr != nil && expr.Kind == shimast.KindConditionalExpression
+  expr := stripParens(node)
+  return expr != nil && expr.Kind == shimast.KindConditionalExpression
 }
 
 func init() {
-	Register(unicornNoNestedTernary{})
+  Register(unicornNoNestedTernary{})
 }

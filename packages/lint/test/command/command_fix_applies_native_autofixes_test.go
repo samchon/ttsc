@@ -18,7 +18,7 @@ import (
 func TestCommandFixAppliesNativeAutofixes(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\n")
   seedLintRules(t, root, map[string]string{
-    "eqeqeq":      "error",
+    "eqeqeq":       "error",
     "no-var":       "error",
     "prefer-const": "error",
   })

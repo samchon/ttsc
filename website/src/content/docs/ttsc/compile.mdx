@@ -17,7 +17,7 @@ npx ttsc --noEmit
 npx ttsc check     # same thing, named subcommand
 ```
 
-No files written. Non-zero exit on failure — this is the CI form.
+No files written. Non-zero exit on failure. This is the CI form.
 
 ## Watch
 
@@ -40,67 +40,57 @@ npx ttsc prepare                    # pre-build plugin cache (CI warmup)
 npx ttsc clean                      # drop the plugin cache
 ```
 
-`ttsc fix` and `ttsc format` invoke enabled check-stage plugins that implement
-those subcommands. With `@ttsc/lint`, `fix` applies lint + format autofixes and
-then re-checks, while `format` applies only format-class edits. See the
-[Lint & Prettier overview](/docs/lint) for the common workflow.
+`ttsc fix` and `ttsc format` invoke enabled check-stage plugins that implement those subcommands. With `@ttsc/lint`, `fix` applies lint + format autofixes and then re-checks, while `format` applies only format-class edits. See the [Lint & Prettier overview](/docs/lint) for the common workflow.
 
 ## Subcommands
 
-| Subcommand     | Purpose                                                                                                                                                                     |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ttsc`         | Default. Same as `ttsc build`.                                                                                                                                              |
-| `ttsc build`   | Build + emit.                                                                                                                                                               |
-| `ttsc check`   | Type-check only. Same as `ttsc --noEmit`.                                                                                                                                   |
-| `ttsc fix`     | Ask enabled check-stage plugins to apply fixes, then run a no-emit check. With `@ttsc/lint`, this means lint + format autofixes. Cannot combine with `--watch` or `--emit`. |
-| `ttsc format`  | Ask format-capable check-stage plugins to apply format-only edits. With `@ttsc/lint`, this means format-class rules only.                                                   |
-| `ttsc prepare` | Pre-build every plugin binary into the cache.                                                                                                                               |
-| `ttsc clean`   | Delete the plugin binary cache.                                                                                                                                             |
-| `ttsc version` | Print the CLI version.                                                                                                                                                      |
-| `ttsc help`    | Print help.                                                                                                                                                                 |
+| Subcommand | Purpose |
+| --- | --- |
+| `ttsc` | Default. Same as `ttsc build`. |
+| `ttsc build` | Build + emit. |
+| `ttsc check` | Type-check only. Same as `ttsc --noEmit`. |
+| `ttsc fix` | Ask enabled check-stage plugins to apply fixes, then run a no-emit check. With `@ttsc/lint`, this means lint + format autofixes. Cannot combine with `--watch` or `--emit`. |
+| `ttsc format` | Ask format-capable check-stage plugins to apply format-only edits. With `@ttsc/lint`, this means format-class rules only. |
+| `ttsc prepare` | Pre-build every plugin binary into the cache. |
+| `ttsc clean` | Delete the plugin binary cache. |
+| `ttsc version` | Print the CLI version. |
+| `ttsc help` | Print help. |
 
 ## Flags
 
-| Flag                    | Meaning                                                                                                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `-p, --project <file>`  | tsconfig file. Same as `--tsconfig`.                                                                                    |
-| `--tsconfig <file>`     | tsconfig file.                                                                                                          |
-| `--cwd <dir>`           | Resolve relative paths against this directory.                                                                          |
-| `--noEmit`              | Type-check only, no file writes.                                                                                        |
-| `--emit`                | Force emit even when `tsconfig` sets `noEmit: true`.                                                                    |
-| `-w, --watch`           | Watch source files and re-check on change.                                                                              |
-| `--preserveWatchOutput` | Don't clear the screen between watch runs.                                                                              |
-| `--outDir <dir>`        | Override `compilerOptions.outDir`.                                                                                      |
-| `--quiet`               | Suppress per-file output (default).                                                                                     |
-| `--verbose`             | Print build summary and emitted file paths.                                                                             |
-| `--binary <path>`       | Use a specific tsgo binary instead of the bundled one.                                                                  |
-| `--cache-dir <dir>`     | Plugin binary cache root, resolved relative to `--cwd` when not absolute. Defaults to the shared user-level ttsc cache. |
-| `--singleThreaded`      | Run TypeScript-Go single-threaded — one checker, serial parse/check/emit. Mirrors `tsgo --singleThreaded`.              |
-| `--checkers <n>`        | Type-checker pool size. Mirrors `tsgo --checkers`; defaults to TypeScript-Go's own default.                             |
+| Flag | Meaning |
+| --- | --- |
+| `-p, --project <file>` | tsconfig file. Same as `--tsconfig`. |
+| `--tsconfig <file>` | tsconfig file. |
+| `--cwd <dir>` | Resolve relative paths against this directory. |
+| `--noEmit` | Type-check only, no file writes. |
+| `--emit` | Force emit even when `tsconfig` sets `noEmit: true`. |
+| `-w, --watch` | Watch source files and re-check on change. |
+| `--preserveWatchOutput` | Don't clear the screen between watch runs. |
+| `--outDir <dir>` | Override `compilerOptions.outDir`. |
+| `--quiet` | Suppress per-file output (default). |
+| `--verbose` | Print build summary and emitted file paths. |
+| `--binary <path>` | Use a specific tsgo binary instead of the bundled one. |
+| `--cache-dir <dir>` | Plugin binary cache root, resolved relative to `--cwd` when not absolute. Defaults to the shared user-level ttsc cache. |
+| `--singleThreaded` | Run TypeScript-Go single-threaded, one checker, serial parse/check/emit. Mirrors `tsgo --singleThreaded`. |
+| `--checkers <n>` | Type-checker pool size. Mirrors `tsgo --checkers`; defaults to TypeScript-Go's own default. |
 
-Any flag `ttsc` does not own is forwarded as-is to `tsgo`, so classic `tsc`
-compilerOptions work on the command line too — `ttsc --strict src/main.ts`,
-`ttsc --target es2020`, `ttsc --listFiles`. The usual home for `target`,
-`module`, `strict`, `lib`, and friends is still `tsconfig.json`; the CLI form
-just overrides it for one run. On a project that configures a ttsc plugin, the
-forwarded flag still reaches the in-process compiler, though tsgo's reporting
-flags (`--listFiles`, `--showConfig`, …) only print on a plain, plugin-free
-build.
+Any flag `ttsc` does not own is forwarded as-is to `tsgo`, so classic `tsc` compilerOptions work on the command line too, `ttsc --strict src/main.ts`, `ttsc --target es2020`, `ttsc --listFiles`. The usual home for `target`, `module`, `strict`, `lib`, and friends is still `tsconfig.json`; the CLI form just overrides it for one run. On a project that configures a ttsc plugin, the forwarded flag still reaches the in-process compiler, though tsgo's reporting flags (`--listFiles`, `--showConfig`, …) only print on a plain, plugin-free build.
 
 ## Exit codes
 
-| Code | Meaning                                                                   |
-| ---- | ------------------------------------------------------------------------- |
-| 0    | Success — no errors. Warnings may have been printed.                      |
-| 1    | Build failure — type errors, lint errors, or plugin failure.              |
-| 2    | Configuration error — bad `tsconfig.json`, missing plugin, invalid flags. |
+| Code | Meaning |
+| --- | --- |
+| 0 | Success, no errors. Warnings may have been printed. |
+| 1 | Build failure, type errors, lint errors, or plugin failure. |
+| 2 | Configuration error, bad `tsconfig.json`, missing plugin, invalid flags. |
 
 ## Plugin cache
 
-The plugin binary cache lives in a shared user-level ttsc cache by default (`~/.cache/ttsc` on Linux, platform equivalents elsewhere). Override with `--cache-dir` for CI or test isolation; relative values resolve from `--cwd` and store plugin binaries under `<cache-dir>/plugins`. Safe to delete at any time (`ttsc clean`, or `ttsc clean --cache-dir <dir>` for an explicit cache) — binaries get rebuilt on next use. The default cache records last-use timestamps and prunes old entries automatically.
+The plugin binary cache lives in a shared user-level ttsc cache by default (`~/.cache/ttsc` on Linux, platform equivalents elsewhere). Override with `--cache-dir` for CI or test isolation; relative values resolve from `--cwd` and store plugin binaries under `<cache-dir>/plugins`. Safe to delete at any time (`ttsc clean`, or `ttsc clean --cache-dir <dir>` for an explicit cache), binaries get rebuilt on next use. The default cache records last-use timestamps and prunes old entries automatically.
 
 ## See also
 
-- [TTSC · `ttsx` runner](/docs/ttsc/execute) — same compile, then runs the result.
-- [Lint & Prettier](/docs/lint) — `ttsc fix` / `ttsc format` and the `lint.config.ts` surface.
-- [FAQ](/docs/faq) — common build failures and migration questions.
+- [TTSC · `ttsx` runner](/docs/ttsc/execute): same compile, then runs the result.
+- [Lint & Prettier](/docs/lint): `ttsc fix` / `ttsc format` and the `lint.config.ts` surface.
+- [FAQ](/docs/faq): common build failures and migration questions.

@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoRestrictedImports(t *testing.T) {
-	assertRuleCorpusCase(t, "no-restricted-imports.ts", "// Positive: hard-coded deny list flags `lodash` at the specifier.\n// expect: no-restricted-imports error\nimport _ from \"lodash\";\n\n// Positive: a `from` re-export hits the same deny list.\n// expect: no-restricted-imports error\nexport { isArray } from \"underscore\";\n\n// Negative: any specifier outside the deny list passes through.\nimport * as fs from \"node:fs\";\n\nvoid _;\nvoid fs;\n")
+  assertRuleCorpusCase(t, "no-restricted-imports.ts", "// Positive: hard-coded deny list flags `lodash` at the specifier.\n// expect: no-restricted-imports error\nimport _ from \"lodash\";\n\n// Positive: a `from` re-export hits the same deny list.\n// expect: no-restricted-imports error\nexport { isArray } from \"underscore\";\n\n// Negative: any specifier outside the deny list passes through.\nimport * as fs from \"node:fs\";\n\nvoid _;\nvoid fs;\n")
 }

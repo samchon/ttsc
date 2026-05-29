@@ -1,6 +1,6 @@
-# `@ttsc/banner` — Source Preamble Insertion
+# `@ttsc/banner`: Source Preamble Insertion
 
-`@ttsc/banner` is the simplest shipped transform plugin. It does one thing: insert a JSDoc `@packageDocumentation` block at the top of every emitted `.js` and `.d.ts` file. Go side-notes are heaviest on this page — subsequent pages assume the vocabulary it introduces.
+`@ttsc/banner` is the simplest shipped transform plugin. It does one thing: insert a JSDoc `@packageDocumentation` block at the top of every emitted `.js` and `.d.ts` file. Go side-notes are heaviest on this page, subsequent pages assume the vocabulary it introduces.
 
 ## What it does for the consumer
 
@@ -43,7 +43,7 @@ The same `@packageDocumentation` block lands at the top of every emitted file: `
 
 `@ttsc/banner` walks upward from the tsconfig directory looking for `banner.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry: `{ "transform": "@ttsc/banner", "configFile": "./path/to/banner.config.ts" }`.
 
-If nothing is configured, the build fails — `@ttsc/banner` deliberately refuses to silently insert nothing.
+If nothing is configured, the build fails, `@ttsc/banner` deliberately refuses to silently insert nothing.
 
 ## Directory layout
 
@@ -130,11 +130,11 @@ export default function createTtscBanner(
 
 Three load-bearing lines in the returned descriptor:
 
-- `name: "@ttsc/banner"` — optional diagnostic label. Routing is not based on this value.
-- `source: path.resolve(__dirname, "..", "driver")` — absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
-- `stage: "transform"` — declares this plugin participates in the AST transform path. Because this descriptor points at linked `driver/`, the selected native host receives `check`, `transform`, and `build` while banner participates through `driver.RegisterPlugin`. Omit `stage` and you get the same default.
+- `name: "@ttsc/banner"`: optional diagnostic label. Routing is not based on this value.
+- `source: path.resolve(__dirname, "..", "driver")`: absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
+- `stage: "transform"`: declares this plugin participates in the AST transform path. Because this descriptor points at linked `driver/`, the selected native host receives `check`, `transform`, and `build` while banner participates through `driver.RegisterPlugin`. Omit `stage` and you get the same default.
 
-The factory's one piece of factory-time work is validating `context.plugin` — the original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context — `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory — banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
+The factory's one piece of factory-time work is validating `context.plugin`. The original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context, `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory, banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
 
 Defining `TtscPluginDescriptor` and `TtscPluginFactoryContext` inline (instead of importing them from `ttsc`) keeps banner's `package.json` free of a `ttsc` dependency in the published tarball. The shapes are stable; copying them is the documented escape hatch ([Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc)).
 
@@ -153,7 +153,7 @@ Two things worth noting for Go newcomers:
 - **`module` declares this package's import path.** It must match what other Go files use when importing this module. For published plugins inside the ttsc monorepo, we use the GitHub path; standalone plugins can pick anything as long as it does not collide with a real fetchable module.
 - **`v0.0.0` is a placeholder.** `ttsc` synthesizes a workspace overlay at build time that resolves `github.com/samchon/ttsc/packages/ttsc v0.0.0` to the locally-installed `node_modules/ttsc/` directory. The Go toolchain never tries to download this version from a registry. The mechanism is documented in [Architecture → Cold build path](/docs/development/reference/architecture#cold-build-path).
 
-`@ttsc/banner` requires only one external module here because every shim package it eventually imports is reached through `github.com/samchon/ttsc/packages/ttsc/utility`. A plugin that imports shim packages directly must add a `require` line for each one — see [End-to-end transform](/docs/development/authoring/end-to-end#3-write-the-go-module).
+`@ttsc/banner` requires only one external module here because every shim package it eventually imports is reached through `github.com/samchon/ttsc/packages/ttsc/utility`. A plugin that imports shim packages directly must add a `require` line for each one. See [End-to-end transform](/docs/development/authoring/end-to-end#3-write-the-go-module).
 
 ### Sidebar: what is a `shim/`?
 
@@ -161,11 +161,7 @@ Two things worth noting for Go newcomers:
 
 ## The standalone sidecar (`plugin/main.go`)
 
-This is the standalone utility entrypoint for the package. The published
-`@ttsc/banner` descriptor points at `driver/`, so consumer builds link the
-driver package into the selected native host. Reading `plugin/main.go` is still
-useful because it shows the executable sidecar contract and is what the package
-Go tests run directly. The entire content:
+This is the standalone utility entrypoint for the package. The published `@ttsc/banner` descriptor points at `driver/`, so consumer builds link the driver package into the selected native host. Reading `plugin/main.go` is still useful because it shows the executable sidecar contract and is what the package Go tests run directly. The entire content:
 
 ```go
 // Native sidecar entrypoint for `@ttsc/banner`.
@@ -239,13 +235,13 @@ func main() {
 }
 ```
 
-`main` is the program entrypoint. `os.Args` is a slice of strings — every command-line argument including the binary path at `os.Args[0]`. `os.Args[1:]` drops the binary path; the same slice every Unix program uses for "the user's args."
+`main` is the program entrypoint. `os.Args` is a slice of strings, every command-line argument including the binary path at `os.Args[0]`. `os.Args[1:]` drops the binary path; the same slice every Unix program uses for "the user's args."
 
-The pattern `os.Exit(run(...))` keeps `main` trivial and pushes the real logic into a testable function. `run` returns an `int` exit code, and `os.Exit` propagates it to the OS. **Plugin authors should always exit non-zero on failure** — `ttsc` interprets exit codes per [Plugin protocol → Exit and Output](/docs/development/concepts/protocol#exit-and-output).
+The pattern `os.Exit(run(...))` keeps `main` trivial and pushes the real logic into a testable function. `run` returns an `int` exit code, and `os.Exit` propagates it to the OS. **Plugin authors should always exit non-zero on failure**, `ttsc` interprets exit codes per [Plugin protocol → Exit and Output](/docs/development/concepts/protocol#exit-and-output).
 
 ### Sidebar: why a separate `run` function?
 
-`os.Exit` immediately terminates the process — `defer` statements do not run, and Go's testing framework cannot recover. By keeping the side-effecting call in `main` and the logic in `run`, the testable function:
+`os.Exit` immediately terminates the process, `defer` statements do not run, and Go's testing framework cannot recover. By keeping the side-effecting call in `main` and the logic in `run`, the testable function:
 
 - can return an int instead of calling `os.Exit`;
 - can be invoked from Go unit tests with different argv slices;
@@ -275,17 +271,12 @@ default:
 }
 ```
 
-Executable sidecars are always spawned with a subcommand as the first argument:
-`check`, `transform`, `build`, and for check-stage plugins also `fix` or
-`format`. Banner's published descriptor uses linked `driver/` instead, so in
-normal consumer builds the generic native host receives the subcommand and the
-banner driver runs through its registered hooks. This standalone dispatcher
-exists for package tests and as an executable-sidecar example.
+Executable sidecars are always spawned with a subcommand as the first argument: `check`, `transform`, `build`, and for check-stage plugins also `fix` or `format`. Banner's published descriptor uses linked `driver/` instead, so in normal consumer builds the generic native host receives the subcommand and the banner driver runs through its registered hooks. This standalone dispatcher exists for package tests and as an executable-sidecar example.
 
 The `switch` is Go's `case` statement. Notable details:
 
 - **No fall-through by default.** Unlike C/JavaScript, Go's `switch` does not fall through to the next case unless you write `fallthrough`. Each `case` is implicitly broken.
-- **Comma-separated case labels.** `case "-v", "--version", "version":` matches any of the three strings — a concise way to handle aliases.
+- **Comma-separated case labels.** `case "-v", "--version", "version":` matches any of the three strings: a concise way to handle aliases.
 - **`%q` quotes the value.** `fmt.Fprintf(... %q ...)` prints the string with surrounding quotes and escaped characters. Useful for error messages so an empty string or a tab character is visible.
 
 ### Error printing
@@ -308,7 +299,7 @@ case "transform": return utility.RunTransform(args[1:])
 case "check":     return utility.RunCheck(args[1:])
 ```
 
-These three functions live in `packages/ttsc/utility/host.go` — the generic host used when a linked transform package needs an executable wrapper. The banner-specific code is not in this file; it is registered by `packages/banner/driver/banner.go`.
+These three functions live in `packages/ttsc/utility/host.go`. The generic host used when a linked transform package needs an executable wrapper. The banner-specific code is not in this file; it is registered by `packages/banner/driver/banner.go`.
 
 `args[1:]` drops the subcommand (`args[0]`) and passes the remaining flags. The flag set parsed by `utility.Run*` includes `--cwd`, `--tsconfig`, `--plugins-json`, `--emit`, `--noEmit`, `--outDir`, `--quiet`, `--verbose`. The same flags every plugin in this repo accepts.
 
@@ -322,7 +313,7 @@ import _ "github.com/samchon/ttsc/packages/banner/driver"
 
 The standalone `plugin/` command blank-imports `driver/` so the driver's `init()` registration runs before `main`. When `ttsc` links `driver/` into its generic host, this wrapper file is not part of the host build.
 
-## The actual transform logic — a brief tour
+## The actual transform logic: a brief tour
 
 The full transform code lives in [`packages/banner/driver/banner.go`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/banner.go). For banner, the relevant slice is:
 
@@ -331,12 +322,12 @@ The full transform code lives in [`packages/banner/driver/banner.go`](https://gi
 3. **`parseBanner`** delegates to **`resolveBannerText`** for config resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
    - `config["configFile"]` path to a `banner.config.*` file (explicit override);
    - upward filesystem walk from the tsconfig directory looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
-4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program _already contains_ the JSDoc block at offset 0 — the printer round-trips it naturally.
+4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program _already contains_ the JSDoc block at offset 0, the printer round-trips it naturally.
 5. **`makeSourcePreambleWriteFile`** in the generic host wraps `tsgo`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsgo generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
 
-The pattern is: **prefer source-level transformations over post-emit edits**. By overlaying the preamble at parse time, banner never has to deal with sourcemaps, declaration emit, or formatting variations — tsgo treats the preamble as ordinary source text.
+The pattern is: **prefer source-level transformations over post-emit edits**. By overlaying the preamble at parse time, banner never has to deal with sourcemaps, declaration emit, or formatting variations, tsgo treats the preamble as ordinary source text.
 
-The hairy bit is loading TypeScript config files (`banner.config.ts`). Because the config is TypeScript and may use ESM imports, banner spawns `ttsx` (injected as `TTSC_TTSX_BINARY` — see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)) to evaluate it, then captures the result through stdout JSON. This is `loadBannerTypeScriptConfigFile` — about 60 lines of "synthesize a tempdir, link `node_modules`, write a tiny loader, run it, parse the JSON it prints." Worth reading once for the pattern; not something you typically reimplement.
+The hairy bit is loading TypeScript config files (`banner.config.ts`). Because the config is TypeScript and may use ESM imports, banner spawns `ttsx` (injected as `TTSC_TTSX_BINARY`. See [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)) to evaluate it, then captures the result through stdout JSON. This is `loadBannerTypeScriptConfigFile`, about 60 lines of "synthesize a tempdir, link `node_modules`, write a tiny loader, run it, parse the JSON it prints." Worth reading once for the pattern; not something you typically reimplement.
 
 ### Sidebar: `defer prog.Close()` is a hard rule
 
@@ -348,11 +339,11 @@ if err != nil { return 2 }
 defer prog.Close()
 ```
 
-Forget it and the lease leaks back to the pool. After a handful of invocations subsequent loads stall silently — the symptom is `ttsc --watch` hanging without printing a diagnostic. Banner gets away without writing the line because the close lives inside `utility.RunBuild`; your third-party plugin will not.
+Forget it and the lease leaks back to the pool. After a handful of invocations subsequent loads stall silently. The symptom is `ttsc --watch` hanging without printing a diagnostic. Banner gets away without writing the line because the close lives inside `utility.RunBuild`; your third-party plugin will not.
 
 ### Sidebar: why exit 2 on `fix` / `format`
 
-The `default` branch in `run` rejects `fix` and `format` with exit 2 because the host only spawns those subcommands against executable `stage: "check"` plugins. If a transform-stage sidecar dispatcher ever receives one, something is wrong upstream and the safe move is "fail loud." Conversely, a **check-stage plugin** that does not implement `fix` should also exit non-zero with a human-readable stderr message — the host treats every non-zero exit as failure and prints stderr verbatim, with no special-cased phrase ([Plugin protocol → Unsupported `fix`/`format`](/docs/development/concepts/protocol#unsupported-fix-format)). Returning `0` from an unknown subcommand is a bug: `ttsc fix` would silently no-op and the user would never know.
+The `default` branch in `run` rejects `fix` and `format` with exit 2 because the host only spawns those subcommands against executable `stage: "check"` plugins. If a transform-stage sidecar dispatcher ever receives one, something is wrong upstream and the safe move is "fail loud." Conversely, a **check-stage plugin** that does not implement `fix` should also exit non-zero with a human-readable stderr message. The host treats every non-zero exit as failure and prints stderr verbatim, with no special-cased phrase ([Plugin protocol → Unsupported `fix`/`format`](/docs/development/concepts/protocol#unsupported-fix-format)). Returning `0` from an unknown subcommand is a bug: `ttsc fix` would silently no-op and the user would never know.
 
 ## What to copy, what to ignore for your own plugin
 
@@ -361,7 +352,7 @@ The `default` branch in `run` rejects `fix` and `format` with exit 2 because the
 - The `main` → `run` → `switch` shape. Every shipped plugin uses it; so do the canonical fixtures.
 - The "exit 2 on unknown subcommand" convention. The host treats every non-zero exit as failure; 2 is the universally-understood "argument or config problem" code.
 - The "prefix every stderr line with the plugin name" convention.
-- The `--cwd` / `--tsconfig` / `--plugins-json` flag set — these are the host-provided flags every plugin receives (see [Plugin protocol → CLI Commands](/docs/development/concepts/protocol#cli-commands)).
+- The `--cwd` / `--tsconfig` / `--plugins-json` flag set: these are the host-provided flags every plugin receives (see [Plugin protocol → CLI Commands](/docs/development/concepts/protocol#cli-commands)).
 
 **Do not copy:**
 
@@ -369,17 +360,17 @@ The `default` branch in `run` rejects `fix` and `format` with exit 2 because the
 - The `plugin/banner.go` wrapper when your descriptor points directly at an executable command package.
 - Position-based linked registration unless your descriptor source is a non-`main` package. Executable plugins usually read their own `--plugins-json` payload and call `driver.LoadProgram` directly.
 
-## Beginner annotations — Go constructs introduced on this page
+## Beginner annotations: Go constructs introduced on this page
 
-- **`package main`** — declares an executable program; the linker looks for `main()`.
-- **`import`** — imports a package; the path uses forward slashes regardless of OS.
-- **`func name(args) returnType`** — function declaration. Multiple return values are common: `func foo() (string, error)`.
-- **`os.Args`** — `[]string` of command-line arguments, including the binary path at `[0]`.
-- **`switch x { case a: ... case b: ... default: ... }`** — like C/Java switch but without implicit fall-through.
-- **`fmt.Fprintf(w, format, ...)`** — printf-style formatted write. `%q` quotes a string; `%v` prints any value's default form.
-- **`return N`** in `main`'s helper — propagates an exit code; `os.Exit(N)` then ends the process.
+- **`package main`**: declares an executable program; the linker looks for `main()`.
+- **`import`**: imports a package; the path uses forward slashes regardless of OS.
+- **`func name(args) returnType`**: function declaration. Multiple return values are common: `func foo() (string, error)`.
+- **`os.Args`**: `[]string` of command-line arguments, including the binary path at `[0]`.
+- **`switch x { case a: ... case b: ... default: ... }`**: like C/Java switch but without implicit fall-through.
+- **`fmt.Fprintf(w, format, ...)`**: printf-style formatted write. `%q` quotes a string; `%v` prints any value's default form.
+- **`return N`** in `main`'s helper: propagates an exit code; `os.Exit(N)` then ends the process.
 
 ## Where to read next
 
-- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/) — Go tests that drive the sidecar binary against fixture projects, one assertion per file.
-- [`@ttsc/strip`](/docs/development/walkthroughs/strip) — the next step in this tour. Same `main.go` shape; the real logic is your first AST mutation.
+- [`packages/banner/test`](https://github.com/samchon/ttsc/tree/master/packages/banner/test/): Go tests that drive the sidecar binary against fixture projects, one assertion per file.
+- [`@ttsc/strip`](/docs/development/walkthroughs/strip): the next step in this tour. Same `main.go` shape; the real logic is your first AST mutation.

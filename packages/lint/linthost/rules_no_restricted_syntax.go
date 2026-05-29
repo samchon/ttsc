@@ -12,38 +12,38 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // noRestrictedSyntaxDefault is the built-in denylist surfaced when no
 // config is supplied. Each entry pairs a banned node kind with the
 // short, actionable message reported at the offending node.
 var noRestrictedSyntaxDefault = map[shimast.Kind]string{
-	shimast.KindWithStatement:    "`with` statements are restricted — use explicit property access instead.",
-	shimast.KindLabeledStatement: "Labeled statements are restricted — refactor the surrounding control flow instead.",
+  shimast.KindWithStatement:    "`with` statements are restricted — use explicit property access instead.",
+  shimast.KindLabeledStatement: "Labeled statements are restricted — refactor the surrounding control flow instead.",
 }
 
 type noRestrictedSyntax struct{}
 
 func (noRestrictedSyntax) Name() string { return "no-restricted-syntax" }
 func (noRestrictedSyntax) Visits() []shimast.Kind {
-	kinds := make([]shimast.Kind, 0, len(noRestrictedSyntaxDefault))
-	for kind := range noRestrictedSyntaxDefault {
-		kinds = append(kinds, kind)
-	}
-	return kinds
+  kinds := make([]shimast.Kind, 0, len(noRestrictedSyntaxDefault))
+  for kind := range noRestrictedSyntaxDefault {
+    kinds = append(kinds, kind)
+  }
+  return kinds
 }
 func (noRestrictedSyntax) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	message, banned := noRestrictedSyntaxDefault[node.Kind]
-	if !banned {
-		return
-	}
-	ctx.Report(node, message)
+  if node == nil {
+    return
+  }
+  message, banned := noRestrictedSyntaxDefault[node.Kind]
+  if !banned {
+    return
+  }
+  ctx.Report(node, message)
 }
 
 func init() {
-	Register(noRestrictedSyntax{})
+  Register(noRestrictedSyntax{})
 }

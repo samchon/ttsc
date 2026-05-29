@@ -15,10 +15,10 @@ import "testing"
 // 2. Apply `no-unneeded-ternary` fix.
 // 3. Assert the result wraps the condition in parens before negating.
 func TestFixNoUnneededTernaryRewritesFalseTrueWithLowPrecedenceCondition(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"no-unneeded-ternary",
-		"function f(a: any, b: any) {\n  return a || b ? false : true;\n}\nJSON.stringify(f);\n",
-		"function f(a: any, b: any) {\n  return !(a || b);\n}\nJSON.stringify(f);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "no-unneeded-ternary",
+    "function f(a: any, b: any) {\n  return a || b ? false : true;\n}\nJSON.stringify(f);\n",
+    "function f(a: any, b: any) {\n  return !(a || b);\n}\nJSON.stringify(f);\n",
+  )
 }

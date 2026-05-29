@@ -18,73 +18,73 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornNoImmediateMutationMethods = map[string]struct{}{
-	"push":       {},
-	"pop":        {},
-	"shift":      {},
-	"unshift":    {},
-	"splice":     {},
-	"sort":       {},
-	"reverse":    {},
-	"copyWithin": {},
-	"fill":       {},
+  "push":       {},
+  "pop":        {},
+  "shift":      {},
+  "unshift":    {},
+  "splice":     {},
+  "sort":       {},
+  "reverse":    {},
+  "copyWithin": {},
+  "fill":       {},
 }
 
 var unicornNoImmediateMutationFreshMethods = map[string]struct{}{
-	"map":     {},
-	"filter":  {},
-	"slice":   {},
-	"concat":  {},
-	"flat":    {},
-	"flatMap": {},
+  "map":     {},
+  "filter":  {},
+  "slice":   {},
+  "concat":  {},
+  "flat":    {},
+  "flatMap": {},
 }
 
 type unicornNoImmediateMutation struct{}
 
 func (unicornNoImmediateMutation) Name() string { return "unicorn/no-immediate-mutation" }
 func (unicornNoImmediateMutation) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoImmediateMutation) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if _, ok := unicornNoImmediateMutationMethods[method]; !ok {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil {
-		return
-	}
-	if receiver.Kind == shimast.KindArrayLiteralExpression {
-		ctx.Report(node, "Don't mutate a freshly built array — separate the construction and the mutation, or use a non-mutating method.")
-		return
-	}
-	if receiver.Kind == shimast.KindCallExpression {
-		inner := receiver.AsCallExpression()
-		if inner == nil || inner.Expression == nil ||
-			inner.Expression.Kind != shimast.KindPropertyAccessExpression {
-			return
-		}
-		innerAccess := inner.Expression.AsPropertyAccessExpression()
-		if innerAccess == nil {
-			return
-		}
-		innerName := identifierText(innerAccess.Name())
-		if _, ok := unicornNoImmediateMutationFreshMethods[innerName]; ok {
-			ctx.Report(node, "Don't mutate a freshly built array — separate the construction and the mutation, or use a non-mutating method.")
-		}
-	}
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if _, ok := unicornNoImmediateMutationMethods[method]; !ok {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil {
+    return
+  }
+  if receiver.Kind == shimast.KindArrayLiteralExpression {
+    ctx.Report(node, "Don't mutate a freshly built array — separate the construction and the mutation, or use a non-mutating method.")
+    return
+  }
+  if receiver.Kind == shimast.KindCallExpression {
+    inner := receiver.AsCallExpression()
+    if inner == nil || inner.Expression == nil ||
+      inner.Expression.Kind != shimast.KindPropertyAccessExpression {
+      return
+    }
+    innerAccess := inner.Expression.AsPropertyAccessExpression()
+    if innerAccess == nil {
+      return
+    }
+    innerName := identifierText(innerAccess.Name())
+    if _, ok := unicornNoImmediateMutationFreshMethods[innerName]; ok {
+      ctx.Report(node, "Don't mutate a freshly built array — separate the construction and the mutation, or use a non-mutating method.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoImmediateMutation{})
+  Register(unicornNoImmediateMutation{})
 }

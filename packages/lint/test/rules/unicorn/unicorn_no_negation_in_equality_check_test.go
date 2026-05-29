@@ -17,5 +17,5 @@ import "testing"
 // 2. Write `const eq = !a === b;` on declared variables.
 // 3. Assert the equality binary expression is reported.
 func TestRuleCorpusUnicornNoNegationInEqualityCheck(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-negation-in-equality-check.ts", "declare const a: number;\ndeclare const b: number;\n// expect: unicorn/no-negation-in-equality-check error\nconst eq = !a === b;\nvoid eq;\n")
+  assertRuleCorpusCase(t, "unicorn/no-negation-in-equality-check.ts", "declare const a: number;\ndeclare const b: number;\n// expect: unicorn/no-negation-in-equality-check error\nconst eq = !a === b;\nvoid eq;\n")
 }

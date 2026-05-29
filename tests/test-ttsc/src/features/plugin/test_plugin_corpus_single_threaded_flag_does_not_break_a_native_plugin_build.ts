@@ -12,18 +12,19 @@ import {
 } from "../../internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: `--singleThreaded` does not break a native plugin build.
+ * Verifies plugin corpus: `--singleThreaded` does not break a native plugin
+ * build.
  *
  * Pins the compatibility regression from #113: `runBuild.ts` used to forward
- * `--singleThreaded` / `--checkers` to native plugin hosts as bare CLI flags.
- * A third-party host built before #113 has no such flag in its `flag.FlagSet`,
+ * `--singleThreaded` / `--checkers` to native plugin hosts as bare CLI flags. A
+ * third-party host built before #113 has no such flag in its `flag.FlagSet`,
  * and a host that parses with `flag.ContinueOnError` exits 2 on the unknown
  * flag instead of ignoring it — so `ttsc --singleThreaded` failed
  * deterministically on any project carrying a typia/nestia transform plugin.
- * The threading knobs are ttsc-owned and now stay on the no-plugin `tsgo`
- * lane; native hosts never see them. The `go-transformer` fixture is a
- * deliberately strict host (`flag.ContinueOnError`, no `singleThreaded` flag),
- * so it reproduces the exact crash.
+ * The threading knobs are ttsc-owned and now stay on the no-plugin `tsgo` lane;
+ * native hosts never see them. The `go-transformer` fixture is a deliberately
+ * strict host (`flag.ContinueOnError`, no `singleThreaded` flag), so it
+ * reproduces the exact crash.
  *
  * 1. Configure a native plugin backed by the strict `go-transformer` host.
  * 2. Run ttsc with `--emit --singleThreaded`.

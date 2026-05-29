@@ -14,5 +14,5 @@ import "testing"
 // 2. Reassign `name = name ?? "guest"` as the first statement.
 // 3. Assert the assignment expression is reported.
 func TestRuleCorpusUnicornPreferDefaultParameters(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-default-parameters.ts", "function f(name?: string) {\n  // expect: unicorn/prefer-default-parameters error\n  name = name ?? \"guest\";\n  return name;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-default-parameters.ts", "function f(name?: string) {\n  // expect: unicorn/prefer-default-parameters error\n  name = name ?? \"guest\";\n  return name;\n}\n")
 }

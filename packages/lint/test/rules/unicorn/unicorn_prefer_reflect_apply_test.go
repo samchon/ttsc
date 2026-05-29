@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `Function.prototype.apply.call(f, null, [1, 2])`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferReflectApply(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-reflect-apply.ts", "function f(a: number, b: number) { return a + b; }\n// expect: unicorn/prefer-reflect-apply error\nconst r = Function.prototype.apply.call(f, null, [1, 2]);\nvoid r;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-reflect-apply.ts", "function f(a: number, b: number) { return a + b; }\n// expect: unicorn/prefer-reflect-apply error\nconst r = Function.prototype.apply.call(f, null, [1, 2]);\nvoid r;\n")
 }

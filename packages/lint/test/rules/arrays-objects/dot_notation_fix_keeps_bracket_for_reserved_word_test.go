@@ -15,9 +15,9 @@ import "testing"
 // 2. Enable `dot-notation`.
 // 3. Assert the rule fires but emits no fix snapshot.
 func TestFixDotNotationKeepsBracketForReservedWordKey(t *testing.T) {
-	assertNoFixSnapshot(
-		t,
-		"dot-notation",
-		"const box: any = { class: \"ttsc\" };\nconst value = box[\"class\"];\nJSON.stringify(value);\n",
-	)
+  assertNoFixSnapshot(
+    t,
+    "dot-notation",
+    "const box: any = { class: \"ttsc\" };\nconst value = box[\"class\"];\nJSON.stringify(value);\n",
+  )
 }

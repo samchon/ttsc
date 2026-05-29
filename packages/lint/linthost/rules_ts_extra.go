@@ -173,7 +173,9 @@ func (noExtraNonNullAssertion) Check(ctx *Context, node *shimast.Node) {
 // undefined; asserting non-null on the whole chain defeats the chain.
 type noNonNullAssertedOptionalChain struct{}
 
-func (noNonNullAssertedOptionalChain) Name() string { return "typescript/no-non-null-asserted-optional-chain" }
+func (noNonNullAssertedOptionalChain) Name() string {
+  return "typescript/no-non-null-asserted-optional-chain"
+}
 func (noNonNullAssertedOptionalChain) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNonNullExpression}
 }
@@ -711,7 +713,9 @@ func (arrayType) Check(ctx *Context, node *shimast.Node) {
 // `Record<string, T>`. ESLint default prefers `Record`.
 type consistentIndexedObjectStyle struct{}
 
-func (consistentIndexedObjectStyle) Name() string { return "typescript/consistent-indexed-object-style" }
+func (consistentIndexedObjectStyle) Name() string {
+  return "typescript/consistent-indexed-object-style"
+}
 func (consistentIndexedObjectStyle) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindTypeLiteral}
 }

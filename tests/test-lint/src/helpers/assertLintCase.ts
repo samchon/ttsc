@@ -15,8 +15,8 @@ const casesRoot = path.join(process.cwd(), "src", "cases");
  *
  * A fixture may opt out with a `// @ttsc-corpus-skip: <reason>` directive on
  * the first non-blank line. The reason is required and acts as the inline
- * docstring for the exclusion. Skipped fixtures are still required to live
- * in the tree (their Go-side rule corpus test stays the source of truth).
+ * docstring for the exclusion. Skipped fixtures are still required to live in
+ * the tree (their Go-side rule corpus test stays the source of truth).
  */
 export function assertAllLintCases(): void {
   const cases = listLintCases();
@@ -35,11 +35,11 @@ export function assertAllLintCases(): void {
  * Extra sources in the same subdirectory (e.g. `src/` fixtures for multi-file
  * rules) are gathered by `collectExtraSources`.
  *
- * Honors the `// @ttsc-corpus-skip: <reason>` directive: a fixture marked
- * with one is loaded and validated against the directive shape but the
- * native lint run is skipped — useful for rules whose contract requires
- * project-level inputs the flat corpus runner does not synthesize (a
- * `src/pages/...` path, a sibling `package.json`, rule-specific options).
+ * Honors the `// @ttsc-corpus-skip: <reason>` directive: a fixture marked with
+ * one is loaded and validated against the directive shape but the native lint
+ * run is skipped — useful for rules whose contract requires project-level
+ * inputs the flat corpus runner does not synthesize (a `src/pages/...` path, a
+ * sibling `package.json`, rule-specific options).
  *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
  *   separated, e.g. `"consistentTypeImports/violation.ts"`).
@@ -80,9 +80,9 @@ export function assertLintCase(relativeFile: string): void {
 }
 
 /**
- * Read the first `// @ttsc-corpus-skip: <reason>` directive from the source,
- * if any. Returns the reason string (possibly empty — assertLintCase rejects
- * empty reasons), or `null` when the directive is absent.
+ * Read the first `// @ttsc-corpus-skip: <reason>` directive from the source, if
+ * any. Returns the reason string (possibly empty — assertLintCase rejects empty
+ * reasons), or `null` when the directive is absent.
  *
  * The directive may appear on any line; it is not required to be the first
  * line. Callers iterate the fixture tree once, so a linear scan is fine.

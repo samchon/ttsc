@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-loop-statements.
 // 3. Assert the loop reports and offers no autofix.
 func TestFunctionalNoLoopStatementsRejectsFor(t *testing.T) {
-	const ruleName = "functional/no-loop-statements"
-	findings := runFunctionalRule(t, ruleName, `for (const item of items) { consume(item); }`)
-	assertFunctionalFinding(t, ruleName, findings, "loop")
+  const ruleName = "functional/no-loop-statements"
+  findings := runFunctionalRule(t, ruleName, `for (const item of items) { consume(item); }`)
+  assertFunctionalFinding(t, ruleName, findings, "loop")
 }

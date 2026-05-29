@@ -16,5 +16,5 @@ import "testing"
 // 2. Call `load().then((s) => …)` directly at the top level.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferTopLevelAwait(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-top-level-await.ts", "declare function load(): Promise<string>;\n// expect: unicorn/prefer-top-level-await error\nload().then((s) => {\n  void s;\n});\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-top-level-await.ts", "declare function load(): Promise<string>;\n// expect: unicorn/prefer-top-level-await error\nload().then((s) => {\n  void s;\n});\n")
 }

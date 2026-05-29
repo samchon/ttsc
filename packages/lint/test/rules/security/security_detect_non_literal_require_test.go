@@ -11,7 +11,7 @@ import "testing"
 // 2. Require an identifier module name.
 // 3. Assert only the identifier call is reported.
 func TestSecurityDetectNonLiteralRequire(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-non-literal-require.ts", `
+  assertRuleCorpusCase(t, "security/detect-non-literal-require.ts", `
 require("node:fs");
 // expect: security/detect-non-literal-require error
 require(moduleName);

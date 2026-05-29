@@ -19,30 +19,30 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoObjectAsDefaultParameter struct{}
 
 func (unicornNoObjectAsDefaultParameter) Name() string {
-	return "unicorn/no-object-as-default-parameter"
+  return "unicorn/no-object-as-default-parameter"
 }
 func (unicornNoObjectAsDefaultParameter) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindParameter}
+  return []shimast.Kind{shimast.KindParameter}
 }
 func (unicornNoObjectAsDefaultParameter) Check(ctx *Context, node *shimast.Node) {
-	param := node.AsParameterDeclaration()
-	if param == nil || param.Initializer == nil || param.Name() == nil {
-		return
-	}
-	if param.Name().Kind != shimast.KindIdentifier {
-		return
-	}
-	init := stripParens(param.Initializer)
-	if init == nil || init.Kind != shimast.KindObjectLiteralExpression {
-		return
-	}
-	obj := init.AsObjectLiteralExpression()
-	if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) == 0 {
-		return
-	}
-	ctx.Report(node, "Don't use an object literal as a default parameter — destructure the option instead.")
+  param := node.AsParameterDeclaration()
+  if param == nil || param.Initializer == nil || param.Name() == nil {
+    return
+  }
+  if param.Name().Kind != shimast.KindIdentifier {
+    return
+  }
+  init := stripParens(param.Initializer)
+  if init == nil || init.Kind != shimast.KindObjectLiteralExpression {
+    return
+  }
+  obj := init.AsObjectLiteralExpression()
+  if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) == 0 {
+    return
+  }
+  ctx.Report(node, "Don't use an object literal as a default parameter — destructure the option instead.")
 }
 
 func init() {
-	Register(unicornNoObjectAsDefaultParameter{})
+  Register(unicornNoObjectAsDefaultParameter{})
 }

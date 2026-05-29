@@ -34,7 +34,7 @@ ttsc-plugin-debugger-strip/
 }
 ```
 
-The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published manifests keep `ttsc` and `@typescript/native-preview` out of package `dependencies`; the consumer project supplies them — see [Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc) for the `peerDependencies` pattern. The `name` field must equal the consumer's dependency string for auto-discovery — see [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
+The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published manifests keep `ttsc` and `@typescript/native-preview` out of package `dependencies`; the consumer project supplies them. See [Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc) for the `peerDependencies` pattern. The `name` field must equal the consumer's dependency string for auto-discovery. See [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
 
 ## 2. Write the Descriptor
 
@@ -346,8 +346,8 @@ What matters:
 - The plugin changes TypeScript AST, not emitted text.
 - `driver.LoadProgram` lets TypeScript-Go parse and typecheck the real project.
 - `EmitAllRaw` lets TypeScript-Go own JavaScript, declaration, and source-map printing after the AST mutation (the `build` path).
-- `shimprinter.EmitSourceFile` renders the mutated AST per file for the `transform` path. The host treats the `typescript[path]` value as opaque text — see [Plugin protocol → Transform](/docs/development/concepts/protocol#transform).
-- This sample mutates **statement lists** (structural mutation). Leaf-text mutations (identifiers, string literals, numeric literals) need a synthesize-flag invariant or the printer silently re-reads the original source — see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
+- `shimprinter.EmitSourceFile` renders the mutated AST per file for the `transform` path. The host treats the `typescript[path]` value as opaque text. See [Plugin protocol → Transform](/docs/development/concepts/protocol#transform).
+- This sample mutates **statement lists** (structural mutation). Leaf-text mutations (identifiers, string literals, numeric literals) need a synthesize-flag invariant or the printer silently re-reads the original source. See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
 - Optional flags are accepted even when unused. Future `ttsc` minors may add more optional flags; `filterHostArgs` drops unknown ones safely.
 
 ## 5. Use It
@@ -372,7 +372,7 @@ Consumer `package.json`:
 }
 ```
 
-Consumer `tsconfig.json` — use the explicit form so the wiring is unambiguous:
+Consumer `tsconfig.json`. Use the explicit form so the wiring is unambiguous:
 
 ```jsonc
 {
@@ -416,8 +416,8 @@ The JSON written to stdout under `typescript["src/main.ts"]` should contain `exp
 
 For production-quality versions of this shape, read the friendly walkthroughs of [`@ttsc/strip`](/docs/development/walkthroughs/strip) and [`@ttsc/banner`](/docs/development/walkthroughs/banner). They use linked `driver/` packages when the transform can ride inside another native host; the executable shape in this guide remains the right starting point when your plugin owns Program creation. The [`@ttsc/paths` walkthrough](/docs/development/walkthroughs/paths) is the next step up in difficulty, and the [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint) is the right reference once your plugin grows past one file.
 
-→ [Recipes](/docs/development/authoring/recipes) — auto-discovery, `driver.NewLintDiagnostic`, leaf-text mutation invariant, re-spawning `ttsx` / `tsgo`.
+→ [Recipes](/docs/development/authoring/recipes), auto-discovery, `driver.NewLintDiagnostic`, leaf-text mutation invariant, re-spawning `ttsx` / `tsgo`.
 
-→ [AST & Checker](/docs/development/concepts/tsgo) — deeper AST traversal, Checker queries, and the synthesize-flag rule for leaf-text mutations.
+→ [AST & Checker](/docs/development/concepts/tsgo), deeper AST traversal, Checker queries, and the synthesize-flag rule for leaf-text mutations.
 
-→ [Pitfalls](/docs/development/reference/pitfalls) — first-hour build failures.
+→ [Pitfalls](/docs/development/reference/pitfalls), first-hour build failures.

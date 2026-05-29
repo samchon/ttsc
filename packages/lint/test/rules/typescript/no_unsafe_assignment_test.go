@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnsafeAssignment verifies the lint rule corpus fixture
@@ -28,20 +28,20 @@ import (
 // 2. Run `check` with typescript/no-unsafe-assignment enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnsafeAssignment(t *testing.T) {
-	root := seedLintProject(t, `declare const anyValue: any;
+  root := seedLintProject(t, `declare const anyValue: any;
 const num: number = anyValue;
 JSON.stringify({ num });
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unsafe-assignment": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unsafe-assignment": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-assignment]") {
-		t.Fatalf("no-unsafe-assignment diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-assignment]") {
+    t.Fatalf("no-unsafe-assignment diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

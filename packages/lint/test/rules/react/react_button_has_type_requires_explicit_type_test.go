@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/button-has-type`.
 // 3. Assert one diagnostic is reported.
 func TestReactButtonHasTypeRequiresExplicitType(t *testing.T) {
-	assertReactRuleFinds(t, "react/button-has-type", `const C = () => <button>Save</button>;`, "button")
+  assertReactRuleFinds(t, "react/button-has-type", `const C = () => <button>Save</button>;`, "button")
 }

@@ -19,11 +19,11 @@ type unicornIsolatedFunctions struct{}
 
 func (unicornIsolatedFunctions) Name() string { return "unicorn/isolated-functions" }
 func (unicornIsolatedFunctions) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornIsolatedFunctions) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornIsolatedFunctions{})
+  Register(unicornIsolatedFunctions{})
 }

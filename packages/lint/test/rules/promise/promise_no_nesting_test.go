@@ -12,5 +12,5 @@ import "testing"
 // 2. Nest a then chain inside another then handler.
 // 3. Assert the inner chain is reported.
 func TestRuleCorpusPromiseNoNesting(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-nesting.ts", "Promise.resolve(1).then(() => {\n  // expect: promise/no-nesting error\n  Promise.resolve(2).then((value) => value);\n});\n")
+  assertRuleCorpusCase(t, "promise/no-nesting.ts", "Promise.resolve(1).then(() => {\n  // expect: promise/no-nesting error\n  Promise.resolve(2).then((value) => value);\n});\n")
 }

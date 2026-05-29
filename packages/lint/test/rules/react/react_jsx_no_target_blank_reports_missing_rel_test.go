@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/jsx-no-target-blank`.
 // 3. Assert one diagnostic is reported.
 func TestReactJSXNoTargetBlankReportsMissingRel(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-no-target-blank", `const C = () => <a href="https://example.com" target="_blank">open</a>;`, "noreferrer")
+  assertReactRuleFinds(t, "react/jsx-no-target-blank", `const C = () => <a href="https://example.com" target="_blank">open</a>;`, "noreferrer")
 }

@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/style-prop-object`.
 // 3. Assert the style prop is reported.
 func TestReactStylePropObjectReportsStringStyle(t *testing.T) {
-	assertReactRuleFinds(t, "react/style-prop-object", `const C = () => <div style="color: red" />;`, "Style")
+  assertReactRuleFinds(t, "react/style-prop-object", `const C = () => <div style="color: red" />;`, "Style")
 }

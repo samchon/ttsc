@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-try-statements.
 // 3. Assert the statement reports and offers no autofix.
 func TestFunctionalNoTryStatementsRejectsTry(t *testing.T) {
-	const ruleName = "functional/no-try-statements"
-	findings := runFunctionalRule(t, ruleName, `try { run(); } catch (error) { recover(error); }`)
-	assertFunctionalFinding(t, ruleName, findings, "try")
+  const ruleName = "functional/no-try-statements"
+  findings := runFunctionalRule(t, ruleName, `try { run(); } catch (error) { recover(error); }`)
+  assertFunctionalFinding(t, ruleName, findings, "try")
 }

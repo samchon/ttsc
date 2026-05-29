@@ -15,5 +15,5 @@ import "testing"
 // 2. Throw `Error("oops")` without `new`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornThrowNewError(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/throw-new-error.ts", "// expect: unicorn/throw-new-error error\nthrow Error(\"oops\");\n")
+  assertRuleCorpusCase(t, "unicorn/throw-new-error.ts", "// expect: unicorn/throw-new-error error\nthrow Error(\"oops\");\n")
 }

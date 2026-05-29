@@ -8,8 +8,8 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // nonNullableTypeAssertionStyle reports `expr as T` where `T` equals the
@@ -32,77 +32,77 @@ import (
 type nonNullableTypeAssertionStyle struct{}
 
 func (nonNullableTypeAssertionStyle) Name() string {
-	return "typescript/non-nullable-type-assertion-style"
+  return "typescript/non-nullable-type-assertion-style"
 }
 func (nonNullableTypeAssertionStyle) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (nonNullableTypeAssertionStyle) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindAsExpression}
+  return []shimast.Kind{shimast.KindAsExpression}
 }
 func (nonNullableTypeAssertionStyle) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	as := node.AsAsExpression()
-	if as == nil || as.Expression == nil || as.Type == nil {
-		return
-	}
-	sourceType := ctx.Checker.GetTypeAtLocation(as.Expression)
-	if sourceType == nil {
-		return
-	}
-	// Only consider expressions whose static type actually carries
-	// `null` or `undefined`; otherwise `x!` is not the same as `x as T`.
-	if !nonNullableTypeAssertionStyleIsNullable(sourceType) {
-		return
-	}
-	nonNullable := ctx.Checker.GetNonNullableType(sourceType)
-	if nonNullable == nil {
-		return
-	}
-	assertedType := ctx.Checker.GetTypeFromTypeNode(as.Type)
-	if assertedType == nil {
-		return
-	}
-	// Bidirectional assignability stands in for type identity: the
-	// stripped source type must coincide with the asserted type up to
-	// structural equivalence. Both sides have to hold so that
-	// `x as SomeSupertype` or `x as SomeSubtype` does not get rewritten
-	// to `x!` and silently lose information.
-	if !ctx.Checker.IsTypeAssignableTo(nonNullable, assertedType) {
-		return
-	}
-	if !ctx.Checker.IsTypeAssignableTo(assertedType, nonNullable) {
-		return
-	}
-	ctx.Report(node, "Use a `!` assertion to more succinctly remove `null` and `undefined` from the type.")
+  if ctx.Checker == nil {
+    return
+  }
+  as := node.AsAsExpression()
+  if as == nil || as.Expression == nil || as.Type == nil {
+    return
+  }
+  sourceType := ctx.Checker.GetTypeAtLocation(as.Expression)
+  if sourceType == nil {
+    return
+  }
+  // Only consider expressions whose static type actually carries
+  // `null` or `undefined`; otherwise `x!` is not the same as `x as T`.
+  if !nonNullableTypeAssertionStyleIsNullable(sourceType) {
+    return
+  }
+  nonNullable := ctx.Checker.GetNonNullableType(sourceType)
+  if nonNullable == nil {
+    return
+  }
+  assertedType := ctx.Checker.GetTypeFromTypeNode(as.Type)
+  if assertedType == nil {
+    return
+  }
+  // Bidirectional assignability stands in for type identity: the
+  // stripped source type must coincide with the asserted type up to
+  // structural equivalence. Both sides have to hold so that
+  // `x as SomeSupertype` or `x as SomeSubtype` does not get rewritten
+  // to `x!` and silently lose information.
+  if !ctx.Checker.IsTypeAssignableTo(nonNullable, assertedType) {
+    return
+  }
+  if !ctx.Checker.IsTypeAssignableTo(assertedType, nonNullable) {
+    return
+  }
+  ctx.Report(node, "Use a `!` assertion to more succinctly remove `null` and `undefined` from the type.")
 }
 
 // nonNullableTypeAssertionStyleIsNullable reports whether t carries
 // `null` or `undefined` either at the top level (for direct
 // `T | null` / `T | undefined` shapes) or inside a union constituent.
 func nonNullableTypeAssertionStyleIsNullable(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
-		return true
-	}
-	if flags&shimchecker.TypeFlagsUnion != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if nonNullableTypeAssertionStyleIsNullable(part) {
-				return true
-			}
-		}
-	}
-	return false
+  if t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
+    return true
+  }
+  if flags&shimchecker.TypeFlagsUnion != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if nonNullableTypeAssertionStyleIsNullable(part) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(nonNullableTypeAssertionStyle{})
+  Register(nonNullableTypeAssertionStyle{})
 }

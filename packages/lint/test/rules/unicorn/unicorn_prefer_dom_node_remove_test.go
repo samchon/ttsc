@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `parent.removeChild(child)` on two declared elements.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferDomNodeRemove(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-dom-node-remove.ts", "declare const parent: Element;\ndeclare const child: Element;\n// expect: unicorn/prefer-dom-node-remove error\nparent.removeChild(child);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-dom-node-remove.ts", "declare const parent: Element;\ndeclare const child: Element;\n// expect: unicorn/prefer-dom-node-remove error\nparent.removeChild(child);\n")
 }

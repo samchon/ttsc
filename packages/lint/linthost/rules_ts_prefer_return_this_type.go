@@ -26,68 +26,68 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type preferReturnThisType struct{}
 
 func (preferReturnThisType) Name() string { return "typescript/prefer-return-this-type" }
 func (preferReturnThisType) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (preferReturnThisType) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindMethodDeclaration}
+  return []shimast.Kind{shimast.KindMethodDeclaration}
 }
 func (preferReturnThisType) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	decl := node.AsMethodDeclaration()
-	if decl == nil || decl.Body == nil {
-		return
-	}
-	// Skip async / generator methods — their return shape is wrapped
-	// (`Promise<...>` / `Generator<...>`) and not directly `this`.
-	if hasAsyncModifier(node) {
-		return
-	}
-	if decl.AsteriskToken != nil {
-		return
-	}
-	// Skip static methods — the upstream rule targets instance-method
-	// chains where the receiver type is the subclass; static dispatch
-	// uses the class itself and `this` rewriting changes nothing.
-	if hasModifier(node, shimast.KindStaticKeyword) {
-		return
-	}
-	// The method must have an explicit return-type annotation that is
-	// NOT already `this`. The rewrite-target is the existing annotation;
-	// without one, adding `this` would force a new annotation that the
-	// upstream rule does not propose.
-	if decl.Type == nil {
-		return
-	}
-	if decl.Type.Kind == shimast.KindThisType {
-		return
-	}
-	// The enclosing class must exist — the rule applies to instance
-	// methods of class declarations / expressions only.
-	parent := node.Parent
-	if parent == nil {
-		return
-	}
-	if parent.Kind != shimast.KindClassDeclaration &&
-		parent.Kind != shimast.KindClassExpression {
-		return
-	}
-	// Walk the method body. Every value-returning `return` must
-	// return exactly `this`; we also require at least one return
-	// statement so we don't fire on methods that fall off the end.
-	hasValueReturn, allAreThis := preferReturnThisTypeAnalyzeBody(decl.Body)
-	if !hasValueReturn || !allAreThis {
-		return
-	}
-	ctx.Report(decl.Type, preferReturnThisTypeMessage)
+  if ctx.Checker == nil {
+    return
+  }
+  decl := node.AsMethodDeclaration()
+  if decl == nil || decl.Body == nil {
+    return
+  }
+  // Skip async / generator methods — their return shape is wrapped
+  // (`Promise<...>` / `Generator<...>`) and not directly `this`.
+  if hasAsyncModifier(node) {
+    return
+  }
+  if decl.AsteriskToken != nil {
+    return
+  }
+  // Skip static methods — the upstream rule targets instance-method
+  // chains where the receiver type is the subclass; static dispatch
+  // uses the class itself and `this` rewriting changes nothing.
+  if hasModifier(node, shimast.KindStaticKeyword) {
+    return
+  }
+  // The method must have an explicit return-type annotation that is
+  // NOT already `this`. The rewrite-target is the existing annotation;
+  // without one, adding `this` would force a new annotation that the
+  // upstream rule does not propose.
+  if decl.Type == nil {
+    return
+  }
+  if decl.Type.Kind == shimast.KindThisType {
+    return
+  }
+  // The enclosing class must exist — the rule applies to instance
+  // methods of class declarations / expressions only.
+  parent := node.Parent
+  if parent == nil {
+    return
+  }
+  if parent.Kind != shimast.KindClassDeclaration &&
+    parent.Kind != shimast.KindClassExpression {
+    return
+  }
+  // Walk the method body. Every value-returning `return` must
+  // return exactly `this`; we also require at least one return
+  // statement so we don't fire on methods that fall off the end.
+  hasValueReturn, allAreThis := preferReturnThisTypeAnalyzeBody(decl.Body)
+  if !hasValueReturn || !allAreThis {
+    return
+  }
+  ctx.Report(decl.Type, preferReturnThisTypeMessage)
 }
 
 const preferReturnThisTypeMessage = "Method always returns `this` — declare the return type as `this` so subclass call sites keep the narrower receiver type."
@@ -102,34 +102,34 @@ const preferReturnThisTypeMessage = "Method always returns `this` — declare th
 // cannot rewrite to `this` regardless. The conservative interpretation
 // matches the upstream rule's behavior.
 func preferReturnThisTypeAnalyzeBody(body *shimast.Node) (hasValueReturn, allAreThis bool) {
-	allAreThis = true
-	var walk func(*shimast.Node)
-	walk = func(n *shimast.Node) {
-		if n == nil {
-			return
-		}
-		if n != body && isFunctionLikeKind(n) {
-			return
-		}
-		if n.Kind == shimast.KindReturnStatement {
-			ret := n.AsReturnStatement()
-			if ret != nil && ret.Expression != nil {
-				hasValueReturn = true
-				inner := stripParens(ret.Expression)
-				if inner == nil || inner.Kind != shimast.KindThisKeyword {
-					allAreThis = false
-				}
-			}
-		}
-		n.ForEachChild(func(child *shimast.Node) bool {
-			walk(child)
-			return false
-		})
-	}
-	walk(body)
-	return hasValueReturn, allAreThis
+  allAreThis = true
+  var walk func(*shimast.Node)
+  walk = func(n *shimast.Node) {
+    if n == nil {
+      return
+    }
+    if n != body && isFunctionLikeKind(n) {
+      return
+    }
+    if n.Kind == shimast.KindReturnStatement {
+      ret := n.AsReturnStatement()
+      if ret != nil && ret.Expression != nil {
+        hasValueReturn = true
+        inner := stripParens(ret.Expression)
+        if inner == nil || inner.Kind != shimast.KindThisKeyword {
+          allAreThis = false
+        }
+      }
+    }
+    n.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  walk(body)
+  return hasValueReturn, allAreThis
 }
 
 func init() {
-	Register(preferReturnThisType{})
+  Register(preferReturnThisType{})
 }

@@ -24,7 +24,7 @@ A plugin is one npm package containing a JS descriptor and Go source.
 }
 ```
 
-`ttsc.plugin` is a single object, not an array — one package contributes one auto-discovered entry. Explicit `compilerOptions.plugins[]` wins over auto-discovery; the `name` must equal the string consumers install you under. See [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
+`ttsc.plugin` is a single object, not an array. One package contributes one auto-discovered entry. Explicit `compilerOptions.plugins[]` wins over auto-discovery; the `name` must equal the string consumers install you under. See [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
 
 ## Pin against `ttsc`
 
@@ -48,9 +48,7 @@ The consumer project supplies `ttsc` and the active `@typescript/native-preview`
 The tarball must include:
 
 - `plugin.cjs` (or the built JS descriptor entry);
-- every Go source directory referenced by your descriptor (`plugin/` for an
-  executable sidecar, `driver/` or another non-`main` package for linked
-  transform source);
+- every Go source directory referenced by your descriptor (`plugin/` for an executable sidecar, `driver/` or another non-`main` package for linked transform source);
 - `go.mod`;
 - `go.sum`, when present;
 - `README.md` and license.
@@ -61,10 +59,7 @@ Verify before publish:
 npm pack --dry-run
 ```
 
-The tarball contains Go source, not a prebuilt plugin binary. `ttsc` builds that
-source on the consumer machine: executable `package main` sources become
-sidecars, while linked non-`main` transform packages are compiled into the
-selected native host.
+The tarball contains Go source, not a prebuilt plugin binary. `ttsc` builds that source on the consumer machine: executable `package main` sources become sidecars, while linked non-`main` transform packages are compiled into the selected native host.
 
 ## Dependencies
 
@@ -158,4 +153,4 @@ Pin `TTSC_GO_BINARY` and `TTSC_CACHE_DIR` in CI so the build cache is determinis
 
 ## Next
 
-→ [Testing](/docs/development/authoring/testing) — assert your plugin works before you publish.
+→ [Testing](/docs/development/authoring/testing), assert your plugin works before you publish.

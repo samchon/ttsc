@@ -43,8 +43,8 @@ export function parseLintDiagnostics(
 }
 
 /**
- * Best-effort length of the identifier-like token starting at (`line`, `column`)
- * in `source`. Falls back to 1 when no token is found.
+ * Best-effort length of the identifier-like token starting at (`line`,
+ * `column`) in `source`. Falls back to 1 when no token is found.
  */
 function lengthOfTokenAt(
   source: string,

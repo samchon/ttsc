@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `doc.getElementById("main")` on a declared document.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferQuerySelector(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-query-selector.ts", "declare const doc: Document;\n// expect: unicorn/prefer-query-selector error\ndoc.getElementById(\"main\");\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-query-selector.ts", "declare const doc: Document;\n// expect: unicorn/prefer-query-selector error\ndoc.getElementById(\"main\");\n")
 }

@@ -23,5 +23,5 @@ func (unicornBetterRegex) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornBetterRegex{})
+  Register(unicornBetterRegex{})
 }

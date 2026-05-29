@@ -12,7 +12,7 @@ import "testing"
 // 2. Enable only functional/prefer-immutable-types.
 // 3. Assert the mutable array type reports and offers no autofix.
 func TestFunctionalPreferImmutableTypesRejectsMutableParameterArray(t *testing.T) {
-	const ruleName = "functional/prefer-immutable-types"
-	findings := runFunctionalRule(t, ruleName, `function read(values: string[]) { return values.length; }`)
-	assertFunctionalFinding(t, ruleName, findings, "readonly")
+  const ruleName = "functional/prefer-immutable-types"
+  findings := runFunctionalRule(t, ruleName, `function read(values: string[]) { return values.length; }`)
+  assertFunctionalFinding(t, ruleName, findings, "readonly")
 }

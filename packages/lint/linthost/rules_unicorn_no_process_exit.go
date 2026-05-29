@@ -18,26 +18,26 @@ type unicornNoProcessExit struct{}
 
 func (unicornNoProcessExit) Name() string { return "unicorn/no-process-exit" }
 func (unicornNoProcessExit) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoProcessExit) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Expression) != "process" {
-		return
-	}
-	if identifierText(access.Name()) != "exit" {
-		return
-	}
-	ctx.Report(node, "Don't use `process.exit()`. Throw an error or return a non-zero status instead.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Expression) != "process" {
+    return
+  }
+  if identifierText(access.Name()) != "exit" {
+    return
+  }
+  ctx.Report(node, "Don't use `process.exit()`. Throw an error or return a non-zero status instead.")
 }
 
 func init() {
-	Register(unicornNoProcessExit{})
+  Register(unicornNoProcessExit{})
 }

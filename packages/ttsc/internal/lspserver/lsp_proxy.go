@@ -12,6 +12,8 @@ import (
   "path/filepath"
   "strings"
   "sync"
+  "unicode/utf16"
+  "unicode/utf8"
 )
 
 // ErrCommandNotHandled is returned by PluginSource.ExecuteCommand for commands
@@ -31,7 +33,14 @@ const (
   methodCodeAction         = "textDocument/codeAction"
   methodExecuteCommand     = "workspace/executeCommand"
   methodCancelRequest      = "$/cancelRequest"
+  methodFormatting         = "textDocument/formatting"
 )
+
+// formatDocumentCommand is the ttsc-owned workspace command that the lint
+// sidecar advertises for whole-document formatting. The textDocument/formatting
+// handler routes the cached editor buffer through this command so formatOnSave
+// formats the live (possibly dirty) buffer rather than the on-disk file.
+const formatDocumentCommand = "ttsc.format.document"
 
 // ProxyOptions wires the byte-level proxy together. ttscserver creates
 // the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
@@ -88,6 +97,16 @@ type Proxy struct {
   documentGeneration   map[string]uint64
   dirtyDocuments       map[string]struct{}
   dirtyVersions        map[string]*int
+  // documentText caches the live editor buffer per uri so the
+  // textDocument/formatting handler can format the in-memory text instead
+  // of the on-disk file. didOpen / full-sync didChange seed it with the full
+  // text, and incremental (ranged) didChange splices each edit into the
+  // cached text so it tracks the live buffer (see cacheDidChangeText).
+  // didClose evicts the entry; a ranged change with no cached base, or a
+  // position the proxy cannot map, also drops the entry so the formatting
+  // handler falls back to a disk read. Guarded by diagnosticsMu like the
+  // other per-uri document state.
+  documentText map[string]string
 }
 
 type pendingCodeActionRequest struct {
@@ -137,6 +156,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
     documentGeneration:             make(map[string]uint64),
     dirtyDocuments:                 make(map[string]struct{}),
     dirtyVersions:                  make(map[string]*int),
+    documentText:                   make(map[string]string),
   }
 }
 
@@ -232,6 +252,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodDidOpen:
     if env.IsNotification() {
+      p.cacheDidOpenText(env)
       if err := p.publishPluginDiagnosticsForDidOpen(env); err != nil {
         return false, err
       }
@@ -242,17 +263,23 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodDidChange:
     if env.IsNotification() {
+      p.cacheDidChangeText(env)
       if err := p.markDocumentDirty(env); err != nil {
         return false, err
       }
     }
   case methodDidClose:
     if env.IsNotification() {
+      p.evictDocumentText(env)
       p.clearDocumentDiagnostics(env)
     }
   case methodExecuteCommand:
     if env.IsRequest() {
       return p.tryExecuteCommand(env)
+    }
+  case methodFormatting:
+    if env.IsRequest() {
+      return p.handleFormattingRequest(env)
     }
   case methodCodeAction:
     if env.IsRequest() {
@@ -433,7 +460,7 @@ func (p *Proxy) pluginOnlyCodeActionKinds() map[string]struct{} {
   kinds := map[string]struct{}{
     "source.fixAll.ttsc": {},
   }
-  if p.ownsCommand("ttsc.format.document") {
+  if p.ownsCommand(formatDocumentCommand) {
     kinds["source.format"] = struct{}{}
   }
   return kinds
@@ -491,6 +518,102 @@ func (p *Proxy) completeExecuteCommand(env Envelope, key string, command string,
   // the edit on its side. Sticking to one direction avoids tracking our
   // own outgoing request ids in the proxy.
   p.reportAsyncError(p.writeExecuteCommandResultIfClean(env.ID, pending, edit))
+}
+
+// contentExecutor is the optional capability a PluginSource exposes to format an
+// in-memory buffer instead of the on-disk file. NativePluginSource implements it
+// by piping the buffer to the sidecar's stdin with --content-stdin; sources that
+// do not implement it fall back to plain ExecuteCommand (disk).
+type contentExecutor interface {
+  ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*LSPWorkspaceEdit, error)
+}
+
+// handleFormattingRequest answers textDocument/formatting for the ttsc-owned
+// document formatter. Unlike the workspace/executeCommand path, this handler
+// intentionally formats the live (possibly dirty) editor buffer: it reads the
+// cached buffer text and passes it to the sidecar so formatOnSave works before
+// the file is written to disk. It therefore does NOT go through the
+// dirty-document guard that writeExecuteCommandResultIfClean applies to the
+// executeCommand path.
+//
+// When ttsc does not own ttsc.format.document the request is forwarded to
+// upstream tsgo (return false). The handler never surfaces an error to the
+// editor: on any failure it replies with an empty TextEdit array so a failed
+// formatter cannot break the save.
+func (p *Proxy) handleFormattingRequest(env Envelope) (bool, error) {
+  if !p.ownsCommand(formatDocumentCommand) {
+    return false, nil
+  }
+  var params struct {
+    TextDocument struct {
+      URI string `json:"uri"`
+    } `json:"textDocument"`
+  }
+  if err := json.Unmarshal(env.Params, &params); err != nil || params.TextDocument.URI == "" {
+    return false, nil
+  }
+  uri := params.TextDocument.URI
+  go p.completeFormattingRequest(env, uri)
+  return true, nil
+}
+
+func (p *Proxy) completeFormattingRequest(env Envelope, uri string) {
+  // hasContent distinguishes "the proxy has a buffer to format in-memory" from
+  // "no buffer; let the sidecar read disk". An empty cached buffer is a valid
+  // document state (the user cleared the file), so the empty string must NOT be
+  // overloaded as the no-buffer sentinel: a cache hit always yields
+  // hasContent=true even when the buffer is "".
+  content, hasContent := p.cachedDocumentText(uri)
+  if !hasContent {
+    if file, fileOK := filePathFromURI(uri); fileOK {
+      if disk, err := os.ReadFile(file); err == nil {
+        // Preserve the existing disk-fallback behavior: pipe the disk bytes
+        // via stdin so the sidecar formats exactly what the proxy read.
+        content = string(disk)
+        hasContent = true
+      }
+    }
+  }
+  // A formatter failure must never break the editor's save: reply with an
+  // empty TextEdit[] regardless of the error. The NativePluginSource already
+  // logs the underlying sidecar failure to its own stderr writer, so the proxy
+  // does not need a separate log sink here.
+  edit, err := p.executeFormatCommand(uri, content, hasContent)
+  if err != nil {
+    p.reportAsyncError(p.writeResult(env.ID, []LSPTextEdit{}))
+    return
+  }
+  edits := formattingTextEdits(edit, uri)
+  p.reportAsyncError(p.writeResult(env.ID, edits))
+}
+
+// executeFormatCommand runs ttsc.format.document against the supplied buffer
+// text. The single command argument is the document uri, matching the
+// executeCommand path the sidecar already implements; --content-stdin makes the
+// sidecar format the piped text instead of the disk file when the source
+// supports it.
+func (p *Proxy) executeFormatCommand(uri string, content string, hasContent bool) (*LSPWorkspaceEdit, error) {
+  arg, _ := json.Marshal(uri)
+  args := []json.RawMessage{arg}
+  if executor, ok := p.source.(contentExecutor); ok {
+    return executor.ExecuteCommandWithContent(formatDocumentCommand, args, content, hasContent)
+  }
+  return p.source.ExecuteCommand(formatDocumentCommand, args)
+}
+
+// formattingTextEdits projects a WorkspaceEdit returned by the formatter onto
+// the LSP textDocument/formatting response shape: the array of TextEdits that
+// target uri. A nil edit or a no-op (no changes for uri) yields an empty,
+// non-nil slice so the editor always receives a valid TextEdit[].
+func formattingTextEdits(edit *LSPWorkspaceEdit, uri string) []LSPTextEdit {
+  if edit == nil {
+    return []LSPTextEdit{}
+  }
+  edits, ok := edit.Changes[uri]
+  if !ok || edits == nil {
+    return []LSPTextEdit{}
+  }
+  return edits
 }
 
 // ownsCommand reports whether command is registered with the PluginSource
@@ -928,6 +1051,195 @@ func (p *Proxy) clearDocumentDiagnostics(env Envelope) {
   p.documentGeneration[params.TextDocument.URI]++
 }
 
+// cacheDidOpenText stores the buffer text the editor opened so the
+// formatting handler can format the live document. didOpen always carries the
+// full text, so the cache is unconditionally trustworthy here.
+func (p *Proxy) cacheDidOpenText(env Envelope) {
+  var params struct {
+    TextDocument struct {
+      URI  string `json:"uri"`
+      Text string `json:"text"`
+    } `json:"textDocument"`
+  }
+  if err := json.Unmarshal(env.Params, &params); err != nil || params.TextDocument.URI == "" {
+    return
+  }
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  p.documentText[params.TextDocument.URI] = params.TextDocument.Text
+}
+
+// cacheDidChangeText refreshes the buffer cache from a didChange notification.
+// LSP delivers contentChanges either as full-document replacements (no range)
+// or incremental range edits (a range present). The proxy does not control the
+// advertised textDocumentSync kind — tsgo owns the initialize response and ttsc
+// only augments code-action/executeCommand capabilities — so a client may send
+// either shape. VS Code with tsgo uses incremental sync, so save-time
+// formatting depends on applying ranged edits to the cache: a full replacement
+// (Range == nil) overwrites the cached text, and a ranged change splices into
+// the currently cached text so the cache always reflects the live buffer.
+//
+// A ranged change can only be applied when a base entry already exists for the
+// uri (seeded by didOpen or a prior full replacement). If a ranged change
+// arrives with no base — never opened, or a gap left the cache stale — the
+// proxy cannot patch reliably, so it drops the entry and the formatting handler
+// falls back to reading disk.
+func (p *Proxy) cacheDidChangeText(env Envelope) {
+  var params struct {
+    TextDocument struct {
+      URI string `json:"uri"`
+    } `json:"textDocument"`
+    ContentChanges []struct {
+      Range *lspRangeWire `json:"range"`
+      Text  string        `json:"text"`
+    } `json:"contentChanges"`
+  }
+  if err := json.Unmarshal(env.Params, &params); err != nil || params.TextDocument.URI == "" {
+    return
+  }
+  if len(params.ContentChanges) == 0 {
+    return
+  }
+  uri := params.TextDocument.URI
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  text, hasBase := p.documentText[uri]
+  for _, change := range params.ContentChanges {
+    if change.Range == nil {
+      // Full-document replacement: overwrite the cached text wholesale. A
+      // subsequent ranged change in the same notification patches this value.
+      text = change.Text
+      hasBase = true
+      continue
+    }
+    if !hasBase {
+      // Ranged change with no trustworthy base: drop the entry so formatting
+      // falls back to disk rather than patching against missing text.
+      delete(p.documentText, uri)
+      return
+    }
+    start, okStart := lspPositionToByteOffset(text, change.Range.Start)
+    end, okEnd := lspPositionToByteOffset(text, change.Range.End)
+    if !okStart || !okEnd || start > end {
+      // A position the proxy cannot map (out of range, malformed) means the
+      // cache and the editor have diverged; drop the entry so the next format
+      // reads disk instead of corrupting the buffer.
+      delete(p.documentText, uri)
+      return
+    }
+    text = text[:start] + change.Text + text[end:]
+  }
+  p.documentText[uri] = text
+}
+
+// lspPositionWire and lspRangeWire decode an LSP Position/Range from a
+// didChange contentChange. They are local decode shapes so cacheDidChangeText
+// can splice ranged edits into the cached buffer.
+type lspPositionWire struct {
+  Line      int `json:"line"`
+  Character int `json:"character"`
+}
+
+type lspRangeWire struct {
+  Start lspPositionWire `json:"start"`
+  End   lspPositionWire `json:"end"`
+}
+
+// lspPositionToByteOffset converts an LSP Position into a byte offset into text.
+//
+// LSP Position.character is a UTF-16 code-unit offset (not a byte or rune
+// offset): a rune in the astral planes (>= U+10000) counts as two UTF-16 code
+// units. The walk advances line by line over '\n' and '\r\n' endings to the
+// target line, then advances `character` UTF-16 code units within that line and
+// returns the corresponding byte index.
+//
+// Decision on out-of-range positions: when line/character point past the end of
+// the text the function returns (len, false) rather than clamping — the caller
+// treats !ok as a cache/editor divergence and drops the cache so formatting
+// reads disk. A character that lands exactly at the line's end (e.g. the column
+// just past the last code unit, which editors send for an end-of-line cursor)
+// is in range and maps to the byte index of the line ending or end of text.
+func lspPositionToByteOffset(text string, pos lspPositionWire) (int, bool) {
+  if pos.Line < 0 || pos.Character < 0 {
+    return len(text), false
+  }
+  i := 0
+  line := 0
+  // Advance to the start of the target line.
+  for line < pos.Line {
+    if i >= len(text) {
+      return len(text), false
+    }
+    r, size := utf8.DecodeRuneInString(text[i:])
+    if r == utf8.RuneError && size == 0 {
+      return len(text), false
+    }
+    if r == '\r' {
+      i += size
+      if i < len(text) && text[i] == '\n' {
+        i++
+      }
+      line++
+      continue
+    }
+    if r == '\n' {
+      i += size
+      line++
+      continue
+    }
+    i += size
+  }
+  // Advance `character` UTF-16 code units within the target line.
+  units := 0
+  for units < pos.Character {
+    if i >= len(text) {
+      return len(text), false
+    }
+    r, size := utf8.DecodeRuneInString(text[i:])
+    if r == utf8.RuneError && size == 0 {
+      return len(text), false
+    }
+    if r == '\n' || r == '\r' {
+      // The character offset ran past the end of this line's content. LSP
+      // clients should not address columns beyond the line, so treat it as a
+      // divergence rather than silently wrapping onto the next line.
+      return i, false
+    }
+    n := utf16.RuneLen(r)
+    if n <= 0 {
+      n = 1
+    }
+    units += n
+    i += size
+  }
+  return i, true
+}
+
+// evictDocumentText drops the cached buffer for a closed document so a later
+// reopen does not format against the previous session's text.
+func (p *Proxy) evictDocumentText(env Envelope) {
+  var params struct {
+    TextDocument struct {
+      URI string `json:"uri"`
+    } `json:"textDocument"`
+  }
+  if err := json.Unmarshal(env.Params, &params); err != nil || params.TextDocument.URI == "" {
+    return
+  }
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  delete(p.documentText, params.TextDocument.URI)
+}
+
+// cachedDocumentText returns the cached buffer text for uri and whether an
+// entry was present.
+func (p *Proxy) cachedDocumentText(uri string) (string, bool) {
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  text, ok := p.documentText[uri]
+  return text, ok
+}
+
 func (p *Proxy) markDocumentDirty(env Envelope) error {
   var params struct {
     TextDocument struct {
@@ -1175,6 +1487,17 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
     provider["commands"] = mergeCommandIDs(provider["commands"], commands)
     caps["executeCommandProvider"] = provider
     changed = true
+  }
+  // Advertise documentFormattingProvider when ttsc owns the document
+  // formatter so editors send textDocument/formatting (formatOnSave). The
+  // proxy intercepts that method and formats the live buffer, so it forces
+  // the capability on even if upstream tsgo already advertised one — tsgo's
+  // formatter would otherwise format the on-disk file and lose unsaved edits.
+  if p.ownsCommand(formatDocumentCommand) {
+    if existing, ok := caps["documentFormattingProvider"].(bool); !ok || !existing {
+      caps["documentFormattingProvider"] = true
+      changed = true
+    }
   }
   if !changed {
     return nil, false

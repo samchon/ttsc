@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusPreferNumericLiterals(t *testing.T) {
-	assertRuleCorpusCase(t, "prefer-numeric-literals.ts", "// expect: prefer-numeric-literals error\nconst hex = parseInt(\"ff\", 16);\nJSON.stringify(hex);\n")
+  assertRuleCorpusCase(t, "prefer-numeric-literals.ts", "// expect: prefer-numeric-literals error\nconst hex = parseInt(\"ff\", 16);\nJSON.stringify(hex);\n")
 }

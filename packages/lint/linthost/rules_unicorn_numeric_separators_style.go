@@ -20,56 +20,56 @@
 package linthost
 
 import (
-	"regexp"
-	"strings"
+  "regexp"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 var (
-	unicornNumericSeparatorsDecimal = regexp.MustCompile(`^[0-9]{1,3}(_[0-9]{3})*$`)
-	unicornNumericSeparatorsRadix4  = regexp.MustCompile(`^[0-9A-Fa-f]{1,4}(_[0-9A-Fa-f]{4})*$`)
+  unicornNumericSeparatorsDecimal = regexp.MustCompile(`^[0-9]{1,3}(_[0-9]{3})*$`)
+  unicornNumericSeparatorsRadix4  = regexp.MustCompile(`^[0-9A-Fa-f]{1,4}(_[0-9A-Fa-f]{4})*$`)
 )
 
 type unicornNumericSeparatorsStyle struct{}
 
 func (unicornNumericSeparatorsStyle) Name() string { return "unicorn/numeric-separators-style" }
 func (unicornNumericSeparatorsStyle) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNumericLiteral, shimast.KindBigIntLiteral}
+  return []shimast.Kind{shimast.KindNumericLiteral, shimast.KindBigIntLiteral}
 }
 func (unicornNumericSeparatorsStyle) Check(ctx *Context, node *shimast.Node) {
-	source := strings.TrimSpace(nodeText(ctx.File, node))
-	if source == "" || !strings.Contains(source, "_") {
-		return
-	}
-	// Strip a trailing BigInt `n` so the digit-grouping regex doesn't see it.
-	source = strings.TrimSuffix(source, "n")
+  source := strings.TrimSpace(nodeText(ctx.File, node))
+  if source == "" || !strings.Contains(source, "_") {
+    return
+  }
+  // Strip a trailing BigInt `n` so the digit-grouping regex doesn't see it.
+  source = strings.TrimSuffix(source, "n")
 
-	// Pick the integer portion and the canonical grouping pattern based
-	// on prefix; floats fall through to the decimal rule applied to the
-	// leading integer digits before the `.` or `e`/`E`.
-	integer := source
-	pattern := unicornNumericSeparatorsDecimal
-	if len(source) >= 2 && source[0] == '0' {
-		switch source[1] {
-		case 'x', 'X', 'b', 'B', 'o', 'O':
-			integer = source[2:]
-			pattern = unicornNumericSeparatorsRadix4
-		}
-	}
-	if pattern == unicornNumericSeparatorsDecimal {
-		if dot := strings.IndexAny(integer, ".eE"); dot >= 0 {
-			integer = integer[:dot]
-		}
-	}
-	if !strings.Contains(integer, "_") {
-		return
-	}
-	if !pattern.MatchString(integer) {
-		ctx.Report(node, "Use canonical separator grouping for numeric literals (3 digits for decimal, 4 for hex).")
-	}
+  // Pick the integer portion and the canonical grouping pattern based
+  // on prefix; floats fall through to the decimal rule applied to the
+  // leading integer digits before the `.` or `e`/`E`.
+  integer := source
+  pattern := unicornNumericSeparatorsDecimal
+  if len(source) >= 2 && source[0] == '0' {
+    switch source[1] {
+    case 'x', 'X', 'b', 'B', 'o', 'O':
+      integer = source[2:]
+      pattern = unicornNumericSeparatorsRadix4
+    }
+  }
+  if pattern == unicornNumericSeparatorsDecimal {
+    if dot := strings.IndexAny(integer, ".eE"); dot >= 0 {
+      integer = integer[:dot]
+    }
+  }
+  if !strings.Contains(integer, "_") {
+    return
+  }
+  if !pattern.MatchString(integer) {
+    ctx.Report(node, "Use canonical separator grouping for numeric literals (3 digits for decimal, 4 for hex).")
+  }
 }
 
 func init() {
-	Register(unicornNumericSeparatorsStyle{})
+  Register(unicornNumericSeparatorsStyle{})
 }

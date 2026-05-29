@@ -10,5 +10,5 @@ import "testing"
 // 2. Enable only `react/no-find-dom-node`.
 // 3. Assert the call is reported.
 func TestReactNoFindDOMNodeReportsCall(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-find-dom-node", `ReactDOM.findDOMNode(this);`, "findDOMNode")
+  assertReactRuleFinds(t, "react/no-find-dom-node", `ReactDOM.findDOMNode(this);`, "findDOMNode")
 }

@@ -20,10 +20,10 @@ import (
 func TestParseConfigStoreAcceptsSeverityTuples(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
     "rules": map[string]any{
-      "no-var":                              []any{"error", map[string]any{"ignore": true}},
-      "eslint/no-console":                   []any{"warn"},
-      "typescript/no-explicit-any":          []any{float64(2), map[string]any{"fixToUnknown": true}},
-      "typescript/consistent-type-imports":  "warn",
+      "no-var":                             []any{"error", map[string]any{"ignore": true}},
+      "eslint/no-console":                  []any{"warn"},
+      "typescript/no-explicit-any":         []any{float64(2), map[string]any{"fixToUnknown": true}},
+      "typescript/consistent-type-imports": "warn",
     },
   })
   if err != nil {

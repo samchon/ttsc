@@ -11,7 +11,7 @@ import "testing"
 // 2. Call `readFileSync` with a literal and with a variable.
 // 3. Assert only the variable filename is reported.
 func TestSecurityDetectNonLiteralFSFilename(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-non-literal-fs-filename.ts", `
+  assertRuleCorpusCase(t, "security/detect-non-literal-fs-filename.ts", `
 import fs from "fs";
 fs.readFileSync("./safe.json");
 // expect: security/detect-non-literal-fs-filename error

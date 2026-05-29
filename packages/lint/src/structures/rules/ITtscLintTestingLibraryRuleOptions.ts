@@ -9,9 +9,8 @@
 /** `testing-library/consistent-data-testid` rule options. */
 export interface ITtscLintTestingLibraryConsistentDataTestIdRuleOptions {
   /**
-   * Regular expression string every configured test-id attribute value
-   * must match. `{fileName}` is replaced with the basename before the
-   * first dot.
+   * Regular expression string every configured test-id attribute value must
+   * match. `{fileName}` is replaced with the basename before the first dot.
    */
   testIdPattern: string;
 

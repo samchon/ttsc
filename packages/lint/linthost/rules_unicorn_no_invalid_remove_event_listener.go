@@ -16,36 +16,36 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoInvalidRemoveEventListener struct{}
 
 func (unicornNoInvalidRemoveEventListener) Name() string {
-	return "unicorn/no-invalid-remove-event-listener"
+  return "unicorn/no-invalid-remove-event-listener"
 }
 func (unicornNoInvalidRemoveEventListener) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoInvalidRemoveEventListener) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "removeEventListener" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
-		return
-	}
-	handler := stripParens(call.Arguments.Nodes[1])
-	if handler == nil {
-		return
-	}
-	switch handler.Kind {
-	case shimast.KindArrowFunction, shimast.KindFunctionExpression:
-		ctx.Report(node, "Calling `removeEventListener` with a fresh function reference removes nothing — store and reuse the handler.")
-	}
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "removeEventListener" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
+    return
+  }
+  handler := stripParens(call.Arguments.Nodes[1])
+  if handler == nil {
+    return
+  }
+  switch handler.Kind {
+  case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+    ctx.Report(node, "Calling `removeEventListener` with a fresh function reference removes nothing — store and reuse the handler.")
+  }
 }
 
 func init() {
-	Register(unicornNoInvalidRemoveEventListener{})
+  Register(unicornNoInvalidRemoveEventListener{})
 }

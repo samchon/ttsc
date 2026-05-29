@@ -31,9 +31,8 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
 /**
  * Index from typed rule name to its options object.
  *
- * Built-in rule families with configurable options are listed here.
- * Contributor plugins extend the map by augmenting it from their own
- * package:
+ * Built-in rule families with configurable options are listed here. Contributor
+ * plugins extend the map by augmenting it from their own package:
  *
  * ```ts
  * declare module "@ttsc/lint" {
@@ -44,12 +43,12 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * ```
  *
  * After augmentation, `{@link TtscLintRuleOptionsSetting}` tuples and the
- * `defineConfig`-style helpers in plugin packages can type-check the
- * options object against the contributor's declared shape.
+ * `defineConfig`-style helpers in plugin packages can type-check the options
+ * object against the contributor's declared shape.
  *
- * `format/*` is **not** listed: formatter behavior is configured through
- * the top-level `format` block ({@link ITtscLintFormat}), not through the
- * `rules` surface.
+ * `format/*` is **not** listed: formatter behavior is configured through the
+ * top-level `format` block ({@link ITtscLintFormat}), not through the `rules`
+ * surface.
  */
 export interface ITtscLintRuleOptionsMap {
   "testing-library/consistent-data-testid": ITtscLintTestingLibraryConsistentDataTestIdRuleOptions;

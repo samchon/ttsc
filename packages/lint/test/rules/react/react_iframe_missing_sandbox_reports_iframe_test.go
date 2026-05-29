@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/iframe-missing-sandbox`.
 // 3. Assert one diagnostic is reported.
 func TestReactIframeMissingSandboxReportsIframe(t *testing.T) {
-	assertReactRuleFinds(t, "react/iframe-missing-sandbox", `const C = () => <iframe src="https://example.com" />;`, "sandbox")
+  assertReactRuleFinds(t, "react/iframe-missing-sandbox", `const C = () => <iframe src="https://example.com" />;`, "sandbox")
 }

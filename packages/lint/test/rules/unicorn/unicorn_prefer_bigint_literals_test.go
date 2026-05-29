@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to `BigInt(1)`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferBigintLiterals(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-bigint-literals.ts", "// expect: unicorn/prefer-bigint-literals error\nconst big = BigInt(1);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-bigint-literals.ts", "// expect: unicorn/prefer-bigint-literals error\nconst big = BigInt(1);\n")
 }

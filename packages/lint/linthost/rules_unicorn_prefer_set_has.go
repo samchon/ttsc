@@ -18,25 +18,25 @@ type unicornPreferSetHas struct{}
 
 func (unicornPreferSetHas) Name() string { return "unicorn/prefer-set-has" }
 func (unicornPreferSetHas) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferSetHas) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "includes" {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindArrayLiteralExpression {
-		return
-	}
-	ctx.Report(node, "Prefer `Set#has()` over `Array#includes()` for repeated membership lookups against a constant collection.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "includes" {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindArrayLiteralExpression {
+    return
+  }
+  ctx.Report(node, "Prefer `Set#has()` over `Array#includes()` for repeated membership lookups against a constant collection.")
 }
 
 func init() {
-	Register(unicornPreferSetHas{})
+  Register(unicornPreferSetHas{})
 }

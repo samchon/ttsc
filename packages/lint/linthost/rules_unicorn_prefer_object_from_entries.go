@@ -19,37 +19,37 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferObjectFromEntries struct{}
 
 func (unicornPreferObjectFromEntries) Name() string {
-	return "unicorn/prefer-object-from-entries"
+  return "unicorn/prefer-object-from-entries"
 }
 func (unicornPreferObjectFromEntries) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferObjectFromEntries) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "reduce" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
-		return
-	}
-	seed := stripParens(call.Arguments.Nodes[1])
-	if seed == nil || seed.Kind != shimast.KindObjectLiteralExpression {
-		return
-	}
-	obj := seed.AsObjectLiteralExpression()
-	if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 0 {
-		return
-	}
-	ctx.Report(node, "Prefer `Object.fromEntries(...)` over `.reduce((acc, ...) => ..., {})` patterns.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "reduce" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
+    return
+  }
+  seed := stripParens(call.Arguments.Nodes[1])
+  if seed == nil || seed.Kind != shimast.KindObjectLiteralExpression {
+    return
+  }
+  obj := seed.AsObjectLiteralExpression()
+  if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 0 {
+    return
+  }
+  ctx.Report(node, "Prefer `Object.fromEntries(...)` over `.reduce((acc, ...) => ..., {})` patterns.")
 }
 
 func init() {
-	Register(unicornPreferObjectFromEntries{})
+  Register(unicornPreferObjectFromEntries{})
 }

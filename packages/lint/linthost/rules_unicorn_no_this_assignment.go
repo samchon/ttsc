@@ -17,19 +17,19 @@ type unicornNoThisAssignment struct{}
 
 func (unicornNoThisAssignment) Name() string { return "unicorn/no-this-assignment" }
 func (unicornNoThisAssignment) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindVariableDeclaration}
+  return []shimast.Kind{shimast.KindVariableDeclaration}
 }
 func (unicornNoThisAssignment) Check(ctx *Context, node *shimast.Node) {
-	decl := node.AsVariableDeclaration()
-	if decl == nil || decl.Initializer == nil {
-		return
-	}
-	if stripParens(decl.Initializer).Kind != shimast.KindThisKeyword {
-		return
-	}
-	ctx.Report(node, "Don't assign `this` to a variable — capture via an arrow function instead.")
+  decl := node.AsVariableDeclaration()
+  if decl == nil || decl.Initializer == nil {
+    return
+  }
+  if stripParens(decl.Initializer).Kind != shimast.KindThisKeyword {
+    return
+  }
+  ctx.Report(node, "Don't assign `this` to a variable — capture via an arrow function instead.")
 }
 
 func init() {
-	Register(unicornNoThisAssignment{})
+  Register(unicornNoThisAssignment{})
 }

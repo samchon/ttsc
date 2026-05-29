@@ -15,5 +15,5 @@ import "testing"
 // 2. Test `x instanceof Array` against a declared variable.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornNoInstanceofBuiltins(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-instanceof-builtins.ts", "declare const x: unknown;\n// expect: unicorn/no-instanceof-builtins error\nif (x instanceof Array) { void x; }\n")
+  assertRuleCorpusCase(t, "unicorn/no-instanceof-builtins.ts", "declare const x: unknown;\n// expect: unicorn/no-instanceof-builtins error\nif (x instanceof Array) { void x; }\n")
 }

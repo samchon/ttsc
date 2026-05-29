@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusPreferReduceTypeParameter verifies the lint rule corpus
@@ -21,13 +21,13 @@ import (
 // minimum-viable trigger (`arr.reduce(cb, [] as string[])`) so a future
 // shim regression surfaces here without depending on the full fixture.
 //
-// 1. Seed a project that calls `.reduce` on a `number[]` with an
-//    `as`-asserted accumulator seed.
-// 2. Run `check` with typescript/prefer-reduce-type-parameter enabled as
-//    error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that calls `.reduce` on a `number[]` with an
+//     `as`-asserted accumulator seed.
+//  2. Run `check` with typescript/prefer-reduce-type-parameter enabled as
+//     error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusPreferReduceTypeParameter(t *testing.T) {
-	root := seedLintProject(t, `declare const list: number[];
+  root := seedLintProject(t, `declare const list: number[];
 const collected = list.reduce(
   (acc, value) => {
     acc.push(String(value));
@@ -37,16 +37,16 @@ const collected = list.reduce(
 );
 JSON.stringify(collected);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/prefer-reduce-type-parameter": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/prefer-reduce-type-parameter": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-reduce-type-parameter]") {
-		t.Fatalf("prefer-reduce-type-parameter diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/prefer-reduce-type-parameter]") {
+    t.Fatalf("prefer-reduce-type-parameter diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

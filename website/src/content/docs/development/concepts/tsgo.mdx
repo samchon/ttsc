@@ -2,7 +2,7 @@
 
 This is the deep plugin-author chapter. Read it when your plugin needs to understand TypeScript source, walk AST nodes, inspect declarations, query types, or produce diagnostics tied to source ranges.
 
-> This page covers the _implementation_ — how to bootstrap a Program, walk the AST, call the Checker, and emit diagnostics. If you haven't yet decided whether you need the Checker at all, see [Concepts → Do I need the Checker?](/docs/development/concepts#do-i-need-the-checker) first.
+> This page covers the _implementation_: how to bootstrap a Program, walk the AST, call the Checker, and emit diagnostics. If you haven't yet decided whether you need the Checker at all, see [Concepts → Do I need the Checker?](/docs/development/concepts#do-i-need-the-checker) first.
 
 For a small source-AST transform, start with [Getting Started](/docs/development/authoring/getting-started). For the four shipped examples, read [Walkthroughs](/docs/development/walkthroughs). For the curated Go-side surface, see [Reference → Driver API](/docs/development/reference/driver-api).
 
@@ -10,13 +10,13 @@ For a small source-AST transform, start with [Getting Started](/docs/development
 
 Use the smallest surface that answers your question:
 
-| Need                                                | Use                                               | Example                      |
-| --------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| Add a package banner                                | source JSDoc before TypeScript-Go parses the file | `@ttsc/banner`               |
-| Remove `console.log(...)` statements                | source AST statement filtering                    | `@ttsc/strip`                |
-| Rewrite `paths` aliases for JS and declaration emit | source AST plus project config/Program            | `@ttsc/paths`                |
-| Report source diagnostics                           | Program + AST + diagnostics writer                | `@ttsc/lint`                 |
-| Generate code from `T` in `foo<T>()`                | Program + AST + Checker                           | semantic transformer plugins |
+| Need | Use | Example |
+| --- | --- | --- |
+| Add a package banner | source JSDoc before TypeScript-Go parses the file | `@ttsc/banner` |
+| Remove `console.log(...)` statements | source AST statement filtering | `@ttsc/strip` |
+| Rewrite `paths` aliases for JS and declaration emit | source AST plus project config/Program | `@ttsc/paths` |
+| Report source diagnostics | Program + AST + diagnostics writer | `@ttsc/lint` |
+| Generate code from `T` in `foo<T>()` | Program + AST + Checker | semantic transformer plugins |
 
 The AST is not a string parser. Use it when structure matters: statement kind, callee shape, declaration members, type argument syntax, import/export syntax, or diagnostic ranges.
 
@@ -62,26 +62,26 @@ require (
 
 Useful shim sub-packages:
 
-| Shim                    | Use                                                                                                                                                                          |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`                                                                                                       |
-| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text                                                                                                       |
-| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers                                                                                                   |
-| `shim/printer`          | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand.                                                       |
-| `shim/tsoptions`        | parse `tsconfig.json`                                                                                                                                                        |
-| `shim/tspath`           | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
-| `shim/compiler`         | low-level Program creation. Most plugins should call `driver.LoadProgram` instead.                                                                                           |
-| `shim/checker`          | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`.                                                                                    |
-| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                                                                |
-| `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                                                              |
-| `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.                                                      |
-| `shim/lsp`              | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors.                                                              |
+| Shim | Use |
+| --- | --- |
+| `shim/ast` | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression` |
+| `shim/parser` | parse JS or TS text into a `SourceFile` when the plugin owns that text |
+| `shim/scanner` | token positions, trivia skipping, line/column mapping, source text helpers |
+| `shim/printer` | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand. |
+| `shim/tsoptions` | parse `tsconfig.json` |
+| `shim/tspath` | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
+| `shim/compiler` | low-level Program creation. Most plugins should call `driver.LoadProgram` instead. |
+| `shim/checker` | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`. |
+| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this. |
+| `shim/bundled` | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this. |
+| `shim/vfs` | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS. |
+| `shim/lsp` | Legacy in-process LSP access for custom host experiments, not used by `ttscserver` and not for plugin authors. |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
 ## Bootstrap with the driver
 
-The canonical bootstrap is `driver.LoadProgram`. It returns a `*driver.Program` that already owns the parsed config, the leased `*shimchecker.Checker`, the compiler host, and the VFS — and folds in `ForceEmit` / `ForceNoEmit` / `OutDir` / `SourcePreamble` overrides:
+The canonical bootstrap is `driver.LoadProgram`. It returns a `*driver.Program` that already owns the parsed config, the leased `*shimchecker.Checker`, the compiler host, and the VFS, and folds in `ForceEmit` / `ForceNoEmit` / `OutDir` / `SourcePreamble` overrides:
 
 ```go
 import "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -99,12 +99,12 @@ diags := prog.Diagnostics()     // pre-deduped, unused-overload-signature noise 
 checker := prog.Checker         // ready to query
 ```
 
-`prog.SourceFiles()` filters declaration files for you. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()` — without it the checker pool fills up and subsequent loads stall.
+`prog.SourceFiles()` filters declaration files for you. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()`, without it the checker pool fills up and subsequent loads stall.
 
 Most shipped third-party-shaped consumers in this repo use this path:
 
-- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the generic linked transform host (`loadUtilityProgram`).
-- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact Program/Checker fixture.
+- [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go): the generic linked transform host (`loadUtilityProgram`).
+- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go): compact Program/Checker fixture.
 
 `@ttsc/lint` is the exception: [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) inlines the same Program/Checker bootstrap so its standalone native engine and WASM build can share one package without importing the public `driver` facade.
 
@@ -159,7 +159,7 @@ Important `Node` data:
 - `node.Parent`: parent node when available.
 - `node.Symbol()`: bound symbol for declarations (nil on non-declarations).
 - `node.ForEachChild(fn)`: visit child nodes.
-- `node.Text()`: source text for identifier/literal-like kinds — branch on `node.Kind` first; panics on other kinds. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) for both nil-Symbol and Text-panic recovery patterns.
+- `node.Text()`: source text for identifier/literal-like kinds, branch on `node.Kind` first; panics on other kinds. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) for both nil-Symbol and Text-panic recovery patterns.
 
 Important `SourceFile` data:
 
@@ -217,7 +217,7 @@ func walkFile(file *shimast.SourceFile, visit func(*shimast.Node)) {
 }
 ```
 
-`@ttsc/lint` uses this shape and dispatches rules by `node.Kind`; see [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go). Note that the engine builds a `map[Kind]bool` from each rule's `Visits()` — duplicate kinds are silently deduplicated, see [Pitfalls](/docs/development/reference/pitfalls#ast-and-checker).
+`@ttsc/lint` uses this shape and dispatches rules by `node.Kind`; see [`packages/lint/linthost/engine.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/engine.go). Note that the engine builds a `map[Kind]bool` from each rule's `Visits()`, duplicate kinds are silently deduplicated, see [Pitfalls](/docs/development/reference/pitfalls#ast-and-checker).
 
 ## Text Ranges and Trivia
 
@@ -230,7 +230,7 @@ start := shimscanner.SkipTrivia(file.Text(), node.Pos())
 end := node.End()
 ```
 
-`Node.Pos()` is the position _before_ leading trivia; `SkipTrivia` walks past whitespace and comment trivia and returns the first significant token's offset. `GetTokenPosOfNode` is also valid but no production code in this repo uses it for diagnostic ranges — prefer `SkipTrivia` for consistency.
+`Node.Pos()` is the position _before_ leading trivia; `SkipTrivia` walks past whitespace and comment trivia and returns the first significant token's offset. `GetTokenPosOfNode` is also valid but no production code in this repo uses it for diagnostic ranges. Prefer `SkipTrivia` for consistency.
 
 For line/column diagnostics:
 
@@ -483,7 +483,7 @@ Source: [`packages/lint/linthost/rules_promise.go::awaitableType`](https://githu
 
 ## Mutating the AST
 
-Structural mutations — filtering `Statements.Nodes`, swapping children — round-trip cleanly through `shimprinter.EmitSourceFile` because the printer iterates statement lists directly without reading source spans. **Leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`) need the synthesize-flag + reset-Loc invariant; see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
+Structural mutations, filtering `Statements.Nodes`, swapping children, round-trip cleanly through `shimprinter.EmitSourceFile` because the printer iterates statement lists directly without reading source spans. **Leaf-text mutations** (identifier, string-literal, or numeric-literal `.Text`) need the synthesize-flag + reset-Loc invariant; see [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes).
 
 ## Building Diagnostics
 
@@ -585,7 +585,7 @@ The page-level traps:
 - Editing text when an AST mutation would express the same change.
 - Editing text from the start of the file toward the end.
 
-The runtime traps — `node.Text()` panic, `node.Symbol()` nil deref, duplicate-`Kind` in `Visits()`, leaf-text mutation without the synthesize flag, missing `defer prog.Close()` — live in [Reference → Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) with the exact error strings.
+The runtime traps, `node.Text()` panic, `node.Symbol()` nil deref, duplicate-`Kind` in `Visits()`, leaf-text mutation without the synthesize flag, missing `defer prog.Close()`, live in [Reference → Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker) with the exact error strings.
 
 ## If you cannot use the driver
 
@@ -656,15 +656,15 @@ Always call `defer release()` after a successful raw load. TypeScript-Go leases 
 
 Reference for the raw bootstrap:
 
-- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go) — compact fixture.
+- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go): compact fixture.
 
 ## Study Path
 
 Read these in order:
 
-1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/) — source JSDoc preamble insertion (consumer behavior).
-2. [`packages/banner/driver`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/), [`packages/strip/driver`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/), and [`packages/paths/driver`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/) — linked transform implementations.
-3. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go) — the generic host that loads linked transforms.
-4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/) — Program/Checker bootstrap.
-5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/) — interface AST walk.
-6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/) — full diagnostics engine.
+1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/): source JSDoc preamble insertion (consumer behavior).
+2. [`packages/banner/driver`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/), [`packages/strip/driver`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/), and [`packages/paths/driver`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/): linked transform implementations.
+3. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go): the generic host that loads linked transforms.
+4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/): Program/Checker bootstrap.
+5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/): interface AST walk.
+6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/): full diagnostics engine.

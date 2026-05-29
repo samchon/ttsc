@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.sort()` on an inline array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoArraySort(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-sort.ts", "// expect: unicorn/no-array-sort error\nconst s = [3, 1, 2].sort();\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-sort.ts", "// expect: unicorn/no-array-sort error\nconst s = [3, 1, 2].sort();\n")
 }

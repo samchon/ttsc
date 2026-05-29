@@ -11,7 +11,7 @@ import "testing"
 // 2. Call `exec` with a variable command.
 // 3. Assert `security/detect-child-process` reports the call.
 func TestSecurityDetectChildProcess(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-child-process.ts", `
+  assertRuleCorpusCase(t, "security/detect-child-process.ts", `
 import child from "child_process";
 child.exec("ls");
 // expect: security/detect-child-process error

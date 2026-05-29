@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.substr(0, 3)` on a string literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferStringSlice(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-string-slice.ts", "// expect: unicorn/prefer-string-slice error\nconst s = \"hello\".substr(0, 3);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-string-slice.ts", "// expect: unicorn/prefer-string-slice error\nconst s = \"hello\".substr(0, 3);\n")
 }

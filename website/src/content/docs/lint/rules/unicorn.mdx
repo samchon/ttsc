@@ -4,149 +4,149 @@ Modernization and style rules from `eslint-plugin-unicorn`, spanning array itera
 
 Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-unicorn) (MIT).
 
-- `unicorn/better-regex` — Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
-- `unicorn/catch-error-name` — Enforce a canonical parameter name (`error`) in `catch` clauses.
-- `unicorn/consistent-assert` — Enforce consistent assertion style when using `node:assert`.
-- `unicorn/consistent-date-clone` — Prefer passing a `Date` directly to the `Date` constructor when cloning, not `+date` or `date.getTime()`.
-- `unicorn/consistent-destructuring` — Once a property is destructured from an object, require subsequent reads to use the destructured binding.
-- `unicorn/consistent-empty-array-spread` — Require both branches of a ternary spread inside an array literal to be array-typed.
-- `unicorn/consistent-existence-index-check` — Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!== -1`) for `indexOf` / `findIndex` existence checks.
-- `unicorn/consistent-function-scoping` — Hoist function declarations to the highest scope that does not capture any outer variables.
-- `unicorn/consistent-template-literal-escape` — Enforce a consistent style (always `\${` or always `$\{`) when escaping `${` in template literals.
-- `unicorn/custom-error-definition` — Require user-defined `Error` subclasses to set `name`, call `super(message)`, and assign their stack correctly.
-- `unicorn/empty-brace-spaces` — Reject whitespace inside empty `{}` braces.
-- `unicorn/error-message` — Require a non-empty `message` argument when constructing a built-in `Error`.
-- `unicorn/escape-case` — Require consistent case for escape sequences (`\xA9` over `\xa9`, `µ` over `µ`).
-- `unicorn/expiring-todo-comments` — Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
-- `unicorn/explicit-length-check` — Require explicit comparison of `.length` / `.size` instead of relying on truthy coercion.
-- `unicorn/filename-case` — Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
-- `unicorn/import-style` — Restrict each module's allowed import styles (named only, default only, namespace only).
-- `unicorn/isolated-functions` — Reject references to outer-scope variables inside functions marked as isolated (e.g., the body of a web worker).
-- `unicorn/new-for-builtins` — Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date` — and forbid `new` on primitive wrappers like `String`, `Number`, `Boolean`.
-- `unicorn/no-abusive-eslint-disable` — Require every `eslint-disable*` directive to name the rules it disables.
-- `unicorn/no-accessor-recursion` — Reject recursive reads on `this.<prop>` inside the getter / setter for `<prop>`.
-- `unicorn/no-anonymous-default-export` — Require a name on every default-exported function, class, or object.
-- `unicorn/no-array-callback-reference` — Reject passing a function reference directly as the callback to `map` / `filter` / `forEach` / etc., which silently leaks extra index/array arguments.
-- `unicorn/no-array-for-each` — Prefer `for...of` over `Array.prototype.forEach`.
-- `unicorn/no-array-method-this-argument` — Reject the second `thisArg` argument to array methods; use an explicit closure instead.
-- `unicorn/no-array-reduce` — Reject `Array#reduce` / `Array#reduceRight` in favor of explicit loops or other helpers.
-- `unicorn/no-array-reverse` — Prefer `Array#toReversed` over the mutating `Array#reverse`.
-- `unicorn/no-array-sort` — Prefer `Array#toSorted` over the mutating `Array#sort`.
-- `unicorn/no-await-expression-member` — Reject member access on an `await` expression without parens; require `(await x).y`.
-- `unicorn/no-await-in-promise-methods` — Reject `await` inside arrays passed to `Promise.all` / `Promise.allSettled` / `Promise.race` / `Promise.any` — the awaits serialize the calls.
-- `unicorn/no-console-spaces` — Reject leading or trailing spaces in arguments to `console.log` and friends — `console` already inserts spaces between arguments.
-- `unicorn/no-document-cookie` — Reject direct reads or assignments to `document.cookie`; use the Cookie Store API or a wrapper.
-- `unicorn/no-empty-file` — Reject source files whose only content is whitespace and/or comments.
-- `unicorn/no-for-loop` — Prefer `for...of` over index-based `for` loops over arrays.
-- `unicorn/no-hex-escape` — Prefer Unicode escape (`©`) over hexadecimal escape (`\xA9`).
-- `unicorn/no-immediate-mutation` — Reject mutating a value on the same expression that produces it (`[...x].push(y)`); separate the construction and the mutation.
-- `unicorn/no-instanceof-builtins` — Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc. — they fail across realms and for subclasses.
-- `unicorn/no-invalid-fetch-options` — Reject GET / HEAD `fetch()` calls that also set a request `body`, which throws at runtime.
-- `unicorn/no-invalid-remove-event-listener` — Reject `removeEventListener` calls whose handler argument is a fresh function reference and therefore matches no registered listener.
-- `unicorn/no-keyword-prefix` — Reject identifiers that start with a reserved word (`newFoo`, `classBar`).
-- `unicorn/no-lonely-if` — Reject `if` as the only statement inside an `else` block; use `else if` instead.
-- `unicorn/no-magic-array-flat-depth` — Reject magic-number depth arguments to `Array#flat`; require `Infinity` or a named constant.
-- `unicorn/no-named-default` — Reject re-importing or re-exporting a default binding under a name that differs from the upstream binding.
-- `unicorn/no-negated-condition` — Reject negated conditions in `if` / `else` and ternaries when the positive form is shorter.
-- `unicorn/no-negation-in-equality-check` — Reject `!a === b`; require `a !== b` or `!(a === b)`.
-- `unicorn/no-nested-ternary` — Reject ternaries nested inside other ternaries.
-- `unicorn/no-new-array` — Reject the `new Array(...)` constructor; use array literals or `Array.from` / `Array.of`.
-- `unicorn/no-new-buffer` — Reject the deprecated `new Buffer()` constructor; use `Buffer.from` or `Buffer.alloc`.
-- `unicorn/no-null` — Reject the `null` literal in favor of `undefined`.
-- `unicorn/no-object-as-default-parameter` — Reject inline object literals as default values for function parameters.
-- `unicorn/no-process-exit` — Reject `process.exit()`; throw or return a non-zero status instead.
-- `unicorn/no-single-promise-in-promise-methods` — Reject `Promise.all` / `Promise.race` / etc. called with a single-element array; the wrapper is redundant.
-- `unicorn/no-static-only-class` — Reject classes whose every member is `static`; use a plain module-level namespace instead.
-- `unicorn/no-thenable` — Reject defining a property named `then` on objects, modules, or classes — `await` and Promise resolution accidentally invoke it.
-- `unicorn/no-this-assignment` — Reject `const self = this` and similar aliases; capture via arrow functions instead.
-- `unicorn/no-typeof-undefined` — Reject `typeof x === "undefined"`; compare against `undefined` directly.
-- `unicorn/no-unnecessary-array-flat-depth` — Reject `1` as the explicit depth argument of `Array#flat`; the default is already `1`.
-- `unicorn/no-unnecessary-array-splice-count` — Reject `.length` / `Infinity` as the deleteCount argument to `splice` / `toSpliced`; omit it to delete to the end.
-- `unicorn/no-unnecessary-await` — Reject `await` on non-thenable expressions.
-- `unicorn/no-unnecessary-polyfills` — Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
-- `unicorn/no-unnecessary-slice-end` — Reject `.length` / `Infinity` as the end argument to `slice`; omit it to slice to the end.
-- `unicorn/no-unreadable-array-destructuring` — Reject destructuring patterns with long hole runs (`[,,,,a]`); use a named index instead.
-- `unicorn/no-unreadable-iife` — Reject IIFEs whose nesting (multiple parens, arrow IIFE arguments) is hard to read.
-- `unicorn/no-unused-properties` — Reject object properties that are never read after definition.
-- `unicorn/no-useless-collection-argument` — Reject useless initializer arguments (`new Set()`, `new Map([])`, `new Set(undefined)`) on collection constructors.
-- `unicorn/no-useless-error-capture-stack-trace` — Reject `Error.captureStackTrace(this, constructor)` when the surrounding subclass relies on the default `Error` capture.
-- `unicorn/no-useless-fallback-in-spread` — Reject `...(x ?? {})` and similar fallbacks when spreading; the spread of `null` / `undefined` is already a no-op.
-- `unicorn/no-useless-iterator-to-array` — Reject `[...iterator]` / `Array.from(iterator)` when the iterator can be consumed directly (e.g., inside `for...of`).
-- `unicorn/no-useless-length-check` — Reject `arr.length` checks that the iteration method itself already handles.
-- `unicorn/no-useless-promise-resolve-reject` — Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside `async` functions — `return x` and `throw e` work identically.
-- `unicorn/no-useless-spread` — Reject spreading a single iterable into a new collection of the same kind (`[...arr]`, `{...obj}`) when the original would suffice.
-- `unicorn/no-useless-switch-case` — Reject `case` clauses with an empty body that immediately precede a `default` whose body executes for them.
-- `unicorn/no-useless-undefined` — Reject explicit `undefined` returns, default initializers, and arguments where the omission has the same meaning.
-- `unicorn/no-zero-fractions` — Reject `1.0` / `1.` / `.5e0` in favor of `1`, `1`, and `0.5`.
-- `unicorn/number-literal-case` — Enforce one consistent case for the prefix and digits of hex / binary / octal literals (`0xFF` over `0xff`).
-- `unicorn/numeric-separators-style` — Enforce `_` separator grouping (every 3 digits for decimal, every 4 for hex) in numeric literals.
-- `unicorn/prefer-add-event-listener` — Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.
-- `unicorn/prefer-array-find` — Prefer `Array#find` / `Array#findLast` over `filter(...)[0]` / `filter(...).at(-1)`.
-- `unicorn/prefer-array-flat` — Prefer `Array#flat` over legacy flattening idioms (`[].concat(...arrs)`, `reduce` with `concat`).
-- `unicorn/prefer-array-flat-map` — Prefer `Array#flatMap` over `map(...).flat()`.
-- `unicorn/prefer-array-index-of` — Prefer `indexOf` / `lastIndexOf` over `findIndex` / `findLastIndex` when matching by `===`.
-- `unicorn/prefer-array-some` — Prefer `Array#some` over `filter(...).length > 0`, `find(...) !== undefined`, and similar shapes.
-- `unicorn/prefer-at` — Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
-- `unicorn/prefer-bigint-literals` — Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
-- `unicorn/prefer-blob-reading-methods` — Prefer `Blob#arrayBuffer()` / `Blob#text()` over `FileReader#readAsArrayBuffer` / `readAsText`.
-- `unicorn/prefer-class-fields` — Prefer class field declarations over constructor assignments to `this.field = value`.
-- `unicorn/prefer-classlist-toggle` — Prefer `Element#classList.toggle(name, condition)` over manual `add` / `remove` branches.
-- `unicorn/prefer-code-point` — Prefer `String#codePointAt` / `String.fromCodePoint` over `charCodeAt` / `fromCharCode`.
-- `unicorn/prefer-date-now` — Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
-- `unicorn/prefer-default-parameters` — Prefer default parameter syntax over `x = x ?? default` reassignments inside the function body.
-- `unicorn/prefer-dom-node-append` — Prefer `Node#append` over `Node#appendChild`.
-- `unicorn/prefer-dom-node-dataset` — Prefer `Element#dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.
-- `unicorn/prefer-dom-node-remove` — Prefer `ChildNode#remove` over `parent.removeChild(child)`.
-- `unicorn/prefer-dom-node-text-content` — Prefer `Node#textContent` over `HTMLElement#innerText`.
-- `unicorn/prefer-event-target` — Prefer `EventTarget` over Node's `EventEmitter` when the code is shared between Node and the browser.
-- `unicorn/prefer-export-from` — Prefer `export ... from` over importing-then-re-exporting in two statements.
-- `unicorn/prefer-global-this` — Prefer `globalThis` over `window`, `self`, and `global`.
-- `unicorn/prefer-import-meta-properties` — Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath` workarounds.
-- `unicorn/prefer-includes` — Prefer `String#includes` / `Array#includes` over `indexOf(...) !== -1` and `some(x => x === target)`.
-- `unicorn/prefer-json-parse-buffer` — Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) instead of decoding to a string first.
-- `unicorn/prefer-keyboard-event-key` — Prefer `KeyboardEvent#key` over the deprecated `KeyboardEvent#keyCode` / `charCode` / `which`.
-- `unicorn/prefer-logical-operator-over-ternary` — Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.
-- `unicorn/prefer-math-min-max` — Prefer `Math.min` / `Math.max` over ternaries computing the same value.
-- `unicorn/prefer-math-trunc` — Prefer `Math.trunc` over `~~x` / `x | 0` for integer truncation.
-- `unicorn/prefer-modern-dom-apis` — Prefer `before` / `after` / `replaceWith` over `insertBefore` / `replaceChild` / `insertAdjacentText`.
-- `unicorn/prefer-modern-math-apis` — Prefer `Math.log10` / `Math.hypot` / `Math.log2` / `Math.cbrt` over their legacy approximations.
-- `unicorn/prefer-module` — Prefer ES modules (`import` / `export`) over CommonJS (`require` / `module.exports` / `__dirname` / `__filename`).
-- `unicorn/prefer-native-coercion-functions` — Prefer the bare `String` / `Number` / `Boolean` / `BigInt` functions over `x => String(x)` arrow wrappers.
-- `unicorn/prefer-negative-index` — Prefer negative-index lookups (`arr.at(-1)`, `arr.slice(-2)`) over `arr.length - 1` / `arr.length - 2` arithmetic.
-- `unicorn/prefer-node-protocol` — Prefer `node:fs` / `node:path` / etc. over the bare Node builtin specifier.
-- `unicorn/prefer-number-properties` — Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
-- `unicorn/prefer-object-from-entries` — Prefer `Object.fromEntries` over `reduce`-into-object patterns.
-- `unicorn/prefer-optional-catch-binding` — Prefer `catch { ... }` over `catch (e) { ... }` when `e` is unused.
-- `unicorn/prefer-prototype-methods` — Prefer borrowing prototype methods (`Array.prototype.slice.call`) over `[].slice.call` empty-instance lookups.
-- `unicorn/prefer-query-selector` — Prefer `Document#querySelector` over `getElementById`, `getElementsByClassName`, and `getElementsByTagName`.
-- `unicorn/prefer-reflect-apply` — Prefer `Reflect.apply(fn, thisArg, args)` over `Function.prototype.apply.call(fn, thisArg, args)`.
-- `unicorn/prefer-regexp-test` — Prefer `RegExp#test` over `String#match` / `RegExp#exec` when only a boolean is needed.
-- `unicorn/prefer-response-static-json` — Prefer `Response.json(value)` over `new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } })`.
-- `unicorn/prefer-set-has` — Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
-- `unicorn/prefer-set-size` — Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
-- `unicorn/prefer-simple-condition-first` — Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
-- `unicorn/prefer-single-call` — Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments over consecutive single-argument calls.
-- `unicorn/prefer-spread` — Prefer spread (`[...arr]`, `[...str]`) over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
-- `unicorn/prefer-string-raw` — Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
-- `unicorn/prefer-string-replace-all` — Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.
-- `unicorn/prefer-string-slice` — Prefer `String#slice` over the deprecated `substr` / `substring`.
-- `unicorn/prefer-string-starts-ends-with` — Prefer `String#startsWith` / `String#endsWith` over equivalent `RegExp#test` and slice-then-compare idioms.
-- `unicorn/prefer-string-trim-start-end` — Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.
-- `unicorn/prefer-structured-clone` — Prefer `structuredClone(x)` over `JSON.parse(JSON.stringify(x))` for deep cloning.
-- `unicorn/prefer-switch` — Prefer `switch` over chains of three or more `else if` clauses comparing the same discriminant.
-- `unicorn/prefer-ternary` — Prefer a ternary over `if` / `else` whose two branches differ only in the right-hand side of a common assignment, `return`, or `throw`.
-- `unicorn/prefer-top-level-await` — Prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
-- `unicorn/prefer-type-error` — Require throwing `TypeError` (not a bare `Error`) when the surrounding `if` is a runtime type check.
-- `unicorn/prevent-abbreviations` — Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
-- `unicorn/relative-url-style` — Enforce a single style (always leading `./` vs. never) for relative URLs passed to `new URL`.
-- `unicorn/require-array-join-separator` — Require an explicit separator argument to `Array#join` instead of relying on the default `","`.
-- `unicorn/require-module-attributes` — Require non-empty `with` / `assert` options on `import` / `export` statements that use them at all.
-- `unicorn/require-module-specifiers` — Require a non-empty specifier list on every `import` / `export` statement.
-- `unicorn/require-number-to-fixed-digits-argument` — Require an explicit digits argument to `Number#toFixed`.
-- `unicorn/require-post-message-target-origin` — Require an explicit `targetOrigin` argument to `window.postMessage`.
-- `unicorn/string-content` — Enforce or replace configured string-content patterns (e.g., curly quotes for straight ones).
-- `unicorn/switch-case-braces` — Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
-- `unicorn/switch-case-break-position` — Enforce a consistent position for `break` (or `return` / `throw`) inside `case` clauses.
-- `unicorn/template-indent` — Re-indent the body of tagged template literals (`html`, `gql`, `sql`) to the indentation of the opening backtick.
-- `unicorn/text-encoding-identifier-case` — Enforce a canonical case for text-encoding identifiers — `"utf-8"` (not `"UTF-8"` / `"utf8"`).
-- `unicorn/throw-new-error` — Require `throw new Error(...)` over `throw Error(...)`.
+- `unicorn/better-regex`: Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
+- `unicorn/catch-error-name`: Enforce a canonical parameter name (`error`) in `catch` clauses.
+- `unicorn/consistent-assert`: Enforce consistent assertion style when using `node:assert`.
+- `unicorn/consistent-date-clone`: Prefer passing a `Date` directly to the `Date` constructor when cloning, not `+date` or `date.getTime()`.
+- `unicorn/consistent-destructuring`: Once a property is destructured from an object, require subsequent reads to use the destructured binding.
+- `unicorn/consistent-empty-array-spread`: Require both branches of a ternary spread inside an array literal to be array-typed.
+- `unicorn/consistent-existence-index-check`: Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!== -1`) for `indexOf` / `findIndex` existence checks.
+- `unicorn/consistent-function-scoping`: Hoist function declarations to the highest scope that does not capture any outer variables.
+- `unicorn/consistent-template-literal-escape`: Enforce a consistent style (always `\${` or always `$\{`) when escaping `${` in template literals.
+- `unicorn/custom-error-definition`: Require user-defined `Error` subclasses to set `name`, call `super(message)`, and assign their stack correctly.
+- `unicorn/empty-brace-spaces`: Reject whitespace inside empty `{}` braces.
+- `unicorn/error-message`: Require a non-empty `message` argument when constructing a built-in `Error`.
+- `unicorn/escape-case`: Require consistent case for escape sequences (`\xA9` over `\xa9`, `µ` over `µ`).
+- `unicorn/expiring-todo-comments`: Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
+- `unicorn/explicit-length-check`: Require explicit comparison of `.length` / `.size` instead of relying on truthy coercion.
+- `unicorn/filename-case`: Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
+- `unicorn/import-style`: Restrict each module's allowed import styles (named only, default only, namespace only).
+- `unicorn/isolated-functions`: Reject references to outer-scope variables inside functions marked as isolated (e.g., the body of a web worker).
+- `unicorn/new-for-builtins`: Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`, and forbid `new` on primitive wrappers like `String`, `Number`, `Boolean`.
+- `unicorn/no-abusive-eslint-disable`: Require every `eslint-disable*` directive to name the rules it disables.
+- `unicorn/no-accessor-recursion`: Reject recursive reads on `this.<prop>` inside the getter / setter for `<prop>`.
+- `unicorn/no-anonymous-default-export`: Require a name on every default-exported function, class, or object.
+- `unicorn/no-array-callback-reference`: Reject passing a function reference directly as the callback to `map` / `filter` / `forEach` / etc., which silently leaks extra index/array arguments.
+- `unicorn/no-array-for-each`: Prefer `for...of` over `Array.prototype.forEach`.
+- `unicorn/no-array-method-this-argument`: Reject the second `thisArg` argument to array methods; use an explicit closure instead.
+- `unicorn/no-array-reduce`: Reject `Array#reduce` / `Array#reduceRight` in favor of explicit loops or other helpers.
+- `unicorn/no-array-reverse`: Prefer `Array#toReversed` over the mutating `Array#reverse`.
+- `unicorn/no-array-sort`: Prefer `Array#toSorted` over the mutating `Array#sort`.
+- `unicorn/no-await-expression-member`: Reject member access on an `await` expression without parens; require `(await x).y`.
+- `unicorn/no-await-in-promise-methods`: Reject `await` inside arrays passed to `Promise.all` / `Promise.allSettled` / `Promise.race` / `Promise.any`. The awaits serialize the calls.
+- `unicorn/no-console-spaces`: Reject leading or trailing spaces in arguments to `console.log` and friends, `console` already inserts spaces between arguments.
+- `unicorn/no-document-cookie`: Reject direct reads or assignments to `document.cookie`; use the Cookie Store API or a wrapper.
+- `unicorn/no-empty-file`: Reject source files whose only content is whitespace and/or comments.
+- `unicorn/no-for-loop`: Prefer `for...of` over index-based `for` loops over arrays.
+- `unicorn/no-hex-escape`: Prefer Unicode escape (`©`) over hexadecimal escape (`\xA9`).
+- `unicorn/no-immediate-mutation`: Reject mutating a value on the same expression that produces it (`[...x].push(y)`); separate the construction and the mutation.
+- `unicorn/no-instanceof-builtins`: Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc.. They fail across realms and for subclasses.
+- `unicorn/no-invalid-fetch-options`: Reject GET / HEAD `fetch()` calls that also set a request `body`, which throws at runtime.
+- `unicorn/no-invalid-remove-event-listener`: Reject `removeEventListener` calls whose handler argument is a fresh function reference and therefore matches no registered listener.
+- `unicorn/no-keyword-prefix`: Reject identifiers that start with a reserved word (`newFoo`, `classBar`).
+- `unicorn/no-lonely-if`: Reject `if` as the only statement inside an `else` block; use `else if` instead.
+- `unicorn/no-magic-array-flat-depth`: Reject magic-number depth arguments to `Array#flat`; require `Infinity` or a named constant.
+- `unicorn/no-named-default`: Reject re-importing or re-exporting a default binding under a name that differs from the upstream binding.
+- `unicorn/no-negated-condition`: Reject negated conditions in `if` / `else` and ternaries when the positive form is shorter.
+- `unicorn/no-negation-in-equality-check`: Reject `!a === b`; require `a !== b` or `!(a === b)`.
+- `unicorn/no-nested-ternary`: Reject ternaries nested inside other ternaries.
+- `unicorn/no-new-array`: Reject the `new Array(...)` constructor; use array literals or `Array.from` / `Array.of`.
+- `unicorn/no-new-buffer`: Reject the deprecated `new Buffer()` constructor; use `Buffer.from` or `Buffer.alloc`.
+- `unicorn/no-null`: Reject the `null` literal in favor of `undefined`.
+- `unicorn/no-object-as-default-parameter`: Reject inline object literals as default values for function parameters.
+- `unicorn/no-process-exit`: Reject `process.exit()`; throw or return a non-zero status instead.
+- `unicorn/no-single-promise-in-promise-methods`: Reject `Promise.all` / `Promise.race` / etc. Called with a single-element array; the wrapper is redundant.
+- `unicorn/no-static-only-class`: Reject classes whose every member is `static`; use a plain module-level namespace instead.
+- `unicorn/no-thenable`: Reject defining a property named `then` on objects, modules, or classes, `await` and Promise resolution accidentally invoke it.
+- `unicorn/no-this-assignment`: Reject `const self = this` and similar aliases; capture via arrow functions instead.
+- `unicorn/no-typeof-undefined`: Reject `typeof x === "undefined"`; compare against `undefined` directly.
+- `unicorn/no-unnecessary-array-flat-depth`: Reject `1` as the explicit depth argument of `Array#flat`; the default is already `1`.
+- `unicorn/no-unnecessary-array-splice-count`: Reject `.length` / `Infinity` as the deleteCount argument to `splice` / `toSpliced`; omit it to delete to the end.
+- `unicorn/no-unnecessary-await`: Reject `await` on non-thenable expressions.
+- `unicorn/no-unnecessary-polyfills`: Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
+- `unicorn/no-unnecessary-slice-end`: Reject `.length` / `Infinity` as the end argument to `slice`; omit it to slice to the end.
+- `unicorn/no-unreadable-array-destructuring`: Reject destructuring patterns with long hole runs (`[,,,,a]`); use a named index instead.
+- `unicorn/no-unreadable-iife`: Reject IIFEs whose nesting (multiple parens, arrow IIFE arguments) is hard to read.
+- `unicorn/no-unused-properties`: Reject object properties that are never read after definition.
+- `unicorn/no-useless-collection-argument`: Reject useless initializer arguments (`new Set()`, `new Map([])`, `new Set(undefined)`) on collection constructors.
+- `unicorn/no-useless-error-capture-stack-trace`: Reject `Error.captureStackTrace(this, constructor)` when the surrounding subclass relies on the default `Error` capture.
+- `unicorn/no-useless-fallback-in-spread`: Reject `...(x ?? {})` and similar fallbacks when spreading; the spread of `null` / `undefined` is already a no-op.
+- `unicorn/no-useless-iterator-to-array`: Reject `[...iterator]` / `Array.from(iterator)` when the iterator can be consumed directly (e.g., inside `for...of`).
+- `unicorn/no-useless-length-check`: Reject `arr.length` checks that the iteration method itself already handles.
+- `unicorn/no-useless-promise-resolve-reject`: Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside `async` functions, `return x` and `throw e` work identically.
+- `unicorn/no-useless-spread`: Reject spreading a single iterable into a new collection of the same kind (`[...arr]`, `{...obj}`) when the original would suffice.
+- `unicorn/no-useless-switch-case`: Reject `case` clauses with an empty body that immediately precede a `default` whose body executes for them.
+- `unicorn/no-useless-undefined`: Reject explicit `undefined` returns, default initializers, and arguments where the omission has the same meaning.
+- `unicorn/no-zero-fractions`: Reject `1.0` / `1.` / `.5e0` in favor of `1`, `1`, and `0.5`.
+- `unicorn/number-literal-case`: Enforce one consistent case for the prefix and digits of hex / binary / octal literals (`0xFF` over `0xff`).
+- `unicorn/numeric-separators-style`: Enforce `_` separator grouping (every 3 digits for decimal, every 4 for hex) in numeric literals.
+- `unicorn/prefer-add-event-listener`: Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.
+- `unicorn/prefer-array-find`: Prefer `Array#find` / `Array#findLast` over `filter(...)[0]` / `filter(...).at(-1)`.
+- `unicorn/prefer-array-flat`: Prefer `Array#flat` over legacy flattening idioms (`[].concat(...arrs)`, `reduce` with `concat`).
+- `unicorn/prefer-array-flat-map`: Prefer `Array#flatMap` over `map(...).flat()`.
+- `unicorn/prefer-array-index-of`: Prefer `indexOf` / `lastIndexOf` over `findIndex` / `findLastIndex` when matching by `===`.
+- `unicorn/prefer-array-some`: Prefer `Array#some` over `filter(...).length > 0`, `find(...) !== undefined`, and similar shapes.
+- `unicorn/prefer-at`: Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
+- `unicorn/prefer-bigint-literals`: Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
+- `unicorn/prefer-blob-reading-methods`: Prefer `Blob#arrayBuffer()` / `Blob#text()` over `FileReader#readAsArrayBuffer` / `readAsText`.
+- `unicorn/prefer-class-fields`: Prefer class field declarations over constructor assignments to `this.field = value`.
+- `unicorn/prefer-classlist-toggle`: Prefer `Element#classList.toggle(name, condition)` over manual `add` / `remove` branches.
+- `unicorn/prefer-code-point`: Prefer `String#codePointAt` / `String.fromCodePoint` over `charCodeAt` / `fromCharCode`.
+- `unicorn/prefer-date-now`: Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
+- `unicorn/prefer-default-parameters`: Prefer default parameter syntax over `x = x ?? default` reassignments inside the function body.
+- `unicorn/prefer-dom-node-append`: Prefer `Node#append` over `Node#appendChild`.
+- `unicorn/prefer-dom-node-dataset`: Prefer `Element#dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.
+- `unicorn/prefer-dom-node-remove`: Prefer `ChildNode#remove` over `parent.removeChild(child)`.
+- `unicorn/prefer-dom-node-text-content`: Prefer `Node#textContent` over `HTMLElement#innerText`.
+- `unicorn/prefer-event-target`: Prefer `EventTarget` over Node's `EventEmitter` when the code is shared between Node and the browser.
+- `unicorn/prefer-export-from`: Prefer `export ... from` over importing-then-re-exporting in two statements.
+- `unicorn/prefer-global-this`: Prefer `globalThis` over `window`, `self`, and `global`.
+- `unicorn/prefer-import-meta-properties`: Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath` workarounds.
+- `unicorn/prefer-includes`: Prefer `String#includes` / `Array#includes` over `indexOf(...) !== -1` and `some(x => x === target)`.
+- `unicorn/prefer-json-parse-buffer`: Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) instead of decoding to a string first.
+- `unicorn/prefer-keyboard-event-key`: Prefer `KeyboardEvent#key` over the deprecated `KeyboardEvent#keyCode` / `charCode` / `which`.
+- `unicorn/prefer-logical-operator-over-ternary`: Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.
+- `unicorn/prefer-math-min-max`: Prefer `Math.min` / `Math.max` over ternaries computing the same value.
+- `unicorn/prefer-math-trunc`: Prefer `Math.trunc` over `~~x` / `x | 0` for integer truncation.
+- `unicorn/prefer-modern-dom-apis`: Prefer `before` / `after` / `replaceWith` over `insertBefore` / `replaceChild` / `insertAdjacentText`.
+- `unicorn/prefer-modern-math-apis`: Prefer `Math.log10` / `Math.hypot` / `Math.log2` / `Math.cbrt` over their legacy approximations.
+- `unicorn/prefer-module`: Prefer ES modules (`import` / `export`) over CommonJS (`require` / `module.exports` / `__dirname` / `__filename`).
+- `unicorn/prefer-native-coercion-functions`: Prefer the bare `String` / `Number` / `Boolean` / `BigInt` functions over `x => String(x)` arrow wrappers.
+- `unicorn/prefer-negative-index`: Prefer negative-index lookups (`arr.at(-1)`, `arr.slice(-2)`) over `arr.length - 1` / `arr.length - 2` arithmetic.
+- `unicorn/prefer-node-protocol`: Prefer `node:fs` / `node:path` / etc. Over the bare Node builtin specifier.
+- `unicorn/prefer-number-properties`: Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
+- `unicorn/prefer-object-from-entries`: Prefer `Object.fromEntries` over `reduce`-into-object patterns.
+- `unicorn/prefer-optional-catch-binding`: Prefer `catch { ... }` over `catch (e) { ... }` when `e` is unused.
+- `unicorn/prefer-prototype-methods`: Prefer borrowing prototype methods (`Array.prototype.slice.call`) over `[].slice.call` empty-instance lookups.
+- `unicorn/prefer-query-selector`: Prefer `Document#querySelector` over `getElementById`, `getElementsByClassName`, and `getElementsByTagName`.
+- `unicorn/prefer-reflect-apply`: Prefer `Reflect.apply(fn, thisArg, args)` over `Function.prototype.apply.call(fn, thisArg, args)`.
+- `unicorn/prefer-regexp-test`: Prefer `RegExp#test` over `String#match` / `RegExp#exec` when only a boolean is needed.
+- `unicorn/prefer-response-static-json`: Prefer `Response.json(value)` over `new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } })`.
+- `unicorn/prefer-set-has`: Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
+- `unicorn/prefer-set-size`: Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
+- `unicorn/prefer-simple-condition-first`: Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
+- `unicorn/prefer-single-call`: Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments over consecutive single-argument calls.
+- `unicorn/prefer-spread`: Prefer spread (`[...arr]`, `[...str]`) over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
+- `unicorn/prefer-string-raw`: Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
+- `unicorn/prefer-string-replace-all`: Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.
+- `unicorn/prefer-string-slice`: Prefer `String#slice` over the deprecated `substr` / `substring`.
+- `unicorn/prefer-string-starts-ends-with`: Prefer `String#startsWith` / `String#endsWith` over equivalent `RegExp#test` and slice-then-compare idioms.
+- `unicorn/prefer-string-trim-start-end`: Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.
+- `unicorn/prefer-structured-clone`: Prefer `structuredClone(x)` over `JSON.parse(JSON.stringify(x))` for deep cloning.
+- `unicorn/prefer-switch`: Prefer `switch` over chains of three or more `else if` clauses comparing the same discriminant.
+- `unicorn/prefer-ternary`: Prefer a ternary over `if` / `else` whose two branches differ only in the right-hand side of a common assignment, `return`, or `throw`.
+- `unicorn/prefer-top-level-await`: Prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
+- `unicorn/prefer-type-error`: Require throwing `TypeError` (not a bare `Error`) when the surrounding `if` is a runtime type check.
+- `unicorn/prevent-abbreviations`: Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
+- `unicorn/relative-url-style`: Enforce a single style (always leading `./` vs. Never) for relative URLs passed to `new URL`.
+- `unicorn/require-array-join-separator`: Require an explicit separator argument to `Array#join` instead of relying on the default `","`.
+- `unicorn/require-module-attributes`: Require non-empty `with` / `assert` options on `import` / `export` statements that use them at all.
+- `unicorn/require-module-specifiers`: Require a non-empty specifier list on every `import` / `export` statement.
+- `unicorn/require-number-to-fixed-digits-argument`: Require an explicit digits argument to `Number#toFixed`.
+- `unicorn/require-post-message-target-origin`: Require an explicit `targetOrigin` argument to `window.postMessage`.
+- `unicorn/string-content`: Enforce or replace configured string-content patterns (e.g., curly quotes for straight ones).
+- `unicorn/switch-case-braces`: Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
+- `unicorn/switch-case-break-position`: Enforce a consistent position for `break` (or `return` / `throw`) inside `case` clauses.
+- `unicorn/template-indent`: Re-indent the body of tagged template literals (`html`, `gql`, `sql`) to the indentation of the opening backtick.
+- `unicorn/text-encoding-identifier-case`: Enforce a canonical case for text-encoding identifiers, `"utf-8"` (not `"UTF-8"` / `"utf8"`).
+- `unicorn/throw-new-error`: Require `throw new Error(...)` over `throw Error(...)`.

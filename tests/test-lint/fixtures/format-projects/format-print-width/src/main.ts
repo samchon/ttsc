@@ -26,25 +26,25 @@ function start(): void {}
 const enabled = true;
 
 const widget = new Singleton(() => {
-      setup();
-        return widget;
+  setup();
+  return widget;
 });
 
 registerHandler("ready", () => {
-        flush();
+  flush();
 });
 
 configure({
-    name: "alpha",
-      retries: 3,
+  name: "alpha",
+  retries: 3,
   timeout: 1000,
-        nested: { mode: "fast", verbose: true },
+  nested: { mode: "fast", verbose: true },
 });
 
 run(() => {
-    defer(() => {
-            start();
-    });
+  defer(() => {
+    start();
+  });
 });
 
 run(() => {

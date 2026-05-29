@@ -11,5 +11,5 @@ import "testing"
 // 2. Call it inside a then handler.
 // 3. Assert the callback call is reported.
 func TestRuleCorpusPromiseNoCallbackInPromise(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-callback-in-promise.ts", "declare const cb: () => void;\nPromise.resolve(1).then(() => {\n  // expect: promise/no-callback-in-promise error\n  cb();\n});\n")
+  assertRuleCorpusCase(t, "promise/no-callback-in-promise.ts", "declare const cb: () => void;\nPromise.resolve(1).then(() => {\n  // expect: promise/no-callback-in-promise error\n  cb();\n});\n")
 }

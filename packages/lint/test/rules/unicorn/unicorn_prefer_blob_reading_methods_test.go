@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `reader.readAsArrayBuffer(blob)` on declared bindings.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferBlobReadingMethods(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-blob-reading-methods.ts", "declare const reader: FileReader;\ndeclare const blob: Blob;\n// expect: unicorn/prefer-blob-reading-methods error\nreader.readAsArrayBuffer(blob);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-blob-reading-methods.ts", "declare const reader: FileReader;\ndeclare const blob: Blob;\n// expect: unicorn/prefer-blob-reading-methods error\nreader.readAsArrayBuffer(blob);\n")
 }

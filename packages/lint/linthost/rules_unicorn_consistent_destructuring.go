@@ -12,14 +12,14 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornConsistentDestructuring struct{}
 
 func (unicornConsistentDestructuring) Name() string {
-	return "unicorn/consistent-destructuring"
+  return "unicorn/consistent-destructuring"
 }
 func (unicornConsistentDestructuring) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornConsistentDestructuring) Check(ctx *Context, node *shimast.Node) {
 }
 
 func init() {
-	Register(unicornConsistentDestructuring{})
+  Register(unicornConsistentDestructuring{})
 }

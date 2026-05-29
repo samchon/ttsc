@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/no-noninteractive-tabindex`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yNoNoninteractiveTabindexRejectsSectionTabindex(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-tabindex", `const Component = () => <section tabIndex={0} />;`, "tabIndex")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-tabindex", `const Component = () => <section tabIndex={0} />;`, "tabIndex")
 }

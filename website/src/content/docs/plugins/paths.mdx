@@ -1,6 +1,6 @@
 # Path aliases
 
-If your `tsconfig.json` uses `compilerOptions.paths` (e.g. `@/*` → `./src/*`), the emit will contain those alias paths verbatim — and they won't resolve at runtime. `@ttsc/paths` rewrites them into relative imports during compile.
+If your `tsconfig.json` uses `compilerOptions.paths` (e.g. `@/*` → `./src/*`), the emit will contain those alias paths verbatim, and they won't resolve at runtime. `@ttsc/paths` rewrites them into relative imports during compile.
 
 ## The problem
 
@@ -47,22 +47,18 @@ import { value } from "./modules/value.js";
 ## What it does and doesn't do
 
 - Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses.
-- Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts`
-  declarations.
-- Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`,
-  then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
+- Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts` declarations.
+- Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`, then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
 - No separate plugin config.
-- Only rewrites specifiers that match `compilerOptions.paths`; relative,
-  absolute, and non-matching package specifiers are left alone.
-- Uses TypeScript-Go's emitted runtime suffix for matched targets (`.js`,
-  `.mjs`, `.cjs`, or `.jsx` depending on the source file and `jsx` mode).
-- Does *not* change source files — only the emit.
+- Only rewrites specifiers that match `compilerOptions.paths`; relative, absolute, and non-matching package specifiers are left alone.
+- Uses TypeScript-Go's emitted runtime suffix for matched targets (`.js`, `.mjs`, `.cjs`, or `.jsx` depending on the source file and `jsx` mode).
+- Does _not_ change source files: only the emit.
 
 ## Common alternatives (and why this is simpler)
 
-- `tsc-alias` — post-build script. Works, but it's a second pass. `@ttsc/paths` runs inside the compile.
-- Path remapping at runtime via `tsconfig-paths/register` — adds runtime cost and a startup step. `@ttsc/paths` produces normal relative imports.
-- Custom bundler config — if a bundler owns your build, that's fine. `@ttsc/paths` is for projects that ship as plain Node packages.
+- `tsc-alias`: post-build script. Works, but it's a second pass. `@ttsc/paths` runs inside the compile.
+- Path remapping at runtime via `tsconfig-paths/register`: adds runtime cost and a startup step. `@ttsc/paths` produces normal relative imports.
+- Custom bundler config: if a bundler owns your build, that's fine. `@ttsc/paths` is for projects that ship as plain Node packages.
 
 ## Inspired by
 
@@ -70,6 +66,6 @@ import { value } from "./modules/value.js";
 
 ## See also
 
-- [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
-- [@ttsc/strip](/docs/plugins/strip) — strip configured calls and `debugger` from the emit.
-- [Plugin Development](/docs/development) — write your own.
+- [@ttsc/banner](/docs/plugins/banner): another emit-time plugin.
+- [@ttsc/strip](/docs/plugins/strip): strip configured calls and `debugger` from the emit.
+- [Plugin Development](/docs/development): write your own.

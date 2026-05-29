@@ -17,39 +17,39 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornRequireModuleSpecifiers struct{}
 
 func (unicornRequireModuleSpecifiers) Name() string {
-	return "unicorn/require-module-specifiers"
+  return "unicorn/require-module-specifiers"
 }
 func (unicornRequireModuleSpecifiers) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
+  return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
 }
 func (unicornRequireModuleSpecifiers) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindImportDeclaration:
-		decl := node.AsImportDeclaration()
-		if decl == nil {
-			return
-		}
-		// `import "x"` parses with a nil ImportClause; any binding shape
-		// (`import x`, `import {a}`, `import * as ns`) installs a clause.
-		if decl.ImportClause == nil {
-			ctx.Report(node, "Empty import/export specifier list is not allowed.")
-		}
-	case shimast.KindExportDeclaration:
-		decl := node.AsExportDeclaration()
-		if decl == nil || decl.ExportClause == nil {
-			return
-		}
-		if decl.ExportClause.Kind != shimast.KindNamedExports {
-			return
-		}
-		named := decl.ExportClause.AsNamedExports()
-		if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
-			return
-		}
-		ctx.Report(node, "Empty import/export specifier list is not allowed.")
-	}
+  switch node.Kind {
+  case shimast.KindImportDeclaration:
+    decl := node.AsImportDeclaration()
+    if decl == nil {
+      return
+    }
+    // `import "x"` parses with a nil ImportClause; any binding shape
+    // (`import x`, `import {a}`, `import * as ns`) installs a clause.
+    if decl.ImportClause == nil {
+      ctx.Report(node, "Empty import/export specifier list is not allowed.")
+    }
+  case shimast.KindExportDeclaration:
+    decl := node.AsExportDeclaration()
+    if decl == nil || decl.ExportClause == nil {
+      return
+    }
+    if decl.ExportClause.Kind != shimast.KindNamedExports {
+      return
+    }
+    named := decl.ExportClause.AsNamedExports()
+    if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
+      return
+    }
+    ctx.Report(node, "Empty import/export specifier list is not allowed.")
+  }
 }
 
 func init() {
-	Register(unicornRequireModuleSpecifiers{})
+  Register(unicornRequireModuleSpecifiers{})
 }

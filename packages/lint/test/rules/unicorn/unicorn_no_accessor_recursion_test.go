@@ -14,5 +14,5 @@ import "testing"
 // 2. Define `get value()` that returns `this.value`.
 // 3. Assert the recursive property access is reported.
 func TestRuleCorpusUnicornNoAccessorRecursion(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-accessor-recursion.ts", "class C {\n  get value() {\n    // expect: unicorn/no-accessor-recursion error\n    return this.value;\n  }\n}\nvoid C;\n")
+  assertRuleCorpusCase(t, "unicorn/no-accessor-recursion.ts", "class C {\n  get value() {\n    // expect: unicorn/no-accessor-recursion error\n    return this.value;\n  }\n}\nvoid C;\n")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Inside an async function, project a property off `(await ...)`.
 // 3. Assert the property access is reported.
 func TestRuleCorpusUnicornNoAwaitExpressionMember(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-await-expression-member.ts", "async function f() {\n  // expect: unicorn/no-await-expression-member error\n  return (await Promise.resolve({ a: 1 })).a;\n}\nJSON.stringify(f);\n")
+  assertRuleCorpusCase(t, "unicorn/no-await-expression-member.ts", "async function f() {\n  // expect: unicorn/no-await-expression-member error\n  return (await Promise.resolve({ a: 1 })).a;\n}\nJSON.stringify(f);\n")
 }

@@ -14,5 +14,5 @@ import "testing"
 // 2. Read the bare `window` identifier as a value expression.
 // 3. Assert the identifier is reported.
 func TestRuleCorpusUnicornPreferGlobalThis(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-global-this.ts", "// expect: unicorn/prefer-global-this error\nvoid window;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-global-this.ts", "// expect: unicorn/prefer-global-this error\nvoid window;\n")
 }

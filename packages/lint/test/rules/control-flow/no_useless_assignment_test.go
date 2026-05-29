@@ -15,5 +15,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUselessAssignment(t *testing.T) {
-	assertRuleCorpusCase(t, "no-useless-assignment.ts", "function deadStore(): number {\n  let x = 0;\n  // expect: no-useless-assignment error\n  x = 1;\n  x = 2;\n  return x;\n}\nfunction readsPrior(): number {\n  let x = 0;\n  x = 1;\n  x = x + 2;\n  return x;\n}\nfunction withInterleavedRead(): number {\n  let x = 0;\n  x = 1;\n  JSON.stringify(x);\n  x = 2;\n  return x;\n}\nfunction differentTargets(): number {\n  let a = 0;\n  let b = 0;\n  a = 1;\n  b = 2;\n  return a + b;\n}\nJSON.stringify({ deadStore, readsPrior, withInterleavedRead, differentTargets });\n")
+  assertRuleCorpusCase(t, "no-useless-assignment.ts", "function deadStore(): number {\n  let x = 0;\n  // expect: no-useless-assignment error\n  x = 1;\n  x = 2;\n  return x;\n}\nfunction readsPrior(): number {\n  let x = 0;\n  x = 1;\n  x = x + 2;\n  return x;\n}\nfunction withInterleavedRead(): number {\n  let x = 0;\n  x = 1;\n  JSON.stringify(x);\n  x = 2;\n  return x;\n}\nfunction differentTargets(): number {\n  let a = 0;\n  let b = 0;\n  a = 1;\n  b = 2;\n  return a + b;\n}\nJSON.stringify({ deadStore, readsPrior, withInterleavedRead, differentTargets });\n")
 }

@@ -207,7 +207,11 @@ export function mountPackageFiles(
 }
 
 export function enqueuePackageDependencies(
-  packageJson: { dependencies?: Record<string, string>; peerDependencies?: Record<string, string>; peerDependenciesMeta?: Record<string, { optional?: boolean }> },
+  packageJson: {
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+  },
   enqueue: (item: IQueueItem) => void,
 ): void {
   for (const [name, range] of Object.entries(packageJson.dependencies ?? {})) {

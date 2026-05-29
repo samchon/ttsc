@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusOnlyThrowError verifies the lint rule corpus fixture
@@ -19,21 +19,21 @@ import (
 // 2. Run `check` with typescript/only-throw-error enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusOnlyThrowError(t *testing.T) {
-	root := seedLintProject(t, `function bad(): never {
+  root := seedLintProject(t, `function bad(): never {
   throw "boom";
 }
 void bad();
 `)
-	seedLintRules(t, root, map[string]string{"typescript/only-throw-error": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/only-throw-error": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/only-throw-error]") {
-		t.Fatalf("only-throw-error diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/only-throw-error]") {
+    t.Fatalf("only-throw-error diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

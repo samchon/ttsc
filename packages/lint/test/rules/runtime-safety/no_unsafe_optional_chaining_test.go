@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusNoUnsafeOptionalChaining(t *testing.T) {
-	assertRuleCorpusCase(t, "no-unsafe-optional-chaining.ts", "declare const obj: { foo?: { bar: number } } | undefined;\n// expect: no-unsafe-optional-chaining error\nconst x = (obj?.foo).bar;\nJSON.stringify(x);\n")
+  assertRuleCorpusCase(t, "no-unsafe-optional-chaining.ts", "declare const obj: { foo?: { bar: number } } | undefined;\n// expect: no-unsafe-optional-chaining error\nconst x = (obj?.foo).bar;\nJSON.stringify(x);\n")
 }

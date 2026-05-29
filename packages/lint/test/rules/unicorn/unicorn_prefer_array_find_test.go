@@ -14,5 +14,5 @@ import "testing"
 // 2. Project `xs.filter((x) => x > 1)[0]` to the element-access expression.
 // 3. Assert the element access is reported.
 func TestRuleCorpusUnicornPreferArrayFind(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-array-find.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-find error\nconst first = xs.filter((x) => x > 1)[0];\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-array-find.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-find error\nconst first = xs.filter((x) => x > 1)[0];\n")
 }

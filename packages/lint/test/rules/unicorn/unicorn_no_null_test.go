@@ -13,5 +13,5 @@ import "testing"
 // 2. Declare a const initialized to the bare `null` literal.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornNoNull(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-null.ts", "// expect: unicorn/no-null error\nconst x = null;\n")
+  assertRuleCorpusCase(t, "unicorn/no-null.ts", "// expect: unicorn/no-null error\nconst x = null;\n")
 }

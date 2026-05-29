@@ -19,33 +19,33 @@ type unicornPreferSpread struct{}
 
 func (unicornPreferSpread) Name() string { return "unicorn/prefer-spread" }
 func (unicornPreferSpread) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferSpread) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "from" {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if identifierText(receiver) != "Array" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	ctx.Report(node, "Prefer spread `[...x]` over `Array.from(x)` for single-arg shallow copies.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "from" {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if identifierText(receiver) != "Array" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  ctx.Report(node, "Prefer spread `[...x]` over `Array.from(x)` for single-arg shallow copies.")
 }
 
 func init() {
-	Register(unicornPreferSpread{})
+  Register(unicornPreferSpread{})
 }

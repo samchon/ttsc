@@ -15,5 +15,5 @@ import "testing"
 // 2. Construct `new URL("./foo", base)`.
 // 3. Assert the string-literal argument is reported.
 func TestRuleCorpusUnicornRelativeUrlStyle(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/relative-url-style.ts", "declare const base: string;\nconst u = new URL(\n  // expect: unicorn/relative-url-style error\n  \"./foo\",\n  base,\n);\nvoid u;\n")
+  assertRuleCorpusCase(t, "unicorn/relative-url-style.ts", "declare const base: string;\nconst u = new URL(\n  // expect: unicorn/relative-url-style error\n  \"./foo\",\n  base,\n);\nvoid u;\n")
 }

@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/no-direct-mutation-state`.
 // 3. Assert the assignment target is reported.
 func TestReactNoDirectMutationStateReportsStatePropertyWrite(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-direct-mutation-state", `class C { update() { this.state.count = 1; } }`, "this.state")
+  assertReactRuleFinds(t, "react/no-direct-mutation-state", `class C { update() { this.state.count = 1; } }`, "this.state")
 }

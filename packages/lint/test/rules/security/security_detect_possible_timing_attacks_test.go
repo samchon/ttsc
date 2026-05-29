@@ -11,7 +11,7 @@ import "testing"
 // 2. Compare a password identifier.
 // 3. Assert only the password comparison is reported.
 func TestSecurityDetectPossibleTimingAttacks(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-possible-timing-attacks.ts", `
+  assertRuleCorpusCase(t, "security/detect-possible-timing-attacks.ts", `
 if (age === 5) {}
 // expect: security/detect-possible-timing-attacks error
 if (password === "mypass") {}
