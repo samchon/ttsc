@@ -25,6 +25,7 @@ import (
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
+//   - `format/parameter-properties` — always on, breaks a constructor's parameter list when it has parameter properties.
 //   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace` — always on, driven by endOfLine.
@@ -183,6 +184,11 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // Distinct map instances so the two rule entries don't alias one blob.
   out["format/statement-split"] = ruleEntry(cloneStringAnyMap(layoutOpts))
   out["format/indent"] = ruleEntry(cloneStringAnyMap(layoutOpts))
+
+  // formatParameterProperties — always on. Force-breaks a constructor's
+  // parameter list when it declares parameter properties; needs only the
+  // indentation settings.
+  out["format/parameter-properties"] = ruleEntry(cloneStringAnyMap(layoutOpts))
 
   // formatWhitespace — always on. Needs only endOfLine for the final
   // newline; indentation is irrelevant to text hygiene.
