@@ -47,6 +47,15 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
   src := ctx.File.Text()
   var edits []TextEdit
   forEachStatementInList(ctx.File, func(stmt *shimast.Node, depth int) {
+    // A statement whose indentation is owned by format/print-width's
+    // expression reflow (it sits inside a call/new/array/object that the
+    // printer lays out) must not be re-indented here: the printer hangs a
+    // callback body under its call-argument column, which is deeper than
+    // this rule's block-nesting depth, and reindenting it would oscillate
+    // against the printer pass forever (the cascade never converges).
+    if indentCededToReflow(stmt) {
+      return
+    }
     start := shimscanner.SkipTrivia(src, stmt.Pos())
     if start < 0 || start > len(src) {
       return
@@ -76,6 +85,41 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     "Statement indentation must match its nesting depth.",
     edits...,
   )
+}
+
+// indentCededToReflow reports whether `stmt` lives inside an expression
+// whose layout column format/indent cannot compute from block-nesting
+// depth alone — a call/new argument, an array/object element, a
+// conditional branch, or a parenthesized expression. format/indent's
+// depth counts only Block/clause/declaration nesting, so a statement
+// hung under such an expression (a callback body, a `new (class {…})()`
+// method, a `cond ? () => {…} : …` arm) sits at a deeper column than its
+// block depth, and reindenting it to depth*tabWidth both corrupts
+// correct source and ping-pongs against format/print-width every cascade
+// pass (the cascade never converges).
+//
+// Walking outward from the statement, an enclosing expression of those
+// kinds means the indentation is owned by the printer (when print-width
+// is active) or by the already-correct source (when it is off), so
+// format/indent cedes. Reaching the source file or a module block first
+// means the statement is in ordinary block/declaration position —
+// format/indent owns it and indents to its nesting depth.
+func indentCededToReflow(stmt *shimast.Node) bool {
+  for n := stmt.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindCallExpression,
+      shimast.KindNewExpression,
+      shimast.KindArrayLiteralExpression,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindConditionalExpression,
+      shimast.KindParenthesizedExpression:
+      return true
+    case shimast.KindSourceFile,
+      shimast.KindModuleBlock:
+      return false
+    }
+  }
+  return false
 }
 
 func init() {
