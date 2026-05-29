@@ -14,7 +14,7 @@ It starts the `ttscserver` language-server launcher from your project's own `tts
 
 - **VS Code** 1.94 or later
 - **Node.js** 18 or later
-- **`ttsc` and `@ttsc/lint` installed in your project** — the extension uses the language server that ships with your project's `ttsc` package, and `@ttsc/lint` provides the lint diagnostics and format rules it surfaces.
+- **`ttsc`, `@ttsc/lint`, and `@typescript/native-preview` installed in your project** — the extension runs the language server from your project's `ttsc`; `@typescript/native-preview` is the TypeScript-Go engine `ttsc` runs on (a separate package — `ttsc` does not bundle it), and `@ttsc/lint` supplies the lint diagnostics and format rules.
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
