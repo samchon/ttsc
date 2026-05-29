@@ -81,6 +81,21 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
       // `format/indent`'s job, not this rule's.
       return
     }
+    // Do not split a statement off a leading-semicolon ASI guard
+    // (`;(expr)`): the lone `;` before it is an empty-statement guard
+    // that format/orphan-semi intentionally merged onto this line, and
+    // re-splitting it would oscillate against that rule. The `;` is a
+    // guard (not a terminator like `foo();bar()`) when only whitespace
+    // precedes it back to the start of its line.
+    if src[ws-1] == ';' {
+      k := ws - 1
+      for k > 0 && (src[k-1] == ' ' || src[k-1] == '\t') {
+        k--
+      }
+      if k == 0 || src[k-1] == '\n' {
+        return
+      }
+    }
     // A block that opens right after its own `case`/`default` label
     // (`case 2: {`) is not sharing a line with a preceding statement;
     // the only thing before it is the clause label, and Prettier keeps

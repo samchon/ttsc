@@ -180,6 +180,16 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   bodyParts := make([]Doc, 0, len(items)*2)
   for i, item := range items {
     if i > 0 {
+      // A lone leading-semicolon ASI guard stays glued to the statement
+      // it protects (`;(expr)`): when the previous statement is an empty
+      // `;` sitting directly against this one in the source, emit no line
+      // break, so the reflow agrees with format/orphan-semi instead of
+      // ping-ponging it back onto two lines every cascade pass.
+      if stmts[i-1].Kind == shimast.KindEmptyStatement &&
+        !rangeHasNewline(ctx.Source, stmts[i-1].End(), shimscanner.SkipTrivia(ctx.Source, stmts[i].Pos())) {
+        bodyParts = append(bodyParts, item)
+        continue
+      }
       if blankLineBetweenStatements(ctx.Source, stmts[i-1].End(), stmts[i].Pos()) {
         bodyParts = append(bodyParts, Literalline())
       }
@@ -202,6 +212,21 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
 // user-authored blank line between statements. blockHasNonStatementComment
 // has already guaranteed the gap holds no comment when the block is
 // covered, so the gap is pure whitespace and counting newlines suffices.
+// rangeHasNewline reports whether src[start:end) contains a newline. Used
+// to detect whether a leading-semicolon guard sits on the same line as
+// the statement it protects.
+func rangeHasNewline(src string, start, end int) bool {
+  if start < 0 || end > len(src) || end <= start {
+    return false
+  }
+  for i := start; i < end; i++ {
+    if src[i] == '\n' {
+      return true
+    }
+  }
+  return false
+}
+
 func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
   nextStart := shimscanner.SkipTrivia(src, nextPos)
   if prevEnd < 0 || nextStart > len(src) || nextStart <= prevEnd {
