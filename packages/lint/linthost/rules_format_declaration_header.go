@@ -115,9 +115,11 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
-  // The reconstructable region runs from where type parameters or
-  // heritage begin to the brace. A comment there cannot survive the
-  // element-by-element rebuild, so abstain.
+  // Everything from the end of the verbatim prefix (the name) to the
+  // brace is discarded and rebuilt element by element, so a comment
+  // anywhere in that span would be lost — including one between the name
+  // and `extends`, or between `extends` and its first type. Scan the whole
+  // [nameEnd, brace) region and abstain on any comment.
   prefixEnd := bracePos
   if hasTypeParams {
     if lt := scanBackFor(src, typeParams.Nodes[0].Pos(), '<'); lt >= 0 {
@@ -129,7 +131,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
   if prefixEnd < headerStart || prefixEnd > bracePos {
     return
   }
-  if containsComment(src[prefixEnd:bracePos]) {
+  if containsComment(src[nameEnd:bracePos]) {
     return
   }
 
