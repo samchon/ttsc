@@ -116,7 +116,14 @@ What it adds:
   document format edits. Plugin diagnostics, code actions, and command
   computation use the saved project state today; commands return VS Code
   `WorkspaceEdit`s and VS Code applies them only while touched documents are
-  still clean.
+  still clean. Formatting is the exception — see **Format on save** below.
+- **Format on save.** The extension formats your unsaved buffer with
+  `@ttsc/lint`'s format rules. Set `editor.defaultFormatter` to `samchon.ttsc`
+  for the languages you want and enable `editor.formatOnSave`; formatting runs
+  on every save with no need to save first. Lint **fixes** are not applied on
+  save by default (they can change code semantics) — run `ttsc: Fix all lint
+  issues` manually, or opt in via `editor.codeActionsOnSave` with
+  `source.fixAll.ttsc`.
 - Multi-root workspaces start server contexts from the active file and
   workspace folders. Add packages as VS Code workspace folders when each
   package should keep its own `ttsc`, `@typescript/native-preview`, and plugin

@@ -55,14 +55,15 @@ Rewrite source files in place with the `@ttsc/lint` format rules:
 npx ttsc format
 ```
 
-### Editor
+### VSCode Extension
 
 Install the VS Code extension for live TypeScript-Go editor features plus
 saved-state ttsc plugin diagnostics and actions:
 
 ```bash
+npm install -D ttsc @ttsc/lint @typescript/native-preview
 npm install -D @ttsc/vscode
-npx ttsc-vscode
+npx @ttsc/vscode
 ```
 
 See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements, settings, and uninstall.

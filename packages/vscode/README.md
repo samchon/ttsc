@@ -38,6 +38,7 @@ To uninstall:
 
 ```bash
 npx @ttsc/vscode uninstall
+npm uninstall @ttsc/vscode
 ```
 
 Marketplace release is tracked for v1; once it lands, the `npx` step goes away.
@@ -59,6 +60,14 @@ starts a server only when it can resolve a project-local `ttscserver`.
   edits. Plugin diagnostics, code actions, and command computation use the
   saved project state today; commands return VS Code `WorkspaceEdit`s and the
   editor applies them only while the touched documents are still clean.
+  Formatting is the exception — see **Format on save** below.
+- **Format on save.** The extension formats your unsaved buffer with
+  `@ttsc/lint`'s format rules. Set `editor.defaultFormatter` to `samchon.ttsc`
+  for the languages you want and turn on `editor.formatOnSave` — formatting runs
+  on every save, with no need to save the file first. Lint *fixes* are not
+  applied on save by default (they can change code semantics); run
+  `ttsc: Fix all lint issues` from the command palette, or opt in explicitly via
+  `editor.codeActionsOnSave`.
 - **Monorepo-aware server roots.** Multi-root workspaces start server contexts
   from the active file and workspace folders, resolved from the nearest
   `tsconfig*.json` / `jsconfig*.json`. Add packages as VS Code workspace
@@ -81,6 +90,19 @@ Open VS Code's settings (`Ctrl+,` / `Cmd+,`) and search for `ttsc`, or edit `set
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ttsc.serverPath`   | `""`    | Absolute path to a `ttscserver` launcher or native binary. Empty uses the project's `ttsc` launcher, which builds `TTSC_LSP_PLUGINS_JSON` for plugin diagnostics/actions. Direct native paths need that manifest supplied out of band. |
 | `ttsc.trace.server` | `"off"` | Set to `"messages"` or `"verbose"` to log LSP traffic. The trace goes to **View → Output → ttsc (trace)**; server logs stay under **ttsc**. Useful when diagnostics don't show up.                                                     |
+
+### Format on save
+
+Make `samchon.ttsc` the default formatter for the languages you want, then enable format-on-save:
+
+```jsonc
+"[typescript][typescriptreact][javascript][javascriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
+ttsc formats the in-memory buffer, so it works on unsaved edits. Lint **fixes** are not applied on save by default — they can change code meaning — so run `ttsc: Fix all lint issues` manually, or opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
 
 ## Troubleshooting
 
