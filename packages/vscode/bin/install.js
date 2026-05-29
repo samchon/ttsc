@@ -85,7 +85,7 @@ function main(argv = process.argv.slice(2)) {
   } else if (sub === "uninstall") {
     runCode(["--uninstall-extension", extensionId]);
   } else {
-    console.error(`Usage: ttsc-vscode <install|uninstall>`);
+    console.error(`Usage: npx @ttsc/vscode <install|uninstall>`);
     process.exit(1);
   }
 }

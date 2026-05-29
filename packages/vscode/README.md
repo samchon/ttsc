@@ -27,17 +27,17 @@ The extension is not on the VS Code Marketplace yet. For now it ships as an npm 
 
 ```bash
 npm install -D @ttsc/vscode
-npx ttsc-vscode
+npx @ttsc/vscode
 ```
 
-`npx ttsc-vscode` calls `code --install-extension` with the `.vsix` bundled in the npm tarball — VS Code picks it up immediately, no restart needed.
+`npx @ttsc/vscode` calls `code --install-extension` with the `.vsix` bundled in the npm tarball — VS Code picks it up immediately, no restart needed.
 
-If the `code` CLI isn't on your `PATH`, open VS Code first, run **Shell Command: Install 'code' command in PATH** from the command palette, then re-run `npx ttsc-vscode`. (As a manual fallback, VS Code → Extensions → "…" menu → **Install from VSIX** also works on the file `npx ttsc-vscode` would have used — it lives under `node_modules/@ttsc/vscode/dist/`.)
+If the `code` CLI isn't on your `PATH`, open VS Code first, run **Shell Command: Install 'code' command in PATH** from the command palette, then re-run `npx @ttsc/vscode`. (As a manual fallback, VS Code → Extensions → "…" menu → **Install from VSIX** also works on the file `npx @ttsc/vscode` would have used — it lives under `node_modules/@ttsc/vscode/dist/`.)
 
 To uninstall:
 
 ```bash
-npx ttsc-vscode uninstall
+npx @ttsc/vscode uninstall
 ```
 
 Marketplace release is tracked for v1; once it lands, the `npx` step goes away.
@@ -92,4 +92,4 @@ If TypeScript-Go or ttsc plugin diagnostics don't appear after install:
 4. **Restart the server:** command palette → `ttsc: Restart language server`.
 5. **Verbose tracing:** set `ttsc.trace.server` to `"verbose"`, then read **View → Output → ttsc (trace)**.
 
-If `npx ttsc-vscode` errors with `\`code\` CLI not found on PATH`: open VS Code → command palette → **Shell Command: Install 'code' command in PATH**, then retry the install.
+If `npx @ttsc/vscode` errors with `\`code\` CLI not found on PATH`: open VS Code → command palette → **Shell Command: Install 'code' command in PATH**, then retry the install.
