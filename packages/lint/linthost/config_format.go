@@ -24,6 +24,7 @@ import (
 //   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
+//   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
 //   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace` — always on, driven by endOfLine.
@@ -139,6 +140,12 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     pwOpts["endOfLine"] = s
   }
   out["format/print-width"] = ruleEntry(pwOpts)
+
+  // formatClauseJoin — always on. Reuses the printWidth/tabWidth/useTabs
+  // budget so it only joins a single-statement clause body back onto its
+  // header when the joined line fits. A distinct map instance so it does
+  // not alias the print-width blob.
+  out["format/clause-join"] = ruleEntry(cloneStringAnyMap(pwOpts))
 
   // formatStatementSplit + formatIndent — always on, Prettier-style.
   // Both reuse the indentation/EOL settings to synthesize line breaks
