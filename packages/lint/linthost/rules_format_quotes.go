@@ -59,35 +59,63 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   }
   src := ctx.File.Text()
   raw := src[pos:end]
+  isDouble := raw[0] == '"' && raw[len(raw)-1] == '"'
+  isSingle := raw[0] == '\'' && raw[len(raw)-1] == '\''
+  if !isDouble && !isSingle {
+    return
+  }
+  inner := raw[1 : len(raw)-1]
+
+  // Prettier's quote rule chooses the quote that yields fewer escapes and
+  // only falls back to the configured preference on a tie. So the rule
+  // must inspect both directions regardless of the literal's current
+  // quote: a double-quoted `"\""` (one escape) is rewritten to single
+  // `'"'` (zero escapes) even under prefer:"double", and symmetrically a
+  // single-quoted literal flips to double when double is strictly cheaper
+  // even under prefer:"single". On a tie the preferred quote wins, which
+  // for a literal already in the preferred quote means no edit (keeping
+  // the rule idempotent).
   if preferSingle {
-    if raw[0] != '"' || raw[len(raw)-1] != '"' {
+    if isDouble {
+      // Tie resolves to single (the preference), so convert whenever
+      // single is no worse — exactly convertDoubleQuotedToSingle's `ok`.
+      converted, ok := convertDoubleQuotedToSingle(inner)
+      if ok && converted != raw {
+        ctx.ReportRangeFix(pos, end, "Strings must use single quotes.",
+          TextEdit{Pos: pos, End: end, Text: converted})
+      }
       return
     }
-    converted, ok := convertDoubleQuotedToSingle(raw[1 : len(raw)-1])
-    if !ok || converted == raw {
-      return
+    // Already single: only flip to double when double is STRICTLY cheaper,
+    // so a tie keeps the preferred single quote.
+    escapedSingle, unescapedDouble := countSingleEscapes(inner)
+    if unescapedDouble < escapedSingle {
+      if converted, ok := convertSingleQuotedToDouble(inner); ok && converted != raw {
+        ctx.ReportRangeFix(pos, end, "Strings must use double quotes.",
+          TextEdit{Pos: pos, End: end, Text: converted})
+      }
     }
-    ctx.ReportRangeFix(
-      pos,
-      end,
-      "Strings must use single quotes.",
-      TextEdit{Pos: pos, End: end, Text: converted},
-    )
     return
   }
-  if raw[0] != '\'' || raw[len(raw)-1] != '\'' {
+  if isSingle {
+    // Tie resolves to double (the preference), so convert whenever double
+    // is no worse — exactly convertSingleQuotedToDouble's `ok`.
+    converted, ok := convertSingleQuotedToDouble(inner)
+    if ok && converted != raw {
+      ctx.ReportRangeFix(pos, end, "Strings must use double quotes.",
+        TextEdit{Pos: pos, End: end, Text: converted})
+    }
     return
   }
-  converted, ok := convertSingleQuotedToDouble(raw[1 : len(raw)-1])
-  if !ok || converted == raw {
-    return
+  // Already double: only flip to single when single is STRICTLY cheaper,
+  // so a tie keeps the preferred double quote.
+  escapedDouble, unescapedSingle := countDoubleEscapes(inner)
+  if unescapedSingle < escapedDouble {
+    if converted, ok := convertDoubleQuotedToSingle(inner); ok && converted != raw {
+      ctx.ReportRangeFix(pos, end, "Strings must use single quotes.",
+        TextEdit{Pos: pos, End: end, Text: converted})
+    }
   }
-  ctx.ReportRangeFix(
-    pos,
-    end,
-    "Strings must use double quotes.",
-    TextEdit{Pos: pos, End: end, Text: converted},
-  )
 }
 
 // convertDoubleQuotedToSingle walks the inner text of a double-quoted

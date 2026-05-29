@@ -109,6 +109,14 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     if call == nil {
       return
     }
+    if isDynamicImportCall(call) {
+      // Prettier never emits a trailing comma inside a dynamic
+      // `import(...)` argument list, even under trailingComma:"all" — a
+      // documented exception because the import() spec historically
+      // rejected one. The printer half (print_nodes_call.go) honors the
+      // same exception so the two rules agree on the reflowed shape.
+      return
+    }
     considerTrailingComma(ctx, call.Arguments, node.End()-1)
   case shimast.KindNewExpression:
     if mode == "es5" {
@@ -266,6 +274,17 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     }
     considerTrailingComma(ctx, list, closePos)
   }
+}
+
+// isDynamicImportCall reports whether a CallExpression is a dynamic
+// `import(...)`: its callee is the `import` keyword itself, mirroring
+// typescript-go's ast.IsImportCall. Prettier never emits a trailing
+// comma inside a dynamic-import argument list, even under
+// trailingComma:"all".
+func isDynamicImportCall(call *shimast.CallExpression) bool {
+  return call != nil &&
+    call.Expression != nil &&
+    call.Expression.Kind == shimast.KindImportKeyword
 }
 
 // considerTrailingComma reports a fix when the bracket-delimited list is
