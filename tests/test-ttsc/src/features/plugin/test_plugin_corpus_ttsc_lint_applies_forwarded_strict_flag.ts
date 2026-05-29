@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -47,7 +46,7 @@ export const test_plugin_corpus_ttsc_lint_applies_forwarded_strict_flag =
       path.join(root, "src", "main.ts"),
       `export const len = (x: string | null): number => x.length;\n`,
     );
-    const cacheDir = TestProject.tmpdir("ttsc-lint-strict-");
+    const cacheDir = SHARED_PLUGIN_CACHE_DIR;
     const result = spawn(ttscBin, ["--cwd", root, "--noEmit", "--strict"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -58,7 +57,7 @@ export const test_plugin_corpus_package_ttsc_plugin_auto_discovers_ttsc_lint_con
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-lint-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     assert.notEqual(result.status, 0, "expected auto-discovered lint to run");

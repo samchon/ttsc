@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -47,7 +46,7 @@ export const test_plugin_corpus_ttsc_lint_reports_unknown_rule_names = () => {
     path.join(root, "src", "main.ts"),
     `export const value: string = "ok";\n`,
   );
-  const cacheDir = TestProject.tmpdir("ttsc-lint-unknown-");
+  const cacheDir = SHARED_PLUGIN_CACHE_DIR;
   const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },

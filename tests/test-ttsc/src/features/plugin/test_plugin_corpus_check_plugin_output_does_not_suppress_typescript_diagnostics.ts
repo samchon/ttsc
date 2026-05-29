@@ -1,5 +1,4 @@
-import { TestProject } from "@ttsc/testing";
-
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   __dirname,
   assert,
@@ -64,7 +63,7 @@ export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript
       cwd: root,
       env: {
         PATH: goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-check-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
 
