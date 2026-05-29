@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: shared host ignores future optional flags.
@@ -59,7 +60,7 @@ export const test_banner_shared_host_ignores_future_optional_flags = () => {
   const previousPath = process.env.PATH;
   const previousCacheDir = process.env.TTSC_CACHE_DIR;
   process.env.PATH = TestBanner.goPath();
-  process.env.TTSC_CACHE_DIR = TestProject.tmpdir("ttsc-banner-future-flag-");
+  process.env.TTSC_CACHE_DIR = SHARED_PLUGIN_CACHE_DIR;
   let loaded;
   try {
     loaded = loadProjectPlugins({

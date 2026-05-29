@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format trailing-comma: rewrites multi-line lists end-to-end.
  *
@@ -43,7 +45,7 @@ export const test_lint_format_trailing_comma_rewrites_multi_line_lists = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-tc-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format whitespace: trims lines and consecutive blanks while
  * preserving template literal interiors.
@@ -11,9 +13,9 @@ import path from "node:path";
  * The fixture pins the whitespace rule's two opposing duties. Trailing spaces
  * after a statement and a run of three blank lines must be removed (the blanks
  * collapsing to a single one), yet the significant trailing spaces living
- * inside a multi-line template literal must survive untouched. After
- * `ttsc format` the outside trailing whitespace and extra blank lines are gone
- * while the spaces between "space" and the line break inside the backticks stay
+ * inside a multi-line template literal must survive untouched. After `ttsc
+ * format` the outside trailing whitespace and extra blank lines are gone while
+ * the spaces between "space" and the line break inside the backticks stay
  * exactly as authored — the rule trims insignificant whitespace without
  * reaching into template contents.
  *
@@ -49,7 +51,7 @@ export const test_lint_format_whitespace_trims_lines_and_preserves_template =
           cwd: root,
           env: {
             PATH: goPath(),
-            TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-ws-cache-"),
+            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
             TTSC_GO_BINARY: goBinary(),
           },
         },

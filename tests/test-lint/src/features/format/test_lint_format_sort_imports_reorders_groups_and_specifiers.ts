@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format sort-imports: reorders groups and named specifiers
  * end-to-end.
@@ -45,7 +47,7 @@ export const test_lint_format_sort_imports_reorders_groups_and_specifiers =
           cwd: root,
           env: {
             PATH: goPath(),
-            TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-sort-cache-"),
+            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
             TTSC_GO_BINARY: goBinary(),
           },
         },

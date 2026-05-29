@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: auto-discovered banner fails when no config
@@ -38,9 +39,7 @@ export const test_banner_auto_discovered_config_requires_banner_config_file =
         cwd: root,
         env: {
           PATH: TestBanner.goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir(
-            "ttsc-auto-banner-missing-config-",
-          ),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
       },
     );

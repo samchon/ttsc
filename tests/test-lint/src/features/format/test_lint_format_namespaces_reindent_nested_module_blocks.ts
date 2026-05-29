@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format namespaces: splits and reindents statements across
  * nested ModuleBlock scopes.
@@ -12,8 +14,8 @@ import path from "node:path";
  * Block: an outer namespace, a nested namespace, and a function inside it each
  * add one level, so crammed one-liners at depths one through three land at two,
  * four, and six columns respectively. The namespace and function header lines
- * are statements and get reindented, while their closing braces (non-statements)
- * keep the alignment the source already gave them.
+ * are statements and get reindented, while their closing braces
+ * (non-statements) keep the alignment the source already gave them.
  *
  * 1. Copy `fixtures/format-projects/format-namespaces` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
@@ -30,10 +32,7 @@ export const test_lint_format_namespaces_reindent_nested_module_blocks = () => {
     path.join(fixture, "expected", "main.ts"),
     "utf8",
   );
-  const root = path.join(
-    TestProject.tmpdir("ttsc-lint-format-ns-"),
-    "project",
-  );
+  const root = path.join(TestProject.tmpdir("ttsc-lint-format-ns-"), "project");
 
   try {
     fs.cpSync(fixture, root, { recursive: true });
@@ -46,7 +45,7 @@ export const test_lint_format_namespaces_reindent_nested_module_blocks = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-ns-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

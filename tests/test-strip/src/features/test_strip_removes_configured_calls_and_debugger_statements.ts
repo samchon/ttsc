@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: strip removes configured calls and debugger
@@ -51,7 +52,7 @@ export const test_strip_removes_configured_calls_and_debugger_statements =
         cwd: root,
         env: {
           PATH: TestStrip.goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-strip-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
       },
     );

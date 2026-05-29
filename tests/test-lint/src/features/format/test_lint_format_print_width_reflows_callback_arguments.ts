@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format print-width: reflows callback and object arguments.
  *
@@ -45,7 +47,7 @@ export const test_lint_format_print_width_reflows_callback_arguments = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-pw-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

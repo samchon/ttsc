@@ -4,16 +4,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format comments: standalone, trailing, and JSDoc-block comments
  * survive the split + indent cascade.
  *
  * The fixture sits line comments, a trailing comment, and a multi-line block
  * comment between mis-indented and crammed statements inside a function body.
- * After `ttsc format` the genuine statements split onto their own lines and snap
- * to the depth-one indent, the trailing comment stays attached to its statement,
- * and the comment-only lines are left exactly as authored — proving the
- * statement rules key off statement nodes and never rewrite comment trivia.
+ * After `ttsc format` the genuine statements split onto their own lines and
+ * snap to the depth-one indent, the trailing comment stays attached to its
+ * statement, and the comment-only lines are left exactly as authored — proving
+ * the statement rules key off statement nodes and never rewrite comment
+ * trivia.
  *
  * 1. Copy `fixtures/format-projects/format-comment-gaps` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
@@ -46,7 +49,7 @@ export const test_lint_format_comment_gaps_survive_split_and_indent = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-cmt-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

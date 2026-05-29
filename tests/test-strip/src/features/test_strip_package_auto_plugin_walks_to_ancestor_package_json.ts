@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: package ttsc.plugin walks to ancestor
@@ -56,7 +57,7 @@ export const test_strip_package_auto_plugin_walks_to_ancestor_package_json =
         cwd: project,
         env: {
           PATH: TestStrip.goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-ancestor-strip-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
       },
     );

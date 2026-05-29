@@ -4,15 +4,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format block reindent: splits a body one-liner and aligns it.
  *
- * The fixture pins the statement-split + indent fixes inside a nested block.
- * A function body holds two statements jammed onto a single unindented line
- * followed by an over-indented `return`. After `ttsc format` the two
- * statements must each take their own line and every body statement must sit at
- * exactly one indent level under the function brace — the always-on rules both
- * split the one-liner and normalize the over- and under-indentation around it.
+ * The fixture pins the statement-split + indent fixes inside a nested block. A
+ * function body holds two statements jammed onto a single unindented line
+ * followed by an over-indented `return`. After `ttsc format` the two statements
+ * must each take their own line and every body statement must sit at exactly
+ * one indent level under the function brace — the always-on rules both split
+ * the one-liner and normalize the over- and under-indentation around it.
  *
  * 1. Copy `fixtures/format-projects/format-block-reindent` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
@@ -45,7 +47,7 @@ export const test_lint_format_block_reindent_splits_and_aligns_body = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-block-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

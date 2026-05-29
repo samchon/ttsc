@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format whitespace: cleans code around multi-line and nested
  * template literals without touching their interiors.
@@ -12,9 +14,9 @@ import path from "node:path";
  * three-blank-line gap with a multi-line template carrying a `${}` substitution
  * and a nested backtick template. The hygiene rule must strip the surrounding
  * cruft and add a single final newline while every byte inside the templates —
- * trailing spaces, a tab, and a blank line that are all string content — survives
- * verbatim, proving the template-range guard is keyed on the newline's strict
- * containment rather than a whole-file rewrite.
+ * trailing spaces, a tab, and a blank line that are all string content —
+ * survives verbatim, proving the template-range guard is keyed on the newline's
+ * strict containment rather than a whole-file rewrite.
  *
  * 1. Copy `fixtures/format-projects/format-template-interleave` into a temp
  *    project.
@@ -48,7 +50,7 @@ export const test_lint_format_template_interleave_preserves_interiors = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-tpl-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

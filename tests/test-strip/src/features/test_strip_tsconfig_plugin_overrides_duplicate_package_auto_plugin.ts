@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: tsconfig plugin wins over duplicate package
@@ -56,7 +57,7 @@ export const test_strip_tsconfig_plugin_overrides_duplicate_package_auto_plugin 
         cwd: root,
         env: {
           PATH: TestStrip.goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-strip-explicit-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
       },
     );

@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+
 /**
  * Verifies lint format whitespace edges: CRLF, leading/trailing blanks, and a
  * missing final newline normalize alongside statement layout.
@@ -12,11 +14,10 @@ import path from "node:path";
  * run, trails whitespace on several lines, crams two statements inside a
  * function body, and ends with no final newline. After `ttsc format` the line
  * endings collapse to LF (the default endOfLine), blank runs collapse to one,
- * leading/trailing blanks are stripped, the crammed body splits and reindents to
- * depth one, and the file gains exactly one final newline.
+ * leading/trailing blanks are stripped, the crammed body splits and reindents
+ * to depth one, and the file gains exactly one final newline.
  *
- * 1. Copy `fixtures/format-projects/format-whitespace-edges` into a temp
- *    project.
+ * 1. Copy `fixtures/format-projects/format-whitespace-edges` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the rewritten source matches `expected/main.ts` exactly.
  */
@@ -47,7 +48,7 @@ export const test_lint_format_whitespace_edges_crlf_and_final_newline = () => {
         cwd: root,
         env: {
           PATH: goPath(),
-          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-lint-format-wsedge-cache-"),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
           TTSC_GO_BINARY: goBinary(),
         },
       },

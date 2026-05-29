@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestStrip } from "../internal/TestStrip";
+import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/strip plugin: package ttsc.plugin auto-discovers strip
@@ -46,7 +47,7 @@ export const test_strip_package_auto_uses_default_config = () => {
       cwd: root,
       env: {
         PATH: TestStrip.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-auto-strip-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     },
   );
