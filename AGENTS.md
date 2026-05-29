@@ -12,7 +12,7 @@ The main agent stays free to answer the user quickly. Delegate substantive work 
 
 - **Maximize parallelization.** Fan out independent work concurrently instead of serializing it: split test authoring from implementation, run research alongside coding, give each rule or file its own agent. The default question is "what can run at the same time," not "what comes next."
 - **Coordinate, don't bottleneck.** The main thread scopes the work, hands each piece a self-contained brief, and reconciles the results. Keep it light enough to respond to the user the moment they ask.
-- **Serialize only real conflicts.** Edits to the same file, or a decision that gates downstream work, are done on the main thread or sequenced; everything else fans out.
+- **Serialize only real conflicts.** Edits to the same file, or a decision that gates downstream work, are sequenced across subagents; everything else fans out. The main agent sequences and reconciles these cases but never executes the work itself.
 
 ## Skills
 
