@@ -6,15 +6,6 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 - **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
 - **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
 
-## Operating Mode
-
-The main agent is the coordinator and the one mind that holds the full context. It delegates parallelizable work but keeps the reasoning itself; it is not a blind dispatcher.
-
-- **Delegate execution, keep the thinking.** Fan out independent execution to subagents: exploration, review, research, running tests and builds, edits across files that do not conflict. Diagnosis, root-cause analysis, and decisions that gate the work stay with the main agent, the only party holding the whole context. Read-heavy work parallelizes cleanly; write-heavy work coordinated across blind agents drifts into shallow, conflicting results, which is the failure this guards against.
-- **Maximize parallelization within that line.** For work that does fan out, run it concurrently and ask "what can run at once," not "what's next." Scale the agent count to the task and mind the token cost; do not fan out trivial or serial steps where the overhead beats the benefit.
-- **Brief subagents fully.** They start blind: no conversation history, and they do not auto-load `AGENTS.md` or the skills. Give each a self-contained brief with the objective, constraints, the context it needs, the output format, and which `AGENTS.md` sections (at least `## Attitude`) and `.codex/skills/*/SKILL.md` to read. State the evidence and constraints, not a pre-chosen answer; a leading hypothesis yields a shallow fix. A subagent runs its brief directly and does not re-delegate.
-- **Synthesize and verify centrally.** Subagents return structured results; the main agent reconciles them, validates against the codebase, and sequences any same-file edits or gating decisions rather than running them in parallel.
-
 ## Skills
 
 All conventions and workflows live as skills under `.codex/skills/`. Read the linked file when its topic applies.
@@ -57,7 +48,7 @@ AGENTS.md and SKILL.md files are read by humans as well as agents.
 
 ### AGENTS.md
 
-The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The H2s are `## Attitude`, `## Operating Mode`, `## Skills`, and `## Maintenance`. `## Attitude` and `## Operating Mode` are the two places global agent-behavior rules live; everything else points to a skill.
+The single shared entry point for both Claude Code (via `CLAUDE.md → @AGENTS.md`) and Codex CLI, table of contents, not content. The H2s are `## Attitude`, `## Skills`, and `## Maintenance`. `## Attitude` is the one place global agent-behavior rules live; everything else points to a skill.
 
 Update only for repository-contract changes: a new skill area, a renamed or merged skill, a workflow that no longer fits an existing skill, a release-process change, or a coding-agent rule that applies globally before any skill loads.
 
