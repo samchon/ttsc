@@ -140,7 +140,12 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
   }
   // Last-argument hugging wins when both predicates match; first-arg
   // hugging only applies to the two-argument `callback, simpleArg` shape.
-  hugLast := shouldHugLastArgument(list.Nodes)
+  // Decline last-arg hugging when a leading argument's doc carries hard
+  // breaks: a block-bodied callback before the hugged last argument forces
+  // its own multi-line shape, and Prettier explodes the whole call in that
+  // case (`f(() => { … }, { … })`) rather than hugging the last argument.
+  // flatten failing is exactly Prettier's willBreak signal here.
+  hugLast := shouldHugLastArgument(list.Nodes) && !anyLeadingItemBreaks(items)
   shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
@@ -151,6 +156,20 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
     HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// anyLeadingItemBreaks reports whether any item before the last carries a
+// hard line break — it cannot render flat. Such an item (a block-bodied
+// callback) forces the call multi-line on its own, so last-argument
+// hugging must decline and let the whole list explode, matching Prettier's
+// willBreak gate on the non-last arguments.
+func anyLeadingItemBreaks(items []Doc) bool {
+  for i := 0; i+1 < len(items); i++ {
+    if _, ok := flatten(items[i]); !ok {
+      return true
+    }
+  }
+  return false
 }
 
 // shouldHugLastArgument reports whether the final entry of `args` is a
@@ -240,11 +259,19 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
   return false
 }
 
-// isSimpleTrailingArg reports whether `node` is a short, non-expandable
-// value that may trail a hugged first-argument callback. Anything that
-// can itself expand (functions, objects, arrays, calls, conditionals)
-// returns false so first-argument hugging declines, matching Prettier's
-// isHopefullyShortCallArgument / couldGroupArg gate.
+// isSimpleTrailingArg reports whether `node` is a value that may trail a
+// hugged first-argument callback. Prettier hugs the leading callback when
+// the trailing argument is an identifier, member access, literal, `this`,
+// or an array literal — most notably the `useEffect(() => { … }, [deps])`
+// idiom. An object literal, function, arrow, or conditional is excluded so
+// first-argument hugging declines and the whole list explodes.
+//
+// A call expression is deliberately NOT included: the conditional-group
+// fit check only measures an option's first line, so a hugged-first option
+// whose trailing call overflows the closing line (`}, deeplyNested(…))`)
+// would still be selected, where Prettier explodes. The array case shares
+// that limitation in principle, but dependency arrays are short in
+// practice, the same way the identifier/member cases already are.
 func isSimpleTrailingArg(node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindIdentifier,
@@ -256,7 +283,8 @@ func isSimpleTrailingArg(node *shimast.Node) bool {
     shimast.KindNullKeyword,
     shimast.KindThisKeyword,
     shimast.KindPropertyAccessExpression,
-    shimast.KindElementAccessExpression:
+    shimast.KindElementAccessExpression,
+    shimast.KindArrayLiteralExpression:
     return true
   }
   return false
