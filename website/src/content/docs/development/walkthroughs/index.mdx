@@ -2,14 +2,14 @@
 
 A guided source-code reading of every plugin that ships with `ttsc`. By the end you should be able to open `packages/<name>/` in your editor and follow what every line does.
 
-> **Prerequisite:** skim [Concepts](/docs/development/concepts). The tour assumes the vocabulary — _descriptor_, _sidecar_, _stage_, _subcommand_, _shim_, _auto-discovery_ — and does not redefine those terms inline.
+> **Prerequisite:** skim [Concepts](/docs/development/concepts). The tour assumes the vocabulary: _descriptor_, _sidecar_, _stage_, _subcommand_, _shim_, _auto-discovery_, and does not redefine those terms inline.
 
 The shipped plugins are ordered by difficulty:
 
-1. **[`@ttsc/banner`](/docs/development/walkthroughs/banner)** — insert a JSDoc preamble at the top of every emitted file. Smallest possible transform; the right place to start.
-2. **[`@ttsc/strip`](/docs/development/walkthroughs/strip)** — delete `console.log`, `debugger;`, and matching call statements before emit. Your first real AST mutation: filter a `NodeList`, recurse into block-bodied statements, replace embedded statements with an `EmptyStatement`.
-3. **[`@ttsc/paths`](/docs/development/walkthroughs/paths)** — rewrite `import "@lib/x"` into `import "./modules/x.js"` after consulting `compilerOptions.paths`, `rootDir`, `outDir`, and the actual Program source files. Introduces tsconfig parsing, AST-leaf-text mutation (the synthesize-flag invariant), and the visitor that finds every module-specifier shape TypeScript supports.
-4. **[`@ttsc/lint`](/docs/development/walkthroughs/lint)** — full diagnostics engine, plus its public Go API for third-party rule contributors. The advanced tier: rule registry, severity ladder, fix/format dispatch, build-time contributor merging.
+1. **[`@ttsc/banner`](/docs/development/walkthroughs/banner)**: insert a JSDoc preamble at the top of every emitted file. Smallest possible transform; the right place to start.
+2. **[`@ttsc/strip`](/docs/development/walkthroughs/strip)**: delete `console.log`, `debugger;`, and matching call statements before emit. Your first real AST mutation: filter a `NodeList`, recurse into block-bodied statements, replace embedded statements with an `EmptyStatement`.
+3. **[`@ttsc/paths`](/docs/development/walkthroughs/paths)**: rewrite `import "@lib/x"` into `import "./modules/x.js"` after consulting `compilerOptions.paths`, `rootDir`, `outDir`, and the actual Program source files. Introduces tsconfig parsing, AST-leaf-text mutation (the synthesize-flag invariant), and the visitor that finds every module-specifier shape TypeScript supports.
+4. **[`@ttsc/lint`](/docs/development/walkthroughs/lint)**: full diagnostics engine, plus its public Go API for third-party rule contributors. The advanced tier: rule registry, severity ladder, fix/format dispatch, build-time contributor merging.
 
 Pages 1–3 each take a single Go file and walk it line by line. Page 4 is a longer architectural tour because the lint engine is many files, but the reading pattern stays the same: open the file in the repo, then read this page as the commentary track.
 
@@ -40,12 +40,12 @@ The package-local sidecars at `packages/banner/plugin/main.go`, `packages/strip/
 
 Transform packages can also expose linked Go packages instead of executable command packages. A linked package calls `driver.RegisterPlugin` from `init()` and implements `driver.SourcePreamblePlugin` and/or `driver.ProgramPlugin`; `ttsc` copies it into the selected native host at build time. This is capability-based, not package-name based: any transform descriptor whose `source` resolves to a non-`main` Go package uses the same path.
 
-Practical consequence — flagged again on each walkthrough as it becomes relevant:
+Practical consequence, flagged again on each walkthrough as it becomes relevant:
 
 - **For learning,** the shipped plugins are the best worked examples in the repo: production-quality code, small enough to read end-to-end. The walkthroughs point you at the right files (`driver/<name>.go` for linked transform logic; `plugin/main.go` for the entrypoint contract).
 - **For your own plugin,** use [`driver.LoadProgram`](/docs/development/reference/driver-api) when you own an executable host, or export a linked Go package with `driver.RegisterPlugin` when your transform is a library that should ride inside another host. The canonical executable fixture is [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker).
 
-`@ttsc/lint` is different: its real engine lives in `packages/lint/linthost/`, and the sidecar at `packages/lint/plugin/main.go` is a `linthost.Main` one-liner. That setup is reusable — the [lint deep dive](/docs/development/walkthroughs/lint) shows how to copy the pattern when your plugin grows past one file.
+`@ttsc/lint` is different: its real engine lives in `packages/lint/linthost/`, and the sidecar at `packages/lint/plugin/main.go` is a `linthost.Main` one-liner. That setup is reusable, the [lint deep dive](/docs/development/walkthroughs/lint) shows how to copy the pattern when your plugin grows past one file.
 
 ## How to read these pages
 
@@ -53,7 +53,7 @@ Each walkthrough has the same structure:
 
 1. **What it does for the consumer.** A two-line summary plus a copyable `compilerOptions.plugins[]` entry, so you can sanity-check what the plugin promises before you read its code.
 2. **Directory layout.** Where every file lives in the repo, and which file is "the real one" to read.
-3. **JS descriptor.** Short — usually 10 lines — but it pins the descriptor shape every plugin must satisfy.
+3. **JS descriptor.** Short: usually 10 lines, but it pins the descriptor shape every plugin must satisfy.
 4. **Go module file.** What goes in `go.mod` and why. Especially for Go beginners.
 5. **Native entrypoint or linked source.** The `main.go` dispatcher or `driver/` package, line by line.
 6. **The real logic.** The bulk of the page: a guided read of the actual transform / check code in production.
@@ -64,8 +64,8 @@ You do not need to run anything. Open the cited file in your editor, scroll alon
 
 Once these are familiar, the canonical "build a third-party plugin from scratch" exercises are:
 
-- [Authoring → Getting started](/docs/development/authoring/getting-started) — the Hello plugin (~80 lines of `main.go`).
-- [Authoring → End-to-end transform](/docs/development/authoring/end-to-end) — `debugger;` removal with real AST mutation.
+- [Authoring → Getting started](/docs/development/authoring/getting-started): the Hello plugin (~80 lines of `main.go`).
+- [Authoring → End-to-end transform](/docs/development/authoring/end-to-end): `debugger;` removal with real AST mutation.
 
 The tour pages assume you have read [Concepts](/docs/development/concepts) but not necessarily Authoring. If you prefer "write your own first, then read someone else's," do Authoring first.
 
@@ -115,11 +115,11 @@ export default {
 
 `@ttsc/lint` runs first as a check-stage plugin and aborts emit on error-severity findings. The three transform-stage plugins then run inside one compiler emit pass through linked packages: `@ttsc/banner` overlays the source preamble, `@ttsc/strip` filters statements, `@ttsc/paths` rewrites module specifiers. TypeScript-Go owns the final emit of JavaScript, declarations, and source maps.
 
-This exact fixture is locked by [`tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts) — if anything in the walkthroughs ever drifts from the shipped behavior, that test catches it first.
+This exact fixture is locked by [`tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts`](https://github.com/samchon/ttsc/tree/master/tests/test-ttsc/src/features/utility-plugins/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build.ts), if anything in the walkthroughs ever drifts from the shipped behavior, that test catches it first.
 
 ## See also
 
-- [Architecture](/docs/development/reference/architecture) — the build/cache pipeline behind every plugin in this tour.
-- [Driver API](/docs/development/reference/driver-api) — the curated Go façade every third-party plugin should call.
-- [AST & Checker](/docs/development/concepts/tsgo) — the shim surface every plugin in this tour imports.
-- [Pitfalls](/docs/development/reference/pitfalls) — the failure modes the walkthroughs reference but do not redocument.
+- [Architecture](/docs/development/reference/architecture): the build/cache pipeline behind every plugin in this tour.
+- [Driver API](/docs/development/reference/driver-api): the curated Go façade every third-party plugin should call.
+- [AST & Checker](/docs/development/concepts/tsgo): the shim surface every plugin in this tour imports.
+- [Pitfalls](/docs/development/reference/pitfalls): the failure modes the walkthroughs reference but do not redocument.

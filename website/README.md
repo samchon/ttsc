@@ -4,9 +4,9 @@ The `ttsc.dev` site. Built with Next.js 15 (App Router, static export) + Nextra 
 
 ## Three sections
 
-- **Docs** — Guide documents for consumers, plugin authors, lint users, and editor users.
-- **Tutorial** — A curated 6-step walkthrough from install to bundler integration.
-- **Playground** — Monaco-based in-browser editor that runs the `typia` transformer and previews a subset of `@ttsc/lint` format rules.
+- **Docs**: Guide documents for consumers, plugin authors, lint users, and editor users.
+- **Tutorial**: A curated 6-step walkthrough from install to bundler integration.
+- **Playground**: Monaco-based in-browser editor that runs the `typia` transformer and previews a subset of `@ttsc/lint` format rules.
 
 ## Commands
 
@@ -55,5 +55,5 @@ website/
 
 The playground mirrors typia's worker-boundary architecture (tgrid `WorkerConnector` on the main thread, `WorkerServer` in the worker), so the compilation backend is replaceable. The first cut runs:
 
-1. **typia** — via `@typia/transform` as a TypeScript transformer factory, fed by the in-browser `typescript` compiler API.
-2. **lint** — a small subset of `@ttsc/lint` format rules (`format/quotes`, `format/semi`, `format/trailing-comma`, `no-var`, `eqeqeq`) reimplemented in TypeScript on top of the same AST. The full Go-backed lint engine is the next iteration target; the worker contract does not change when it lands.
+1. **typia**: via `@typia/transform` as a TypeScript transformer factory, fed by the in-browser `typescript` compiler API.
+2. **lint**: a small subset of `@ttsc/lint` format rules (`format/quotes`, `format/semi`, `format/trailing-comma`, `no-var`, `eqeqeq`) reimplemented in TypeScript on top of the same AST. The full Go-backed lint engine is the next iteration target; the worker contract does not change when it lands.

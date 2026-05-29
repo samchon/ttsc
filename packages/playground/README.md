@@ -4,7 +4,7 @@
 
 Reusable Web Worker + React scaffolding for in-browser [`ttsc`](https://ttsc.dev) playgrounds. Built on top of [`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm).
 
-The package handles the parts every browser playground needs — worker boot, MemFS layout, race-guarded compile / lint / bundle calls, on-the-fly npm dependency installer, typia source-pack mounting, console-capturing execute sandbox — and ships a Tailwind-styled React shell that wires them all up. Sites supply the wasm URL, a default script, and (optionally) examples, brand slot, and an execute callback.
+The package handles the parts every browser playground needs, worker boot, MemFS layout, race-guarded compile / lint / bundle calls, on-the-fly npm dependency installer, typia source-pack mounting, console-capturing execute sandbox, and ships a Tailwind-styled React shell that wires them all up. Sites supply the wasm URL, a default script, and (optionally) examples, brand slot, and an execute callback.
 
 The ttsc website (`ttsc.dev`) and the typia website (`typia.io`) are the two reference consumers.
 
@@ -17,7 +17,7 @@ npm install @ttsc/playground @ttsc/wasm \
 
 `@monaco-editor/react`, `monaco-editor`, `react`, `react-dom`, `tgrid`, and `@ttsc/wasm` are **peer dependencies**. `lz-string` is bundled.
 
-The React components use Tailwind 4 utility classes — see [Tailwind setup](#tailwind-setup) below.
+The React components use Tailwind 4 utility classes. See [Tailwind setup](#tailwind-setup) below.
 
 ## What you get
 
@@ -125,7 +125,7 @@ The typia pack itself is built by the site (typically with a `pack-typia-sources
 
 ## Runtime npm dependency installer
 
-When the user types `import {v4} from "uuid"`, the shell auto-fetches `uuid` (and its transitive deps) from the npm registry, unpacks the tgz in the browser, and mounts the files into the wasm MemFS — no proxy server needed.
+When the user types `import {v4} from "uuid"`, the shell auto-fetches `uuid` (and its transitive deps) from the npm registry, unpacks the tgz in the browser, and mounts the files into the wasm MemFS, no proxy server needed.
 
 ```ts
 import {
@@ -168,7 +168,7 @@ export default config;
 
 Then `import "./global.css"` from the root layout.
 
-**`@ttsc/playground` must be a direct dependency** of the consuming package. Tailwind only scans paths the consumer points at — a transitively-installed copy (where @ttsc/playground is a dep of another package) lives under a different node_modules layout and the glob above won't find it without explicit re-targeting.
+**`@ttsc/playground` must be a direct dependency** of the consuming package. Tailwind only scans paths the consumer points at. A transitively-installed copy (where @ttsc/playground is a dep of another package) lives under a different node_modules layout and the glob above won't find it without explicit re-targeting.
 
 ## Booting a custom wasm
 

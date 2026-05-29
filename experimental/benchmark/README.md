@@ -2,7 +2,7 @@
 
 Clone-based, reproducible matrix benchmark of the `ttsc` toolchain against stock `tsc`, `eslint`, and `prettier` across real-world TypeScript projects.
 
-This README is the runner reference. For the published numbers and result interpretation — build vs type-check vs lint vs format comparisons, the multi-threaded vs single-threaded analysis, and per-fixture commentary — see https://ttsc.dev/benchmark (source: `website/src/content/docs/benchmark.mdx`).
+This README is the runner reference. For the published numbers and result interpretation. Build vs type-check vs lint vs format comparisons, the multi-threaded vs single-threaded analysis, and per-fixture commentary. See https://ttsc.dev/benchmark (source: `website/src/content/docs/benchmark.mdx`).
 
 ## Quickstart
 
@@ -23,9 +23,9 @@ The first run packs the local `ttsc` workspace into tarballs, clones each fixtur
 A **cell** is one `(project, branch, tool, op, threading)` measurement.
 
 - **Branches** (each fixture is a forked repo with all three):
-  - `legacy` — stock `tsc` / `eslint` / `prettier`
-  - `ttsc` — `ttsc` over `@typescript/native-preview`
-  - `ttsc-lint` — `ttsc` with `@ttsc/lint` folded into the compile pass
+  - `legacy`: stock `tsc` / `eslint` / `prettier`
+  - `ttsc`: `ttsc` over `@typescript/native-preview`
+  - `ttsc-lint`: `ttsc` with `@ttsc/lint` folded into the compile pass
 - **Ops**: `build` (emit), `noEmit` (type-check only), `eslint` (legacy only), `format` (legacy `prettier --check` vs `ttsc format`).
 - **Threading**: compiler and lint cells use `single` (`--singleThreaded`) plus `checkers2` / `checkers4` / `checkers8` (`--checkers N`). Legacy cells and `eslint` cells are `multi` only. Format keeps `single` plus the bare default `multi` row because `--checkers N` does not control formatter work.
 - **Tool resolution** (set per cell, recorded in the report):
@@ -83,20 +83,20 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `TTSC_BENCH_RUNS` | `5` | Measured runs per cell. |
 | `TTSC_BENCH_WARMUP` | `1` | Warmup runs per cell (excluded from the median). |
 | `TTSC_BENCH_RETRIES` | `2` | Retries allowed for a `race`-classified failure. |
-| `TTSC_BENCH_SKIP_PACK` | — | `1` reuses tarballs in `TTSC_BENCH_TGZ` (same as `--no-pack`). |
-| `TTSC_BENCH_REQUIRE_QUIET` | — | `1` turns the host-load warning into a hard error. |
-| `TTSC_BENCH_SKIP_LOAD_CHECK` | — | `1` disables the host-load check entirely. |
+| `TTSC_BENCH_SKIP_PACK` | - | `1` reuses tarballs in `TTSC_BENCH_TGZ` (same as `--no-pack`). |
+| `TTSC_BENCH_REQUIRE_QUIET` | - | `1` turns the host-load warning into a hard error. |
+| `TTSC_BENCH_SKIP_LOAD_CHECK` | - | `1` disables the host-load check entirely. |
 
 ## Method
 
 - Each cell runs `WARMUP` unmeasured passes (absorbs cold filesystem cache and Go runtime warmup) then `RUNS` measured passes. The **median** is the reported time; `min` and the full sample list are kept in JSON.
 - `ttsc-lint` build/check cells add `--diagnostics` and parse `@ttsc/lint time`, `ttsc check plugin @ttsc/lint time`, and any `ttsc transform host [...] time` lines from stdout. The dashboard uses the native `@ttsc/lint` timing as the green lint segment; the sidecar total is retained for audit because it also includes TypeScript-Go Program and diagnostics work that belongs in the compiler segment.
 - Plugin binaries are built by `ttsc prepare` during setup, never during a measured run, so compiler timings do not include plugin build time.
-- Non-zero exits are classified from captured output. A `race` (TypeScript-Go data-race markers — `concurrent map`, `fatal error`, `panic:`, `DATA RACE`) is retried up to `RETRIES` times and the clean timing kept; a deterministic `error` is recorded as failed without retry.
+- Non-zero exits are classified from captured output. A `race` (TypeScript-Go data-race markers, `concurrent map`, `fatal error`, `panic:`, `DATA RACE`) is retried up to `RETRIES` times and the clean timing kept; a deterministic `error` is recorded as failed without retry.
 - Cells are measured **sequentially** so they do not compete for CPU.
 - `--sequential` is a separate, disk-cheap top-level mode: instead of cloning all fixtures up front, it clones one `(project, branch)`, measures its cells, deletes the clone, and moves to the next. The tarball pack runs once at the start. Per-project metadata (file count, legacy `typescript` version, host spec) is captured while each clone exists and reused for the final report. The published `website/public/benchmark.json` is merged in place after every cycle, so an interrupted sequential run leaves a resumable snapshot just like batch mode. Verify-only runs skip the per-cycle website write to avoid noisy host-metadata-only commits.
-- `.github/workflows/benchmark.yml` parallelises a full sweep by fanning out `--sequential --project=${project}` across a 7-job matrix (one per fixture). Each job runs `legacy → ttsc → ttsc-lint` sequentially on the same runner so the within-fixture comparisons the dashboard surfaces (ttsc vs tsc, ttsc-lint vs eslint) come from one physical machine. Cross-fixture rows (`vue` vs `rxjs`) are independent and unaffected by running on different runners, which is why the matrix doesn't go all the way to 21 jobs. Each `measure` job uploads its partial `report.json`; the `publish` job downloads every partial and invokes `merge-website.mjs` to fold the cells into `website/public/benchmark.json` by id — missing partials keep their previous cells intact, fresh partials replace by id, and only the freshest partial that _carries measurements_ rotates the top-level `date` / `host` block.
-- At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio exceeds 0.5 — the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 % on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error instead, or `TTSC_BENCH_SKIP_LOAD_CHECK=1` to silence.
+- `.github/workflows/benchmark.yml` parallelises a full sweep by fanning out `--sequential --project=${project}` across a 7-job matrix (one per fixture). Each job runs `legacy → ttsc → ttsc-lint` sequentially on the same runner so the within-fixture comparisons the dashboard surfaces (ttsc vs tsc, ttsc-lint vs eslint) come from one physical machine. Cross-fixture rows (`vue` vs `rxjs`) are independent and unaffected by running on different runners, which is why the matrix doesn't go all the way to 21 jobs. Each `measure` job uploads its partial `report.json`; the `publish` job downloads every partial and invokes `merge-website.mjs` to fold the cells into `website/public/benchmark.json` by id, missing partials keep their previous cells intact, fresh partials replace by id, and only the freshest partial that _carries measurements_ rotates the top-level `date` / `host` block.
+- At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio exceeds 0.5, the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 % on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error instead, or `TTSC_BENCH_SKIP_LOAD_CHECK=1` to silence.
 
 ## Output
 
@@ -105,6 +105,6 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `.work/report.md` | Per-project Markdown table (`Branch \| Op \| Threading \| Median \| Samples \| Failure`) preceded by a `Host` block (OS, kernel, CPU, RAM, `node` / `ttsc` / `typescript` / `tsgo` versions). |
 | `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
 | `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
-| `website/public/benchmark.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place — cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
+| `website/public/benchmark.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.

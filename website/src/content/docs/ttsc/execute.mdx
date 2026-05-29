@@ -1,6 +1,6 @@
 # Execute (ttsx)
 
-`ttsx` runs a TypeScript file directly — like `tsx` or `ts-node`, but it type-checks first and applies your plugins.
+`ttsx` runs a TypeScript file directly, like `tsx` or `ts-node`, but it type-checks first and applies your plugins.
 
 ## Run a file
 
@@ -60,7 +60,7 @@ npx ttsx -P tsconfig.scripts.json src/seed.ts
 | `-h, --help` | Show help. |
 | `-v, --version` | Print the runner version. |
 
-Any flag `ttsx` does not own, placed **before** the entry file, is forwarded to the tsgo type-check — `ttsx --strict src/index.ts` works like the matching tsgo invocation. Flags **after** the entry go to the running program as its own `process.argv`, the same as `node`.
+Any flag `ttsx` does not own, placed **before** the entry file, is forwarded to the tsgo type-check, `ttsx --strict src/index.ts` works like the matching tsgo invocation. Flags **after** the entry go to the running program as its own `process.argv`, the same as `node`.
 
 ## When ttsx vs ttsc
 
@@ -90,6 +90,6 @@ Compiled JavaScript is temporary and cleaned after the script exits. Source plug
 
 ## See also
 
-- [TTSC · `ttsc` CLI](/docs/ttsc/compile) — the type-check / build front of the same pipeline.
-- [Lint & Prettier](/docs/lint) — the linter that runs alongside the compile.
-- [FAQ](/docs/faq) — common runner gotchas and Node-version questions.
+- [TTSC · `ttsc` CLI](/docs/ttsc/compile): the type-check / build front of the same pipeline.
+- [Lint & Prettier](/docs/lint): the linter that runs alongside the compile.
+- [FAQ](/docs/faq): common runner gotchas and Node-version questions.

@@ -1,6 +1,6 @@
 # Multi-Agent Workflows
 
-Use only when the user explicitly asks for one of the named modes — Review Cycle, Discussion, or Research Review Round. Each mode composes the shared building blocks below; do not invent unnamed combinations.
+Use only when the user explicitly asks for one of the named modes, Review Cycle, Discussion, or Research Review Round. Each mode composes the shared building blocks below; do not invent unnamed combinations.
 
 ## Building Blocks
 
@@ -10,7 +10,7 @@ Form a team of six agents. For looped modes, replace the team with six different
 
 ### Lead role
 
-The lead agent coordinates the team. In modes that produce proposals, the lead rechecks every proposal against the codebase and applies only changes that are technically sound and relevant. In modes that produce transcripts, the lead moderates and scribes — writing each statement in speaking order, recording the live discussion (not a retrospective summary), and not narrowing the topic unless the user did.
+The lead agent coordinates the team. In modes that produce proposals, the lead rechecks every proposal against the codebase and applies only changes that are technically sound and relevant. In modes that produce transcripts, the lead moderates and scribes, writing each statement in speaking order, recording the live discussion (not a retrospective summary), and not narrowing the topic unless the user did.
 
 ### Topic directory
 
@@ -48,7 +48,7 @@ Open-ended topic exploration without changing code. No proposals, no validation.
 
 ### Research Review Round
 
-Review that needs shared research before individual proposals — discussion KB workflow plus the validation loop.
+Review that needs shared research before individual proposals, discussion KB workflow plus the validation loop.
 
 1. Create the topic directory. Each round lives in its own `review-round-N/` subdirectory containing fresh agents' KB folders, `round1.md`, `round2.md`, `round3.md`, `proposals.md`, and `lead-validation.md`.
 2. In each round: agents build KBs from changed source/docs/tests plus relevant research → three transcript rounds → each agent submits its own concrete proposals (no consensus required) → lead validates and applies surviving ones.

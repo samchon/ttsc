@@ -8,11 +8,11 @@ Branch from the PR target (`master` unless stated otherwise); never commit to th
 
 ## Group changes into logical commits
 
-Group changes into logical commits — one per coherent unit, not a single mega-commit when the diff is large. Use the repository's existing `<type>(<scope>): <subject>` message style.
+Group changes into logical commits. One per coherent unit, not a single mega-commit when the diff is large. Use the repository's existing `<type>(<scope>): <subject>` message style.
 
 ## Write the PR body at open
 
-Write the PR body at open: intent, scope, deferred items, test plan. Treat it as the PR's historical intent statement. Do not rewrite the body on every follow-up push — subsequent CI fixes, newly-found design issues, and deferred-item promotions go in `gh pr comment` instead. The comment thread is the PR's chronology.
+Write the PR body at open: intent, scope, deferred items, test plan. Treat it as the PR's historical intent statement. Do not rewrite the body on every follow-up push, subsequent CI fixes, newly-found design issues, and deferred-item promotions go in `gh pr comment` instead. The comment thread is the PR's chronology.
 
 ## Watch checks after every push
 
@@ -20,4 +20,4 @@ After every push, watch `gh pr checks <PR>` with the Monitor tool until each che
 
 ## Hand back without merging
 
-The agent does not merge, squash-merge, or rebase the target branch. Hand back to the user when all checks pass — or when the user has acknowledged a known-failing check.
+The agent does not merge, squash-merge, or rebase the target branch. Hand back to the user when all checks pass, or when the user has acknowledged a known-failing check.

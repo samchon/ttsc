@@ -2,7 +2,7 @@
 
 ## Work Rules
 
-- Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style — don't create parallel structures.
+- Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style, don't create parallel structures.
 - Respect existing package boundaries. Don't hardcode consumer-specific behavior into the compiler host.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
@@ -12,7 +12,7 @@
 
 First-party plugin configuration lives in dedicated `*.config.{ts,cts,mts,js,cjs,mjs,json}` files, auto-discovered by upward walk from the entry. Shipped ttsc packages accept only `configFile` (an explicit path) beyond host-owned entry keys.
 
-Inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, and `@ttsc/lint` were withdrawn so package config has one typed, discoverable home — do not reintroduce them.
+Inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, and `@ttsc/lint` were withdrawn so package config has one typed, discoverable home, do not reintroduce them.
 
 ## Testing
 
@@ -51,10 +51,10 @@ Run the narrowest command that proves the change first, then a broader command w
 
 Verification shape depends on the change type:
 
-- **Bug fix** — name the failing case and the expected behavior; run a repro that fails before the fix and passes after.
-- **Feature** — name the observable behavior; exercise it end-to-end.
-- **Refactor** — name what should stay unchanged; rely on the existing test suite or a behavior-locking probe.
-- **Review** — name concrete risks, missing tests, or regressions.
+- **Bug fix**: name the failing case and the expected behavior; run a repro that fails before the fix and passes after.
+- **Feature**: name the observable behavior; exercise it end-to-end.
+- **Refactor**: name what should stay unchanged; rely on the existing test suite or a behavior-locking probe.
+- **Review**: name concrete risks, missing tests, or regressions.
 
 ## Change Integrity
 

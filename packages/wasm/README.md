@@ -6,7 +6,7 @@ In-browser ttsc playground scaffolding. Compose ttsc + typescript-go with your o
 
 ## What you get
 
-- A base `ttsc.wasm` (under `dist/`) that exposes vanilla `build` / `check` / `transform` — no plugins linked. Useful as a sanity test or a no-plugin baseline.
+- A base `ttsc.wasm` (under `dist/`) that exposes vanilla `build` / `check` / `transform`, no plugins linked. Useful as a sanity test or a no-plugin baseline.
 - A Go helper package (`host/`) plugin authors import from their own `main_wasm.go` to bind a wasm to `globalThis[yourApiName]`.
 - A JS runtime (`bootTtsc`, `createMemFS`, typed `ITtscApi` surface) that loads any host-built wasm into a Web Worker.
 
@@ -91,7 +91,7 @@ GOOS=js GOARCH=wasm go build -trimpath \
 
 The `version`, `commit`, and `date` variables in `host/host.go` are all overridable. `globalThis[apiName].version()` reads from them.
 
-4. Boot it from JS (a Web Worker is **required** — Go's `syscall/js` blocks the runtime while the wasm is alive; running on the main thread freezes the page). Use a classic Worker or a bundler target that still exposes `importScripts`; `bootTtsc` imports `wasm_exec.js` before starting Go.
+4. Boot it from JS (a Web Worker is **required**: Go's `syscall/js` blocks the runtime while the wasm is alive; running on the main thread freezes the page). Use a classic Worker or a bundler target that still exposes `importScripts`; `bootTtsc` imports `wasm_exec.js` before starting Go.
 
 ```ts
 import { bootTtsc } from "@ttsc/wasm";
@@ -112,7 +112,7 @@ Booting two wasms with the same `apiName` overwrites the previous global binding
 
 ## Fountain API (snapshot, AST, type checker)
 
-For embedders that want `embed-typescript`-style raw access to the program — diagnostics, AST nodes, the type checker at a position — the same `globalThis[apiName]` object also exposes fountain verbs. They share the standard `{code, stdout, stderr, result}` envelope; `result` is JSON.
+For embedders that want `embed-typescript`-style raw access to the program, diagnostics, AST nodes, the type checker at a position. The same `globalThis[apiName]` object also exposes fountain verbs. They share the standard `{code, stdout, stderr, result}` envelope; `result` is JSON.
 
 ```ts
 import { bootTtsc, parseResult } from "@ttsc/wasm";
@@ -159,7 +159,7 @@ Verbs and payload types:
 | `getTypeAtPosition({ handle, path, position })` | `ITtscTypeAtPositionResult` `{ type }` |
 | `getSymbolAtPosition({ handle, path, position })` | `ITtscSymbolAtPositionResult` `{ symbol }` |
 
-`position` is a **byte offset** into the source text — the same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. from Monaco) must convert it before calling.
+`position` is a **byte offset** into the source text. The same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. From Monaco) must convert it before calling.
 
 **Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST, checker pool lease, every source file) alive until you call `releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
 
@@ -174,7 +174,7 @@ type Plugin interface {
 }
 ```
 
-The host installs `globalThis[apiName].plugin({ name, command, ...opts })` that translates the JS options object into a CLI-shaped argv and calls your plugin's `Run`. Your `Run` body can forward to the same function the native sidecar's `main.go` calls — for example `utility.RunBuild(args)` for plugins backed by `packages/ttsc/utility`.
+The host installs `globalThis[apiName].plugin({ name, command, ...opts })` that translates the JS options object into a CLI-shaped argv and calls your plugin's `Run`. Your `Run` body can forward to the same function the native sidecar's `main.go` calls, for example `utility.RunBuild(args)` for plugins backed by `packages/ttsc/utility`.
 
 ## Published-tarball Go module layout
 
@@ -182,7 +182,7 @@ The published `@ttsc/wasm` tarball ships:
 
 - A rewritten root `go.mod` whose `replace` directives point at `./shim-vendor/shim/*` (vendored at pack time from `packages/ttsc/shim/`).
 - The full `host/`, `cmd/`, `build/` Go source so consumers can `go build -tags '...'` their own wasm against your host helper.
-- `dist/ttsc.wasm` + `dist/wasm_exec.js` — the no-plugin sanity binary and the Go runtime loader.
+- `dist/ttsc.wasm` + `dist/wasm_exec.js`: the no-plugin sanity binary and the Go runtime loader.
 
 The tarball intentionally drops the `replace github.com/samchon/ttsc/packages/ttsc => ../ttsc` directive that the in-repo `go.mod` carries: consumers of the published module who want to rebuild the wasm must supply their own `replace` (or vendor `packages/ttsc` themselves). The published `dist/ttsc.wasm` is plug-and-play for runtime use; the Go module is for **plugin authors extending the host**, not for vanilla consumers.
 

@@ -125,7 +125,7 @@ This works when a check plugin runs before one transform native source that owns
 }
 ```
 
-This fails — two unrelated executable transform binaries cannot share one source-to-source pass:
+This fails. Two unrelated executable transform binaries cannot share one source-to-source pass:
 
 ```jsonc
 {
@@ -232,7 +232,7 @@ These bite first-time check-plugin authors and are not visible from the AST page
 
 **`node.Symbol()` returns nil for non-declaration nodes.** Symbols are attached during binding only for `DeclarationBase` kinds. An `ExpressionStatement`, `BinaryExpression`, or any non-declaration node will return `nil` and a `.Name` deref will crash the plugin. Either branch on `node.Kind` first, or use `ctx.Checker.GetSymbolAtLocation(node)` which is nil-safe and works on references as well as declarations.
 
-**Duplicate `Kind` in `Visits()` is silently deduplicated.** `packages/lint/linthost/engine.go` builds a `map[Kind]bool` from each rule's `Visits()`. Listing `KindCallExpression` twice registers it once — the second instance is dropped without warning. Combine all dispatch logic for one `Kind` in a single handler.
+**Duplicate `Kind` in `Visits()` is silently deduplicated.** `packages/lint/linthost/engine.go` builds a `map[Kind]bool` from each rule's `Visits()`. Listing `KindCallExpression` twice registers it once. The second instance is dropped without warning. Combine all dispatch logic for one `Kind` in a single handler.
 
 **`let` / `const` / `var` are not on `node.Flags`.** `var x` vs `let x` is stored on the parent `VariableDeclarationList`. Use `shimast.IsLet(decl)`, `shimast.IsConst(decl)`, `shimast.IsVar(decl)`, or `shimast.GetCombinedNodeFlags(decl) & shimast.NodeFlagsLet`.
 
@@ -283,7 +283,7 @@ Normal transform plugins avoid this by mutating TypeScript AST and letting TypeS
 
 ## See also
 
-- [Architecture](/docs/development/reference/architecture) — what the build pipeline does so you can predict failure modes.
-- [Walkthroughs](/docs/development/walkthroughs) — worked examples of the patterns that work.
-- [Driver API](/docs/development/reference/driver-api) — the supported Go façade.
-- [Authoring · Editor setup](/docs/development/authoring/local-dev) — fast iteration without `ttsc`.
+- [Architecture](/docs/development/reference/architecture): what the build pipeline does so you can predict failure modes.
+- [Walkthroughs](/docs/development/walkthroughs): worked examples of the patterns that work.
+- [Driver API](/docs/development/reference/driver-api): the supported Go façade.
+- [Authoring · Editor setup](/docs/development/authoring/local-dev): fast iteration without `ttsc`.

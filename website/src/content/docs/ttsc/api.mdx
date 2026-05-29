@@ -2,7 +2,7 @@
 
 For tool authors that need to drive `ttsc` from JavaScript or TypeScript.
 
-This page is for embedders — anyone wrapping `ttsc` inside a Node program (test harnesses, dev-server middleware, playground hosts, code-generation pipelines). Day-to-day users should keep using the `ttsc`, `ttsx`, and `ttscserver` [CLIs](/docs/ttsc/compile) instead.
+This page is for embedders, anyone wrapping `ttsc` inside a Node program (test harnesses, dev-server middleware, playground hosts, code-generation pipelines). Day-to-day users should keep using the `ttsc`, `ttsx`, and `ttscserver` [CLIs](/docs/ttsc/compile) instead.
 
 For browser embedding (running `ttsc` inside a Web Worker / WebAssembly), see the [WASM guide](/docs/wasm) and the [`@ttsc/playground`](/docs/playground) package built on top of it.
 
@@ -15,7 +15,7 @@ Reach for the programmatic API when you need to:
 - Pay the lazy plugin-build cost ahead of time in CI warmup steps.
 - Manage the ttsc cache directory from your tool's own lifecycle.
 
-If you only need to run the same command a user would type, shell out to `npx ttsc` instead — the CLI is the public, stable surface for that.
+If you only need to run the same command a user would type, shell out to `npx ttsc` instead. The CLI is the public, stable surface for that.
 
 ## Install
 
@@ -54,7 +54,7 @@ if (result.type === "success") {
 
 ## Lifecycle
 
-`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call — create another instance to compile a different project.
+`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project.
 
 ```ts
 // One compiler per project, kept around across calls.
@@ -84,9 +84,9 @@ type ITtscCompilerResult =
   | { type: "exception"; error: unknown };
 ```
 
-- `success` — TypeScript-Go completed with no error-class diagnostics. The `output` map contains every text artifact (JS, `.d.ts`, source maps, declaration maps). `diagnostics` is omitted when empty; warnings appear here when present.
-- `failure` — Compilation ran but produced error-class diagnostics. `output` may still be partial — TypeScript-Go can emit before erroring.
-- `exception` — The host could not run normally (cache lockup, missing binary, plugin sidecar crash, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
+- `success`: TypeScript-Go completed with no error-class diagnostics. The `output` map contains every text artifact (JS, `.d.ts`, source maps, declaration maps). `diagnostics` is omitted when empty; warnings appear here when present.
+- `failure`: Compilation ran but produced error-class diagnostics. `output` may still be partial, TypeScript-Go can emit before erroring.
+- `exception`: The host could not run normally (cache lockup, missing binary, plugin sidecar crash, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
 
 ### `transform()`
 
@@ -179,7 +179,7 @@ See [`ITtscProjectPluginConfig`](https://github.com/samchon/ttsc/blob/master/pac
 
 ### Long-lived service
 
-Build one `TtscCompiler` per watched project at startup. Call `prepare()` once, then `compile()` whenever you need a fresh build. There is no incremental mode today — every `compile()` reloads the project — so the construction cost is just descriptor wiring, not the compile itself.
+Build one `TtscCompiler` per watched project at startup. Call `prepare()` once, then `compile()` whenever you need a fresh build. There is no incremental mode today, every `compile()` reloads the project, so the construction cost is just descriptor wiring, not the compile itself.
 
 ### CI warmup
 
@@ -192,8 +192,8 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ### Driving a Web Worker / Browser
 
-`TtscCompiler` is a Node API — it spawns native processes. For browser embedding, use [`@ttsc/wasm`](/docs/wasm) directly or the higher-level [`@ttsc/playground`](/docs/playground) package.
+`TtscCompiler` is a Node API, it spawns native processes. For browser embedding, use [`@ttsc/wasm`](/docs/wasm) directly or the higher-level [`@ttsc/playground`](/docs/playground) package.
 
 ## Stability
 
-`TtscCompiler`, the result types, and `ITtscCompilerContext` are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal — depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, the result types, and `ITtscCompilerContext` are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.

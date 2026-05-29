@@ -4,152 +4,152 @@ Generic ESLint-compatible rules that apply to both JavaScript and TypeScript sou
 
 Source: [ESLint core rules](https://eslint.org/docs/latest/rules/) (MIT).
 
-- `camelcase` — Reject identifier declarations that aren't camelCase or PascalCase — snake_case bindings are flagged.
-- `complexity` — Reject function bodies whose cyclomatic complexity exceeds twenty (default ESLint threshold).
-- `curly` — Require block statements for every `if`, `else`, `while`, `for`, and `do` body — reject the single-statement shorthand.
-- `default-case` — Require `switch` statements to include a `default` clause so unhandled discriminants surface explicitly instead of silently falling through.
-- `default-case-last` — Require the `default` clause of a `switch` statement to appear last, so the fall-through path matches the visual order of the labels.
-- `consistent-return` — Reject functions where some `return` statements return a value and others fall through without one — pick one shape so callers can rely on the return type.
-- `default-param-last` — Reject `(req, opt = 1, req2)` and similar parameter lists where a required parameter follows an optional or default-valued one.
-- `dot-notation` — Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when the string key is a valid JavaScript identifier.
-- `eqeqeq` — Require strict equality operators `===` / `!==` over `==` / `!=`.
-- `for-direction` — Reject `for` statements whose update clause moves the counter away from the termination condition, such as `for (let i = 0; i < 10; i--)`.
-- `getter-return` — Require a `get` accessor's body to return a value on every reachable exit.
-- `grouped-accessor-pairs` — Require the `get` and `set` accessors of a single property to be declared adjacent in the class body so readers see the read/write pair together.
-- `guard-for-in` — Require `for (key in obj)` bodies to immediately guard against inherited keys with `Object.hasOwn(obj, key)` or `Object.prototype.hasOwnProperty.call(obj, key)`, so the loop body never silently processes a prototype-chain entry.
-- `id-length` — Reject identifier names shorter than two characters.
-- `init-declarations` — Require every `var` / `let` declaration to be initialized at its declaration site.
-- `max-classes-per-file` — Reject a source file that declares more than one class.
-- `max-depth` — Reject block-statement nesting deeper than four levels inside a function.
-- `max-lines` — Reject a source file whose total line count exceeds three hundred.
-- `max-lines-per-function` — Reject a function whose body spans more than fifty lines.
-- `max-nested-callbacks` — Reject callback nesting deeper than ten inside a single function.
-- `max-params` — Reject function declarations whose parameter list grows beyond three, since long parameter lists usually want to be folded into an options object.
-- `max-statements` — Reject function bodies whose statement count exceeds ten.
-- `no-alert` — Reject calls to `alert`, `confirm`, and `prompt`.
-- `no-array-constructor` — Reject `Array(...)` and `new Array(...)` constructor calls in favor of array literals.
-- `no-async-promise-executor` — Reject `new Promise(async (resolve, reject) => { ... })`.
-- `no-await-in-loop` — Reject `await` expressions evaluated inside a loop body.
-- `no-bitwise` — Reject bitwise operators (`&`, `|`, `^`, `~`, `<<`, `>>`, `>>>`).
-- `no-caller` — Reject `arguments.caller` and `arguments.callee`, both deprecated properties forbidden in strict mode.
-- `no-case-declarations` — Reject lexical declarations (`let`, `const`, `class`, `function`) inside `case` or `default` clauses without their own block, since the declaration shares the whole `switch` scope and leaks into sibling clauses.
-- `no-class-assign` — Reject reassigning a class binding (`class C {}; C = ...`).
-- `no-compare-neg-zero` — Reject comparisons against `-0` (`x === -0`, `x < -0`, etc.).
-- `no-cond-assign` — Reject assignment expressions inside conditions, such as `if (x = y)` — almost always a typo for `==` / `===`.
-- `no-console` — Reject calls to `console.*`.
-- `no-constant-condition` — Reject conditions whose value can be determined statically, such as `while (true)` or `if (false)`, in `if`, `while`, `do/while`, `for`, and ternary expressions.
-- `no-constructor-return` — Reject `return X;` (with a value) inside a class constructor.
-- `no-continue` — Reject `continue` statements.
-- `no-control-regex` — Reject ASCII control characters (`\x00`–`\x1F`) inside regular expression literals and `RegExp` strings.
-- `no-debugger` — Reject `debugger` statements.
-- `no-delete-var` — Reject `delete` applied to plain variable bindings (`delete x`).
-- `no-dupe-args` — Reject `function f(a, a)` and similar parameter lists that declare the same name twice.
-- `no-dupe-class-members` — Reject two declarations of the same member on a single class.
-- `no-dupe-else-if` — Reject `if (a) {} else if (a) {}` — the second branch is unreachable because the first condition already handled it.
-- `no-dupe-keys` — Reject `{ a: 1, a: 2 }` — duplicate property keys in an object literal silently overwrite earlier values.
-- `no-duplicate-case` — Reject the same `case` label appearing twice in a `switch` — later duplicates are unreachable.
-- `no-duplicate-imports` — Reject two import declarations that resolve to the same module specifier.
-- `no-else-return` — Reject an `else` block whose preceding `if` branch already terminates control flow with `return` / `throw` / `break` / `continue`.
-- `no-empty` — Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch (e) {}` etc.) that almost always indicate forgotten code.
-- `no-empty-character-class` — Reject empty regex character classes (`[]`).
-- `no-empty-function` — Reject empty function and method bodies (`function f() {}`, `() => {}`).
-- `no-empty-named-blocks` — Reject empty named import/export clauses (`import {} from "x"`, `import name, {} from "x"`, `export {}`), which bind nothing and either dead-load the module or restate module-ness redundantly.
-- `no-empty-pattern` — Reject empty destructuring patterns (`const {} = obj`, `function f([]) {}`), which bind nothing and are usually mid-edit typos.
-- `no-empty-static-block` — Reject empty `static {}` class initialization blocks.
-- `no-eq-null` — Reject loose null comparisons (`x == null`).
-- `no-eval` — Reject `eval(...)` and indirect `eval` calls — almost always a security or correctness bug.
-- `no-ex-assign` — Reject reassigning the parameter of a `catch` clause (`catch (e) { e = ... }`), which loses the original error reference.
-- `no-extend-native` — reject assignments to a built-in prototype such as `Array.prototype.foo = bar`.
-- `no-extra-bind` — Reject unnecessary `Function.prototype.bind()` calls — for example, binding without arguments or binding an arrow function (which ignores `this`).
-- `no-extra-boolean-cast` — Reject redundant boolean casts such as `!!Boolean(x)`, `if (Boolean(x))`, or `Boolean(!!x)`.
-- `no-fallthrough` — Reject `switch` case fall-through unless preceded by an explicit `// falls through` comment.
-- `no-func-assign` — Reject reassignment of function declarations (`function f() {}; f = 0;`).
-- `no-implicit-coercion` — Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
-- `no-import-assign` — Reject writes to a binding introduced by an `import` declaration — assignment, compound assignment, or `++`/`--` of an imported name, plus property mutations of a namespace import (`ns.foo = ...`).
-- `no-inner-declarations` — Reject `function` and `var` declarations nested in non-function blocks (loops, `if`, etc.) — they hoist in surprising ways.
-- `no-invalid-this` — Reject `this` references outside any function-like, class method, or class-static-block context.
-- `no-irregular-whitespace` — Reject irregular whitespace characters (zero-width space, non-breaking space, etc.) in source — typically copy-paste artifacts from rich-text editors.
-- `no-iterator` — Reject the legacy `__iterator__` property — a SpiderMonkey-only extension predating ES2015 iterators.
-- `no-labels` — Reject labeled statements (`outer: for (...) { break outer; }`).
-- `no-lone-blocks` — Reject standalone `{ ... }` blocks that introduce no lexical scope distinct from the surrounding block.
-- `no-lonely-if` — Reject `if (cond) { if (...) { ... } }` where the inner `if` is the only statement in an `else` — prefer `else if`.
-- `no-loop-func` — reject function declarations defined inside the body of a loop.
-- `no-loss-of-precision` — Reject numeric literals whose source text cannot round-trip through `Number` without losing digits, including overflow.
-- `no-magic-numbers` — Reject inline numeric literals outside `const` initializer position. `0`, `1`, `-1`, array indices, and enum values are exempt.
-- `no-misleading-character-class` — Reject regex character classes that contain combined Unicode sequences (e.g. surrogate pairs) which most readers will not realize represent multiple code units.
-- `no-mixed-operators` — Reject mixing operators of different precedence families (`a && b || c`, `a | b && c`) without explicit parentheses around the inner sub-expression.
-- `no-multi-assign` — Reject chained assignment such as `a = b = 0`, which obscures intent and surprises readers who expect comparison.
-- `no-multi-str` — Reject backslash-newline multiline string literals; use template literals instead.
-- `no-negated-condition` — Reject `if (!cond) { ... } else { ... }` — flip the branches so the positive condition reads first.
-- `no-nested-ternary` — Reject ternary expressions nested in other ternaries (`a ? b : c ? d : e`), which are hard to read at a glance.
-- `no-new` — Reject `new` expressions whose return value is not assigned or used — the object is created only for its constructor side effects.
-- `no-new-func` — Reject `new Function(...)` and `Function(...)` calls, which effectively evaluate a string and have the same risks as `eval`.
-- `no-new-symbol` — Reject `new Symbol(...)`.
-- `no-new-wrappers` — Reject primitive wrapper constructors `new String(...)`, `new Number(...)`, `new Boolean(...)`.
-- `no-obj-calls` — Reject calling global non-callable objects as functions, such as `Math()` or `JSON()`.
-- `no-object-constructor` — Reject `new Object()` and `Object()` constructor calls; use an object literal `{}` instead.
-- `no-octal` — Reject legacy octal literals (`0123`).
-- `no-octal-escape` — Reject octal escape sequences in string literals (`"\251"`, `"\07"`).
-- `no-param-reassign` — reject reassigning a function parameter inside the body of the function it belongs to.
-- `no-plusplus` — Reject `++` and `--` operators.
-- `no-promise-executor-return` — Reject `return` inside the Promise executor function — the value is ignored.
-- `no-proto` — Reject access to `obj.__proto__`; use `Object.getPrototypeOf` / `Object.setPrototypeOf`.
-- `no-prototype-builtins` — Reject `obj.hasOwnProperty(key)` and other direct `Object.prototype` builtins on user objects, since the property may be shadowed.
-- `no-redeclare` — reject declaring the same binding more than once in the same scope (`var x = 1; var x = 2;`, two `function foo()` declarations side by side, or a parameter rebound by a later `var` in the body).
-- `no-regex-spaces` — Reject more than one consecutive literal space in a regex; use `{N}` quantifiers for clarity.
-- `no-restricted-imports` — Reject `import` declarations targeting any module specifier in the project denylist.
-- `no-restricted-syntax` — Reject AST node kinds listed in the project denylist.
-- `no-return-assign` — Reject assignment expressions used as the operand of `return` (`return x = 1`) — almost always a typo for `===`.
-- `no-script-url` — Reject `javascript:` URLs in string literals — they execute their body as code on browser navigation, and security scanners treat them as an `eval` equivalent.
-- `no-self-assign` — Reject `x = x` and destructuring forms that copy a value to itself — almost always a typo.
-- `no-self-compare` — Reject comparing a value to itself (`x === x`).
-- `no-sequences` — Reject comma expressions (`a, b`) outside the heads of `for` statements.
-- `no-setter-return` — Reject explicit `return` from a setter — setters' return values are ignored.
-- `no-shadow` — Reject a nested scope binding (`let`, `const`, `function`, parameter) that shadows a same-name binding from an outer scope, so the reader can rely on a single identifier referring to a single declaration.
-- `no-shadow-restricted-names` — Reject redeclaring restricted globals (`NaN`, `Infinity`, `undefined`, etc.).
-- `no-sparse-arrays` — Reject array literals with elision (`[, 1, , 3]`), which read surprisingly and rarely express intent.
-- `no-template-curly-in-string` — Reject `${expr}` inside ordinary single- or double-quoted strings — almost always a missing template-literal backtick.
-- `no-this-before-super` — Reject `this` (or `super.x`) references that precede the first `super()` call in a derived constructor.
-- `no-throw-literal` — Reject throwing non-Error operands (`throw "boom"`, `throw 1`).
-- `no-undef-init` — Reject initializing a variable to the literal `undefined` (`let x = undefined`) — declaring without an initializer has the same effect.
-- `no-undefined` — Reject use of the global `undefined` identifier; use the `void 0` expression or omit the value.
-- `no-unneeded-ternary` — Reject `cond ? true : false` and similar ternaries that can be simplified to a boolean coercion or the condition itself.
-- `no-unreachable` — reject statements that follow an unconditional `return`, `throw`, `break`, or `continue` in the same block — control flow has already left the block, so any later statement is dead code.
-- `no-unsafe-finally` — Reject `return` and `throw` inside a `finally` block, which override any earlier `return`/`throw` from the corresponding `try`/`catch`.
-- `no-unsafe-negation` — Reject `!key in obj` and `!a instanceof B` where the `!` binds tighter than the relational operator and silently coerces the left operand to a boolean.
-- `no-unsafe-optional-chaining` — Reject member access or call expressions that chain off an optional chain without continuing the chain.
-- `no-unused-expressions` — Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
-- `no-unused-labels` — Reject labels that no `break` or `continue` statement references.
-- `no-useless-assignment` — reject an assignment whose value is immediately overwritten by the very next statement without an intervening read of the same identifier.
-- `no-useless-call` — Reject unnecessary `.call()` / `.apply()` calls (such as `f.call(undefined, x)`).
-- `no-useless-catch` — Reject `catch (e) { throw e }` patterns that only rethrow the caught error without adding context or handling.
-- `no-useless-computed-key` — Reject computed property keys whose expression is a literal identifier (`{ ["foo"]: 1 }`).
-- `no-useless-concat` — Reject `"a" + "b"` and similar concatenations where every operand is a literal string.
-- `no-useless-constructor` — Reject empty constructor bodies (`class X { constructor() {} }`) that add nothing over the implicit constructor.
-- `no-useless-escape` — Reject unnecessary escape sequences in strings and regex literals, such as `"\."` or `/\,/`.
-- `no-useless-rename` — Reject `{ x: x }` destructuring renames that bind back to the same name.
-- `no-useless-return` — reject a bare `return;` whose only effect is to end a function body that would have returned anyway.
-- `no-var` — Reject `var` declarations.
-- `no-with` — Reject `with (...)` statements.
-- `object-shorthand` — Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`.
-- `operator-assignment` — Prefer compound assignment (`x += y`) over the long form (`x = x + y`) where the two are equivalent.
-- `prefer-arrow-callback` — Reject `function() { ... }` expressions passed as callback arguments — prefer the arrow form.
-- `prefer-const` — Require `const` for variables that are never reassigned after declaration.
-- `prefer-destructuring` — Reject single-property and single-index variable declarations (`const a = obj.a`) that destructuring would replace verbatim.
-- `prefer-exponentiation-operator` — Prefer the `**` operator over `Math.pow(base, exp)`.
-- `prefer-for-of` — Prefer `for..of` over a traditional `for (let i = 0; i < arr.length; i++)` loop when the index is never used inside the body.
-- `prefer-named-capture-group` — Reject regex literals with unnamed capturing groups `(...)` — prefer named groups `(?<name>...)`.
-- `prefer-numeric-literals` — Prefer ES2015+ numeric literal forms (`0b…`, `0o…`, `0x…`) over `parseInt(string, 2 | 8 | 16)`.
-- `prefer-object-has-own` — Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.
-- `prefer-object-spread` — Prefer object-spread `{ ...a, ...b }` over `Object.assign({}, a, b)`.
-- `prefer-rest-params` — Reject reading from `arguments` in a non-arrow function body — prefer the rest-parameter form `(...args)`.
-- `prefer-spread` — Prefer spread arguments `f(...args)` over `f.apply(null, args)`.
-- `prefer-template` — Prefer template literals over string concatenation when any operand is non-literal.
-- `radix` — Require an explicit radix argument for `parseInt(str, radix)`.
-- `require-yield` — Require generator functions to contain at least one `yield`.
-- `sort-imports` — Reject import specifiers within a single `import` declaration that aren't alphabetically sorted.
-- `sort-keys` — Reject object-literal property keys that aren't alphabetically sorted.
-- `use-isnan` — Require `Number.isNaN` / `isNaN` for `NaN` checks; restrict `typeof` comparisons to the documented strings.
-- `valid-typeof` — Restrict the right-hand operand of `typeof` to the documented strings (`"number"`, `"object"`, ...) so `typeof x === "undefiend"` typos are caught.
-- `vars-on-top` — Require `var` declarations to be hoisted to the top of their scope by hand, mirroring how the engine treats them.
-- `yoda` — Reject Yoda-style comparisons (`if (42 === x)`); use `if (x === 42)` so the variable comes first.
+- `camelcase`: Reject identifier declarations that aren't camelCase or PascalCase, snake_case bindings are flagged.
+- `complexity`: Reject function bodies whose cyclomatic complexity exceeds twenty (default ESLint threshold).
+- `curly`: Require block statements for every `if`, `else`, `while`, `for`, and `do` body. Reject the single-statement shorthand.
+- `default-case`: Require `switch` statements to include a `default` clause so unhandled discriminants surface explicitly instead of silently falling through.
+- `default-case-last`: Require the `default` clause of a `switch` statement to appear last, so the fall-through path matches the visual order of the labels.
+- `consistent-return`: Reject functions where some `return` statements return a value and others fall through without one. Pick one shape so callers can rely on the return type.
+- `default-param-last`: Reject `(req, opt = 1, req2)` and similar parameter lists where a required parameter follows an optional or default-valued one.
+- `dot-notation`: Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when the string key is a valid JavaScript identifier.
+- `eqeqeq`: Require strict equality operators `===` / `!==` over `==` / `!=`.
+- `for-direction`: Reject `for` statements whose update clause moves the counter away from the termination condition, such as `for (let i = 0; i < 10; i--)`.
+- `getter-return`: Require a `get` accessor's body to return a value on every reachable exit.
+- `grouped-accessor-pairs`: Require the `get` and `set` accessors of a single property to be declared adjacent in the class body so readers see the read/write pair together.
+- `guard-for-in`: Require `for (key in obj)` bodies to immediately guard against inherited keys with `Object.hasOwn(obj, key)` or `Object.prototype.hasOwnProperty.call(obj, key)`, so the loop body never silently processes a prototype-chain entry.
+- `id-length`: Reject identifier names shorter than two characters.
+- `init-declarations`: Require every `var` / `let` declaration to be initialized at its declaration site.
+- `max-classes-per-file`: Reject a source file that declares more than one class.
+- `max-depth`: Reject block-statement nesting deeper than four levels inside a function.
+- `max-lines`: Reject a source file whose total line count exceeds three hundred.
+- `max-lines-per-function`: Reject a function whose body spans more than fifty lines.
+- `max-nested-callbacks`: Reject callback nesting deeper than ten inside a single function.
+- `max-params`: Reject function declarations whose parameter list grows beyond three, since long parameter lists usually want to be folded into an options object.
+- `max-statements`: Reject function bodies whose statement count exceeds ten.
+- `no-alert`: Reject calls to `alert`, `confirm`, and `prompt`.
+- `no-array-constructor`: Reject `Array(...)` and `new Array(...)` constructor calls in favor of array literals.
+- `no-async-promise-executor`: Reject `new Promise(async (resolve, reject) => { ... })`.
+- `no-await-in-loop`: Reject `await` expressions evaluated inside a loop body.
+- `no-bitwise`: Reject bitwise operators (`&`, `|`, `^`, `~`, `<<`, `>>`, `>>>`).
+- `no-caller`: Reject `arguments.caller` and `arguments.callee`, both deprecated properties forbidden in strict mode.
+- `no-case-declarations`: Reject lexical declarations (`let`, `const`, `class`, `function`) inside `case` or `default` clauses without their own block, since the declaration shares the whole `switch` scope and leaks into sibling clauses.
+- `no-class-assign`: Reject reassigning a class binding (`class C {}; C = ...`).
+- `no-compare-neg-zero`: Reject comparisons against `-0` (`x === -0`, `x < -0`, etc.).
+- `no-cond-assign`: Reject assignment expressions inside conditions, such as `if (x = y)`, almost always a typo for `==` / `===`.
+- `no-console`: Reject calls to `console.*`.
+- `no-constant-condition`: Reject conditions whose value can be determined statically, such as `while (true)` or `if (false)`, in `if`, `while`, `do/while`, `for`, and ternary expressions.
+- `no-constructor-return`: Reject `return X;` (with a value) inside a class constructor.
+- `no-continue`: Reject `continue` statements.
+- `no-control-regex`: Reject ASCII control characters (`\x00`–`\x1F`) inside regular expression literals and `RegExp` strings.
+- `no-debugger`: Reject `debugger` statements.
+- `no-delete-var`: Reject `delete` applied to plain variable bindings (`delete x`).
+- `no-dupe-args`: Reject `function f(a, a)` and similar parameter lists that declare the same name twice.
+- `no-dupe-class-members`: Reject two declarations of the same member on a single class.
+- `no-dupe-else-if`: Reject `if (a) {} else if (a) {}`. The second branch is unreachable because the first condition already handled it.
+- `no-dupe-keys`: Reject `{ a: 1, a: 2 }`, duplicate property keys in an object literal silently overwrite earlier values.
+- `no-duplicate-case`: Reject the same `case` label appearing twice in a `switch`, later duplicates are unreachable.
+- `no-duplicate-imports`: Reject two import declarations that resolve to the same module specifier.
+- `no-else-return`: Reject an `else` block whose preceding `if` branch already terminates control flow with `return` / `throw` / `break` / `continue`.
+- `no-empty`: Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch (e) {}` etc.) that almost always indicate forgotten code.
+- `no-empty-character-class`: Reject empty regex character classes (`[]`).
+- `no-empty-function`: Reject empty function and method bodies (`function f() {}`, `() => {}`).
+- `no-empty-named-blocks`: Reject empty named import/export clauses (`import {} from "x"`, `import name, {} from "x"`, `export {}`), which bind nothing and either dead-load the module or restate module-ness redundantly.
+- `no-empty-pattern`: Reject empty destructuring patterns (`const {} = obj`, `function f([]) {}`), which bind nothing and are usually mid-edit typos.
+- `no-empty-static-block`: Reject empty `static {}` class initialization blocks.
+- `no-eq-null`: Reject loose null comparisons (`x == null`).
+- `no-eval`: Reject `eval(...)` and indirect `eval` calls, almost always a security or correctness bug.
+- `no-ex-assign`: Reject reassigning the parameter of a `catch` clause (`catch (e) { e = ... }`), which loses the original error reference.
+- `no-extend-native`: reject assignments to a built-in prototype such as `Array.prototype.foo = bar`.
+- `no-extra-bind`: Reject unnecessary `Function.prototype.bind()` calls, for example, binding without arguments or binding an arrow function (which ignores `this`).
+- `no-extra-boolean-cast`: Reject redundant boolean casts such as `!!Boolean(x)`, `if (Boolean(x))`, or `Boolean(!!x)`.
+- `no-fallthrough`: Reject `switch` case fall-through unless preceded by an explicit `// falls through` comment.
+- `no-func-assign`: Reject reassignment of function declarations (`function f() {}; f = 0;`).
+- `no-implicit-coercion`: Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
+- `no-import-assign`: Reject writes to a binding introduced by an `import` declaration, assignment, compound assignment, or `++`/`--` of an imported name, plus property mutations of a namespace import (`ns.foo = ...`).
+- `no-inner-declarations`: Reject `function` and `var` declarations nested in non-function blocks (loops, `if`, etc.). They hoist in surprising ways.
+- `no-invalid-this`: Reject `this` references outside any function-like, class method, or class-static-block context.
+- `no-irregular-whitespace`: Reject irregular whitespace characters (zero-width space, non-breaking space, etc.) in source, typically copy-paste artifacts from rich-text editors.
+- `no-iterator`: Reject the legacy `__iterator__` property, a SpiderMonkey-only extension predating ES2015 iterators.
+- `no-labels`: Reject labeled statements (`outer: for (...) { break outer; }`).
+- `no-lone-blocks`: Reject standalone `{ ... }` blocks that introduce no lexical scope distinct from the surrounding block.
+- `no-lonely-if`: Reject `if (cond) { if (...) { ... } }` where the inner `if` is the only statement in an `else`. Prefer `else if`.
+- `no-loop-func`: reject function declarations defined inside the body of a loop.
+- `no-loss-of-precision`: Reject numeric literals whose source text cannot round-trip through `Number` without losing digits, including overflow.
+- `no-magic-numbers`: Reject inline numeric literals outside `const` initializer position. `0`, `1`, `-1`, array indices, and enum values are exempt.
+- `no-misleading-character-class`: Reject regex character classes that contain combined Unicode sequences (e.g. Surrogate pairs) which most readers will not realize represent multiple code units.
+- `no-mixed-operators`: Reject mixing operators of different precedence families (`a && b || c`, `a | b && c`) without explicit parentheses around the inner sub-expression.
+- `no-multi-assign`: Reject chained assignment such as `a = b = 0`, which obscures intent and surprises readers who expect comparison.
+- `no-multi-str`: Reject backslash-newline multiline string literals; use template literals instead.
+- `no-negated-condition`: Reject `if (!cond) { ... } else { ... }`. Flip the branches so the positive condition reads first.
+- `no-nested-ternary`: Reject ternary expressions nested in other ternaries (`a ? b : c ? d : e`), which are hard to read at a glance.
+- `no-new`: Reject `new` expressions whose return value is not assigned or used. The object is created only for its constructor side effects.
+- `no-new-func`: Reject `new Function(...)` and `Function(...)` calls, which effectively evaluate a string and have the same risks as `eval`.
+- `no-new-symbol`: Reject `new Symbol(...)`.
+- `no-new-wrappers`: Reject primitive wrapper constructors `new String(...)`, `new Number(...)`, `new Boolean(...)`.
+- `no-obj-calls`: Reject calling global non-callable objects as functions, such as `Math()` or `JSON()`.
+- `no-object-constructor`: Reject `new Object()` and `Object()` constructor calls; use an object literal `{}` instead.
+- `no-octal`: Reject legacy octal literals (`0123`).
+- `no-octal-escape`: Reject octal escape sequences in string literals (`"\251"`, `"\07"`).
+- `no-param-reassign`: reject reassigning a function parameter inside the body of the function it belongs to.
+- `no-plusplus`: Reject `++` and `--` operators.
+- `no-promise-executor-return`: Reject `return` inside the Promise executor function. The value is ignored.
+- `no-proto`: Reject access to `obj.__proto__`; use `Object.getPrototypeOf` / `Object.setPrototypeOf`.
+- `no-prototype-builtins`: Reject `obj.hasOwnProperty(key)` and other direct `Object.prototype` builtins on user objects, since the property may be shadowed.
+- `no-redeclare`: reject declaring the same binding more than once in the same scope (`var x = 1; var x = 2;`, two `function foo()` declarations side by side, or a parameter rebound by a later `var` in the body).
+- `no-regex-spaces`: Reject more than one consecutive literal space in a regex; use `{N}` quantifiers for clarity.
+- `no-restricted-imports`: Reject `import` declarations targeting any module specifier in the project denylist.
+- `no-restricted-syntax`: Reject AST node kinds listed in the project denylist.
+- `no-return-assign`: Reject assignment expressions used as the operand of `return` (`return x = 1`), almost always a typo for `===`.
+- `no-script-url`: Reject `javascript:` URLs in string literals, they execute their body as code on browser navigation, and security scanners treat them as an `eval` equivalent.
+- `no-self-assign`: Reject `x = x` and destructuring forms that copy a value to itself, almost always a typo.
+- `no-self-compare`: Reject comparing a value to itself (`x === x`).
+- `no-sequences`: Reject comma expressions (`a, b`) outside the heads of `for` statements.
+- `no-setter-return`: Reject explicit `return` from a setter, setters' return values are ignored.
+- `no-shadow`: Reject a nested scope binding (`let`, `const`, `function`, parameter) that shadows a same-name binding from an outer scope, so the reader can rely on a single identifier referring to a single declaration.
+- `no-shadow-restricted-names`: Reject redeclaring restricted globals (`NaN`, `Infinity`, `undefined`, etc.).
+- `no-sparse-arrays`: Reject array literals with elision (`[, 1, , 3]`), which read surprisingly and rarely express intent.
+- `no-template-curly-in-string`: Reject `${expr}` inside ordinary single- or double-quoted strings, almost always a missing template-literal backtick.
+- `no-this-before-super`: Reject `this` (or `super.x`) references that precede the first `super()` call in a derived constructor.
+- `no-throw-literal`: Reject throwing non-Error operands (`throw "boom"`, `throw 1`).
+- `no-undef-init`: Reject initializing a variable to the literal `undefined` (`let x = undefined`), declaring without an initializer has the same effect.
+- `no-undefined`: Reject use of the global `undefined` identifier; use the `void 0` expression or omit the value.
+- `no-unneeded-ternary`: Reject `cond ? true : false` and similar ternaries that can be simplified to a boolean coercion or the condition itself.
+- `no-unreachable`: reject statements that follow an unconditional `return`, `throw`, `break`, or `continue` in the same block, control flow has already left the block, so any later statement is dead code.
+- `no-unsafe-finally`: Reject `return` and `throw` inside a `finally` block, which override any earlier `return`/`throw` from the corresponding `try`/`catch`.
+- `no-unsafe-negation`: Reject `!key in obj` and `!a instanceof B` where the `!` binds tighter than the relational operator and silently coerces the left operand to a boolean.
+- `no-unsafe-optional-chaining`: Reject member access or call expressions that chain off an optional chain without continuing the chain.
+- `no-unused-expressions`: Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
+- `no-unused-labels`: Reject labels that no `break` or `continue` statement references.
+- `no-useless-assignment`: reject an assignment whose value is immediately overwritten by the very next statement without an intervening read of the same identifier.
+- `no-useless-call`: Reject unnecessary `.call()` / `.apply()` calls (such as `f.call(undefined, x)`).
+- `no-useless-catch`: Reject `catch (e) { throw e }` patterns that only rethrow the caught error without adding context or handling.
+- `no-useless-computed-key`: Reject computed property keys whose expression is a literal identifier (`{ ["foo"]: 1 }`).
+- `no-useless-concat`: Reject `"a" + "b"` and similar concatenations where every operand is a literal string.
+- `no-useless-constructor`: Reject empty constructor bodies (`class X { constructor() {} }`) that add nothing over the implicit constructor.
+- `no-useless-escape`: Reject unnecessary escape sequences in strings and regex literals, such as `"\."` or `/\,/`.
+- `no-useless-rename`: Reject `{ x: x }` destructuring renames that bind back to the same name.
+- `no-useless-return`: reject a bare `return;` whose only effect is to end a function body that would have returned anyway.
+- `no-var`: Reject `var` declarations.
+- `no-with`: Reject `with (...)` statements.
+- `object-shorthand`: Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`.
+- `operator-assignment`: Prefer compound assignment (`x += y`) over the long form (`x = x + y`) where the two are equivalent.
+- `prefer-arrow-callback`: Reject `function() { ... }` expressions passed as callback arguments. Prefer the arrow form.
+- `prefer-const`: Require `const` for variables that are never reassigned after declaration.
+- `prefer-destructuring`: Reject single-property and single-index variable declarations (`const a = obj.a`) that destructuring would replace verbatim.
+- `prefer-exponentiation-operator`: Prefer the `**` operator over `Math.pow(base, exp)`.
+- `prefer-for-of`: Prefer `for..of` over a traditional `for (let i = 0; i < arr.length; i++)` loop when the index is never used inside the body.
+- `prefer-named-capture-group`: Reject regex literals with unnamed capturing groups `(...)`. Prefer named groups `(?<name>...)`.
+- `prefer-numeric-literals`: Prefer ES2015+ numeric literal forms (`0b…`, `0o…`, `0x…`) over `parseInt(string, 2 | 8 | 16)`.
+- `prefer-object-has-own`: Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.
+- `prefer-object-spread`: Prefer object-spread `{ ...a, ...b }` over `Object.assign({}, a, b)`.
+- `prefer-rest-params`: Reject reading from `arguments` in a non-arrow function body. Prefer the rest-parameter form `(...args)`.
+- `prefer-spread`: Prefer spread arguments `f(...args)` over `f.apply(null, args)`.
+- `prefer-template`: Prefer template literals over string concatenation when any operand is non-literal.
+- `radix`: Require an explicit radix argument for `parseInt(str, radix)`.
+- `require-yield`: Require generator functions to contain at least one `yield`.
+- `sort-imports`: Reject import specifiers within a single `import` declaration that aren't alphabetically sorted.
+- `sort-keys`: Reject object-literal property keys that aren't alphabetically sorted.
+- `use-isnan`: Require `Number.isNaN` / `isNaN` for `NaN` checks; restrict `typeof` comparisons to the documented strings.
+- `valid-typeof`: Restrict the right-hand operand of `typeof` to the documented strings (`"number"`, `"object"`, ...) so `typeof x === "undefiend"` typos are caught.
+- `vars-on-top`: Require `var` declarations to be hoisted to the top of their scope by hand, mirroring how the engine treats them.
+- `yoda`: Reject Yoda-style comparisons (`if (42 === x)`); use `if (x === 42)` so the variable comes first.

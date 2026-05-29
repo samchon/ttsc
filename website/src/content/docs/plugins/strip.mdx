@@ -1,6 +1,6 @@
 # Strip debug code
 
-`@ttsc/strip` removes configured function calls and `debugger` statements from the emit. It's not a minifier or tree-shaker — it removes **exactly** the patterns you list, nothing else.
+`@ttsc/strip` removes configured function calls and `debugger` statements from the emit. It's not a minifier or tree-shaker, it removes **exactly** the patterns you list, nothing else.
 
 ## Install
 
@@ -40,8 +40,8 @@ export default {
 } satisfies ITtscStripConfig;
 ```
 
-- `calls` — statement-level calls. Supports a `.*` wildcard at the end (e.g. `assert.*` matches `assert.equal`, `assert.deepStrictEqual`, …).
-- `statements` — bare statements. Currently supports `debugger`.
+- `calls`: statement-level calls. Supports a `.*` wildcard at the end (e.g. `assert.*` matches `assert.equal`, `assert.deepStrictEqual`, …).
+- `statements`: bare statements. Currently supports `debugger`.
 
 `@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry:
 
@@ -68,13 +68,13 @@ console.log(result);         // ← removed
 const data = console.log("x"); // ← NOT removed (the call is an expression)
 ```
 
-This is intentional — silently changing expressions can break code that depends on the call's return value, however unusual that is.
+This is intentional, silently changing expressions can break code that depends on the call's return value, however unusual that is.
 
 ## Use cases
 
-- **Production builds** — strip `console.log` and `debugger`, keep `console.warn` and `console.error`.
-- **Test code in published artifacts** — strip `assert.*` from the package emit if your library uses `node:assert` internally.
-- **Feature-flag tooling** — wrap dev-only code in `metrics.devOnly(...)` calls that get stripped in prod.
+- **Production builds**: strip `console.log` and `debugger`, keep `console.warn` and `console.error`.
+- **Test code in published artifacts**: strip `assert.*` from the package emit if your library uses `node:assert` internally.
+- **Feature-flag tooling**: wrap dev-only code in `metrics.devOnly(...)` calls that get stripped in prod.
 
 ## When not to use this
 
@@ -82,6 +82,6 @@ If you want a real minifier (dead-code elimination, mangling, ...), use Terser o
 
 ## See also
 
-- [@ttsc/banner](/docs/plugins/banner) — another emit-time plugin.
-- [@ttsc/paths](/docs/plugins/paths) — rewrite `compilerOptions.paths` aliases in the emit.
-- [Plugin Development](/docs/development) — write your own.
+- [@ttsc/banner](/docs/plugins/banner): another emit-time plugin.
+- [@ttsc/paths](/docs/plugins/paths): rewrite `compilerOptions.paths` aliases in the emit.
+- [Plugin Development](/docs/development): write your own.

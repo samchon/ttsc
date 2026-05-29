@@ -6,7 +6,7 @@ No. `ttsc` is a separate binary built on top of `@typescript/native-preview` (th
 
 ## How does this differ from `ttypescript` / `ts-patch`?
 
-`ttypescript` and `ts-patch` patch the TypeScript JavaScript compiler to enable transformer plugins. They work, but they're patches — they have to chase every TS release.
+`ttypescript` and `ts-patch` patch the TypeScript JavaScript compiler to enable transformer plugins. They work, but they're patches. They have to chase every TS release.
 
 `ttsc` is its own compiler. Plugins run inside the binary, not as hot patches over someone else's compiler. The plugin contract is stable across TypeScript-Go updates.
 
@@ -24,7 +24,7 @@ Yes, though it's usually unnecessary. The most common case is keeping `tsc` for 
 
 ## Do I have to install `@ttsc/lint`?
 
-No — `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint @typescript/native-preview`.
+No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint @typescript/native-preview`.
 
 ## How do I migrate from `eslint` + `prettier`?
 
@@ -33,19 +33,19 @@ No — `ttsc` works without it. But the whole point of the toolchain is the pair
 3. Run `npx ttsc fix` once to apply all autofixes (lint and format) across the project.
 4. Commit, then delete `.eslintrc.*` and `.prettierrc.*` and the `eslint` / `prettier` devDependencies.
 
-Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`no-var`, `prefer-const`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts — for those, the native rule set is being built out rule by rule.
+Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`no-var`, `prefer-const`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts, for those, the native rule set is being built out rule by rule.
 
 ## Will my existing `eslint` plugins work?
 
-Not directly. `@ttsc/lint` is a separate engine. Third-party rule packages can ship as `@ttsc/lint` contributor plugins — see the [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint#how-a-contributor-package-ships) for the Go API authors implement.
+Not directly. `@ttsc/lint` is a separate engine. Third-party rule packages can ship as `@ttsc/lint` contributor plugins. See the [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint#how-a-contributor-package-ships) for the Go API authors implement.
 
 ## What about `prettier`'s plugin ecosystem?
 
-The format subset of `@ttsc/lint` covers Prettier's core rewrites — semis, quotes, trailing commas, print-width reflow, import ordering, and JSDoc normalization. Prettier ecosystem plugins (`prettier-plugin-svelte`, `prettier-plugin-tailwindcss`, etc.) aren't supported — they're Prettier-specific.
+The format subset of `@ttsc/lint` covers Prettier's core rewrites: semis, quotes, trailing commas, print-width reflow, import ordering, and JSDoc normalization. Prettier ecosystem plugins (`prettier-plugin-svelte`, `prettier-plugin-tailwindcss`, etc.) aren't supported; they're Prettier-specific.
 
 ## Do I need Go installed?
 
-No. `ttsc` bundles its own Go toolchain and uses it to compile plugin binaries on first run. Plugin **authors** may want Go locally for `go test` and `go vet` — see [Local Development](/docs/development/authoring/local-dev). Consumers don't.
+No. `ttsc` bundles its own Go toolchain and uses it to compile plugin binaries on first run. Plugin **authors** may want Go locally for `go test` and `go vet`. See [Local Development](/docs/development/authoring/local-dev). Consumers don't.
 
 ## Why is the first build slow?
 
@@ -55,16 +55,16 @@ On a fresh machine, `ttsc` compiles each plugin binary into a shared user-level 
 
 For most projects, yes. Same ergonomics, real type-check, plugins apply. See [TTSC · Execute](/docs/ttsc/execute).
 
-The one place `ttsx` will trip you up: when you actually **wanted** to run code with type errors (rare but happens — e.g., a script that probes incomplete code). Use `tsx` for that.
+The one place `ttsx` will trip you up: when you actually **wanted** to run code with type errors (rare but happens, e.g., a script that probes incomplete code). Use `tsx` for that.
 
 ## What about Deno / Bun?
 
-- **Bun** — supported as a bundler integration via `@ttsc/unplugin/bun`. See [Bundlers](/docs/ttsc/bundler).
-- **Deno** — not directly supported. Deno has its own type-check pipeline.
+- **Bun**: supported as a bundler integration via `@ttsc/unplugin/bun`. See [Bundlers](/docs/ttsc/bundler).
+- **Deno**: not directly supported. Deno has its own type-check pipeline.
 
 ## What's the relationship to `typia` and `nestia`?
 
-Both are independent projects that ship as `ttsc` plugins. `typia` produces runtime validators from your TypeScript types; `nestia` wraps NestJS with `typia`-backed controllers and SDK generation. Neither is part of `ttsc` — they live in their own repos and follow their own release schedules.
+Both are independent projects that ship as `ttsc` plugins. `typia` produces runtime validators from your TypeScript types; `nestia` wraps NestJS with `typia`-backed controllers and SDK generation. Neither is part of `ttsc`, they live in their own repos and follow their own release schedules.
 
 ## Does the VS Code extension work without a Marketplace install?
 
@@ -77,12 +77,12 @@ npx @ttsc/vscode
 
 The installer calls `code --install-extension` against the `.vsix` bundled in the package. Marketplace release is tracked for v1.
 
-## VS Code doesn't show TypeScript-Go or plugin diagnostics — what's wrong?
+## VS Code doesn't show TypeScript-Go or plugin diagnostics: what's wrong?
 
 1. Confirm `ttsc` is installed in the project: `npx ttsc --version`.
 2. Confirm the same plugin diagnostics appear in the CLI: `npx ttsc --noEmit -p <selected tsconfig>`.
 3. Make sure the plugin config is discoverable from the selected project root or set `configFile` in the tsconfig plugin entry.
-4. Save the file before checking plugin diagnostics or running the command-palette `ttsc: Fix all lint issues` / `ttsc: Format document` commands. TypeScript-Go diagnostics are live; ttsc plugin diagnostics, code actions, and those command-palette commands use the saved project state, returning editor-applied `WorkspaceEdit`s only while touched documents are clean. Editor format-on-save is the exception — it formats the live unsaved buffer.
+4. Save the file before checking plugin diagnostics or running the command-palette `ttsc: Fix all lint issues` / `ttsc: Format document` commands. TypeScript-Go diagnostics are live; ttsc plugin diagnostics, code actions, and those command-palette commands use the saved project state, returning editor-applied `WorkspaceEdit`s only while touched documents are clean. Editor format-on-save is the exception, it formats the live unsaved buffer.
 5. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
 6. Run **ttsc: Restart language server** from the command palette.
 7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.
@@ -95,19 +95,19 @@ For VS Code, add packages as workspace folders when each package should keep its
 
 ## Source maps and declaration maps?
 
-Standard `compilerOptions` — set `sourceMap: true` and `declarationMap: true` in `tsconfig.json`. `ttsc` honors them the same way `tsc` does.
+Standard `compilerOptions`. Set `sourceMap: true` and `declarationMap: true` in `tsconfig.json`. `ttsc` honors them the same way `tsc` does.
 
 ## Is the playground running my code on a server?
 
-No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `playground.wasm` — the same `ttsc` engine the CLI uses, compiled to WebAssembly. Your source never leaves the tab.
+No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `playground.wasm`, the same `ttsc` engine the CLI uses, compiled to WebAssembly. Your source never leaves the tab.
 
 ## Can I publish my own plugin?
 
-Yes — that's the point of the protocol being public. See [Plugin Development · Publishing](/docs/development/authoring/publishing).
+Yes. That's the point of the protocol being public. See [Plugin Development · Publishing](/docs/development/authoring/publishing).
 
 ## Is `ttsc` production-ready?
 
-It's the build tool for `typia` and `nestia`, both of which are. It's still v1 — there are still moving parts, especially around the playground and a few rule edge cases. If you're shipping a library, do not publish `ttsc` as a peer dependency yet; treat it as a build-time dependency.
+It's the build tool for `typia` and `nestia`, both of which are. It's still v1. There are still moving parts, especially around the playground and a few rule edge cases. If you're shipping a library, do not publish `ttsc` as a peer dependency yet; treat it as a build-time dependency.
 
 ## Where do I report bugs?
 
@@ -115,6 +115,6 @@ It's the build tool for `typia` and `nestia`, both of which are. It's still v1 �
 
 ## See also
 
-- [Setup](/docs/setup) — get a working `ttsc` install first.
-- [TTSC · Compile](/docs/ttsc/compile) — every flag and subcommand.
-- [Lint & Prettier](/docs/lint) — the rule catalog and `lint.config.ts` reference.
+- [Setup](/docs/setup): get a working `ttsc` install first.
+- [TTSC · Compile](/docs/ttsc/compile): every flag and subcommand.
+- [Lint & Prettier](/docs/lint): the rule catalog and `lint.config.ts` reference.

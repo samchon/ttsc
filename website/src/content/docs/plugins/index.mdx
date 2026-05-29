@@ -6,9 +6,9 @@
 
 Small plugins shipped from this repo:
 
-- [`@ttsc/banner`](/docs/plugins/banner) — adds a fixed `@packageDocumentation` JSDoc banner to every emitted file.
-- [`@ttsc/paths`](/docs/plugins/paths) — rewrites `compilerOptions.paths` aliases into relative imports in the emit.
-- [`@ttsc/strip`](/docs/plugins/strip) — removes `console.log`, `debugger`, and other configured patterns from the emit.
+- [`@ttsc/banner`](/docs/plugins/banner): adds a fixed `@packageDocumentation` JSDoc banner to every emitted file.
+- [`@ttsc/paths`](/docs/plugins/paths): rewrites `compilerOptions.paths` aliases into relative imports in the emit.
+- [`@ttsc/strip`](/docs/plugins/strip): removes `console.log`, `debugger`, and other configured patterns from the emit.
 
 For lint and format, see the dedicated [Lint & Prettier](/docs/lint) chapter.
 
@@ -16,13 +16,13 @@ For lint and format, see the dedicated [Lint & Prettier](/docs/lint) chapter.
 
 External transforms that ship through the same plugin protocol:
 
-- [`typia`](/docs/plugins/typia) — runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs — all generated from your TypeScript types.
-- [`nestia`](/docs/plugins/nestia) — NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
+- [`typia`](/docs/plugins/typia): runtime validators, JSON tools, LLM function calling, Protocol Buffer codecs, all generated from your TypeScript types.
+- [`nestia`](/docs/plugins/nestia): NestJS controllers, OpenAPI documents, SDK generation, and E2E test scaffolding, backed by typia.
 
 Each ships on its own release schedule with its own docs. The pages above cover "how does it slot into `ttsc`?"; for the full API surface follow the upstream docs (`typia.io`, `nestia.io`).
 
-PRs adding plugins to this list are welcome — the bar is "installs and works on a current `ttsc` release."
+PRs adding plugins to this list are welcome. The bar is "installs and works on a current `ttsc` release."
 
 ## Writing your own
 
-→ [Plugin Development](/docs/development) — the audience-walled section for plugin authors.
+→ [Plugin Development](/docs/development), the audience-walled section for plugin authors.

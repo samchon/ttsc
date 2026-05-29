@@ -1,8 +1,8 @@
-# `@ttsc/paths` — Module Specifier Rewriting
+# `@ttsc/paths`: Module Specifier Rewriting
 
-`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the _output_ file layout, not just the source — TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
+`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the _output_ file layout, not just the source, TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
 
-This page is also the canonical reference for **leaf-text AST mutation** — changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
+This page is also the canonical reference for **leaf-text AST mutation**, changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
 
 If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this should too. The new ideas are: read tsconfig fields through the driver, walk every syntactic shape that holds a module specifier, and the synthesize-flag rule.
 
@@ -71,7 +71,7 @@ packages/paths/
 
 Identical shape to strip. The descriptor at `src/index.cjs` points at linked `driver/` source, while `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). Skip ahead to the real logic.
 
-## The real logic — `rewriter` in `driver/paths.go`
+## The real logic: `rewriter` in `driver/paths.go`
 
 Everything below is in [`packages/paths/driver/paths.go`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go). Six steps:
 
@@ -80,7 +80,7 @@ Everything below is in [`packages/paths/driver/paths.go`](https://github.com/sam
 3. **For each file**, walk every node and find string literals that are module specifiers.
 4. **Resolve the specifier** to a source file inside the Program.
 5. **Compute the relative output path** from the rewriter's source file to the target's emitted JS.
-6. **Mutate the string literal's `Text`** — with the synthesize-flag invariant.
+6. **Mutate the string literal's `Text`**: with the synthesize-flag invariant.
 
 ### 1. Building the rewriter
 
@@ -136,11 +136,11 @@ func newRewriter(prog *driver.Program) *rewriter {
 
 The constructor pulls four facts out of the Program and caches them as an in-memory index. Worth walking each:
 
-**`basePath`** — the directory that paths in `compilerOptions.paths` resolve relative to. tsgo's `GetPathsBasePath` handles the `baseUrl` vs no-`baseUrl` logic.
+**`basePath`**, the directory that paths in `compilerOptions.paths` resolve relative to. Tsgo's `GetPathsBasePath` handles the `baseUrl` vs no-`baseUrl` logic.
 
-**`outDir`** and **`rootDir`** — where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, paths falls back to "longest common ancestor of every source file" via `commonSourceDir`. This matches `tsc`'s behavior when `rootDir` is unspecified.
+**`outDir`** and **`rootDir`**, where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, paths falls back to "longest common ancestor of every source file" via `commonSourceDir`. This matches `tsc`'s behavior when `rootDir` is unspecified.
 
-**`sourceFiles`** — a string → string map of every user source file, keyed by its exact normalized path:
+**`sourceFiles`**, a string → string map of every user source file, keyed by its exact normalized path:
 
 ```go
 for _, file := range files {
@@ -151,7 +151,7 @@ for _, file := range files {
 
 Extensionless targets such as `src/modules/greet` are resolved later by `lookupSource`, which tries known TypeScript extensions first and JavaScript extensions after them in a deterministic order. This keeps ambiguous stems like `foo.ts` plus `foo.tsx` stable instead of depending on program file iteration order while still supporting `allowJs` projects.
 
-**`patterns`** — copied from `options.Paths.Entries()`. Each entry's targets slice is deep-copied with `append([]string(nil), targets...)` so a later mutation in tsgo's options does not leak back into the rewriter.
+**`patterns`**, copied from `options.Paths.Entries()`. Each entry's targets slice is deep-copied with `append([]string(nil), targets...)` so a later mutation in tsgo's options does not leak back into the rewriter.
 
 ### Sidebar: Go map iteration order is randomised
 
@@ -163,7 +163,7 @@ sort.SliceStable(out.patterns, func(i, j int) bool {
 })
 ```
 
-Without sorting, the order of patterns would depend on Go's map iteration, which is intentionally randomised — different runs of the same plugin would resolve `@lib/foo/bar` against either `@lib/*` or `@lib/foo/*` non-deterministically. The sort makes the resolution stable and biases toward specificity (more literal characters in the pattern wins). `SliceStable` preserves the relative order of equal-rank patterns so the final tie-break is "whichever entry tsgo gave us first."
+Without sorting, the order of patterns would depend on Go's map iteration, which is intentionally randomised, different runs of the same plugin would resolve `@lib/foo/bar` against either `@lib/*` or `@lib/foo/*` non-deterministically. The sort makes the resolution stable and biases toward specificity (more literal characters in the pattern wins). `SliceStable` preserves the relative order of equal-rank patterns so the final tie-break is "whichever entry tsgo gave us first."
 
 ### Sidebar: `filepath.ToSlash` and the Windows path discipline
 
@@ -201,7 +201,7 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
 }
 ```
 
-This three-line tail is the synthesize-flag rule for leaf-text mutations — the most consequential lines on the page. Discussion in [§6 below](#6-mutating-a-string-literal--the-synthesize-flag-invariant).
+This three-line tail is the synthesize-flag rule for leaf-text mutations, the most consequential lines on the page. Discussion in [§6 below](#6-mutating-a-string-literal--the-synthesize-flag-invariant).
 
 The visitor:
 
@@ -268,7 +268,7 @@ Six syntactic positions hold a module specifier in TypeScript. The visitor enume
 | `declare module "pkg" {}` | `ModuleDeclaration` | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
 | `require("pkg")` / `import("pkg")` | `CallExpression` | `.Arguments.Nodes[0]` |
 
-After the switch, `node.ForEachChild` recurses into every child. This is what makes the visitor catch deeply-nested cases like `function f(x = await import("pkg")) {}` — the `CallExpression` is buried inside parameter default initializers, but every node still gets visited because we always recurse.
+After the switch, `node.ForEachChild` recurses into every child. This is what makes the visitor catch deeply-nested cases like `function f(x = await import("pkg")) {}`. The `CallExpression` is buried inside parameter default initializers, but every node still gets visited because we always recurse.
 
 ### Sidebar: visitor pattern in Go
 
@@ -285,7 +285,7 @@ func walk(node *X, visit func(*X)) {
 }
 ```
 
-returning `false` keeps the iteration alive. Returning `true` would short-circuit — useful for "find the first node matching predicate," not useful when you want to visit every node.
+returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node.
 
 ### 4. Resolving a specifier
 
@@ -314,15 +314,15 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
 
 The contract: `rewrite("/proj/src/main.ts", "@lib/greet")` returns `("./modules/greet.js", true)`.
 
-The fast-path bail-outs at the top are important — `.` and `/` prefixes are already relative or absolute paths and never match a path alias. An empty specifier is a parse error in real TypeScript but the visitor still walks it.
+The fast-path bail-outs at the top are important, `.` and `/` prefixes are already relative or absolute paths and never match a path alias. An empty specifier is a parse error in real TypeScript but the visitor still walks it.
 
 The resolution chain:
 
-1. `resolveSource(specifier)` — find the source file that matches the alias.
-2. `outputPathForSource(fromSource)` and `outputPathForSource(targetSource)` — map both to emitted-JS paths.
-3. `filepath.Rel(dir(fromOut), targetOut)` — compute the relative path from one to the other.
-4. Force forward slashes (`filepath.ToSlash`) — JavaScript modules use POSIX-style paths on every platform.
-5. Add the leading `./` if missing — Node.js requires it for relative imports.
+1. `resolveSource(specifier)`: find the source file that matches the alias.
+2. `outputPathForSource(fromSource)` and `outputPathForSource(targetSource)`: map both to emitted-JS paths.
+3. `filepath.Rel(dir(fromOut), targetOut)`: compute the relative path from one to the other.
+4. Force forward slashes (`filepath.ToSlash`): JavaScript modules use POSIX-style paths on every platform.
+5. Add the leading `./` if missing: Node.js requires it for relative imports.
 
 `resolveSource`:
 
@@ -359,7 +359,7 @@ func matchPattern(pattern string, specifier string) (string, bool) {
 For pattern `@lib/*` and specifier `@lib/greet`:
 
 - `parts = ["@lib/", ""]`
-- `specifier` has the prefix `@lib/` and the suffix `""` — match.
+- `specifier` has the prefix `@lib/` and the suffix `""`: match.
 - Return `specifier[5 : 10-0] = "greet"` (length 10 minus suffix length 0).
 
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
@@ -399,9 +399,9 @@ func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
 
 The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ext)` strips the source extension and appends `.js`, `.mjs`, `.cjs`, or `.jsx` depending on the matched source and `jsx` mode.
 
-`isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))` — sources outside the rootDir do not have a well-defined output and the rewriter bails out.
+`isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))`, sources outside the rootDir do not have a well-defined output and the rewriter bails out.
 
-### 6. Mutating a string literal — the synthesize-flag invariant
+### 6. Mutating a string literal: the synthesize-flag invariant
 
 This is the three-line pattern at the end of `rewriter.apply`:
 
@@ -413,14 +413,14 @@ lit.Loc = shimcore.UndefinedTextRange()
 
 **The trap:** if you set `lit.Text = rewritten` and stop there, the printer silently emits the _old_ specifier. The reason is buried inside tsgo's printer, but the upshot is:
 
-> tsgo's printer reads leaf-token text through `getTextOfNode`, which checks whether the node is "real" — has a parent and is not flagged as synthesized — and, if so, slices the original source between `node.Pos()` and `node.End()`. That slice is the original `"@lib/greet"`. The printer never looks at your `Text` field.
+> tsgo's printer reads leaf-token text through `getTextOfNode`, which checks whether the node is "real", has a parent and is not flagged as synthesized, and, if so, slices the original source between `node.Pos()` and `node.End()`. That slice is the original `"@lib/greet"`. The printer never looks at your `Text` field.
 
 The two extra lines detach the node from its parse-tree source span:
 
-- `lit.Flags |= shimast.NodeFlagsSynthesized` — tell the printer this node has no original source position to read from. It now falls back to `lit.Text`.
-- `lit.Loc = shimcore.UndefinedTextRange()` — clear the position range so sourcemap generation does not point at the original literal location.
+- `lit.Flags |= shimast.NodeFlagsSynthesized`: tell the printer this node has no original source position to read from. It now falls back to `lit.Text`.
+- `lit.Loc = shimcore.UndefinedTextRange()`: clear the position range so sourcemap generation does not point at the original literal location.
 
-Set both. Forgetting either is a silent-emit regression — the transform's unit tests pass, but the emitted output is unchanged from the input.
+Set both. Forgetting either is a silent-emit regression. The transform's unit tests pass, but the emitted output is unchanged from the input.
 
 The same invariant applies to:
 
@@ -429,7 +429,7 @@ The same invariant applies to:
 - `*NumericLiteral.Text`
 - any other "leaf token whose text is the entire payload."
 
-It does **not** apply to _structural mutations_ — filtering `Statements.Nodes`, swapping child pointers, replacing one statement with another. Those round-trip cleanly through the printer because the printer iterates statement lists directly without reading source spans. This is why `@ttsc/strip`'s statement filter does not need the synthesize stamp.
+It does **not** apply to _structural mutations_, filtering `Statements.Nodes`, swapping child pointers, replacing one statement with another. Those round-trip cleanly through the printer because the printer iterates statement lists directly without reading source spans. This is why `@ttsc/strip`'s statement filter does not need the synthesize stamp.
 
 ### Sidebar: how to know which mutations need the flag
 
@@ -439,7 +439,7 @@ Three checks:
 2. **Are you replacing one slice element with another via `list.Nodes[i] = newNode`?** If yes and `newNode` came from `NodeFactory.NewX()`, set the flag on `newNode` (the factory does not set it for you). If `newNode` was extracted from a different parse, you usually want to clone it first.
 3. **Are you `append`-ing or filtering a `NodeList`?** No flag needed.
 
-When in doubt, set both — the cost is zero and the failure mode is silent.
+When in doubt, set both. The cost is zero and the failure mode is silent.
 
 ## Pulling it together
 
@@ -463,19 +463,19 @@ The pattern generalizes to any plugin that needs to query _project-level_ inform
 
 **Do not copy:**
 
-- The `optionalPath` / `normalizePath` / `stripKnownSourceExtension` helpers wholesale — they were tuned to match tsgo's exact behavior and contain edge cases (Windows drive prefixes, `.d.ts` vs `.ts`) that are mostly noise to a plugin that does not rewrite module specifiers. Re-derive them as you need them.
+- The `optionalPath` / `normalizePath` / `stripKnownSourceExtension` helpers wholesale: they were tuned to match tsgo's exact behavior and contain edge cases (Windows drive prefixes, `.d.ts` vs `.ts`) that are mostly noise to a plugin that does not rewrite module specifiers. Re-derive them as you need them.
 - The standalone `plugin/paths.go` wrapper when your descriptor points directly at an executable command package.
 - Reading by package name. Linked plugins receive the project plugin entry paired with their registration order through `driver.PluginContext`; executable plugins should parse `--plugins-json` according to their own protocol.
 
 ## Test coverage
 
-The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/) — feature tests materialize real temp project layouts from `tests/projects/path-*` fixtures or inline files, run the real `ttsc` launcher, and assert on the emitted JavaScript and declaration output relevant to each scenario.
+The path resolver is exercised by [`tests/test-paths/src/features/`](https://github.com/samchon/ttsc/tree/master/tests/test-paths/src/features/), feature tests materialize real temp project layouts from `tests/projects/path-*` fixtures or inline files, run the real `ttsc` launcher, and assert on the emitted JavaScript and declaration output relevant to each scenario.
 
-The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation — search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/paths/driver/` and the end-to-end fixtures above.
+The synthesize-flag invariant is locked by tests that assert on the printer output text after mutation, search for `lit.Flags` and `NodeFlagsSynthesized` in `packages/paths/driver/` and the end-to-end fixtures above.
 
 ## Where to read next
 
-- [`@ttsc/lint`](/docs/development/walkthroughs/lint) — the deep-dive on diagnostics, the rule engine, and contributor packages.
-- [AST & Checker → Recognizing Imports and Module Specifiers](/docs/development/concepts/tsgo#recognizing-imports-and-module-specifiers) — the same visitor, in the protocol docs.
-- [AST & Checker → Mutating the AST](/docs/development/concepts/tsgo#mutating-the-ast) — the synthesize-flag invariant, in the concepts docs.
-- [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) — copy-paste pattern.
+- [`@ttsc/lint`](/docs/development/walkthroughs/lint): the deep-dive on diagnostics, the rule engine, and contributor packages.
+- [AST & Checker → Recognizing Imports and Module Specifiers](/docs/development/concepts/tsgo#recognizing-imports-and-module-specifiers): the same visitor, in the protocol docs.
+- [AST & Checker → Mutating the AST](/docs/development/concepts/tsgo#mutating-the-ast): the synthesize-flag invariant, in the concepts docs.
+- [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes): copy-paste pattern.

@@ -14,4 +14,13 @@ The tree is organized by audience: top-level pages (`setup.mdx`, `why.mdx`, `faq
 
 ## Prose line breaks
 
-Write Markdown and MDX prose as one line per paragraph — never hard-wrap at a fixed column. Markdown soft-wraps on render, so a manual line break mid-paragraph changes nothing visible while making diffs noisy (a reworded sentence reflows several lines) and edits awkward. Keep real line breaks only for paragraph boundaries, list items, headings, tables, and fenced code. `prettier --prose-wrap never` (with `embeddedLanguageFormatting: off`, so code fences stay byte-identical) enforces this across `*.md` and `*.mdx` — run the repo `format` script rather than wrapping by hand.
+Write Markdown and MDX prose as one line per paragraph, never hard-wrap at a fixed column. Markdown soft-wraps on render, so a manual line break mid-paragraph changes nothing visible while making diffs noisy (a reworded sentence reflows several lines) and edits awkward. Keep real line breaks only for paragraph boundaries, list items, headings, tables, and fenced code. `prettier --prose-wrap never` (with `embeddedLanguageFormatting: off`, so code fences stay byte-identical) enforces this across `*.md` and `*.mdx`. Run the repo `format` script rather than wrapping by hand.
+
+## Voice
+
+Write in the plain, direct voice of the human-authored docs in this repo. Do not write like an AI assistant.
+
+- No em-dashes. Use a period, comma, colon, or parentheses.
+- No emoji.
+- No AI-cliche phrasing: "not only X but also Y", "whether you're X or Y", "it's worth noting", "let's dive in", filler adjectives like "seamless", "powerful", "robust", "effortless", and reflexive hedging.
+- No wrap-up sentence that just restates the paragraph. State the fact and stop.

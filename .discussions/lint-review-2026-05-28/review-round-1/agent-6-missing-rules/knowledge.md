@@ -1,4 +1,4 @@
-# Agent 6 — missing-rules audit: knowledge base
+# Agent 6: missing-rules audit: knowledge base
 
 ## Methodology
 
@@ -16,11 +16,11 @@
   rules with React Compiler `LintRules`), the rule list was cross-checked
   against `react.dev/reference/eslint-plugin-react-hooks`.
 - Difficulty hints follow the conventions used in `packages/lint/`:
-  - **AST-only** — needs nothing beyond the shimast tree.
-  - **Type-aware** — needs `ctx.Checker` or `ctx.Type`.
-  - **Cross-file** — needs ModuleResolution/Program-wide info.
-  - **Token-stream** — needs JSDoc text or regex literal text parsing.
-  - **Style/format** — pure layout/whitespace rule; typically a print-engine job.
+  - **AST-only**: needs nothing beyond the shimast tree.
+  - **Type-aware**: needs `ctx.Checker` or `ctx.Type`.
+  - **Cross-file**: needs ModuleResolution/Program-wide info.
+  - **Token-stream**: needs JSDoc text or regex literal text parsing.
+  - **Style/format**: pure layout/whitespace rule; typically a print-engine job.
 
 ## Summary table
 
@@ -69,7 +69,7 @@ Including the ~113 eslint-core slugs: ~566.
 
 ## Per-family breakdown
 
-### unicorn — 146 / 146
+### unicorn: 146 / 146
 
 Effectively 100% coverage. Single nominal gap: upstream renamed
 `prefer-dom-node-dataset` → `dom-node-dataset` (file
@@ -79,9 +79,9 @@ Effectively 100% coverage. Single nominal gap: upstream renamed
   existing `unicornPreferDomNodeDataset` rule and deprecate the old slug, or
   simply rename to match upstream.
 - ttsc-only addition: `prefer-negative-index` is currently present and matches
-  upstream — no action needed.
+  upstream, no action needed.
 
-### react (eslint-plugin-react) — 20 / 105
+### react (eslint-plugin-react): 20 / 105
 
 Implemented (`react/...`): `button-has-type`, `display-name`,
 `iframe-missing-sandbox`, `jsx-key`, `jsx-no-duplicate-props`,
@@ -93,84 +93,84 @@ Implemented (`react/...`): `button-has-type`, `display-name`,
 
 Missing (85):
 
-- `async-server-action` — flag async functions used as React 19 server actions in unsafe positions. AST-only.
-- `boolean-prop-naming` — enforce `is*`/`has*`/etc. for boolean props. AST-only (regex on prop name).
-- `checked-requires-onchange-or-readonly` — `<input checked>` needs `onChange` or `readOnly`. AST-only.
-- `default-props-match-prop-types` — defaultProps must be subset of propTypes. AST-only.
-- `destructuring-assignment` — enforce destructuring of props/state/context. AST-only.
-- `forbid-component-props` — block listed props on components. AST-only + config.
-- `forbid-dom-props` — block listed props on DOM elements. AST-only + config.
-- `forbid-elements` — block listed JSX elements. AST-only + config.
-- `forbid-foreign-prop-types` — block accessing `Foo.propTypes`. AST-only.
-- `forbid-prop-types` — block specific propTypes (`any`/`array`/`object`). AST-only.
-- `forward-ref-uses-ref` — `forwardRef` callback must accept a `ref` parameter. AST-only.
-- `function-component-definition` — choose between function declaration / arrow / named function. AST-only (style).
-- `hook-use-state` — enforce destructured `[state, setState]` naming on `useState`. AST-only.
-- `jsx-boolean-value` — enforce explicit `={true}` or omit. AST-only.
-- `jsx-child-element-spacing` — style/whitespace. Style/format.
-- `jsx-closing-bracket-location` — style/format. Style/format.
-- `jsx-closing-tag-location` — style/format. Style/format.
-- `jsx-curly-brace-presence` — enforce/disallow `{...}` around literals. AST-only.
-- `jsx-curly-newline` — style/format. Style/format.
-- `jsx-curly-spacing` — style/format. Style/format.
-- `jsx-equals-spacing` — style/format. Style/format.
-- `jsx-filename-extension` — restrict JSX to `.jsx`/`.tsx`. AST-only + filename.
-- `jsx-first-prop-new-line` — style/format. Style/format.
-- `jsx-fragments` — `<></>` vs `<Fragment>`. AST-only.
-- `jsx-handler-names` — `onClick`-style naming. AST-only.
-- `jsx-indent`, `jsx-indent-props` — style/format. Style/format.
-- `jsx-max-depth` — max nesting depth in JSX. AST-only.
-- `jsx-max-props-per-line` — style/format. Style/format.
-- `jsx-newline` — style/format. Style/format.
-- `jsx-no-bind` — flag `.bind(this)` / arrow-in-JSX. AST-only.
-- `jsx-no-comment-textnodes` — `//` accidentally rendered as text. AST-only.
-- `jsx-no-constructed-context-values` — context `value={...}` with new object/array literal. AST-only.
-- `jsx-no-leaked-render` — `cond && <X/>` where cond may be `0`/`''`. Type-aware (or AST-only conservative).
-- `jsx-no-literals` — disallow plain text children. AST-only.
-- `jsx-one-expression-per-line` — style/format. Style/format.
-- `jsx-pascal-case` — PascalCase user components. AST-only.
-- `jsx-props-no-multi-spaces`, `jsx-props-no-spread-multi` — style + AST.
-- `jsx-props-no-spreading` — disallow `{...props}` spread. AST-only.
-- `jsx-sort-default-props` — sort `defaultProps` keys. AST-only.
-- `jsx-sort-props` — sort JSX prop order. AST-only.
-- `jsx-space-before-closing` — style/format. Style/format.
-- `jsx-tag-spacing` — style/format. Style/format.
-- `jsx-uses-react`, `jsx-uses-vars` — mark React/JSX identifiers as used. Coupled to `no-unused-vars`; ttsc would gate via the same scope tracker.
-- `jsx-wrap-multilines` — style/format. Style/format.
-- `no-access-state-in-setstate` — flag `this.setState({x: this.state.y})`. AST-only.
-- `no-adjacent-inline-elements` — discourage neighboring inline JSX without whitespace. AST-only.
-- `no-arrow-function-lifecycle` — disallow arrow methods for `componentDidMount` etc. AST-only.
-- `no-deprecated` — flag legacy lifecycle hooks per React version. AST-only.
-- `no-did-mount-set-state`, `no-did-update-set-state`, `no-will-update-set-state` — flag `setState` in those lifecycles. AST-only.
-- `no-invalid-html-attribute` — unknown values for `rel`, `target`, etc. AST-only + table.
-- `no-multi-comp` — only one component per file. AST-only.
-- `no-namespace` — disallow `<Namespace:Foo/>`. AST-only.
-- `no-object-type-as-default-prop` — defaultProps with `{}` / `[]` literal. AST-only.
-- `no-redundant-should-component-update` — `shouldComponentUpdate` in `PureComponent`. AST-only (class hierarchy).
-- `no-render-return-value` — flag `const x = ReactDOM.render(...)`. AST-only.
-- `no-set-state` — disallow `this.setState`. AST-only.
-- `no-this-in-sfc` — `this.x` inside stateless function component. AST-only.
-- `no-typos` — typo'd lifecycle / static names (`getDeriveStateFromProps`). AST-only.
-- `no-unknown-property` — flag invalid DOM attributes (`class`, `for`, etc.). AST-only + table.
-- `no-unsafe` — flag `UNSAFE_*` lifecycles. AST-only.
-- `no-unstable-nested-components` — components defined inside other components. AST-only.
-- `no-unused-class-component-methods` — unused class methods on a component. AST-only.
-- `no-unused-prop-types` — propTypes declared but not read. AST-only.
-- `no-unused-state` — `this.state.x` declared but unused. AST-only.
-- `prefer-es6-class` — class component must be ES6 class, not `createClass`. AST-only.
-- `prefer-exact-props` — exact-shape propTypes. AST-only.
-- `prefer-read-only-props` — `readonly` prop types in TS. Type-aware.
-- `prefer-stateless-function` — recommend FC over Class when possible. AST-only.
-- `prop-types` — require `propTypes` declaration. AST-only.
-- `react-in-jsx-scope` — `React` import required in JSX scope. AST-only.
-- `require-default-props` — every non-required propType must have a default. AST-only.
-- `require-optimization` — require `PureComponent`/`shouldComponentUpdate`. AST-only.
-- `require-render-return` — class component `render()` must return. AST-only.
-- `self-closing-comp` — self-close components without children. AST-only.
-- `sort-comp` — sort class-component methods. AST-only.
-- `sort-default-props`, `sort-prop-types` — sort property orders. AST-only.
-- `state-in-constructor` — `this.state = {}` only in `constructor`. AST-only.
-- `static-property-placement` — `static defaultProps` placement. AST-only.
+- `async-server-action`: flag async functions used as React 19 server actions in unsafe positions. AST-only.
+- `boolean-prop-naming`: enforce `is*`/`has*`/etc. For boolean props. AST-only (regex on prop name).
+- `checked-requires-onchange-or-readonly`: `<input checked>` needs `onChange` or `readOnly`. AST-only.
+- `default-props-match-prop-types`: defaultProps must be subset of propTypes. AST-only.
+- `destructuring-assignment`: enforce destructuring of props/state/context. AST-only.
+- `forbid-component-props`: block listed props on components. AST-only + config.
+- `forbid-dom-props`: block listed props on DOM elements. AST-only + config.
+- `forbid-elements`: block listed JSX elements. AST-only + config.
+- `forbid-foreign-prop-types`: block accessing `Foo.propTypes`. AST-only.
+- `forbid-prop-types`: block specific propTypes (`any`/`array`/`object`). AST-only.
+- `forward-ref-uses-ref`: `forwardRef` callback must accept a `ref` parameter. AST-only.
+- `function-component-definition`: choose between function declaration / arrow / named function. AST-only (style).
+- `hook-use-state`: enforce destructured `[state, setState]` naming on `useState`. AST-only.
+- `jsx-boolean-value`: enforce explicit `={true}` or omit. AST-only.
+- `jsx-child-element-spacing`: style/whitespace. Style/format.
+- `jsx-closing-bracket-location`: style/format. Style/format.
+- `jsx-closing-tag-location`: style/format. Style/format.
+- `jsx-curly-brace-presence`: enforce/disallow `{...}` around literals. AST-only.
+- `jsx-curly-newline`: style/format. Style/format.
+- `jsx-curly-spacing`: style/format. Style/format.
+- `jsx-equals-spacing`: style/format. Style/format.
+- `jsx-filename-extension`: restrict JSX to `.jsx`/`.tsx`. AST-only + filename.
+- `jsx-first-prop-new-line`: style/format. Style/format.
+- `jsx-fragments`: `<></>` vs `<Fragment>`. AST-only.
+- `jsx-handler-names`: `onClick`-style naming. AST-only.
+- `jsx-indent`, `jsx-indent-props`: style/format. Style/format.
+- `jsx-max-depth`: max nesting depth in JSX. AST-only.
+- `jsx-max-props-per-line`: style/format. Style/format.
+- `jsx-newline`: style/format. Style/format.
+- `jsx-no-bind`: flag `.bind(this)` / arrow-in-JSX. AST-only.
+- `jsx-no-comment-textnodes`: `//` accidentally rendered as text. AST-only.
+- `jsx-no-constructed-context-values`: context `value={...}` with new object/array literal. AST-only.
+- `jsx-no-leaked-render`: `cond && <X/>` where cond may be `0`/`''`. Type-aware (or AST-only conservative).
+- `jsx-no-literals`: disallow plain text children. AST-only.
+- `jsx-one-expression-per-line`: style/format. Style/format.
+- `jsx-pascal-case`: PascalCase user components. AST-only.
+- `jsx-props-no-multi-spaces`, `jsx-props-no-spread-multi`: style + AST.
+- `jsx-props-no-spreading`: disallow `{...props}` spread. AST-only.
+- `jsx-sort-default-props`: sort `defaultProps` keys. AST-only.
+- `jsx-sort-props`: sort JSX prop order. AST-only.
+- `jsx-space-before-closing`: style/format. Style/format.
+- `jsx-tag-spacing`: style/format. Style/format.
+- `jsx-uses-react`, `jsx-uses-vars`: mark React/JSX identifiers as used. Coupled to `no-unused-vars`; ttsc would gate via the same scope tracker.
+- `jsx-wrap-multilines`: style/format. Style/format.
+- `no-access-state-in-setstate`: flag `this.setState({x: this.state.y})`. AST-only.
+- `no-adjacent-inline-elements`: discourage neighboring inline JSX without whitespace. AST-only.
+- `no-arrow-function-lifecycle`: disallow arrow methods for `componentDidMount` etc. AST-only.
+- `no-deprecated`: flag legacy lifecycle hooks per React version. AST-only.
+- `no-did-mount-set-state`, `no-did-update-set-state`, `no-will-update-set-state`: flag `setState` in those lifecycles. AST-only.
+- `no-invalid-html-attribute`: unknown values for `rel`, `target`, etc. AST-only + table.
+- `no-multi-comp`: only one component per file. AST-only.
+- `no-namespace`: disallow `<Namespace:Foo/>`. AST-only.
+- `no-object-type-as-default-prop`: defaultProps with `{}` / `[]` literal. AST-only.
+- `no-redundant-should-component-update`: `shouldComponentUpdate` in `PureComponent`. AST-only (class hierarchy).
+- `no-render-return-value`: flag `const x = ReactDOM.render(...)`. AST-only.
+- `no-set-state`: disallow `this.setState`. AST-only.
+- `no-this-in-sfc`: `this.x` inside stateless function component. AST-only.
+- `no-typos`: typo'd lifecycle / static names (`getDeriveStateFromProps`). AST-only.
+- `no-unknown-property`: flag invalid DOM attributes (`class`, `for`, etc.). AST-only + table.
+- `no-unsafe`: flag `UNSAFE_*` lifecycles. AST-only.
+- `no-unstable-nested-components`: components defined inside other components. AST-only.
+- `no-unused-class-component-methods`: unused class methods on a component. AST-only.
+- `no-unused-prop-types`: propTypes declared but not read. AST-only.
+- `no-unused-state`: `this.state.x` declared but unused. AST-only.
+- `prefer-es6-class`: class component must be ES6 class, not `createClass`. AST-only.
+- `prefer-exact-props`: exact-shape propTypes. AST-only.
+- `prefer-read-only-props`: `readonly` prop types in TS. Type-aware.
+- `prefer-stateless-function`: recommend FC over Class when possible. AST-only.
+- `prop-types`: require `propTypes` declaration. AST-only.
+- `react-in-jsx-scope`: `React` import required in JSX scope. AST-only.
+- `require-default-props`: every non-required propType must have a default. AST-only.
+- `require-optimization`: require `PureComponent`/`shouldComponentUpdate`. AST-only.
+- `require-render-return`: class component `render()` must return. AST-only.
+- `self-closing-comp`: self-close components without children. AST-only.
+- `sort-comp`: sort class-component methods. AST-only.
+- `sort-default-props`, `sort-prop-types`: sort property orders. AST-only.
+- `state-in-constructor`: `this.state = {}` only in `constructor`. AST-only.
+- `static-property-placement`: `static defaultProps` placement. AST-only.
 
 Notes: the bulk of the missing rules are class-component lifecycle and
 PropTypes-era rules. Modern React-19-only codebases need only a small subset
@@ -180,58 +180,58 @@ PropTypes-era rules. Modern React-19-only codebases need only a small subset
 `jsx-no-literals`, `jsx-key` extensions). Recommend triaging the import as two
 buckets: "modern React" (~12 rules) vs. "legacy class/PropTypes" (~70 rules).
 
-### react-hooks (eslint-plugin-react-hooks) — 8 / 17
+### react-hooks (eslint-plugin-react-hooks): 8 / 17
 
 Implemented (also under `react/...` namespace in ttsc):
 `component-hook-factories`, `exhaustive-deps`, `immutability`, `refs`,
 `rules-of-hooks`, `set-state-in-effect`, `set-state-in-render`, `use-memo`.
 
-Missing (9, all React-Compiler-derived lints — they share the
+Missing (9, all React-Compiler-derived lints, they share the
 `react.dev/reference/eslint-plugin-react-hooks/lints/<name>` URL):
 
-- `config` — disallow invalid React Compiler configuration. AST-only on config sites.
-- `error-boundaries` — flag patterns that bypass React error boundaries. AST-only.
-- `gating` — verify `__DEV__`/feature-flag gates around experimental APIs. AST-only.
-- `globals` — disallow mutating known globals from components. AST-only.
-- `incompatible-library` — warn on libraries incompatible with React Compiler. AST + import-map.
-- `preserve-manual-memoization` — keep manual `useMemo`/`useCallback` when compiler can't auto-memo. AST-only.
-- `purity` — components must be pure (no top-level side effects). AST-only.
-- `static-components` — components must not be defined inside other components (compiler variant). AST-only.
-- `unsupported-syntax` — flag syntax the React Compiler cannot ingest. AST-only.
+- `config`: disallow invalid React Compiler configuration. AST-only on config sites.
+- `error-boundaries`: flag patterns that bypass React error boundaries. AST-only.
+- `gating`: verify `__DEV__`/feature-flag gates around experimental APIs. AST-only.
+- `globals`: disallow mutating known globals from components. AST-only.
+- `incompatible-library`: warn on libraries incompatible with React Compiler. AST + import-map.
+- `preserve-manual-memoization`: keep manual `useMemo`/`useCallback` when compiler can't auto-memo. AST-only.
+- `purity`: components must be pure (no top-level side effects). AST-only.
+- `static-components`: components must not be defined inside other components (compiler variant). AST-only.
+- `unsupported-syntax`: flag syntax the React Compiler cannot ingest. AST-only.
 
 These come from the React Compiler's internal `LintRules` registry. Port
 difficulty depends on whether the compiler's analysis is reproduced; for an
 ESLint-style port, a conservative AST check is usually enough.
 
-### react-refresh (eslint-plugin-react-refresh) — 1 / 1
+### react-refresh (eslint-plugin-react-refresh): 1 / 1
 
 Complete: `only-export-components`.
 
-### react-perf (eslint-plugin-react-perf) — 4 / 4
+### react-perf (eslint-plugin-react-perf): 4 / 4
 
 Complete: `jsx-no-jsx-as-prop`, `jsx-no-new-array-as-prop`,
 `jsx-no-new-function-as-prop`, `jsx-no-new-object-as-prop`.
 
-### solid (eslint-plugin-solid) — 21 / 21
+### solid (eslint-plugin-solid): 21 / 21
 
 Complete. No missing rules.
 
-### nextjs (`@next/eslint-plugin-next`) — 21 / 22
+### nextjs (`@next/eslint-plugin-next`): 21 / 22
 
 Missing (1):
 
-- `no-location-assign-relative-destination` — `window.location = ...` with relative URL trips Next.js's URL parsing. AST-only.
+- `no-location-assign-relative-destination`: `window.location = ...` with relative URL trips Next.js's URL parsing. AST-only.
 
-### jsx-a11y (eslint-plugin-jsx-a11y) — 37 / 39
+### jsx-a11y (eslint-plugin-jsx-a11y): 37 / 39
 
 Missing (2):
 
-- `accessible-emoji` — wrap emoji in `<span role="img" aria-label="..."/>`. **Deprecated upstream**; safe to skip.
-- `no-onchange` — discourage `onChange` on `<select>`, prefer `onBlur`. **Deprecated upstream**; safe to skip.
+- `accessible-emoji`: wrap emoji in `<span role="img" aria-label="..."/>`. **Deprecated upstream**; safe to skip.
+- `no-onchange`: discourage `onChange` on `<select>`, prefer `onBlur`. **Deprecated upstream**; safe to skip.
 
 Both are legacy/deprecated; coverage is effectively 100% of the active rule set.
 
-### jest (eslint-plugin-jest) — 19 / 71
+### jest (eslint-plugin-jest): 19 / 71
 
 Implemented: `expect-expect`, `max-expects`, `no-conditional-expect`,
 `no-conditional-in-test`, `no-disabled-tests`, `no-done-callback`,
@@ -271,7 +271,7 @@ Missing (52). Grouped:
   `padding-around-describe-blocks`, `padding-around-expect-groups`,
   `padding-around-test-blocks`. Style/format.
 
-### vitest (eslint-plugin-vitest) — 13 / 82
+### vitest (eslint-plugin-vitest): 13 / 82
 
 Implemented: `expect-expect`, `no-conditional-expect`, `no-conditional-tests`,
 `no-disabled-tests`, `no-done-callback`, `no-focused-tests`,
@@ -310,15 +310,15 @@ Missing (69):
 The jest/vitest plugins share large rule overlap; many ports can be
 mirror-implemented by parameterizing the shared driver.
 
-### testing-library (eslint-plugin-testing-library) — 29 / 29
+### testing-library (eslint-plugin-testing-library): 29 / 29
 
 Complete. No missing rules.
 
-### cypress (eslint-plugin-cypress) — 13 / 13
+### cypress (eslint-plugin-cypress): 13 / 13
 
 Complete. No missing rules.
 
-### playwright (eslint-plugin-playwright) — 31 / 58
+### playwright (eslint-plugin-playwright): 31 / 58
 
 Implemented: `expect-expect`, `max-expects`, `no-conditional-expect`,
 `no-conditional-in-test`, `no-duplicate-hooks`, `no-duplicate-slow`,
@@ -333,44 +333,44 @@ Implemented: `expect-expect`, `max-expects`, `no-conditional-expect`,
 
 Missing (27):
 
-- `consistent-spacing-between-blocks` — style/format.
-- `max-nested-describe` — AST-only.
-- `missing-playwright-await` — flag `expect(locator).toBeVisible()` without `await`. AST + Type-aware.
-- `no-commented-out-tests` — AST-only.
-- `no-raw-locators` — disallow `page.locator('text')`. AST-only + config.
-- `no-restricted-locators` / `no-restricted-matchers` / `no-restricted-roles` — configurable allow-lists. AST-only.
-- `no-unsafe-references` — flag closure references inside `page.evaluate`. AST-only (scope).
-- `no-unused-locators` — declared `Locator` never queried. AST-only.
-- `no-useless-await` / `no-useless-not` — AST-only.
+- `consistent-spacing-between-blocks`: style/format.
+- `max-nested-describe`: AST-only.
+- `missing-playwright-await`: flag `expect(locator).toBeVisible()` without `await`. AST + Type-aware.
+- `no-commented-out-tests`: AST-only.
+- `no-raw-locators`: disallow `page.locator('text')`. AST-only + config.
+- `no-restricted-locators` / `no-restricted-matchers` / `no-restricted-roles`: configurable allow-lists. AST-only.
+- `no-unsafe-references`: flag closure references inside `page.evaluate`. AST-only (scope).
+- `no-unused-locators`: declared `Locator` never queried. AST-only.
+- `no-useless-await` / `no-useless-not`: AST-only.
 - `prefer-comparison-matcher`, `prefer-equality-matcher`,
   `prefer-hooks-in-order`, `prefer-hooks-on-top`, `prefer-lowercase-title`,
   `prefer-native-locators`, `prefer-strict-equal`, `prefer-to-be`,
-  `prefer-to-contain` — AST-only.
+  `prefer-to-contain`. AST-only.
 - `require-hook`, `require-soft-assertions`, `require-tags`,
-  `require-top-level-describe` — AST-only.
-- `valid-expect-in-promise`, `valid-test-tags` — AST-only.
+  `require-top-level-describe`. AST-only.
+- `valid-expect-in-promise`, `valid-test-tags`: AST-only.
 
-### storybook (eslint-plugin-storybook) — 15 / 15
+### storybook (eslint-plugin-storybook): 15 / 15
 
 Complete. ttsc additionally ships `no-renderer-packages` (Storybook 8/9 rule
 that ships in newer plugin versions; double-check parity against the latest
 plugin release in case the upstream slug differs).
 
-### tanstack-query (`@tanstack/eslint-plugin-query`) — 8 / 8
+### tanstack-query (`@tanstack/eslint-plugin-query`): 8 / 8
 
 Complete.
 
-### promise (eslint-plugin-promise) — 17 / 17
+### promise (eslint-plugin-promise): 17 / 17
 
 Complete.
 
-### jsdoc (eslint-plugin-jsdoc) — 12 / 66
+### jsdoc (eslint-plugin-jsdoc): 12 / 66
 
 Implemented (`jsdoc/...`): `check-tag-names`, `check-values`, `empty-tags`,
 `no-types`, `reject-any-type`, `reject-function-type`, `require-description`,
 `require-param-description`, `require-param-name`,
 `require-property-description`, `require-property-name`,
-`require-returns-description`. Plus `tsdoc-syntax` (TSDoc bridge — out of
+`require-returns-description`. Plus `tsdoc-syntax` (TSDoc bridge, out of
 upstream scope).
 
 Missing (54). Grouped:
@@ -406,7 +406,7 @@ non-trivial because it requires parsing JSDoc bodies (handled today inside
 `ast_helpers.go`/`format_jsdoc.go`, but the parser would need extensions for
 per-tag validation).
 
-### regexp (eslint-plugin-regexp) — 22 / 82
+### regexp (eslint-plugin-regexp): 22 / 82
 
 Implemented: `no-control-character`, `no-dupe-characters-character-class`,
 `no-empty-alternative`, `no-empty-capturing-group`, `no-empty-character-class`,
@@ -454,26 +454,26 @@ Missing (60):
 (`rules_regexp.go::regexpLiteralParts`); these rules are mostly extensions on
 top of it.
 
-### functional (eslint-plugin-functional) — 20 / 20
+### functional (eslint-plugin-functional): 20 / 20
 
 Complete.
 
-### boundaries (eslint-plugin-boundaries) — 6 / 7
+### boundaries (eslint-plugin-boundaries): 6 / 7
 
 Missing (1):
 
-- `no-ignored` — flag files that match no element/scope and would be silently
+- `no-ignored`: flag files that match no element/scope and would be silently
   skipped by `boundaries`. AST-only + config.
-- `no-unknown-files` — similar but for files not classified by element types.
+- `no-unknown-files`: similar but for files not classified by element types.
 
 Implemented set: `dependencies`, `element-types`, `entry-point`, `external`,
 `no-private`, `no-unknown`. Note: upstream source files are `Dependencies.ts`
 (produces `element-types`), `EntryPoint`, `External`, `NoIgnored`, `NoPrivate`,
-`NoUnknown`, `NoUnknownFiles` — ttsc exposes both `dependencies` and
+`NoUnknown`, `NoUnknownFiles`, ttsc exposes both `dependencies` and
 `element-types`, which may be redundant if upstream now consolidates them
 under one slug.
 
-### typescript-eslint (`typescript/...`) — 97 / 134
+### typescript-eslint (`typescript/...`): 97 / 134
 
 Missing (37):
 
@@ -483,7 +483,7 @@ Missing (37):
   `no-invalid-this`, `no-loop-func`, `no-loss-of-precision`,
   `no-redeclare`, `no-restricted-imports`, `no-shadow`,
   `no-unused-expressions`, `no-unused-vars`, `no-use-before-define`,
-  `prefer-destructuring` — the typescript-eslint extension variants of core
+  `prefer-destructuring`, the typescript-eslint extension variants of core
   ESLint rules. ttsc already implements the core rule for several of these
   (under the bare slug); the TS-aware variants would mostly add
   type-aware refinement.
@@ -495,7 +495,7 @@ Missing (37):
   `prefer-readonly-parameter-types`, `prefer-ts-expect-error`,
   `strict-void-return`, `typedef`, `unified-signatures`. Type-aware.
 
-### eslint core — ~179 / ~292
+### eslint core: ~179 / ~292
 
 Implemented set spans `rules_no_*.go`, `rules_prefer_*.go`,
 `rules_consistent_*.go`, `rules_misc.go`, `rules_core_extra.go`,
@@ -504,7 +504,7 @@ Implemented set spans `rules_no_*.go`, `rules_prefer_*.go`,
 
 The missing list is dominated by:
 
-- **Deprecated formatting rules** (~80) moved to `@stylistic/eslint-plugin` —
+- **Deprecated formatting rules** (~80) moved to `@stylistic/eslint-plugin`:
   `array-bracket-newline`, `array-bracket-spacing`, `arrow-parens`,
   `arrow-spacing`, `block-spacing`, `brace-style`, `comma-dangle`,
   `comma-spacing`, `comma-style`, `computed-property-spacing`, `dot-location`,
@@ -530,53 +530,53 @@ The missing list is dominated by:
   `unicode-bom`, `wrap-iife`, `wrap-regex`, `yield-star-spacing`, `max-len`.
 
   Most of these are subsumed by ttsc's `rules_format_*.go` (`format/quotes`,
-  `format/semi`, `format/trailing-comma`, `format/print-width`, etc.) — the
+  `format/semi`, `format/trailing-comma`, `format/print-width`, etc.), the
   ESLint rules are *intentionally* not ported.
 
 - **Genuinely missing semantic rules** (~30):
-  - `accessor-pairs` — `set` without `get`. AST-only.
-  - `array-callback-return` — `.map`/`.filter`/etc. must return. AST + Type-aware.
-  - `arrow-body-style` — concise vs. block body. AST-only.
-  - `block-scoped-var` — `var` outside scope. AST-only.
-  - `callback-return` — Node-style callback discipline. AST-only.
-  - `capitalized-comments` — comment must start uppercase. Token-stream.
-  - `class-methods-use-this` — non-static method without `this`. AST-only.
-  - `consistent-this` — alias `this` consistently. AST-only.
-  - `constructor-super` — derived constructor must call `super`. AST-only (already covered by tsc?).
-  - `func-name-matching`, `func-names`, `func-style` — function declaration style. AST-only.
+  - `accessor-pairs`: `set` without `get`. AST-only.
+  - `array-callback-return`: `.map`/`.filter`/etc. Must return. AST + Type-aware.
+  - `arrow-body-style`: concise vs. Block body. AST-only.
+  - `block-scoped-var`: `var` outside scope. AST-only.
+  - `callback-return`: Node-style callback discipline. AST-only.
+  - `capitalized-comments`: comment must start uppercase. Token-stream.
+  - `class-methods-use-this`: non-static method without `this`. AST-only.
+  - `consistent-this`: alias `this` consistently. AST-only.
+  - `constructor-super`: derived constructor must call `super`. AST-only (already covered by tsc?).
+  - `func-name-matching`, `func-names`, `func-style`: function declaration style. AST-only.
   - `global-require`, `handle-callback-err`, `no-buffer-constructor`,
     `no-catch-shadow`, `no-mixed-requires`, `no-native-reassign`,
     `no-new-object`, `no-new-require`, `no-path-concat`, `no-process-env`,
-    `no-process-exit`, `no-restricted-modules`, `no-sync` — legacy
+    `no-process-exit`, `no-restricted-modules`, `no-sync`, legacy
     Node-environment lints; mostly deprecated.
-  - `no-const-assign` — assigning to `const`. Covered by tsc?
-  - `no-constant-binary-expression` — `x === NaN`, `x | 0`. AST-only.
-  - `no-div-regex` — `/=foo/`. AST-only.
-  - `no-extra-label`, `no-label-var` — labels. AST-only.
-  - `no-global-assign`, `no-implicit-globals` — global writes. AST-only.
-  - `no-implied-eval` — `setTimeout("...")`. AST-only.
-  - `no-invalid-regexp` — already covered by regexp parser; could expose at core too.
-  - `no-negated-in-lhs` — `!(a) in b`. AST-only.
-  - `no-new-native-nonconstructor`, `no-nonoctal-decimal-escape` — AST-only.
+  - `no-const-assign`: assigning to `const`. Covered by tsc?
+  - `no-constant-binary-expression`: `x === NaN`, `x | 0`. AST-only.
+  - `no-div-regex`: `/=foo/`. AST-only.
+  - `no-extra-label`, `no-label-var`: labels. AST-only.
+  - `no-global-assign`, `no-implicit-globals`: global writes. AST-only.
+  - `no-implied-eval`: `setTimeout("...")`. AST-only.
+  - `no-invalid-regexp`: already covered by regexp parser; could expose at core too.
+  - `no-negated-in-lhs`: `!(a) in b`. AST-only.
+  - `no-new-native-nonconstructor`, `no-nonoctal-decimal-escape`: AST-only.
   - `no-restricted-exports`, `no-restricted-globals`,
-    `no-restricted-properties` — configurable AST-only.
-  - `no-return-await` — implicit await. AST-only.
+    `no-restricted-properties`, configurable AST-only.
+  - `no-return-await`: implicit await. AST-only.
   - `no-ternary`, `no-underscore-dangle`, `no-void`,
-    `no-warning-comments` — AST-only.
-  - `no-unmodified-loop-condition` — `while (x)` where `x` never changes. AST + scope.
-  - `no-unreachable-loop` — loop that always exits. AST-only.
+    `no-warning-comments`. AST-only.
+  - `no-unmodified-loop-condition`: `while (x)` where `x` never changes. AST + scope.
+  - `no-unreachable-loop`: loop that always exits. AST-only.
   - `no-undef`, `no-unused-vars`, `no-use-before-define`,
-    `no-unused-private-class-members` — scope checks; partially handled by tsc.
-  - `no-unassigned-vars`, `no-useless-backreference` — AST/regex.
-  - `preserve-caught-error` — re-throw with `cause`. AST-only.
-  - `prefer-promise-reject-errors` — `Promise.reject(...)` must be `Error`. AST + Type-aware.
-  - `prefer-reflect`, `prefer-regex-literals` — AST-only.
+    `no-unused-private-class-members`, scope checks; partially handled by tsc.
+  - `no-unassigned-vars`, `no-useless-backreference`: AST/regex.
+  - `preserve-caught-error`: re-throw with `cause`. AST-only.
+  - `prefer-promise-reject-errors`: `Promise.reject(...)` must be `Error`. AST + Type-aware.
+  - `prefer-reflect`, `prefer-regex-literals`: AST-only.
   - `require-atomic-updates`, `require-await`,
-    `require-unicode-regexp` — AST-only.
+    `require-unicode-regexp`. AST-only.
   - `sort-vars`, `strict`, `symbol-description`,
-    `id-blacklist`, `id-denylist`, `id-match`, `new-cap` — AST-only.
+    `id-blacklist`, `id-denylist`, `id-match`, `new-cap`. AST-only.
 
-### eslint-plugin-import — 0 / 46
+### eslint-plugin-import: 0 / 46
 
 Nothing in the `import/...` namespace is currently ported. Missing rules:
 
@@ -597,10 +597,10 @@ Nothing in the `import/...` namespace is currently ported. Missing rules:
   `group-exports`, `dynamic-import-chunkname`.
 
 These are all eligible because ttsc has a real `TypeChecker` (`ctx.Checker`)
-and `Program` (`ctx.Program`) at hand — eslint-plugin-import's main weakness
+and `Program` (`ctx.Program`) at hand, eslint-plugin-import's main weakness
 (needing eslint-import-resolver-typescript) is a non-issue here.
 
-### eslint-comments (`eslint-community/eslint-plugin-eslint-comments`) — 0 / 9
+### eslint-comments (`eslint-community/eslint-plugin-eslint-comments`): 0 / 9
 
 Missing all 9: `disable-enable-pair`, `no-aggregating-enable`,
 `no-duplicate-disable`, `no-restricted-disable`, `no-unlimited-disable`,
@@ -621,7 +621,7 @@ of these would just be additional checks on the parsed directive set.
    AST-only, share infrastructure (component detection, hook detection)
    with the existing eight implementations. Batch.
 
-3. **React (`eslint-plugin-react`) — modern subset, one PR**.
+3. **React (`eslint-plugin-react`): modern subset, one PR**.
    Triage the 85 missing rules into two buckets; ship the ~12 "modern
    React" rules first (`jsx-fragments`, `jsx-no-bind`, `jsx-no-leaked-render`,
    `jsx-pascal-case`, `no-unknown-property`, `no-unstable-nested-components`,
