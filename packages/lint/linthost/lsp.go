@@ -302,7 +302,7 @@ func findingToLSPDiagnostic(finding *Finding) lspDiagnostic {
     Range:    lspRangeForFinding(finding),
     Severity: lspSeverity(finding.Severity),
     Code:     finding.Rule,
-    Source:   "@ttsc/lint",
+    Source:   "ttsc/lint",
     Message:  finding.Message,
   }
 }
