@@ -161,14 +161,25 @@ func convertDoubleQuotedToSingle(inner string) (string, bool) {
   return b.String(), true
 }
 
-// countDoubleEscapes returns the number of `\"` sequences and bare `'`
-// bytes inside a double-quoted literal's text. Pairs with
-// countSingleEscapes.
+// countDoubleEscapes returns, for a double-quoted literal's text, the
+// escape cost of each quote style: `escapedDouble` is how many `"` are
+// escaped today, `unescapedSingle` is how many `'` characters the value
+// holds (each would need escaping if the literal were single-quoted).
+// Pairs with countSingleEscapes.
+//
+// A `'` reaches the value two ways inside double quotes: bare (`'`) or as
+// a redundant escape (`\'`). Both are a single-quote character in the
+// cooked string, so both count toward unescapedSingle — otherwise a
+// literal like `"a\'b"` looks like a 0-vs-0 tie and flips to single,
+// where Prettier keeps double because single would cost the one escape.
 func countDoubleEscapes(inner string) (escapedDouble, unescapedSingle int) {
   for i := 0; i < len(inner); {
     if inner[i] == '\\' && i+1 < len(inner) {
-      if inner[i+1] == '"' {
+      switch inner[i+1] {
+      case '"':
         escapedDouble++
+      case '\'':
+        unescapedSingle++
       }
       i += 2
       continue
@@ -224,15 +235,22 @@ func convertSingleQuotedToDouble(inner string) (string, bool) {
   return b.String(), true
 }
 
-// countSingleEscapes returns the number of `\'` sequences and bare `"`
-// bytes inside a single-quoted literal's text. Pairs with
-// countDoubleEscapes; the names describe what they count (the quote kind
-// that's been escape-prefixed).
+// countSingleEscapes is the mirror of countDoubleEscapes for a
+// single-quoted literal's text: `escapedSingle` is how many `'` are
+// escaped today, `unescapedDouble` is how many `"` characters the value
+// holds (each would need escaping if the literal were double-quoted). A
+// `"` reaches the value either bare (`"`) or as a redundant escape
+// (`\"`), and both count toward unescapedDouble so a literal like
+// `'a\"b'` does not look like a tie and flip to double — Prettier keeps
+// single because double would cost the one escape.
 func countSingleEscapes(inner string) (escapedSingle, unescapedDouble int) {
   for i := 0; i < len(inner); {
     if inner[i] == '\\' && i+1 < len(inner) {
-      if inner[i+1] == '\'' {
+      switch inner[i+1] {
+      case '\'':
         escapedSingle++
+      case '"':
+        unescapedDouble++
       }
       i += 2
       continue
