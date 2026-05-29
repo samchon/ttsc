@@ -24,6 +24,9 @@ import (
 //   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
+//   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
+//   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
+//   - `format/whitespace` — always on, driven by endOfLine.
 //   - `format/sort-imports` — opt-in by setting `importOrder`.
 //   - `format/jsdoc` — opt-in by setting `jsdoc` truthy.
 //
@@ -137,6 +140,51 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
   out["format/print-width"] = ruleEntry(pwOpts)
 
+  // formatStatementSplit + formatIndent — always on, Prettier-style.
+  // Both reuse the indentation/EOL settings to synthesize line breaks
+  // and indent strings. Only the keys the user actually set are mirrored
+  // in (same conditional shape as print-width's pwOpts), so defaults are
+  // applied rule-side. The two rules share the same option surface.
+  layoutOpts := map[string]any{}
+  if v, ok := raw["tabWidth"]; ok {
+    n, err := asInt("format.tabWidth", v)
+    if err != nil {
+      return nil, err
+    }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
+    }
+    layoutOpts["tabWidth"] = n
+  }
+  if v, ok := raw["useTabs"]; ok {
+    b, err := asBool("format.useTabs", v)
+    if err != nil {
+      return nil, err
+    }
+    layoutOpts["useTabs"] = b
+  }
+  if v, ok := raw["endOfLine"]; ok {
+    s, err := asString("format.endOfLine", v)
+    if err != nil {
+      return nil, err
+    }
+    if s != "lf" && s != "crlf" {
+      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
+    }
+    layoutOpts["endOfLine"] = s
+  }
+  // Distinct map instances so the two rule entries don't alias one blob.
+  out["format/statement-split"] = ruleEntry(cloneStringAnyMap(layoutOpts))
+  out["format/indent"] = ruleEntry(cloneStringAnyMap(layoutOpts))
+
+  // formatWhitespace — always on. Needs only endOfLine for the final
+  // newline; indentation is irrelevant to text hygiene.
+  wsOpts := map[string]any{}
+  if v, ok := layoutOpts["endOfLine"]; ok {
+    wsOpts["endOfLine"] = v
+  }
+  out["format/whitespace"] = ruleEntry(wsOpts)
+
   // formatSortImports — opt-in by `importOrder`.
   if v, ok := raw["importOrder"]; ok {
     siOpts := map[string]any{}
@@ -246,6 +294,18 @@ func mergeRuleMaps(base, overrides map[string]any) map[string]any {
     out[k] = v
   }
   for k, v := range overrides {
+    out[k] = v
+  }
+  return out
+}
+
+// cloneStringAnyMap returns a shallow copy of `m`. expandFormatBlock uses
+// it so `format/statement-split` and `format/indent` each receive their
+// own options blob rather than aliasing one shared map — a later mutation
+// or marshal of one entry then cannot leak into the other.
+func cloneStringAnyMap(m map[string]any) map[string]any {
+  out := make(map[string]any, len(m))
+  for k, v := range m {
     out[k] = v
   }
   return out
