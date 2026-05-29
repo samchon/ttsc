@@ -24,10 +24,12 @@ var errFormatterBoom = errors.New("formatter boom")
 func TestLSPProxyFormatsCachedBuffer(t *testing.T) {
   const uri = "file:///a.ts"
   var gotContent string
+  var gotHasContent bool
   source := &stubSource{
     commands: []string{"ttsc.format.document"},
-    executeWithContent: func(command string, args []json.RawMessage, content string) (*driver.LSPWorkspaceEdit, error) {
+    executeWithContent: func(command string, args []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error) {
       gotContent = content
+      gotHasContent = hasContent
       return &driver.LSPWorkspaceEdit{
         Changes: map[string][]driver.LSPTextEdit{
           uri: {{
@@ -65,6 +67,114 @@ func TestLSPProxyFormatsCachedBuffer(t *testing.T) {
   if gotContent != "const dirty=2" {
     t.Fatalf("source did not receive cached dirty buffer text, got %q", gotContent)
   }
+  if !gotHasContent {
+    t.Fatalf("a cache hit must set hasContent=true so the sidecar formats in-memory, not disk")
+  }
+}
+
+// TestLSPProxyFormatsEmptyCachedBufferNotDisk pins the empty-buffer bug fix. When
+// the user clears a file to empty the proxy caches ("", true). The empty string
+// must NOT be mistaken for the no-buffer sentinel: the handler must format the
+// (empty) live buffer in-memory with hasContent=true, never fall through to the
+// stale, still-populated on-disk file.
+//
+//  1. Seed a real on-disk file with non-empty content.
+//  2. didOpen + a full-text didChange that empties the buffer → cache holds "".
+//  3. textDocument/formatting must feed the EMPTY buffer with hasContent=true,
+//     not the old disk content.
+func TestLSPProxyFormatsEmptyCachedBufferNotDisk(t *testing.T) {
+  const diskContent = "const onDisk = 1;\n"
+  uri := writeLSPDiskFile(t, diskContent)
+
+  var gotContent string
+  var gotHasContent bool
+  var called bool
+  source := &stubSource{
+    commands: []string{"ttsc.format.document"},
+    executeWithContent: func(_ string, _ []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error) {
+      called = true
+      gotContent = content
+      gotHasContent = hasContent
+      return nil, nil
+    },
+  }
+  h := newProxyHarness(t, source)
+
+  openParams, _ := json.Marshal(map[string]any{
+    "textDocument": map[string]any{"uri": uri, "version": 1, "text": "const buffered = 2;\n"},
+  })
+  h.sendEditor(notification("textDocument/didOpen", openParams))
+  _ = h.recvUpstream()
+
+  // Full-text (no range) didChange emptying the buffer caches ("", true).
+  changeParams, _ := json.Marshal(map[string]any{
+    "textDocument":   map[string]any{"uri": uri, "version": 2},
+    "contentChanges": []any{map[string]any{"text": ""}},
+  })
+  h.sendEditor(notification("textDocument/didChange", changeParams))
+  _ = h.recvUpstream()
+
+  formatParams, _ := json.Marshal(map[string]any{
+    "textDocument": map[string]any{"uri": uri},
+    "options":      map[string]any{"tabSize": 2, "insertSpaces": true},
+  })
+  h.sendEditor(request(21, "textDocument/formatting", formatParams))
+  h.expectNoUpstreamFrame(150 * time.Millisecond)
+
+  drainFormattingResponse(t, h, 21)
+  if !called {
+    t.Fatal("formatter was not invoked for the emptied buffer")
+  }
+  if !gotHasContent {
+    t.Fatal("emptied buffer must format in-memory (hasContent=true), not fall through to disk")
+  }
+  if gotContent != "" {
+    t.Fatalf("formatter received non-empty content %q; the empty live buffer must win over disk", gotContent)
+  }
+}
+
+// TestLSPProxyFormatsDirtyBufferOverPopulatedDisk pins the feature's central
+// promise: a dirty (non-empty) cached buffer wins over a populated on-disk file.
+// The earlier cached-buffer test uses a synthetic file:// uri with no backing
+// file, so it never proves the buffer beats real disk content; this one seeds
+// differing disk content and asserts the formatter sees the buffer, not disk.
+func TestLSPProxyFormatsDirtyBufferOverPopulatedDisk(t *testing.T) {
+  const diskContent = "const onDisk = 1;\n"
+  const bufferContent = "const dirtyBuffer = 2;\n"
+  uri := writeLSPDiskFile(t, diskContent)
+
+  var gotContent string
+  var gotHasContent bool
+  source := &stubSource{
+    commands: []string{"ttsc.format.document"},
+    executeWithContent: func(_ string, _ []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error) {
+      gotContent = content
+      gotHasContent = hasContent
+      return nil, nil
+    },
+  }
+  h := newProxyHarness(t, source)
+
+  openParams, _ := json.Marshal(map[string]any{
+    "textDocument": map[string]any{"uri": uri, "version": 1, "text": bufferContent},
+  })
+  h.sendEditor(notification("textDocument/didOpen", openParams))
+  _ = h.recvUpstream()
+
+  formatParams, _ := json.Marshal(map[string]any{
+    "textDocument": map[string]any{"uri": uri},
+    "options":      map[string]any{"tabSize": 2, "insertSpaces": true},
+  })
+  h.sendEditor(request(22, "textDocument/formatting", formatParams))
+  h.expectNoUpstreamFrame(150 * time.Millisecond)
+
+  drainFormattingResponse(t, h, 22)
+  if !gotHasContent {
+    t.Fatal("a cached buffer must format in-memory (hasContent=true)")
+  }
+  if gotContent != bufferContent {
+    t.Fatalf("formatter received %q; the dirty buffer must win over disk content %q", gotContent, diskContent)
+  }
 }
 
 // TestLSPProxyFormattingNoOpReturnsEmptyArray verifies a nil WorkspaceEdit (the
@@ -73,7 +183,7 @@ func TestLSPProxyFormatsCachedBuffer(t *testing.T) {
 func TestLSPProxyFormattingNoOpReturnsEmptyArray(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.format.document"},
-    executeWithContent: func(string, []json.RawMessage, string) (*driver.LSPWorkspaceEdit, error) {
+    executeWithContent: func(string, []json.RawMessage, string, bool) (*driver.LSPWorkspaceEdit, error) {
       return nil, nil
     },
   }
@@ -94,7 +204,7 @@ func TestLSPProxyFormattingNoOpReturnsEmptyArray(t *testing.T) {
 func TestLSPProxyFormattingErrorReturnsEmptyArray(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.format.document"},
-    executeWithContent: func(string, []json.RawMessage, string) (*driver.LSPWorkspaceEdit, error) {
+    executeWithContent: func(string, []json.RawMessage, string, bool) (*driver.LSPWorkspaceEdit, error) {
       return nil, errFormatterBoom
     },
   }

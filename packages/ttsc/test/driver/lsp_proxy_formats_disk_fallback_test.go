@@ -15,7 +15,7 @@ import (
 func formattingContentCapture(captured *string) *stubSource {
   return &stubSource{
     commands: []string{"ttsc.format.document"},
-    executeWithContent: func(_ string, _ []json.RawMessage, content string) (*driver.LSPWorkspaceEdit, error) {
+    executeWithContent: func(_ string, _ []json.RawMessage, content string, _ bool) (*driver.LSPWorkspaceEdit, error) {
       *captured = content
       return nil, nil
     },

@@ -36,7 +36,7 @@ func TestLSPNativePluginSourcePipesContentStdin(t *testing.T) {
 
   uri := "file:///tmp/a.ts"
   arg, _ := json.Marshal(uri)
-  edit, err := source.ExecuteCommandWithContent("ttsc.format.document", []json.RawMessage{arg}, "const buffered = 1;")
+  edit, err := source.ExecuteCommandWithContent("ttsc.format.document", []json.RawMessage{arg}, "const buffered = 1;", true)
   if err != nil {
     t.Fatalf("ExecuteCommandWithContent failed: %v", err)
   }
@@ -84,6 +84,43 @@ func TestLSPNativePluginSourceOmitsContentStdinWhenEmpty(t *testing.T) {
   }
   if edit.Changes[uri][0].NewText != "NOFLAG:" {
     t.Fatalf("expected no --content-stdin flag and no stdin, got %q", edit.Changes[uri][0].NewText)
+  }
+}
+
+// TestLSPNativePluginSourcePipesEmptyContentStdin pins the empty-buffer gate.
+// When hasContent is true the source must append --content-stdin and pipe stdin
+// even though content is "", so an emptied editor buffer formats in-memory
+// instead of falling through to stale disk content. The sidecar reports the flag
+// present and echoes the (empty) stdin back.
+func TestLSPNativePluginSourcePipesEmptyContentStdin(t *testing.T) {
+  dir := t.TempDir()
+  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceContentStdinSidecar)
+  manifest, err := json.Marshal(driver.NativePluginManifest{
+    LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
+  })
+  if err != nil {
+    t.Fatal(err)
+  }
+  source, err := driver.NewNativePluginSource(driver.NativePluginSourceOptions{
+    Cwd:          dir,
+    ManifestJSON: string(manifest),
+    Tsconfig:     "tsconfig.json",
+  })
+  if err != nil {
+    t.Fatalf("NewNativePluginSource failed: %v", err)
+  }
+
+  uri := "file:///tmp/a.ts"
+  arg, _ := json.Marshal(uri)
+  edit, err := source.ExecuteCommandWithContent("ttsc.format.document", []json.RawMessage{arg}, "", true)
+  if err != nil {
+    t.Fatalf("ExecuteCommandWithContent failed: %v", err)
+  }
+  if edit == nil || len(edit.Changes[uri]) != 1 {
+    t.Fatalf("expected one edit, got %#v", edit)
+  }
+  if edit.Changes[uri][0].NewText != "FLAG:" {
+    t.Fatalf("hasContent=true with empty content must still pass --content-stdin and pipe empty stdin, got %q", edit.Changes[uri][0].NewText)
   }
 }
 

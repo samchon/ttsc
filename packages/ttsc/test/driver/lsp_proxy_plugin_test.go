@@ -18,7 +18,7 @@ type stubSource struct {
   commands           []string
   codeActionKinds    []string
   execute            func(command string, args []json.RawMessage) (*driver.LSPWorkspaceEdit, error)
-  executeWithContent func(command string, args []json.RawMessage, content string) (*driver.LSPWorkspaceEdit, error)
+  executeWithContent func(command string, args []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error)
 }
 
 func (s *stubSource) Diagnostics(doc driver.LSPDocumentVersion) []driver.LSPDiagnostic {
@@ -55,12 +55,12 @@ func (s *stubSource) ExecuteCommand(command string, args []json.RawMessage) (*dr
 // capability used by the textDocument/formatting handler. When the test wires
 // executeWithContent it observes the piped buffer text; otherwise it falls back
 // to the plain execute hook so disk-path behavior stays exercised.
-func (s *stubSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string) (*driver.LSPWorkspaceEdit, error) {
+func (s *stubSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error) {
   if s == nil {
     return nil, driver.ErrCommandNotHandled
   }
   if s.executeWithContent != nil {
-    return s.executeWithContent(command, args, content)
+    return s.executeWithContent(command, args, content, hasContent)
   }
   if s.execute != nil {
     return s.execute(command, args)

@@ -191,17 +191,19 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
 // ExecuteCommand routes a ttsc-owned workspace command to the sidecar that
 // advertised it through lsp-command-ids.
 func (s *NativePluginSource) ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error) {
-  return s.ExecuteCommandWithContent(command, args, "")
+  return s.ExecuteCommandWithContent(command, args, "", false)
 }
 
 // ExecuteCommandWithContent runs a ttsc-owned workspace command like
-// ExecuteCommand, but when content is non-empty it asks the sidecar to format
-// that buffer text instead of the on-disk file. The buffer is passed by adding
-// the --content-stdin flag and piping content to the sidecar's stdin, so the
-// proxy can format dirty editor buffers (formatOnSave) without first writing
-// them to disk. Decoding of the returned WorkspaceEdit is identical to
-// ExecuteCommand.
-func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string) (*LSPWorkspaceEdit, error) {
+// ExecuteCommand, but when hasContent is true it asks the sidecar to format the
+// supplied buffer text instead of the on-disk file. The buffer is passed by
+// adding the --content-stdin flag and piping content to the sidecar's stdin, so
+// the proxy can format dirty editor buffers (formatOnSave) without first writing
+// them to disk. hasContent — not content != "" — gates the in-memory path: an
+// empty buffer the user cleared is a valid document state and must still format
+// in-memory (to a no-op) rather than falling through to stale disk content.
+// Decoding of the returned WorkspaceEdit is identical to ExecuteCommand.
+func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*LSPWorkspaceEdit, error) {
   if s == nil {
     return nil, ErrCommandNotHandled
   }
@@ -215,7 +217,7 @@ func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []js
     "--arguments-json=" + string(argsJSON),
   }
   var stdin io.Reader
-  if content != "" {
+  if hasContent {
     cmdArgs = append(cmdArgs, "--content-stdin")
     stdin = strings.NewReader(content)
   }

@@ -522,7 +522,7 @@ func (p *Proxy) completeExecuteCommand(env Envelope, key string, command string,
 // by piping the buffer to the sidecar's stdin with --content-stdin; sources that
 // do not implement it fall back to plain ExecuteCommand (disk).
 type contentExecutor interface {
-  ExecuteCommandWithContent(command string, args []json.RawMessage, content string) (*LSPWorkspaceEdit, error)
+  ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*LSPWorkspaceEdit, error)
 }
 
 // handleFormattingRequest answers textDocument/formatting for the ttsc-owned
@@ -555,11 +555,19 @@ func (p *Proxy) handleFormattingRequest(env Envelope) (bool, error) {
 }
 
 func (p *Proxy) completeFormattingRequest(env Envelope, uri string) {
-  content, ok := p.cachedDocumentText(uri)
-  if !ok {
+  // hasContent distinguishes "the proxy has a buffer to format in-memory" from
+  // "no buffer; let the sidecar read disk". An empty cached buffer is a valid
+  // document state (the user cleared the file), so the empty string must NOT be
+  // overloaded as the no-buffer sentinel: a cache hit always yields
+  // hasContent=true even when the buffer is "".
+  content, hasContent := p.cachedDocumentText(uri)
+  if !hasContent {
     if file, fileOK := filePathFromURI(uri); fileOK {
       if disk, err := os.ReadFile(file); err == nil {
+        // Preserve the existing disk-fallback behavior: pipe the disk bytes
+        // via stdin so the sidecar formats exactly what the proxy read.
         content = string(disk)
+        hasContent = true
       }
     }
   }
@@ -567,7 +575,7 @@ func (p *Proxy) completeFormattingRequest(env Envelope, uri string) {
   // empty TextEdit[] regardless of the error. The NativePluginSource already
   // logs the underlying sidecar failure to its own stderr writer, so the proxy
   // does not need a separate log sink here.
-  edit, err := p.executeFormatCommand(uri, content)
+  edit, err := p.executeFormatCommand(uri, content, hasContent)
   if err != nil {
     p.reportAsyncError(p.writeResult(env.ID, []LSPTextEdit{}))
     return
@@ -581,11 +589,11 @@ func (p *Proxy) completeFormattingRequest(env Envelope, uri string) {
 // executeCommand path the sidecar already implements; --content-stdin makes the
 // sidecar format the piped text instead of the disk file when the source
 // supports it.
-func (p *Proxy) executeFormatCommand(uri string, content string) (*LSPWorkspaceEdit, error) {
+func (p *Proxy) executeFormatCommand(uri string, content string, hasContent bool) (*LSPWorkspaceEdit, error) {
   arg, _ := json.Marshal(uri)
   args := []json.RawMessage{arg}
   if executor, ok := p.source.(contentExecutor); ok {
-    return executor.ExecuteCommandWithContent(formatDocumentCommand, args, content)
+    return executor.ExecuteCommandWithContent(formatDocumentCommand, args, content, hasContent)
   }
   return p.source.ExecuteCommand(formatDocumentCommand, args)
 }
