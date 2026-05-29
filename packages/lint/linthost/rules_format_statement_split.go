@@ -281,6 +281,16 @@ func walkStatementLists(node *shimast.Node, depth int, fn func(stmt *shimast.Nod
     switch child.Kind {
     case shimast.KindBlock, shimast.KindModuleBlock:
       childDepth = depth + 1
+      // An explicit `{ }` that is the direct body of a case/default
+      // clause does not add an indent level: Prettier indents
+      // `case X: { stmt }` exactly like `case X: stmt`. The clause has
+      // already contributed the level, so keep the block body at the
+      // clause's depth instead of nesting it one deeper.
+      if child.Kind == shimast.KindBlock && child.Parent != nil &&
+        (child.Parent.Kind == shimast.KindCaseClause ||
+          child.Parent.Kind == shimast.KindDefaultClause) {
+        childDepth = depth
+      }
       for _, stmt := range child.Statements() {
         if stmt == nil {
           continue
