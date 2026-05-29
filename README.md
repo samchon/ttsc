@@ -59,6 +59,15 @@ npm install -D @ttsc/vscode
 npx @ttsc/vscode
 ```
 
+Then turn on format-on-save in `.vscode/settings.json`:
+
+```jsonc
+"[typescript][typescriptreact][javascript][javascriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
 See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements, settings, and uninstall.
 
 ### Bundlers
