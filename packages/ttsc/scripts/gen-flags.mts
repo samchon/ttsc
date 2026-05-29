@@ -104,7 +104,7 @@ function renderDocsTable(schema: readonly FlagSpec[]): string {
       const aliases =
         flag.aliases !== undefined && flag.aliases.length > 0
           ? flag.aliases.map((a) => `\`${a}\``).join(", ")
-          : "—";
+          : "-";
       const subs = flag.subcommands.join(", ");
       const layers = flag.consumedBy
         .map((layer) => layerLabel(layer))
@@ -148,7 +148,7 @@ ${rows}
   optional.
 - **Consumed by** lists every layer that reads the flag into its own option
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
-- **Notes** marks structural attributes — \`terminal\` (the flag asks tsgo
+- **Notes** marks structural attributes: \`terminal\` (the flag asks tsgo
   to print and exit), \`shadow\` (ttsc adds the flag internally; post-
   processing must not eat a user-forwarded copy), and \`capability: ...\`
   (the flag is delivered to native check-stage hosts that opt in via the
@@ -192,7 +192,7 @@ function renderNotes(flag: FlagSpec): string {
   ) {
     tags.push("consumed-not-forwarded");
   }
-  return tags.length === 0 ? "—" : tags.join(", ");
+  return tags.length === 0 ? "-" : tags.join(", ");
 }
 
 function writeFile(target: string, contents: string): void {
