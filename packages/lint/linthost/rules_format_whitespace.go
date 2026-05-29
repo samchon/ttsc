@@ -111,10 +111,17 @@ func whitespaceEdits(src, eol string, ranges []byteRange) []TextEdit {
   // a whitespace-only line reduces to contentEnd == start.
   type lineSpan struct {
     start      int
-    contentEnd int
+    contentEnd int // end of visible content (trailing whitespace trimmed)
+    eolStart   int // offset where this line's terminator begins
     newlinePos int // offset of '\n', or -1 when none (final line)
     inTpl      bool
   }
+  // stripCR governs whether a line's trailing '\r' counts as trimmable
+  // whitespace. Under LF EOL a stray '\r' before '\n' is interior CRLF
+  // and must be normalized away; under CRLF EOL the '\r' is half of the
+  // line terminator and must be preserved, so it is never trimmed and the
+  // deletion stops before it (eolStart points at the '\r', not the '\n').
+  stripCR := eol == "\n"
   var lines []lineSpan
   start := 0
   for i := 0; i <= len(src); i++ {
@@ -124,24 +131,34 @@ func whitespaceEdits(src, eol string, ranges []byteRange) []TextEdit {
         newlinePos = i
       }
       inTpl := newlinePos >= 0 && inTemplate(ranges, newlinePos)
-      contentEnd := i
+      // eolStart marks where the preserved line terminator begins. Under
+      // CRLF a trailing '\r' immediately before the '\n' is kept, so the
+      // terminator (and the lower bound of any trailing-trim deletion) is
+      // the '\r'. Otherwise the terminator is the '\n' itself.
+      eolStart := i
+      if !stripCR && newlinePos >= 0 && i > start && src[i-1] == '\r' {
+        eolStart = i - 1
+      }
+      contentEnd := eolStart
       // A template-interior line keeps its bytes verbatim — its trailing
       // spaces are string content — so contentEnd is the raw line end.
-      // Real source lines trim trailing spaces/tabs/'\r' so the gap
-      // [contentEnd, newlinePos) is exactly what gets stripped and a
-      // whitespace-only line reduces to contentEnd == start.
+      // Real source lines trim the trailing run of spaces and tabs (and,
+      // under LF EOL, a stray '\r') so contentEnd marks the end of visible
+      // content and a whitespace-only line reduces to contentEnd == start.
       if !inTpl {
         for contentEnd > start {
           c := src[contentEnd-1]
-          if c != ' ' && c != '\t' && c != '\r' {
-            break
+          if c == ' ' || c == '\t' || (stripCR && c == '\r') {
+            contentEnd--
+            continue
           }
-          contentEnd--
+          break
         }
       }
       lines = append(lines, lineSpan{
         start:      start,
         contentEnd: contentEnd,
+        eolStart:   eolStart,
         newlinePos: newlinePos,
         inTpl:      inTpl,
       })
@@ -224,10 +241,10 @@ func whitespaceEdits(src, eol string, ranges []byteRange) []TextEdit {
     if ls.inTpl || collapsed[i] {
       continue
     }
-    rawEnd := ls.newlinePos
-    if rawEnd < 0 {
-      rawEnd = len(src)
-    }
+    // Trim only up to the preserved line terminator: eolStart is the '\n'
+    // under LF and the '\r' under CRLF, so a kept '\r\n' survives the
+    // trim while trailing spaces/tabs (and a stray '\r' under LF) go.
+    rawEnd := ls.eolStart
     if rawEnd > ls.contentEnd {
       edits = append(edits, TextEdit{Pos: ls.contentEnd, End: rawEnd, Text: ""})
     }
