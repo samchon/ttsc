@@ -493,8 +493,9 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   for pass := 0; pass < maxFormatPasses; pass++ {
     file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: target}, text, scriptKind)
     if file == nil {
-      fmt.Fprintf(os.Stderr, "@ttsc/lint: parse buffer for %s returned nil\n", target)
-      return nil, 2
+      // Match the disk path: a buffer we can't parse is a benign no-op, not a
+      // hard error — don't fight the editor's own diagnostics on a dirty buffer.
+      return nil, 0
     }
     findings := filterFormatFindings(engine.Run([]*shimast.SourceFile{file}, nil))
     next, applied := applyFindingFixesToText(text, findings)
