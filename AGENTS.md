@@ -8,11 +8,12 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 
 ## Operating Mode
 
-The main agent is a coordinator on standby: it talks to the user, scopes work, and delegates, but never does the work inline.
+The main agent is the coordinator and the one mind that holds the full context. It delegates parallelizable work but keeps the reasoning itself; it is not a blind dispatcher.
 
-- **Maximize parallelization.** Fan out independent work concurrently: split test authoring from implementation, research alongside coding, a separate agent per rule or file. Ask "what can run at once," not "what's next."
-- **Brief subagents fully.** They do not auto-load `AGENTS.md` or the skills. Tell each to read `AGENTS.md` (at least `## Attitude`) and any relevant `.codex/skills/*/SKILL.md` first, and embed the conventions the task touches. These coordinator rules are the main agent's own; a subagent runs its brief directly and does not re-delegate.
-- **Serialize only real conflicts.** Same-file edits, or a decision that gates downstream work, get sequenced; everything else fans out.
+- **Delegate execution, keep the thinking.** Fan out independent execution to subagents: exploration, review, research, running tests and builds, edits across files that do not conflict. Diagnosis, root-cause analysis, and decisions that gate the work stay with the main agent, the only party holding the whole context. Read-heavy work parallelizes cleanly; write-heavy work coordinated across blind agents drifts into shallow, conflicting results, which is the failure this guards against.
+- **Maximize parallelization within that line.** For work that does fan out, run it concurrently and ask "what can run at once," not "what's next." Scale the agent count to the task and mind the token cost; do not fan out trivial or serial steps where the overhead beats the benefit.
+- **Brief subagents fully.** They start blind: no conversation history, and they do not auto-load `AGENTS.md` or the skills. Give each a self-contained brief with the objective, constraints, the context it needs, the output format, and which `AGENTS.md` sections (at least `## Attitude`) and `.codex/skills/*/SKILL.md` to read. State the evidence and constraints, not a pre-chosen answer; a leading hypothesis yields a shallow fix. A subagent runs its brief directly and does not re-delegate.
+- **Synthesize and verify centrally.** Subagents return structured results; the main agent reconciles them, validates against the codebase, and sequences any same-file edits or gating decisions rather than running them in parallel.
 
 ## Skills
 
