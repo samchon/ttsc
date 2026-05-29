@@ -10,15 +10,16 @@ import "testing"
 // `(`-leading statement. The rule deletes only the whitespace gap, so
 // the guard keeps its indent and the statement follows on the same line.
 //
-//  1. Parse a semi:false guard: a `;` line before a `(`-leading statement.
+//  1. Parse a semi:false guard: a standalone `;` line (after a comment,
+//     so it is a genuine empty statement) before a `(`-leading statement.
 //  2. Apply format/orphan-semi with semi:false.
 //  3. Assert the `;` merges onto the statement line.
 func TestFormatOrphanSemiMergesGuardUnderNoSemi(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
     "format/orphan-semi",
-    "foo()\n;\n(bar as Baz).qux()\n",
+    "// guard\n;\n(bar as Baz).qux()\n",
     `{"semi":false}`,
-    "foo()\n;(bar as Baz).qux()\n",
+    "// guard\n;(bar as Baz).qux()\n",
   )
 }
