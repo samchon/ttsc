@@ -26,8 +26,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 145841.384695,
-          "minMs": 145841.384695,
           "samples": [
             145841.384695
           ]
@@ -38,8 +36,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 110832.973456,
-          "minMs": 110832.973456,
           "samples": [
             110832.973456
           ]
@@ -50,8 +46,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 94819.951804,
-          "minMs": 94819.951804,
           "samples": [
             94819.951804
           ]
@@ -62,8 +56,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 170467.455497,
-          "minMs": 170467.455497,
           "samples": [
             170467.455497
           ]
@@ -74,8 +66,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 64187.274287,
-          "minMs": 64187.274287,
           "samples": [
             64187.274287
           ]
@@ -86,8 +76,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 31431.360587,
-          "minMs": 31431.360587,
           "samples": [
             31431.360587
           ]
@@ -98,8 +86,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 23261.383639,
-          "minMs": 23261.383639,
           "samples": [
             23261.383639
           ]
@@ -110,8 +96,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 19545.720616,
-          "minMs": 19545.720616,
           "samples": [
             19545.720616
           ]
@@ -122,8 +106,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 45997.227299,
-          "minMs": 45997.227299,
           "samples": [
             45997.227299
           ]
@@ -134,8 +116,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 24419.856275,
-          "minMs": 24419.856275,
           "samples": [
             24419.856275
           ]
@@ -146,8 +126,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 16400.615042,
-          "minMs": 16400.615042,
           "samples": [
             16400.615042
           ]
@@ -158,8 +136,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 14559.461347,
-          "minMs": 14559.461347,
           "samples": [
             14559.461347
           ]
@@ -170,18 +146,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 111894.242159,
-          "minMs": 111894.242159,
           "samples": [
             111894.242159
           ],
-          "lintMedianMs": 46387,
-          "lintMinMs": 46387,
           "lintSamples": [
             46387
           ],
-          "lintPluginMedianMs": 1192,
-          "lintPluginMinMs": 1192,
           "lintPluginSamples": [
             1192
           ]
@@ -192,18 +162,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 58201.3437,
-          "minMs": 58201.3437,
           "samples": [
             58201.3437
           ],
-          "lintMedianMs": 24957,
-          "lintMinMs": 24957,
           "lintSamples": [
             24957
           ],
-          "lintPluginMedianMs": 225,
-          "lintPluginMinMs": 225,
           "lintPluginSamples": [
             225
           ]
@@ -214,18 +178,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 42480.562059,
-          "minMs": 42480.562059,
           "samples": [
             42480.562059
           ],
-          "lintMedianMs": 17919,
-          "lintMinMs": 17919,
           "lintSamples": [
             17919
           ],
-          "lintPluginMedianMs": 260,
-          "lintPluginMinMs": 260,
           "lintPluginSamples": [
             260
           ]
@@ -236,18 +194,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 37558.276831,
-          "minMs": 37558.276831,
           "samples": [
             37558.276831
           ],
-          "lintMedianMs": 16041,
-          "lintMinMs": 16041,
           "lintSamples": [
             16041
           ],
-          "lintPluginMedianMs": 241,
-          "lintPluginMinMs": 241,
           "lintPluginSamples": [
             241
           ]
@@ -258,18 +210,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 42095.246663,
-          "minMs": 42095.246663,
           "samples": [
             42095.246663
           ],
-          "lintMedianMs": 41573,
-          "lintMinMs": 41573,
           "lintSamples": [
             41573
           ],
-          "lintPluginMedianMs": 1225,
-          "lintPluginMinMs": 1225,
           "lintPluginSamples": [
             1225
           ]
@@ -280,18 +226,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 24693.607926,
-          "minMs": 24693.607926,
           "samples": [
             24693.607926
           ],
-          "lintMedianMs": 24211,
-          "lintMinMs": 24211,
           "lintSamples": [
             24211
           ],
-          "lintPluginMedianMs": 221,
-          "lintPluginMinMs": 221,
           "lintPluginSamples": [
             221
           ]
@@ -302,18 +242,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 16605.888219,
-          "minMs": 16605.888219,
           "samples": [
             16605.888219
           ],
-          "lintMedianMs": 16079,
-          "lintMinMs": 16079,
           "lintSamples": [
             16079
           ],
-          "lintPluginMedianMs": 170,
-          "lintPluginMinMs": 170,
           "lintPluginSamples": [
             170
           ]
@@ -324,18 +258,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 14121.961531,
-          "minMs": 14121.961531,
           "samples": [
             14121.961531
           ],
-          "lintMedianMs": 13633,
-          "lintMinMs": 13633,
           "lintSamples": [
             13633
           ],
-          "lintPluginMedianMs": 210,
-          "lintPluginMinMs": 210,
           "lintPluginSamples": [
             210
           ]
@@ -346,8 +274,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 16243.454463,
-          "minMs": 16243.454463,
           "samples": [
             16243.454463
           ]
@@ -358,8 +284,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 5581.102035,
-          "minMs": 5581.102035,
           "samples": [
             5581.102035
           ]
@@ -379,8 +303,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 34384.644881,
-          "minMs": 34384.644881,
           "samples": [
             34384.644881
           ]
@@ -391,8 +313,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 28953.013571,
-          "minMs": 28953.013571,
           "samples": [
             28953.013571
           ]
@@ -403,8 +323,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 7530.352009,
-          "minMs": 7530.352009,
           "samples": [
             7530.352009
           ]
@@ -415,8 +333,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 7376.426792,
-          "minMs": 7376.426792,
           "samples": [
             7376.426792
           ]
@@ -427,8 +343,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 9764.653464,
-          "minMs": 9764.653464,
           "samples": [
             9764.653464
           ]
@@ -439,8 +353,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 8076.938626,
-          "minMs": 8076.938626,
           "samples": [
             8076.938626
           ]
@@ -451,8 +363,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 7504.777941,
-          "minMs": 7504.777941,
           "samples": [
             7504.777941
           ]
@@ -463,8 +373,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 7565.656372,
-          "minMs": 7565.656372,
           "samples": [
             7565.656372
           ]
@@ -475,8 +383,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 8078.787616,
-          "minMs": 8078.787616,
           "samples": [
             8078.787616
           ]
@@ -487,8 +393,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 6986.354793,
-          "minMs": 6986.354793,
           "samples": [
             6986.354793
           ]
@@ -499,8 +403,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 6751.542946,
-          "minMs": 6751.542946,
           "samples": [
             6751.542946
           ]
@@ -511,8 +413,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 6505.316465,
-          "minMs": 6505.316465,
           "samples": [
             6505.316465
           ]
@@ -523,18 +423,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 17244.743154,
-          "minMs": 17244.743154,
           "samples": [
             17244.743154
           ],
-          "lintMedianMs": 4143,
-          "lintMinMs": 4143,
           "lintSamples": [
             4143
           ],
-          "lintPluginMedianMs": 29,
-          "lintPluginMinMs": 29,
           "lintPluginSamples": [
             29
           ]
@@ -545,18 +439,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 14744.744549,
-          "minMs": 14744.744549,
           "samples": [
             14744.744549
           ],
-          "lintMedianMs": 3165,
-          "lintMinMs": 3165,
           "lintSamples": [
             3165
           ],
-          "lintPluginMedianMs": 12,
-          "lintPluginMinMs": 12,
           "lintPluginSamples": [
             12
           ]
@@ -567,18 +455,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 13577.437004,
-          "minMs": 13577.437004,
           "samples": [
             13577.437004
           ],
-          "lintMedianMs": 2723,
-          "lintMinMs": 2723,
           "lintSamples": [
             2723
           ],
-          "lintPluginMedianMs": 12,
-          "lintPluginMinMs": 12,
           "lintPluginSamples": [
             12
           ]
@@ -589,18 +471,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 13657.118068,
-          "minMs": 13657.118068,
           "samples": [
             13657.118068
           ],
-          "lintMedianMs": 2828,
-          "lintMinMs": 2828,
           "lintSamples": [
             2828
           ],
-          "lintPluginMedianMs": 12,
-          "lintPluginMinMs": 12,
           "lintPluginSamples": [
             12
           ]
@@ -611,18 +487,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 11404.661811,
-          "minMs": 11404.661811,
           "samples": [
             11404.661811
           ],
-          "lintMedianMs": 4281,
-          "lintMinMs": 4281,
           "lintSamples": [
             4281
           ],
-          "lintPluginMedianMs": 29,
-          "lintPluginMinMs": 29,
           "lintPluginSamples": [
             29
           ]
@@ -633,18 +503,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 10184.583884,
-          "minMs": 10184.583884,
           "samples": [
             10184.583884
           ],
-          "lintMedianMs": 3145,
-          "lintMinMs": 3145,
           "lintSamples": [
             3145
           ],
-          "lintPluginMedianMs": 10,
-          "lintPluginMinMs": 10,
           "lintPluginSamples": [
             10
           ]
@@ -655,18 +519,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 9973.740653,
-          "minMs": 9973.740653,
           "samples": [
             9973.740653
           ],
-          "lintMedianMs": 2793,
-          "lintMinMs": 2793,
           "lintSamples": [
             2793
           ],
-          "lintPluginMedianMs": 11,
-          "lintPluginMinMs": 11,
           "lintPluginSamples": [
             11
           ]
@@ -677,18 +535,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 9908.958746,
-          "minMs": 9908.958746,
           "samples": [
             9908.958746
           ],
-          "lintMedianMs": 2676,
-          "lintMinMs": 2676,
           "lintSamples": [
             2676
           ],
-          "lintPluginMedianMs": 22,
-          "lintPluginMinMs": 22,
           "lintPluginSamples": [
             22
           ]
@@ -699,8 +551,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 8859.442624,
-          "minMs": 8859.442624,
           "samples": [
             8859.442624
           ]
@@ -711,8 +561,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 8491.818468,
-          "minMs": 8491.818468,
           "samples": [
             8491.818468
           ]
@@ -732,8 +580,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 20186.826159,
-          "minMs": 20186.826159,
           "samples": [
             20186.826159
           ]
@@ -744,8 +590,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 18387.85259,
-          "minMs": 18387.85259,
           "samples": [
             18387.85259
           ]
@@ -756,8 +600,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 5055.678952,
-          "minMs": 5055.678952,
           "samples": [
             5055.678952
           ]
@@ -768,8 +610,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 12329.263361,
-          "minMs": 12329.263361,
           "samples": [
             12329.263361
           ]
@@ -780,8 +620,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 7095.056079,
-          "minMs": 7095.056079,
           "samples": [
             7095.056079
           ]
@@ -792,8 +630,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 4367.233869,
-          "minMs": 4367.233869,
           "samples": [
             4367.233869
           ]
@@ -804,8 +640,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 3561.367247,
-          "minMs": 3561.367247,
           "samples": [
             3561.367247
           ]
@@ -816,8 +650,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 3154.10023,
-          "minMs": 3154.10023,
           "samples": [
             3154.10023
           ]
@@ -828,8 +660,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5889.828496,
-          "minMs": 5889.828496,
           "samples": [
             5889.828496
           ]
@@ -840,8 +670,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4244.638685,
-          "minMs": 4244.638685,
           "samples": [
             4244.638685
           ]
@@ -852,8 +680,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3209.834703,
-          "minMs": 3209.834703,
           "samples": [
             3209.834703
           ]
@@ -864,8 +690,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2914.656786,
-          "minMs": 2914.656786,
           "samples": [
             2914.656786
           ]
@@ -876,18 +700,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 11904.485173,
-          "minMs": 11904.485173,
           "samples": [
             11904.485173
           ],
-          "lintMedianMs": 5314,
-          "lintMinMs": 5314,
           "lintSamples": [
             5314
           ],
-          "lintPluginMedianMs": 70,
-          "lintPluginMinMs": 70,
           "lintPluginSamples": [
             70
           ]
@@ -898,18 +716,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 8113.480888,
-          "minMs": 8113.480888,
           "samples": [
             8113.480888
           ],
-          "lintMedianMs": 3482,
-          "lintMinMs": 3482,
           "lintSamples": [
             3482
           ],
-          "lintPluginMedianMs": 10,
-          "lintPluginMinMs": 10,
           "lintPluginSamples": [
             10
           ]
@@ -920,18 +732,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 6451.790453,
-          "minMs": 6451.790453,
           "samples": [
             6451.790453
           ],
-          "lintMedianMs": 2657,
-          "lintMinMs": 2657,
           "lintSamples": [
             2657
           ],
-          "lintPluginMedianMs": 13,
-          "lintPluginMinMs": 13,
           "lintPluginSamples": [
             13
           ]
@@ -942,18 +748,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 5819.192745,
-          "minMs": 5819.192745,
           "samples": [
             5819.192745
           ],
-          "lintMedianMs": 2292,
-          "lintMinMs": 2292,
           "lintSamples": [
             2292
           ],
-          "lintPluginMedianMs": 15,
-          "lintPluginMinMs": 15,
           "lintPluginSamples": [
             15
           ]
@@ -964,18 +764,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 6399.068431,
-          "minMs": 6399.068431,
           "samples": [
             6399.068431
           ],
-          "lintMedianMs": 5382,
-          "lintMinMs": 5382,
           "lintSamples": [
             5382
           ],
-          "lintPluginMedianMs": 52,
-          "lintPluginMinMs": 52,
           "lintPluginSamples": [
             52
           ]
@@ -986,18 +780,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4381.090407,
-          "minMs": 4381.090407,
           "samples": [
             4381.090407
           ],
-          "lintMedianMs": 3375,
-          "lintMinMs": 3375,
           "lintSamples": [
             3375
           ],
-          "lintPluginMedianMs": 9,
-          "lintPluginMinMs": 9,
           "lintPluginSamples": [
             9
           ]
@@ -1008,18 +796,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3539.224154,
-          "minMs": 3539.224154,
           "samples": [
             3539.224154
           ],
-          "lintMedianMs": 2573,
-          "lintMinMs": 2573,
           "lintSamples": [
             2573
           ],
-          "lintPluginMedianMs": 15,
-          "lintPluginMinMs": 15,
           "lintPluginSamples": [
             15
           ]
@@ -1030,18 +812,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3214.763907,
-          "minMs": 3214.763907,
           "samples": [
             3214.763907
           ],
-          "lintMedianMs": 2295,
-          "lintMinMs": 2295,
           "lintSamples": [
             2295
           ],
-          "lintPluginMedianMs": 16,
-          "lintPluginMinMs": 16,
           "lintPluginSamples": [
             16
           ]
@@ -1052,8 +828,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 1983.113908,
-          "minMs": 1983.113908,
           "samples": [
             1983.113908
           ]
@@ -1064,8 +838,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 1500.053419,
-          "minMs": 1500.053419,
           "samples": [
             1500.053419
           ]
@@ -1085,8 +857,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 7250.114008,
-          "minMs": 7250.114008,
           "samples": [
             7250.114008
           ]
@@ -1097,8 +867,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 13908.204374,
-          "minMs": 13908.204374,
           "samples": [
             13908.204374
           ]
@@ -1109,8 +877,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 6294.533758,
-          "minMs": 6294.533758,
           "samples": [
             6294.533758
           ]
@@ -1121,8 +887,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 8665.276194,
-          "minMs": 8665.276194,
           "samples": [
             8665.276194
           ]
@@ -1133,8 +897,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 2370.292514,
-          "minMs": 2370.292514,
           "samples": [
             2370.292514
           ]
@@ -1145,8 +907,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 1824.708406,
-          "minMs": 1824.708406,
           "samples": [
             1824.708406
           ]
@@ -1157,8 +917,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 1899.832902,
-          "minMs": 1899.832902,
           "samples": [
             1899.832902
           ]
@@ -1169,8 +927,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 1938.019667,
-          "minMs": 1938.019667,
           "samples": [
             1938.019667
           ]
@@ -1181,8 +937,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5751.210557,
-          "minMs": 5751.210557,
           "samples": [
             5751.210557
           ]
@@ -1193,8 +947,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 3924.092432,
-          "minMs": 3924.092432,
           "samples": [
             3924.092432
           ]
@@ -1205,8 +957,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3284.308189,
-          "minMs": 3284.308189,
           "samples": [
             3284.308189
           ]
@@ -1217,8 +967,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3086.814678,
-          "minMs": 3086.814678,
           "samples": [
             3086.814678
           ]
@@ -1229,18 +977,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 4375.155929,
-          "minMs": 4375.155929,
           "samples": [
             4375.155929
           ],
-          "lintMedianMs": 1501,
-          "lintMinMs": 1501,
           "lintSamples": [
             1501
           ],
-          "lintPluginMedianMs": 18,
-          "lintPluginMinMs": 18,
           "lintPluginSamples": [
             18
           ]
@@ -1251,18 +993,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 3829.037596,
-          "minMs": 3829.037596,
           "samples": [
             3829.037596
           ],
-          "lintMedianMs": 1319,
-          "lintMinMs": 1319,
           "lintSamples": [
             1319
           ],
-          "lintPluginMedianMs": 8,
-          "lintPluginMinMs": 8,
           "lintPluginSamples": [
             8
           ]
@@ -1273,18 +1009,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 3706.908535,
-          "minMs": 3706.908535,
           "samples": [
             3706.908535
           ],
-          "lintMedianMs": 1367,
-          "lintMinMs": 1367,
           "lintSamples": [
             1367
           ],
-          "lintPluginMedianMs": 6,
-          "lintPluginMinMs": 6,
           "lintPluginSamples": [
             6
           ]
@@ -1295,18 +1025,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 3989.379607,
-          "minMs": 3989.379607,
           "samples": [
             3989.379607
           ],
-          "lintMedianMs": 1382,
-          "lintMinMs": 1382,
           "lintSamples": [
             1382
           ],
-          "lintPluginMedianMs": 9,
-          "lintPluginMinMs": 9,
           "lintPluginSamples": [
             9
           ]
@@ -1317,18 +1041,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 6183.443613,
-          "minMs": 6183.443613,
           "samples": [
             6183.443613
           ],
-          "lintMedianMs": 5251,
-          "lintMinMs": 5251,
           "lintSamples": [
             5251
           ],
-          "lintPluginMedianMs": 33,
-          "lintPluginMinMs": 33,
           "lintPluginSamples": [
             33
           ]
@@ -1339,18 +1057,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4140.237061,
-          "minMs": 4140.237061,
           "samples": [
             4140.237061
           ],
-          "lintMedianMs": 3210,
-          "lintMinMs": 3210,
           "lintSamples": [
             3210
           ],
-          "lintPluginMedianMs": 9,
-          "lintPluginMinMs": 9,
           "lintPluginSamples": [
             9
           ]
@@ -1361,18 +1073,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3646.172008,
-          "minMs": 3646.172008,
           "samples": [
             3646.172008
           ],
-          "lintMedianMs": 2645,
-          "lintMinMs": 2645,
           "lintSamples": [
             2645
           ],
-          "lintPluginMedianMs": 10,
-          "lintPluginMinMs": 10,
           "lintPluginSamples": [
             10
           ]
@@ -1383,18 +1089,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3410.369367,
-          "minMs": 3410.369367,
           "samples": [
             3410.369367
           ],
-          "lintMedianMs": 2451,
-          "lintMinMs": 2451,
           "lintSamples": [
             2451
           ],
-          "lintPluginMedianMs": 8,
-          "lintPluginMinMs": 8,
           "lintPluginSamples": [
             8
           ]
@@ -1405,8 +1105,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 1287.471483,
-          "minMs": 1287.471483,
           "samples": [
             1287.471483
           ]
@@ -1417,8 +1115,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 1182.549821,
-          "minMs": 1182.549821,
           "samples": [
             1182.549821
           ]
@@ -1438,8 +1134,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 25295.316609,
-          "minMs": 25295.316609,
           "samples": [
             25295.316609
           ]
@@ -1450,8 +1144,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 17107.889898,
-          "minMs": 17107.889898,
           "samples": [
             17107.889898
           ]
@@ -1462,8 +1154,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 21155.611672,
-          "minMs": 21155.611672,
           "samples": [
             21155.611672
           ]
@@ -1474,8 +1164,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 45032.820534,
-          "minMs": 45032.820534,
           "samples": [
             45032.820534
           ]
@@ -1486,8 +1174,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 8820.75274,
-          "minMs": 8820.75274,
           "samples": [
             8820.75274
           ]
@@ -1498,8 +1184,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 4949.985786,
-          "minMs": 4949.985786,
           "samples": [
             4949.985786
           ]
@@ -1510,8 +1194,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 3708.513834,
-          "minMs": 3708.513834,
           "samples": [
             3708.513834
           ]
@@ -1522,8 +1204,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 3289.867367,
-          "minMs": 3289.867367,
           "samples": [
             3289.867367
           ]
@@ -1534,8 +1214,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5549.480642,
-          "minMs": 5549.480642,
           "samples": [
             5549.480642
           ]
@@ -1546,8 +1224,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 3711.72051,
-          "minMs": 3711.72051,
           "samples": [
             3711.72051
           ]
@@ -1558,8 +1234,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 2754.179811,
-          "minMs": 2754.179811,
           "samples": [
             2754.179811
           ]
@@ -1570,8 +1244,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2267.294627,
-          "minMs": 2267.294627,
           "samples": [
             2267.294627
           ]
@@ -1582,18 +1254,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 14065.772259,
-          "minMs": 14065.772259,
           "samples": [
             14065.772259
           ],
-          "lintMedianMs": 5144,
-          "lintMinMs": 5144,
           "lintSamples": [
             5144
           ],
-          "lintPluginMedianMs": 146,
-          "lintPluginMinMs": 146,
           "lintPluginSamples": [
             146
           ]
@@ -1604,18 +1270,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 8378.238482,
-          "minMs": 8378.238482,
           "samples": [
             8378.238482
           ],
-          "lintMedianMs": 3079,
-          "lintMinMs": 3079,
           "lintSamples": [
             3079
           ],
-          "lintPluginMedianMs": 64,
-          "lintPluginMinMs": 64,
           "lintPluginSamples": [
             64
           ]
@@ -1626,18 +1286,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 6570.88053,
-          "minMs": 6570.88053,
           "samples": [
             6570.88053
           ],
-          "lintMedianMs": 2338,
-          "lintMinMs": 2338,
           "lintSamples": [
             2338
           ],
-          "lintPluginMedianMs": 58,
-          "lintPluginMinMs": 58,
           "lintPluginSamples": [
             58
           ]
@@ -1648,18 +1302,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 5851.647983,
-          "minMs": 5851.647983,
           "samples": [
             5851.647983
           ],
-          "lintMedianMs": 2009,
-          "lintMinMs": 2009,
           "lintSamples": [
             2009
           ],
-          "lintPluginMedianMs": 28,
-          "lintPluginMinMs": 28,
           "lintPluginSamples": [
             28
           ]
@@ -1670,18 +1318,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 6805.84975,
-          "minMs": 6805.84975,
           "samples": [
             6805.84975
           ],
-          "lintMedianMs": 5767,
-          "lintMinMs": 5767,
           "lintSamples": [
             5767
           ],
-          "lintPluginMedianMs": 156,
-          "lintPluginMinMs": 156,
           "lintPluginSamples": [
             156
           ]
@@ -1692,18 +1334,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4921.663145,
-          "minMs": 4921.663145,
           "samples": [
             4921.663145
           ],
-          "lintMedianMs": 3706,
-          "lintMinMs": 3706,
           "lintSamples": [
             3706
           ],
-          "lintPluginMedianMs": 24,
-          "lintPluginMinMs": 24,
           "lintPluginSamples": [
             24
           ]
@@ -1714,18 +1350,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3704.950265,
-          "minMs": 3704.950265,
           "samples": [
             3704.950265
           ],
-          "lintMedianMs": 2489,
-          "lintMinMs": 2489,
           "lintSamples": [
             2489
           ],
-          "lintPluginMedianMs": 56,
-          "lintPluginMinMs": 56,
           "lintPluginSamples": [
             56
           ]
@@ -1736,18 +1366,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3012.926616,
-          "minMs": 3012.926616,
           "samples": [
             3012.926616
           ],
-          "lintMedianMs": 2027.0000000000002,
-          "lintMinMs": 2027.0000000000002,
           "lintSamples": [
             2027.0000000000002
           ],
-          "lintPluginMedianMs": 29,
-          "lintPluginMinMs": 29,
           "lintPluginSamples": [
             29
           ]
@@ -1758,8 +1382,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 2542.521122,
-          "minMs": 2542.521122,
           "samples": [
             2542.521122
           ]
@@ -1770,8 +1392,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 1565.076643,
-          "minMs": 1565.076643,
           "samples": [
             1565.076643
           ]
@@ -1791,8 +1411,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 14186.295365,
-          "minMs": 14186.295365,
           "samples": [
             14186.295365
           ]
@@ -1803,8 +1421,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 12299.370063,
-          "minMs": 12299.370063,
           "samples": [
             12299.370063
           ]
@@ -1815,8 +1431,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 4530.772663,
-          "minMs": 4530.772663,
           "samples": [
             4530.772663
           ]
@@ -1827,8 +1441,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 5005.708309,
-          "minMs": 5005.708309,
           "samples": [
             5005.708309
           ]
@@ -1839,8 +1451,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 4057.750165,
-          "minMs": 4057.750165,
           "samples": [
             4057.750165
           ]
@@ -1851,8 +1461,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 3659.437823,
-          "minMs": 3659.437823,
           "samples": [
             3659.437823
           ]
@@ -1863,8 +1471,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 3608.037431,
-          "minMs": 3608.037431,
           "samples": [
             3608.037431
           ]
@@ -1875,8 +1481,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 3739.782668,
-          "minMs": 3739.782668,
           "samples": [
             3739.782668
           ]
@@ -1887,8 +1491,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 3818.146229,
-          "minMs": 3818.146229,
           "samples": [
             3818.146229
           ]
@@ -1899,8 +1501,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 3497.952551,
-          "minMs": 3497.952551,
           "samples": [
             3497.952551
           ]
@@ -1911,8 +1511,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 3443.831329,
-          "minMs": 3443.831329,
           "samples": [
             3443.831329
           ]
@@ -1923,8 +1521,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 3364.107001,
-          "minMs": 3364.107001,
           "samples": [
             3364.107001
           ]
@@ -1935,18 +1531,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 7819.059536,
-          "minMs": 7819.059536,
           "samples": [
             7819.059536
           ],
-          "lintMedianMs": 2221,
-          "lintMinMs": 2221,
           "lintSamples": [
             2221
           ],
-          "lintPluginMedianMs": 28,
-          "lintPluginMinMs": 28,
           "lintPluginSamples": [
             28
           ]
@@ -1957,18 +1547,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 7219.831053,
-          "minMs": 7219.831053,
           "samples": [
             7219.831053
           ],
-          "lintMedianMs": 1893,
-          "lintMinMs": 1893,
           "lintSamples": [
             1893
           ],
-          "lintPluginMedianMs": 11,
-          "lintPluginMinMs": 11,
           "lintPluginSamples": [
             11
           ]
@@ -1979,18 +1563,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 6894.731238,
-          "minMs": 6894.731238,
           "samples": [
             6894.731238
           ],
-          "lintMedianMs": 1821,
-          "lintMinMs": 1821,
           "lintSamples": [
             1821
           ],
-          "lintPluginMedianMs": 17,
-          "lintPluginMinMs": 17,
           "lintPluginSamples": [
             17
           ]
@@ -2001,18 +1579,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 6868.371344,
-          "minMs": 6868.371344,
           "samples": [
             6868.371344
           ],
-          "lintMedianMs": 1767,
-          "lintMinMs": 1767,
           "lintSamples": [
             1767
           ],
-          "lintPluginMedianMs": 11,
-          "lintPluginMinMs": 11,
           "lintPluginSamples": [
             11
           ]
@@ -2023,18 +1595,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5274.513637,
-          "minMs": 5274.513637,
           "samples": [
             5274.513637
           ],
-          "lintMedianMs": 2213,
-          "lintMinMs": 2213,
           "lintSamples": [
             2213
           ],
-          "lintPluginMedianMs": 27,
-          "lintPluginMinMs": 27,
           "lintPluginSamples": [
             27
           ]
@@ -2045,18 +1611,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4898.180504,
-          "minMs": 4898.180504,
           "samples": [
             4898.180504
           ],
-          "lintMedianMs": 1825,
-          "lintMinMs": 1825,
           "lintSamples": [
             1825
           ],
-          "lintPluginMedianMs": 10,
-          "lintPluginMinMs": 10,
           "lintPluginSamples": [
             10
           ]
@@ -2067,18 +1627,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 4788.13592,
-          "minMs": 4788.13592,
           "samples": [
             4788.13592
           ],
-          "lintMedianMs": 1777,
-          "lintMinMs": 1777,
           "lintSamples": [
             1777
           ],
-          "lintPluginMedianMs": 17,
-          "lintPluginMinMs": 17,
           "lintPluginSamples": [
             17
           ]
@@ -2089,18 +1643,12 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 4665.005013,
-          "minMs": 4665.005013,
           "samples": [
             4665.005013
           ],
-          "lintMedianMs": 1749,
-          "lintMinMs": 1749,
           "lintSamples": [
             1749
           ],
-          "lintPluginMedianMs": 12,
-          "lintPluginMinMs": 12,
           "lintPluginSamples": [
             12
           ]
@@ -2111,8 +1659,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 3634.187133,
-          "minMs": 3634.187133,
           "samples": [
             3634.187133
           ]
@@ -2123,8 +1669,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 3601.95979,
-          "minMs": 3601.95979,
           "samples": [
             3601.95979
           ]
@@ -2144,8 +1688,6 @@
           "tool": "tsc",
           "op": "build",
           "threading": "multi",
-          "medianMs": 9419.065778,
-          "minMs": 9419.065778,
           "samples": [
             9419.065778
           ]
@@ -2156,8 +1698,6 @@
           "tool": "tsc",
           "op": "noEmit",
           "threading": "multi",
-          "medianMs": 7389.465451,
-          "minMs": 7389.465451,
           "samples": [
             7389.465451
           ]
@@ -2168,8 +1708,6 @@
           "tool": "eslint",
           "op": "eslint",
           "threading": "multi",
-          "medianMs": 8360.269427,
-          "minMs": 8360.269427,
           "samples": [
             8360.269427
           ]
@@ -2180,8 +1718,6 @@
           "tool": "prettier",
           "op": "format",
           "threading": "multi",
-          "medianMs": 12390.167923,
-          "minMs": 12390.167923,
           "samples": [
             12390.167923
           ]
@@ -2192,8 +1728,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "single",
-          "medianMs": 11856.875104,
-          "minMs": 11856.875104,
           "samples": [
             11856.875104
           ]
@@ -2204,8 +1738,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 11785.5791,
-          "minMs": 11785.5791,
           "samples": [
             11785.5791
           ]
@@ -2216,8 +1748,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 11734.162655,
-          "minMs": 11734.162655,
           "samples": [
             11734.162655
           ]
@@ -2228,8 +1758,6 @@
           "tool": "ttsc",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 11899.271582,
-          "minMs": 11899.271582,
           "samples": [
             11899.271582
           ]
@@ -2240,8 +1768,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 2700.02389,
-          "minMs": 2700.02389,
           "samples": [
             2700.02389
           ]
@@ -2252,8 +1778,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 2684.336963,
-          "minMs": 2684.336963,
           "samples": [
             2684.336963
           ]
@@ -2264,8 +1788,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 2701.672471,
-          "minMs": 2701.672471,
           "samples": [
             2701.672471
           ]
@@ -2276,8 +1798,6 @@
           "tool": "ttsc",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 2702.011723,
-          "minMs": 2702.011723,
           "samples": [
             2702.011723
           ]
@@ -2288,23 +1808,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "single",
-          "medianMs": 14123.583294,
-          "minMs": 14123.583294,
           "samples": [
             14123.583294
           ],
-          "lintMedianMs": 2128,
-          "lintMinMs": 2128,
           "lintSamples": [
             2128
           ],
-          "lintPluginMedianMs": 100,
-          "lintPluginMinMs": 100,
           "lintPluginSamples": [
             100
           ],
-          "transformHostMedianMs": 10365,
-          "transformHostMinMs": 10365,
           "transformHostSamples": [
             10365
           ]
@@ -2315,23 +1827,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers2",
-          "medianMs": 13232.363951,
-          "minMs": 13232.363951,
           "samples": [
             13232.363951
           ],
-          "lintMedianMs": 1287,
-          "lintMinMs": 1287,
           "lintSamples": [
             1287
           ],
-          "lintPluginMedianMs": 20,
-          "lintPluginMinMs": 20,
           "lintPluginSamples": [
             20
           ],
-          "transformHostMedianMs": 10354,
-          "transformHostMinMs": 10354,
           "transformHostSamples": [
             10354
           ]
@@ -2342,23 +1846,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers4",
-          "medianMs": 12383.22399,
-          "minMs": 12383.22399,
           "samples": [
             12383.22399
           ],
-          "lintMedianMs": 1122,
-          "lintMinMs": 1122,
           "lintSamples": [
             1122
           ],
-          "lintPluginMedianMs": 18,
-          "lintPluginMinMs": 18,
           "lintPluginSamples": [
             18
           ],
-          "transformHostMedianMs": 9688,
-          "transformHostMinMs": 9688,
           "transformHostSamples": [
             9688
           ]
@@ -2369,23 +1865,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "build",
           "threading": "checkers8",
-          "medianMs": 12350.650421,
-          "minMs": 12350.650421,
           "samples": [
             12350.650421
           ],
-          "lintMedianMs": 1081,
-          "lintMinMs": 1081,
           "lintSamples": [
             1081
           ],
-          "lintPluginMedianMs": 19,
-          "lintPluginMinMs": 19,
           "lintPluginSamples": [
             19
           ],
-          "transformHostMedianMs": 9693,
-          "transformHostMinMs": 9693,
           "transformHostSamples": [
             9693
           ]
@@ -2396,23 +1884,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "single",
-          "medianMs": 5343.16238,
-          "minMs": 5343.16238,
           "samples": [
             5343.16238
           ],
-          "lintMedianMs": 2159,
-          "lintMinMs": 2159,
           "lintSamples": [
             2159
           ],
-          "lintPluginMedianMs": 105,
-          "lintPluginMinMs": 105,
           "lintPluginSamples": [
             105
           ],
-          "transformHostMedianMs": 1608,
-          "transformHostMinMs": 1608,
           "transformHostSamples": [
             1608
           ]
@@ -2423,23 +1903,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers2",
-          "medianMs": 4609.66175,
-          "minMs": 4609.66175,
           "samples": [
             4609.66175
           ],
-          "lintMedianMs": 1442,
-          "lintMinMs": 1442,
           "lintSamples": [
             1442
           ],
-          "lintPluginMedianMs": 17,
-          "lintPluginMinMs": 17,
           "lintPluginSamples": [
             17
           ],
-          "transformHostMedianMs": 1570,
-          "transformHostMinMs": 1570,
           "transformHostSamples": [
             1570
           ]
@@ -2450,23 +1922,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers4",
-          "medianMs": 4219.897198,
-          "minMs": 4219.897198,
           "samples": [
             4219.897198
           ],
-          "lintMedianMs": 1217,
-          "lintMinMs": 1217,
           "lintSamples": [
             1217
           ],
-          "lintPluginMedianMs": 22,
-          "lintPluginMinMs": 22,
           "lintPluginSamples": [
             22
           ],
-          "transformHostMedianMs": 1432,
-          "transformHostMinMs": 1432,
           "transformHostSamples": [
             1432
           ]
@@ -2477,23 +1941,15 @@
           "tool": "ttsc+@ttsc/lint",
           "op": "noEmit",
           "threading": "checkers8",
-          "medianMs": 4318.787547,
-          "minMs": 4318.787547,
           "samples": [
             4318.787547
           ],
-          "lintMedianMs": 1200,
-          "lintMinMs": 1200,
           "lintSamples": [
             1200
           ],
-          "lintPluginMedianMs": 13,
-          "lintPluginMinMs": 13,
           "lintPluginSamples": [
             13
           ],
-          "transformHostMedianMs": 1548,
-          "transformHostMinMs": 1548,
           "transformHostSamples": [
             1548
           ]
@@ -2504,8 +1960,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "single",
-          "medianMs": 2497.364573,
-          "minMs": 2497.364573,
           "samples": [
             2497.364573
           ]
@@ -2516,8 +1970,6 @@
           "tool": "ttsc-format",
           "op": "format",
           "threading": "multi",
-          "medianMs": 2046.090218,
-          "minMs": 2046.090218,
           "samples": [
             2046.090218
           ]
