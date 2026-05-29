@@ -24,7 +24,7 @@ READMEs and website guides, `.codex/skills/documentation/SKILL.md`. Read before 
 
 ### Multi-Agent Workflows
 
-Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Read only when the user explicitly asks for a named mode.
+Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Read the Briefing subagents rule before delegating to any subagent; read in full only when the user asks for a named mode.
 
 ### Pull Request Submission
 
