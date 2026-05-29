@@ -25,6 +25,7 @@ import (
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
+//   - `format/declaration-header` — always on, reflows a class/interface header's type params and heritage clauses.
 //   - `format/parameter-properties` — always on, breaks a constructor's parameter list when it has parameter properties.
 //   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
@@ -147,6 +148,11 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // header when the joined line fits. A distinct map instance so it does
   // not alias the print-width blob.
   out["format/clause-join"] = ruleEntry(cloneStringAnyMap(pwOpts))
+
+  // formatDeclarationHeader — always on. Reflows a class/interface header
+  // (type parameters + heritage clauses) to Prettier's break shapes;
+  // needs the same printWidth/tabWidth/useTabs budget.
+  out["format/declaration-header"] = ruleEntry(cloneStringAnyMap(pwOpts))
 
   // formatStatementSplit + formatIndent — always on, Prettier-style.
   // Both reuse the indentation/EOL settings to synthesize line breaks
