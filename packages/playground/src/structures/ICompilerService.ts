@@ -11,7 +11,8 @@ import type { ITransformOptions } from "./ITransformOptions";
 export interface ICompilerService {
   /**
    * Mount external npm package files into the worker's MemFS under
-   * `node_modules/`. Driven by the dependency installer in `@ttsc/playground/npm`.
+   * `node_modules/`. Driven by the dependency installer in
+   * `@ttsc/playground/npm`.
    */
   installDependencies(
     props: ICompilerService.IInstallDependenciesProps,
@@ -46,7 +47,7 @@ export namespace ICompilerService {
   }
 
   export interface IInstallDependenciesProps {
-    /** node_modules-relative paths to text content. */
+    /** Node_modules-relative paths to text content. */
     files: Record<string, string>;
     /** Metadata for the packages whose files are in `files`. */
     packages: IInstalledPackage[];

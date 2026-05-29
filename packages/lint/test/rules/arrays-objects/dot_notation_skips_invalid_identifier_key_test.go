@@ -14,9 +14,9 @@ import "testing"
 // 2. Enable `dot-notation`.
 // 3. Assert no findings emitted.
 func TestDotNotationSkipsInvalidIdentifierKey(t *testing.T) {
-	assertRuleSkipsSource(
-		t,
-		"dot-notation",
-		"const box: any = { \"not-valid-key\": \"ttsc\" };\nconst value = box[\"not-valid-key\"];\nJSON.stringify(value);\n",
-	)
+  assertRuleSkipsSource(
+    t,
+    "dot-notation",
+    "const box: any = { \"not-valid-key\": \"ttsc\" };\nconst value = box[\"not-valid-key\"];\nJSON.stringify(value);\n",
+  )
 }

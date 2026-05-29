@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable only `react/jsx-key`.
 // 3. Assert the unkeyed branch element is reported.
 func TestReactJSXKeyReportsConditionalMapElement(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-key", `const C = ({ items }: { items: string[] }) => items.map((item) => item ? <li key={item}>{item}</li> : <span>{item}</span>);`, "key")
+  assertReactRuleFinds(t, "react/jsx-key", `const C = ({ items }: { items: string[] }) => items.map((item) => item ? <li key={item}>{item}</li> : <span>{item}</span>);`, "key")
 }

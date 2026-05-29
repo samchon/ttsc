@@ -17,36 +17,36 @@
 package linthost
 
 import (
-	"regexp"
-	"strings"
+  "regexp"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 var (
-	unicornNoZeroFractionsTrailingZero = regexp.MustCompile(`^-?\d+\.0+([eE][+-]?\d+)?$`)
-	unicornNoZeroFractionsTrailingDot  = regexp.MustCompile(`^-?\d+\.$`)
-	unicornNoZeroFractionsLeadingDot   = regexp.MustCompile(`^-?\.0+([eE][+-]?\d+)?$`)
+  unicornNoZeroFractionsTrailingZero = regexp.MustCompile(`^-?\d+\.0+([eE][+-]?\d+)?$`)
+  unicornNoZeroFractionsTrailingDot  = regexp.MustCompile(`^-?\d+\.$`)
+  unicornNoZeroFractionsLeadingDot   = regexp.MustCompile(`^-?\.0+([eE][+-]?\d+)?$`)
 )
 
 type unicornNoZeroFractions struct{}
 
 func (unicornNoZeroFractions) Name() string { return "unicorn/no-zero-fractions" }
 func (unicornNoZeroFractions) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNumericLiteral}
+  return []shimast.Kind{shimast.KindNumericLiteral}
 }
 func (unicornNoZeroFractions) Check(ctx *Context, node *shimast.Node) {
-	source := strings.TrimSpace(nodeText(ctx.File, node))
-	if source == "" {
-		return
-	}
-	if unicornNoZeroFractionsTrailingZero.MatchString(source) ||
-		unicornNoZeroFractionsTrailingDot.MatchString(source) ||
-		unicornNoZeroFractionsLeadingDot.MatchString(source) {
-		ctx.Report(node, "Don't use a redundant `.0` fraction or trailing dot on a number literal.")
-	}
+  source := strings.TrimSpace(nodeText(ctx.File, node))
+  if source == "" {
+    return
+  }
+  if unicornNoZeroFractionsTrailingZero.MatchString(source) ||
+    unicornNoZeroFractionsTrailingDot.MatchString(source) ||
+    unicornNoZeroFractionsLeadingDot.MatchString(source) {
+    ctx.Report(node, "Don't use a redundant `.0` fraction or trailing dot on a number literal.")
+  }
 }
 
 func init() {
-	Register(unicornNoZeroFractions{})
+  Register(unicornNoZeroFractions{})
 }

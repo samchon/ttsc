@@ -25,5 +25,5 @@ func (unicornFilenameCase) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornFilenameCase{})
+  Register(unicornFilenameCase{})
 }

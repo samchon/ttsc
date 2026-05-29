@@ -20,31 +20,31 @@ type unicornNoUnreadableIIFE struct{}
 
 func (unicornNoUnreadableIIFE) Name() string { return "unicorn/no-unreadable-iife" }
 func (unicornNoUnreadableIIFE) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoUnreadableIIFE) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if call.Expression.Kind != shimast.KindParenthesizedExpression {
-		return
-	}
-	paren := call.Expression.AsParenthesizedExpression()
-	if paren == nil || paren.Expression == nil ||
-		paren.Expression.Kind != shimast.KindArrowFunction {
-		return
-	}
-	arrow := paren.Expression.AsArrowFunction()
-	if arrow == nil || arrow.Body == nil {
-		return
-	}
-	if arrow.Body.Kind != shimast.KindCallExpression {
-		return
-	}
-	ctx.Report(node, "Avoid unreadable IIFEs — extract the function.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if call.Expression.Kind != shimast.KindParenthesizedExpression {
+    return
+  }
+  paren := call.Expression.AsParenthesizedExpression()
+  if paren == nil || paren.Expression == nil ||
+    paren.Expression.Kind != shimast.KindArrowFunction {
+    return
+  }
+  arrow := paren.Expression.AsArrowFunction()
+  if arrow == nil || arrow.Body == nil {
+    return
+  }
+  if arrow.Body.Kind != shimast.KindCallExpression {
+    return
+  }
+  ctx.Report(node, "Avoid unreadable IIFEs — extract the function.")
 }
 
 func init() {
-	Register(unicornNoUnreadableIIFE{})
+  Register(unicornNoUnreadableIIFE{})
 }

@@ -1,7 +1,7 @@
 /**
- * One pre-canned source script the playground dropdown can load. Sites
- * provide their own list — typia's site lists `random/is/json/protobuf`,
- * the ttsc site lists `typia/lint/mixed`.
+ * One pre-canned source script the playground dropdown can load. Sites provide
+ * their own list — typia's site lists `random/is/json/protobuf`, the ttsc site
+ * lists `typia/lint/mixed`.
  */
 export interface IPlaygroundExample {
   id: string;

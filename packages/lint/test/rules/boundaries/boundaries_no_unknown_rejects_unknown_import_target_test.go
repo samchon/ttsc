@@ -14,8 +14,8 @@ import "testing"
 // 2. Configure only app and domain source-path elements.
 // 3. Assert the app import of the shared utility reports exactly one finding.
 func TestBoundariesNoUnknownRejectsUnknownImportTarget(t *testing.T) {
-	const ruleName = "boundaries/no-unknown"
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/no-unknown"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "../shared/util";
   `, `{
     "elements": [
@@ -23,7 +23,7 @@ func TestBoundariesNoUnknownRejectsUnknownImportTarget(t *testing.T) {
       { "type": "domain", "pattern": "src/domain/**" }
     ]
   }`, map[string]string{
-		"src/shared/util.ts": "export {};",
-	})
-	assertSingleBoundaryFinding(t, ruleName, findings, `does not match any configured boundary element`)
+    "src/shared/util.ts": "export {};",
+  })
+  assertSingleBoundaryFinding(t, ruleName, findings, `does not match any configured boundary element`)
 }

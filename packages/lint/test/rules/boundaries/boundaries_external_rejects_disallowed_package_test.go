@@ -14,12 +14,12 @@ import "testing"
 // 2. Configure only @legacy/sdk as a disallowed external dependency.
 // 3. Assert the @legacy/sdk subpath import reports exactly one finding.
 func TestBoundariesExternalRejectsDisallowedPackage(t *testing.T) {
-	const ruleName = "boundaries/external"
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/external"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "@legacy/sdk/client";
     import "react";
   `, `{
     "disallow": ["@legacy/sdk"]
   }`, nil)
-	assertSingleBoundaryFinding(t, ruleName, findings, `@legacy/sdk/client`)
+  assertSingleBoundaryFinding(t, ruleName, findings, `@legacy/sdk/client`)
 }

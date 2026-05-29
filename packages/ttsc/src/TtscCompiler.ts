@@ -267,28 +267,26 @@ function runTransformation(
 }
 
 /**
- * Best-effort classifier for the `kind` field of `IException`. Pattern-
- * matches the real prefixes thrown inside this package:
+ * Best-effort classifier for the `kind` field of `IException`. Pattern- matches
+ * the real prefixes thrown inside this package:
  *
- *   - Plugin: messages from `loadProjectPlugins.ts` / `buildSourcePlugin.ts`
- *     start with `ttsc: plugin "..."` or `ttsc: package "..." declares ...`,
- *     and transform-time spawn failures start with `ttsc.transform:` /
- *     `ttsc.transform.check:`. The Go-toolchain missing envelope also
- *     surfaces here.
- *   - Host: everything else under the `ttsc:` umbrella — the bare
- *     `ttsc:` strings from `paths.ts`, `ttsc: TypeScript-Go executable
- *     not found` (`resolveTsgo.ts`), `ttsc: failed to spawn native
- *     compiler host` (`transformProjectInMemory.ts`), and tsconfig /
- *     extended-tsconfig shapes from `readProjectConfig.ts`.
- *   - Anything else falls back to `"unknown"` so embedders always see the
- *     field set per the documented contract.
+ * - Plugin: messages from `loadProjectPlugins.ts` / `buildSourcePlugin.ts` start
+ *   with `ttsc: plugin "..."` or `ttsc: package "..." declares ...`, and
+ *   transform-time spawn failures start with `ttsc.transform:` /
+ *   `ttsc.transform.check:`. The Go-toolchain missing envelope also surfaces
+ *   here.
+ * - Host: everything else under the `ttsc:` umbrella — the bare `ttsc:` strings
+ *   from `paths.ts`, `ttsc: TypeScript-Go executable not found`
+ *   (`resolveTsgo.ts`), `ttsc: failed to spawn native compiler host`
+ *   (`transformProjectInMemory.ts`), and tsconfig / extended-tsconfig shapes
+ *   from `readProjectConfig.ts`.
+ * - Anything else falls back to `"unknown"` so embedders always see the field set
+ *   per the documented contract.
  *
  * Order matters: plugin patterns must run before the generic `ttsc:` test
  * because every plugin message also starts with `ttsc:`.
  */
-function classifyException(
-  error: unknown,
-): "plugin" | "host" | "unknown" {
+function classifyException(error: unknown): "plugin" | "host" | "unknown" {
   const message =
     error instanceof Error
       ? error.message

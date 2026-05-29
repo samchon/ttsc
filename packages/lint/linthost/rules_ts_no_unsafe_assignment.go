@@ -24,79 +24,79 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noUnsafeAssignment struct{}
 
 func (noUnsafeAssignment) Name() string { return "typescript/no-unsafe-assignment" }
 func (noUnsafeAssignment) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnsafeAssignment) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindVariableDeclaration,
-		shimast.KindBinaryExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindVariableDeclaration,
+    shimast.KindBinaryExpression,
+  }
 }
 func (noUnsafeAssignment) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	switch node.Kind {
-	case shimast.KindVariableDeclaration:
-		decl := node.AsVariableDeclaration()
-		if decl == nil || decl.Initializer == nil {
-			return
-		}
-		// Only flag when the target has an explicit type annotation —
-		// `const x = anyValue;` widens `x` to `any` too, which is the
-		// `no-explicit-any` family's concern, not this rule's.
-		if decl.Type == nil {
-			return
-		}
-		rhs := stripParens(decl.Initializer)
-		if rhs == nil {
-			return
-		}
-		rhsType := ctx.Checker.GetTypeAtLocation(rhs)
-		if !typeIsUnsafeAny(rhsType) {
-			return
-		}
-		lhsType := ctx.Checker.GetTypeFromTypeNode(decl.Type)
-		if typeIsUnsafeAny(lhsType) {
-			return
-		}
-		ctx.Report(node, noUnsafeAssignmentMessage)
-	case shimast.KindBinaryExpression:
-		bin := node.AsBinaryExpression()
-		if bin == nil || bin.OperatorToken == nil {
-			return
-		}
-		if bin.OperatorToken.Kind != shimast.KindEqualsToken {
-			return
-		}
-		if bin.Left == nil || bin.Right == nil {
-			return
-		}
-		rhs := stripParens(bin.Right)
-		if rhs == nil {
-			return
-		}
-		rhsType := ctx.Checker.GetTypeAtLocation(rhs)
-		if !typeIsUnsafeAny(rhsType) {
-			return
-		}
-		lhsType := ctx.Checker.GetTypeAtLocation(bin.Left)
-		if typeIsUnsafeAny(lhsType) {
-			return
-		}
-		ctx.Report(node, noUnsafeAssignmentMessage)
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindVariableDeclaration:
+    decl := node.AsVariableDeclaration()
+    if decl == nil || decl.Initializer == nil {
+      return
+    }
+    // Only flag when the target has an explicit type annotation —
+    // `const x = anyValue;` widens `x` to `any` too, which is the
+    // `no-explicit-any` family's concern, not this rule's.
+    if decl.Type == nil {
+      return
+    }
+    rhs := stripParens(decl.Initializer)
+    if rhs == nil {
+      return
+    }
+    rhsType := ctx.Checker.GetTypeAtLocation(rhs)
+    if !typeIsUnsafeAny(rhsType) {
+      return
+    }
+    lhsType := ctx.Checker.GetTypeFromTypeNode(decl.Type)
+    if typeIsUnsafeAny(lhsType) {
+      return
+    }
+    ctx.Report(node, noUnsafeAssignmentMessage)
+  case shimast.KindBinaryExpression:
+    bin := node.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil {
+      return
+    }
+    if bin.OperatorToken.Kind != shimast.KindEqualsToken {
+      return
+    }
+    if bin.Left == nil || bin.Right == nil {
+      return
+    }
+    rhs := stripParens(bin.Right)
+    if rhs == nil {
+      return
+    }
+    rhsType := ctx.Checker.GetTypeAtLocation(rhs)
+    if !typeIsUnsafeAny(rhsType) {
+      return
+    }
+    lhsType := ctx.Checker.GetTypeAtLocation(bin.Left)
+    if typeIsUnsafeAny(lhsType) {
+      return
+    }
+    ctx.Report(node, noUnsafeAssignmentMessage)
+  }
 }
 
 const noUnsafeAssignmentMessage = "Unsafe assignment of a value typed as `any` to a typed target. Narrow the value before storing it."
 
 func init() {
-	Register(noUnsafeAssignment{})
+  Register(noUnsafeAssignment{})
 }

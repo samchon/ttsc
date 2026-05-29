@@ -6,8 +6,8 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // noUnnecessaryTypeAssertion reports redundant `as`, type-prefix, and
@@ -34,79 +34,79 @@ import (
 type noUnnecessaryTypeAssertion struct{}
 
 func (noUnnecessaryTypeAssertion) Name() string {
-	return "typescript/no-unnecessary-type-assertion"
+  return "typescript/no-unnecessary-type-assertion"
 }
 func (noUnnecessaryTypeAssertion) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnnecessaryTypeAssertion) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindAsExpression,
-		shimast.KindTypeAssertionExpression,
-		shimast.KindNonNullExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindAsExpression,
+    shimast.KindTypeAssertionExpression,
+    shimast.KindNonNullExpression,
+  }
 }
 func (noUnnecessaryTypeAssertion) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	switch node.Kind {
-	case shimast.KindAsExpression:
-		as := node.AsAsExpression()
-		if as == nil || as.Expression == nil || as.Type == nil {
-			return
-		}
-		if isConstTypeReference(as.Type) {
-			return
-		}
-		noUnnecessaryTypeAssertionCheckAssertion(ctx, node, as.Expression, as.Type)
-	case shimast.KindTypeAssertionExpression:
-		ta := node.AsTypeAssertion()
-		if ta == nil || ta.Expression == nil || ta.Type == nil {
-			return
-		}
-		if isConstTypeReference(ta.Type) {
-			return
-		}
-		noUnnecessaryTypeAssertionCheckAssertion(ctx, node, ta.Expression, ta.Type)
-	case shimast.KindNonNullExpression:
-		nn := node.AsNonNullExpression()
-		if nn == nil || nn.Expression == nil {
-			return
-		}
-		sourceType := ctx.Checker.GetTypeAtLocation(nn.Expression)
-		if sourceType == nil {
-			return
-		}
-		if noUnnecessaryTypeAssertionIsNullable(sourceType) {
-			return
-		}
-		ctx.Report(node, "This assertion is unnecessary since it does not change the type of the expression.")
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindAsExpression:
+    as := node.AsAsExpression()
+    if as == nil || as.Expression == nil || as.Type == nil {
+      return
+    }
+    if isConstTypeReference(as.Type) {
+      return
+    }
+    noUnnecessaryTypeAssertionCheckAssertion(ctx, node, as.Expression, as.Type)
+  case shimast.KindTypeAssertionExpression:
+    ta := node.AsTypeAssertion()
+    if ta == nil || ta.Expression == nil || ta.Type == nil {
+      return
+    }
+    if isConstTypeReference(ta.Type) {
+      return
+    }
+    noUnnecessaryTypeAssertionCheckAssertion(ctx, node, ta.Expression, ta.Type)
+  case shimast.KindNonNullExpression:
+    nn := node.AsNonNullExpression()
+    if nn == nil || nn.Expression == nil {
+      return
+    }
+    sourceType := ctx.Checker.GetTypeAtLocation(nn.Expression)
+    if sourceType == nil {
+      return
+    }
+    if noUnnecessaryTypeAssertionIsNullable(sourceType) {
+      return
+    }
+    ctx.Report(node, "This assertion is unnecessary since it does not change the type of the expression.")
+  }
 }
 
 // noUnnecessaryTypeAssertionCheckAssertion runs the shared logic for
 // `expr as T` and `<T>expr`: report when the asserted type and source
 // type are mutually assignable.
 func noUnnecessaryTypeAssertionCheckAssertion(ctx *Context, node, expr, typeNode *shimast.Node) {
-	sourceType := ctx.Checker.GetTypeAtLocation(expr)
-	if sourceType == nil {
-		return
-	}
-	assertedType := ctx.Checker.GetTypeFromTypeNode(typeNode)
-	if assertedType == nil {
-		return
-	}
-	// Bidirectional assignability stands in for type identity: see the
-	// note on `non-nullable-type-assertion-style`. The assertion is
-	// redundant only when both sides describe the same set of values.
-	if !ctx.Checker.IsTypeAssignableTo(sourceType, assertedType) {
-		return
-	}
-	if !ctx.Checker.IsTypeAssignableTo(assertedType, sourceType) {
-		return
-	}
-	ctx.Report(node, "This assertion is unnecessary since it does not change the type of the expression.")
+  sourceType := ctx.Checker.GetTypeAtLocation(expr)
+  if sourceType == nil {
+    return
+  }
+  assertedType := ctx.Checker.GetTypeFromTypeNode(typeNode)
+  if assertedType == nil {
+    return
+  }
+  // Bidirectional assignability stands in for type identity: see the
+  // note on `non-nullable-type-assertion-style`. The assertion is
+  // redundant only when both sides describe the same set of values.
+  if !ctx.Checker.IsTypeAssignableTo(sourceType, assertedType) {
+    return
+  }
+  if !ctx.Checker.IsTypeAssignableTo(assertedType, sourceType) {
+    return
+  }
+  ctx.Report(node, "This assertion is unnecessary since it does not change the type of the expression.")
 }
 
 // isConstTypeReference reports whether the type node is the bare
@@ -117,14 +117,14 @@ func noUnnecessaryTypeAssertionCheckAssertion(ctx *Context, node, expr, typeNode
 // it because it is structurally an assertion but semantically a const
 // context request.
 func isConstTypeReference(typeNode *shimast.Node) bool {
-	if typeNode == nil || typeNode.Kind != shimast.KindTypeReference {
-		return false
-	}
-	ref := typeNode.AsTypeReferenceNode()
-	if ref == nil {
-		return false
-	}
-	return identifierText(ref.TypeName) == "const"
+  if typeNode == nil || typeNode.Kind != shimast.KindTypeReference {
+    return false
+  }
+  ref := typeNode.AsTypeReferenceNode()
+  if ref == nil {
+    return false
+  }
+  return identifierText(ref.TypeName) == "const"
 }
 
 // noUnnecessaryTypeAssertionIsNullable reports whether t carries `null`
@@ -132,26 +132,26 @@ func isConstTypeReference(typeNode *shimast.Node) bool {
 // shape mirrors `nonNullableTypeAssertionStyleIsNullable` because both
 // rules answer the same question about the source expression.
 func noUnnecessaryTypeAssertionIsNullable(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
-		return true
-	}
-	if flags&shimchecker.TypeFlagsUnion != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if noUnnecessaryTypeAssertionIsNullable(part) {
-				return true
-			}
-		}
-	}
-	return false
+  if t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
+    return true
+  }
+  if flags&shimchecker.TypeFlagsUnion != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if noUnnecessaryTypeAssertionIsNullable(part) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(noUnnecessaryTypeAssertion{})
+  Register(noUnnecessaryTypeAssertion{})
 }

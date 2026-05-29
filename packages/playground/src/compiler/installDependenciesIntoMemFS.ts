@@ -7,10 +7,10 @@ import { normalizeNodeModulePath } from "./normalizeNodeModulePath";
  * Mount external npm package files into the worker's MemFS under
  * `<workDir>/node_modules/...`.
  *
- * Used by `createWorkerCompiler` to implement the `installDependencies` verb
- * of `ICompilerService`. The dependency installer (UI side) feeds keys like
- * `node_modules/uuid/dist/index.js`; we normalize, sanity-check, and copy
- * each entry under the project root.
+ * Used by `createWorkerCompiler` to implement the `installDependencies` verb of
+ * `ICompilerService`. The dependency installer (UI side) feeds keys like
+ * `node_modules/uuid/dist/index.js`; we normalize, sanity-check, and copy each
+ * entry under the project root.
  */
 export function installDependenciesIntoMemFS(
   host: IMemFSHost,

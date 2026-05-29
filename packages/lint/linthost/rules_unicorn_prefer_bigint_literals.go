@@ -20,32 +20,32 @@ type unicornPreferBigintLiterals struct{}
 
 func (unicornPreferBigintLiterals) Name() string { return "unicorn/prefer-bigint-literals" }
 func (unicornPreferBigintLiterals) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferBigintLiterals) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || identifierText(call.Expression) != "BigInt" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil {
-		return
-	}
-	switch arg.Kind {
-	case shimast.KindNumericLiteral:
-		// `BigInt(1)` — always rewritable to `1n`.
-	case shimast.KindStringLiteral:
-		text := stringLiteralText(arg)
-		if !unicornPreferBigintLiteralsIsDecimalInteger(text) {
-			return
-		}
-	default:
-		return
-	}
-	ctx.Report(node, "Prefer BigInt literal `1n` over `BigInt(1)`.")
+  call := node.AsCallExpression()
+  if call == nil || identifierText(call.Expression) != "BigInt" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil {
+    return
+  }
+  switch arg.Kind {
+  case shimast.KindNumericLiteral:
+    // `BigInt(1)` — always rewritable to `1n`.
+  case shimast.KindStringLiteral:
+    text := stringLiteralText(arg)
+    if !unicornPreferBigintLiteralsIsDecimalInteger(text) {
+      return
+    }
+  default:
+    return
+  }
+  ctx.Report(node, "Prefer BigInt literal `1n` over `BigInt(1)`.")
 }
 
 // unicornPreferBigintLiteralsIsDecimalInteger reports whether `text` is
@@ -53,25 +53,25 @@ func (unicornPreferBigintLiterals) Check(ctx *Context, node *shimast.Node) {
 // minus. The check is intentionally conservative; anything more exotic
 // (hex prefix, exponent, decimal point) leaves the BigInt call alone.
 func unicornPreferBigintLiteralsIsDecimalInteger(text string) bool {
-	if text == "" {
-		return false
-	}
-	i := 0
-	if text[0] == '-' || text[0] == '+' {
-		i++
-	}
-	if i == len(text) {
-		return false
-	}
-	for ; i < len(text); i++ {
-		ch := text[i]
-		if ch < '0' || ch > '9' {
-			return false
-		}
-	}
-	return true
+  if text == "" {
+    return false
+  }
+  i := 0
+  if text[0] == '-' || text[0] == '+' {
+    i++
+  }
+  if i == len(text) {
+    return false
+  }
+  for ; i < len(text); i++ {
+    ch := text[i]
+    if ch < '0' || ch > '9' {
+      return false
+    }
+  }
+  return true
 }
 
 func init() {
-	Register(unicornPreferBigintLiterals{})
+  Register(unicornPreferBigintLiterals{})
 }

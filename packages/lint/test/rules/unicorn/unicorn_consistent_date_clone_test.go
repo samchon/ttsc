@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare `new Date(original.getTime())` against another `Date`.
 // 3. Assert the new-expression is reported.
 func TestRuleCorpusUnicornConsistentDateClone(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/consistent-date-clone.ts", "const original = new Date();\n// expect: unicorn/consistent-date-clone error\nconst clone = new Date(original.getTime());\nvoid clone;\n")
+  assertRuleCorpusCase(t, "unicorn/consistent-date-clone.ts", "const original = new Date();\n// expect: unicorn/consistent-date-clone error\nconst clone = new Date(original.getTime());\nvoid clone;\n")
 }

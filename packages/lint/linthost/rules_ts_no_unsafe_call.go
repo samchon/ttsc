@@ -6,7 +6,7 @@
 // https://typescript-eslint.io/rules/no-unsafe-call/
 //
 // Type-aware. The rule visits the three syntactic invocation shapes —
-// `f(...)`, `new F(...)`, and the tagged-template form `f` + ``"x"`` —
+// `f(...)`, `new F(...)`, and the tagged-template form `f` + “"x"“ —
 // and reports when the callee resolves to a type whose flags include
 // `TypeFlagsAny`. `unknown` is intentionally not flagged: it requires a
 // narrowing assertion before the call, which is the explicit ergonomics
@@ -16,50 +16,50 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type noUnsafeCall struct{}
 
 func (noUnsafeCall) Name() string { return "typescript/no-unsafe-call" }
 func (noUnsafeCall) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnsafeCall) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindCallExpression,
-		shimast.KindNewExpression,
-		shimast.KindTaggedTemplateExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindCallExpression,
+    shimast.KindNewExpression,
+    shimast.KindTaggedTemplateExpression,
+  }
 }
 func (noUnsafeCall) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	var callee *shimast.Node
-	switch node.Kind {
-	case shimast.KindCallExpression:
-		if call := node.AsCallExpression(); call != nil {
-			callee = call.Expression
-		}
-	case shimast.KindNewExpression:
-		if ne := node.AsNewExpression(); ne != nil {
-			callee = ne.Expression
-		}
-	case shimast.KindTaggedTemplateExpression:
-		if tag := node.AsTaggedTemplateExpression(); tag != nil {
-			callee = tag.Tag
-		}
-	}
-	if callee == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(callee)
-	if !typeIsUnsafeAny(t) {
-		return
-	}
-	ctx.Report(callee, noUnsafeCallMessage)
+  if ctx.Checker == nil {
+    return
+  }
+  var callee *shimast.Node
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if call := node.AsCallExpression(); call != nil {
+      callee = call.Expression
+    }
+  case shimast.KindNewExpression:
+    if ne := node.AsNewExpression(); ne != nil {
+      callee = ne.Expression
+    }
+  case shimast.KindTaggedTemplateExpression:
+    if tag := node.AsTaggedTemplateExpression(); tag != nil {
+      callee = tag.Tag
+    }
+  }
+  if callee == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(callee)
+  if !typeIsUnsafeAny(t) {
+    return
+  }
+  ctx.Report(callee, noUnsafeCallMessage)
 }
 
 const noUnsafeCallMessage = "Unsafe call of a value typed as `any`. Narrow the callee to a concrete signature before invoking it."
@@ -71,12 +71,12 @@ const noUnsafeCallMessage = "Unsafe call of a value typed as `any`. Narrow the c
 // nil so an absent type silently bypasses the rule rather than firing
 // on every unanalysable expression.
 func typeIsUnsafeAny(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	return t.Flags()&shimchecker.TypeFlagsAny != 0
+  if t == nil {
+    return false
+  }
+  return t.Flags()&shimchecker.TypeFlagsAny != 0
 }
 
 func init() {
-	Register(noUnsafeCall{})
+  Register(noUnsafeCall{})
 }

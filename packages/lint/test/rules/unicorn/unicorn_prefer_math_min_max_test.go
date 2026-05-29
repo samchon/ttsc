@@ -15,5 +15,5 @@ import "testing"
 // 2. Declare `const m = a < b ? a : b;`.
 // 3. Assert the conditional expression is reported.
 func TestRuleCorpusUnicornPreferMathMinMax(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-math-min-max.ts", "declare const a: number;\ndeclare const b: number;\n// expect: unicorn/prefer-math-min-max error\nconst m = a < b ? a : b;\nvoid m;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-math-min-max.ts", "declare const a: number;\ndeclare const b: number;\n// expect: unicorn/prefer-math-min-max error\nconst m = a < b ? a : b;\nvoid m;\n")
 }

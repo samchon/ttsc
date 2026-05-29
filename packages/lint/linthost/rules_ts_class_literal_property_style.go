@@ -6,7 +6,7 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // classLiteralPropertyStyle reports `get foo() { return <literal>; }`
@@ -28,44 +28,44 @@ import (
 type classLiteralPropertyStyle struct{}
 
 func (classLiteralPropertyStyle) Name() string {
-	return "typescript/class-literal-property-style"
+  return "typescript/class-literal-property-style"
 }
 func (classLiteralPropertyStyle) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindGetAccessor}
+  return []shimast.Kind{shimast.KindGetAccessor}
 }
 func (classLiteralPropertyStyle) Check(ctx *Context, node *shimast.Node) {
-	parent := node.Parent
-	if parent == nil ||
-		(parent.Kind != shimast.KindClassDeclaration && parent.Kind != shimast.KindClassExpression) {
-		return
-	}
-	accessor := node.AsGetAccessorDeclaration()
-	if accessor == nil || accessor.Body == nil || accessor.Body.Kind != shimast.KindBlock {
-		return
-	}
-	statements := accessor.Body.Statements()
-	if len(statements) != 1 {
-		return
-	}
-	ret := statements[0]
-	if ret == nil || ret.Kind != shimast.KindReturnStatement {
-		return
-	}
-	retStmt := ret.AsReturnStatement()
-	if retStmt == nil || retStmt.Expression == nil {
-		return
-	}
-	if !isClassLiteralPropertyValue(retStmt.Expression) {
-		return
-	}
-	name := classMemberName(node)
-	if name == "" {
-		return
-	}
-	if classHasSetterFor(parent, name) {
-		return
-	}
-	ctx.Report(node, "Literal-returning getter `"+name+"` should be a `readonly` field instead.")
+  parent := node.Parent
+  if parent == nil ||
+    (parent.Kind != shimast.KindClassDeclaration && parent.Kind != shimast.KindClassExpression) {
+    return
+  }
+  accessor := node.AsGetAccessorDeclaration()
+  if accessor == nil || accessor.Body == nil || accessor.Body.Kind != shimast.KindBlock {
+    return
+  }
+  statements := accessor.Body.Statements()
+  if len(statements) != 1 {
+    return
+  }
+  ret := statements[0]
+  if ret == nil || ret.Kind != shimast.KindReturnStatement {
+    return
+  }
+  retStmt := ret.AsReturnStatement()
+  if retStmt == nil || retStmt.Expression == nil {
+    return
+  }
+  if !isClassLiteralPropertyValue(retStmt.Expression) {
+    return
+  }
+  name := classMemberName(node)
+  if name == "" {
+    return
+  }
+  if classHasSetterFor(parent, name) {
+    return
+  }
+  ctx.Report(node, "Literal-returning getter `"+name+"` should be a `readonly` field instead.")
 }
 
 // isClassLiteralPropertyValue reports whether the expression is one of
@@ -73,25 +73,25 @@ func (classLiteralPropertyStyle) Check(ctx *Context, node *shimast.Node) {
 // literal without substitutions, or a unary-minus prefix on a numeric
 // literal.
 func isClassLiteralPropertyValue(expr *shimast.Node) bool {
-	if expr == nil {
-		return false
-	}
-	switch expr.Kind {
-	case shimast.KindStringLiteral,
-		shimast.KindNumericLiteral,
-		shimast.KindTrueKeyword,
-		shimast.KindFalseKeyword,
-		shimast.KindNullKeyword,
-		shimast.KindNoSubstitutionTemplateLiteral:
-		return true
-	case shimast.KindPrefixUnaryExpression:
-		prefix := expr.AsPrefixUnaryExpression()
-		if prefix == nil || prefix.Operator != shimast.KindMinusToken || prefix.Operand == nil {
-			return false
-		}
-		return prefix.Operand.Kind == shimast.KindNumericLiteral
-	}
-	return false
+  if expr == nil {
+    return false
+  }
+  switch expr.Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindNoSubstitutionTemplateLiteral:
+    return true
+  case shimast.KindPrefixUnaryExpression:
+    prefix := expr.AsPrefixUnaryExpression()
+    if prefix == nil || prefix.Operator != shimast.KindMinusToken || prefix.Operand == nil {
+      return false
+    }
+    return prefix.Operand.Kind == shimast.KindNumericLiteral
+  }
+  return false
 }
 
 // classHasSetterFor reports whether the class contains a `set`
@@ -99,17 +99,17 @@ func isClassLiteralPropertyValue(expr *shimast.Node) bool {
 // is left alone because the field form cannot reproduce the setter's
 // side effects.
 func classHasSetterFor(class *shimast.Node, name string) bool {
-	for _, member := range classMembers(class) {
-		if member == nil || member.Kind != shimast.KindSetAccessor {
-			continue
-		}
-		if classMemberName(member) == name {
-			return true
-		}
-	}
-	return false
+  for _, member := range classMembers(class) {
+    if member == nil || member.Kind != shimast.KindSetAccessor {
+      continue
+    }
+    if classMemberName(member) == name {
+      return true
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(classLiteralPropertyStyle{})
+  Register(classLiteralPropertyStyle{})
 }

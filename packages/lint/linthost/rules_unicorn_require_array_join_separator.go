@@ -17,29 +17,29 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornRequireArrayJoinSeparator struct{}
 
 func (unicornRequireArrayJoinSeparator) Name() string {
-	return "unicorn/require-array-join-separator"
+  return "unicorn/require-array-join-separator"
 }
 func (unicornRequireArrayJoinSeparator) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornRequireArrayJoinSeparator) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "join" {
-		return
-	}
-	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-		return
-	}
-	ctx.Report(node, "Pass an explicit separator argument to `Array#join()`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "join" {
+    return
+  }
+  if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    return
+  }
+  ctx.Report(node, "Pass an explicit separator argument to `Array#join()`.")
 }
 
 func init() {
-	Register(unicornRequireArrayJoinSeparator{})
+  Register(unicornRequireArrayJoinSeparator{})
 }

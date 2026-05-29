@@ -15,35 +15,35 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type unicornRelativeURLStyle struct{}
 
 func (unicornRelativeURLStyle) Name() string { return "unicorn/relative-url-style" }
 func (unicornRelativeURLStyle) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindNewExpression}
 }
 func (unicornRelativeURLStyle) Check(ctx *Context, node *shimast.Node) {
-	expr := node.AsNewExpression()
-	if expr == nil || identifierText(expr.Expression) != "URL" {
-		return
-	}
-	if expr.Arguments == nil || len(expr.Arguments.Nodes) == 0 {
-		return
-	}
-	arg := expr.Arguments.Nodes[0]
-	text := stringLiteralText(arg)
-	if text == "" {
-		return
-	}
-	if strings.HasPrefix(text, "./") {
-		ctx.Report(arg, "Drop the leading `./` from relative URLs passed to `new URL`.")
-	}
+  expr := node.AsNewExpression()
+  if expr == nil || identifierText(expr.Expression) != "URL" {
+    return
+  }
+  if expr.Arguments == nil || len(expr.Arguments.Nodes) == 0 {
+    return
+  }
+  arg := expr.Arguments.Nodes[0]
+  text := stringLiteralText(arg)
+  if text == "" {
+    return
+  }
+  if strings.HasPrefix(text, "./") {
+    ctx.Report(arg, "Drop the leading `./` from relative URLs passed to `new URL`.")
+  }
 }
 
 func init() {
-	Register(unicornRelativeURLStyle{})
+  Register(unicornRelativeURLStyle{})
 }

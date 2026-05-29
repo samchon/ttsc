@@ -17,28 +17,28 @@ type unicornNoLonelyIf struct{}
 func (unicornNoLonelyIf) Name() string           { return "unicorn/no-lonely-if" }
 func (unicornNoLonelyIf) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindIfStatement} }
 func (unicornNoLonelyIf) Check(ctx *Context, node *shimast.Node) {
-	parent := node.Parent
-	if parent == nil || parent.Kind != shimast.KindBlock {
-		return
-	}
-	block := parent.AsBlock()
-	if block == nil || block.Statements == nil {
-		return
-	}
-	if len(block.Statements.Nodes) != 1 {
-		return
-	}
-	grand := parent.Parent
-	if grand == nil || grand.Kind != shimast.KindIfStatement {
-		return
-	}
-	gif := grand.AsIfStatement()
-	if gif == nil || gif.ElseStatement != parent {
-		return
-	}
-	ctx.Report(node, "Use `else if` instead of an `if` as the only statement inside an `else` block.")
+  parent := node.Parent
+  if parent == nil || parent.Kind != shimast.KindBlock {
+    return
+  }
+  block := parent.AsBlock()
+  if block == nil || block.Statements == nil {
+    return
+  }
+  if len(block.Statements.Nodes) != 1 {
+    return
+  }
+  grand := parent.Parent
+  if grand == nil || grand.Kind != shimast.KindIfStatement {
+    return
+  }
+  gif := grand.AsIfStatement()
+  if gif == nil || gif.ElseStatement != parent {
+    return
+  }
+  ctx.Report(node, "Use `else if` instead of an `if` as the only statement inside an `else` block.")
 }
 
 func init() {
-	Register(unicornNoLonelyIf{})
+  Register(unicornNoLonelyIf{})
 }

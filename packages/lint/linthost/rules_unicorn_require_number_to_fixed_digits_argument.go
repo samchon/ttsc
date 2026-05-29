@@ -15,29 +15,29 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornRequireNumberToFixedDigitsArgument struct{}
 
 func (unicornRequireNumberToFixedDigitsArgument) Name() string {
-	return "unicorn/require-number-to-fixed-digits-argument"
+  return "unicorn/require-number-to-fixed-digits-argument"
 }
 func (unicornRequireNumberToFixedDigitsArgument) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornRequireNumberToFixedDigitsArgument) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "toFixed" {
-		return
-	}
-	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-		return
-	}
-	ctx.Report(node, "Pass an explicit digits argument to `Number#toFixed()`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "toFixed" {
+    return
+  }
+  if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    return
+  }
+  ctx.Report(node, "Pass an explicit digits argument to `Number#toFixed()`.")
 }
 
 func init() {
-	Register(unicornRequireNumberToFixedDigitsArgument{})
+  Register(unicornRequireNumberToFixedDigitsArgument{})
 }

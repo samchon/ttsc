@@ -13,7 +13,7 @@ import "testing"
 // 2. Enable only functional/functional-parameters.
 // 3. Assert the rest parameter reports and offers no autofix.
 func TestFunctionalParametersRejectsRestParameter(t *testing.T) {
-	const ruleName = "functional/functional-parameters"
-	findings := runFunctionalRule(t, ruleName, `function collect(...items: string[]) { return items; }`)
-	assertFunctionalFinding(t, ruleName, findings, "rest parameter")
+  const ruleName = "functional/functional-parameters"
+  findings := runFunctionalRule(t, ruleName, `function collect(...items: string[]) { return items; }`)
+  assertFunctionalFinding(t, ruleName, findings, "rest parameter")
 }

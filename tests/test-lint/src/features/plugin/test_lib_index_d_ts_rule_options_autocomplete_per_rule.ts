@@ -24,8 +24,8 @@ import assert from "node:assert/strict";
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
- * - An identifier-form built-in name without the canonical slash
- *   (`reactJsxKey`) is rejected.
+ * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
+ *   is rejected.
  *
  * The function runs at runtime as a sanity check that `satisfies
  * ITtscLintConfig` does not regress; the real assertion happens during `pnpm

@@ -14,5 +14,5 @@ import "testing"
 // 2. Sum an array literal with `.reduce`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoArrayReduce(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-reduce.ts", "// expect: unicorn/no-array-reduce error\nconst total = [1, 2, 3].reduce((a, b) => a + b, 0);\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-reduce.ts", "// expect: unicorn/no-array-reduce error\nconst total = [1, 2, 3].reduce((a, b) => a + b, 0);\n")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Declare `const tail = a.slice(a.length - 1);`.
 // 3. Assert the binary index expression is reported.
 func TestRuleCorpusUnicornPreferNegativeIndex(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-negative-index.ts", "const a = [1, 2, 3];\n// expect: unicorn/prefer-negative-index error\nconst tail = a.slice(a.length - 1);\nvoid tail;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-negative-index.ts", "const a = [1, 2, 3];\n// expect: unicorn/prefer-negative-index error\nconst tail = a.slice(a.length - 1);\nvoid tail;\n")
 }

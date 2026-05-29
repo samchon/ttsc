@@ -12,14 +12,14 @@ import "testing"
 // 2. Enable `react-perf/jsx-no-new-array-as-prop`.
 // 3. Assert only the newly-created array values are reported.
 func TestReactPerfJsxNoNewArrayAsProp(t *testing.T) {
-	source := "const stable: string[] = [];\n" +
-		"const view = <>\n" +
-		"  <Item list={[]} />\n" +
-		"  <Item list={new Array()} />\n" +
-		"  <Item list={Array()} />\n" +
-		"  <Item list={props.list ?? []} />\n" +
-		"  <Item list={props.list ? props.list : []} />\n" +
-		"  <Item list={stable} />\n" +
-		"</>;\n"
-	reactPerfAssertLines(t, "react-perf/jsx-no-new-array-as-prop", source, []int{3, 4, 5, 6, 7})
+  source := "const stable: string[] = [];\n" +
+    "const view = <>\n" +
+    "  <Item list={[]} />\n" +
+    "  <Item list={new Array()} />\n" +
+    "  <Item list={Array()} />\n" +
+    "  <Item list={props.list ?? []} />\n" +
+    "  <Item list={props.list ? props.list : []} />\n" +
+    "  <Item list={stable} />\n" +
+    "</>;\n"
+  reactPerfAssertLines(t, "react-perf/jsx-no-new-array-as-prop", source, []int{3, 4, 5, 6, 7})
 }

@@ -14,5 +14,5 @@ import "testing"
 // 2. Throw `new Error(...)` inside a `typeof` guard.
 // 3. Assert the throw statement is reported.
 func TestRuleCorpusUnicornPreferTypeError(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-type-error.ts", "function f(x: unknown) {\n  if (typeof x !== \"number\") {\n    // expect: unicorn/prefer-type-error error\n    throw new Error(\"must be number\");\n  }\n  return x;\n}\nvoid f;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-type-error.ts", "function f(x: unknown) {\n  if (typeof x !== \"number\") {\n    // expect: unicorn/prefer-type-error error\n    throw new Error(\"must be number\");\n  }\n  return x;\n}\nvoid f;\n")
 }

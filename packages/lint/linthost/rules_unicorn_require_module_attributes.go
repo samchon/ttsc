@@ -19,36 +19,36 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornRequireModuleAttributes struct{}
 
 func (unicornRequireModuleAttributes) Name() string {
-	return "unicorn/require-module-attributes"
+  return "unicorn/require-module-attributes"
 }
 func (unicornRequireModuleAttributes) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
+  return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
 }
 func (unicornRequireModuleAttributes) Check(ctx *Context, node *shimast.Node) {
-	var attrs *shimast.Node
-	switch node.Kind {
-	case shimast.KindImportDeclaration:
-		if decl := node.AsImportDeclaration(); decl != nil {
-			attrs = decl.Attributes
-		}
-	case shimast.KindExportDeclaration:
-		if decl := node.AsExportDeclaration(); decl != nil {
-			attrs = decl.Attributes
-		}
-	}
-	if attrs == nil {
-		return
-	}
-	imp := attrs.AsImportAttributes()
-	if imp == nil {
-		return
-	}
-	if imp.Attributes != nil && len(imp.Attributes.Nodes) > 0 {
-		return
-	}
-	ctx.Report(node, "Import/export `with {}` should have at least one attribute.")
+  var attrs *shimast.Node
+  switch node.Kind {
+  case shimast.KindImportDeclaration:
+    if decl := node.AsImportDeclaration(); decl != nil {
+      attrs = decl.Attributes
+    }
+  case shimast.KindExportDeclaration:
+    if decl := node.AsExportDeclaration(); decl != nil {
+      attrs = decl.Attributes
+    }
+  }
+  if attrs == nil {
+    return
+  }
+  imp := attrs.AsImportAttributes()
+  if imp == nil {
+    return
+  }
+  if imp.Attributes != nil && len(imp.Attributes.Nodes) > 0 {
+    return
+  }
+  ctx.Report(node, "Import/export `with {}` should have at least one attribute.")
 }
 
 func init() {
-	Register(unicornRequireModuleAttributes{})
+  Register(unicornRequireModuleAttributes{})
 }

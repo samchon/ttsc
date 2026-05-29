@@ -14,6 +14,6 @@ import "testing"
 // 2. Enable only `react/jsx-no-undef`.
 // 3. Assert the missing identifier is reported.
 func TestReactJSXNoUndefReportsUndeclaredComponent(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-no-undef", `const C = () => <Missing />;
+  assertReactRuleFinds(t, "react/jsx-no-undef", `const C = () => <Missing />;
 JSON.stringify(C);`, "Missing")
 }

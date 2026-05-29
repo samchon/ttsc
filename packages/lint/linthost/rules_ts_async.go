@@ -16,8 +16,8 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // requireAwait reports `async` function bodies that contain no `await`
@@ -34,33 +34,33 @@ type requireAwait struct{}
 
 func (requireAwait) Name() string { return "typescript/require-await" }
 func (requireAwait) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindFunctionExpression,
-		shimast.KindArrowFunction,
-		shimast.KindMethodDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+  }
 }
 func (requireAwait) Check(ctx *Context, node *shimast.Node) {
-	if !hasAsyncModifier(node) {
-		return
-	}
-	if requireAwaitIsAsyncGenerator(node) {
-		return
-	}
-	body := node.Body()
-	if body == nil {
-		return
-	}
-	if requireAwaitBodyHasAwait(body) {
-		return
-	}
-	startPos := keywordStart(ctx.File, node, "async")
-	if startPos < 0 {
-		ctx.Report(node, "Async function has no `await` expression.")
-		return
-	}
-	ctx.ReportRange(startPos, startPos+len("async"), "Async function has no `await` expression.")
+  if !hasAsyncModifier(node) {
+    return
+  }
+  if requireAwaitIsAsyncGenerator(node) {
+    return
+  }
+  body := node.Body()
+  if body == nil {
+    return
+  }
+  if requireAwaitBodyHasAwait(body) {
+    return
+  }
+  startPos := keywordStart(ctx.File, node, "async")
+  if startPos < 0 {
+    ctx.Report(node, "Async function has no `await` expression.")
+    return
+  }
+  ctx.ReportRange(startPos, startPos+len("async"), "Async function has no `await` expression.")
 }
 
 // requireAwaitIsAsyncGenerator reports whether node is `async function*`,
@@ -69,18 +69,18 @@ func (requireAwait) Check(ctx *Context, node *shimast.Node) {
 // expressions express the suspend points and the rule would otherwise
 // fire on every `async function*` that does not also `await`.
 func requireAwaitIsAsyncGenerator(node *shimast.Node) bool {
-	switch node.Kind {
-	case shimast.KindFunctionDeclaration:
-		decl := node.AsFunctionDeclaration()
-		return decl != nil && decl.AsteriskToken != nil
-	case shimast.KindFunctionExpression:
-		expr := node.AsFunctionExpression()
-		return expr != nil && expr.AsteriskToken != nil
-	case shimast.KindMethodDeclaration:
-		decl := node.AsMethodDeclaration()
-		return decl != nil && decl.AsteriskToken != nil
-	}
-	return false
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration:
+    decl := node.AsFunctionDeclaration()
+    return decl != nil && decl.AsteriskToken != nil
+  case shimast.KindFunctionExpression:
+    expr := node.AsFunctionExpression()
+    return expr != nil && expr.AsteriskToken != nil
+  case shimast.KindMethodDeclaration:
+    decl := node.AsMethodDeclaration()
+    return decl != nil && decl.AsteriskToken != nil
+  }
+  return false
 }
 
 // requireAwaitBodyHasAwait reports whether body (or any descendant that
@@ -88,26 +88,26 @@ func requireAwaitIsAsyncGenerator(node *shimast.Node) bool {
 // expression. The walker mirrors `walkFunctionBody` in rules_promise.go
 // but bails out early once an `await` is found.
 func requireAwaitBodyHasAwait(body *shimast.Node) bool {
-	found := false
-	var walk func(*shimast.Node)
-	walk = func(n *shimast.Node) {
-		if found || n == nil {
-			return
-		}
-		if n != body && isFunctionLikeKind(n) {
-			return
-		}
-		if n.Kind == shimast.KindAwaitExpression {
-			found = true
-			return
-		}
-		n.ForEachChild(func(child *shimast.Node) bool {
-			walk(child)
-			return false
-		})
-	}
-	walk(body)
-	return found
+  found := false
+  var walk func(*shimast.Node)
+  walk = func(n *shimast.Node) {
+    if found || n == nil {
+      return
+    }
+    if n != body && isFunctionLikeKind(n) {
+      return
+    }
+    if n.Kind == shimast.KindAwaitExpression {
+      found = true
+      return
+    }
+    n.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  walk(body)
+  return found
 }
 
 // noMisusedPromises reports Promises supplied where a boolean or a
@@ -130,66 +130,66 @@ type noMisusedPromises struct{}
 
 func (noMisusedPromises) Name() string { return "typescript/no-misused-promises" }
 func (noMisusedPromises) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noMisusedPromises) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindIfStatement,
-		shimast.KindWhileStatement,
-		shimast.KindDoStatement,
-		shimast.KindForStatement,
-		shimast.KindConditionalExpression,
-		shimast.KindPrefixUnaryExpression,
-		shimast.KindBinaryExpression,
-		shimast.KindCallExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindIfStatement,
+    shimast.KindWhileStatement,
+    shimast.KindDoStatement,
+    shimast.KindForStatement,
+    shimast.KindConditionalExpression,
+    shimast.KindPrefixUnaryExpression,
+    shimast.KindBinaryExpression,
+    shimast.KindCallExpression,
+  }
 }
 func (noMisusedPromises) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	switch node.Kind {
-	case shimast.KindIfStatement:
-		if stmt := node.AsIfStatement(); stmt != nil {
-			noMisusedPromisesReportConditional(ctx, stmt.Expression)
-		}
-	case shimast.KindWhileStatement:
-		if stmt := node.AsWhileStatement(); stmt != nil {
-			noMisusedPromisesReportConditional(ctx, stmt.Expression)
-		}
-	case shimast.KindDoStatement:
-		if stmt := node.AsDoStatement(); stmt != nil {
-			noMisusedPromisesReportConditional(ctx, stmt.Expression)
-		}
-	case shimast.KindForStatement:
-		if stmt := node.AsForStatement(); stmt != nil {
-			noMisusedPromisesReportConditional(ctx, stmt.Condition)
-		}
-	case shimast.KindConditionalExpression:
-		if expr := node.AsConditionalExpression(); expr != nil {
-			noMisusedPromisesReportConditional(ctx, expr.Condition)
-		}
-	case shimast.KindPrefixUnaryExpression:
-		expr := node.AsPrefixUnaryExpression()
-		if expr != nil && expr.Operator == shimast.KindExclamationToken {
-			noMisusedPromisesReportConditional(ctx, expr.Operand)
-		}
-	case shimast.KindBinaryExpression:
-		bin := node.AsBinaryExpression()
-		if bin == nil || bin.OperatorToken == nil {
-			return
-		}
-		switch bin.OperatorToken.Kind {
-		case shimast.KindAmpersandAmpersandToken,
-			shimast.KindBarBarToken,
-			shimast.KindQuestionQuestionToken:
-			noMisusedPromisesReportConditional(ctx, bin.Left)
-		}
-	case shimast.KindCallExpression:
-		if call := node.AsCallExpression(); call != nil {
-			noMisusedPromisesCheckVoidCallback(ctx, call)
-		}
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  switch node.Kind {
+  case shimast.KindIfStatement:
+    if stmt := node.AsIfStatement(); stmt != nil {
+      noMisusedPromisesReportConditional(ctx, stmt.Expression)
+    }
+  case shimast.KindWhileStatement:
+    if stmt := node.AsWhileStatement(); stmt != nil {
+      noMisusedPromisesReportConditional(ctx, stmt.Expression)
+    }
+  case shimast.KindDoStatement:
+    if stmt := node.AsDoStatement(); stmt != nil {
+      noMisusedPromisesReportConditional(ctx, stmt.Expression)
+    }
+  case shimast.KindForStatement:
+    if stmt := node.AsForStatement(); stmt != nil {
+      noMisusedPromisesReportConditional(ctx, stmt.Condition)
+    }
+  case shimast.KindConditionalExpression:
+    if expr := node.AsConditionalExpression(); expr != nil {
+      noMisusedPromisesReportConditional(ctx, expr.Condition)
+    }
+  case shimast.KindPrefixUnaryExpression:
+    expr := node.AsPrefixUnaryExpression()
+    if expr != nil && expr.Operator == shimast.KindExclamationToken {
+      noMisusedPromisesReportConditional(ctx, expr.Operand)
+    }
+  case shimast.KindBinaryExpression:
+    bin := node.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil {
+      return
+    }
+    switch bin.OperatorToken.Kind {
+    case shimast.KindAmpersandAmpersandToken,
+      shimast.KindBarBarToken,
+      shimast.KindQuestionQuestionToken:
+      noMisusedPromisesReportConditional(ctx, bin.Left)
+    }
+  case shimast.KindCallExpression:
+    if call := node.AsCallExpression(); call != nil {
+      noMisusedPromisesCheckVoidCallback(ctx, call)
+    }
+  }
 }
 
 // noMisusedPromisesReportConditional reports expr if it carries a
@@ -198,19 +198,19 @@ func (noMisusedPromises) Check(ctx *Context, node *shimast.Node) {
 // flagged because they propagate from generic helpers and would
 // produce overwhelming false-positive volume in real codebases.
 func noMisusedPromisesReportConditional(ctx *Context, expr *shimast.Node) {
-	target := stripParens(expr)
-	if target == nil {
-		return
-	}
-	switch target.Kind {
-	case shimast.KindAwaitExpression, shimast.KindVoidExpression:
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(target)
-	if t == nil || !isPromiseTypedExpression(ctx.Checker, t) {
-		return
-	}
-	ctx.Report(target, "Expected non-Promise value in a boolean conditional position; did you forget `await`?")
+  target := stripParens(expr)
+  if target == nil {
+    return
+  }
+  switch target.Kind {
+  case shimast.KindAwaitExpression, shimast.KindVoidExpression:
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(target)
+  if t == nil || !isPromiseTypedExpression(ctx.Checker, t) {
+    return
+  }
+  ctx.Report(target, "Expected non-Promise value in a boolean conditional position; did you forget `await`?")
 }
 
 // noMisusedPromisesCheckVoidCallback fires when an async callback is
@@ -221,21 +221,21 @@ func noMisusedPromisesReportConditional(ctx *Context, expr *shimast.Node) {
 // detection (e.g., JSX event handlers, user methods with `void` in
 // their signature) is deferred.
 func noMisusedPromisesCheckVoidCallback(ctx *Context, call *shimast.CallExpression) {
-	if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-		return
-	}
-	_, method, ok := promisePropertyAccessParts(call.Expression)
-	if !ok || method != "forEach" {
-		return
-	}
-	callback := stripParens(call.Arguments.Nodes[0])
-	if callback == nil || !isFunctionLikeKind(callback) {
-		return
-	}
-	if !hasAsyncModifier(callback) {
-		return
-	}
-	ctx.Report(callback, "Async callback passed to forEach — the returned Promise will be discarded; use `for ... of` instead.")
+  if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  _, method, ok := promisePropertyAccessParts(call.Expression)
+  if !ok || method != "forEach" {
+    return
+  }
+  callback := stripParens(call.Arguments.Nodes[0])
+  if callback == nil || !isFunctionLikeKind(callback) {
+    return
+  }
+  if !hasAsyncModifier(callback) {
+    return
+  }
+  ctx.Report(callback, "Async callback passed to forEach — the returned Promise will be discarded; use `for ... of` instead.")
 }
 
 // useUnknownInCatchCallbackVariable requires the parameter of `.catch`
@@ -252,66 +252,66 @@ func noMisusedPromisesCheckVoidCallback(ctx *Context, call *shimast.CallExpressi
 type useUnknownInCatchCallbackVariable struct{}
 
 func (useUnknownInCatchCallbackVariable) Name() string {
-	return "typescript/use-unknown-in-catch-callback-variable"
+  return "typescript/use-unknown-in-catch-callback-variable"
 }
 func (useUnknownInCatchCallbackVariable) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (useUnknownInCatchCallbackVariable) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (useUnknownInCatchCallbackVariable) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Arguments == nil {
-		return
-	}
-	receiver, method, ok := promisePropertyAccessParts(call.Expression)
-	if !ok || (method != "catch" && method != "then") {
-		return
-	}
-	args := call.Arguments.Nodes
-	var callback *shimast.Node
-	switch method {
-	case "catch":
-		if len(args) < 1 {
-			return
-		}
-		callback = stripParens(args[0])
-	case "then":
-		if len(args) < 2 {
-			return
-		}
-		callback = stripParens(args[1])
-	}
-	if callback == nil || !isFunctionLikeKind(callback) {
-		return
-	}
-	if receiver == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(receiver)
-	if t == nil || !isPromiseTypedExpression(ctx.Checker, t) {
-		return
-	}
-	params := callback.Parameters()
-	if len(params) == 0 {
-		return
-	}
-	param := params[0].AsParameterDeclaration()
-	if param == nil {
-		return
-	}
-	if param.Type == nil {
-		ctx.Report(params[0], "Catch callback parameter should be explicitly typed `unknown`.")
-		return
-	}
-	annotationText := nodeText(ctx.File, param.Type)
-	if annotationText != "unknown" {
-		ctx.Report(param.Type, "Catch callback parameter must be typed `unknown`, not `"+annotationText+"`.")
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Arguments == nil {
+    return
+  }
+  receiver, method, ok := promisePropertyAccessParts(call.Expression)
+  if !ok || (method != "catch" && method != "then") {
+    return
+  }
+  args := call.Arguments.Nodes
+  var callback *shimast.Node
+  switch method {
+  case "catch":
+    if len(args) < 1 {
+      return
+    }
+    callback = stripParens(args[0])
+  case "then":
+    if len(args) < 2 {
+      return
+    }
+    callback = stripParens(args[1])
+  }
+  if callback == nil || !isFunctionLikeKind(callback) {
+    return
+  }
+  if receiver == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(receiver)
+  if t == nil || !isPromiseTypedExpression(ctx.Checker, t) {
+    return
+  }
+  params := callback.Parameters()
+  if len(params) == 0 {
+    return
+  }
+  param := params[0].AsParameterDeclaration()
+  if param == nil {
+    return
+  }
+  if param.Type == nil {
+    ctx.Report(params[0], "Catch callback parameter should be explicitly typed `unknown`.")
+    return
+  }
+  annotationText := nodeText(ctx.File, param.Type)
+  if annotationText != "unknown" {
+    ctx.Report(param.Type, "Catch callback parameter must be typed `unknown`, not `"+annotationText+"`.")
+  }
 }
 
 // onlyThrowError reports `throw` of a value that is statically known
@@ -331,30 +331,30 @@ type onlyThrowError struct{}
 
 func (onlyThrowError) Name() string { return "typescript/only-throw-error" }
 func (onlyThrowError) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (onlyThrowError) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindThrowStatement}
+  return []shimast.Kind{shimast.KindThrowStatement}
 }
 func (onlyThrowError) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	stmt := node.AsThrowStatement()
-	if stmt == nil || stmt.Expression == nil {
-		return
-	}
-	expr := stripParens(stmt.Expression)
-	if expr == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(expr)
-	if t == nil {
-		return
-	}
-	if onlyThrowErrorIsPrimitive(ctx.Checker, t) {
-		ctx.Report(node, "Throw an Error object instead of a non-Error value.")
-	}
+  if ctx.Checker == nil {
+    return
+  }
+  stmt := node.AsThrowStatement()
+  if stmt == nil || stmt.Expression == nil {
+    return
+  }
+  expr := stripParens(stmt.Expression)
+  if expr == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(expr)
+  if t == nil {
+    return
+  }
+  if onlyThrowErrorIsPrimitive(ctx.Checker, t) {
+    ctx.Report(node, "Throw an Error object instead of a non-Error value.")
+  }
 }
 
 // onlyThrowErrorIsPrimitive returns true when t is a primitive type
@@ -363,37 +363,37 @@ func (onlyThrowError) Check(ctx *Context, node *shimast.Node) {
 // intersection types recurse — `string | number` is a primitive
 // throw even though it is a composite type.
 func onlyThrowErrorIsPrimitive(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-	if checker == nil || t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return false
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if onlyThrowErrorIsPrimitive(checker, part) {
-				return true
-			}
-		}
-		return false
-	}
-	const primitiveMask = shimchecker.TypeFlagsStringLike |
-		shimchecker.TypeFlagsNumberLike |
-		shimchecker.TypeFlagsBigIntLike |
-		shimchecker.TypeFlagsBooleanLike |
-		shimchecker.TypeFlagsVoid |
-		shimchecker.TypeFlagsUndefined |
-		shimchecker.TypeFlagsNull
-	return flags&primitiveMask != 0
+  if checker == nil || t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return false
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if onlyThrowErrorIsPrimitive(checker, part) {
+        return true
+      }
+    }
+    return false
+  }
+  const primitiveMask = shimchecker.TypeFlagsStringLike |
+    shimchecker.TypeFlagsNumberLike |
+    shimchecker.TypeFlagsBigIntLike |
+    shimchecker.TypeFlagsBooleanLike |
+    shimchecker.TypeFlagsVoid |
+    shimchecker.TypeFlagsUndefined |
+    shimchecker.TypeFlagsNull
+  return flags&primitiveMask != 0
 }
 
 func init() {
-	Register(requireAwait{})
-	Register(noMisusedPromises{})
-	Register(useUnknownInCatchCallbackVariable{})
-	Register(onlyThrowError{})
+  Register(requireAwait{})
+  Register(noMisusedPromises{})
+  Register(useUnknownInCatchCallbackVariable{})
+  Register(onlyThrowError{})
 }

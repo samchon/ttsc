@@ -14,5 +14,5 @@ import "testing"
 // 2. Import `useState` from `"react"` and immediately re-export it.
 // 3. Assert the export statement is reported.
 func TestRuleCorpusUnicornPreferExportFrom(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-export-from.ts", "import { useState } from \"react\";\n// expect: unicorn/prefer-export-from error\nexport { useState };\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-export-from.ts", "import { useState } from \"react\";\n// expect: unicorn/prefer-export-from error\nexport { useState };\n")
 }

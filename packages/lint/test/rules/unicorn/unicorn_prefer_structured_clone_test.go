@@ -14,5 +14,5 @@ import "testing"
 // 2. Round-trip an object through `JSON.parse(JSON.stringify(original))`.
 // 3. Assert the outer call expression is reported.
 func TestRuleCorpusUnicornPreferStructuredClone(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-structured-clone.ts", "const original = { a: 1 };\n// expect: unicorn/prefer-structured-clone error\nconst clone = JSON.parse(JSON.stringify(original));\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-structured-clone.ts", "const original = { a: 1 };\n// expect: unicorn/prefer-structured-clone error\nconst clone = JSON.parse(JSON.stringify(original));\n")
 }

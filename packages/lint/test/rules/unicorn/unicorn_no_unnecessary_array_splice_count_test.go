@@ -16,5 +16,5 @@ import "testing"
 // 2. Call `arr.splice(0, arr.length)` on a local array.
 // 3. Assert the second argument is reported.
 func TestRuleCorpusUnicornNoUnnecessaryArraySpliceCount(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-unnecessary-array-splice-count.ts", "const arr = [1, 2, 3];\n// expect: unicorn/no-unnecessary-array-splice-count error\narr.splice(0, arr.length);\n")
+  assertRuleCorpusCase(t, "unicorn/no-unnecessary-array-splice-count.ts", "const arr = [1, 2, 3];\n// expect: unicorn/no-unnecessary-array-splice-count error\narr.splice(0, arr.length);\n")
 }

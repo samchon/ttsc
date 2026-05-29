@@ -14,5 +14,5 @@ import "testing"
 // 2. Inside an array literal, spread `cond ? [x] : <non-array>`.
 // 3. Assert the spread element is reported.
 func TestRuleCorpusUnicornConsistentEmptyArraySpread(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/consistent-empty-array-spread.ts", "declare const cond: boolean;\ndeclare const x: number;\n// expect: unicorn/consistent-empty-array-spread error\nconst a = [1, ...(cond ? [x] : 2 as unknown as number[])];\nvoid a;\n")
+  assertRuleCorpusCase(t, "unicorn/consistent-empty-array-spread.ts", "declare const cond: boolean;\ndeclare const x: number;\n// expect: unicorn/consistent-empty-array-spread error\nconst a = [1, ...(cond ? [x] : 2 as unknown as number[])];\nvoid a;\n")
 }

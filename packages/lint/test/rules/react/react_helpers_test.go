@@ -1,32 +1,32 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 func assertReactRuleFinds(t *testing.T, ruleName, source, messagePart string) {
-	t.Helper()
-	file := parseTSXFile(t, "/virtual/component.tsx", source)
-	findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 1 {
-		t.Fatalf("%s: expected one finding, got %d: %+v", ruleName, len(findings), findings)
-	}
-	if findings[0].Rule != ruleName {
-		t.Fatalf("%s: finding came from rule %q, not %q", ruleName, findings[0].Rule, ruleName)
-	}
-	if messagePart != "" && !strings.Contains(findings[0].Message, messagePart) {
-		t.Fatalf("%s: message %q does not contain %q", ruleName, findings[0].Message, messagePart)
-	}
+  t.Helper()
+  file := parseTSXFile(t, "/virtual/component.tsx", source)
+  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 1 {
+    t.Fatalf("%s: expected one finding, got %d: %+v", ruleName, len(findings), findings)
+  }
+  if findings[0].Rule != ruleName {
+    t.Fatalf("%s: finding came from rule %q, not %q", ruleName, findings[0].Rule, ruleName)
+  }
+  if messagePart != "" && !strings.Contains(findings[0].Message, messagePart) {
+    t.Fatalf("%s: message %q does not contain %q", ruleName, findings[0].Message, messagePart)
+  }
 }
 
 func assertReactRuleSkips(t *testing.T, ruleName, source string) {
-	t.Helper()
-	file := parseTSXFile(t, "/virtual/component.tsx", source)
-	findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-	if len(findings) != 0 {
-		t.Fatalf("%s: expected zero findings, got %d: %+v", ruleName, len(findings), findings)
-	}
+  t.Helper()
+  file := parseTSXFile(t, "/virtual/component.tsx", source)
+  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d: %+v", ruleName, len(findings), findings)
+  }
 }

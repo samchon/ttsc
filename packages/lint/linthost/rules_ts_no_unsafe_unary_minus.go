@@ -15,35 +15,35 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type noUnsafeUnaryMinus struct{}
 
 func (noUnsafeUnaryMinus) Name() string { return "typescript/no-unsafe-unary-minus" }
 func (noUnsafeUnaryMinus) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnsafeUnaryMinus) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPrefixUnaryExpression}
+  return []shimast.Kind{shimast.KindPrefixUnaryExpression}
 }
 func (noUnsafeUnaryMinus) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	expr := node.AsPrefixUnaryExpression()
-	if expr == nil || expr.Operator != shimast.KindMinusToken || expr.Operand == nil {
-		return
-	}
-	t := ctx.Checker.GetTypeAtLocation(expr.Operand)
-	if t == nil {
-		return
-	}
-	if noUnsafeUnaryMinusIsNumeric(t) {
-		return
-	}
-	ctx.Report(node, "Unary `-` requires a number-like or bigint-like operand. Other shapes are silently coerced via `Number(x)` and almost always indicate a bug.")
+  if ctx.Checker == nil {
+    return
+  }
+  expr := node.AsPrefixUnaryExpression()
+  if expr == nil || expr.Operator != shimast.KindMinusToken || expr.Operand == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(expr.Operand)
+  if t == nil {
+    return
+  }
+  if noUnsafeUnaryMinusIsNumeric(t) {
+    return
+  }
+  ctx.Report(node, "Unary `-` requires a number-like or bigint-like operand. Other shapes are silently coerced via `Number(x)` and almost always indicate a bug.")
 }
 
 // noUnsafeUnaryMinusIsNumeric reports whether t is provably number-like
@@ -52,30 +52,30 @@ func (noUnsafeUnaryMinus) Check(ctx *Context, node *shimast.Node) {
 // matching the upstream `allowAny` posture. Unions and intersections
 // must have every constituent numeric for the whole type to count.
 func noUnsafeUnaryMinusIsNumeric(t *shimchecker.Type) bool {
-	if t == nil {
-		return true
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return true
-	}
-	if flags&(shimchecker.TypeFlagsNumberLike|shimchecker.TypeFlagsBigIntLike) != 0 {
-		return true
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if !noUnsafeUnaryMinusIsNumeric(part) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+  if t == nil {
+    return true
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return true
+  }
+  if flags&(shimchecker.TypeFlagsNumberLike|shimchecker.TypeFlagsBigIntLike) != 0 {
+    return true
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if !noUnsafeUnaryMinusIsNumeric(part) {
+        return false
+      }
+    }
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(noUnsafeUnaryMinus{})
+  Register(noUnsafeUnaryMinus{})
 }

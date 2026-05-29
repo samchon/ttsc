@@ -10,5 +10,5 @@ import "testing"
 // 2. Enable only `react/no-string-refs`.
 // 3. Assert the ref prop is reported.
 func TestReactNoStringRefsReportsStringRef(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-string-refs", `const C = () => <input ref="name" />;`, "String refs")
+  assertReactRuleFinds(t, "react/no-string-refs", `const C = () => <input ref="name" />;`, "String refs")
 }

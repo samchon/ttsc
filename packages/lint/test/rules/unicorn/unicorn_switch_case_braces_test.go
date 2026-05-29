@@ -14,5 +14,5 @@ import "testing"
 // 2. Write a `case` clause whose body is `void 0; break;` (no braces).
 // 3. Assert the case clause is reported.
 func TestRuleCorpusUnicornSwitchCaseBraces(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/switch-case-braces.ts", "declare const k: string;\nswitch (k) {\n  // expect: unicorn/switch-case-braces error\n  case \"a\":\n    void 0;\n    break;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/switch-case-braces.ts", "declare const k: string;\nswitch (k) {\n  // expect: unicorn/switch-case-braces error\n  case \"a\":\n    void 0;\n    break;\n}\n")
 }

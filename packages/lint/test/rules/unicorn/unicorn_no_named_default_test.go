@@ -14,5 +14,5 @@ import "testing"
 // 2. Import the default export under a named alias.
 // 3. Assert the specifier is reported.
 func TestRuleCorpusUnicornNoNamedDefault(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-named-default.ts", "// expect: unicorn/no-named-default error\nimport { default as React } from \"react\";\nvoid React;\n")
+  assertRuleCorpusCase(t, "unicorn/no-named-default.ts", "// expect: unicorn/no-named-default error\nimport { default as React } from \"react\";\nvoid React;\n")
 }

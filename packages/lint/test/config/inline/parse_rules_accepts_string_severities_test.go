@@ -17,10 +17,10 @@ import (
 // 3. Assert each string maps to the correct Severity and the missing rule returns SeverityOff.
 func TestParseRulesAcceptsStringSeverities(t *testing.T) {
   cfg, err := ParseRules(map[string]any{
-    "no-var":         "error",
+    "no-var":                     "error",
     "typescript/no-explicit-any": "warning",
-    "no-debugger":    "off",
-    "eqeqeq":        "warn",
+    "no-debugger":                "off",
+    "eqeqeq":                     "warn",
   })
   if err != nil {
     t.Fatalf("unexpected error: %v", err)

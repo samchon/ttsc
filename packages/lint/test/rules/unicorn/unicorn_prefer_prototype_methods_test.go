@@ -15,5 +15,5 @@ import "testing"
 // 2. Read `[].slice` to borrow `Array.prototype.slice`.
 // 3. Assert the property-access expression is reported.
 func TestRuleCorpusUnicornPreferPrototypeMethods(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-prototype-methods.ts", "// expect: unicorn/prefer-prototype-methods error\nconst slice = [].slice;\nvoid slice;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-prototype-methods.ts", "// expect: unicorn/prefer-prototype-methods error\nconst slice = [].slice;\nvoid slice;\n")
 }

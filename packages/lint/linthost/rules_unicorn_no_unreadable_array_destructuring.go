@@ -22,47 +22,47 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUnreadableArrayDestructuring struct{}
 
 func (unicornNoUnreadableArrayDestructuring) Name() string {
-	return "unicorn/no-unreadable-array-destructuring"
+  return "unicorn/no-unreadable-array-destructuring"
 }
 func (unicornNoUnreadableArrayDestructuring) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindArrayBindingPattern, shimast.KindArrayLiteralExpression}
+  return []shimast.Kind{shimast.KindArrayBindingPattern, shimast.KindArrayLiteralExpression}
 }
 func (unicornNoUnreadableArrayDestructuring) Check(ctx *Context, node *shimast.Node) {
-	var elements []*shimast.Node
-	switch node.Kind {
-	case shimast.KindArrayBindingPattern:
-		pattern := node.AsBindingPattern()
-		if pattern == nil || pattern.Elements == nil {
-			return
-		}
-		elements = pattern.Elements.Nodes
-	case shimast.KindArrayLiteralExpression:
-		// Array literals fire only when they appear in a destructuring-
-		// assignment position; otherwise the holes are just sparse-array
-		// construction, which a different rule covers.
-		if !isAssignmentDestructuringTarget(node) {
-			return
-		}
-		arr := node.AsArrayLiteralExpression()
-		if arr == nil || arr.Elements == nil {
-			return
-		}
-		elements = arr.Elements.Nodes
-	default:
-		return
-	}
-	run := 0
-	for _, el := range elements {
-		if isArrayDestructuringHole(el) {
-			run++
-			continue
-		}
-		if run >= 2 {
-			ctx.Report(node, "Don't use unreadable array destructuring with long hole runs.")
-			return
-		}
-		run = 0
-	}
+  var elements []*shimast.Node
+  switch node.Kind {
+  case shimast.KindArrayBindingPattern:
+    pattern := node.AsBindingPattern()
+    if pattern == nil || pattern.Elements == nil {
+      return
+    }
+    elements = pattern.Elements.Nodes
+  case shimast.KindArrayLiteralExpression:
+    // Array literals fire only when they appear in a destructuring-
+    // assignment position; otherwise the holes are just sparse-array
+    // construction, which a different rule covers.
+    if !isAssignmentDestructuringTarget(node) {
+      return
+    }
+    arr := node.AsArrayLiteralExpression()
+    if arr == nil || arr.Elements == nil {
+      return
+    }
+    elements = arr.Elements.Nodes
+  default:
+    return
+  }
+  run := 0
+  for _, el := range elements {
+    if isArrayDestructuringHole(el) {
+      run++
+      continue
+    }
+    if run >= 2 {
+      ctx.Report(node, "Don't use unreadable array destructuring with long hole runs.")
+      return
+    }
+    run = 0
+  }
 }
 
 // isArrayDestructuringHole reports whether `el` is a comma "hole" in an
@@ -71,19 +71,19 @@ func (unicornNoUnreadableArrayDestructuring) Check(ctx *Context, node *shimast.N
 // hole in an `ArrayBindingPattern` as a `BindingElement` with no name
 // (and no initializer / dotdotdot). Both shapes contribute to a run.
 func isArrayDestructuringHole(el *shimast.Node) bool {
-	if el == nil {
-		return false
-	}
-	if el.Kind == shimast.KindOmittedExpression {
-		return true
-	}
-	if el.Kind == shimast.KindBindingElement {
-		be := el.AsBindingElement()
-		if be != nil && be.Name() == nil && be.Initializer == nil && be.DotDotDotToken == nil {
-			return true
-		}
-	}
-	return false
+  if el == nil {
+    return false
+  }
+  if el.Kind == shimast.KindOmittedExpression {
+    return true
+  }
+  if el.Kind == shimast.KindBindingElement {
+    be := el.AsBindingElement()
+    if be != nil && be.Name() == nil && be.Initializer == nil && be.DotDotDotToken == nil {
+      return true
+    }
+  }
+  return false
 }
 
 // isAssignmentDestructuringTarget reports whether `node` (an
@@ -92,24 +92,24 @@ func isArrayDestructuringHole(el *shimast.Node) bool {
 // assignment as an array-literal expression in LHS slot; without this
 // gate every plain sparse array literal would trip the rule.
 func isAssignmentDestructuringTarget(node *shimast.Node) bool {
-	parent := node.Parent
-	for parent != nil && parent.Kind == shimast.KindParenthesizedExpression {
-		parent = parent.Parent
-	}
-	if parent == nil {
-		return false
-	}
-	if parent.Kind == shimast.KindBinaryExpression {
-		bin := parent.AsBinaryExpression()
-		if bin != nil && bin.OperatorToken != nil &&
-			bin.OperatorToken.Kind == shimast.KindEqualsToken &&
-			stripParens(bin.Left) == node {
-			return true
-		}
-	}
-	return false
+  parent := node.Parent
+  for parent != nil && parent.Kind == shimast.KindParenthesizedExpression {
+    parent = parent.Parent
+  }
+  if parent == nil {
+    return false
+  }
+  if parent.Kind == shimast.KindBinaryExpression {
+    bin := parent.AsBinaryExpression()
+    if bin != nil && bin.OperatorToken != nil &&
+      bin.OperatorToken.Kind == shimast.KindEqualsToken &&
+      stripParens(bin.Left) == node {
+      return true
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(unicornNoUnreadableArrayDestructuring{})
+  Register(unicornNoUnreadableArrayDestructuring{})
 }

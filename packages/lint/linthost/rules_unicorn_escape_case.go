@@ -15,9 +15,9 @@
 package linthost
 
 import (
-	"regexp"
+  "regexp"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // unicornEscapeCasePattern matches a hex escape whose hex digits contain
@@ -25,27 +25,27 @@ import (
 // `\u{...}` and rejects matches where every hex digit is already
 // uppercase / 0-9.
 var unicornEscapeCasePattern = regexp.MustCompile(
-	`\\x[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*|` +
-		`\\u\{[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*\}|` +
-		`\\u[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*`,
+  `\\x[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*|` +
+    `\\u\{[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*\}|` +
+    `\\u[0-9A-Fa-f]*[a-f][0-9A-Fa-f]*`,
 )
 
 type unicornEscapeCase struct{}
 
 func (unicornEscapeCase) Name() string { return "unicorn/escape-case" }
 func (unicornEscapeCase) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
+  return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
 }
 func (unicornEscapeCase) Check(ctx *Context, node *shimast.Node) {
-	source := nodeText(ctx.File, node)
-	if source == "" {
-		return
-	}
-	if unicornEscapeCasePattern.MatchString(source) {
-		ctx.Report(node, "Use uppercase letters for escape sequence hex digits (`\\xA9` over `\\xa9`).")
-	}
+  source := nodeText(ctx.File, node)
+  if source == "" {
+    return
+  }
+  if unicornEscapeCasePattern.MatchString(source) {
+    ctx.Report(node, "Use uppercase letters for escape sequence hex digits (`\\xA9` over `\\xa9`).")
+  }
 }
 
 func init() {
-	Register(unicornEscapeCase{})
+  Register(unicornEscapeCase{})
 }

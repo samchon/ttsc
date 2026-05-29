@@ -16,5 +16,5 @@ import "testing"
 // 2. Call `.postMessage(...)` on a Window receiver with one argument.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornRequirePostMessageTargetOrigin(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/require-post-message-target-origin.ts", "declare const win: Window;\n// expect: unicorn/require-post-message-target-origin error\nwin.postMessage({ kind: \"ping\" });\n")
+  assertRuleCorpusCase(t, "unicorn/require-post-message-target-origin.ts", "declare const win: Window;\n// expect: unicorn/require-post-message-target-origin error\nwin.postMessage({ kind: \"ping\" });\n")
 }

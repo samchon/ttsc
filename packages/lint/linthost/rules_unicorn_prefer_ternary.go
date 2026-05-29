@@ -21,26 +21,26 @@ type unicornPreferTernary struct{}
 
 func (unicornPreferTernary) Name() string { return "unicorn/prefer-ternary" }
 func (unicornPreferTernary) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindIfStatement}
+  return []shimast.Kind{shimast.KindIfStatement}
 }
 func (unicornPreferTernary) Check(ctx *Context, node *shimast.Node) {
-	stmt := node.AsIfStatement()
-	if stmt == nil || stmt.ThenStatement == nil || stmt.ElseStatement == nil {
-		return
-	}
-	// Reject `else if` — an `if`/`else if`/`else` ladder is a different
-	// rewrite target (it becomes nested ternaries, which the upstream
-	// rule explicitly does not require).
-	if stmt.ElseStatement.Kind == shimast.KindIfStatement {
-		return
-	}
-	if !unicornPreferTernaryIsSingleReturn(stmt.ThenStatement) {
-		return
-	}
-	if !unicornPreferTernaryIsSingleReturn(stmt.ElseStatement) {
-		return
-	}
-	ctx.Report(node, "Use a ternary instead of `if`/`else` whose branches differ only in the returned value.")
+  stmt := node.AsIfStatement()
+  if stmt == nil || stmt.ThenStatement == nil || stmt.ElseStatement == nil {
+    return
+  }
+  // Reject `else if` — an `if`/`else if`/`else` ladder is a different
+  // rewrite target (it becomes nested ternaries, which the upstream
+  // rule explicitly does not require).
+  if stmt.ElseStatement.Kind == shimast.KindIfStatement {
+    return
+  }
+  if !unicornPreferTernaryIsSingleReturn(stmt.ThenStatement) {
+    return
+  }
+  if !unicornPreferTernaryIsSingleReturn(stmt.ElseStatement) {
+    return
+  }
+  ctx.Report(node, "Use a ternary instead of `if`/`else` whose branches differ only in the returned value.")
 }
 
 // unicornPreferTernaryIsSingleReturn reports whether `branch` is a
@@ -48,24 +48,24 @@ func (unicornPreferTernary) Check(ctx *Context, node *shimast.Node) {
 // block. Returns false for empty returns (`return;`); ternary cannot
 // fold those because both arms have to produce a value.
 func unicornPreferTernaryIsSingleReturn(branch *shimast.Node) bool {
-	if branch == nil {
-		return false
-	}
-	stmt := branch
-	if branch.Kind == shimast.KindBlock {
-		block := branch.AsBlock()
-		if block == nil || block.Statements == nil || len(block.Statements.Nodes) != 1 {
-			return false
-		}
-		stmt = block.Statements.Nodes[0]
-	}
-	if stmt == nil || stmt.Kind != shimast.KindReturnStatement {
-		return false
-	}
-	ret := stmt.AsReturnStatement()
-	return ret != nil && ret.Expression != nil
+  if branch == nil {
+    return false
+  }
+  stmt := branch
+  if branch.Kind == shimast.KindBlock {
+    block := branch.AsBlock()
+    if block == nil || block.Statements == nil || len(block.Statements.Nodes) != 1 {
+      return false
+    }
+    stmt = block.Statements.Nodes[0]
+  }
+  if stmt == nil || stmt.Kind != shimast.KindReturnStatement {
+    return false
+  }
+  ret := stmt.AsReturnStatement()
+  return ret != nil && ret.Expression != nil
 }
 
 func init() {
-	Register(unicornPreferTernary{})
+  Register(unicornPreferTernary{})
 }

@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-return-void.
 // 3. Assert the function reports and offers no autofix.
 func TestFunctionalNoReturnVoidRejectsVoidAnnotation(t *testing.T) {
-	const ruleName = "functional/no-return-void"
-	findings := runFunctionalRule(t, ruleName, `function run(): void {}`)
-	assertFunctionalFinding(t, ruleName, findings, "return")
+  const ruleName = "functional/no-return-void"
+  findings := runFunctionalRule(t, ruleName, `function run(): void {}`)
+  assertFunctionalFinding(t, ruleName, findings, "return")
 }

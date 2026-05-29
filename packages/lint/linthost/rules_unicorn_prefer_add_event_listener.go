@@ -21,29 +21,29 @@ type unicornPreferAddEventListener struct{}
 
 func (unicornPreferAddEventListener) Name() string { return "unicorn/prefer-add-event-listener" }
 func (unicornPreferAddEventListener) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornPreferAddEventListener) Check(ctx *Context, node *shimast.Node) {
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil {
-		return
-	}
-	if bin.OperatorToken.Kind != shimast.KindEqualsToken {
-		return
-	}
-	lhs := stripParens(bin.Left)
-	if lhs == nil || lhs.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := lhs.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	name := identifierText(access.Name())
-	if !isUnicornOnEventName(name) {
-		return
-	}
-	ctx.Report(node, "Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.")
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil {
+    return
+  }
+  if bin.OperatorToken.Kind != shimast.KindEqualsToken {
+    return
+  }
+  lhs := stripParens(bin.Left)
+  if lhs == nil || lhs.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := lhs.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  name := identifierText(access.Name())
+  if !isUnicornOnEventName(name) {
+    return
+  }
+  ctx.Report(node, "Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.")
 }
 
 // isUnicornOnEventName reports whether `name` is `on<lower>...` of at
@@ -51,16 +51,16 @@ func (unicornPreferAddEventListener) Check(ctx *Context, node *shimast.Node) {
 // matches on `onClick`, `onnxruntime`, and other names that begin with
 // `on` but are not DOM event handlers.
 func isUnicornOnEventName(name string) bool {
-	if len(name) < 3 {
-		return false
-	}
-	if name[0] != 'o' || name[1] != 'n' {
-		return false
-	}
-	c := name[2]
-	return c >= 'a' && c <= 'z'
+  if len(name) < 3 {
+    return false
+  }
+  if name[0] != 'o' || name[1] != 'n' {
+    return false
+  }
+  c := name[2]
+  return c >= 'a' && c <= 'z'
 }
 
 func init() {
-	Register(unicornPreferAddEventListener{})
+  Register(unicornPreferAddEventListener{})
 }

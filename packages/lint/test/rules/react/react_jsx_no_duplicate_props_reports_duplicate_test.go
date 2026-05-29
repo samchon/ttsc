@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/jsx-no-duplicate-props`.
 // 3. Assert the second prop is reported.
 func TestReactJSXNoDuplicatePropsReportsDuplicate(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-no-duplicate-props", `const C = () => <div className="a" className="b" />;`, "duplicate")
+  assertReactRuleFinds(t, "react/jsx-no-duplicate-props", `const C = () => <div className="a" className="b" />;`, "duplicate")
 }

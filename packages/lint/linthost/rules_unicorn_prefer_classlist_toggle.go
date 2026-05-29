@@ -21,36 +21,36 @@ type unicornPreferClasslistToggle struct{}
 
 func (unicornPreferClasslistToggle) Name() string { return "unicorn/prefer-classlist-toggle" }
 func (unicornPreferClasslistToggle) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindIfStatement}
+  return []shimast.Kind{shimast.KindIfStatement}
 }
 func (unicornPreferClasslistToggle) Check(ctx *Context, node *shimast.Node) {
-	stmt := node.AsIfStatement()
-	if stmt == nil || stmt.ThenStatement == nil || stmt.ElseStatement == nil {
-		return
-	}
-	thenCall := classlistToggleSingleCall(stmt.ThenStatement)
-	elseCall := classlistToggleSingleCall(stmt.ElseStatement)
-	if thenCall == nil || elseCall == nil {
-		return
-	}
-	thenMethod, thenReceiver, thenArg := classlistAddRemoveParts(thenCall)
-	elseMethod, elseReceiver, elseArg := classlistAddRemoveParts(elseCall)
-	if thenMethod == "" || elseMethod == "" {
-		return
-	}
-	// One branch must be `add`, the other `remove` — order does not
-	// matter; the toggle rewrite is symmetric.
-	if !((thenMethod == "add" && elseMethod == "remove") ||
-		(thenMethod == "remove" && elseMethod == "add")) {
-		return
-	}
-	if nodeText(ctx.File, thenReceiver) != nodeText(ctx.File, elseReceiver) {
-		return
-	}
-	if nodeText(ctx.File, thenArg) != nodeText(ctx.File, elseArg) {
-		return
-	}
-	ctx.Report(node, "Prefer `classList.toggle(name, condition)` over manual `add`/`remove` branches.")
+  stmt := node.AsIfStatement()
+  if stmt == nil || stmt.ThenStatement == nil || stmt.ElseStatement == nil {
+    return
+  }
+  thenCall := classlistToggleSingleCall(stmt.ThenStatement)
+  elseCall := classlistToggleSingleCall(stmt.ElseStatement)
+  if thenCall == nil || elseCall == nil {
+    return
+  }
+  thenMethod, thenReceiver, thenArg := classlistAddRemoveParts(thenCall)
+  elseMethod, elseReceiver, elseArg := classlistAddRemoveParts(elseCall)
+  if thenMethod == "" || elseMethod == "" {
+    return
+  }
+  // One branch must be `add`, the other `remove` — order does not
+  // matter; the toggle rewrite is symmetric.
+  if !((thenMethod == "add" && elseMethod == "remove") ||
+    (thenMethod == "remove" && elseMethod == "add")) {
+    return
+  }
+  if nodeText(ctx.File, thenReceiver) != nodeText(ctx.File, elseReceiver) {
+    return
+  }
+  if nodeText(ctx.File, thenArg) != nodeText(ctx.File, elseArg) {
+    return
+  }
+  ctx.Report(node, "Prefer `classList.toggle(name, condition)` over manual `add`/`remove` branches.")
 }
 
 // classlistToggleSingleCall returns the single CallExpression inside a
@@ -58,29 +58,29 @@ func (unicornPreferClasslistToggle) Check(ctx *Context, node *shimast.Node) {
 // Block wrapping exactly one ExpressionStatement. Returns nil for any
 // other shape.
 func classlistToggleSingleCall(branch *shimast.Node) *shimast.Node {
-	if branch == nil {
-		return nil
-	}
-	stmt := branch
-	if branch.Kind == shimast.KindBlock {
-		block := branch.AsBlock()
-		if block == nil || block.Statements == nil || len(block.Statements.Nodes) != 1 {
-			return nil
-		}
-		stmt = block.Statements.Nodes[0]
-	}
-	if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
-		return nil
-	}
-	expr := stmt.AsExpressionStatement()
-	if expr == nil || expr.Expression == nil {
-		return nil
-	}
-	call := stripParens(expr.Expression)
-	if call == nil || call.Kind != shimast.KindCallExpression {
-		return nil
-	}
-	return call
+  if branch == nil {
+    return nil
+  }
+  stmt := branch
+  if branch.Kind == shimast.KindBlock {
+    block := branch.AsBlock()
+    if block == nil || block.Statements == nil || len(block.Statements.Nodes) != 1 {
+      return nil
+    }
+    stmt = block.Statements.Nodes[0]
+  }
+  if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+    return nil
+  }
+  expr := stmt.AsExpressionStatement()
+  if expr == nil || expr.Expression == nil {
+    return nil
+  }
+  call := stripParens(expr.Expression)
+  if call == nil || call.Kind != shimast.KindCallExpression {
+    return nil
+  }
+  return call
 }
 
 // classlistAddRemoveParts pulls (method, receiver, arg) out of a
@@ -89,32 +89,32 @@ func classlistToggleSingleCall(branch *shimast.Node) *shimast.Node {
 // node) and `arg` is the single argument. Returns ("", nil, nil) for
 // any other shape.
 func classlistAddRemoveParts(call *shimast.Node) (string, *shimast.Node, *shimast.Node) {
-	ce := call.AsCallExpression()
-	if ce == nil || ce.Expression == nil || ce.Arguments == nil || len(ce.Arguments.Nodes) != 1 {
-		return "", nil, nil
-	}
-	if ce.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return "", nil, nil
-	}
-	access := ce.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return "", nil, nil
-	}
-	method := identifierText(access.Name())
-	if method != "add" && method != "remove" {
-		return "", nil, nil
-	}
-	receiver := access.Expression
-	if receiver == nil || receiver.Kind != shimast.KindPropertyAccessExpression {
-		return "", nil, nil
-	}
-	receiverAccess := receiver.AsPropertyAccessExpression()
-	if receiverAccess == nil || identifierText(receiverAccess.Name()) != "classList" {
-		return "", nil, nil
-	}
-	return method, receiver, ce.Arguments.Nodes[0]
+  ce := call.AsCallExpression()
+  if ce == nil || ce.Expression == nil || ce.Arguments == nil || len(ce.Arguments.Nodes) != 1 {
+    return "", nil, nil
+  }
+  if ce.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return "", nil, nil
+  }
+  access := ce.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return "", nil, nil
+  }
+  method := identifierText(access.Name())
+  if method != "add" && method != "remove" {
+    return "", nil, nil
+  }
+  receiver := access.Expression
+  if receiver == nil || receiver.Kind != shimast.KindPropertyAccessExpression {
+    return "", nil, nil
+  }
+  receiverAccess := receiver.AsPropertyAccessExpression()
+  if receiverAccess == nil || identifierText(receiverAccess.Name()) != "classList" {
+    return "", nil, nil
+  }
+  return method, receiver, ce.Arguments.Nodes[0]
 }
 
 func init() {
-	Register(unicornPreferClasslistToggle{})
+  Register(unicornPreferClasslistToggle{})
 }

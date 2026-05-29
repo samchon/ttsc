@@ -11,7 +11,7 @@ import "testing"
 // 2. Read `crypto.pseudoRandomBytes`.
 // 3. Assert only the pseudo-random API is reported.
 func TestSecurityDetectPseudoRandomBytes(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-pseudoRandomBytes.ts", `
+  assertRuleCorpusCase(t, "security/detect-pseudoRandomBytes.ts", `
 crypto.randomBytes;
 // expect: security/detect-pseudoRandomBytes error
 crypto.pseudoRandomBytes;

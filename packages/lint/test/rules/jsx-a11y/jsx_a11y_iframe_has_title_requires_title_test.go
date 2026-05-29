@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/iframe-has-title`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yIframeHasTitleRequiresTitle(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/iframe-has-title", `const Component = () => <iframe src="/embed" />;`, "title")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/iframe-has-title", `const Component = () => <iframe src="/embed" />;`, "title")
 }

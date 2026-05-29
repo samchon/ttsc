@@ -12,7 +12,7 @@ import "testing"
 // 2. Enable only functional/no-let.
 // 3. Assert the `let` keyword reports and offers no autofix.
 func TestFunctionalNoLetRejectsLetDeclaration(t *testing.T) {
-	const ruleName = "functional/no-let"
-	findings := runFunctionalRule(t, ruleName, `let value = 1; value = 2;`)
-	assertFunctionalFinding(t, ruleName, findings, "Unexpected let")
+  const ruleName = "functional/no-let"
+  findings := runFunctionalRule(t, ruleName, `let value = 1; value = 2;`)
+  assertFunctionalFinding(t, ruleName, findings, "Unexpected let")
 }

@@ -16,5 +16,5 @@ import "testing"
 // 2. Compare `typeof globalThis === "undefined"` against the literal.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornNoTypeofUndefined(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-typeof-undefined.ts", "// expect: unicorn/no-typeof-undefined error\ntypeof globalThis === \"undefined\";\n")
+  assertRuleCorpusCase(t, "unicorn/no-typeof-undefined.ts", "// expect: unicorn/no-typeof-undefined error\ntypeof globalThis === \"undefined\";\n")
 }

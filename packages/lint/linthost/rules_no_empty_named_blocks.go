@@ -23,15 +23,15 @@ type noEmptyNamedBlocks struct{}
 
 func (noEmptyNamedBlocks) Name() string { return "no-empty-named-blocks" }
 func (noEmptyNamedBlocks) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
+  return []shimast.Kind{shimast.KindImportDeclaration, shimast.KindExportDeclaration}
 }
 func (noEmptyNamedBlocks) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindImportDeclaration:
-		noEmptyNamedBlocksCheckImport(ctx, node)
-	case shimast.KindExportDeclaration:
-		noEmptyNamedBlocksCheckExport(ctx, node)
-	}
+  switch node.Kind {
+  case shimast.KindImportDeclaration:
+    noEmptyNamedBlocksCheckImport(ctx, node)
+  case shimast.KindExportDeclaration:
+    noEmptyNamedBlocksCheckExport(ctx, node)
+  }
 }
 
 // noEmptyNamedBlocksCheckImport flags `import {} from "x"` and
@@ -39,31 +39,31 @@ func (noEmptyNamedBlocks) Check(ctx *Context, node *shimast.Node) {
 // a bare `import "x"`; the default-plus-empty form should drop the
 // empty clause and keep the default binding.
 func noEmptyNamedBlocksCheckImport(ctx *Context, node *shimast.Node) {
-	decl := node.AsImportDeclaration()
-	if decl == nil || decl.ImportClause == nil {
-		return
-	}
-	clause := decl.ImportClause.AsImportClause()
-	if clause == nil {
-		return
-	}
-	if clause.NamedBindings == nil {
-		return
-	}
-	if clause.NamedBindings.Kind != shimast.KindNamedImports {
-		return
-	}
-	named := clause.NamedBindings.AsNamedImports()
-	if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
-		return
-	}
-	// Two shapes both reach here:
-	//   `import {} from "x"`           — clause.Name() == nil
-	//   `import name, {} from "x"`     — clause.Name() != nil
-	// Either way the empty `{}` is what the rule blames; the report
-	// target is the empty named-imports node so the highlight points at
-	// the `{}` token, not the whole declaration.
-	ctx.Report(clause.NamedBindings, "Unexpected empty named import block.")
+  decl := node.AsImportDeclaration()
+  if decl == nil || decl.ImportClause == nil {
+    return
+  }
+  clause := decl.ImportClause.AsImportClause()
+  if clause == nil {
+    return
+  }
+  if clause.NamedBindings == nil {
+    return
+  }
+  if clause.NamedBindings.Kind != shimast.KindNamedImports {
+    return
+  }
+  named := clause.NamedBindings.AsNamedImports()
+  if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
+    return
+  }
+  // Two shapes both reach here:
+  //   `import {} from "x"`           — clause.Name() == nil
+  //   `import name, {} from "x"`     — clause.Name() != nil
+  // Either way the empty `{}` is what the rule blames; the report
+  // target is the empty named-imports node so the highlight points at
+  // the `{}` token, not the whole declaration.
+  ctx.Report(clause.NamedBindings, "Unexpected empty named import block.")
 }
 
 // noEmptyNamedBlocksCheckExport flags `export {}` (with or without a
@@ -72,20 +72,20 @@ func noEmptyNamedBlocksCheckImport(ctx *Context, node *shimast.Node) {
 // uniformly across both module and non-module sources, leaving
 // `no-useless-empty-export` to gate the narrower redundant-marker case.
 func noEmptyNamedBlocksCheckExport(ctx *Context, node *shimast.Node) {
-	decl := node.AsExportDeclaration()
-	if decl == nil || decl.ExportClause == nil {
-		return
-	}
-	if decl.ExportClause.Kind != shimast.KindNamedExports {
-		return
-	}
-	named := decl.ExportClause.AsNamedExports()
-	if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
-		return
-	}
-	ctx.Report(node, "Unexpected empty named export block.")
+  decl := node.AsExportDeclaration()
+  if decl == nil || decl.ExportClause == nil {
+    return
+  }
+  if decl.ExportClause.Kind != shimast.KindNamedExports {
+    return
+  }
+  named := decl.ExportClause.AsNamedExports()
+  if named == nil || named.Elements == nil || len(named.Elements.Nodes) > 0 {
+    return
+  }
+  ctx.Report(node, "Unexpected empty named export block.")
 }
 
 func init() {
-	Register(noEmptyNamedBlocks{})
+  Register(noEmptyNamedBlocks{})
 }

@@ -22,23 +22,23 @@ type unicornNoEmptyFile struct{}
 func (unicornNoEmptyFile) Name() string           { return "unicorn/no-empty-file" }
 func (unicornNoEmptyFile) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (unicornNoEmptyFile) Check(ctx *Context, node *shimast.Node) {
-	if ctx.File == nil {
-		return
-	}
-	statements := ctx.File.Statements
-	const message = "Empty files are not allowed."
-	if statements == nil || len(statements.Nodes) == 0 {
-		ctx.ReportRange(0, 0, message)
-		return
-	}
-	for _, stmt := range statements.Nodes {
-		if stmt == nil || stmt.Kind != shimast.KindEmptyStatement {
-			return
-		}
-	}
-	ctx.Report(statements.Nodes[0], message)
+  if ctx.File == nil {
+    return
+  }
+  statements := ctx.File.Statements
+  const message = "Empty files are not allowed."
+  if statements == nil || len(statements.Nodes) == 0 {
+    ctx.ReportRange(0, 0, message)
+    return
+  }
+  for _, stmt := range statements.Nodes {
+    if stmt == nil || stmt.Kind != shimast.KindEmptyStatement {
+      return
+    }
+  }
+  ctx.Report(statements.Nodes[0], message)
 }
 
 func init() {
-	Register(unicornNoEmptyFile{})
+  Register(unicornNoEmptyFile{})
 }

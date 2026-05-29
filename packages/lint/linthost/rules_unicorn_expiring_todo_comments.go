@@ -18,11 +18,11 @@
 package linthost
 
 import (
-	"regexp"
-	"strings"
+  "regexp"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // unicornExpiringTodoCommentsKeywordPattern matches a TODO-family
@@ -38,41 +38,41 @@ type unicornExpiringTodoComments struct{}
 
 func (unicornExpiringTodoComments) Name() string { return "unicorn/expiring-todo-comments" }
 func (unicornExpiringTodoComments) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornExpiringTodoComments) Check(ctx *Context, node *shimast.Node) {
-	if ctx.File == nil {
-		return
-	}
-	src := ctx.File.Text()
-	scanner := shimscanner.NewScanner()
-	scanner.SetText(src)
-	scanner.SetSkipTrivia(false)
-	for {
-		kind := scanner.Scan()
-		if kind == shimast.KindEndOfFile {
-			break
-		}
-		if kind != shimast.KindSingleLineCommentTrivia && kind != shimast.KindMultiLineCommentTrivia {
-			continue
-		}
-		start := scanner.TokenStart()
-		end := scanner.TokenEnd()
-		if start < 0 || end > len(src) || end <= start {
-			continue
-		}
-		body := stripCommentDelimiters(src[start:end])
-		match := unicornExpiringTodoCommentsKeywordPattern.FindStringIndex(body)
-		if match == nil {
-			continue
-		}
-		if strings.Contains(body[match[1]:], "[") {
-			continue
-		}
-		ctx.ReportRange(start, end, "Add an expiration condition to this TODO (e.g., `[2027-01-01]` or `[npm:foo@>=2]`).")
-	}
+  if ctx.File == nil {
+    return
+  }
+  src := ctx.File.Text()
+  scanner := shimscanner.NewScanner()
+  scanner.SetText(src)
+  scanner.SetSkipTrivia(false)
+  for {
+    kind := scanner.Scan()
+    if kind == shimast.KindEndOfFile {
+      break
+    }
+    if kind != shimast.KindSingleLineCommentTrivia && kind != shimast.KindMultiLineCommentTrivia {
+      continue
+    }
+    start := scanner.TokenStart()
+    end := scanner.TokenEnd()
+    if start < 0 || end > len(src) || end <= start {
+      continue
+    }
+    body := stripCommentDelimiters(src[start:end])
+    match := unicornExpiringTodoCommentsKeywordPattern.FindStringIndex(body)
+    if match == nil {
+      continue
+    }
+    if strings.Contains(body[match[1]:], "[") {
+      continue
+    }
+    ctx.ReportRange(start, end, "Add an expiration condition to this TODO (e.g., `[2027-01-01]` or `[npm:foo@>=2]`).")
+  }
 }
 
 func init() {
-	Register(unicornExpiringTodoComments{})
+  Register(unicornExpiringTodoComments{})
 }

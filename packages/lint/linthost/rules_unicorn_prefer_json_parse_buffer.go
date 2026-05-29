@@ -20,46 +20,46 @@ type unicornPreferJsonParseBuffer struct{}
 
 func (unicornPreferJsonParseBuffer) Name() string { return "unicorn/prefer-json-parse-buffer" }
 func (unicornPreferJsonParseBuffer) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferJsonParseBuffer) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	// Callee must be `JSON.parse`.
-	if call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Expression) != "JSON" || identifierText(access.Name()) != "parse" {
-		return
-	}
-	// Argument must be `_.toString()` with no arguments.
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindCallExpression {
-		return
-	}
-	innerCall := arg.AsCallExpression()
-	if innerCall == nil || innerCall.Expression == nil {
-		return
-	}
-	if innerCall.Arguments != nil && len(innerCall.Arguments.Nodes) != 0 {
-		return
-	}
-	if innerCall.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	innerAccess := innerCall.Expression.AsPropertyAccessExpression()
-	if innerAccess == nil || identifierText(innerAccess.Name()) != "toString" {
-		return
-	}
-	ctx.Report(node, "Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) over decoding to a string first.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  // Callee must be `JSON.parse`.
+  if call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Expression) != "JSON" || identifierText(access.Name()) != "parse" {
+    return
+  }
+  // Argument must be `_.toString()` with no arguments.
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindCallExpression {
+    return
+  }
+  innerCall := arg.AsCallExpression()
+  if innerCall == nil || innerCall.Expression == nil {
+    return
+  }
+  if innerCall.Arguments != nil && len(innerCall.Arguments.Nodes) != 0 {
+    return
+  }
+  if innerCall.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  innerAccess := innerCall.Expression.AsPropertyAccessExpression()
+  if innerAccess == nil || identifierText(innerAccess.Name()) != "toString" {
+    return
+  }
+  ctx.Report(node, "Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) over decoding to a string first.")
 }
 
 func init() {
-	Register(unicornPreferJsonParseBuffer{})
+  Register(unicornPreferJsonParseBuffer{})
 }

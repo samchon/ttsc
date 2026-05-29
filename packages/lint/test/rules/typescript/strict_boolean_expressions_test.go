@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusStrictBooleanExpressions verifies the lint rule corpus
@@ -26,21 +26,21 @@ import (
 // 2. Run `check` with typescript/strict-boolean-expressions enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusStrictBooleanExpressions(t *testing.T) {
-	root := seedLintProject(t, `declare const count: number;
+  root := seedLintProject(t, `declare const count: number;
 if (count) {
   JSON.stringify(count);
 }
 `)
-	seedLintRules(t, root, map[string]string{"typescript/strict-boolean-expressions": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/strict-boolean-expressions": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/strict-boolean-expressions]") {
-		t.Fatalf("strict-boolean-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/strict-boolean-expressions]") {
+    t.Fatalf("strict-boolean-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

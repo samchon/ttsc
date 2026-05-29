@@ -15,10 +15,10 @@ import "testing"
 // 2. Apply `dot-notation` fix.
 // 3. Assert the result is `box.name`.
 func TestFixDotNotationRewritesBracketToDotForIdentifierKey(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"dot-notation",
-		"const box: any = { name: \"ttsc\" };\nconst value = box[\"name\"];\nJSON.stringify(value);\n",
-		"const box: any = { name: \"ttsc\" };\nconst value = box.name;\nJSON.stringify(value);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "dot-notation",
+    "const box: any = { name: \"ttsc\" };\nconst value = box[\"name\"];\nJSON.stringify(value);\n",
+    "const box: any = { name: \"ttsc\" };\nconst value = box.name;\nJSON.stringify(value);\n",
+  )
 }

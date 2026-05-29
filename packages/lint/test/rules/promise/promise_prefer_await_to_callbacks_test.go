@@ -11,5 +11,5 @@ import "testing"
 // 2. Declare a function whose last parameter is callback.
 // 3. Assert the callback parameter is reported.
 func TestRuleCorpusPromisePreferAwaitToCallbacks(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/prefer-await-to-callbacks.ts", "// expect: promise/prefer-await-to-callbacks error\nfunction load(callback: () => void) {\n  void callback;\n}\n")
+  assertRuleCorpusCase(t, "promise/prefer-await-to-callbacks.ts", "// expect: promise/prefer-await-to-callbacks error\nfunction load(callback: () => void) {\n  void callback;\n}\n")
 }

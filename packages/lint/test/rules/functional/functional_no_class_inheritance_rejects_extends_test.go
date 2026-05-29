@@ -12,7 +12,7 @@ import "testing"
 // 2. Enable only functional/no-class-inheritance.
 // 3. Assert the subclass inheritance reports and offers no autofix.
 func TestFunctionalNoClassInheritanceRejectsExtends(t *testing.T) {
-	const ruleName = "functional/no-class-inheritance"
-	findings := runFunctionalRule(t, ruleName, `class Base {} class Child extends Base {}`)
-	assertFunctionalFinding(t, ruleName, findings, "inheritance")
+  const ruleName = "functional/no-class-inheritance"
+  findings := runFunctionalRule(t, ruleName, `class Base {} class Child extends Base {}`)
+  assertFunctionalFinding(t, ruleName, findings, "inheritance")
 }

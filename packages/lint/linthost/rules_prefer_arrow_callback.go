@@ -27,44 +27,44 @@ type preferArrowCallback struct{}
 
 func (preferArrowCallback) Name() string { return "prefer-arrow-callback" }
 func (preferArrowCallback) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression, shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindCallExpression, shimast.KindNewExpression}
 }
 func (preferArrowCallback) Check(ctx *Context, node *shimast.Node) {
-	args := callArgumentsList(node)
-	if args == nil {
-		return
-	}
-	for _, arg := range args.Nodes {
-		fn := stripParens(arg)
-		if fn == nil || fn.Kind != shimast.KindFunctionExpression {
-			continue
-		}
-		if !preferArrowCallbackEligible(fn) {
-			continue
-		}
-		ctx.Report(fn, "Unexpected function expression. Use an arrow function instead.")
-	}
+  args := callArgumentsList(node)
+  if args == nil {
+    return
+  }
+  for _, arg := range args.Nodes {
+    fn := stripParens(arg)
+    if fn == nil || fn.Kind != shimast.KindFunctionExpression {
+      continue
+    }
+    if !preferArrowCallbackEligible(fn) {
+      continue
+    }
+    ctx.Report(fn, "Unexpected function expression. Use an arrow function instead.")
+  }
 }
 
 // callArgumentsList returns the argument NodeList of a CallExpression or
 // NewExpression, or nil when the node either lacks arguments or is not a
 // call/new shape.
 func callArgumentsList(node *shimast.Node) *shimast.NodeList {
-	switch node.Kind {
-	case shimast.KindCallExpression:
-		call := node.AsCallExpression()
-		if call == nil {
-			return nil
-		}
-		return call.Arguments
-	case shimast.KindNewExpression:
-		newExpr := node.AsNewExpression()
-		if newExpr == nil {
-			return nil
-		}
-		return newExpr.Arguments
-	}
-	return nil
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    if call == nil {
+      return nil
+    }
+    return call.Arguments
+  case shimast.KindNewExpression:
+    newExpr := node.AsNewExpression()
+    if newExpr == nil {
+      return nil
+    }
+    return newExpr.Arguments
+  }
+  return nil
 }
 
 // preferArrowCallbackEligible reports whether `fn` (a FunctionExpression)
@@ -74,51 +74,51 @@ func callArgumentsList(node *shimast.Node) *shimast.NodeList {
 // its own inner name (a self-recursion handle that an arrow cannot
 // reproduce).
 func preferArrowCallbackEligible(fn *shimast.Node) bool {
-	expr := fn.AsFunctionExpression()
-	if expr == nil {
-		return false
-	}
-	if expr.AsteriskToken != nil {
-		return false
-	}
-	innerName := identifierText(expr.Name())
-	body := expr.Body
-	if body == nil {
-		return true
-	}
-	usesForbidden := false
-	walkFunctionBody(body, func(child *shimast.Node) {
-		if usesForbidden || child == nil {
-			return
-		}
-		switch child.Kind {
-		case shimast.KindThisKeyword:
-			usesForbidden = true
-		case shimast.KindIdentifier:
-			text := identifierText(child)
-			if text == "arguments" {
-				// Skip `obj.arguments` — that's an unrelated member access.
-				if parent := child.Parent; parent != nil && parent.Kind == shimast.KindPropertyAccessExpression {
-					if access := parent.AsPropertyAccessExpression(); access != nil && access.Name() == child {
-						return
-					}
-				}
-				usesForbidden = true
-				return
-			}
-			if innerName != "" && text == innerName {
-				if parent := child.Parent; parent != nil && parent.Kind == shimast.KindPropertyAccessExpression {
-					if access := parent.AsPropertyAccessExpression(); access != nil && access.Name() == child {
-						return
-					}
-				}
-				usesForbidden = true
-			}
-		}
-	})
-	return !usesForbidden
+  expr := fn.AsFunctionExpression()
+  if expr == nil {
+    return false
+  }
+  if expr.AsteriskToken != nil {
+    return false
+  }
+  innerName := identifierText(expr.Name())
+  body := expr.Body
+  if body == nil {
+    return true
+  }
+  usesForbidden := false
+  walkFunctionBody(body, func(child *shimast.Node) {
+    if usesForbidden || child == nil {
+      return
+    }
+    switch child.Kind {
+    case shimast.KindThisKeyword:
+      usesForbidden = true
+    case shimast.KindIdentifier:
+      text := identifierText(child)
+      if text == "arguments" {
+        // Skip `obj.arguments` — that's an unrelated member access.
+        if parent := child.Parent; parent != nil && parent.Kind == shimast.KindPropertyAccessExpression {
+          if access := parent.AsPropertyAccessExpression(); access != nil && access.Name() == child {
+            return
+          }
+        }
+        usesForbidden = true
+        return
+      }
+      if innerName != "" && text == innerName {
+        if parent := child.Parent; parent != nil && parent.Kind == shimast.KindPropertyAccessExpression {
+          if access := parent.AsPropertyAccessExpression(); access != nil && access.Name() == child {
+            return
+          }
+        }
+        usesForbidden = true
+      }
+    }
+  })
+  return !usesForbidden
 }
 
 func init() {
-	Register(preferArrowCallback{})
+  Register(preferArrowCallback{})
 }

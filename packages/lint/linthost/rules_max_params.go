@@ -9,9 +9,9 @@
 package linthost
 
 import (
-	"fmt"
+  "fmt"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // maxParamsLimit is the parameter-count ceiling. Above this value the
@@ -23,27 +23,27 @@ type maxParams struct{}
 
 func (maxParams) Name() string { return "max-params" }
 func (maxParams) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindFunctionDeclaration,
-		shimast.KindFunctionExpression,
-		shimast.KindArrowFunction,
-		shimast.KindMethodDeclaration,
-		shimast.KindGetAccessor,
-		shimast.KindSetAccessor,
-		shimast.KindConstructor,
-	}
+  return []shimast.Kind{
+    shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+    shimast.KindConstructor,
+  }
 }
 func (maxParams) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	params := node.Parameters()
-	if len(params) <= maxParamsLimit {
-		return
-	}
-	ctx.Report(node, fmt.Sprintf("Function has too many parameters (%d). Maximum allowed is %d.", len(params), maxParamsLimit))
+  if node == nil {
+    return
+  }
+  params := node.Parameters()
+  if len(params) <= maxParamsLimit {
+    return
+  }
+  ctx.Report(node, fmt.Sprintf("Function has too many parameters (%d). Maximum allowed is %d.", len(params), maxParamsLimit))
 }
 
 func init() {
-	Register(maxParams{})
+  Register(maxParams{})
 }

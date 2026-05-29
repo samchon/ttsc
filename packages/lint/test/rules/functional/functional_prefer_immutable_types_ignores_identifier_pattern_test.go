@@ -12,12 +12,12 @@ import "testing"
 // 2. Enable only functional/prefer-immutable-types with `ignoreIdentifierPattern`.
 // 3. Assert the type is skipped.
 func TestFunctionalPreferImmutableTypesIgnoresIdentifierPattern(t *testing.T) {
-	const ruleName = "functional/prefer-immutable-types"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`const mutableValues: string[] = [];`,
-		`{"ignoreIdentifierPattern":"^mutableValues$"}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/prefer-immutable-types"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `const mutableValues: string[] = [];`,
+    `{"ignoreIdentifierPattern":"^mutableValues$"}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

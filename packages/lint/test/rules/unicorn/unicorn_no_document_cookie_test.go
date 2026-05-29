@@ -14,5 +14,5 @@ import "testing"
 // 2. Write a string to `document.cookie`.
 // 3. Assert the property access is reported.
 func TestRuleCorpusUnicornNoDocumentCookie(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-document-cookie.ts", "// expect: unicorn/no-document-cookie error\ndocument.cookie = \"name=value\";\n")
+  assertRuleCorpusCase(t, "unicorn/no-document-cookie.ts", "// expect: unicorn/no-document-cookie error\ndocument.cookie = \"name=value\";\n")
 }

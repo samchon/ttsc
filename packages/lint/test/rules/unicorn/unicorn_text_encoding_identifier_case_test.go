@@ -14,5 +14,5 @@ import "testing"
 // 2. Assign a `"UTF-8"` literal to a constant.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornTextEncodingIdentifierCase(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/text-encoding-identifier-case.ts", "// expect: unicorn/text-encoding-identifier-case error\nconst enc = \"UTF-8\";\nvoid enc;\n")
+  assertRuleCorpusCase(t, "unicorn/text-encoding-identifier-case.ts", "// expect: unicorn/text-encoding-identifier-case error\nconst enc = \"UTF-8\";\nvoid enc;\n")
 }

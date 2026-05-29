@@ -13,7 +13,7 @@ import "testing"
 // 2. Enable only `react/jsx-no-useless-fragment`.
 // 3. Assert the fragment is reported.
 func TestReactJSXNoUselessFragmentReportsSingleChildWrap(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-no-useless-fragment", `declare const Child: () => JSX.Element;
+  assertReactRuleFinds(t, "react/jsx-no-useless-fragment", `declare const Child: () => JSX.Element;
 const C = () => (
   <>
     <Child />

@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `require("path")` against a declared shim of the helper.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferModule(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-module.ts", "declare function require(name: string): unknown;\n// expect: unicorn/prefer-module error\nrequire(\"path\");\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-module.ts", "declare function require(name: string): unknown;\n// expect: unicorn/prefer-module error\nrequire(\"path\");\n")
 }

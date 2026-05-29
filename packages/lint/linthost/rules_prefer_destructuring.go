@@ -20,79 +20,79 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type preferDestructuring struct{}
 
 func (preferDestructuring) Name() string { return "prefer-destructuring" }
 func (preferDestructuring) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindVariableDeclaration}
+  return []shimast.Kind{shimast.KindVariableDeclaration}
 }
 func (preferDestructuring) Check(ctx *Context, node *shimast.Node) {
-	decl := node.AsVariableDeclaration()
-	if decl == nil || decl.Initializer == nil {
-		return
-	}
-	// Only fire on plain identifier bindings — destructuring already
-	// happens on `const { a } = obj;`.
-	name := decl.Name()
-	if name == nil || name.Kind != shimast.KindIdentifier {
-		return
-	}
-	varName := identifierText(name)
-	if varName == "" {
-		return
-	}
-	init := stripParens(decl.Initializer)
-	if init == nil {
-		return
-	}
-	switch init.Kind {
-	case shimast.KindPropertyAccessExpression:
-		access := init.AsPropertyAccessExpression()
-		if access == nil || access.Expression == nil || !preferDestructuringSimpleReceiver(access.Expression) {
-			return
-		}
-		propName := access.Name()
-		if propName == nil || propName.Kind != shimast.KindIdentifier {
-			return
-		}
-		if identifierText(propName) != varName {
-			return
-		}
-		ctx.Report(node, "Use object destructuring (`const { "+varName+" } = obj`).")
-	case shimast.KindElementAccessExpression:
-		access := init.AsElementAccessExpression()
-		if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
-			return
-		}
-		if !preferDestructuringSimpleReceiver(access.Expression) {
-			return
-		}
-		// Only numeric-literal index — array destructuring.
-		idx := stripParens(access.ArgumentExpression)
-		if idx == nil || idx.Kind != shimast.KindNumericLiteral {
-			return
-		}
-		ctx.Report(node, "Use array destructuring (`const ["+varName+"] = arr`).")
-	}
+  decl := node.AsVariableDeclaration()
+  if decl == nil || decl.Initializer == nil {
+    return
+  }
+  // Only fire on plain identifier bindings — destructuring already
+  // happens on `const { a } = obj;`.
+  name := decl.Name()
+  if name == nil || name.Kind != shimast.KindIdentifier {
+    return
+  }
+  varName := identifierText(name)
+  if varName == "" {
+    return
+  }
+  init := stripParens(decl.Initializer)
+  if init == nil {
+    return
+  }
+  switch init.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := init.AsPropertyAccessExpression()
+    if access == nil || access.Expression == nil || !preferDestructuringSimpleReceiver(access.Expression) {
+      return
+    }
+    propName := access.Name()
+    if propName == nil || propName.Kind != shimast.KindIdentifier {
+      return
+    }
+    if identifierText(propName) != varName {
+      return
+    }
+    ctx.Report(node, "Use object destructuring (`const { "+varName+" } = obj`).")
+  case shimast.KindElementAccessExpression:
+    access := init.AsElementAccessExpression()
+    if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
+      return
+    }
+    if !preferDestructuringSimpleReceiver(access.Expression) {
+      return
+    }
+    // Only numeric-literal index — array destructuring.
+    idx := stripParens(access.ArgumentExpression)
+    if idx == nil || idx.Kind != shimast.KindNumericLiteral {
+      return
+    }
+    ctx.Report(node, "Use array destructuring (`const ["+varName+"] = arr`).")
+  }
 }
 
 func preferDestructuringSimpleReceiver(node *shimast.Node) bool {
-	n := stripParens(node)
-	if n == nil {
-		return false
-	}
-	switch n.Kind {
-	case shimast.KindIdentifier,
-		shimast.KindThisKeyword,
-		shimast.KindPropertyAccessExpression:
-		return true
-	}
-	return false
+  n := stripParens(node)
+  if n == nil {
+    return false
+  }
+  switch n.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindThisKeyword,
+    shimast.KindPropertyAccessExpression:
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(preferDestructuring{})
+  Register(preferDestructuring{})
 }

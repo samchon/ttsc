@@ -12,5 +12,5 @@ import "testing"
 // 2. Return Promise.resolve from a then handler.
 // 3. Assert the wrapped return is reported.
 func TestRuleCorpusPromiseNoReturnWrap(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-return-wrap.ts", "Promise.resolve(1).then(() => {\n  // expect: promise/no-return-wrap error\n  return Promise.resolve(2);\n});\n")
+  assertRuleCorpusCase(t, "promise/no-return-wrap.ts", "Promise.resolve(1).then(() => {\n  // expect: promise/no-return-wrap error\n  return Promise.resolve(2);\n});\n")
 }

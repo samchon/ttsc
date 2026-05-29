@@ -11,10 +11,10 @@ import "testing"
 // This fixture pins that branch shape so the discriminant-text equality
 // check and the chain-length threshold stay covered.
 //
-// 1. Enable unicorn/prefer-switch via an expect annotation.
-// 2. Build a three-branch if/else-if ladder comparing `k` against `"a"`,
-//    `"b"`, and `"c"`.
-// 3. Assert the outermost if is reported.
+//  1. Enable unicorn/prefer-switch via an expect annotation.
+//  2. Build a three-branch if/else-if ladder comparing `k` against `"a"`,
+//     `"b"`, and `"c"`.
+//  3. Assert the outermost if is reported.
 func TestRuleCorpusUnicornPreferSwitch(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-switch.ts", "declare const k: string;\n// expect: unicorn/prefer-switch error\nif (k === \"a\") {\n  void 0;\n} else if (k === \"b\") {\n  void 0;\n} else if (k === \"c\") {\n  void 0;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-switch.ts", "declare const k: string;\n// expect: unicorn/prefer-switch error\nif (k === \"a\") {\n  void 0;\n} else if (k === \"b\") {\n  void 0;\n} else if (k === \"c\") {\n  void 0;\n}\n")
 }

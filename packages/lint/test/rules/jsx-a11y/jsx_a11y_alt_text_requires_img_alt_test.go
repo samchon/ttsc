@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/alt-text`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yAltTextRequiresImgAlt(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/alt-text", `const Component = () => <img src="avatar.png" />;`, "alt text")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/alt-text", `const Component = () => <img src="avatar.png" />;`, "alt text")
 }

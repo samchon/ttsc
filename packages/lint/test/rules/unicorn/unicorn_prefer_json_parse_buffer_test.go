@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `JSON.parse(buf.toString())` on a declared Buffer binding.
 // 3. Assert the outer call is reported.
 func TestRuleCorpusUnicornPreferJsonParseBuffer(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-json-parse-buffer.ts", "declare const buf: Buffer;\n// expect: unicorn/prefer-json-parse-buffer error\nconst data = JSON.parse(buf.toString());\nvoid data;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-json-parse-buffer.ts", "declare const buf: Buffer;\n// expect: unicorn/prefer-json-parse-buffer error\nconst data = JSON.parse(buf.toString());\nvoid data;\n")
 }

@@ -11,10 +11,10 @@ import "testing"
 // fixture covers the canonical positive case across the four collection
 // methods (`all`/`allSettled`/`race`/`any`).
 //
-// 1. Enable unicorn/no-single-promise-in-promise-methods via an expect
-//    annotation.
-// 2. Call `Promise.all([Promise.resolve(1)])` at the top level.
-// 3. Assert the call expression is reported.
+//  1. Enable unicorn/no-single-promise-in-promise-methods via an expect
+//     annotation.
+//  2. Call `Promise.all([Promise.resolve(1)])` at the top level.
+//  3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoSinglePromiseInPromiseMethods(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-single-promise-in-promise-methods.ts", "// expect: unicorn/no-single-promise-in-promise-methods error\nconst p = Promise.all([Promise.resolve(1)]);\n")
+  assertRuleCorpusCase(t, "unicorn/no-single-promise-in-promise-methods.ts", "// expect: unicorn/no-single-promise-in-promise-methods error\nconst p = Promise.all([Promise.resolve(1)]);\n")
 }

@@ -9,10 +9,9 @@
  * combinations; the dashboard skips any comparison whose pair is missing.
  *
  * The runner stores only raw `samples` arrays. The dashboard reduces them with
- * `measurementMs()` / `lintMs()` etc. (in `./format.ts`) to whichever
- * statistic it currently surfaces — `min` today — so the published JSON never
- * carries derived statistics that would drift out of sync with the chosen
- * reduction.
+ * `measurementMs()` / `lintMs()` etc. (in `./format.ts`) to whichever statistic
+ * it currently surfaces — `min` today — so the published JSON never carries
+ * derived statistics that would drift out of sync with the chosen reduction.
  */
 
 export type BenchmarkBranch = "legacy" | "ttsc" | "ttsc-lint";
@@ -64,18 +63,18 @@ export interface BenchmarkMeasurement {
   op: BenchmarkOp;
   threading: BenchmarkThreading;
   /**
-   * Raw per-run wall-clock samples in milliseconds, in run order. The
-   * dashboard takes the minimum (see `measurementMs` in `./format.ts`); the
-   * full array is preserved so a future reduction (median, p95, …) can be
-   * picked without re-running the sweep. An empty array means the cell could
-   * not be measured (a deterministic failure); any derived ms is `0` and the
-   * dashboard skips comparisons touching it.
+   * Raw per-run wall-clock samples in milliseconds, in run order. The dashboard
+   * takes the minimum (see `measurementMs` in `./format.ts`); the full array is
+   * preserved so a future reduction (median, p95, …) can be picked without
+   * re-running the sweep. An empty array means the cell could not be measured
+   * (a deterministic failure); any derived ms is `0` and the dashboard skips
+   * comparisons touching it.
    */
   samples: number[];
   /**
-   * Per-run `@ttsc/lint` check sidecar wall-clock samples parsed from
-   * `ttsc --diagnostics`. Present only for `ttsc-lint` build/check cells
-   * recorded by newer benchmark runs.
+   * Per-run `@ttsc/lint` check sidecar wall-clock samples parsed from `ttsc
+   * --diagnostics`. Present only for `ttsc-lint` build/check cells recorded by
+   * newer benchmark runs.
    */
   lintSamples?: number[];
   /**
@@ -84,9 +83,9 @@ export interface BenchmarkMeasurement {
    */
   lintPluginSamples?: number[];
   /**
-   * Per-run third-party transform-host samples parsed from
-   * `ttsc --diagnostics`. Present when a `ttsc-lint` check/build cell also
-   * runs source transform plugins such as typia or nestia.
+   * Per-run third-party transform-host samples parsed from `ttsc
+   * --diagnostics`. Present when a `ttsc-lint` check/build cell also runs
+   * source transform plugins such as typia or nestia.
    */
   transformHostSamples?: number[];
   /**

@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `parent.appendChild(child)` on two declared elements.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferDomNodeAppend(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-dom-node-append.ts", "declare const parent: Element;\ndeclare const child: Element;\n// expect: unicorn/prefer-dom-node-append error\nparent.appendChild(child);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-dom-node-append.ts", "declare const parent: Element;\ndeclare const child: Element;\n// expect: unicorn/prefer-dom-node-append error\nparent.appendChild(child);\n")
 }

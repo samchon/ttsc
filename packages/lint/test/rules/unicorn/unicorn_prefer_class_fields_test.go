@@ -14,5 +14,5 @@ import "testing"
 // 2. Assign `this.field = 1` from inside the constructor.
 // 3. Assert the assignment expression is reported.
 func TestRuleCorpusUnicornPreferClassFields(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-class-fields.ts", "class C {\n  field: number;\n  constructor() {\n    // expect: unicorn/prefer-class-fields error\n    this.field = 1;\n  }\n}\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-class-fields.ts", "class C {\n  field: number;\n  constructor() {\n    // expect: unicorn/prefer-class-fields error\n    this.field = 1;\n  }\n}\n")
 }

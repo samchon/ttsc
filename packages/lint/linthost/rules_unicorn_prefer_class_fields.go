@@ -22,72 +22,72 @@ type unicornPreferClassFields struct{}
 
 func (unicornPreferClassFields) Name() string { return "unicorn/prefer-class-fields" }
 func (unicornPreferClassFields) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindConstructor}
+  return []shimast.Kind{shimast.KindConstructor}
 }
 func (unicornPreferClassFields) Check(ctx *Context, node *shimast.Node) {
-	ctor := node.AsConstructorDeclaration()
-	if ctor == nil || ctor.Body == nil {
-		return
-	}
-	body := ctor.Body.AsBlock()
-	if body == nil || body.Statements == nil {
-		return
-	}
-	for _, stmt := range body.Statements.Nodes {
-		if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
-			continue
-		}
-		exprStmt := stmt.AsExpressionStatement()
-		if exprStmt == nil || exprStmt.Expression == nil {
-			continue
-		}
-		expr := stripParens(exprStmt.Expression)
-		if expr == nil || expr.Kind != shimast.KindBinaryExpression {
-			continue
-		}
-		bin := expr.AsBinaryExpression()
-		if bin == nil || bin.OperatorToken == nil || bin.OperatorToken.Kind != shimast.KindEqualsToken {
-			continue
-		}
-		lhs := stripParens(bin.Left)
-		if lhs == nil || lhs.Kind != shimast.KindPropertyAccessExpression {
-			continue
-		}
-		access := lhs.AsPropertyAccessExpression()
-		if access == nil {
-			continue
-		}
-		receiver := stripParens(access.Expression)
-		if receiver == nil || receiver.Kind != shimast.KindThisKeyword {
-			continue
-		}
-		rhs := stripParens(bin.Right)
-		if !isPrimitiveLiteralForClassField(rhs) {
-			continue
-		}
-		ctx.Report(expr, "Prefer class field declarations over constructor assignments to `this.field`.")
-	}
+  ctor := node.AsConstructorDeclaration()
+  if ctor == nil || ctor.Body == nil {
+    return
+  }
+  body := ctor.Body.AsBlock()
+  if body == nil || body.Statements == nil {
+    return
+  }
+  for _, stmt := range body.Statements.Nodes {
+    if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+      continue
+    }
+    exprStmt := stmt.AsExpressionStatement()
+    if exprStmt == nil || exprStmt.Expression == nil {
+      continue
+    }
+    expr := stripParens(exprStmt.Expression)
+    if expr == nil || expr.Kind != shimast.KindBinaryExpression {
+      continue
+    }
+    bin := expr.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil || bin.OperatorToken.Kind != shimast.KindEqualsToken {
+      continue
+    }
+    lhs := stripParens(bin.Left)
+    if lhs == nil || lhs.Kind != shimast.KindPropertyAccessExpression {
+      continue
+    }
+    access := lhs.AsPropertyAccessExpression()
+    if access == nil {
+      continue
+    }
+    receiver := stripParens(access.Expression)
+    if receiver == nil || receiver.Kind != shimast.KindThisKeyword {
+      continue
+    }
+    rhs := stripParens(bin.Right)
+    if !isPrimitiveLiteralForClassField(rhs) {
+      continue
+    }
+    ctx.Report(expr, "Prefer class field declarations over constructor assignments to `this.field`.")
+  }
 }
 
 // isPrimitiveLiteralForClassField reports whether `node` is one of the
 // primitive-literal kinds that the prefer-class-fields rule treats as
 // "trivially hoistable" to a class field initializer.
 func isPrimitiveLiteralForClassField(node *shimast.Node) bool {
-	if node == nil {
-		return false
-	}
-	switch node.Kind {
-	case shimast.KindStringLiteral,
-		shimast.KindNumericLiteral,
-		shimast.KindTrueKeyword,
-		shimast.KindFalseKeyword,
-		shimast.KindNullKeyword,
-		shimast.KindNoSubstitutionTemplateLiteral:
-		return true
-	}
-	return false
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindNoSubstitutionTemplateLiteral:
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(unicornPreferClassFields{})
+  Register(unicornPreferClassFields{})
 }

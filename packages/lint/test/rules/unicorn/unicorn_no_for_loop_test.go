@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare an array and walk it with the classic index-based loop.
 // 3. Assert the for statement is reported.
 func TestRuleCorpusUnicornNoForLoop(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-for-loop.ts", "const xs = [1, 2, 3];\n// expect: unicorn/no-for-loop error\nfor (let i = 0; i < xs.length; i++) { void xs[i]; }\n")
+  assertRuleCorpusCase(t, "unicorn/no-for-loop.ts", "const xs = [1, 2, 3];\n// expect: unicorn/no-for-loop error\nfor (let i = 0; i < xs.length; i++) { void xs[i]; }\n")
 }

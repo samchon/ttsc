@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/aria-proptypes`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yAriaProptypesRejectsBadBoolean(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/aria-proptypes", `const Component = () => <div aria-hidden="maybe" />;`, "true or false")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/aria-proptypes", `const Component = () => <div aria-hidden="maybe" />;`, "true or false")
 }

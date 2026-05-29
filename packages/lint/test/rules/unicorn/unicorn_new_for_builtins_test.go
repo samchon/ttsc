@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `Array(3)` without `new`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNewForBuiltins(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/new-for-builtins.ts", "// expect: unicorn/new-for-builtins error\nconst xs = Array(3);\nvoid xs;\n")
+  assertRuleCorpusCase(t, "unicorn/new-for-builtins.ts", "// expect: unicorn/new-for-builtins error\nconst xs = Array(3);\nvoid xs;\n")
 }

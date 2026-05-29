@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable only `react/no-array-index-key`.
 // 3. Assert the nested `key={index}` is not reported.
 func TestReactNoArrayIndexKeySkipsNestedNonListElement(t *testing.T) {
-	assertReactRuleSkips(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, index) => <li key={item}><span key={index}>{item}</span></li>);`)
+  assertReactRuleSkips(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, index) => <li key={item}><span key={index}>{item}</span></li>);`)
 }

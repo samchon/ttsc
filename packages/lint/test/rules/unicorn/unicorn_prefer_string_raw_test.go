@@ -14,5 +14,5 @@ import "testing"
 // 2. Write a string literal with `\\` escapes (`"C:\\Users\\me"`).
 // 3. Assert the string literal is reported.
 func TestRuleCorpusUnicornPreferStringRaw(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-string-raw.ts", "// expect: unicorn/prefer-string-raw error\nconst p = \"C:\\\\Users\\\\me\";\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-string-raw.ts", "// expect: unicorn/prefer-string-raw error\nconst p = \"C:\\\\Users\\\\me\";\n")
 }

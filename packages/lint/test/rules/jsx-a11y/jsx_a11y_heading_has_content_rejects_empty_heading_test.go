@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/heading-has-content`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yHeadingHasContentRejectsEmptyHeading(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/heading-has-content", `const Component = () => <h2></h2>;`, "Headings")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/heading-has-content", `const Component = () => <h2></h2>;`, "Headings")
 }

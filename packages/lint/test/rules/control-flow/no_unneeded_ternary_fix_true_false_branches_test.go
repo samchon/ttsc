@@ -14,10 +14,10 @@ import "testing"
 // 2. Apply `no-unneeded-ternary` fix.
 // 3. Assert the result is `Boolean(x)`.
 func TestFixNoUnneededTernaryRewritesTrueFalseBranches(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"no-unneeded-ternary",
-		"function f(x: any) {\n  return x ? true : false;\n}\nJSON.stringify(f);\n",
-		"function f(x: any) {\n  return Boolean(x);\n}\nJSON.stringify(f);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "no-unneeded-ternary",
+    "function f(x: any) {\n  return x ? true : false;\n}\nJSON.stringify(f);\n",
+    "function f(x: any) {\n  return Boolean(x);\n}\nJSON.stringify(f);\n",
+  )
 }

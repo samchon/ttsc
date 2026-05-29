@@ -16,5 +16,5 @@ import "testing"
 // 2. Pass `[await Promise.resolve(1), Promise.resolve(2)]` to `Promise.all`.
 // 3. Assert the inner await is reported.
 func TestRuleCorpusUnicornNoAwaitInPromiseMethods(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-await-in-promise-methods.ts", "async function f() {\n  // expect: unicorn/no-await-in-promise-methods error\n  await Promise.all([await Promise.resolve(1), Promise.resolve(2)]);\n}\n")
+  assertRuleCorpusCase(t, "unicorn/no-await-in-promise-methods.ts", "async function f() {\n  // expect: unicorn/no-await-in-promise-methods error\n  await Promise.all([await Promise.resolve(1), Promise.resolve(2)]);\n}\n")
 }

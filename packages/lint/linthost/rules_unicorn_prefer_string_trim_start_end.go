@@ -17,32 +17,32 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferStringTrimStartEnd struct{}
 
 func (unicornPreferStringTrimStartEnd) Name() string {
-	return "unicorn/prefer-string-trim-start-end"
+  return "unicorn/prefer-string-trim-start-end"
 }
 func (unicornPreferStringTrimStartEnd) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferStringTrimStartEnd) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "trimLeft", "trimRight":
-	default:
-		return
-	}
-	if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-		return
-	}
-	ctx.Report(node, "Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "trimLeft", "trimRight":
+  default:
+    return
+  }
+  if call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+    return
+  }
+  ctx.Report(node, "Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.")
 }
 
 func init() {
-	Register(unicornPreferStringTrimStartEnd{})
+  Register(unicornPreferStringTrimStartEnd{})
 }

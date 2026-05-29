@@ -16,8 +16,8 @@ import (
 // guaranteed to be unique-then-duplicated within a single test body.
 type duplicateGuardRule struct{ name string }
 
-func (r duplicateGuardRule) Name() string           { return r.name }
-func (r duplicateGuardRule) Visits() []shimast.Kind { return nil }
+func (r duplicateGuardRule) Name() string                  { return r.name }
+func (r duplicateGuardRule) Visits() []shimast.Kind        { return nil }
 func (r duplicateGuardRule) Check(*Context, *shimast.Node) {}
 
 // TestRegisterRejectsDuplicateRuleName pins the duplicate-name panic

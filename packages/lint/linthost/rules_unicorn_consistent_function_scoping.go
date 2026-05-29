@@ -12,14 +12,14 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornConsistentFunctionScoping struct{}
 
 func (unicornConsistentFunctionScoping) Name() string {
-	return "unicorn/consistent-function-scoping"
+  return "unicorn/consistent-function-scoping"
 }
 func (unicornConsistentFunctionScoping) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (unicornConsistentFunctionScoping) Check(ctx *Context, node *shimast.Node) {
 }
 
 func init() {
-	Register(unicornConsistentFunctionScoping{})
+  Register(unicornConsistentFunctionScoping{})
 }

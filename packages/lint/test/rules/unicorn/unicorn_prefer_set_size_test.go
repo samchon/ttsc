@@ -14,5 +14,5 @@ import "testing"
 // 2. Read `[...s].length` on a declared Set binding.
 // 3. Assert the property-access expression is reported.
 func TestRuleCorpusUnicornPreferSetSize(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-set-size.ts", "declare const s: Set<number>;\n// expect: unicorn/prefer-set-size error\nconst n = [...s].length;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-set-size.ts", "declare const s: Set<number>;\n// expect: unicorn/prefer-set-size error\nconst n = [...s].length;\n")
 }

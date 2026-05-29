@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/type-declaration-immutability.
 // 3. Assert the declaration reports and offers no autofix.
 func TestFunctionalTypeDeclarationImmutabilityRejectsMutableInterface(t *testing.T) {
-	const ruleName = "functional/type-declaration-immutability"
-	findings := runFunctionalRule(t, ruleName, `interface State { values: string[]; }`)
-	assertFunctionalFinding(t, ruleName, findings, "readonly")
+  const ruleName = "functional/type-declaration-immutability"
+  findings := runFunctionalRule(t, ruleName, `interface State { values: string[]; }`)
+  assertFunctionalFinding(t, ruleName, findings, "readonly")
 }

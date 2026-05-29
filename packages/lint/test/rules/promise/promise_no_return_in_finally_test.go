@@ -12,5 +12,5 @@ import "testing"
 // 2. Return a value from a finally callback.
 // 3. Assert the return statement is reported.
 func TestRuleCorpusPromiseNoReturnInFinally(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-return-in-finally.ts", "Promise.resolve(1).finally(() => {\n  // expect: promise/no-return-in-finally error\n  return 2;\n});\n")
+  assertRuleCorpusCase(t, "promise/no-return-in-finally.ts", "Promise.resolve(1).finally(() => {\n  // expect: promise/no-return-in-finally error\n  return 2;\n});\n")
 }

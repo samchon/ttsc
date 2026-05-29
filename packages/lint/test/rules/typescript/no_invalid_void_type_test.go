@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusTypescriptNoInvalidVoidType(t *testing.T) {
-	assertRuleCorpusCase(t, "typescript-no-invalid-void-type.ts", "// expect: typescript/no-invalid-void-type error\ntype Result = string | void;\nJSON.stringify({} as Result);\n")
+  assertRuleCorpusCase(t, "typescript-no-invalid-void-type.ts", "// expect: typescript/no-invalid-void-type error\ntype Result = string | void;\nJSON.stringify({} as Result);\n")
 }

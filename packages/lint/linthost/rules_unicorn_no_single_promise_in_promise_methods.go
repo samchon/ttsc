@@ -20,40 +20,40 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoSinglePromiseInPromiseMethods struct{}
 
 func (unicornNoSinglePromiseInPromiseMethods) Name() string {
-	return "unicorn/no-single-promise-in-promise-methods"
+  return "unicorn/no-single-promise-in-promise-methods"
 }
 func (unicornNoSinglePromiseInPromiseMethods) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoSinglePromiseInPromiseMethods) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Expression) != "Promise" {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "all", "allSettled", "race", "any":
-	default:
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindArrayLiteralExpression {
-		return
-	}
-	arr := arg.AsArrayLiteralExpression()
-	if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
-		return
-	}
-	ctx.Report(node, "Don't wrap a single promise in `Promise.<method>([...])` — the wrapper is redundant.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Expression) != "Promise" {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "all", "allSettled", "race", "any":
+  default:
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindArrayLiteralExpression {
+    return
+  }
+  arr := arg.AsArrayLiteralExpression()
+  if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
+    return
+  }
+  ctx.Report(node, "Don't wrap a single promise in `Promise.<method>([...])` — the wrapper is redundant.")
 }
 
 func init() {
-	Register(unicornNoSinglePromiseInPromiseMethods{})
+  Register(unicornNoSinglePromiseInPromiseMethods{})
 }

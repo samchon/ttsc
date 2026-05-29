@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/no-children-prop`.
 // 3. Assert the prop is reported.
 func TestReactNoChildrenPropReportsChildrenProp(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-children-prop", `const C = () => <div children="text" />;`, "children")
+  assertReactRuleFinds(t, "react/no-children-prop", `const C = () => <div children="text" />;`, "children")
 }

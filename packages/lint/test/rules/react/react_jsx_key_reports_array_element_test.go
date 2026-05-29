@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/jsx-key`.
 // 3. Assert the unkeyed list element is reported.
 func TestReactJSXKeyReportsArrayElement(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-key", `const nodes = [<li />];`, "key")
+  assertReactRuleFinds(t, "react/jsx-key", `const nodes = [<li />];`, "key")
 }

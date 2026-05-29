@@ -12,7 +12,7 @@ import "testing"
 // 2. Enable only functional/no-classes.
 // 3. Assert the class reports and offers no autofix.
 func TestFunctionalNoClassesRejectsClassDeclaration(t *testing.T) {
-	const ruleName = "functional/no-classes"
-	findings := runFunctionalRule(t, ruleName, `class Store { value = 1; }`)
-	assertFunctionalFinding(t, ruleName, findings, "Unexpected class")
+  const ruleName = "functional/no-classes"
+  findings := runFunctionalRule(t, ruleName, `class Store { value = 1; }`)
+  assertFunctionalFinding(t, ruleName, findings, "Unexpected class")
 }

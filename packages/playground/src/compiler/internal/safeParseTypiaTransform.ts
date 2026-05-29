@@ -5,9 +5,9 @@ export interface ITypiaTransformOutput {
 }
 
 /**
- * Parse the typia transform plugin's stdout into the expected shape.
- * Returns null on any parse / shape mismatch — the caller treats null as
- * "transform produced no usable output".
+ * Parse the typia transform plugin's stdout into the expected shape. Returns
+ * null on any parse / shape mismatch — the caller treats null as "transform
+ * produced no usable output".
  */
 export function safeParseTypiaTransform(
   text: string,

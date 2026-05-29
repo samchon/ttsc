@@ -18,24 +18,24 @@ type unicornNoArrayReduce struct{}
 
 func (unicornNoArrayReduce) Name() string { return "unicorn/no-array-reduce" }
 func (unicornNoArrayReduce) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoArrayReduce) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if method != "reduce" && method != "reduceRight" {
-		return
-	}
-	ctx.Report(node, "Avoid `Array#"+method+"()` — use an explicit loop or `for…of` instead.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if method != "reduce" && method != "reduceRight" {
+    return
+  }
+  ctx.Report(node, "Avoid `Array#"+method+"()` — use an explicit loop or `for…of` instead.")
 }
 
 func init() {
-	Register(unicornNoArrayReduce{})
+  Register(unicornNoArrayReduce{})
 }

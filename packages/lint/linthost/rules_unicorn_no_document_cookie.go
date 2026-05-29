@@ -20,22 +20,22 @@ type unicornNoDocumentCookie struct{}
 
 func (unicornNoDocumentCookie) Name() string { return "unicorn/no-document-cookie" }
 func (unicornNoDocumentCookie) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornNoDocumentCookie) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Expression) != "document" {
-		return
-	}
-	if identifierText(access.Name()) != "cookie" {
-		return
-	}
-	ctx.Report(node, "Don't use `document.cookie` directly; use the Cookie Store API or a wrapper.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Expression) != "document" {
+    return
+  }
+  if identifierText(access.Name()) != "cookie" {
+    return
+  }
+  ctx.Report(node, "Don't use `document.cookie` directly; use the Cookie Store API or a wrapper.")
 }
 
 func init() {
-	Register(unicornNoDocumentCookie{})
+  Register(unicornNoDocumentCookie{})
 }

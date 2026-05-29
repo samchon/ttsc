@@ -12,5 +12,5 @@ import "testing"
 // 2. Run a then callback with a block body and no return.
 // 3. Assert the callback is reported.
 func TestRuleCorpusPromiseAlwaysReturn(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/always-return.ts", "// expect: promise/always-return error\nPromise.resolve(1).then(() => {\n  console.log(\"side effect\");\n});\n")
+  assertRuleCorpusCase(t, "promise/always-return.ts", "// expect: promise/always-return error\nPromise.resolve(1).then(() => {\n  console.log(\"side effect\");\n});\n")
 }

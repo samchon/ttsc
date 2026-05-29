@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `.forEach(fn, ctx)` on an array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoArrayMethodThisArgument(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-method-this-argument.ts", "// expect: unicorn/no-array-method-this-argument error\n[1, 2].forEach(function (x) { console.log(this, x); }, { tag: \"ctx\" });\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-method-this-argument.ts", "// expect: unicorn/no-array-method-this-argument error\n[1, 2].forEach(function (x) { console.log(this, x); }, { tag: \"ctx\" });\n")
 }

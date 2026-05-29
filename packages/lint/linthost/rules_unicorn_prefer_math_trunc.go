@@ -22,41 +22,41 @@ type unicornPreferMathTrunc struct{}
 
 func (unicornPreferMathTrunc) Name() string { return "unicorn/prefer-math-trunc" }
 func (unicornPreferMathTrunc) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression, shimast.KindPrefixUnaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression, shimast.KindPrefixUnaryExpression}
 }
 func (unicornPreferMathTrunc) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindBinaryExpression:
-		expr := node.AsBinaryExpression()
-		if expr == nil || expr.OperatorToken == nil ||
-			expr.OperatorToken.Kind != shimast.KindBarToken {
-			return
-		}
-		right := stripParens(expr.Right)
-		if right == nil || right.Kind != shimast.KindNumericLiteral {
-			return
-		}
-		if numericLiteralText(right) != "0" {
-			return
-		}
-		ctx.Report(node, "Prefer `Math.trunc(x)` over `~~x` / `x | 0` for integer truncation.")
-	case shimast.KindPrefixUnaryExpression:
-		outer := node.AsPrefixUnaryExpression()
-		if outer == nil || outer.Operator != shimast.KindTildeToken || outer.Operand == nil {
-			return
-		}
-		operand := stripParens(outer.Operand)
-		if operand == nil || operand.Kind != shimast.KindPrefixUnaryExpression {
-			return
-		}
-		inner := operand.AsPrefixUnaryExpression()
-		if inner == nil || inner.Operator != shimast.KindTildeToken {
-			return
-		}
-		ctx.Report(node, "Prefer `Math.trunc(x)` over `~~x` / `x | 0` for integer truncation.")
-	}
+  switch node.Kind {
+  case shimast.KindBinaryExpression:
+    expr := node.AsBinaryExpression()
+    if expr == nil || expr.OperatorToken == nil ||
+      expr.OperatorToken.Kind != shimast.KindBarToken {
+      return
+    }
+    right := stripParens(expr.Right)
+    if right == nil || right.Kind != shimast.KindNumericLiteral {
+      return
+    }
+    if numericLiteralText(right) != "0" {
+      return
+    }
+    ctx.Report(node, "Prefer `Math.trunc(x)` over `~~x` / `x | 0` for integer truncation.")
+  case shimast.KindPrefixUnaryExpression:
+    outer := node.AsPrefixUnaryExpression()
+    if outer == nil || outer.Operator != shimast.KindTildeToken || outer.Operand == nil {
+      return
+    }
+    operand := stripParens(outer.Operand)
+    if operand == nil || operand.Kind != shimast.KindPrefixUnaryExpression {
+      return
+    }
+    inner := operand.AsPrefixUnaryExpression()
+    if inner == nil || inner.Operator != shimast.KindTildeToken {
+      return
+    }
+    ctx.Report(node, "Prefer `Math.trunc(x)` over `~~x` / `x | 0` for integer truncation.")
+  }
 }
 
 func init() {
-	Register(unicornPreferMathTrunc{})
+  Register(unicornPreferMathTrunc{})
 }

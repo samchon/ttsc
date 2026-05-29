@@ -12,5 +12,5 @@ import "testing"
 // 2. Construct a Promise directly.
 // 3. Assert the constructor expression is reported.
 func TestRuleCorpusPromiseAvoidNew(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/avoid-new.ts", "// expect: promise/avoid-new error\nnew Promise((resolve) => resolve(1));\n")
+  assertRuleCorpusCase(t, "promise/avoid-new.ts", "// expect: promise/avoid-new error\nnew Promise((resolve) => resolve(1));\n")
 }

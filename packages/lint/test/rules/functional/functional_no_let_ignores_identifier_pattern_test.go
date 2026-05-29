@@ -12,12 +12,12 @@ import "testing"
 // 2. Enable only functional/no-let with `ignoreIdentifierPattern`.
 // 3. Assert the declaration is skipped.
 func TestFunctionalNoLetIgnoresIdentifierPattern(t *testing.T) {
-	const ruleName = "functional/no-let"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`let mutableValue = 1;`,
-		`{"ignoreIdentifierPattern":"^mutableValue$"}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/no-let"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `let mutableValue = 1;`,
+    `{"ignoreIdentifierPattern":"^mutableValue$"}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

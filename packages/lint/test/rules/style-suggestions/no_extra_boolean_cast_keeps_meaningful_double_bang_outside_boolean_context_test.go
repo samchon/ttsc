@@ -15,9 +15,9 @@ import "testing"
 // 2. Enable `no-extra-boolean-cast`.
 // 3. Assert no findings emitted.
 func TestNoExtraBooleanCastKeepsMeaningfulDoubleBangOutsideBooleanContext(t *testing.T) {
-	assertRuleSkipsSource(
-		t,
-		"no-extra-boolean-cast",
-		"function f(x: any) {\n  const b = !!x;\n  return b;\n}\nJSON.stringify(f);\n",
-	)
+  assertRuleSkipsSource(
+    t,
+    "no-extra-boolean-cast",
+    "function f(x: any) {\n  const b = !!x;\n  return b;\n}\nJSON.stringify(f);\n",
+  )
 }

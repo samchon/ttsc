@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `.toFixed()` on a numeric literal with no arguments.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornRequireNumberToFixedDigitsArgument(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/require-number-to-fixed-digits-argument.ts", "// expect: unicorn/require-number-to-fixed-digits-argument error\nconst s = (1.234).toFixed();\n")
+  assertRuleCorpusCase(t, "unicorn/require-number-to-fixed-digits-argument.ts", "// expect: unicorn/require-number-to-fixed-digits-argument error\nconst s = (1.234).toFixed();\n")
 }

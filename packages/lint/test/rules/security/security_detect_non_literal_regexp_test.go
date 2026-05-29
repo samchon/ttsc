@@ -11,7 +11,7 @@ import "testing"
 // 2. Construct RegExp from an identifier.
 // 3. Assert only the identifier constructor is reported.
 func TestSecurityDetectNonLiteralRegexp(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-non-literal-regexp.ts", `
+  assertRuleCorpusCase(t, "security/detect-non-literal-regexp.ts", `
 new RegExp("^[a-z]+$");
 // expect: security/detect-non-literal-regexp error
 new RegExp(pattern);

@@ -22,40 +22,40 @@ type unicornPreferSingleCall struct{}
 
 func (unicornPreferSingleCall) Name() string { return "unicorn/prefer-single-call" }
 func (unicornPreferSingleCall) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBlock, shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindBlock, shimast.KindSourceFile}
 }
 func (unicornPreferSingleCall) Check(ctx *Context, node *shimast.Node) {
-	var stmts []*shimast.Node
-	switch node.Kind {
-	case shimast.KindBlock:
-		block := node.AsBlock()
-		if block == nil || block.Statements == nil {
-			return
-		}
-		stmts = block.Statements.Nodes
-	case shimast.KindSourceFile:
-		file := node.AsSourceFile()
-		if file == nil || file.Statements == nil {
-			return
-		}
-		stmts = file.Statements.Nodes
-	default:
-		return
-	}
-	for i := 1; i < len(stmts); i++ {
-		prevReceiver, prevMethod := unicornPreferSingleCallExtract(ctx, stmts[i-1])
-		if prevReceiver == "" {
-			continue
-		}
-		currReceiver, currMethod := unicornPreferSingleCallExtract(ctx, stmts[i])
-		if currReceiver == "" {
-			continue
-		}
-		if prevReceiver != currReceiver || prevMethod != currMethod {
-			continue
-		}
-		ctx.Report(stmts[i], "Combine consecutive `"+currMethod+"` calls with multiple arguments into a single call.")
-	}
+  var stmts []*shimast.Node
+  switch node.Kind {
+  case shimast.KindBlock:
+    block := node.AsBlock()
+    if block == nil || block.Statements == nil {
+      return
+    }
+    stmts = block.Statements.Nodes
+  case shimast.KindSourceFile:
+    file := node.AsSourceFile()
+    if file == nil || file.Statements == nil {
+      return
+    }
+    stmts = file.Statements.Nodes
+  default:
+    return
+  }
+  for i := 1; i < len(stmts); i++ {
+    prevReceiver, prevMethod := unicornPreferSingleCallExtract(ctx, stmts[i-1])
+    if prevReceiver == "" {
+      continue
+    }
+    currReceiver, currMethod := unicornPreferSingleCallExtract(ctx, stmts[i])
+    if currReceiver == "" {
+      continue
+    }
+    if prevReceiver != currReceiver || prevMethod != currMethod {
+      continue
+    }
+    ctx.Report(stmts[i], "Combine consecutive `"+currMethod+"` calls with multiple arguments into a single call.")
+  }
 }
 
 // unicornPreferSingleCallExtract returns (receiverText, methodName) for a
@@ -63,34 +63,34 @@ func (unicornPreferSingleCall) Check(ctx *Context, node *shimast.Node) {
 // of the variadic appenders the rule targets. Returns ("", "") for any
 // other shape.
 func unicornPreferSingleCallExtract(ctx *Context, stmt *shimast.Node) (string, string) {
-	if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
-		return "", ""
-	}
-	exprStmt := stmt.AsExpressionStatement()
-	if exprStmt == nil || exprStmt.Expression == nil {
-		return "", ""
-	}
-	call := stripParens(exprStmt.Expression)
-	if call == nil || call.Kind != shimast.KindCallExpression {
-		return "", ""
-	}
-	c := call.AsCallExpression()
-	if c == nil || c.Expression == nil || c.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return "", ""
-	}
-	access := c.Expression.AsPropertyAccessExpression()
-	if access == nil || access.Expression == nil {
-		return "", ""
-	}
-	method := identifierText(access.Name())
-	switch method {
-	case "push", "unshift", "addEventListener", "removeEventListener":
-	default:
-		return "", ""
-	}
-	return nodeText(ctx.File, access.Expression), method
+  if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+    return "", ""
+  }
+  exprStmt := stmt.AsExpressionStatement()
+  if exprStmt == nil || exprStmt.Expression == nil {
+    return "", ""
+  }
+  call := stripParens(exprStmt.Expression)
+  if call == nil || call.Kind != shimast.KindCallExpression {
+    return "", ""
+  }
+  c := call.AsCallExpression()
+  if c == nil || c.Expression == nil || c.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return "", ""
+  }
+  access := c.Expression.AsPropertyAccessExpression()
+  if access == nil || access.Expression == nil {
+    return "", ""
+  }
+  method := identifierText(access.Name())
+  switch method {
+  case "push", "unshift", "addEventListener", "removeEventListener":
+  default:
+    return "", ""
+  }
+  return nodeText(ctx.File, access.Expression), method
 }
 
 func init() {
-	Register(unicornPreferSingleCall{})
+  Register(unicornPreferSingleCall{})
 }

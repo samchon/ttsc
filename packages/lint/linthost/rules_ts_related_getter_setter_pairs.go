@@ -24,72 +24,72 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type relatedGetterSetterPairs struct{}
 
 func (relatedGetterSetterPairs) Name() string {
-	return "typescript/related-getter-setter-pairs"
+  return "typescript/related-getter-setter-pairs"
 }
 func (relatedGetterSetterPairs) NeedsTypeChecker() bool { return true }
 func (relatedGetterSetterPairs) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindGetAccessor}
+  return []shimast.Kind{shimast.KindGetAccessor}
 }
 func (relatedGetterSetterPairs) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	parent := node.Parent
-	if parent == nil ||
-		(parent.Kind != shimast.KindClassDeclaration && parent.Kind != shimast.KindClassExpression) {
-		return
-	}
-	getReturnType := node.Type()
-	if getReturnType == nil {
-		// No annotated return type — nothing to compare against.
-		return
-	}
-	name := classMemberName(node)
-	if name == "" {
-		return
-	}
-	setter := findClassSetterFor(parent, name)
-	if setter == nil {
-		return
-	}
-	setParamType := setterParameterType(setter)
-	if setParamType == nil {
-		return
-	}
-	getType := ctx.Checker.GetTypeFromTypeNode(getReturnType)
-	setType := ctx.Checker.GetTypeFromTypeNode(setParamType)
-	if getType == nil || setType == nil {
-		return
-	}
-	// Bidirectional assignability stands in for type identity — the
-	// same shape `no-unnecessary-type-assertion` uses. The accessor
-	// pair is safe only when reading and writing describe the same
-	// set of values.
-	if ctx.Checker.IsTypeAssignableTo(getType, setType) &&
-		ctx.Checker.IsTypeAssignableTo(setType, getType) {
-		return
-	}
-	ctx.Report(node, "Getter return type does not match the corresponding setter parameter type on `"+name+"`.")
+  if ctx.Checker == nil {
+    return
+  }
+  parent := node.Parent
+  if parent == nil ||
+    (parent.Kind != shimast.KindClassDeclaration && parent.Kind != shimast.KindClassExpression) {
+    return
+  }
+  getReturnType := node.Type()
+  if getReturnType == nil {
+    // No annotated return type — nothing to compare against.
+    return
+  }
+  name := classMemberName(node)
+  if name == "" {
+    return
+  }
+  setter := findClassSetterFor(parent, name)
+  if setter == nil {
+    return
+  }
+  setParamType := setterParameterType(setter)
+  if setParamType == nil {
+    return
+  }
+  getType := ctx.Checker.GetTypeFromTypeNode(getReturnType)
+  setType := ctx.Checker.GetTypeFromTypeNode(setParamType)
+  if getType == nil || setType == nil {
+    return
+  }
+  // Bidirectional assignability stands in for type identity — the
+  // same shape `no-unnecessary-type-assertion` uses. The accessor
+  // pair is safe only when reading and writing describe the same
+  // set of values.
+  if ctx.Checker.IsTypeAssignableTo(getType, setType) &&
+    ctx.Checker.IsTypeAssignableTo(setType, getType) {
+    return
+  }
+  ctx.Report(node, "Getter return type does not match the corresponding setter parameter type on `"+name+"`.")
 }
 
 // findClassSetterFor returns the `set` accessor declared on `class`
 // whose name matches `name`, or nil when no such setter exists.
 func findClassSetterFor(class *shimast.Node, name string) *shimast.Node {
-	for _, member := range classMembers(class) {
-		if member == nil || member.Kind != shimast.KindSetAccessor {
-			continue
-		}
-		if classMemberName(member) == name {
-			return member
-		}
-	}
-	return nil
+  for _, member := range classMembers(class) {
+    if member == nil || member.Kind != shimast.KindSetAccessor {
+      continue
+    }
+    if classMemberName(member) == name {
+      return member
+    }
+  }
+  return nil
 }
 
 // setterParameterType returns the type-annotation node of a `set`
@@ -97,17 +97,17 @@ func findClassSetterFor(class *shimast.Node, name string) *shimast.Node {
 // parameter that carries no annotation, returns nil — the rule cannot
 // compare against an inferred type.
 func setterParameterType(setter *shimast.Node) *shimast.Node {
-	params := setter.Parameters()
-	if len(params) == 0 {
-		return nil
-	}
-	decl := params[0].AsParameterDeclaration()
-	if decl == nil {
-		return nil
-	}
-	return decl.Type
+  params := setter.Parameters()
+  if len(params) == 0 {
+    return nil
+  }
+  decl := params[0].AsParameterDeclaration()
+  if decl == nil {
+    return nil
+  }
+  return decl.Type
 }
 
 func init() {
-	Register(relatedGetterSetterPairs{})
+  Register(relatedGetterSetterPairs{})
 }

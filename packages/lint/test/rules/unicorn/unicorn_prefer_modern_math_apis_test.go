@@ -16,5 +16,5 @@ import "testing"
 // 2. Declare `const l = Math.log(x) * Math.LOG10E;`.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornPreferModernMathApis(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-modern-math-apis.ts", "declare const x: number;\n// expect: unicorn/prefer-modern-math-apis error\nconst l = Math.log(x) * Math.LOG10E;\nvoid l;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-modern-math-apis.ts", "declare const x: number;\n// expect: unicorn/prefer-modern-math-apis error\nconst l = Math.log(x) * Math.LOG10E;\nvoid l;\n")
 }

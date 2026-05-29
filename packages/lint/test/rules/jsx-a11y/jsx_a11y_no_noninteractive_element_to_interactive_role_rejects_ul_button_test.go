@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/no-noninteractive-element-to-interactive-role`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yNoNoninteractiveElementToInteractiveRoleRejectsUlButton(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-element-to-interactive-role", `const Component = () => <ul role="button" />;`, "Non-interactive")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/no-noninteractive-element-to-interactive-role", `const Component = () => <ul role="button" />;`, "Non-interactive")
 }

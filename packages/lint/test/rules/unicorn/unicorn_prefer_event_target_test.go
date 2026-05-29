@@ -15,5 +15,5 @@ import "testing"
 // 2. Construct `new EventEmitter()` on a declared `EventEmitter` class.
 // 3. Assert the new-expression is reported.
 func TestRuleCorpusUnicornPreferEventTarget(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-event-target.ts", "declare class EventEmitter { constructor(); }\n// expect: unicorn/prefer-event-target error\nconst em = new EventEmitter();\nvoid em;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-event-target.ts", "declare class EventEmitter { constructor(); }\n// expect: unicorn/prefer-event-target error\nconst em = new EventEmitter();\nvoid em;\n")
 }

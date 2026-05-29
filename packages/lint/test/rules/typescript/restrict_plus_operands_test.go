@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusRestrictPlusOperands verifies the lint rule corpus fixture
@@ -25,19 +25,19 @@ import (
 // 2. Run `check` with typescript/restrict-plus-operands enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusRestrictPlusOperands(t *testing.T) {
-	root := seedLintProject(t, `const mixed = 1 + "a";
+  root := seedLintProject(t, `const mixed = 1 + "a";
 JSON.stringify(mixed);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/restrict-plus-operands": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/restrict-plus-operands": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-plus-operands]") {
-		t.Fatalf("restrict-plus-operands diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-plus-operands]") {
+    t.Fatalf("restrict-plus-operands diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

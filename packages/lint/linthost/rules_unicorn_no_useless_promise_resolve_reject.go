@@ -21,41 +21,41 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUselessPromiseResolveReject struct{}
 
 func (unicornNoUselessPromiseResolveReject) Name() string {
-	return "unicorn/no-useless-promise-resolve-reject"
+  return "unicorn/no-useless-promise-resolve-reject"
 }
 func (unicornNoUselessPromiseResolveReject) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindReturnStatement}
+  return []shimast.Kind{shimast.KindReturnStatement}
 }
 func (unicornNoUselessPromiseResolveReject) Check(ctx *Context, node *shimast.Node) {
-	ret := node.AsReturnStatement()
-	if ret == nil || ret.Expression == nil {
-		return
-	}
-	if !unicornNoUselessPromiseResolveRejectInAsync(node) {
-		return
-	}
-	expr := stripParens(ret.Expression)
-	if expr == nil || expr.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := expr.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Expression) != "Promise" {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "resolve", "reject":
-	default:
-		return
-	}
-	ctx.Report(node, "In `async` functions, `return x` and `throw e` work identically — drop the `Promise.<method>` wrapper.")
+  ret := node.AsReturnStatement()
+  if ret == nil || ret.Expression == nil {
+    return
+  }
+  if !unicornNoUselessPromiseResolveRejectInAsync(node) {
+    return
+  }
+  expr := stripParens(ret.Expression)
+  if expr == nil || expr.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := expr.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Expression) != "Promise" {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "resolve", "reject":
+  default:
+    return
+  }
+  ctx.Report(node, "In `async` functions, `return x` and `throw e` work identically — drop the `Promise.<method>` wrapper.")
 }
 
 // unicornNoUselessPromiseResolveRejectInAsync walks ancestors of `node`
@@ -64,18 +64,18 @@ func (unicornNoUselessPromiseResolveReject) Check(ctx *Context, node *shimast.No
 // stops the walk — a nested non-async function shadows the outer
 // async context.
 func unicornNoUselessPromiseResolveRejectInAsync(node *shimast.Node) bool {
-	for cur := node.Parent; cur != nil; cur = cur.Parent {
-		switch cur.Kind {
-		case shimast.KindFunctionDeclaration,
-			shimast.KindFunctionExpression,
-			shimast.KindArrowFunction,
-			shimast.KindMethodDeclaration:
-			return hasModifier(cur, shimast.KindAsyncKeyword)
-		}
-	}
-	return false
+  for cur := node.Parent; cur != nil; cur = cur.Parent {
+    switch cur.Kind {
+    case shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindArrowFunction,
+      shimast.KindMethodDeclaration:
+      return hasModifier(cur, shimast.KindAsyncKeyword)
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(unicornNoUselessPromiseResolveReject{})
+  Register(unicornNoUselessPromiseResolveReject{})
 }

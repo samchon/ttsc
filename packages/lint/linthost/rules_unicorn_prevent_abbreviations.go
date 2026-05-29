@@ -23,9 +23,9 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // unicornPreventAbbreviationsDictionary is the MVP allowlist of
@@ -34,47 +34,47 @@ import (
 // — picks the abbreviations universally agreed across upstream
 // presets so the rule doesn't flap on neutral words.
 var unicornPreventAbbreviationsDictionary = map[string]struct{}{
-	"arr":    {},
-	"args":   {},
-	"attr":   {},
-	"btn":    {},
-	"cb":     {},
-	"cmd":    {},
-	"ctx":    {},
-	"db":     {},
-	"dest":   {},
-	"dir":    {},
-	"doc":    {},
-	"el":     {},
-	"elem":   {},
-	"env":    {},
-	"err":    {},
-	"evt":    {},
-	"fn":     {},
-	"func":   {},
-	"idx":    {},
-	"len":    {},
-	"lib":    {},
-	"mgr":    {},
-	"mod":    {},
-	"msg":    {},
-	"num":    {},
-	"obj":    {},
-	"opts":   {},
-	"param":  {},
-	"params": {},
-	"pkg":    {},
-	"prev":   {},
-	"prop":   {},
-	"props":  {},
-	"ref":    {},
-	"res":    {},
-	"ret":    {},
-	"src":    {},
-	"str":    {},
-	"tmp":    {},
-	"val":    {},
-	"var":    {},
+  "arr":    {},
+  "args":   {},
+  "attr":   {},
+  "btn":    {},
+  "cb":     {},
+  "cmd":    {},
+  "ctx":    {},
+  "db":     {},
+  "dest":   {},
+  "dir":    {},
+  "doc":    {},
+  "el":     {},
+  "elem":   {},
+  "env":    {},
+  "err":    {},
+  "evt":    {},
+  "fn":     {},
+  "func":   {},
+  "idx":    {},
+  "len":    {},
+  "lib":    {},
+  "mgr":    {},
+  "mod":    {},
+  "msg":    {},
+  "num":    {},
+  "obj":    {},
+  "opts":   {},
+  "param":  {},
+  "params": {},
+  "pkg":    {},
+  "prev":   {},
+  "prop":   {},
+  "props":  {},
+  "ref":    {},
+  "res":    {},
+  "ret":    {},
+  "src":    {},
+  "str":    {},
+  "tmp":    {},
+  "val":    {},
+  "var":    {},
 }
 
 // unicornPreventAbbreviationsMaxLen is the longest dictionary key
@@ -86,25 +86,25 @@ type unicornPreventAbbreviations struct{}
 
 func (unicornPreventAbbreviations) Name() string { return "unicorn/prevent-abbreviations" }
 func (unicornPreventAbbreviations) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindIdentifier}
+  return []shimast.Kind{shimast.KindIdentifier}
 }
 func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
-	name := identifierText(node)
-	if name == "" || len(name) > unicornPreventAbbreviationsMaxLen {
-		return
-	}
-	// Fast path: dictionary keys are pre-lowercased, so an
-	// already-lower-case identifier avoids `strings.ToLower`'s
-	// allocation entirely. The Check is invoked once per identifier
-	// in the file, so the saved allocations multiply.
-	lookup := name
-	if !isAllLowerASCII(name) {
-		lookup = strings.ToLower(name)
-	}
-	if _, ok := unicornPreventAbbreviationsDictionary[lookup]; !ok {
-		return
-	}
-	ctx.Report(node, "Prefer the long form over abbreviated identifiers (e.g. `error` over `err`).")
+  name := identifierText(node)
+  if name == "" || len(name) > unicornPreventAbbreviationsMaxLen {
+    return
+  }
+  // Fast path: dictionary keys are pre-lowercased, so an
+  // already-lower-case identifier avoids `strings.ToLower`'s
+  // allocation entirely. The Check is invoked once per identifier
+  // in the file, so the saved allocations multiply.
+  lookup := name
+  if !isAllLowerASCII(name) {
+    lookup = strings.ToLower(name)
+  }
+  if _, ok := unicornPreventAbbreviationsDictionary[lookup]; !ok {
+    return
+  }
+  ctx.Report(node, "Prefer the long form over abbreviated identifiers (e.g. `error` over `err`).")
 }
 
 // isAllLowerASCII reports whether `s` is a non-empty ASCII string
@@ -113,15 +113,15 @@ func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
 // equivalent to `s == strings.ToLower(s)` for all-ASCII inputs but
 // avoids the lowercase allocation.
 func isAllLowerASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			return false
-		}
-	}
-	return true
+  for i := 0; i < len(s); i++ {
+    c := s[i]
+    if c >= 'A' && c <= 'Z' {
+      return false
+    }
+  }
+  return true
 }
 
 func init() {
-	Register(unicornPreventAbbreviations{})
+  Register(unicornPreventAbbreviations{})
 }

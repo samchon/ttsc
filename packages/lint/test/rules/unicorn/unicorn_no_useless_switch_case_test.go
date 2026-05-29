@@ -16,5 +16,5 @@ import "testing"
 // 2. Place an empty `case 2:` directly before `default:`.
 // 3. Assert the empty case clause is reported.
 func TestRuleCorpusUnicornNoUselessSwitchCase(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-switch-case.ts", "declare const x: number;\nswitch (x) {\n  case 1:\n    void 0;\n    break;\n  // expect: unicorn/no-useless-switch-case error\n  case 2:\n  default:\n    void 0;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-switch-case.ts", "declare const x: number;\nswitch (x) {\n  case 1:\n    void 0;\n    break;\n  // expect: unicorn/no-useless-switch-case error\n  case 2:\n  default:\n    void 0;\n}\n")
 }

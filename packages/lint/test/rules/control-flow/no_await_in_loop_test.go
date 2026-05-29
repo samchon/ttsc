@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusNoAwaitInLoop(t *testing.T) {
-	assertRuleCorpusCase(t, "no-await-in-loop.ts", "async function inLoop(): Promise<number> {\n  let total = 0;\n  for (let i = 0; i < 3; i++) {\n    // expect: no-await-in-loop error\n    total += await Promise.resolve(1);\n  }\n  return total;\n}\nJSON.stringify(inLoop);\n")
+  assertRuleCorpusCase(t, "no-await-in-loop.ts", "async function inLoop(): Promise<number> {\n  let total = 0;\n  for (let i = 0; i < 3; i++) {\n    // expect: no-await-in-loop error\n    total += await Promise.resolve(1);\n  }\n  return total;\n}\nJSON.stringify(inLoop);\n")
 }

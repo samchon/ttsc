@@ -22,21 +22,21 @@ type unicornExplicitLengthCheck struct{}
 
 func (unicornExplicitLengthCheck) Name() string { return "unicorn/explicit-length-check" }
 func (unicornExplicitLengthCheck) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornExplicitLengthCheck) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	name := identifierText(access.Name())
-	if name != "length" && name != "size" {
-		return
-	}
-	if !unicornExplicitLengthCheckIsBooleanContext(node) {
-		return
-	}
-	ctx.Report(node, "Use an explicit comparison (`.length > 0` or `.length === 0`) instead of truthy coercion.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  name := identifierText(access.Name())
+  if name != "length" && name != "size" {
+    return
+  }
+  if !unicornExplicitLengthCheckIsBooleanContext(node) {
+    return
+  }
+  ctx.Report(node, "Use an explicit comparison (`.length > 0` or `.length === 0`) instead of truthy coercion.")
 }
 
 // unicornExplicitLengthCheckIsBooleanContext walks the parent chain to
@@ -44,45 +44,45 @@ func (unicornExplicitLengthCheck) Check(ctx *Context, node *shimast.Node) {
 // position of a control-flow statement / ternary, the operand of `!`,
 // or one side of a logical (`&&` / `||` / `??`) chain.
 func unicornExplicitLengthCheckIsBooleanContext(node *shimast.Node) bool {
-	cur := node
-	for cur != nil && cur.Parent != nil && cur.Parent.Kind == shimast.KindParenthesizedExpression {
-		cur = cur.Parent
-	}
-	if cur == nil {
-		return false
-	}
-	parent := cur.Parent
-	if parent == nil {
-		return false
-	}
-	switch parent.Kind {
-	case shimast.KindIfStatement:
-		return parent.AsIfStatement().Expression == cur
-	case shimast.KindWhileStatement:
-		return parent.AsWhileStatement().Expression == cur
-	case shimast.KindDoStatement:
-		return parent.AsDoStatement().Expression == cur
-	case shimast.KindForStatement:
-		return parent.AsForStatement().Condition == cur
-	case shimast.KindConditionalExpression:
-		return parent.AsConditionalExpression().Condition == cur
-	case shimast.KindPrefixUnaryExpression:
-		return parent.AsPrefixUnaryExpression().Operator == shimast.KindExclamationToken
-	case shimast.KindBinaryExpression:
-		bin := parent.AsBinaryExpression()
-		if bin == nil || bin.OperatorToken == nil {
-			return false
-		}
-		switch bin.OperatorToken.Kind {
-		case shimast.KindAmpersandAmpersandToken,
-			shimast.KindBarBarToken,
-			shimast.KindQuestionQuestionToken:
-			return true
-		}
-	}
-	return false
+  cur := node
+  for cur != nil && cur.Parent != nil && cur.Parent.Kind == shimast.KindParenthesizedExpression {
+    cur = cur.Parent
+  }
+  if cur == nil {
+    return false
+  }
+  parent := cur.Parent
+  if parent == nil {
+    return false
+  }
+  switch parent.Kind {
+  case shimast.KindIfStatement:
+    return parent.AsIfStatement().Expression == cur
+  case shimast.KindWhileStatement:
+    return parent.AsWhileStatement().Expression == cur
+  case shimast.KindDoStatement:
+    return parent.AsDoStatement().Expression == cur
+  case shimast.KindForStatement:
+    return parent.AsForStatement().Condition == cur
+  case shimast.KindConditionalExpression:
+    return parent.AsConditionalExpression().Condition == cur
+  case shimast.KindPrefixUnaryExpression:
+    return parent.AsPrefixUnaryExpression().Operator == shimast.KindExclamationToken
+  case shimast.KindBinaryExpression:
+    bin := parent.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil {
+      return false
+    }
+    switch bin.OperatorToken.Kind {
+    case shimast.KindAmpersandAmpersandToken,
+      shimast.KindBarBarToken,
+      shimast.KindQuestionQuestionToken:
+      return true
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(unicornExplicitLengthCheck{})
+  Register(unicornExplicitLengthCheck{})
 }

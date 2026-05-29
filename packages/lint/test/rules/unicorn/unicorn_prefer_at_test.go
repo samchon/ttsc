@@ -14,5 +14,5 @@ import "testing"
 // 2. Index `xs[xs.length - 1]`.
 // 3. Assert the element access is reported.
 func TestRuleCorpusUnicornPreferAt(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-at.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-at error\nconst last = xs[xs.length - 1];\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-at.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-at error\nconst last = xs[xs.length - 1];\n")
 }

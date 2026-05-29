@@ -17,5 +17,5 @@ import "testing"
 // 2. Issue two back-to-back `xs.push(...)` calls in the same block.
 // 3. Assert the second statement is reported.
 func TestRuleCorpusUnicornPreferSingleCall(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-single-call.ts", "const xs: number[] = [];\nxs.push(1);\n// expect: unicorn/prefer-single-call error\nxs.push(2);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-single-call.ts", "const xs: number[] = [];\nxs.push(1);\n// expect: unicorn/prefer-single-call error\nxs.push(2);\n")
 }

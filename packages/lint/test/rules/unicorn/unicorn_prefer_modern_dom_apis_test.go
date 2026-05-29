@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `parent.insertBefore(node, ref)` on three declared elements.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferModernDomApis(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-modern-dom-apis.ts", "declare const parent: Element;\ndeclare const ref: Element;\ndeclare const node: Element;\n// expect: unicorn/prefer-modern-dom-apis error\nparent.insertBefore(node, ref);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-modern-dom-apis.ts", "declare const parent: Element;\ndeclare const ref: Element;\ndeclare const node: Element;\n// expect: unicorn/prefer-modern-dom-apis error\nparent.insertBefore(node, ref);\n")
 }

@@ -22,13 +22,13 @@ import (
 // packages/ttsc/internal/lspserver/lsp_native_plugin_source.go
 // (ExecuteCommandWithContent + runWithStdin):
 //
-//   lsp-execute-command
-//     --cwd=<root>
-//     --tsconfig=<tsconfig>
-//     --plugins-json=<manifest>
-//     --command=ttsc.format.document
-//     --arguments-json=[<file-uri>]
-//     --content-stdin
+//  lsp-execute-command
+//    --cwd=<root>
+//    --tsconfig=<tsconfig>
+//    --plugins-json=<manifest>
+//    --command=ttsc.format.document
+//    --arguments-json=[<file-uri>]
+//    --content-stdin
 //
 // with the full dirty buffer text piped to the child's stdin. This validates
 // the real proxy -> sidecar binary contract, not just the in-process function.

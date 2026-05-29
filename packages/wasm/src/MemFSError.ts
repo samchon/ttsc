@@ -2,9 +2,9 @@
  * Filesystem error with a POSIX error code and numeric `errno`.
  *
  * Matches the shape of `NodeJS.ErrnoException` so Go's `os` package interprets
- * it as a proper `os.PathError` with a numeric error code. Thrown by the
- * MemFS implementation when a callback would otherwise pass `null` for an
- * impossible filesystem operation (missing path, type mismatch, …).
+ * it as a proper `os.PathError` with a numeric error code. Thrown by the MemFS
+ * implementation when a callback would otherwise pass `null` for an impossible
+ * filesystem operation (missing path, type mismatch, …).
  */
 export class MemFSError extends Error {
   public code: string;

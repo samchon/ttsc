@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/role-has-required-aria-props`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yRoleHasRequiredAriaPropsRequiresCheckboxChecked(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/role-has-required-aria-props", `const Component = () => <div role="checkbox" />;`, "aria-checked")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/role-has-required-aria-props", `const Component = () => <div role="checkbox" />;`, "aria-checked")
 }

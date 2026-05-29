@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/prefer-tacit.
 // 3. Assert the arrow reports and offers no autofix.
 func TestFunctionalPreferTacitRejectsSingleArgumentWrapper(t *testing.T) {
-	const ruleName = "functional/prefer-tacit"
-	findings := runFunctionalRule(t, ruleName, `const parse = (value) => Number(value);`)
-	assertFunctionalFinding(t, ruleName, findings, "wrapper")
+  const ruleName = "functional/prefer-tacit"
+  findings := runFunctionalRule(t, ruleName, `const parse = (value) => Number(value);`)
+  assertFunctionalFinding(t, ruleName, findings, "wrapper")
 }

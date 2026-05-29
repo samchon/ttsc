@@ -18,31 +18,31 @@ type unicornPreferSetSize struct{}
 
 func (unicornPreferSetSize) Name() string { return "unicorn/prefer-set-size" }
 func (unicornPreferSetSize) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornPreferSetSize) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "length" {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindArrayLiteralExpression {
-		return
-	}
-	arr := receiver.AsArrayLiteralExpression()
-	if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
-		return
-	}
-	only := arr.Elements.Nodes[0]
-	if only == nil || only.Kind != shimast.KindSpreadElement {
-		return
-	}
-	ctx.Report(node, "Prefer `Set#size` over `[...set].length`.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "length" {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindArrayLiteralExpression {
+    return
+  }
+  arr := receiver.AsArrayLiteralExpression()
+  if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
+    return
+  }
+  only := arr.Elements.Nodes[0]
+  if only == nil || only.Kind != shimast.KindSpreadElement {
+    return
+  }
+  ctx.Report(node, "Prefer `Set#size` over `[...set].length`.")
 }
 
 func init() {
-	Register(unicornPreferSetSize{})
+  Register(unicornPreferSetSize{})
 }

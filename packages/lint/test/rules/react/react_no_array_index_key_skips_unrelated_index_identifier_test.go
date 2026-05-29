@@ -12,5 +12,5 @@ import "testing"
 // 2. Enable only `react/no-array-index-key`.
 // 3. Assert no finding is reported.
 func TestReactNoArrayIndexKeySkipsUnrelatedIndexIdentifier(t *testing.T) {
-	assertReactRuleSkips(t, "react/no-array-index-key", `const index = "id-1"; const node = <li key={index} />;`)
+  assertReactRuleSkips(t, "react/no-array-index-key", `const index = "id-1"; const node = <li key={index} />;`)
 }

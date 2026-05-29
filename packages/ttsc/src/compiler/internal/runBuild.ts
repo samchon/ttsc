@@ -71,10 +71,7 @@ function hasEnabledPassthroughFlag(
       return token.slice(flag.length + 1).toLowerCase() !== "false";
     }
     if (token === flag) {
-      if (
-        i + 1 < passthrough.length &&
-        isBooleanLiteral(passthrough[i + 1]!)
-      ) {
+      if (i + 1 < passthrough.length && isBooleanLiteral(passthrough[i + 1]!)) {
         return passthrough[i + 1]!.toLowerCase() !== "false";
       }
       return true;

@@ -15,5 +15,5 @@ import "testing"
 // 2. Return `Promise.resolve(1)` from an `async` function.
 // 3. Assert the return statement is reported.
 func TestRuleCorpusUnicornNoUselessPromiseResolveReject(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-promise-resolve-reject.ts", "async function f() {\n  // expect: unicorn/no-useless-promise-resolve-reject error\n  return Promise.resolve(1);\n}\nvoid f;\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-promise-resolve-reject.ts", "async function f() {\n  // expect: unicorn/no-useless-promise-resolve-reject error\n  return Promise.resolve(1);\n}\nvoid f;\n")
 }

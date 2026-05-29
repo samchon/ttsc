@@ -15,5 +15,5 @@ import "testing"
 // 2. Compose `xs.length > 0 && xs.some((x) => x > 0)`.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornNoUselessLengthCheck(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-length-check.ts", "declare const xs: number[];\n// expect: unicorn/no-useless-length-check error\nconst any = xs.length > 0 && xs.some((x) => x > 0);\nvoid any;\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-length-check.ts", "declare const xs: number[];\n// expect: unicorn/no-useless-length-check error\nconst any = xs.length > 0 && xs.some((x) => x > 0);\nvoid any;\n")
 }

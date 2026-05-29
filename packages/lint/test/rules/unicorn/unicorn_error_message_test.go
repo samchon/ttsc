@@ -15,5 +15,5 @@ import "testing"
 // 2. Throw `new Error()` with no arguments.
 // 3. Assert the new-expression is reported.
 func TestRuleCorpusUnicornErrorMessage(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/error-message.ts", "// expect: unicorn/error-message error\nthrow new Error();\n")
+  assertRuleCorpusCase(t, "unicorn/error-message.ts", "// expect: unicorn/error-message error\nthrow new Error();\n")
 }

@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/readonly-type.
 // 3. Assert the generic type reports and offers no autofix.
 func TestFunctionalReadonlyTypeRejectsReadonlyArrayGeneric(t *testing.T) {
-	const ruleName = "functional/readonly-type"
-	findings := runFunctionalRule(t, ruleName, `type Values = ReadonlyArray<string>;`)
-	assertFunctionalFinding(t, ruleName, findings, "readonly keyword")
+  const ruleName = "functional/readonly-type"
+  findings := runFunctionalRule(t, ruleName, `type Values = ReadonlyArray<string>;`)
+  assertFunctionalFinding(t, ruleName, findings, "readonly keyword")
 }

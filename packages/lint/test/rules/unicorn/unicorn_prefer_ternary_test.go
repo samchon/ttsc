@@ -15,5 +15,5 @@ import "testing"
 // 2. Wrap the literal return in an if/else with single-return branches.
 // 3. Assert the if-statement is reported.
 func TestRuleCorpusUnicornPreferTernary(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-ternary.ts", "declare const cond: boolean;\nfunction f(): number {\n  // expect: unicorn/prefer-ternary error\n  if (cond) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\nvoid f;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-ternary.ts", "declare const cond: boolean;\nfunction f(): number {\n  // expect: unicorn/prefer-ternary error\n  if (cond) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\nvoid f;\n")
 }

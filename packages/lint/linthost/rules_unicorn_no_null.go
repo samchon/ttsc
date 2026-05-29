@@ -16,9 +16,9 @@ type unicornNoNull struct{}
 func (unicornNoNull) Name() string           { return "unicorn/no-null" }
 func (unicornNoNull) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindNullKeyword} }
 func (unicornNoNull) Check(ctx *Context, node *shimast.Node) {
-	ctx.Report(node, "Use `undefined` instead of `null`.")
+  ctx.Report(node, "Use `undefined` instead of `null`.")
 }
 
 func init() {
-	Register(unicornNoNull{})
+  Register(unicornNoNull{})
 }

@@ -10,19 +10,14 @@
 //
 // The schema is the spec; behaviour at every layer boundary is determined by
 // the FlagSpec attributes, not by ad-hoc `if (arg === "--foo")` branches.
-
-import type {
-  AnySubcommand,
-  FlagSpec,
-  ValueValidator,
-} from "./schema";
+import type { AnySubcommand, FlagSpec, ValueValidator } from "./schema";
 import { FLAG_BY_NAME, flagsForSubcommand } from "./schema";
 
 /**
- * Per-subcommand parse result. `values` is keyed by the canonical flag
- * name (e.g. `"--singleThreaded"`); boolean flags resolve to `true`/`false`,
- * value flags to the parsed value type. Callers narrow with the helpers
- * below (`getBoolean`, `getString`, `getNumber`).
+ * Per-subcommand parse result. `values` is keyed by the canonical flag name
+ * (e.g. `"--singleThreaded"`); boolean flags resolve to `true`/`false`, value
+ * flags to the parsed value type. Callers narrow with the helpers below
+ * (`getBoolean`, `getString`, `getNumber`).
  */
 export interface ParseResult {
   /** Canonical flag name → resolved value. */
@@ -32,17 +27,15 @@ export interface ParseResult {
   /** Bare non-flag positional arguments, in original order. */
   readonly positional: readonly string[];
   /**
-   * Tokens that arrived after the `forwardAfterFirstPositional` sentinel.
-   * These are intended for the user's program (e.g. ttsx's entry-file argv);
-   * they are NOT forwarded to tsgo. Always empty when
-   * `forwardAfterFirstPositional` is false.
+   * Tokens that arrived after the `forwardAfterFirstPositional` sentinel. These
+   * are intended for the user's program (e.g. ttsx's entry-file argv); they are
+   * NOT forwarded to tsgo. Always empty when `forwardAfterFirstPositional` is
+   * false.
    */
   readonly tail: readonly string[];
 }
 
-/**
- * Options controlling a single `parseFlags` invocation.
- */
+/** Options controlling a single `parseFlags` invocation. */
 export interface ParseOptions {
   /** Which subcommand's flag subset to accept. */
   readonly subcommand: AnySubcommand;
@@ -54,24 +47,24 @@ export interface ParseOptions {
    */
   readonly errorPrefix: string;
   /**
-   * `true` to treat the FIRST positional token as a sentinel that switches
-   * the engine to "forward everything after" mode (ttsx's entry-file
-   * behaviour: tokens after the entry are runtime argv, not tsgo flags).
-   * The sentinel itself is still recorded as a positional argument.
+   * `true` to treat the FIRST positional token as a sentinel that switches the
+   * engine to "forward everything after" mode (ttsx's entry-file behaviour:
+   * tokens after the entry are runtime argv, not tsgo flags). The sentinel
+   * itself is still recorded as a positional argument.
    */
   readonly forwardAfterFirstPositional?: boolean;
   /**
-   * Optional `"--"` separator handling: when present in argv, every token
-   * after `--` is appended to `passthrough` as-is (ttsx already does this).
+   * Optional `"--"` separator handling: when present in argv, every token after
+   * `--` is appended to `passthrough` as-is (ttsx already does this).
    */
   readonly honorDoubleDashSeparator?: boolean;
 }
 
 /**
  * Parse `argv` according to FLAG_SCHEMA filtered by `subcommand`. Returns a
- * `ParseResult`. Throws `Error` (with the configured prefix) on invalid
- * input — unknown subcommand-only flag, missing required value, value that
- * fails its validator.
+ * `ParseResult`. Throws `Error` (with the configured prefix) on invalid input —
+ * unknown subcommand-only flag, missing required value, value that fails its
+ * validator.
  */
 export function parseFlags(opts: ParseOptions): ParseResult {
   const accepted = new Map<string, FlagSpec>();
@@ -103,7 +96,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     }
   }
   const head: string[] = [
-    ...(remainder === null ? opts.argv : opts.argv.slice(0, indexOfSeparator(opts.argv))),
+    ...(remainder === null
+      ? opts.argv
+      : opts.argv.slice(0, indexOfSeparator(opts.argv))),
   ];
 
   let forwardingTail = false;
@@ -160,10 +155,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
     // Bare token: positional argument (file / entry / project path).
     positional.push(current);
-    if (
-      opts.forwardAfterFirstPositional === true &&
-      positional.length === 1
-    ) {
+    if (opts.forwardAfterFirstPositional === true && positional.length === 1) {
       forwardingTail = true;
     }
   }
@@ -179,9 +171,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 }
 
 /**
- * Pull the value for `flag` from either `inlineValue` (`--flag=value`) or
- * the next argv token (`--flag value`), validate it per the schema, and
- * write it to the result map.
+ * Pull the value for `flag` from either `inlineValue` (`--flag=value`) or the
+ * next argv token (`--flag value`), validate it per the schema, and write it to
+ * the result map.
  */
 function consumeFlag(
   values: Map<string, string | boolean | number>,
@@ -226,7 +218,9 @@ function consumeFlag(
   }
 
   const raw =
-    inlineValue !== undefined ? inlineValue : takeValueToken(token, rest, errorPrefix);
+    inlineValue !== undefined
+      ? inlineValue
+      : takeValueToken(token, rest, errorPrefix);
   if (flag.validator === "positiveInt") {
     values.set(flag.name, validatePositiveInt(token, raw, errorPrefix));
     return;
@@ -235,13 +229,13 @@ function consumeFlag(
 }
 
 /**
- * Read the value token that follows `flag`. Throws if argv ends here OR if
- * the next token looks like another flag (`-` prefix). Without the
- * "looks like a flag" guard `ttsc --cwd --strict src/main.ts` would silently
- * consume `--strict` as the value of `--cwd`, leaving `--strict` lost and
- * `cwd` set to a junk path. Mirrors the symmetric guard already in
- * `forwardKnownButUnaccepted` (RC-1 fairness — the two value-resolution
- * paths must agree on what counts as "a missing value").
+ * Read the value token that follows `flag`. Throws if argv ends here OR if the
+ * next token looks like another flag (`-` prefix). Without the "looks like a
+ * flag" guard `ttsc --cwd --strict src/main.ts` would silently consume
+ * `--strict` as the value of `--cwd`, leaving `--strict` lost and `cwd` set to
+ * a junk path. Mirrors the symmetric guard already in
+ * `forwardKnownButUnaccepted` (RC-1 fairness — the two value-resolution paths
+ * must agree on what counts as "a missing value").
  */
 function takeValueToken(
   flag: string,
@@ -265,9 +259,9 @@ function takeValueToken(
 }
 
 /**
- * Parse a CLI boolean literal — `true`/`false` only (case-sensitive to
- * match tsgo's parser). Returns `undefined` for any other token so the
- * caller knows to throw or treat as a non-value.
+ * Parse a CLI boolean literal — `true`/`false` only (case-sensitive to match
+ * tsgo's parser). Returns `undefined` for any other token so the caller knows
+ * to throw or treat as a non-value.
  */
 function parseBooleanLiteral(raw: string): boolean | undefined {
   if (raw === "true") return true;
@@ -277,8 +271,8 @@ function parseBooleanLiteral(raw: string): boolean | undefined {
 
 /**
  * Validate a `positiveInt` value. Mirrors tsgo's `--checkers minValue:1`
- * constraint so a typo fails loudly at the launcher rather than reaching
- * tsgo with an invalid argument.
+ * constraint so a typo fails loudly at the launcher rather than reaching tsgo
+ * with an invalid argument.
  */
 function validatePositiveInt(
   flag: string,
@@ -295,10 +289,10 @@ function validatePositiveInt(
 }
 
 /**
- * Forward a flag the schema knows about but the current subcommand does
- * not accept. The launcher will hand it to tsgo (or to native sidecars
- * via `--tsgo-args`); without this branch the parser would lose the
- * value token of a `--flag value` pair.
+ * Forward a flag the schema knows about but the current subcommand does not
+ * accept. The launcher will hand it to tsgo (or to native sidecars via
+ * `--tsgo-args`); without this branch the parser would lose the value token of
+ * a `--flag value` pair.
  */
 function forwardKnownButUnaccepted(
   passthrough: string[],

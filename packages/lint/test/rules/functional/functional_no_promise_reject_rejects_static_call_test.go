@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-promise-reject.
 // 3. Assert the call reports and offers no autofix.
 func TestFunctionalNoPromiseRejectRejectsStaticCall(t *testing.T) {
-	const ruleName = "functional/no-promise-reject"
-	findings := runFunctionalRule(t, ruleName, `Promise.reject(error);`)
-	assertFunctionalFinding(t, ruleName, findings, "rejection")
+  const ruleName = "functional/no-promise-reject"
+  findings := runFunctionalRule(t, ruleName, `Promise.reject(error);`)
+  assertFunctionalFinding(t, ruleName, findings, "rejection")
 }

@@ -12,5 +12,5 @@ import "testing"
 // 2. Use a top-level then chain without catch.
 // 3. Assert the statement is reported.
 func TestRuleCorpusPromiseCatchOrReturn(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/catch-or-return.ts", "// expect: promise/catch-or-return error\nPromise.resolve(1).then((value) => value + 1);\n")
+  assertRuleCorpusCase(t, "promise/catch-or-return.ts", "// expect: promise/catch-or-return error\nPromise.resolve(1).then((value) => value + 1);\n")
 }

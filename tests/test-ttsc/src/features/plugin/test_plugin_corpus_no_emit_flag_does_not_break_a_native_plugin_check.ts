@@ -14,11 +14,10 @@ import {
  * Verifies plugin corpus: `--noEmit` does not break a native plugin check.
  *
  * Pins the compatibility regression found while benchmarking typia/nestia
- * consumers: `runBuild.ts` used to translate `ttsc --noEmit` into a native
- * host `check` invocation with extra ttsc-owned flags like `--noEmit` and
- * `--quiet`. Third-party transform hosts already use the `check` subcommand
- * to mean no emit, and older strict hosts reject the extra flags before
- * analysis starts.
+ * consumers: `runBuild.ts` used to translate `ttsc --noEmit` into a native host
+ * `check` invocation with extra ttsc-owned flags like `--noEmit` and `--quiet`.
+ * Third-party transform hosts already use the `check` subcommand to mean no
+ * emit, and older strict hosts reject the extra flags before analysis starts.
  *
  * 1. Configure a native transform plugin backed by the strict test sidecar.
  * 2. Run ttsc with `--noEmit`.

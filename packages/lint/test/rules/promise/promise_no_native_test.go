@@ -12,5 +12,5 @@ import "testing"
 // 2. Use Promise.resolve without declaring Promise locally.
 // 3. Assert the global Promise use is reported once.
 func TestRuleCorpusPromiseNoNative(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-native.ts", "// expect: promise/no-native error\nPromise.resolve(1);\n")
+  assertRuleCorpusCase(t, "promise/no-native.ts", "// expect: promise/no-native error\nPromise.resolve(1);\n")
 }

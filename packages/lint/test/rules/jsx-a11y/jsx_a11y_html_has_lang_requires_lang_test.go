@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/html-has-lang`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yHtmlHasLangRequiresLang(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/html-has-lang", `const Component = () => <html />;`, "lang")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/html-has-lang", `const Component = () => <html />;`, "lang")
 }

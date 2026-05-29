@@ -14,5 +14,5 @@ import "testing"
 // 2. Pair `if (x !== 0)` with an `else` branch.
 // 3. Assert the if-statement is reported.
 func TestRuleCorpusUnicornNoNegatedCondition(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-negated-condition.ts", "declare const x: number;\n// expect: unicorn/no-negated-condition error\nif (x !== 0) {\n  void \"nonzero\";\n} else {\n  void \"zero\";\n}\n")
+  assertRuleCorpusCase(t, "unicorn/no-negated-condition.ts", "declare const x: number;\n// expect: unicorn/no-negated-condition error\nif (x !== 0) {\n  void \"nonzero\";\n} else {\n  void \"zero\";\n}\n")
 }

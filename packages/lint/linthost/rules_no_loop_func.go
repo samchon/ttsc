@@ -22,64 +22,64 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noLoopFunc struct{}
 
 func (noLoopFunc) Name() string { return "no-loop-func" }
 func (noLoopFunc) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindForStatement,
-		shimast.KindForInStatement,
-		shimast.KindForOfStatement,
-		shimast.KindWhileStatement,
-		shimast.KindDoStatement,
-	}
+  return []shimast.Kind{
+    shimast.KindForStatement,
+    shimast.KindForInStatement,
+    shimast.KindForOfStatement,
+    shimast.KindWhileStatement,
+    shimast.KindDoStatement,
+  }
 }
 func (noLoopFunc) Check(ctx *Context, node *shimast.Node) {
-	var walk func(n *shimast.Node)
-	walk = func(n *shimast.Node) {
-		if n == nil {
-			return
-		}
-		if isFunctionLikeKind(n) {
-			ctx.Report(n, "Function declared in a loop closes over the loop's bindings — hoist it out.")
-			return
-		}
-		if n != node && isLoopKind(n) {
-			// Nested loops report their own contents when visited.
-			return
-		}
-		n.ForEachChild(func(child *shimast.Node) bool {
-			walk(child)
-			return false
-		})
-	}
-	node.ForEachChild(func(child *shimast.Node) bool {
-		walk(child)
-		return false
-	})
+  var walk func(n *shimast.Node)
+  walk = func(n *shimast.Node) {
+    if n == nil {
+      return
+    }
+    if isFunctionLikeKind(n) {
+      ctx.Report(n, "Function declared in a loop closes over the loop's bindings — hoist it out.")
+      return
+    }
+    if n != node && isLoopKind(n) {
+      // Nested loops report their own contents when visited.
+      return
+    }
+    n.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    walk(child)
+    return false
+  })
 }
 
 // isLoopKind reports whether n is one of the loop statement kinds this
 // rule visits. Used to stop the walk at a nested loop boundary so each
 // loop reports only the function-likes directly inside its own body.
 func isLoopKind(n *shimast.Node) bool {
-	if n == nil {
-		return false
-	}
-	switch n.Kind {
-	case shimast.KindForStatement,
-		shimast.KindForInStatement,
-		shimast.KindForOfStatement,
-		shimast.KindWhileStatement,
-		shimast.KindDoStatement:
-		return true
-	}
-	return false
+  if n == nil {
+    return false
+  }
+  switch n.Kind {
+  case shimast.KindForStatement,
+    shimast.KindForInStatement,
+    shimast.KindForOfStatement,
+    shimast.KindWhileStatement,
+    shimast.KindDoStatement:
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(noLoopFunc{})
+  Register(noLoopFunc{})
 }

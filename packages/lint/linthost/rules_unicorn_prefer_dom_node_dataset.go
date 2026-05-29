@@ -13,43 +13,43 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type unicornPreferDomNodeDataset struct{}
 
 func (unicornPreferDomNodeDataset) Name() string { return "unicorn/prefer-dom-node-dataset" }
 func (unicornPreferDomNodeDataset) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferDomNodeDataset) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	method := identifierText(access.Name())
-	if method != "getAttribute" && method != "setAttribute" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-		return
-	}
-	first := call.Arguments.Nodes[0]
-	if first == nil || first.Kind != shimast.KindStringLiteral {
-		return
-	}
-	if !strings.HasPrefix(stringLiteralText(first), "data-") {
-		return
-	}
-	ctx.Report(node, "Prefer `.dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  method := identifierText(access.Name())
+  if method != "getAttribute" && method != "setAttribute" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  first := call.Arguments.Nodes[0]
+  if first == nil || first.Kind != shimast.KindStringLiteral {
+    return
+  }
+  if !strings.HasPrefix(stringLiteralText(first), "data-") {
+    return
+  }
+  ctx.Report(node, "Prefer `.dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.")
 }
 
 func init() {
-	Register(unicornPreferDomNodeDataset{})
+  Register(unicornPreferDomNodeDataset{})
 }

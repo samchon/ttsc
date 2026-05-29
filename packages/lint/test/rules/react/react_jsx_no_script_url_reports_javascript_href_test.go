@@ -10,5 +10,5 @@ import "testing"
 // 2. Enable only `react/jsx-no-script-url`.
 // 3. Assert the URL prop is reported.
 func TestReactJSXNoScriptURLReportsJavascriptHref(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-no-script-url", `const C = () => <a href="javascript:alert(1)" />;`, "javascript")
+  assertReactRuleFinds(t, "react/jsx-no-script-url", `const C = () => <a href="javascript:alert(1)" />;`, "javascript")
 }

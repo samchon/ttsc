@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to the literal `"\xA9"`.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornNoHexEscape(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-hex-escape.ts", "// expect: unicorn/no-hex-escape error\nconst s = \"\\xA9\";\n")
+  assertRuleCorpusCase(t, "unicorn/no-hex-escape.ts", "// expect: unicorn/no-hex-escape error\nconst s = \"\\xA9\";\n")
 }

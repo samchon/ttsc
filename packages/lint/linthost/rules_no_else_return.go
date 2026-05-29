@@ -20,56 +20,56 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noElseReturn struct{}
 
 func (noElseReturn) Name() string { return "no-else-return" }
 func (noElseReturn) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindIfStatement}
+  return []shimast.Kind{shimast.KindIfStatement}
 }
 func (noElseReturn) Check(ctx *Context, node *shimast.Node) {
-	ifStmt := node.AsIfStatement()
-	if ifStmt == nil || ifStmt.ElseStatement == nil {
-		return
-	}
-	if !noElseReturnTerminates(ifStmt.ThenStatement) {
-		return
-	}
-	ctx.Report(ifStmt.ElseStatement, "Remove the `else` — the preceding branch already terminates.")
+  ifStmt := node.AsIfStatement()
+  if ifStmt == nil || ifStmt.ElseStatement == nil {
+    return
+  }
+  if !noElseReturnTerminates(ifStmt.ThenStatement) {
+    return
+  }
+  ctx.Report(ifStmt.ElseStatement, "Remove the `else` — the preceding branch already terminates.")
 }
 
 func noElseReturnTerminates(stmt *shimast.Node) bool {
-	if stmt == nil {
-		return false
-	}
-	switch stmt.Kind {
-	case shimast.KindReturnStatement,
-		shimast.KindThrowStatement,
-		shimast.KindBreakStatement,
-		shimast.KindContinueStatement:
-		return true
-	case shimast.KindBlock:
-		block := stmt.AsBlock()
-		if block == nil || block.Statements == nil {
-			return false
-		}
-		stmts := block.Statements.Nodes
-		if len(stmts) == 0 {
-			return false
-		}
-		return noElseReturnTerminates(stmts[len(stmts)-1])
-	case shimast.KindIfStatement:
-		inner := stmt.AsIfStatement()
-		if inner == nil || inner.ElseStatement == nil {
-			return false
-		}
-		return noElseReturnTerminates(inner.ThenStatement) && noElseReturnTerminates(inner.ElseStatement)
-	}
-	return false
+  if stmt == nil {
+    return false
+  }
+  switch stmt.Kind {
+  case shimast.KindReturnStatement,
+    shimast.KindThrowStatement,
+    shimast.KindBreakStatement,
+    shimast.KindContinueStatement:
+    return true
+  case shimast.KindBlock:
+    block := stmt.AsBlock()
+    if block == nil || block.Statements == nil {
+      return false
+    }
+    stmts := block.Statements.Nodes
+    if len(stmts) == 0 {
+      return false
+    }
+    return noElseReturnTerminates(stmts[len(stmts)-1])
+  case shimast.KindIfStatement:
+    inner := stmt.AsIfStatement()
+    if inner == nil || inner.ElseStatement == nil {
+      return false
+    }
+    return noElseReturnTerminates(inner.ThenStatement) && noElseReturnTerminates(inner.ElseStatement)
+  }
+  return false
 }
 
 func init() {
-	Register(noElseReturn{})
+  Register(noElseReturn{})
 }

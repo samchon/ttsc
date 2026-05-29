@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable only `react/jsx-key`.
 // 3. Assert the unkeyed logical branch element is reported.
 func TestReactJSXKeyReportsLogicalMapElement(t *testing.T) {
-	assertReactRuleFinds(t, "react/jsx-key", `const C = ({ items }: { items: string[] }) => items.map((item) => item && <li>{item}</li>);`, "key")
+  assertReactRuleFinds(t, "react/jsx-key", `const C = ({ items }: { items: string[] }) => items.map((item) => item && <li>{item}</li>);`, "key")
 }

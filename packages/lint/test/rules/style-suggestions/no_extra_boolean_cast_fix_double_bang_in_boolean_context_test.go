@@ -15,10 +15,10 @@ import "testing"
 // 2. Apply `no-extra-boolean-cast` fix.
 // 3. Assert the result drops the `!!` coercion.
 func TestFixNoExtraBooleanCastDropsDoubleBangInBooleanContext(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"no-extra-boolean-cast",
-		"function f(x: any) {\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
-		"function f(x: any) {\n  if (x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "no-extra-boolean-cast",
+    "function f(x: any) {\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
+    "function f(x: any) {\n  if (x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n",
+  )
 }

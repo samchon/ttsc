@@ -16,36 +16,36 @@ type unicornPreferArrayFind struct{}
 
 func (unicornPreferArrayFind) Name() string { return "unicorn/prefer-array-find" }
 func (unicornPreferArrayFind) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindElementAccessExpression}
+  return []shimast.Kind{shimast.KindElementAccessExpression}
 }
 func (unicornPreferArrayFind) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsElementAccessExpression()
-	if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
-		return
-	}
-	index := stripParens(access.ArgumentExpression)
-	if index == nil || index.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	if numericLiteralText(index) != "0" {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := receiver.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	prop := call.Expression.AsPropertyAccessExpression()
-	if prop == nil || identifierText(prop.Name()) != "filter" {
-		return
-	}
-	ctx.Report(node, "Prefer `Array#find()` over `Array#filter(...)[0]`.")
+  access := node.AsElementAccessExpression()
+  if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
+    return
+  }
+  index := stripParens(access.ArgumentExpression)
+  if index == nil || index.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  if numericLiteralText(index) != "0" {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := receiver.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  prop := call.Expression.AsPropertyAccessExpression()
+  if prop == nil || identifierText(prop.Name()) != "filter" {
+    return
+  }
+  ctx.Report(node, "Prefer `Array#find()` over `Array#filter(...)[0]`.")
 }
 
 func init() {
-	Register(unicornPreferArrayFind{})
+  Register(unicornPreferArrayFind{})
 }

@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/click-events-have-key-events`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yClickEventsHaveKeyEventsRequiresKeyboardHandler(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/click-events-have-key-events", `const Component = () => <div onClick={() => {}} />;`, "keyboard")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/click-events-have-key-events", `const Component = () => <div onClick={() => {}} />;`, "keyboard")
 }

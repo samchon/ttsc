@@ -14,7 +14,6 @@
 // Files are stored as Uint8Array. String input passed to writeFile is encoded,
 // byte input is copied, and readFile returns a copy so callers cannot mutate
 // stored filesystem state by keeping a reference.
-
 import { MemFSError } from "./MemFSError";
 import type { IFileStats } from "./structures/IFileStats";
 import type { IMemFSHost } from "./structures/IMemFSHost";

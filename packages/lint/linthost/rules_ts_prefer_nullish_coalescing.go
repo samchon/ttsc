@@ -19,47 +19,47 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type preferNullishCoalescing struct{}
 
 func (preferNullishCoalescing) Name() string { return "typescript/prefer-nullish-coalescing" }
 func (preferNullishCoalescing) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindBinaryExpression,
-		shimast.KindConditionalExpression,
-	}
+  return []shimast.Kind{
+    shimast.KindBinaryExpression,
+    shimast.KindConditionalExpression,
+  }
 }
 func (preferNullishCoalescing) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindBinaryExpression:
-		expr := node.AsBinaryExpression()
-		if expr == nil || expr.OperatorToken == nil {
-			return
-		}
-		switch expr.OperatorToken.Kind {
-		case shimast.KindBarBarToken:
-			if isInBooleanContext(node) {
-				return
-			}
-			reportPreferNullishCoalescing(ctx, expr.OperatorToken, "Prefer `??` over `||` when the intent is to default `null` / `undefined` — `||` also short-circuits on falsy values like 0, \"\", and false.")
-		case shimast.KindBarBarEqualsToken:
-			reportPreferNullishCoalescing(ctx, expr.OperatorToken, "Prefer `??=` over `||=` when the intent is to default `null` / `undefined` — `||=` also assigns on falsy values like 0, \"\", and false.")
-		}
-	case shimast.KindConditionalExpression:
-		cond := node.AsConditionalExpression()
-		if cond == nil || cond.Condition == nil || cond.WhenTrue == nil {
-			return
-		}
-		// `x ? x : y` — the `whenTrue` branch is the same expression as
-		// the test. Compare canonical text after stripping parentheses
-		// from both sides so `(x) ? x : y` still matches.
-		if !ternarySelfTest(ctx, cond) {
-			return
-		}
-		ctx.Report(node, "Prefer `??` over `x ? x : y` when the intent is to default `null` / `undefined` — the ternary form also falls through on falsy values like 0, \"\", and false.")
-	}
+  switch node.Kind {
+  case shimast.KindBinaryExpression:
+    expr := node.AsBinaryExpression()
+    if expr == nil || expr.OperatorToken == nil {
+      return
+    }
+    switch expr.OperatorToken.Kind {
+    case shimast.KindBarBarToken:
+      if isInBooleanContext(node) {
+        return
+      }
+      reportPreferNullishCoalescing(ctx, expr.OperatorToken, "Prefer `??` over `||` when the intent is to default `null` / `undefined` — `||` also short-circuits on falsy values like 0, \"\", and false.")
+    case shimast.KindBarBarEqualsToken:
+      reportPreferNullishCoalescing(ctx, expr.OperatorToken, "Prefer `??=` over `||=` when the intent is to default `null` / `undefined` — `||=` also assigns on falsy values like 0, \"\", and false.")
+    }
+  case shimast.KindConditionalExpression:
+    cond := node.AsConditionalExpression()
+    if cond == nil || cond.Condition == nil || cond.WhenTrue == nil {
+      return
+    }
+    // `x ? x : y` — the `whenTrue` branch is the same expression as
+    // the test. Compare canonical text after stripping parentheses
+    // from both sides so `(x) ? x : y` still matches.
+    if !ternarySelfTest(ctx, cond) {
+      return
+    }
+    ctx.Report(node, "Prefer `??` over `x ? x : y` when the intent is to default `null` / `undefined` — the ternary form also falls through on falsy values like 0, \"\", and false.")
+  }
 }
 
 // reportPreferNullishCoalescing pins the diagnostic range to the
@@ -67,12 +67,12 @@ func (preferNullishCoalescing) Check(ctx *Context, node *shimast.Node) {
 // so the squiggle highlights the offending operator and editor "go to
 // fix" actions hover over the token the rule is about.
 func reportPreferNullishCoalescing(ctx *Context, operator *shimast.Node, message string) {
-	pos, end := tokenRange(ctx.File, operator)
-	if pos < 0 {
-		ctx.Report(operator, message)
-		return
-	}
-	ctx.ReportRange(pos, end, message)
+  pos, end := tokenRange(ctx.File, operator)
+  if pos < 0 {
+    ctx.Report(operator, message)
+    return
+  }
+  ctx.ReportRange(pos, end, message)
 }
 
 // ternarySelfTest reports whether `cond ? whenTrue : whenFalse` has the
@@ -83,22 +83,22 @@ func reportPreferNullishCoalescing(ctx *Context, operator *shimast.Node, message
 // fires on `f() ? f() : g()` too and lets the author decide whether the
 // transform is safe.
 func ternarySelfTest(ctx *Context, cond *shimast.ConditionalExpression) bool {
-	if ctx == nil || ctx.File == nil || cond == nil {
-		return false
-	}
-	test := stripParens(cond.Condition)
-	whenTrue := stripParens(cond.WhenTrue)
-	if test == nil || whenTrue == nil {
-		return false
-	}
-	testText := nodeText(ctx.File, test)
-	whenTrueText := nodeText(ctx.File, whenTrue)
-	if testText == "" || whenTrueText == "" {
-		return false
-	}
-	return testText == whenTrueText
+  if ctx == nil || ctx.File == nil || cond == nil {
+    return false
+  }
+  test := stripParens(cond.Condition)
+  whenTrue := stripParens(cond.WhenTrue)
+  if test == nil || whenTrue == nil {
+    return false
+  }
+  testText := nodeText(ctx.File, test)
+  whenTrueText := nodeText(ctx.File, whenTrue)
+  if testText == "" || whenTrueText == "" {
+    return false
+  }
+  return testText == whenTrueText
 }
 
 func init() {
-	Register(preferNullishCoalescing{})
+  Register(preferNullishCoalescing{})
 }

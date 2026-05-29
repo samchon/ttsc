@@ -12,5 +12,5 @@ import "testing"
 // 2. Construct Promise.resolve.
 // 3. Assert the new expression is reported.
 func TestRuleCorpusPromiseNoNewStatics(t *testing.T) {
-	assertRuleCorpusCase(t, "promise/no-new-statics.ts", "// expect: promise/no-new-statics error\nnew Promise.resolve(1);\n")
+  assertRuleCorpusCase(t, "promise/no-new-statics.ts", "// expect: promise/no-new-statics error\nnew Promise.resolve(1);\n")
 }

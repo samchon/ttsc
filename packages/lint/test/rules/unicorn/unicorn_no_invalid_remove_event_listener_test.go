@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `el.removeEventListener("click", () => {})` with a fresh arrow.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoInvalidRemoveEventListener(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-invalid-remove-event-listener.ts", "declare const el: EventTarget;\n// expect: unicorn/no-invalid-remove-event-listener error\nel.removeEventListener(\"click\", () => {});\n")
+  assertRuleCorpusCase(t, "unicorn/no-invalid-remove-event-listener.ts", "declare const el: EventTarget;\n// expect: unicorn/no-invalid-remove-event-listener error\nel.removeEventListener(\"click\", () => {});\n")
 }

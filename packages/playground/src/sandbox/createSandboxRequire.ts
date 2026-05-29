@@ -32,8 +32,8 @@ interface ISandboxRequireOptions {
 
 /**
  * Build a sandboxed `require` function over a runtime pack. Resolves typia /
- * `@typia/*` / randexp specifiers from the pack; throws on anything else so
- * the caller sees the unsupported dependency.
+ * `@typia/*` / randexp specifiers from the pack; throws on anything else so the
+ * caller sees the unsupported dependency.
  */
 export function createSandboxRequire(
   pack: Record<string, string>,

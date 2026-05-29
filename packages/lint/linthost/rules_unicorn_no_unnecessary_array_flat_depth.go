@@ -16,34 +16,34 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUnnecessaryArrayFlatDepth struct{}
 
 func (unicornNoUnnecessaryArrayFlatDepth) Name() string {
-	return "unicorn/no-unnecessary-array-flat-depth"
+  return "unicorn/no-unnecessary-array-flat-depth"
 }
 func (unicornNoUnnecessaryArrayFlatDepth) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoUnnecessaryArrayFlatDepth) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "flat" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	if numericLiteralText(arg) != "1" {
-		return
-	}
-	ctx.Report(node, "`Array#flat()` already defaults to depth 1 — omit the argument.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "flat" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  if numericLiteralText(arg) != "1" {
+    return
+  }
+  ctx.Report(node, "`Array#flat()` already defaults to depth 1 — omit the argument.")
 }
 
 func init() {
-	Register(unicornNoUnnecessaryArrayFlatDepth{})
+  Register(unicornNoUnnecessaryArrayFlatDepth{})
 }

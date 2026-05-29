@@ -22,50 +22,50 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type noUnsafeReturn struct{}
 
 func (noUnsafeReturn) Name() string { return "typescript/no-unsafe-return" }
 func (noUnsafeReturn) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (noUnsafeReturn) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindReturnStatement}
+  return []shimast.Kind{shimast.KindReturnStatement}
 }
 func (noUnsafeReturn) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	ret := node.AsReturnStatement()
-	if ret == nil || ret.Expression == nil {
-		return
-	}
-	fn := noUnsafeReturnEnclosingFunction(node)
-	if fn == nil {
-		return
-	}
-	sig := ctx.Checker.GetSignatureFromDeclaration(fn)
-	if sig == nil {
-		return
-	}
-	declared := ctx.Checker.GetReturnTypeOfSignature(sig)
-	if declared == nil {
-		return
-	}
-	if !noUnsafeReturnIsConcrete(declared) {
-		return
-	}
-	exprType := ctx.Checker.GetTypeAtLocation(ret.Expression)
-	if exprType == nil {
-		return
-	}
-	if !noUnsafeReturnIsAny(exprType) {
-		return
-	}
-	ctx.Report(ret.Expression, "Unsafe return of `any` value from function with a concrete declared return type. The `any` leaks past the type boundary and disables downstream type checks.")
+  if ctx.Checker == nil {
+    return
+  }
+  ret := node.AsReturnStatement()
+  if ret == nil || ret.Expression == nil {
+    return
+  }
+  fn := noUnsafeReturnEnclosingFunction(node)
+  if fn == nil {
+    return
+  }
+  sig := ctx.Checker.GetSignatureFromDeclaration(fn)
+  if sig == nil {
+    return
+  }
+  declared := ctx.Checker.GetReturnTypeOfSignature(sig)
+  if declared == nil {
+    return
+  }
+  if !noUnsafeReturnIsConcrete(declared) {
+    return
+  }
+  exprType := ctx.Checker.GetTypeAtLocation(ret.Expression)
+  if exprType == nil {
+    return
+  }
+  if !noUnsafeReturnIsAny(exprType) {
+    return
+  }
+  ctx.Report(ret.Expression, "Unsafe return of `any` value from function with a concrete declared return type. The `any` leaks past the type boundary and disables downstream type checks.")
 }
 
 // noUnsafeReturnEnclosingFunction walks up the parent chain to the
@@ -74,12 +74,12 @@ func (noUnsafeReturn) Check(ctx *Context, node *shimast.Node) {
 // first function-like ancestor — mirroring the `consistent-return`
 // scope rule already established in this package.
 func noUnsafeReturnEnclosingFunction(node *shimast.Node) *shimast.Node {
-	for cur := node.Parent; cur != nil; cur = cur.Parent {
-		if isFunctionLikeKind(cur) {
-			return cur
-		}
-	}
-	return nil
+  for cur := node.Parent; cur != nil; cur = cur.Parent {
+    if isFunctionLikeKind(cur) {
+      return cur
+    }
+  }
+  return nil
 }
 
 // noUnsafeReturnIsConcrete reports whether the declared return type is
@@ -89,25 +89,25 @@ func noUnsafeReturnEnclosingFunction(node *shimast.Node) *shimast.Node {
 // `unknown` and side-effect functions that return `void` do not light
 // up everywhere. Unions are concrete only when every constituent is.
 func noUnsafeReturnIsConcrete(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsVoid) != 0 {
-		return false
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if !noUnsafeReturnIsConcrete(part) {
-				return false
-			}
-		}
-		return true
-	}
-	return true
+  if t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsVoid) != 0 {
+    return false
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if !noUnsafeReturnIsConcrete(part) {
+        return false
+      }
+    }
+    return true
+  }
+  return true
 }
 
 // noUnsafeReturnIsAny reports whether t is the raw `any` type. The
@@ -115,12 +115,12 @@ func noUnsafeReturnIsConcrete(t *shimchecker.Type) bool {
 // returned as `unknown` cannot be used without further narrowing, so
 // they don't leak silently — and only flags the lossy `any` case.
 func noUnsafeReturnIsAny(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	return t.Flags()&shimchecker.TypeFlagsAny != 0
+  if t == nil {
+    return false
+  }
+  return t.Flags()&shimchecker.TypeFlagsAny != 0
 }
 
 func init() {
-	Register(noUnsafeReturn{})
+  Register(noUnsafeReturn{})
 }

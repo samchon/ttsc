@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare `const newFoo = 1` and read it once.
 // 3. Assert the declaration name is reported (and the read is not).
 func TestRuleCorpusUnicornNoKeywordPrefix(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-keyword-prefix.ts", "// expect: unicorn/no-keyword-prefix error\nconst newFoo = 1;\nvoid newFoo;\n")
+  assertRuleCorpusCase(t, "unicorn/no-keyword-prefix.ts", "// expect: unicorn/no-keyword-prefix error\nconst newFoo = 1;\nvoid newFoo;\n")
 }

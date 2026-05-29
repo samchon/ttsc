@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusRequireArraySortCompare verifies the lint rule corpus fixture
@@ -24,19 +24,19 @@ import (
 // 2. Run `check` with typescript/require-array-sort-compare enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusRequireArraySortCompare(t *testing.T) {
-	root := seedLintProject(t, `declare const numbers: number[];
+  root := seedLintProject(t, `declare const numbers: number[];
 numbers.sort();
 `)
-	seedLintRules(t, root, map[string]string{"typescript/require-array-sort-compare": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/require-array-sort-compare": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/require-array-sort-compare]") {
-		t.Fatalf("require-array-sort-compare diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/require-array-sort-compare]") {
+    t.Fatalf("require-array-sort-compare diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

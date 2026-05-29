@@ -22,34 +22,34 @@ type unicornNoUselessUndefined struct{}
 
 func (unicornNoUselessUndefined) Name() string { return "unicorn/no-useless-undefined" }
 func (unicornNoUselessUndefined) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindReturnStatement}
+  return []shimast.Kind{shimast.KindReturnStatement}
 }
 func (unicornNoUselessUndefined) Check(ctx *Context, node *shimast.Node) {
-	ret := node.AsReturnStatement()
-	if ret == nil || ret.Expression == nil {
-		return
-	}
-	expr := stripParens(ret.Expression)
-	if expr == nil {
-		return
-	}
-	if expr.Kind == shimast.KindUndefinedKeyword || identifierText(expr) == "undefined" {
-		ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
-		return
-	}
-	if expr.Kind == shimast.KindVoidExpression {
-		void := expr.AsVoidExpression()
-		if void == nil || void.Expression == nil {
-			return
-		}
-		operand := stripParens(void.Expression)
-		if operand != nil && operand.Kind == shimast.KindNumericLiteral &&
-			numericLiteralText(operand) == "0" {
-			ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
-		}
-	}
+  ret := node.AsReturnStatement()
+  if ret == nil || ret.Expression == nil {
+    return
+  }
+  expr := stripParens(ret.Expression)
+  if expr == nil {
+    return
+  }
+  if expr.Kind == shimast.KindUndefinedKeyword || identifierText(expr) == "undefined" {
+    ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
+    return
+  }
+  if expr.Kind == shimast.KindVoidExpression {
+    void := expr.AsVoidExpression()
+    if void == nil || void.Expression == nil {
+      return
+    }
+    operand := stripParens(void.Expression)
+    if operand != nil && operand.Kind == shimast.KindNumericLiteral &&
+      numericLiteralText(operand) == "0" {
+      ctx.Report(node, "Don't `return undefined;` — `return undefined;` and bare `return;` have the same effect.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoUselessUndefined{})
+  Register(unicornNoUselessUndefined{})
 }

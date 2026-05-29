@@ -13,12 +13,12 @@ import "testing"
 // 2. Enable a `react-perf/*` rule.
 // 3. Assert no diagnostics are emitted even though the AST shape matches.
 func TestReactPerfRulesSkipJsxSource(t *testing.T) {
-	source := "const view = <Item config={{}} />;\n"
-	reactPerfAssertZero(
-		t,
-		"react-perf/jsx-no-new-object-as-prop",
-		"/virtual/main.jsx",
-		source,
-		nil,
-	)
+  source := "const view = <Item config={{}} />;\n"
+  reactPerfAssertZero(
+    t,
+    "react-perf/jsx-no-new-object-as-prop",
+    "/virtual/main.jsx",
+    source,
+    nil,
+  )
 }

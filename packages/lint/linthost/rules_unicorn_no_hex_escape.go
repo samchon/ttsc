@@ -14,9 +14,9 @@
 package linthost
 
 import (
-	"regexp"
+  "regexp"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 var unicornNoHexEscapePattern = regexp.MustCompile(`\\x[0-9A-Fa-f]{2}`)
@@ -25,18 +25,18 @@ type unicornNoHexEscape struct{}
 
 func (unicornNoHexEscape) Name() string { return "unicorn/no-hex-escape" }
 func (unicornNoHexEscape) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
+  return []shimast.Kind{shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral}
 }
 func (unicornNoHexEscape) Check(ctx *Context, node *shimast.Node) {
-	source := nodeText(ctx.File, node)
-	if source == "" {
-		return
-	}
-	if unicornNoHexEscapePattern.MatchString(source) {
-		ctx.Report(node, "Prefer Unicode escapes (`\\uXXXX`) over hex escapes (`\\xHH`).")
-	}
+  source := nodeText(ctx.File, node)
+  if source == "" {
+    return
+  }
+  if unicornNoHexEscapePattern.MatchString(source) {
+    ctx.Report(node, "Prefer Unicode escapes (`\\uXXXX`) over hex escapes (`\\xHH`).")
+  }
 }
 
 func init() {
-	Register(unicornNoHexEscape{})
+  Register(unicornNoHexEscape{})
 }

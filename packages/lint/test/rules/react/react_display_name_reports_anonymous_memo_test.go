@@ -14,6 +14,6 @@ import "testing"
 // 2. Enable only `react/display-name`.
 // 3. Assert the wrapper call is reported.
 func TestReactDisplayNameReportsAnonymousMemo(t *testing.T) {
-	assertReactRuleFinds(t, "react/display-name", `declare const React: { memo: <T>(fn: T) => T };
+  assertReactRuleFinds(t, "react/display-name", `declare const React: { memo: <T>(fn: T) => T };
 JSON.stringify(React.memo(() => <div />));`, "display name")
 }

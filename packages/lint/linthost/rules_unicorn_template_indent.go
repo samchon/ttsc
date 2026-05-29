@@ -24,5 +24,5 @@ func (unicornTemplateIndent) Check(_ *Context, _ *shimast.Node) {
 }
 
 func init() {
-	Register(unicornTemplateIndent{})
+  Register(unicornTemplateIndent{})
 }

@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `.join()` on an inline array literal with no arguments.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornRequireArrayJoinSeparator(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/require-array-join-separator.ts", "// expect: unicorn/require-array-join-separator error\nconst s = [1, 2, 3].join();\n")
+  assertRuleCorpusCase(t, "unicorn/require-array-join-separator.ts", "// expect: unicorn/require-array-join-separator error\nconst s = [1, 2, 3].join();\n")
 }

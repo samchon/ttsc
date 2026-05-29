@@ -20,11 +20,11 @@ func (r nextjsRule) Visits() []shimast.Kind {
 func (r nextjsRule) Check(ctx *Context, node *shimast.Node) { r.check(ctx, node) }
 
 type nextjsImports struct {
-  headFromNextHead      map[string]bool
-  headFromNextDocument  map[string]bool
-  scriptFromNextScript  map[string]bool
-  importsNextDocument   []*shimast.Node
-  importsNextHead       []*shimast.Node
+  headFromNextHead     map[string]bool
+  headFromNextDocument map[string]bool
+  scriptFromNextScript map[string]bool
+  importsNextDocument  []*shimast.Node
+  importsNextHead      []*shimast.Node
 }
 
 func nextjsGoogleFontDisplay(ctx *Context, file *shimast.Node) {

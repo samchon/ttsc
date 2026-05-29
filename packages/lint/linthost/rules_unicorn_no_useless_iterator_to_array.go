@@ -21,52 +21,52 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUselessIteratorToArray struct{}
 
 func (unicornNoUselessIteratorToArray) Name() string {
-	return "unicorn/no-useless-iterator-to-array"
+  return "unicorn/no-useless-iterator-to-array"
 }
 func (unicornNoUselessIteratorToArray) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindArrayLiteralExpression}
+  return []shimast.Kind{shimast.KindArrayLiteralExpression}
 }
 func (unicornNoUselessIteratorToArray) Check(ctx *Context, node *shimast.Node) {
-	// Only fire when the array literal is the iterable of a `for…of`
-	// loop — that's the canonical wasted-materialization shape. Other
-	// uses (`[...iter][0]`, `const arr = [...iter]`, `.map`, etc.)
-	// genuinely need the materialized array.
-	if node.Parent == nil || node.Parent.Kind != shimast.KindForOfStatement {
-		return
-	}
-	arr := node.AsArrayLiteralExpression()
-	if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
-		return
-	}
-	only := arr.Elements.Nodes[0]
-	if only == nil || only.Kind != shimast.KindSpreadElement {
-		return
-	}
-	spread := only.AsSpreadElement()
-	if spread == nil {
-		return
-	}
-	inner := stripParens(spread.Expression)
-	if inner == nil || inner.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := inner.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "entries", "keys", "values":
-	default:
-		return
-	}
-	ctx.Report(node, "Don't wrap an iterator with `[...iter]` when iterating directly works.")
+  // Only fire when the array literal is the iterable of a `for…of`
+  // loop — that's the canonical wasted-materialization shape. Other
+  // uses (`[...iter][0]`, `const arr = [...iter]`, `.map`, etc.)
+  // genuinely need the materialized array.
+  if node.Parent == nil || node.Parent.Kind != shimast.KindForOfStatement {
+    return
+  }
+  arr := node.AsArrayLiteralExpression()
+  if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 1 {
+    return
+  }
+  only := arr.Elements.Nodes[0]
+  if only == nil || only.Kind != shimast.KindSpreadElement {
+    return
+  }
+  spread := only.AsSpreadElement()
+  if spread == nil {
+    return
+  }
+  inner := stripParens(spread.Expression)
+  if inner == nil || inner.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := inner.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "entries", "keys", "values":
+  default:
+    return
+  }
+  ctx.Report(node, "Don't wrap an iterator with `[...iter]` when iterating directly works.")
 }
 
 func init() {
-	Register(unicornNoUselessIteratorToArray{})
+  Register(unicornNoUselessIteratorToArray{})
 }

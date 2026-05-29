@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnnecessaryCondition verifies the lint rule corpus
@@ -22,26 +22,26 @@ import (
 // so a future shim regression surfaces here without depending on the
 // full fixture.
 //
-// 1. Seed a project that places a non-nullable `{ value: number }`
-//    object in an `if` condition.
-// 2. Run `check` with typescript/no-unnecessary-condition enabled as error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that places a non-nullable `{ value: number }`
+//     object in an `if` condition.
+//  2. Run `check` with typescript/no-unnecessary-condition enabled as error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnnecessaryCondition(t *testing.T) {
-	root := seedLintProject(t, `declare const obj: { value: number };
+  root := seedLintProject(t, `declare const obj: { value: number };
 if (obj) {
   JSON.stringify(obj);
 }
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unnecessary-condition": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unnecessary-condition": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unnecessary-condition]") {
-		t.Fatalf("no-unnecessary-condition diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unnecessary-condition]") {
+    t.Fatalf("no-unnecessary-condition diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

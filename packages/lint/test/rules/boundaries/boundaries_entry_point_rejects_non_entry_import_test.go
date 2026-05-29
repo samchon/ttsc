@@ -14,8 +14,8 @@ import "testing"
 // 2. Configure index.ts as the domain entry point.
 // 3. Assert the app file's deep import reports while the index import passes.
 func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
-	const ruleName = "boundaries/entry-point"
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/entry-point"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "../domain/internal";
     import "../domain";
   `, `{
@@ -24,8 +24,8 @@ func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
       { "type": "domain", "pattern": "src/domain/**", "entry": "index.ts" }
     ]
   }`, map[string]string{
-		"src/domain/index.ts":    "export {};",
-		"src/domain/internal.ts": "export {};",
-	})
-	assertSingleBoundaryFinding(t, ruleName, findings, `entry point`)
+    "src/domain/index.ts":    "export {};",
+    "src/domain/internal.ts": "export {};",
+  })
+  assertSingleBoundaryFinding(t, ruleName, findings, `entry point`)
 }

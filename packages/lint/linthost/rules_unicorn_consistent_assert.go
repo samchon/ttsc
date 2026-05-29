@@ -19,29 +19,29 @@ type unicornConsistentAssert struct{}
 
 func (unicornConsistentAssert) Name() string { return "unicorn/consistent-assert" }
 func (unicornConsistentAssert) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornConsistentAssert) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || access.Expression == nil {
-		return
-	}
-	if identifierText(access.Expression) != "assert" {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "equal", "notEqual":
-	default:
-		return
-	}
-	ctx.Report(node, "Use the strict variant — `assert.strictEqual` / `assert.notStrictEqual`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || access.Expression == nil {
+    return
+  }
+  if identifierText(access.Expression) != "assert" {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "equal", "notEqual":
+  default:
+    return
+  }
+  ctx.Report(node, "Use the strict variant — `assert.strictEqual` / `assert.notStrictEqual`.")
 }
 
 func init() {
-	Register(unicornConsistentAssert{})
+  Register(unicornConsistentAssert{})
 }

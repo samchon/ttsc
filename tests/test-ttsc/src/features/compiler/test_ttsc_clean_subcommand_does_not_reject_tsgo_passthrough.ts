@@ -8,16 +8,14 @@ import {
 /**
  * Verifies `ttsc clean` accepts tsgo passthrough flags (RC-3 + RC-4).
  *
- * Before the flag-schema cutover, project subcommands ran through a
- * completely separate parser branch from the build-lane parser: it
- * rejected every unknown flag with `throw new Error("unknown option")`,
- * so a user habituated to
- * `ttsc --strict` would hit a hard exit on `ttsc clean --strict
- * tsconfig.json`. The new schema routes every subcommand through one
- * engine, and `clean` declares `--strict` as forwardable like every other
- * subcommand. Even though `clean` does not actually use `--strict`, it
- * must not reject it as an unknown option — the consistency across
- * subcommands is the point.
+ * Before the flag-schema cutover, project subcommands ran through a completely
+ * separate parser branch from the build-lane parser: it rejected every unknown
+ * flag with `throw new Error("unknown option")`, so a user habituated to `ttsc
+ * --strict` would hit a hard exit on `ttsc clean --strict tsconfig.json`. The
+ * new schema routes every subcommand through one engine, and `clean` declares
+ * `--strict` as forwardable like every other subcommand. Even though `clean`
+ * does not actually use `--strict`, it must not reject it as an unknown option
+ * — the consistency across subcommands is the point.
  *
  * 1. Create a minimal project with a tsconfig.
  * 2. Run `ttsc clean --strict --tsconfig &lt;path&gt;`.

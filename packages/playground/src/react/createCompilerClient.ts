@@ -6,16 +6,17 @@ import type { ICompilerService } from "../structures/ICompilerService";
 import type { ICreateCompilerClientOptions } from "../structures/ICreateCompilerClientOptions";
 
 /**
- * UI-side singleton: connect to the playground worker over tgrid and return
- * the typed `ICompilerService` driver.
+ * UI-side singleton: connect to the playground worker over tgrid and return the
+ * typed `ICompilerService` driver.
  *
- * The promise is cached; the first call boots, every subsequent call shares
- * the same connection. If the boot rejects the cache is cleared so the next
- * call retries — otherwise every retry would resolve to the same rejection.
+ * The promise is cached; the first call boots, every subsequent call shares the
+ * same connection. If the boot rejects the cache is cleared so the next call
+ * retries — otherwise every retry would resolve to the same rejection.
  */
-export function createCompilerClient(
-  options: ICreateCompilerClientOptions,
-): { connect(): Promise<ICompilerService>; reset(): Promise<void> } {
+export function createCompilerClient(options: ICreateCompilerClientOptions): {
+  connect(): Promise<ICompilerService>;
+  reset(): Promise<void>;
+} {
   let connectionPromise: Promise<ICompilerService> | null = null;
   // Track the active connector AND the in-flight connector promise so
   // reset() can dispose either one — disposing only the resolved

@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to `"\xa9"`.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornEscapeCase(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/escape-case.ts", "// expect: unicorn/escape-case error\nconst s = \"\\xa9\";\n")
+  assertRuleCorpusCase(t, "unicorn/escape-case.ts", "// expect: unicorn/escape-case error\nconst s = \"\\xa9\";\n")
 }

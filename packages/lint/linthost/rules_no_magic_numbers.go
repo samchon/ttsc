@@ -26,52 +26,52 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noMagicNumbers struct{}
 
 func (noMagicNumbers) Name() string { return "no-magic-numbers" }
 func (noMagicNumbers) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNumericLiteral}
+  return []shimast.Kind{shimast.KindNumericLiteral}
 }
 func (noMagicNumbers) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	text := numericLiteralText(node)
-	if isIgnoredMagicLiteralText(text) {
-		return
-	}
-	parent := node.Parent
-	if parent == nil {
-		return
-	}
-	// `-N` is a PrefixUnaryExpression whose Operand is the literal. The
-	// `-1` ignore list lives on the unary expression's combined text;
-	// recognize the negated form here so the rule does not flag the `1`
-	// inside `-1`.
-	if parent.Kind == shimast.KindPrefixUnaryExpression {
-		pre := parent.AsPrefixUnaryExpression()
-		if pre != nil && pre.Operator == shimast.KindMinusToken && text == "1" {
-			return
-		}
-	}
-	// Initializer of a `const x = N` declaration: the named binding the
-	// rule wants users to introduce.
-	if isConstVariableInitializer(parent, node) {
-		return
-	}
-	// Enum member value: `enum E { A = 0, B = 1 }` — the literal is
-	// the binding's value position, so leave it alone.
-	if parent.Kind == shimast.KindEnumMember {
-		return
-	}
-	// `arr[0]` / `tuple[3]`: numeric index position of an element access.
-	if isArrayIndexArgument(parent, node) {
-		return
-	}
-	ctx.Report(node, "No magic number: "+text+".")
+  if node == nil {
+    return
+  }
+  text := numericLiteralText(node)
+  if isIgnoredMagicLiteralText(text) {
+    return
+  }
+  parent := node.Parent
+  if parent == nil {
+    return
+  }
+  // `-N` is a PrefixUnaryExpression whose Operand is the literal. The
+  // `-1` ignore list lives on the unary expression's combined text;
+  // recognize the negated form here so the rule does not flag the `1`
+  // inside `-1`.
+  if parent.Kind == shimast.KindPrefixUnaryExpression {
+    pre := parent.AsPrefixUnaryExpression()
+    if pre != nil && pre.Operator == shimast.KindMinusToken && text == "1" {
+      return
+    }
+  }
+  // Initializer of a `const x = N` declaration: the named binding the
+  // rule wants users to introduce.
+  if isConstVariableInitializer(parent, node) {
+    return
+  }
+  // Enum member value: `enum E { A = 0, B = 1 }` — the literal is
+  // the binding's value position, so leave it alone.
+  if parent.Kind == shimast.KindEnumMember {
+    return
+  }
+  // `arr[0]` / `tuple[3]`: numeric index position of an element access.
+  if isArrayIndexArgument(parent, node) {
+    return
+  }
+  ctx.Report(node, "No magic number: "+text+".")
 }
 
 // isIgnoredMagicLiteralText reports whether the literal text falls into
@@ -79,11 +79,11 @@ func (noMagicNumbers) Check(ctx *Context, node *shimast.Node) {
 // minus lives on a PrefixUnaryExpression parent), so the table here only
 // needs the two zero / one shapes.
 func isIgnoredMagicLiteralText(text string) bool {
-	switch text {
-	case "0", "1":
-		return true
-	}
-	return false
+  switch text {
+  case "0", "1":
+    return true
+  }
+  return false
 }
 
 // isConstVariableInitializer reports whether `literal` sits in the
@@ -92,14 +92,14 @@ func isIgnoredMagicLiteralText(text string) bool {
 // reassigned, so the number is still magic in the position it was
 // written.
 func isConstVariableInitializer(parent, literal *shimast.Node) bool {
-	if parent == nil || parent.Kind != shimast.KindVariableDeclaration {
-		return false
-	}
-	decl := parent.AsVariableDeclaration()
-	if decl == nil || decl.Initializer != literal {
-		return false
-	}
-	return shimast.IsConst(parent)
+  if parent == nil || parent.Kind != shimast.KindVariableDeclaration {
+    return false
+  }
+  decl := parent.AsVariableDeclaration()
+  if decl == nil || decl.Initializer != literal {
+    return false
+  }
+  return shimast.IsConst(parent)
 }
 
 // isArrayIndexArgument reports whether `literal` sits in the
@@ -108,16 +108,16 @@ func isConstVariableInitializer(parent, literal *shimast.Node) bool {
 // baseline enables it because mixing numeric subscripts with renamed
 // constants reads worse than the literal.
 func isArrayIndexArgument(parent, literal *shimast.Node) bool {
-	if parent == nil || parent.Kind != shimast.KindElementAccessExpression {
-		return false
-	}
-	access := parent.AsElementAccessExpression()
-	if access == nil {
-		return false
-	}
-	return access.ArgumentExpression == literal
+  if parent == nil || parent.Kind != shimast.KindElementAccessExpression {
+    return false
+  }
+  access := parent.AsElementAccessExpression()
+  if access == nil {
+    return false
+  }
+  return access.ArgumentExpression == literal
 }
 
 func init() {
-	Register(noMagicNumbers{})
+  Register(noMagicNumbers{})
 }

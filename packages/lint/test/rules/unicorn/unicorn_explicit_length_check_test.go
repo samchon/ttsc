@@ -14,5 +14,5 @@ import "testing"
 // 2. Write `if (xs.length) { … }` against a declared array.
 // 3. Assert the property access is reported.
 func TestRuleCorpusUnicornExplicitLengthCheck(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/explicit-length-check.ts", "declare const xs: number[];\nif (\n  // expect: unicorn/explicit-length-check error\n  xs.length\n) {\n  void 0;\n}\n")
+  assertRuleCorpusCase(t, "unicorn/explicit-length-check.ts", "declare const xs: number[];\nif (\n  // expect: unicorn/explicit-length-check error\n  xs.length\n) {\n  void 0;\n}\n")
 }

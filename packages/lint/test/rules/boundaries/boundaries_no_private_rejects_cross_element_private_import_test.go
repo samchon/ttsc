@@ -13,8 +13,8 @@ import "testing"
 // 2. Configure domain internal/** as private.
 // 3. Assert the app file's import of the domain private file reports.
 func TestBoundariesNoPrivateRejectsCrossElementPrivateImport(t *testing.T) {
-	const ruleName = "boundaries/no-private"
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/no-private"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "../domain/internal/secret";
   `, `{
     "elements": [
@@ -22,7 +22,7 @@ func TestBoundariesNoPrivateRejectsCrossElementPrivateImport(t *testing.T) {
       { "type": "domain", "pattern": "src/domain/**", "private": "internal/**" }
     ]
   }`, map[string]string{
-		"src/domain/internal/secret.ts": "export {};",
-	})
-	assertSingleBoundaryFinding(t, ruleName, findings, `private boundary file`)
+    "src/domain/internal/secret.ts": "export {};",
+  })
+  assertSingleBoundaryFinding(t, ruleName, findings, `private boundary file`)
 }

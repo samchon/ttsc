@@ -13,5 +13,5 @@ import "testing"
 // 2. Declare a const initialized to `0xff`.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornNumberLiteralCase(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/number-literal-case.ts", "// expect: unicorn/number-literal-case error\nconst n = 0xff;\n")
+  assertRuleCorpusCase(t, "unicorn/number-literal-case.ts", "// expect: unicorn/number-literal-case error\nconst n = 0xff;\n")
 }

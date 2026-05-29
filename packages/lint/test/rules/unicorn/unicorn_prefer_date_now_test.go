@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to `new Date().getTime()`.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferDateNow(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-date-now.ts", "// expect: unicorn/prefer-date-now error\nconst t = new Date().getTime();\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-date-now.ts", "// expect: unicorn/prefer-date-now error\nconst t = new Date().getTime();\n")
 }

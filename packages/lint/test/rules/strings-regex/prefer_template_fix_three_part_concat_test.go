@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixPreferTemplateRewritesThreePartConcatChain verifies the
-// canonical `"hi " + name + "!"` → `` `hi ${name}!` `` rewrite.
+// canonical `"hi " + name + "!"` → “ `hi ${name}!` “ rewrite.
 //
 // Detection fires only on the topmost `+` chain, so the fixer must
 // flatten the whole chain in one pass; otherwise a partial rewrite
@@ -16,10 +16,10 @@ import "testing"
 // 2. Apply `prefer-template` fix.
 // 3. Assert the result is the canonical template literal.
 func TestFixPreferTemplateRewritesThreePartConcatChain(t *testing.T) {
-	assertFixSnapshot(
-		t,
-		"prefer-template",
-		"const name = \"world\";\nconst s = \"hi \" + name + \"!\";\nJSON.stringify(s);\n",
-		"const name = \"world\";\nconst s = `hi ${name}!`;\nJSON.stringify(s);\n",
-	)
+  assertFixSnapshot(
+    t,
+    "prefer-template",
+    "const name = \"world\";\nconst s = \"hi \" + name + \"!\";\nJSON.stringify(s);\n",
+    "const name = \"world\";\nconst s = `hi ${name}!`;\nJSON.stringify(s);\n",
+  )
 }

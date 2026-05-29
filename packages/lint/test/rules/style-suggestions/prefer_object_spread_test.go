@@ -14,5 +14,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusPreferObjectSpread(t *testing.T) {
-	assertRuleCorpusCase(t, "prefer-object-spread.ts", "declare const source: { x: number };\n// expect: prefer-object-spread error\nconst merged = Object.assign({}, source);\nJSON.stringify(merged);\n")
+  assertRuleCorpusCase(t, "prefer-object-spread.ts", "declare const source: { x: number };\n// expect: prefer-object-spread error\nconst merged = Object.assign({}, source);\nJSON.stringify(merged);\n")
 }

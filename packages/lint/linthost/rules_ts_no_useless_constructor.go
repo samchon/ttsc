@@ -18,35 +18,35 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type tsNoUselessConstructor struct{}
 
 func (tsNoUselessConstructor) Name() string { return "typescript/no-useless-constructor" }
 func (tsNoUselessConstructor) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindConstructor}
+  return []shimast.Kind{shimast.KindConstructor}
 }
 func (tsNoUselessConstructor) Check(ctx *Context, node *shimast.Node) {
-	ctor := node.AsConstructorDeclaration()
-	if ctor == nil || ctor.Body == nil {
-		return
-	}
-	body := ctor.Body.AsBlock()
-	if body == nil || body.Statements == nil || len(body.Statements.Nodes) != 0 {
-		return
-	}
-	// Any parameter property keeps the constructor meaningful: the
-	// shorthand IS the field declaration. Removing the constructor
-	// would silently delete the field, so this is not "useless".
-	for _, param := range node.Parameters() {
-		if isParameterProperty(param) {
-			return
-		}
-	}
-	ctx.Report(node, "Useless constructor with no parameter properties.")
+  ctor := node.AsConstructorDeclaration()
+  if ctor == nil || ctor.Body == nil {
+    return
+  }
+  body := ctor.Body.AsBlock()
+  if body == nil || body.Statements == nil || len(body.Statements.Nodes) != 0 {
+    return
+  }
+  // Any parameter property keeps the constructor meaningful: the
+  // shorthand IS the field declaration. Removing the constructor
+  // would silently delete the field, so this is not "useless".
+  for _, param := range node.Parameters() {
+    if isParameterProperty(param) {
+      return
+    }
+  }
+  ctx.Report(node, "Useless constructor with no parameter properties.")
 }
 
 func init() {
-	Register(tsNoUselessConstructor{})
+  Register(tsNoUselessConstructor{})
 }

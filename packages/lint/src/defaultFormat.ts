@@ -8,7 +8,7 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
  * Exported so users can spread defaults next to overrides:
  *
  * ```ts
- * import { defaultFormat, type ITtscLintConfig } from "@ttsc/lint";
+ * import { type ITtscLintConfig, defaultFormat } from "@ttsc/lint";
  *
  * export default {
  *   format: { ...defaultFormat, printWidth: 100 },
@@ -19,9 +19,9 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
  * narrowing (no `"cr"` / `"auto"`).
  *
  * Notably absent: `importOrder` and `jsdoc`. `format/sort-imports` and
- * `format/jsdoc` are opt-in by setting their corresponding fields; this
- * const documents only the rules that turn on unconditionally with a
- * non-empty `format` block — the Go host owns runtime activation.
+ * `format/jsdoc` are opt-in by setting their corresponding fields; this const
+ * documents only the rules that turn on unconditionally with a non-empty
+ * `format` block — the Go host owns runtime activation.
  */
 export const defaultFormat = Object.freeze({
   severity: "off",

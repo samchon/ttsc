@@ -14,5 +14,5 @@ import "testing"
 // 2. Compare `xs.filter((x) => x > 1).length` against zero with `>`.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornPreferArraySome(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-array-some.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-some error\nconst any = xs.filter((x) => x > 1).length > 0;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-array-some.ts", "const xs = [1, 2, 3];\n// expect: unicorn/prefer-array-some error\nconst any = xs.filter((x) => x > 1).length > 0;\n")
 }

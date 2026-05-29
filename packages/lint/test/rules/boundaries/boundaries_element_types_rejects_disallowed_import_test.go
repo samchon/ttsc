@@ -14,8 +14,8 @@ import "testing"
 // 2. Configure app and domain elements plus an app -> domain disallow policy.
 // 3. Assert the app import of the domain file reports exactly one finding.
 func TestBoundariesElementTypesRejectsDisallowedImport(t *testing.T) {
-	const ruleName = "boundaries/element-types"
-	findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  const ruleName = "boundaries/element-types"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
     import "../domain/internal";
     import "./local";
   `, `{
@@ -27,8 +27,8 @@ func TestBoundariesElementTypesRejectsDisallowedImport(t *testing.T) {
       { "from": "app", "disallow": "domain" }
     ]
   }`, map[string]string{
-		"src/app/local.ts":       "export {};",
-		"src/domain/internal.ts": "export {};",
-	})
-	assertSingleBoundaryFinding(t, ruleName, findings, `domain`)
+    "src/app/local.ts":       "export {};",
+    "src/domain/internal.ts": "export {};",
+  })
+  assertSingleBoundaryFinding(t, ruleName, findings, `domain`)
 }

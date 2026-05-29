@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusRestrictTemplateExpressions verifies the lint rule corpus
@@ -21,20 +21,20 @@ import (
 // 2. Run `check` with typescript/restrict-template-expressions enabled.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusRestrictTemplateExpressions(t *testing.T) {
-	root := seedLintProject(t, `declare const obj: { id: number };
+  root := seedLintProject(t, `declare const obj: { id: number };
 const s = `+"`"+`value=${obj}`+"`"+`;
 JSON.stringify({ s });
 `)
-	seedLintRules(t, root, map[string]string{"typescript/restrict-template-expressions": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/restrict-template-expressions": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-template-expressions]") {
-		t.Fatalf("restrict-template-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-template-expressions]") {
+    t.Fatalf("restrict-template-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

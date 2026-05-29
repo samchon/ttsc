@@ -11,7 +11,7 @@ import "testing"
 // 2. Parse a nested quantified regular expression literal.
 // 3. Assert only the nested quantified pattern is reported.
 func TestSecurityDetectUnsafeRegex(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-unsafe-regex.ts", `
+  assertRuleCorpusCase(t, "security/detect-unsafe-regex.ts", `
 /^d+1337d+$/;
 // expect: security/detect-unsafe-regex error
 /(x+x+)+y/;

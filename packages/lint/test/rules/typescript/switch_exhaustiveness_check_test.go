@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusSwitchExhaustivenessCheck verifies the lint rule corpus
@@ -17,13 +17,13 @@ import (
 // `restrict-plus-operands`: materialize a tsconfig project, run
 // `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// 1. Seed a project that switches on a `"a" | "b" | "c"` union with
-//    only the `"a"` and `"b"` cases covered and no `default` clause.
-// 2. Run `check` with typescript/switch-exhaustiveness-check enabled as
-//    error.
-// 3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Seed a project that switches on a `"a" | "b" | "c"` union with
+//     only the `"a"` and `"b"` cases covered and no `default` clause.
+//  2. Run `check` with typescript/switch-exhaustiveness-check enabled as
+//     error.
+//  3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusSwitchExhaustivenessCheck(t *testing.T) {
-	root := seedLintProject(t, `type Tag = "a" | "b" | "c";
+  root := seedLintProject(t, `type Tag = "a" | "b" | "c";
 declare const tag: Tag;
 declare function sideEffect(value: string): void;
 switch (tag) {
@@ -35,16 +35,16 @@ switch (tag) {
     break;
 }
 `)
-	seedLintRules(t, root, map[string]string{"typescript/switch-exhaustiveness-check": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/switch-exhaustiveness-check": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/switch-exhaustiveness-check]") {
-		t.Fatalf("switch-exhaustiveness-check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/switch-exhaustiveness-check]") {
+    t.Fatalf("switch-exhaustiveness-check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

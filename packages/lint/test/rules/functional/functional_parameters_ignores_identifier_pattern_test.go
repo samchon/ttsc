@@ -11,12 +11,12 @@ import "testing"
 // 2. Enable only functional/functional-parameters with `ignoreIdentifierPattern`.
 // 3. Assert the parameter is skipped.
 func TestFunctionalParametersIgnoresIdentifierPattern(t *testing.T) {
-	const ruleName = "functional/functional-parameters"
-	findings := runFunctionalRuleWithOptions(
-		t,
-		ruleName,
-		`function collect(...items: string[]) { return items; }`,
-		`{"ignoreIdentifierPattern":"^items$"}`,
-	)
-	assertNoFunctionalFinding(t, ruleName, findings)
+  const ruleName = "functional/functional-parameters"
+  findings := runFunctionalRuleWithOptions(
+    t,
+    ruleName,
+    `function collect(...items: string[]) { return items; }`,
+    `{"ignoreIdentifierPattern":"^items$"}`,
+  )
+  assertNoFunctionalFinding(t, ruleName, findings)
 }

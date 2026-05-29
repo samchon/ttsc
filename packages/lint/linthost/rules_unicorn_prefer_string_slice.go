@@ -18,26 +18,26 @@ type unicornPreferStringSlice struct{}
 
 func (unicornPreferStringSlice) Name() string { return "unicorn/prefer-string-slice" }
 func (unicornPreferStringSlice) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferStringSlice) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	switch identifierText(access.Name()) {
-	case "substr", "substring":
-	default:
-		return
-	}
-	ctx.Report(node, "Prefer `String#slice()` over `substr` / `substring`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  switch identifierText(access.Name()) {
+  case "substr", "substring":
+  default:
+    return
+  }
+  ctx.Report(node, "Prefer `String#slice()` over `substr` / `substring`.")
 }
 
 func init() {
-	Register(unicornPreferStringSlice{})
+  Register(unicornPreferStringSlice{})
 }

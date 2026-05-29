@@ -17,9 +17,9 @@
 package linthost
 
 import (
-	"encoding/json"
+  "encoding/json"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type noRestrictedImports struct{}
@@ -29,7 +29,7 @@ type noRestrictedImports struct{}
 // future ESLint-compatible keys (e.g. `patterns`) can be layered in
 // without changing existing configs.
 type noRestrictedImportsOptions struct {
-	Paths []string `json:"paths"`
+  Paths []string `json:"paths"`
 }
 
 // hardCodedRestrictedImports is the default deny list used when the
@@ -42,47 +42,47 @@ var hardCodedRestrictedImports = []string{"lodash", "underscore"}
 
 func (noRestrictedImports) Name() string { return "no-restricted-imports" }
 func (noRestrictedImports) Visits() []shimast.Kind {
-	return []shimast.Kind{
-		shimast.KindImportDeclaration,
-		shimast.KindExportDeclaration,
-	}
+  return []shimast.Kind{
+    shimast.KindImportDeclaration,
+    shimast.KindExportDeclaration,
+  }
 }
 func (noRestrictedImports) Check(ctx *Context, node *shimast.Node) {
-	specifierNode := moduleSpecifierOf(node)
-	if specifierNode == nil {
-		return
-	}
-	specifier := stringLiteralText(specifierNode)
-	if specifier == "" {
-		return
-	}
-	denied := resolveNoRestrictedImportsPaths(ctx)
-	for _, target := range denied {
-		if specifier == target {
-			ctx.Report(specifierNode, "'"+specifier+"' import is restricted from being used.")
-			return
-		}
-	}
+  specifierNode := moduleSpecifierOf(node)
+  if specifierNode == nil {
+    return
+  }
+  specifier := stringLiteralText(specifierNode)
+  if specifier == "" {
+    return
+  }
+  denied := resolveNoRestrictedImportsPaths(ctx)
+  for _, target := range denied {
+    if specifier == target {
+      ctx.Report(specifierNode, "'"+specifier+"' import is restricted from being used.")
+      return
+    }
+  }
 }
 
 // moduleSpecifierOf returns the `from "…"` string-literal node of the
 // import / re-export declaration. `export { x }` (no `from`) and
 // every other shape returns nil so the caller short-circuits.
 func moduleSpecifierOf(node *shimast.Node) *shimast.Node {
-	if node == nil {
-		return nil
-	}
-	switch node.Kind {
-	case shimast.KindImportDeclaration:
-		if imp := node.AsImportDeclaration(); imp != nil {
-			return imp.ModuleSpecifier
-		}
-	case shimast.KindExportDeclaration:
-		if exp := node.AsExportDeclaration(); exp != nil {
-			return exp.ModuleSpecifier
-		}
-	}
-	return nil
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindImportDeclaration:
+    if imp := node.AsImportDeclaration(); imp != nil {
+      return imp.ModuleSpecifier
+    }
+  case shimast.KindExportDeclaration:
+    if exp := node.AsExportDeclaration(); exp != nil {
+      return exp.ModuleSpecifier
+    }
+  }
+  return nil
 }
 
 // resolveNoRestrictedImportsPaths returns the active deny list for the
@@ -90,16 +90,16 @@ func moduleSpecifierOf(node *shimast.Node) *shimast.Node {
 // empty / missing blob falls back to `hardCodedRestrictedImports` so
 // the AST-layer test fires deterministically.
 func resolveNoRestrictedImportsPaths(ctx *Context) []string {
-	if ctx == nil || len(ctx.Options) == 0 {
-		return hardCodedRestrictedImports
-	}
-	var opts noRestrictedImportsOptions
-	if err := json.Unmarshal(ctx.Options, &opts); err != nil || len(opts.Paths) == 0 {
-		return hardCodedRestrictedImports
-	}
-	return opts.Paths
+  if ctx == nil || len(ctx.Options) == 0 {
+    return hardCodedRestrictedImports
+  }
+  var opts noRestrictedImportsOptions
+  if err := json.Unmarshal(ctx.Options, &opts); err != nil || len(opts.Paths) == 0 {
+    return hardCodedRestrictedImports
+  }
+  return opts.Paths
 }
 
 func init() {
-	Register(noRestrictedImports{})
+  Register(noRestrictedImports{})
 }

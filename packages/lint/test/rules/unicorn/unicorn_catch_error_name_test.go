@@ -14,5 +14,5 @@ import "testing"
 // 2. Use a catch clause with the binding name `err`.
 // 3. Assert the binding identifier is reported.
 func TestRuleCorpusUnicornCatchErrorName(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/catch-error-name.ts", "// expect: unicorn/catch-error-name error\ntry { } catch (err) { void err; }\n")
+  assertRuleCorpusCase(t, "unicorn/catch-error-name.ts", "// expect: unicorn/catch-error-name error\ntry { } catch (err) { void err; }\n")
 }

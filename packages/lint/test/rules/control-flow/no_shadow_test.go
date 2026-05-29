@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoShadow(t *testing.T) {
-	assertRuleCorpusCase(t, "no-shadow.ts", "// Positive: an inner `let` shadows the outer-scope binding of the same name.\nlet outer: number = 1;\nfunction f(): number {\n  // expect: no-shadow error\n  let outer: number = 2;\n  return outer;\n}\n\n// Negative: a sibling block introduces its own binding with a distinct name.\nfunction g(): number {\n  let inner: number = 3;\n  return inner;\n}\n\nvoid [outer, f, g];\n")
+  assertRuleCorpusCase(t, "no-shadow.ts", "// Positive: an inner `let` shadows the outer-scope binding of the same name.\nlet outer: number = 1;\nfunction f(): number {\n  // expect: no-shadow error\n  let outer: number = 2;\n  return outer;\n}\n\n// Negative: a sibling block introduces its own binding with a distinct name.\nfunction g(): number {\n  let inner: number = 3;\n  return inner;\n}\n\nvoid [outer, f, g];\n")
 }

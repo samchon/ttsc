@@ -12,13 +12,13 @@ import "testing"
 // 2. Enable `react-perf/jsx-no-jsx-as-prop`.
 // 3. Assert only freshly-created JSX prop values are reported.
 func TestReactPerfJsxNoJsxAsProp(t *testing.T) {
-	source := "const stable = <SubItem />;\n" +
-		"const view = <>\n" +
-		"  <Item jsx={<SubItem />} />\n" +
-		"  <Item jsx={<><SubItem /></>} />\n" +
-		"  <Item jsx={props.jsx || <SubItem />} />\n" +
-		"  <Item jsx={props.jsx ? props.jsx : <SubItem />} />\n" +
-		"  <Item jsx={stable} />\n" +
-		"</>;\n"
-	reactPerfAssertLines(t, "react-perf/jsx-no-jsx-as-prop", source, []int{3, 4, 5, 6})
+  source := "const stable = <SubItem />;\n" +
+    "const view = <>\n" +
+    "  <Item jsx={<SubItem />} />\n" +
+    "  <Item jsx={<><SubItem /></>} />\n" +
+    "  <Item jsx={props.jsx || <SubItem />} />\n" +
+    "  <Item jsx={props.jsx ? props.jsx : <SubItem />} />\n" +
+    "  <Item jsx={stable} />\n" +
+    "</>;\n"
+  reactPerfAssertLines(t, "react-perf/jsx-no-jsx-as-prop", source, []int{3, 4, 5, 6})
 }

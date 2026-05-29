@@ -18,29 +18,29 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUselessErrorCaptureStackTrace struct{}
 
 func (unicornNoUselessErrorCaptureStackTrace) Name() string {
-	return "unicorn/no-useless-error-capture-stack-trace"
+  return "unicorn/no-useless-error-capture-stack-trace"
 }
 func (unicornNoUselessErrorCaptureStackTrace) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoUselessErrorCaptureStackTrace) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	if !isMatchingPropertyAccess(call.Expression, "Error", "captureStackTrace") {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) < 1 {
-		return
-	}
-	first := stripParens(call.Arguments.Nodes[0])
-	if first == nil || first.Kind != shimast.KindThisKeyword {
-		return
-	}
-	ctx.Report(node, "Don't call `Error.captureStackTrace(this, ...)` in an `Error` subclass — the default capture already happens.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  if !isMatchingPropertyAccess(call.Expression, "Error", "captureStackTrace") {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) < 1 {
+    return
+  }
+  first := stripParens(call.Arguments.Nodes[0])
+  if first == nil || first.Kind != shimast.KindThisKeyword {
+    return
+  }
+  ctx.Report(node, "Don't call `Error.captureStackTrace(this, ...)` in an `Error` subclass — the default capture already happens.")
 }
 
 func init() {
-	Register(unicornNoUselessErrorCaptureStackTrace{})
+  Register(unicornNoUselessErrorCaptureStackTrace{})
 }

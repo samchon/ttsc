@@ -15,5 +15,5 @@ import "testing"
 // 2. Compare `s.slice(0, 4)` against `"http"`.
 // 3. Assert the binary expression is reported.
 func TestRuleCorpusUnicornPreferStringStartsEndsWith(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-string-starts-ends-with.ts", "declare const s: string;\n// expect: unicorn/prefer-string-starts-ends-with error\nconst b = s.slice(0, 4) === \"http\";\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-string-starts-ends-with.ts", "declare const s: string;\n// expect: unicorn/prefer-string-starts-ends-with error\nconst b = s.slice(0, 4) === \"http\";\n")
 }

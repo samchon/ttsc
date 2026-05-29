@@ -21,34 +21,34 @@ type unicornPreferPrototypeMethods struct{}
 
 func (unicornPreferPrototypeMethods) Name() string { return "unicorn/prefer-prototype-methods" }
 func (unicornPreferPrototypeMethods) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindPropertyAccessExpression}
+  return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (unicornPreferPrototypeMethods) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsPropertyAccessExpression()
-	if access == nil || access.Expression == nil {
-		return
-	}
-	receiver := stripParens(access.Expression)
-	if receiver == nil {
-		return
-	}
-	switch receiver.Kind {
-	case shimast.KindArrayLiteralExpression:
-		arr := receiver.AsArrayLiteralExpression()
-		if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 0 {
-			return
-		}
-	case shimast.KindObjectLiteralExpression:
-		obj := receiver.AsObjectLiteralExpression()
-		if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 0 {
-			return
-		}
-	default:
-		return
-	}
-	ctx.Report(node, "Use `Array.prototype.<method>` / `Object.prototype.<method>` instead of borrowing via an empty literal.")
+  access := node.AsPropertyAccessExpression()
+  if access == nil || access.Expression == nil {
+    return
+  }
+  receiver := stripParens(access.Expression)
+  if receiver == nil {
+    return
+  }
+  switch receiver.Kind {
+  case shimast.KindArrayLiteralExpression:
+    arr := receiver.AsArrayLiteralExpression()
+    if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) != 0 {
+      return
+    }
+  case shimast.KindObjectLiteralExpression:
+    obj := receiver.AsObjectLiteralExpression()
+    if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 0 {
+      return
+    }
+  default:
+    return
+  }
+  ctx.Report(node, "Use `Array.prototype.<method>` / `Object.prototype.<method>` instead of borrowing via an empty literal.")
 }
 
 func init() {
-	Register(unicornPreferPrototypeMethods{})
+  Register(unicornPreferPrototypeMethods{})
 }

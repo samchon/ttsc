@@ -16,49 +16,49 @@ package linthost
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 var unicornErrorMessageBuiltinNames = map[string]struct{}{
-	"Error":          {},
-	"TypeError":      {},
-	"RangeError":     {},
-	"SyntaxError":    {},
-	"ReferenceError": {},
-	"EvalError":      {},
-	"URIError":       {},
-	"AggregateError": {},
+  "Error":          {},
+  "TypeError":      {},
+  "RangeError":     {},
+  "SyntaxError":    {},
+  "ReferenceError": {},
+  "EvalError":      {},
+  "URIError":       {},
+  "AggregateError": {},
 }
 
 type unicornErrorMessage struct{}
 
 func (unicornErrorMessage) Name() string { return "unicorn/error-message" }
 func (unicornErrorMessage) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindNewExpression}
 }
 func (unicornErrorMessage) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne == nil {
-		return
-	}
-	name := identifierText(ne.Expression)
-	if name == "" {
-		return
-	}
-	if _, ok := unicornErrorMessageBuiltinNames[name]; !ok {
-		return
-	}
-	// Zero arguments — `new Error()` / `new Error` — always fires.
-	if ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
-		ctx.Report(node, "Pass an error message to the `Error` constructor.")
-		return
-	}
-	// Single argument — fire only when the argument is an empty string
-	// literal. Dynamic arguments cannot be proven empty statically.
-	if len(ne.Arguments.Nodes) == 1 {
-		arg := stripParens(ne.Arguments.Nodes[0])
-		if arg != nil && arg.Kind == shimast.KindStringLiteral && stringLiteralText(arg) == "" {
-			ctx.Report(node, "Pass an error message to the `Error` constructor.")
-		}
-	}
+  ne := node.AsNewExpression()
+  if ne == nil {
+    return
+  }
+  name := identifierText(ne.Expression)
+  if name == "" {
+    return
+  }
+  if _, ok := unicornErrorMessageBuiltinNames[name]; !ok {
+    return
+  }
+  // Zero arguments — `new Error()` / `new Error` — always fires.
+  if ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
+    ctx.Report(node, "Pass an error message to the `Error` constructor.")
+    return
+  }
+  // Single argument — fire only when the argument is an empty string
+  // literal. Dynamic arguments cannot be proven empty statically.
+  if len(ne.Arguments.Nodes) == 1 {
+    arg := stripParens(ne.Arguments.Nodes[0])
+    if arg != nil && arg.Kind == shimast.KindStringLiteral && stringLiteralText(arg) == "" {
+      ctx.Report(node, "Pass an error message to the `Error` constructor.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornErrorMessage{})
+  Register(unicornErrorMessage{})
 }

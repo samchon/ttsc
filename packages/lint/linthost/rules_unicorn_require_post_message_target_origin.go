@@ -16,29 +16,29 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornRequirePostMessageTargetOrigin struct{}
 
 func (unicornRequirePostMessageTargetOrigin) Name() string {
-	return "unicorn/require-post-message-target-origin"
+  return "unicorn/require-post-message-target-origin"
 }
 func (unicornRequirePostMessageTargetOrigin) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornRequirePostMessageTargetOrigin) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "postMessage" {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	ctx.Report(node, "Pass an explicit `targetOrigin` argument to `postMessage`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "postMessage" {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  ctx.Report(node, "Pass an explicit `targetOrigin` argument to `postMessage`.")
 }
 
 func init() {
-	Register(unicornRequirePostMessageTargetOrigin{})
+  Register(unicornRequirePostMessageTargetOrigin{})
 }

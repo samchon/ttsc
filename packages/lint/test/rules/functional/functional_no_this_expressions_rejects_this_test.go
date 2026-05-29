@@ -11,7 +11,7 @@ import "testing"
 // 2. Enable only functional/no-this-expressions.
 // 3. Assert the expression reports and offers no autofix.
 func TestFunctionalNoThisExpressionsRejectsThis(t *testing.T) {
-	const ruleName = "functional/no-this-expressions"
-	findings := runFunctionalRule(t, ruleName, `this.value;`)
-	assertFunctionalFinding(t, ruleName, findings, "this")
+  const ruleName = "functional/no-this-expressions"
+  findings := runFunctionalRule(t, ruleName, `this.value;`)
+  assertFunctionalFinding(t, ruleName, findings, "this")
 }

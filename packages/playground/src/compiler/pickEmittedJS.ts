@@ -8,12 +8,7 @@ export function pickEmittedJS(
   entryFile: string,
 ): string | null {
   const base = entryFile.replace(/\.[cm]?tsx?$/i, ".js");
-  const candidates = [
-    `dist/${base}`,
-    `dist/src/${base}`,
-    `src/${base}`,
-    base,
-  ];
+  const candidates = [`dist/${base}`, `dist/src/${base}`, `src/${base}`, base];
   for (const key of candidates) {
     if (output[key] !== undefined) return output[key];
   }

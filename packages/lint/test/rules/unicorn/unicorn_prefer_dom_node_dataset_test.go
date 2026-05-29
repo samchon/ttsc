@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `el.getAttribute("data-foo")` on a declared element.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferDomNodeDataset(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-dom-node-dataset.ts", "declare const el: Element;\n// expect: unicorn/prefer-dom-node-dataset error\nel.getAttribute(\"data-foo\");\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-dom-node-dataset.ts", "declare const el: Element;\n// expect: unicorn/prefer-dom-node-dataset error\nel.getAttribute(\"data-foo\");\n")
 }

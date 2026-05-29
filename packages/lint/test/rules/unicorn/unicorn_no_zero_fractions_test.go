@@ -13,5 +13,5 @@ import "testing"
 // 2. Declare a const initialized to `1.0`.
 // 3. Assert the literal is reported.
 func TestRuleCorpusUnicornNoZeroFractions(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-zero-fractions.ts", "// expect: unicorn/no-zero-fractions error\nconst n = 1.0;\n")
+  assertRuleCorpusCase(t, "unicorn/no-zero-fractions.ts", "// expect: unicorn/no-zero-fractions error\nconst n = 1.0;\n")
 }

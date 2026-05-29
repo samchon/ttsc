@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 )
 
 // TestRuleCorpusNoUnsafeArgument verifies the lint rule corpus fixture
@@ -27,20 +27,20 @@ import (
 // 2. Run `check` with typescript/no-unsafe-argument enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 func TestRuleCorpusNoUnsafeArgument(t *testing.T) {
-	root := seedLintProject(t, `declare const anyValue: any;
+  root := seedLintProject(t, `declare const anyValue: any;
 declare function takesNumber(value: number): void;
 takesNumber(anyValue);
 `)
-	seedLintRules(t, root, map[string]string{"typescript/no-unsafe-argument": "error"})
+  seedLintRules(t, root, map[string]string{"typescript/no-unsafe-argument": "error"})
 
-	code, stdout, stderr := captureCommandOutput(t, func() int {
-		return run([]string{
-			"check",
-			"--cwd", root,
-			"--plugins-json", lintManifest(t),
-		})
-	})
-	if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-argument]") {
-		t.Fatalf("no-unsafe-argument diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-	}
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unsafe-argument]") {
+    t.Fatalf("no-unsafe-argument diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

@@ -22,13 +22,13 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornPreferSimpleConditionFirst struct{}
 
 func (unicornPreferSimpleConditionFirst) Name() string {
-	return "unicorn/prefer-simple-condition-first"
+  return "unicorn/prefer-simple-condition-first"
 }
 func (unicornPreferSimpleConditionFirst) Visits() []shimast.Kind { return nil }
 func (unicornPreferSimpleConditionFirst) Check(_ *Context, _ *shimast.Node) {
-	// Intentionally empty — see file header for the escape-hatch rationale.
+  // Intentionally empty — see file header for the escape-hatch rationale.
 }
 
 func init() {
-	Register(unicornPreferSimpleConditionFirst{})
+  Register(unicornPreferSimpleConditionFirst{})
 }

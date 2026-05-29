@@ -14,5 +14,5 @@ import "testing"
 // 2. Chain a literal array's `.map(...)` into `.flat()`.
 // 3. Assert the outer call expression is reported.
 func TestRuleCorpusUnicornPreferArrayFlatMap(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-array-flat-map.ts", "// expect: unicorn/prefer-array-flat-map error\nconst result = [1, 2].map((x) => [x, x]).flat();\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-array-flat-map.ts", "// expect: unicorn/prefer-array-flat-map error\nconst result = [1, 2].map((x) => [x, x]).flat();\n")
 }

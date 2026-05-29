@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `.trimLeft()` on a padded string literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferStringTrimStartEnd(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-string-trim-start-end.ts", "// expect: unicorn/prefer-string-trim-start-end error\nconst s = \"  hi  \".trimLeft();\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-string-trim-start-end.ts", "// expect: unicorn/prefer-string-trim-start-end error\nconst s = \"  hi  \".trimLeft();\n")
 }

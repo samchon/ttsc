@@ -16,5 +16,5 @@ import "testing"
 // 2. Pass a named `isEven` function reference straight to `.filter`.
 // 3. Assert the identifier argument is reported.
 func TestRuleCorpusUnicornNoArrayCallbackReference(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-array-callback-reference.ts", "function isEven(n: number) { return n % 2 === 0; }\n// expect: unicorn/no-array-callback-reference error\nconst evens = [1, 2, 3].filter(isEven);\n")
+  assertRuleCorpusCase(t, "unicorn/no-array-callback-reference.ts", "function isEven(n: number) { return n % 2 === 0; }\n// expect: unicorn/no-array-callback-reference error\nconst evens = [1, 2, 3].filter(isEven);\n")
 }

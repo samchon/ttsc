@@ -13,5 +13,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
 func TestRuleCorpusGetterReturn(t *testing.T) {
-	assertRuleCorpusCase(t, "getter-return.ts", "class Foo {\n  // expect: getter-return error\n  get value(): number {\n    JSON.stringify({});\n  }\n}\nJSON.stringify(Foo);\n")
+  assertRuleCorpusCase(t, "getter-return.ts", "class Foo {\n  // expect: getter-return error\n  get value(): number {\n    JSON.stringify({});\n  }\n}\nJSON.stringify(Foo);\n")
 }

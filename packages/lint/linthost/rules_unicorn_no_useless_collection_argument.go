@@ -19,45 +19,45 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 type unicornNoUselessCollectionArgument struct{}
 
 func (unicornNoUselessCollectionArgument) Name() string {
-	return "unicorn/no-useless-collection-argument"
+  return "unicorn/no-useless-collection-argument"
 }
 func (unicornNoUselessCollectionArgument) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindNewExpression}
+  return []shimast.Kind{shimast.KindNewExpression}
 }
 func (unicornNoUselessCollectionArgument) Check(ctx *Context, node *shimast.Node) {
-	ne := node.AsNewExpression()
-	if ne == nil {
-		return
-	}
-	switch identifierText(ne.Expression) {
-	case "Set", "Map", "WeakSet", "WeakMap":
-	default:
-		return
-	}
-	if ne.Arguments == nil || len(ne.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(ne.Arguments.Nodes[0])
-	if arg == nil {
-		return
-	}
-	switch arg.Kind {
-	case shimast.KindNullKeyword, shimast.KindUndefinedKeyword:
-		ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
-		return
-	case shimast.KindIdentifier:
-		if identifierText(arg) == "undefined" {
-			ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
-		}
-		return
-	case shimast.KindArrayLiteralExpression:
-		if arr := arg.AsArrayLiteralExpression(); arr != nil &&
-			(arr.Elements == nil || len(arr.Elements.Nodes) == 0) {
-			ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
-		}
-	}
+  ne := node.AsNewExpression()
+  if ne == nil {
+    return
+  }
+  switch identifierText(ne.Expression) {
+  case "Set", "Map", "WeakSet", "WeakMap":
+  default:
+    return
+  }
+  if ne.Arguments == nil || len(ne.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(ne.Arguments.Nodes[0])
+  if arg == nil {
+    return
+  }
+  switch arg.Kind {
+  case shimast.KindNullKeyword, shimast.KindUndefinedKeyword:
+    ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
+    return
+  case shimast.KindIdentifier:
+    if identifierText(arg) == "undefined" {
+      ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
+    }
+    return
+  case shimast.KindArrayLiteralExpression:
+    if arr := arg.AsArrayLiteralExpression(); arr != nil &&
+      (arr.Elements == nil || len(arr.Elements.Nodes) == 0) {
+      ctx.Report(node, "Don't pass a useless initializer to `new <Collection>()`.")
+    }
+  }
 }
 
 func init() {
-	Register(unicornNoUselessCollectionArgument{})
+  Register(unicornNoUselessCollectionArgument{})
 }

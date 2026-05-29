@@ -18,23 +18,23 @@ type unicornNoArrayForEach struct{}
 
 func (unicornNoArrayForEach) Name() string { return "unicorn/no-array-for-each" }
 func (unicornNoArrayForEach) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornNoArrayForEach) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil {
-		return
-	}
-	if identifierText(access.Name()) != "forEach" {
-		return
-	}
-	ctx.Report(node, "Use `for…of` instead of `.forEach(…)`.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil || call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil {
+    return
+  }
+  if identifierText(access.Name()) != "forEach" {
+    return
+  }
+  ctx.Report(node, "Use `for…of` instead of `.forEach(…)`.")
 }
 
 func init() {
-	Register(unicornNoArrayForEach{})
+  Register(unicornNoArrayForEach{})
 }

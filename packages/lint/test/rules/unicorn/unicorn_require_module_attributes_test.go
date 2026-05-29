@@ -16,5 +16,5 @@ import "testing"
 // 2. Write `import data from "./data.json" with {};`.
 // 3. Assert the import declaration is reported.
 func TestRuleCorpusUnicornRequireModuleAttributes(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/require-module-attributes.ts", "// expect: unicorn/require-module-attributes error\nimport data from \"./data.json\" with {};\nvoid data;\n")
+  assertRuleCorpusCase(t, "unicorn/require-module-attributes.ts", "// expect: unicorn/require-module-attributes error\nimport data from \"./data.json\" with {};\nvoid data;\n")
 }

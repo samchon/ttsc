@@ -19,53 +19,53 @@
 package linthost
 
 import (
-	"strings"
+  "strings"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 type preferRegexpExec struct{}
 
 func (preferRegexpExec) Name() string { return "typescript/prefer-regexp-exec" }
 func (preferRegexpExec) NeedsTypeChecker() bool {
-	return true
+  return true
 }
 func (preferRegexpExec) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (preferRegexpExec) Check(ctx *Context, node *shimast.Node) {
-	if ctx.Checker == nil {
-		return
-	}
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil {
-		return
-	}
-	receiver, method, ok := promisePropertyAccessParts(call.Expression)
-	if !ok || method != "match" {
-		return
-	}
-	if receiver == nil {
-		return
-	}
-	if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
-		return
-	}
-	arg := stripParens(call.Arguments.Nodes[0])
-	if arg == nil || arg.Kind != shimast.KindRegularExpressionLiteral {
-		return
-	}
-	// Skip when the regex literal carries the `g` flag — `String#match`
-	// returns every match in that mode, which `RegExp#exec` cannot
-	// replicate in a single call.
-	if preferRegexpExecHasGlobalFlag(ctx.File, arg) {
-		return
-	}
-	if !preferRegexpExecIsString(ctx.Checker.GetTypeAtLocation(receiver)) {
-		return
-	}
-	ctx.Report(node, preferRegexpExecMessage)
+  if ctx.Checker == nil {
+    return
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil {
+    return
+  }
+  receiver, method, ok := promisePropertyAccessParts(call.Expression)
+  if !ok || method != "match" {
+    return
+  }
+  if receiver == nil {
+    return
+  }
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return
+  }
+  arg := stripParens(call.Arguments.Nodes[0])
+  if arg == nil || arg.Kind != shimast.KindRegularExpressionLiteral {
+    return
+  }
+  // Skip when the regex literal carries the `g` flag — `String#match`
+  // returns every match in that mode, which `RegExp#exec` cannot
+  // replicate in a single call.
+  if preferRegexpExecHasGlobalFlag(ctx.File, arg) {
+    return
+  }
+  if !preferRegexpExecIsString(ctx.Checker.GetTypeAtLocation(receiver)) {
+    return
+  }
+  ctx.Report(node, preferRegexpExecMessage)
 }
 
 const preferRegexpExecMessage = "Prefer `RegExp#exec(str)` over `String#match(re)` when the regex has no `g` flag — `exec` returns the same first-match shape and avoids the `g`-flag fallthrough that silently changes the return type of `match`."
@@ -76,16 +76,16 @@ const preferRegexpExecMessage = "Prefer `RegExp#exec(str)` over `String#match(re
 // already validated the token, so a textual scan of the trailing
 // suffix is sufficient.
 func preferRegexpExecHasGlobalFlag(file *shimast.SourceFile, node *shimast.Node) bool {
-	raw := nodeText(file, node)
-	if len(raw) < 2 || raw[0] != '/' {
-		return false
-	}
-	closing := strings.LastIndexByte(raw, '/')
-	if closing <= 0 {
-		return false
-	}
-	flags := raw[closing+1:]
-	return strings.Contains(flags, "g")
+  raw := nodeText(file, node)
+  if len(raw) < 2 || raw[0] != '/' {
+    return false
+  }
+  closing := strings.LastIndexByte(raw, '/')
+  if closing <= 0 {
+    return false
+  }
+  flags := raw[closing+1:]
+  return strings.Contains(flags, "g")
 }
 
 // preferRegexpExecIsString reports whether t is provably string-like.
@@ -93,30 +93,30 @@ func preferRegexpExecHasGlobalFlag(file *shimast.SourceFile, node *shimast.Node)
 // `never` are rejected so generic helpers don't fire. Union and
 // intersection types must have every constituent string-like.
 func preferRegexpExecIsString(t *shimchecker.Type) bool {
-	if t == nil {
-		return false
-	}
-	flags := t.Flags()
-	if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
-		return false
-	}
-	if flags&shimchecker.TypeFlagsStringLike != 0 {
-		return true
-	}
-	if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
-		for _, part := range t.Types() {
-			if part == nil {
-				continue
-			}
-			if !preferRegexpExecIsString(part) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+  if t == nil {
+    return false
+  }
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown|shimchecker.TypeFlagsNever) != 0 {
+    return false
+  }
+  if flags&shimchecker.TypeFlagsStringLike != 0 {
+    return true
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if !preferRegexpExecIsString(part) {
+        return false
+      }
+    }
+    return true
+  }
+  return false
 }
 
 func init() {
-	Register(preferRegexpExec{})
+  Register(preferRegexpExec{})
 }

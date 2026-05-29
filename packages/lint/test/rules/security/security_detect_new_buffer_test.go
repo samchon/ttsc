@@ -11,7 +11,7 @@ import "testing"
 // 2. Construct a Buffer from an identifier.
 // 3. Assert only the identifier constructor is reported.
 func TestSecurityDetectNewBuffer(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-new-buffer.ts", `
+  assertRuleCorpusCase(t, "security/detect-new-buffer.ts", `
 new Buffer("safe");
 // expect: security/detect-new-buffer error
 new Buffer(input);

@@ -16,52 +16,52 @@ type unicornPreferArraySome struct{}
 
 func (unicornPreferArraySome) Name() string { return "unicorn/prefer-array-some" }
 func (unicornPreferArraySome) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindBinaryExpression}
 }
 func (unicornPreferArraySome) Check(ctx *Context, node *shimast.Node) {
-	bin := node.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil || bin.Left == nil || bin.Right == nil {
-		return
-	}
-	switch bin.OperatorToken.Kind {
-	case shimast.KindGreaterThanToken,
-		shimast.KindGreaterThanEqualsToken,
-		shimast.KindExclamationEqualsEqualsToken,
-		shimast.KindExclamationEqualsToken:
-	default:
-		return
-	}
-	right := stripParens(bin.Right)
-	if right == nil || right.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	if numericLiteralText(right) != "0" {
-		return
-	}
-	left := stripParens(bin.Left)
-	if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	outer := left.AsPropertyAccessExpression()
-	if outer == nil || identifierText(outer.Name()) != "length" {
-		return
-	}
-	receiver := stripParens(outer.Expression)
-	if receiver == nil || receiver.Kind != shimast.KindCallExpression {
-		return
-	}
-	call := receiver.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "filter" {
-		return
-	}
-	ctx.Report(node, "Prefer `Array#some()` over `.filter(...).length > 0`.")
+  bin := node.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil || bin.Left == nil || bin.Right == nil {
+    return
+  }
+  switch bin.OperatorToken.Kind {
+  case shimast.KindGreaterThanToken,
+    shimast.KindGreaterThanEqualsToken,
+    shimast.KindExclamationEqualsEqualsToken,
+    shimast.KindExclamationEqualsToken:
+  default:
+    return
+  }
+  right := stripParens(bin.Right)
+  if right == nil || right.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  if numericLiteralText(right) != "0" {
+    return
+  }
+  left := stripParens(bin.Left)
+  if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  outer := left.AsPropertyAccessExpression()
+  if outer == nil || identifierText(outer.Name()) != "length" {
+    return
+  }
+  receiver := stripParens(outer.Expression)
+  if receiver == nil || receiver.Kind != shimast.KindCallExpression {
+    return
+  }
+  call := receiver.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "filter" {
+    return
+  }
+  ctx.Report(node, "Prefer `Array#some()` over `.filter(...).length > 0`.")
 }
 
 func init() {
-	Register(unicornPreferArraySome{})
+  Register(unicornPreferArraySome{})
 }

@@ -13,5 +13,5 @@ import "testing"
 // 2. Wrap an array literal in another array spread.
 // 3. Assert the outer array literal is reported.
 func TestRuleCorpusUnicornNoUselessSpread(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-spread.ts", "// expect: unicorn/no-useless-spread error\nconst a = [...[1, 2, 3]];\nvoid a;\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-spread.ts", "// expect: unicorn/no-useless-spread error\nconst a = [...[1, 2, 3]];\nvoid a;\n")
 }

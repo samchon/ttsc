@@ -14,5 +14,5 @@ import "testing"
 // 2. Declare a const initialized to `~~3.7`.
 // 3. Assert the outer unary expression is reported.
 func TestRuleCorpusUnicornPreferMathTrunc(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-math-trunc.ts", "// expect: unicorn/prefer-math-trunc error\nconst i = ~~3.7;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-math-trunc.ts", "// expect: unicorn/prefer-math-trunc error\nconst i = ~~3.7;\n")
 }

@@ -14,25 +14,25 @@
 package linthost
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 type parameterProperties struct{}
 
 func (parameterProperties) Name() string { return "typescript/parameter-properties" }
 func (parameterProperties) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindParameter}
+  return []shimast.Kind{shimast.KindParameter}
 }
 func (parameterProperties) Check(ctx *Context, node *shimast.Node) {
-	if node == nil || node.Parent == nil || node.Parent.Kind != shimast.KindConstructor {
-		return
-	}
-	if !isParameterProperty(node) {
-		return
-	}
-	ctx.Report(node, "Prefer a plain class field declaration over a constructor parameter property.")
+  if node == nil || node.Parent == nil || node.Parent.Kind != shimast.KindConstructor {
+    return
+  }
+  if !isParameterProperty(node) {
+    return
+  }
+  ctx.Report(node, "Prefer a plain class field declaration over a constructor parameter property.")
 }
 
 func init() {
-	Register(parameterProperties{})
+  Register(parameterProperties{})
 }

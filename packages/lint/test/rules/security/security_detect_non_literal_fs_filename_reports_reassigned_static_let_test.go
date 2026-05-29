@@ -12,7 +12,7 @@ import "testing"
 // 2. Reassign that filename from a non-literal input.
 // 3. Assert `readFileSync(filename)` is reported as non-literal.
 func TestSecurityDetectNonLiteralFSFilenameReportsReassignedStaticLet(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-non-literal-fs-filename-reassigned-static-let.ts", `
+  assertRuleCorpusCase(t, "security/detect-non-literal-fs-filename-reassigned-static-let.ts", `
 import fs from "fs";
 let filename = "./safe.json";
 filename = input;

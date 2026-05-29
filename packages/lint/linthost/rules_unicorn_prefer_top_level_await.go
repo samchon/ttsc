@@ -21,22 +21,22 @@ type unicornPreferTopLevelAwait struct{}
 
 func (unicornPreferTopLevelAwait) Name() string { return "unicorn/prefer-top-level-await" }
 func (unicornPreferTopLevelAwait) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression}
+  return []shimast.Kind{shimast.KindCallExpression}
 }
 func (unicornPreferTopLevelAwait) Check(ctx *Context, node *shimast.Node) {
-	call := node.AsCallExpression()
-	if call == nil || call.Expression == nil ||
-		call.Expression.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	access := call.Expression.AsPropertyAccessExpression()
-	if access == nil || identifierText(access.Name()) != "then" {
-		return
-	}
-	if !unicornPreferTopLevelAwaitIsTopLevel(node) {
-		return
-	}
-	ctx.Report(node, "Prefer top-level `await` over `.then` chains in ES modules.")
+  call := node.AsCallExpression()
+  if call == nil || call.Expression == nil ||
+    call.Expression.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  access := call.Expression.AsPropertyAccessExpression()
+  if access == nil || identifierText(access.Name()) != "then" {
+    return
+  }
+  if !unicornPreferTopLevelAwaitIsTopLevel(node) {
+    return
+  }
+  ctx.Report(node, "Prefer top-level `await` over `.then` chains in ES modules.")
 }
 
 // unicornPreferTopLevelAwaitIsTopLevel walks ancestors and reports
@@ -46,27 +46,27 @@ func (unicornPreferTopLevelAwait) Check(ctx *Context, node *shimast.Node) {
 // class-body, block, or module-block boundary, which would push the call
 // out of module scope.
 func unicornPreferTopLevelAwaitIsTopLevel(node *shimast.Node) bool {
-	for cur := node.Parent; cur != nil; cur = cur.Parent {
-		switch cur.Kind {
-		case shimast.KindSourceFile:
-			return true
-		case shimast.KindFunctionDeclaration,
-			shimast.KindFunctionExpression,
-			shimast.KindArrowFunction,
-			shimast.KindMethodDeclaration,
-			shimast.KindGetAccessor,
-			shimast.KindSetAccessor,
-			shimast.KindConstructor,
-			shimast.KindClassDeclaration,
-			shimast.KindClassExpression,
-			shimast.KindModuleBlock,
-			shimast.KindBlock:
-			return false
-		}
-	}
-	return false
+  for cur := node.Parent; cur != nil; cur = cur.Parent {
+    switch cur.Kind {
+    case shimast.KindSourceFile:
+      return true
+    case shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindArrowFunction,
+      shimast.KindMethodDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor,
+      shimast.KindConstructor,
+      shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindModuleBlock,
+      shimast.KindBlock:
+      return false
+    }
+  }
+  return false
 }
 
 func init() {
-	Register(unicornPreferTopLevelAwait{})
+  Register(unicornPreferTopLevelAwait{})
 }

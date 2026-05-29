@@ -136,9 +136,9 @@ export interface IWasmExecFS {
   ): void;
   /**
    * `pipe2` is what Go's wasm `os.Pipe()` calls. Returns two fds: a read end
-   * and a write end. The host's stdout/stderr capture currently uses MemFS
-   * temp files, but this keeps direct pipe callers compatible with the wasm
-   * fs surface.
+   * and a write end. The host's stdout/stderr capture currently uses MemFS temp
+   * files, but this keeps direct pipe callers compatible with the wasm fs
+   * surface.
    */
   pipe2(
     flags: number,

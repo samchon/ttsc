@@ -19,39 +19,39 @@ type unicornPreferAt struct{}
 
 func (unicornPreferAt) Name() string { return "unicorn/prefer-at" }
 func (unicornPreferAt) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindElementAccessExpression}
+  return []shimast.Kind{shimast.KindElementAccessExpression}
 }
 func (unicornPreferAt) Check(ctx *Context, node *shimast.Node) {
-	access := node.AsElementAccessExpression()
-	if access == nil || access.ArgumentExpression == nil {
-		return
-	}
-	index := stripParens(access.ArgumentExpression)
-	if index == nil || index.Kind != shimast.KindBinaryExpression {
-		return
-	}
-	bin := index.AsBinaryExpression()
-	if bin == nil || bin.OperatorToken == nil ||
-		bin.OperatorToken.Kind != shimast.KindMinusToken {
-		return
-	}
-	left := stripParens(bin.Left)
-	if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
-		return
-	}
-	prop := left.AsPropertyAccessExpression()
-	if prop == nil || identifierText(prop.Name()) != "length" {
-		return
-	}
-	right := stripParens(bin.Right)
-	if right == nil || right.Kind != shimast.KindNumericLiteral {
-		return
-	}
-	text := numericLiteralText(right)
-	if !unicornPreferAtIsPositiveInteger(text) {
-		return
-	}
-	ctx.Report(node, "Prefer `Array#at(-N)` / `String#at(-N)` over `arr[arr.length - N]`.")
+  access := node.AsElementAccessExpression()
+  if access == nil || access.ArgumentExpression == nil {
+    return
+  }
+  index := stripParens(access.ArgumentExpression)
+  if index == nil || index.Kind != shimast.KindBinaryExpression {
+    return
+  }
+  bin := index.AsBinaryExpression()
+  if bin == nil || bin.OperatorToken == nil ||
+    bin.OperatorToken.Kind != shimast.KindMinusToken {
+    return
+  }
+  left := stripParens(bin.Left)
+  if left == nil || left.Kind != shimast.KindPropertyAccessExpression {
+    return
+  }
+  prop := left.AsPropertyAccessExpression()
+  if prop == nil || identifierText(prop.Name()) != "length" {
+    return
+  }
+  right := stripParens(bin.Right)
+  if right == nil || right.Kind != shimast.KindNumericLiteral {
+    return
+  }
+  text := numericLiteralText(right)
+  if !unicornPreferAtIsPositiveInteger(text) {
+    return
+  }
+  ctx.Report(node, "Prefer `Array#at(-N)` / `String#at(-N)` over `arr[arr.length - N]`.")
 }
 
 // unicornPreferAtIsPositiveInteger reports whether `text` is the literal
@@ -60,18 +60,18 @@ func (unicornPreferAt) Check(ctx *Context, node *shimast.Node) {
 // empty string, plain `0`, and anything containing a non-digit (decimals,
 // `e`-notation, hex, bigint suffix).
 func unicornPreferAtIsPositiveInteger(text string) bool {
-	if text == "" || text == "0" {
-		return false
-	}
-	for i := 0; i < len(text); i++ {
-		c := text[i]
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
+  if text == "" || text == "0" {
+    return false
+  }
+  for i := 0; i < len(text); i++ {
+    c := text[i]
+    if c < '0' || c > '9' {
+      return false
+    }
+  }
+  return true
 }
 
 func init() {
-	Register(unicornPreferAt{})
+  Register(unicornPreferAt{})
 }

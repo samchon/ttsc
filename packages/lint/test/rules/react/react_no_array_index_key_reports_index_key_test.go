@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `react/no-array-index-key`.
 // 3. Assert the key prop is reported.
 func TestReactNoArrayIndexKeyReportsIndexKey(t *testing.T) {
-	assertReactRuleFinds(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, index) => <li key={index}>{item}</li>);`, "index")
+  assertReactRuleFinds(t, "react/no-array-index-key", `const C = ({ items }: { items: string[] }) => items.map((item, index) => <li key={index}>{item}</li>);`, "index")
 }

@@ -15,9 +15,9 @@
 package linthost
 
 import (
-	"fmt"
+  "fmt"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // maxClassesPerFileLimit is the class-count ceiling. Above this value
@@ -28,31 +28,31 @@ type maxClassesPerFile struct{}
 
 func (maxClassesPerFile) Name() string { return "max-classes-per-file" }
 func (maxClassesPerFile) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindSourceFile}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 func (maxClassesPerFile) Check(ctx *Context, node *shimast.Node) {
-	if node == nil {
-		return
-	}
-	var classes []*shimast.Node
-	walkDescendants(node, func(n *shimast.Node) {
-		if n == nil {
-			return
-		}
-		switch n.Kind {
-		case shimast.KindClassDeclaration, shimast.KindClassExpression:
-			classes = append(classes, n)
-		}
-	})
-	if len(classes) <= maxClassesPerFileLimit {
-		return
-	}
-	// Report at the first class that pushed the count over the limit,
-	// so the diagnostic anchors on the offending declaration rather
-	// than the file's opening byte.
-	ctx.Report(classes[maxClassesPerFileLimit], fmt.Sprintf("File has too many classes (%d). Maximum allowed is %d.", len(classes), maxClassesPerFileLimit))
+  if node == nil {
+    return
+  }
+  var classes []*shimast.Node
+  walkDescendants(node, func(n *shimast.Node) {
+    if n == nil {
+      return
+    }
+    switch n.Kind {
+    case shimast.KindClassDeclaration, shimast.KindClassExpression:
+      classes = append(classes, n)
+    }
+  })
+  if len(classes) <= maxClassesPerFileLimit {
+    return
+  }
+  // Report at the first class that pushed the count over the limit,
+  // so the diagnostic anchors on the offending declaration rather
+  // than the file's opening byte.
+  ctx.Report(classes[maxClassesPerFileLimit], fmt.Sprintf("File has too many classes (%d). Maximum allowed is %d.", len(classes), maxClassesPerFileLimit))
 }
 
 func init() {
-	Register(maxClassesPerFile{})
+  Register(maxClassesPerFile{})
 }

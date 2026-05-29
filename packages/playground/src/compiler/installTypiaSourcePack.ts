@@ -5,8 +5,8 @@ import { loadTypiaSourcePack } from "./loadTypiaSourcePack";
 
 /**
  * Mounts typia + @typia/* source trees into the in-browser MemFS so the
- * wasm-side compiler can resolve `import typia, { tags } from "typia"`
- * against the same code the published package uses.
+ * wasm-side compiler can resolve `import typia, { tags } from "typia"` against
+ * the same code the published package uses.
  *
  * Idempotent on the same host (re-writing the same paths is a no-op for the
  * MemFS implementation).

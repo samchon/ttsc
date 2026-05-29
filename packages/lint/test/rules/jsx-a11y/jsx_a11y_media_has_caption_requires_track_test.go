@@ -11,5 +11,5 @@ import "testing"
 // 2. Enable only `jsx-a11y/media-has-caption`.
 // 3. Assert one diagnostic is reported.
 func TestJsxA11yMediaHasCaptionRequiresTrack(t *testing.T) {
-	assertJsxA11yRuleFinds(t, "jsx-a11y/media-has-caption", `const Component = () => <video src="/movie.mp4"></video>;`, "caption")
+  assertJsxA11yRuleFinds(t, "jsx-a11y/media-has-caption", `const Component = () => <video src="/movie.mp4"></video>;`, "caption")
 }

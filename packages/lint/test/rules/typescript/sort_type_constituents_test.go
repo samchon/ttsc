@@ -16,20 +16,20 @@ import "testing"
 //  2. Enable the rule severities declared by its `// expect:` comments.
 //  3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusTypescriptSortTypeConstituents(t *testing.T) {
-	assertRuleCorpusCase(t, "typescript-sort-type-constituents.ts",
-		"// Positive: primitives out of alphabetical order — `string` should\n"+
-			"// come after `number`.\n"+
-			"// expect: typescript/sort-type-constituents error\n"+
-			"type OutOfOrderPrimitives = string | number;\n"+
-			"\n"+
-			"// Positive: `null` listed before a non-nullish constituent.\n"+
-			"// expect: typescript/sort-type-constituents error\n"+
-			"type NullFirst = null | string;\n"+
-			"\n"+
-			"// Negative: already in canonical order.\n"+
-			"type Ok1 = number | string;\n"+
-			"type Ok2 = string | null;\n"+
-			"\n"+
-			"declare const samples: [OutOfOrderPrimitives, NullFirst, Ok1, Ok2];\n"+
-			"JSON.stringify(samples);\n")
+  assertRuleCorpusCase(t, "typescript-sort-type-constituents.ts",
+    "// Positive: primitives out of alphabetical order — `string` should\n"+
+      "// come after `number`.\n"+
+      "// expect: typescript/sort-type-constituents error\n"+
+      "type OutOfOrderPrimitives = string | number;\n"+
+      "\n"+
+      "// Positive: `null` listed before a non-nullish constituent.\n"+
+      "// expect: typescript/sort-type-constituents error\n"+
+      "type NullFirst = null | string;\n"+
+      "\n"+
+      "// Negative: already in canonical order.\n"+
+      "type Ok1 = number | string;\n"+
+      "type Ok2 = string | null;\n"+
+      "\n"+
+      "declare const samples: [OutOfOrderPrimitives, NullFirst, Ok1, Ok2];\n"+
+      "JSON.stringify(samples);\n")
 }

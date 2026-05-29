@@ -14,5 +14,5 @@ import "testing"
 // 2. Call `.includes(x)` on an inline array literal.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferSetHas(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-set-has.ts", "const x = 2;\n// expect: unicorn/prefer-set-has error\nconst found = [1, 2, 3].includes(x);\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-set-has.ts", "const x = 2;\n// expect: unicorn/prefer-set-has error\nconst found = [1, 2, 3].includes(x);\n")
 }

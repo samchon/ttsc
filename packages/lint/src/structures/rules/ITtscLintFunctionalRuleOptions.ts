@@ -2,8 +2,8 @@
  * Options shapes for every configurable rule in
  * {@link ITtscLintFunctionalRules}.
  *
- * Most `functional/*` rules share an ignore-pattern block — exposed below
- * as {@link ITtscLintFunctionalPatternOptions} — and then extend it with
+ * Most `functional/*` rules share an ignore-pattern block — exposed below as
+ * {@link ITtscLintFunctionalPatternOptions} — and then extend it with
  * rule-specific knobs.
  *
  * @reference https://github.com/eslint-functional/eslint-plugin-functional
@@ -19,8 +19,7 @@ export interface ITtscLintFunctionalPatternOptions {
 }
 
 /** `functional/functional-parameters` rule options. */
-export interface ITtscLintFunctionalParametersRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalParametersRuleOptions extends ITtscLintFunctionalPatternOptions {
   /** Allow rest parameters such as `(...args: readonly string[])`. */
   allowRestParameter?: boolean;
 
@@ -28,40 +27,35 @@ export interface ITtscLintFunctionalParametersRuleOptions
   allowArgumentsKeyword?: boolean;
 
   /**
-   * Require functions to declare parameters. `true` maps to the
-   * conservative at-least-one policy.
+   * Require functions to declare parameters. `true` maps to the conservative
+   * at-least-one policy.
    */
   enforceParameterCount?: boolean | "atLeastOne" | "exactlyOne";
 }
 
 /** `functional/immutable-data` rule options. */
-export interface ITtscLintFunctionalImmutableDataRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalImmutableDataRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
-   * Skip mutating `Map` and `Set` methods while still checking arrays
-   * and property assignment.
+   * Skip mutating `Map` and `Set` methods while still checking arrays and
+   * property assignment.
    */
   ignoreMapsAndSets?: boolean;
 }
 
 /** `functional/no-let` rule options. */
-export interface ITtscLintFunctionalNoLetRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalNoLetRuleOptions extends ITtscLintFunctionalPatternOptions {
   /** Permit `let` in a `for` statement initializer. */
   allowInForLoopInit?: boolean;
 
-  /**
-   * Permit `let` inside functions while still rejecting module-level
-   * `let`.
-   */
+  /** Permit `let` inside functions while still rejecting module-level `let`. */
   allowInFunctions?: boolean;
 }
 
 /** `functional/no-conditional-statements` rule options. */
 export interface ITtscLintFunctionalNoConditionalStatementsRuleOptions {
   /**
-   * Reserved for upstream-compatible configs; the current native rule
-   * rejects all `if` / `switch` statements regardless of value.
+   * Reserved for upstream-compatible configs; the current native rule rejects
+   * all `if` / `switch` statements regardless of value.
    */
   allowReturningBranches?: boolean | "ifExhaustive";
 }
@@ -78,8 +72,8 @@ export interface ITtscLintFunctionalNoTryStatementsRuleOptions {
 /** `functional/no-throw-statements` rule options. */
 export interface ITtscLintFunctionalNoThrowStatementsRuleOptions {
   /**
-   * Reserved for upstream-compatible configs; the current native rule
-   * rejects every `throw` statement regardless of value.
+   * Reserved for upstream-compatible configs; the current native rule rejects
+   * every `throw` statement regardless of value.
    */
   allowToRejectPromises?: boolean;
 }
@@ -102,18 +96,17 @@ export interface ITtscLintFunctionalNoReturnVoidRuleOptions {
   allowUndefined?: boolean;
 
   /**
-   * Skip functions whose return type is inferred to be `void` rather
-   * than declared explicitly.
+   * Skip functions whose return type is inferred to be `void` rather than
+   * declared explicitly.
    */
   ignoreInferredTypes?: boolean;
 }
 
 /** `functional/prefer-immutable-types` rule options. */
-export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
-   * Minimum accepted immutability. The native subset treats any
-   * configured value as readonly-required.
+   * Minimum accepted immutability. The native subset treats any configured
+   * value as readonly-required.
    */
   enforcement?:
     | "ReadonlyShallow"
@@ -124,8 +117,7 @@ export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions
 }
 
 /** `functional/prefer-readonly-type` rule options. */
-export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscLintFunctionalPatternOptions {
   /** Permit mutation of locals while still policing exported types. */
   allowLocalMutation?: boolean;
 
@@ -139,8 +131,8 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions
   ignoreCollections?: boolean;
 
   /**
-   * Skip class fields. `"fieldsOnly"` keeps the rule active for
-   * non-field class members.
+   * Skip class fields. `"fieldsOnly"` keeps the rule active for non-field class
+   * members.
    */
   ignoreClass?: boolean | "fieldsOnly";
 
@@ -170,14 +162,10 @@ export interface ITtscLintFunctionalTypeDeclarationImmutabilityRule {
   identifiers: string | readonly string[];
 
   /**
-   * Reserved for upstream-compatible configs; the current native subset
-   * treats every value as readonly-required.
+   * Reserved for upstream-compatible configs; the current native subset treats
+   * every value as readonly-required.
    */
-  immutability?:
-    | "ReadonlyShallow"
-    | "ReadonlyDeep"
-    | "Immutable"
-    | "Mutable";
+  immutability?: "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "Mutable";
 
   /** Comparator applied to the immutability level above. */
   comparator?:
@@ -194,8 +182,7 @@ export interface ITtscLintFunctionalTypeDeclarationImmutabilityRule {
 }
 
 /** `functional/type-declaration-immutability` rule options. */
-export interface ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions
-  extends ITtscLintFunctionalPatternOptions {
+export interface ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions extends ITtscLintFunctionalPatternOptions {
   /** Declaration-name policies. Empty means all type declarations. */
   rules?: readonly ITtscLintFunctionalTypeDeclarationImmutabilityRule[];
 
@@ -207,7 +194,7 @@ export interface ITtscLintFunctionalTypeDeclarationImmutabilityRuleOptions
  * Empty object options accepted by simple `functional/*` policy rules.
  *
  * Present as a named type so plugin authors can write `extends
- * ITtscLintFunctionalEmptyRuleOptions` while still surviving a future
- * field addition.
+ * ITtscLintFunctionalEmptyRuleOptions` while still surviving a future field
+ * addition.
  */
 export interface ITtscLintFunctionalEmptyRuleOptions {}

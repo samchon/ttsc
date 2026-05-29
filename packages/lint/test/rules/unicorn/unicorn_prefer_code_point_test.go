@@ -15,5 +15,5 @@ import "testing"
 // 2. Call `"a".charCodeAt(0)` on a string literal.
 // 3. Assert the call site is reported.
 func TestRuleCorpusUnicornPreferCodePoint(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-code-point.ts", "// expect: unicorn/prefer-code-point error\nconst code = \"a\".charCodeAt(0);\nvoid code;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-code-point.ts", "// expect: unicorn/prefer-code-point error\nconst code = \"a\".charCodeAt(0);\nvoid code;\n")
 }

@@ -11,7 +11,7 @@ import "testing"
 // 2. Call `eval` with an identifier.
 // 3. Assert only the identifier call is reported.
 func TestSecurityDetectEvalWithExpression(t *testing.T) {
-	assertRuleCorpusCase(t, "security/detect-eval-with-expression.ts", `
+  assertRuleCorpusCase(t, "security/detect-eval-with-expression.ts", `
 eval("alert()");
 // expect: security/detect-eval-with-expression error
 eval(userInput);

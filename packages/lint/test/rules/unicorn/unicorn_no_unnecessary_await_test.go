@@ -15,5 +15,5 @@ import "testing"
 // 2. Write `await 42` inside an `async function`.
 // 3. Assert the await expression is reported.
 func TestRuleCorpusUnicornNoUnnecessaryAwait(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-unnecessary-await.ts", "async function f() {\n  // expect: unicorn/no-unnecessary-await error\n  const x = await 42;\n  void x;\n}\nvoid f;\n")
+  assertRuleCorpusCase(t, "unicorn/no-unnecessary-await.ts", "async function f() {\n  // expect: unicorn/no-unnecessary-await error\n  const x = await 42;\n  void x;\n}\nvoid f;\n")
 }

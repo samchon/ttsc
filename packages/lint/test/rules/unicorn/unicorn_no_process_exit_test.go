@@ -15,5 +15,5 @@ import "testing"
 // 2. Invoke `process.exit(1)` at the top level.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornNoProcessExit(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-process-exit.ts", "// expect: unicorn/no-process-exit error\nprocess.exit(1);\n")
+  assertRuleCorpusCase(t, "unicorn/no-process-exit.ts", "// expect: unicorn/no-process-exit error\nprocess.exit(1);\n")
 }

@@ -13,5 +13,5 @@ import "testing"
 // 2. Call `fileURLToPath(import.meta.url)` on a declared shim of the helper.
 // 3. Assert the call expression is reported.
 func TestRuleCorpusUnicornPreferImportMetaProperties(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/prefer-import-meta-properties.ts", "declare function fileURLToPath(url: string): string;\n// expect: unicorn/prefer-import-meta-properties error\nconst filename = fileURLToPath(import.meta.url);\nvoid filename;\n")
+  assertRuleCorpusCase(t, "unicorn/prefer-import-meta-properties.ts", "declare function fileURLToPath(url: string): string;\n// expect: unicorn/prefer-import-meta-properties error\nconst filename = fileURLToPath(import.meta.url);\nvoid filename;\n")
 }

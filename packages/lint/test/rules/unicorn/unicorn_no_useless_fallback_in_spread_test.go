@@ -15,5 +15,5 @@ import "testing"
 // 2. Spread `x ?? {}` into an object literal where `x` may be `null`.
 // 3. Assert the spread element is reported.
 func TestRuleCorpusUnicornNoUselessFallbackInSpread(t *testing.T) {
-	assertRuleCorpusCase(t, "unicorn/no-useless-fallback-in-spread.ts", "declare const x: { a: number } | null;\n// expect: unicorn/no-useless-fallback-in-spread error\nconst o = { ...(x ?? {}) };\nvoid o;\n")
+  assertRuleCorpusCase(t, "unicorn/no-useless-fallback-in-spread.ts", "declare const x: { a: number } | null;\n// expect: unicorn/no-useless-fallback-in-spread error\nconst o = { ...(x ?? {}) };\nvoid o;\n")
 }

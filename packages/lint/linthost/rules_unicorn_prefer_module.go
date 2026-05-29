@@ -20,31 +20,31 @@ type unicornPreferModule struct{}
 
 func (unicornPreferModule) Name() string { return "unicorn/prefer-module" }
 func (unicornPreferModule) Visits() []shimast.Kind {
-	return []shimast.Kind{shimast.KindCallExpression, shimast.KindIdentifier}
+  return []shimast.Kind{shimast.KindCallExpression, shimast.KindIdentifier}
 }
 func (unicornPreferModule) Check(ctx *Context, node *shimast.Node) {
-	switch node.Kind {
-	case shimast.KindCallExpression:
-		call := node.AsCallExpression()
-		if call == nil || call.Expression == nil {
-			return
-		}
-		if identifierText(call.Expression) != "require" {
-			return
-		}
-		ctx.Report(node, "Prefer ES modules over CommonJS — use `import` / `import.meta.dirname` / `import.meta.filename`.")
-	case shimast.KindIdentifier:
-		name := identifierText(node)
-		if name != "__dirname" && name != "__filename" {
-			return
-		}
-		if !isUnicornValuePositionIdentifier(node) {
-			return
-		}
-		ctx.Report(node, "Prefer ES modules over CommonJS — use `import` / `import.meta.dirname` / `import.meta.filename`.")
-	}
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    call := node.AsCallExpression()
+    if call == nil || call.Expression == nil {
+      return
+    }
+    if identifierText(call.Expression) != "require" {
+      return
+    }
+    ctx.Report(node, "Prefer ES modules over CommonJS — use `import` / `import.meta.dirname` / `import.meta.filename`.")
+  case shimast.KindIdentifier:
+    name := identifierText(node)
+    if name != "__dirname" && name != "__filename" {
+      return
+    }
+    if !isUnicornValuePositionIdentifier(node) {
+      return
+    }
+    ctx.Report(node, "Prefer ES modules over CommonJS — use `import` / `import.meta.dirname` / `import.meta.filename`.")
+  }
 }
 
 func init() {
-	Register(unicornPreferModule{})
+  Register(unicornPreferModule{})
 }

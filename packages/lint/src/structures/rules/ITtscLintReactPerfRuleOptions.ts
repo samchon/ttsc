@@ -9,11 +9,11 @@ export interface ITtscLintReactPerfRuleOptions {
   /**
    * Controls which intrinsic JSX element props are ignored.
    *
-   * `"all"` ignores every prop on lowercase / native elements such as
-   * `div`. An array ignores only those prop names on native elements,
-   * for example `["style"]`. Custom components are still checked.
+   * `"all"` ignores every prop on lowercase / native elements such as `div`. An
+   * array ignores only those prop names on native elements, for example
+   * `["style"]`. Custom components are still checked.
    *
-   * @default [] (native props are checked)
+   * @default [ ] (native props are checked)
    */
   nativeAllowList?: "all" | readonly string[];
 }

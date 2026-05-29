@@ -15,5 +15,5 @@ import "testing"
 // 2. Enable the rule severity declared by its `// expect:` comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusPreferReadonly(t *testing.T) {
-	assertRuleCorpusCase(t, "typescript-prefer-readonly.ts", "class Foo {\n  // expect: typescript/prefer-readonly error\n  private a = 1;\n\n  // expect: typescript/prefer-readonly error\n  #b = 2;\n\n  // Already readonly — never fires.\n  private readonly c = 3;\n\n  // No initializer — the AST-only baseline cannot prove it is only\n  // assigned in the constructor, so the rule stays silent.\n  private d: number;\n\n  // Not private — outside callers may write to it.\n  e = 5;\n\n  constructor() {\n    this.d = 4;\n  }\n}\n\nJSON.stringify(new Foo());\n")
+  assertRuleCorpusCase(t, "typescript-prefer-readonly.ts", "class Foo {\n  // expect: typescript/prefer-readonly error\n  private a = 1;\n\n  // expect: typescript/prefer-readonly error\n  #b = 2;\n\n  // Already readonly — never fires.\n  private readonly c = 3;\n\n  // No initializer — the AST-only baseline cannot prove it is only\n  // assigned in the constructor, so the rule stays silent.\n  private d: number;\n\n  // Not private — outside callers may write to it.\n  e = 5;\n\n  constructor() {\n    this.d = 4;\n  }\n}\n\nJSON.stringify(new Foo());\n")
 }
