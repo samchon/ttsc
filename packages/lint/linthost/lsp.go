@@ -486,6 +486,14 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   }
   rules = formatCommandResolver{inner: rules}
   engine := NewEngineWithResolver(rules)
+  if engine.NeedsTypeChecker() {
+    // A format-class contributor rule (formatContributorAdapter) needs the type
+    // checker, which the single-file in-memory parse can't supply. Fall back to
+    // the disk path, which builds a full program with a checker, so the result
+    // matches `ttsc format`; the dirty buffer can't be honored for these rules.
+    // Built-in format rules are AST-only, so they keep the fast in-memory path.
+    return lspWorkspaceEditForCommand(opts)
+  }
   scriptKind := scriptKindForPath(target)
 
   text := content
