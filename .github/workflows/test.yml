@@ -14,8 +14,21 @@ on:
       - "pnpm-workspace.yaml"
 
 jobs:
-  Ubuntu:
+  test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: go, run: "pnpm run test:go && pnpm --filter ttsc go:vet" }
+          - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
+          - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
+          - { name: lint, run: "pnpm --filter @ttsc/test-lint start" }
+          - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
+          - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
+          - { name: ttsc, run: "pnpm --filter @ttsc/test-ttsc start" }
+          - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
     steps:
       - uses: actions/checkout@v4
 
@@ -40,8 +53,8 @@ jobs:
       - name: Use System Go For Source Plugin Tests
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
-      - name: Run Tests
-        run: pnpm test
+      - name: Build Current Platform
+        run: pnpm run build:current
 
-      - name: Go Vet
-        run: pnpm --filter ttsc go:vet
+      - name: Run ${{ matrix.name }}
+        run: ${{ matrix.run }}
