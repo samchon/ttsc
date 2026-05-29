@@ -134,7 +134,7 @@ Trailing `//` line comments do not count against the budget. A line comment runs
 #### What it reflows
 
 | Shape | Example before | Example after (`printWidth: 20`) |
-| ----- | -------------- | -------------------------------- |
+| --- | --- | --- |
 | Object literal | `const x = { aaa: 1, bbb: 2, ccc: 3 };` | multi-line with trailing comma |
 | Array literal | `const x = ["alpha", "beta", "gamma"];` | multi-line with trailing comma |
 | Call expression | `process(aaaaaa, bbbbbb, cccccc);` | callee on head line, one arg per indented line |
@@ -145,7 +145,7 @@ Trailing `//` line comments do not count against the budget. A line comment runs
 | Named exports | `export { alpha, bravo, charlie };` | multi-line specifier list |
 | `import type { … }` | preserves the `type` modifier | same |
 
-A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument *hugging* the parentheses — Prettier's last-argument hugging — instead of exploding the whole argument list. The callback body is re-indented to its new column:
+A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument _hugging_ the parentheses — Prettier's last-argument hugging — instead of exploding the whole argument list. The callback body is re-indented to its new column:
 
 ```ts
 register("compile", async (ctx) => {

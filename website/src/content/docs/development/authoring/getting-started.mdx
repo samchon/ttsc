@@ -56,9 +56,7 @@ module.exports = function createHelloPlugin() {
 
 - `name` — human-readable name shown in errors and logs.
 - `source` — Go command package directory. Absolute, derived from `__dirname`.
-- `stage: "transform"` — participate in the AST transform path. Because this
-  example points at an executable `package main` sidecar, the host can spawn
-  `check`, `transform`, and `build` subcommands.
+- `stage: "transform"` — participate in the AST transform path. Because this example points at an executable `package main` sidecar, the host can spawn `check`, `transform`, and `build` subcommands.
 
 ## 3. Write the Go Module
 

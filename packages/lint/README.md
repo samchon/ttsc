@@ -2,12 +2,7 @@
 
 ![banner of @ttsc/lint](https://ttsc.dev/og.jpg)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
-[![NPM Version](https://img.shields.io/npm/v/@ttsc/lint.svg)](https://www.npmjs.com/package/@ttsc/lint)
-[![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/lint.svg)](https://www.npmjs.com/package/@ttsc/lint)
-[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
-[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
-[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/lint.svg)](https://www.npmjs.com/package/@ttsc/lint) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/lint.svg)](https://www.npmjs.com/package/@ttsc/lint) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 A linter and formatter. Co-protagonist of the [`ttsc`](https://ttsc.dev) toolchain — paired with `ttsc`, it replaces `eslint` and `prettier`.
 
@@ -195,7 +190,6 @@ Rules:
   section below and update its `### Claim ownership` paragraph if a new family
   joined the family list.
 -->
-
 
 ### ESLint core
 
@@ -526,7 +520,7 @@ Source: [`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-j
 - [`jsx-a11y/heading-has-content`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-heading-has-content.tsx): rejects empty JSX headings.
 - [`jsx-a11y/html-has-lang`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-html-has-lang.tsx): requires `<html>` JSX elements to declare a non-empty `lang` attribute.
 - [`jsx-a11y/iframe-has-title`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-iframe-has-title.tsx): requires every `<iframe>` JSX element to declare a non-empty, unique `title`.
-- [`jsx-a11y/img-redundant-alt`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-img-redundant-alt.tsx): rejects redundant words such as *image*, *photo*, or *picture* inside the `alt` attribute of an `<img>`.
+- [`jsx-a11y/img-redundant-alt`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-img-redundant-alt.tsx): rejects redundant words such as _image_, _photo_, or _picture_ inside the `alt` attribute of an `<img>`.
 - [`jsx-a11y/interactive-supports-focus`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-interactive-supports-focus.tsx): requires elements with interactive ARIA roles to be focusable.
 - [`jsx-a11y/label-has-associated-control`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-label-has-associated-control.tsx): requires `<label>` elements to wrap a form control or reference one via `htmlFor`.
 - [`jsx-a11y/label-has-for`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/jsx-a11y-label-has-for.tsx): deprecated predecessor of `label-has-associated-control` that checks the same nesting / `htmlFor` association requirement.
@@ -991,7 +985,7 @@ Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-rege
 
 ### Security
 
-Security-focused TypeScript source rules. Report likely security smells — non-literal sinks for eval, file I/O, regex construction, child-process spawning, cryptographic primitives — that warrant human review even if no exploit is statically provable. Treat findings as *hints*, not proofs.
+Security-focused TypeScript source rules. Report likely security smells — non-literal sinks for eval, file I/O, regex construction, child-process spawning, cryptographic primitives — that warrant human review even if no exploit is statically provable. Treat findings as _hints_, not proofs.
 
 Source: [`eslint-plugin-security@4.0.0`](https://github.com/eslint-community/eslint-plugin-security).
 
@@ -1080,7 +1074,7 @@ export default {
 
 ### Architecture boundaries
 
-Architecture-boundary rules enforce import direction and module visibility between configured source-path *elements* (layers, features, apps in a monorepo). Every rule operates on the *resolved source file* of an import — relative imports are followed to the real `.ts`/`.tsx`/`.d.ts` file before classification. Boundary diagnostics do not offer autofixes — a violation usually needs an API or architecture decision, not a mechanical import rewrite.
+Architecture-boundary rules enforce import direction and module visibility between configured source-path _elements_ (layers, features, apps in a monorepo). Every rule operates on the _resolved source file_ of an import — relative imports are followed to the real `.ts`/`.tsx`/`.d.ts` file before classification. Boundary diagnostics do not offer autofixes — a violation usually needs an API or architecture decision, not a mechanical import rewrite.
 
 Source: ported from [`eslint-plugin-boundaries`](https://github.com/javierbrea/eslint-plugin-boundaries).
 
@@ -1204,4 +1198,3 @@ To the maintainers of every plugin listed above: the rule semantics under `react
 If you would prefer to publish a first-party `@ttsc/lint` plugin for your family yourself, you are welcome to take the Go sources under [`packages/lint/linthost/rules_*.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost) and the fixtures under [`tests/test-lint/src/cases/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) and ship them as your own contributor plugin. Open an issue at [samchon/ttsc](https://github.com/samchon/ttsc/issues) when the upstream package is ready, and I will retire the in-tree port and add a redirect line under [Rules](#rules) pointing at your package. Same offer for partial coverage — name a subset and I will remove just those rules.
 
 The contributor-plugin walkthrough is the [`@ttsc/lint` development guide](https://ttsc.dev/docs/development/walkthroughs/lint).
-

@@ -104,8 +104,7 @@ When modes need to cooperate inside one transform emit pass, keep those modes in
 
 ## Executable Transform Sidecar
 
-Declare a transform plugin descriptor that points at an executable
-`package main` source:
+Declare a transform plugin descriptor that points at an executable `package main` source:
 
 ```js
 module.exports = {
@@ -127,8 +126,7 @@ my-plugin build     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-j
 
 ## Linked Transform Package
 
-For a transform that should run inside the selected native host, point the
-descriptor at a non-`main` package:
+For a transform that should run inside the selected native host, point the descriptor at a non-`main` package:
 
 ```js
 module.exports = {
@@ -138,9 +136,7 @@ module.exports = {
 };
 ```
 
-The linked package does not receive argv directly. It registers hooks from
-`init()` and the native host invokes those hooks during `check`, `transform`, or
-`build`:
+The linked package does not receive argv directly. It registers hooks from `init()` and the native host invokes those hooks during `check`, `transform`, or `build`:
 
 ```go
 package driver
@@ -152,8 +148,7 @@ func init() {
 }
 ```
 
-Use this shape when your plugin only needs the shared transform hooks and does
-not need a custom executable process.
+Use this shape when your plugin only needs the shared transform hooks and does not need a custom executable process.
 
 ## Check Plugin
 

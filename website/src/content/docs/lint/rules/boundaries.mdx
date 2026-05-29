@@ -1,6 +1,6 @@
 # Architecture boundaries
 
-Architecture-boundary rules enforce import direction and module visibility between configured source-path *elements* (layers, features, apps in a monorepo). Every rule operates on the *resolved source file* of an import — relative imports are followed to the real `.ts`/`.tsx`/`.d.ts` file before classification. Boundary diagnostics do not offer autofixes — a violation usually needs an API or architecture decision, not a mechanical import rewrite.
+Architecture-boundary rules enforce import direction and module visibility between configured source-path _elements_ (layers, features, apps in a monorepo). Every rule operates on the _resolved source file_ of an import — relative imports are followed to the real `.ts`/`.tsx`/`.d.ts` file before classification. Boundary diagnostics do not offer autofixes — a violation usually needs an API or architecture decision, not a mechanical import rewrite.
 
 Source: ported from [`eslint-plugin-boundaries`](https://github.com/javierbrea/eslint-plugin-boundaries) (MIT).
 
@@ -8,7 +8,7 @@ Source: ported from [`eslint-plugin-boundaries`](https://github.com/javierbrea/e
 - `boundaries/element-types` — Enforce allowed dependency directions between configured source-path element types.
 - `boundaries/entry-point` — Require imports that cross element boundaries to target the importee element's configured public entry files (typically `index.ts`), so the public surface of each element is explicit.
 - `boundaries/external` — Restrict external package imports by package or specifier pattern.
-- `boundaries/no-private` — Reject imports of files declared *private* by a parent element from outside that element.
+- `boundaries/no-private` — Reject imports of files declared _private_ by a parent element from outside that element.
 - `boundaries/no-unknown` — Reject relative imports whose resolved source file falls under no configured element.
 
 ```ts

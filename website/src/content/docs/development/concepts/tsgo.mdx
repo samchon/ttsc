@@ -10,13 +10,13 @@ For a small source-AST transform, start with [Getting Started](/docs/development
 
 Use the smallest surface that answers your question:
 
-| Need                                                | Use                                               | Example                      |
-| --------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| Add a package banner                                | source JSDoc before TypeScript-Go parses the file | `@ttsc/banner`               |
-| Remove `console.log(...)` statements                | source AST statement filtering                    | `@ttsc/strip`                |
-| Rewrite `paths` aliases for JS and declaration emit | source AST plus project config/Program            | `@ttsc/paths`                |
-| Report source diagnostics                           | Program + AST + diagnostics writer                | `@ttsc/lint`                 |
-| Generate code from `T` in `foo<T>()`                | Program + AST + Checker                           | semantic transformer plugins |
+| Need | Use | Example |
+| --- | --- | --- |
+| Add a package banner | source JSDoc before TypeScript-Go parses the file | `@ttsc/banner` |
+| Remove `console.log(...)` statements | source AST statement filtering | `@ttsc/strip` |
+| Rewrite `paths` aliases for JS and declaration emit | source AST plus project config/Program | `@ttsc/paths` |
+| Report source diagnostics | Program + AST + diagnostics writer | `@ttsc/lint` |
+| Generate code from `T` in `foo<T>()` | Program + AST + Checker | semantic transformer plugins |
 
 The AST is not a string parser. Use it when structure matters: statement kind, callee shape, declaration members, type argument syntax, import/export syntax, or diagnostic ranges.
 
@@ -62,20 +62,20 @@ require (
 
 Useful shim sub-packages:
 
-| Shim                    | Use                                                                                                                                                                          |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shim/ast`              | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression`                                                                                                       |
-| `shim/parser`           | parse JS or TS text into a `SourceFile` when the plugin owns that text                                                                                                       |
-| `shim/scanner`          | token positions, trivia skipping, line/column mapping, source text helpers                                                                                                   |
-| `shim/printer`          | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand.                                                       |
-| `shim/tsoptions`        | parse `tsconfig.json`                                                                                                                                                        |
-| `shim/tspath`           | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
-| `shim/compiler`         | low-level Program creation. Most plugins should call `driver.LoadProgram` instead.                                                                                           |
-| `shim/checker`          | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`.                                                                                    |
-| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this.                                                                                                |
-| `shim/bundled`          | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this.                                                                              |
-| `shim/vfs`              | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS.                                                      |
-| `shim/lsp`              | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors.                                                              |
+| Shim | Use |
+| --- | --- |
+| `shim/ast` | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression` |
+| `shim/parser` | parse JS or TS text into a `SourceFile` when the plugin owns that text |
+| `shim/scanner` | token positions, trivia skipping, line/column mapping, source text helpers |
+| `shim/printer` | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand. |
+| `shim/tsoptions` | parse `tsconfig.json` |
+| `shim/tspath` | project-native path comparison and combination (`ComparePaths`, `CombinePaths`, `ChangeExtension`). Prefer over `filepath` when paths must match tsgo's resolution behavior. |
+| `shim/compiler` | low-level Program creation. Most plugins should call `driver.LoadProgram` instead. |
+| `shim/checker` | query symbols and types. The `Checker` type is a Go alias for tsgo's internal `*Checker`. |
+| `shim/diagnosticwriter` | render compiler-like diagnostics. `driver.WritePrettyDiagnostics` wraps this. |
+| `shim/bundled` | TypeScript lib files for Program creation. `driver.DefaultFS` / `driver.DefaultHost` wrap this. |
+| `shim/vfs` | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS. |
+| `shim/lsp` | Legacy in-process LSP access for custom host experiments — not used by `ttscserver` and not for plugin authors. |
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 

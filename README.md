@@ -2,17 +2,11 @@
 
 ![banner of ttsc](https://ttsc.dev/og.jpg)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE)
-[![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc)
-[![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc)
-[![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest)
-[![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs)
-[![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/ttsc.svg)](https://www.npmjs.com/package/ttsc) [![NPM Downloads](https://img.shields.io/npm/dm/ttsc.svg)](https://www.npmjs.com/package/ttsc) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
-Benchmarked on the VS Code fixture: up to **10x** faster type checks and a
-**500x** faster measured lint pass.
+Benchmarked on the VS Code fixture: up to **10x** faster type checks and a **500x** faster measured lint pass.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
@@ -57,8 +51,7 @@ npx ttsc format
 
 ### VSCode Extension
 
-Install the VS Code extension for live TypeScript-Go editor features plus
-saved-state ttsc plugin diagnostics and actions:
+Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions:
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
@@ -192,11 +185,7 @@ if (result.type === "success") {
 }
 ```
 
-See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full
-lifecycle, plugin overrides, and patterns. For browser embedding, see
-[`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and
-the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground)
-package.
+See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full lifecycle, plugin overrides, and patterns. For browser embedding, see [`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground) package.
 
 ### List of Plugins
 

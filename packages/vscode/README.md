@@ -6,16 +6,13 @@ MIT licensed · [npm](https://www.npmjs.com/package/@ttsc/vscode) · [docs](http
 
 VS Code extension for [`ttsc`](https://ttsc.dev) projects.
 
-It starts the `ttscserver` language-server launcher from your project's own
-`ttsc` dependency, so VS Code uses the same TypeScript-Go version your project
-pins.
+It starts the `ttscserver` language-server launcher from your project's own `ttsc` dependency, so VS Code uses the same TypeScript-Go version your project pins.
 
 ## Requirements
 
 - **VS Code** 1.94 or later
 - **Node.js** 18 or later
-- **`ttsc` installed in your project** — the extension uses the language server
-  that ships with your project's `ttsc` package
+- **`ttsc` installed in your project** — the extension uses the language server that ships with your project's `ttsc` package
 
 ```bash
 npm install -D ttsc @typescript/native-preview
@@ -45,40 +42,14 @@ Marketplace release is tracked for v1; once it lands, the `npx` step goes away.
 
 ## What it adds
 
-The extension activates on TypeScript, JavaScript, TSX, and JSX files, then
-starts a server only when it can resolve a project-local `ttscserver`.
+The extension activates on TypeScript, JavaScript, TSX, and JSX files, then starts a server only when it can resolve a project-local `ttscserver`.
 
-- **Project-local language server.** The extension resolves `ttscserver` from
-  the active file's package/workspace, then starts the project-selected
-  `tsgo --lsp --stdio` process behind it.
-- **TypeScript-Go diagnostics and editor features.** Hover, navigation,
-  completions, and TypeScript-Go diagnostics come from the upstream `tsgo` LSP
-  process.
-- **ttsc plugin diagnostics and actions.** LSP-capable plugins are discovered
-  from the same project config and merged into the editor stream. `@ttsc/lint`
-  currently contributes lint diagnostics, fix-all actions, and document format
-  edits. Plugin diagnostics, code actions, and command computation use the
-  saved project state today; commands return VS Code `WorkspaceEdit`s and the
-  editor applies them only while the touched documents are still clean.
-  Formatting is the exception — see **Format on save** below.
-- **Format on save.** The extension formats your unsaved buffer with
-  `@ttsc/lint`'s format rules. Set `editor.defaultFormatter` to `samchon.ttsc`
-  for the languages you want and turn on `editor.formatOnSave` — formatting runs
-  on every save, with no need to save the file first. Lint *fixes* are not
-  applied on save by default (they can change code semantics); run
-  `ttsc: Fix all lint issues` from the command palette, or opt in explicitly via
-  `editor.codeActionsOnSave`.
-- **Monorepo-aware server roots.** Multi-root workspaces start server contexts
-  from the active file and workspace folders, resolved from the nearest
-  `tsconfig*.json` / `jsconfig*.json`. Add packages as VS Code workspace
-  folders when you want each package to keep its own active server context.
-- **Command palette entries:** `ttsc: Restart language server`,
-  `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and
-  format commands require an LSP-capable plugin that owns those command ids,
-  such as `@ttsc/lint`. The VS Code extension registers wrapper commands for
-  those built-in lint/format flows; other plugin command ids are advertised
-  through the language client and their returned `changes`-map `WorkspaceEdit`s
-  are applied with the same clean-document guard.
+- **Project-local language server.** The extension resolves `ttscserver` from the active file's package/workspace, then starts the project-selected `tsgo --lsp --stdio` process behind it.
+- **TypeScript-Go diagnostics and editor features.** Hover, navigation, completions, and TypeScript-Go diagnostics come from the upstream `tsgo` LSP process.
+- **ttsc plugin diagnostics and actions.** LSP-capable plugins are discovered from the same project config and merged into the editor stream. `@ttsc/lint` currently contributes lint diagnostics, fix-all actions, and document format edits. Plugin diagnostics, code actions, and command computation use the saved project state today; commands return VS Code `WorkspaceEdit`s and the editor applies them only while the touched documents are still clean. Formatting is the exception — see **Format on save** below.
+- **Format on save.** The extension formats your unsaved buffer with `@ttsc/lint`'s format rules. Set `editor.defaultFormatter` to `samchon.ttsc` for the languages you want and turn on `editor.formatOnSave` — formatting runs on every save, with no need to save the file first. Lint _fixes_ are not applied on save by default (they can change code semantics); run `ttsc: Fix all lint issues` from the command palette, or opt in explicitly via `editor.codeActionsOnSave`.
+- **Monorepo-aware server roots.** Multi-root workspaces start server contexts from the active file and workspace folders, resolved from the nearest `tsconfig*.json` / `jsconfig*.json`. Add packages as VS Code workspace folders when you want each package to keep its own active server context.
+- **Command palette entries:** `ttsc: Restart language server`, `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and format commands require an LSP-capable plugin that owns those command ids, such as `@ttsc/lint`. The VS Code extension registers wrapper commands for those built-in lint/format flows; other plugin command ids are advertised through the language client and their returned `changes`-map `WorkspaceEdit`s are applied with the same clean-document guard.
 
 The extension's identifier inside VS Code is `samchon.ttsc`.
 
@@ -86,10 +57,10 @@ The extension's identifier inside VS Code is `samchon.ttsc`.
 
 Open VS Code's settings (`Ctrl+,` / `Cmd+,`) and search for `ttsc`, or edit `settings.json` directly:
 
-| Setting             | Default | Effect                                                                                                                                                                                                                                 |
-| ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ttsc.serverPath`   | `""`    | Absolute path to a `ttscserver` launcher or native binary. Empty uses the project's `ttsc` launcher, which builds `TTSC_LSP_PLUGINS_JSON` for plugin diagnostics/actions. Direct native paths need that manifest supplied out of band. |
-| `ttsc.trace.server` | `"off"` | Set to `"messages"` or `"verbose"` to log LSP traffic. The trace goes to **View → Output → ttsc (trace)**; server logs stay under **ttsc**. Useful when diagnostics don't show up.                                                     |
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `ttsc.serverPath` | `""` | Absolute path to a `ttscserver` launcher or native binary. Empty uses the project's `ttsc` launcher, which builds `TTSC_LSP_PLUGINS_JSON` for plugin diagnostics/actions. Direct native paths need that manifest supplied out of band. |
+| `ttsc.trace.server` | `"off"` | Set to `"messages"` or `"verbose"` to log LSP traffic. The trace goes to **View → Output → ttsc (trace)**; server logs stay under **ttsc**. Useful when diagnostics don't show up. |
 
 ### Format on save
 

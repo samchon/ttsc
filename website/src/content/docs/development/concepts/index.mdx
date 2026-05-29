@@ -36,10 +36,10 @@ One npm package, one contract, one enablement entry in `compilerOptions.plugins[
 
 `ttsc` knows two stages. Set one on the descriptor with `stage: "transform"` or `stage: "check"`. Executable sidecars receive a fixed set of subcommands per stage; linked transform sources do not receive argv and instead run inside the selected native host:
 
-| Stage         | Subcommands the host spawns                | What the plugin does                                   |
-| ------------- | ------------------------------------------ | ------------------------------------------------------ |
-| `"transform"` | `check`, `transform`, `build`              | mutates TypeScript AST before emit                     |
-| `"check"`     | `check`, `fix` (opt-in), `format` (opt-in) | reports diagnostics; optionally applies edits in-place |
+| Stage | Subcommands the host spawns | What the plugin does |
+| --- | --- | --- |
+| `"transform"` | `check`, `transform`, `build` | mutates TypeScript AST before emit |
+| `"check"` | `check`, `fix` (opt-in), `format` (opt-in) | reports diagnostics; optionally applies edits in-place |
 
 Non-zero exit means failure; the host prints `stderr` verbatim and aborts. `version` is a smoke verb the host never invokes. For exit-code rules, the verbatim-passthrough rule for `transform`, and what is fictional in older docs (e.g. `<plugin>: fix not supported`), see [Plugin protocol](/docs/development/concepts/protocol).
 
@@ -72,10 +72,10 @@ A consumer can enable a plugin two ways:
 
 ## Do I need the Checker?
 
-| If your plugin…                                                                                                         | Then use…                                                            |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Only inspects syntax (banner stripping, comment walking, statement filtering, JSX-tag rewriting)                        | `shimparser.ParseSourceFile` — no Program, no Checker, no `tsconfig` |
-| Inspects types, resolves symbols, follows imports, or checks signatures (validator generation, schema, type-aware lint) | `driver.LoadProgram` to get a `*Program` with a leased `Checker`     |
+| If your plugin… | Then use… |
+| --- | --- |
+| Only inspects syntax (banner stripping, comment walking, statement filtering, JSX-tag rewriting) | `shimparser.ParseSourceFile` — no Program, no Checker, no `tsconfig` |
+| Inspects types, resolves symbols, follows imports, or checks signatures (validator generation, schema, type-aware lint) | `driver.LoadProgram` to get a `*Program` with a leased `Checker` |
 
 When in doubt, start with `driver.LoadProgram` — the cost is one tsconfig parse and one checker-pool lease; the gain is you can introduce types later without rewriting. The implementation lives in [AST & Checker](/docs/development/concepts/tsgo).
 

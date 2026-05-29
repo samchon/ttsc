@@ -1,46 +1,31 @@
 # @ttsc/wasm
 
-`@ttsc/wasm` is the browser runtime layer for people building a `ttsc`-powered
-playground, tutorial, or plugin demo. It packages the TypeScript-Go compiler as
-WebAssembly, adds a Worker-friendly JavaScript boot helper, and gives the Go
-runtime an in-memory filesystem so the compiler can read a virtual project
-without calling a server.
+`@ttsc/wasm` is the browser runtime layer for people building a `ttsc`-powered playground, tutorial, or plugin demo. It packages the TypeScript-Go compiler as WebAssembly, adds a Worker-friendly JavaScript boot helper, and gives the Go runtime an in-memory filesystem so the compiler can read a virtual project without calling a server.
 
-This guide is for **runtime builders** and **plugin authors**. If you only want
-to compile a local project, use [`ttsc`](/docs/ttsc/compile) instead. If you
-want to write the plugin first, start with [Plugin Development](/docs/development)
-and come back here after the native sidecar works.
+This guide is for **runtime builders** and **plugin authors**. If you only want to compile a local project, use [`ttsc`](/docs/ttsc/compile) instead. If you want to write the plugin first, start with [Plugin Development](/docs/development) and come back here after the native sidecar works.
 
-> **API stability: experimental until v1.0.** Public signatures may change
-> between minor releases. Pin exact `@ttsc/wasm` versions in production
-> playgrounds, especially when you ship a custom wasm binary.
+> **API stability: experimental until v1.0.** Public signatures may change between minor releases. Pin exact `@ttsc/wasm` versions in production playgrounds, especially when you ship a custom wasm binary.
 
 ## When to reach for it
 
-- **A docs-site playground** where users edit TypeScript and see real
-  `ttsc` diagnostics or emitted JavaScript without installing anything.
-- **A plugin demo** where your transform runs in the browser beside the same
-  native CLI implementation.
-- **A workshop or tutorial surface** that needs real type-checking but cannot
-  depend on a backend compiler service.
+- **A docs-site playground** where users edit TypeScript and see real `ttsc` diagnostics or emitted JavaScript without installing anything.
+- **A plugin demo** where your transform runs in the browser beside the same native CLI implementation.
+- **A workshop or tutorial surface** that needs real type-checking but cannot depend on a backend compiler service.
 
-Do not use it as the normal production build path. The CLI is smaller,
-simpler, and easier to cache in CI.
+Do not use it as the normal production build path. The CLI is smaller, simpler, and easier to cache in CI.
 
 ## What ships
 
-| Artifact            | What it is                                                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `dist/ttsc.wasm`    | The default binary. It exposes vanilla `build`, `check`, and `transform`; no plugins are linked in.               |
+| Artifact | What it is |
+| --- | --- |
+| `dist/ttsc.wasm` | The default binary. It exposes vanilla `build`, `check`, and `transform`; no plugins are linked in. |
 | `dist/wasm_exec.js` | The Go JavaScript runtime loader used by the default binary. Serve it next to `ttsc.wasm`, or pass `wasmExecUrl`. |
-| `lib/`, `src/`      | The JavaScript API: `bootTtsc`, `createMemFS`, `parseResult`, and the typed `ITtscApi` surface.                   |
-| `host/`             | The Go helper package plugin authors import from their own `main_wasm.go`. It binds `globalThis[apiName]`.        |
-| `cmd/ttsc-wasm`     | The minimal base wasm entrypoint and native sanity CLI used to build `dist/ttsc.wasm`.                            |
-| `shim-vendor/`      | Vendored TypeScript-Go shim modules used by the published Go module.                                              |
+| `lib/`, `src/` | The JavaScript API: `bootTtsc`, `createMemFS`, `parseResult`, and the typed `ITtscApi` surface. |
+| `host/` | The Go helper package plugin authors import from their own `main_wasm.go`. It binds `globalThis[apiName]`. |
+| `cmd/ttsc-wasm` | The minimal base wasm entrypoint and native sanity CLI used to build `dist/ttsc.wasm`. |
+| `shim-vendor/` | Vendored TypeScript-Go shim modules used by the published Go module. |
 
-The package is intentionally plugin-agnostic. The `ttsc.dev` playground, typia,
-and any third-party plugin playground build their own wasm binary against the
-same `host/` package.
+The package is intentionally plugin-agnostic. The `ttsc.dev` playground, typia, and any third-party plugin playground build their own wasm binary against the same `host/` package.
 
 ## Runtime model
 
@@ -48,21 +33,16 @@ The browser flow is:
 
 1. Your page starts a Web Worker.
 2. The Worker calls `bootTtsc({ wasmUrl, wasmExecUrl, apiName })`.
-3. `bootTtsc` installs the in-memory filesystem, imports `wasm_exec.js`,
-   fetches the wasm, runs Go, and waits for `globalThis[apiName + "Ready"]`.
+3. `bootTtsc` installs the in-memory filesystem, imports `wasm_exec.js`, fetches the wasm, runs Go, and waits for `globalThis[apiName + "Ready"]`.
 4. Your app writes `/work/tsconfig.json` and source files into the MemFS.
 5. Your app calls `api.check`, `api.build`, `api.transform`, or `api.plugin`.
 6. The Worker posts diagnostics, output, or plugin stdout/stderr back to the UI.
 
-Run this in a Worker. Go's wasm runtime stays alive for the lifetime of the
-binary; booting it on the main thread can freeze the page. Use a classic Worker
-or a bundler target that still exposes `importScripts`, because `bootTtsc`
-loads `wasm_exec.js` that way before it starts Go.
+Run this in a Worker. Go's wasm runtime stays alive for the lifetime of the binary; booting it on the main thread can freeze the page. Use a classic Worker or a bundler target that still exposes `importScripts`, because `bootTtsc` loads `wasm_exec.js` that way before it starts Go.
 
 ## Use the base binary
 
-The base `dist/ttsc.wasm` is useful when you need TypeScript-Go in the browser
-without plugin behavior.
+The base `dist/ttsc.wasm` is useful when you need TypeScript-Go in the browser without plugin behavior.
 
 ```bash
 npm install -D @ttsc/wasm
@@ -106,8 +86,7 @@ postMessage({
 });
 ```
 
-`api.build` returns the same compile payload plus an `output` map keyed by
-project-relative file names:
+`api.build` returns the same compile payload plus an `output` map keyed by project-relative file names:
 
 ```ts
 const raw = await api.build({ cwd: "/work" });
@@ -115,41 +94,31 @@ const built = parseResult<ITtscCompileResult>(raw);
 const js = built?.output["src/index.js"] ?? built?.output["index.js"];
 ```
 
-For the base endpoints, `raw.result` is a JSON string. Use `parseResult<T>` at
-the Worker boundary instead of parsing the same payload repeatedly in your UI.
+For the base endpoints, `raw.result` is a JSON string. Use `parseResult<T>` at the Worker boundary instead of parsing the same payload repeatedly in your UI.
 
 ## MemFS rules
 
 - Use absolute virtual paths for files and `cwd`, for example `/work`.
 - `tsconfig` is relative to `cwd` and defaults to `tsconfig.json`.
-- `host.writeFile` creates parent directories automatically; `host.mkdirp`
-  exists when you need to create directories without writing a file.
-- `host.writeFile` copies `Uint8Array` input, and `host.readFile` returns a
-  copy. Call `writeFile` again when you want to replace stored bytes.
-- `host.readFileText` reads emitted or transformed virtual files if your
-  plugin writes into the MemFS.
-- `host.stdout.buffer` and `host.stderr.buffer` capture direct writes to fd 1
-  and fd 2. Call `host.resetStdio()` when you intentionally inspect those
-  buffers across separate runs.
-- The filesystem is memory-only. Recreate the project tree from UI state before
-  each compile, or serialize calls that mutate the same paths.
-- Symlinks and hardlinks are intentionally unsupported. Treat the project as a
-  flat virtual workspace.
+- `host.writeFile` creates parent directories automatically; `host.mkdirp` exists when you need to create directories without writing a file.
+- `host.writeFile` copies `Uint8Array` input, and `host.readFile` returns a copy. Call `writeFile` again when you want to replace stored bytes.
+- `host.readFileText` reads emitted or transformed virtual files if your plugin writes into the MemFS.
+- `host.stdout.buffer` and `host.stderr.buffer` capture direct writes to fd 1 and fd 2. Call `host.resetStdio()` when you intentionally inspect those buffers across separate runs.
+- The filesystem is memory-only. Recreate the project tree from UI state before each compile, or serialize calls that mutate the same paths.
+- Symlinks and hardlinks are intentionally unsupported. Treat the project as a flat virtual workspace.
 
-The ttsc.dev playground writes one `/work` project per request, serializes all
-compile/lint/bundle calls, and reuses a single booted wasm for the whole Worker
-lifetime.
+The ttsc.dev playground writes one `/work` project per request, serializes all compile/lint/bundle calls, and reuses a single booted wasm for the whole Worker lifetime.
 
 ## API surface
 
-| Method                                   | Use it for                                                                        |
-| ---------------------------------------- | --------------------------------------------------------------------------------- |
-| `api.version()`                          | Build metadata for support panels and bug reports.                                |
-| `api.plugins()`                          | Names registered into a custom wasm by `host.Config`. Empty for the base binary.  |
-| `api.check({ cwd, tsconfig })`           | Type-check without emit.                                                          |
-| `api.build({ cwd, tsconfig })`           | Type-check and emit JavaScript/declaration output into the result payload.        |
-| `api.transform({ cwd, tsconfig })`       | Return the TypeScript source-file map the program saw, keyed by project-relative path. |
-| `api.plugin({ name, command, ...opts })` | Dispatch a plugin linked into a custom wasm.                                      |
+| Method | Use it for |
+| --- | --- |
+| `api.version()` | Build metadata for support panels and bug reports. |
+| `api.plugins()` | Names registered into a custom wasm by `host.Config`. Empty for the base binary. |
+| `api.check({ cwd, tsconfig })` | Type-check without emit. |
+| `api.build({ cwd, tsconfig })` | Type-check and emit JavaScript/declaration output into the result payload. |
+| `api.transform({ cwd, tsconfig })` | Return the TypeScript source-file map the program saw, keyed by project-relative path. |
+| `api.plugin({ name, command, ...opts })` | Dispatch a plugin linked into a custom wasm. |
 
 Every async endpoint returns:
 
@@ -162,16 +131,11 @@ interface ITtscResult {
 }
 ```
 
-For `check`, `build`, and `transform`, `result` contains JSON. For
-`api.plugin`, plugin output usually sits in `stdout` or `stderr`, matching the
-native sidecar CLI. Exit code `0` means success; `2` covers compiler errors,
-usage errors, or bad project configuration; `3` is a runtime or emit failure.
+For `check`, `build`, and `transform`, `result` contains JSON. For `api.plugin`, plugin output usually sits in `stdout` or `stderr`, matching the native sidecar CLI. Exit code `0` means success; `2` covers compiler errors, usage errors, or bad project configuration; `3` is a runtime or emit failure.
 
 ## Build a custom plugin wasm
 
-The base binary does not link or auto-run plugins. A plugin playground builds a
-new wasm binary that imports your plugin package and registers it with
-`host.Expose`.
+The base binary does not link or auto-run plugins. A plugin playground builds a new wasm binary that imports your plugin package and registers it with `host.Expose`.
 
 ```go
 //go:build js && wasm
@@ -201,11 +165,7 @@ GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w" \
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" public/compiler/wasm_exec.js
 ```
 
-Keep `wasm_exec.js` from the same Go toolchain that built the wasm. The
-prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each
-other; custom binaries should copy the loader from their own toolchain. Older
-Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js`
-instead of `lib/wasm`.
+Keep `wasm_exec.js` from the same Go toolchain that built the wasm. The prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each other; custom binaries should copy the loader from their own toolchain. Older Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js` instead of `lib/wasm`.
 
 Boot the custom binary with the same API name:
 
@@ -228,8 +188,7 @@ const raw = await api.plugin({
 });
 ```
 
-The host translates extra JavaScript options into CLI-shaped flags before it
-calls your Go plugin:
+The host translates extra JavaScript options into CLI-shaped flags before it calls your Go plugin:
 
 | JavaScript option  | Go `args` entry |
 | ------------------ | --------------- |
@@ -238,13 +197,11 @@ calls your Go plugin:
 | `{ quiet: true }`  | `--quiet`       |
 | `{ limit: 20 }`    | `--limit=20`    |
 
-`name` and `command` are consumed by the host and are not forwarded. Boolean
-`false` values are omitted.
+`name` and `command` are consumed by the host and are not forwarded. Boolean `false` values are omitted.
 
 ## Implement `host.Plugin`
 
-Inside wasm there is no subprocess boundary, so plugins cannot be launched as
-external binaries. Instead, each bundled plugin implements:
+Inside wasm there is no subprocess boundary, so plugins cannot be launched as external binaries. Instead, each bundled plugin implements:
 
 ```go
 type Plugin interface {
@@ -253,17 +210,12 @@ type Plugin interface {
 }
 ```
 
-The method should forward to the same command dispatcher your native sidecar
-uses. The first-party playground does this for `@ttsc/banner`, `@ttsc/paths`,
-`@ttsc/strip`, `@ttsc/lint`, and typia:
+The method should forward to the same command dispatcher your native sidecar uses. The first-party playground does this for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, `@ttsc/lint`, and typia:
 
 - `Name()` returns the id the Worker passes to `api.plugin`.
-- `Run(command, args)` runs `build`, `check`, `transform`, `format`, or any
-  other plugin command you support.
-- Anything written to `os.Stdout` or `os.Stderr` is captured and returned to
-  JavaScript as `stdout` or `stderr`.
-- Return codes should mirror the native CLI: `0` success, `2` usage or
-  diagnostics, `3` runtime failure.
+- `Run(command, args)` runs `build`, `check`, `transform`, `format`, or any other plugin command you support.
+- Anything written to `os.Stdout` or `os.Stderr` is captured and returned to JavaScript as `stdout` or `stderr`.
+- Return codes should mirror the native CLI: `0` success, `2` usage or diagnostics, `3` runtime failure.
 
 For a real reference, read the playground wasm sources:
 
@@ -271,14 +223,11 @@ For a real reference, read the playground wasm sources:
 - [`website/compiler/cmd/playground/plugins.go`](https://github.com/samchon/ttsc/blob/master/website/compiler/cmd/playground/plugins.go)
 - [`website/compiler/cmd/playground/typia_plugin.go`](https://github.com/samchon/ttsc/blob/master/website/compiler/cmd/playground/typia_plugin.go)
 
-The important pattern is the ttsc.dev typia lane: call `api.plugin` to run the
-plugin transform, parse its stdout, write the transformed TypeScript back into
-MemFS, then call `api.build` for the final JavaScript preview.
+The important pattern is the ttsc.dev typia lane: call `api.plugin` to run the plugin transform, parse its stdout, write the transformed TypeScript back into MemFS, then call `api.build` for the final JavaScript preview.
 
 ## Version stamping
 
-Custom binaries can expose useful build metadata through `api.version()` by
-overriding the host package variables at link time:
+Custom binaries can expose useful build metadata through `api.version()` by overriding the host package variables at link time:
 
 ```bash
 GOOS=js GOARCH=wasm go build -trimpath \
@@ -289,35 +238,27 @@ GOOS=js GOARCH=wasm go build -trimpath \
   -o public/compiler/your-plugin.wasm ./cmd/your-wasm
 ```
 
-`api.version()` returns the stamped version, commit, date, Go version, GOOS, and
-GOARCH. Surface this in bug reports; wasm playground issues are otherwise hard
-to reproduce.
+`api.version()` returns the stamped version, commit, date, Go version, GOOS, and GOARCH. Surface this in bug reports; wasm playground issues are otherwise hard to reproduce.
 
 ## Serving and boot pitfalls
 
-| Symptom                                  | Fix                                                                                                                        |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `Go is not defined`                      | `wasm_exec.js` was not loaded. Check `wasmExecUrl`; the default is the same directory as `wasmUrl`.                        |
-| `importScripts is not defined`           | The worker was emitted as a module worker or the code ran on the main thread. Use a classic Worker-style bundle.           |
-| `global was not set`                     | `apiName` does not match the name passed to `host.Expose`, or the wasm panicked before registering.                        |
-| `failed to fetch`                        | The `.wasm` URL is wrong, blocked by CORS, or not copied into the static output.                                           |
-| `WebAssembly.instantiateStreaming` fails | Serve `.wasm` with `Content-Type: application/wasm`.                                                                       |
-| The page locks up                        | Booted wasm on the main thread. Move it into a Worker.                                                                     |
-| `ENOENT` for `tsconfig.json`             | Write `/work/tsconfig.json` and every included source file before calling the API.                                         |
-| Plugin output is empty                   | For custom plugins, make sure the plugin writes to `os.Stdout`/`os.Stderr` or returns data through the virtual filesystem. |
-| Two wasm binaries conflict               | Give each binary a unique `apiName`. Use separate Workers when they need independent `fs`/`process` globals or filesystems. |
+| Symptom | Fix |
+| --- | --- |
+| `Go is not defined` | `wasm_exec.js` was not loaded. Check `wasmExecUrl`; the default is the same directory as `wasmUrl`. |
+| `importScripts is not defined` | The worker was emitted as a module worker or the code ran on the main thread. Use a classic Worker-style bundle. |
+| `global was not set` | `apiName` does not match the name passed to `host.Expose`, or the wasm panicked before registering. |
+| `failed to fetch` | The `.wasm` URL is wrong, blocked by CORS, or not copied into the static output. |
+| `WebAssembly.instantiateStreaming` fails | Serve `.wasm` with `Content-Type: application/wasm`. |
+| The page locks up | Booted wasm on the main thread. Move it into a Worker. |
+| `ENOENT` for `tsconfig.json` | Write `/work/tsconfig.json` and every included source file before calling the API. |
+| Plugin output is empty | For custom plugins, make sure the plugin writes to `os.Stdout`/`os.Stderr` or returns data through the virtual filesystem. |
+| Two wasm binaries conflict | Give each binary a unique `apiName`. Use separate Workers when they need independent `fs`/`process` globals or filesystems. |
 
 ## Published tarball layout
 
-The npm package also acts as a Go module for plugin authors. The published
-tarball includes the `host/`, `cmd/`, and `build/` Go sources, plus a rewritten
-`go.mod` that points TypeScript-Go shim replacements at `./shim-vendor/...`.
+The npm package also acts as a Go module for plugin authors. The published tarball includes the `host/`, `cmd/`, and `build/` Go sources, plus a rewritten `go.mod` that points TypeScript-Go shim replacements at `./shim-vendor/...`.
 
-The tarball intentionally does not carry the in-repo
-`replace github.com/samchon/ttsc/packages/ttsc => ../ttsc` directive. If you
-build a custom wasm from `node_modules/@ttsc/wasm`, provide your own `replace`
-for `github.com/samchon/ttsc/packages/ttsc` or vendor that module in your
-workspace. Runtime-only users of `dist/ttsc.wasm` do not need this.
+The tarball intentionally does not carry the in-repo `replace github.com/samchon/ttsc/packages/ttsc => ../ttsc` directive. If you build a custom wasm from `node_modules/@ttsc/wasm`, provide your own `replace` for `github.com/samchon/ttsc/packages/ttsc` or vendor that module in your workspace. Runtime-only users of `dist/ttsc.wasm` do not need this.
 
 ## See also
 

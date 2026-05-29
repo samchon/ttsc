@@ -2,14 +2,7 @@
 
 For plugin authors — people writing **new** `ttsc` plugins. If you just want to use existing plugins like `@ttsc/lint` or `typia`, you don't need this section — wire the plugin into `compilerOptions.plugins` per its own README and skip ahead.
 
-> **Reading order for first-time authors:**
-> (1) [Concepts overview](/docs/development/concepts) — the two-halves model, vocabulary, stages, auto-discovery (5 min).
-> (2) [Walkthroughs → `@ttsc/banner`](/docs/development/walkthroughs/banner) — line-by-line walkthrough of the simplest shipped plugin. The friendliest first read for Go newcomers.
-> (3) [Authoring → Getting started](/docs/development/authoring/getting-started) — the Hello plugin: bootstrap, printer round-trip, no mutation. Write your first plugin from scratch.
-> (4) [Reference → Pitfalls](/docs/development/reference/pitfalls) — skim before you build so the common first-hour failures are recognizable.
-> (5) [Authoring → End-to-end transform](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation. Then read [`@ttsc/strip`](/docs/development/walkthroughs/strip), then [`@ttsc/paths`](/docs/development/walkthroughs/paths) for production-quality versions of the same shape.
-> (6) [Authoring → Testing](/docs/development/authoring/testing) and [Publishing](/docs/development/authoring/publishing) — after your first plugin runs.
-> Skip [Reference → Architecture](/docs/development/reference/architecture) on the first pass; come back when you need to debug a build. The [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint) is the last stop after you finish the paths walkthrough, when you are ready to ship a multi-file engine.
+> **Reading order for first-time authors:** (1) [Concepts overview](/docs/development/concepts) — the two-halves model, vocabulary, stages, auto-discovery (5 min). (2) [Walkthroughs → `@ttsc/banner`](/docs/development/walkthroughs/banner) — line-by-line walkthrough of the simplest shipped plugin. The friendliest first read for Go newcomers. (3) [Authoring → Getting started](/docs/development/authoring/getting-started) — the Hello plugin: bootstrap, printer round-trip, no mutation. Write your first plugin from scratch. (4) [Reference → Pitfalls](/docs/development/reference/pitfalls) — skim before you build so the common first-hour failures are recognizable. (5) [Authoring → End-to-end transform](/docs/development/authoring/end-to-end) — the same shape with a real AST mutation. Then read [`@ttsc/strip`](/docs/development/walkthroughs/strip), then [`@ttsc/paths`](/docs/development/walkthroughs/paths) for production-quality versions of the same shape. (6) [Authoring → Testing](/docs/development/authoring/testing) and [Publishing](/docs/development/authoring/publishing) — after your first plugin runs. Skip [Reference → Architecture](/docs/development/reference/architecture) on the first pass; come back when you need to debug a build. The [`@ttsc/lint` deep dive](/docs/development/walkthroughs/lint) is the last stop after you finish the paths walkthrough, when you are ready to ship a multi-file engine.
 
 This chapter is organized in four tiers:
 

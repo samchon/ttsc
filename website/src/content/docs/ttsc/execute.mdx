@@ -16,11 +16,7 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
-Projects that enable `allowImportingTsExtensions` are supported. During the
-runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import
-specifiers to the matching JavaScript extensions so Node can execute the output.
-The emitted JavaScript lives in a per-run cache directory and is removed after
-the script exits.
+Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
 
 ## Pass arguments to the script
 
@@ -41,8 +37,7 @@ npx ttsx -r ./preload.cjs src/index.ts
 npx ttsx -r dotenv/config src/index.ts
 ```
 
-Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to
-Node's raw `--require` loader; `ttsx` does not compile preload files for you.
+Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to Node's raw `--require` loader; `ttsx` does not compile preload files for you.
 
 ## Pick a tsconfig
 
@@ -53,40 +48,37 @@ npx ttsx -P tsconfig.scripts.json src/seed.ts
 ## Flags
 
 | Flag | Meaning |
-| ---- | ------- |
-| `-P, --project <file>`   | Use an explicit `tsconfig.json`. |
-| `--cwd <dir>`            | Resolve the entrypoint and project from this directory. |
-| `--cache-dir <dir>`      | Override the runtime and source-plugin cache root. |
-| `--binary <path>`        | Use an explicit TypeScript-Go binary. |
-| `--no-plugins`           | Build the entry's project without loading ttsc plugins. |
+| --- | --- |
+| `-P, --project <file>` | Use an explicit `tsconfig.json`. |
+| `--cwd <dir>` | Resolve the entrypoint and project from this directory. |
+| `--cache-dir <dir>` | Override the runtime and source-plugin cache root. |
+| `--binary <path>` | Use an explicit TypeScript-Go binary. |
+| `--no-plugins` | Build the entry's project without loading ttsc plugins. |
 | `-r, --require <module>` | Preload a module before the entrypoint. Repeatable. |
-| `--singleThreaded`       | Run TypeScript-Go single-threaded. Mirrors `tsgo --singleThreaded`. |
-| `--checkers <n>`         | Type-checker pool size. Mirrors `tsgo --checkers`. |
-| `-h, --help`             | Show help. |
-| `-v, --version`          | Print the runner version. |
+| `--singleThreaded` | Run TypeScript-Go single-threaded. Mirrors `tsgo --singleThreaded`. |
+| `--checkers <n>` | Type-checker pool size. Mirrors `tsgo --checkers`. |
+| `-h, --help` | Show help. |
+| `-v, --version` | Print the runner version. |
 
-Any flag `ttsx` does not own, placed **before** the entry file, is forwarded
-to the tsgo type-check — `ttsx --strict src/index.ts` works like the matching
-tsgo invocation. Flags **after** the entry go to the running program as its
-own `process.argv`, the same as `node`.
+Any flag `ttsx` does not own, placed **before** the entry file, is forwarded to the tsgo type-check — `ttsx --strict src/index.ts` works like the matching tsgo invocation. Flags **after** the entry go to the running program as its own `process.argv`, the same as `node`.
 
 ## When ttsx vs ttsc
 
-| Task | Use |
-| ---- | --- |
-| One-off script, fast feedback | `ttsx src/script.ts` |
-| Build for deployment | `ttsc` |
-| Run inside CI to gate on types | `ttsc --noEmit` |
+| Task                                                 | Use                  |
+| ---------------------------------------------------- | -------------------- |
+| One-off script, fast feedback                        | `ttsx src/script.ts` |
+| Build for deployment                                 | `ttsc`               |
+| Run inside CI to gate on types                       | `ttsc --noEmit`      |
 | Run inside CI to gate on types **and** execute tests | `ttsx test/index.ts` |
 
 ## ttsx vs tsx vs ts-node
 
-| | `tsx` | `ts-node` | `ttsx` |
-|-|------|-----------|--------|
-| Transpile speed | Fast | Slow | Fast |
-| Type-checks before running | No | No (by default) | Yes |
-| Plugin support | No | Custom transformers | First-class |
-| TypeScript-Go runtime | No | No | Yes |
+|                            | `tsx` | `ts-node`           | `ttsx`      |
+| -------------------------- | ----- | ------------------- | ----------- |
+| Transpile speed            | Fast  | Slow                | Fast        |
+| Type-checks before running | No    | No (by default)     | Yes         |
+| Plugin support             | No    | Custom transformers | First-class |
+| TypeScript-Go runtime      | No    | No                  | Yes         |
 
 If you currently use `tsx`: switching is one command; ergonomics are the same.
 
@@ -94,15 +86,7 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 `ttsx` uses the same `tsconfig.json` and plugins as `ttsc`. If a lint or check plugin reports an error, the script never runs. Transform plugins rewrite the code before it executes.
 
-Compiled JavaScript is temporary and cleaned after the script exits. Source
-plugin binaries still use the shared ttsc plugin cache, so repeated runs do not
-rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the
-temporary runtime output root and the source-plugin binary cache anchored in a
-known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx`
-places runtime output under `<cache-dir>/project/<pid>` and plugin binaries
-under `<cache-dir>/plugins`. The runtime project subtree is still removed after
-each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin
-cache.
+Compiled JavaScript is temporary and cleaned after the script exits. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
 
 ## See also
 

@@ -161,11 +161,7 @@ Two things worth noting for Go newcomers:
 
 ## The standalone sidecar (`plugin/main.go`)
 
-This is the standalone utility entrypoint for the package. The published
-`@ttsc/banner` descriptor points at `driver/`, so consumer builds link the
-driver package into the selected native host. Reading `plugin/main.go` is still
-useful because it shows the executable sidecar contract and is what the package
-Go tests run directly. The entire content:
+This is the standalone utility entrypoint for the package. The published `@ttsc/banner` descriptor points at `driver/`, so consumer builds link the driver package into the selected native host. Reading `plugin/main.go` is still useful because it shows the executable sidecar contract and is what the package Go tests run directly. The entire content:
 
 ```go
 // Native sidecar entrypoint for `@ttsc/banner`.
@@ -275,12 +271,7 @@ default:
 }
 ```
 
-Executable sidecars are always spawned with a subcommand as the first argument:
-`check`, `transform`, `build`, and for check-stage plugins also `fix` or
-`format`. Banner's published descriptor uses linked `driver/` instead, so in
-normal consumer builds the generic native host receives the subcommand and the
-banner driver runs through its registered hooks. This standalone dispatcher
-exists for package tests and as an executable-sidecar example.
+Executable sidecars are always spawned with a subcommand as the first argument: `check`, `transform`, `build`, and for check-stage plugins also `fix` or `format`. Banner's published descriptor uses linked `driver/` instead, so in normal consumer builds the generic native host receives the subcommand and the banner driver runs through its registered hooks. This standalone dispatcher exists for package tests and as an executable-sidecar example.
 
 The `switch` is Go's `case` statement. Notable details:
 

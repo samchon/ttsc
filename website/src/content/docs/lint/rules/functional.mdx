@@ -8,7 +8,7 @@ Source: [`eslint-plugin-functional`](https://github.com/eslint-functional/eslint
 - `functional/immutable-data` — Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods.
 - `functional/no-class-inheritance` — Reject `abstract` classes and `extends` clauses on class declarations; prefer composition and structural typing.
 - `functional/no-classes` — Reject `class` declarations and class expressions altogether.
-- `functional/no-conditional-statements` — Reject `if` and `switch` *statements*.
+- `functional/no-conditional-statements` — Reject `if` and `switch` _statements_.
 - `functional/no-expression-statements` — Reject expression statements that exist purely for their side effects (`mutate(x);`); pure code is built up from expressions with assigned or returned results.
 - `functional/no-let` — Reject `let` declarations so every binding is `const`.
 - `functional/no-loop-statements` — Reject `for`, `while`, and `do/while` loop statements; use recursive helpers or array methods (`map`, `reduce`) instead.
@@ -23,7 +23,7 @@ Source: [`eslint-plugin-functional`](https://github.com/eslint-functional/eslint
 - `functional/prefer-readonly-type` — Prefer `readonly` array, tuple, collection, and property types over their mutable counterparts.
 - `functional/prefer-tacit` — Reject trivial wrappers such as `x => f(x)` in favor of the tacit form `f`; reduces noise in functional pipelines.
 - `functional/readonly-type` — Enforce one consistent spelling for readonly types — `readonly T[]` vs `ReadonlyArray<T>` — across the project.
-- `functional/type-declaration-immutability` — Enforce readonly/immutable type declarations by *declaration name* policy — for projects that want only types matching certain naming conventions to be locked down.
+- `functional/type-declaration-immutability` — Enforce readonly/immutable type declarations by _declaration name_ policy — for projects that want only types matching certain naming conventions to be locked down.
 
 ```ts
 // lint.config.ts

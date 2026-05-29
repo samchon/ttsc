@@ -2,11 +2,7 @@
 
 `@ttsc/strip` deletes `debugger;` statements and call expressions whose callee matches a pattern like `console.log` or `assert.*` from TypeScript source before emit. The package introduces the patterns every "remove a syntactic construct" plugin uses: matching call shapes, filtering `NodeList.Nodes`, recursing into block-bodied statements, and the embedded-statement substitution trick (replacing `if (x) console.log(y)` with `if (x);` rather than `if (x)` — which would be invalid).
 
-If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the
-standalone `main.go` dispatcher will look familiar — strip's is identical
-except for the package name. The published descriptor points at linked
-`driver/` source, so the new material on this page is the linked rewriter in
-`driver/strip.go`.
+If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the standalone `main.go` dispatcher will look familiar — strip's is identical except for the package name. The published descriptor points at linked `driver/` source, so the new material on this page is the linked rewriter in `driver/strip.go`.
 
 ## What it does for the consumer
 
@@ -120,10 +116,7 @@ This is the same descriptor shape as banner, written in CommonJS. The `// @ts-ch
 
 ## The standalone sidecar (`plugin/main.go`)
 
-Identical structure to banner's standalone sidecar, with `@ttsc/strip` in the
-package name and error messages. Consumer builds use the linked `driver/`
-source through the selected native host; this command is still useful as a
-package test target and executable-sidecar example:
+Identical structure to banner's standalone sidecar, with `@ttsc/strip` in the package name and error messages. Consumer builds use the linked `driver/` source through the selected native host; this command is still useful as a package test target and executable-sidecar example:
 
 ```go
 package main
@@ -160,9 +153,7 @@ func run(args []string) int {
 }
 ```
 
-Same `run` shape, same exit codes, same subcommand surface as
-[banner](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
-The interesting code lives in the shared host.
+Same `run` shape, same exit codes, same subcommand surface as [banner](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). The interesting code lives in the shared host.
 
 ## The real logic — `stripRewriter` in `driver/strip.go`
 

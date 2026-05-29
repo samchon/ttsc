@@ -74,7 +74,7 @@ require github.com/microsoft/typescript-go/shim/ast v0.0.0
 
 The `go.work` file tells Go where `v0.0.0` lives locally. The plugin `go.mod` keeps `require` lines for imported host modules, and the installed `ttsc` package owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...`. Printer, AST, and other plugin helper code belongs under the plugin's own module path while importing the `ttsc`-supplied shims.
 
-**`go mod tidy` ordering rule.** Run `go mod tidy` from the plugin directory *after* `go.work` is in place; otherwise `tidy` cannot see the overlay paths and will re-introduce remote-fetch failures.
+**`go mod tidy` ordering rule.** Run `go mod tidy` from the plugin directory _after_ `go.work` is in place; otherwise `tidy` cannot see the overlay paths and will re-introduce remote-fetch failures.
 
 ## pnpm
 

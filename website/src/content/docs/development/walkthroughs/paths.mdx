@@ -69,10 +69,7 @@ packages/paths/
     └── paths.go         ← Blank-imports the linked driver package
 ```
 
-Identical shape to strip. The descriptor at `src/index.cjs` points at linked
-`driver/` source, while `plugin/main.go` is a standalone utility dispatcher
-with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
-Skip ahead to the real logic.
+Identical shape to strip. The descriptor at `src/index.cjs` points at linked `driver/` source, while `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). Skip ahead to the real logic.
 
 ## The real logic — `rewriter` in `driver/paths.go`
 
@@ -143,8 +140,7 @@ The constructor pulls four facts out of the Program and caches them as an in-mem
 
 **`outDir`** and **`rootDir`** — where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, paths falls back to "longest common ancestor of every source file" via `commonSourceDir`. This matches `tsc`'s behavior when `rootDir` is unspecified.
 
-**`sourceFiles`** — a string → string map of every user source file, keyed by
-its exact normalized path:
+**`sourceFiles`** — a string → string map of every user source file, keyed by its exact normalized path:
 
 ```go
 for _, file := range files {
@@ -153,11 +149,7 @@ for _, file := range files {
 }
 ```
 
-Extensionless targets such as `src/modules/greet` are resolved later by
-`lookupSource`, which tries known TypeScript extensions first and JavaScript
-extensions after them in a deterministic order. This keeps ambiguous stems like
-`foo.ts` plus `foo.tsx` stable instead of depending on program file iteration
-order while still supporting `allowJs` projects.
+Extensionless targets such as `src/modules/greet` are resolved later by `lookupSource`, which tries known TypeScript extensions first and JavaScript extensions after them in a deterministic order. This keeps ambiguous stems like `foo.ts` plus `foo.tsx` stable instead of depending on program file iteration order while still supporting `allowJs` projects.
 
 **`patterns`** — copied from `options.Paths.Entries()`. Each entry's targets slice is deep-copied with `append([]string(nil), targets...)` so a later mutation in tsgo's options does not leak back into the rewriter.
 
@@ -267,14 +259,14 @@ func isModuleSpecifierCall(call *shimast.CallExpression) bool {
 
 Six syntactic positions hold a module specifier in TypeScript. The visitor enumerates each one explicitly because the field name and depth differ per kind:
 
-| Source                             | Kind                      | Where the literal hides                                                                                                                                                                                              |
-| ---------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `import x from "pkg"`              | `ImportDeclaration`       | `.ModuleSpecifier`                                                                                                                                                                                                   |
-| `export { x } from "pkg"`          | `ExportDeclaration`       | `.ModuleSpecifier`                                                                                                                                                                                                   |
-| `import x = require("pkg")`        | `ImportEqualsDeclaration` | `.ModuleReference.AsExternalModuleReference().Expression`                                                                                                                                                            |
-| `type T = import("pkg").T`         | `ImportType`              | `.Argument.AsLiteralTypeNode().Literal`                                                                                                                                                                              |
-| `declare module "pkg" {}`          | `ModuleDeclaration`       | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
-| `require("pkg")` / `import("pkg")` | `CallExpression`          | `.Arguments.Nodes[0]`                                                                                                                                                                                                |
+| Source | Kind | Where the literal hides |
+| --- | --- | --- |
+| `import x from "pkg"` | `ImportDeclaration` | `.ModuleSpecifier` |
+| `export { x } from "pkg"` | `ExportDeclaration` | `.ModuleSpecifier` |
+| `import x = require("pkg")` | `ImportEqualsDeclaration` | `.ModuleReference.AsExternalModuleReference().Expression` |
+| `type T = import("pkg").T` | `ImportType` | `.Argument.AsLiteralTypeNode().Literal` |
+| `declare module "pkg" {}` | `ModuleDeclaration` | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
+| `require("pkg")` / `import("pkg")` | `CallExpression` | `.Arguments.Nodes[0]` |
 
 After the switch, `node.ForEachChild` recurses into every child. This is what makes the visitor catch deeply-nested cases like `function f(x = await import("pkg")) {}` — the `CallExpression` is buried inside parameter default initializers, but every node still gets visited because we always recurse.
 
@@ -372,11 +364,7 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
 
-`lookupSource` walks three stages, falling through on each miss: literal match
-in the `sourceFiles` map → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` /
-`.js` / `.jsx` / `.mjs` / `.cjs` appended → stem + `/index.<ext>` for
-directory-style imports. The exact source is in
-[`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
+`lookupSource` walks three stages, falling through on each miss: literal match in the `sourceFiles` map → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` / `.js` / `.jsx` / `.mjs` / `.cjs` appended → stem + `/index.<ext>` for directory-style imports. The exact source is in [`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
 
 ### 5. Mapping source to emitted-JS path
 

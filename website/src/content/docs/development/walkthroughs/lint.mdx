@@ -8,17 +8,15 @@
 
 `@ttsc/lint` is a check-stage plugin: it reports ESLint-shaped diagnostics from TypeScript-Go's Program and Checker before emit. The build/check host invokes it through five primary subcommands:
 
-| Subcommand  | Trigger                               | What it does                                                                                                                                                                                                                      |
-| ----------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check`     | `ttsc check`                          | Typecheck + lint. No emit. Exit non-zero on any error-severity finding.                                                                                                                                                           |
-| `fix`       | `ttsc fix`                            | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled.                                                                                                                                       |
-| `format`    | `ttsc format`                         | Apply _only_ format-class rule edits. Write-only — no diagnostics, no emit.                                                                                                                                                       |
-| `build`     | `ttsc build`                          | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set.                                                                                                                                                              |
+| Subcommand | Trigger | What it does |
+| --- | --- | --- |
+| `check` | `ttsc check` | Typecheck + lint. No emit. Exit non-zero on any error-severity finding. |
+| `fix` | `ttsc fix` | Apply lint **and** format autofixes in cascading passes, then re-lint. Emit stays disabled. |
+| `format` | `ttsc format` | Apply _only_ format-class rule edits. Write-only — no diagnostics, no emit. |
+| `build` | `ttsc build` | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set. |
 | `transform` | `@ttsc/unplugin` and programmatic API | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command — the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
 
-The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets
-`capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`,
-`lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
+The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets `capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`, `lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
 
 The minimum consumer wiring:
 
@@ -192,19 +190,11 @@ Two design decisions worth highlighting:
 
 > We don't import `github.com/samchon/ttsc/packages/ttsc/driver` from a source plugin because that would force every consumer of @ttsc/lint to have the in-tree samchon/ttsc/packages/ttsc module on their go.work — a dependency the public proxy cannot satisfy and that conflicts with ttsc's runtime-generated go.work overlay.
 
-In practice: `driver.LoadProgram` is the right choice for _third-party_ plugins,
-but `@ttsc/lint` itself lives inside the monorepo and ships Go sidecar source
-that `ttsc` builds on demand; the same engine package is also linked into the
-WASM playground. The library copy of the bootstrap keeps the dependency graph
-clean for both consumers.
+In practice: `driver.LoadProgram` is the right choice for _third-party_ plugins, but `@ttsc/lint` itself lives inside the monorepo and ships Go sidecar source that `ttsc` builds on demand; the same engine package is also linked into the WASM playground. The library copy of the bootstrap keeps the dependency graph clean for both consumers.
 
 **For your own plugin, ignore this complication.** Call `driver.LoadProgram` directly; the doc-comment caveat does not apply to plugins built and consumed outside this repo.
 
-**`userSourceFiles` follows tsconfig roots.** Every lint pass walks the TS/JS
-source roots from `parsedConfig.fileNames`, including user-authored `*.d.ts`
-files. Imported implementation files, library declarations, generated output,
-and JSON modules may still appear in `Program.SourceFiles()`, so `host.go`
-filters them before lint and format run.
+**`userSourceFiles` follows tsconfig roots.** Every lint pass walks the TS/JS source roots from `parsedConfig.fileNames`, including user-authored `*.d.ts` files. Imported implementation files, library declarations, generated output, and JSON modules may still appear in `Program.SourceFiles()`, so `host.go` filters them before lint and format run.
 
 ## Subcommand orchestration (`linthost/compile.go`)
 

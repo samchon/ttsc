@@ -39,11 +39,7 @@ func main() {
 }
 ```
 
-The native sibling `main.go` is recommended when you want `go run ./cmd/your-wasm`
-to smoke-test the same `host.Plugin` dispatchers without the browser MemFS
-bridge. See `packages/wasm/cmd/ttsc-wasm/main.go` and
-`website/compiler/cmd/playground/main.go` in the repo for reference layouts.
-A minimal custom plugin dispatcher looks like this:
+The native sibling `main.go` is recommended when you want `go run ./cmd/your-wasm` to smoke-test the same `host.Plugin` dispatchers without the browser MemFS bridge. See `packages/wasm/cmd/ttsc-wasm/main.go` and `website/compiler/cmd/playground/main.go` in the repo for reference layouts. A minimal custom plugin dispatcher looks like this:
 
 ```go
 //go:build !js
@@ -81,11 +77,7 @@ GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w" \
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" public/wasm_exec.js
 ```
 
-Keep `wasm_exec.js` from the same Go toolchain that built your wasm. The
-prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each
-other; custom binaries should copy the loader from their own toolchain. Older
-Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js`
-instead of `lib/wasm`.
+Keep `wasm_exec.js` from the same Go toolchain that built your wasm. The prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each other; custom binaries should copy the loader from their own toolchain. Older Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js` instead of `lib/wasm`.
 
 ### Stamping version metadata at link time
 
@@ -116,10 +108,7 @@ const result = await api.build({ cwd: "/work" });
 console.log(result.result); // JSON: { diagnostics, output }
 ```
 
-Booting two wasms with the same `apiName` overwrites the previous global
-binding; pick a unique `apiName` per binary. `bootTtsc` also installs shared
-`fs` and `process` globals in its Worker, so use separate Workers when binaries
-need independent filesystems.
+Booting two wasms with the same `apiName` overwrites the previous global binding; pick a unique `apiName` per binary. `bootTtsc` also installs shared `fs` and `process` globals in its Worker, so use separate Workers when binaries need independent filesystems.
 
 ## Fountain API (snapshot, AST, type checker)
 
@@ -159,7 +148,7 @@ try {
 Verbs and payload types:
 
 | Verb | Payload type |
-| ---- | ------------ |
+| --- | --- |
 | `snapshot({ cwd, tsconfig? })` | `ITtscSnapshotResult` `{ handle }` |
 | `releaseSnapshot({ handle })` | `ITtscReleaseSnapshotResult` `{ released }` |
 | `snapshots()` | `ITtscSnapshotsResult` `{ handles }` |
@@ -170,13 +159,9 @@ Verbs and payload types:
 | `getTypeAtPosition({ handle, path, position })` | `ITtscTypeAtPositionResult` `{ type }` |
 | `getSymbolAtPosition({ handle, path, position })` | `ITtscSymbolAtPositionResult` `{ symbol }` |
 
-`position` is a **byte offset** into the source text — the same coordinate
-TypeScript-Go uses internally. JS callers that have a UTF-16 `(line,
-character)` pair (e.g. from Monaco) must convert it before calling.
+`position` is a **byte offset** into the source text — the same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. from Monaco) must convert it before calling.
 
-**Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST,
-checker pool lease, every source file) alive until you call
-`releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
+**Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST, checker pool lease, every source file) alive until you call `releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
 
 ## Plugin contract
 
