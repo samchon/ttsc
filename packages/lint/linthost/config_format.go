@@ -26,6 +26,8 @@ import (
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
 //   - `format/declaration-header` — always on, reflows a class/interface header's type params and heritage clauses.
+//   - `format/ternary-nullish-parens` — always on, parenthesizes a `??` operand of a conditional expression.
+//   - `format/orphan-semi` — always on; under semi:false, merges a leading-semicolon ASI guard onto its statement.
 //   - `format/parameter-properties` — always on, breaks a constructor's parameter list when it has parameter properties.
 //   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
@@ -65,6 +67,10 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
   }
   out["format/semi"] = ruleEntry(map[string]any{"prefer": semiPrefer})
+
+  // formatOrphanSemi — always on; mirrors the effective semi setting so
+  // it only merges the leading-semicolon ASI guard under semi:false.
+  out["format/orphan-semi"] = ruleEntry(map[string]any{"semi": semiPrefer == "always"})
 
   // formatQuotes
   quotesPrefer := "double"
@@ -153,6 +159,10 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // (type parameters + heritage clauses) to Prettier's break shapes;
   // needs the same printWidth/tabWidth/useTabs budget.
   out["format/declaration-header"] = ruleEntry(cloneStringAnyMap(pwOpts))
+
+  // formatTernaryNullishParens — always on, no options: wraps a `??`
+  // operand of a conditional expression in parentheses (Prettier 3).
+  out["format/ternary-nullish-parens"] = ruleEntry(map[string]any{})
 
   // formatStatementSplit + formatIndent — always on, Prettier-style.
   // Both reuse the indentation/EOL settings to synthesize line breaks
