@@ -1,8 +1,9 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   TtscserverClient,
   assert,
@@ -56,11 +57,10 @@ export const test_ttscserver_serves_project_plugin_code_actions_and_executes_com
       rules: { eqeqeq: "error", "no-var": "error", "prefer-const": "error" },
       source,
     });
-    const cache = TestProject.tmpdir("ttscserver-lsp-cache-");
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
     const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: cache },
+      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
 
     try {

@@ -1,8 +1,9 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   TtscserverClient,
   assert,
@@ -51,11 +52,10 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
         ),
       },
     });
-    const cache = TestProject.tmpdir("ttscserver-lsp-cache-");
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
     const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: cache },
+      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
 
     try {
@@ -67,11 +67,12 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
           (params.diagnostics ?? []).some(
             (diagnostic) => diagnostic.source === "ttsc/lint",
           ),
-        // The fresh TTSC_CACHE_DIR forces a cold one-time `@ttsc/lint` Go
-        // sidecar build before any diagnostics are published. Under parallel
-        // CI matrix contention that build alone can exceed the prior 120s
-        // budget, so the wait must out-last it rather than race it.
-        240_000,
+        // The shared content-addressed plugin cache means an earlier test has
+        // usually already built `@ttsc/lint`, so this wait normally races a
+        // warm sidecar. The margin still covers the one case where this test
+        // happens to warm the cache first; a cold lint build stays well under
+        // it.
+        60_000,
       );
       client.notify("textDocument/didOpen", {
         textDocument: {
