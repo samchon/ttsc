@@ -118,6 +118,9 @@ func dispatchNode(ctx *PrintContext, node *shimast.Node) (Doc, bool, bool) {
   case shimast.KindReturnStatement:
     doc, covered := printReturnStatement(ctx, node)
     return doc, covered, true
+  case shimast.KindConditionalExpression:
+    doc, covered := printConditionalExpression(ctx, node)
+    return doc, covered, true
   }
   return Doc{}, false, false
 }

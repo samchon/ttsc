@@ -79,6 +79,7 @@ func (formatPrintWidth) Visits() []shimast.Kind {
     shimast.KindNamedImports,
     shimast.KindNamedExports,
     shimast.KindImportDeclaration,
+    shimast.KindConditionalExpression,
   }
 }
 
@@ -519,7 +520,8 @@ func isReflowKind(k shimast.Kind) bool {
     shimast.KindNewExpression,
     shimast.KindNamedImports,
     shimast.KindNamedExports,
-    shimast.KindImportDeclaration:
+    shimast.KindImportDeclaration,
+    shimast.KindConditionalExpression:
     return true
   }
   return false
