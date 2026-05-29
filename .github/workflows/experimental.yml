@@ -11,6 +11,10 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
+concurrency:
+  group: experimental-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   Install:
     name: ${{ matrix.name }}

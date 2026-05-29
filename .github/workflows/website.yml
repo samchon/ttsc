@@ -23,6 +23,10 @@ on:
       - "pnpm-workspace.yaml"
   workflow_dispatch:
 
+concurrency:
+  group: website-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

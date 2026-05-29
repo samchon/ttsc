@@ -12,6 +12,10 @@ on:
       - "pnpm-workspace.yaml"
   workflow_dispatch:
 
+concurrency:
+  group: nestia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   Ubuntu:
     runs-on: ubuntu-latest
