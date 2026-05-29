@@ -54,7 +54,7 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
         params.uri === uri &&
         (params.diagnostics ?? []).some(
           (diagnostic) =>
-            diagnostic.source === "ttsc/lint" && diagnostic.code === "no-var",
+            diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
         ),
       // The shared content-addressed plugin cache means an earlier test has
       // usually already built `@ttsc/lint`, so this wait normally races a warm
@@ -74,7 +74,7 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
     const params = await diagnostics;
     const lintDiagnostic = (params.diagnostics ?? []).find(
       (diagnostic) =>
-        diagnostic.source === "ttsc/lint" && diagnostic.code === "no-var",
+        diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
     );
     assert.ok(lintDiagnostic, "expected @ttsc/lint diagnostic");
     assert.match(

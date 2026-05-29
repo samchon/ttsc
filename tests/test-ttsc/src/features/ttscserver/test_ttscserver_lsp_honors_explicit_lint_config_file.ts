@@ -65,7 +65,7 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
         (params) =>
           params.uri === uri &&
           (params.diagnostics ?? []).some(
-            (diagnostic) => diagnostic.source === "ttsc/lint",
+            (diagnostic) => diagnostic.source === "@ttsc/lint",
           ),
         // The shared content-addressed plugin cache means an earlier test has
         // usually already built `@ttsc/lint`, so this wait normally races a
@@ -86,7 +86,7 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
       const params = await diagnostics;
       const codes = new Set(
         (params.diagnostics ?? [])
-          .filter((diagnostic) => diagnostic.source === "ttsc/lint")
+          .filter((diagnostic) => diagnostic.source === "@ttsc/lint")
           .map((diagnostic) => diagnostic.code),
       );
       assert.ok(codes.has("no-var"), "expected explicit config diagnostic");
