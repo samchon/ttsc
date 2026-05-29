@@ -46,7 +46,7 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   }
   if call.TypeArguments != nil {
     // Verbatim range covering `<A, B>` punctuation and members.
-    parts = append(parts, verbatimRange(ctx.Source, callTypeArgsStart(ctx, call), callTypeArgsEnd(ctx, call)))
+    parts = append(parts, verbatimRange(ctx.Source, typeArgsStart(ctx.Source, call.TypeArguments), typeArgsEnd(ctx.Source, call.TypeArguments)))
   }
   if hasNilEntry(call.Arguments) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
@@ -81,7 +81,7 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && !nodeSpansMultipleLines(ctx, ne.Expression)
   }
   if ne.TypeArguments != nil {
-    parts = append(parts, verbatimRange(ctx.Source, newTypeArgsStart(ctx, ne), newTypeArgsEnd(ctx, ne)))
+    parts = append(parts, verbatimRange(ctx.Source, typeArgsStart(ctx.Source, ne.TypeArguments), typeArgsEnd(ctx.Source, ne.TypeArguments)))
   }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
@@ -140,12 +140,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
   }
   // Last-argument hugging wins when both predicates match; first-arg
   // hugging only applies to the two-argument `callback, simpleArg` shape.
-  // Decline last-arg hugging when a leading argument's doc carries hard
-  // breaks: a block-bodied callback before the hugged last argument forces
-  // its own multi-line shape, and Prettier explodes the whole call in that
-  // case (`f(() => { … }, { … })`) rather than hugging the last argument.
-  // flatten failing is exactly Prettier's willBreak signal here.
-  hugLast := shouldHugLastArgument(list.Nodes) && !anyLeadingItemBreaks(items)
+  // Decline last-arg hugging when a leading argument forces the call
+  // multi-line on its own, so Prettier explodes the whole call rather than
+  // hugging the last argument. Two leading shapes trigger that: a function
+  // or arrow expression (`useMemo(() => x, [deps])`, even with an inline
+  // expression body Prettier never hugs after it), and any argument whose
+  // doc carries hard breaks (a block-bodied callback). A leading object or
+  // array that merely fits flat does NOT decline — Prettier still hugs the
+  // last argument there (`doConfigure({ … }, () => { … })`).
+  hugLast := shouldHugLastArgument(list.Nodes) &&
+    !anyLeadingArgIsFunctionLike(list.Nodes) &&
+    !anyLeadingItemBreaks(items)
   shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
@@ -156,6 +161,26 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
     HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// anyLeadingArgIsFunctionLike reports whether any argument before the last
+// is a function or arrow expression. Prettier declines last-argument
+// hugging when a non-last argument is itself a function/arrow, regardless
+// of its body, so `useMemo(() => compute(), [deps])` explodes rather than
+// hugging the trailing array. This complements anyLeadingItemBreaks, which
+// only catches leads with hard line breaks (a block body) and so misses an
+// expression-bodied arrow.
+func anyLeadingArgIsFunctionLike(args []*shimast.Node) bool {
+  for i := 0; i+1 < len(args); i++ {
+    if args[i] == nil {
+      continue
+    }
+    switch args[i].Kind {
+    case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+      return true
+    }
+  }
+  return false
 }
 
 // anyLeadingItemBreaks reports whether any item before the last carries a
@@ -320,72 +345,34 @@ func forceBreakFirstGroup(doc Doc) (Doc, bool) {
 
 // Type-argument byte-range helpers. The shim's NodeList.End() points
 // past the last argument; the surrounding `<` and `>` are not part of
-// the list's range, so we have to scan around it.
+// the list's range, so we have to scan around it. Call and new
+// expressions share these — only the field holding the list differs.
 
-// callTypeArgsStart returns the byte offset of the `<` that opens the
-// type-argument list of a CallExpression. Returns -1 when absent.
-func callTypeArgsStart(ctx *PrintContext, call *shimast.CallExpression) int {
-  if call.TypeArguments == nil || len(call.TypeArguments.Nodes) == 0 {
-    return -1
-  }
-  first := call.TypeArguments.Nodes[0]
-  if first == nil {
+// typeArgsStart returns the byte offset of the `<` that opens a
+// type-argument list. Returns -1 when absent.
+func typeArgsStart(src string, list *shimast.NodeList) int {
+  if list == nil || len(list.Nodes) == 0 || list.Nodes[0] == nil {
     return -1
   }
   // `<` is the byte immediately before the first type argument
   // (modulo whitespace).
-  pos := first.Pos()
-  for i := pos - 1; i >= 0; i-- {
-    if ctx.Source[i] == '<' {
+  for i := list.Nodes[0].Pos() - 1; i >= 0; i-- {
+    if src[i] == '<' {
       return i
     }
   }
   return -1
 }
 
-// callTypeArgsEnd returns the byte offset one past the closing `>` of a
-// CallExpression's type-argument list. Returns -1 when absent.
-func callTypeArgsEnd(ctx *PrintContext, call *shimast.CallExpression) int {
-  if call.TypeArguments == nil {
+// typeArgsEnd returns the byte offset one past the closing `>` of a
+// type-argument list. Returns -1 when the list is absent.
+func typeArgsEnd(src string, list *shimast.NodeList) int {
+  if list == nil {
     return -1
   }
-  end := call.TypeArguments.End()
-  for i := end; i < len(ctx.Source); i++ {
-    if ctx.Source[i] == '>' {
-      return i + 1
-    }
-  }
-  return end
-}
-
-// newTypeArgsStart returns the byte offset of the `<` that opens the
-// type-argument list of a NewExpression. Returns -1 when absent.
-func newTypeArgsStart(ctx *PrintContext, ne *shimast.NewExpression) int {
-  if ne.TypeArguments == nil || len(ne.TypeArguments.Nodes) == 0 {
-    return -1
-  }
-  first := ne.TypeArguments.Nodes[0]
-  if first == nil {
-    return -1
-  }
-  pos := first.Pos()
-  for i := pos - 1; i >= 0; i-- {
-    if ctx.Source[i] == '<' {
-      return i
-    }
-  }
-  return -1
-}
-
-// newTypeArgsEnd returns the byte offset one past the closing `>` of a
-// NewExpression's type-argument list. Returns -1 when absent.
-func newTypeArgsEnd(ctx *PrintContext, ne *shimast.NewExpression) int {
-  if ne.TypeArguments == nil {
-    return -1
-  }
-  end := ne.TypeArguments.End()
-  for i := end; i < len(ctx.Source); i++ {
-    if ctx.Source[i] == '>' {
+  end := list.End()
+  for i := end; i < len(src); i++ {
+    if src[i] == '>' {
       return i + 1
     }
   }

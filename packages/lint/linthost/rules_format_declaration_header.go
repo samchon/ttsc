@@ -120,17 +120,6 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
   // anywhere in that span would be lost — including one between the name
   // and `extends`, or between `extends` and its first type. Scan the whole
   // [nameEnd, brace) region and abstain on any comment.
-  prefixEnd := bracePos
-  if hasTypeParams {
-    if lt := scanBackFor(src, typeParams.Nodes[0].Pos(), '<'); lt >= 0 {
-      prefixEnd = lt
-    }
-  } else if hasHeritage {
-    prefixEnd = shimscanner.SkipTrivia(src, heritage.Nodes[0].Pos())
-  }
-  if prefixEnd < headerStart || prefixEnd > bracePos {
-    return
-  }
   if containsComment(src[nameEnd:bracePos]) {
     return
   }
@@ -160,16 +149,25 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
   flat := prefix + flatTypeParams(paramTexts) + flatHeritage(clauses) + " {"
   region := src[headerStart : bracePos+1]
 
+  // An empty body renders its closing `}` on the same line (`… {}`), so the
+  // flat form is one column wider than the rebuilt region (which ends at the
+  // `{`). Charge that column when deciding whether the header fits, or the
+  // fit check is off by one against Prettier at the width boundary.
+  isClass := node.Kind == shimast.KindClassDeclaration
+  emptyBody := headerBodyIsEmpty(src, bracePos)
+  flatExtra := 0
+  if emptyBody {
+    flatExtra = 1
+  }
+
   var target string
-  if startCol+visualWidth(flat, layout.tabWidth) <= layout.printWidth {
+  if startCol+visualWidth(flat, layout.tabWidth)+flatExtra <= layout.printWidth {
     target = flat
   } else {
     // Prettier drops the opening brace onto its own line only for a class
     // with a non-empty body; an interface (any body) and an empty body
     // keep `{` glued to the last header line (so an empty body reads
     // `… {}`). isClass && !emptyBody captures that.
-    isClass := node.Kind == shimast.KindClassDeclaration
-    emptyBody := headerBodyIsEmpty(src, bracePos)
     brace := headerBrace(isClass, emptyBody, base)
     target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace)
     if !ok {
@@ -494,22 +492,6 @@ func lineFirstNonSpace(src string, pos int) int {
     i++
   }
   return i
-}
-
-// scanBackFor returns the offset of the nearest `target` byte at or
-// before `from`-1, scanning over whitespace only; -1 if a non-whitespace,
-// non-target byte is reached first.
-func scanBackFor(src string, from int, target byte) int {
-  for i := from - 1; i >= 0; i-- {
-    c := src[i]
-    if c == target {
-      return i
-    }
-    if c != ' ' && c != '\t' && c != '\r' && c != '\n' {
-      return -1
-    }
-  }
-  return -1
 }
 
 // containsComment reports whether `s` holds a line or block comment.
