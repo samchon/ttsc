@@ -68,7 +68,9 @@ Then turn on format-on-save in `.vscode/settings.json`:
 }
 ```
 
-See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements, settings, and uninstall.
+Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
+See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
 
 ### Bundlers
 

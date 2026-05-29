@@ -42,6 +42,8 @@ Set `samchon.ttsc` as the default formatter and turn on `editor.formatOnSave` in
 
 Lint **fixes** stay off-save by default because they can change code meaning. Run `ttsc: Fix all lint issues` from the command palette, or opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
 
+The format rules come from your project's `lint.config`, so format-on-save does nothing until that config has a `format` block.
+
 ## What it adds
 
 - TypeScript-Go diagnostics, hover, navigation, and completions.
