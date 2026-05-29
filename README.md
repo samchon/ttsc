@@ -51,11 +51,9 @@ npx ttsc format
 
 ### VSCode Extension
 
-Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions:
+Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
-npm install -D ttsc @ttsc/lint @typescript/native-preview
-npm install -D @ttsc/vscode
 npx @ttsc/vscode
 ```
 

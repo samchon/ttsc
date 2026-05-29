@@ -20,10 +20,9 @@ npm install -D ttsc @ttsc/lint @typescript/native-preview
 
 ### Install
 
-Not on the VS Code Marketplace yet. Install from npm:
+Not on the VS Code Marketplace yet. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
-npm install -D @ttsc/vscode
 npx @ttsc/vscode
 ```
 
