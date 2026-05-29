@@ -56,7 +56,11 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
           (diagnostic) =>
             diagnostic.source === "ttsc/lint" && diagnostic.code === "no-var",
         ),
-      120_000,
+      // The fresh TTSC_CACHE_DIR forces a cold one-time `@ttsc/lint` Go
+      // sidecar build before any diagnostics are published. Under parallel
+      // CI matrix contention that build alone can exceed the prior 120s
+      // budget, so the wait must out-last it rather than race it.
+      240_000,
     );
     client.notify("textDocument/didOpen", {
       textDocument: {

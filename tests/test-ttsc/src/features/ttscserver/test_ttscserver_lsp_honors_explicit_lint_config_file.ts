@@ -67,7 +67,11 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
           (params.diagnostics ?? []).some(
             (diagnostic) => diagnostic.source === "ttsc/lint",
           ),
-        120_000,
+        // The fresh TTSC_CACHE_DIR forces a cold one-time `@ttsc/lint` Go
+        // sidecar build before any diagnostics are published. Under parallel
+        // CI matrix contention that build alone can exceed the prior 120s
+        // budget, so the wait must out-last it rather than race it.
+        240_000,
       );
       client.notify("textDocument/didOpen", {
         textDocument: {
