@@ -12,6 +12,8 @@ import (
   "path/filepath"
   "strings"
   "sync"
+  "unicode/utf16"
+  "unicode/utf8"
 )
 
 // ErrCommandNotHandled is returned by PluginSource.ExecuteCommand for commands
@@ -97,12 +99,13 @@ type Proxy struct {
   dirtyVersions        map[string]*int
   // documentText caches the live editor buffer per uri so the
   // textDocument/formatting handler can format the in-memory text instead
-  // of the on-disk file. Entries are present only while the proxy holds a
-  // trustworthy full-document copy: didOpen / full-sync didChange populate
-  // it, incremental didChange (a contentChange carrying a range) and
-  // didClose evict it, and the formatting handler falls back to a disk read
-  // when no entry is cached. Guarded by diagnosticsMu like the other
-  // per-uri document state.
+  // of the on-disk file. didOpen / full-sync didChange seed it with the full
+  // text, and incremental (ranged) didChange splices each edit into the
+  // cached text so it tracks the live buffer (see cacheDidChangeText).
+  // didClose evicts the entry; a ranged change with no cached base, or a
+  // position the proxy cannot map, also drops the entry so the formatting
+  // handler falls back to a disk read. Guarded by diagnosticsMu like the
+  // other per-uri document state.
   documentText map[string]string
 }
 
@@ -1071,18 +1074,24 @@ func (p *Proxy) cacheDidOpenText(env Envelope) {
 // or incremental range edits (a range present). The proxy does not control the
 // advertised textDocumentSync kind — tsgo owns the initialize response and ttsc
 // only augments code-action/executeCommand capabilities — so a client may send
-// either shape. The cache is only trustworthy when every change is a full
-// replacement; on an incremental change the proxy evicts the entry so the
-// formatting handler falls back to reading disk rather than formatting stale
-// text.
+// either shape. VS Code with tsgo uses incremental sync, so save-time
+// formatting depends on applying ranged edits to the cache: a full replacement
+// (Range == nil) overwrites the cached text, and a ranged change splices into
+// the currently cached text so the cache always reflects the live buffer.
+//
+// A ranged change can only be applied when a base entry already exists for the
+// uri (seeded by didOpen or a prior full replacement). If a ranged change
+// arrives with no base — never opened, or a gap left the cache stale — the
+// proxy cannot patch reliably, so it drops the entry and the formatting handler
+// falls back to reading disk.
 func (p *Proxy) cacheDidChangeText(env Envelope) {
   var params struct {
     TextDocument struct {
       URI string `json:"uri"`
     } `json:"textDocument"`
     ContentChanges []struct {
-      Range *json.RawMessage `json:"range"`
-      Text  string           `json:"text"`
+      Range *lspRangeWire `json:"range"`
+      Text  string        `json:"text"`
     } `json:"contentChanges"`
   }
   if err := json.Unmarshal(env.Params, &params); err != nil || params.TextDocument.URI == "" {
@@ -1091,19 +1100,119 @@ func (p *Proxy) cacheDidChangeText(env Envelope) {
   if len(params.ContentChanges) == 0 {
     return
   }
-  fullText := ""
-  for _, change := range params.ContentChanges {
-    if change.Range != nil {
-      p.diagnosticsMu.Lock()
-      delete(p.documentText, params.TextDocument.URI)
-      p.diagnosticsMu.Unlock()
-      return
-    }
-    fullText = change.Text
-  }
+  uri := params.TextDocument.URI
   p.diagnosticsMu.Lock()
   defer p.diagnosticsMu.Unlock()
-  p.documentText[params.TextDocument.URI] = fullText
+  text, hasBase := p.documentText[uri]
+  for _, change := range params.ContentChanges {
+    if change.Range == nil {
+      // Full-document replacement: overwrite the cached text wholesale. A
+      // subsequent ranged change in the same notification patches this value.
+      text = change.Text
+      hasBase = true
+      continue
+    }
+    if !hasBase {
+      // Ranged change with no trustworthy base: drop the entry so formatting
+      // falls back to disk rather than patching against missing text.
+      delete(p.documentText, uri)
+      return
+    }
+    start, okStart := lspPositionToByteOffset(text, change.Range.Start)
+    end, okEnd := lspPositionToByteOffset(text, change.Range.End)
+    if !okStart || !okEnd || start > end {
+      // A position the proxy cannot map (out of range, malformed) means the
+      // cache and the editor have diverged; drop the entry so the next format
+      // reads disk instead of corrupting the buffer.
+      delete(p.documentText, uri)
+      return
+    }
+    text = text[:start] + change.Text + text[end:]
+  }
+  p.documentText[uri] = text
+}
+
+// lspPositionWire and lspRangeWire decode an LSP Position/Range from a
+// didChange contentChange. They are local decode shapes so cacheDidChangeText
+// can splice ranged edits into the cached buffer.
+type lspPositionWire struct {
+  Line      int `json:"line"`
+  Character int `json:"character"`
+}
+
+type lspRangeWire struct {
+  Start lspPositionWire `json:"start"`
+  End   lspPositionWire `json:"end"`
+}
+
+// lspPositionToByteOffset converts an LSP Position into a byte offset into text.
+//
+// LSP Position.character is a UTF-16 code-unit offset (not a byte or rune
+// offset): a rune in the astral planes (>= U+10000) counts as two UTF-16 code
+// units. The walk advances line by line over '\n' and '\r\n' endings to the
+// target line, then advances `character` UTF-16 code units within that line and
+// returns the corresponding byte index.
+//
+// Decision on out-of-range positions: when line/character point past the end of
+// the text the function returns (len, false) rather than clamping — the caller
+// treats !ok as a cache/editor divergence and drops the cache so formatting
+// reads disk. A character that lands exactly at the line's end (e.g. the column
+// just past the last code unit, which editors send for an end-of-line cursor)
+// is in range and maps to the byte index of the line ending or end of text.
+func lspPositionToByteOffset(text string, pos lspPositionWire) (int, bool) {
+  if pos.Line < 0 || pos.Character < 0 {
+    return len(text), false
+  }
+  i := 0
+  line := 0
+  // Advance to the start of the target line.
+  for line < pos.Line {
+    if i >= len(text) {
+      return len(text), false
+    }
+    r, size := utf8.DecodeRuneInString(text[i:])
+    if r == utf8.RuneError && size == 0 {
+      return len(text), false
+    }
+    if r == '\r' {
+      i += size
+      if i < len(text) && text[i] == '\n' {
+        i++
+      }
+      line++
+      continue
+    }
+    if r == '\n' {
+      i += size
+      line++
+      continue
+    }
+    i += size
+  }
+  // Advance `character` UTF-16 code units within the target line.
+  units := 0
+  for units < pos.Character {
+    if i >= len(text) {
+      return len(text), false
+    }
+    r, size := utf8.DecodeRuneInString(text[i:])
+    if r == utf8.RuneError && size == 0 {
+      return len(text), false
+    }
+    if r == '\n' || r == '\r' {
+      // The character offset ran past the end of this line's content. LSP
+      // clients should not address columns beyond the line, so treat it as a
+      // divergence rather than silently wrapping onto the next line.
+      return i, false
+    }
+    n := utf16.RuneLen(r)
+    if n <= 0 {
+      n = 1
+    }
+    units += n
+    i += size
+  }
+  return i, true
 }
 
 // evictDocumentText drops the cached buffer for a closed document so a later
