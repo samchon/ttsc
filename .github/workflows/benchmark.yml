@@ -48,6 +48,9 @@ on:
     paths:
       - .github/workflows/benchmark.yml
       - experimental/benchmark/**
+      # Docs-only edits under experimental/benchmark (e.g. README prose) must
+      # not spin up the verify run; benchmark cares about bench code + workflow.
+      - "!experimental/benchmark/**/*.md"
   workflow_dispatch:
     inputs:
       projects:
