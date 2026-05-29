@@ -54,7 +54,7 @@ Open VS Code's settings (`Ctrl+,` / `Cmd+,`) and search for `ttsc`, or edit `set
 To format on save, make `samchon.ttsc` the default formatter for the languages you want and enable `editor.formatOnSave`:
 
 ```jsonc
-"[typescript][typescriptreact][javascript][javascriptreact]": {
+"[typescript][typescriptreact]": {
   "editor.defaultFormatter": "samchon.ttsc",
   "editor.formatOnSave": true
 }

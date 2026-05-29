@@ -62,7 +62,7 @@ npx @ttsc/vscode
 Then turn on format-on-save in `.vscode/settings.json`:
 
 ```jsonc
-"[typescript][typescriptreact][javascript][javascriptreact]": {
+"[typescript][typescriptreact]": {
   "editor.defaultFormatter": "samchon.ttsc",
   "editor.formatOnSave": true
 }
