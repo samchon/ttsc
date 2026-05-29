@@ -4,7 +4,7 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-VS Code extension for [`ttsc`](https://ttsc.dev) projects — TypeScript-Go diagnostics and `@ttsc/lint` lint & format, live in your editor.
+VS Code extension for [`ttsc`](https://ttsc.dev) projects. It shows TypeScript-Go diagnostics and `@ttsc/lint` lint and format inside your editor.
 
 ## Setup
 
@@ -12,7 +12,7 @@ VS Code extension for [`ttsc`](https://ttsc.dev) projects — TypeScript-Go diag
 
 - **VS Code** 1.94 or later
 - **Node.js** 18 or later
-- **`ttsc`, `@ttsc/lint`, and `@typescript/native-preview` in your project** — `@typescript/native-preview` is the TypeScript-Go engine `ttsc` runs on (a separate package `ttsc` does not bundle):
+- **`ttsc`, `@ttsc/lint`, and `@typescript/native-preview` in your project.** `@typescript/native-preview` is the TypeScript-Go engine `ttsc` runs on; it is a separate package that `ttsc` does not bundle.
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
@@ -20,7 +20,7 @@ npm install -D ttsc @ttsc/lint @typescript/native-preview
 
 ### Install
 
-Not on the VS Code Marketplace yet — install from npm:
+Not on the VS Code Marketplace yet. Install from npm:
 
 ```bash
 npm install -D @ttsc/vscode
@@ -40,14 +40,14 @@ Set `samchon.ttsc` as the default formatter and turn on `editor.formatOnSave` in
 }
 ```
 
-Lint **fixes** stay off-save by default (they can change code meaning) — run `ttsc: Fix all lint issues` from the command palette, or opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+Lint **fixes** stay off-save by default because they can change code meaning. Run `ttsc: Fix all lint issues` from the command palette, or opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
 
 ## What it adds
 
 - TypeScript-Go diagnostics, hover, navigation, and completions.
 - `@ttsc/lint` lint diagnostics, plus `ttsc: Fix all lint issues` and `ttsc: Format document` in the command palette.
-- **Format on save** with `@ttsc/lint`'s rules (see above).
-- Monorepo-aware — each package uses its own `tsconfig` and `lint.config`.
+- Format on save with `@ttsc/lint`'s rules, shown above.
+- Monorepo-aware: each package uses its own `tsconfig` and `lint.config`.
 
 ## Troubleshooting
 
@@ -55,8 +55,4 @@ No diagnostics? Confirm `ttsc` runs in the project (`npx ttsc --version`), then 
 
 ## Sponsors
 
-[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
-
-Thanks for your support.
-
-Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development. Thanks for your support.
