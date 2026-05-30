@@ -1,4 +1,6 @@
-import type { TtscLintSeverity } from "./TtscLintSeverity";
+import type { TtscLintSeverity } from "../TtscLintSeverity";
+import type { ITtscLintFormatJsDoc } from "./ITtscLintFormatJsDoc";
+import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
 
 /**
  * Prettier-style flat configuration for the format rules.
@@ -14,56 +16,6 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * `ttsc check` does not report format findings unless `severity` is set to a
  * non-off value. Individual rules can be overridden or disabled through the
  * `rules` map (the `rules` entry wins on conflict).
- *
- * @example
- *   import type { ITtscLintConfig } from "@ttsc/lint";
- *
- *   export default {
- *   rules: { "no-var": "error" },
- *   format: {
- *   severity: "warning",
- *   printWidth: 100,
- *   singleQuote: true,
- *   importOrder: ["<THIRD_PARTY_MODULES>", "^[./]"],
- *   },
- *   } satisfies ITtscLintConfig;
- *
- *   Deviations from Prettier:
- *   - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
- *   `"cr"` and `"auto"` modes are intentionally unsupported, the
- *   printer does not auto-detect terminators.
- *   - JSX-specific switches (`jsxSingleQuote`, `bracketSameLine`) are not yet
- *   implemented.
- *
- *   Rule enablement matrix (when the `format` block is present):
- *
- *   - `format/semi`, always on. `semi: false` flips it to `prefer:
- *   "never"`.
- *   - `format/quotes`, always on. `singleQuote: true` flips to
- *   `prefer: "single"`.
- *   - `format/arrow-parens`, always on. `arrowParens: "avoid"` strips a
- *   single bare-identifier arrow parameter's parentheses; the default
- *   `"always"` adds them.
- *   - `format/bracket-spacing`, always on. `bracketSpacing: false` removes
- *   the inner space of single-line object/destructure/import/export/type
- *   braces; the default `true` keeps it.
- *   - `format/quote-props`, always on. `quoteProps: "as-needed"` (default)
- *   unquotes identifier object keys; `"consistent"` keeps every key quoted
- *   when any one needs it; `"preserve"` leaves quoting untouched.
- *   - `format/trailing-comma`, always on. `trailingComma: "none"`
- *   disables the rule's edits without removing the surface.
- *   - `format/print-width`, always on, driven by `printWidth`,
- *   `tabWidth`, `useTabs`, `endOfLine`.
- *   - `format/statement-split`, always on, driven by `tabWidth`,
- *   `useTabs`, `endOfLine`.
- *   - `format/indent`, always on, driven by `tabWidth`, `useTabs`,
- *   `endOfLine`.
- *   - `format/whitespace`, always on, driven by `endOfLine`.
- *   - `format/sort-imports`, opt-in. Setting `importOrder` enables it.
- *   - `format/jsdoc`, opt-in. Setting `jsdoc` enables it.
- *
- *   Format findings produced from this block are off by default. Set `severity`
- *   only when a project intentionally wants check-time format diagnostics.
  */
 export interface ITtscLintFormat {
   /**
@@ -168,49 +120,22 @@ export interface ITtscLintFormat {
   endOfLine?: "lf" | "crlf";
 
   /**
-   * Group order for `format/sort-imports`. Setting this enables the rule;
-   * mirrors `@trivago/prettier-plugin-sort-imports`' `importOrder`. The
-   * `<THIRD_PARTY_MODULES>` literal is the catch-all placeholder for specifiers
-   * that match no other group.
-   */
-  importOrder?: readonly ("<THIRD_PARTY_MODULES>" | (string & {}))[];
-
-  /**
-   * Insert blank line between sort-imports groups.
-   *
-   * @default true
-   */
-  importOrderSeparation?: boolean;
-
-  /**
-   * Sort named import specifiers alphabetically within each declaration.
-   *
-   * @default true
-   */
-  importOrderSortSpecifiers?: boolean;
-
-  /**
-   * Case-insensitive comparison for sort-imports.
+   * Import sorting & merging. Off unless present; `true` enables it with
+   * defaults, an object customizes.
    *
    * @default false
    */
-  importOrderCaseInsensitive?: boolean;
+  sortImports?: boolean | ITtscLintFormatSortImports;
 
   /**
-   * Enable `format/jsdoc`. Pass `true` to turn it on with built-in defaults, or
-   * an object to customize:
+   * JSDoc tag normalization. On by default like the rest of the format set;
+   * pass `false` to disable, or an object to customize.
    *
-   * - `tagSynonyms`, extra `from → to` rewrites layered on the built-in synonym
-   *   table.
-   * - `sortTags`, sort JSDoc tags into canonical order (reserved; today's MVP
-   *   only rewrites tag names).
+   * Today it only rewrites tag synonyms (`@return` → `@returns`, `@arg` →
+   * `@param`, ...); tag sorting, `@param` column alignment, and description
+   * wrapping are on the roadmap.
    *
-   * @default false (off)
+   * @default true
    */
-  jsdoc?:
-    | boolean
-    | {
-        tagSynonyms?: Record<string, string>;
-        sortTags?: boolean;
-      };
+  jsDoc?: boolean | ITtscLintFormatJsDoc;
 }

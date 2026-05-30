@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/playground",
-  "version": "0.14.0-dev.20260529.2",
+  "version": "0.14.0-dev.20250530.1",
   "description": "Reusable React + Web Worker scaffolding for in-browser ttsc playgrounds built on @ttsc/wasm.",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",

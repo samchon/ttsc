@@ -1,4 +1,4 @@
-import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
+import type { ITtscLintFormat } from "./structures/format/ITtscLintFormat";
 
 /**
  * Documented defaults for the `format` block's _always-on_ rules
@@ -19,10 +19,10 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
  * The values mirror Prettier 1:1 except for the documented `endOfLine`
  * narrowing (no `"cr"` / `"auto"`).
  *
- * Notably absent: `importOrder` and `jsdoc`. `format/sort-imports` and
- * `format/jsdoc` are opt-in by setting their corresponding fields; this const
- * documents only the rules that turn on unconditionally with a non-empty
- * `format` block, the Go host owns runtime activation.
+ * Notably absent: `sortImports`. Import sorting is opt-in by setting
+ * `sortImports`; JSDoc normalization is always on (set `jsDoc: false` to opt
+ * out). This const documents only the keys that turn on unconditionally with a
+ * non-empty `format` block; the Go host owns runtime activation.
  */
 export const defaultFormat = Object.freeze({
   severity: "off",

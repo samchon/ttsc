@@ -103,8 +103,10 @@ export default {
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
-    importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
-    jsdoc: true,
+    sortImports: {
+      order: ["<BUILTIN_MODULES>", "", "<THIRD_PARTY_MODULES>", "", "^[./]"],
+    },
+    jsDoc: true,
   },
   rules: { "no-var": "error" },
 } satisfies ITtscLintConfig;
@@ -112,22 +114,22 @@ export default {
 
 `ttsc check` does **not** fail on formatting by default. It surfaces format diagnostics only when you opt in with `format.severity`. `ttsc format` runs the active format rules across the project and writes results to disk regardless of `severity`.
 
-Each `format` config key activates one rule:
+Each `format` key controls one behavior:
 
-| Config key | Rule | Effect |
-| --- | --- | --- |
-| `severity` (default `"off"`) | applies to every format rule | Sets the check-time diagnostic level. Does not gate `ttsc format`. That runs all active rules. |
-| `semi` | `format/semi` | Insert trailing semicolons on ASI-terminated statements. |
-| `singleQuote` | `format/quotes` | Convert quoted strings to the preferred quote style. |
-| `arrowParens` | `format/arrow-parens` | Add or remove parens around a single arrow parameter. |
-| `bracketSpacing` | `format/bracket-spacing` | Spaces inside object and named-import/export braces. |
-| `quoteProps` | `format/quote-props` | Quote or unquote object property keys. |
-| `trailingComma` | `format/trailing-comma` | Add trailing commas to multi-line lists. |
-| `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | `format/print-width` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
-| `importOrder` (opt-in) | `format/sort-imports` | Group external/relative imports and alphabetize each group + its specifiers. |
-| `jsdoc` (opt-in) | `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+| Config key | Effect |
+| --- | --- |
+| `severity` (default `"off"`) | Check-time diagnostic level for formatting. Does not gate `ttsc format`. |
+| `semi` | Insert trailing semicolons on ASI-terminated statements. |
+| `singleQuote` | Convert quoted strings to the preferred quote style. |
+| `arrowParens` | Add or remove parens around a single arrow parameter. |
+| `bracketSpacing` | Spaces inside object and named-import/export braces. |
+| `quoteProps` | Quote or unquote object property keys. |
+| `trailingComma` | Add trailing commas to multi-line lists. |
+| `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
+| `sortImports` (opt-in) | Group imports by `order`, alphabetize each group + its specifiers, and merge duplicate modules. |
+| `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `importOrder` or `jsdoc`. Every other format rule turns on automatically as soon as the `format` block is present, including the layout rules that have no dedicated config key: `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
+`sortImports` is **opt-in** — it takes effect only when you set it. Every other key takes effect as soon as the `format` block is present (JSDoc normalization included; set `jsDoc: false` to opt out), which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
 
 Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 

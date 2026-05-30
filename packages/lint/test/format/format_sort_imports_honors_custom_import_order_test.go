@@ -10,19 +10,19 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatSortImportsHonorsCustomImportOrder verifies user-supplied
-// `importOrder` regexes drive the group sequence.
+// TestFormatSortImportsHonorsCustomImportOrder verifies user-supplied `order`
+// regexes drive the group sequence and "" entries inject blank-line separators.
 //
 // The fixture has three import classes — `@api/*`, plain third-party, and
 // relative — in shuffled source order. With
-// `importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"]` the
-// expected output is third-party first, then `@api/*`, then relative,
-// with one blank line between groups. This pins the trivago-compat
-// option path through the engine.
+// `order: ["<THIRD_PARTY_MODULES>", "", "@api(.*)$", "", "^[./]"]` the expected
+// output is third-party first, then `@api/*`, then relative, with one blank
+// line between each group. This pins the custom-order + separator path through
+// the engine.
 //
 //  1. Parse a source file with mixed import classes.
-//  2. Apply the rule with a custom `importOrder` matching trivago's
-//     workspace config (third-party, then `@api/*`, then relative).
+//  2. Apply the rule with a custom `order` (third-party, then `@api/*`, then
+//     relative) separated by blank lines.
 //  3. Assert the rewritten file has the imports laid out per the spec.
 func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   root := t.TempDir()
@@ -39,7 +39,7 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
     Rules: RuleConfig{"format/sort-imports": SeverityError},
     Options: RuleOptionsMap{
       "format/sort-imports": json.RawMessage(
-        `{"importOrder":["<THIRD_PARTY_MODULES>","@api(.*)$","^[./]"]}`,
+        `{"order":["<THIRD_PARTY_MODULES>","","@api(.*)$","","^[./]"]}`,
       ),
     },
   }

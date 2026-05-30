@@ -36,8 +36,8 @@ import (
 //   - `format/statement-split`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace`, always on, driven by endOfLine.
-//   - `format/sort-imports`, opt-in by setting `importOrder`.
-//   - `format/jsdoc`, opt-in by setting `jsdoc` truthy.
+//   - `format/sort-imports`, opt-in by setting `sortImports`.
+//   - `format/jsdoc`, always-on; `jsDoc: false` opts out, an object customizes.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
 // merge any user-supplied `rules` map on top of this one (rules-wins
@@ -220,85 +220,110 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
   out["format/whitespace"] = ruleEntry(wsOpts)
 
-  // formatSortImports, opt-in by `importOrder`.
-  if v, ok := raw["importOrder"]; ok {
-    siOpts := map[string]any{}
-    order, err := asStringSlice("format.importOrder", v)
+  // formatSortImports, opt-in by `sortImports` (a boolean or options object).
+  if v, ok := raw["sortImports"]; ok && v != nil {
+    siOpts, enabled, err := expandSortImportsBlock(v)
     if err != nil {
       return nil, err
     }
-    if len(order) == 0 {
-      return nil, fmt.Errorf("@ttsc/lint: format.importOrder must contain at least one entry; omit the field to keep formatSortImports off")
+    if enabled {
+      out["format/sort-imports"] = ruleEntry(siOpts)
     }
-    siOpts["importOrder"] = order
-    if x, ok := raw["importOrderSeparation"]; ok {
-      b, err := asBool("format.importOrderSeparation", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderSeparation"] = b
-    }
-    if x, ok := raw["importOrderSortSpecifiers"]; ok {
-      b, err := asBool("format.importOrderSortSpecifiers", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderSortSpecifiers"] = b
-    }
-    if x, ok := raw["importOrderCaseInsensitive"]; ok {
-      b, err := asBool("format.importOrderCaseInsensitive", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderCaseInsensitive"] = b
-    }
-    out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
-  // formatJsdoc, opt-in by `jsdoc` truthy (boolean or object).
-  if v, ok := raw["jsdoc"]; ok && v != nil {
-    jdOpts := map[string]any{}
-    enabled := false
+  // formatJsdoc, always-on. `jsDoc: false` opts out; a
+  // `{ tagSynonyms, sortTags }` object customizes it. The config key is
+  // camelCased (jsDoc) to match the other multi-word keys; the emitted rule id
+  // stays `format/jsdoc`.
+  //
+  // Today the rule only rewrites tag synonyms (@return → @returns, ...); tag
+  // sorting, column alignment, and wrapping are on the roadmap. It is on by
+  // default so JSDoc tag names normalize without opt-in, matching the rest of
+  // the always-on format set.
+  jdOpts := map[string]any{}
+  jdEnabled := true
+  if v, ok := raw["jsDoc"]; ok && v != nil {
     switch j := v.(type) {
     case bool:
-      enabled = j
+      jdEnabled = j
     case map[string]any:
-      enabled = true
       for key, val := range j {
         switch key {
         case "tagSynonyms":
           ts, ok := val.(map[string]any)
           if !ok {
-            return nil, fmt.Errorf("@ttsc/lint: format.jsdoc.tagSynonyms must be an object, got %T", val)
+            return nil, fmt.Errorf("@ttsc/lint: format.jsDoc.tagSynonyms must be an object, got %T", val)
           }
           // Element values must be strings; surface
           // typos early instead of after a downstream
           // JSON-decode failure.
           for k, v := range ts {
             if _, ok := v.(string); !ok {
-              return nil, fmt.Errorf("@ttsc/lint: format.jsdoc.tagSynonyms[%q] must be a string, got %T", k, v)
+              return nil, fmt.Errorf("@ttsc/lint: format.jsDoc.tagSynonyms[%q] must be a string, got %T", k, v)
             }
           }
           jdOpts["tagSynonyms"] = ts
         case "sortTags":
-          b, err := asBool("format.jsdoc.sortTags", val)
+          b, err := asBool("format.jsDoc.sortTags", val)
           if err != nil {
             return nil, err
           }
           jdOpts["sortTags"] = b
         default:
-          return nil, fmt.Errorf("@ttsc/lint: format.jsdoc unknown key %q (allowed: tagSynonyms, sortTags)", key)
+          return nil, fmt.Errorf("@ttsc/lint: format.jsDoc unknown key %q (allowed: tagSynonyms, sortTags)", key)
         }
       }
     default:
-      return nil, fmt.Errorf("@ttsc/lint: format.jsdoc must be a boolean or object, got %T", v)
+      return nil, fmt.Errorf("@ttsc/lint: format.jsDoc must be a boolean or object, got %T", v)
     }
-    if enabled {
-      out["format/jsdoc"] = ruleEntry(jdOpts)
-    }
+  }
+  if jdEnabled {
+    out["format/jsdoc"] = ruleEntry(jdOpts)
   }
 
   return out, nil
+}
+
+// expandSortImportsBlock translates the `format.sortImports` value (a boolean
+// or an options object) into the rule's option map. The bool reports whether
+// the rule is enabled: `true` and any object enable it, `false` keeps it off.
+func expandSortImportsBlock(v any) (map[string]any, bool, error) {
+  switch sv := v.(type) {
+  case bool:
+    return map[string]any{}, sv, nil
+  case map[string]any:
+    opts := map[string]any{}
+    for key, val := range sv {
+      switch key {
+      case "order":
+        order, err := asStringSlice("format.sortImports.order", val)
+        if err != nil {
+          return nil, false, err
+        }
+        if len(order) == 0 {
+          return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports.order must contain at least one entry; omit it to use the default order")
+        }
+        opts["order"] = order
+      case "caseSensitive":
+        b, err := asBool("format.sortImports.caseSensitive", val)
+        if err != nil {
+          return nil, false, err
+        }
+        opts["caseSensitive"] = b
+      case "combineTypeAndValue":
+        b, err := asBool("format.sortImports.combineTypeAndValue", val)
+        if err != nil {
+          return nil, false, err
+        }
+        opts["combineTypeAndValue"] = b
+      default:
+        return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports unknown key %q (allowed: order, caseSensitive, combineTypeAndValue)", key)
+      }
+    }
+    return opts, true, nil
+  default:
+    return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports must be a boolean or object, got %T", v)
+  }
 }
 
 // formatBlockSeverity extracts the optional `severity` field from a format
@@ -436,7 +461,7 @@ func asInt(field string, v any) (int, error) {
 }
 
 // asStringSlice coerces a raw config value to a []string, returning a typed
-// error on failure. Used by expandFormatBlock to validate importOrder.
+// error on failure. Used by expandFormatBlock to validate sortImports.order.
 func asStringSlice(field string, v any) ([]string, error) {
   arr, ok := v.([]any)
   if !ok {
@@ -458,22 +483,19 @@ func asStringSlice(field string, v any) ([]string, error) {
 // key set mirrors `ITtscLintFormat` exactly.
 func rejectUnknownFormatKeys(raw map[string]any) error {
   allowed := map[string]struct{}{
-    "severity":                   {},
-    "semi":                       {},
-    "singleQuote":                {},
-    "arrowParens":                {},
-    "bracketSpacing":             {},
-    "quoteProps":                 {},
-    "trailingComma":              {},
-    "printWidth":                 {},
-    "tabWidth":                   {},
-    "useTabs":                    {},
-    "endOfLine":                  {},
-    "importOrder":                {},
-    "importOrderSeparation":      {},
-    "importOrderSortSpecifiers":  {},
-    "importOrderCaseInsensitive": {},
-    "jsdoc":                      {},
+    "severity":       {},
+    "semi":           {},
+    "singleQuote":    {},
+    "arrowParens":    {},
+    "bracketSpacing": {},
+    "quoteProps":     {},
+    "trailingComma":  {},
+    "printWidth":     {},
+    "tabWidth":       {},
+    "useTabs":        {},
+    "endOfLine":      {},
+    "sortImports":    {},
+    "jsDoc":          {},
   }
   for key := range raw {
     if _, ok := allowed[key]; !ok {

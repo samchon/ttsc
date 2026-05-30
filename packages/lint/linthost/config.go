@@ -570,9 +570,10 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
   formatValue, hasFormat := obj["format"]
   if hasRules || hasFormat {
     // Expand the format block (if any) into a rules-shaped map, then
-    // overlay any explicit `rules` entries. `rules`-wins semantics: a
-    // `rules` entry that names a `format/*` rule fully replaces the
-    // entry expanded from the `format` block.
+    // overlay the user's explicit `rules` entries. Formatter settings live
+    // exclusively in the `format` block: any `format/*` key in `rules` is
+    // dropped below (never activates, never overrides the format block), so
+    // the overlay only ever layers lint-rule severities on top.
     var formatRulesRaw map[string]any
     if hasFormat {
       formatMap, ok := formatValue.(map[string]any)
@@ -772,7 +773,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, err
   }
   if discovered == "" {
-    return nil, fmt.Errorf("@ttsc/lint: no lint.config.* or ttsc-lint.config.* file found (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", cwd)
+    return nil, fmt.Errorf("%w (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", errNoLintConfigFile, cwd)
   }
   return loadConfigResolver(discovered)
 }

@@ -116,6 +116,7 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
       TestLintPlugin.PACKAGE_ROOT,
       "lib",
       "structures",
+      "format",
       "ITtscLintFormat.d.ts",
     ),
     "utf8",
@@ -143,7 +144,7 @@ export const test_lib_index_d_ts_exposes_typed_lint_config_files = () => {
     /export \* from "\.\/ITtscLintPluginConfig"/,
   );
   assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintConfig"/);
-  assert.match(structuresIndexDts, /export \* from "\.\/ITtscLintFormat"/);
+  assert.match(structuresIndexDts, /export \* from "\.\/format"/);
   assert.match(structuresIndexDts, /export \* from "\.\/rules"/);
   assert.match(rulesIndexDts, /export \* from "\.\/ITtscLintCoreRules"/);
   assert.match(rulesIndexDts, /export \* from "\.\/ITtscLintTypeScriptRules"/);
