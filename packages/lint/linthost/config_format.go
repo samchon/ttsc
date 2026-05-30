@@ -37,7 +37,7 @@ import (
 //   - `format/indent`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace`, always on, driven by endOfLine.
 //   - `format/sort-imports`, opt-in by setting `importOrder`.
-//   - `format/jsdoc`, opt-in by setting `jsDoc` truthy.
+//   - `format/jsdoc`, always-on; `jsDoc: false` opts out, an object customizes.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
 // merge any user-supplied `rules` map on top of this one (rules-wins
@@ -255,17 +255,22 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
-  // formatJsdoc, opt-in by `jsDoc` truthy (boolean or object). The config key
-  // is camelCased (jsDoc) to match the other multi-word keys; the emitted rule
-  // id stays `format/jsdoc`.
+  // formatJsdoc, always-on. `jsDoc: false` opts out; a
+  // `{ tagSynonyms, sortTags }` object customizes it. The config key is
+  // camelCased (jsDoc) to match the other multi-word keys; the emitted rule id
+  // stays `format/jsdoc`.
+  //
+  // Today the rule only rewrites tag synonyms (@return → @returns, ...); tag
+  // sorting, column alignment, and wrapping are on the roadmap. It is on by
+  // default so JSDoc tag names normalize without opt-in, matching the rest of
+  // the always-on format set.
+  jdOpts := map[string]any{}
+  jdEnabled := true
   if v, ok := raw["jsDoc"]; ok && v != nil {
-    jdOpts := map[string]any{}
-    enabled := false
     switch j := v.(type) {
     case bool:
-      enabled = j
+      jdEnabled = j
     case map[string]any:
-      enabled = true
       for key, val := range j {
         switch key {
         case "tagSynonyms":
@@ -295,9 +300,9 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     default:
       return nil, fmt.Errorf("@ttsc/lint: format.jsDoc must be a boolean or object, got %T", v)
     }
-    if enabled {
-      out["format/jsdoc"] = ruleEntry(jdOpts)
-    }
+  }
+  if jdEnabled {
+    out["format/jsdoc"] = ruleEntry(jdOpts)
   }
 
   return out, nil

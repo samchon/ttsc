@@ -147,16 +147,21 @@ export interface ITtscLintFormat {
   importOrderCaseInsensitive?: boolean;
 
   /**
-   * Enable `format/jsdoc`. Pass `true` to turn it on with built-in defaults, or
-   * an object to customize. (The rule id stays `format/jsdoc`; only this config
-   * key is camelCased to match the other multi-word keys.)
+   * JSDoc tag normalization (`format/jsdoc`). On by default like the rest of
+   * the format set; pass `false` to disable, or an object to customize. (The
+   * rule id stays `format/jsdoc`; only this config key is camelCased to match
+   * the other multi-word keys.)
+   *
+   * Today it only rewrites tag synonyms (`@return` → `@returns`, `@arg` →
+   * `@param`, ...); tag sorting, `@param` column alignment, and description
+   * wrapping are on the roadmap.
    *
    * - `tagSynonyms`, extra `from → to` rewrites layered on the built-in synonym
    *   table.
    * - `sortTags`, sort JSDoc tags into canonical order (reserved; today's MVP
    *   only rewrites tag names).
    *
-   * @default false (off)
+   * @default true
    */
   jsDoc?:
     | boolean

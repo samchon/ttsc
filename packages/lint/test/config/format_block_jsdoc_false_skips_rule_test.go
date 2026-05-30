@@ -5,12 +5,11 @@ import "testing"
 // TestFormatBlockJsdocFalseSkipsRule verifies that `jsDoc: false` in a format
 // block does not add a `format/jsdoc` rule entry to the output map.
 //
-// Locks the `case bool: enabled = j` arm inside expandFormatBlock's jsDoc
-// handling. When the bool value is `false`, `enabled` remains false and the
-// rule is not added to the output — the field was present but explicitly
-// opted out. Confusingly, the field being absent is a different code path (the
-// outer `if v, ok := raw["jsDoc"]; ok && v != nil` guard); this test covers
-// the bool=false arm explicitly.
+// Locks the `case bool: jdEnabled = j` arm inside expandFormatBlock's jsDoc
+// handling. format/jsdoc is on by default, so `jsDoc: false` is the explicit
+// opt-out: jdEnabled becomes false and the rule is left out of the output. A
+// missing key keeps the default (on), which is a different code path; this test
+// covers the bool=false opt-out explicitly.
 //
 //  1. Call expandFormatBlock with `jsDoc: false`.
 //  2. Assert no error is returned.
