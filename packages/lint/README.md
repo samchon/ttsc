@@ -126,14 +126,7 @@ Each `format` config key activates one rule:
 
 `format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `importOrder` or `jsdoc`. Every other format rule turns on automatically as soon as the `format` block is present.
 
-To override a single format rule, drop a sibling `rules` entry, `rules` wins on conflict:
-
-```ts
-export default {
-  format: { severity: "warning", semi: true },
-  rules: { "format/semi": "off" }, // overrides format.semi for this one rule
-} satisfies ITtscLintConfig;
-```
+Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 
 ## Rules
 
