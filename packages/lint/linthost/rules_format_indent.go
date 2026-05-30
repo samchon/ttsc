@@ -53,7 +53,7 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     // callback body under its call-argument column, which is deeper than
     // this rule's block-nesting depth, and reindenting it would oscillate
     // against the printer pass forever (the cascade never converges).
-    if indentCededToReflow(stmt) {
+    if indentCededToReflow(stmt) || cededUnderBracelessBody(stmt) {
       return
     }
     start := shimscanner.SkipTrivia(src, stmt.Pos())
@@ -160,7 +160,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       // indentCededToReflow walks block.Parent upward, the same ancestor
       // chain a body statement would, so a callback / expression-nested
       // block's `}` cedes in lockstep with its body (print-width owns it).
-      if indentCededToReflow(block) || cededInsideParameter(block) {
+      if indentCededToReflow(block) || cededInsideParameter(block) ||
+        cededInsideTypeOperator(block) || cededUnderBracelessBody(block) {
         return
       }
       // Chained-arrow body: cede the `}` in lockstep with its body
@@ -178,7 +179,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     },
     func(header *shimast.Node, depth int) {
       if indentCededToReflow(header) || cededByChainedArrowAncestor(header) ||
-        cededInsideParameter(header) {
+        cededInsideParameter(header) || cededInsideTypeOperator(header) ||
+        cededUnderBracelessBody(header) {
         return
       }
       want := layout.indent(depth)
@@ -280,6 +282,100 @@ func cededInsideParameter(node *shimast.Node) bool {
       shimast.KindModuleBlock,
       shimast.KindSourceFile:
       return false
+    }
+  }
+  return false
+}
+
+// cededInsideTypeOperator reports whether `node` sits inside an intersection
+// or union type (`A & { … }`, `A | { … }`). When the operator breaks across
+// lines, Prettier indents each operand one level past the member line, so a
+// type literal operand opens one level deeper than the block-depth model
+// computes and its members deeper still. The depth model has no frame for the
+// operator, so it would de-indent the literal's members and brace; cede to
+// leave the source / printer layout byte-identical. Stops at the nearest
+// statement boundary so an ordinary block is unaffected.
+func cededInsideTypeOperator(node *shimast.Node) bool {
+  for n := node.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindIntersectionType, shimast.KindUnionType:
+      return true
+    case shimast.KindBlock,
+      shimast.KindModuleBlock,
+      shimast.KindSourceFile:
+      return false
+    }
+  }
+  return false
+}
+
+// cededUnderBracelessBody reports whether `node` sits inside the braceless
+// body of a control-flow statement (`for (...) stmt;`, `if (c) stmt;`).
+// Prettier indents a braceless body one level past the header line, layout
+// the block-depth model has no frame for, so it would de-indent the body and
+// any block nested inside it (a `for (...) try { … }` loses a level on the
+// `try` body and `catch`). Cede to keep it byte-identical. The walk stops at
+// the enclosing function or source boundary so an ordinary block body, which
+// the depth model places correctly, is unaffected.
+func cededUnderBracelessBody(node *shimast.Node) bool {
+  for n := node; n != nil; n = n.Parent {
+    p := n.Parent
+    if p == nil {
+      return false
+    }
+    switch p.Kind {
+    case shimast.KindSourceFile,
+      shimast.KindModuleBlock,
+      shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindArrowFunction,
+      shimast.KindMethodDeclaration,
+      shimast.KindConstructor,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor:
+      return false
+    case shimast.KindIfStatement,
+      shimast.KindForStatement,
+      shimast.KindForInStatement,
+      shimast.KindForOfStatement,
+      shimast.KindWhileStatement:
+      if bracelessControlBody(p, n) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// bracelessControlBody reports whether `child` is the controlled body of
+// control-flow `parent` and is not itself a Block, the `then`/`else` branch
+// of an `if` (an `else if` chain's nested `if` is excluded) or the loop body
+// of an iteration statement.
+func bracelessControlBody(parent, child *shimast.Node) bool {
+  switch parent.Kind {
+  case shimast.KindIfStatement:
+    ifs := parent.AsIfStatement()
+    if ifs.ThenStatement == child && child.Kind != shimast.KindBlock {
+      return true
+    }
+    if ifs.ElseStatement == child && child.Kind != shimast.KindBlock &&
+      child.Kind != shimast.KindIfStatement {
+      return true
+    }
+  case shimast.KindWhileStatement:
+    if parent.AsWhileStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
+    }
+  case shimast.KindForStatement:
+    if parent.AsForStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
+    }
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    if parent.AsForInOrOfStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
     }
   }
   return false
