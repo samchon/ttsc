@@ -558,10 +558,6 @@ function runWatch(
       tsconfig: options.tsconfig,
     }),
   );
-  const directories = collectWatchDirectories(root);
-  const watchers = directories.map((dir) =>
-    fs.watch(dir, { persistent: true }, () => trigger()),
-  );
   let running = false;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
@@ -571,28 +567,41 @@ function runWatch(
 
   const runOnce = () => {
     running = true;
-    if (!options.preserveWatchOutput) {
-      process.stdout.write("\x1bc");
+    try {
+      if (!options.preserveWatchOutput) {
+        process.stdout.write("\x1bc");
+      }
+      process.stdout.write(
+        `[ttsc] rebuilding at ${new Date().toLocaleTimeString()}\n`,
+      );
+      // The debounced rebuild fires from setTimeout, outside runTtsc's
+      // top-level try/catch. runBuild/runSingleFile/loadProjectPlugins/
+      // readProjectConfig can throw (plugin go-build failure, tsconfig edited
+      // to invalid JSON, single-file invariant). Catch here so a throwing
+      // rebuild reports a clear failure and the watcher keeps running instead
+      // of crashing the process with an uncaught exception.
+      const status =
+        invocation.files.length !== 0
+          ? runSingleFile(invocation)
+          : (() => {
+              const result = runBuild(
+                checkOnly ? { ...invocation, emit: false } : invocation,
+              );
+              if (result.stdout) process.stdout.write(result.stdout);
+              if (result.stderr) process.stderr.write(result.stderr);
+              return result.status;
+            })();
+      lastStatus = status;
+      process.stdout.write(
+        `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
+      );
+    } catch (error) {
+      process.stderr.write(`${formatError(error)}\n`);
+      lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      process.stdout.write(`[ttsc] watch build failed\n`);
+    } finally {
+      running = false;
     }
-    process.stdout.write(
-      `[ttsc] rebuilding at ${new Date().toLocaleTimeString()}\n`,
-    );
-    const status =
-      invocation.files.length !== 0
-        ? runSingleFile(invocation)
-        : (() => {
-            const result = runBuild(
-              checkOnly ? { ...invocation, emit: false } : invocation,
-            );
-            if (result.stdout) process.stdout.write(result.stdout);
-            if (result.stderr) process.stderr.write(result.stderr);
-            return result.status;
-          })();
-    lastStatus = status;
-    process.stdout.write(
-      `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
-    );
-    running = false;
     if (rerun) {
       rerun = false;
       trigger();
@@ -606,6 +615,20 @@ function runWatch(
     if (timer) clearTimeout(timer);
     timer = setTimeout(runOnce, 60);
   };
+
+  const directories = collectWatchDirectories(root);
+  const watchers = directories.map((dir) => {
+    const watcher = fs.watch(dir, { persistent: true }, () => trigger());
+    // Without an error handler Node rethrows watcher errors as uncaught
+    // exceptions, which would crash the session. inotify limits (ENOSPC) and
+    // transient FS errors should be logged while the session stays alive.
+    watcher.on("error", (err) => {
+      process.stderr.write(
+        `[ttsc] watch error on ${path.relative(cwd, dir) || "."}: ${formatError(err)}\n`,
+      );
+    });
+    return watcher;
+  });
 
   const close = () => {
     if (timer) clearTimeout(timer);
@@ -621,8 +644,18 @@ function runWatch(
   });
 
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
-  runOnce();
-  return lastStatus;
+  try {
+    runOnce();
+  } catch (error) {
+    // runOnce already swallows build throws, but guard against any unforeseen
+    // throw escaping the first pass: tear down the persistent watchers so the
+    // event loop drains and the process exits cleanly with a non-zero code
+    // instead of hanging on live fs.watch handles.
+    close();
+    process.stderr.write(`${formatError(error)}\n`);
+    return toExitCode(lastStatus === 0 ? 2 : lastStatus);
+  }
+  return toExitCode(lastStatus);
 }
 
 // Coerces a build status into a valid process exit code: 0 stays 0, any
