@@ -68,6 +68,18 @@ Enforce trailing semicolons on statements that need them. Default: required. Aut
 
 One quote style throughout. Pick `"double"` (default) or `"single"`. Backticks always allowed for template literals. Driven by `format.singleQuote`.
 
+### `format/arrow-parens`
+
+Parentheses around a single arrow-function parameter. `"always"` (default) keeps `(x) => x`; `"avoid"` strips the parens of a single bare-identifier parameter, giving `x => x`. A typed, destructured, rest, optional, defaulted, or multi-parameter list keeps its parentheses in both modes. Driven by `format.arrowParens`.
+
+### `format/bracket-spacing`
+
+Inner spaces in single-line braces. `true` (default) keeps the space inside object literals, destructuring patterns, named imports/exports, and type literals (`{ a }`); `false` removes it (`{a}`). Block, class, interface, and enum braces are unaffected. Driven by `format.bracketSpacing`.
+
+### `format/quote-props`
+
+Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys that are valid identifiers, keeping `"__proto__"` and non-identifier or numeric keys quoted; `"consistent"` keeps every key quoted when any one of them needs quotes; `"preserve"` leaves quoting untouched. Driven by `format.quoteProps`.
+
 ### `format/trailing-comma`
 
 Enforce trailing commas in **multiline** literals, object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
