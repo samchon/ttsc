@@ -32,8 +32,8 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
  *   `"cr"` and `"auto"` modes are intentionally unsupported — the
  *   printer does not auto-detect terminators.
- *   - Many Prettier knobs (`bracketSpacing`, `quoteProps`,
- *   JSX-specific switches) are not yet implemented.
+ *   - Some Prettier knobs (`quoteProps`, JSX-specific switches) are not yet
+ *   implemented.
  *
  *   Rule enablement matrix (when the `format` block is present):
  *
@@ -44,6 +44,9 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a
  *   single bare-identifier arrow parameter's parentheses; the default
  *   `"always"` adds them.
+ *   - `format/bracket-spacing` — always on. `bracketSpacing: false` removes
+ *   the inner space of single-line object/destructure/import/export/type
+ *   braces; the default `true` keeps it.
  *   - `format/trailing-comma` — always on. `trailingComma: "none"`
  *   disables the rule's edits without removing the surface.
  *   - `format/print-width` — always on, driven by `printWidth`,
@@ -98,6 +101,17 @@ export interface ITtscLintFormat {
    * @default "always"
    */
   arrowParens?: "always" | "avoid";
+
+  /**
+   * Pad the inside of single-line braces with one space. Mirrors Prettier's
+   * `bracketSpacing`. `true` (the default) gives `{ x: 1 }`, `import { foo }`;
+   * `false` gives `{x: 1}`, `import {foo}`. Applies to object literals, object
+   * destructuring patterns, named imports/exports, and type literals; block,
+   * class, interface, and enum braces are unaffected.
+   *
+   * @default true
+   */
+  bracketSpacing?: boolean;
 
   /**
    * Trailing-comma policy. Mirrors Prettier's `trailingComma`. The `"none"`

@@ -23,6 +23,7 @@ import (
 //   - `format/semi` — always on. `semi: false` flips to `prefer: "never"`.
 //   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
 //   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a single bare-identifier arrow parameter's parens; default "always" adds them.
+//   - `format/bracket-spacing` — always on. `bracketSpacing: false` removes the inner space of single-line object/destructure/import/export/type braces; default true keeps it.
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
@@ -103,6 +104,19 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
   }
   out["format/arrow-parens"] = ruleEntry(map[string]any{"prefer": arrowPrefer})
+
+  // formatBracketSpacing — always on. Mirrors Prettier's bracketSpacing;
+  // the default true pads single-line object/destructure/import/export/type
+  // braces with one inner space, false removes it.
+  bracketSpacing := true
+  if v, ok := raw["bracketSpacing"]; ok {
+    b, err := asBool("format.bracketSpacing", v)
+    if err != nil {
+      return nil, err
+    }
+    bracketSpacing = b
+  }
+  out["format/bracket-spacing"] = ruleEntry(map[string]any{"spacing": bracketSpacing})
 
   // formatTrailingComma
   tcMode := "all"
@@ -429,6 +443,7 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
     "semi":                       {},
     "singleQuote":                {},
     "arrowParens":                {},
+    "bracketSpacing":             {},
     "trailingComma":              {},
     "printWidth":                 {},
     "tabWidth":                   {},

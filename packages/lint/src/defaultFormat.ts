@@ -28,6 +28,7 @@ export const defaultFormat = Object.freeze({
   semi: true,
   singleQuote: false,
   arrowParens: "always",
+  bracketSpacing: true,
   trailingComma: "all",
   printWidth: 80,
   tabWidth: 2,
