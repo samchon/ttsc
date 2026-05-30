@@ -21,13 +21,10 @@ func TestLSPFormatBufferMatchesDiskPath(t *testing.T) {
   source := "import { alpha, bravo, charlie } from 'long-module'\n" +
     "const x = { aa: 1, bb: 2, cc: 3 };\n"
   root := seedLintProject(t, source)
+  // Formatting is configured only through the format block; printWidth drives
+  // format/print-width and the rest are always on.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/print-width":    []any{"error", map[string]any{"printWidth": 20}},
-      "format/semi":           "error",
-      "format/quotes":         "error",
-      "format/trailing-comma": "error",
-    },
+    "format": map[string]any{"printWidth": 20},
   })
   file := filepath.Join(root, "src", "main.ts")
   uri := lintTestFileURI(t, file)
@@ -51,14 +48,14 @@ func TestLSPFormatBufferIgnoresDiskContent(t *testing.T) {
   // Disk holds DIFFERENT text from the buffer: the formatter must act on the
   // buffer (missing semicolon) and produce `const x = 1;`, never echo disk.
   diskContent := "const completely = 999;\n"
-  buffer := "const x = 1"
-  want := "const x = 1;"
+  buffer := "const x = 1\n"
+  want := "const x = 1;\n"
 
   root := seedLintProject(t, diskContent)
+  // An empty format block enables the always-on format rules (format/semi
+  // among them); formatting is configured only through the format block.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/semi": "error",
-    },
+    "format": map[string]any{},
   })
   file := filepath.Join(root, "src", "main.ts")
   uri := lintTestFileURI(t, file)
@@ -83,10 +80,10 @@ func TestLSPFormatBufferIgnoresDiskContent(t *testing.T) {
 // formatted.
 func TestLSPFormatBufferFormatsMissingDiskFile(t *testing.T) {
   root := seedLintProject(t, "const placeholder = 1;\n")
+  // An empty format block enables the always-on format rules (format/semi
+  // among them); formatting is configured only through the format block.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/semi": "error",
-    },
+    "format": map[string]any{},
   })
   // Point the URI at a file that was never written to disk.
   missing := filepath.Join(root, "src", "phantom.ts")
@@ -95,8 +92,8 @@ func TestLSPFormatBufferFormatsMissingDiskFile(t *testing.T) {
   }
   uri := lintTestFileURI(t, missing)
 
-  buffer := "const y = 2"
-  want := "const y = 2;"
+  buffer := "const y = 2\n"
+  want := "const y = 2;\n"
   got := executeLSPFormatBufferAppliedTextForTest(t, root, uri, buffer, buffer)
   if got != want {
     t.Fatalf("phantom-file in-memory format mismatch:\nwant %q\ngot  %q", want, got)

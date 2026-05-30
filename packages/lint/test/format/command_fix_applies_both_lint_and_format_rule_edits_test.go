@@ -21,9 +21,11 @@ import (
 //  3. Assert both kinds of edits land and the final exit code is zero.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
-  seedLintRules(t, root, map[string]string{
-    "format/semi": "error",
-    "no-var":      "error",
+  // format/semi via the format block (the only formatting surface); no-var
+  // is a genuine lint rule.
+  seedLintConfig(t, root, map[string]any{
+    "format": map[string]any{"semi": true},
+    "rules":  map[string]any{"no-var": "error"},
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{

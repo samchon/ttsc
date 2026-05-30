@@ -39,13 +39,11 @@ func TestCommandFormatPrintWidthCascadesWithSemiAndQuotes(t *testing.T) {
   want := "import {\n  alpha,\n  bravo,\n  charlie,\n} from \"long-module\";\n" +
     "const x = {\n  aa: 1,\n  bb: 2,\n  cc: 3,\n};\n"
   root := seedLintProject(t, source)
+  // All formatting is configured through the format block (the only
+  // formatting surface): printWidth drives format/print-width, and
+  // format/semi, format/quotes, format/trailing-comma are always on.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/print-width":    []any{"error", map[string]any{"printWidth": 20}},
-      "format/semi":           "error",
-      "format/quotes":         "error",
-      "format/trailing-comma": "error",
-    },
+    "format": map[string]any{"printWidth": 20},
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{

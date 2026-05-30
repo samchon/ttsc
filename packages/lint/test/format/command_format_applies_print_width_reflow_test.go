@@ -23,10 +23,10 @@ import (
 //     subcommand exits cleanly.
 func TestCommandFormatAppliesPrintWidthReflow(t *testing.T) {
   root := seedLintProject(t, "const x = { aa: 1, bb: 2, cc: 3 };\n")
+  // format/print-width is configured through the format block (printWidth);
+  // the rules map is not a formatting surface.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/print-width": []any{"error", map[string]any{"printWidth": 20}},
-    },
+    "format": map[string]any{"printWidth": 20},
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{

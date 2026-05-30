@@ -20,9 +20,11 @@ import (
 // 3. Assert the file gains semicolons but keeps its `var` declaration.
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
-  seedLintRules(t, root, map[string]string{
-    "format/semi": "error",
-    "no-var":      "error",
+  // format/semi is enabled through the format block (the only formatting
+  // surface); no-var is a genuine lint rule in the rules map.
+  seedLintConfig(t, root, map[string]any{
+    "format": map[string]any{"semi": true},
+    "rules":  map[string]any{"no-var": "error"},
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
