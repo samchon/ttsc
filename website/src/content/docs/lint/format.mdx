@@ -169,7 +169,7 @@ register("compile", async (ctx) => {
 
 #### What it does NOT touch (yet)
 
-- JSX elements and fragments.
+- JSX elements and fragments, including any reflowable expression (a call, conditional, and the like) inside a JSX expression container `{…}`, such as `{items.map(...)}` or `attr={cond ? a : b}`.
 - Conditional and binary expressions.
 - Destructuring patterns.
 - Decorators.
