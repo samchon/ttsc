@@ -565,6 +565,9 @@ function runWatch(
   let running = false;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
+  // Tracks the most recent build's exit code so the watch session can exit
+  // non-zero when its latest rebuild failed, instead of always reporting 0.
+  let lastStatus = 0;
 
   const runOnce = () => {
     running = true;
@@ -585,6 +588,7 @@ function runWatch(
             if (result.stderr) process.stderr.write(result.stderr);
             return result.status;
           })();
+    lastStatus = status;
     process.stdout.write(
       `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
     );
@@ -609,16 +613,22 @@ function runWatch(
   };
   process.on("SIGINT", () => {
     close();
-    process.exit(0);
+    process.exit(toExitCode(lastStatus));
   });
   process.on("SIGTERM", () => {
     close();
-    process.exit(0);
+    process.exit(toExitCode(lastStatus));
   });
 
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
   runOnce();
-  return 0;
+  return lastStatus;
+}
+
+// Coerces a build status into a valid process exit code: 0 stays 0, any
+// non-zero (or non-finite) status collapses to 1 so the session signals failure.
+function toExitCode(status: number): number {
+  return Number.isInteger(status) && status >= 0 && status <= 255 ? status : 1;
 }
 
 function collectWatchDirectories(root: string): string[] {
