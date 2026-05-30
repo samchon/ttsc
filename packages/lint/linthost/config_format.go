@@ -3,6 +3,7 @@ package linthost
 import (
   "encoding/json"
   "fmt"
+  "strings"
 )
 
 // expandFormatBlock translates a Prettier-style `format` block into the
@@ -364,12 +365,20 @@ func formatBlockSeverity(raw map[string]any) (Severity, error) {
   return severity, nil
 }
 
+// isFormatRuleName reports whether `name` is a formatter rule id. Such
+// rules are configured exclusively through the `format` block; a `format/*`
+// key in the user's `rules` map is dropped before the merge, so the config
+// layer never carries a formatter setting in two places.
+func isFormatRuleName(name string) bool {
+  return strings.HasPrefix(name, "format/")
+}
+
 // mergeRuleMaps overlays `overrides` on `base` and returns the merged
 // map. Identical keys in `overrides` replace the entire entry from
-// `base`; option objects are NOT deep-merged, which matches the
-// conflict-resolution policy spec: a `rules` entry that names a
-// `format/*` rule fully replaces the corresponding entry expanded
-// from the `format` block.
+// `base`; option objects are NOT deep-merged. `overrides` (the user's
+// `rules` map) never contains a `format/*` key — those are dropped before
+// the merge — so the merge only ever layers lint-rule severities on top of
+// the format block's expanded entries.
 func mergeRuleMaps(base, overrides map[string]any) map[string]any {
   out := make(map[string]any, len(base)+len(overrides))
   for k, v := range base {

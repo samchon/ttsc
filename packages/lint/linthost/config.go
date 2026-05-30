@@ -591,7 +591,18 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
       if !ok {
         return fmt.Errorf("@ttsc/lint: %s.rules must be a rule severity map, got %T", path, rulesValue)
       }
+      // `format/*` rules are configured exclusively through the `format`
+      // block; they are never valid keys in `rules`. Silently drop any that
+      // appear, the same way an unknown rule name is ignored (see
+      // parseExternalRuleMapInto): a config must not carry a formatter
+      // setting in two places, and a stray `format/*` here is simply not the
+      // formatting surface, so it has no effect rather than erroring.
       rulesMap = typedMap
+      for key := range rulesMap {
+        if isFormatRuleName(key) {
+          delete(rulesMap, key)
+        }
+      }
     }
     merged := mergeRuleMaps(formatRulesRaw, rulesMap)
     if len(merged) > 0 {
