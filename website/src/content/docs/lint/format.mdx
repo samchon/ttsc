@@ -31,12 +31,15 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | --- | --- | --- |
 | `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
+| `format/arrow-parens` | `arrowParens` | Add or remove parens around a single arrow parameter. |
+| `format/bracket-spacing` | `bracketSpacing` | Spaces inside object and named-import/export braces. |
+| `format/quote-props` | `quoteProps` | Quote or unquote object property keys. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
 | `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
 | `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize them. |
 | `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
+Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present, including the keyless layout rules `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
 
 ### `format.severity`
 
