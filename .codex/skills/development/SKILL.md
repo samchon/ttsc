@@ -7,6 +7,7 @@
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
+- Run `pnpm format` before every commit and stage the result; never commit unformatted output. This keeps the tree consistent with the format gate and avoids a follow-up "format" commit.
 
 ## Plugin Configuration
 
