@@ -49,8 +49,8 @@ export const test_ttscserver_serves_project_plugin_format_action_and_command =
     const source = "var legacy = 1\nJSON.stringify(legacy)\n";
     const project = TestLint.createProject({
       name: "ttscserver-lsp-format-action",
+      format: { semi: true },
       rules: {
-        "format/semi": "error",
         "no-var": "error",
       },
       source,
