@@ -71,9 +71,6 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       }
     }
     want := layout.indent(depth)
-    if src[lineStart:start] == want {
-      return
-    }
     // Cede everything inside a chained-arrow body (`a => b => { … }`).
     // Prettier indents such a body one extra level for the chain
     // continuation, so the body block AND every statement nested below it
@@ -85,6 +82,38 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     // or a multi-line-condition `if` body, all of which the depth model
     // places correctly.
     if cededByChainedArrowAncestor(stmt) {
+      return
+    }
+    // A decorated declaration statement (`@Dec class B {}`,
+    // `@Dec function f() {}`, `@Dec interface I {}` nested in a block or
+    // namespace) spans multiple physical lines when its decorators sit on
+    // their own lines. `start` is the first decorator's `@`, so the single
+    // first-line edit below would align only that first decorator line and
+    // leave each further decorator line and the DECLARATION line (`class B`,
+    // `function f`, …) at their original column — the very gap FIX C closes.
+    // Mirror the decorated-member header pass: re-indent every decorator line
+    // and the declaration line to the statement's depth via the shared
+    // helpers, which generalize to any decorated node. This is checked before
+    // the single-line short-circuit because the first decorator line can
+    // already be correct while the declaration line is not (`@Dec\nclass B`
+    // with the decorator indented and `class B` left at column 0).
+    // reindentHeaderLine is a no-op when a position is not the first
+    // non-whitespace byte on its line (a same-line decorator such as `@Dec
+    // class B`) or when the run already equals `want`, so this stays
+    // idempotent and never double-edits one physical line.
+    if decorators := stmt.Decorators(); len(decorators) > 0 {
+      for _, dec := range decorators {
+        if dec == nil {
+          continue
+        }
+        reindentHeaderLine(src, shimscanner.SkipTrivia(src, dec.Pos()), want, &edits)
+      }
+      if declPos := memberDeclarationStart(src, stmt); declPos >= 0 {
+        reindentHeaderLine(src, declPos, want, &edits)
+      }
+      return
+    }
+    if src[lineStart:start] == want {
       return
     }
     edits = append(edits, TextEdit{Pos: lineStart, End: start, Text: want})
@@ -148,24 +177,37 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       edits = append(edits, TextEdit{Pos: lineStart, End: closeBrace, Text: want})
     },
     func(header *shimast.Node, depth int) {
-      pos := shimscanner.SkipTrivia(src, header.Pos())
-      if pos < 0 || pos > len(src) {
-        return
-      }
-      lineStart := lineStartOffset(src, pos)
-      for i := lineStart; i < pos; i++ {
-        if src[i] != ' ' && src[i] != '\t' {
-          return
-        }
-      }
       if indentCededToReflow(header) || cededByChainedArrowAncestor(header) {
         return
       }
       want := layout.indent(depth)
-      if src[lineStart:pos] == want {
+      decorators := header.Decorators()
+      if len(decorators) == 0 {
+        // Undecorated member: header.Pos() is the declaration's first byte,
+        // so its line is the only one to align.
+        reindentHeaderLine(src, shimscanner.SkipTrivia(src, header.Pos()), want, &edits)
         return
       }
-      edits = append(edits, TextEdit{Pos: lineStart, End: pos, Text: want})
+      // A decorated member spans multiple physical lines when its decorators
+      // sit on their own lines. header.Pos() is the first decorator's `@`, so
+      // the bare header pass would only align the first decorator line and
+      // leave each further decorator line and the member's DECLARATION line
+      // (`name: type` / method signature past the last decorator) at their
+      // original column. Re-indent every decorator line and the declaration
+      // line to the member's depth. reindentHeaderLine is a no-op when a
+      // position is not the first non-whitespace byte on its line (a
+      // same-line decorator such as `@Column() name: string`, or `@A @B` on
+      // one line) or when the run already equals `want`, so this stays
+      // idempotent and never emits two edits for one physical line.
+      for _, dec := range decorators {
+        if dec == nil {
+          continue
+        }
+        reindentHeaderLine(src, shimscanner.SkipTrivia(src, dec.Pos()), want, &edits)
+      }
+      if declPos := memberDeclarationStart(src, header); declPos >= 0 {
+        reindentHeaderLine(src, declPos, want, &edits)
+      }
     },
   )
   if len(edits) == 0 {
@@ -345,6 +387,56 @@ func walkIndentFrames(
     walkIndentFrames(child, childDepth, brace, header)
     return false
   })
+}
+
+// reindentHeaderLine normalizes the leading whitespace of the physical line
+// containing `pos` to `want`, appending an edit only when the line begins
+// with `pos` as its first non-whitespace byte and the run differs. Shared by
+// the decorator line and the declaration line of a decorated member so both
+// land at the member's nesting depth. A no-op when the run already equals
+// `want`, which keeps the rule idempotent.
+func reindentHeaderLine(src string, pos int, want string, edits *[]TextEdit) {
+  if pos < 0 || pos > len(src) {
+    return
+  }
+  lineStart := lineStartOffset(src, pos)
+  for i := lineStart; i < pos; i++ {
+    if src[i] != ' ' && src[i] != '\t' {
+      return
+    }
+  }
+  if src[lineStart:pos] == want {
+    return
+  }
+  *edits = append(*edits, TextEdit{Pos: lineStart, End: pos, Text: want})
+}
+
+// memberDeclarationStart returns the byte offset where a decorated member's
+// actual declaration begins (just past its last leading decorator), or -1
+// when the member has no decorators. The declaration start is the first
+// non-trivia byte after the final decorator's End(). When the last decorator
+// and the declaration share a physical line (`@Column() name: string`), the
+// returned offset lands on the same line the decorator pass already handled,
+// so the caller's reindentHeaderLine emits nothing the second time; only a
+// decorator alone on its line followed by the declaration on a later line
+// produces a distinct line to re-indent.
+func memberDeclarationStart(src string, member *shimast.Node) int {
+  if member == nil {
+    return -1
+  }
+  decorators := member.Decorators()
+  if len(decorators) == 0 {
+    return -1
+  }
+  last := decorators[len(decorators)-1]
+  if last == nil {
+    return -1
+  }
+  start := shimscanner.SkipTrivia(src, last.End())
+  if start < 0 || start > len(src) {
+    return -1
+  }
+  return start
 }
 
 // blockCloseBracePos returns the byte offset of a block's closing `}`.
