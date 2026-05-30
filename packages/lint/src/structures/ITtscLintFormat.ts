@@ -4,7 +4,7 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * Prettier-style flat configuration for the format rules.
  *
  * The `format` block is the recommended way to enable formatting in
- * `@ttsc/lint`. Each key mirrors a Prettier option of the same name — users
+ * `@ttsc/lint`. Each key mirrors a Prettier option of the same name, users
  * coming from a `.prettierrc` can copy their config almost verbatim. The block
  * is opt-in by presence: a `lint.config.ts` with no `format` field keeps every
  * format rule off, exactly as before.
@@ -30,37 +30,37 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *
  *   Deviations from Prettier:
  *   - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
- *   `"cr"` and `"auto"` modes are intentionally unsupported — the
+ *   `"cr"` and `"auto"` modes are intentionally unsupported, the
  *   printer does not auto-detect terminators.
  *   - JSX-specific switches (`jsxSingleQuote`, `bracketSameLine`) are not yet
  *   implemented.
  *
  *   Rule enablement matrix (when the `format` block is present):
  *
- *   - `format/semi` — always on. `semi: false` flips it to `prefer:
+ *   - `format/semi`, always on. `semi: false` flips it to `prefer:
  *   "never"`.
- *   - `format/quotes` — always on. `singleQuote: true` flips to
+ *   - `format/quotes`, always on. `singleQuote: true` flips to
  *   `prefer: "single"`.
- *   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a
+ *   - `format/arrow-parens`, always on. `arrowParens: "avoid"` strips a
  *   single bare-identifier arrow parameter's parentheses; the default
  *   `"always"` adds them.
- *   - `format/bracket-spacing` — always on. `bracketSpacing: false` removes
+ *   - `format/bracket-spacing`, always on. `bracketSpacing: false` removes
  *   the inner space of single-line object/destructure/import/export/type
  *   braces; the default `true` keeps it.
- *   - `format/quote-props` — always on. `quoteProps: "as-needed"` (default)
+ *   - `format/quote-props`, always on. `quoteProps: "as-needed"` (default)
  *   unquotes identifier object keys; `"consistent"` keeps every key quoted
  *   when any one needs it; `"preserve"` leaves quoting untouched.
- *   - `format/trailing-comma` — always on. `trailingComma: "none"`
+ *   - `format/trailing-comma`, always on. `trailingComma: "none"`
  *   disables the rule's edits without removing the surface.
- *   - `format/print-width` — always on, driven by `printWidth`,
+ *   - `format/print-width`, always on, driven by `printWidth`,
  *   `tabWidth`, `useTabs`, `endOfLine`.
- *   - `format/statement-split` — always on, driven by `tabWidth`,
+ *   - `format/statement-split`, always on, driven by `tabWidth`,
  *   `useTabs`, `endOfLine`.
- *   - `format/indent` — always on, driven by `tabWidth`, `useTabs`,
+ *   - `format/indent`, always on, driven by `tabWidth`, `useTabs`,
  *   `endOfLine`.
- *   - `format/whitespace` — always on, driven by `endOfLine`.
- *   - `format/sort-imports` — opt-in. Setting `importOrder` enables it.
- *   - `format/jsdoc` — opt-in. Setting `jsdoc` enables it.
+ *   - `format/whitespace`, always on, driven by `endOfLine`.
+ *   - `format/sort-imports`, opt-in. Setting `importOrder` enables it.
+ *   - `format/jsdoc`, opt-in. Setting `jsdoc` enables it.
  *
  *   Format findings produced from this block are off by default. Set `severity`
  *   only when a project intentionally wants check-time format diagnostics.
@@ -200,9 +200,9 @@ export interface ITtscLintFormat {
    * Enable `format/jsdoc`. Pass `true` to turn it on with built-in defaults, or
    * an object to customize:
    *
-   * - `tagSynonyms` — extra `from → to` rewrites layered on the built-in synonym
+   * - `tagSynonyms`, extra `from → to` rewrites layered on the built-in synonym
    *   table.
-   * - `sortTags` — sort JSDoc tags into canonical order (reserved; today's MVP
+   * - `sortTags`, sort JSDoc tags into canonical order (reserved; today's MVP
    *   only rewrites tag names).
    *
    * @default false (off)

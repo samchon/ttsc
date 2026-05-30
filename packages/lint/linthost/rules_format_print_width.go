@@ -15,7 +15,7 @@ import (
 // node kinds whose per-node printers are registered with the
 // dispatcher (object/array literals, call/new expressions, named
 // import / export clauses, top-level import declarations). For every
-// other kind, the rule abstains — it never emits an edit that would
+// other kind, the rule abstains, it never emits an edit that would
 // modify bytes the dispatcher does not fully control. Coverage
 // expands by adding kinds to the dispatcher; the rule itself does not
 // need to grow.
@@ -23,7 +23,7 @@ import (
 // Per-node decision flow:
 //
 //  1. Skip leading trivia to find the node's actual first byte.
-//  2. Count the leading column on that line — that becomes the
+//  2. Count the leading column on that line, that becomes the
 //     printer's StartingIndent so continuation lines align under the
 //     opening token and fit measurement charges the prefix against
 //     the budget.
@@ -41,7 +41,7 @@ import (
 // idempotent: a second pass renders identical bytes, the comparison
 // short-circuits, and the cascade converges. The `covered` abstain in
 // step 4 is the safety floor: `ttsc format` either reflows correctly or
-// leaves the node byte-identical — it never emits a half-reflowed,
+// leaves the node byte-identical, it never emits a half-reflowed,
 // inconsistently indented shape.
 //
 // The rule is a format-class rule (IsFormat == true) so `ttsc format`
@@ -54,7 +54,7 @@ type formatPrintWidth struct{}
 // formatPrintWidthOptions mirrors `TtscLintRuleOptions.PrintWidth`.
 //
 // TrailingComma reaches this rule because the printer's reflow decides
-// whether to emit a trailing comma on every multi-line list — and that
+// whether to emit a trailing comma on every multi-line list, and that
 // decision must match the user's `format.trailingComma` setting or the
 // reflow oscillates against `format/trailing-comma` on every cascade
 // pass. The config layer mirrors `format.trailingComma` into both
@@ -139,23 +139,23 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   printOpts.StartingColumn = leadingColumn(src, start, printOpts.TabWidth)
 
   // trailingWidth is the column span of the tokens that stay on the
-  // node's last line after `end` — a `;`, a `);`, a `) {`. The reflow
+  // node's last line after `end`, a `;`, a `);`, a `) {`. The reflow
   // replaces only [start, end) and cannot move them, so both the fast
   // path and the layout budget must reserve those columns; otherwise
   // the rule emits a line that overflows by exactly the suffix.
   trailingWidth := trailingLineWidth(src, end, printOpts.TabWidth)
 
   // Fast path: if the node's existing single-line bytes already fit
-  // the printWidth budget — prefix column, node width and trailing
-  // suffix all charged — the reflowed output cannot differ from the
+  // the printWidth budget, prefix column, node width and trailing
+  // suffix all charged, the reflowed output cannot differ from the
   // source (the printer would render the same flat shape). Skip the
   // Doc build + render entirely. This is the common case on
-  // well-formatted code — every short call, every short literal —
+  // well-formatted code, every short call, every short literal,
   // and saves the allocations from PrintNode + Print.
   //
   // This runs before the abstain guards below on purpose: those guards
   // only ever return (they never emit an edit), so for a node that
-  // already fits the outcome is identical whichever fires first — and
+  // already fits the outcome is identical whichever fires first, and
   // the fast path is far cheaper than the guards' ancestor walks and
   // the per-byte comment scan in hasNonChildComments. Charging that
   // cost only on nodes that actually overflow keeps the hot path on
@@ -174,8 +174,8 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
 
   // Abstain on any node nested inside a template-literal substitution.
-  // Prettier renders `${…}` expressions at printWidth:Infinity — it
-  // never breaks an interpolation the source wrote on one line — so
+  // Prettier renders `${…}` expressions at printWidth:Infinity, it
+  // never breaks an interpolation the source wrote on one line, so
   // reflowing a call or literal inside `${…}` would split the template
   // across lines and diverge from Prettier. See the printWidth:Infinity
   // branch in Prettier's printTemplateExpression.
@@ -187,7 +187,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // children. The per-node printers join child docs with a fresh
   // `, ` separator and have no path for trivia between siblings, so
   // reflowing such a node would silently delete the comment.
-  // Conservative — false positives mean a missed reflow opportunity,
+  // Conservative, false positives mean a missed reflow opportunity,
   // not a regression. Coverage of inline comments inside lists is
   // the next slice of work.
   if hasNonChildComments(node, src, start, end) {
@@ -196,7 +196,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
 
   // A node reflowed on a ternary-arm continuation line (`? expr` or
   // `: expr`) hangs its broken continuation under the arm's expression,
-  // two columns past the `?`/`:` marker — not under the marker itself.
+  // two columns past the `?`/`:` marker, not under the marker itself.
   printOpts.BaseIndent = lineLeadingIndent(src, start, printOpts.TabWidth) +
     ternaryArmIndentBonus(src, start)
 
@@ -206,7 +206,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
   // Safety abstain: the printed subtree contains a multi-line verbatim
-  // node — one the dispatcher has no printer for. Such a node keeps the
+  // node, one the dispatcher has no printer for. Such a node keeps the
   // source columns its lines were written at, while the reflow
   // re-indents everything around it. Emitting the edit would produce
   // inconsistently indented, corrupt output (a callback header at one
@@ -217,8 +217,8 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
   // Render at the full printWidth budget. A reflow that breaks across
-  // lines then makes every layout decision — which call argument hugs,
-  // where a list explodes — against the true column budget. The
+  // lines then makes every layout decision, which call argument hugs,
+  // where a list explodes, against the true column budget. The
   // un-movable trailing suffix (`;`, `) {`, ` satisfies T`) lands on a
   // short last line; charging it against the whole budget would
   // wrongly penalize the interior lines and over-break the node.
@@ -227,7 +227,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // reflow that collapses to a single line. When the flat form plus
   // the suffix would overflow, re-render under a budget shrunk by the
   // suffix so the node breaks instead of spilling the suffix past
-  // printWidth — the regression that keeps a call flat at exactly
+  // printWidth, the regression that keeps a call flat at exactly
   // printWidth while the trailing `;` runs over.
   if trailingWidth > 0 &&
     !strings.Contains(rendered, "\n") &&
@@ -243,8 +243,8 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   }
   // Safety floor: never emit an edit that makes the widest line wider
   // than it already was. The reflow may be unable to break an
-  // un-breakable token run — a long string literal, a verbatim object
-  // member — but it must never *worsen* the worst line. That is exactly
+  // un-breakable token run, a long string literal, a verbatim object
+  // member, but it must never *worsen* the worst line. That is exactly
   // the regression this guards: `ttsc format` collapsing an
   // already-broken, fitting call into one over-wide line. A reflow that
   // only fixes indentation and leaves a pre-existing over-wide line
@@ -265,14 +265,14 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
 // trailingLineWidth returns the visual column width of src[end:] up to
 // the next newline, with trailing whitespace trimmed. The formatPrintWidth
 // reflow replaces only the node's own byte range, so whatever
-// shares the node's last source line — a statement `;`, a `) {` header
-// tail, a `, nextArg)` continuation — stays put. Charging that width
+// shares the node's last source line, a statement `;`, a `) {` header
+// tail, a `, nextArg)` continuation, stays put. Charging that width
 // against the budget keeps the rule from emitting a line that overflows
 // by exactly the suffix it could never move.
 //
 // Trailing `//` line comments are excluded from the budget. A line
 // comment runs to the end of the source line by definition, so breaking
-// the reflowed node to make the comment fit cannot help — Prettier 3
+// the reflowed node to make the comment fit cannot help, Prettier 3
 // keeps the node inline and lets the comment trail (see typeorm's
 // `comment.replaceAll(...) // Null bytes' shape that pushed
 // `formatPrintWidth: 'off'` onto the ttsc-lint benchmark branch).
@@ -312,7 +312,7 @@ func trailingSuffixEnd(src string, end int) int {
     if src[lineEnd] == '/' && lineEnd+1 < len(src) {
       next := src[lineEnd+1]
       if next == '/' {
-        // `//` line comment — Prettier treats the whole tail as a
+        // `//` line comment, Prettier treats the whole tail as a
         // trailing comment that runs to EOL. Drop it from the suffix
         // budget so the rule does not break the node to chase a
         // comment that cannot be moved or wrapped.
@@ -332,8 +332,8 @@ func trailingSuffixEnd(src string, end int) int {
 }
 
 // maxLineWidth returns the widest effective column span among the lines
-// of `text`. The first line is charged `startingColumn` — the prefix
-// already on that source line that the reflow does not re-emit — and
+// of `text`. The first line is charged `startingColumn`, the prefix
+// already on that source line that the reflow does not re-emit, and
 // the last line is charged `trailingWidth` for the un-movable suffix
 // that follows the node. Tabs count as `tabWidth` columns.
 //
@@ -399,7 +399,7 @@ func leadingColumn(src string, pos int, tabWidth int) int {
 //
 // Continuation lines (Hardline / broken-mode Line) emitted by the
 // reflow doc should align relative to this value, not relative to the
-// node's leading column — see PrintOptions.BaseIndent for the contract.
+// node's leading column, see PrintOptions.BaseIndent for the contract.
 //
 // When the visited node lives on a *continuation line* (e.g. an RHS
 // expression hanging below a binary operator on the previous line),
@@ -472,7 +472,7 @@ func lineStartOffset(src string, pos int) int {
 // the arm's expression rather than under the `?`/`:` token. In practice
 // only a ternary arm opens a reflow target's line with `? ` / `: `; the
 // two-byte prefix is a heuristic, and a rare false positive only shifts
-// a broken continuation by two columns — it never corrupts bytes.
+// a broken continuation by two columns, it never corrupts bytes.
 func ternaryArmIndentBonus(src string, pos int) int {
   i := lineStartOffset(src, pos)
   for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
@@ -539,7 +539,7 @@ func isReflowKind(k shimast.Kind) bool {
 // hasNonChildComments scans the byte range [start, end) and returns true
 // if any `//` or `/*` lives outside the union of `node`'s direct child
 // byte ranges. The rule uses this to abstain from reflows that would
-// drop inter-child comments — the v1 list printers join children with
+// drop inter-child comments, the v1 list printers join children with
 // a fresh separator that has no slot for trivia between them.
 //
 // The scan is byte-level for simplicity: a TS scanner would also work
@@ -548,7 +548,7 @@ func isReflowKind(k shimast.Kind) bool {
 // are children, so `"//"` inside them never reaches the comment
 // check). The residual conservative case is comment-shaped bytes
 // inside an inter-child gap that the TS grammar would never tokenize
-// as a comment — effectively nil for valid TypeScript source.
+// as a comment, effectively nil for valid TypeScript source.
 //
 // `format/sort-imports` chose the opposite path on a similar shape:
 // it actively preserves inter-specifier comments by walking the
@@ -569,7 +569,7 @@ func hasNonChildComments(node *shimast.Node, src string, start, end int) bool {
     // child.Pos() points at the start of leading trivia, which
     // can include comments belonging to the sibling boundary.
     // Trim past trivia so the inChild check only covers the
-    // child's actual token bytes — comments between siblings
+    // child's actual token bytes, comments between siblings
     // then surface to the scanner below.
     children = append(children, span{shimscanner.SkipTrivia(src, child.Pos()), child.End()})
     return false

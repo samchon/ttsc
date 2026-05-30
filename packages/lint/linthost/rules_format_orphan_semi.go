@@ -21,7 +21,7 @@ import (
 // begins with an ASI-hazard token, so the `;` is genuinely required and
 // the edit just deletes the whitespace gap. Every other empty statement
 // (trailing `;`, a non-hazard successor, a comment in between, semi:true)
-// is left alone — dropping a redundant `;` safely depends on the
+// is left alone, dropping a redundant `;` safely depends on the
 // surrounding semicolon policy and is out of scope here. Idempotent:
 // once merged the gap holds no newline, so the rule finds nothing to do.
 type formatOrphanSemi struct{}
@@ -57,7 +57,7 @@ func (formatOrphanSemi) Check(ctx *Context, node *shimast.Node) {
   if semiPos < 0 || semiEnd > len(src) || semiPos >= semiEnd || src[semiEnd-1] != ';' {
     return
   }
-  // The `;` must be the first token on its line — a true orphan guard,
+  // The `;` must be the first token on its line, a true orphan guard,
   // not a trailing empty statement after other code.
   lineStart := lineStartOffset(src, semiPos)
   for i := lineStart; i < semiPos; i++ {

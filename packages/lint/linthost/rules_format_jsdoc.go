@@ -19,7 +19,7 @@ import (
 //   - @virtual       →  @abstract
 //   - @func, @method →  @function
 //
-// JSDoc tags only fire when the `@` is at the start of a JSDoc line —
+// JSDoc tags only fire when the `@` is at the start of a JSDoc line,
 // preceded by `*`, whitespace, or a newline. Inline `@foo` references in
 // prose text are left alone. The rule scans source bytes directly inside
 // `/** ... */` blocks; it deliberately avoids relying on the JSDoc AST
@@ -65,7 +65,7 @@ func (formatJSDoc) Check(ctx *Context, node *shimast.Node) {
     }
     for k, v := range opts.TagSynonyms {
       // Reject empty canonicals or canonicals carrying non-identifier
-      // bytes — the fixer would otherwise emit malformed JSDoc like
+      // bytes, the fixer would otherwise emit malformed JSDoc like
       // `@` or `@my tag`. Silently dropping the bad entry is the right
       // failure mode: the rule already runs on every file in a project
       // and a single typo'd entry should not poison every block.
@@ -82,7 +82,7 @@ func (formatJSDoc) Check(ctx *Context, node *shimast.Node) {
   // `sortTags` is reserved for a follow-up that pulls in the
   // prettier-plugin-jsdoc canonical order. The flag is parsed today so
   // the type surface freezes, but the implementation lands in a future
-  // pass — projects that opt in get a no-op until then.
+  // pass, projects that opt in get a no-op until then.
   _ = opts.SortTags
 }
 
@@ -122,7 +122,7 @@ func findJSDocBlocks(src string) []jsdocBlock {
     if !(src[start] == '/' && src[start+1] == '*' && src[start+2] == '*') {
       continue
     }
-    // Skip `/**/` — an empty doc block has no tags to rewrite.
+    // Skip `/**/`, an empty doc block has no tags to rewrite.
     if end-start == 4 && src[start+3] == '/' {
       continue
     }

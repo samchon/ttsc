@@ -78,7 +78,7 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   if preferSingle {
     if isDouble {
       // Tie resolves to single (the preference), so convert whenever
-      // single is no worse — exactly convertDoubleQuotedToSingle's `ok`.
+      // single is no worse, exactly convertDoubleQuotedToSingle's `ok`.
       converted, ok := convertDoubleQuotedToSingle(inner)
       if ok && converted != raw {
         ctx.ReportRangeFix(pos, end, "Strings must use single quotes.",
@@ -99,7 +99,7 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   }
   if isSingle {
     // Tie resolves to double (the preference), so convert whenever double
-    // is no worse — exactly convertSingleQuotedToDouble's `ok`.
+    // is no worse, exactly convertSingleQuotedToDouble's `ok`.
     converted, ok := convertSingleQuotedToDouble(inner)
     if ok && converted != raw {
       ctx.ReportRangeFix(pos, end, "Strings must use double quotes.",
@@ -169,7 +169,7 @@ func convertDoubleQuotedToSingle(inner string) (string, bool) {
 //
 // A `'` reaches the value two ways inside double quotes: bare (`'`) or as
 // a redundant escape (`\'`). Both are a single-quote character in the
-// cooked string, so both count toward unescapedSingle — otherwise a
+// cooked string, so both count toward unescapedSingle, otherwise a
 // literal like `"a\'b"` looks like a 0-vs-0 tie and flips to single,
 // where Prettier keeps double because single would cost the one escape.
 func countDoubleEscapes(inner string) (escapedDouble, unescapedSingle int) {
@@ -241,7 +241,7 @@ func convertSingleQuotedToDouble(inner string) (string, bool) {
 // holds (each would need escaping if the literal were double-quoted). A
 // `"` reaches the value either bare (`"`) or as a redundant escape
 // (`\"`), and both count toward unescapedDouble so a literal like
-// `'a\"b'` does not look like a tie and flip to double — Prettier keeps
+// `'a\"b'` does not look like a tie and flip to double, Prettier keeps
 // single because double would cost the one escape.
 func countSingleEscapes(inner string) (escapedSingle, unescapedDouble int) {
   for i := 0; i < len(inner); {

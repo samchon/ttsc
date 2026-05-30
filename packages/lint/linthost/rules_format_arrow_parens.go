@@ -13,7 +13,7 @@ import (
 //   - prefer "avoid": `(x) => x` drops them, becoming `x => x`.
 //
 // Only a single parameter that is a plain identifier with no type
-// annotation, default, rest, optional `?`, or modifier is affected — every
+// annotation, default, rest, optional `?`, or modifier is affected, every
 // other shape (`(x: T)`, `({ x })`, `(...x)`, `(x = 1)`, `(x?)`, `(x, y)`,
 // `()`) keeps its parentheses in both modes, exactly as Prettier does.
 // `async x => x` is handled too: the modifier sits before the parameter, so
@@ -54,7 +54,7 @@ func (formatArrowParens) Check(ctx *Context, node *shimast.Node) {
   }
   // A type-parameter list (`<T>(x) => …`) forces the parameter parens in
   // both modes (a bare `<T>x =>` is not valid), so leave such an arrow
-  // alone — its parens are mandatory, not stylistic.
+  // alone, its parens are mandatory, not stylistic.
   if arrow.TypeParameters != nil && len(arrow.TypeParameters.Nodes) > 0 {
     return
   }

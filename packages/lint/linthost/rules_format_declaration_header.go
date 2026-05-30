@@ -8,8 +8,8 @@ import (
 )
 
 // formatDeclarationHeader reflows the header of a class or interface
-// declaration — its type-parameter list and `extends`/`implements`
-// clauses up to the opening `{` — to match Prettier 3. The member body
+// declaration, its type-parameter list and `extends`/`implements`
+// clauses up to the opening `{`, to match Prettier 3. The member body
 // is never touched (members keep reflowing independently via
 // format/print-width), so the rule edits only the byte range
 // `[header start, '{']` and can never overlap a member edit.
@@ -117,7 +117,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
 
   // Everything from the end of the verbatim prefix (the name) to the
   // brace is discarded and rebuilt element by element, so a comment
-  // anywhere in that span would be lost — including one between the name
+  // anywhere in that span would be lost, including one between the name
   // and `extends`, or between `extends` and its first type. Scan the whole
   // [nameEnd, brace) region and abstain on any comment.
   if containsComment(src[nameEnd:bracePos]) {
@@ -418,10 +418,10 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
 //
 // The list takes no trailing comma (Prettier omits it for heritage type
 // arguments) and the brace stays glued even for a class with a non-empty
-// body. Returns ok=false for any shape it has not verified — type
+// body. Returns ok=false for any shape it has not verified, type
 // parameters present, more than one clause or type, a non-generic type, a
 // single type argument (Prettier leaves `extends Base<OneArg>` inline even
-// when it overflows), or a multi-line argument — so the caller falls back
+// when it overflows), or a multi-line argument, so the caller falls back
 // to the clause-breaking strategies or abstains.
 //
 // On a second pass the rewritten type spans multiple lines, so
@@ -496,7 +496,7 @@ func headerBrace(isClass, emptyBody bool, base string) string {
 }
 
 // headerBodyIsEmpty reports whether the body opened at bracePos holds no
-// members — its first non-whitespace byte is the closing `}`. A body with
+// members, its first non-whitespace byte is the closing `}`. A body with
 // a comment counts as non-empty (conservative: the comment keeps the
 // brace where the source had it rather than forcing a glue).
 func headerBodyIsEmpty(src string, bracePos int) bool {

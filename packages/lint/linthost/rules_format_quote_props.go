@@ -126,7 +126,7 @@ func propertyKeyName(prop *shimast.Node) *shimast.Node {
 // unquotableIdentifier returns the bare identifier a quoted string key can
 // safely become, or "" when the key must stay quoted. `raw` includes the
 // surrounding quotes. A key is unquotable only when its content is a plain
-// ASCII identifier with no escapes — conservative on purpose: a
+// ASCII identifier with no escapes, conservative on purpose: a
 // numeric-looking key (`"123"`), a unicode key, an escaped key, or anything
 // with a non-identifier byte stays quoted, matching Prettier's never
 // unquoting `"123"` and guaranteeing the result is a valid bare key.

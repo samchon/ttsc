@@ -91,7 +91,7 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
     }
     if !preferNeverSafeKind(node.Kind) {
       // Dropping the `;` after a class field or a type alias can
-      // change parse — e.g. `class A { x: number; [k](): void {} }`
+      // change parse, e.g. `class A { x: number; [k](): void {} }`
       // would reparse `[k]` as a computed index access on `number`.
       // Keep the terminator on those kinds even in prefer:"never"
       // mode.
@@ -121,7 +121,7 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
   }
   // Diagnostic anchors on the last character of the statement so the
   // banner underlines "the place a semicolon should follow". The fix
-  // itself is a zero-width insertion at node.End() — keeping the edit
+  // itself is a zero-width insertion at node.End(), keeping the edit
   // disjoint from any other rule's edits on the same statement.
   pos := end - 1
   if pos < 0 {
@@ -144,12 +144,12 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
 //
 // Hazard tokens per the ASI spec:
 //
-//   - `[`  — bracket access continues an expression
-//   - `(`  — call expression continues
-//   - “ ` “ — tagged template literal continues
-//   - `+`, `-`, `*` — binary operator continues
-//   - `,`  — comma operator continues
-//   - `/`  — division operator or regex literal continues; handled by
+//   - `[`: bracket access continues an expression
+//   - `(`: call expression continues
+//   - “ ` “: tagged template literal continues
+//   - `+`, `-`, `*`: binary operator continues
+//   - `,`: comma operator continues
+//   - `/`: division operator or regex literal continues; handled by
 //     the comment-or-regex branch below (a leading `//` or `/*` is not a
 //     hazard, a bare `/` is), so it is absent from the token switch.
 func nextStatementHasASIHazard(src string, end int) bool {
@@ -175,7 +175,7 @@ func nextStatementHasASIHazard(src string, end int) bool {
         }
         continue
       }
-      // bare `/` starts a regex literal or division — hazard.
+      // bare `/` starts a regex literal or division, hazard.
       return true
     }
     switch c {
@@ -257,8 +257,8 @@ func isTypeMemberKind(kind shimast.Kind) bool {
 // End()-1 or the first `;` reached scanning horizontal whitespace
 // forward from End().
 //
-// The `;` is dropped only when it is redundant — see
-// memberSemicolonRedundant — so single-line separators stay intact and
+// The `;` is dropped only when it is redundant, see
+// memberSemicolonRedundant, so single-line separators stay intact and
 // ASI-hazardous continuations keep their terminator. Idempotent: once
 // removed, no `;` remains for the rule to act on.
 func stripMemberSemicolon(ctx *Context, src string, node *shimast.Node, isClassField bool) {
@@ -296,7 +296,7 @@ func stripMemberSemicolon(ctx *Context, src string, node *shimast.Node, isClassF
 //
 //   - The closing `}` (or end of file) always makes the `;` redundant.
 //   - A next member on the SAME line (no newline crossed) keeps the `;`
-//     as a required separator — the rule never inserts the newline that
+//     as a required separator, the rule never inserts the newline that
 //     would let ASI take over, so dropping it here would corrupt the
 //     source.
 //   - A newline-separated next member drops the `;` unless its lead token

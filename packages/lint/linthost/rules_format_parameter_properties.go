@@ -22,7 +22,7 @@ import (
 // A single parameter property stays inline (`constructor(private x: T)`),
 // and a constructor with no parameter property is left to the ordinary
 // width-driven reflow. The rule rewrites only the `(...)` parameter
-// region and emits no trailing comma — format/trailing-comma adds it on
+// region and emits no trailing comma, format/trailing-comma adds it on
 // the now-multi-line list, so the two rules stay disjoint. Idempotent:
 // an already-broken list contains a newline and is skipped.
 type formatParameterProperties struct{}

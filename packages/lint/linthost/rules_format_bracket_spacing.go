@@ -8,12 +8,12 @@ import (
 // formatBracketSpacing normalizes the inner padding of single-line brace
 // pairs, mirroring Prettier's `bracketSpacing`:
 //
-//   - prefer true (Prettier default): one space just inside the braces —
+//   - prefer true (Prettier default): one space just inside the braces,
 //     `{ x: 1 }`, `{ a, b }`, `import { foo } from "m"`.
-//   - prefer false: no inner space — `{x: 1}`, `{a, b}`, `import {foo}`.
+//   - prefer false: no inner space, `{x: 1}`, `{a, b}`, `import {foo}`.
 //
 // It applies to object literals, object binding patterns (destructuring),
-// named imports/exports, and type literals — the brace kinds Prettier's
+// named imports/exports, and type literals, the brace kinds Prettier's
 // bracketSpacing governs. Block, class, interface, enum, and module braces
 // are NOT affected (their layout is owned by the indentation rules).
 //
@@ -65,7 +65,7 @@ func (formatBracketSpacing) Check(ctx *Context, node *shimast.Node) {
   }
   inner := src[start+1 : end-1]
   if len(inner) == 0 {
-    return // empty `{}` — nothing to pad
+    return // empty `{}`, nothing to pad
   }
   // Multi-line: the interior belongs to the indentation rules.
   for i := 0; i < len(inner); i++ {

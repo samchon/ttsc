@@ -67,7 +67,7 @@ func (formatClauseJoin) Check(ctx *Context, node *shimast.Node) {
 }
 
 // clauseControlledBody returns the single controlled statement of a
-// control-flow header — the `then` branch for `if`, the loop body for
+// control-flow header, the `then` branch for `if`, the loop body for
 // the iteration statements. The `else` branch is intentionally excluded:
 // its body is anchored after the `else` keyword rather than a `)`, so it
 // does not share this rule's `)`-anchored join shape.

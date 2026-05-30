@@ -22,7 +22,7 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
  * Notably absent: `importOrder` and `jsdoc`. `format/sort-imports` and
  * `format/jsdoc` are opt-in by setting their corresponding fields; this const
  * documents only the rules that turn on unconditionally with a non-empty
- * `format` block — the Go host owns runtime activation.
+ * `format` block, the Go host owns runtime activation.
  */
 export const defaultFormat = Object.freeze({
   severity: "off",

@@ -9,8 +9,8 @@ import (
 
 // formatStatementSplit puts every statement in a statement list on its
 // own physical line, mirroring Prettier's "one statement per line"
-// layout. Prettier never leaves two statements sharing a source line —
-// `const a = 1; let b = 2;` becomes two lines — and this rule is the
+// layout. Prettier never leaves two statements sharing a source line,
+// `const a = 1; let b = 2;` becomes two lines, and this rule is the
 // always-on equivalent.
 //
 // Scope is every statement list the language produces: the SourceFile
@@ -23,7 +23,7 @@ import (
 //
 //  1. Find the statement's first non-trivia byte.
 //  2. If it is the first non-whitespace byte on its physical line, the
-//     statement already starts its own line — abstain (that is
+//     statement already starts its own line, abstain (that is
 //     `format/indent`'s surface).
 //  3. Otherwise another statement precedes it on the same line. Replace
 //     the whitespace run immediately before the statement (back to the
@@ -239,7 +239,7 @@ func loadFormatLayout(ctx *Context) formatLayout {
 }
 
 // forEachStatementInList walks the file's AST and invokes `fn` once for
-// every statement that lives directly inside a statement list — the
+// every statement that lives directly inside a statement list, the
 // SourceFile body, a Block, a ModuleBlock, or a case/default clause.
 // `depth` is the nesting level used to compute indentation: one level
 // per enclosing Block or ModuleBlock plus one per enclosing case/default
