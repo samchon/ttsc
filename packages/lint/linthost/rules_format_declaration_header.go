@@ -163,6 +163,10 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
   var target string
   if startCol+visualWidth(flat, layout.tabWidth)+flatExtra <= layout.printWidth {
     target = flat
+  } else if t, ok2 := singleGenericHeritageHeader(src, base, prefix, typeParams, heritage, layout); ok2 {
+    // A lone heritage clause whose single generic type has two or more type
+    // arguments breaks the argument list, not the clause (`extends Omit<\n …\n>`).
+    target = t
   } else {
     // Prettier drops the opening brace onto its own line only for a class
     // with a non-empty body; an interface (any body) and an empty body
@@ -398,6 +402,86 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
     }
   }
   return b.String()
+}
+
+// singleGenericHeritageHeader handles the Prettier-3 shape for a lone
+// heritage clause whose single type is generic with two or more type
+// arguments: instead of breaking before the keyword, Prettier keeps
+// `<keyword> <TypeName><` on the first line and breaks the type-argument
+// list one per line, with `>` back at the declaration's base indent and
+// the brace glued:
+//
+//	export class C implements Serializer<
+//	  any,
+//	  KafkaRequest | Promise<KafkaRequest>
+//	> {
+//
+// The list takes no trailing comma (Prettier omits it for heritage type
+// arguments) and the brace stays glued even for a class with a non-empty
+// body. Returns ok=false for any shape it has not verified — type
+// parameters present, more than one clause or type, a non-generic type, a
+// single type argument (Prettier leaves `extends Base<OneArg>` inline even
+// when it overflows), or a multi-line argument — so the caller falls back
+// to the clause-breaking strategies or abstains.
+//
+// On a second pass the rewritten type spans multiple lines, so
+// heritageClauseInfos abstains before this point and the broken form is a
+// stable fixed point.
+func singleGenericHeritageHeader(src, base, prefix string, typeParams, heritage *shimast.NodeList, layout declarationHeaderLayout) (string, bool) {
+  if typeParams != nil && len(typeParams.Nodes) > 0 {
+    return "", false
+  }
+  if heritage == nil || len(heritage.Nodes) != 1 || heritage.Nodes[0] == nil {
+    return "", false
+  }
+  clause := heritage.Nodes[0].AsHeritageClause()
+  if clause == nil || clause.Types == nil || len(clause.Types.Nodes) != 1 {
+    return "", false
+  }
+  typeNode := clause.Types.Nodes[0]
+  if typeNode == nil {
+    return "", false
+  }
+  ewta := typeNode.AsExpressionWithTypeArguments()
+  if ewta == nil || ewta.TypeArguments == nil || len(ewta.TypeArguments.Nodes) < 2 {
+    return "", false
+  }
+  nameStart := shimscanner.SkipTrivia(src, typeNode.Pos())
+  ltPos := typeArgsStart(src, ewta.TypeArguments)
+  if nameStart < 0 || ltPos <= nameStart {
+    return "", false
+  }
+  typeName := strings.TrimRight(src[nameStart:ltPos], " \t")
+  if strings.ContainsRune(typeName, '\n') {
+    return "", false
+  }
+  args, ok := nodeListTexts(src, ewta.TypeArguments)
+  if !ok {
+    return "", false
+  }
+  keyword := "implements"
+  if clause.Token == shimast.KindExtendsKeyword {
+    keyword = "extends"
+  }
+
+  var b strings.Builder
+  b.WriteString(prefix)
+  b.WriteString(" ")
+  b.WriteString(keyword)
+  b.WriteString(" ")
+  b.WriteString(typeName)
+  b.WriteString("<\n")
+  for i, a := range args {
+    b.WriteString(layout.indent(base, 1))
+    b.WriteString(a)
+    if i < len(args)-1 {
+      b.WriteString(",")
+    }
+    b.WriteString("\n")
+  }
+  b.WriteString(base)
+  b.WriteString("> {")
+  return b.String(), true
 }
 
 // headerBrace returns the opening-brace fragment that closes a broken
