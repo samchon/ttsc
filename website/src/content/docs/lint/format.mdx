@@ -78,7 +78,7 @@ Inner spaces in single-line braces. `true` (default) keeps the space inside obje
 
 ### `format/quote-props`
 
-Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys that are valid identifiers, keeping `"__proto__"` and non-identifier or numeric keys quoted; `"consistent"` keeps every key quoted when any one of them needs quotes; `"preserve"` leaves quoting untouched. Driven by `format.quoteProps`.
+Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys that are valid identifiers, keeping `"__proto__"` and non-identifier or numeric keys quoted; `"consistent"` leaves the object untouched when any one key needs quotes, and otherwise unquotes every removable key (it never adds quotes); `"preserve"` leaves quoting untouched. Driven by `format.quoteProps`.
 
 ### `format/trailing-comma`
 
@@ -90,14 +90,10 @@ Enforce trailing commas in **multiline** literals, object literals, array litera
 
 Default grouping (each group separated by a blank line):
 
-1. Built-in Node modules (`node:fs`, `assert`, ...)
-2. Bare-specifier external modules (`react`, `typia`, ...)
-3. Internal scoped modules (`@/foo`, `@lib/...`)
-4. Relative parent-directory modules (`../foo`)
-5. Relative same-directory modules (`./bar`)
-6. CSS / asset imports
+1. External modules (the specifier does not start with `.`), absorbed by the `<THIRD_PARTY_MODULES>` placeholder.
+2. Relative modules (the specifier starts with `.`).
 
-Within each group, alphabetical. Autofixable. Set `format.importOrder` to enable.
+Set `format.importOrder` to opt into finer grouping. The `<THIRD_PARTY_MODULES>` placeholder in that list absorbs every specifier that no explicit regex matches, so unlisted modules still land in a group. Within each group, alphabetical. Autofixable.
 
 ### `format/jsdoc`
 
@@ -120,7 +116,7 @@ Driven by `format.printWidth`, `format.tabWidth`, `format.useTabs`, `format.endO
 
 #### What it does
 
-For each list-shaped expression in the file (object literals, array literals, function arguments, named imports, named exports, …), the rule considers two layouts:
+For each list-shaped expression in the file (object literals, array literals, call and `new` argument lists, named imports, named exports, …), the rule considers two layouts. Function and constructor parameter lists in declarations are not reflowed by this rule (`format/parameter-properties` owns the constructor case):
 
 - **Flat**: one line, no internal breaks.
 - **Broken**: opening punctuator on the head line, one entry per indented line, closing punctuator on its own line. The trailing comma on the last entry honors `format.trailingComma`: `"all"` keeps one on every list, `"es5"` keeps one on arrays / objects / named imports / exports but not on call or `new` argument lists, and `"none"` drops it everywhere. The setting flows into the reflow automatically.
@@ -185,6 +181,40 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
 - A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
+- A single-argument method call such as `.reduce(...)` can over-break: where Prettier 3 keeps the inline form because it fits once the trailing suffix is accounted for, the rule may still emit the broken layout.
+- A `export type { … } from "long-path"` reexport that overflows is broken at the brace clause, whereas Prettier 3 keeps the whole declaration flat. The rule measures the named-exports brace in isolation and does not see the `from "..."` tail.
+
+### `format/statement-split`
+
+Keyless (always on, nothing to configure). Puts every statement on its own line, so `const a = 1; let b = 2;` becomes two lines. It abstains when a comment sits in the gap between two statements, leaving those bytes untouched.
+
+### `format/indent`
+
+Keyless. Normalizes the leading indentation of each statement's first line to its block-nesting depth (`tabWidth` columns per level, or one tab per level under `useTabs`). It touches only a statement's own starting line; interior and continuation lines belong to `format/print-width`.
+
+### `format/whitespace`
+
+Keyless. File-level whitespace hygiene: trims trailing whitespace before a newline, collapses two or more consecutive blank lines to one, removes blank lines at the start and end of the file, and makes the file end with exactly one newline. Whitespace inside template literals is preserved.
+
+### `format/clause-join`
+
+Keyless. Joins a single non-block statement back onto its control-flow header (`if (a)\n  b();` becomes `if (a) b();`) for `if`, `for`, `for-in`, `for-of`, and `while`, but only when the joined line fits `printWidth`. A braced or multi-line body is left alone.
+
+### `format/declaration-header`
+
+Keyless. Reflows the header of a `class` or `interface` (its type-parameter list and `extends`/`implements` clauses up to the opening `{`) to match Prettier 3, breaking before each heritage keyword when the header overflows. The member body is never touched.
+
+### `format/ternary-nullish-parens`
+
+Keyless. Parenthesizes a `??` expression used as the condition, consequent, or alternate of a ternary, matching Prettier 3: `a ?? b ? c : d` becomes `(a ?? b) ? c : d`. The wrap is width-independent; `||` and `&&` operands are left bare.
+
+### `format/orphan-semi`
+
+Keyless. Under `semi: false`, merges a lone leading-semicolon ASI guard onto the statement it protects (`;\n(expr).method()` becomes `;(expr).method()`), but only when the next statement begins with an ASI-hazard token. Under `semi: true` it never acts.
+
+### `format/parameter-properties`
+
+Keyless. Breaks a constructor's parameter list onto one parameter per line when the constructor has more than one parameter and at least one is a parameter property (carries an accessibility or `readonly` modifier), matching Prettier 3 regardless of whether the flat form fits `printWidth`. A single parameter property stays inline.
 
 ## Rule interactions
 

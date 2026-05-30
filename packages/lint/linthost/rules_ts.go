@@ -250,8 +250,8 @@ func (noRequireImports) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// banTsComment: `// @ts-ignore` / `// @ts-nocheck` / `// @ts-expect-error`
-// silence the type checker. Default mode flags every variant.
+// banTsComment: `// @ts-ignore` / `// @ts-expect-error` silence the type
+// checker. The rule flags `@ts-ignore` and `@ts-expect-error`.
 type banTsComment struct{}
 
 func (banTsComment) Name() string           { return "typescript/ban-ts-comment" }

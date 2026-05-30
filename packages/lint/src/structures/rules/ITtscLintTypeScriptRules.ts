@@ -51,8 +51,7 @@ export interface ITtscLintTypeScriptRules {
   "typescript/await-thenable"?: TtscLintRuleSetting;
 
   /**
-   * Reject `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, and `@ts-check`
-   * comments.
+   * Reject `@ts-ignore` and `@ts-expect-error` comments.
    *
    * The default policy allows `@ts-expect-error` with an explanatory `--`
    * description.

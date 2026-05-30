@@ -27,6 +27,8 @@ npx ttsc --watch
 
 Re-compiles on save. Pass `--preserveWatchOutput` to keep your scrollback.
 
+The watch loop snapshots the source directories once at startup, so directories created after that are not picked up until you restart. Directories named `lib` or `dist` are skipped, along with `node_modules` and `.git`, so source roots under those names are not watched.
+
 ## Other day-to-day commands
 
 ```bash

@@ -162,6 +162,9 @@ func Concat(parts ...Doc) Doc {
 
 // LineSuffix queues output until the next line break. Used for trailing
 // line comments that must appear after the current source line ends.
+//
+// The payload is expected to be single-line: it is emitted verbatim at the
+// line break and is NOT re-indented across any embedded newlines.
 func LineSuffix(parts ...Doc) Doc {
   return Doc{Kind: docLineSuffix, Children: parts}
 }
