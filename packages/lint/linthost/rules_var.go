@@ -71,6 +71,26 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   varOccurrences := map[string]int{}
   referencedBefore := false
   root := ctx.File.AsNode()
+  countVarListNames := func(listNode *shimast.Node) {
+    if listNode == nil || listNode.Kind != shimast.KindVariableDeclarationList || !shimast.IsVar(listNode) {
+      return
+    }
+    list := listNode.AsVariableDeclarationList()
+    if list == nil || list.Declarations == nil {
+      return
+    }
+    for _, decl := range list.Declarations.Nodes {
+      v := decl.AsVariableDeclaration()
+      if v == nil {
+        continue
+      }
+      if name := identifierText(v.Name()); name != "" {
+        if _, ok := declared[name]; ok {
+          varOccurrences[name]++
+        }
+      }
+    }
+  }
   walkDescendants(root, func(child *shimast.Node) {
     switch child.Kind {
     case shimast.KindVariableStatement:
@@ -83,12 +103,32 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
           varOccurrences[name]++
         }
       }
+    case shimast.KindForStatement:
+      // A `for`-header `var` is a bare VariableDeclarationList, not a
+      // VariableStatement, so the case above never sees it. Count its
+      // bindings too, or `var x; for (var x …)` would slip the
+      // redeclaration check and corrupt to a duplicate `let`.
+      if fs := child.AsForStatement(); fs != nil {
+        countVarListNames(fs.Initializer)
+      }
+    case shimast.KindForInStatement, shimast.KindForOfStatement:
+      if fs := child.AsForInOrOfStatement(); fs != nil {
+        countVarListNames(fs.Initializer)
+      }
     case shimast.KindIdentifier:
       name := identifierText(child)
       if name == "" {
         return
       }
       if _, ok := declared[name]; !ok {
+        return
+      }
+      // Only genuine value references trigger the TDZ / use-before
+      // decline. Non-reference occurrences of the same text — a
+      // member name (`o.x`), an object-literal key (`{x:1}`), a
+      // statement label (`x:`), or a type reference (`: x`) — bind no
+      // value and must not force a decline.
+      if !isValueReferenceIdentifier(child) {
         return
       }
       if child.Pos() < declPos {
@@ -103,6 +143,61 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
     if count > 1 {
       return false
     }
+  }
+  return true
+}
+
+// isValueReferenceIdentifier reports whether an Identifier node occupies a
+// value-reference position rather than a non-reference role that merely
+// reuses the same text. The use-before-declaration gate in
+// isNoVarAutoFixSafe matches identifiers by text alone, so it would
+// otherwise decline on positions that bind no value:
+//
+//   - the `name` of a property access (`o.x`) or qualified name (`A.x`);
+//   - an object-literal property key (`{ x: 1 }`) or shorthand key;
+//   - a statement label (`x:` / `break x`);
+//   - a type reference (`: x`) whose `TypeName` is the identifier.
+//
+// Classification is by the identifier's parent node kind and slot, never
+// by text. Any unrecognized parent is treated as a value reference
+// (safety first: an unclassified position keeps declining).
+func isValueReferenceIdentifier(node *shimast.Node) bool {
+  parent := node.Parent
+  if parent == nil {
+    return true
+  }
+  switch parent.Kind {
+  case shimast.KindPropertyAccessExpression:
+    // `o.x`: only the object expression is a reference; the member name
+    // is a property, not a binding.
+    access := parent.AsPropertyAccessExpression()
+    return access == nil || access.Name() != node
+  case shimast.KindQualifiedName:
+    // `A.x` in type position: the right side is a property name.
+    qn := parent.AsQualifiedName()
+    return qn == nil || qn.Right != node
+  case shimast.KindPropertyAssignment:
+    // `{ x: target }`: the key is not a reference; the value is.
+    assign := parent.AsPropertyAssignment()
+    return assign == nil || assign.Name() != node
+  // `{ x }`: an object-literal shorthand is a VALUE READ of binding `x`
+  // (object destructuring parses as KindBindingElement and is handled
+  // elsewhere). It falls through to the default `true` so the
+  // use-before-declaration gate sees the forward reference and declines.
+  case shimast.KindLabeledStatement:
+    // `x:` label — a statement label shares no namespace with values.
+    lbl := parent.AsLabeledStatement()
+    return lbl == nil || lbl.Label != node
+  case shimast.KindBreakStatement:
+    brk := parent.AsBreakStatement()
+    return brk == nil || brk.Label != node
+  case shimast.KindContinueStatement:
+    cont := parent.AsContinueStatement()
+    return cont == nil || cont.Label != node
+  case shimast.KindTypeReference:
+    // `: x` — a type reference lives in the type namespace.
+    ref := parent.AsTypeReferenceNode()
+    return ref == nil || ref.TypeName != node
   }
   return true
 }
@@ -172,6 +267,24 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
         if name := identifierText(expr.Operand); name != "" {
           assigned[name] = true
         }
+      }
+    case shimast.KindForOfStatement, shimast.KindForInStatement:
+      // `for (x of …)` / `for (x in …)` reassigns the existing binding `x`
+      // on every iteration. When the initializer IS a
+      // VariableDeclarationList (`for (const y of …)`) it declares a fresh
+      // binding instead, so only a non-declaration initializer counts as a
+      // reassignment target. Missing this lets a pre-existing `let` be
+      // rewritten to `const` that the loop then assigns to — a TS error and
+      // runtime TypeError.
+      stmt := child.AsForInOrOfStatement()
+      if stmt == nil || stmt.Initializer == nil {
+        return
+      }
+      if stmt.Initializer.Kind == shimast.KindVariableDeclarationList {
+        return
+      }
+      for _, name := range assignmentTargetNames(stmt.Initializer) {
+        assigned[name] = true
       }
     }
   })
