@@ -103,7 +103,9 @@ export default {
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
-    sortImports: { order: ["<THIRD_PARTY_MODULES>", "", "@api(.*)$", "", "^[./]"] },
+    sortImports: {
+      order: ["<BUILTIN_MODULES>", "", "<THIRD_PARTY_MODULES>", "", "^[./]"],
+    },
     jsDoc: true,
   },
   rules: { "no-var": "error" },
