@@ -103,8 +103,8 @@ export default {
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
-    importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
-    jsdoc: true,
+    sortImports: { order: ["<THIRD_PARTY_MODULES>", "", "@api(.*)$", "", "^[./]"] },
+    jsDoc: true,
   },
   rules: { "no-var": "error" },
 } satisfies ITtscLintConfig;
@@ -124,10 +124,10 @@ Each `format` config key activates one rule:
 | `quoteProps` | `format/quote-props` | Quote or unquote object property keys. |
 | `trailingComma` | `format/trailing-comma` | Add trailing commas to multi-line lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | `format/print-width` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
-| `importOrder` (opt-in) | `format/sort-imports` | Group external/relative imports and alphabetize each group + its specifiers. |
-| `jsdoc` (opt-in) | `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+| `sortImports` (opt-in) | `format/sort-imports` | Group imports by `order`, alphabetize each group + its specifiers, and merge duplicate modules. |
+| `jsDoc` (opt-in) | `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `importOrder` or `jsdoc`. Every other format rule turns on automatically as soon as the `format` block is present, including the layout rules that have no dedicated config key: `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
+`format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `sortImports` or `jsDoc`. Every other format rule turns on automatically as soon as the `format` block is present, including the layout rules that have no dedicated config key: `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
 
 Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 

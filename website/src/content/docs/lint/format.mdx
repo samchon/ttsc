@@ -16,7 +16,7 @@ export default {
     printWidth: 100,
     singleQuote: true,
     trailingComma: "all",
-    importOrder: ["<THIRD_PARTY_MODULES>", "@api(.*)$", "^[./]"],
+    sortImports: { order: ["<THIRD_PARTY_MODULES>", "", "@api(.*)$", "", "^[./]"] },
     jsDoc: true,
   },
   rules: {
@@ -36,7 +36,7 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | `format/quote-props` | `quoteProps` | Quote or unquote object property keys. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
 | `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
-| `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize them. |
+| `format/sort-imports` | `sortImports` (opt-in) | Group imports by `order`, alphabetize them, and merge duplicate modules. |
 | `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
 Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present, including the keyless layout rules `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
@@ -53,10 +53,7 @@ format: { severity: "off" }
 
 ### Configuring individual behaviors
 
-Formatting is configured **only** through the `format` block. The `rules` map is
-for lint rules; a `format/*` id placed there is ignored. Turn a behavior off
-through its `format` key (for example `trailingComma: "none"`), not a `rules`
-entry.
+Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. Turn a behavior off through its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 
 ## The individual rules
 
@@ -86,18 +83,16 @@ Enforce trailing commas in **multiline** literals, object literals, array litera
 
 ### `format/sort-imports`
 
-**Opt-in.** Reorder and group imports.
+**Opt-in.** Reorder, group, and merge imports. Set `format.sortImports` to `true` for defaults, or to an object to customize. Modeled on [`@ianvs/prettier-plugin-sort-imports`](https://github.com/IanVS/prettier-plugin-sort-imports).
 
-Default grouping (each group separated by a blank line):
+The `order` array drives grouping. Each entry is a regular expression matched against a module specifier, or one of these placeholders:
 
-1. Built-in Node modules (`node:fs`, `assert`, ...)
-2. Bare-specifier external modules (`react`, `typia`, ...)
-3. Internal scoped modules (`@/foo`, `@lib/...`)
-4. Relative parent-directory modules (`../foo`)
-5. Relative same-directory modules (`./bar`)
-6. CSS / asset imports
+- `<BUILTIN_MODULES>` — Node built-ins (`node:fs`, `assert`, ...).
+- `<THIRD_PARTY_MODULES>` — bare-specifier externals not matched elsewhere.
+- `<TYPES>` — `import type` declarations (optionally scoped, e.g. `<TYPES>^[.]`).
+- `""` — emit one blank line at this position.
 
-Within each group, alphabetical. Autofixable. Set `format.importOrder` to enable.
+The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Within each group declarations sort by specifier — case-insensitively unless `caseSensitive: true` — and named specifiers always sort. Duplicate imports of the same module are merged; `combineTypeAndValue: true` additionally folds a type-only import into a value import (`import { foo, type Bar } from "m"`). Autofixable.
 
 ### `format/jsdoc`
 
@@ -107,11 +102,9 @@ Handles:
 
 - Tag synonyms (`@return` → `@returns`, `@desc` → `@description`, ...).
 
-Tag sorting, `@param` column alignment, continuation-space normalization, and
-description wrapping are on the roadmap, not yet implemented.
+Tag sorting, `@param` column alignment, continuation-space normalization, and description wrapping are on the roadmap, not yet implemented.
 
-Autofixable. On by default; set `format.jsDoc: false` to disable, or pass an
-options object to customize.
+Autofixable. On by default; set `format.jsDoc: false` to disable, or pass an options object to customize.
 
 ### `format/print-width`
 
