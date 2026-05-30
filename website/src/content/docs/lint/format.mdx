@@ -176,7 +176,7 @@ For every uncovered shape the rule produces zero findings and zero edits.
 
 ## Rule interactions
 
-`format/print-width` and `format/trailing-comma` overlap in one place: the broken layout that `format/print-width` emits always has a trailing comma (structurally, not because of the rule). So leaving `format/trailing-comma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals, only from manually-written ones.
+`format/print-width` and `format/trailing-comma` share the `trailingComma` setting. The broken layout that `format/print-width` emits honors it: the last entry gets a trailing comma only when `trailingComma` permits one for that list kind, and none when `trailingComma` is `"none"`. There is no `"off"` value; set `trailingComma: "none"` to drop trailing commas everywhere, reflowed multi-line literals included.
 
 `ttsc format` re-runs every enabled rule until the file is stable, so rule order in `lint.config.ts` doesn't affect the final result.
 
