@@ -2,7 +2,8 @@ import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
 
 /**
  * Documented defaults for the `format` block's _always-on_ rules
- * (`format/semi`, `format/quotes`, `format/trailing-comma`,
+ * (`format/semi`, `format/quotes`, `format/arrow-parens`,
+ * `format/bracket-spacing`, `format/quote-props`, `format/trailing-comma`,
  * `format/print-width`).
  *
  * Exported so users can spread defaults next to overrides:

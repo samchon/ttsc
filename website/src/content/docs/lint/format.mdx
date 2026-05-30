@@ -86,13 +86,14 @@ Within each group, alphabetical. Autofixable. Set `format.importOrder` to enable
 
 ### `format/jsdoc`
 
-**Opt-in.** Normalize JSDoc block spacing and wrapping.
+**Opt-in.** Normalize JSDoc tag names toward their canonical form.
 
 Handles:
 
-- Single space after `*` on continuation lines.
 - Tag synonyms (`@return` → `@returns`, `@desc` → `@description`, ...).
-- Aligns multi-line `@param` descriptions.
+
+Tag sorting, `@param` column alignment, continuation-space normalization, and
+description wrapping are on the roadmap, not yet implemented.
 
 Autofixable. Set `format.jsdoc: true` (or an options object) to enable.
 
