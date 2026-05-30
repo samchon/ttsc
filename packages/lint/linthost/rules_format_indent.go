@@ -160,7 +160,7 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       // indentCededToReflow walks block.Parent upward, the same ancestor
       // chain a body statement would, so a callback / expression-nested
       // block's `}` cedes in lockstep with its body (print-width owns it).
-      if indentCededToReflow(block) {
+      if indentCededToReflow(block) || cededInsideParameter(block) {
         return
       }
       // Chained-arrow body: cede the `}` in lockstep with its body
@@ -177,7 +177,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       edits = append(edits, TextEdit{Pos: lineStart, End: closeBrace, Text: want})
     },
     func(header *shimast.Node, depth int) {
-      if indentCededToReflow(header) || cededByChainedArrowAncestor(header) {
+      if indentCededToReflow(header) || cededByChainedArrowAncestor(header) ||
+        cededInsideParameter(header) {
         return
       }
       want := layout.indent(depth)
@@ -250,6 +251,34 @@ func indentCededToReflow(stmt *shimast.Node) bool {
       return true
     case shimast.KindSourceFile,
       shimast.KindModuleBlock:
+      return false
+    }
+  }
+  return false
+}
+
+// cededInsideParameter reports whether `node` sits inside a function or
+// method parameter (its type annotation or default value), stopping at the
+// nearest statement boundary. A type literal in a parameter's type is laid
+// out relative to the parameter's own line, and the parameter's indentation
+// depends on whether the parameter list broke across lines, layout that
+// format/indent's pure block-depth model cannot see. For `f(input: { a })`
+// (flat) Prettier indents `a` one level past the `f(` line; for a broken
+// list it indents one level past each parameter's own line. The depth model
+// has neither column, so it would de-indent the members and brace of an
+// already-correct nested type literal by one level. Ceding leaves them
+// byte-identical (the source / printer already has them right). The walk
+// starts at the brace owner or member header itself; reaching a Block,
+// ModuleBlock, or SourceFile first means ordinary block position, not a
+// parameter, so the depth model owns it.
+func cededInsideParameter(node *shimast.Node) bool {
+  for n := node.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindParameter:
+      return true
+    case shimast.KindBlock,
+      shimast.KindModuleBlock,
+      shimast.KindSourceFile:
       return false
     }
   }
