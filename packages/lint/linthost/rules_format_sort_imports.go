@@ -209,7 +209,7 @@ func matchGroup(groups []sortImportsGroup, specifier string) int {
 // specifierListHasCommentTrivia returns true when the source between
 // adjacent specifiers contains any byte that is not whitespace,
 // comma, or whitespace-equivalent. A `/* x */` or `// x` inside the
-// list anchors the rule into a no-op — sorting would re-emit the
+// list anchors the rule into a no-op, sorting would re-emit the
 // specifier texts joined with `", "` and silently drop the comment.
 func specifierListHasCommentTrivia(src string, specifiers []*shimast.Node) bool {
   for i := 1; i < len(specifiers); i++ {
@@ -365,7 +365,7 @@ type specifierEntry struct {
 
 // reportNamedSpecifierSort reports a fix when an import's `{ a, b }` list
 // is out of alphabetical order. Type-only specifiers participate in the
-// same sort key as value specifiers — prettier's plugin-sort-imports
+// same sort key as value specifiers, prettier's plugin-sort-imports
 // matches this behavior.
 //
 // Safety policy: comment trivia between specifiers anchors the rule

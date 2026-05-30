@@ -1,5 +1,6 @@
 {
-  "rules": {
-    "format/quotes": "error"
+  "format": {
+    "singleQuote": false,
+    "severity": "error"
   }
 }

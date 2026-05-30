@@ -49,9 +49,15 @@ export const test_ttscserver_serves_project_plugin_format_action_and_command =
     const source = "var legacy = 1\nJSON.stringify(legacy)\n";
     const project = TestLint.createProject({
       name: "ttscserver-lsp-format-action",
-      rules: {
-        "format/semi": "error",
-        "no-var": "error",
+      // Formatting is configured only through the `format` block; the `rules`
+      // shorthand would overwrite lint.config.json, so write one combined
+      // config via extraSources carrying both the format block and the no-var
+      // lint rule this scenario also exercises.
+      extraSources: {
+        "lint.config.json": JSON.stringify({
+          format: { semi: true },
+          rules: { "no-var": "error" },
+        }),
       },
       source,
     });

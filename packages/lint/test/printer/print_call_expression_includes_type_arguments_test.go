@@ -11,7 +11,7 @@ import (
 // verbatim between the callee and the argument list.
 //
 // The TypeArguments branch inside printCallExpression, together with the
-// callTypeArgsStart and callTypeArgsEnd helpers, was uncovered by existing
+// shared typeArgsStart/typeArgsEnd helpers, was uncovered by existing
 // tests because all prior fixtures used unparameterised calls. Dropping
 // the type-argument range would silently corrupt the emitted source for
 // any generic function call.

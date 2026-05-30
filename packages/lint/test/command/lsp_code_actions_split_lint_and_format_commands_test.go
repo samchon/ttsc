@@ -19,9 +19,11 @@ import (
 // 4. Assert each response advertises only its matching command.
 func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
-  seedLintRules(t, root, map[string]string{
-    "format/semi": "error",
-    "no-var":      "error",
+  // no-var is a lint rule; the format block enables format/semi (formatting
+  // is configured only through the format block).
+  seedLintConfig(t, root, map[string]any{
+    "rules":  map[string]any{"no-var": "error"},
+    "format": map[string]any{},
   })
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
   fixActions := runLSPCodeActionsForTest(t, root, uri, `{"only":["source.fixAll.ttsc"]}`)

@@ -19,7 +19,7 @@ import (
 func TestPrintArgListReturnsParensForNilList(t *testing.T) {
   file := parseTS(t, "foo();\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
-  doc, _ := printArgList(ctx, nil)
+  doc, _ := printArgList(ctx, nil, true)
   got := Print(doc, ctx.Opts)
   if got != "()" {
     t.Fatalf("printArgList(nil): expected \"()\", got %q", got)

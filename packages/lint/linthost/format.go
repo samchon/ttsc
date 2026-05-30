@@ -5,6 +5,7 @@ import (
   "fmt"
   "os"
   "sort"
+  "sync"
 )
 
 // maxFormatPasses bounds the format cascade for the same reason
@@ -41,7 +42,11 @@ func runFormat(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  resolver := formatCommandResolver{inner: rules}
+  resolver := formatCommandResolver{
+    inner:          rules,
+    ruleNames:      &formatRuleNamesCache{},
+    entryDecisions: &sync.Map{},
+  }
   engine := NewEngineWithResolver(resolver)
   engine.SetSerial(opts.singleThreaded)
   needsRuleChecker := engine.NeedsTypeChecker()
@@ -100,6 +105,40 @@ func runFormat(opts *subcommandOpts) int {
 // without requiring explicit rule declarations in the project config.
 type formatCommandResolver struct {
   inner RuleResolver
+  // ruleNames memoizes formatOptionRuleNames. The resolver's option set is
+  // immutable for the whole run, so the sorted format-rule slice is computed
+  // once and reused across ResolveRules (per file per pass), ActiveRuleNames,
+  // and EnabledRuleConfig. The field is a pointer so a nil zero value stays
+  // valid: callers that build formatCommandResolver{inner: ...} without it
+  // (tests, lsp) fall back to direct computation, and copying the struct by
+  // value (it is stored in the engine's RuleResolver interface and passed
+  // around as a value) shares the same underlying cache rather than copying a
+  // sync.Once lock.
+  ruleNames *formatRuleNamesCache
+  // entryDecisions memoizes the per-fileName ignored/matches decision that
+  // ResolveRules derives from fileIsIgnoredByEntry and fileMatchesAnyEntry.
+  // Both walk store.entries with glob matching and are recomputed identically
+  // for the same fileName on every format pass, so the result is cached once
+  // per file and reused. The field is a pointer (a *sync.Map) so the nil zero
+  // value stays valid for construction sites that omit it, and copying the
+  // resolver by value shares the same underlying map. sync.Map handles the
+  // engine's concurrent per-file ResolveRules calls without an extra lock.
+  entryDecisions *sync.Map
+}
+
+// formatRuleNamesCache lazily computes and stores the sorted format-rule name
+// slice for a resolver. sync.Once guarantees a single computation even when
+// ResolveRules runs concurrently across files in the engine's parallel walk.
+type formatRuleNamesCache struct {
+  once  sync.Once
+  names []string
+}
+
+// formatEntryDecision is the cached per-fileName outcome of the two entry-scope
+// checks ResolveRules runs before applying its format-rule upgrade.
+type formatEntryDecision struct {
+  ignoredByEntry bool
+  matchesEntry   bool
 }
 
 // ResolveRules implements RuleResolver. It delegates to the inner resolver
@@ -127,10 +166,11 @@ func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig 
   if resolved.Ignored {
     return resolved
   }
-  if r.fileIsIgnoredByEntry(fileName) {
+  decision := r.entryDecision(fileName)
+  if decision.ignoredByEntry {
     return resolved
   }
-  if !r.fileMatchesAnyEntry(fileName) {
+  if !decision.matchesEntry {
     return resolved
   }
   if resolved.Rules == nil {
@@ -144,6 +184,36 @@ func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig 
   return resolved
 }
 
+// entryDecision returns the per-fileName ignored/matches outcome that
+// ResolveRules needs, computing it from fileIsIgnoredByEntry and
+// fileMatchesAnyEntry on first use and reusing it on later passes. When the
+// memo is absent (a resolver built without entryDecisions, e.g. in tests or
+// lsp) it computes the decision directly so behavior is identical, just
+// uncached.
+func (r formatCommandResolver) entryDecision(fileName string) formatEntryDecision {
+  if r.entryDecisions == nil {
+    return r.computeEntryDecision(fileName)
+  }
+  if cached, ok := r.entryDecisions.Load(fileName); ok {
+    return cached.(formatEntryDecision)
+  }
+  decision := r.computeEntryDecision(fileName)
+  // LoadOrStore keeps the first writer's value so concurrent passes over the
+  // same file agree; the decision is a pure function of fileName, so either
+  // value is correct.
+  actual, _ := r.entryDecisions.LoadOrStore(fileName, decision)
+  return actual.(formatEntryDecision)
+}
+
+// computeEntryDecision runs the two uncached entry-scope checks behind
+// entryDecision.
+func (r formatCommandResolver) computeEntryDecision(fileName string) formatEntryDecision {
+  return formatEntryDecision{
+    ignoredByEntry: r.fileIsIgnoredByEntry(fileName),
+    matchesEntry:   r.fileMatchesAnyEntry(fileName),
+  }
+}
+
 // fileIsIgnoredByEntry reports whether any non-IgnoreOnly entry in the inner
 // ConfigStore has an `ignores` glob that matches `fileName`. IgnoreOnly
 // entries are already handled by ResolvedRuleConfig.Ignored — they are
@@ -154,19 +224,34 @@ func (r formatCommandResolver) ResolveRules(fileName string) ResolvedRuleConfig 
 // independently because its job is to upgrade format rules to `warn`, not to
 // read the engine's resolved severity map.
 func (r formatCommandResolver) fileIsIgnoredByEntry(fileName string) bool {
+  matched, _ := r.anyNonIgnoreEntry(func(entry *ConfigEntry) bool {
+    return entry.matchesIgnores(fileName)
+  })
+  return matched
+}
+
+// anyNonIgnoreEntry resolves the inner resolver to its concrete *ConfigStore
+// once and reports whether any non-IgnoreOnly entry satisfies `pred`. The
+// second return value is false when the inner resolver is not a *ConfigStore
+// (or is a nil one), letting each caller pick its own non-store default. This
+// collapses the shared store-resolution and entry-walk that fileIsIgnoredByEntry
+// and fileMatchesAnyEntry would otherwise duplicate; the per-caller default and
+// the empty-entries base case stay in the callers where they differ.
+func (r formatCommandResolver) anyNonIgnoreEntry(pred func(*ConfigEntry) bool) (matched bool, hasStore bool) {
   store, ok := r.inner.(*ConfigStore)
   if !ok || store == nil {
-    return false
+    return false, false
   }
-  for _, entry := range store.entries {
+  for i := range store.entries {
+    entry := &store.entries[i]
     if entry.IgnoreOnly {
       continue
     }
-    if entry.matchesIgnores(fileName) {
-      return true
+    if pred(entry) {
+      return true, true
     }
   }
-  return false
+  return false, true
 }
 
 // fileMatchesAnyEntry reports whether `fileName` falls inside the `files`
@@ -193,22 +278,32 @@ func (r formatCommandResolver) fileIsIgnoredByEntry(fileName string) bool {
 //     rule-eligibility reasoned about from the outside, so the format
 //     upgrade applies the same as it does for an entry without `files`.
 func (r formatCommandResolver) fileMatchesAnyEntry(fileName string) bool {
-  store, ok := r.inner.(*ConfigStore)
-  if !ok || store == nil {
+  matched, hasStore := r.anyNonIgnoreEntry(func(entry *ConfigEntry) bool {
+    return entry.matchesFile(fileName)
+  })
+  if !hasStore {
+    // Not a *ConfigStore: conservative default, see the doc comment above.
     return true
   }
-  if len(store.entries) == 0 {
+  // A store with no entries (or only IgnoreOnly ones that the walk skipped)
+  // produces matched == false; an empty entries slice must still return true
+  // so format mode applies its default upgrade, matching ConfigStore behavior.
+  // The all-IgnoreOnly case is distinguished by a non-empty entries slice.
+  if !matched && len(r.storeEntries()) == 0 {
     return true
   }
-  for _, entry := range store.entries {
-    if entry.IgnoreOnly {
-      continue
-    }
-    if entry.matchesFile(fileName) {
-      return true
-    }
+  return matched
+}
+
+// storeEntries returns the inner resolver's config entries, or nil when the
+// inner resolver is not a *ConfigStore. Used by fileMatchesAnyEntry to tell the
+// empty-entries base case (return true) apart from the all-IgnoreOnly case
+// (return false) after anyNonIgnoreEntry reports no match.
+func (r formatCommandResolver) storeEntries() []ConfigEntry {
+  if store, ok := r.inner.(*ConfigStore); ok && store != nil {
+    return store.entries
   }
-  return false
+  return nil
 }
 
 // ActiveRuleNames implements RuleResolver. Returns the union of the inner
@@ -248,6 +343,22 @@ func (r formatCommandResolver) RuleOptions(name string) json.RawMessage {
 // resolver's options that are registered as format rules. These are the rules
 // that formatCommandResolver promotes from off to warn.
 func (r formatCommandResolver) formatOptionRuleNames() []string {
+  if r.ruleNames == nil {
+    // Nil cache (a resolver built without the memo, e.g. in tests or lsp):
+    // compute directly. Construction sites that want the memo set ruleNames.
+    return r.computeFormatOptionRuleNames()
+  }
+  r.ruleNames.once.Do(func() {
+    r.ruleNames.names = r.computeFormatOptionRuleNames()
+  })
+  return r.ruleNames.names
+}
+
+// computeFormatOptionRuleNames does the uncached work behind
+// formatOptionRuleNames: collect the inner resolver's option names that are
+// registered format rules, sorted. The result order is stable (sorted) so
+// memoizing it does not change any caller's observed ordering.
+func (r formatCommandResolver) computeFormatOptionRuleNames() []string {
   options := resolverOptions(r.inner)
   if len(options) == 0 {
     return nil

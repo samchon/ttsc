@@ -35,6 +35,12 @@ type listShape struct {
   // multi-line callback body does not force every preceding argument
   // onto its own line.
   HugLast bool
+  // HugFirst keeps the FIRST item attached to the open paren and flows
+  // the remaining simple items after it, the mirror of HugLast. The
+  // call-argument printer sets it for the two-argument
+  // `callback, simpleArg` shape Prettier hugs (`foo(() => { … }, x)`).
+  // HugLast and HugFirst are mutually exclusive.
+  HugFirst bool
   // ForceBreak commits the list to its broken, one-item-per-line shape
   // even when it would fit flat. The object-literal printer sets it to
   // mirror Prettier's objectWrap:"preserve" — an object the source
@@ -50,19 +56,22 @@ func printList(ctx *PrintContext, shape listShape) Doc {
     return Text(shape.OpenTok + shape.CloseTok)
   }
   plain := printListPlain(ctx, shape)
-  if !shape.HugLast {
+  if !shape.HugLast && !shape.HugFirst {
     return plain
   }
-  // A HugLast list offers the engine up to three shapes, in preference
+  // A hugging list offers the engine up to three shapes, in preference
   // order:
   //   1. allFlat — every item on one line, chosen when it fits;
-  //   2. hugged  — leading items inline, the final callback or object
-  //      committed to its multi-line shape, chosen when its opening
-  //      line fits but the all-flat form does not;
+  //   2. hugged  — the callback (last for HugLast, first for HugFirst)
+  //      committed to its multi-line shape with the other items inline,
+  //      chosen when its opening line fits but the all-flat form does not;
   //   3. plain   — every item exploded onto its own indented line.
   // The all-flat option is dropped when the list cannot render flat
   // (a block-bodied callback argument carries hard line breaks).
   hugged := printListHuggingLast(ctx, shape)
+  if shape.HugFirst {
+    hugged = printListHuggingFirst(ctx, shape)
+  }
   if allFlat, ok := flatten(plain); ok {
     return ConditionalGroup(allFlat, hugged, plain)
   }
@@ -141,5 +150,31 @@ func printListHuggingLast(ctx *PrintContext, shape listShape) Doc {
     parts = append(parts, item, Text(", "))
   }
   parts = append(parts, last, Text(shape.CloseTok))
+  return Concat(parts...)
+}
+
+// printListHuggingFirst renders the "first-argument hugging" shape
+// Prettier uses for `foo(() => { … }, target)`: the first item stays
+// attached to the open paren and the remaining simple items flow inline
+// after it, so a multi-line callback body does not explode the trailing
+// arguments onto their own lines.
+//
+//  hugged: OPEN OPEN-of-first … CLOSE-of-first, b, c CLOSE
+//
+// Like printListHuggingLast it returns a plain Concat (the callback's own
+// printer owns its body's break) and forces the hugged item's first Group
+// broken when the item has no hard line breaks of its own, so the hugged
+// option stays distinct from the all-flat option.
+func printListHuggingFirst(ctx *PrintContext, shape listShape) Doc {
+  first := shape.Items[0]
+  rest := shape.Items[1:]
+  if _, flat := flatten(first); flat {
+    first, _ = forceBreakFirstGroup(first)
+  }
+  parts := []Doc{Text(shape.OpenTok), first}
+  for _, item := range rest {
+    parts = append(parts, Text(", "), item)
+  }
+  parts = append(parts, Text(shape.CloseTok))
   return Concat(parts...)
 }

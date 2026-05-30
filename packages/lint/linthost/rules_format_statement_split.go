@@ -9,8 +9,8 @@ import (
 
 // formatStatementSplit puts every statement in a statement list on its
 // own physical line, mirroring Prettier's "one statement per line"
-// layout. Prettier never leaves two statements sharing a source line —
-// `const a = 1; let b = 2;` becomes two lines — and this rule is the
+// layout. Prettier never leaves two statements sharing a source line,
+// `const a = 1; let b = 2;` becomes two lines, and this rule is the
 // always-on equivalent.
 //
 // Scope is every statement list the language produces: the SourceFile
@@ -23,7 +23,7 @@ import (
 //
 //  1. Find the statement's first non-trivia byte.
 //  2. If it is the first non-whitespace byte on its physical line, the
-//     statement already starts its own line — abstain (that is
+//     statement already starts its own line, abstain (that is
 //     `format/indent`'s surface).
 //  3. Otherwise another statement precedes it on the same line. Replace
 //     the whitespace run immediately before the statement (back to the
@@ -80,6 +80,21 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
       // First non-whitespace byte on its line already; that is
       // `format/indent`'s job, not this rule's.
       return
+    }
+    // Do not split a statement off a leading-semicolon ASI guard
+    // (`;(expr)`): the lone `;` before it is an empty-statement guard
+    // that format/orphan-semi intentionally merged onto this line, and
+    // re-splitting it would oscillate against that rule. The `;` is a
+    // guard (not a terminator like `foo();bar()`) when only whitespace
+    // precedes it back to the start of its line.
+    if src[ws-1] == ';' {
+      k := ws - 1
+      for k > 0 && (src[k-1] == ' ' || src[k-1] == '\t') {
+        k--
+      }
+      if k == 0 || src[k-1] == '\n' {
+        return
+      }
     }
     // A block that opens right after its own `case`/`default` label
     // (`case 2: {`) is not sharing a line with a preceding statement;
@@ -224,7 +239,7 @@ func loadFormatLayout(ctx *Context) formatLayout {
 }
 
 // forEachStatementInList walks the file's AST and invokes `fn` once for
-// every statement that lives directly inside a statement list — the
+// every statement that lives directly inside a statement list, the
 // SourceFile body, a Block, a ModuleBlock, or a case/default clause.
 // `depth` is the nesting level used to compute indentation: one level
 // per enclosing Block or ModuleBlock plus one per enclosing case/default
@@ -281,6 +296,16 @@ func walkStatementLists(node *shimast.Node, depth int, fn func(stmt *shimast.Nod
     switch child.Kind {
     case shimast.KindBlock, shimast.KindModuleBlock:
       childDepth = depth + 1
+      // An explicit `{ }` that is the direct body of a case/default
+      // clause does not add an indent level: Prettier indents
+      // `case X: { stmt }` exactly like `case X: stmt`. The clause has
+      // already contributed the level, so keep the block body at the
+      // clause's depth instead of nesting it one deeper.
+      if child.Kind == shimast.KindBlock && child.Parent != nil &&
+        (child.Parent.Kind == shimast.KindCaseClause ||
+          child.Parent.Kind == shimast.KindDefaultClause) {
+        childDepth = depth
+      }
       for _, stmt := range child.Statements() {
         if stmt == nil {
           continue

@@ -10,7 +10,7 @@ import (
 // with type arguments (`new Foo<A, B>(x)`) emits the `<A, B>` range
 // verbatim between the constructor expression and the argument list.
 //
-// newTypeArgsStart and newTypeArgsEnd were 0% covered because no existing
+// the shared typeArgsStart/typeArgsEnd helpers were uncovered because no existing
 // test exercised a NewExpression with a TypeArguments list. A regression
 // that dropped the type-argument range would silently corrupt source for
 // any generic constructor call.

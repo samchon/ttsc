@@ -50,7 +50,7 @@ export const test_plugin_corpus_ttsc_lint_format_honors_single_threaded_flag =
     );
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: { "format/quotes": "error" } }),
+      JSON.stringify({ format: { singleQuote: false } }),
     );
     const sourcePath = path.join(root, "src", "main.ts");
     fs.writeFileSync(sourcePath, `export const value = 'single';\n`);

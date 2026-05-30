@@ -43,7 +43,14 @@ func runFix(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  engine := NewEngineWithResolver(rules)
+  // `ttsc fix` is the run-everything entry point: lint fixes AND formatter
+  // edits. Formatting is configured solely through the `format` block (a
+  // format/* key in `rules` is dropped), so wrap the resolver the same way
+  // `ttsc format` and the LSP paths do — formatCommandResolver force-
+  // activates the format rules the format block configured. A project with
+  // no format block populates no format options, so nothing extra is enabled
+  // and fix stays a pure lint pass.
+  engine := NewEngineWithResolver(formatCommandResolver{inner: rules})
   engine.SetSerial(opts.singleThreaded)
   needsRuleChecker := engine.NeedsTypeChecker()
 

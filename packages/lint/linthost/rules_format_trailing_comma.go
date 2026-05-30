@@ -5,7 +5,7 @@ import (
 )
 
 // formatTrailingComma adds trailing commas to multi-line lists. Mirrors
-// prettier's `trailingComma: "all"` default — *not* a tunable.
+// prettier's `trailingComma: "all"` default, *not* a tunable.
 //
 // Scope (intentionally narrower than the closing-brace surface of TS):
 //
@@ -107,6 +107,14 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     }
     call := node.AsCallExpression()
     if call == nil {
+      return
+    }
+    if isDynamicImportCall(call) {
+      // Prettier never emits a trailing comma inside a dynamic
+      // `import(...)` argument list, even under trailingComma:"all", a
+      // documented exception because the import() spec historically
+      // rejected one. The printer half (print_nodes_call.go) honors the
+      // same exception so the two rules agree on the reflowed shape.
       return
     }
     considerTrailingComma(ctx, call.Arguments, node.End()-1)
@@ -268,12 +276,23 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// isDynamicImportCall reports whether a CallExpression is a dynamic
+// `import(...)`: its callee is the `import` keyword itself, mirroring
+// typescript-go's ast.IsImportCall. Prettier never emits a trailing
+// comma inside a dynamic-import argument list, even under
+// trailingComma:"all".
+func isDynamicImportCall(call *shimast.CallExpression) bool {
+  return call != nil &&
+    call.Expression != nil &&
+    call.Expression.Kind == shimast.KindImportKeyword
+}
+
 // considerTrailingComma reports a fix when the bracket-delimited list is
 // multi-line and missing its trailing comma. `closeBracketPos` points at
 // the closing punctuation byte itself (e.g. the `]` of an array literal).
 //
 // "Multi-line" means the close bracket sits on a different line from the
-// last element's end — not just "the list contains a newline somewhere".
+// last element's end, not just "the list contains a newline somewhere".
 // Prettier's `trailingComma: "all"` omits the comma whenever the close
 // bracket is adjacent to the last element on the same line, even if the
 // element itself is internally multi-line. The canonical shape is

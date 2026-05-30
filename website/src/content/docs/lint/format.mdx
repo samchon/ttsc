@@ -31,12 +31,15 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | --- | --- | --- |
 | `format/semi` | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `format/quotes` | `singleQuote` | Convert quoted strings to the preferred quote style. |
+| `format/arrow-parens` | `arrowParens` | Add or remove parens around a single arrow parameter. |
+| `format/bracket-spacing` | `bracketSpacing` | Spaces inside object and named-import/export braces. |
+| `format/quote-props` | `quoteProps` | Quote or unquote object property keys. |
 | `format/trailing-comma` | `trailingComma` | Add trailing commas to multi-line lists. |
 | `format/print-width` | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
 | `format/sort-imports` | `importOrder` (opt-in) | Group external/relative imports and alphabetize them. |
 | `format/jsdoc` | `jsdoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present.
+Both `format/sort-imports` and `format/jsdoc` are **opt-in**: they only run when you set their `format` keys. Every other format rule runs as soon as a `format` block is present, including the keyless layout rules `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
 
 ### `format.severity`
 
@@ -48,16 +51,12 @@ format: { severity: "off" }
 
 `"off"` keeps format rules out of `ttsc check`; `ttsc format` still applies the configured formatter. Use this when formatting should be write-only and never block compilation.
 
-### Per-rule overrides
+### Configuring individual behaviors
 
-To bump (or relax) one specific rule, drop a sibling `rules` entry, `rules` wins on conflict:
-
-```ts
-export default {
-  format: { semi: true, severity: "warning" },
-  rules: { "format/semi": "error" },  // promote this one to error
-} satisfies ITtscLintConfig;
-```
+Formatting is configured **only** through the `format` block. The `rules` map is
+for lint rules; a `format/*` id placed there is ignored. Turn a behavior off
+through its `format` key (for example `trailingComma: "none"`), not a `rules`
+entry.
 
 ## The individual rules
 
@@ -68,6 +67,18 @@ Enforce trailing semicolons on statements that need them. Default: required. Aut
 ### `format/quotes`
 
 One quote style throughout. Pick `"double"` (default) or `"single"`. Backticks always allowed for template literals. Driven by `format.singleQuote`.
+
+### `format/arrow-parens`
+
+Parentheses around a single arrow-function parameter. `"always"` (default) keeps `(x) => x`; `"avoid"` strips the parens of a single bare-identifier parameter, giving `x => x`. A typed, destructured, rest, optional, defaulted, or multi-parameter list keeps its parentheses in both modes. Driven by `format.arrowParens`.
+
+### `format/bracket-spacing`
+
+Inner spaces in single-line braces. `true` (default) keeps the space inside object literals, destructuring patterns, named imports/exports, and type literals (`{ a }`); `false` removes it (`{a}`). Block, class, interface, and enum braces are unaffected. Driven by `format.bracketSpacing`.
+
+### `format/quote-props`
+
+Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys that are valid identifiers, keeping `"__proto__"` and non-identifier or numeric keys quoted; `"consistent"` keeps every key quoted when any one of them needs quotes; `"preserve"` leaves quoting untouched. Driven by `format.quoteProps`.
 
 ### `format/trailing-comma`
 
@@ -90,13 +101,14 @@ Within each group, alphabetical. Autofixable. Set `format.importOrder` to enable
 
 ### `format/jsdoc`
 
-**Opt-in.** Normalize JSDoc block spacing and wrapping.
+**Opt-in.** Normalize JSDoc tag names toward their canonical form.
 
 Handles:
 
-- Single space after `*` on continuation lines.
 - Tag synonyms (`@return` → `@returns`, `@desc` → `@description`, ...).
-- Aligns multi-line `@param` descriptions.
+
+Tag sorting, `@param` column alignment, continuation-space normalization, and
+description wrapping are on the roadmap, not yet implemented.
 
 Autofixable. Set `format.jsdoc: true` (or an options object) to enable.
 
@@ -174,27 +186,9 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
 
-## Back-compat: per-rule tuple form
-
-The rule-level tuple form still works and is occasionally useful when you need a one-off override without adding a `format` block. Treat it as legacy, new projects should use the `format` block above.
-
-```ts
-// lint.config.ts
-import type { ITtscLintConfig } from "@ttsc/lint";
-
-export default {
-  rules: {
-    "format/semi": "error",
-    "format/quotes": ["error", { prefer: "double" }],
-    "format/trailing-comma": "error",
-    "format/print-width": ["error", { printWidth: 80 }],
-  },
-} satisfies ITtscLintConfig;
-```
-
 ## Rule interactions
 
-`format/print-width` and `format/trailing-comma` overlap in one place: the broken layout that `format/print-width` emits always has a trailing comma (structurally, not because of the rule). So leaving `format/trailing-comma` at `"off"` doesn't strip trailing commas from reflowed multi-line literals, only from manually-written ones.
+`format/print-width` and `format/trailing-comma` share the `trailingComma` setting. The broken layout that `format/print-width` emits honors it: the last entry gets a trailing comma only when `trailingComma` permits one for that list kind, and none when `trailingComma` is `"none"`. There is no `"off"` value; set `trailingComma: "none"` to drop trailing commas everywhere, reflowed multi-line literals included.
 
 `ttsc format` re-runs every enabled rule until the file is stable, so rule order in `lint.config.ts` doesn't affect the final result.
 

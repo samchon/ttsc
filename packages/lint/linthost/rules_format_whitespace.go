@@ -23,7 +23,7 @@ import (
 // the applier rejects overlapping edits. Disjoint per-line edits compose
 // with them cleanly.
 //
-// Template safety: bytes inside a template literal are significant —
+// Template safety: bytes inside a template literal are significant,
 // trailing spaces and blank lines there are part of the string value.
 // The rule collects the byte ranges of every NoSubstitutionTemplate and
 // TemplateExpression node (covering head/middle/tail spans and the
@@ -140,8 +140,8 @@ func whitespaceEdits(src, eol string, ranges []byteRange) []TextEdit {
         eolStart = i - 1
       }
       contentEnd := eolStart
-      // A template-interior line keeps its bytes verbatim — its trailing
-      // spaces are string content — so contentEnd is the raw line end.
+      // A template-interior line keeps its bytes verbatim, its trailing
+      // spaces are string content, so contentEnd is the raw line end.
       // Real source lines trim the trailing run of spaces and tabs (and,
       // under LF EOL, a stray '\r') so contentEnd marks the end of visible
       // content and a whitespace-only line reduces to contentEnd == start.
@@ -270,8 +270,8 @@ func whitespaceEdits(src, eol string, ranges []byteRange) []TextEdit {
   return dedupeAndSort(src, edits)
 }
 
-// dedupeAndSort drops no-op edits — an empty deletion of an empty range,
-// or a replacement whose text already equals the bytes it covers — and
+// dedupeAndSort drops no-op edits, an empty deletion of an empty range,
+// or a replacement whose text already equals the bytes it covers, and
 // returns the survivors ordered by position. Dropping equal-text
 // replacements is what keeps the rule idempotent: a file that already
 // ends in one EOL would otherwise re-emit a `\n`→`\n` edit forever. The
@@ -299,7 +299,7 @@ func dedupeAndSort(src string, edits []TextEdit) []TextEdit {
 }
 
 // collectTemplateRanges walks the file's AST and records the byte span
-// of every template literal — NoSubstitutionTemplate literals and full
+// of every template literal, NoSubstitutionTemplate literals and full
 // TemplateExpression nodes (whose range spans the head, every
 // interpolation, and the tail). Newlines inside these ranges carry
 // string content and must not be touched by the whitespace edits.

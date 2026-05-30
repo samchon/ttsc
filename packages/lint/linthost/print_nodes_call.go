@@ -46,12 +46,16 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   }
   if call.TypeArguments != nil {
     // Verbatim range covering `<A, B>` punctuation and members.
-    parts = append(parts, verbatimRange(ctx.Source, callTypeArgsStart(ctx, call), callTypeArgsEnd(ctx, call)))
+    parts = append(parts, verbatimRange(ctx.Source, typeArgsStart(ctx.Source, call.TypeArguments), typeArgsEnd(ctx.Source, call.TypeArguments)))
   }
   if hasNilEntry(call.Arguments) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  argDoc, argCovered := printArgList(ctx, call.Arguments)
+  // Prettier never appends a trailing comma inside a dynamic
+  // `import(...)`, so the printer's reflow must agree with
+  // format/trailing-comma's same exception (see isDynamicImportCall).
+  addComma := ctx.allowsCallArgumentTrailingComma() && !isDynamicImportCall(call)
+  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma)
   parts = append(parts, argDoc)
   return Concat(parts...), covered && argCovered
 }
@@ -77,13 +81,13 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     covered = covered && !nodeSpansMultipleLines(ctx, ne.Expression)
   }
   if ne.TypeArguments != nil {
-    parts = append(parts, verbatimRange(ctx.Source, newTypeArgsStart(ctx, ne), newTypeArgsEnd(ctx, ne)))
+    parts = append(parts, verbatimRange(ctx.Source, typeArgsStart(ctx.Source, ne.TypeArguments), typeArgsEnd(ctx.Source, ne.TypeArguments)))
   }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    argDoc, argCovered := printArgList(ctx, ne.Arguments)
+    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma())
     parts = append(parts, argDoc)
     covered = covered && argCovered
   }
@@ -116,7 +120,14 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // layout, so the parens stay attached and the preceding arguments are
 // not exploded onto their own lines. This is the Prettier behavior for
 // `foo(x, () => { … })`.
-func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
+// `addComma` is supplied by the caller (which honors `format.trailingComma`
+// and the dynamic-import exception) rather than read here, so call and new
+// expressions can diverge on the comma without printArgList knowing the
+// callee. Call / new argument lists accepted trailing commas only in
+// ES2017+, so Prettier's "es5" and "none" modes pass false; otherwise the
+// printer would oscillate against format/trailing-comma on every cascade
+// pass (rxjs hit this on ajax.ts and several operators / testing helpers).
+func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc, bool) {
   if list == nil {
     return Text("()"), true
   }
@@ -127,22 +138,63 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList) (Doc, bool) {
     covered = covered && childCovered
     items = append(items, doc)
   }
-  // AddComma honors `format.trailingComma`: call / new argument lists
-  // accepted trailing commas only in ES2017+, so Prettier's "es5" and
-  // "none" modes skip them here. Hardcoding `true` would oscillate
-  // against Prettier on every cascade pass on any project configured
-  // with "es5" (rxjs hit this on ajax.ts and several operators / testing
-  // helpers — the rule said "no comma needed" while the printer added
-  // one back on its own reflow).
+  // Last-argument hugging wins when both predicates match; first-arg
+  // hugging only applies to the two-argument `callback, simpleArg` shape.
+  // Decline last-arg hugging when a leading argument forces the call
+  // multi-line on its own, so Prettier explodes the whole call rather than
+  // hugging the last argument. Two leading shapes trigger that: a function
+  // or arrow expression (`useMemo(() => x, [deps])`, even with an inline
+  // expression body Prettier never hugs after it), and any argument whose
+  // doc carries hard breaks (a block-bodied callback). A leading object or
+  // array that merely fits flat does NOT decline — Prettier still hugs the
+  // last argument there (`doConfigure({ … }, () => { … })`).
+  hugLast := shouldHugLastArgument(list.Nodes) &&
+    !anyLeadingArgIsFunctionLike(list.Nodes) &&
+    !anyLeadingItemBreaks(items)
   shape := listShape{
     OpenTok:  "(",
     CloseTok: ")",
     Items:    items,
     Space:    false,
-    AddComma: ctx.allowsCallArgumentTrailingComma(),
-    HugLast:  shouldHugLastArgument(list.Nodes),
+    AddComma: addComma,
+    HugLast:  hugLast,
+    HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// anyLeadingArgIsFunctionLike reports whether any argument before the last
+// is a function or arrow expression. Prettier declines last-argument
+// hugging when a non-last argument is itself a function/arrow, regardless
+// of its body, so `useMemo(() => compute(), [deps])` explodes rather than
+// hugging the trailing array. This complements anyLeadingItemBreaks, which
+// only catches leads with hard line breaks (a block body) and so misses an
+// expression-bodied arrow.
+func anyLeadingArgIsFunctionLike(args []*shimast.Node) bool {
+  for i := 0; i+1 < len(args); i++ {
+    if args[i] == nil {
+      continue
+    }
+    switch args[i].Kind {
+    case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+      return true
+    }
+  }
+  return false
+}
+
+// anyLeadingItemBreaks reports whether any item before the last carries a
+// hard line break — it cannot render flat. Such an item (a block-bodied
+// callback) forces the call multi-line on its own, so last-argument
+// hugging must decline and let the whole list explode, matching Prettier's
+// willBreak gate on the non-last arguments.
+func anyLeadingItemBreaks(items []Doc) bool {
+  for i := 0; i+1 < len(items); i++ {
+    if _, ok := flatten(items[i]); !ok {
+      return true
+    }
+  }
+  return false
 }
 
 // shouldHugLastArgument reports whether the final entry of `args` is a
@@ -195,6 +247,74 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
   return false
 }
 
+// shouldHugFirstArgument reports whether a call's argument list takes
+// Prettier's "first-argument hugging" shape: exactly two arguments where
+// the first is a block-bodied callback and the second is a short, simple
+// value. `foo(() => { … }, target)` keeps the callback attached to the
+// open paren and flows `, target)` after its closing brace, instead of
+// exploding both arguments onto their own lines.
+//
+// Mirrors Prettier's shouldGroupFirstArg: it declines when the second
+// argument is itself a function, arrow, conditional, or any expandable
+// shape, so `both(() => {}, () => {})` falls through to the exploded
+// list rather than hugging.
+func shouldHugFirstArgument(args []*shimast.Node) bool {
+  if len(args) != 2 {
+    return false
+  }
+  first, second := args[0], args[1]
+  if first == nil || second == nil {
+    return false
+  }
+  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(second)
+}
+
+// isFirstArgHuggableCallback reports whether `node` is the callback shape
+// Prettier hugs in the first-argument position: a function expression or
+// an arrow with a block body. An expression-bodied arrow is excluded
+// because it carries no internal break point.
+func isFirstArgHuggableCallback(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindFunctionExpression:
+    return true
+  case shimast.KindArrowFunction:
+    arrow := node.AsArrowFunction()
+    return arrow != nil && arrow.Body != nil && arrow.Body.Kind == shimast.KindBlock
+  }
+  return false
+}
+
+// isSimpleTrailingArg reports whether `node` is a value that may trail a
+// hugged first-argument callback. Prettier hugs the leading callback when
+// the trailing argument is an identifier, member access, literal, `this`,
+// or an array literal — most notably the `useEffect(() => { … }, [deps])`
+// idiom. An object literal, function, arrow, or conditional is excluded so
+// first-argument hugging declines and the whole list explodes.
+//
+// A call expression is deliberately NOT included: the conditional-group
+// fit check only measures an option's first line, so a hugged-first option
+// whose trailing call overflows the closing line (`}, deeplyNested(…))`)
+// would still be selected, where Prettier explodes. The array case shares
+// that limitation in principle, but dependency arrays are short in
+// practice, the same way the identifier/member cases already are.
+func isSimpleTrailingArg(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindThisKeyword,
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression,
+    shimast.KindArrayLiteralExpression:
+    return true
+  }
+  return false
+}
+
 // forceBreakFirstGroup returns `doc` with the first Group found in a
 // left-to-right walk of its subtree forced broken, and reports whether
 // one was found. printListHuggingLast uses it to commit a hugged
@@ -225,72 +345,34 @@ func forceBreakFirstGroup(doc Doc) (Doc, bool) {
 
 // Type-argument byte-range helpers. The shim's NodeList.End() points
 // past the last argument; the surrounding `<` and `>` are not part of
-// the list's range, so we have to scan around it.
+// the list's range, so we have to scan around it. Call and new
+// expressions share these — only the field holding the list differs.
 
-// callTypeArgsStart returns the byte offset of the `<` that opens the
-// type-argument list of a CallExpression. Returns -1 when absent.
-func callTypeArgsStart(ctx *PrintContext, call *shimast.CallExpression) int {
-  if call.TypeArguments == nil || len(call.TypeArguments.Nodes) == 0 {
-    return -1
-  }
-  first := call.TypeArguments.Nodes[0]
-  if first == nil {
+// typeArgsStart returns the byte offset of the `<` that opens a
+// type-argument list. Returns -1 when absent.
+func typeArgsStart(src string, list *shimast.NodeList) int {
+  if list == nil || len(list.Nodes) == 0 || list.Nodes[0] == nil {
     return -1
   }
   // `<` is the byte immediately before the first type argument
   // (modulo whitespace).
-  pos := first.Pos()
-  for i := pos - 1; i >= 0; i-- {
-    if ctx.Source[i] == '<' {
+  for i := list.Nodes[0].Pos() - 1; i >= 0; i-- {
+    if src[i] == '<' {
       return i
     }
   }
   return -1
 }
 
-// callTypeArgsEnd returns the byte offset one past the closing `>` of a
-// CallExpression's type-argument list. Returns -1 when absent.
-func callTypeArgsEnd(ctx *PrintContext, call *shimast.CallExpression) int {
-  if call.TypeArguments == nil {
+// typeArgsEnd returns the byte offset one past the closing `>` of a
+// type-argument list. Returns -1 when the list is absent.
+func typeArgsEnd(src string, list *shimast.NodeList) int {
+  if list == nil {
     return -1
   }
-  end := call.TypeArguments.End()
-  for i := end; i < len(ctx.Source); i++ {
-    if ctx.Source[i] == '>' {
-      return i + 1
-    }
-  }
-  return end
-}
-
-// newTypeArgsStart returns the byte offset of the `<` that opens the
-// type-argument list of a NewExpression. Returns -1 when absent.
-func newTypeArgsStart(ctx *PrintContext, ne *shimast.NewExpression) int {
-  if ne.TypeArguments == nil || len(ne.TypeArguments.Nodes) == 0 {
-    return -1
-  }
-  first := ne.TypeArguments.Nodes[0]
-  if first == nil {
-    return -1
-  }
-  pos := first.Pos()
-  for i := pos - 1; i >= 0; i-- {
-    if ctx.Source[i] == '<' {
-      return i
-    }
-  }
-  return -1
-}
-
-// newTypeArgsEnd returns the byte offset one past the closing `>` of a
-// NewExpression's type-argument list. Returns -1 when absent.
-func newTypeArgsEnd(ctx *PrintContext, ne *shimast.NewExpression) int {
-  if ne.TypeArguments == nil {
-    return -1
-  }
-  end := ne.TypeArguments.End()
-  for i := end; i < len(ctx.Source); i++ {
-    if ctx.Source[i] == '>' {
+  end := list.End()
+  for i := end; i < len(src); i++ {
+    if src[i] == '>' {
       return i + 1
     }
   }

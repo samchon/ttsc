@@ -23,13 +23,10 @@ func TestLSPExecuteCommandCascadesFormatFixesWithoutMutatingDisk(t *testing.T) {
   want := "import {\n  alpha,\n  bravo,\n  charlie,\n} from \"long-module\";\n" +
     "const x = {\n  aa: 1,\n  bb: 2,\n  cc: 3,\n};\n"
   root := seedLintProject(t, source)
+  // Formatting is configured only through the format block; printWidth drives
+  // format/print-width and the rest are always on.
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/print-width":    []any{"error", map[string]any{"printWidth": 20}},
-      "format/semi":           "error",
-      "format/quotes":         "error",
-      "format/trailing-comma": "error",
-    },
+    "format": map[string]any{"printWidth": 20},
   })
   file := filepath.Join(root, "src", "main.ts")
   uri := lintTestFileURI(t, file)

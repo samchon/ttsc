@@ -3,13 +3,14 @@ package linthost
 import (
   "encoding/json"
   "fmt"
+  "strings"
 )
 
 // expandFormatBlock translates a Prettier-style `format` block into the
 // per-rule severity + options shape the existing rule parsers consume.
 // The result is a `map[string]any` that mirrors what a user would
-// have written under `rules` directly — entries like
-// `"format/semi": ["off", {"prefer": "always"}]` — so the caller
+// have written under `rules` directly, entries like
+// `"format/semi": ["off", {"prefer": "always"}]`, so the caller
 // can route it through either `ParseRulesWithOptions` or
 // `parseExternalRuleMapInto` without duplicating option-decoding logic.
 //
@@ -20,19 +21,27 @@ import (
 //
 // The block's enablement matrix:
 //
-//   - `format/semi` — always on. `semi: false` flips to `prefer: "never"`.
-//   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
-//   - `format/trailing-comma` — always on with the requested mode.
-//   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
-//   - `format/statement-split` — always on, driven by tabWidth/useTabs/endOfLine.
-//   - `format/indent` — always on, driven by tabWidth/useTabs/endOfLine.
-//   - `format/whitespace` — always on, driven by endOfLine.
-//   - `format/sort-imports` — opt-in by setting `importOrder`.
-//   - `format/jsdoc` — opt-in by setting `jsdoc` truthy.
+//   - `format/semi`, always on. `semi: false` flips to `prefer: "never"`.
+//   - `format/quotes`, always on. `singleQuote: true` flips to `prefer: "single"`.
+//   - `format/arrow-parens`, always on. `arrowParens: "avoid"` strips a single bare-identifier arrow parameter's parens; default "always" adds them.
+//   - `format/bracket-spacing`, always on. `bracketSpacing: false` removes the inner space of single-line object/destructure/import/export/type braces; default true keeps it.
+//   - `format/quote-props`, always on. `quoteProps: "as-needed"` (default) unquotes identifier object keys; "consistent" keeps all keys quoted when any needs it; "preserve" leaves quoting alone.
+//   - `format/trailing-comma`, always on with the requested mode.
+//   - `format/print-width`, always on, driven by printWidth/tabWidth/useTabs/endOfLine.
+//   - `format/clause-join`, always on, joins a single-statement clause body that fits printWidth.
+//   - `format/declaration-header`, always on, reflows a class/interface header's type params and heritage clauses.
+//   - `format/ternary-nullish-parens`, always on, parenthesizes a `??` operand of a conditional expression.
+//   - `format/orphan-semi`, always on; under semi:false, merges a leading-semicolon ASI guard onto its statement.
+//   - `format/parameter-properties`, always on, breaks a constructor's parameter list when it has parameter properties.
+//   - `format/statement-split`, always on, driven by tabWidth/useTabs/endOfLine.
+//   - `format/indent`, always on, driven by tabWidth/useTabs/endOfLine.
+//   - `format/whitespace`, always on, driven by endOfLine.
+//   - `format/sort-imports`, opt-in by setting `importOrder`.
+//   - `format/jsdoc`, opt-in by setting `jsdoc` truthy.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
 // merge any user-supplied `rules` map on top of this one (rules-wins
-// semantics) before invoking the existing parsers — `mergeRuleMaps`
+// semantics) before invoking the existing parsers, `mergeRuleMaps`
 // below performs the merge with the right precedence.
 func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   if raw == nil {
@@ -63,6 +72,10 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
   out["format/semi"] = ruleEntry(map[string]any{"prefer": semiPrefer})
 
+  // formatOrphanSemi, always on; mirrors the effective semi setting so
+  // it only merges the leading-semicolon ASI guard under semi:false.
+  out["format/orphan-semi"] = ruleEntry(map[string]any{"semi": semiPrefer == "always"})
+
   // formatQuotes
   quotesPrefer := "double"
   if v, ok := raw["singleQuote"]; ok {
@@ -75,6 +88,56 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
   }
   out["format/quotes"] = ruleEntry(map[string]any{"prefer": quotesPrefer})
+
+  // formatArrowParens, always on. Mirrors Prettier's arrowParens; the
+  // default "always" parenthesizes a single bare-identifier arrow parameter,
+  // "avoid" strips the parens.
+  arrowPrefer := "always"
+  if v, ok := raw["arrowParens"]; ok {
+    s, err := asString("format.arrowParens", v)
+    if err != nil {
+      return nil, err
+    }
+    switch s {
+    case "always", "avoid":
+      arrowPrefer = s
+    default:
+      return nil, fmt.Errorf("@ttsc/lint: format.arrowParens must be \"always\" or \"avoid\"; got %q", s)
+    }
+  }
+  out["format/arrow-parens"] = ruleEntry(map[string]any{"prefer": arrowPrefer})
+
+  // formatBracketSpacing, always on. Mirrors Prettier's bracketSpacing;
+  // the default true pads single-line object/destructure/import/export/type
+  // braces with one inner space, false removes it.
+  bracketSpacing := true
+  if v, ok := raw["bracketSpacing"]; ok {
+    b, err := asBool("format.bracketSpacing", v)
+    if err != nil {
+      return nil, err
+    }
+    bracketSpacing = b
+  }
+  out["format/bracket-spacing"] = ruleEntry(map[string]any{"spacing": bracketSpacing})
+
+  // formatQuoteProps, always on. Mirrors Prettier's quoteProps; the default
+  // "as-needed" unquotes object keys that are valid identifiers, "consistent"
+  // keeps every key quoted when any one needs it, "preserve" leaves quoting
+  // untouched.
+  quoteProps := "as-needed"
+  if v, ok := raw["quoteProps"]; ok {
+    s, err := asString("format.quoteProps", v)
+    if err != nil {
+      return nil, err
+    }
+    switch s {
+    case "as-needed", "consistent", "preserve":
+      quoteProps = s
+    default:
+      return nil, fmt.Errorf("@ttsc/lint: format.quoteProps must be \"as-needed\", \"consistent\", or \"preserve\"; got %q", s)
+    }
+  }
+  out["format/quote-props"] = ruleEntry(map[string]any{"mode": quoteProps})
 
   // formatTrailingComma
   tcMode := "all"
@@ -98,9 +161,14 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // the printer's broken-list reflow emits the same trailing-comma
   // shape `format/trailing-comma` does. Without the mirror the two
   // rules disagree on `es5` / `none` projects and oscillate on every
-  // cascade pass — the trailing-comma rule says "no comma" while the
+  // cascade pass, the trailing-comma rule says "no comma" while the
   // printer adds one back. See `printArgList` in print_nodes_call.go.
-  pwOpts := map[string]any{"trailingComma": tcMode}
+  layoutOpts, err := collectLayoutOpts(raw)
+  if err != nil {
+    return nil, err
+  }
+  pwOpts := cloneStringAnyMap(layoutOpts)
+  pwOpts["trailingComma"] = tcMode
   if v, ok := raw["printWidth"]; ok {
     n, err := asInt("format.printWidth", v)
     if err != nil {
@@ -111,73 +179,40 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
     pwOpts["printWidth"] = n
   }
-  if v, ok := raw["tabWidth"]; ok {
-    n, err := asInt("format.tabWidth", v)
-    if err != nil {
-      return nil, err
-    }
-    if n < 1 {
-      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
-    }
-    pwOpts["tabWidth"] = n
-  }
-  if v, ok := raw["useTabs"]; ok {
-    b, err := asBool("format.useTabs", v)
-    if err != nil {
-      return nil, err
-    }
-    pwOpts["useTabs"] = b
-  }
-  if v, ok := raw["endOfLine"]; ok {
-    s, err := asString("format.endOfLine", v)
-    if err != nil {
-      return nil, err
-    }
-    if s != "lf" && s != "crlf" {
-      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
-    }
-    pwOpts["endOfLine"] = s
-  }
   out["format/print-width"] = ruleEntry(pwOpts)
 
-  // formatStatementSplit + formatIndent — always on, Prettier-style.
+  // formatClauseJoin, always on. Reuses the printWidth/tabWidth/useTabs
+  // budget so it only joins a single-statement clause body back onto its
+  // header when the joined line fits. A distinct map instance so it does
+  // not alias the print-width blob.
+  out["format/clause-join"] = ruleEntry(cloneStringAnyMap(pwOpts))
+
+  // formatDeclarationHeader, always on. Reflows a class/interface header
+  // (type parameters + heritage clauses) to Prettier's break shapes;
+  // needs the same printWidth/tabWidth/useTabs budget.
+  out["format/declaration-header"] = ruleEntry(cloneStringAnyMap(pwOpts))
+
+  // formatTernaryNullishParens, always on, no options: wraps a `??`
+  // operand of a conditional expression in parentheses (Prettier 3).
+  out["format/ternary-nullish-parens"] = ruleEntry(map[string]any{})
+
+  // formatStatementSplit + formatIndent, always on, Prettier-style.
   // Both reuse the indentation/EOL settings to synthesize line breaks
   // and indent strings. Only the keys the user actually set are mirrored
   // in (same conditional shape as print-width's pwOpts), so defaults are
-  // applied rule-side. The two rules share the same option surface.
-  layoutOpts := map[string]any{}
-  if v, ok := raw["tabWidth"]; ok {
-    n, err := asInt("format.tabWidth", v)
-    if err != nil {
-      return nil, err
-    }
-    if n < 1 {
-      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
-    }
-    layoutOpts["tabWidth"] = n
-  }
-  if v, ok := raw["useTabs"]; ok {
-    b, err := asBool("format.useTabs", v)
-    if err != nil {
-      return nil, err
-    }
-    layoutOpts["useTabs"] = b
-  }
-  if v, ok := raw["endOfLine"]; ok {
-    s, err := asString("format.endOfLine", v)
-    if err != nil {
-      return nil, err
-    }
-    if s != "lf" && s != "crlf" {
-      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
-    }
-    layoutOpts["endOfLine"] = s
-  }
+  // applied rule-side. The two rules share the same option surface
+  // collected once into layoutOpts above.
+  //
   // Distinct map instances so the two rule entries don't alias one blob.
   out["format/statement-split"] = ruleEntry(cloneStringAnyMap(layoutOpts))
   out["format/indent"] = ruleEntry(cloneStringAnyMap(layoutOpts))
 
-  // formatWhitespace — always on. Needs only endOfLine for the final
+  // formatParameterProperties, always on. Force-breaks a constructor's
+  // parameter list when it declares parameter properties; needs only the
+  // indentation settings.
+  out["format/parameter-properties"] = ruleEntry(cloneStringAnyMap(layoutOpts))
+
+  // formatWhitespace, always on. Needs only endOfLine for the final
   // newline; indentation is irrelevant to text hygiene.
   wsOpts := map[string]any{}
   if v, ok := layoutOpts["endOfLine"]; ok {
@@ -185,7 +220,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
   out["format/whitespace"] = ruleEntry(wsOpts)
 
-  // formatSortImports — opt-in by `importOrder`.
+  // formatSortImports, opt-in by `importOrder`.
   if v, ok := raw["importOrder"]; ok {
     siOpts := map[string]any{}
     order, err := asStringSlice("format.importOrder", v)
@@ -220,7 +255,7 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
-  // formatJsdoc — opt-in by `jsdoc` truthy (boolean or object).
+  // formatJsdoc, opt-in by `jsdoc` truthy (boolean or object).
   if v, ok := raw["jsdoc"]; ok && v != nil {
     jdOpts := map[string]any{}
     enabled := false
@@ -282,12 +317,20 @@ func formatBlockSeverity(raw map[string]any) (Severity, error) {
   return severity, nil
 }
 
+// isFormatRuleName reports whether `name` is a formatter rule id. Such
+// rules are configured exclusively through the `format` block; a `format/*`
+// key in the user's `rules` map is dropped before the merge, so the config
+// layer never carries a formatter setting in two places.
+func isFormatRuleName(name string) bool {
+  return strings.HasPrefix(name, "format/")
+}
+
 // mergeRuleMaps overlays `overrides` on `base` and returns the merged
 // map. Identical keys in `overrides` replace the entire entry from
-// `base`; option objects are NOT deep-merged, which matches the
-// conflict-resolution policy spec: a `rules` entry that names a
-// `format/*` rule fully replaces the corresponding entry expanded
-// from the `format` block.
+// `base`; option objects are NOT deep-merged. `overrides` (the user's
+// `rules` map) never contains a `format/*` key, those are dropped before
+// the merge, so the merge only ever layers lint-rule severities on top of
+// the format block's expanded entries.
 func mergeRuleMaps(base, overrides map[string]any) map[string]any {
   out := make(map[string]any, len(base)+len(overrides))
   for k, v := range base {
@@ -301,7 +344,7 @@ func mergeRuleMaps(base, overrides map[string]any) map[string]any {
 
 // cloneStringAnyMap returns a shallow copy of `m`. expandFormatBlock uses
 // it so `format/statement-split` and `format/indent` each receive their
-// own options blob rather than aliasing one shared map — a later mutation
+// own options blob rather than aliasing one shared map, a later mutation
 // or marshal of one entry then cannot leak into the other.
 func cloneStringAnyMap(m map[string]any) map[string]any {
   out := make(map[string]any, len(m))
@@ -309,6 +352,44 @@ func cloneStringAnyMap(m map[string]any) map[string]any {
     out[k] = v
   }
   return out
+}
+
+// collectLayoutOpts parses the shared tabWidth/useTabs/endOfLine layout
+// fields from a format block once. Only keys the user actually set are
+// emitted, so rule-side defaults still apply for absent fields. Both the
+// print-width blob (which adds trailingComma + printWidth) and the
+// statement-split/indent/parameter-properties entries derive from this
+// single source so their parse-and-validate logic stays in one place.
+func collectLayoutOpts(raw map[string]any) (map[string]any, error) {
+  layoutOpts := map[string]any{}
+  if v, ok := raw["tabWidth"]; ok {
+    n, err := asInt("format.tabWidth", v)
+    if err != nil {
+      return nil, err
+    }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
+    }
+    layoutOpts["tabWidth"] = n
+  }
+  if v, ok := raw["useTabs"]; ok {
+    b, err := asBool("format.useTabs", v)
+    if err != nil {
+      return nil, err
+    }
+    layoutOpts["useTabs"] = b
+  }
+  if v, ok := raw["endOfLine"]; ok {
+    s, err := asString("format.endOfLine", v)
+    if err != nil {
+      return nil, err
+    }
+    if s != "lf" && s != "crlf" {
+      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
+    }
+    layoutOpts["endOfLine"] = s
+  }
+  return layoutOpts, nil
 }
 
 // asBool coerces a raw config value to a bool, returning a typed error on
@@ -380,6 +461,9 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
     "severity":                   {},
     "semi":                       {},
     "singleQuote":                {},
+    "arrowParens":                {},
+    "bracketSpacing":             {},
+    "quoteProps":                 {},
     "trailingComma":              {},
     "printWidth":                 {},
     "tabWidth":                   {},

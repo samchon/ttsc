@@ -48,9 +48,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   diskContent := "const onDisk = 999;\n"
   root := seedLintProject(t, diskContent)
   seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{
-      "format/semi": "error",
-    },
+    "format": map[string]any{},
   })
   tsconfig := filepath.Join(root, "tsconfig.json")
   file := filepath.Join(root, "src", "main.ts")

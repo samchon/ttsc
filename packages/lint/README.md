@@ -119,21 +119,17 @@ Each `format` config key activates one rule:
 | `severity` (default `"off"`) | applies to every format rule | Sets the check-time diagnostic level. Does not gate `ttsc format`. That runs all active rules. |
 | `semi` | `format/semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `singleQuote` | `format/quotes` | Convert quoted strings to the preferred quote style. |
+| `arrowParens` | `format/arrow-parens` | Add or remove parens around a single arrow parameter. |
+| `bracketSpacing` | `format/bracket-spacing` | Spaces inside object and named-import/export braces. |
+| `quoteProps` | `format/quote-props` | Quote or unquote object property keys. |
 | `trailingComma` | `format/trailing-comma` | Add trailing commas to multi-line lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | `format/print-width` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
 | `importOrder` (opt-in) | `format/sort-imports` | Group external/relative imports and alphabetize each group + its specifiers. |
 | `jsdoc` (opt-in) | `format/jsdoc` | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `importOrder` or `jsdoc`. Every other format rule turns on automatically as soon as the `format` block is present.
+`format/sort-imports` and `format/jsdoc` are **opt-in**. They only activate when you set `importOrder` or `jsdoc`. Every other format rule turns on automatically as soon as the `format` block is present, including the layout rules that have no dedicated config key: `format/statement-split`, `format/indent`, `format/whitespace`, `format/clause-join`, `format/declaration-header`, `format/ternary-nullish-parens`, `format/orphan-semi`, and `format/parameter-properties`.
 
-To override a single format rule, drop a sibling `rules` entry, `rules` wins on conflict:
-
-```ts
-export default {
-  format: { severity: "warning", semi: true },
-  rules: { "format/semi": "off" }, // overrides format.semi for this one rule
-} satisfies ITtscLintConfig;
-```
+Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 
 ## Rules
 
