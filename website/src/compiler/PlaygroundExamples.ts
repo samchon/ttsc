@@ -85,7 +85,7 @@ console.log(greeting + ", " + target);
   {
     id: "lint-quotes",
     group: "lint",
-    title: "@ttsc/lint - format/quotes · format/semi",
+    title: "@ttsc/lint - quotes & semicolons",
     description: "Mixed quotes and missing semicolons.",
     source: `const greeting = 'hello'
 const target = "ttsc"
