@@ -62,6 +62,20 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   if len(names) != 1 {
     return false
   }
+  // variableStatementBindingNames skips destructuring bindings, so a mixed
+  // list like `var a = 1, { b } = o;` yields a single plain name (`a`) and
+  // slips the single-binding guard above — yet the one `var` keyword also
+  // governs the destructured sibling `{ b }`, which the redeclaration and
+  // use-before-declaration scans below never see (they too skip destructuring).
+  // Rewriting the keyword to `let` would then corrupt: a later `var b` becomes
+  // a duplicate-`let` SyntaxError, and a forward read of `b` becomes a TDZ
+  // ReferenceError. Require exactly one VariableDeclaration node in the list so
+  // any destructured sibling forces a decline. (`var a=1, b=2` is already
+  // declined by the plain-name count; this closes the destructure-sibling gap.)
+  if list := node.AsVariableStatement().DeclarationList.AsVariableDeclarationList(); list == nil ||
+    list.Declarations == nil || len(list.Declarations.Nodes) != 1 {
+    return false
+  }
   declared := map[string]struct{}{}
   for _, name := range names {
     declared[name] = struct{}{}
@@ -114,6 +128,29 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
     case shimast.KindForInStatement, shimast.KindForOfStatement:
       if fs := child.AsForInOrOfStatement(); fs != nil {
         countVarListNames(fs.Initializer)
+      }
+    case shimast.KindFunctionDeclaration:
+      // A hoisted function declaration may legally share a name with a
+      // function-scoped `var` (`var x=1; function x(){}`), but `let x`
+      // alongside `function x` is a duplicate-declaration SyntaxError.
+      // Count a same-name function declaration as another occurrence so
+      // the redeclaration gate below declines the rewrite.
+      if fn := child.AsFunctionDeclaration(); fn != nil {
+        if name := identifierText(fn.Name()); name != "" {
+          if _, ok := declared[name]; ok {
+            varOccurrences[name]++
+          }
+        }
+      }
+    case shimast.KindClassDeclaration:
+      // Same as the function-declaration case: a same-name class
+      // declaration alongside `let` is a duplicate-declaration error.
+      if cl := child.AsClassDeclaration(); cl != nil {
+        if name := identifierText(cl.Name()); name != "" {
+          if _, ok := declared[name]; ok {
+            varOccurrences[name]++
+          }
+        }
       }
     case shimast.KindIdentifier:
       name := identifierText(child)
