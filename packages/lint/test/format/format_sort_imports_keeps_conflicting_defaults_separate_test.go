@@ -13,17 +13,17 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the conflicting defaults remain two declarations.
 func TestFormatSortImportsKeepsConflictingDefaultsSeparate(t *testing.T) {
-	source := "import { z } from \"z\";\n" +
-		"import b from \"m\";\n" +
-		"import a from \"m\";\n" +
-		"z;\n" +
-		"a;\n" +
-		"b;\n"
-	expected := "import b from \"m\";\n" +
-		"import a from \"m\";\n" +
-		"import { z } from \"z\";\n" +
-		"z;\n" +
-		"a;\n" +
-		"b;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { z } from \"z\";\n" +
+    "import b from \"m\";\n" +
+    "import a from \"m\";\n" +
+    "z;\n" +
+    "a;\n" +
+    "b;\n"
+  expected := "import b from \"m\";\n" +
+    "import a from \"m\";\n" +
+    "import { z } from \"z\";\n" +
+    "z;\n" +
+    "a;\n" +
+    "b;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

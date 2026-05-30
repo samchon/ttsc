@@ -1,5 +1,5 @@
-import type { ITtscLintFormat } from "./format/ITtscLintFormat";
 import type { ITtscLintPlugin } from "./ITtscLintPlugin";
+import type { ITtscLintFormat } from "./format/ITtscLintFormat";
 import type { ITtscLintRules } from "./rules/ITtscLintRules";
 
 /**

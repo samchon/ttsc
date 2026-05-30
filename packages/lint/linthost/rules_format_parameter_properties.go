@@ -14,10 +14,10 @@ import (
 // `readonly` modifier (a parameter property), regardless of whether the
 // flat form fits printWidth:
 //
-//   constructor(
-//     private readonly repo: Repository,
-//     private readonly logger: Logger,
-//   ) {}
+//  constructor(
+//    private readonly repo: Repository,
+//    private readonly logger: Logger,
+//  ) {}
 //
 // A single parameter property stays inline (`constructor(private x: T)`),
 // and a constructor with no parameter property is left to the ordinary

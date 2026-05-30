@@ -12,11 +12,11 @@ import "testing"
 //  2. Apply the rule with order ["<TYPES>", "<THIRD_PARTY_MODULES>"].
 //  3. Assert the type-only import sorts first.
 func TestFormatSortImportsGroupsTypeOnlyImports(t *testing.T) {
-	source := "import { a } from \"m\";\n" +
-		"import type { B } from \"n\";\n" +
-		"a;\n"
-	expected := "import type { B } from \"n\";\n" +
-		"import { a } from \"m\";\n" +
-		"a;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>","<THIRD_PARTY_MODULES>"]}`, expected)
+  source := "import { a } from \"m\";\n" +
+    "import type { B } from \"n\";\n" +
+    "a;\n"
+  expected := "import type { B } from \"n\";\n" +
+    "import { a } from \"m\";\n" +
+    "a;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>","<THIRD_PARTY_MODULES>"]}`, expected)
 }

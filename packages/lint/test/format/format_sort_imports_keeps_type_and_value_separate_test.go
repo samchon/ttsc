@@ -14,13 +14,13 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the value and type-only imports remain separate.
 func TestFormatSortImportsKeepsTypeAndValueSeparate(t *testing.T) {
-	source := "import { z } from \"z\";\n" +
-		"import { foo } from \"m\";\n" +
-		"import type { Bar } from \"m\";\n" +
-		"foo;\n"
-	expected := "import { foo } from \"m\";\n" +
-		"import type { Bar } from \"m\";\n" +
-		"import { z } from \"z\";\n" +
-		"foo;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { z } from \"z\";\n" +
+    "import { foo } from \"m\";\n" +
+    "import type { Bar } from \"m\";\n" +
+    "foo;\n"
+  expected := "import { foo } from \"m\";\n" +
+    "import type { Bar } from \"m\";\n" +
+    "import { z } from \"z\";\n" +
+    "foo;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

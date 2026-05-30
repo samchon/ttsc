@@ -1,10 +1,8 @@
-
-const a = 1;   
-
-
+const a = 1;
 
 function f() {
-let x = 1; let y = 2;   
+  let x = 1;
+  let y = 2;
   return x + y;
 }
 

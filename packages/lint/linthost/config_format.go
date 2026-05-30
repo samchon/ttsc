@@ -461,7 +461,7 @@ func asInt(field string, v any) (int, error) {
 }
 
 // asStringSlice coerces a raw config value to a []string, returning a typed
-// error on failure. Used by expandFormatBlock to validate importOrder.
+// error on failure. Used by expandFormatBlock to validate sortImports.order.
 func asStringSlice(field string, v any) ([]string, error) {
   arr, ok := v.([]any)
   if !ok {

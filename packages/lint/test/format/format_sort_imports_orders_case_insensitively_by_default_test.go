@@ -12,13 +12,13 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert `apple` sorts before `React`.
 func TestFormatSortImportsOrdersCaseInsensitivelyByDefault(t *testing.T) {
-	source := "import React from \"React\";\n" +
-		"import apple from \"apple\";\n" +
-		"React;\n" +
-		"apple;\n"
-	expected := "import apple from \"apple\";\n" +
-		"import React from \"React\";\n" +
-		"React;\n" +
-		"apple;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import React from \"React\";\n" +
+    "import apple from \"apple\";\n" +
+    "React;\n" +
+    "apple;\n"
+  expected := "import apple from \"apple\";\n" +
+    "import React from \"React\";\n" +
+    "React;\n" +
+    "apple;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

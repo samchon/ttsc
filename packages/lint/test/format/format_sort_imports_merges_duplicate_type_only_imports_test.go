@@ -12,8 +12,8 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert one merged `import type` declaration.
 func TestFormatSortImportsMergesDuplicateTypeOnlyImports(t *testing.T) {
-	source := "import type { B } from \"m\";\n" +
-		"import type { A } from \"m\";\n"
-	expected := "import type { A, B } from \"m\";\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import type { B } from \"m\";\n" +
+    "import type { A } from \"m\";\n"
+  expected := "import type { A, B } from \"m\";\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

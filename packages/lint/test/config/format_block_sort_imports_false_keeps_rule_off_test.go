@@ -12,11 +12,11 @@ import "testing"
 //  2. Call expandFormatBlock.
 //  3. Assert the rule entry is absent.
 func TestFormatBlockSortImportsFalseKeepsRuleOff(t *testing.T) {
-	out, err := expandFormatBlock(map[string]any{"sortImports": false})
-	if err != nil {
-		t.Fatalf("expandFormatBlock: unexpected error: %v", err)
-	}
-	if _, ok := out["format/sort-imports"]; ok {
-		t.Fatal("format/sort-imports should stay off under sortImports: false")
-	}
+  out, err := expandFormatBlock(map[string]any{"sortImports": false})
+  if err != nil {
+    t.Fatalf("expandFormatBlock: unexpected error: %v", err)
+  }
+  if _, ok := out["format/sort-imports"]; ok {
+    t.Fatal("format/sort-imports should stay off under sortImports: false")
+  }
 }

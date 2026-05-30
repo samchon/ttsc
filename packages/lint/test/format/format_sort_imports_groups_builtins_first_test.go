@@ -12,13 +12,13 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the built-in import sits first.
 func TestFormatSortImportsGroupsBuiltinsFirst(t *testing.T) {
-	source := "import { x } from \"./local\";\n" +
-		"import express from \"express\";\n" +
-		"import { readFile } from \"node:fs\";\n" +
-		"JSON.stringify({ x, express, readFile });\n"
-	expected := "import { readFile } from \"node:fs\";\n" +
-		"import express from \"express\";\n" +
-		"import { x } from \"./local\";\n" +
-		"JSON.stringify({ x, express, readFile });\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { x } from \"./local\";\n" +
+    "import express from \"express\";\n" +
+    "import { readFile } from \"node:fs\";\n" +
+    "JSON.stringify({ x, express, readFile });\n"
+  expected := "import { readFile } from \"node:fs\";\n" +
+    "import express from \"express\";\n" +
+    "import { x } from \"./local\";\n" +
+    "JSON.stringify({ x, express, readFile });\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

@@ -4,9 +4,7 @@ function run(): void {
   // standalone leading comment
   const c = 3;
   const d = 4; // trailing line comment
-  /**
-   * a block comment on its own lines
-   */
+  /** A block comment on its own lines */
   const e = 5;
   console.log(a, b, c, d, e);
 }

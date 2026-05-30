@@ -184,7 +184,7 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-array-for-each"?: TtscLintRuleSetting;
 
   /**
-   * Reject string-coercion contexts (``${x}``, `x + ""`, `String(x)`) where `x`
+   * Reject string-coercion contexts (`${x}`, `x + ""`, `String(x)`) where `x`
    * has a type whose `toString` resolves to the default
    * `Object.prototype.toString` and would print `"[object Object]"`.
    *
@@ -570,8 +570,8 @@ export interface ITtscLintTypeScriptRules {
 
   /**
    * Reject template literals that carry no template-only behavior — a
-   * ``${"abc"}`` interpolation, a lone ``${name}`` span around a string-typed
-   * value, or a ``abc`` no-substitution literal with no escaped backticks. Each
+   * `${"abc"}` interpolation, a lone `${name}` span around a string-typed
+   * value, or a `abc` no-substitution literal with no escaped backticks. Each
    * of these collapses to a regular string literal without changing meaning, so
    * the backtick form is just noise.
    *

@@ -9,9 +9,9 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-// Group-order placeholders accepted inside the `order` option. They mirror
-// `@ianvs/prettier-plugin-sort-imports`: a single declarative array expresses
-// group order, blank-line separation, and special groups all by position.
+// Group-order placeholders accepted inside the `order` option. A single
+// declarative array expresses group order, blank-line separation, and special
+// groups all by position.
 const (
   // builtinModulesPlaceholder buckets Node built-in modules (`fs`,
   // `node:path`, `fs/promises`, ...).
@@ -34,10 +34,10 @@ type formatSortImportsOptions struct {
   CombineTypeAndValue bool     `json:"combineTypeAndValue"`
 }
 
-// defaultImportOrder mirrors `@ianvs/prettier-plugin-sort-imports`' default
-// `importOrder`: Node built-ins, then third-party catch-all, then relative
-// imports. No `""` entries, so the default emits no blank lines between
-// groups (blank lines are opt-in by position).
+// defaultImportOrder is used when the user supplies no `order`: Node built-ins,
+// then the third-party catch-all, then relative imports. No `""` entries, so
+// the default emits no blank lines between groups (blank lines are opt-in by
+// position).
 var defaultImportOrder = []string{
   builtinModulesPlaceholder,
   thirdPartyModulesPlaceholder,
@@ -47,9 +47,8 @@ var defaultImportOrder = []string{
 // formatSortImports orders the file's top-level import declarations into
 // canonical groups, alphabetizes each group, merges duplicate imports of the
 // same module, and (when `combineTypeAndValue` is on) folds a type-only
-// import into a value import of the same module. Modeled on
-// `@ianvs/prettier-plugin-sort-imports`. Groups are user-configurable via the
-// `order` option; when omitted, the rule falls back to {@link
+// import into a value import of the same module. Groups are user-configurable
+// via the `order` option; when omitted, the rule falls back to {@link
 // defaultImportOrder}.
 //
 // Within each group, declarations are sorted by their module-specifier text
@@ -153,8 +152,8 @@ func loadSortImportsOptions(ctx *Context) resolvedSortImportsOptions {
 
 // parseImportOrder turns the raw `order` array into resolved groups. "" entries
 // fold into the next group's sepBefore flag. A third-party catch-all is
-// appended when the user omitted one so unmatched specifiers always land in a
-// real group.
+// injected at the front when the user omitted one so unmatched specifiers
+// always land in a real group rather than after every explicit one.
 func parseImportOrder(order []string) []sortImportsGroup {
   groups := make([]sortImportsGroup, 0, len(order))
   pendingSep := false
@@ -175,7 +174,7 @@ func parseImportOrder(order []string) []sortImportsGroup {
     groups = append(groups, group)
   }
   if !hasThirdPartyGroup(groups) {
-    groups = append(groups, sortImportsGroup{raw: thirdPartyModulesPlaceholder, thirdParty: true})
+    groups = append([]sortImportsGroup{{raw: thirdPartyModulesPlaceholder, thirdParty: true}}, groups...)
   }
   return groups
 }
@@ -371,7 +370,6 @@ type siDecl struct {
   typeOnly    bool
   defaultName string
   named       []siSpec
-  hasNamed    bool
   namespace   bool
   original    string
   semicolon   bool
@@ -467,7 +465,6 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   if named == nil || named.Elements == nil {
     return out
   }
-  out.hasNamed = true
   for _, spec := range named.Elements.Nodes {
     s := spec.AsImportSpecifier()
     if s == nil {
@@ -542,8 +539,10 @@ func originalEntry(d siDecl) siEntry {
 }
 
 // renderMergedDecl folds a bucket of mergeable declarations into one statement.
-// The bool is false when the declarations cannot be merged (conflicting default
-// names, or a type-only default that cannot survive in a mixed value import).
+// It returns the rendered text, whether the merged result is a type-only import,
+// and an `ok` flag that is false when the declarations cannot be merged
+// (conflicting default names, or a type-only default that cannot survive in a
+// mixed value import).
 func renderMergedDecl(group []siDecl, opts resolvedSortImportsOptions) (string, bool, bool) {
   mergedTypeOnly := true
   for _, d := range group {
@@ -599,29 +598,40 @@ func renderMergedDecl(group []siDecl, opts resolvedSortImportsOptions) (string, 
 
 // collectMergedSpecs gathers, de-duplicates, and sorts the named specifiers of
 // a merged declaration. A specifier from a type-only declaration folded into a
-// mixed value import gains an inline `type ` prefix.
+// mixed value import gains an inline `type ` prefix. Specifiers are
+// de-duplicated by local binding name — keeping the value form, since one
+// binding cannot be both a value and a type import — and ordered value before
+// type, then by name.
 func collectMergedSpecs(group []siDecl, mergedTypeOnly, caseSensitive bool) []string {
-  type keyed struct {
-    sortKey string
-    text    string
+  type spec struct {
+    name   string
+    isType bool
+    text   string
   }
-  seen := make(map[string]struct{})
-  items := make([]keyed, 0)
+  index := make(map[string]int)
+  items := make([]spec, 0)
   for _, d := range group {
     for _, s := range d.named {
       text := s.text
       if s.fromTypeOnlyDecl && !mergedTypeOnly && !strings.HasPrefix(text, "type ") {
         text = "type " + text
       }
-      if _, dup := seen[text]; dup {
+      cur := spec{name: s.sortKey, isType: strings.HasPrefix(text, "type "), text: text}
+      if at, dup := index[s.sortKey]; dup {
+        if items[at].isType && !cur.isType {
+          items[at] = cur
+        }
         continue
       }
-      seen[text] = struct{}{}
-      items = append(items, keyed{sortKey: foldCase(s.sortKey, caseSensitive), text: text})
+      index[s.sortKey] = len(items)
+      items = append(items, cur)
     }
   }
   sort.SliceStable(items, func(i, j int) bool {
-    return items[i].sortKey < items[j].sortKey
+    if items[i].isType != items[j].isType {
+      return !items[i].isType
+    }
+    return foldCase(items[i].name, caseSensitive) < foldCase(items[j].name, caseSensitive)
   })
   texts := make([]string, len(items))
   for i, it := range items {
@@ -678,12 +688,14 @@ func foldCase(s string, caseSensitive bool) string {
   return strings.ToLower(s)
 }
 
-// specifierEntry is the sortable pair captured for each named import
-// specifier: the identifier used as the sort key and the literal source
+// specifierEntry is the sortable record captured for each named import
+// specifier: the local name used as the sort key, whether it is an inline
+// `type` specifier (those sort after value specifiers), and the literal source
 // text that gets re-emitted in canonical order.
 type specifierEntry struct {
-  key  string
-  text string
+  key    string
+  isType bool
+  text   string
 }
 
 // reportNamedSpecifierSort reports a fix when an import's `{ a, b }` list
@@ -734,8 +746,9 @@ func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseSensitive bo
     start := shimscanner.SkipTrivia(src, spec.Pos())
     end := spec.End()
     entries = append(entries, specifierEntry{
-      key:  foldCase(name, caseSensitive),
-      text: src[start:end],
+      key:    foldCase(name, caseSensitive),
+      isType: s.IsTypeOnly,
+      text:   src[start:end],
     })
   }
   if len(entries) < 2 {
@@ -744,11 +757,14 @@ func reportNamedSpecifierSort(ctx *Context, decl *shimast.Node, caseSensitive bo
   sorted := make([]specifierEntry, len(entries))
   copy(sorted, entries)
   sort.SliceStable(sorted, func(i, j int) bool {
+    if sorted[i].isType != sorted[j].isType {
+      return !sorted[i].isType
+    }
     return sorted[i].key < sorted[j].key
   })
   changed := false
   for i := range entries {
-    if entries[i].key != sorted[i].key {
+    if entries[i].key != sorted[i].key || entries[i].isType != sorted[i].isType {
       changed = true
       break
     }

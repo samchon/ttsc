@@ -13,17 +13,17 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the namespace import stays its own declaration.
 func TestFormatSortImportsKeepsNamespaceImportsSeparate(t *testing.T) {
-	source := "import { z } from \"z\";\n" +
-		"import * as ns from \"m\";\n" +
-		"import { a } from \"m\";\n" +
-		"z;\n" +
-		"ns;\n" +
-		"a;\n"
-	expected := "import * as ns from \"m\";\n" +
-		"import { a } from \"m\";\n" +
-		"import { z } from \"z\";\n" +
-		"z;\n" +
-		"ns;\n" +
-		"a;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { z } from \"z\";\n" +
+    "import * as ns from \"m\";\n" +
+    "import { a } from \"m\";\n" +
+    "z;\n" +
+    "ns;\n" +
+    "a;\n"
+  expected := "import * as ns from \"m\";\n" +
+    "import { a } from \"m\";\n" +
+    "import { z } from \"z\";\n" +
+    "z;\n" +
+    "ns;\n" +
+    "a;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

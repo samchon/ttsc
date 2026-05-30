@@ -12,12 +12,12 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert one merged, sorted declaration.
 func TestFormatSortImportsMergesDuplicateModules(t *testing.T) {
-	source := "import { b } from \"m\";\n" +
-		"import { a } from \"m\";\n" +
-		"a;\n" +
-		"b;\n"
-	expected := "import { a, b } from \"m\";\n" +
-		"a;\n" +
-		"b;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { b } from \"m\";\n" +
+    "import { a } from \"m\";\n" +
+    "a;\n" +
+    "b;\n"
+  expected := "import { a, b } from \"m\";\n" +
+    "a;\n" +
+    "b;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

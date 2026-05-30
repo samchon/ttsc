@@ -12,10 +12,10 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the merged declaration lists `a` once.
 func TestFormatSortImportsDedupesRepeatedSpecifier(t *testing.T) {
-	source := "import { a } from \"m\";\n" +
-		"import { a } from \"m\";\n" +
-		"a;\n"
-	expected := "import { a } from \"m\";\n" +
-		"a;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { a } from \"m\";\n" +
+    "import { a } from \"m\";\n" +
+    "a;\n"
+  expected := "import { a } from \"m\";\n" +
+    "a;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

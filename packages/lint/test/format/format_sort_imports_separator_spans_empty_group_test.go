@@ -13,14 +13,14 @@ import "testing"
 //  2. Apply the rule with an order whose middle group is empty.
 //  3. Assert one blank line separates the two populated groups.
 func TestFormatSortImportsSeparatorSpansEmptyGroup(t *testing.T) {
-	source := "import { a } from \"alpha\";\n" +
-		"import { b } from \"./local\";\n" +
-		"a;\n" +
-		"b;\n"
-	expected := "import { a } from \"alpha\";\n" +
-		"\n" +
-		"import { b } from \"./local\";\n" +
-		"a;\n" +
-		"b;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<THIRD_PARTY_MODULES>","","@api/(.*)","","^[.]"]}`, expected)
+  source := "import { a } from \"alpha\";\n" +
+    "import { b } from \"./local\";\n" +
+    "a;\n" +
+    "b;\n"
+  expected := "import { a } from \"alpha\";\n" +
+    "\n" +
+    "import { b } from \"./local\";\n" +
+    "a;\n" +
+    "b;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<THIRD_PARTY_MODULES>","","@api/(.*)","","^[.]"]}`, expected)
 }

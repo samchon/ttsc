@@ -127,9 +127,9 @@ Each `format` key controls one behavior:
 | `trailingComma` | Add trailing commas to multi-line lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
 | `sortImports` (opt-in) | Group imports by `order`, alphabetize each group + its specifiers, and merge duplicate modules. |
-| `jsDoc` (opt-in) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
+| `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`sortImports` and `jsDoc` are **opt-in** — they take effect only when you set them. Every other key takes effect as soon as the `format` block is present, which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
+`sortImports` is **opt-in** — it takes effect only when you set it. Every other key takes effect as soon as the `format` block is present (JSDoc normalization included; set `jsDoc: false` to opt out), which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
 
 Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 

@@ -12,13 +12,13 @@ import "testing"
 //  2. Apply the rule with order ["[", "^[.]"] (the first entry is invalid).
 //  3. Assert the relative group still leads and no crash occurs.
 func TestFormatSortImportsSkipsInvalidRegexGroup(t *testing.T) {
-	source := "import { a } from \"alpha\";\n" +
-		"import { b } from \"./local\";\n" +
-		"a;\n" +
-		"b;\n"
-	expected := "import { b } from \"./local\";\n" +
-		"import { a } from \"alpha\";\n" +
-		"a;\n" +
-		"b;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["[","^[.]"]}`, expected)
+  source := "import { a } from \"alpha\";\n" +
+    "import { b } from \"./local\";\n" +
+    "a;\n" +
+    "b;\n"
+  expected := "import { b } from \"./local\";\n" +
+    "import { a } from \"alpha\";\n" +
+    "a;\n" +
+    "b;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["[","^[.]"]}`, expected)
 }

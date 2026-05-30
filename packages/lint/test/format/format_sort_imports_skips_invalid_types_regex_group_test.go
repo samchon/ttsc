@@ -12,12 +12,12 @@ import "testing"
 //  2. Apply the rule with order ["<TYPES>[", "<THIRD_PARTY_MODULES>"].
 //  3. Assert the run merges the duplicates without crashing.
 func TestFormatSortImportsSkipsInvalidTypesRegexGroup(t *testing.T) {
-	source := "import { b } from \"m\";\n" +
-		"import { a } from \"m\";\n" +
-		"a;\n" +
-		"b;\n"
-	expected := "import { a, b } from \"m\";\n" +
-		"a;\n" +
-		"b;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>[","<THIRD_PARTY_MODULES>"]}`, expected)
+  source := "import { b } from \"m\";\n" +
+    "import { a } from \"m\";\n" +
+    "a;\n" +
+    "b;\n"
+  expected := "import { a, b } from \"m\";\n" +
+    "a;\n" +
+    "b;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>[","<THIRD_PARTY_MODULES>"]}`, expected)
 }

@@ -13,15 +13,15 @@ import "testing"
 //  2. Apply the rule with order ["<TYPES>^[.]", "<THIRD_PARTY_MODULES>", "^[.]"].
 //  3. Assert only the type-only relative import is hoisted.
 func TestFormatSortImportsScopesTypeGroupByRegex(t *testing.T) {
-	source := "import { v } from \"react\";\n" +
-		"import type { R } from \"react\";\n" +
-		"import type { T } from \"./types\";\n" +
-		"import { local } from \"./local\";\n" +
-		"v;\n"
-	expected := "import type { T } from \"./types\";\n" +
-		"import { v } from \"react\";\n" +
-		"import type { R } from \"react\";\n" +
-		"import { local } from \"./local\";\n" +
-		"v;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>^[.]","<THIRD_PARTY_MODULES>","^[.]"]}`, expected)
+  source := "import { v } from \"react\";\n" +
+    "import type { R } from \"react\";\n" +
+    "import type { T } from \"./types\";\n" +
+    "import { local } from \"./local\";\n" +
+    "v;\n"
+  expected := "import type { T } from \"./types\";\n" +
+    "import { v } from \"react\";\n" +
+    "import type { R } from \"react\";\n" +
+    "import { local } from \"./local\";\n" +
+    "v;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>^[.]","<THIRD_PARTY_MODULES>","^[.]"]}`, expected)
 }

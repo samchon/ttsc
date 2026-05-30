@@ -30,7 +30,7 @@ export interface ITtscLintFormatSortImports {
    *   "",
    *   "<TYPES>^[.]",
    *   "^[.]",
-   * ]
+   * ];
    * ```
    */
   order?: readonly (
@@ -53,8 +53,8 @@ export interface ITtscLintFormatSortImports {
   /**
    * Merge a value import and a type-only import of the same module into one
    * declaration with inline `type` specifiers: `import { foo } from "m"` plus
-   * `import type { Bar } from "m"` collapse to
-   * `import { foo, type Bar } from "m"`.
+   * `import type { Bar } from "m"` collapse to `import { foo, type Bar } from
+   * "m"`.
    *
    * @default false
    */

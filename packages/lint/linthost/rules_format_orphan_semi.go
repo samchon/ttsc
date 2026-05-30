@@ -8,11 +8,11 @@ import (
 // formatOrphanSemi merges a lone leading-semicolon ASI guard onto the
 // statement it protects, matching Prettier under semi:false:
 //
-//   ;
-//   (expr).method()
+//  ;
+//  (expr).method()
 //
 // becomes `;(expr).method()`. Authors write the standalone `;` so ASI
-// does not glue a `(`/`[`/`` ` ``-leading statement onto the previous
+// does not glue a `(`/`[`/“ ` “-leading statement onto the previous
 // line; Prettier keeps the guard but pulls it onto the guarded
 // statement's line.
 //

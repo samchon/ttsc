@@ -14,13 +14,13 @@ import "testing"
 //  2. Apply the rule with combineTypeAndValue enabled.
 //  3. Assert the type-only default import stays its own declaration.
 func TestFormatSortImportsKeepsTypeDefaultSeparateWhenCombining(t *testing.T) {
-	source := "import { z } from \"z\";\n" +
-		"import type D from \"m\";\n" +
-		"import { x } from \"m\";\n" +
-		"x;\n"
-	expected := "import type D from \"m\";\n" +
-		"import { x } from \"m\";\n" +
-		"import { z } from \"z\";\n" +
-		"x;\n"
-	assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true}`, expected)
+  source := "import { z } from \"z\";\n" +
+    "import type D from \"m\";\n" +
+    "import { x } from \"m\";\n" +
+    "x;\n"
+  expected := "import type D from \"m\";\n" +
+    "import { x } from \"m\";\n" +
+    "import { z } from \"z\";\n" +
+    "x;\n"
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true}`, expected)
 }

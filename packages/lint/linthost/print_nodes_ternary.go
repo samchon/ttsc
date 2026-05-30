@@ -9,11 +9,11 @@ import (
 // consequent or alternate is itself a conditional is printed inline
 // under the same break group, but its arms indent one extra level:
 //
-//   aaaaaaaaaa
-//     ? bbbbbbbbbb
-//     : cccccccccc
-//       ? dddddddddd
-//       : eeeeeeeeee
+//  aaaaaaaaaa
+//    ? bbbbbbbbbb
+//    : cccccccccc
+//      ? dddddddddd
+//      : eeeeeeeeee
 //
 // The whole chain shares one fit-or-break decision (a single outer
 // Group), matching Prettier: either the entire chain fits flat
@@ -69,11 +69,11 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
 // column (one level past the `? `/`: ` marker) rather than under the
 // chain's rung indent. Prettier hangs a broken call/object arm there:
 //
-//	cond
-//	  ? foo(
-//	      arg,        // arm-column + one level, not rung + one level
-//	    )
-//	  : bar
+//  cond
+//    ? foo(
+//        arg,        // arm-column + one level, not rung + one level
+//      )
+//    : bar
 //
 // Align is a no-op for an arm that stays flat, and a nested conditional
 // is deliberately NOT aligned — it keeps the Indent-based staircase.

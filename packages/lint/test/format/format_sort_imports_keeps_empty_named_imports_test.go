@@ -14,13 +14,13 @@ import "testing"
 //  2. Apply the rule with default options.
 //  3. Assert the empty imports survive as separate declarations.
 func TestFormatSortImportsKeepsEmptyNamedImports(t *testing.T) {
-	source := "import { z } from \"z\";\n" +
-		"import {} from \"m\";\n" +
-		"import {} from \"m\";\n" +
-		"z;\n"
-	expected := "import {} from \"m\";\n" +
-		"import {} from \"m\";\n" +
-		"import { z } from \"z\";\n" +
-		"z;\n"
-	assertFixSnapshot(t, "format/sort-imports", source, expected)
+  source := "import { z } from \"z\";\n" +
+    "import {} from \"m\";\n" +
+    "import {} from \"m\";\n" +
+    "z;\n"
+  expected := "import {} from \"m\";\n" +
+    "import {} from \"m\";\n" +
+    "import { z } from \"z\";\n" +
+    "z;\n"
+  assertFixSnapshot(t, "format/sort-imports", source, expected)
 }

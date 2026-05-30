@@ -1,6 +1,6 @@
+import type { TtscLintSeverity } from "../TtscLintSeverity";
 import type { ITtscLintFormatJsDoc } from "./ITtscLintFormatJsDoc";
 import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
-import type { TtscLintSeverity } from "../TtscLintSeverity";
 
 /**
  * Prettier-style flat configuration for the format rules.
@@ -70,11 +70,11 @@ export interface ITtscLintFormat {
 
   /**
    * Quoting policy for object-literal property keys. Mirrors Prettier's
-   * `quoteProps`. `"as-needed"` (the default) removes quotes from a key that
-   * is a valid identifier (`{ "foo": 1 }` becomes `{ foo: 1 }`), keeping them
-   * on non-identifier or numeric keys (`"bar-baz"`, `"123"`). `"consistent"`
-   * keeps every key quoted when any one of them requires quotes. `"preserve"`
-   * never changes quoting.
+   * `quoteProps`. `"as-needed"` (the default) removes quotes from a key that is
+   * a valid identifier (`{ "foo": 1 }` becomes `{ foo: 1 }`), keeping them on
+   * non-identifier or numeric keys (`"bar-baz"`, `"123"`). `"consistent"` keeps
+   * every key quoted when any one of them requires quotes. `"preserve"` never
+   * changes quoting.
    *
    * @default "as-needed"
    */

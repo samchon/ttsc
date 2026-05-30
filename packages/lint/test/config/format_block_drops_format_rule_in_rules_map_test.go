@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"encoding/json"
-	"testing"
+  "encoding/json"
+  "testing"
 )
 
 // TestFormatBlockDropsFormatRuleInRulesMap verifies a `format/*` rule named
@@ -19,22 +19,22 @@ import (
 //  2. The rules entry is dropped: format/semi resolves to the format block's
 //     prefer:"always", never "never", and stays enabled (not off).
 func TestFormatBlockDropsFormatRuleInRulesMap(t *testing.T) {
-	resolver, err := parseExternalConfigStore(map[string]any{
-		"format": map[string]any{"semi": true},
-		"rules": map[string]any{
-			"format/semi": []any{"off", map[string]any{"prefer": "never"}},
-		},
-	}, "")
-	if err != nil {
-		t.Fatalf("parseExternalConfigStore must not error on a format/* rules key: %v", err)
-	}
-	var opts struct {
-		Prefer string `json:"prefer"`
-	}
-	if err := json.Unmarshal(resolver.RuleOptions("format/semi"), &opts); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if opts.Prefer != "always" {
-		t.Fatalf("rules-map format/semi must be dropped (format block wins), got prefer=%q", opts.Prefer)
-	}
+  resolver, err := parseExternalConfigStore(map[string]any{
+    "format": map[string]any{"semi": true},
+    "rules": map[string]any{
+      "format/semi": []any{"off", map[string]any{"prefer": "never"}},
+    },
+  }, "")
+  if err != nil {
+    t.Fatalf("parseExternalConfigStore must not error on a format/* rules key: %v", err)
+  }
+  var opts struct {
+    Prefer string `json:"prefer"`
+  }
+  if err := json.Unmarshal(resolver.RuleOptions("format/semi"), &opts); err != nil {
+    t.Fatalf("decode: %v", err)
+  }
+  if opts.Prefer != "always" {
+    t.Fatalf("rules-map format/semi must be dropped (format block wins), got prefer=%q", opts.Prefer)
+  }
 }
