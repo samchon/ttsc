@@ -58,6 +58,12 @@ for lint rules; a `format/*` id placed there is ignored. Turn a behavior off
 through its `format` key (for example `trailingComma: "none"`), not a `rules`
 entry.
 
+`ttsc format` always runs the full set of `format/*` rules. Setting an
+individual format rule to `"off"` in `rules` (for example
+`rules: { "format/print-width": "off" }`) has no effect during `ttsc format`:
+the format run activates every format rule regardless. A per-rule `"off"` only
+applies to `ttsc check`.
+
 ## The individual rules
 
 ### `format/semi`
