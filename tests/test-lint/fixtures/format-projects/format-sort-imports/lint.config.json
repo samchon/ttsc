@@ -1,5 +1,6 @@
 {
-  "rules": {
-    "format/sort-imports": "error"
+  "format": {
+    "importOrder": ["<THIRD_PARTY_MODULES>", "^[./]"],
+    "severity": "error"
   }
 }

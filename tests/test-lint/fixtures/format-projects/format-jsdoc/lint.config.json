@@ -1,5 +1,6 @@
 {
-  "rules": {
-    "format/jsdoc": "error"
+  "format": {
+    "jsdoc": true,
+    "severity": "error"
   }
 }
