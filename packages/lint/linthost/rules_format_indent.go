@@ -89,6 +89,49 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     }
     edits = append(edits, TextEdit{Pos: lineStart, End: start, Text: want})
   })
+  // Second pass: align each block's closing `}` line. A closing brace is
+  // not a statement, so the walk above never touches it; without this a
+  // mangled (flat) block body gets its statements re-indented while the
+  // closing braces stay at their wrong column, and the cascade "converges"
+  // on that malformed result (exit 0 on broken output). The brace aligns
+  // to the block OWNER's depth — one level shallower than the block's own
+  // statements — under the same cede / wrapped-head guards as the opening
+  // pass, so an expression-nested or wrapped-head block's `}` is left to
+  // the printer / its head.
+  forEachBlockClose(ctx.File, func(block *shimast.Node, ownerDepth int) {
+    closeBrace := blockCloseBracePos(src, block)
+    if closeBrace < 0 {
+      return
+    }
+    lineStart := lineStartOffset(src, closeBrace)
+    // The `}` must be the first non-whitespace byte on its line; a brace
+    // sharing a line with content (`} else {`, `{ x }`) is not this rule's
+    // to move.
+    for i := lineStart; i < closeBrace; i++ {
+      if src[i] != ' ' && src[i] != '\t' {
+        return
+      }
+    }
+    // indentCededToReflow walks block.Parent upward — the same ancestor
+    // chain a body statement would — so a callback / expression-nested
+    // block's `}` cedes in lockstep with its body (print-width owns it).
+    if indentCededToReflow(block) {
+      return
+    }
+    want := layout.indent(ownerDepth)
+    // Wrapped-head guard: when the block's own opener line is a continuation
+    // (curried arrow `): void => {`, multi-line `if (\n) {`), the `}` aligns
+    // to that opener line's indent, not to ownerDepth from column 0. If they
+    // disagree, cede — the head owns this block's framing.
+    openerIndent := blockOpenerLineIndent(src, block)
+    if openerIndent != want {
+      return
+    }
+    if src[lineStart:closeBrace] == want {
+      return
+    }
+    edits = append(edits, TextEdit{Pos: lineStart, End: closeBrace, Text: want})
+  })
   if len(edits) == 0 {
     return
   }
@@ -170,6 +213,97 @@ func enclosingBlockOpenerIndent(src string, stmt *shimast.Node) (string, bool) {
     i++
   }
   return src[ls:i], true
+}
+
+// forEachBlockClose invokes fn for every Block / ModuleBlock in the file
+// with the depth its OWNER sits at — the depth its closing `}` should
+// align to (one level shallower than the block's own statements). It
+// mirrors walkStatementLists's depth model so the two passes agree.
+//
+// A block that is the direct body of a case/default clause is skipped:
+// its brace framing is special (the clause label already carries a level)
+// and rare, so the rule cedes rather than risk a wrong column.
+func forEachBlockClose(file *shimast.SourceFile, fn func(block *shimast.Node, ownerDepth int)) {
+  if file == nil {
+    return
+  }
+  walkBlockCloses(file.AsNode(), 0, fn)
+}
+
+func walkBlockCloses(node *shimast.Node, depth int, fn func(block *shimast.Node, ownerDepth int)) {
+  if node == nil {
+    return
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    if child == nil {
+      return false
+    }
+    childDepth := depth
+    switch child.Kind {
+    case shimast.KindBlock, shimast.KindModuleBlock:
+      isCaseBody := child.Kind == shimast.KindBlock && child.Parent != nil &&
+        (child.Parent.Kind == shimast.KindCaseClause ||
+          child.Parent.Kind == shimast.KindDefaultClause)
+      if isCaseBody {
+        // Mirror walkStatementLists: a case-body block adds no level. Cede
+        // its closing brace (no fn call).
+        childDepth = depth
+      } else {
+        // The block's `}` aligns to the owner depth (this `depth`); its
+        // statements nest one deeper.
+        fn(child, depth)
+        childDepth = depth + 1
+      }
+    case shimast.KindCaseClause, shimast.KindDefaultClause:
+      childDepth = depth + 1
+    case shimast.KindCaseBlock,
+      shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeLiteral,
+      shimast.KindObjectLiteralExpression:
+      childDepth = depth + 1
+    }
+    walkBlockCloses(child, childDepth, fn)
+    return false
+  })
+}
+
+// blockCloseBracePos returns the byte offset of a block's closing `}`.
+// A block's End() points just past the `}`, so the brace is the last
+// non-whitespace byte before End(); returns -1 if it is not a `}`.
+func blockCloseBracePos(src string, block *shimast.Node) int {
+  end := block.End()
+  if end <= 0 || end > len(src) {
+    return -1
+  }
+  for i := end - 1; i >= 0; i-- {
+    c := src[i]
+    if c == '}' {
+      return i
+    }
+    if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+      return -1
+    }
+  }
+  return -1
+}
+
+// blockOpenerLineIndent returns the leading-whitespace string of the line
+// holding `block`'s opening `{`. The closing-brace pass compares it to the
+// owner indent so a wrapped-head block (curried arrow `): void => {`) whose
+// `{` sits at a continuation indent cedes its `}` to that head.
+func blockOpenerLineIndent(src string, block *shimast.Node) string {
+  brace := shimscanner.SkipTrivia(src, block.Pos())
+  if brace < 0 || brace > len(src) {
+    return ""
+  }
+  ls := lineStartOffset(src, brace)
+  i := ls
+  for i < brace && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[ls:i]
 }
 
 func init() {
