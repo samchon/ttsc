@@ -179,7 +179,14 @@ func nextStatementHasASIHazard(src string, end int) bool {
       return true
     }
     switch c {
-    case '[', '(', '`', '+', '-', '*', ',':
+    // If the next significant byte is one of these, dropping the terminator
+    // could let the following line re-associate with the prior expression.
+    // `( [`, a unary `+ -`, and a tagged-template backtick are the cases
+    // actually reachable from a valid statement start; `<` matters in .tsx
+    // (a leading `<` opens a JSX element). The remaining infix bytes cannot
+    // begin a valid statement on their own, but are listed defensively so
+    // the strip always cedes rather than risk a parse-changing edit.
+    case '[', '(', '`', '+', '-', '*', ',', '.', '<', '>', '=', '?', '%', '&', '|', '^':
       return true
     }
     return false

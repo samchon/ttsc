@@ -142,6 +142,13 @@ func unquotableIdentifier(raw string) string {
   if len(inner) == 0 {
     return ""
   }
+  if inner == "__proto__" {
+    // A bare `__proto__:` key in an object literal is the spec-special
+    // prototype setter (sets [[Prototype]]), whereas a quoted `"__proto__"`
+    // key is an ordinary own data property. Unquoting would change runtime
+    // semantics, so keep it quoted (Prettier does the same).
+    return ""
+  }
   for i := 0; i < len(inner); i++ {
     c := inner[i]
     isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$'
