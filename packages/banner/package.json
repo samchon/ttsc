@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/banner",
-  "version": "0.14.0-dev.20260529.2",
+  "version": "0.14.0-dev.20250530.1",
   "description": "First-party ttsc plugin that adds package-documentation JSDoc banners during emit.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

@@ -2,7 +2,7 @@
   "name": "@ttsc/vscode",
   "displayName": "ttsc",
   "description": "Run the project-selected ttscserver in VS Code with TypeScript-Go and ttsc plugin LSP features.",
-  "version": "0.14.0-dev.20260529.2",
+  "version": "0.14.0-dev.20250530.1",
   "publisher": "samchon",
   "license": "MIT",
   "author": "Jeongho Nam",
