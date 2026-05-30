@@ -32,8 +32,8 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
  *   `"cr"` and `"auto"` modes are intentionally unsupported — the
  *   printer does not auto-detect terminators.
- *   - Many Prettier knobs (`bracketSpacing`, `arrowParens`,
- *   `quoteProps`, JSX-specific switches) are not yet implemented.
+ *   - Many Prettier knobs (`bracketSpacing`, `quoteProps`,
+ *   JSX-specific switches) are not yet implemented.
  *
  *   Rule enablement matrix (when the `format` block is present):
  *
@@ -41,6 +41,9 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   "never"`.
  *   - `format/quotes` — always on. `singleQuote: true` flips to
  *   `prefer: "single"`.
+ *   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a
+ *   single bare-identifier arrow parameter's parentheses; the default
+ *   `"always"` adds them.
  *   - `format/trailing-comma` — always on. `trailingComma: "none"`
  *   disables the rule's edits without removing the surface.
  *   - `format/print-width` — always on, driven by `printWidth`,
@@ -84,6 +87,17 @@ export interface ITtscLintFormat {
    * @default false
    */
   singleQuote?: boolean;
+
+  /**
+   * Parenthesize a single arrow-function parameter. Mirrors Prettier's
+   * `arrowParens`. `"always"` (the default) keeps `(x) => x`; `"avoid"` strips
+   * the parentheses of a single bare-identifier parameter, giving `x => x`. A
+   * typed, destructured, rest, optional, defaulted, or multi-parameter list
+   * keeps its parentheses in both modes.
+   *
+   * @default "always"
+   */
+  arrowParens?: "always" | "avoid";
 
   /**
    * Trailing-comma policy. Mirrors Prettier's `trailingComma`. The `"none"`

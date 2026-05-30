@@ -22,6 +22,7 @@ import (
 //
 //   - `format/semi` — always on. `semi: false` flips to `prefer: "never"`.
 //   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
+//   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a single bare-identifier arrow parameter's parens; default "always" adds them.
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
@@ -84,6 +85,24 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     }
   }
   out["format/quotes"] = ruleEntry(map[string]any{"prefer": quotesPrefer})
+
+  // formatArrowParens — always on. Mirrors Prettier's arrowParens; the
+  // default "always" parenthesizes a single bare-identifier arrow parameter,
+  // "avoid" strips the parens.
+  arrowPrefer := "always"
+  if v, ok := raw["arrowParens"]; ok {
+    s, err := asString("format.arrowParens", v)
+    if err != nil {
+      return nil, err
+    }
+    switch s {
+    case "always", "avoid":
+      arrowPrefer = s
+    default:
+      return nil, fmt.Errorf("@ttsc/lint: format.arrowParens must be \"always\" or \"avoid\"; got %q", s)
+    }
+  }
+  out["format/arrow-parens"] = ruleEntry(map[string]any{"prefer": arrowPrefer})
 
   // formatTrailingComma
   tcMode := "all"
@@ -409,6 +428,7 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
     "severity":                   {},
     "semi":                       {},
     "singleQuote":                {},
+    "arrowParens":                {},
     "trailingComma":              {},
     "printWidth":                 {},
     "tabWidth":                   {},
