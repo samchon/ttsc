@@ -53,8 +53,9 @@ export interface ITtscLintTypeScriptRules {
   /**
    * Reject `@ts-ignore` and `@ts-expect-error` comments.
    *
-   * The default policy allows `@ts-expect-error` with an explanatory `--`
-   * description.
+   * The rule flags both directives unconditionally. There is no
+   * description-based allowance, and the `@typescript-eslint` options are not
+   * implemented.
    *
    * @reference https://typescript-eslint.io/rules/ban-ts-comment
    */

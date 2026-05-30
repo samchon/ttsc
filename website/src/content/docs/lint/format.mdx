@@ -190,7 +190,7 @@ Keyless (always on, nothing to configure). Puts every statement on its own line,
 
 ### `format/indent`
 
-Keyless. Normalizes the leading indentation of each statement's first line to its block-nesting depth (`tabWidth` columns per level, or one tab per level under `useTabs`). It touches only a statement's own starting line; interior and continuation lines belong to `format/print-width`.
+Keyless. Normalizes the leading indentation of each statement's first line to its block-nesting depth (`tabWidth` columns per level, or one tab per level under `useTabs`). A second pass also realigns block-closing `}` lines and member or `case`/`default` label header lines to their nesting depth. Interior and continuation lines belong to `format/print-width`.
 
 ### `format/whitespace`
 
