@@ -36,7 +36,7 @@ import (
 //   - `format/statement-split`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/indent`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace`, always on, driven by endOfLine.
-//   - `format/sort-imports`, opt-in by setting `importOrder`.
+//   - `format/sort-imports`, opt-in by setting `sortImports`.
 //   - `format/jsdoc`, always-on; `jsDoc: false` opts out, an object customizes.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
@@ -220,39 +220,15 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
   out["format/whitespace"] = ruleEntry(wsOpts)
 
-  // formatSortImports, opt-in by `importOrder`.
-  if v, ok := raw["importOrder"]; ok {
-    siOpts := map[string]any{}
-    order, err := asStringSlice("format.importOrder", v)
+  // formatSortImports, opt-in by `sortImports` (a boolean or options object).
+  if v, ok := raw["sortImports"]; ok && v != nil {
+    siOpts, enabled, err := expandSortImportsBlock(v)
     if err != nil {
       return nil, err
     }
-    if len(order) == 0 {
-      return nil, fmt.Errorf("@ttsc/lint: format.importOrder must contain at least one entry; omit the field to keep formatSortImports off")
+    if enabled {
+      out["format/sort-imports"] = ruleEntry(siOpts)
     }
-    siOpts["importOrder"] = order
-    if x, ok := raw["importOrderSeparation"]; ok {
-      b, err := asBool("format.importOrderSeparation", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderSeparation"] = b
-    }
-    if x, ok := raw["importOrderSortSpecifiers"]; ok {
-      b, err := asBool("format.importOrderSortSpecifiers", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderSortSpecifiers"] = b
-    }
-    if x, ok := raw["importOrderCaseInsensitive"]; ok {
-      b, err := asBool("format.importOrderCaseInsensitive", x)
-      if err != nil {
-        return nil, err
-      }
-      siOpts["importOrderCaseInsensitive"] = b
-    }
-    out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
   // formatJsdoc, always-on. `jsDoc: false` opts out; a
@@ -306,6 +282,48 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   }
 
   return out, nil
+}
+
+// expandSortImportsBlock translates the `format.sortImports` value (a boolean
+// or an options object) into the rule's option map. The bool reports whether
+// the rule is enabled: `true` and any object enable it, `false` keeps it off.
+func expandSortImportsBlock(v any) (map[string]any, bool, error) {
+  switch sv := v.(type) {
+  case bool:
+    return map[string]any{}, sv, nil
+  case map[string]any:
+    opts := map[string]any{}
+    for key, val := range sv {
+      switch key {
+      case "order":
+        order, err := asStringSlice("format.sortImports.order", val)
+        if err != nil {
+          return nil, false, err
+        }
+        if len(order) == 0 {
+          return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports.order must contain at least one entry; omit it to use the default order")
+        }
+        opts["order"] = order
+      case "caseSensitive":
+        b, err := asBool("format.sortImports.caseSensitive", val)
+        if err != nil {
+          return nil, false, err
+        }
+        opts["caseSensitive"] = b
+      case "combineTypeAndValue":
+        b, err := asBool("format.sortImports.combineTypeAndValue", val)
+        if err != nil {
+          return nil, false, err
+        }
+        opts["combineTypeAndValue"] = b
+      default:
+        return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports unknown key %q (allowed: order, caseSensitive, combineTypeAndValue)", key)
+      }
+    }
+    return opts, true, nil
+  default:
+    return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports must be a boolean or object, got %T", v)
+  }
 }
 
 // formatBlockSeverity extracts the optional `severity` field from a format
@@ -465,22 +483,19 @@ func asStringSlice(field string, v any) ([]string, error) {
 // key set mirrors `ITtscLintFormat` exactly.
 func rejectUnknownFormatKeys(raw map[string]any) error {
   allowed := map[string]struct{}{
-    "severity":                   {},
-    "semi":                       {},
-    "singleQuote":                {},
-    "arrowParens":                {},
-    "bracketSpacing":             {},
-    "quoteProps":                 {},
-    "trailingComma":              {},
-    "printWidth":                 {},
-    "tabWidth":                   {},
-    "useTabs":                    {},
-    "endOfLine":                  {},
-    "importOrder":                {},
-    "importOrderSeparation":      {},
-    "importOrderSortSpecifiers":  {},
-    "importOrderCaseInsensitive": {},
-    "jsDoc":                      {},
+    "severity":       {},
+    "semi":           {},
+    "singleQuote":    {},
+    "arrowParens":    {},
+    "bracketSpacing": {},
+    "quoteProps":     {},
+    "trailingComma":  {},
+    "printWidth":     {},
+    "tabWidth":       {},
+    "useTabs":        {},
+    "endOfLine":      {},
+    "sortImports":    {},
+    "jsDoc":          {},
   }
   for key := range raw {
     if _, ok := allowed[key]; !ok {

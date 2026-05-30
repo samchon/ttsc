@@ -31,7 +31,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
       "tabWidth":      4,
       "useTabs":       true,
       "endOfLine":     "crlf",
-      "importOrder":   []any{"<THIRD_PARTY_MODULES>", "^[./]"},
+      "sortImports":   map[string]any{"order": []any{"<THIRD_PARTY_MODULES>", "^[./]"}},
       "jsDoc": map[string]any{
         "tagSynonyms": map[string]any{"foo": "bar"},
       },
@@ -89,14 +89,14 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
   }
 
   type siOpts struct {
-    ImportOrder []string `json:"importOrder"`
+    Order []string `json:"order"`
   }
   var si siOpts
   if err := json.Unmarshal(resolver.RuleOptions("format/sort-imports"), &si); err != nil {
     t.Fatalf("decode sort-imports: %v", err)
   }
-  if len(si.ImportOrder) != 2 || si.ImportOrder[0] != "<THIRD_PARTY_MODULES>" {
-    t.Errorf("sort-imports importOrder mismatch: %+v", si.ImportOrder)
+  if len(si.Order) != 2 || si.Order[0] != "<THIRD_PARTY_MODULES>" {
+    t.Errorf("sort-imports order mismatch: %+v", si.Order)
   }
 
   type jdOpts struct {

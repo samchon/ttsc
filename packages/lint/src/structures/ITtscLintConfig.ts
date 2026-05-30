@@ -1,4 +1,4 @@
-import type { ITtscLintFormat } from "./ITtscLintFormat";
+import type { ITtscLintFormat } from "./format/ITtscLintFormat";
 import type { ITtscLintPlugin } from "./ITtscLintPlugin";
 import type { ITtscLintRules } from "./rules/ITtscLintRules";
 

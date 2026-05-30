@@ -1,4 +1,4 @@
-import type { ITtscLintFormat } from "./structures/ITtscLintFormat";
+import type { ITtscLintFormat } from "./structures/format/ITtscLintFormat";
 
 /**
  * Documented defaults for the `format` block's _always-on_ rules

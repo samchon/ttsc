@@ -1,5 +1,5 @@
 export * from "./ITtscLintConfig";
-export * from "./ITtscLintFormat";
+export * from "./format";
 export * from "./ITtscLintPlugin";
 export * from "./ITtscLintPluginConfig";
 export * from "./ITtscLintPluginMeta";

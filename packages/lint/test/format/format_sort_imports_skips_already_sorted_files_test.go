@@ -13,14 +13,13 @@ import (
 // format loop's cap. The rule must produce zero findings on a file whose
 // imports and specifiers are already canonical.
 //
-//  1. Parse a source file with sorted external + relative groups and a
-//     blank-line separator.
+//  1. Parse a source file with sorted third-party + relative groups laid out
+//     in the default order (no blank-line separator).
 //  2. Run the engine with formatSortImports enabled.
 //  3. Assert zero findings.
 func TestFormatSortImportsSkipsAlreadySortedFiles(t *testing.T) {
   source := "import alpha from \"alpha\";\n" +
     "import zebra from \"zebra\";\n" +
-    "\n" +
     "import { x } from \"./local-a\";\n" +
     "import { reduce } from \"./local-b\";\n" +
     "JSON.stringify({ alpha, zebra, x, reduce });\n"
