@@ -1,5 +1,6 @@
 {
-  "rules": {
-    "format/semi": "error"
+  "format": {
+    "semi": true,
+    "severity": "error"
   }
 }
