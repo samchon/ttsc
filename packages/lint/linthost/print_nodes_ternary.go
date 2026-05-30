@@ -63,9 +63,24 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
 // arm that is a `??` expression is already parenthesized in valid
 // source, so it round-trips its parens via the ParenthesizedExpression
 // printer).
+//
+// A non-conditional arm is wrapped in Align so that, when it breaks
+// internally, its continuation hangs under the arm expression's own
+// column (one level past the `? `/`: ` marker) rather than under the
+// chain's rung indent. Prettier hangs a broken call/object arm there:
+//
+//	cond
+//	  ? foo(
+//	      arg,        // arm-column + one level, not rung + one level
+//	    )
+//	  : bar
+//
+// Align is a no-op for an arm that stays flat, and a nested conditional
+// is deliberately NOT aligned — it keeps the Indent-based staircase.
 func ternaryArm(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node != nil && node.Kind == shimast.KindConditionalExpression {
     return buildConditionalChain(ctx, node)
   }
-  return PrintNode(ctx, node)
+  doc, covered := PrintNode(ctx, node)
+  return Align(doc), covered
 }
