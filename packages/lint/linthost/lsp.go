@@ -479,13 +479,17 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
     return nil, 0
   }
 
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  rules, err := loadFormatRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
-  rules = formatCommandResolver{inner: rules}
-  engine := NewEngineWithResolver(rules)
+  resolver, err := newFormatCommandResolver(rules, filepath.Dir(target), vscodeLanguageID(target))
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, 2
+  }
+  engine := NewEngineWithResolver(resolver)
   if engine.NeedsTypeChecker() {
     // A format-class contributor rule (formatContributorAdapter) needs the type
     // checker, which the single-file in-memory parse can't supply. Fall back to

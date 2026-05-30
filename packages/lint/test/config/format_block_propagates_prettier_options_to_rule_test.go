@@ -17,7 +17,7 @@ import (
 //
 //  1. Build an ITtscLintConfig object whose `format` block exercises one non-default value per
 //     mapping cell: singleQuote, trailingComma, printWidth,
-//     tabWidth, useTabs, endOfLine, importOrder, jsdoc with
+//     tabWidth, useTabs, endOfLine, importOrder, jsDoc with
 //     tagSynonyms.
 //  2. Parse it and inspect the option blob attached to each rule.
 //  3. Assert every cell decodes to the expected JSON.
@@ -32,7 +32,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
       "useTabs":       true,
       "endOfLine":     "crlf",
       "importOrder":   []any{"<THIRD_PARTY_MODULES>", "^[./]"},
-      "jsdoc": map[string]any{
+      "jsDoc": map[string]any{
         "tagSynonyms": map[string]any{"foo": "bar"},
       },
     },
