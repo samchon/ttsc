@@ -24,6 +24,7 @@ import (
 //   - `format/quotes` — always on. `singleQuote: true` flips to `prefer: "single"`.
 //   - `format/arrow-parens` — always on. `arrowParens: "avoid"` strips a single bare-identifier arrow parameter's parens; default "always" adds them.
 //   - `format/bracket-spacing` — always on. `bracketSpacing: false` removes the inner space of single-line object/destructure/import/export/type braces; default true keeps it.
+//   - `format/quote-props` — always on. `quoteProps: "as-needed"` (default) unquotes identifier object keys; "consistent" keeps all keys quoted when any needs it; "preserve" leaves quoting alone.
 //   - `format/trailing-comma` — always on with the requested mode.
 //   - `format/print-width` — always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join` — always on, joins a single-statement clause body that fits printWidth.
@@ -117,6 +118,25 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     bracketSpacing = b
   }
   out["format/bracket-spacing"] = ruleEntry(map[string]any{"spacing": bracketSpacing})
+
+  // formatQuoteProps — always on. Mirrors Prettier's quoteProps; the default
+  // "as-needed" unquotes object keys that are valid identifiers, "consistent"
+  // keeps every key quoted when any one needs it, "preserve" leaves quoting
+  // untouched.
+  quoteProps := "as-needed"
+  if v, ok := raw["quoteProps"]; ok {
+    s, err := asString("format.quoteProps", v)
+    if err != nil {
+      return nil, err
+    }
+    switch s {
+    case "as-needed", "consistent", "preserve":
+      quoteProps = s
+    default:
+      return nil, fmt.Errorf("@ttsc/lint: format.quoteProps must be \"as-needed\", \"consistent\", or \"preserve\"; got %q", s)
+    }
+  }
+  out["format/quote-props"] = ruleEntry(map[string]any{"mode": quoteProps})
 
   // formatTrailingComma
   tcMode := "all"
@@ -444,6 +464,7 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
     "singleQuote":                {},
     "arrowParens":                {},
     "bracketSpacing":             {},
+    "quoteProps":                 {},
     "trailingComma":              {},
     "printWidth":                 {},
     "tabWidth":                   {},

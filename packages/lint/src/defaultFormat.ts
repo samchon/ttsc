@@ -29,6 +29,7 @@ export const defaultFormat = Object.freeze({
   singleQuote: false,
   arrowParens: "always",
   bracketSpacing: true,
+  quoteProps: "as-needed",
   trailingComma: "all",
   printWidth: 80,
   tabWidth: 2,

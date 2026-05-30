@@ -32,7 +32,7 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   - `endOfLine` is restricted to `"lf"` and `"crlf"`. Prettier's
  *   `"cr"` and `"auto"` modes are intentionally unsupported — the
  *   printer does not auto-detect terminators.
- *   - Some Prettier knobs (`quoteProps`, JSX-specific switches) are not yet
+ *   - JSX-specific switches (`jsxSingleQuote`, `bracketSameLine`) are not yet
  *   implemented.
  *
  *   Rule enablement matrix (when the `format` block is present):
@@ -47,6 +47,9 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  *   - `format/bracket-spacing` — always on. `bracketSpacing: false` removes
  *   the inner space of single-line object/destructure/import/export/type
  *   braces; the default `true` keeps it.
+ *   - `format/quote-props` — always on. `quoteProps: "as-needed"` (default)
+ *   unquotes identifier object keys; `"consistent"` keeps every key quoted
+ *   when any one needs it; `"preserve"` leaves quoting untouched.
  *   - `format/trailing-comma` — always on. `trailingComma: "none"`
  *   disables the rule's edits without removing the surface.
  *   - `format/print-width` — always on, driven by `printWidth`,
@@ -112,6 +115,18 @@ export interface ITtscLintFormat {
    * @default true
    */
   bracketSpacing?: boolean;
+
+  /**
+   * Quoting policy for object-literal property keys. Mirrors Prettier's
+   * `quoteProps`. `"as-needed"` (the default) removes quotes from a key that
+   * is a valid identifier (`{ "foo": 1 }` becomes `{ foo: 1 }`), keeping them
+   * on non-identifier or numeric keys (`"bar-baz"`, `"123"`). `"consistent"`
+   * keeps every key quoted when any one of them requires quotes. `"preserve"`
+   * never changes quoting.
+   *
+   * @default "as-needed"
+   */
+  quoteProps?: "as-needed" | "consistent" | "preserve";
 
   /**
    * Trailing-comma policy. Mirrors Prettier's `trailingComma`. The `"none"`
