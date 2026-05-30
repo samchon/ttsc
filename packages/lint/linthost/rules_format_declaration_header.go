@@ -173,7 +173,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
     // keep `{` glued to the last header line (so an empty body reads
     // `… {}`). isClass && !emptyBody captures that.
     brace := headerBrace(isClass, emptyBody, base)
-    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace, emptyBody)
+    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace, emptyBody, isClass)
     if !ok {
       return // unverified combination: abstain
     }
@@ -331,6 +331,7 @@ func brokenDeclarationHeader(
   layout declarationHeaderLayout,
   brace string,
   emptyBody bool,
+  isClass bool,
 ) (string, bool) {
   hasTypeParams := len(paramTexts) > 0
   switch {
@@ -348,9 +349,29 @@ func brokenDeclarationHeader(
     if len(clauses) == 1 && len(clauses[0].types) >= 2 {
       return "", false
     }
-    return typeParamExplodeHeader(src, base, prefix, typeParams, clauses, layout), true
+    return typeParamExplodeHeader(src, base, prefix, typeParams, clauses, layout, isClass), true
   }
   return "", false
+}
+
+// interfaceHeritageOnOwnLine reports whether Prettier moves a broken-type-
+// parameter interface's heritage onto its own line. Verified against Prettier
+// 3: it does so only for a single `extends` clause whose single type is a
+// qualified name (`extends IPage.IRequest`), a member expression. A bare
+// identifier (`extends IBase`, any length) and a generic type (`extends
+// Base<T>`) both stay inline after `>`. A class always keeps the heritage
+// inline regardless. The `.`-and-no-`<` test distinguishes the qualified
+// non-generic case; a generic-qualified type (`A.B<C>`) is left inline,
+// unverified, so the rule never invents a break it has not confirmed.
+func interfaceHeritageOnOwnLine(isClass bool, clauses []heritageClauseText) bool {
+  if isClass || len(clauses) != 1 {
+    return false
+  }
+  c := clauses[0]
+  if c.keyword != "extends" || len(c.types) != 1 {
+    return false
+  }
+  return strings.Contains(c.types[0], ".") && !strings.Contains(c.types[0], "<")
 }
 
 // multiClauseHeader: break before each keyword, types inline per clause.
@@ -528,6 +549,7 @@ func typeParamExplodeHeader(
   typeParams *shimast.NodeList,
   clauses []heritageClauseText,
   layout declarationHeaderLayout,
+  isClass bool,
 ) string {
   var b strings.Builder
   b.WriteString(prefix)
@@ -539,7 +561,21 @@ func typeParamExplodeHeader(
   }
   b.WriteString(base)
   b.WriteString(">")
-  b.WriteString(flatHeritage(clauses))
+  if interfaceHeritageOnOwnLine(isClass, clauses) {
+    // Interface with a qualified heritage type: Prettier breaks before the
+    // `extends`, indented one level past the `>`:
+    //
+    //   >
+    //     extends IPage.IRequest {
+    c := clauses[0]
+    b.WriteString("\n")
+    b.WriteString(layout.indent(base, 1))
+    b.WriteString(c.keyword)
+    b.WriteString(" ")
+    b.WriteString(c.types[0])
+  } else {
+    b.WriteString(flatHeritage(clauses))
+  }
   b.WriteString(" {")
   return b.String()
 }
