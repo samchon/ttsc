@@ -130,6 +130,33 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     }
     edits = append(edits, TextEdit{Pos: lineStart, End: closeBrace, Text: want})
   })
+  // Third pass: align the header lines that are neither statements nor
+  // closing braces — class / interface / type-literal member declarations
+  // and `case`/`default` labels. The statement walk never visits these (a
+  // member declaration and a clause label are not statements), so without
+  // this pass a flattened class body or switch leaves member headers and
+  // case labels at column 0 while their bodies are re-indented — a malformed
+  // result the cascade reports as success.
+  forEachIndentHeader(ctx.File, func(header *shimast.Node, depth int) {
+    pos := shimscanner.SkipTrivia(src, header.Pos())
+    if pos < 0 || pos > len(src) {
+      return
+    }
+    lineStart := lineStartOffset(src, pos)
+    for i := lineStart; i < pos; i++ {
+      if src[i] != ' ' && src[i] != '\t' {
+        return
+      }
+    }
+    if indentCededToReflow(header) || cededByChainedArrowAncestor(header) {
+      return
+    }
+    want := layout.indent(depth)
+    if src[lineStart:pos] == want {
+      return
+    }
+    edits = append(edits, TextEdit{Pos: lineStart, End: pos, Text: want})
+  })
   if len(edits) == 0 {
     return
   }
@@ -238,8 +265,10 @@ func walkBlockCloses(node *shimast.Node, depth int, fn func(block *shimast.Node,
         (child.Parent.Kind == shimast.KindCaseClause ||
           child.Parent.Kind == shimast.KindDefaultClause)
       if isCaseBody {
-        // Mirror walkStatementLists: a case-body block adds no level. Cede
-        // its closing brace (no fn call).
+        // A case-body block (`case X: { … }`) adds no extra level for its
+        // statements (they stay at the clause body depth, this `depth`), but
+        // its own closing `}` aligns with the `case` label one level up.
+        fn(child, depth-1)
         childDepth = depth
       } else {
         // The block's `}` aligns to the owner depth (this `depth`); its
@@ -280,6 +309,69 @@ func blockCloseBracePos(src string, block *shimast.Node) int {
     }
   }
   return -1
+}
+
+// forEachIndentHeader invokes fn for every class/interface/type-literal
+// member declaration and every case/default label, with the depth its header
+// line should align to. It mirrors walkBlockCloses's depth model so all
+// three indent passes agree.
+//
+//   - A class/interface/type-literal body is a +1 frame, and its member
+//     headers sit at that body depth (one level under the declaration).
+//   - A switch's CaseBlock is a +1 frame; each case/default label sits at
+//     that CaseBlock depth, and the clause's body statements nest one deeper
+//     (handled by the statement pass).
+func forEachIndentHeader(file *shimast.SourceFile, fn func(node *shimast.Node, depth int)) {
+  if file == nil {
+    return
+  }
+  walkIndentHeaders(file.AsNode(), 0, fn)
+}
+
+func walkIndentHeaders(node *shimast.Node, depth int, fn func(node *shimast.Node, depth int)) {
+  if node == nil {
+    return
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    if child == nil {
+      return false
+    }
+    childDepth := depth
+    switch child.Kind {
+    case shimast.KindBlock, shimast.KindModuleBlock:
+      childDepth = depth + 1
+      if child.Kind == shimast.KindBlock && child.Parent != nil &&
+        (child.Parent.Kind == shimast.KindCaseClause ||
+          child.Parent.Kind == shimast.KindDefaultClause) {
+        childDepth = depth
+      }
+    case shimast.KindCaseClause, shimast.KindDefaultClause:
+      // The label (`case X:` / `default:`) sits at the current (CaseBlock)
+      // depth; its body statements nest one deeper.
+      fn(child, depth)
+      childDepth = depth + 1
+    case shimast.KindCaseBlock,
+      shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeLiteral,
+      shimast.KindObjectLiteralExpression:
+      childDepth = depth + 1
+    case shimast.KindMethodDeclaration,
+      shimast.KindPropertyDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor,
+      shimast.KindConstructor,
+      shimast.KindMethodSignature,
+      shimast.KindPropertySignature,
+      shimast.KindIndexSignature:
+      // A class/interface/type-literal member: its header line sits at the
+      // current body depth (the enclosing frame already bumped it).
+      fn(child, depth)
+    }
+    walkIndentHeaders(child, childDepth, fn)
+    return false
+  })
 }
 
 func init() {
