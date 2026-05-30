@@ -8,13 +8,26 @@ class Loader {
 }
 
 function makeConfig(): Record<string, unknown> {
-const config = { name: "alpha", retries: 3, timeout: 1000, verbose: true, mode: "fast" };
-const hosts = ["alpha.example.com", "bravo.example.com", "charlie.example.com"];
+  const config = {
+    name: "alpha",
+    retries: 3,
+    timeout: 1000,
+    verbose: true,
+    mode: "fast",
+  };
+  const hosts = [
+    "alpha.example.com",
+    "bravo.example.com",
+    "charlie.example.com",
+  ];
   return { config, hosts };
 }
 
 function main(): void {
-const loader = new Loader("/tmp"); const cfg = makeConfig(); const total = loader.count;
-const full = join(loader.root, "x.txt"); const raw = readFileSync(full, "utf8");
-console.log(cfg, total, raw);
+  const loader = new Loader("/tmp");
+  const cfg = makeConfig();
+  const total = loader.count;
+  const full = join(loader.root, "x.txt");
+  const raw = readFileSync(full, "utf8");
+  console.log(cfg, total, raw);
 }

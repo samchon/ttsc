@@ -25,21 +25,21 @@ import (
 //   - One clause with multiple types -> break before the keyword and keep
 //     the types inline; explode them one-per-line only when that inline
 //     line still overflows:
-//         interface B
-//           extends First, Second {
+//     interface B
+//     extends First, Second {
 //   - Multiple clauses -> break before each keyword, types inline:
-//         class C
-//           extends Base
-//           implements First, Second
-//         {
+//     class C
+//     extends Base
+//     implements First, Second
+//     {
 //   - Opening brace placement -> Prettier moves `{` onto its own line only
 //     for a class with a non-empty body; an interface and any empty body
 //     keep it glued to the last header line (so `… implements X {}`).
 //   - Type-parameter list overflow -> explode the `<...>` list (trailing
 //     comma, `>` at the base indent), heritage inline after `>`:
-//         interface D<
-//           TKey extends string,
-//         > extends Base<TKey> {
+//     interface D<
+//     TKey extends string,
+//     > extends Base<TKey> {
 //     A single parameter whose `extends C = D` overflows breaks after `=`.
 //
 // Any combination the rule has not verified (e.g. type parameters AND a
@@ -411,10 +411,10 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
 // list one per line, with `>` back at the declaration's base indent and
 // the brace glued:
 //
-//	export class C implements Serializer<
-//	  any,
-//	  KafkaRequest | Promise<KafkaRequest>
-//	> {
+//  export class C implements Serializer<
+//    any,
+//    KafkaRequest | Promise<KafkaRequest>
+//  > {
 //
 // The list takes no trailing comma (Prettier omits it for heritage type
 // arguments) and the brace stays glued even for a class with a non-empty

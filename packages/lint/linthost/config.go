@@ -1125,8 +1125,8 @@ const { pathToFileURL } = require("node:url");
   let current = mod;
   let allowNamedConfig = true;
   // Match the 8-hop walk used by the TypeScript loader at
-  // ` + "`" + `typeScriptConfigLoaderSource` + "`" + ` so doubly-wrapped CJS/ESM
-  // interop (e.g. ` + "`" + `{default:{default:config}}` + "`" + `) is resolved
+  // `+"`"+`typeScriptConfigLoaderSource`+"`"+` so doubly-wrapped CJS/ESM
+  // interop (e.g. `+"`"+`{default:{default:config}}`+"`"+`) is resolved
   // consistently across .js/.cjs/.mjs and .ts/.cts/.mts loaders.
   for (let i = 0; i < 8; i++) {
     if (current !== null && typeof current === "object" && Object.prototype.hasOwnProperty.call(current, "default")) {
@@ -1154,7 +1154,7 @@ const { pathToFileURL } = require("node:url");
 // toSerializableConfig copies every ITtscLintConfig key onto a plain object so
 // it survives the JSON round trip to the Go sidecar. Every key is copied
 // verbatim — files, ignores, extends, plugins, rules, AND format — so a config
-// whose only key is ` + "`" + `format` + "`" + ` is not silently dropped.
+// whose only key is `+"`"+`format`+"`"+` is not silently dropped.
 function toSerializableConfig(value) {
   const out = {};
   for (const key of [%s]) {

@@ -3,8 +3,8 @@ import {
   child_process,
   createProject,
   nativeBinary,
-  ttscBin,
   tsgoBinary,
+  ttscBin,
 } from "../../internal/toolchain";
 
 /**
@@ -16,8 +16,8 @@ import {
  * the launcher propagating the latest build status into the process exit code.
  *
  * 1. Materialize a project whose single source file has a type error.
- * 2. Spawn the real `ttsc --watch` launcher and wait for one build pass to
- *    report failure, then terminate the watcher with SIGTERM.
+ * 2. Spawn the real `ttsc --watch` launcher and wait for one build pass to report
+ *    failure, then terminate the watcher with SIGTERM.
  * 3. Assert the watch process exits with a non-zero code.
  */
 export const test_ttsc_watch_exits_nonzero_on_failed_build =
@@ -74,7 +74,10 @@ export const test_ttsc_watch_exits_nonzero_on_failed_build =
       output += chunk.toString("utf8");
       // Wait for a full build pass to land before tearing the watcher down, so
       // the exit code reflects an evaluated (failed) build rather than startup.
-      if (!terminated && /\[ttsc\] watch build (?:failed|complete)/.test(output)) {
+      if (
+        !terminated &&
+        /\[ttsc\] watch build (?:failed|complete)/.test(output)
+      ) {
         terminated = true;
         child.kill("SIGTERM");
       }

@@ -11,8 +11,8 @@ import (
 // those positions (unlike `??` mixed with `||`/`&&`), but Prettier 3
 // always adds the parens for clarity:
 //
-//   cond ? a ?? b : c   ->   cond ? (a ?? b) : c
-//   a ?? b ? c : d      ->   (a ?? b) ? c : d
+//  cond ? a ?? b : c   ->   cond ? (a ?? b) : c
+//  a ?? b ? c : d      ->   (a ?? b) ? c : d
 //
 // Only `??` is wrapped; `||` and `&&` operands are left bare. The wrap is
 // width-independent (it applies even when the ternary fits on one line),

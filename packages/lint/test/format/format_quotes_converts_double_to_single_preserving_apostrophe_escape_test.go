@@ -12,7 +12,7 @@ import "testing"
 //
 //  1. Parse `"a\"b\"c\'"` (two escaped doubles, one redundant escaped single).
 //  2. Apply format/quotes with prefer:"single".
-//  3. Assert it becomes `'a"b"c\''`.
+//  3. Assert it becomes `'a"b"c\”`.
 func TestFormatQuotesConvertsDoubleToSinglePreservingApostropheEscape(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

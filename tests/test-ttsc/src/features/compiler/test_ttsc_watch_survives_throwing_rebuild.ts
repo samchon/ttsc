@@ -5,8 +5,8 @@ import {
   fs,
   nativeBinary,
   path,
-  ttscBin,
   tsgoBinary,
+  ttscBin,
 } from "../../internal/toolchain";
 
 /**
@@ -20,12 +20,12 @@ import {
  * failed build and the watcher keeps running, then terminates cleanly on
  * SIGTERM.
  *
- * 1. Materialize a project that builds cleanly, spawn the real `ttsc --watch`,
- *    and wait for the first build pass to complete.
+ * 1. Materialize a project that builds cleanly, spawn the real `ttsc --watch`, and
+ *    wait for the first build pass to complete.
  * 2. Overwrite tsconfig.json with invalid JSON and touch a source file so the
  *    watcher debounces a rebuild whose config load throws.
- * 3. Assert the watcher reports a failed build (did not crash), then SIGTERM
- *    it and assert it exits on signal rather than dying on an uncaught throw.
+ * 3. Assert the watcher reports a failed build (did not crash), then SIGTERM it
+ *    and assert it exits on signal rather than dying on an uncaught throw.
  */
 export const test_ttsc_watch_survives_throwing_rebuild =
   async (): Promise<void> => {

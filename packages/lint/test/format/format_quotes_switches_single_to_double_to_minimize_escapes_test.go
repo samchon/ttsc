@@ -7,7 +7,7 @@ import "testing"
 // single-quoted literal that would be strictly cheaper double is
 // rewritten to double even though single is preferred.
 //
-// `'\''` carries one escape as single (the `\'`) and zero as double
+// `'\”` carries one escape as single (the `\'`) and zero as double
 // (`"'"`). Minimizing escapes wins over the preference, so the literal
 // flips to double; on a tie it would have stayed single.
 //

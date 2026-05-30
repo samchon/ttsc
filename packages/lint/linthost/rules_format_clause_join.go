@@ -10,8 +10,8 @@ import (
 // formatClauseJoin joins a single non-block statement that sits on its
 // own line back onto its control-flow header, mirroring Prettier:
 //
-//   if (a)
-//     b();
+//  if (a)
+//    b();
 //
 // becomes `if (a) b();` when the joined line fits printWidth. The same
 // applies to `for`, `for-in`, `for-of`, and `while` headers. A braced
