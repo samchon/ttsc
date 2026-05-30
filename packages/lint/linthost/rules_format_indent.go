@@ -74,17 +74,17 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     if src[lineStart:start] == want {
       return
     }
-    // Cede when the enclosing block's opening line is itself indented as a
-    // continuation, so format/indent's column-0 depth model does not apply.
-    // A block whose `{` sits on a wrapped head line — a curried arrow
-    // `): void => {`, a multi-line `if (\n …\n) {`, a multi-line heritage
-    // `…\n{` — hangs its body under that head's indent, not under
-    // depth*tabWidth from column 0. Reindenting to depth*tabWidth there
-    // DE-INDENTS correct source. The body's correct indent is the opener
-    // line's own indent plus one level; if that disagrees with `want`, the
-    // depth model is wrong for this block and we leave the statement alone.
-    if openerIndent, ok := enclosingBlockOpenerIndent(src, stmt); ok &&
-      openerIndent+layout.indent(1) != want {
+    // Cede everything inside a chained-arrow body (`a => b => { … }`).
+    // Prettier indents such a body one extra level for the chain
+    // continuation, so the body block AND every statement nested below it
+    // sit one level deeper than the column-0 depth model computes;
+    // reindenting any of them to depth*tabWidth de-indents correct source.
+    // This is detected structurally (an ancestor block whose owning arrow is
+    // itself another arrow's body), so a mangled input cannot fool it —
+    // unlike a class method body, a switch case body, a single-head arrow,
+    // or a multi-line-condition `if` body, all of which the depth model
+    // places correctly.
+    if cededByChainedArrowAncestor(stmt) {
       return
     }
     edits = append(edits, TextEdit{Pos: lineStart, End: start, Text: want})
@@ -118,15 +118,13 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     if indentCededToReflow(block) {
       return
     }
-    want := layout.indent(ownerDepth)
-    // Wrapped-head guard: when the block's own opener line is a continuation
-    // (curried arrow `): void => {`, multi-line `if (\n) {`), the `}` aligns
-    // to that opener line's indent, not to ownerDepth from column 0. If they
-    // disagree, cede — the head owns this block's framing.
-    openerIndent := blockOpenerLineIndent(src, block)
-    if openerIndent != want {
+    // Chained-arrow body: cede the `}` in lockstep with its body statements.
+    // A chained-arrow body's own brace, and any brace nested inside it, sit
+    // one extra level deep for the chain continuation, so leave them be.
+    if cededByChainedArrowAncestor(block) {
       return
     }
+    want := layout.indent(ownerDepth)
     if src[lineStart:closeBrace] == want {
       return
     }
@@ -178,41 +176,36 @@ func indentCededToReflow(stmt *shimast.Node) bool {
   return false
 }
 
-// enclosingBlockOpenerIndent returns the leading-whitespace string of the
-// physical line that holds the opening brace of `stmt`'s nearest enclosing
-// Block (or ModuleBlock). ok is false when the statement is not inside a
-// block (a top-level statement, whose depth model is column-0 correct).
+// cededByChainedArrowAncestor reports whether `node` sits inside the body of
+// a chained arrow (`a => b => { … }`). Prettier indents a chained arrow's
+// body one extra level for the chain continuation, so the body block AND
+// every statement / brace nested below it sit one level deeper than the
+// column-0 depth model computes; format/indent must cede all of them or it
+// de-indents correct source. Walking ancestor blocks (not just the nearest)
+// catches a statement deep inside the body, e.g. an `if` body two levels
+// down. Purely structural (AST kinds), so a mangled input cannot fool it,
+// and it does NOT match a class method body, a switch case body, a
+// single-head arrow body, or a multi-line-condition `if` body — those the
+// depth model places correctly.
 //
-// The opener line is found from the Block node's start: a Block's Pos
-// (after trivia) is its `{`. The string — not a visual width — is returned
-// so the caller can compare it against the indent unit byte-for-byte and
-// stay correct under mixed tabs/spaces.
-func enclosingBlockOpenerIndent(src string, stmt *shimast.Node) (string, bool) {
-  var block *shimast.Node
-  for n := stmt.Parent; n != nil; n = n.Parent {
-    switch n.Kind {
-    case shimast.KindBlock, shimast.KindModuleBlock:
-      block = n
-    case shimast.KindSourceFile:
-      n = nil
+// `node` may be a statement (statement pass) or a Block (closing-brace
+// pass). The walk starts at `node` itself so a Block argument's own
+// chained-arrow-body-ness is tested (its `}` must cede too), then climbs
+// ancestors for a statement nested deeper inside the body.
+func cededByChainedArrowAncestor(node *shimast.Node) bool {
+  for n := node; n != nil; n = n.Parent {
+    if n.Kind == shimast.KindSourceFile {
+      return false
     }
-    if block != nil || n == nil {
-      break
+    if n.Kind == shimast.KindBlock {
+      arrow := n.Parent
+      if arrow != nil && arrow.Kind == shimast.KindArrowFunction &&
+        arrow.Parent != nil && arrow.Parent.Kind == shimast.KindArrowFunction {
+        return true
+      }
     }
   }
-  if block == nil {
-    return "", false
-  }
-  brace := shimscanner.SkipTrivia(src, block.Pos())
-  if brace < 0 || brace > len(src) {
-    return "", false
-  }
-  ls := lineStartOffset(src, brace)
-  i := ls
-  for i < brace && (src[i] == ' ' || src[i] == '\t') {
-    i++
-  }
-  return src[ls:i], true
+  return false
 }
 
 // forEachBlockClose invokes fn for every Block / ModuleBlock in the file
@@ -287,23 +280,6 @@ func blockCloseBracePos(src string, block *shimast.Node) int {
     }
   }
   return -1
-}
-
-// blockOpenerLineIndent returns the leading-whitespace string of the line
-// holding `block`'s opening `{`. The closing-brace pass compares it to the
-// owner indent so a wrapped-head block (curried arrow `): void => {`) whose
-// `{` sits at a continuation indent cedes its `}` to that head.
-func blockOpenerLineIndent(src string, block *shimast.Node) string {
-  brace := shimscanner.SkipTrivia(src, block.Pos())
-  if brace < 0 || brace > len(src) {
-    return ""
-  }
-  ls := lineStartOffset(src, brace)
-  i := ls
-  for i < brace && (src[i] == ' ' || src[i] == '\t') {
-    i++
-  }
-  return src[ls:i]
 }
 
 func init() {
