@@ -772,7 +772,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, err
   }
   if discovered == "" {
-    return nil, fmt.Errorf("@ttsc/lint: no lint.config.* or ttsc-lint.config.* file found (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", cwd)
+    return nil, fmt.Errorf("%w (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", errNoLintConfigFile, cwd)
   }
   return loadConfigResolver(discovered)
 }

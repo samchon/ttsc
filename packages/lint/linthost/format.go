@@ -37,15 +37,15 @@ func RunFormat(args []string) int {
 // runFormat is the internal implementation of RunFormat. It drives the
 // cascade loop and applies format-rule edits until convergence.
 func runFormat(opts *subcommandOpts) int {
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  rules, err := loadFormatRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  resolver := formatCommandResolver{
-    inner:          rules,
-    ruleNames:      &formatRuleNamesCache{},
-    entryDecisions: &sync.Map{},
+  resolver, err := newFormatCommandResolver(rules, opts.cwd, "")
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
   }
   engine := NewEngineWithResolver(resolver)
   engine.SetSerial(opts.singleThreaded)
@@ -124,6 +124,76 @@ type formatCommandResolver struct {
   // resolver by value shares the same underlying map. sync.Map handles the
   // engine's concurrent per-file ResolveRules calls without an extra lock.
   entryDecisions *sync.Map
+  // defaultOptions holds the always-on format rules' options (from
+  // expandFormatBlock) to apply when the project config declares no `format`
+  // block — no block in lint.config.*, or no config file at all. nil when a
+  // format block is configured, so that block wins entirely. Keys are canonical
+  // format rule names; values are the marshaled options blob each rule decodes,
+  // exactly as a configured block would supply them.
+  defaultOptions RuleOptionsMap
+}
+
+// newFormatCommandResolver wraps inner for the format command / LSP buffer path.
+// When inner declares no `format` rules (no `format` block in lint.config.*, or
+// no config file at all) it loads the documented default format rules, letting
+// the nearest .vscode/settings.json under startDir override the indentation/eol
+// keys. language scopes the settings.json language section ("" skips sections,
+// e.g. the project-wide CLI path). A configured `format` block leaves
+// defaultOptions nil so the block stays authoritative.
+func newFormatCommandResolver(inner RuleResolver, startDir string, language string) (formatCommandResolver, error) {
+  r := formatCommandResolver{
+    inner:          inner,
+    ruleNames:      &formatRuleNamesCache{},
+    entryDecisions: &sync.Map{},
+  }
+  if !hasInnerFormatRules(inner) {
+    opts, err := defaultFormatOptions(editorFormatOverrides(startDir, language))
+    if err != nil {
+      return formatCommandResolver{}, err
+    }
+    r.defaultOptions = opts
+  }
+  return r, nil
+}
+
+// hasInnerFormatRules reports whether inner already carries format-rule options,
+// i.e. the project configured a `format` block (format/* options only ever come
+// from a block). When true the block is authoritative and defaults are skipped.
+func hasInnerFormatRules(inner RuleResolver) bool {
+  for name := range resolverOptions(inner) {
+    if isRegisteredFormatRule(name) {
+      return true
+    }
+  }
+  return false
+}
+
+// defaultFormatOptions expands the always-on default format ruleset (optionally
+// overridden by editor settings) into the per-rule options map the resolver
+// returns through RuleOptions. It reuses expandFormatBlock so the defaults are
+// produced by exactly the same code path as a user-authored format block.
+func defaultFormatOptions(overrides map[string]any) (RuleOptionsMap, error) {
+  expanded, err := expandFormatBlock(overrides)
+  if err != nil {
+    return nil, err
+  }
+  out := make(RuleOptionsMap, len(expanded))
+  for name, entry := range expanded {
+    tuple, ok := entry.([]any)
+    if !ok || len(tuple) < 2 {
+      continue
+    }
+    options, ok := tuple[1].(map[string]any)
+    if !ok {
+      continue
+    }
+    raw, err := json.Marshal(options)
+    if err != nil {
+      return nil, err
+    }
+    out[name] = raw
+  }
+  return out, nil
 }
 
 // formatRuleNamesCache lazily computes and stores the sorted format-rule name
@@ -334,9 +404,20 @@ func (r formatCommandResolver) EnabledRuleConfig() RuleConfig {
   return enabled
 }
 
-// RuleOptions implements RuleResolver by delegating directly to the inner resolver.
+// RuleOptions implements RuleResolver. It prefers the inner resolver's options
+// and falls back to the default format options for rules the project did not
+// configure, so the default always-on rules receive their (possibly
+// settings.json-overridden) options.
 func (r formatCommandResolver) RuleOptions(name string) json.RawMessage {
-  return r.inner.RuleOptions(name)
+  if raw := r.inner.RuleOptions(name); len(raw) > 0 {
+    return raw
+  }
+  if r.defaultOptions != nil {
+    if raw, ok := r.defaultOptions[name]; ok {
+      return raw
+    }
+  }
+  return nil
 }
 
 // formatOptionRuleNames returns the sorted list of rule names from the inner
@@ -360,12 +441,17 @@ func (r formatCommandResolver) formatOptionRuleNames() []string {
 // memoizing it does not change any caller's observed ordering.
 func (r formatCommandResolver) computeFormatOptionRuleNames() []string {
   options := resolverOptions(r.inner)
-  if len(options) == 0 {
-    return nil
-  }
   names := make([]string, 0, len(options))
   for name := range options {
     if isRegisteredFormatRule(name) {
+      names = append(names, name)
+    }
+  }
+  if len(names) == 0 {
+    // No `format` block configured: fall back to the default always-on set so
+    // the formatter still runs, with documented defaults plus any
+    // .vscode/settings.json overrides folded into defaultOptions.
+    for name := range r.defaultOptions {
       names = append(names, name)
     }
   }
