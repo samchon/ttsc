@@ -22,8 +22,8 @@ export interface ITtscLintConfig {
    */
   extends?: string;
 
-  /** Contributor plugin objects keyed by namespace. */
-  plugins?: Record<string, ITtscLintPlugin>;
+  /** Prettier-style flat configuration for the format rules. */
+  format?: ITtscLintFormat;
 
   /**
    * Kebab-case built-in rule severities plus namespaced contributor rules.
@@ -34,6 +34,6 @@ export interface ITtscLintConfig {
    */
   rules?: ITtscLintRules;
 
-  /** Prettier-style flat configuration for the format rules. */
-  format?: ITtscLintFormat;
+  /** Contributor plugin objects keyed by namespace. */
+  plugins?: Record<string, ITtscLintPlugin>;
 }
