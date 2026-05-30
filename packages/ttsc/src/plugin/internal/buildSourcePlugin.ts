@@ -1004,8 +1004,51 @@ function isHashableFile(name: string): boolean {
   return !name.endsWith("~");
 }
 
+// Per-process memo for the Go compiler identity. `computeCacheKey` runs once
+// per source plugin, so an N-plugin project that points every plugin at the
+// same toolchain would otherwise pay N `go version` spawns plus N ~150MB
+// binary hashes for a value that does not change between plugins. The result
+// is a pure function of the go binary's resolved real path plus its on-disk
+// content; the memo key therefore mixes the resolved real path with a cheap
+// content signature (byte size + nanosecond mtime). That signature changes if
+// a long-lived host rewrites the binary in place between calls, so the memo
+// re-derives the identity exactly as the un-memoized code would and the
+// cache-key bytes stay byte-for-byte identical to today. `go version` reads no
+// cwd/custom env (the spawn passes neither), so cwd is not part of the key.
+const goCompilerIdentityCache = new Map<string, string>();
+
 function resolveGoCompilerIdentity(goBinary: string): string {
   const resolved = resolveExecutableIdentityPath(goBinary);
+  const memoKey = goCompilerIdentityMemoKey(goBinary, resolved);
+  if (memoKey !== null) {
+    const cached = goCompilerIdentityCache.get(memoKey);
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
+  const identity = computeGoCompilerIdentity(goBinary, resolved);
+  if (memoKey !== null) {
+    goCompilerIdentityCache.set(memoKey, identity);
+  }
+  return identity;
+}
+
+// Build a memo key that pins both the resolved binary path and its current
+// content. Returns null (skip caching, recompute) when the binary cannot be
+// stat-ed, so the rare unstattable case never serves a stale identity.
+function goCompilerIdentityMemoKey(
+  goBinary: string,
+  resolved: string,
+): string | null {
+  try {
+    const stat = fs.statSync(resolved);
+    return `${goBinary}\0${resolved}\0${stat.size}\0${stat.mtimeMs}`;
+  } catch {
+    return null;
+  }
+}
+
+function computeGoCompilerIdentity(goBinary: string, resolved: string): string {
   if (!fs.existsSync(resolved)) {
     return "missing";
   }
