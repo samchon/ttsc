@@ -37,7 +37,7 @@ import (
 //   - `format/indent`, always on, driven by tabWidth/useTabs/endOfLine.
 //   - `format/whitespace`, always on, driven by endOfLine.
 //   - `format/sort-imports`, opt-in by setting `importOrder`.
-//   - `format/jsdoc`, opt-in by setting `jsdoc` truthy.
+//   - `format/jsdoc`, opt-in by setting `jsDoc` truthy.
 //
 // The returned map is the raw form rules parsers expect. Callers MUST
 // merge any user-supplied `rules` map on top of this one (rules-wins
@@ -255,8 +255,10 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     out["format/sort-imports"] = ruleEntry(siOpts)
   }
 
-  // formatJsdoc, opt-in by `jsdoc` truthy (boolean or object).
-  if v, ok := raw["jsdoc"]; ok && v != nil {
+  // formatJsdoc, opt-in by `jsDoc` truthy (boolean or object). The config key
+  // is camelCased (jsDoc) to match the other multi-word keys; the emitted rule
+  // id stays `format/jsdoc`.
+  if v, ok := raw["jsDoc"]; ok && v != nil {
     jdOpts := map[string]any{}
     enabled := false
     switch j := v.(type) {
@@ -269,29 +271,29 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
         case "tagSynonyms":
           ts, ok := val.(map[string]any)
           if !ok {
-            return nil, fmt.Errorf("@ttsc/lint: format.jsdoc.tagSynonyms must be an object, got %T", val)
+            return nil, fmt.Errorf("@ttsc/lint: format.jsDoc.tagSynonyms must be an object, got %T", val)
           }
           // Element values must be strings; surface
           // typos early instead of after a downstream
           // JSON-decode failure.
           for k, v := range ts {
             if _, ok := v.(string); !ok {
-              return nil, fmt.Errorf("@ttsc/lint: format.jsdoc.tagSynonyms[%q] must be a string, got %T", k, v)
+              return nil, fmt.Errorf("@ttsc/lint: format.jsDoc.tagSynonyms[%q] must be a string, got %T", k, v)
             }
           }
           jdOpts["tagSynonyms"] = ts
         case "sortTags":
-          b, err := asBool("format.jsdoc.sortTags", val)
+          b, err := asBool("format.jsDoc.sortTags", val)
           if err != nil {
             return nil, err
           }
           jdOpts["sortTags"] = b
         default:
-          return nil, fmt.Errorf("@ttsc/lint: format.jsdoc unknown key %q (allowed: tagSynonyms, sortTags)", key)
+          return nil, fmt.Errorf("@ttsc/lint: format.jsDoc unknown key %q (allowed: tagSynonyms, sortTags)", key)
         }
       }
     default:
-      return nil, fmt.Errorf("@ttsc/lint: format.jsdoc must be a boolean or object, got %T", v)
+      return nil, fmt.Errorf("@ttsc/lint: format.jsDoc must be a boolean or object, got %T", v)
     }
     if enabled {
       out["format/jsdoc"] = ruleEntry(jdOpts)
@@ -473,7 +475,7 @@ func rejectUnknownFormatKeys(raw map[string]any) error {
     "importOrderSeparation":      {},
     "importOrderSortSpecifiers":  {},
     "importOrderCaseInsensitive": {},
-    "jsdoc":                      {},
+    "jsDoc":                      {},
   }
   for key := range raw {
     if _, ok := allowed[key]; !ok {

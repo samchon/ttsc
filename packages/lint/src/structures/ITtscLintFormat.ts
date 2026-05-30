@@ -148,7 +148,8 @@ export interface ITtscLintFormat {
 
   /**
    * Enable `format/jsdoc`. Pass `true` to turn it on with built-in defaults, or
-   * an object to customize:
+   * an object to customize. (The rule id stays `format/jsdoc`; only this config
+   * key is camelCased to match the other multi-word keys.)
    *
    * - `tagSynonyms`, extra `from → to` rewrites layered on the built-in synonym
    *   table.
@@ -157,7 +158,7 @@ export interface ITtscLintFormat {
    *
    * @default false (off)
    */
-  jsdoc?:
+  jsDoc?:
     | boolean
     | {
         tagSynonyms?: Record<string, string>;

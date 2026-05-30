@@ -8,7 +8,7 @@ import (
 // TestFormatBlockRejectsInvalidJsdocOptions verifies expandFormatBlock returns
 // errors for invalid values inside the `jsdoc` object sub-keys.
 //
-// Locks four error paths inside the jsdoc case:
+// Locks four error paths inside the jsDoc case:
 //
 //   - `tagSynonyms` must be a map[string]any; a non-object value (e.g. a bool)
 //     triggers the `if !ok` guard.
@@ -18,15 +18,15 @@ import (
 //
 //   - `sortTags` must be a boolean; a non-bool triggers the asBool error path.
 //
-//   - An unknown jsdoc key (e.g. "minify") triggers the default error arm.
+//   - An unknown jsDoc key (e.g. "minify") triggers the default error arm.
 //
-//     1. Call expandFormatBlock with `jsdoc: { tagSynonyms: true }`.
+//     1. Call expandFormatBlock with `jsDoc: { tagSynonyms: true }`.
 //     2. Assert error mentioning `tagSynonyms`.
-//     3. Call with `jsdoc: { tagSynonyms: { foo: 42 } }`.
+//     3. Call with `jsDoc: { tagSynonyms: { foo: 42 } }`.
 //     4. Assert error mentioning `tagSynonyms[`.
-//     5. Call with `jsdoc: { sortTags: "yes" }`.
-//     6. Assert error naming `format.jsdoc.sortTags`.
-//     7. Call with `jsdoc: { minify: true }`.
+//     5. Call with `jsDoc: { sortTags: "yes" }`.
+//     6. Assert error naming `format.jsDoc.sortTags`.
+//     7. Call with `jsDoc: { minify: true }`.
 //     8. Assert error mentioning `minify`.
 func TestFormatBlockRejectsInvalidJsdocOptions(t *testing.T) {
   cases := []struct {
@@ -36,22 +36,22 @@ func TestFormatBlockRejectsInvalidJsdocOptions(t *testing.T) {
   }{
     {
       name:      "tagSynonyms not an object",
-      raw:       map[string]any{"jsdoc": map[string]any{"tagSynonyms": true}},
+      raw:       map[string]any{"jsDoc": map[string]any{"tagSynonyms": true}},
       wantInErr: "tagSynonyms",
     },
     {
       name:      "tagSynonyms value not a string",
-      raw:       map[string]any{"jsdoc": map[string]any{"tagSynonyms": map[string]any{"foo": 42}}},
+      raw:       map[string]any{"jsDoc": map[string]any{"tagSynonyms": map[string]any{"foo": 42}}},
       wantInErr: "tagSynonyms",
     },
     {
       name:      "sortTags not a bool",
-      raw:       map[string]any{"jsdoc": map[string]any{"sortTags": "yes"}},
-      wantInErr: "format.jsdoc.sortTags",
+      raw:       map[string]any{"jsDoc": map[string]any{"sortTags": "yes"}},
+      wantInErr: "format.jsDoc.sortTags",
     },
     {
-      name:      "unknown jsdoc key",
-      raw:       map[string]any{"jsdoc": map[string]any{"minify": true}},
+      name:      "unknown jsDoc key",
+      raw:       map[string]any{"jsDoc": map[string]any{"minify": true}},
       wantInErr: "minify",
     },
   }
