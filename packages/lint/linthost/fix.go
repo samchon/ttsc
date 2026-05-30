@@ -265,12 +265,30 @@ func selectTextEdits(sourceLen int, edits []TextEdit) []TextEdit {
 
   selected := make([]TextEdit, 0, len(sorted))
   lastEnd := -1
+  // lastInsertAt marks the offset of the previously-selected edit when that
+  // edit was a zero-width insert (Pos==End), else -1. A new zero-width
+  // insert at that same offset must be dropped: two coincident inserts both
+  // pass the `edit.Pos < lastEnd` gate, then apply in reverse sort order and
+  // concatenate at one point — silently corrupting the source (e.g. a `;`
+  // insert and a `\n` insert at EOF yielding `\n;`). The host contract keeps
+  // one winner and drops the rest (see rule.TextEdit). A zero-width insert
+  // sitting at the end of a prior NON-empty edit is left alone: it applies
+  // cleanly after the replacement and is a legitimate adjacency.
+  lastInsertAt := -1
   for _, edit := range sorted {
     if edit.Pos < lastEnd {
       continue
     }
+    if edit.Pos == edit.End && edit.Pos == lastInsertAt {
+      continue
+    }
     selected = append(selected, edit)
     lastEnd = edit.End
+    if edit.Pos == edit.End {
+      lastInsertAt = edit.Pos
+    } else {
+      lastInsertAt = -1
+    }
   }
   return selected
 }
