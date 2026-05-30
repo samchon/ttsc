@@ -282,8 +282,17 @@ func walkBlockCloses(node *shimast.Node, depth int, fn func(block *shimast.Node,
       shimast.KindClassDeclaration,
       shimast.KindClassExpression,
       shimast.KindInterfaceDeclaration,
-      shimast.KindTypeLiteral,
-      shimast.KindObjectLiteralExpression:
+      shimast.KindTypeLiteral:
+      // These carry a real closing `}` that is not a Block node: a switch's
+      // `}` (CaseBlock), a class/interface/type-literal body `}`. Align it to
+      // the depth the owner sits at (this `depth`); the members/clauses nest
+      // one deeper.
+      fn(child, depth)
+      childDepth = depth + 1
+    case shimast.KindObjectLiteralExpression:
+      // Object-literal braces live in expression position (assignments,
+      // arguments); their layout is the printer's / source's, so leave the
+      // `}` alone and only descend one level for any nested statement lists.
       childDepth = depth + 1
     }
     walkBlockCloses(child, childDepth, fn)
