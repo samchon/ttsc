@@ -183,6 +183,18 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // Abstain on any node nested inside a JSX expression container (`{…}`),
+  // the JSX analogue of the template-substitution guard above. A reflow
+  // node (call / conditional) that sits inside BOTH a JSX attribute
+  // initializer (`x={cond ? a : b}`) and a JSX child
+  // (`{items.map(…)}`) gets broken here, then the next pass measures each
+  // fragment flat, finds it fits, and reverts — `ttsc format` oscillates to
+  // the 10-pass cap and exits 2. `KindJsxExpression` wraps both the
+  // attribute `{…}` and the child `{…}`, so this one guard covers both.
+  if hasJsxExpressionAncestor(node) {
+    return
+  }
+
   // Safety: abstain when the node carries comments outside its
   // children. The per-node printers join child docs with a fresh
   // `, ` separator and have no path for trivia between siblings, so
@@ -518,6 +530,26 @@ func hasTemplateSubstitutionAncestor(node *shimast.Node) bool {
   return false
 }
 
+// hasJsxExpressionAncestor reports whether `node` sits inside a JSX
+// expression container (`{…}`). formatPrintWidth abstains on such nodes for
+// the same reason as hasTemplateSubstitutionAncestor: a reflow node that lives
+// inside both a JSX attribute initializer and a JSX child breaks under
+// print-width and then reverts on the next pass when each fragment measures
+// flat, so `ttsc format` never converges and exits 2. `KindJsxExpression`
+// wraps both the attribute `{…}` and the child `{…}`, so a single ancestor
+// walk covers both placements.
+func hasJsxExpressionAncestor(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindJsxExpression {
+      return true
+    }
+  }
+  return false
+}
+
 // isReflowKind reports whether `k` is one of the node kinds the
 // formatPrintWidth rule visits. Kept in sync with Visits() so
 // hasReflowAncestor does not need to call Visits() at runtime.
@@ -574,13 +606,31 @@ func hasNonChildComments(node *shimast.Node, src string, start, end int) bool {
     children = append(children, span{shimscanner.SkipTrivia(src, child.Pos()), child.End()})
     return false
   })
+  // inChild reports whether offset `i` lies inside any child's [pos, end)
+  // token range. The children are appended in source order (ForEachChild
+  // walks the AST in source order) with non-overlapping ranges, so a binary
+  // search for the last child whose `pos <= i` answers the query in O(log n)
+  // instead of the former O(n) per-byte linear scan. The boolean returned is
+  // identical to the linear scan for every offset; this is a pure speedup of
+  // the predicate, it changes no formatting output.
   inChild := func(i int) bool {
-    for _, c := range children {
-      if i >= c.pos && i < c.end {
-        return true
+    lo, hi := 0, len(children)
+    for lo < hi {
+      mid := (lo + hi) / 2
+      if children[mid].pos <= i {
+        lo = mid + 1
+      } else {
+        hi = mid
       }
     }
-    return false
+    // lo is the count of children with pos <= i; the candidate is the one
+    // just before it. A non-overlapping, source-ordered child list means at
+    // most this single candidate can contain `i`.
+    if lo == 0 {
+      return false
+    }
+    c := children[lo-1]
+    return i >= c.pos && i < c.end
   }
   for i := start; i < end-1 && i < len(src)-1; i++ {
     if inChild(i) {
