@@ -44,131 +44,89 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //   - use-before-declaration (a binding referenced above its own line) →
 //     `let` makes that reference a TDZ ReferenceError.
 //
-// The gate therefore declines when any of these hold:
-//   - the declaration list binds more than one name (keep the surface small);
-//   - a declared name is referenced anywhere in the file before the
-//     statement's Pos() (TDZ / use-before-declaration);
-//   - a declared name appears in more than one `var` declaration in the file
-//     (redeclaration approximation).
+// Five corruption holes were patched piecemeal here before (var-vs-var,
+// for-header var, function/class redeclaration, mixed destructuring sibling,
+// object-literal shorthand, use-before-declaration). That whack-a-mole is
+// replaced by one conservative rule with two preconditions; the fix is
+// emitted only if BOTH hold:
 //
-// Destructuring patterns contribute no plain identifier names through
-// variableStatementBindingNames; such a list yields zero names and is declined
-// by the multi-binding / empty check below.
+//  1. Single binding in the whole file. The declared name is introduced by
+//     EXACTLY ONE binding position anywhere in the source — counting every
+//     binding-introducing slot of that identifier: variable declarations and
+//     destructuring leaves, function/class/enum/module declarations,
+//     parameters and catch bindings, and import bindings. More than one such
+//     position → decline. This single count subsumes every prior
+//     redeclaration arm (var-vs-var, var-vs-param, var-vs-function, mixed
+//     destructure siblings, for-header var, …). It over-declines harmless
+//     cross-scope same-name bindings, which never corrupts.
+//  2. No use-before-declaration / TDZ. The declared name is not referenced as
+//     a VALUE before the statement's Pos(). A non-reference occurrence of the
+//     same text — a member name (`o.x`), an object-literal key (`{x:1}`), a
+//     statement label (`x:`), or a type reference (`: x`) — binds no value and
+//     must not force a decline; isValueReferenceIdentifier classifies these.
+//
+// The var statement being fixed must itself be a single plain identifier
+// declarator so the keyword rewrite has a simple `let x` rename target; a
+// destructuring var (`var {a}=o`) or a multi-binding list is declined here
+// even though its names might each bind only once.
 func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   if ctx == nil || ctx.File == nil {
     return false
   }
+  // Precondition: the var being fixed is a single plain identifier declarator.
+  // variableStatementBindingNames returns plain identifier names only, so a
+  // destructuring declarator yields zero names; requiring exactly one name AND
+  // exactly one VariableDeclaration node rejects both multi-binding lists and
+  // any destructured (or destructured-sibling) declarator.
   names := variableStatementBindingNames(node)
   if len(names) != 1 {
     return false
   }
-  // variableStatementBindingNames skips destructuring bindings, so a mixed
-  // list like `var a = 1, { b } = o;` yields a single plain name (`a`) and
-  // slips the single-binding guard above — yet the one `var` keyword also
-  // governs the destructured sibling `{ b }`, which the redeclaration and
-  // use-before-declaration scans below never see (they too skip destructuring).
-  // Rewriting the keyword to `let` would then corrupt: a later `var b` becomes
-  // a duplicate-`let` SyntaxError, and a forward read of `b` becomes a TDZ
-  // ReferenceError. Require exactly one VariableDeclaration node in the list so
-  // any destructured sibling forces a decline. (`var a=1, b=2` is already
-  // declined by the plain-name count; this closes the destructure-sibling gap.)
   if list := node.AsVariableStatement().DeclarationList.AsVariableDeclarationList(); list == nil ||
     list.Declarations == nil || len(list.Declarations.Nodes) != 1 {
     return false
   }
-  declared := map[string]struct{}{}
-  for _, name := range names {
-    declared[name] = struct{}{}
-  }
+  target := names[0]
 
   declPos := node.Pos()
-  varOccurrences := map[string]int{}
-  referencedBefore := false
-  root := ctx.File.AsNode()
-  countVarListNames := func(listNode *shimast.Node) {
-    if listNode == nil || listNode.Kind != shimast.KindVariableDeclarationList || !shimast.IsVar(listNode) {
-      return
-    }
-    list := listNode.AsVariableDeclarationList()
-    if list == nil || list.Declarations == nil {
-      return
-    }
-    for _, decl := range list.Declarations.Nodes {
-      v := decl.AsVariableDeclaration()
-      if v == nil {
-        continue
-      }
-      if name := identifierText(v.Name()); name != "" {
-        if _, ok := declared[name]; ok {
-          varOccurrences[name]++
-        }
-      }
+  // The single declarator's initializer subtree. A value reference to `target`
+  // inside this range is a self-reference that runs while `target` is still in
+  // its temporal dead zone under `let` (`var x = typeof x;`, `var x = x;`,
+  // `var x = (() => x)();`), so it must also force a decline even though its
+  // Pos() is AFTER the statement's start. initStart/initEnd are -1 when the
+  // declarator has no initializer, which disables the range check.
+  initStart, initEnd := -1, -1
+  if list := node.AsVariableStatement().DeclarationList.AsVariableDeclarationList(); list != nil &&
+    list.Declarations != nil && len(list.Declarations.Nodes) == 1 {
+    if decl := list.Declarations.Nodes[0].AsVariableDeclaration(); decl != nil && decl.Initializer != nil {
+      initStart, initEnd = decl.Initializer.Pos(), decl.Initializer.End()
     }
   }
-  walkDescendants(root, func(child *shimast.Node) {
-    switch child.Kind {
-    case shimast.KindVariableStatement:
-      vs := child.AsVariableStatement()
-      if vs == nil || vs.DeclarationList == nil || !shimast.IsVar(vs.DeclarationList) {
-        return
+  bindingCount := 0
+  referencedBefore := false
+  walkDescendants(ctx.File.AsNode(), func(child *shimast.Node) {
+    // Binding count: every position that introduces the name `target` as a
+    // binding (a declaration), not a value reference. Two or more positions
+    // anywhere in the file decline the fix.
+    for _, name := range bindingNamesIntroducedBy(child) {
+      if name == target {
+        bindingCount++
       }
-      for _, name := range variableStatementBindingNames(child) {
-        if _, ok := declared[name]; ok {
-          varOccurrences[name]++
-        }
-      }
-    case shimast.KindForStatement:
-      // A `for`-header `var` is a bare VariableDeclarationList, not a
-      // VariableStatement, so the case above never sees it. Count its
-      // bindings too, or `var x; for (var x …)` would slip the
-      // redeclaration check and corrupt to a duplicate `let`.
-      if fs := child.AsForStatement(); fs != nil {
-        countVarListNames(fs.Initializer)
-      }
-    case shimast.KindForInStatement, shimast.KindForOfStatement:
-      if fs := child.AsForInOrOfStatement(); fs != nil {
-        countVarListNames(fs.Initializer)
-      }
-    case shimast.KindFunctionDeclaration:
-      // A hoisted function declaration may legally share a name with a
-      // function-scoped `var` (`var x=1; function x(){}`), but `let x`
-      // alongside `function x` is a duplicate-declaration SyntaxError.
-      // Count a same-name function declaration as another occurrence so
-      // the redeclaration gate below declines the rewrite.
-      if fn := child.AsFunctionDeclaration(); fn != nil {
-        if name := identifierText(fn.Name()); name != "" {
-          if _, ok := declared[name]; ok {
-            varOccurrences[name]++
-          }
-        }
-      }
-    case shimast.KindClassDeclaration:
-      // Same as the function-declaration case: a same-name class
-      // declaration alongside `let` is a duplicate-declaration error.
-      if cl := child.AsClassDeclaration(); cl != nil {
-        if name := identifierText(cl.Name()); name != "" {
-          if _, ok := declared[name]; ok {
-            varOccurrences[name]++
-          }
-        }
-      }
-    case shimast.KindIdentifier:
-      name := identifierText(child)
-      if name == "" {
-        return
-      }
-      if _, ok := declared[name]; !ok {
-        return
-      }
-      // Only genuine value references trigger the TDZ / use-before
-      // decline. Non-reference occurrences of the same text — a
-      // member name (`o.x`), an object-literal key (`{x:1}`), a
-      // statement label (`x:`), or a type reference (`: x`) — bind no
-      // value and must not force a decline.
-      if !isValueReferenceIdentifier(child) {
-        return
-      }
-      if child.Pos() < declPos {
+    }
+    // TDZ: a value reference to `target` turns into a ReferenceError under
+    // `let` when it executes while `target` is still in its temporal dead
+    // zone. Two cases decline:
+    //   - a reference BEFORE the var's own position (`log(x); var x = 1;`);
+    //   - a self-reference WITHIN the declarator's own initializer range
+    //     (`var x = typeof x;`). Conservatively, any value reference inside
+    //     the initializer declines — including a deferred read in a nested
+    //     closure (`var f = () => f;`) that is actually safe — because the
+    //     AST-local gate does not track whether that closure runs during
+    //     initialization. Over-declining never corrupts source.
+    if child.Kind == shimast.KindIdentifier && identifierText(child) == target &&
+      isValueReferenceIdentifier(child) {
+      pos := child.Pos()
+      if pos < declPos || (initStart >= 0 && pos >= initStart && pos < initEnd) {
         referencedBefore = true
       }
     }
@@ -176,12 +134,101 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   if referencedBefore {
     return false
   }
-  for _, count := range varOccurrences {
-    if count > 1 {
-      return false
+  return bindingCount == 1
+}
+
+// bindingNamesIntroducedBy returns every plain identifier name that `node`
+// introduces as a binding in its OWN slot — never the names bound by its
+// descendants, which the file-wide walk visits independently. The classifier
+// is by AST kind and slot so a value reference, member name, object-literal
+// key, label, or type reference of the same text is excluded; only genuine
+// declarations contribute.
+//
+// A destructuring declarator (`var { a } = o`, `function f([a]) {}`) is NOT
+// flattened here: its leaf names belong to the BindingElement descendants,
+// which the walk visits on their own, so each leaf is counted exactly once at
+// its own position. Declaration nodes therefore contribute only when their
+// own name slot is a plain identifier.
+//
+// Returns nil for any node that introduces no binding in its own slot. Type
+// aliases and interfaces are intentionally absent: they live in the type
+// namespace and merge with a same-name value binding without a `let`
+// duplicate-declaration error.
+func bindingNamesIntroducedBy(node *shimast.Node) []string {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindVariableDeclaration:
+    if decl := node.AsVariableDeclaration(); decl != nil {
+      if name := identifierText(decl.Name()); name != "" {
+        return []string{name}
+      }
+    }
+  case shimast.KindParameter:
+    if decl := node.AsParameterDeclaration(); decl != nil {
+      if name := identifierText(decl.Name()); name != "" {
+        return []string{name}
+      }
+    }
+  case shimast.KindBindingElement:
+    // A leaf of a destructuring pattern (`{ a }`, `[a]`, `{ k: a }`,
+    // `...rest`). Only the element's own bound name counts; nested patterns
+    // are their own BindingElement descendants, and the default-value
+    // initializer is a value reference, not a binding.
+    if elem := node.AsBindingElement(); elem != nil {
+      if name := identifierText(elem.Name()); name != "" {
+        return []string{name}
+      }
+    }
+  case shimast.KindFunctionDeclaration:
+    if decl := node.AsFunctionDeclaration(); decl != nil && decl.Body != nil {
+      if name := identifierText(decl.Name()); name != "" {
+        return []string{name}
+      }
+    }
+  case shimast.KindClassDeclaration:
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
+    }
+  case shimast.KindEnumDeclaration, shimast.KindModuleDeclaration:
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
+    }
+  case shimast.KindCatchClause:
+    // `catch (e)` — the catch binding. A destructured catch binding
+    // (`catch ({ e })`) has its leaves counted via the BindingElement
+    // descendants, so only a plain identifier binding counts here.
+    if catch := node.AsCatchClause(); catch != nil && catch.VariableDeclaration != nil {
+      if name := identifierText(catch.VariableDeclaration.Name()); name != "" {
+        return []string{name}
+      }
+    }
+  case shimast.KindImportClause:
+    // `import foo from "m"` — the default import binding. Named and
+    // namespace bindings are their own ImportSpecifier / NamespaceImport
+    // descendants, visited separately.
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
+    }
+  case shimast.KindNamespaceImport:
+    // `import * as ns from "m"`.
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
+    }
+  case shimast.KindImportSpecifier:
+    // `import { a } from "m"` / `import { a as b } from "m"` — the local
+    // binding is the specifier's Name(), not the PropertyName.
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
+    }
+  case shimast.KindImportEqualsDeclaration:
+    // `import x = require("m")` / `import x = A.B`.
+    if name := identifierText(node.Name()); name != "" {
+      return []string{name}
     }
   }
-  return true
+  return nil
 }
 
 // isValueReferenceIdentifier reports whether an Identifier node occupies a
