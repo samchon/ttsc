@@ -163,7 +163,12 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // rules disagree on `es5` / `none` projects and oscillate on every
   // cascade pass — the trailing-comma rule says "no comma" while the
   // printer adds one back. See `printArgList` in print_nodes_call.go.
-  pwOpts := map[string]any{"trailingComma": tcMode}
+  layoutOpts, err := collectLayoutOpts(raw)
+  if err != nil {
+    return nil, err
+  }
+  pwOpts := cloneStringAnyMap(layoutOpts)
+  pwOpts["trailingComma"] = tcMode
   if v, ok := raw["printWidth"]; ok {
     n, err := asInt("format.printWidth", v)
     if err != nil {
@@ -173,33 +178,6 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
       return nil, fmt.Errorf("@ttsc/lint: format.printWidth must be a positive integer; got %d", n)
     }
     pwOpts["printWidth"] = n
-  }
-  if v, ok := raw["tabWidth"]; ok {
-    n, err := asInt("format.tabWidth", v)
-    if err != nil {
-      return nil, err
-    }
-    if n < 1 {
-      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
-    }
-    pwOpts["tabWidth"] = n
-  }
-  if v, ok := raw["useTabs"]; ok {
-    b, err := asBool("format.useTabs", v)
-    if err != nil {
-      return nil, err
-    }
-    pwOpts["useTabs"] = b
-  }
-  if v, ok := raw["endOfLine"]; ok {
-    s, err := asString("format.endOfLine", v)
-    if err != nil {
-      return nil, err
-    }
-    if s != "lf" && s != "crlf" {
-      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
-    }
-    pwOpts["endOfLine"] = s
   }
   out["format/print-width"] = ruleEntry(pwOpts)
 
@@ -222,35 +200,9 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // Both reuse the indentation/EOL settings to synthesize line breaks
   // and indent strings. Only the keys the user actually set are mirrored
   // in (same conditional shape as print-width's pwOpts), so defaults are
-  // applied rule-side. The two rules share the same option surface.
-  layoutOpts := map[string]any{}
-  if v, ok := raw["tabWidth"]; ok {
-    n, err := asInt("format.tabWidth", v)
-    if err != nil {
-      return nil, err
-    }
-    if n < 1 {
-      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
-    }
-    layoutOpts["tabWidth"] = n
-  }
-  if v, ok := raw["useTabs"]; ok {
-    b, err := asBool("format.useTabs", v)
-    if err != nil {
-      return nil, err
-    }
-    layoutOpts["useTabs"] = b
-  }
-  if v, ok := raw["endOfLine"]; ok {
-    s, err := asString("format.endOfLine", v)
-    if err != nil {
-      return nil, err
-    }
-    if s != "lf" && s != "crlf" {
-      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
-    }
-    layoutOpts["endOfLine"] = s
-  }
+  // applied rule-side. The two rules share the same option surface
+  // collected once into layoutOpts above.
+  //
   // Distinct map instances so the two rule entries don't alias one blob.
   out["format/statement-split"] = ruleEntry(cloneStringAnyMap(layoutOpts))
   out["format/indent"] = ruleEntry(cloneStringAnyMap(layoutOpts))
@@ -400,6 +352,44 @@ func cloneStringAnyMap(m map[string]any) map[string]any {
     out[k] = v
   }
   return out
+}
+
+// collectLayoutOpts parses the shared tabWidth/useTabs/endOfLine layout
+// fields from a format block once. Only keys the user actually set are
+// emitted, so rule-side defaults still apply for absent fields. Both the
+// print-width blob (which adds trailingComma + printWidth) and the
+// statement-split/indent/parameter-properties entries derive from this
+// single source so their parse-and-validate logic stays in one place.
+func collectLayoutOpts(raw map[string]any) (map[string]any, error) {
+  layoutOpts := map[string]any{}
+  if v, ok := raw["tabWidth"]; ok {
+    n, err := asInt("format.tabWidth", v)
+    if err != nil {
+      return nil, err
+    }
+    if n < 1 {
+      return nil, fmt.Errorf("@ttsc/lint: format.tabWidth must be a positive integer; got %d", n)
+    }
+    layoutOpts["tabWidth"] = n
+  }
+  if v, ok := raw["useTabs"]; ok {
+    b, err := asBool("format.useTabs", v)
+    if err != nil {
+      return nil, err
+    }
+    layoutOpts["useTabs"] = b
+  }
+  if v, ok := raw["endOfLine"]; ok {
+    s, err := asString("format.endOfLine", v)
+    if err != nil {
+      return nil, err
+    }
+    if s != "lf" && s != "crlf" {
+      return nil, fmt.Errorf("@ttsc/lint: format.endOfLine must be \"lf\" or \"crlf\"; got %q", s)
+    }
+    layoutOpts["endOfLine"] = s
+  }
+  return layoutOpts, nil
 }
 
 // asBool coerces a raw config value to a bool, returning a typed error on

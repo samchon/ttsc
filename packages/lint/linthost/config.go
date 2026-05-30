@@ -140,7 +140,7 @@ func (c RuleConfig) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   for name, sev := range c {
     if sev != SeverityOff {
-      out[normalizeExternalRuleName(name)] = sev
+      out[normalizeBuiltinRuleName(name)] = sev
     }
   }
   return out
@@ -157,7 +157,7 @@ func normalizeRuleConfigKeys(c RuleConfig) RuleConfig {
   }
   out := RuleConfig{}
   for name, sev := range c {
-    out[normalizeExternalRuleName(name)] = sev
+    out[normalizeBuiltinRuleName(name)] = sev
   }
   return out
 }
@@ -196,7 +196,7 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   if raw := r.Options[name]; len(raw) > 0 {
     return raw
   }
-  canonical := normalizeExternalRuleName(name)
+  canonical := normalizeBuiltinRuleName(name)
   if raw := r.Options[canonical]; len(raw) > 0 {
     return raw
   }
@@ -231,7 +231,7 @@ func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   if raw := s.options[name]; len(raw) > 0 {
     return raw
   }
-  canonical := normalizeExternalRuleName(name)
+  canonical := normalizeBuiltinRuleName(name)
   if raw := s.options[canonical]; len(raw) > 0 {
     return raw
   }
@@ -270,7 +270,7 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
       continue
     }
     for name, sev := range entry.Rules {
-      out[normalizeExternalRuleName(name)] = sev
+      out[normalizeBuiltinRuleName(name)] = sev
     }
   }
   return ResolvedRuleConfig{Rules: out}
@@ -291,7 +291,7 @@ func (s *ConfigStore) ActiveRuleNames() []string {
     }
     for name, sev := range entry.Rules {
       if sev != SeverityOff {
-        active[normalizeExternalRuleName(name)] = sev
+        active[normalizeBuiltinRuleName(name)] = sev
       }
     }
   }
@@ -314,7 +314,7 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
       if sev == SeverityOff {
         continue
       }
-      canonical := normalizeExternalRuleName(name)
+      canonical := normalizeBuiltinRuleName(name)
       if out[canonical] != SeverityError {
         out[canonical] = sev
       }
@@ -336,7 +336,7 @@ func (s *ConfigStore) Flatten() RuleConfig {
       continue
     }
     for name, sev := range entry.Rules {
-      out[normalizeExternalRuleName(name)] = sev
+      out[normalizeBuiltinRuleName(name)] = sev
     }
   }
   return out
@@ -657,7 +657,7 @@ func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw 
     if err != nil {
       return fmt.Errorf("@ttsc/lint: rule %q: %w", name, err)
     }
-    canonical := normalizeExternalRuleName(name)
+    canonical := normalizeBuiltinRuleName(name)
     out[canonical] = sev
     if opts != nil && len(ruleOpts) > 0 {
       opts[canonical] = ruleOpts
@@ -684,12 +684,6 @@ func rejectUnknownConfigKeys(value map[string]any, path string) error {
     }
   }
   return nil
-}
-
-// normalizeExternalRuleName strips standard TypeScript-ESLint namespaces while
-// preserving @ttsc/lint's canonical kebab/slash rule IDs.
-func normalizeExternalRuleName(name string) string {
-  return normalizeBuiltinRuleName(name)
 }
 
 // parsePatternList coerces a raw config value to a string slice for use as a
@@ -1064,13 +1058,66 @@ func loadJSONConfigFile(location string) (any, error) {
   return out, nil
 }
 
+// serializableConfigKeys is the single source of truth for the ITtscLintConfig
+// keys that survive the JSON round trip from a config-loader subprocess back to
+// the Go sidecar. Both the .js/.cjs/.mjs loader (loadScriptConfigFile) and the
+// .ts/.cts/.mts loader (typeScriptConfigLoaderSource) splice this list into the
+// `toSerializableConfig` key whitelist of their generated scripts, so the set
+// of copied keys is defined here once rather than duplicated per loader.
+var serializableConfigKeys = []string{"files", "ignores", "extends", "plugins", "rules", "format"}
+
+// serializableConfigKeysLiteral renders serializableConfigKeys as a
+// JS/TS array literal (e.g. `"files", "ignores", ...`) for splicing into the
+// generated loader scripts' `toSerializableConfig` whitelist.
+func serializableConfigKeysLiteral() string {
+  quoted := make([]string, len(serializableConfigKeys))
+  for i, key := range serializableConfigKeys {
+    quoted[i] = fmt.Sprintf("%q", key)
+  }
+  return strings.Join(quoted, ", ")
+}
+
+// runConfigLoaderCommand runs a prepared config-loader subprocess (`cmd`),
+// then turns its result into a parsed config object. It owns the shared tail
+// of both subprocess-backed loaders: capturing stdout, distinguishing a
+// timeout from a process error (extracting the subprocess stderr when present),
+// JSON-parsing the output, and rejecting a non-object result. `ctx` is the
+// timeout context the caller bound `cmd` to; `location` is the config file path
+// for error messages; `label` is the human-readable subject (e.g. "config
+// file" or "TypeScript config file") spliced into the load/parse error
+// prefixes so each loader keeps its own wording.
+func runConfigLoaderCommand(ctx context.Context, cmd *exec.Cmd, location, label string) (any, error) {
+  output, err := cmd.Output()
+  if err != nil {
+    if ctx.Err() == context.DeadlineExceeded {
+      return nil, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
+    }
+    stderr := ""
+    if exit, ok := err.(*exec.ExitError); ok {
+      stderr = strings.TrimSpace(string(exit.Stderr))
+    }
+    if stderr != "" {
+      return nil, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderr)
+    }
+    return nil, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
+  }
+  var out any
+  if err := json.Unmarshal(output, &out); err != nil {
+    return nil, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
+  }
+  if !isConfigObject(out) {
+    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
+  }
+  return out, nil
+}
+
 // loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
 // Node subprocess that dynamic-imports the file, resolves the exported config
 // through the same 8-hop default/config unwrap used by the TS loader, and
 // serializes the result as JSON to stdout. The subprocess has a
 // configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
-  const script = `
+  script := fmt.Sprintf(`
 const { pathToFileURL } = require("node:url");
 
 (async () => {
@@ -1110,14 +1157,14 @@ const { pathToFileURL } = require("node:url");
 // whose only key is ` + "`" + `format` + "`" + ` is not silently dropped.
 function toSerializableConfig(value) {
   const out = {};
-  for (const key of ["files", "ignores", "extends", "plugins", "rules", "format"]) {
+  for (const key of [%s]) {
     if (Object.prototype.hasOwnProperty.call(value, key)) {
       out[key] = value[key];
     }
   }
   return out;
 }
-`
+`, serializableConfigKeysLiteral())
   node := os.Getenv("TTSC_NODE_BINARY")
   if node == "" {
     node = "node"
@@ -1125,28 +1172,7 @@ function toSerializableConfig(value) {
   ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
   defer cancel()
   cmd := exec.CommandContext(ctx, node, "-e", script, location)
-  output, err := cmd.Output()
-  if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/lint: load config file %s: timed out after %s", location, configLoaderTimeout)
-    }
-    stderr := ""
-    if exit, ok := err.(*exec.ExitError); ok {
-      stderr = strings.TrimSpace(string(exit.Stderr))
-    }
-    if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/lint: load config file %s: %s", location, stderr)
-    }
-    return nil, fmt.Errorf("@ttsc/lint: load config file %s: %w", location, err)
-  }
-  var out any
-  if err := json.Unmarshal(output, &out); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: parse config file %s output: %w", location, err)
-  }
-  if !isConfigObject(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
-  }
-  return out, nil
+  return runConfigLoaderCommand(ctx, cmd, location, "config file")
 }
 
 // loadTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
@@ -1205,28 +1231,7 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
-  output, err := cmd.Output()
-  if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/lint: load TypeScript config file %s: timed out after %s", location, configLoaderTimeout)
-    }
-    stderr := ""
-    if exit, ok := err.(*exec.ExitError); ok {
-      stderr = strings.TrimSpace(string(exit.Stderr))
-    }
-    if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/lint: load TypeScript config file %s: %s", location, stderr)
-    }
-    return nil, fmt.Errorf("@ttsc/lint: load TypeScript config file %s: %w", location, err)
-  }
-  var out any
-  if err := json.Unmarshal(output, &out); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: parse TypeScript config file %s output: %w", location, err)
-  }
-  if !isConfigObject(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
-  }
-  return out, nil
+  return runConfigLoaderCommand(ctx, cmd, location, "TypeScript config file")
 }
 
 // isConfigObject reports whether `value` is a top-level config object. A lint
@@ -1314,14 +1319,14 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 // whose only key is "format" is not silently dropped.
 function toSerializableConfig(value: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const key of ["files", "ignores", "extends", "plugins", "rules", "format"]) {
+  for (const key of [%s]) {
     if (hasOwn(value, key)) {
       out[key] = value[key];
     }
   }
   return out;
 }
-`, importLiteral)
+`, importLiteral, serializableConfigKeysLiteral())
 }
 
 // typeScriptConfigLoaderTsconfig generates the JSON content of the ephemeral
@@ -1742,7 +1747,7 @@ func (c RuleConfig) Severity(name string) Severity {
   if sev, ok := c[name]; ok {
     return sev
   }
-  canonical := normalizeExternalRuleName(name)
+  canonical := normalizeBuiltinRuleName(name)
   if sev, ok := c[canonical]; ok {
     return sev
   }
