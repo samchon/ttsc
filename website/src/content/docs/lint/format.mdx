@@ -48,16 +48,12 @@ format: { severity: "off" }
 
 `"off"` keeps format rules out of `ttsc check`; `ttsc format` still applies the configured formatter. Use this when formatting should be write-only and never block compilation.
 
-### Per-rule overrides
+### Configuring individual behaviors
 
-To bump (or relax) one specific rule, drop a sibling `rules` entry, `rules` wins on conflict:
-
-```ts
-export default {
-  format: { semi: true, severity: "warning" },
-  rules: { "format/semi": "error" },  // promote this one to error
-} satisfies ITtscLintConfig;
-```
+Formatting is configured **only** through the `format` block. The `rules` map is
+for lint rules; a `format/*` id placed there is ignored. Turn a behavior off
+through its `format` key (for example `trailingComma: "none"`), not a `rules`
+entry.
 
 ## The individual rules
 
@@ -173,24 +169,6 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
 - A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
-
-## Back-compat: per-rule tuple form
-
-The rule-level tuple form still works and is occasionally useful when you need a one-off override without adding a `format` block. Treat it as legacy, new projects should use the `format` block above.
-
-```ts
-// lint.config.ts
-import type { ITtscLintConfig } from "@ttsc/lint";
-
-export default {
-  rules: {
-    "format/semi": "error",
-    "format/quotes": ["error", { prefer: "double" }],
-    "format/trailing-comma": "error",
-    "format/print-width": ["error", { printWidth: 80 }],
-  },
-} satisfies ITtscLintConfig;
-```
 
 ## Rule interactions
 
