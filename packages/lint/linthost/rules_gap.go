@@ -244,12 +244,27 @@ func (noWrapperObjectTypes) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// fileShadowsWrapperName reports whether the source file declares its own
-// `String`/`Number`/`Boolean`/`Symbol`/`BigInt`/`Object` at top level via
-// `type`, `interface`, or `class`. Walks SourceFile.Statements once; no
+// fileShadowsWrapperName reports whether the source file binds its own
+// `String`/`Number`/`Boolean`/`Symbol`/`BigInt`/`Object` at top level, so
+// the referenced name is NOT the global wrapper and a rewrite to the
+// primitive would change the type. Walks SourceFile.Statements once; no
 // memoization because the rule already runs once per TypeReference and
 // the average statement count per file dominates the cost over the inner
 // loop.
+//
+// The guard is intentionally comprehensive: it returns true when the
+// wrapper name is bound by ANY file-scope declaration, because over-bailing
+// (declining to rewrite a real global wrapper because a same-named binding
+// exists) is safe — it only skips a lint fix — whereas under-bailing
+// silently corrupts the type. A binding shadows the global when it comes
+// from:
+//   - a `type` / `interface` / `class` / `enum` declaration,
+//   - a `function` declaration,
+//   - a `namespace` / `module` declaration,
+//   - a top-level `let` / `const` / `var` value declaration,
+//   - an import binding (default, namespace, or named — including an
+//     aliased `{ X as String }`, where the LOCAL name is what binds), or
+//   - an `import X = require(...)` / `import X = A.B` binding.
 func fileShadowsWrapperName(file *shimast.SourceFile, name string) bool {
   if file == nil || file.Statements == nil {
     return false
@@ -258,23 +273,143 @@ func fileShadowsWrapperName(file *shimast.SourceFile, name string) bool {
     if stmt == nil {
       continue
     }
-    var declName *shimast.Node
     switch stmt.Kind {
     case shimast.KindTypeAliasDeclaration:
-      if alias := stmt.AsTypeAliasDeclaration(); alias != nil {
-        declName = alias.Name()
+      if alias := stmt.AsTypeAliasDeclaration(); alias != nil &&
+        identifierText(alias.Name()) == name {
+        return true
       }
     case shimast.KindInterfaceDeclaration:
-      if iface := stmt.AsInterfaceDeclaration(); iface != nil {
-        declName = iface.Name()
+      if iface := stmt.AsInterfaceDeclaration(); iface != nil &&
+        identifierText(iface.Name()) == name {
+        return true
       }
     case shimast.KindClassDeclaration:
-      if cls := stmt.AsClassDeclaration(); cls != nil {
-        declName = cls.Name()
+      if cls := stmt.AsClassDeclaration(); cls != nil &&
+        identifierText(cls.Name()) == name {
+        return true
+      }
+    case shimast.KindEnumDeclaration:
+      if enm := stmt.AsEnumDeclaration(); enm != nil &&
+        identifierText(enm.Name()) == name {
+        return true
+      }
+    case shimast.KindFunctionDeclaration:
+      if fn := stmt.AsFunctionDeclaration(); fn != nil &&
+        identifierText(fn.Name()) == name {
+        return true
+      }
+    case shimast.KindModuleDeclaration:
+      if mod := stmt.AsModuleDeclaration(); mod != nil &&
+        identifierText(mod.Name()) == name {
+        return true
+      }
+    case shimast.KindVariableStatement:
+      if variableStatementBindsName(stmt, name) {
+        return true
+      }
+    case shimast.KindImportDeclaration:
+      if importDeclarationBindsName(stmt, name) {
+        return true
+      }
+    case shimast.KindImportEqualsDeclaration:
+      if imp := stmt.AsImportEqualsDeclaration(); imp != nil &&
+        identifierText(imp.Name()) == name {
+        return true
       }
     }
-    if declName != nil && identifierText(declName) == name {
+  }
+  return false
+}
+
+// variableStatementBindsName reports whether a top-level `let`/`const`/`var`
+// statement binds `name` through a (possibly destructured) declaration.
+func variableStatementBindsName(stmt *shimast.Node, name string) bool {
+  vs := stmt.AsVariableStatement()
+  if vs == nil || vs.DeclarationList == nil {
+    return false
+  }
+  list := vs.DeclarationList.AsVariableDeclarationList()
+  if list == nil || list.Declarations == nil {
+    return false
+  }
+  for _, declNode := range list.Declarations.Nodes {
+    if declNode == nil {
+      continue
+    }
+    decl := declNode.AsVariableDeclaration()
+    if decl != nil && bindingNameContains(decl.Name(), name) {
       return true
+    }
+  }
+  return false
+}
+
+// bindingNameContains reports whether a binding name (a plain identifier or
+// an object/array binding pattern) introduces `name`.
+func bindingNameContains(binding *shimast.Node, name string) bool {
+  if binding == nil {
+    return false
+  }
+  if binding.Kind == shimast.KindIdentifier {
+    return identifierText(binding) == name
+  }
+  found := false
+  binding.ForEachChild(func(child *shimast.Node) bool {
+    if child == nil {
+      return false
+    }
+    if child.Kind == shimast.KindBindingElement {
+      if elem := child.AsBindingElement(); elem != nil &&
+        bindingNameContains(elem.Name(), name) {
+        found = true
+        return true
+      }
+    }
+    return false
+  })
+  return found
+}
+
+// importDeclarationBindsName reports whether a top-level import statement
+// introduces `name` as a local binding: a default import, a namespace
+// import, or a named import (using the LOCAL name, so `{ X as String }`
+// binds `String`).
+func importDeclarationBindsName(stmt *shimast.Node, name string) bool {
+  decl := stmt.AsImportDeclaration()
+  if decl == nil || decl.ImportClause == nil {
+    return false
+  }
+  clause := decl.ImportClause.AsImportClause()
+  if clause == nil {
+    return false
+  }
+  if identifierText(clause.Name()) == name {
+    return true
+  }
+  bindings := clause.NamedBindings
+  if bindings == nil {
+    return false
+  }
+  switch bindings.Kind {
+  case shimast.KindNamespaceImport:
+    if ns := bindings.AsNamespaceImport(); ns != nil &&
+      identifierText(ns.Name()) == name {
+      return true
+    }
+  case shimast.KindNamedImports:
+    named := bindings.AsNamedImports()
+    if named == nil || named.Elements == nil {
+      return false
+    }
+    for _, specNode := range named.Elements.Nodes {
+      if specNode == nil {
+        continue
+      }
+      if spec := specNode.AsImportSpecifier(); spec != nil &&
+        identifierText(spec.Name()) == name {
+        return true
+      }
     }
   }
   return false
