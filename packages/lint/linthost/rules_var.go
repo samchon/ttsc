@@ -20,18 +20,91 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if shimast.IsVar(stmt.DeclarationList) {
+    const message = "Unexpected var, use let or const instead."
     start := keywordStart(ctx.File, stmt.DeclarationList, "var")
-    if start >= 0 {
+    if start >= 0 && isNoVarAutoFixSafe(ctx, node) {
       ctx.ReportRangeFix(
         start,
         start+len("var"),
-        "Unexpected var, use let or const instead.",
+        message,
         TextEdit{Pos: start, End: start + len("var"), Text: "let"},
       )
       return
     }
-    ctx.Report(node, "Unexpected var, use let or const instead.")
+    ctx.Report(node, message)
   }
+}
+
+// isNoVarAutoFixSafe reports whether rewriting a `var` statement's keyword to
+// `let` is safe using only AST-local information (no scope/data-flow engine).
+// It mirrors the conservative posture of isEqeqeqAutoFixSafe: over-declining
+// is fine, corrupting source is not. Blindly turning every `var` into `let`
+// breaks two real shapes that `var` hoisting tolerates but `let` does not:
+//   - redeclaration (`var x=1; var x=2;`) → two `let x` is a SyntaxError;
+//   - use-before-declaration (a binding referenced above its own line) →
+//     `let` makes that reference a TDZ ReferenceError.
+//
+// The gate therefore declines when any of these hold:
+//   - the declaration list binds more than one name (keep the surface small);
+//   - a declared name is referenced anywhere in the file before the
+//     statement's Pos() (TDZ / use-before-declaration);
+//   - a declared name appears in more than one `var` declaration in the file
+//     (redeclaration approximation).
+//
+// Destructuring patterns contribute no plain identifier names through
+// variableStatementBindingNames; such a list yields zero names and is declined
+// by the multi-binding / empty check below.
+func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
+  if ctx == nil || ctx.File == nil {
+    return false
+  }
+  names := variableStatementBindingNames(node)
+  if len(names) != 1 {
+    return false
+  }
+  declared := map[string]struct{}{}
+  for _, name := range names {
+    declared[name] = struct{}{}
+  }
+
+  declPos := node.Pos()
+  varOccurrences := map[string]int{}
+  referencedBefore := false
+  root := ctx.File.AsNode()
+  walkDescendants(root, func(child *shimast.Node) {
+    switch child.Kind {
+    case shimast.KindVariableStatement:
+      vs := child.AsVariableStatement()
+      if vs == nil || vs.DeclarationList == nil || !shimast.IsVar(vs.DeclarationList) {
+        return
+      }
+      for _, name := range variableStatementBindingNames(child) {
+        if _, ok := declared[name]; ok {
+          varOccurrences[name]++
+        }
+      }
+    case shimast.KindIdentifier:
+      name := identifierText(child)
+      if name == "" {
+        return
+      }
+      if _, ok := declared[name]; !ok {
+        return
+      }
+      if child.Pos() < declPos {
+        referencedBefore = true
+      }
+    }
+  })
+  if referencedBefore {
+    return false
+  }
+  for _, count := range varOccurrences {
+    if count > 1 {
+      return false
+    }
+  }
+  return true
 }
 
 // preferConst: flag `let` declarations whose binding is never reassigned.
