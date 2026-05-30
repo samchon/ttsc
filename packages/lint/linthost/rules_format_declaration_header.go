@@ -173,7 +173,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
     // keep `{` glued to the last header line (so an empty body reads
     // `… {}`). isClass && !emptyBody captures that.
     brace := headerBrace(isClass, emptyBody, base)
-    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace)
+    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace, emptyBody)
     if !ok {
       return // unverified combination: abstain
     }
@@ -330,6 +330,7 @@ func brokenDeclarationHeader(
   clauses []heritageClauseText,
   layout declarationHeaderLayout,
   brace string,
+  emptyBody bool,
 ) (string, bool) {
   hasTypeParams := len(paramTexts) > 0
   switch {
@@ -342,7 +343,7 @@ func brokenDeclarationHeader(
     if hasTypeParams {
       return "", false
     }
-    return multiTypeHeader(prefix, clauses[0], layout, base, brace), true
+    return multiTypeHeader(prefix, clauses[0], layout, base, brace, emptyBody), true
   case hasTypeParams:
     if len(clauses) == 1 && len(clauses[0].types) >= 2 {
       return "", false
@@ -375,12 +376,18 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
 // them one-per-line when the inline line itself still overflows. `brace`
 // carries the caller's brace placement; when glued it shares the final
 // line, so it is charged against the width budget for the tier decision.
-func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
+func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base, brace string, emptyBody bool) string {
   indent1 := layout.indent(base, 1)
   inline := indent1 + clause.keyword + " " + strings.Join(clause.types, ", ")
   inlineWidth := visualWidth(inline, layout.tabWidth)
   if !strings.HasPrefix(brace, "\n") {
     inlineWidth += visualWidth(brace, layout.tabWidth)
+  }
+  if emptyBody {
+    // An empty body renders its `}` on the inline line (`… {}`), one column
+    // past the `{` in `brace`; charge it so the fit check matches Prettier at
+    // the width boundary instead of keeping a 1-over header inline.
+    inlineWidth++
   }
   if inlineWidth <= layout.printWidth {
     return prefix + "\n" + inline + brace
