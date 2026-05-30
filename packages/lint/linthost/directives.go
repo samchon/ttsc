@@ -194,7 +194,11 @@ scan:
     }
     switch directive.kind {
     case lintDirectiveDisableLine:
-      directives.lines[startLine] = append(directives.lines[startLine], directive.rules)
+      // Key on endLine, not startLine, so a multi-line block-comment
+      // `disable-line` reasons about the comment's end the same way
+      // disable-next-line does (endLine+1). A single-line comment has
+      // startLine == endLine, so same-line suppression is unchanged.
+      directives.lines[endLine] = append(directives.lines[endLine], directive.rules)
     case lintDirectiveDisableNextLine:
       directives.lines[endLine+1] = append(directives.lines[endLine+1], directive.rules)
     case lintDirectiveDisable:
