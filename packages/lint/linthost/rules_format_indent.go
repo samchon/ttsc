@@ -74,6 +74,19 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     if src[lineStart:start] == want {
       return
     }
+    // Cede when the enclosing block's opening line is itself indented as a
+    // continuation, so format/indent's column-0 depth model does not apply.
+    // A block whose `{` sits on a wrapped head line — a curried arrow
+    // `): void => {`, a multi-line `if (\n …\n) {`, a multi-line heritage
+    // `…\n{` — hangs its body under that head's indent, not under
+    // depth*tabWidth from column 0. Reindenting to depth*tabWidth there
+    // DE-INDENTS correct source. The body's correct indent is the opener
+    // line's own indent plus one level; if that disagrees with `want`, the
+    // depth model is wrong for this block and we leave the statement alone.
+    if openerIndent, ok := enclosingBlockOpenerIndent(src, stmt); ok &&
+      openerIndent+layout.indent(1) != want {
+      return
+    }
     edits = append(edits, TextEdit{Pos: lineStart, End: start, Text: want})
   })
   if len(edits) == 0 {
@@ -120,6 +133,43 @@ func indentCededToReflow(stmt *shimast.Node) bool {
     }
   }
   return false
+}
+
+// enclosingBlockOpenerIndent returns the leading-whitespace string of the
+// physical line that holds the opening brace of `stmt`'s nearest enclosing
+// Block (or ModuleBlock). ok is false when the statement is not inside a
+// block (a top-level statement, whose depth model is column-0 correct).
+//
+// The opener line is found from the Block node's start: a Block's Pos
+// (after trivia) is its `{`. The string — not a visual width — is returned
+// so the caller can compare it against the indent unit byte-for-byte and
+// stay correct under mixed tabs/spaces.
+func enclosingBlockOpenerIndent(src string, stmt *shimast.Node) (string, bool) {
+  var block *shimast.Node
+  for n := stmt.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindBlock, shimast.KindModuleBlock:
+      block = n
+    case shimast.KindSourceFile:
+      n = nil
+    }
+    if block != nil || n == nil {
+      break
+    }
+  }
+  if block == nil {
+    return "", false
+  }
+  brace := shimscanner.SkipTrivia(src, block.Pos())
+  if brace < 0 || brace > len(src) {
+    return "", false
+  }
+  ls := lineStartOffset(src, brace)
+  i := ls
+  for i < brace && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[ls:i], true
 }
 
 func init() {
