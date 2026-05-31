@@ -160,8 +160,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       // indentCededToReflow walks block.Parent upward, the same ancestor
       // chain a body statement would, so a callback / expression-nested
       // block's `}` cedes in lockstep with its body (print-width owns it).
-      if indentCededToReflow(block) || cededInsideParameter(block) ||
-        cededInsideTypeOperator(block) || cededUnderBracelessBody(block) {
+      if indentCededToReflow(block) || cededUnderBracelessBody(block) ||
+        typeLiteralIndentCeded(src, block, ownerDepth, layout) {
         return
       }
       // Chained-arrow body: cede the `}` in lockstep with its body
@@ -179,8 +179,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     },
     func(header *shimast.Node, depth int) {
       if indentCededToReflow(header) || cededByChainedArrowAncestor(header) ||
-        cededInsideParameter(header) || cededInsideTypeOperator(header) ||
-        cededUnderBracelessBody(header) {
+        cededUnderBracelessBody(header) ||
+        typeLiteralIndentCeded(src, header.Parent, depth-1, layout) {
         return
       }
       want := layout.indent(depth)
@@ -259,54 +259,33 @@ func indentCededToReflow(stmt *shimast.Node) bool {
   return false
 }
 
-// cededInsideParameter reports whether `node` sits inside a function or
-// method parameter (its type annotation or default value), stopping at the
-// nearest statement boundary. A type literal in a parameter's type is laid
-// out relative to the parameter's own line, and the parameter's indentation
-// depends on whether the parameter list broke across lines, layout that
-// format/indent's pure block-depth model cannot see. For `f(input: { a })`
-// (flat) Prettier indents `a` one level past the `f(` line; for a broken
-// list it indents one level past each parameter's own line. The depth model
-// has neither column, so it would de-indent the members and brace of an
-// already-correct nested type literal by one level. Ceding leaves them
-// byte-identical (the source / printer already has them right). The walk
-// starts at the brace owner or member header itself; reaching a Block,
-// ModuleBlock, or SourceFile first means ordinary block position, not a
-// parameter, so the depth model owns it.
-func cededInsideParameter(node *shimast.Node) bool {
-  for n := node.Parent; n != nil; n = n.Parent {
-    switch n.Kind {
-    case shimast.KindParameter:
-      return true
-    case shimast.KindBlock,
-      shimast.KindModuleBlock,
-      shimast.KindSourceFile:
-      return false
-    }
+// typeLiteralIndentCeded reports whether a type-literal member or its closing
+// brace sits in a layout-dependent position the block-depth model misplaces.
+// A type literal opens on its own indented continuation line when it is a
+// parameter's type (`f(input: Payload & { … })`), an intersection/union
+// operand (`A &\n  { … }`), or a multi-line generic argument (`Record<\n
+// string,\n { … }>`); Prettier then indents the members relative to that
+// opening line, not the block depth. The structural walk expects the opening
+// line to be indented to layout.indent(ownerDepth); when that disagrees with
+// the line's actual leading whitespace, the literal is in such a layout-
+// dependent spot and reindenting its members or brace to depth*tabWidth would
+// de-indent already-correct source, so cede. When the opening line IS at its
+// depth (a type literal annotating a variable, or a single-line generic
+// argument), the model is correct and the rule owns it.
+func typeLiteralIndentCeded(src string, owner *shimast.Node, ownerDepth int, layout formatLayout) bool {
+  if owner == nil || owner.Kind != shimast.KindTypeLiteral {
+    return false
   }
-  return false
-}
-
-// cededInsideTypeOperator reports whether `node` sits inside an intersection
-// or union type (`A & { … }`, `A | { … }`). When the operator breaks across
-// lines, Prettier indents each operand one level past the member line, so a
-// type literal operand opens one level deeper than the block-depth model
-// computes and its members deeper still. The depth model has no frame for the
-// operator, so it would de-indent the literal's members and brace; cede to
-// leave the source / printer layout byte-identical. Stops at the nearest
-// statement boundary so an ordinary block is unaffected.
-func cededInsideTypeOperator(node *shimast.Node) bool {
-  for n := node.Parent; n != nil; n = n.Parent {
-    switch n.Kind {
-    case shimast.KindIntersectionType, shimast.KindUnionType:
-      return true
-    case shimast.KindBlock,
-      shimast.KindModuleBlock,
-      shimast.KindSourceFile:
-      return false
-    }
+  open := shimscanner.SkipTrivia(src, owner.Pos())
+  if open < 0 || open > len(src) {
+    return false
   }
-  return false
+  lineStart := lineStartOffset(src, open)
+  i := lineStart
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[lineStart:i] != layout.indent(ownerDepth)
 }
 
 // cededUnderBracelessBody reports whether `node` sits inside the braceless
