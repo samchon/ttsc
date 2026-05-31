@@ -371,8 +371,13 @@ type siDecl struct {
   defaultName string
   named       []siSpec
   namespace   bool
-  original    string
-  semicolon   bool
+  // hasSpecComment marks a declaration whose named-import braces carry a comment.
+  // The merge rebuilder joins specifier texts with ", " and would drop such a
+  // comment, so a flagged declaration is made unmergeable (like a namespace
+  // binding) and re-emitted from its original text. See mergeKey.
+  hasSpecComment bool
+  original       string
+  semicolon      bool
 }
 
 // siEntry is a (possibly merged) import declaration ready to be grouped,
@@ -465,6 +470,18 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   if named == nil || named.Elements == nil {
     return out
   }
+  // A comment anywhere inside the named-import braces (leading, between, or
+  // trailing a specifier) would be lost when the merge rebuilder rejoins the
+  // specifier texts. Flag it so mergeKey keeps the declaration unmergeable and
+  // its original text is preserved. The braces span contains no module path, so
+  // a `//` or `/*` there is unambiguously a comment.
+  if nbStart := shimscanner.SkipTrivia(src, clause.NamedBindings.Pos()); nbStart >= 0 {
+    if nbEnd := clause.NamedBindings.End(); nbEnd <= len(src) && nbStart < nbEnd {
+      if span := src[nbStart:nbEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+        out.hasSpecComment = true
+      }
+    }
+  }
   for _, spec := range named.Elements.Nodes {
     s := spec.AsImportSpecifier()
     if s == nil {
@@ -508,6 +525,11 @@ func mergeImportDecls(decls []siDecl, opts resolvedSortImportsOptions) []siEntry
 func mergeKey(d siDecl, combine bool) string {
   if d.namespace {
     return "\x00ns\x00" + d.original
+  }
+  // A named-import list carrying a comment is unmergeable so the comment
+  // survives in the declaration's original text (a per-declaration key).
+  if d.hasSpecComment {
+    return "\x00cmt\x00" + d.original
   }
   if combine || !d.typeOnly {
     return "v\x00" + d.specifier
