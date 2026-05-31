@@ -66,6 +66,12 @@ type listShape struct {
   // `callback, simpleArg` shape Prettier hugs (`foo(() => { … }, x)`).
   // HugLast and HugFirst are mutually exclusive.
   HugFirst bool
+  // HugLastForce drops the exploded fallback from a HugLast list: the hugged
+  // shape is chosen even when its opening line overflows printWidth. The
+  // call-argument printer sets it for a test-framework call
+  // (`test("very long description", () => { … })`), which Prettier never
+  // explodes — the callback always rides the open paren. Requires HugLast.
+  HugLastForce bool
   // ForceBreak commits the list to its broken, one-item-per-line shape
   // even when it would fit flat. The object-literal printer sets it to
   // mirror Prettier's objectWrap:"preserve" — an object the source
@@ -146,6 +152,15 @@ func printList(ctx *PrintContext, shape listShape) Doc {
   hugged := printListHuggingLast(ctx, shape)
   if shape.HugFirst {
     hugged = printListHuggingFirst(ctx, shape)
+  }
+  // A test-framework call hugs its callback unconditionally — Prettier never
+  // explodes its arguments — so drop the exploded fallback. The all-flat
+  // option still wins when the whole call fits (an empty-body callback).
+  if shape.HugLastForce {
+    if allFlat, ok := flatten(plain); ok {
+      return ConditionalGroup(allFlat, hugged)
+    }
+    return hugged
   }
   if allFlat, ok := flatten(plain); ok {
     return ConditionalGroup(allFlat, hugged, plain)

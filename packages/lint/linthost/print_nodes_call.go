@@ -59,7 +59,10 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // A decorator's call hugs its last argument even past leading callbacks
   // (`@OneToMany(() => P, (p) => p.c, { … })`); a plain call explodes there.
   decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
-  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma, decoratorCall)
+  // A test-framework call (`test("desc", () => { … })`) hugs its callback even
+  // when the description string pushes the opening line past printWidth, so the
+  // exploded fallback is dropped for it. See isTestCall.
+  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma, decoratorCall, isTestCall(node))
   parts = append(parts, argDoc)
   return Concat(parts...), covered && argCovered
 }
@@ -91,7 +94,7 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     if hasNilEntry(ne.Arguments) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false)
+    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false, false)
     parts = append(parts, argDoc)
     covered = covered && argCovered
   }
@@ -131,7 +134,7 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // ES2017+, so Prettier's "es5" and "none" modes pass false; otherwise the
 // printer would oscillate against format/trailing-comma on every cascade
 // pass (rxjs hit this on ajax.ts and several operators / testing helpers).
-func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, decoratorCall bool) (Doc, bool) {
+func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, decoratorCall bool, forceHugLast bool) (Doc, bool) {
   if list == nil {
     return Text("()"), true
   }
@@ -170,18 +173,89 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   if forceFnBreak {
     hugLast = false
   }
+  // A test-framework call always hugs its trailing callback (the description
+  // string may overflow the open line); force the hug and drop the exploded
+  // fallback via HugLastForce.
+  if forceHugLast {
+    hugLast = true
+    forceFnBreak = false
+  }
   shape := listShape{
-    OpenTok:     "(",
-    CloseTok:    ")",
-    Items:       items,
-    Space:       false,
-    AddComma:    addComma,
-    HugLast:     hugLast,
-    HugFirst:    !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes),
-    ForceBreak:  forceFnBreak,
-    BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
+    OpenTok:      "(",
+    CloseTok:     ")",
+    Items:        items,
+    Space:        false,
+    AddComma:     addComma,
+    HugLast:      hugLast,
+    HugLastForce: forceHugLast,
+    HugFirst:     !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes),
+    ForceBreak:   forceFnBreak,
+    BlankBefore:  blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// testCalleeName reports whether `callee` names a test-framework function
+// Prettier hugs: a bare identifier (`it`, `test`, `describe`, with the
+// `f`/`x` focus/skip prefixes and `skip`), or a `.only` / `.skip` / `.step`
+// member chain on one of those (`test.only`, `it.skip`). Mirrors Prettier's
+// isTestCallCallee.
+func testCalleeName(callee *shimast.Node) bool {
+  if callee == nil {
+    return false
+  }
+  switch callee.Kind {
+  case shimast.KindIdentifier:
+    switch identifierText(callee) {
+    case "it", "fit", "xit",
+      "describe", "fdescribe", "xdescribe",
+      "test", "ftest", "xtest",
+      "skip":
+      return true
+    }
+  case shimast.KindPropertyAccessExpression:
+    if pa := callee.AsPropertyAccessExpression(); pa != nil && pa.Name() != nil {
+      switch identifierText(pa.Name()) {
+      case "only", "skip", "step", "each", "todo", "failing", "concurrent":
+        return testCalleeName(pa.Expression)
+      }
+    }
+  }
+  return false
+}
+
+// isTestCall reports whether `node` is a test-framework call Prettier prints
+// with its callback hugged regardless of width: `it(...)` / `test(...)` /
+// `describe(...)` (and focus/skip variants) called with a string or template
+// description and a trailing function/arrow. Prettier never explodes such a
+// call's arguments, so the printer keeps the callback on the open-paren line
+// even when the description string overflows printWidth (the callback's
+// parameter count does not matter, verified against Prettier). Scoped to the
+// two-argument form (the overwhelming shape); a three-argument timeout variant
+// falls through to ordinary hugging.
+func isTestCall(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.QuestionDotToken != nil || call.Arguments == nil {
+    return false
+  }
+  args := call.Arguments.Nodes
+  if len(args) != 2 || args[0] == nil || args[1] == nil {
+    return false
+  }
+  switch args[0].Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNoSubstitutionTemplateLiteral,
+    shimast.KindTemplateExpression:
+  default:
+    return false
+  }
+  if !isFunctionLikeArg(args[1]) {
+    return false
+  }
+  return testCalleeName(call.Expression)
 }
 
 // isFunctionLikeArg reports whether an argument is a function or arrow
