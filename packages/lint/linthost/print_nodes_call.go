@@ -597,18 +597,18 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
 // isSimpleTrailingArg reports whether `node` is a value that may trail a
 // hugged first-argument callback. Prettier hugs the leading callback when
 // the trailing argument is an identifier, member access, literal, `this`,
-// or an array literal — most notably the `useEffect(() => { … }, [deps])`
-// idiom. It also accepts an empty object literal, a short call/new, and a
-// short arithmetic/logical expression (`setTimeout(fn, 1000 - x)`). A function,
-// arrow, conditional, or a non-empty object literal is excluded so
-// first-argument hugging declines and the whole list explodes.
+// or an EMPTY array/object literal. It also accepts a short call/new (at
+// most one value argument) and a short arithmetic/logical expression
+// (`setTimeout(fn, 1000 - x)`). A function, arrow, conditional, a non-empty
+// array, or a non-empty object literal is excluded, so first-argument hugging
+// declines and the whole list explodes. (A non-empty array after a
+// zero-parameter arrow is the React-hook deps shape, hugged earlier in
+// shouldHugFirstArgument and never routed here.)
 //
-// A call expression is deliberately NOT included: the conditional-group
-// fit check only measures an option's first line, so a hugged-first option
-// whose trailing call overflows the closing line (`}, deeplyNested(…))`)
-// would still be selected, where Prettier explodes. The array case shares
-// that limitation in principle, but dependency arrays are short in
-// practice, the same way the identifier/member cases already are.
+// The call/new case rides the close line: the conditional-group fit check
+// only measures an option's first line, so a hugged-first option whose
+// trailing call overflows the closing line is still selected. Prettier
+// accepts the same trade for a short trailing call.
 func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindIdentifier,
@@ -620,9 +620,18 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     shimast.KindNullKeyword,
     shimast.KindThisKeyword,
     shimast.KindPropertyAccessExpression,
-    shimast.KindElementAccessExpression,
-    shimast.KindArrayLiteralExpression:
+    shimast.KindElementAccessExpression:
     return true
+  case shimast.KindArrayLiteralExpression:
+    // Only an EMPTY array is simple-trailing (the `[] as T[]` cast idiom).
+    // Prettier's couldExpandArg treats an array with elements as expandable,
+    // so a non-empty array cast (`[x] as number[]`) explodes the list rather
+    // than hugging. The non-empty bare-array deps shape (zero-param arrow) is
+    // handled in shouldHugFirstArgument before reaching here.
+    if arr := node.AsArrayLiteralExpression(); arr != nil {
+      return arr.Elements == nil || len(arr.Elements.Nodes) == 0
+    }
+    return false
   case shimast.KindAsExpression:
     // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
     // wraps a simple trailing arg AND the target is a simple type, mirroring

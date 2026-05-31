@@ -138,6 +138,21 @@ func TestCommandFormatArgHugging(t *testing.T) {
 }, [] as Array<string>);
 `)
   })
+  // first-arg hug DECLINES over a cast wrapping a NON-EMPTY array
+  // (`[seed] as ReadonlyArray<string>`): the cast TYPE is simple, but Prettier's
+  // couldExpandArg treats a non-empty array as expandable, so the list explodes
+  // instead of hugging. The empty-array positive twin above stays simple and hugs;
+  // this pins the expression half of the cast predicate.
+  t.Run("first_arg_nonempty_array_cast_trailing_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const w = Object.keys(contrib).reduce(
+  (result, location) => {
+    result.push(location);
+    return result;
+  },
+  [seed] as ReadonlyArray<string>,
+);
+`)
+  })
   // first-arg hug declines over a cast to a type carrying an object literal:
   // explode (`[] as Array<{ … }>`).
   t.Run("first_arg_object_type_cast_trailing_explodes", func(t *testing.T) {
