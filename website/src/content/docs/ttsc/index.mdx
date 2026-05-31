@@ -14,7 +14,7 @@ npx ttsx file.ts   # run TypeScript with a real type-check
 - [Bundler integration](/docs/ttsc/bundler): `@ttsc/unplugin`. Same plugin pass inside Vite, Webpack, Rollup, esbuild, Rspack, Rolldown, Next.js, Farm, Bun.
 - [Playground](/docs/ttsc/playground): Browser-hosted ttsc with on-demand npm package tarball loading.
 
-For the editor TypeScript-Go language service and LSP-capable plugin diagnostics/actions, install the VS Code extension as part of [Setup → Editor](/docs/setup#editor-vs-code). For lint and format, see [Lint & Prettier](/docs/lint). For the utility plugins shipped in this repo and the wider ecosystem (typia, nestia, …), see [Plugin Ecosystem](/docs/plugins).
+To show TypeScript errors and supported plugin diagnostics in VS Code, install the extension as part of [Setup → Editor](/docs/setup#editor-vs-code). For lint and format, see [Lint & Prettier](/docs/lint). For the utility plugins shipped in this repo and the wider ecosystem (typia, nestia, …), see [Plugin Ecosystem](/docs/plugins).
 
 ## How they fit together
 
@@ -25,4 +25,4 @@ Every `ttsc` build is one pass over your project:
 3. Run every configured plugin, in order.
 4. Emit JS + `.d.ts` (or skip with `--noEmit`).
 
-`ttsx` does steps 1–3, then runs the result instead of emitting. `@ttsc/unplugin` runs the same plugin pass inside a bundler. The VS Code extension hosts the project-selected TypeScript-Go LSP process through `ttscserver` and merges LSP-capable plugin diagnostics and command-backed code actions into that editor stream. The shipped extension registers the built-in lint/format command bridge; other advertised plugin commands execute through `vscode-languageclient`, and returned `changes`-map `WorkspaceEdit`s are applied by the extension while touched documents stay clean.
+`ttsx` does steps 1–3, then runs the result instead of emitting. `@ttsc/unplugin` runs the same plugin pass inside a bundler. The VS Code extension shows TypeScript-Go editor features plus supported plugin diagnostics and actions from the same project setup. It does not emit or rewrite JavaScript.

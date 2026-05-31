@@ -68,20 +68,24 @@ Both are independent projects that ship as `ttsc` plugins. `typia` produces runt
 
 ## Does the VS Code extension work without a Marketplace install?
 
-Yes. It is on the VS Code Marketplace (search `ttsc`, or `ext install samchon.ttsc`), but the same build is also published on npm with a one-shot installer. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
+Yes. Run:
 
 ```bash
 npx @ttsc/vscode
 ```
 
-The installer calls `code --install-extension` against the `.vsix` bundled in the package.
+It installs the bundled `.vsix` through the `code` CLI. Marketplace install is still available from the Extensions view or:
+
+```bash
+code --install-extension samchon.ttsc
+```
 
 ## VS Code doesn't show TypeScript-Go or plugin diagnostics: what's wrong?
 
 1. Confirm `ttsc` is installed in the project: `npx ttsc --version`.
 2. Confirm the same plugin diagnostics appear in the CLI: `npx ttsc --noEmit -p <selected tsconfig>`.
 3. Make sure the plugin config is discoverable from the selected project root or set `configFile` in the tsconfig plugin entry.
-4. Save the file before checking plugin diagnostics or running the command-palette `ttsc: Fix all lint issues` / `ttsc: Format document` commands. TypeScript-Go diagnostics are live; ttsc plugin diagnostics, code actions, and those command-palette commands use the saved project state, returning editor-applied `WorkspaceEdit`s only while touched documents are clean. Editor format-on-save is the exception, it formats the live unsaved buffer.
+4. Save the file before checking plugin diagnostics or running `ttsc: Fix all lint issues` / `ttsc: Format document`. TypeScript-Go diagnostics are live; plugin diagnostics and those commands use the saved project state. Format-on-save is the exception, it formats the live editor buffer.
 5. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
 6. Run **ttsc: Restart language server** from the command palette.
 7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.
@@ -90,7 +94,7 @@ The installer calls `code --install-extension` against the `.vsix` bundled in th
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.
 
-For VS Code, add packages as workspace folders when each package should keep its own active language-server context. Plugin diagnostics, code actions, and command computation currently use saved project state, so save files before relying on lint fixes or format edits; the edits themselves are returned as VS Code `WorkspaceEdit`s.
+For VS Code, add packages as workspace folders when each package should keep its own `ttsc`, `@typescript/native-preview`, and plugin config. Save files before relying on plugin diagnostics, lint fixes, or format edits.
 
 ## Source maps and declaration maps?
 

@@ -31,25 +31,25 @@ npm install -D ttsc @typescript/native-preview @ttsc/lint
 
 Install from the VS Code Marketplace by searching `ttsc` and choosing the extension by `samchon`.
 
-From a shell with the `code` CLI:
-
-```bash
-code --install-extension samchon.ttsc
-```
-
-Without the Marketplace, the npm package installs the bundled VSIX through the same `code` CLI:
+From a shell, the short installer is:
 
 ```bash
 npx @ttsc/vscode
 ```
 
-To remove that npm-installed copy:
+The direct VS Code CLI form is:
+
+```bash
+code --install-extension samchon.ttsc
+```
+
+To uninstall the npm-installed copy:
 
 ```bash
 npx @ttsc/vscode uninstall
 ```
 
-If the `code` CLI isn't on your `PATH`, run **Shell Command: Install 'code' command in PATH** from VS Code's command palette.
+Both shell commands use the `code` CLI. If it isn't on your `PATH`, run **Shell Command: Install 'code' command in PATH** from VS Code's command palette.
 
 ## Configuration
 
@@ -82,7 +82,7 @@ Set `samchon.ttsc` as the default formatter and turn on `editor.formatOnSave`:
 
 ```jsonc
 {
-  "[typescript][typescriptreact][javascript][javascriptreact]": {
+  "[typescript][typescriptreact]": {
     "editor.defaultFormatter": "samchon.ttsc",
     "editor.formatOnSave": true
   }

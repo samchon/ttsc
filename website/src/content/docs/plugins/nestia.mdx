@@ -44,7 +44,7 @@ The runtime decorators (`@TypedBody`, `@TypedRoute.*`, `@TypedParam`, `@TypedQue
 
 `@nestia/core` is a TypeScript compiler transformer (it rewrites decorator calls at compile time), and `typia` is too. Stock `tsc` does not run user transformers; `ttsc` is one of the supported hosts. Both packages are auto-discovered from `package.json` (no `compilerOptions.plugins[]` entry needed), `ttsc` resolves, builds, and caches each sidecar, then routes the TypeScript-Go AST through them in order.
 
-The full pipeline runs everywhere `ttsc` owns compilation, `ttsc --emit`, `ttsx`, and every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter. One install; the transforms run wherever NestJS code is compiled. VS Code uses the same project config for TypeScript-Go plus any LSP-facing plugin diagnostics/actions, but editor integration does not rewrite emit.
+The full pipeline runs everywhere `ttsc` owns compilation, `ttsc --emit`, `ttsx`, and every [`@ttsc/unplugin`](/docs/ttsc/bundler) bundler adapter. One install; the transforms run wherever NestJS code is compiled. VS Code uses the same project config for TypeScript-Go and supported plugin diagnostics/actions, but editor integration does not rewrite emit.
 
 ## Combine with other ttsc plugins
 
