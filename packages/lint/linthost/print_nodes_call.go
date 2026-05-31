@@ -184,33 +184,85 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   return printList(ctx, shape), covered
 }
 
-// countFunctionLikeArgs counts the arrow- and function-expression arguments
-// in a call's argument list. Prettier treats both as "function" arguments for
-// its multiple-callback break rule.
-func countFunctionLikeArgs(args []*shimast.Node) int {
-  n := 0
-  for _, a := range args {
-    if a == nil {
-      continue
+// isFunctionLikeArg reports whether an argument is a function or arrow
+// expression, the two shapes Prettier counts as "function" arguments.
+func isFunctionLikeArg(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+    return true
+  }
+  return false
+}
+
+// callArgsContainFunctionLike reports whether a call- or new-expression's own
+// argument list carries a function/arrow argument. Prettier's
+// function-composition test treats `foo.map((x) => x)` as a composed call, so
+// a call carrying it alongside any second argument explodes.
+func callArgsContainFunctionLike(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  var args *shimast.NodeList
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil {
+      args = c.Arguments
     }
-    switch a.Kind {
-    case shimast.KindArrowFunction, shimast.KindFunctionExpression:
-      n++
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil {
+      args = n.Arguments
+    }
+  default:
+    return false
+  }
+  if args == nil {
+    return false
+  }
+  for _, a := range args.Nodes {
+    if isFunctionLikeArg(a) {
+      return true
     }
   }
-  return n
+  return false
+}
+
+// isFunctionCompositionArgs mirrors Prettier's predicate of the same name: a
+// call with two or more arguments is "function composition" when either two of
+// them are themselves functions/arrows, or one is a call/new whose own
+// arguments include a function/arrow (`stream.pipe(map((x) => x), other)`).
+// Prettier breaks such a list onto one-argument-per-line unconditionally.
+func isFunctionCompositionArgs(args []*shimast.Node) bool {
+  if len(args) <= 1 {
+    return false
+  }
+  fnCount := 0
+  for _, a := range args {
+    if isFunctionLikeArg(a) {
+      fnCount++
+      if fnCount > 1 {
+        return true
+      }
+    } else if callArgsContainFunctionLike(a) {
+      return true
+    }
+  }
+  return false
 }
 
 // argListForcesFunctionBreak reports whether a call's argument list must
-// explode purely because it carries two or more function/arrow arguments
-// (Prettier's function-composition rule, e.g. `then(onOk, onErr)`), which
-// fires even when the call would fit on one line. A decorator hugging a
-// huggable trailing argument is the one shape that keeps the leading arrows
-// inline, so it is exempt; everywhere else multiple callbacks break. Shared
-// by printArgList (which sets ForceBreak) and the print-width rule (whose
-// fit fast-path must not skip such a call when it is written flat in source).
+// explode under Prettier's function-composition rule (see
+// isFunctionCompositionArgs), which fires even when the call would fit on one
+// line. A decorator hugging a huggable trailing argument is the one shape that
+// keeps the leading callbacks inline (`@OneToMany(() => P, (p) => p.c, { … })`
+// breaks only the object), so it is exempt; everywhere else the composed
+// arguments break. Shared by printArgList (which sets ForceBreak) and the
+// print-width rule (whose fit fast-path must not skip such a call when it is
+// written flat in source).
 func argListForcesFunctionBreak(args []*shimast.Node, decoratorCall bool) bool {
-  if countFunctionLikeArgs(args) < 2 {
+  if !isFunctionCompositionArgs(args) {
     return false
   }
   if decoratorCall && shouldHugLastArgument(args) {
