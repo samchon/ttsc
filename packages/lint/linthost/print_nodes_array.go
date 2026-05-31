@@ -58,8 +58,65 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     Space:       false,
     AddComma:    ctx.allowsEs5TrailingComma(),
     Fill:        isConciselyPrintedArray(arr.Elements.Nodes),
+    ForceBreak:  arrayShouldForceBreak(arr.Elements.Nodes),
     BlankBefore: blankBeforeItems(ctx.Source, arr.Elements.Nodes),
   }), covered
+}
+
+// arrayShouldForceBreak reports whether an array literal takes Prettier's
+// forced one-element-per-line layout even when it would fit flat: more than one
+// element, every element an array or object literal carrying more than one
+// child, and consecutive elements of the same kind (`[["(", ")"], ["{", "}"]]`
+// and `new Map([[k, v], [k, v]])` break; a mixed `[[1, 2], { c: 3 }]` and a
+// lone `[[1, 2]]` or single-child inners stay flat). Mirrors Prettier's array
+// shouldBreak heuristic.
+func arrayShouldForceBreak(elems []*shimast.Node) bool {
+  if len(elems) < 2 {
+    return false
+  }
+  for i, e := range elems {
+    if !isMultiChildArrayOrObject(e) {
+      return false
+    }
+    if i+1 < len(elems) && elems[i+1] != nil && elems[i+1].Kind != e.Kind {
+      return false
+    }
+  }
+  return true
+}
+
+// isMultiChildArrayOrObject reports whether `node` is an array or object literal
+// with more than one element/property.
+func isMultiChildArrayOrObject(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindArrayLiteralExpression:
+    if a := node.AsArrayLiteralExpression(); a != nil && a.Elements != nil {
+      return len(a.Elements.Nodes) > 1
+    }
+  case shimast.KindObjectLiteralExpression:
+    if o := node.AsObjectLiteralExpression(); o != nil && o.Properties != nil {
+      return len(o.Properties.Nodes) > 1
+    }
+  }
+  return false
+}
+
+// arrayForcesBreak reports whether `node` is an array literal that Prettier's
+// shouldBreak heuristic explodes regardless of width. The print-width rule
+// consults it so its flat-fit fast path does not leave such an array inline
+// when the source wrote it on one line.
+func arrayForcesBreak(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindArrayLiteralExpression {
+    return false
+  }
+  arr := node.AsArrayLiteralExpression()
+  if arr == nil || arr.Elements == nil {
+    return false
+  }
+  return arrayShouldForceBreak(arr.Elements.Nodes)
 }
 
 // isConciselyPrintedArray reports whether an array should use Prettier's

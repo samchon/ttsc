@@ -163,11 +163,14 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // cost only on nodes that actually overflow keeps the hot path on
   // well-formatted code allocation- and scan-free.
   // A call with two or more function/arrow arguments explodes regardless of
-  // width (Prettier's multiple-callback rule), so a flat one-line call in the
-  // source still needs a reflow. Skip the fast path for it; the printer's
-  // ForceBreak then produces the exploded shape. Everything else that fits
-  // flat is byte-identical after reflow, so the fast path stands.
+  // width (Prettier's multiple-callback rule), and an array of same-kind
+  // multi-child arrays/objects explodes under Prettier's shouldBreak heuristic,
+  // so a flat one-line node of either shape still needs a reflow. Skip the fast
+  // path for them; the printer's ForceBreak then produces the exploded shape.
+  // Everything else that fits flat is byte-identical after reflow, so the fast
+  // path stands.
   if !callForcesFunctionBreak(node) &&
+    !arrayForcesBreak(node) &&
     !sliceContainsNewline(src, start, end) &&
     printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
     return
