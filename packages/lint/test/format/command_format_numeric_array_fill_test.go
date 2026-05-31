@@ -60,4 +60,22 @@ func TestCommandFormatNumericArrayFill(t *testing.T) {
 ];
 `, pw)
   })
+  // a numeric fill array hugged as the sole argument of a `new`: the brackets
+  // break and the fill packs inside the indented region. The flatten fix keeps
+  // a supposedly all-flat option from carrying a live (breakable) fill, which
+  // had produced `[1, 0, …, 1,\n0]` with the fill broken inside flat brackets.
+  t.Run("hugged_numeric_fill_breaks_brackets", func(t *testing.T) {
+    assertFormatUnchanged(t, `export const quadVertices = new Float32Array([
+  1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+]);
+`)
+  })
+  // a long numeric fill wraps onto multiple packed lines at the default width.
+  t.Run("long_numeric_fill_wraps_multiple_lines", func(t *testing.T) {
+    assertFormatUnchanged(t, `const arr = [
+  1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+  17,
+];
+`)
+  })
 }

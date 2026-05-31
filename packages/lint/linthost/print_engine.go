@@ -538,6 +538,13 @@ func flatten(doc Doc) (Doc, bool) {
     return flattenChildren(doc.Children)
   case docConcat, docIndent, docAlign:
     return flattenChildren(doc.Children)
+  case docFill:
+    // A fill's flat form is every content and separator rendered flat (its
+    // Line separators collapse to spaces). Without this case flatten returned
+    // the live Fill unchanged, so a supposedly all-flat option still carried a
+    // breakable fill and a hugged numeric array (`new Float32Array([ … ])`)
+    // rendered with the fill broken inside unbroken brackets.
+    return flattenChildren(doc.Children)
   }
   return doc, true
 }
