@@ -192,10 +192,10 @@ func Print(doc Doc, opts PrintOptions) string {
       // Update column. A text fragment may contain embedded
       // newlines (verbatim slices). The column tracker counts
       // from the last newline.
-      if idx := strings.LastIndex(top.doc.Text, "\n"); idx >= 0 {
-        col = len(top.doc.Text) - idx - 1
+      if strings.Contains(top.doc.Text, "\n") {
+        col = displayWidthAfterLastNewline(top.doc.Text)
       } else {
-        col += len(top.doc.Text)
+        col += displayWidth(top.doc.Text)
       }
     case docConcat:
       // Push children in reverse so they pop in source order.
@@ -365,7 +365,7 @@ func fits(doc Doc, remaining int, indent int) bool {
     switch top.doc.Kind {
     case docNil:
     case docText:
-      remaining -= len(top.doc.Text)
+      remaining -= displayWidth(top.doc.Text)
       if remaining < 0 {
         return false
       }
@@ -466,9 +466,9 @@ func fitsFirstLine(doc Doc, remaining int) bool {
     case docText:
       if idx := strings.IndexByte(top.Text, '\n'); idx >= 0 {
         // A multi-line Text ends the first line at its first newline.
-        return remaining-idx >= 0
+        return remaining-displayWidth(top.Text[:idx]) >= 0
       }
-      remaining -= len(top.Text)
+      remaining -= displayWidth(top.Text)
       if remaining < 0 {
         return false
       }

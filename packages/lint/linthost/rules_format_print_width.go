@@ -172,7 +172,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if !callForcesFunctionBreak(node) &&
     !arrayForcesBreak(node) &&
     !sliceContainsNewline(src, start, end) &&
-    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
+    printOpts.StartingColumn+displayWidth(src[start:end])+trailingWidth <= printOpts.PrintWidth {
     return
   }
 
@@ -321,11 +321,11 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
   }
   lineEnd := trailingSuffixEnd(src, end)
   col := 0
-  for i := end; i < lineEnd; i++ {
-    if src[i] == '\t' {
+  for _, r := range src[end:lineEnd] {
+    if r == '\t' {
       col += tabWidth - (col % tabWidth)
     } else {
-      col++
+      col += runeWidth(r)
     }
   }
   return col
@@ -386,7 +386,7 @@ func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int 
       if r == '\t' {
         width += tabWidth - (width % tabWidth)
       } else if r != '\r' {
-        width++
+        width += runeWidth(r)
       }
     }
     if i == 0 {
@@ -415,11 +415,11 @@ func leadingColumn(src string, pos int, tabWidth int) int {
   }
   lineStart := lineStartOffset(src, pos)
   col := 0
-  for i := lineStart; i < pos; i++ {
-    if src[i] == '\t' {
+  for _, r := range src[lineStart:pos] {
+    if r == '\t' {
       col += tabWidth - (col % tabWidth)
     } else {
-      col++
+      col += runeWidth(r)
     }
   }
   return col
