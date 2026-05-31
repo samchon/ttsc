@@ -74,6 +74,14 @@ type listShape struct {
   // close line. The short leaf/call trailing args of every other first-arg-hug
   // case still flatten (they ride the close line flat, per Prettier).
   HugFirstTrailingBreaks bool
+  // HugFirstForce drops the exploded fallback from a HugFirst list, the mirror
+  // of HugLastForce. The call-argument printer sets it for a genuine React-hook
+  // deps call (`useEffect(() => { … }, [deps])`: a zero-parameter block-bodied
+  // arrow plus an array literal), which Prettier's isReactHookCallWithDepsArray
+  // path never explodes — it keeps the callback hugged and lets the open line
+  // overflow. Distinct from HugFirstTrailingBreaks, which also fires for a
+  // parameterized callback whose empty-array second arg DOES keep the fallback.
+  HugFirstForce bool
   // HugLastForce drops the exploded fallback from a HugLast list: the hugged
   // shape is chosen even when its opening line overflows printWidth. The
   // call-argument printer sets it for a test-framework call
@@ -161,10 +169,12 @@ func printList(ctx *PrintContext, shape listShape) Doc {
   if shape.HugFirst {
     hugged = printListHuggingFirst(ctx, shape)
   }
-  // A test-framework call hugs its callback unconditionally — Prettier never
-  // explodes its arguments — so drop the exploded fallback. The all-flat
-  // option still wins when the whole call fits (an empty-body callback).
-  if shape.HugLastForce {
+  // A test-framework call (HugLastForce) and a genuine React-hook deps call
+  // (HugFirstForce, `useEffect(() => { … }, [deps])`) hug their callback
+  // unconditionally — Prettier never explodes their arguments, it lets the open
+  // line overflow — so drop the exploded fallback. The all-flat option still
+  // wins when the whole call fits (an empty-body callback).
+  if shape.HugLastForce || shape.HugFirstForce {
     if allFlat, ok := flatten(plain); ok {
       return ConditionalGroup(allFlat, hugged)
     }

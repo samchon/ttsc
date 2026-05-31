@@ -216,7 +216,8 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     HugFirstTrailingBreaks: hugFirst && len(list.Nodes) == 2 &&
       list.Nodes[1] != nil &&
       list.Nodes[1].Kind == shimast.KindArrayLiteralExpression,
-    ForceBreak:  forceFnBreak,
+    HugFirstForce: hugFirst && isReactHookDepsCall(list.Nodes),
+    ForceBreak:    forceFnBreak,
     BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
@@ -456,6 +457,28 @@ func isUseMemoArrowArrayShape(args []*shimast.Node) bool {
   }
   return args[0].Kind == shimast.KindArrowFunction &&
     args[1].Kind == shimast.KindArrayLiteralExpression
+}
+
+// isReactHookDepsCall reports the React-hook deps shape Prettier hugs WITHOUT an
+// exploded fallback: exactly two arguments, the first a ZERO-parameter
+// block-bodied arrow, the second an array literal (`useEffect(() => { … },
+// [deps])`). Prettier's isReactHookCallWithDepsArray / isValidHookCallbackAndDepsFormat
+// keys on this and never explodes the args — it keeps the callback hugged and
+// lets the open line overflow. A parameterized callback (`subscribe((e) => { … },
+// [])`) is NOT this shape and keeps the fallback, so the zero-parameter +
+// block-body gate is load-bearing (distinct from isUseMemoArrowArrayShape and
+// from the HugFirstTrailingBreaks array check).
+func isReactHookDepsCall(args []*shimast.Node) bool {
+  if len(args) != 2 || args[0] == nil || args[1] == nil {
+    return false
+  }
+  if args[1].Kind != shimast.KindArrayLiteralExpression {
+    return false
+  }
+  arrow := args[0].AsArrowFunction()
+  return arrow != nil && arrow.Body != nil &&
+    arrow.Body.Kind == shimast.KindBlock &&
+    len(args[0].Parameters()) == 0
 }
 
 // anyLeadingItemBreaks reports whether any item before the last carries a

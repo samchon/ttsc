@@ -473,6 +473,16 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
         out.hasSpecComment = true
       }
     }
+    // Also the module-specifier -> `;` tail (`from "m" /* keep */;`): a block
+    // comment there is interior to the declaration but outside the
+    // inter-declaration gap that leadingTriviaIsAllWhitespace scans, so the
+    // merge rebuilder would drop it. The module string itself is excluded (the
+    // span starts at ModuleSpecifier.End()), so no `//`-in-a-path false positive.
+    if tStart, tEnd := imp.ModuleSpecifier.End(), decl.End(); tStart >= 0 && tEnd <= len(src) && tStart < tEnd {
+      if span := src[tStart:tEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+        out.hasSpecComment = true
+      }
+    }
   }
   if clause.NamedBindings == nil {
     return out
