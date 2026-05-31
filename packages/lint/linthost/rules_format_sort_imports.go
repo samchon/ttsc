@@ -484,6 +484,14 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
       }
     }
   }
+  // An import-attributes clause (`with { type: "json" }` / `assert { … }`) is not
+  // reconstructed by renderMergedDecl, so merging would silently drop those
+  // bytes. Flag the declaration unmergeable (its original text is then re-emitted
+  // verbatim), mirroring the print-width import printer, which bails to verbatim
+  // on `imp.Attributes != nil` for the same reason.
+  if imp.Attributes != nil {
+    out.hasSpecComment = true
+  }
   if clause.NamedBindings == nil {
     return out
   }
