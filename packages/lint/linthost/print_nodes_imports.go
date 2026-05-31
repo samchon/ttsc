@@ -143,6 +143,14 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // prefix forms are exclusive.
   prefix := "import "
   if clause.IsTypeOnly() {
+    // A comment in the `type`->`{` gap (`import type /* c */ { … }`) would be
+    // dropped by the minted prefix. The `type` keyword is a clause modifier
+    // flag, not a child node, so the top-level scan masks it (it sits inside the
+    // ImportClause span) and the `nb`-scoped guard starts at `{`. Bail to
+    // verbatim, like the default-binding gap below.
+    if gapHasComment(ctx.Source, shimscanner.SkipTrivia(ctx.Source, clause.Pos()), shimscanner.SkipTrivia(ctx.Source, nb.Pos())) {
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    }
     prefix = "import type "
   }
   if name := clause.Name(); name != nil {
