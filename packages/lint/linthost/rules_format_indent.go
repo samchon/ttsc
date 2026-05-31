@@ -53,7 +53,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
     // callback body under its call-argument column, which is deeper than
     // this rule's block-nesting depth, and reindenting it would oscillate
     // against the printer pass forever (the cascade never converges).
-    if indentCededToReflow(stmt) || cededUnderBracelessBody(stmt) {
+    if indentCededToReflow(stmt) || cededUnderBracelessBody(stmt) ||
+      cededUnderWrappedFunctionExpression(src, stmt) {
       return
     }
     start := shimscanner.SkipTrivia(src, stmt.Pos())
@@ -161,7 +162,8 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       // chain a body statement would, so a callback / expression-nested
       // block's `}` cedes in lockstep with its body (print-width owns it).
       if indentCededToReflow(block) || cededUnderBracelessBody(block) ||
-        typeLiteralIndentCeded(src, block, ownerDepth, layout) {
+        typeLiteralIndentCeded(src, block, ownerDepth, layout) ||
+        cededUnderWrappedFunctionExpression(src, block) {
         return
       }
       // Chained-arrow body: cede the `}` in lockstep with its body
@@ -254,6 +256,46 @@ func indentCededToReflow(stmt *shimast.Node) bool {
     case shimast.KindSourceFile,
       shimast.KindModuleBlock:
       return false
+    }
+  }
+  return false
+}
+
+// cededUnderWrappedFunctionExpression reports whether `node` sits inside a
+// function or arrow EXPRESSION whose header was pushed onto a continuation line,
+// the initializer or value broke after `=` (or a `return`), indenting the
+// `function`/arrow one or more levels past the column its statement starts at:
+//
+//  export const f: Sig =
+//    function f(
+//      a,
+//    ): R {
+//      body;   // sits at the continuation header's depth + 1, not the
+//    };        // statement-base depth + 1 the block model computes
+//
+// The block-depth model counts only Block/clause/declaration nesting, so it
+// places the body relative to the statement base and would de-indent the
+// already-correct (printer-/source-owned) body. Detected structurally and
+// positionally, the enclosing function expression begins on a different
+// physical line than its own parent (the declaration / assignment / return it
+// is the value of), so a same-line `const f = () => { … }` is unaffected.
+func cededUnderWrappedFunctionExpression(src string, node *shimast.Node) bool {
+  for n := node.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindSourceFile, shimast.KindModuleBlock:
+      return false
+    case shimast.KindFunctionExpression, shimast.KindArrowFunction:
+      if n.Parent == nil {
+        continue
+      }
+      fnStart := shimscanner.SkipTrivia(src, n.Pos())
+      parentStart := shimscanner.SkipTrivia(src, n.Parent.Pos())
+      if fnStart < 0 || parentStart < 0 || fnStart > len(src) || parentStart > len(src) {
+        continue
+      }
+      if lineStartOffset(src, fnStart) != lineStartOffset(src, parentStart) {
+        return true
+      }
     }
   }
   return false
