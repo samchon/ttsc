@@ -35,6 +35,11 @@ func printObjectLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if obj == nil || obj.Properties == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment between properties (or after `{`) would be dropped by the fresh
+  // separators; bail to verbatim so the enclosing reflow abstains.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
   items := make([]Doc, 0, len(obj.Properties.Nodes))
   covered := true
   for _, prop := range obj.Properties.Nodes {

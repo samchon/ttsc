@@ -31,6 +31,11 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if arr == nil || arr.Elements == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment between elements (or after `[`) would be dropped by the fresh
+  // separators; bail to verbatim so the enclosing reflow abstains.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
   items := make([]Doc, 0, len(arr.Elements.Nodes))
   covered := true
   for _, elem := range arr.Elements.Nodes {

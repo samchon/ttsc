@@ -2,7 +2,28 @@ package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
+
+// listHasInterItemComments reports whether `node` (an object / array literal)
+// carries a comment in a gap between its items or brackets. The list printers
+// mint fresh comma/line separators that have no slot for such trivia, so a
+// reflow would silently delete the comment. When a node nested inside a
+// reflowing parent (an array argument of a call) carries one, the parent's
+// own top-level comment guard cannot see it (it lives inside a child range),
+// so each list printer must check itself and bail to verbatim — reporting the
+// span uncovered so the enclosing reflow abstains and the source round-trips.
+func listHasInterItemComments(ctx *PrintContext, node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
+  end := node.End()
+  if start < 0 || end < start || end > len(ctx.Source) {
+    return false
+  }
+  return hasNonChildComments(node, ctx.Source, start, end)
+}
 
 // Shared helpers for comma-separated list printers.
 //
