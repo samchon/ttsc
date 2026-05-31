@@ -49,6 +49,10 @@ jobs:
           printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q "$ttsc_version"
           ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q '0.0.0-dev'
           ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q 'commit dev'
+      - name: Publish VS Code Marketplace extension
+        run: SKIP_BUILD=1 bash scripts/publish-vscode-marketplace.sh
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
       - name: Publish to npm
         run: pnpm run package:latest:publish
   wasm-smoke:

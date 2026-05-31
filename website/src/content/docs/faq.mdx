@@ -68,13 +68,13 @@ Both are independent projects that ship as `ttsc` plugins. `typia` produces runt
 
 ## Does the VS Code extension work without a Marketplace install?
 
-Yes. `@ttsc/vscode` is published on npm with a one-shot installer. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
+Yes. It is on the VS Code Marketplace (search `ttsc`, or `ext install samchon.ttsc`), but the same build is also published on npm with a one-shot installer. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
 npx @ttsc/vscode
 ```
 
-The installer calls `code --install-extension` against the `.vsix` bundled in the package. Marketplace release is tracked for v1.
+The installer calls `code --install-extension` against the `.vsix` bundled in the package.
 
 ## VS Code doesn't show TypeScript-Go or plugin diagnostics: what's wrong?
 

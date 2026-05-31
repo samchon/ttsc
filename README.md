@@ -49,9 +49,13 @@ Rewrite source files in place with the `@ttsc/lint` format rules:
 npx ttsc format
 ```
 
-### VSCode Extension
+### VS Code Extension
 
-Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
+Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions.
+
+Install it from the VS Code Marketplace by searching `ttsc`, or run `ext install samchon.ttsc` from VS Code's command palette.
+
+Without the Marketplace, `npx @ttsc/vscode` downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
 
 ```bash
 npx @ttsc/vscode

@@ -65,6 +65,9 @@ function readPackageTarget(input) {
       binBytes: fs.existsSync(path.join(input, "bin", "install.js"))
         ? fs.readFileSync(path.join(input, "bin", "install.js"))
         : undefined,
+      iconBytes: fs.existsSync(path.join(input, "icon.png"))
+        ? fs.readFileSync(path.join(input, "icon.png"))
+        : undefined,
       vsixBytes: fs.existsSync(vsix) ? fs.readFileSync(vsix) : undefined,
       vsixPath: vsix,
     };
@@ -83,6 +86,7 @@ function readPackageTarget(input) {
     hasLicense: entries.has("package/LICENSE"),
     hasLibSourceMap: entries.has("package/lib/extension.js.map"),
     binBytes: entries.get("package/bin/install.js"),
+    iconBytes: undefined,
     vsixBytes: entries.get(vsixName),
     vsixPath: vsixName,
   };
@@ -135,7 +139,35 @@ function readZipEntries(bytes) {
   return entries;
 }
 
+function readPngDimensions(bytes, label) {
+  assert(bytes, `missing ${label}`);
+  assert(
+    bytes.length >= 24 &&
+      bytes.readUInt32BE(0) === 0x89504e47 &&
+      bytes.readUInt32BE(4) === 0x0d0a1a0a &&
+      bytes.toString("ascii", 12, 16) === "IHDR",
+    `${label} must be a PNG`,
+  );
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+  };
+}
+
 const pkg = readPackageTarget(path.resolve(target));
+const iconPath = pkg.packageJSON.icon;
+assert(typeof iconPath === "string", "package.json must declare icon");
+assert(!path.isAbsolute(iconPath), "package.json icon must be relative");
+assert(
+  !iconPath.split(/[\\/]/).includes(".."),
+  "package.json icon must stay inside the package",
+);
+pkg.iconBytes =
+  pkg.kind === "directory"
+    ? fs.existsSync(path.join(path.resolve(target), iconPath))
+      ? fs.readFileSync(path.join(path.resolve(target), iconPath))
+      : undefined
+    : readTarEntries(path.resolve(target)).get(`package/${iconPath}`);
 assert(
   pkg.packageJSON.name === "@ttsc/vscode",
   `unexpected npm package name ${pkg.packageJSON.name}`,
@@ -161,6 +193,11 @@ assert(
 assert(pkg.hasInstall, "missing bin/install.js");
 assert(pkg.hasLicense, "missing LICENSE");
 assert(!pkg.hasLibSourceMap, "npm package must not ship lib/extension.js.map");
+const npmIcon = readPngDimensions(pkg.iconBytes, `npm ${iconPath}`);
+assert(
+  npmIcon.width === 128 && npmIcon.height === 128,
+  `npm ${iconPath} must be 128x128, got ${npmIcon.width}x${npmIcon.height}`,
+);
 assert(
   pkg.binBytes?.toString("utf8").startsWith("#!/usr/bin/env node\n"),
   "bin/install.js must keep its node shebang",
@@ -172,6 +209,8 @@ if (pkg.entries) {
     "package/README.md",
     "package/bin/install.js",
     `package/dist/ttsc-vscode-${pkg.version}.vsix`,
+    `package/${iconPath}`,
+    "package/images/screenshot.png",
     "package/lib/extension.js",
     "package/package.json",
   ].sort();
@@ -203,6 +242,12 @@ const manifest = JSON.parse(
   vsix.get("extension/package.json").toString("utf8"),
 );
 assert(manifest.name === "ttsc", `VSIX manifest name is ${manifest.name}`);
+assert(manifest.icon === iconPath, `VSIX manifest icon is ${manifest.icon}`);
+assert(vsix.has(`extension/${iconPath}`), `VSIX missing extension/${iconPath}`);
+assert(
+  vsix.has("extension/images/screenshot.png"),
+  "VSIX missing extension/images/screenshot.png",
+);
 assert(
   manifest.publisher === "samchon",
   `VSIX manifest publisher is ${manifest.publisher}`,
@@ -223,6 +268,14 @@ assert(
 assert(
   !("publishConfig" in manifest),
   "VSIX manifest must not include npm publishConfig field",
+);
+const vsixIcon = readPngDimensions(
+  vsix.get(`extension/${iconPath}`),
+  `VSIX ${iconPath}`,
+);
+assert(
+  vsixIcon.width === 128 && vsixIcon.height === 128,
+  `VSIX ${iconPath} must be 128x128, got ${vsixIcon.width}x${vsixIcon.height}`,
 );
 
 const extensionJS = vsix.get("extension/lib/extension.js").toString("utf8");

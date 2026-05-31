@@ -66,8 +66,8 @@ export default {
   rules: {
     "no-var": "error",
     "prefer-const": "error",
-    "typescript/no-explicit-any": "warning",
-    "no-console": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-floating-promises": "error",
   },
 } satisfies ITtscLintConfig;
 ```

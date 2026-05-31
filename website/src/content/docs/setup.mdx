@@ -91,16 +91,12 @@ That's it. From here you can:
 
 The VS Code extension starts the `ttscserver` launcher from your project's own `ttsc` dependency, so VS Code uses the same TypeScript-Go language server your project pins.
 
-Not yet on the VS Code Marketplace. For now it ships as an npm package with a one-shot installer. Run `npx @ttsc/vscode`; it downloads the package and installs the bundled `.vsix` into VS Code, nothing to keep as a dependency:
+Install it from the VS Code Marketplace: open the Extensions view, search `ttsc`, and pick the one by `samchon`, or run `ext install samchon.ttsc` from the command palette.
+
+Without the Marketplace, the same build ships on npm with a one-shot installer. `npx @ttsc/vscode` invokes `code --install-extension` against the bundled `.vsix`, nothing to keep as a dependency, and `npx @ttsc/vscode uninstall` removes it:
 
 ```bash
 npx @ttsc/vscode
-```
-
-`npx @ttsc/vscode` invokes `code --install-extension` against the `.vsix` bundled inside the package. To uninstall:
-
-```bash
-npx @ttsc/vscode uninstall
 ```
 
 What it adds:
