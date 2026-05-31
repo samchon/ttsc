@@ -159,6 +159,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   hugLast := shouldHugLastArgument(list.Nodes) &&
     !anyLeadingItemBreaks(items) &&
     (decoratorCall || !anyLeadingArgIsFunctionLike(list.Nodes))
+  // Two or more function/arrow arguments force the list to explode, one per
+  // line, even when it would fit flat: Prettier always breaks a call carrying
+  // multiple callbacks (`promise.then(() => a, () => b)`), the
+  // function-composition rule. The sole exception is a decorator hugging a
+  // huggable trailing argument (`@OneToMany(() => P, (p) => p.c, { … })`),
+  // where the leading arrows stay inline and only the object breaks — so the
+  // gate defers to hugLast off a decorator. See argListForcesFunctionBreak.
+  forceFnBreak := argListForcesFunctionBreak(list.Nodes, decoratorCall)
+  if forceFnBreak {
+    hugLast = false
+  }
   shape := listShape{
     OpenTok:     "(",
     CloseTok:    ")",
@@ -166,10 +177,62 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     Space:       false,
     AddComma:    addComma,
     HugLast:     hugLast,
-    HugFirst:    !hugLast && shouldHugFirstArgument(ctx, list.Nodes),
+    HugFirst:    !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes),
+    ForceBreak:  forceFnBreak,
     BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// countFunctionLikeArgs counts the arrow- and function-expression arguments
+// in a call's argument list. Prettier treats both as "function" arguments for
+// its multiple-callback break rule.
+func countFunctionLikeArgs(args []*shimast.Node) int {
+  n := 0
+  for _, a := range args {
+    if a == nil {
+      continue
+    }
+    switch a.Kind {
+    case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+      n++
+    }
+  }
+  return n
+}
+
+// argListForcesFunctionBreak reports whether a call's argument list must
+// explode purely because it carries two or more function/arrow arguments
+// (Prettier's function-composition rule, e.g. `then(onOk, onErr)`), which
+// fires even when the call would fit on one line. A decorator hugging a
+// huggable trailing argument is the one shape that keeps the leading arrows
+// inline, so it is exempt; everywhere else multiple callbacks break. Shared
+// by printArgList (which sets ForceBreak) and the print-width rule (whose
+// fit fast-path must not skip such a call when it is written flat in source).
+func argListForcesFunctionBreak(args []*shimast.Node, decoratorCall bool) bool {
+  if countFunctionLikeArgs(args) < 2 {
+    return false
+  }
+  if decoratorCall && shouldHugLastArgument(args) {
+    return false
+  }
+  return true
+}
+
+// callForcesFunctionBreak reports whether a node is a CallExpression that the
+// multiple-callback rule forces to explode. The print-width rule consults it
+// so its flat-fit fast path does not leave such a call inline when the source
+// wrote it on one line.
+func callForcesFunctionBreak(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Arguments == nil {
+    return false
+  }
+  decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
+  return argListForcesFunctionBreak(call.Arguments.Nodes, decoratorCall)
 }
 
 // anyLeadingArgIsFunctionLike reports whether any argument before the last
