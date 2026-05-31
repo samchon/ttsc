@@ -168,15 +168,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   // doc carries hard breaks (a block-bodied callback). A leading object or
   // array that merely fits flat does NOT decline — Prettier still hugs the
   // last argument there (`doConfigure({ … }, () => { … })`).
-  // A decorator's call hugs its last argument even past leading callbacks
-  // (`@OneToMany(() => P, (p) => p.c, { … })` keeps the arrows inline and
-  // breaks only the object); the useMemo/useEffect deps shape
-  // (`f(() => x, [deps])`) explodes instead, so that gate applies only off a
-  // decorator. (Two-or-more callbacks are handled by argListForcesFunctionBreak,
-  // and a block-bodied leading callback by anyLeadingItemBreaks.)
+  // The useMemo/useEffect deps shape (`f(() => x, [deps])`) explodes its 2-arg
+  // arrow+array one-per-line even under a decorator: Prettier's shouldExpandLastArg
+  // declines `args.length === 2 && penultimate is ArrowFunction && last is Array`
+  // unconditionally (it is NOT decorator-gated). The genuine decorator hug
+  // (`@OneToMany(() => P, (p) => p.c, { … })`) is 3-arg, so isUseMemoArrowArrayShape
+  // already returns false for it; a 2-or-more-callback composition is handled by
+  // argListForcesFunctionBreak, and a block-bodied leading callback by
+  // anyLeadingItemBreaks.
   hugLast := shouldHugLastArgument(list.Nodes) &&
     !anyLeadingItemBreaks(items) &&
-    (decoratorCall || !isUseMemoArrowArrayShape(list.Nodes))
+    !isUseMemoArrowArrayShape(list.Nodes)
   // Two or more function/arrow arguments force the list to explode, one per
   // line, even when it would fit flat: Prettier always breaks a call carrying
   // multiple callbacks (`promise.then(() => a, () => b)`), the
