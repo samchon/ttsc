@@ -56,4 +56,16 @@ func TestCommandFormatArgHugging(t *testing.T) {
 );
 `)
   })
+  // a DECORATOR hugs its last object past two leading arrows (the typeorm
+  // @OneToMany shape); the plain-call counterpart (two_arrows_then_object)
+  // explodes.
+  t.Run("decorator_hugs_object_past_two_arrows", func(t *testing.T) {
+    assertFormatUnchanged(t, `class C {
+  @OneToMany(() => Post, (post) => post.category, {
+    cascade: ["insert"],
+  })
+  posts: Post[];
+}
+`)
+  })
 }

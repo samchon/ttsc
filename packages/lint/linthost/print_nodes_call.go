@@ -55,7 +55,10 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // `import(...)`, so the printer's reflow must agree with
   // format/trailing-comma's same exception (see isDynamicImportCall).
   addComma := ctx.allowsCallArgumentTrailingComma() && !isDynamicImportCall(call)
-  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma)
+  // A decorator's call hugs its last argument even past leading callbacks
+  // (`@OneToMany(() => P, (p) => p.c, { … })`); a plain call explodes there.
+  decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
+  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma, decoratorCall)
   parts = append(parts, argDoc)
   return Concat(parts...), covered && argCovered
 }
@@ -87,7 +90,7 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     if hasNilEntry(ne.Arguments) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma())
+    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false)
     parts = append(parts, argDoc)
     covered = covered && argCovered
   }
@@ -127,7 +130,7 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // ES2017+, so Prettier's "es5" and "none" modes pass false; otherwise the
 // printer would oscillate against format/trailing-comma on every cascade
 // pass (rxjs hit this on ajax.ts and several operators / testing helpers).
-func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc, bool) {
+func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, decoratorCall bool) (Doc, bool) {
   if list == nil {
     return Text("()"), true
   }
@@ -148,9 +151,13 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
   // doc carries hard breaks (a block-bodied callback). A leading object or
   // array that merely fits flat does NOT decline — Prettier still hugs the
   // last argument there (`doConfigure({ … }, () => { … })`).
+  // A decorator's call hugs its last argument even past leading callbacks
+  // (`@OneToMany(() => P, (p) => p.c, { … })` keeps the arrows inline and
+  // breaks only the object); a plain call with two or more leading callbacks
+  // explodes instead, so the function-arg gate applies only off a decorator.
   hugLast := shouldHugLastArgument(list.Nodes) &&
-    !anyLeadingArgIsFunctionLike(list.Nodes) &&
-    !anyLeadingItemBreaks(items)
+    !anyLeadingItemBreaks(items) &&
+    (decoratorCall || !anyLeadingArgIsFunctionLike(list.Nodes))
   shape := listShape{
     OpenTok:     "(",
     CloseTok:    ")",
@@ -220,13 +227,13 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
   if last == nil || !lastArgHuggableShape(last) {
     return false
   }
-  // Prettier's shouldGroupLastArg declines when the penultimate argument is
-  // itself expandable (two objects, an arrow then an object, …): only the
-  // last argument may claim the break. `new Sash(x, { … }, { … })` and
-  // `manyToOne(() => a, (b) => b.c, { … })` therefore explode rather than
-  // hug, while `foo(a, b, { … })` and `register("x", () => { … })` hug.
+  // Prettier's shouldGroupLastArg declines only when the penultimate argument
+  // is the SAME node kind as the last: two objects or two arrays compete for
+  // the break, so `new Sash(x, { … }, { … })` and `bar({ … }, { … })` explode.
+  // A different-kind penultimate (an arrow before an object, `@OneToMany(() =>
+  // P, (p) => p.c, { … })`, or a plain `foo(a, b, { … })`) still hugs.
   if len(args) >= 2 {
-    if pen := args[len(args)-2]; pen != nil && isExpandableArg(pen) {
+    if pen := args[len(args)-2]; pen != nil && pen.Kind == last.Kind {
       return false
     }
   }
@@ -263,21 +270,6 @@ func lastArgHuggableShape(last *shimast.Node) bool {
       shimast.KindArrayLiteralExpression:
       return true
     }
-  }
-  return false
-}
-
-// isExpandableArg reports whether `node` is an argument Prettier could itself
-// break onto multiple lines (object/array literal, function, or arrow). Used
-// to decline last-argument hugging when the penultimate argument competes for
-// the break.
-func isExpandableArg(node *shimast.Node) bool {
-  switch node.Kind {
-  case shimast.KindObjectLiteralExpression,
-    shimast.KindArrayLiteralExpression,
-    shimast.KindFunctionExpression,
-    shimast.KindArrowFunction:
-    return true
   }
   return false
 }
