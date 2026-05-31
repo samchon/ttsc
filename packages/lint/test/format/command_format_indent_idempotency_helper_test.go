@@ -23,8 +23,22 @@ func assertFormatUnchanged(t *testing.T, src string) {
 // while assertFormatUnchanged covers the idempotency cases (want == src).
 func assertFormatResult(t *testing.T, src, want string) {
   t.Helper()
+  assertFormatResultWithFormat(t, src, want, map[string]any{})
+}
+
+// assertFormatUnchangedWithFormat is assertFormatUnchanged with a non-default
+// format block (e.g. a different tabWidth or printWidth).
+func assertFormatUnchangedWithFormat(t *testing.T, src string, format map[string]any) {
+  t.Helper()
+  assertFormatResultWithFormat(t, src, src, format)
+}
+
+// assertFormatResultWithFormat is assertFormatResult parameterized on the
+// `format` block contents.
+func assertFormatResultWithFormat(t *testing.T, src, want string, format map[string]any) {
+  t.Helper()
   root := seedLintProject(t, src)
-  seedLintConfig(t, root, map[string]any{"format": map[string]any{}})
+  seedLintConfig(t, root, map[string]any{"format": format})
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "format", "--cwd", root, "--plugins-json", lintManifest(t),
