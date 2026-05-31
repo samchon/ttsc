@@ -182,8 +182,8 @@ Rules:
 - Do NOT mention Go test files. Every bullet links to a `tests/test-lint/src/cases/`
   fixture; if a fixture does not exist yet, create one before adding the bullet.
 - Update both this README **and** `website/src/content/docs/lint/rules/<family>.mdx`
-  in the same change. The mdx file uses em-dash bullets (`- \`<rule-id>\` — <desc>.`)
-  rather than the README colon form, but the rule list itself must stay in sync.
+  in the same change. The mdx file uses the same colon form (`- \`<rule-id>\`: <desc>.`)
+  with no em-dashes; keep the rule list in sync between the two.
 - After landing the bullet, append the upstream plugin link to the `## References`
   section below and update its `### Claim ownership` paragraph if a new family
   joined the family list.

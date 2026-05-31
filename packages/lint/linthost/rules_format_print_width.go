@@ -93,19 +93,21 @@ func (formatPrintWidth) Visits() []shimast.Kind {
 //     re-render still over-breaks some of these; the next slice should
 //     measure fitsFirstLine against `pw - col - trailingNonComment`
 //     before committing to the broken layout.
-//   - Single-line `export type { X } from "long-path"` reexports.
-//     Prettier 3 keeps them flat even when the whole declaration
-//     overflows; ttsc-lint visits `KindNamedExports` in isolation and
-//     breaks the brace clause. A real fix requires teaching the rule
-//     about the surrounding ExportDeclaration so the brace clause is
-//     measured against the full declaration line, or visiting
-//     ExportDeclaration directly so the `from "..."` tail joins the
-//     reflow surface.
+//   - Default-combined imports (`import D, { X } from "x"`) are kept
+//     verbatim by printImportDeclaration (its `clause.Name() != nil`
+//     guard), so a default import whose named clause overflows is not
+//     broken; Prettier breaks it. Lifting the guard, threading the default
+//     name into the printed prefix, is a future default-import reflow slice.
 //
-// Both cases are tracked benchmark cases that forced
-// `formatPrintWidth: 'off'` on the ttsc-lint branch. They are listed
-// here so a future slice can pick them up without rediscovering the
-// divergence.
+// (A single-specifier `import/export { X } from "long-path"` that overflows
+// only because of the `from "..."` tail is now kept inline by the
+// isSingleSpecifierNamedClause abstain, matching Prettier, which never
+// breaks a one-name clause. Multi-specifier clauses still break correctly:
+// the trailing-width charge measures the `from "..."` tail against the line
+// budget, so a brace that fits but whose declaration overflows is broken.)
+//
+// These cases are tracked benchmark divergences. They are listed here so a
+// future slice can pick them up without rediscovering the divergence.
 func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
@@ -160,8 +162,27 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // the per-byte comment scan in hasNonChildComments. Charging that
   // cost only on nodes that actually overflow keeps the hot path on
   // well-formatted code allocation- and scan-free.
-  if !sliceContainsNewline(src, start, end) &&
-    printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
+  // A call with two or more function/arrow arguments explodes regardless of
+  // width (Prettier's multiple-callback rule), and an array of same-kind
+  // multi-child arrays/objects explodes under Prettier's shouldBreak heuristic,
+  // so a flat one-line node of either shape still needs a reflow. Skip the fast
+  // path for them; the printer's ForceBreak then produces the exploded shape.
+  // Everything else that fits flat is byte-identical after reflow, so the fast
+  // path stands.
+  if !callForcesFunctionBreak(node) &&
+    !arrayForcesBreak(node) &&
+    !sliceContainsNewline(src, start, end) &&
+    printOpts.StartingColumn+displayWidth(src[start:end])+trailingWidth <= printOpts.PrintWidth {
+    return
+  }
+
+  // A named import/export clause with a single specifier is never broken by
+  // Prettier 3: `import { X } from "long"` and `export type { X } from "long"`
+  // stay inline even when the `from "..."` tail pushes the whole declaration
+  // past printWidth (Prettier breaks a brace clause only at two or more
+  // specifiers). The rule visits the brace clause (or the import declaration)
+  // in isolation, so without this it would break a one-name clause and diverge.
+  if isSingleSpecifierNamedClause(node) {
     return
   }
 
@@ -180,6 +201,18 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // across lines and diverge from Prettier. See the printWidth:Infinity
   // branch in Prettier's printTemplateExpression.
   if hasTemplateSubstitutionAncestor(node) {
+    return
+  }
+
+  // Abstain on any node nested inside a JSX expression container (`{…}`),
+  // the JSX analogue of the template-substitution guard above. A reflow
+  // node (call / conditional) that sits inside BOTH a JSX attribute
+  // initializer (`x={cond ? a : b}`) and a JSX child
+  // (`{items.map(…)}`) gets broken here, then the next pass measures each
+  // fragment flat, finds it fits, and reverts — `ttsc format` oscillates to
+  // the 10-pass cap and exits 2. `KindJsxExpression` wraps both the
+  // attribute `{…}` and the child `{…}`, so this one guard covers both.
+  if hasJsxExpressionAncestor(node) {
     return
   }
 
@@ -288,11 +321,11 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
   }
   lineEnd := trailingSuffixEnd(src, end)
   col := 0
-  for i := end; i < lineEnd; i++ {
-    if src[i] == '\t' {
+  for _, r := range src[end:lineEnd] {
+    if r == '\t' {
       col += tabWidth - (col % tabWidth)
     } else {
-      col++
+      col += runeWidth(r)
     }
   }
   return col
@@ -353,7 +386,7 @@ func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int 
       if r == '\t' {
         width += tabWidth - (width % tabWidth)
       } else if r != '\r' {
-        width++
+        width += runeWidth(r)
       }
     }
     if i == 0 {
@@ -382,11 +415,11 @@ func leadingColumn(src string, pos int, tabWidth int) int {
   }
   lineStart := lineStartOffset(src, pos)
   col := 0
-  for i := lineStart; i < pos; i++ {
-    if src[i] == '\t' {
+  for _, r := range src[lineStart:pos] {
+    if r == '\t' {
       col += tabWidth - (col % tabWidth)
     } else {
-      col++
+      col += runeWidth(r)
     }
   }
   return col
@@ -518,6 +551,26 @@ func hasTemplateSubstitutionAncestor(node *shimast.Node) bool {
   return false
 }
 
+// hasJsxExpressionAncestor reports whether `node` sits inside a JSX
+// expression container (`{…}`). formatPrintWidth abstains on such nodes for
+// the same reason as hasTemplateSubstitutionAncestor: a reflow node that lives
+// inside both a JSX attribute initializer and a JSX child breaks under
+// print-width and then reverts on the next pass when each fragment measures
+// flat, so `ttsc format` never converges and exits 2. `KindJsxExpression`
+// wraps both the attribute `{…}` and the child `{…}`, so a single ancestor
+// walk covers both placements.
+func hasJsxExpressionAncestor(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindJsxExpression {
+      return true
+    }
+  }
+  return false
+}
+
 // isReflowKind reports whether `k` is one of the node kinds the
 // formatPrintWidth rule visits. Kept in sync with Visits() so
 // hasReflowAncestor does not need to call Visits() at runtime.
@@ -574,13 +627,31 @@ func hasNonChildComments(node *shimast.Node, src string, start, end int) bool {
     children = append(children, span{shimscanner.SkipTrivia(src, child.Pos()), child.End()})
     return false
   })
+  // inChild reports whether offset `i` lies inside any child's [pos, end)
+  // token range. The children are appended in source order (ForEachChild
+  // walks the AST in source order) with non-overlapping ranges, so a binary
+  // search for the last child whose `pos <= i` answers the query in O(log n)
+  // instead of the former O(n) per-byte linear scan. The boolean returned is
+  // identical to the linear scan for every offset; this is a pure speedup of
+  // the predicate, it changes no formatting output.
   inChild := func(i int) bool {
-    for _, c := range children {
-      if i >= c.pos && i < c.end {
-        return true
+    lo, hi := 0, len(children)
+    for lo < hi {
+      mid := (lo + hi) / 2
+      if children[mid].pos <= i {
+        lo = mid + 1
+      } else {
+        hi = mid
       }
     }
-    return false
+    // lo is the count of children with pos <= i; the candidate is the one
+    // just before it. A non-overlapping, source-ordered child list means at
+    // most this single candidate can contain `i`.
+    if lo == 0 {
+      return false
+    }
+    c := children[lo-1]
+    return i >= c.pos && i < c.end
   }
   for i := start; i < end-1 && i < len(src)-1; i++ {
     if inChild(i) {
@@ -589,6 +660,40 @@ func hasNonChildComments(node *shimast.Node, src string, start, end int) bool {
     if src[i] == '/' && (src[i+1] == '/' || src[i+1] == '*') {
       return true
     }
+  }
+  return false
+}
+
+// isSingleSpecifierNamedClause reports whether `node` is a named import/export
+// brace clause (or an import declaration whose binding is one) carrying exactly
+// one specifier. Prettier never breaks such a clause; the print-width rule
+// abstains so a one-name `{ X }` survives a `from "long-path"` overflow inline.
+func isSingleSpecifierNamedClause(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindNamedImports:
+    ni := node.AsNamedImports()
+    return ni != nil && ni.Elements != nil && len(ni.Elements.Nodes) == 1
+  case shimast.KindNamedExports:
+    ne := node.AsNamedExports()
+    return ne != nil && ne.Elements != nil && len(ne.Elements.Nodes) == 1
+  case shimast.KindImportDeclaration:
+    imp := node.AsImportDeclaration()
+    if imp == nil || imp.ImportClause == nil {
+      return false
+    }
+    clause := imp.ImportClause.AsImportClause()
+    if clause == nil || clause.NamedBindings == nil ||
+      clause.NamedBindings.Kind != shimast.KindNamedImports {
+      return false
+    }
+    // A default binding alongside the named clause (`import D, { X } from …`)
+    // makes Prettier break the brace even for a single specifier, so the
+    // abstain applies only to a bare `import { X } from …`.
+    if clause.Name() != nil {
+      return false
+    }
+    ni := clause.NamedBindings.AsNamedImports()
+    return ni != nil && ni.Elements != nil && len(ni.Elements.Nodes) == 1
   }
   return false
 }

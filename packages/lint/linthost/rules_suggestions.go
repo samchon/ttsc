@@ -1255,6 +1255,13 @@ func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool)
 // terminate or interpolate a template literal body: backslash, backtick,
 // and the `${` sequence. Matches the canonical ESLint `prefer-template`
 // fixer escape set.
+//
+// The input is the COOKED string value, so it carries decoded line
+// terminators. A raw CR (or CRLF) emitted into a template body is
+// normalized to LF by the ECMAScript template-literal grammar, and a raw
+// LF/TAB would change the literal's whitespace layout, so those control
+// characters are emitted as backslash escapes (`\r`, `\n`, `\t`) to keep
+// the template's cooked value byte-for-byte identical to the original.
 func escapeTemplateLiteralBody(text string) string {
   var sb strings.Builder
   sb.Grow(len(text))
@@ -1264,6 +1271,12 @@ func escapeTemplateLiteralBody(text string) string {
     case '\\', '`':
       sb.WriteByte('\\')
       sb.WriteByte(ch)
+    case '\r':
+      sb.WriteString("\\r")
+    case '\n':
+      sb.WriteString("\\n")
+    case '\t':
+      sb.WriteString("\\t")
     case '$':
       if i+1 < len(text) && text[i+1] == '{' {
         sb.WriteString("\\$")

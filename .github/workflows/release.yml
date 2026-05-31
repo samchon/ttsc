@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: packages/ttsc/go.sum
       - uses: pnpm/action-setup@v4
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Build all packages
         run: pnpm run build
       - name: Assert dist/ttsc.wasm exists and is >10MB

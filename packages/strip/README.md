@@ -25,6 +25,8 @@ With no extra config, `@ttsc/strip` removes `console.log`, `console.debug`, `ass
 
 Only the configured patterns are removed. `@ttsc/strip` is not a minifier, tree-shaker, or dead-code-elimination pass.
 
+Stripping removes the entire statement, including its arguments. A side-effecting call nested inside a stripped statement-level call goes with it: `console.log(recordMetric())` drops `recordMetric()` along with the `console.log` statement.
+
 ## Configuration
 
 Default behavior removes these statement patterns:

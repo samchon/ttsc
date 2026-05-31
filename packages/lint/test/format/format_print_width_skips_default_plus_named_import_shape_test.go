@@ -2,25 +2,22 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthSkipsDefaultPlusNamedImportShape verifies the
-// rule does NOT touch `import D, { … } from "x"` declarations.
+// TestFormatPrintWidthBreaksDefaultPlusNamedImportShape verifies a
+// default-combined import now reflows. The whole declaration renders as one
+// group (Prefix `import D, ` + Suffix ` from "x"`), so an overflowing
+// `import D, { … } from "x"` breaks its named brace — the default binding
+// stays on the `import D, {` line, matching Prettier. Previously the printer
+// kept the shape verbatim (a v1 limitation).
 //
-// The ImportDeclaration printer recognizes `import D, { … }` as an
-// uncovered shape and returns verbatim. The integration safety net is
-// the "no diff → no edit" comparison: if the printer produces the
-// same bytes as the source, no edit is emitted even when the input is
-// long. The case feeds a deliberately wide combined-import shape and
-// asserts the rule emits zero findings — the partial-coverage v1 must
-// not strip the default specifier.
-//
-//  1. Configure printWidth=10 (any reflow attempt would fire).
+//  1. Configure printWidth=10 (forces the reflow).
 //  2. Feed `import D, { alpha, bravo, charlie } from "x";`.
-//  3. Assert the rule emits zero findings.
-func TestFormatPrintWidthSkipsDefaultPlusNamedImportShape(t *testing.T) {
-  assertRuleSkipsSourceWithOptions(
+//  3. Assert the broken Prettier shape.
+func TestFormatPrintWidthBreaksDefaultPlusNamedImportShape(t *testing.T) {
+  assertFixSnapshotWithOptions(
     t,
     "format/print-width",
     "import D, { alpha, bravo, charlie } from \"x\";\n",
     `{"printWidth": 10}`,
+    "import D, {\n  alpha,\n  bravo,\n  charlie,\n} from \"x\";\n",
   )
 }

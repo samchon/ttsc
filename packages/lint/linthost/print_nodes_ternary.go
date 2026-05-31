@@ -19,15 +19,17 @@ import (
 // Group), matching Prettier: either the entire chain fits flat
 // (`a ? b : c ? d : e`) or every rung breaks onto its own line. Nesting
 // is expressed by recursing the chain builder without wrapping the
-// nested conditional in its own Group, so the Doc engine's Indent stack
-// accumulates `tabWidth` columns per level.
+// nested conditional in its own Group. The outermost chain indents its arms
+// by `tabWidth`, but each nested chain indents by a FIXED 2 columns (not
+// `tabWidth`), matching Prettier 3: at tabWidth 4 the outer arms sit at
+// column 4 and the nested arms at column 6, not 8.
 //
 // The second return value is the coverage flag (see PrintNode): the AND
 // of the test and both branches, so a multi-line verbatim node anywhere
 // in the chain makes formatPrintWidth abstain rather than emit a
 // half-reflowed shape.
 func printConditionalExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
-  body, covered := buildConditionalChain(ctx, node)
+  body, covered := buildConditionalChain(ctx, node, ctx.indentUnit())
   if body.IsNil() {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
@@ -39,17 +41,17 @@ func printConditionalExpression(ctx *PrintContext, node *shimast.Node) (Doc, boo
 // the caller's group and its arms indent one level deeper. The top-level
 // printConditionalExpression wraps the outermost body in the single
 // Group that owns the break decision.
-func buildConditionalChain(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
+func buildConditionalChain(ctx *PrintContext, node *shimast.Node, indentCols int) (Doc, bool) {
   cond := node.AsConditionalExpression()
   if cond == nil || cond.Condition == nil || cond.WhenTrue == nil || cond.WhenFalse == nil {
     return Doc{}, true
   }
   testDoc, c1 := PrintNode(ctx, cond.Condition)
-  consDoc, c2 := ternaryArm(ctx, cond.WhenTrue)
-  altDoc, c3 := ternaryArm(ctx, cond.WhenFalse)
+  consDoc, c2 := ternaryArm(ctx, cond.WhenTrue, true)
+  altDoc, c3 := ternaryArm(ctx, cond.WhenFalse, false)
   doc := Concat(
     testDoc,
-    Indent(ctx.indentUnit(),
+    Indent(indentCols,
       Line(), Text("? "), consDoc,
       Line(), Text(": "), altDoc,
     ),
@@ -77,9 +79,27 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
 //
 // Align is a no-op for an arm that stays flat, and a nested conditional
 // is deliberately NOT aligned — it keeps the Indent-based staircase.
-func ternaryArm(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
+//
+// A nested conditional in the CONSEQUENT (`? `) position is wrapped in
+// parentheses, but only when the chain renders flat: Prettier's ternary-old
+// printer emits `consequent.type === node.type ? ifBreak("", "(") : ""` around
+// the consequent (`a ? (b ? c : d) : e` on one line), and drops the parens for
+// the broken staircase. A nested conditional in the ALTERNATE (`: `) position
+// is never wrapped — it chains. `isConsequent` selects between the two.
+func ternaryArm(ctx *PrintContext, node *shimast.Node, isConsequent bool) (Doc, bool) {
   if node != nil && node.Kind == shimast.KindConditionalExpression {
-    return buildConditionalChain(ctx, node)
+    // A nested chain indents a fixed 2 columns past its parent rung,
+    // independent of tabWidth (Prettier 3's nested-ternary rule).
+    chain, covered := buildConditionalChain(ctx, node, 2)
+    if isConsequent {
+      // `ifBreak("", "(")` … `ifBreak("", ")")`: parens in flat mode only.
+      chain = Concat(
+        IfBreak(Doc{Kind: docNil}, Text("(")),
+        chain,
+        IfBreak(Doc{Kind: docNil}, Text(")")),
+      )
+    }
+    return chain, covered
   }
   doc, covered := PrintNode(ctx, node)
   return Align(doc), covered

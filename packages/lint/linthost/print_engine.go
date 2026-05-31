@@ -192,10 +192,10 @@ func Print(doc Doc, opts PrintOptions) string {
       // Update column. A text fragment may contain embedded
       // newlines (verbatim slices). The column tracker counts
       // from the last newline.
-      if idx := strings.LastIndex(top.doc.Text, "\n"); idx >= 0 {
-        col = len(top.doc.Text) - idx - 1
+      if strings.Contains(top.doc.Text, "\n") {
+        col = displayWidthAfterLastNewline(top.doc.Text)
       } else {
-        col += len(top.doc.Text)
+        col += displayWidth(top.doc.Text)
       }
     case docConcat:
       // Push children in reverse so they pop in source order.
@@ -241,6 +241,51 @@ func Print(doc Doc, opts PrintOptions) string {
       stack = append(stack, printFrame{indent: top.indent, mode: top.mode, doc: pick})
     case docLineSuffix:
       lineSuffix = append(lineSuffix, top.doc.Children...)
+    case docFill:
+      // Prettier's fill: lay out [content, sep, content, sep, …] packing as
+      // many contents per line as fit, breaking a separator only when the
+      // current content (or the content+sep+next-content pair) overflows.
+      parts := top.doc.Children
+      if len(parts) == 0 {
+        break
+      }
+      rem := opts.PrintWidth - col
+      content := parts[0]
+      contentFits := fits(content, rem, top.indent)
+      if len(parts) == 1 {
+        m := modeBreak
+        if contentFits {
+          m = modeFlat
+        }
+        stack = append(stack, printFrame{indent: top.indent, mode: m, doc: content})
+        break
+      }
+      sep := parts[1]
+      if len(parts) == 2 {
+        cm, sm := modeBreak, modeBreak
+        if contentFits {
+          cm, sm = modeFlat, modeFlat
+        }
+        stack = append(stack, printFrame{indent: top.indent, mode: sm, doc: sep})
+        stack = append(stack, printFrame{indent: top.indent, mode: cm, doc: content})
+        break
+      }
+      rest := Doc{Kind: docFill, Children: parts[2:]}
+      pairFits := fits(Concat(content, sep, parts[2]), rem, top.indent)
+      // Push rest (bottom), then sep, then content (top) so they render in
+      // order content, sep, rest.
+      stack = append(stack, printFrame{indent: top.indent, mode: top.mode, doc: rest})
+      switch {
+      case pairFits:
+        stack = append(stack, printFrame{indent: top.indent, mode: modeFlat, doc: sep})
+        stack = append(stack, printFrame{indent: top.indent, mode: modeFlat, doc: content})
+      case contentFits:
+        stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: sep})
+        stack = append(stack, printFrame{indent: top.indent, mode: modeFlat, doc: content})
+      default:
+        stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: sep})
+        stack = append(stack, printFrame{indent: top.indent, mode: modeBreak, doc: content})
+      }
     case docLine:
       if top.mode == modeFlat {
         out.WriteByte(' ')
@@ -320,7 +365,7 @@ func fits(doc Doc, remaining int, indent int) bool {
     switch top.doc.Kind {
     case docNil:
     case docText:
-      remaining -= len(top.doc.Text)
+      remaining -= displayWidth(top.doc.Text)
       if remaining < 0 {
         return false
       }
@@ -364,6 +409,11 @@ func fits(doc Doc, remaining int, indent int) bool {
         pick = top.doc.Children[0]
       }
       stack = append(stack, frame{mode: top.mode, doc: pick})
+    case docFill:
+      // A fill's flat form is every content and separator flat.
+      for i := len(top.doc.Children) - 1; i >= 0; i-- {
+        stack = append(stack, frame{mode: modeFlat, doc: top.doc.Children[i]})
+      }
     case docLineSuffix:
       // Line suffix never contributes to flat width — it queues
       // for a future break. Skip.
@@ -416,9 +466,9 @@ func fitsFirstLine(doc Doc, remaining int) bool {
     case docText:
       if idx := strings.IndexByte(top.Text, '\n'); idx >= 0 {
         // A multi-line Text ends the first line at its first newline.
-        return remaining-idx >= 0
+        return remaining-displayWidth(top.Text[:idx]) >= 0
       }
-      remaining -= len(top.Text)
+      remaining -= displayWidth(top.Text)
       if remaining < 0 {
         return false
       }
@@ -487,6 +537,13 @@ func flatten(doc Doc) (Doc, bool) {
     }
     return flattenChildren(doc.Children)
   case docConcat, docIndent, docAlign:
+    return flattenChildren(doc.Children)
+  case docFill:
+    // A fill's flat form is every content and separator rendered flat (its
+    // Line separators collapse to spaces). Without this case flatten returned
+    // the live Fill unchanged, so a supposedly all-flat option still carried a
+    // breakable fill and a hugged numeric array (`new Float32Array([ … ])`)
+    // rendered with the fill broken inside unbroken brackets.
     return flattenChildren(doc.Children)
   }
   return doc, true

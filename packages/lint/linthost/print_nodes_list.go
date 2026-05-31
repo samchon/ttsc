@@ -1,5 +1,30 @@
 package linthost
 
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
+
+// listHasInterItemComments reports whether `node` (an object / array literal)
+// carries a comment in a gap between its items or brackets. The list printers
+// mint fresh comma/line separators that have no slot for such trivia, so a
+// reflow would silently delete the comment. When a node nested inside a
+// reflowing parent (an array argument of a call) carries one, the parent's
+// own top-level comment guard cannot see it (it lives inside a child range),
+// so each list printer must check itself and bail to verbatim — reporting the
+// span uncovered so the enclosing reflow abstains and the source round-trips.
+func listHasInterItemComments(ctx *PrintContext, node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
+  end := node.End()
+  if start < 0 || end < start || end > len(ctx.Source) {
+    return false
+  }
+  return hasNonChildComments(node, ctx.Source, start, end)
+}
+
 // Shared helpers for comma-separated list printers.
 //
 // Object literals, array literals, call arguments, parameter lists,
@@ -41,11 +66,65 @@ type listShape struct {
   // `callback, simpleArg` shape Prettier hugs (`foo(() => { … }, x)`).
   // HugLast and HugFirst are mutually exclusive.
   HugFirst bool
+  // HugLastForce drops the exploded fallback from a HugLast list: the hugged
+  // shape is chosen even when its opening line overflows printWidth. The
+  // call-argument printer sets it for a test-framework call
+  // (`test("very long description", () => { … })`), which Prettier never
+  // explodes — the callback always rides the open paren. Requires HugLast.
+  HugLastForce bool
   // ForceBreak commits the list to its broken, one-item-per-line shape
   // even when it would fit flat. The object-literal printer sets it to
   // mirror Prettier's objectWrap:"preserve" — an object the source
   // wrote with a newline after `{` stays expanded.
   ForceBreak bool
+  // Fill packs the items with Prettier's fill layout — as many per line as
+  // fit — instead of one item per line when the list breaks. The array
+  // printer sets it for a concisely-printed numeric array. Mutually
+  // exclusive with HugLast / HugFirst.
+  Fill bool
+  // Prefix and Suffix are emitted inside the list's Group, before OpEN and
+  // after CLOSE respectively. They let a caller fold surrounding tokens into
+  // the same fit-or-break decision: an import declaration sets Prefix to
+  // `import ` (or `import D, `) and Suffix to ` from "..."` so the named-brace
+  // group's flat-fit check counts the whole declaration line — Prettier never
+  // breaks a brace that fits but whose `from` tail overflows is measured here,
+  // not in a separate group. Only used on the plain (non-hugging) path.
+  Prefix Doc
+  Suffix Doc
+  // BlankBefore[i] reports whether the source had a blank line before item i
+  // (i.e. between item i-1 and item i). When any entry is set the list is
+  // forced broken and a single blank line is preserved before that item,
+  // mirroring Prettier. Length, when non-nil, equals len(Items); index 0 is
+  // ignored (no item precedes the first).
+  BlankBefore []bool
+}
+
+// blankBeforeItems computes BlankBefore for a node list: entry i is true when
+// the source had a blank line (two or more newlines) between item i-1 and
+// item i. Returns nil for a list too short to carry one, so callers pass it
+// through unconditionally.
+func blankBeforeItems(src string, elems []*shimast.Node) []bool {
+  if len(elems) < 2 {
+    return nil
+  }
+  out := make([]bool, len(elems))
+  for i := 1; i < len(elems); i++ {
+    if elems[i-1] == nil || elems[i] == nil {
+      continue
+    }
+    out[i] = blankLineBetweenStatements(src, elems[i-1].End(), elems[i].Pos())
+  }
+  return out
+}
+
+// hasBlankBefore reports whether any item carries a preserved blank line.
+func (s listShape) hasBlankBefore() bool {
+  for _, b := range s.BlankBefore {
+    if b {
+      return true
+    }
+  }
+  return false
 }
 
 // printList renders the list shape as a Doc tree. Empty lists collapse
@@ -56,7 +135,9 @@ func printList(ctx *PrintContext, shape listShape) Doc {
     return Text(shape.OpenTok + shape.CloseTok)
   }
   plain := printListPlain(ctx, shape)
-  if !shape.HugLast && !shape.HugFirst {
+  // A source blank line forces the plain broken layout (Prettier never hugs or
+  // packs flat across a blank line), so skip the hugging ConditionalGroup.
+  if (!shape.HugLast && !shape.HugFirst) || shape.hasBlankBefore() {
     return plain
   }
   // A hugging list offers the engine up to three shapes, in preference
@@ -72,6 +153,15 @@ func printList(ctx *PrintContext, shape listShape) Doc {
   if shape.HugFirst {
     hugged = printListHuggingFirst(ctx, shape)
   }
+  // A test-framework call hugs its callback unconditionally — Prettier never
+  // explodes its arguments — so drop the exploded fallback. The all-flat
+  // option still wins when the whole call fits (an empty-body callback).
+  if shape.HugLastForce {
+    if allFlat, ok := flatten(plain); ok {
+      return ConditionalGroup(allFlat, hugged)
+    }
+    return hugged
+  }
   if allFlat, ok := flatten(plain); ok {
     return ConditionalGroup(allFlat, hugged, plain)
   }
@@ -84,7 +174,6 @@ func printList(ctx *PrintContext, shape listShape) Doc {
 // comma — when it does not.
 func printListPlain(ctx *PrintContext, shape listShape) Doc {
   sep := Concat(Text(","), Line())
-  body := Join(sep, shape.Items)
 
   flatPad := Doc{Kind: docNil}
   if shape.Space {
@@ -96,6 +185,50 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
     trailing = IfBreak(Text(","), Doc{Kind: docNil})
   }
 
+  hasBlank := shape.hasBlankBefore()
+
+  var body Doc
+  if hasBlank {
+    // Per-item body that preserves a single source blank line before an item:
+    // `,` then a Literalline (the empty line, no indent, mirroring printBlock)
+    // then the normal Line. A blank line forces the group broken.
+    parts := make([]Doc, 0, len(shape.Items)*3)
+    for i, it := range shape.Items {
+      if i > 0 {
+        parts = append(parts, Text(","))
+        if i < len(shape.BlankBefore) && shape.BlankBefore[i] {
+          parts = append(parts, Literalline())
+        }
+        parts = append(parts, Line())
+      }
+      parts = append(parts, it)
+    }
+    body = Concat(parts...)
+  } else if shape.Fill {
+    // Each non-last fill content carries its own comma — `[el, ","]` — and the
+    // separator is just a Line. Prettier measures the pack/break decision on
+    // `[content_i, line, content_{i+1}]`, so the next element's comma must be
+    // part of its content or the line would pack one element too many. The
+    // last element carries no comma here; the trailing comma is the shared
+    // ifBreak appended after the body so it tracks the GROUP's break mode (a
+    // fill-mode ifBreak would drop the comma when the last item packs flat,
+    // making the format non-idempotent).
+    parts := make([]Doc, 0, len(shape.Items)*2-1)
+    for i, it := range shape.Items {
+      if i > 0 {
+        parts = append(parts, Line())
+      }
+      if i < len(shape.Items)-1 {
+        parts = append(parts, Concat(it, Text(",")))
+      } else {
+        parts = append(parts, it)
+      }
+    }
+    body = Fill(parts...)
+  } else {
+    body = Join(sep, shape.Items)
+  }
+
   openTok := Text(shape.OpenTok)
   closeTok := Text(shape.CloseTok)
 
@@ -105,11 +238,19 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
   trailingSep := IfBreak(Hardline(), flatPad)
 
   bodyBlock := Indent(ctx.indentUnit(), leadingSep, body, trailing)
-  doc := Concat(openTok, bodyBlock, trailingSep, closeTok)
+  prefix := shape.Prefix
+  if prefix.Kind == 0 {
+    prefix = Doc{Kind: docNil}
+  }
+  suffix := shape.Suffix
+  if suffix.Kind == 0 {
+    suffix = Doc{Kind: docNil}
+  }
+  doc := Concat(prefix, openTok, bodyBlock, trailingSep, closeTok, suffix)
   group := Group(doc)
   // ForceBreak (object-literal newline preservation) commits the group
   // to its broken shape regardless of fit.
-  group.Break = shape.ForceBreak
+  group.Break = shape.ForceBreak || hasBlank
   return group
 }
 
@@ -173,6 +314,13 @@ func printListHuggingFirst(ctx *PrintContext, shape listShape) Doc {
   }
   parts := []Doc{Text(shape.OpenTok), first}
   for _, item := range rest {
+    // The trailing simple arguments ride the close line flat — Prettier keeps
+    // them on one line even when that line overflows (a long zero/one-argument
+    // trailing call `}, makeAccumulator(single))` is not broken). Force each
+    // flat so its own Group does not break against the close-line width.
+    if flat, ok := flatten(item); ok {
+      item = flat
+    }
     parts = append(parts, Text(", "), item)
   }
   parts = append(parts, Text(shape.CloseTok))

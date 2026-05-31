@@ -2,6 +2,7 @@ package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // printCallExpression renders a CallExpression with width-aware
@@ -55,7 +56,13 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // `import(...)`, so the printer's reflow must agree with
   // format/trailing-comma's same exception (see isDynamicImportCall).
   addComma := ctx.allowsCallArgumentTrailingComma() && !isDynamicImportCall(call)
-  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma)
+  // A decorator's call hugs its last argument even past leading callbacks
+  // (`@OneToMany(() => P, (p) => p.c, { … })`); a plain call explodes there.
+  decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
+  // A test-framework call (`test("desc", () => { … })`) hugs its callback even
+  // when the description string pushes the opening line past printWidth, so the
+  // exploded fallback is dropped for it. See isTestCall.
+  argDoc, argCovered := printArgList(ctx, call.Arguments, addComma, decoratorCall, isTestCall(node))
   parts = append(parts, argDoc)
   return Concat(parts...), covered && argCovered
 }
@@ -87,7 +94,7 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     if hasNilEntry(ne.Arguments) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
-    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma())
+    argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false, false)
     parts = append(parts, argDoc)
     covered = covered && argCovered
   }
@@ -127,7 +134,7 @@ func hasNilEntry(list *shimast.NodeList) bool {
 // ES2017+, so Prettier's "es5" and "none" modes pass false; otherwise the
 // printer would oscillate against format/trailing-comma on every cascade
 // pass (rxjs hit this on ajax.ts and several operators / testing helpers).
-func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc, bool) {
+func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, decoratorCall bool, forceHugLast bool) (Doc, bool) {
   if list == nil {
     return Text("()"), true
   }
@@ -148,19 +155,244 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
   // doc carries hard breaks (a block-bodied callback). A leading object or
   // array that merely fits flat does NOT decline — Prettier still hugs the
   // last argument there (`doConfigure({ … }, () => { … })`).
+  // A decorator's call hugs its last argument even past leading callbacks
+  // (`@OneToMany(() => P, (p) => p.c, { … })` keeps the arrows inline and
+  // breaks only the object); a plain call with two or more leading callbacks
+  // explodes instead, so the function-arg gate applies only off a decorator.
   hugLast := shouldHugLastArgument(list.Nodes) &&
-    !anyLeadingArgIsFunctionLike(list.Nodes) &&
-    !anyLeadingItemBreaks(items)
+    !anyLeadingItemBreaks(items) &&
+    (decoratorCall || !anyLeadingArgIsFunctionLike(list.Nodes))
+  // Two or more function/arrow arguments force the list to explode, one per
+  // line, even when it would fit flat: Prettier always breaks a call carrying
+  // multiple callbacks (`promise.then(() => a, () => b)`), the
+  // function-composition rule. The sole exception is a decorator hugging a
+  // huggable trailing argument (`@OneToMany(() => P, (p) => p.c, { … })`),
+  // where the leading arrows stay inline and only the object breaks — so the
+  // gate defers to hugLast off a decorator. See argListForcesFunctionBreak.
+  forceFnBreak := argListForcesFunctionBreak(list.Nodes, decoratorCall)
+  if forceFnBreak {
+    hugLast = false
+  }
+  // A test-framework call always hugs its trailing callback (the description
+  // string may overflow the open line); force the hug and drop the exploded
+  // fallback via HugLastForce.
+  if forceHugLast {
+    hugLast = true
+    forceFnBreak = false
+  }
   shape := listShape{
-    OpenTok:  "(",
-    CloseTok: ")",
-    Items:    items,
-    Space:    false,
-    AddComma: addComma,
-    HugLast:  hugLast,
-    HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
+    OpenTok:      "(",
+    CloseTok:     ")",
+    Items:        items,
+    Space:        false,
+    AddComma:     addComma,
+    HugLast:      hugLast,
+    HugLastForce: forceHugLast,
+    HugFirst:     !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes),
+    ForceBreak:   forceFnBreak,
+    BlankBefore:  blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// testCalleePatterns is Prettier's exact testCallCalleePatterns set (the dotted
+// callee chains its isTestCallCallee matches). Matching the precise set, rather
+// than "any base with a {only,skip,…} tail", avoids both over-matching
+// (`test.each`, `it.todo` are NOT test calls) and under-matching (`test.fixme`,
+// `test.describe.only` ARE).
+var testCalleePatterns = map[string]bool{
+  "it": true, "it.only": true, "it.skip": true,
+  "describe": true, "describe.only": true, "describe.skip": true,
+  "test": true, "test.only": true, "test.skip": true,
+  "test.fixme": true, "test.step": true,
+  "test.describe": true, "test.describe.only": true,
+  "test.describe.skip": true, "test.describe.fixme": true,
+  "test.describe.parallel": true, "test.describe.parallel.only": true,
+  "test.describe.serial": true, "test.describe.serial.only": true,
+  "skip": true, "xit": true, "xdescribe": true, "xtest": true,
+  "fit": true, "fdescribe": true, "ftest": true,
+}
+
+// calleeChain builds the dotted member-access chain of a callee rooted at a
+// plain identifier (`test.describe.only` becomes "test.describe.only"), or ""
+// when the callee is not a pure identifier / property-access chain (a computed
+// access, a call, `this`, etc.).
+func calleeChain(node *shimast.Node) string {
+  switch node.Kind {
+  case shimast.KindIdentifier:
+    return identifierText(node)
+  case shimast.KindPropertyAccessExpression:
+    pa := node.AsPropertyAccessExpression()
+    if pa == nil || pa.Name() == nil || pa.Name().Kind != shimast.KindIdentifier {
+      return ""
+    }
+    base := calleeChain(pa.Expression)
+    if base == "" {
+      return ""
+    }
+    return base + "." + identifierText(pa.Name())
+  }
+  return ""
+}
+
+// testCalleeName reports whether `callee` is one of Prettier's recognized
+// test-framework callees (see testCalleePatterns).
+func testCalleeName(callee *shimast.Node) bool {
+  return callee != nil && testCalleePatterns[calleeChain(callee)]
+}
+
+// isTestCall reports whether `node` is a test-framework call Prettier prints
+// with its callback hugged regardless of width: `it(...)` / `test(...)` /
+// `describe(...)` (and focus/skip variants) called with a string or template
+// description and a trailing function/arrow. Prettier never explodes such a
+// call's arguments, so the printer keeps the callback on the open-paren line
+// even when the description string overflows printWidth (the callback's
+// parameter count does not matter, verified against Prettier). Scoped to the
+// two-argument form (the overwhelming shape); a three-argument timeout variant
+// falls through to ordinary hugging.
+func isTestCall(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.QuestionDotToken != nil || call.Arguments == nil {
+    return false
+  }
+  args := call.Arguments.Nodes
+  // Prettier accepts a two- or three-argument test call (the third is a numeric
+  // timeout): `it("name", () => { … })` and `it("name", () => { … }, 2500)`.
+  if len(args) != 2 && len(args) != 3 {
+    return false
+  }
+  if args[0] == nil || args[1] == nil {
+    return false
+  }
+  switch args[0].Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNoSubstitutionTemplateLiteral,
+    shimast.KindTemplateExpression:
+  default:
+    return false
+  }
+  if !testCalleeName(call.Expression) {
+    return false
+  }
+  if len(args) == 3 {
+    // The timeout argument must be numeric, and the callback a block-bodied
+    // function/arrow taking at most one parameter (Prettier's
+    // isFunctionOrArrowExpressionWithBody + parameter-count gate).
+    if args[2] == nil || args[2].Kind != shimast.KindNumericLiteral {
+      return false
+    }
+    return isBlockBodiedCallback(args[1]) && len(args[1].Parameters()) <= 1
+  }
+  return isFunctionLikeArg(args[1])
+}
+
+// isBlockBodiedCallback reports whether a node is a function expression or an
+// arrow with a block body (Prettier's isFunctionOrArrowExpressionWithBody).
+func isBlockBodiedCallback(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindFunctionExpression:
+    return true
+  case shimast.KindArrowFunction:
+    a := node.AsArrowFunction()
+    return a != nil && a.Body != nil && a.Body.Kind == shimast.KindBlock
+  }
+  return false
+}
+
+// isFunctionLikeArg reports whether an argument is a function or arrow
+// expression, the two shapes Prettier counts as "function" arguments.
+func isFunctionLikeArg(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+    return true
+  }
+  return false
+}
+
+// callArgsContainFunctionLike reports whether a CALL expression's own argument
+// list carries a function/arrow argument. Prettier's function-composition test
+// treats `foo.map((x) => x)` as a composed call, so a call carrying it
+// alongside any second argument explodes. Only a call counts: Prettier's
+// isCallExpression matches CallExpression / OptionalCallExpression but NOT a
+// NewExpression, so `foo(new Bar(() => x), other)` is left inline.
+func callArgsContainFunctionLike(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  c := node.AsCallExpression()
+  if c == nil || c.Arguments == nil {
+    return false
+  }
+  for _, a := range c.Arguments.Nodes {
+    if isFunctionLikeArg(a) {
+      return true
+    }
+  }
+  return false
+}
+
+// isFunctionCompositionArgs mirrors Prettier's predicate of the same name: a
+// call with two or more arguments is "function composition" when either two of
+// them are themselves functions/arrows, or one is a call/new whose own
+// arguments include a function/arrow (`stream.pipe(map((x) => x), other)`).
+// Prettier breaks such a list onto one-argument-per-line unconditionally.
+func isFunctionCompositionArgs(args []*shimast.Node) bool {
+  if len(args) <= 1 {
+    return false
+  }
+  fnCount := 0
+  for _, a := range args {
+    if isFunctionLikeArg(a) {
+      fnCount++
+      if fnCount > 1 {
+        return true
+      }
+    } else if callArgsContainFunctionLike(a) {
+      return true
+    }
+  }
+  return false
+}
+
+// argListForcesFunctionBreak reports whether a call's argument list must
+// explode under Prettier's function-composition rule (see
+// isFunctionCompositionArgs), which fires even when the call would fit on one
+// line. A DECORATOR is exempt entirely: Prettier guards the rule with
+// `path.parent.type !== "Decorator"` (printCallArguments in call-arguments.js),
+// so `@ManyToOne(() => User, (u) => u.addresses)` stays flat when it fits and
+// breaks only on width. Shared by printArgList (which sets ForceBreak) and the
+// print-width rule (whose fit fast-path must not skip such a call when it is
+// written flat in source).
+func argListForcesFunctionBreak(args []*shimast.Node, decoratorCall bool) bool {
+  if decoratorCall {
+    return false
+  }
+  return isFunctionCompositionArgs(args)
+}
+
+// callForcesFunctionBreak reports whether a node is a CallExpression that the
+// multiple-callback rule forces to explode. The print-width rule consults it
+// so its flat-fit fast path does not leave such a call inline when the source
+// wrote it on one line.
+func callForcesFunctionBreak(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.Arguments == nil {
+    return false
+  }
+  decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
+  return argListForcesFunctionBreak(call.Arguments.Nodes, decoratorCall)
 }
 
 // anyLeadingArgIsFunctionLike reports whether any argument before the last
@@ -216,9 +448,28 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
     return false
   }
   last := args[len(args)-1]
-  if last == nil {
+  if last == nil || !lastArgHuggableShape(last) {
     return false
   }
+  // Prettier's shouldGroupLastArg declines only when the penultimate argument
+  // is the SAME node kind as the last: two objects or two arrays compete for
+  // the break, so `new Sash(x, { … }, { … })` and `bar({ … }, { … })` explode.
+  // A different-kind penultimate (an arrow before an object, `@OneToMany(() =>
+  // P, (p) => p.c, { … })`, or a plain `foo(a, b, { … })`) still hugs.
+  if len(args) >= 2 {
+    if pen := args[len(args)-2]; pen != nil && pen.Kind == last.Kind {
+      return false
+    }
+  }
+  return true
+}
+
+// lastArgHuggableShape reports whether `node` is the shape Prettier keeps
+// hugging the closing paren: an object/array literal, a function expression,
+// or an arrow whose body is a block, object, or array. An expression-bodied
+// arrow (`(x) => x.id`) is excluded: it has no internal break point, so the
+// flat hugging Concat would pin an overflowing call to one line.
+func lastArgHuggableShape(last *shimast.Node) bool {
   switch last.Kind {
   case shimast.KindFunctionExpression,
     shimast.KindObjectLiteralExpression,
@@ -238,10 +489,16 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
       }
     }
     switch body.Kind {
-    case shimast.KindBlock,
-      shimast.KindObjectLiteralExpression,
-      shimast.KindArrayLiteralExpression:
+    case shimast.KindBlock:
+      // A block-bodied arrow hugs regardless of any return-type annotation.
       return true
+    case shimast.KindObjectLiteralExpression,
+      shimast.KindArrayLiteralExpression:
+      // An expression-bodied arrow with an explicit return type is not hugged:
+      // Prettier's couldGroupArg excludes it ("avoid breaking inside composite
+      // return types"), so `map((r): T => ({ … }))` explodes the whole list
+      // while `map((r) => ({ … }))` hugs.
+      return arrow.Type == nil
     }
   }
   return false
@@ -258,7 +515,7 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
 // argument is itself a function, arrow, conditional, or any expandable
 // shape, so `both(() => {}, () => {})` falls through to the exploded
 // list rather than hugging.
-func shouldHugFirstArgument(args []*shimast.Node) bool {
+func shouldHugFirstArgument(ctx *PrintContext, args []*shimast.Node) bool {
   if len(args) != 2 {
     return false
   }
@@ -266,7 +523,7 @@ func shouldHugFirstArgument(args []*shimast.Node) bool {
   if first == nil || second == nil {
     return false
   }
-  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(second)
+  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(ctx, second)
 }
 
 // isFirstArgHuggableCallback reports whether `node` is the callback shape
@@ -288,7 +545,9 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
 // hugged first-argument callback. Prettier hugs the leading callback when
 // the trailing argument is an identifier, member access, literal, `this`,
 // or an array literal — most notably the `useEffect(() => { … }, [deps])`
-// idiom. An object literal, function, arrow, or conditional is excluded so
+// idiom. It also accepts an empty object literal, a short call/new, and a
+// short arithmetic/logical expression (`setTimeout(fn, 1000 - x)`). A function,
+// arrow, conditional, or a non-empty object literal is excluded so
 // first-argument hugging declines and the whole list explodes.
 //
 // A call expression is deliberately NOT included: the conditional-group
@@ -297,7 +556,7 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
 // would still be selected, where Prettier explodes. The array case shares
 // that limitation in principle, but dependency arrays are short in
 // practice, the same way the identifier/member cases already are.
-func isSimpleTrailingArg(node *shimast.Node) bool {
+func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindIdentifier,
     shimast.KindStringLiteral,
@@ -311,8 +570,108 @@ func isSimpleTrailingArg(node *shimast.Node) bool {
     shimast.KindElementAccessExpression,
     shimast.KindArrayLiteralExpression:
     return true
+  case shimast.KindAsExpression:
+    // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
+    // wraps a value that is itself a simple trailing arg AND the target type is
+    // simple. A type carrying an object type literal (`[] as Array<{ … }>`) is
+    // not simple, Prettier expands and explodes the list there, so exclude any
+    // type whose source contains a `{` (a type literal).
+    if as := node.AsAsExpression(); as != nil && as.Expression != nil {
+      return isSimpleTrailingArg(ctx, as.Expression) && !typeHasObjectLiteral(ctx.Source, as.Type)
+    }
+  case shimast.KindCallExpression, shimast.KindNewExpression:
+    // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
+    // hugs the first arg when the trailing call/new has at most one value
+    // argument, regardless of its length, type arguments and long names do not
+    // matter and the close line is allowed to overflow. A call with two or more
+    // arguments explodes the whole list instead. Mirrors Prettier's
+    // isHopefullyShortCallArgument for call-like nodes.
+    return callValueArgCount(node) <= 1
+  case shimast.KindObjectLiteralExpression:
+    // `reduce(fn, {})`: an EMPTY object literal hugs (Prettier's couldGroupArg
+    // excludes a property-less object); an object with properties expands and
+    // explodes the list instead (`f(fn, { a: 1 })`).
+    if obj := node.AsObjectLiteralExpression(); obj != nil {
+      return obj.Properties == nil || len(obj.Properties.Nodes) == 0
+    }
+  case shimast.KindBinaryExpression:
+    // `setTimeout(fn, 1000 - ellapsed)`: a SINGLE arithmetic/logical operation
+    // whose two operands are simple leaves rides the close line and hugs. A
+    // chained binary (`60 * 60 * 1000`, an operand itself a binary) is not
+    // simple and explodes the list, matching Prettier's isHopefullyShortCallArgument
+    // (which only treats a binaryish short when both sides are themselves short).
+    if bin := node.AsBinaryExpression(); bin != nil {
+      return isSimpleBinaryOperand(bin.Left) && isSimpleBinaryOperand(bin.Right)
+    }
+  case shimast.KindPrefixUnaryExpression:
+    // `reduce(fn, -1)`: a unary applied to a simple leaf rides the close line.
+    if u := node.AsPrefixUnaryExpression(); u != nil {
+      return isSimpleBinaryOperand(u.Operand)
+    }
   }
   return false
+}
+
+// isSimpleBinaryOperand reports whether a node is a short, non-recursive
+// operand, an identifier, a literal, `this`, or a member access. A binary,
+// call, conditional, or other compound expression is not, so a binary built
+// from such operands is treated as too complex to ride a hugged close line.
+func isSimpleBinaryOperand(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindNumericLiteral,
+    shimast.KindStringLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindThisKeyword,
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression:
+    return true
+  }
+  return false
+}
+
+// typeHasObjectLiteral reports whether a type node's source contains a `{`,
+// the mark of an object type literal (`{ a: 1 }`, `Array<{ … }>`). Prettier's
+// isSimpleType rejects such a type; a flat type (`string[]`, `Foo<Bar>`,
+// `number[][]`) has none and stays simple.
+func typeHasObjectLiteral(src string, typeNode *shimast.Node) bool {
+  if typeNode == nil {
+    return false
+  }
+  start := shimscanner.SkipTrivia(src, typeNode.Pos())
+  end := typeNode.End()
+  if start < 0 || end < start || end > len(src) {
+    return true // unmeasurable: be conservative and decline the hug
+  }
+  for i := start; i < end; i++ {
+    if src[i] == '{' {
+      return true
+    }
+  }
+  return false
+}
+
+// callValueArgCount returns the number of value arguments on a call or new
+// expression (type arguments are not counted). A new expression with no
+// argument list (`new Foo`) counts as zero.
+func callValueArgCount(node *shimast.Node) int {
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil && c.Arguments != nil {
+      return len(c.Arguments.Nodes)
+    }
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil && n.Arguments != nil {
+      return len(n.Arguments.Nodes)
+    }
+  }
+  return 0
 }
 
 // forceBreakFirstGroup returns `doc` with the first Group found in a

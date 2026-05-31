@@ -173,7 +173,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
     // keep `{` glued to the last header line (so an empty body reads
     // `… {}`). isClass && !emptyBody captures that.
     brace := headerBrace(isClass, emptyBody, base)
-    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace)
+    target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace, emptyBody, isClass)
     if !ok {
       return // unverified combination: abstain
     }
@@ -330,6 +330,8 @@ func brokenDeclarationHeader(
   clauses []heritageClauseText,
   layout declarationHeaderLayout,
   brace string,
+  emptyBody bool,
+  isClass bool,
 ) (string, bool) {
   hasTypeParams := len(paramTexts) > 0
   switch {
@@ -342,28 +344,74 @@ func brokenDeclarationHeader(
     if hasTypeParams {
       return "", false
     }
-    return multiTypeHeader(prefix, clauses[0], layout, base, brace), true
+    return multiTypeHeader(prefix, clauses[0], layout, base, brace, emptyBody), true
   case hasTypeParams:
     if len(clauses) == 1 && len(clauses[0].types) >= 2 {
       return "", false
     }
-    return typeParamExplodeHeader(src, base, prefix, typeParams, clauses, layout), true
+    return typeParamExplodeHeader(src, base, prefix, typeParams, clauses, layout, isClass), true
   }
   return "", false
 }
 
-// multiClauseHeader: break before each keyword, types inline per clause.
-// Only a class carries multiple clauses (`extends` + `implements`), so
-// `brace` is the class brace placement decided by the caller.
+// interfaceHeritageOnOwnLine reports whether Prettier moves a broken-type-
+// parameter interface's heritage onto its own line. Verified against Prettier
+// 3: it does so only for a single `extends` clause whose single type is a
+// qualified name (`extends IPage.IRequest`), a member expression. A bare
+// identifier (`extends IBase`, any length) and a generic type (`extends
+// Base<T>`) both stay inline after `>`. A class always keeps the heritage
+// inline regardless. The `.`-and-no-`<` test distinguishes the qualified
+// non-generic case; a generic-qualified type (`A.B<C>`) is left inline,
+// unverified, so the rule never invents a break it has not confirmed.
+func interfaceHeritageOnOwnLine(isClass bool, clauses []heritageClauseText) bool {
+  if isClass || len(clauses) != 1 {
+    return false
+  }
+  c := clauses[0]
+  if c.keyword != "extends" || len(c.types) != 1 {
+    return false
+  }
+  return strings.Contains(c.types[0], ".") && !strings.Contains(c.types[0], "<")
+}
+
+// multiClauseHeader: break before each keyword. Per clause, the types stay
+// inline (`implements A, B`) when they fit, and break onto their own line(s) at
+// the next indent level when the inline clause overflows. A single-type clause
+// is no exception inside a multi-clause header: Prettier breaks after the
+// keyword and drops the lone type to the next line when `keyword Type<…>` would
+// overflow (`implements\n    ITreeRenderer<…>`), generic or not. (A lone
+// single-clause header behaves differently and never reaches here, a single
+// generic type breaks its argument list, a single bare name stays inline.) Only
+// a class carries multiple clauses (`extends` + `implements`), so `brace` is the
+// class brace placement decided by the caller; when it is glued (` {`, an empty
+// class body) it shares the final clause's line and is charged against that
+// clause's fit check.
 func multiClauseHeader(prefix string, clauses []heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
   var b strings.Builder
   b.WriteString(prefix)
-  for _, c := range clauses {
+  indent1 := layout.indent(base, 1)
+  indent2 := layout.indent(base, 2)
+  for ci, c := range clauses {
     b.WriteString("\n")
-    b.WriteString(layout.indent(base, 1))
+    b.WriteString(indent1)
     b.WriteString(c.keyword)
-    b.WriteString(" ")
-    b.WriteString(strings.Join(c.types, ", "))
+    inlineWidth := visualWidth(indent1+c.keyword+" "+strings.Join(c.types, ", "), layout.tabWidth)
+    if ci == len(clauses)-1 && !strings.HasPrefix(brace, "\n") {
+      inlineWidth += visualWidth(brace, layout.tabWidth)
+    }
+    if inlineWidth <= layout.printWidth {
+      b.WriteString(" ")
+      b.WriteString(strings.Join(c.types, ", "))
+      continue
+    }
+    for i, t := range c.types {
+      b.WriteString("\n")
+      b.WriteString(indent2)
+      b.WriteString(t)
+      if i < len(c.types)-1 {
+        b.WriteString(",")
+      }
+    }
   }
   b.WriteString(brace)
   return b.String()
@@ -375,12 +423,18 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
 // them one-per-line when the inline line itself still overflows. `brace`
 // carries the caller's brace placement; when glued it shares the final
 // line, so it is charged against the width budget for the tier decision.
-func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
+func multiTypeHeader(prefix string, clause heritageClauseText, layout declarationHeaderLayout, base, brace string, emptyBody bool) string {
   indent1 := layout.indent(base, 1)
   inline := indent1 + clause.keyword + " " + strings.Join(clause.types, ", ")
   inlineWidth := visualWidth(inline, layout.tabWidth)
   if !strings.HasPrefix(brace, "\n") {
     inlineWidth += visualWidth(brace, layout.tabWidth)
+  }
+  if emptyBody {
+    // An empty body renders its `}` on the inline line (`… {}`), one column
+    // past the `{` in `brace`; charge it so the fit check matches Prettier at
+    // the width boundary instead of keeping a 1-over header inline.
+    inlineWidth++
   }
   if inlineWidth <= layout.printWidth {
     return prefix + "\n" + inline + brace
@@ -521,6 +575,7 @@ func typeParamExplodeHeader(
   typeParams *shimast.NodeList,
   clauses []heritageClauseText,
   layout declarationHeaderLayout,
+  isClass bool,
 ) string {
   var b strings.Builder
   b.WriteString(prefix)
@@ -532,7 +587,21 @@ func typeParamExplodeHeader(
   }
   b.WriteString(base)
   b.WriteString(">")
-  b.WriteString(flatHeritage(clauses))
+  if interfaceHeritageOnOwnLine(isClass, clauses) {
+    // Interface with a qualified heritage type: Prettier breaks before the
+    // `extends`, indented one level past the `>`:
+    //
+    //   >
+    //     extends IPage.IRequest {
+    c := clauses[0]
+    b.WriteString("\n")
+    b.WriteString(layout.indent(base, 1))
+    b.WriteString(c.keyword)
+    b.WriteString(" ")
+    b.WriteString(c.types[0])
+  } else {
+    b.WriteString(flatHeritage(clauses))
+  }
   b.WriteString(" {")
   return b.String()
 }

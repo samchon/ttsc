@@ -6,7 +6,7 @@
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
-Benchmarked on the VS Code fixture: up to **10x** faster type checks and a **500x** faster measured lint pass.
+Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real repositories; see the [benchmark guide](https://ttsc.dev/docs/benchmark) for per-project ratios.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.

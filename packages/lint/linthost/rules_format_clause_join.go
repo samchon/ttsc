@@ -157,12 +157,12 @@ func isClauseGapByte(c byte) bool {
 // approximation never changes a real join decision.
 func visualWidth(s string, tabWidth int) int {
   width := 0
-  for i := 0; i < len(s); i++ {
-    if s[i] == '\t' {
+  for _, r := range s {
+    if r == '\t' {
       width += tabWidth
       continue
     }
-    width++
+    width += runeWidth(r)
   }
   return width
 }

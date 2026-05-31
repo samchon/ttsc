@@ -260,7 +260,30 @@ func forEachStatementInList(file *shimast.SourceFile, fn func(stmt *shimast.Node
     }
     fn(stmt, 0)
   }
-  walkStatementLists(file.AsNode(), 0, fn)
+  walkStatementLists(file.AsNode(), file.Text(), 0, fn)
+}
+
+// blockStartsOwnLine reports whether a brace block opens on its own line, the
+// `{` being the first non-whitespace byte of its physical line. A case/default
+// body block written as `case X: {` shares the label's line (false); one
+// written as `case X:` then `{` on the next line starts its own line (true).
+// Prettier indents the former like a braceless `case X: stmt` (no extra level)
+// but the latter like an ordinary nested block (one level deeper).
+func blockStartsOwnLine(src string, block *shimast.Node) bool {
+  if block == nil {
+    return false
+  }
+  pos := shimscanner.SkipTrivia(src, block.Pos())
+  if pos < 0 || pos > len(src) {
+    return false
+  }
+  lineStart := lineStartOffset(src, pos)
+  for i := lineStart; i < pos; i++ {
+    if src[i] != ' ' && src[i] != '\t' {
+      return false
+    }
+  }
+  return true
 }
 
 // walkStatementLists recurses through `node`'s children. When it
@@ -284,7 +307,7 @@ func forEachStatementInList(file *shimast.SourceFile, fn func(stmt *shimast.Node
 //     inside it. Without counting the body frame a method-body statement
 //     would land one column short (the member Block's +1 only), so
 //     already-correct 4-space class bodies would be rewritten to 2.
-func walkStatementLists(node *shimast.Node, depth int, fn func(stmt *shimast.Node, depth int)) {
+func walkStatementLists(node *shimast.Node, src string, depth int, fn func(stmt *shimast.Node, depth int)) {
   if node == nil {
     return
   }
@@ -296,14 +319,16 @@ func walkStatementLists(node *shimast.Node, depth int, fn func(stmt *shimast.Nod
     switch child.Kind {
     case shimast.KindBlock, shimast.KindModuleBlock:
       childDepth = depth + 1
-      // An explicit `{ }` that is the direct body of a case/default
-      // clause does not add an indent level: Prettier indents
-      // `case X: { stmt }` exactly like `case X: stmt`. The clause has
-      // already contributed the level, so keep the block body at the
-      // clause's depth instead of nesting it one deeper.
+      // A same-line `case X: { stmt }` block does not add an indent level:
+      // Prettier indents it exactly like a braceless `case X: stmt`, the
+      // clause having already contributed the level. A block written on its
+      // OWN line under the clause (`case X:` then `{` on the next line) is an
+      // ordinary nested block and keeps its extra level, so only collapse the
+      // same-line form.
       if child.Kind == shimast.KindBlock && child.Parent != nil &&
         (child.Parent.Kind == shimast.KindCaseClause ||
-          child.Parent.Kind == shimast.KindDefaultClause) {
+          child.Parent.Kind == shimast.KindDefaultClause) &&
+        !blockStartsOwnLine(src, child) {
         childDepth = depth
       }
       for _, stmt := range child.Statements() {
@@ -333,7 +358,7 @@ func walkStatementLists(node *shimast.Node, depth int, fn func(stmt *shimast.Nod
       // nested statement lists sit one column deeper.
       childDepth = depth + 1
     }
-    walkStatementLists(child, childDepth, fn)
+    walkStatementLists(child, src, childDepth, fn)
     return false
   })
 }

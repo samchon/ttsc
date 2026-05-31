@@ -8,7 +8,7 @@ Branch from the PR target (`master` unless stated otherwise); never commit to th
 
 ## Group changes into logical commits
 
-Group changes into logical commits. One per coherent unit, not a single mega-commit when the diff is large. Use the repository's existing `<type>(<scope>): <subject>` message style.
+Group changes into logical commits. One per coherent unit, not a single mega-commit when the diff is large. Use the repository's existing `<type>(<scope>): <subject>` message style. Run `pnpm format` before each commit (see `development/SKILL.md` § Work Rules).
 
 ## Write the PR body at open
 

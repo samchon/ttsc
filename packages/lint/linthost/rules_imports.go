@@ -56,12 +56,20 @@ func (noImportTypeSideEffects) Check(ctx *Context, node *shimast.Node) {
   // non-overlapping; the keyword insertion is at offset 6 (after
   // `import`), and each specifier-level delete is strictly inside the
   // braces, so they never overlap.
-  importKwEnd := findKeyword(ctx.File, node.Pos(), node.End(), "import")
-  if importKwEnd < 0 {
+  // Anchor the `import` keyword at the first real token, not at
+  // node.Pos() which points into leading trivia. A raw findKeyword scan
+  // from node.Pos() would match the word `import` inside a leading
+  // comment (`// re-import below`) and insert ` type` into the comment,
+  // while the specifier loop still strips each `type ` — silently
+  // turning the type-only imports back into value imports. keywordStart
+  // mirrors the prefer-namespace-keyword pattern: SkipTrivia past
+  // comments/whitespace, then match the keyword at the token boundary.
+  importKwStart := keywordStart(ctx.File, node, "import")
+  if importKwStart < 0 {
     ctx.Report(node, message)
     return
   }
-  importKwEnd += len("import")
+  importKwEnd := importKwStart + len("import")
   edits := []TextEdit{
     {Pos: importKwEnd, End: importKwEnd, Text: " type"},
   }

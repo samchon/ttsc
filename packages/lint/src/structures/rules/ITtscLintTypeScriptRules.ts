@@ -51,11 +51,11 @@ export interface ITtscLintTypeScriptRules {
   "typescript/await-thenable"?: TtscLintRuleSetting;
 
   /**
-   * Reject `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, and `@ts-check`
-   * comments.
+   * Reject `@ts-ignore` and `@ts-expect-error` comments.
    *
-   * The default policy allows `@ts-expect-error` with an explanatory `--`
-   * description.
+   * The rule flags both directives unconditionally. There is no
+   * description-based allowance, and the `@typescript-eslint` options are not
+   * implemented.
    *
    * @reference https://typescript-eslint.io/rules/ban-ts-comment
    */
