@@ -23,9 +23,16 @@ function createCodeCommand(
     return {
       command: env.ComSpec || "cmd.exe",
       args: ["/d", "/s", "/c", quoteWindowsCommand(["code", ...args])],
+      // The `/c` payload is ALREADY fully quoted. Node's Windows spawn escapes
+      // each arg again unless told not to, turning `""code" …"` into
+      // `"\"\"code\" …\""`, which cmd.exe sees as one un-runnable token (the
+      // CVE-2024-27980 argument-escaping change, Node 18.20.2+/20.12.2+). Pass
+      // the payload verbatim so cmd's `/s` strips the outer quotes and runs
+      // `code …`.
+      options: { windowsVerbatimArguments: true },
     };
   }
-  return { command: "code", args };
+  return { command: "code", args, options: {} };
 }
 
 function quoteWindowsCommand(args) {
@@ -38,7 +45,10 @@ function quoteWindowsArg(arg) {
 
 function spawnCode(args, vsixForFallback) {
   const command = createCodeCommand(args);
-  const r = cp.spawnSync(command.command, command.args, { stdio: "inherit" });
+  const r = cp.spawnSync(command.command, command.args, {
+    stdio: "inherit",
+    ...command.options,
+  });
   if (r.error && r.error.code === "ENOENT") {
     printCodeNotFound(vsixForFallback);
     process.exit(1);

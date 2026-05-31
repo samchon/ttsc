@@ -25,14 +25,22 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       args: string[],
       platform?: NodeJS.Platform,
       env?: NodeJS.ProcessEnv,
-    ) => { args: string[]; command: string };
+    ) => {
+      args: string[];
+      command: string;
+      options: { windowsVerbatimArguments?: boolean };
+    };
   };
 
   const args = ["--install-extension", "C:\\tmp & 100%\\ttsc.vsix", "--force"];
   assert.deepEqual(mod.createCodeCommand(args, "linux"), {
     command: "code",
     args,
+    options: {},
   });
+  // The /c payload is already fully quoted; the spawn must pass it verbatim, or
+  // Node re-escapes the quotes (\"\"code\" …) and cmd.exe cannot run it. This is
+  // the native-Windows install failure WSL never hit.
   assert.deepEqual(mod.createCodeCommand(args, "win32", { ComSpec: "cmd" }), {
     command: "cmd",
     args: [
@@ -41,5 +49,6 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       "/c",
       '""code" "--install-extension" "C:\\tmp & 100%%\\ttsc.vsix" "--force""',
     ],
+    options: { windowsVerbatimArguments: true },
   });
 };
