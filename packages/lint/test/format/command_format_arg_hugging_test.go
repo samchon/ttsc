@@ -61,6 +61,32 @@ func TestCommandFormatArgHugging(t *testing.T) {
 }, makeInitialAccumulatorWithAReallyLongNameThatGoesOnAndOnAndOnPastEighty(single));
 `)
   })
+  // first-arg hug DECLINES when the trailing call's single argument is itself a
+  // non-trivial call: Prettier's isSimpleCallArgument bottoms out at its depth
+  // floor, so `makeInit(deriveSeed(config))` is not simple and the list
+  // explodes. The positive twin above passes a plain identifier (`single`),
+  // which stays simple and hugs. This pins the depth-bounded simplicity check.
+  t.Run("first_arg_nested_call_trailing_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const e = arr.reduce(
+  (r, t) => {
+    r[t] = t;
+    return r;
+  },
+  makeInitialAccumulator(deriveSeedFromConfiguration(configurationObject)),
+);
+`)
+  })
+  // last-arg hug over an object-bodied arrow with a KEYWORD return type hugs:
+  // Prettier's couldExpandArg declines only a TSTypeReference return type, so a
+  // `void`/keyword return still hugs (a named-reference return would explode).
+  t.Run("last_arg_keyword_return_object_arrow_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const f = makeThing(config, (item): void => ({
+  id: item.id,
+  label: item.label,
+  computedValueHere: item.value,
+}));
+`)
+  })
   // first-arg hug over a short binary trailing arg (`1000 - ellapsed`): hug.
   t.Run("first_arg_short_binary_trailing_hugs", func(t *testing.T) {
     assertFormatUnchanged(t, `setTimeout(() => {

@@ -532,13 +532,26 @@ func lastArgHuggableShape(last *shimast.Node) bool {
       return true
     case shimast.KindObjectLiteralExpression,
       shimast.KindArrayLiteralExpression:
-      // An expression-bodied arrow with an explicit return type is not hugged:
-      // Prettier's couldGroupArg excludes it ("avoid breaking inside composite
-      // return types"), so `map((r): T => ({ … }))` explodes the whole list
-      // while `map((r) => ({ … }))` hugs.
-      return arrow.Type == nil
+      // An object/array-bodied arrow hugs unless its return type is a type
+      // REFERENCE. Prettier's couldExpandArg gates only on
+      // `returnType.typeAnnotation.type === "TSTypeReference"`, so a keyword,
+      // union, array, or literal return type (`map((r): void => ({ … }))`)
+      // still hugs while a named-reference return (`map((r): Foo => ({ … })))`)
+      // explodes the whole list. A block body hugs regardless (handled above).
+      return arrow.Type == nil || arrow.Type.Kind != shimast.KindTypeReference
     }
   }
+  // DEFERRED (architectural, not a one-line predicate fix; do not re-add to the
+  // switch above without the supporting layout work):
+  //   - A call/conditional/JSX-expression arrow body. Prettier's couldExpandArg
+  //     hugs it, but ttsc emits the arrow signature (`=> `) verbatim with no
+  //     break point after `=>`, so hugging here would force the FIRST group
+  //     inside the call instead of breaking after `=>` — a different shape, not
+  //     parity. Needs a break-after-`=>` arrow-body layout variant first.
+  //   - A trailing `as`/`satisfies` cast wrapping a huggable last argument.
+  //     Prettier's couldExpandArg recurses into the cast, but ttsc does not
+  //     dispatch KindAsExpression (it prints verbatim), so forceBreakFirstGroup
+  //     finds no group and the hug is inert. Needs a cast printer first.
   return false
 }
 
@@ -641,12 +654,14 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     }
   case shimast.KindCallExpression, shimast.KindNewExpression:
     // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
-    // hugs the first arg when the trailing call/new has at most one value
-    // argument, regardless of its length, type arguments and long names do not
-    // matter and the close line is allowed to overflow. A call with two or more
-    // arguments explodes the whole list instead. Mirrors Prettier's
-    // isHopefullyShortCallArgument for call-like nodes.
-    return callValueArgCount(node) <= 1
+    // hugs the first arg over a trailing call/new only when it has at most one
+    // value argument AND that argument is itself structurally simple. Its
+    // isHopefullyShortCallArgument early-rejects >1 args, then falls through to
+    // isSimpleCallArgument (depth 2), so a 1-arg call whose sole argument is a
+    // non-trivial nested call/object/array (`reduce(fn, makeInit(deep(arg)))`)
+    // is NOT simple and the whole list explodes. Type arguments and long names
+    // still do not matter; the close line is allowed to overflow.
+    return callValueArgCount(node) <= 1 && isSimpleCallArg(node, 2)
   case shimast.KindObjectLiteralExpression:
     // `reduce(fn, {})`: an EMPTY object literal hugs (Prettier's couldGroupArg
     // excludes a property-less object); an object with properties expands and
@@ -667,6 +682,103 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     // `reduce(fn, -1)`: a unary applied to a simple leaf rides the close line.
     if u := node.AsPrefixUnaryExpression(); u != nil {
       return isSimpleBinaryOperand(u.Operand)
+    }
+  }
+  return false
+}
+
+// isSimpleCallArg ports Prettier's isSimpleCallArgument (utilities/index.js): a
+// depth-bounded structural simplicity check. A node is simple when it is a leaf
+// (identifier, literal, this, member access) or a shallow composite whose parts
+// are simple at a reduced depth — a call/new is simple only when its callee is
+// simple, it has at most `depth` arguments, and every argument is simple at
+// `depth-1`. The recursion floor (`depth <= 0`) is what makes a nested call
+// like `makeInit(deep(arg))` non-simple, so first-argument hugging declines and
+// the list explodes, matching Prettier. A non-empty object is treated as
+// non-simple (its values bottom out below the depth floor anyway — the safe
+// under-match direction). Element access is treated as a simple leaf, matching
+// ttsc's existing member-access handling, rather than recursing into its
+// computed key (a pre-existing, rare residual over-match left out of scope).
+func isSimpleCallArg(node *shimast.Node, depth int) bool {
+  if node == nil || depth <= 0 {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindThisKeyword,
+    shimast.KindElementAccessExpression:
+    return true
+  case shimast.KindParenthesizedExpression:
+    if p := node.AsParenthesizedExpression(); p != nil {
+      return isSimpleCallArg(p.Expression, depth)
+    }
+  case shimast.KindPrefixUnaryExpression:
+    if u := node.AsPrefixUnaryExpression(); u != nil {
+      return isSimpleCallArg(u.Operand, depth)
+    }
+  case shimast.KindPropertyAccessExpression:
+    // The `.name` half is an identifier (trivially simple); recurse the object
+    // so `a.b(x, y).c` (a member of a multi-argument call) is correctly not
+    // simple, matching Prettier's member recursion.
+    if m := node.AsPropertyAccessExpression(); m != nil {
+      return isSimpleCallArg(m.Expression, depth)
+    }
+  case shimast.KindArrayLiteralExpression:
+    if arr := node.AsArrayLiteralExpression(); arr != nil {
+      if arr.Elements == nil {
+        return true
+      }
+      for _, el := range arr.Elements.Nodes {
+        if !isSimpleCallArg(el, depth-1) {
+          return false
+        }
+      }
+      return true
+    }
+  case shimast.KindObjectLiteralExpression:
+    // Only an empty object is treated as simple. A non-empty object's values
+    // are checked at depth-1, which bottoms out to false at every depth that
+    // occurs as a trailing-call argument, so declining one never over-matches.
+    if obj := node.AsObjectLiteralExpression(); obj != nil {
+      return obj.Properties == nil || len(obj.Properties.Nodes) == 0
+    }
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil {
+      var args []*shimast.Node
+      if c.Arguments != nil {
+        args = c.Arguments.Nodes
+      }
+      if !isSimpleCallArg(c.Expression, depth) || len(args) > depth {
+        return false
+      }
+      for _, a := range args {
+        if !isSimpleCallArg(a, depth-1) {
+          return false
+        }
+      }
+      return true
+    }
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil {
+      var args []*shimast.Node
+      if n.Arguments != nil {
+        args = n.Arguments.Nodes
+      }
+      if !isSimpleCallArg(n.Expression, depth) || len(args) > depth {
+        return false
+      }
+      for _, a := range args {
+        if !isSimpleCallArg(a, depth-1) {
+          return false
+        }
+      }
+      return true
     }
   }
   return false
