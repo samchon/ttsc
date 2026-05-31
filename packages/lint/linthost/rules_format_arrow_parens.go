@@ -185,6 +185,12 @@ func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bo
       return true
     }
   }
+  // Trailing trivia after the identifier, up to `=>`. Tolerate one closing
+  // paren so a comment between `)` and `=>` (`(x) /* c */ => x`) — which in
+  // "avoid" mode would otherwise be stranded when the parens are stripped — is
+  // also detected (Prettier keeps the parens of an arrow with such a dangling
+  // comment).
+  sawParen := false
   for i := nameEnd; i+1 < len(src); i++ {
     c := src[i]
     if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
@@ -192,6 +198,10 @@ func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bo
     }
     if c == '/' && (src[i+1] == '*' || src[i+1] == '/') {
       return true
+    }
+    if c == ')' && !sawParen {
+      sawParen = true
+      continue
     }
     break
   }

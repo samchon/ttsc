@@ -26,4 +26,15 @@ func TestFormatArrowParensAbstainsOnParamComment(t *testing.T) {
       `{"prefer":"always"}`,
     )
   })
+  // avoid mode must keep the parens of `(x) /* c */ => x`: the comment sits
+  // between `)` and `=>` (a dangling comment on the arrow), and stripping the
+  // parens would strand it. Prettier keeps them.
+  t.Run("avoid_comment_before_arrow", func(t *testing.T) {
+    assertRuleSkipsSourceWithOptions(
+      t,
+      "format/arrow-parens",
+      "const a = (x) /* c */ => x;\n",
+      `{"prefer":"avoid"}`,
+    )
+  })
 }

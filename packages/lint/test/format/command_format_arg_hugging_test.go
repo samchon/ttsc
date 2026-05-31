@@ -194,6 +194,25 @@ func TestCommandFormatArgHugging(t *testing.T) {
 );
 `)
   })
+  // a leading EXPRESSION-bodied arrow before a huggable OBJECT last argument
+  // hugs the object: Prettier declines a leading arrow only for the 2-arg
+  // arrow+ARRAY (useMemo) shape, never for arrow+object.
+  t.Run("leading_arrow_object_last_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `registerHandler((event) => event.preventDefault(), {
+  capture: true,
+  passiveListenerOption: false,
+});
+`)
+  })
+  // first-arg hug over a `satisfies` cast mirrors the `as` cast (empty array →
+  // hug): Prettier's isBinaryCastExpression covers TSSatisfiesExpression too.
+  t.Run("first_arg_satisfies_cast_trailing_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const s = arr.reduce((r, x) => {
+  r.push(x);
+  return r;
+}, [] satisfies Array<string>);
+`)
+  })
   // first-arg hug declines over a cast to a type carrying an object literal:
   // explode (`[] as Array<{ … }>`).
   t.Run("first_arg_object_type_cast_trailing_explodes", func(t *testing.T) {

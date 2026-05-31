@@ -170,11 +170,13 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   // last argument there (`doConfigure({ … }, () => { … })`).
   // A decorator's call hugs its last argument even past leading callbacks
   // (`@OneToMany(() => P, (p) => p.c, { … })` keeps the arrows inline and
-  // breaks only the object); a plain call with two or more leading callbacks
-  // explodes instead, so the function-arg gate applies only off a decorator.
+  // breaks only the object); the useMemo/useEffect deps shape
+  // (`f(() => x, [deps])`) explodes instead, so that gate applies only off a
+  // decorator. (Two-or-more callbacks are handled by argListForcesFunctionBreak,
+  // and a block-bodied leading callback by anyLeadingItemBreaks.)
   hugLast := shouldHugLastArgument(list.Nodes) &&
     !anyLeadingItemBreaks(items) &&
-    (decoratorCall || !anyLeadingArgIsFunctionLike(list.Nodes))
+    (decoratorCall || !isUseMemoArrowArrayShape(list.Nodes))
   // Two or more function/arrow arguments force the list to explode, one per
   // line, even when it would fit flat: Prettier always breaks a call carrying
   // multiple callbacks (`promise.then(() => a, () => b)`), the
@@ -425,24 +427,23 @@ func callForcesFunctionBreak(node *shimast.Node) bool {
   return argListForcesFunctionBreak(args.Nodes, decoratorCall)
 }
 
-// anyLeadingArgIsFunctionLike reports whether any argument before the last
-// is a function or arrow expression. Prettier declines last-argument
-// hugging when a non-last argument is itself a function/arrow, regardless
-// of its body, so `useMemo(() => compute(), [deps])` explodes rather than
-// hugging the trailing array. This complements anyLeadingItemBreaks, which
-// only catches leads with hard line breaks (a block body) and so misses an
-// expression-bodied arrow.
-func anyLeadingArgIsFunctionLike(args []*shimast.Node) bool {
-  for i := 0; i+1 < len(args); i++ {
-    if args[i] == nil {
-      continue
-    }
-    switch args[i].Kind {
-    case shimast.KindArrowFunction, shimast.KindFunctionExpression:
-      return true
-    }
+// isUseMemoArrowArrayShape reports the ONE leading-argument shape Prettier
+// declines last-argument hugging for: exactly two arguments where the first is
+// an arrow function and the last is an array literal — the
+// `useMemo(() => x, [deps])` / `useEffect(() => { … }, [deps])` shape.
+// Prettier's shouldExpandLastArg (call-arguments.js:260-262) has NO general
+// "a leading function declines hugging" rule; its only leading-argument clause
+// is `args.length === 2 && penultimate is ArrowFunctionExpression && last is
+// ArrayExpression`. A block-bodied leading callback is handled independently by
+// anyLeadingItemBreaks (it `willBreak`), and two-or-more callbacks by
+// argListForcesFunctionBreak, so a leading expression-bodied arrow before a
+// non-array huggable last argument (`f((x) => g(x), { a: 1 })`) must still hug.
+func isUseMemoArrowArrayShape(args []*shimast.Node) bool {
+  if len(args) != 2 || args[0] == nil || args[1] == nil {
+    return false
   }
-  return false
+  return args[0].Kind == shimast.KindArrowFunction &&
+    args[1].Kind == shimast.KindArrayLiteralExpression
 }
 
 // anyLeadingItemBreaks reports whether any item before the last carries a
@@ -670,6 +671,13 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     if as := node.AsAsExpression(); as != nil && as.Expression != nil {
       return isSimpleCallArg(as.Expression, 1) && isSimpleCastType(as.Type)
     }
+  case shimast.KindSatisfiesExpression:
+    // `[] satisfies T[]`: Prettier's isBinaryCastExpression covers
+    // TSSatisfiesExpression identically to TSAsExpression, so a satisfies cast
+    // takes the same simple-type + depth-1 simple-expression path as `as`.
+    if s := node.AsSatisfiesExpression(); s != nil && s.Expression != nil {
+      return isSimpleCallArg(s.Expression, 1) && isSimpleCastType(s.Type)
+    }
   case shimast.KindCallExpression, shimast.KindNewExpression:
     // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
     // hugs the first arg over a trailing call/new only when it has at most one
@@ -735,6 +743,12 @@ func isSimpleCallArg(node *shimast.Node, depth int) bool {
   case shimast.KindParenthesizedExpression:
     if p := node.AsParenthesizedExpression(); p != nil {
       return isSimpleCallArg(p.Expression, depth)
+    }
+  case shimast.KindNonNullExpression:
+    // Prettier's isSimpleCallArgument unwraps TSNonNullExpression at the same
+    // depth, so `foo!()` / `target!` recurse into the asserted expression.
+    if n := node.AsNonNullExpression(); n != nil {
+      return isSimpleCallArg(n.Expression, depth)
     }
   case shimast.KindPrefixUnaryExpression:
     if u := node.AsPrefixUnaryExpression(); u != nil {
