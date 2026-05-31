@@ -87,10 +87,25 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node, indentCols int
 // the broken staircase. A nested conditional in the ALTERNATE (`: `) position
 // is never wrapped — it chains. `isConsequent` selects between the two.
 func ternaryArm(ctx *PrintContext, node *shimast.Node, isConsequent bool) (Doc, bool) {
-  if node != nil && node.Kind == shimast.KindConditionalExpression {
+  inner := node
+  // A nested ternary written with explicit source parentheses — `a ? (b ? c : d)
+  // : e` — is the same chain link as a bare nested ternary: Prettier's AST has no
+  // ParenthesizedExpression node, so its `printTernary` sees the consequent as a
+  // ConditionalExpression and joins the staircase (re-adding the parens only in
+  // flat mode via ifBreak). Unwrap a parenthesized conditional so it chains too,
+  // instead of printing flat inside kept parens. Only a ConditionalExpression
+  // inner is unwrapped; `(a ?? b)` and other parenthesized expressions keep their
+  // parens through the normal printer.
+  if inner != nil && inner.Kind == shimast.KindParenthesizedExpression {
+    if p := inner.AsParenthesizedExpression(); p != nil && p.Expression != nil &&
+      p.Expression.Kind == shimast.KindConditionalExpression {
+      inner = p.Expression
+    }
+  }
+  if inner != nil && inner.Kind == shimast.KindConditionalExpression {
     // A nested chain indents a fixed 2 columns past its parent rung,
     // independent of tabWidth (Prettier 3's nested-ternary rule).
-    chain, covered := buildConditionalChain(ctx, node, 2)
+    chain, covered := buildConditionalChain(ctx, inner, 2)
     if isConsequent {
       // `ifBreak("", "(")` … `ifBreak("", ")")`: parens in flat mode only.
       chain = Concat(
