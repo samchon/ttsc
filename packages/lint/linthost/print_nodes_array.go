@@ -148,6 +148,21 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     if a := node.AsArrayLiteralExpression(); a != nil && a.Elements != nil {
       children = a.Elements.Nodes
     }
+  case shimast.KindObjectLiteralExpression:
+    // A force-breaking array/object nested in an object PROPERTY value
+    // (`{ m: [[1, 2], [3, 4]] }`) must also deny the fast path: the value
+    // abstains to its object ancestor via hasReflowAncestor, and the object
+    // itself fits flat, so without descending into property initializers both
+    // would stay flat where Prettier breaks them.
+    if o := node.AsObjectLiteralExpression(); o != nil && o.Properties != nil {
+      for _, p := range o.Properties.Nodes {
+        if p != nil && p.Kind == shimast.KindPropertyAssignment {
+          if pa := p.AsPropertyAssignment(); pa != nil && pa.Initializer != nil {
+            children = append(children, pa.Initializer)
+          }
+        }
+      }
+    }
   }
   for _, ch := range children {
     if fastPathForcesBreak(ch) {
