@@ -76,6 +76,15 @@ type listShape struct {
   // printer sets it for a concisely-printed numeric array. Mutually
   // exclusive with HugLast / HugFirst.
   Fill bool
+  // Prefix and Suffix are emitted inside the list's Group, before OpEN and
+  // after CLOSE respectively. They let a caller fold surrounding tokens into
+  // the same fit-or-break decision: an import declaration sets Prefix to
+  // `import ` (or `import D, `) and Suffix to ` from "..."` so the named-brace
+  // group's flat-fit check counts the whole declaration line — Prettier never
+  // breaks a brace that fits but whose `from` tail overflows is measured here,
+  // not in a separate group. Only used on the plain (non-hugging) path.
+  Prefix Doc
+  Suffix Doc
   // BlankBefore[i] reports whether the source had a blank line before item i
   // (i.e. between item i-1 and item i). When any entry is set the list is
   // forced broken and a single blank line is preserved before that item,
@@ -214,7 +223,15 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
   trailingSep := IfBreak(Hardline(), flatPad)
 
   bodyBlock := Indent(ctx.indentUnit(), leadingSep, body, trailing)
-  doc := Concat(openTok, bodyBlock, trailingSep, closeTok)
+  prefix := shape.Prefix
+  if prefix.Kind == 0 {
+    prefix = Doc{Kind: docNil}
+  }
+  suffix := shape.Suffix
+  if suffix.Kind == 0 {
+    suffix = Doc{Kind: docNil}
+  }
+  doc := Concat(prefix, openTok, bodyBlock, trailingSep, closeTok, suffix)
   group := Group(doc)
   // ForceBreak (object-literal newline preservation) commits the group
   // to its broken shape regardless of fit.

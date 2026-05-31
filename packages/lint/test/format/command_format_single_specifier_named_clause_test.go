@@ -113,7 +113,6 @@ func TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak(t *testing.T)
 // it means teaching the import doc-render path the trailing width the export
 // path already measures. Skipped until that slice; the assertion is the target.
 func TestCommandFormatImportMultiSpecifierFromOverflowBreak(t *testing.T) {
-  t.Skip("import declaration reflow does not charge the `from \"...\"` tail to the named group; export path does (KindNamedExports), import path (KindImportDeclaration) does not yet")
   assertFormatResult(t,
     `import { ShortC, ShortD } from "./very/long/path/here/exceeding/the/eighty/colss";
 `,
@@ -134,7 +133,6 @@ func TestCommandFormatImportMultiSpecifierFromOverflowBreak(t *testing.T) {
 // present), leaving it to a future default-import reflow slice. Skipped until
 // that slice lands; the assertion below is the target behavior.
 func TestCommandFormatDefaultImportSingleSpecifierBreak(t *testing.T) {
-  t.Skip("default-combined import reflow not implemented (print_nodes_imports.go v1 keeps `import D, { … }` verbatim); tracked as a separate slice")
   assertFormatResult(t,
     `import Default, { OneNamedAlongsideDefaultExceedingTheEightyColumnPrintWidthAo } from "./m";
 `,

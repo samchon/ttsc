@@ -115,13 +115,10 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if clauseData == nil || clauseData.NamedBindings == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  if clauseData.NamedBindings.Kind != shimast.KindNamedImports {
+  nb := clauseData.NamedBindings
+  if nb.Kind != shimast.KindNamedImports {
     // Namespace imports (`import * as ns from "x"`) have no
     // reflow surface; leave them alone.
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
-  }
-  if clause.Name() != nil {
-    // `import Default, { … } from "x"` — keep verbatim for v1.
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   // AttributeClause (`with { ... }` / `assert { ... }`) lives after
@@ -130,24 +127,60 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if imp.Attributes != nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment between specifiers would be dropped by the fresh separators.
+  if listHasInterItemComments(ctx, nb) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
+  ni := nb.AsNamedImports()
+  if ni == nil || ni.Elements == nil {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
 
-  // Bracketed clause prefix: `import ` (and optional `type `).
+  // Bracketed clause prefix: `import `, `import type `, or — when a default
+  // binding precedes the named clause — `import Default, `. A default never
+  // combines with `type` (TS forbids `import type D, { … }`), so the two
+  // prefix forms are exclusive.
   prefix := "import "
   if clause.IsTypeOnly() {
     prefix = "import type "
   }
-  named, covered := PrintNode(ctx, clauseData.NamedBindings)
+  if name := clause.Name(); name != nil {
+    prefix = "import " + identifierText(name) + ", "
+  }
+
+  items := make([]Doc, 0, len(ni.Elements.Nodes))
+  covered := true
+  for _, spec := range ni.Elements.Nodes {
+    if spec == nil {
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    }
+    doc, childCovered := PrintNode(ctx, spec)
+    covered = covered && childCovered
+    items = append(items, doc)
+  }
+
   moduleSpec := verbatim(ctx, imp.ModuleSpecifier)
   covered = covered && !nodeSpansMultipleLines(ctx, imp.ModuleSpecifier)
-  parts := []Doc{Text(prefix), named, Text(" from "), moduleSpec}
+  suffixParts := []Doc{Text(" from "), moduleSpec}
   if sourceHasStatementTerminator(ctx.Source, node.End()) {
-    // Preserve the user's terminator decision. Emitting `;`
-    // unconditionally would collide with `format/semi`'s
-    // zero-width insert on the same cascade pass and produce
-    // `;;` — `format/semi` owns terminator placement.
-    parts = append(parts, Text(";"))
+    // Preserve the user's terminator decision. Emitting `;` unconditionally
+    // would collide with `format/semi`'s zero-width insert and produce `;;`.
+    suffixParts = append(suffixParts, Text(";"))
   }
-  return Concat(parts...), covered
+
+  // The whole declaration renders as one Group via Prefix/Suffix, so the
+  // named-brace break decision counts the ` from "..."` tail: a brace that
+  // fits but whose declaration line overflows still breaks, and a
+  // default-combined import breaks its brace too.
+  return printList(ctx, listShape{
+    Prefix:   Text(prefix),
+    OpenTok:  "{",
+    CloseTok: "}",
+    Items:    items,
+    Space:    true,
+    AddComma: ctx.allowsEs5TrailingComma(),
+    Suffix:   Concat(suffixParts...),
+  }), covered
 }
 
 // sourceHasStatementTerminator reports whether the last non-trivia
