@@ -96,6 +96,14 @@ func joinClauseBody(
   if body == nil || body.Kind == shimast.KindBlock {
     return
   }
+  // An empty-statement body (`while (x)\n;`) glues directly to the header with
+  // NO space: Prettier's adjustClause special-cases EmptyStatement and returns
+  // the bare `;` (`while (x);`), only prepending a space when the empty
+  // statement carries a leading comment. This rule's gap->" " rewrite cannot
+  // produce the spaceless `);` glue, so abstain and leave the source shape.
+  if body.Kind == shimast.KindEmptyStatement {
+    return
+  }
   bodyStart := shimscanner.SkipTrivia(src, body.Pos())
   bodyEnd := body.End()
   if bodyStart < 0 || bodyEnd < bodyStart || bodyEnd > len(src) {
@@ -149,12 +157,11 @@ func isClauseGapByte(c byte) bool {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
-// visualWidth returns the column width of `s`, expanding tab characters
-// to `tabWidth` columns. Non-tab bytes count as one column, which is
-// exact for the ASCII that dominates control-flow headers and the common
-// case; it can under/over-count multi-byte runes, but clause bodies that
-// land exactly on the printWidth boundary are rare enough that the
-// approximation never changes a real join decision.
+// visualWidth returns the display-column width of `s`: a tab expands to a flat
+// `tabWidth` columns and every other rune is charged its display width via
+// runeWidth (combining marks 0, wide East-Asian/emoji 2), matching displayWidth.
+// The only approximation left is the flat tab expansion (no tab-stop rounding),
+// which never changes a real clause-join decision.
 func visualWidth(s string, tabWidth int) int {
   width := 0
   for _, r := range s {

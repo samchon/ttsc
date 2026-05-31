@@ -93,11 +93,6 @@ func (formatPrintWidth) Visits() []shimast.Kind {
 //     re-render still over-breaks some of these; the next slice should
 //     measure fitsFirstLine against `pw - col - trailingNonComment`
 //     before committing to the broken layout.
-//   - Default-combined imports (`import D, { X } from "x"`) are kept
-//     verbatim by printImportDeclaration (its `clause.Name() != nil`
-//     guard), so a default import whose named clause overflows is not
-//     broken; Prettier breaks it. Lifting the guard, threading the default
-//     name into the printed prefix, is a future default-import reflow slice.
 //
 // (A single-specifier `import/export { X } from "long-path"` that overflows
 // only because of the `from "..."` tail is now kept inline by the
@@ -162,15 +157,15 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // the per-byte comment scan in hasNonChildComments. Charging that
   // cost only on nodes that actually overflow keeps the hot path on
   // well-formatted code allocation- and scan-free.
-  // A call with two or more function/arrow arguments explodes regardless of
-  // width (Prettier's multiple-callback rule), and an array of same-kind
-  // multi-child arrays/objects explodes under Prettier's shouldBreak heuristic,
-  // so a flat one-line node of either shape still needs a reflow. Skip the fast
-  // path for them; the printer's ForceBreak then produces the exploded shape.
-  // Everything else that fits flat is byte-identical after reflow, so the fast
-  // path stands.
-  if !callForcesFunctionBreak(node) &&
-    !arrayForcesBreak(node) &&
+  // A call/new with two or more callback arguments explodes regardless of width
+  // (Prettier's multiple-callback rule), and an array of same-kind multi-child
+  // arrays/objects explodes under Prettier's shouldBreak heuristic — even when
+  // such a node is nested inside an otherwise-fitting call/new/array. So a flat
+  // one-line node containing either shape still needs a reflow. fastPathForcesBreak
+  // walks the reflow subtree; skip the fast path for it so the printer's
+  // ForceBreak produces the exploded shape. Everything else that fits flat is
+  // byte-identical after reflow, so the fast path stands.
+  if !fastPathForcesBreak(node) &&
     !sliceContainsNewline(src, start, end) &&
     printOpts.StartingColumn+displayWidth(src[start:end])+trailingWidth <= printOpts.PrintWidth {
     return

@@ -359,6 +359,12 @@ type siSpec struct {
   sortKey          string
   text             string
   fromTypeOnlyDecl bool
+  // inlineType is the specifier's own AST `type` modifier (`import { type Foo }`),
+  // distinct from fromTypeOnlyDecl (the whole `import type { … }` declaration).
+  // It classifies a specifier without re-parsing its text, so a binding literally
+  // named `type` (`import { type as bar }` -> name `type`, alias `bar`, NOT a type
+  // specifier) is not mistaken for a type modifier by a `"type "` string prefix.
+  inlineType bool
 }
 
 // siDecl is the parsed shape of one import declaration used by the block
@@ -371,8 +377,13 @@ type siDecl struct {
   defaultName string
   named       []siSpec
   namespace   bool
-  original    string
-  semicolon   bool
+  // hasSpecComment marks a declaration whose named-import braces carry a comment.
+  // The merge rebuilder joins specifier texts with ", " and would drop such a
+  // comment, so a flagged declaration is made unmergeable (like a namespace
+  // binding) and re-emitted from its original text. See mergeKey.
+  hasSpecComment bool
+  original       string
+  semicolon      bool
 }
 
 // siEntry is a (possibly merged) import declaration ready to be grouped,
@@ -451,6 +462,42 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   }
   out.typeOnly = clause.PhaseModifier == shimast.KindTypeKeyword
   out.defaultName = identifierText(clause.Name())
+  // A comment anywhere in the rebuilt import prefix (`import [type] [D] [, { … }]
+  // from `) would be lost when renderMergedDecl reconstructs the statement
+  // field-by-field. Flag it so mergeKey keeps the declaration unmergeable and
+  // its original text is preserved. This runs BEFORE the no-named-bindings /
+  // namespace early returns so a default-only import (`import a /* c */ from
+  // "m"`) is flagged too; it depends only on decl.Pos() and the module
+  // specifier, not on the named bindings. The prefix holds no module-path
+  // string, so a `//` or `/*` there is unambiguously a comment (a leading
+  // comment before `import` is excluded: SkipTrivia advances to `import`).
+  if imp.ModuleSpecifier != nil {
+    pStart := shimscanner.SkipTrivia(src, decl.Pos())
+    pEnd := shimscanner.SkipTrivia(src, imp.ModuleSpecifier.Pos())
+    if pStart >= 0 && pEnd <= len(src) && pStart < pEnd {
+      if span := src[pStart:pEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+        out.hasSpecComment = true
+      }
+    }
+    // Also the module-specifier -> `;` tail (`from "m" /* keep */;`): a block
+    // comment there is interior to the declaration but outside the
+    // inter-declaration gap that leadingTriviaIsAllWhitespace scans, so the
+    // merge rebuilder would drop it. The module string itself is excluded (the
+    // span starts at ModuleSpecifier.End()), so no `//`-in-a-path false positive.
+    if tStart, tEnd := imp.ModuleSpecifier.End(), decl.End(); tStart >= 0 && tEnd <= len(src) && tStart < tEnd {
+      if span := src[tStart:tEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+        out.hasSpecComment = true
+      }
+    }
+  }
+  // An import-attributes clause (`with { type: "json" }` / `assert { … }`) is not
+  // reconstructed by renderMergedDecl, so merging would silently drop those
+  // bytes. Flag the declaration unmergeable (its original text is then re-emitted
+  // verbatim), mirroring the print-width import printer, which bails to verbatim
+  // on `imp.Attributes != nil` for the same reason.
+  if imp.Attributes != nil {
+    out.hasSpecComment = true
+  }
   if clause.NamedBindings == nil {
     return out
   }
@@ -475,6 +522,7 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
       sortKey:          identifierText(s.Name()),
       text:             src[start:spec.End()],
       fromTypeOnlyDecl: out.typeOnly,
+      inlineType:       s.IsTypeOnly,
     })
   }
   return out
@@ -508,6 +556,11 @@ func mergeImportDecls(decls []siDecl, opts resolvedSortImportsOptions) []siEntry
 func mergeKey(d siDecl, combine bool) string {
   if d.namespace {
     return "\x00ns\x00" + d.original
+  }
+  // A named-import list carrying a comment is unmergeable so the comment
+  // survives in the declaration's original text (a per-declaration key).
+  if d.hasSpecComment {
+    return "\x00cmt\x00" + d.original
   }
   if combine || !d.typeOnly {
     return "v\x00" + d.specifier
@@ -613,10 +666,18 @@ func collectMergedSpecs(group []siDecl, mergedTypeOnly, caseSensitive bool) []st
   for _, d := range group {
     for _, s := range d.named {
       text := s.text
-      if s.fromTypeOnlyDecl && !mergedTypeOnly && !strings.HasPrefix(text, "type ") {
+      // Classify by AST flags, not a `"type "` text prefix. A binding literally
+      // named `type` (`import { type as bar }`) has inlineType=false and must stay
+      // a value specifier; a string-prefix check would mis-promote it to a type
+      // specifier and skip the modifier when folding a type-only declaration.
+      isType := s.inlineType
+      if s.fromTypeOnlyDecl && !mergedTypeOnly {
+        // A specifier from `import type { … }` carries no inline `type` modifier
+        // (TS forbids it there), so folding into a mixed value import must add one.
         text = "type " + text
+        isType = true
       }
-      cur := spec{name: s.sortKey, isType: strings.HasPrefix(text, "type "), text: text}
+      cur := spec{name: s.sortKey, isType: isType, text: text}
       if at, dup := index[s.sortKey]; dup {
         if items[at].isType && !cur.isType {
           items[at] = cur

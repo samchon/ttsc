@@ -20,9 +20,11 @@ import (
 // (`a ? b : c ? d : e`) or every rung breaks onto its own line. Nesting
 // is expressed by recursing the chain builder without wrapping the
 // nested conditional in its own Group. The outermost chain indents its arms
-// by `tabWidth`, but each nested chain indents by a FIXED 2 columns (not
-// `tabWidth`), matching Prettier 3: at tabWidth 4 the outer arms sit at
-// column 4 and the nested arms at column 6, not 8.
+// by `tabWidth`. A nested chain in the ALTERNATE (`: `) position indents by a
+// fixed 2 columns; a nested chain in the CONSEQUENT (`? `) position indents by
+// `max(2, tabWidth)` (Prettier's extra `align(tabWidth-2)` on the consequent).
+// So at tabWidth 4 the outer arms sit at column 4, an alternate-nested arm at
+// column 6, and a consequent-nested arm at column 8; they coincide at tabWidth 2.
 //
 // The second return value is the coverage flag (see PrintNode): the AND
 // of the test and both branches, so a multi-line verbatim node anywhere
@@ -45,6 +47,16 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node, indentCols int
   cond := node.AsConditionalExpression()
   if cond == nil || cond.Condition == nil || cond.WhenTrue == nil || cond.WhenFalse == nil {
     return Doc{}, true
+  }
+  // A comment around the `?`/`:` markers (`a ? /* c */ b : c`) would be dropped
+  // by the minted "? "/": " text — the markers are not AST children, so a
+  // nested conditional's gap comment slips past the top-level print-width scan
+  // and is lost on reflow. Bail to verbatim and report UNCOVERED (hard `false`,
+  // not `!nodeSpansMultipleLines`) so an enclosing reflow abstains instead of
+  // breaking around this single-line verbatim conditional and moving it off its
+  // line; the bytes survive.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), false
   }
   testDoc, c1 := PrintNode(ctx, cond.Condition)
   consDoc, c2 := ternaryArm(ctx, cond.WhenTrue, true)
@@ -87,10 +99,39 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node, indentCols int
 // the broken staircase. A nested conditional in the ALTERNATE (`: `) position
 // is never wrapped — it chains. `isConsequent` selects between the two.
 func ternaryArm(ctx *PrintContext, node *shimast.Node, isConsequent bool) (Doc, bool) {
-  if node != nil && node.Kind == shimast.KindConditionalExpression {
-    // A nested chain indents a fixed 2 columns past its parent rung,
-    // independent of tabWidth (Prettier 3's nested-ternary rule).
-    chain, covered := buildConditionalChain(ctx, node, 2)
+  inner := node
+  // A nested ternary written with explicit source parentheses — `a ? (b ? c : d)
+  // : e` — is the same chain link as a bare nested ternary: Prettier's AST has no
+  // ParenthesizedExpression node, so its `printTernary` sees the consequent as a
+  // ConditionalExpression and joins the staircase (re-adding the parens only in
+  // flat mode via ifBreak). Unwrap a parenthesized conditional so it chains too,
+  // instead of printing flat inside kept parens. Only a ConditionalExpression
+  // inner is unwrapped; `(a ?? b)` and other parenthesized expressions keep their
+  // parens through the normal printer.
+  // Do NOT unwrap when a comment sits between the parens and the inner
+  // conditional (`(/* keep */ b ? c : d)`): dropping the ParenExpr wrapper would
+  // delete that comment. Leaving `inner` as the ParenExpr routes it through the
+  // normal printer, whose own self-guard bails to verbatim and preserves it.
+  if inner != nil && inner.Kind == shimast.KindParenthesizedExpression &&
+    !listHasInterItemComments(ctx, inner) {
+    if p := inner.AsParenthesizedExpression(); p != nil && p.Expression != nil &&
+      p.Expression.Kind == shimast.KindConditionalExpression {
+      inner = p.Expression
+    }
+  }
+  if inner != nil && inner.Kind == shimast.KindConditionalExpression {
+    // A nested chain's arms align at 2 past their parent rung. Prettier's
+    // ternary-old.js uses that as-is for an ALTERNATE-position nested chain
+    // (`align(2)`), but a CONSEQUENT-position one gets an extra
+    // `align(Math.max(0, tabWidth - 2))`, for a total of `max(2, tabWidth)`.
+    // The two coincide at the default tabWidth 2; they diverge at tabWidth > 2.
+    indentCols := 2
+    if isConsequent {
+      if u := ctx.indentUnit(); u > indentCols {
+        indentCols = u
+      }
+    }
+    chain, covered := buildConditionalChain(ctx, inner, indentCols)
     if isConsequent {
       // `ifBreak("", "(")` … `ifBreak("", ")")`: parens in flat mode only.
       chain = Concat(

@@ -2,6 +2,7 @@ package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // printNamedImports renders `{ a, b, c }` inside an import declaration.
@@ -142,9 +143,25 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // prefix forms are exclusive.
   prefix := "import "
   if clause.IsTypeOnly() {
+    // A comment in the `type`->`{` gap (`import type /* c */ { … }`) would be
+    // dropped by the minted prefix. The `type` keyword is a clause modifier
+    // flag, not a child node, so the top-level scan masks it (it sits inside the
+    // ImportClause span) and the `nb`-scoped guard starts at `{`. Bail to
+    // verbatim, like the default-binding gap below.
+    if gapHasComment(ctx.Source, shimscanner.SkipTrivia(ctx.Source, clause.Pos()), shimscanner.SkipTrivia(ctx.Source, nb.Pos())) {
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    }
     prefix = "import type "
   }
   if name := clause.Name(); name != nil {
+    // A comment in the default-binding-to-brace gap (`import D /* c */, { … }`)
+    // would be dropped by the minted `, ` prefix. That gap is not a direct child
+    // of the import node, so the top-level scan masks it and the `nb`-scoped
+    // guard above starts at `{` — same class as printReturnStatement's leading
+    // gap. Bail to verbatim.
+    if gapHasComment(ctx.Source, name.End(), shimscanner.SkipTrivia(ctx.Source, nb.Pos())) {
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    }
     prefix = "import " + identifierText(name) + ", "
   }
 

@@ -3,10 +3,11 @@ package linthost
 import "testing"
 
 // TestCommandFormatNestedTernaryIndent covers Prettier 3's nested-ternary
-// staircase: the outermost chain indents its arms by tabWidth, but each nested
-// chain indents a FIXED 2 columns past its parent rung, independent of
-// tabWidth. So at tabWidth 4 the outer arms sit at column 4 and successive
-// nested arms at 6, 8 — not 8, 12.
+// staircase: the outermost chain indents its arms by tabWidth. A nested chain in
+// the ALTERNATE (`: `) position indents a fixed 2 columns past its parent rung;
+// a CONSEQUENT (`? `) position nested chain indents by max(2, tabWidth)
+// (Prettier's extra align(tabWidth-2)). The cases here are all alternate-position,
+// so at tabWidth 4 their nested arms sit at column 6; they coincide at tabWidth 2.
 func TestCommandFormatNestedTernaryIndent(t *testing.T) {
   t.Run("tab2_three_level_idempotent", func(t *testing.T) {
     assertFormatUnchanged(t, `const result = firstConditionThatIsLongEnoughToBreakHere

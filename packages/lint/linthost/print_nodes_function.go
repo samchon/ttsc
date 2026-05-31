@@ -113,6 +113,16 @@ func printParenthesizedExpression(ctx *PrintContext, node *shimast.Node) (Doc, b
   if paren == nil || paren.Expression == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment around the parens (`(/* c */ x)`, `(x /* c */)`) would be dropped
+  // by the minted `(`/`)` — the parens are not AST children, so a nested
+  // ParenthesizedExpression's gap comment slips past the top-level print-width
+  // scan and is lost on reflow. Bail to verbatim and report UNCOVERED (hard
+  // `false`, not `!nodeSpansMultipleLines`) so an enclosing reflow abstains
+  // instead of breaking around this single-line verbatim paren, like the
+  // object/array/call printers.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), false
+  }
   inner, covered := PrintNode(ctx, paren.Expression)
   return Concat(Text("("), inner, Text(")")), covered
 }
@@ -342,6 +352,14 @@ func printReturnStatement(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   if !tailIsCleanTerminator(ctx.Source, stmt.Expression.End(), node.End()) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
+  // A comment between `return` and its argument (`return /* c */ x`) lives in
+  // the argument's leading trivia and would be dropped by the minted
+  // `Text("return ")` — the gap is not an AST child, and a return statement is
+  // only reached as a nested child of a block, so the outer print-width and
+  // block scans mask it. Bail to verbatim (uncovered) like the round-7 printers.
+  if gapHasComment(ctx.Source, stmt.Expression.Pos(), shimscanner.SkipTrivia(ctx.Source, stmt.Expression.Pos())) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   exprDoc, covered := PrintNode(ctx, stmt.Expression)

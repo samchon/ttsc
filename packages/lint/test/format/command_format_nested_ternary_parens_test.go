@@ -29,4 +29,25 @@ func TestCommandFormatNestedTernaryParens(t *testing.T) {
   : veryLongAlternateValueHere;
 `)
   })
+  // A nested ternary written with EXPLICIT source parens in the consequent
+  // joins the broken staircase (parens dropped), same as a bare nested ternary
+  // — Prettier's AST has no parenthesized-expression node.
+  t.Run("consequent_source_parens_join_staircase", func(t *testing.T) {
+    assertFormatUnchanged(t, `const x = aaaaaaaaaaaaaaaaaaa
+  ? bbbbbbbbbbbbbbb
+    ? ccccccccccccccc
+    : ddddddddddddddd
+  : eeeeeeeeeeeeeeeeeeeeeeeee;
+`)
+  })
+  // Likewise an alternate-position nested ternary with source parens chains
+  // (parens dropped).
+  t.Run("alternate_source_parens_chain", func(t *testing.T) {
+    assertFormatUnchanged(t, `const y = aaaaaaaaaaaaaaaaaaa
+  ? bbbbbbbbbbbbbbb
+  : ccccccccccccccc
+    ? ddddddddddddddd
+    : eeeeeeeeeeeeeeeeeeeeeeeee;
+`)
+  })
 }

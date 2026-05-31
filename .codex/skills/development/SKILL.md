@@ -46,6 +46,17 @@ export const test_plugin_corpus_composes_rejects_cycle_between_two_plugins =
 
 Use the shared helpers in `tests/utils` and the per-suite `internal/` modules; do not reach into another suite's internals. Regressions that need a real directory layout (not just a synthetic temp file map) go under `tests/projects`.
 
+### Coverage, not happy paths
+
+A test that only feeds a rule its own canonical output and asserts it is unchanged proves idempotency, not correctness. That gap is how a batch of formatter over-matches shipped: the predicates hugged or broke shapes Prettier leaves alone, yet every test fed an already-correct example, so nothing fired. Each rule or predicate needs more than its happy path:
+
+- **The transformation direction.** For a rule that rewrites X into Y, assert that a mangled or unformatted input produces the canonical output (input differs from output), not only that the canonical form round-trips unchanged.
+- **A negative twin for every positive.** Wherever a predicate acts (hug, break, merge, autofix), pin an adjacent case one property away where it must NOT act. An over-match stays invisible until the counter-example exists.
+- **Boundaries.** The empty case, the single-element case, the exact width limit, the deepest nesting, the modifier or annotation that flips the decision.
+- **Oracle-derived expectations.** Take the expected output from the authoritative spec (Prettier 3.8.3 for `format`, the upstream ESLint rule for a lint port), never from whatever the current code happens to emit. A snapshot written against the code's own output locks its bugs in.
+
+This is not a formatter-only rule. The same happy-path bias hides autofix corruption and edge-case faults across the lint set, so every rule carries the burden.
+
 ## Validation
 
 Run the narrowest command that proves the change first, then a broader command when shared behavior or packaging changed. Report any command that could not be run.

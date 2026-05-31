@@ -32,9 +32,11 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   // A comment between elements (or after `[`) would be dropped by the fresh
-  // separators; bail to verbatim so the enclosing reflow abstains.
+  // separators; bail to verbatim and report UNCOVERED (hard `false`, not
+  // `!nodeSpansMultipleLines`) so an enclosing reflow abstains instead of
+  // breaking around this single-line verbatim array and moving it off its line.
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   items := make([]Doc, 0, len(arr.Elements.Nodes))
   covered := true
@@ -119,12 +121,68 @@ func arrayForcesBreak(node *shimast.Node) bool {
   return arrayShouldForceBreak(arr.Elements.Nodes)
 }
 
+// fastPathForcesBreak reports whether `node`, OR a force-breaking node nested
+// within the subtree a reflow of `node` would print (its call/new arguments and
+// array elements, recursively), must explode even though it fits flat. Prettier
+// breaks such a descendant — an array `shouldBreak` or a function-composition
+// call/new — when the enclosing node reflows; ttsc's print-width fast path
+// returns first while the descendant abstains via hasReflowAncestor, leaving
+// both flat (`new Map([["a", 1], ["b", 2]])`, `foo([[1, 2], [3, 4]])`). So the
+// fast path must consult this, not only the visited node itself.
+func fastPathForcesBreak(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  if callForcesFunctionBreak(node) || arrayForcesBreak(node) {
+    return true
+  }
+  var children []*shimast.Node
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil && c.Arguments != nil {
+      children = c.Arguments.Nodes
+    }
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil && n.Arguments != nil {
+      children = n.Arguments.Nodes
+    }
+  case shimast.KindArrayLiteralExpression:
+    if a := node.AsArrayLiteralExpression(); a != nil && a.Elements != nil {
+      children = a.Elements.Nodes
+    }
+  case shimast.KindObjectLiteralExpression:
+    // A force-breaking array/object nested in an object PROPERTY value
+    // (`{ m: [[1, 2], [3, 4]] }`) must also deny the fast path: the value
+    // abstains to its object ancestor via hasReflowAncestor, and the object
+    // itself fits flat, so without descending into property initializers both
+    // would stay flat where Prettier breaks them.
+    if o := node.AsObjectLiteralExpression(); o != nil && o.Properties != nil {
+      for _, p := range o.Properties.Nodes {
+        if p != nil && p.Kind == shimast.KindPropertyAssignment {
+          if pa := p.AsPropertyAssignment(); pa != nil && pa.Initializer != nil {
+            children = append(children, pa.Initializer)
+          }
+        }
+      }
+    }
+  }
+  for _, ch := range children {
+    if fastPathForcesBreak(ch) {
+      return true
+    }
+  }
+  return false
+}
+
 // isConciselyPrintedArray reports whether an array should use Prettier's
-// concise "fill" layout: more than one element and every element a numeric
+// concise "fill" layout: at least one element and every element a numeric
 // literal (optionally a `+`/`-` signed numeric). Prettier packs such arrays
 // several per line; mixed / string / identifier arrays stay one-per-line.
+// Prettier's predicate gates on `elements.length > 0` (array.js), so a
+// single-element numeric array counts — which also makes a `[42]` last
+// argument decline last-argument hugging, matching shouldExpandLastArg.
 func isConciselyPrintedArray(elems []*shimast.Node) bool {
-  if len(elems) < 2 {
+  if len(elems) < 1 {
     return false
   }
   for _, e := range elems {
@@ -136,13 +194,15 @@ func isConciselyPrintedArray(elems []*shimast.Node) bool {
 }
 
 // isNumericArrayElement reports whether `node` is a numeric literal or a
-// `+`/`-` prefix applied to one.
+// `+`/`-` prefix applied to one. A BigInt literal is NOT numeric here: Prettier's
+// isNumericLiteral matches only a number-valued literal, so `[1n, 2n]` prints
+// one element per line rather than filling.
 func isNumericArrayElement(node *shimast.Node) bool {
   if node == nil {
     return false
   }
   switch node.Kind {
-  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+  case shimast.KindNumericLiteral:
     return true
   case shimast.KindPrefixUnaryExpression:
     u := node.AsPrefixUnaryExpression()
@@ -152,8 +212,7 @@ func isNumericArrayElement(node *shimast.Node) bool {
     if u.Operator != shimast.KindPlusToken && u.Operator != shimast.KindMinusToken {
       return false
     }
-    return u.Operand.Kind == shimast.KindNumericLiteral ||
-      u.Operand.Kind == shimast.KindBigIntLiteral
+    return u.Operand.Kind == shimast.KindNumericLiteral
   }
   return false
 }

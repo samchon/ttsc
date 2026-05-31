@@ -98,7 +98,7 @@ The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`,
 
 ### `jsDoc`
 
-**Opt-in.** Normalize JSDoc tag names toward their canonical form.
+**On by default.** Normalize JSDoc tag names toward their canonical form.
 
 Handles:
 
@@ -153,7 +153,7 @@ Trailing `//` line comments do not count against the budget. A line comment runs
 | Named exports | `export { alpha, bravo, charlie };` | multi-line specifier list |
 | `import type { … }` | preserves the `type` modifier | same |
 
-A call or `new` whose **last argument** is a function, arrow function, or object literal keeps that argument _hugging_ the parentheses, Prettier's last-argument hugging, instead of exploding the whole argument list. The callback body is re-indented to its new column:
+A call or `new` whose **last argument** is a function, arrow function, object literal, or (non-numeric) array literal keeps that argument _hugging_ the parentheses, Prettier's last-argument hugging, instead of exploding the whole argument list. The callback body is re-indented to its new column:
 
 ```ts
 register("compile", async (ctx) => {
@@ -161,15 +161,25 @@ register("compile", async (ctx) => {
 });
 ```
 
+The mirror **first-argument hugging** keeps a leading block-bodied callback on the open-paren line when the trailing argument is short and simple (`reduce((acc, x) => { … }, init)`, `useEffect(() => { … }, [deps])`). A few related call shapes reflow specially, matching Prettier:
+
+- A call with **two or more callback arguments** explodes one per line even when it fits (`promise.then(() => a, () => b)`), Prettier's function-composition rule; decorators are exempt.
+- A **test call** (`it` / `test` / `describe` and their focus/skip variants) keeps its callback hugged even when the description string runs past `printWidth`.
+- A **concisely-printed numeric array** packs as many elements per line as fit (Prettier's fill), and an array whose elements are all same-kind multi-element arrays or objects breaks one element per line even when it fits.
+
+A ternary (conditional expression) is reflowed too: Prettier's indented staircase, with a nested ternary in the consequent position parenthesized when the chain stays on one line.
+
+Width is measured in **display columns** (Prettier's `getStringWidth`), not UTF-8 bytes: a wide East Asian or emoji code point counts as two columns, so a Hangul or CJK identifier is charged its true width.
+
 #### What it does NOT touch (yet)
 
 - JSX elements and fragments.
-- Conditional and binary expressions.
+- Binary expressions.
 - Destructuring patterns.
-- Decorators.
+- Decorators (their call arguments still hug per the rules above).
 - Multi-line string and template literals.
 - Lists with comments interleaved between members (the rule detects this and abstains).
-- Combined `import Default, { … }` and `import * as ns from "x"` declarations.
+- `import * as ns from "x"` namespace declarations.
 - Import-attribute clauses (`with {}` / `assert {}` payloads).
 
 For every uncovered shape the rule produces zero findings and zero edits.
@@ -177,7 +187,7 @@ For every uncovered shape the rule produces zero findings and zero edits.
 #### Limitations
 
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
-- No "magic comma" hint (Prettier's preserve-multi-line trick). Width is the only factor in the reflow decision.
+- No Prettier magic-trailing-comma hint. Aside from object-wrap preservation (an object written with a newline after `{` stays expanded) and the same-kind array-of-arrays/objects force-break described above, width is the deciding factor.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
 - A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
