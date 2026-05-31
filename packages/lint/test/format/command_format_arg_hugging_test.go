@@ -23,6 +23,26 @@ func TestCommandFormatArgHugging(t *testing.T) {
 }, [] as string[]);
 `)
   })
+  // first-arg hug with a SHORT trailing call (`Object.create(null)`): hug.
+  t.Run("first_arg_short_trailing_call_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const a = array.reduce((r, t) => {
+  r[t] = t;
+  return r;
+}, Object.create(null));
+`)
+  })
+  // first-arg hug with a LONG trailing call: explode (the close line would
+  // overflow).
+  t.Run("first_arg_long_trailing_call_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const b = array.reduce(
+  (acc, item) => {
+    acc.push(item);
+    return acc;
+  },
+  someVeryLongFunctionCallNameHere(withArgumentOne, withArgumentTwoValue),
+);
+`)
+  })
   // two arrows then an object: Prettier explodes (more than one complex arg).
   t.Run("two_arrows_then_object_explodes", func(t *testing.T) {
     assertFormatUnchanged(t, `manyToOne(

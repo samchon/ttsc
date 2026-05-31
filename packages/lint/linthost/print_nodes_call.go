@@ -2,6 +2,7 @@ package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // printCallExpression renders a CallExpression with width-aware
@@ -165,7 +166,7 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     Space:       false,
     AddComma:    addComma,
     HugLast:     hugLast,
-    HugFirst:    !hugLast && shouldHugFirstArgument(list.Nodes),
+    HugFirst:    !hugLast && shouldHugFirstArgument(ctx, list.Nodes),
     BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
@@ -285,7 +286,7 @@ func lastArgHuggableShape(last *shimast.Node) bool {
 // argument is itself a function, arrow, conditional, or any expandable
 // shape, so `both(() => {}, () => {})` falls through to the exploded
 // list rather than hugging.
-func shouldHugFirstArgument(args []*shimast.Node) bool {
+func shouldHugFirstArgument(ctx *PrintContext, args []*shimast.Node) bool {
   if len(args) != 2 {
     return false
   }
@@ -293,7 +294,7 @@ func shouldHugFirstArgument(args []*shimast.Node) bool {
   if first == nil || second == nil {
     return false
   }
-  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(second)
+  return isFirstArgHuggableCallback(first) && isSimpleTrailingArg(ctx, second)
 }
 
 // isFirstArgHuggableCallback reports whether `node` is the callback shape
@@ -324,7 +325,7 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
 // would still be selected, where Prettier explodes. The array case shares
 // that limitation in principle, but dependency arrays are short in
 // practice, the same way the identifier/member cases already are.
-func isSimpleTrailingArg(node *shimast.Node) bool {
+func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindIdentifier,
     shimast.KindStringLiteral,
@@ -342,10 +343,37 @@ func isSimpleTrailingArg(node *shimast.Node) bool {
     // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
     // wraps a value that is itself a simple trailing arg (e.g. an array).
     if as := node.AsAsExpression(); as != nil && as.Expression != nil {
-      return isSimpleTrailingArg(as.Expression)
+      return isSimpleTrailingArg(ctx, as.Expression)
     }
+  case shimast.KindCallExpression, shimast.KindNewExpression:
+    // `reduce(fn, Object.create(null))` / `reduce(fn, new Map())`: Prettier
+    // hugs the first arg when the trailing call is short enough to ride the
+    // close line (`}, Object.create(null))`). The conditional-group fit check
+    // measures only an option's FIRST line, so a long trailing call would be
+    // mis-hugged; bound it by a short single-line source span (a safe proxy
+    // for "fits the close line at a typical indent"). A longer or multi-line
+    // trailing call falls through and the whole list explodes, as Prettier
+    // does.
+    return shortSingleLineSpan(ctx.Source, node, 30)
   }
   return false
+}
+
+// shortSingleLineSpan reports whether `node`'s source spans a single line and
+// is at most `max` bytes — a cheap proxy for "fits on the close line of a
+// first-argument hug at a typical indentation".
+func shortSingleLineSpan(src string, node *shimast.Node, max int) bool {
+  start := shimscanner.SkipTrivia(src, node.Pos())
+  end := node.End()
+  if start < 0 || end <= start || end > len(src) || end-start > max {
+    return false
+  }
+  for i := start; i < end; i++ {
+    if src[i] == '\n' || src[i] == '\r' {
+      return false
+    }
+  }
+  return true
 }
 
 // forceBreakFirstGroup returns `doc` with the first Group found in a
