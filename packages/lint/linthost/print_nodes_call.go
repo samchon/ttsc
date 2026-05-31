@@ -98,13 +98,16 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if ne.TypeArguments != nil {
     parts = append(parts, verbatimRange(ctx.Source, typeArgsStart(ctx.Source, ne.TypeArguments), typeArgsEnd(ctx.Source, ne.TypeArguments)))
   }
+  // A comment in the `new`->constructee gap (`new /* c */ Foo`) or an argument
+  // gap would be dropped by the minted `Text("new ")` / fresh separators — those
+  // gaps are not AST children, so a nested new-expression's comment slips past
+  // the top-level scan. Guard unconditionally (the no-args `new Foo` path mints
+  // `new ` too), mirroring printCallExpression's unconditional guard.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
-      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
-    }
-    // A comment in an argument gap would be dropped by the minted separators
-    // (same nested-masking data-loss as printCallExpression); bail to verbatim.
-    if listHasInterItemComments(ctx, node) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
     argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false, false)
