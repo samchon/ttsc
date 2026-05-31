@@ -374,18 +374,41 @@ func interfaceHeritageOnOwnLine(isClass bool, clauses []heritageClauseText) bool
   return strings.Contains(c.types[0], ".") && !strings.Contains(c.types[0], "<")
 }
 
-// multiClauseHeader: break before each keyword, types inline per clause.
-// Only a class carries multiple clauses (`extends` + `implements`), so
-// `brace` is the class brace placement decided by the caller.
+// multiClauseHeader: break before each keyword. Per clause, the types stay
+// inline (`implements A, B`) when they fit, and explode one-per-line at the
+// next indent level when the inline clause overflows (the shape Prettier uses
+// for a long `implements` list). A single-type clause is never exploded
+// (Prettier leaves `extends Long` / `implements Long` inline even when it
+// overflows). Only a class carries multiple clauses (`extends` + `implements`),
+// so `brace` is the class brace placement decided by the caller; when it is
+// glued (` {`, an empty class body) it shares the final clause's line and is
+// charged against that clause's fit check.
 func multiClauseHeader(prefix string, clauses []heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
   var b strings.Builder
   b.WriteString(prefix)
-  for _, c := range clauses {
+  indent1 := layout.indent(base, 1)
+  indent2 := layout.indent(base, 2)
+  for ci, c := range clauses {
     b.WriteString("\n")
-    b.WriteString(layout.indent(base, 1))
+    b.WriteString(indent1)
     b.WriteString(c.keyword)
-    b.WriteString(" ")
-    b.WriteString(strings.Join(c.types, ", "))
+    inlineWidth := visualWidth(indent1+c.keyword+" "+strings.Join(c.types, ", "), layout.tabWidth)
+    if ci == len(clauses)-1 && !strings.HasPrefix(brace, "\n") {
+      inlineWidth += visualWidth(brace, layout.tabWidth)
+    }
+    if len(c.types) < 2 || inlineWidth <= layout.printWidth {
+      b.WriteString(" ")
+      b.WriteString(strings.Join(c.types, ", "))
+      continue
+    }
+    for i, t := range c.types {
+      b.WriteString("\n")
+      b.WriteString(indent2)
+      b.WriteString(t)
+      if i < len(c.types)-1 {
+        b.WriteString(",")
+      }
+    }
   }
   b.WriteString(brace)
   return b.String()
