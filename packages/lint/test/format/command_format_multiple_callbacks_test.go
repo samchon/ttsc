@@ -96,6 +96,12 @@ func TestCommandFormatMultipleCallbacks(t *testing.T) {
   t.Run("call_arg_without_callback_stays_inline", func(t *testing.T) {
     assertFormatUnchanged(t, "nofn(plain.call(a, b), other);\n")
   })
+  // A NEW expression carrying a callback does NOT trigger composition:
+  // Prettier's isCallExpression excludes NewExpression, so
+  // `foo(new Bar(() => x), other)` stays inline (only a call child counts).
+  t.Run("new_arg_with_callback_stays_inline", func(t *testing.T) {
+    assertFormatUnchanged(t, "foo(new Bar(() => x), other);\n")
+  })
   // A decorator hugging its trailing object past two leading arrows is the
   // documented exemption: the arrows stay inline and only the object breaks,
   // NOT the full explode the plain-call counterpart gets.

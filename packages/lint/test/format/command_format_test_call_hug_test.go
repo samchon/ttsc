@@ -66,4 +66,24 @@ func TestCommandFormatTestCallHug(t *testing.T) {
   t.Run("non_string_first_arg_not_test_call", func(t *testing.T) {
     assertFormatUnchanged(t, "test(dynamicName, () => ok());\n")
   })
+  // `test.fixme` is in Prettier's exact pattern set, so it hugs past width
+  // (this was under-matched before the callee patterns were made exact).
+  t.Run("test_fixme_member_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `test.fixme("a description long enough to overflow eighty columns for sure here ok", () => {
+  run();
+});
+`)
+  })
+  // A non-pattern member callee (`myRunner.todo`) is NOT a test call even though
+  // `todo` is a common test tail, so it explodes — guarding the earlier
+  // over-match that hugged any `.todo`/`.each`/`.concurrent` base.
+  t.Run("non_pattern_member_callee_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `myRunner.todo(
+  "a description long enough to overflow eighty columns for sure here okay",
+  () => {
+    run();
+  },
+);
+`)
+  })
 }

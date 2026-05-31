@@ -195,33 +195,50 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
   return printList(ctx, shape), covered
 }
 
-// testCalleeName reports whether `callee` names a test-framework function
-// Prettier hugs: a bare identifier (`it`, `test`, `describe`, with the
-// `f`/`x` focus/skip prefixes and `skip`), or a `.only` / `.skip` / `.step`
-// member chain on one of those (`test.only`, `it.skip`). Mirrors Prettier's
-// isTestCallCallee.
-func testCalleeName(callee *shimast.Node) bool {
-  if callee == nil {
-    return false
-  }
-  switch callee.Kind {
+// testCalleePatterns is Prettier's exact testCallCalleePatterns set (the dotted
+// callee chains its isTestCallCallee matches). Matching the precise set, rather
+// than "any base with a {only,skip,…} tail", avoids both over-matching
+// (`test.each`, `it.todo` are NOT test calls) and under-matching (`test.fixme`,
+// `test.describe.only` ARE).
+var testCalleePatterns = map[string]bool{
+  "it": true, "it.only": true, "it.skip": true,
+  "describe": true, "describe.only": true, "describe.skip": true,
+  "test": true, "test.only": true, "test.skip": true,
+  "test.fixme": true, "test.step": true,
+  "test.describe": true, "test.describe.only": true,
+  "test.describe.skip": true, "test.describe.fixme": true,
+  "test.describe.parallel": true, "test.describe.parallel.only": true,
+  "test.describe.serial": true, "test.describe.serial.only": true,
+  "skip": true, "xit": true, "xdescribe": true, "xtest": true,
+  "fit": true, "fdescribe": true, "ftest": true,
+}
+
+// calleeChain builds the dotted member-access chain of a callee rooted at a
+// plain identifier (`test.describe.only` becomes "test.describe.only"), or ""
+// when the callee is not a pure identifier / property-access chain (a computed
+// access, a call, `this`, etc.).
+func calleeChain(node *shimast.Node) string {
+  switch node.Kind {
   case shimast.KindIdentifier:
-    switch identifierText(callee) {
-    case "it", "fit", "xit",
-      "describe", "fdescribe", "xdescribe",
-      "test", "ftest", "xtest",
-      "skip":
-      return true
-    }
+    return identifierText(node)
   case shimast.KindPropertyAccessExpression:
-    if pa := callee.AsPropertyAccessExpression(); pa != nil && pa.Name() != nil {
-      switch identifierText(pa.Name()) {
-      case "only", "skip", "step", "each", "todo", "failing", "concurrent":
-        return testCalleeName(pa.Expression)
-      }
+    pa := node.AsPropertyAccessExpression()
+    if pa == nil || pa.Name() == nil || pa.Name().Kind != shimast.KindIdentifier {
+      return ""
     }
+    base := calleeChain(pa.Expression)
+    if base == "" {
+      return ""
+    }
+    return base + "." + identifierText(pa.Name())
   }
-  return false
+  return ""
+}
+
+// testCalleeName reports whether `callee` is one of Prettier's recognized
+// test-framework callees (see testCalleePatterns).
+func testCalleeName(callee *shimast.Node) bool {
+  return callee != nil && testCalleePatterns[calleeChain(callee)]
 }
 
 // isTestCall reports whether `node` is a test-framework call Prettier prints
@@ -242,7 +259,12 @@ func isTestCall(node *shimast.Node) bool {
     return false
   }
   args := call.Arguments.Nodes
-  if len(args) != 2 || args[0] == nil || args[1] == nil {
+  // Prettier accepts a two- or three-argument test call (the third is a numeric
+  // timeout): `it("name", () => { … })` and `it("name", () => { … }, 2500)`.
+  if len(args) != 2 && len(args) != 3 {
+    return false
+  }
+  if args[0] == nil || args[1] == nil {
     return false
   }
   switch args[0].Kind {
@@ -252,10 +274,35 @@ func isTestCall(node *shimast.Node) bool {
   default:
     return false
   }
-  if !isFunctionLikeArg(args[1]) {
+  if !testCalleeName(call.Expression) {
     return false
   }
-  return testCalleeName(call.Expression)
+  if len(args) == 3 {
+    // The timeout argument must be numeric, and the callback a block-bodied
+    // function/arrow taking at most one parameter (Prettier's
+    // isFunctionOrArrowExpressionWithBody + parameter-count gate).
+    if args[2] == nil || args[2].Kind != shimast.KindNumericLiteral {
+      return false
+    }
+    return isBlockBodiedCallback(args[1]) && len(args[1].Parameters()) <= 1
+  }
+  return isFunctionLikeArg(args[1])
+}
+
+// isBlockBodiedCallback reports whether a node is a function expression or an
+// arrow with a block body (Prettier's isFunctionOrArrowExpressionWithBody).
+func isBlockBodiedCallback(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindFunctionExpression:
+    return true
+  case shimast.KindArrowFunction:
+    a := node.AsArrowFunction()
+    return a != nil && a.Body != nil && a.Body.Kind == shimast.KindBlock
+  }
+  return false
 }
 
 // isFunctionLikeArg reports whether an argument is a function or arrow
@@ -271,31 +318,21 @@ func isFunctionLikeArg(node *shimast.Node) bool {
   return false
 }
 
-// callArgsContainFunctionLike reports whether a call- or new-expression's own
-// argument list carries a function/arrow argument. Prettier's
-// function-composition test treats `foo.map((x) => x)` as a composed call, so
-// a call carrying it alongside any second argument explodes.
+// callArgsContainFunctionLike reports whether a CALL expression's own argument
+// list carries a function/arrow argument. Prettier's function-composition test
+// treats `foo.map((x) => x)` as a composed call, so a call carrying it
+// alongside any second argument explodes. Only a call counts: Prettier's
+// isCallExpression matches CallExpression / OptionalCallExpression but NOT a
+// NewExpression, so `foo(new Bar(() => x), other)` is left inline.
 func callArgsContainFunctionLike(node *shimast.Node) bool {
-  if node == nil {
+  if node == nil || node.Kind != shimast.KindCallExpression {
     return false
   }
-  var args *shimast.NodeList
-  switch node.Kind {
-  case shimast.KindCallExpression:
-    if c := node.AsCallExpression(); c != nil {
-      args = c.Arguments
-    }
-  case shimast.KindNewExpression:
-    if n := node.AsNewExpression(); n != nil {
-      args = n.Arguments
-    }
-  default:
+  c := node.AsCallExpression()
+  if c == nil || c.Arguments == nil {
     return false
   }
-  if args == nil {
-    return false
-  }
-  for _, a := range args.Nodes {
+  for _, a := range c.Arguments.Nodes {
     if isFunctionLikeArg(a) {
       return true
     }
