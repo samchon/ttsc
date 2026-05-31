@@ -456,6 +456,24 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   }
   out.typeOnly = clause.PhaseModifier == shimast.KindTypeKeyword
   out.defaultName = identifierText(clause.Name())
+  // A comment anywhere in the rebuilt import prefix (`import [type] [D] [, { … }]
+  // from `) would be lost when renderMergedDecl reconstructs the statement
+  // field-by-field. Flag it so mergeKey keeps the declaration unmergeable and
+  // its original text is preserved. This runs BEFORE the no-named-bindings /
+  // namespace early returns so a default-only import (`import a /* c */ from
+  // "m"`) is flagged too; it depends only on decl.Pos() and the module
+  // specifier, not on the named bindings. The prefix holds no module-path
+  // string, so a `//` or `/*` there is unambiguously a comment (a leading
+  // comment before `import` is excluded: SkipTrivia advances to `import`).
+  if imp.ModuleSpecifier != nil {
+    pStart := shimscanner.SkipTrivia(src, decl.Pos())
+    pEnd := shimscanner.SkipTrivia(src, imp.ModuleSpecifier.Pos())
+    if pStart >= 0 && pEnd <= len(src) && pStart < pEnd {
+      if span := src[pStart:pEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+        out.hasSpecComment = true
+      }
+    }
+  }
   if clause.NamedBindings == nil {
     return out
   }
@@ -469,23 +487,6 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   named := clause.NamedBindings.AsNamedImports()
   if named == nil || named.Elements == nil {
     return out
-  }
-  // A comment anywhere in the rebuilt import prefix (`import [type] [D, ] { … }
-  // from `) — inside the braces, in the default-binding gap (`D /* c */,`), the
-  // type-only `type`->`{` gap, or around the braces — would be lost when the
-  // merge rebuilder reconstructs the statement field-by-field. Flag it so
-  // mergeKey keeps the declaration unmergeable and its original text is
-  // preserved. The prefix holds no module-path string, so a `//` or `/*` there
-  // is unambiguously a comment. (A leading comment before `import` is excluded:
-  // SkipTrivia advances past it to the `import` keyword.)
-  if imp.ModuleSpecifier != nil {
-    pStart := shimscanner.SkipTrivia(src, decl.Pos())
-    pEnd := shimscanner.SkipTrivia(src, imp.ModuleSpecifier.Pos())
-    if pStart >= 0 && pEnd <= len(src) && pStart < pEnd {
-      if span := src[pStart:pEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
-        out.hasSpecComment = true
-      }
-    }
   }
   for _, spec := range named.Elements.Nodes {
     s := spec.AsImportSpecifier()
