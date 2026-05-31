@@ -31,9 +31,9 @@ func TestCommandFormatArgHugging(t *testing.T) {
 }, Object.create(null));
 `)
   })
-  // first-arg hug with a LONG trailing call: explode (the close line would
-  // overflow).
-  t.Run("first_arg_long_trailing_call_explodes", func(t *testing.T) {
+  // first-arg hug with a TWO-argument trailing call: explode (Prettier hugs a
+  // trailing call only when it has at most one value argument).
+  t.Run("first_arg_two_arg_trailing_call_explodes", func(t *testing.T) {
     assertFormatUnchanged(t, `const b = array.reduce(
   (acc, item) => {
     acc.push(item);
@@ -41,6 +41,24 @@ func TestCommandFormatArgHugging(t *testing.T) {
   },
   someVeryLongFunctionCallNameHere(withArgumentOne, withArgumentTwoValue),
 );
+`)
+  })
+  // first-arg hug with a long ZERO-argument `new` (type args, long name): hug,
+  // the close line is allowed to overflow because the new has no value args.
+  t.Run("first_arg_long_zero_arg_new_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const m = scopes.reduce((result, scope) => {
+  result.set(scope[0], scope[1]);
+  return result;
+}, new Map<string, ConfigurationScope | undefined>());
+`)
+  })
+  // first-arg hug with a long ONE-argument trailing call: hug despite the close
+  // line overflowing (arg count, not length, gates the hug).
+  t.Run("first_arg_long_one_arg_call_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const d = arr.reduce((r, t) => {
+  r[t] = t;
+  return r;
+}, makeInitialAccumulatorWithAReallyLongNameThatGoesOnAndOnAndOnPastEighty(single));
 `)
   })
   // first-arg hug over a short binary trailing arg (`1000 - ellapsed`): hug.

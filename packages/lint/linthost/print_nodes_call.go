@@ -543,15 +543,13 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
       return isSimpleTrailingArg(ctx, as.Expression)
     }
   case shimast.KindCallExpression, shimast.KindNewExpression:
-    // `reduce(fn, Object.create(null))` / `reduce(fn, new Map())`: Prettier
-    // hugs the first arg when the trailing call is short enough to ride the
-    // close line (`}, Object.create(null))`). The conditional-group fit check
-    // measures only an option's FIRST line, so a long trailing call would be
-    // mis-hugged; bound it by a short single-line source span (a safe proxy
-    // for "fits the close line at a typical indent"). A longer or multi-line
-    // trailing call falls through and the whole list explodes, as Prettier
-    // does.
-    return shortSingleLineSpan(ctx.Source, node, 30)
+    // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
+    // hugs the first arg when the trailing call/new has at most one value
+    // argument, regardless of its length, type arguments and long names do not
+    // matter and the close line is allowed to overflow. A call with two or more
+    // arguments explodes the whole list instead. Mirrors Prettier's
+    // isHopefullyShortCallArgument for call-like nodes.
+    return callValueArgCount(node) <= 1
   case shimast.KindObjectLiteralExpression:
     // `reduce(fn, {})`: an EMPTY object literal hugs (Prettier's couldGroupArg
     // excludes a property-less object); an object with properties expands and
@@ -568,6 +566,23 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     return shortSingleLineSpan(ctx.Source, node, 40)
   }
   return false
+}
+
+// callValueArgCount returns the number of value arguments on a call or new
+// expression (type arguments are not counted). A new expression with no
+// argument list (`new Foo`) counts as zero.
+func callValueArgCount(node *shimast.Node) int {
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil && c.Arguments != nil {
+      return len(c.Arguments.Nodes)
+    }
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil && n.Arguments != nil {
+      return len(n.Arguments.Nodes)
+    }
+  }
+  return 0
 }
 
 // shortSingleLineSpan reports whether `node`'s source spans a single line and

@@ -314,6 +314,13 @@ func printListHuggingFirst(ctx *PrintContext, shape listShape) Doc {
   }
   parts := []Doc{Text(shape.OpenTok), first}
   for _, item := range rest {
+    // The trailing simple arguments ride the close line flat — Prettier keeps
+    // them on one line even when that line overflows (a long zero/one-argument
+    // trailing call `}, makeAccumulator(single))` is not broken). Force each
+    // flat so its own Group does not break against the close-line width.
+    if flat, ok := flatten(item); ok {
+      item = flat
+    }
     parts = append(parts, Text(", "), item)
   }
   parts = append(parts, Text(shape.CloseTok))
