@@ -538,9 +538,12 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     return true
   case shimast.KindAsExpression:
     // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
-    // wraps a value that is itself a simple trailing arg (e.g. an array).
+    // wraps a value that is itself a simple trailing arg AND the target type is
+    // simple. A type carrying an object type literal (`[] as Array<{ … }>`) is
+    // not simple, Prettier expands and explodes the list there, so exclude any
+    // type whose source contains a `{` (a type literal).
     if as := node.AsAsExpression(); as != nil && as.Expression != nil {
-      return isSimpleTrailingArg(ctx, as.Expression)
+      return isSimpleTrailingArg(ctx, as.Expression) && !typeHasObjectLiteral(ctx.Source, as.Type)
     }
   case shimast.KindCallExpression, shimast.KindNewExpression:
     // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
@@ -557,13 +560,65 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     if obj := node.AsObjectLiteralExpression(); obj != nil {
       return obj.Properties == nil || len(obj.Properties.Nodes) == 0
     }
-  case shimast.KindBinaryExpression, shimast.KindPrefixUnaryExpression:
-    // `setTimeout(fn, 1000 - ellapsed)` / `new RunOnceScheduler(fn, 30 * 1000)`:
-    // a short single-line arithmetic or logical expression rides the close
-    // line. Bound it by source span like the call case — a long binary whose
-    // hugged close line would overflow falls through to the exploded list, as
-    // Prettier's render does.
-    return shortSingleLineSpan(ctx.Source, node, 40)
+  case shimast.KindBinaryExpression:
+    // `setTimeout(fn, 1000 - ellapsed)`: a SINGLE arithmetic/logical operation
+    // whose two operands are simple leaves rides the close line and hugs. A
+    // chained binary (`60 * 60 * 1000`, an operand itself a binary) is not
+    // simple and explodes the list, matching Prettier's isHopefullyShortCallArgument
+    // (which only treats a binaryish short when both sides are themselves short).
+    if bin := node.AsBinaryExpression(); bin != nil {
+      return isSimpleBinaryOperand(bin.Left) && isSimpleBinaryOperand(bin.Right)
+    }
+  case shimast.KindPrefixUnaryExpression:
+    // `reduce(fn, -1)`: a unary applied to a simple leaf rides the close line.
+    if u := node.AsPrefixUnaryExpression(); u != nil {
+      return isSimpleBinaryOperand(u.Operand)
+    }
+  }
+  return false
+}
+
+// isSimpleBinaryOperand reports whether a node is a short, non-recursive
+// operand, an identifier, a literal, `this`, or a member access. A binary,
+// call, conditional, or other compound expression is not, so a binary built
+// from such operands is treated as too complex to ride a hugged close line.
+func isSimpleBinaryOperand(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindIdentifier,
+    shimast.KindNumericLiteral,
+    shimast.KindStringLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindThisKeyword,
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression:
+    return true
+  }
+  return false
+}
+
+// typeHasObjectLiteral reports whether a type node's source contains a `{`,
+// the mark of an object type literal (`{ a: 1 }`, `Array<{ … }>`). Prettier's
+// isSimpleType rejects such a type; a flat type (`string[]`, `Foo<Bar>`,
+// `number[][]`) has none and stays simple.
+func typeHasObjectLiteral(src string, typeNode *shimast.Node) bool {
+  if typeNode == nil {
+    return false
+  }
+  start := shimscanner.SkipTrivia(src, typeNode.Pos())
+  end := typeNode.End()
+  if start < 0 || end < start || end > len(src) {
+    return true // unmeasurable: be conservative and decline the hug
+  }
+  for i := start; i < end; i++ {
+    if src[i] == '{' {
+      return true
+    }
   }
   return false
 }
@@ -583,23 +638,6 @@ func callValueArgCount(node *shimast.Node) int {
     }
   }
   return 0
-}
-
-// shortSingleLineSpan reports whether `node`'s source spans a single line and
-// is at most `max` bytes — a cheap proxy for "fits on the close line of a
-// first-argument hug at a typical indentation".
-func shortSingleLineSpan(src string, node *shimast.Node, max int) bool {
-  start := shimscanner.SkipTrivia(src, node.Pos())
-  end := node.End()
-  if start < 0 || end <= start || end > len(src) || end-start > max {
-    return false
-  }
-  for i := start; i < end; i++ {
-    if src[i] == '\n' || src[i] == '\r' {
-      return false
-    }
-  }
-  return true
 }
 
 // forceBreakFirstGroup returns `doc` with the first Group found in a

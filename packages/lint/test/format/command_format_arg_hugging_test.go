@@ -112,6 +112,44 @@ func TestCommandFormatArgHugging(t *testing.T) {
 );
 `)
   })
+  // first-arg hug declines over a CHAINED binary trailing arg (an operand is
+  // itself a binary), even when short: explode (`60 * 60 * 1000`).
+  t.Run("first_arg_chained_binary_trailing_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const t = new ProcessTimeRunOnceScheduler(
+  () => {
+    this.run();
+  },
+  60 * 60 * 1000,
+);
+`)
+  })
+  // first-arg hug over a single-operation binary still hugs (`60 * 1000`).
+  t.Run("first_arg_single_binary_trailing_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const s = new RunOnceScheduler(() => {
+  this.run();
+}, 60 * 1000);
+`)
+  })
+  // first-arg hug over a cast to a SIMPLE type hugs (`[] as Array<string>`).
+  t.Run("first_arg_simple_cast_trailing_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const u = arr.reduce((r, x) => {
+  r.push(x);
+  return r;
+}, [] as Array<string>);
+`)
+  })
+  // first-arg hug declines over a cast to a type carrying an object literal:
+  // explode (`[] as Array<{ … }>`).
+  t.Run("first_arg_object_type_cast_trailing_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const v = Object.keys(contrib).reduce(
+  (result, location) => {
+    result.push(location);
+    return result;
+  },
+  [] as Array<{ id: string; name: string; location: string }>,
+);
+`)
+  })
   // two arrows then an object: Prettier explodes (more than one complex arg).
   t.Run("two_arrows_then_object_explodes", func(t *testing.T) {
     assertFormatUnchanged(t, `manyToOne(
