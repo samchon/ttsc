@@ -93,19 +93,21 @@ func (formatPrintWidth) Visits() []shimast.Kind {
 //     re-render still over-breaks some of these; the next slice should
 //     measure fitsFirstLine against `pw - col - trailingNonComment`
 //     before committing to the broken layout.
-//   - Single-line `export type { X } from "long-path"` reexports.
-//     Prettier 3 keeps them flat even when the whole declaration
-//     overflows; ttsc-lint visits `KindNamedExports` in isolation and
-//     breaks the brace clause. A real fix requires teaching the rule
-//     about the surrounding ExportDeclaration so the brace clause is
-//     measured against the full declaration line, or visiting
-//     ExportDeclaration directly so the `from "..."` tail joins the
-//     reflow surface.
+//   - Default-combined imports (`import D, { X } from "x"`) are kept
+//     verbatim by printImportDeclaration (its `clause.Name() != nil`
+//     guard), so a default import whose named clause overflows is not
+//     broken; Prettier breaks it. Lifting the guard, threading the default
+//     name into the printed prefix, is a future default-import reflow slice.
 //
-// Both cases are tracked benchmark cases that forced
-// `formatPrintWidth: 'off'` on the ttsc-lint branch. They are listed
-// here so a future slice can pick them up without rediscovering the
-// divergence.
+// (A single-specifier `import/export { X } from "long-path"` that overflows
+// only because of the `from "..."` tail is now kept inline by the
+// isSingleSpecifierNamedClause abstain, matching Prettier, which never
+// breaks a one-name clause. Multi-specifier clauses still break correctly:
+// the trailing-width charge measures the `from "..."` tail against the line
+// budget, so a brace that fits but whose declaration overflows is broken.)
+//
+// These cases are tracked benchmark divergences. They are listed here so a
+// future slice can pick them up without rediscovering the divergence.
 func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
@@ -162,6 +164,16 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // well-formatted code allocation- and scan-free.
   if !sliceContainsNewline(src, start, end) &&
     printOpts.StartingColumn+(end-start)+trailingWidth <= printOpts.PrintWidth {
+    return
+  }
+
+  // A named import/export clause with a single specifier is never broken by
+  // Prettier 3: `import { X } from "long"` and `export type { X } from "long"`
+  // stay inline even when the `from "..."` tail pushes the whole declaration
+  // past printWidth (Prettier breaks a brace clause only at two or more
+  // specifiers). The rule visits the brace clause (or the import declaration)
+  // in isolation, so without this it would break a one-name clause and diverge.
+  if isSingleSpecifierNamedClause(node) {
     return
   }
 
@@ -639,6 +651,40 @@ func hasNonChildComments(node *shimast.Node, src string, start, end int) bool {
     if src[i] == '/' && (src[i+1] == '/' || src[i+1] == '*') {
       return true
     }
+  }
+  return false
+}
+
+// isSingleSpecifierNamedClause reports whether `node` is a named import/export
+// brace clause (or an import declaration whose binding is one) carrying exactly
+// one specifier. Prettier never breaks such a clause; the print-width rule
+// abstains so a one-name `{ X }` survives a `from "long-path"` overflow inline.
+func isSingleSpecifierNamedClause(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindNamedImports:
+    ni := node.AsNamedImports()
+    return ni != nil && ni.Elements != nil && len(ni.Elements.Nodes) == 1
+  case shimast.KindNamedExports:
+    ne := node.AsNamedExports()
+    return ne != nil && ne.Elements != nil && len(ne.Elements.Nodes) == 1
+  case shimast.KindImportDeclaration:
+    imp := node.AsImportDeclaration()
+    if imp == nil || imp.ImportClause == nil {
+      return false
+    }
+    clause := imp.ImportClause.AsImportClause()
+    if clause == nil || clause.NamedBindings == nil ||
+      clause.NamedBindings.Kind != shimast.KindNamedImports {
+      return false
+    }
+    // A default binding alongside the named clause (`import D, { X } from …`)
+    // makes Prettier break the brace even for a single specifier, so the
+    // abstain applies only to a bare `import { X } from …`.
+    if clause.Name() != nil {
+      return false
+    }
+    ni := clause.NamedBindings.AsNamedImports()
+    return ni != nil && ni.Elements != nil && len(ni.Elements.Nodes) == 1
   }
   return false
 }

@@ -14,6 +14,15 @@ import (
 // that was already correct.
 func assertFormatUnchanged(t *testing.T, src string) {
   t.Helper()
+  assertFormatResult(t, src, src)
+}
+
+// assertFormatResult seeds a project with `src`, runs `ttsc format` with a
+// default `format: {}` block, and asserts the file on disk equals `want`. Use
+// for active reflows (mangled input -> a specific Prettier-canonical output),
+// while assertFormatUnchanged covers the idempotency cases (want == src).
+func assertFormatResult(t *testing.T, src, want string) {
+  t.Helper()
   root := seedLintProject(t, src)
   seedLintConfig(t, root, map[string]any{"format": map[string]any{}})
   code, stdout, stderr := captureCommandOutput(t, func() int {
@@ -28,7 +37,7 @@ func assertFormatUnchanged(t *testing.T, src string) {
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
   }
-  if string(got) != src {
-    t.Fatalf("format altered already-correct source:\nwant %q\ngot  %q", src, string(got))
+  if string(got) != want {
+    t.Fatalf("format result mismatch:\nwant %q\ngot  %q", want, string(got))
   }
 }
