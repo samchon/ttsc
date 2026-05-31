@@ -216,9 +216,28 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
     return false
   }
   last := args[len(args)-1]
-  if last == nil {
+  if last == nil || !lastArgHuggableShape(last) {
     return false
   }
+  // Prettier's shouldGroupLastArg declines when the penultimate argument is
+  // itself expandable (two objects, an arrow then an object, …): only the
+  // last argument may claim the break. `new Sash(x, { … }, { … })` and
+  // `manyToOne(() => a, (b) => b.c, { … })` therefore explode rather than
+  // hug, while `foo(a, b, { … })` and `register("x", () => { … })` hug.
+  if len(args) >= 2 {
+    if pen := args[len(args)-2]; pen != nil && isExpandableArg(pen) {
+      return false
+    }
+  }
+  return true
+}
+
+// lastArgHuggableShape reports whether `node` is the shape Prettier keeps
+// hugging the closing paren: an object/array literal, a function expression,
+// or an arrow whose body is a block, object, or array. An expression-bodied
+// arrow (`(x) => x.id`) is excluded: it has no internal break point, so the
+// flat hugging Concat would pin an overflowing call to one line.
+func lastArgHuggableShape(last *shimast.Node) bool {
   switch last.Kind {
   case shimast.KindFunctionExpression,
     shimast.KindObjectLiteralExpression,
@@ -243,6 +262,21 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
       shimast.KindArrayLiteralExpression:
       return true
     }
+  }
+  return false
+}
+
+// isExpandableArg reports whether `node` is an argument Prettier could itself
+// break onto multiple lines (object/array literal, function, or arrow). Used
+// to decline last-argument hugging when the penultimate argument competes for
+// the break.
+func isExpandableArg(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindObjectLiteralExpression,
+    shimast.KindArrayLiteralExpression,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction:
+    return true
   }
   return false
 }
@@ -311,6 +345,12 @@ func isSimpleTrailingArg(node *shimast.Node) bool {
     shimast.KindElementAccessExpression,
     shimast.KindArrayLiteralExpression:
     return true
+  case shimast.KindAsExpression:
+    // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
+    // wraps a value that is itself a simple trailing arg (e.g. an array).
+    if as := node.AsAsExpression(); as != nil && as.Expression != nil {
+      return isSimpleTrailingArg(as.Expression)
+    }
   }
   return false
 }
