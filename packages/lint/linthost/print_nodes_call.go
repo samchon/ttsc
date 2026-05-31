@@ -379,20 +379,37 @@ func argListForcesFunctionBreak(args []*shimast.Node, decoratorCall bool) bool {
   return isFunctionCompositionArgs(args)
 }
 
-// callForcesFunctionBreak reports whether a node is a CallExpression that the
-// multiple-callback rule forces to explode. The print-width rule consults it
-// so its flat-fit fast path does not leave such a call inline when the source
+// callForcesFunctionBreak reports whether a node is a call OR new expression
+// that the multiple-callback rule forces to explode. Prettier's printCallArguments
+// is shared by NewExpression (its function-composition break is gated only by
+// `path.parent.type !== "Decorator"`, not by call-vs-new), so `new Foo(() => a,
+// () => b)` explodes the same as a call. The print-width rule consults this so
+// its flat-fit fast path does not leave such a call/new inline when the source
 // wrote it on one line.
 func callForcesFunctionBreak(node *shimast.Node) bool {
-  if node == nil || node.Kind != shimast.KindCallExpression {
+  if node == nil {
     return false
   }
-  call := node.AsCallExpression()
-  if call == nil || call.Arguments == nil {
+  var args *shimast.NodeList
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    if c := node.AsCallExpression(); c != nil {
+      args = c.Arguments
+    }
+  case shimast.KindNewExpression:
+    if n := node.AsNewExpression(); n != nil {
+      args = n.Arguments
+    }
+  default:
     return false
   }
-  decoratorCall := node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
-  return argListForcesFunctionBreak(call.Arguments.Nodes, decoratorCall)
+  if args == nil {
+    return false
+  }
+  // A new expression is never a decorator's call.
+  decoratorCall := node.Kind == shimast.KindCallExpression &&
+    node.Parent != nil && node.Parent.Kind == shimast.KindDecorator
+  return argListForcesFunctionBreak(args.Nodes, decoratorCall)
 }
 
 // anyLeadingArgIsFunctionLike reports whether any argument before the last
