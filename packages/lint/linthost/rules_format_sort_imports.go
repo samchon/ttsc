@@ -359,6 +359,12 @@ type siSpec struct {
   sortKey          string
   text             string
   fromTypeOnlyDecl bool
+  // inlineType is the specifier's own AST `type` modifier (`import { type Foo }`),
+  // distinct from fromTypeOnlyDecl (the whole `import type { … }` declaration).
+  // It classifies a specifier without re-parsing its text, so a binding literally
+  // named `type` (`import { type as bar }` -> name `type`, alias `bar`, NOT a type
+  // specifier) is not mistaken for a type modifier by a `"type "` string prefix.
+  inlineType bool
 }
 
 // siDecl is the parsed shape of one import declaration used by the block
@@ -516,6 +522,7 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
       sortKey:          identifierText(s.Name()),
       text:             src[start:spec.End()],
       fromTypeOnlyDecl: out.typeOnly,
+      inlineType:       s.IsTypeOnly,
     })
   }
   return out
@@ -659,10 +666,18 @@ func collectMergedSpecs(group []siDecl, mergedTypeOnly, caseSensitive bool) []st
   for _, d := range group {
     for _, s := range d.named {
       text := s.text
-      if s.fromTypeOnlyDecl && !mergedTypeOnly && !strings.HasPrefix(text, "type ") {
+      // Classify by AST flags, not a `"type "` text prefix. A binding literally
+      // named `type` (`import { type as bar }`) has inlineType=false and must stay
+      // a value specifier; a string-prefix check would mis-promote it to a type
+      // specifier and skip the modifier when folding a type-only declaration.
+      isType := s.inlineType
+      if s.fromTypeOnlyDecl && !mergedTypeOnly {
+        // A specifier from `import type { … }` carries no inline `type` modifier
+        // (TS forbids it there), so folding into a mixed value import must add one.
         text = "type " + text
+        isType = true
       }
-      cur := spec{name: s.sortKey, isType: strings.HasPrefix(text, "type "), text: text}
+      cur := spec{name: s.sortKey, isType: isType, text: text}
       if at, dup := index[s.sortKey]; dup {
         if items[at].isType && !cur.isType {
           items[at] = cur
