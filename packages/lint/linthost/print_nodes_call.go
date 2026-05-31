@@ -2,7 +2,6 @@ package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // printCallExpression renders a CallExpression with width-aware
@@ -626,12 +625,10 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     return true
   case shimast.KindAsExpression:
     // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
-    // wraps a value that is itself a simple trailing arg AND the target type is
-    // simple. A type carrying an object type literal (`[] as Array<{ … }>`) is
-    // not simple, Prettier expands and explodes the list there, so exclude any
-    // type whose source contains a `{` (a type literal).
+    // wraps a simple trailing arg AND the target is a simple type, mirroring
+    // Prettier's isHopefullyShortCallArgument cast branch (see isSimpleCastType).
     if as := node.AsAsExpression(); as != nil && as.Expression != nil {
-      return isSimpleTrailingArg(ctx, as.Expression) && !typeHasObjectLiteral(ctx.Source, as.Type)
+      return isSimpleTrailingArg(ctx, as.Expression) && isSimpleCastType(as.Type)
     }
   case shimast.KindCallExpression, shimast.KindNewExpression:
     // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
@@ -690,23 +687,47 @@ func isSimpleBinaryOperand(node *shimast.Node) bool {
   return false
 }
 
-// typeHasObjectLiteral reports whether a type node's source contains a `{`,
-// the mark of an object type literal (`{ a: 1 }`, `Array<{ … }>`). Prettier's
-// isSimpleType rejects such a type; a flat type (`string[]`, `Foo<Bar>`,
-// `number[][]`) has none and stays simple.
-func typeHasObjectLiteral(src string, typeNode *shimast.Node) bool {
-  if typeNode == nil {
+// isSimpleCastType ports the type half of Prettier's isHopefullyShortCallArgument
+// cast branch: unwrap an array type up to two levels (`T[]`, `T[][]` -> `T`) and
+// a single-type-argument reference (`Ref<X>` -> `X`), then require a SIMPLE type
+// (isSimpleTypeNode). A reference still carrying type arguments after the unwrap
+// (`Foo<A, B>`, `Array<Array<string>>`), or a union / intersection / function /
+// tuple / object type, is not simple, so the cast declines the first-argument
+// hug and the list explodes, matching Prettier.
+func isSimpleCastType(typeNode *shimast.Node) bool {
+  node := typeNode
+  for i := 0; i < 2 && node != nil && node.Kind == shimast.KindArrayType; i++ {
+    at := node.AsArrayTypeNode()
+    if at == nil || at.ElementType == nil {
+      return false
+    }
+    node = at.ElementType
+  }
+  if node != nil && node.Kind == shimast.KindTypeReference {
+    if ref := node.AsTypeReferenceNode(); ref != nil && ref.TypeArguments != nil &&
+      len(ref.TypeArguments.Nodes) == 1 {
+      node = ref.TypeArguments.Nodes[0]
+    }
+  }
+  return isSimpleTypeNode(node)
+}
+
+// isSimpleTypeNode mirrors Prettier's isSimpleType: a keyword/primitive type, a
+// literal type, `this`, or a bare type reference with NO type arguments.
+func isSimpleTypeNode(node *shimast.Node) bool {
+  if node == nil {
     return false
   }
-  start := shimscanner.SkipTrivia(src, typeNode.Pos())
-  end := typeNode.End()
-  if start < 0 || end < start || end > len(src) {
-    return true // unmeasurable: be conservative and decline the hug
-  }
-  for i := start; i < end; i++ {
-    if src[i] == '{' {
-      return true
-    }
+  switch node.Kind {
+  case shimast.KindStringKeyword, shimast.KindNumberKeyword, shimast.KindBooleanKeyword,
+    shimast.KindAnyKeyword, shimast.KindUnknownKeyword, shimast.KindVoidKeyword,
+    shimast.KindNeverKeyword, shimast.KindUndefinedKeyword, shimast.KindNullKeyword,
+    shimast.KindObjectKeyword, shimast.KindSymbolKeyword, shimast.KindBigIntKeyword,
+    shimast.KindThisType, shimast.KindLiteralType:
+    return true
+  case shimast.KindTypeReference:
+    ref := node.AsTypeReferenceNode()
+    return ref != nil && (ref.TypeArguments == nil || len(ref.TypeArguments.Nodes) == 0)
   }
   return false
 }

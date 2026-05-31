@@ -150,6 +150,52 @@ func TestCommandFormatArgHugging(t *testing.T) {
 );
 `)
   })
+  // A cast to a reference with TWO type arguments is not simple (Prettier's
+  // isSimpleType only accepts a reference with no args, and the cast branch
+  // unwraps just a single arg): explode.
+  t.Run("first_arg_multi_type_arg_cast_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const w = Object.keys(contrib).reduce(
+  (result, location) => {
+    result.push(location);
+    return result;
+  },
+  [] as Foo<AlphaTypeName, BetaTypeName>,
+);
+`)
+  })
+  // A nested-generic cast (`Array<Array<string>>`) unwraps one level to
+  // `Array<string>`, which still carries an argument, so it is not simple:
+  // explode.
+  t.Run("first_arg_nested_generic_cast_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const n = Object.keys(contrib).reduce(
+  (result, location) => {
+    result.push(location);
+    return result;
+  },
+  [] as Array<Array<StringTypeNameHere>>,
+);
+`)
+  })
+  // A cast to a union type is not simple: explode.
+  t.Run("first_arg_union_cast_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const u2 = Object.keys(contrib).reduce(
+  (result, location) => {
+    result.push(location);
+    return result;
+  },
+  init as AlphaUnionMemberType | BetaUnionMemberType,
+);
+`)
+  })
+  // The positive twin: a SINGLE-type-argument reference unwraps to a bare
+  // reference (`Foo<Bar>` -> `Bar`), which is simple, so the first arg hugs.
+  t.Run("first_arg_single_type_arg_cast_hugs", func(t *testing.T) {
+    assertFormatUnchanged(t, `const s2 = arr.reduce((r, x) => {
+  r.push(x);
+  return r;
+}, init as Foo<BarTypeArgumentName>);
+`)
+  })
   // two arrows then an object: Prettier explodes (more than one complex arg).
   t.Run("two_arrows_then_object_explodes", func(t *testing.T) {
     assertFormatUnchanged(t, `manyToOne(
