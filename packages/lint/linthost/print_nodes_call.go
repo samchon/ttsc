@@ -51,6 +51,15 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if hasNilEntry(call.Arguments) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment in an argument gap (`foo(a, /* c */ b)`) would be dropped by the
+  // freshly minted `, ` separators in printArgList. The top-level print-width
+  // scan only masks a *direct* child's comments, so a comment inside a NESTED
+  // call's argument list slips through and is lost on reflow. Self-guard the
+  // way the object/array printers do: bail to verbatim (and report uncovered so
+  // an enclosing reflow abstains too).
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
   // Prettier never appends a trailing comma inside a dynamic
   // `import(...)`, so the printer's reflow must agree with
   // format/trailing-comma's same exception (see isDynamicImportCall).
@@ -91,6 +100,11 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
+      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    }
+    // A comment in an argument gap would be dropped by the minted separators
+    // (same nested-masking data-loss as printCallExpression); bail to verbatim.
+    if listHasInterItemComments(ctx, node) {
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
     argDoc, argCovered := printArgList(ctx, ne.Arguments, ctx.allowsCallArgumentTrailingComma(), false, false)
