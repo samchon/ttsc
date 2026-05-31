@@ -455,10 +455,16 @@ func lastArgHuggableShape(last *shimast.Node) bool {
       }
     }
     switch body.Kind {
-    case shimast.KindBlock,
-      shimast.KindObjectLiteralExpression,
-      shimast.KindArrayLiteralExpression:
+    case shimast.KindBlock:
+      // A block-bodied arrow hugs regardless of any return-type annotation.
       return true
+    case shimast.KindObjectLiteralExpression,
+      shimast.KindArrayLiteralExpression:
+      // An expression-bodied arrow with an explicit return type is not hugged:
+      // Prettier's couldGroupArg excludes it ("avoid breaking inside composite
+      // return types"), so `map((r): T => ({ … }))` explodes the whole list
+      // while `map((r) => ({ … }))` hugs.
+      return arrow.Type == nil
     }
   }
   return false
