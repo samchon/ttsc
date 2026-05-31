@@ -431,7 +431,9 @@ func isFirstArgHuggableCallback(node *shimast.Node) bool {
 // hugged first-argument callback. Prettier hugs the leading callback when
 // the trailing argument is an identifier, member access, literal, `this`,
 // or an array literal — most notably the `useEffect(() => { … }, [deps])`
-// idiom. An object literal, function, arrow, or conditional is excluded so
+// idiom. It also accepts an empty object literal, a short call/new, and a
+// short arithmetic/logical expression (`setTimeout(fn, 1000 - x)`). A function,
+// arrow, conditional, or a non-empty object literal is excluded so
 // first-argument hugging declines and the whole list explodes.
 //
 // A call expression is deliberately NOT included: the conditional-group
@@ -470,6 +472,20 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     // trailing call falls through and the whole list explodes, as Prettier
     // does.
     return shortSingleLineSpan(ctx.Source, node, 30)
+  case shimast.KindObjectLiteralExpression:
+    // `reduce(fn, {})`: an EMPTY object literal hugs (Prettier's couldGroupArg
+    // excludes a property-less object); an object with properties expands and
+    // explodes the list instead (`f(fn, { a: 1 })`).
+    if obj := node.AsObjectLiteralExpression(); obj != nil {
+      return obj.Properties == nil || len(obj.Properties.Nodes) == 0
+    }
+  case shimast.KindBinaryExpression, shimast.KindPrefixUnaryExpression:
+    // `setTimeout(fn, 1000 - ellapsed)` / `new RunOnceScheduler(fn, 30 * 1000)`:
+    // a short single-line arithmetic or logical expression rides the close
+    // line. Bound it by source span like the call case — a long binary whose
+    // hugged close line would overflow falls through to the exploded list, as
+    // Prettier's render does.
+    return shortSingleLineSpan(ctx.Source, node, 40)
   }
   return false
 }
