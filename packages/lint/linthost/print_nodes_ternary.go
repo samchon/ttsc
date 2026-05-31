@@ -104,7 +104,12 @@ func ternaryArm(ctx *PrintContext, node *shimast.Node, isConsequent bool) (Doc, 
   // instead of printing flat inside kept parens. Only a ConditionalExpression
   // inner is unwrapped; `(a ?? b)` and other parenthesized expressions keep their
   // parens through the normal printer.
-  if inner != nil && inner.Kind == shimast.KindParenthesizedExpression {
+  // Do NOT unwrap when a comment sits between the parens and the inner
+  // conditional (`(/* keep */ b ? c : d)`): dropping the ParenExpr wrapper would
+  // delete that comment. Leaving `inner` as the ParenExpr routes it through the
+  // normal printer, whose own self-guard bails to verbatim and preserves it.
+  if inner != nil && inner.Kind == shimast.KindParenthesizedExpression &&
+    !listHasInterItemComments(ctx, inner) {
     if p := inner.AsParenthesizedExpression(); p != nil && p.Expression != nil &&
       p.Expression.Kind == shimast.KindConditionalExpression {
       inner = p.Expression

@@ -352,6 +352,14 @@ func printReturnStatement(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if !tailIsCleanTerminator(ctx.Source, stmt.Expression.End(), node.End()) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  // A comment between `return` and its argument (`return /* c */ x`) lives in
+  // the argument's leading trivia and would be dropped by the minted
+  // `Text("return ")` — the gap is not an AST child, and a return statement is
+  // only reached as a nested child of a block, so the outer print-width and
+  // block scans mask it. Bail to verbatim (uncovered) like the round-7 printers.
+  if gapHasComment(ctx.Source, stmt.Expression.Pos(), shimscanner.SkipTrivia(ctx.Source, stmt.Expression.Pos())) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
   exprDoc, covered := PrintNode(ctx, stmt.Expression)
   parts := []Doc{Text("return "), exprDoc}
   if sourceHasStatementTerminator(ctx.Source, node.End()) {
