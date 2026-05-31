@@ -421,11 +421,12 @@ func forEachIndentFrame(
   if file == nil {
     return
   }
-  walkIndentFrames(file.AsNode(), 0, brace, header)
+  walkIndentFrames(file.AsNode(), file.Text(), 0, brace, header)
 }
 
 func walkIndentFrames(
   node *shimast.Node,
+  src string,
   depth int,
   brace func(block *shimast.Node, ownerDepth int),
   header func(node *shimast.Node, depth int),
@@ -440,13 +441,18 @@ func walkIndentFrames(
     childDepth := depth
     switch child.Kind {
     case shimast.KindBlock, shimast.KindModuleBlock:
+      // Only a SAME-LINE case-body block (`case X: { … }`) adds no extra
+      // level; a block on its own line under the clause is an ordinary
+      // nested block (see blockStartsOwnLine).
       isCaseBody := child.Kind == shimast.KindBlock && child.Parent != nil &&
         (child.Parent.Kind == shimast.KindCaseClause ||
-          child.Parent.Kind == shimast.KindDefaultClause)
+          child.Parent.Kind == shimast.KindDefaultClause) &&
+        !blockStartsOwnLine(src, child)
       if isCaseBody {
-        // A case-body block (`case X: { … }`) adds no extra level for its
-        // statements (they stay at the clause body depth, this `depth`), but
-        // its own closing `}` aligns with the `case` label one level up.
+        // A same-line case-body block (`case X: { … }`) adds no extra level
+        // for its statements (they stay at the clause body depth, this
+        // `depth`), but its own closing `}` aligns with the `case` label one
+        // level up.
         brace(child, depth-1)
         childDepth = depth
       } else {
@@ -488,7 +494,7 @@ func walkIndentFrames(
       // current body depth (the enclosing frame already bumped it).
       header(child, depth)
     }
-    walkIndentFrames(child, childDepth, brace, header)
+    walkIndentFrames(child, src, childDepth, brace, header)
     return false
   })
 }
