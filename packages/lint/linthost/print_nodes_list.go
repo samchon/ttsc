@@ -1,5 +1,9 @@
 package linthost
 
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
 // Shared helpers for comma-separated list printers.
 //
 // Object literals, array literals, call arguments, parameter lists,
@@ -51,6 +55,40 @@ type listShape struct {
   // printer sets it for a concisely-printed numeric array. Mutually
   // exclusive with HugLast / HugFirst.
   Fill bool
+  // BlankBefore[i] reports whether the source had a blank line before item i
+  // (i.e. between item i-1 and item i). When any entry is set the list is
+  // forced broken and a single blank line is preserved before that item,
+  // mirroring Prettier. Length, when non-nil, equals len(Items); index 0 is
+  // ignored (no item precedes the first).
+  BlankBefore []bool
+}
+
+// blankBeforeItems computes BlankBefore for a node list: entry i is true when
+// the source had a blank line (two or more newlines) between item i-1 and
+// item i. Returns nil for a list too short to carry one, so callers pass it
+// through unconditionally.
+func blankBeforeItems(src string, elems []*shimast.Node) []bool {
+  if len(elems) < 2 {
+    return nil
+  }
+  out := make([]bool, len(elems))
+  for i := 1; i < len(elems); i++ {
+    if elems[i-1] == nil || elems[i] == nil {
+      continue
+    }
+    out[i] = blankLineBetweenStatements(src, elems[i-1].End(), elems[i].Pos())
+  }
+  return out
+}
+
+// hasBlankBefore reports whether any item carries a preserved blank line.
+func (s listShape) hasBlankBefore() bool {
+  for _, b := range s.BlankBefore {
+    if b {
+      return true
+    }
+  }
+  return false
 }
 
 // printList renders the list shape as a Doc tree. Empty lists collapse
@@ -61,7 +99,9 @@ func printList(ctx *PrintContext, shape listShape) Doc {
     return Text(shape.OpenTok + shape.CloseTok)
   }
   plain := printListPlain(ctx, shape)
-  if !shape.HugLast && !shape.HugFirst {
+  // A source blank line forces the plain broken layout (Prettier never hugs or
+  // packs flat across a blank line), so skip the hugging ConditionalGroup.
+  if (!shape.HugLast && !shape.HugFirst) || shape.hasBlankBefore() {
     return plain
   }
   // A hugging list offers the engine up to three shapes, in preference
@@ -100,8 +140,26 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
     trailing = IfBreak(Text(","), Doc{Kind: docNil})
   }
 
+  hasBlank := shape.hasBlankBefore()
+
   var body Doc
-  if shape.Fill {
+  if hasBlank {
+    // Per-item body that preserves a single source blank line before an item:
+    // `,` then a Literalline (the empty line, no indent, mirroring printBlock)
+    // then the normal Line. A blank line forces the group broken.
+    parts := make([]Doc, 0, len(shape.Items)*3)
+    for i, it := range shape.Items {
+      if i > 0 {
+        parts = append(parts, Text(","))
+        if i < len(shape.BlankBefore) && shape.BlankBefore[i] {
+          parts = append(parts, Literalline())
+        }
+        parts = append(parts, Line())
+      }
+      parts = append(parts, it)
+    }
+    body = Concat(parts...)
+  } else if shape.Fill {
     // Each non-last fill content carries its own comma — `[el, ","]` — and the
     // separator is just a Line. Prettier measures the pack/break decision on
     // `[content_i, line, content_{i+1}]`, so the next element's comma must be
@@ -139,7 +197,7 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
   group := Group(doc)
   // ForceBreak (object-literal newline preservation) commits the group
   // to its broken shape regardless of fit.
-  group.Break = shape.ForceBreak
+  group.Break = shape.ForceBreak || hasBlank
   return group
 }
 

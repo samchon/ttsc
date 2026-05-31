@@ -47,12 +47,13 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // every `none` project (the trailing-comma rule wouldn't insert one
   // and the printer would put one back).
   return printList(ctx, listShape{
-    OpenTok:  "[",
-    CloseTok: "]",
-    Items:    items,
-    Space:    false,
-    AddComma: ctx.allowsEs5TrailingComma(),
-    Fill:     isConciselyPrintedArray(arr.Elements.Nodes),
+    OpenTok:     "[",
+    CloseTok:    "]",
+    Items:       items,
+    Space:       false,
+    AddComma:    ctx.allowsEs5TrailingComma(),
+    Fill:        isConciselyPrintedArray(arr.Elements.Nodes),
+    BlankBefore: blankBeforeItems(ctx.Source, arr.Elements.Nodes),
   }), covered
 }
 

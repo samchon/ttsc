@@ -152,13 +152,14 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool) (Doc
     !anyLeadingArgIsFunctionLike(list.Nodes) &&
     !anyLeadingItemBreaks(items)
   shape := listShape{
-    OpenTok:  "(",
-    CloseTok: ")",
-    Items:    items,
-    Space:    false,
-    AddComma: addComma,
-    HugLast:  hugLast,
-    HugFirst: !hugLast && shouldHugFirstArgument(list.Nodes),
+    OpenTok:     "(",
+    CloseTok:    ")",
+    Items:       items,
+    Space:       false,
+    AddComma:    addComma,
+    HugLast:     hugLast,
+    HugFirst:    !hugLast && shouldHugFirstArgument(list.Nodes),
+    BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
 }
