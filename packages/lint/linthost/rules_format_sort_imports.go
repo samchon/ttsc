@@ -470,14 +470,19 @@ func parseImportDecl(src string, decl *shimast.Node) siDecl {
   if named == nil || named.Elements == nil {
     return out
   }
-  // A comment anywhere inside the named-import braces (leading, between, or
-  // trailing a specifier) would be lost when the merge rebuilder rejoins the
-  // specifier texts. Flag it so mergeKey keeps the declaration unmergeable and
-  // its original text is preserved. The braces span contains no module path, so
-  // a `//` or `/*` there is unambiguously a comment.
-  if nbStart := shimscanner.SkipTrivia(src, clause.NamedBindings.Pos()); nbStart >= 0 {
-    if nbEnd := clause.NamedBindings.End(); nbEnd <= len(src) && nbStart < nbEnd {
-      if span := src[nbStart:nbEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
+  // A comment anywhere in the rebuilt import prefix (`import [type] [D, ] { … }
+  // from `) — inside the braces, in the default-binding gap (`D /* c */,`), the
+  // type-only `type`->`{` gap, or around the braces — would be lost when the
+  // merge rebuilder reconstructs the statement field-by-field. Flag it so
+  // mergeKey keeps the declaration unmergeable and its original text is
+  // preserved. The prefix holds no module-path string, so a `//` or `/*` there
+  // is unambiguously a comment. (A leading comment before `import` is excluded:
+  // SkipTrivia advances past it to the `import` keyword.)
+  if imp.ModuleSpecifier != nil {
+    pStart := shimscanner.SkipTrivia(src, decl.Pos())
+    pEnd := shimscanner.SkipTrivia(src, imp.ModuleSpecifier.Pos())
+    if pStart >= 0 && pEnd <= len(src) && pStart < pEnd {
+      if span := src[pStart:pEnd]; strings.Contains(span, "//") || strings.Contains(span, "/*") {
         out.hasSpecComment = true
       }
     }
