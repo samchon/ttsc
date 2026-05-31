@@ -375,14 +375,17 @@ func interfaceHeritageOnOwnLine(isClass bool, clauses []heritageClauseText) bool
 }
 
 // multiClauseHeader: break before each keyword. Per clause, the types stay
-// inline (`implements A, B`) when they fit, and explode one-per-line at the
-// next indent level when the inline clause overflows (the shape Prettier uses
-// for a long `implements` list). A single-type clause is never exploded
-// (Prettier leaves `extends Long` / `implements Long` inline even when it
-// overflows). Only a class carries multiple clauses (`extends` + `implements`),
-// so `brace` is the class brace placement decided by the caller; when it is
-// glued (` {`, an empty class body) it shares the final clause's line and is
-// charged against that clause's fit check.
+// inline (`implements A, B`) when they fit, and break onto their own line(s) at
+// the next indent level when the inline clause overflows. A single-type clause
+// is no exception inside a multi-clause header: Prettier breaks after the
+// keyword and drops the lone type to the next line when `keyword Type<…>` would
+// overflow (`implements\n    ITreeRenderer<…>`), generic or not. (A lone
+// single-clause header behaves differently and never reaches here, a single
+// generic type breaks its argument list, a single bare name stays inline.) Only
+// a class carries multiple clauses (`extends` + `implements`), so `brace` is the
+// class brace placement decided by the caller; when it is glued (` {`, an empty
+// class body) it shares the final clause's line and is charged against that
+// clause's fit check.
 func multiClauseHeader(prefix string, clauses []heritageClauseText, layout declarationHeaderLayout, base, brace string) string {
   var b strings.Builder
   b.WriteString(prefix)
@@ -396,7 +399,7 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
     if ci == len(clauses)-1 && !strings.HasPrefix(brace, "\n") {
       inlineWidth += visualWidth(brace, layout.tabWidth)
     }
-    if len(c.types) < 2 || inlineWidth <= layout.printWidth {
+    if inlineWidth <= layout.printWidth {
       b.WriteString(" ")
       b.WriteString(strings.Join(c.types, ", "))
       continue
