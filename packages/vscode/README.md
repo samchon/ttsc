@@ -6,7 +6,7 @@
 
 Bring [`ttsc`](https://ttsc.dev) plugin diagnostics into VS Code.
 
-When `@ttsc/lint`, `typia`, or another `ttsc` plugin reports a compile-time diagnostic, this extension shows it in the editor next to normal TypeScript errors.
+When `@ttsc/lint` or another LSP-capable `ttsc` plugin like `typia` reports a compile-time diagnostic, this extension shows it in the editor next to normal TypeScript errors.
 
 Use it when the project already runs `ttsc`. Add `@ttsc/lint` when you also want lint diagnostics, fix-all actions, and formatting in the editor.
 
