@@ -108,8 +108,19 @@ func TestCommandFormatMultipleCallbacks(t *testing.T) {
 }
 `)
   })
-  // A decorator WITHOUT a huggable trailing argument is not exempt: two bare
-  // arrows that overflow explode like any other composed call.
+  // A decorator with two arrows that FITS stays flat: Prettier skips the
+  // function-composition rule entirely for decorators
+  // (`path.parent.type !== "Decorator"`), so a fitting `@ManyToOne(...)` is not
+  // force-exploded the way a plain call would be.
+  t.Run("fitting_decorator_two_arrows_stays_flat", func(t *testing.T) {
+    assertFormatUnchanged(t, `class C {
+  @ManyToOne(() => User, (u) => u.addresses)
+  user: User;
+}
+`)
+  })
+  // A decorator WITHOUT a huggable trailing argument that OVERFLOWS still
+  // explodes, but via ordinary width breaking, not the composition force-break.
   t.Run("decorator_without_huggable_last_explodes", func(t *testing.T) {
     assertFormatUnchanged(t, `class D {
   @Validate(

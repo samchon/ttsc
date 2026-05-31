@@ -329,20 +329,17 @@ func isFunctionCompositionArgs(args []*shimast.Node) bool {
 // argListForcesFunctionBreak reports whether a call's argument list must
 // explode under Prettier's function-composition rule (see
 // isFunctionCompositionArgs), which fires even when the call would fit on one
-// line. A decorator hugging a huggable trailing argument is the one shape that
-// keeps the leading callbacks inline (`@OneToMany(() => P, (p) => p.c, { … })`
-// breaks only the object), so it is exempt; everywhere else the composed
-// arguments break. Shared by printArgList (which sets ForceBreak) and the
+// line. A DECORATOR is exempt entirely: Prettier guards the rule with
+// `path.parent.type !== "Decorator"` (printCallArguments in call-arguments.js),
+// so `@ManyToOne(() => User, (u) => u.addresses)` stays flat when it fits and
+// breaks only on width. Shared by printArgList (which sets ForceBreak) and the
 // print-width rule (whose fit fast-path must not skip such a call when it is
 // written flat in source).
 func argListForcesFunctionBreak(args []*shimast.Node, decoratorCall bool) bool {
-  if !isFunctionCompositionArgs(args) {
+  if decoratorCall {
     return false
   }
-  if decoratorCall && shouldHugLastArgument(args) {
-    return false
-  }
-  return true
+  return isFunctionCompositionArgs(args)
 }
 
 // callForcesFunctionBreak reports whether a node is a CallExpression that the
