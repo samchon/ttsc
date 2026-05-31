@@ -20,9 +20,11 @@ import (
 // (`a ? b : c ? d : e`) or every rung breaks onto its own line. Nesting
 // is expressed by recursing the chain builder without wrapping the
 // nested conditional in its own Group. The outermost chain indents its arms
-// by `tabWidth`, but each nested chain indents by a FIXED 2 columns (not
-// `tabWidth`), matching Prettier 3: at tabWidth 4 the outer arms sit at
-// column 4 and the nested arms at column 6, not 8.
+// by `tabWidth`. A nested chain in the ALTERNATE (`: `) position indents by a
+// fixed 2 columns; a nested chain in the CONSEQUENT (`? `) position indents by
+// `max(2, tabWidth)` (Prettier's extra `align(tabWidth-2)` on the consequent).
+// So at tabWidth 4 the outer arms sit at column 4, an alternate-nested arm at
+// column 6, and a consequent-nested arm at column 8; they coincide at tabWidth 2.
 //
 // The second return value is the coverage flag (see PrintNode): the AND
 // of the test and both branches, so a multi-line verbatim node anywhere
@@ -116,9 +118,18 @@ func ternaryArm(ctx *PrintContext, node *shimast.Node, isConsequent bool) (Doc, 
     }
   }
   if inner != nil && inner.Kind == shimast.KindConditionalExpression {
-    // A nested chain indents a fixed 2 columns past its parent rung,
-    // independent of tabWidth (Prettier 3's nested-ternary rule).
-    chain, covered := buildConditionalChain(ctx, inner, 2)
+    // A nested chain's arms align at 2 past their parent rung. Prettier's
+    // ternary-old.js uses that as-is for an ALTERNATE-position nested chain
+    // (`align(2)`), but a CONSEQUENT-position one gets an extra
+    // `align(Math.max(0, tabWidth - 2))`, for a total of `max(2, tabWidth)`.
+    // The two coincide at the default tabWidth 2; they diverge at tabWidth > 2.
+    indentCols := 2
+    if isConsequent {
+      if u := ctx.indentUnit(); u > indentCols {
+        indentCols = u
+      }
+    }
+    chain, covered := buildConditionalChain(ctx, inner, indentCols)
     if isConsequent {
       // `ifBreak("", "(")` … `ifBreak("", ")")`: parens in flat mode only.
       chain = Concat(
