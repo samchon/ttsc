@@ -179,6 +179,21 @@ func TestCommandFormatArgHugging(t *testing.T) {
 );
 `)
   })
+  // first-arg hug DECLINES over a cast wrapping a one-argument CALL: Prettier's
+  // cast branch is isSimpleCallArgument(expr, 1), and at depth 1 the call's
+  // argument bottoms out, so `makeSeed(rawInput) as number[]` is not simple and
+  // the list explodes. Pins the depth-1 cast-expression check as distinct from
+  // the depth-2 bare-trailing-call check (a bare `makeSeed(rawInput)` hugs).
+  t.Run("first_arg_call_cast_trailing_explodes", func(t *testing.T) {
+    assertFormatUnchanged(t, `const g = arr.reduce(
+  (r, x) => {
+    r.push(x);
+    return r;
+  },
+  makeSeed(rawInput) as number[],
+);
+`)
+  })
   // first-arg hug declines over a cast to a type carrying an object literal:
   // explode (`[] as Array<{ … }>`).
   t.Run("first_arg_object_type_cast_trailing_explodes", func(t *testing.T) {

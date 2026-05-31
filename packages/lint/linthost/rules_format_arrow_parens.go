@@ -77,6 +77,17 @@ func (formatArrowParens) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // A comment in the parameter region (leading trivia, or between the name and
+  // its `)`/`=>`) defeats the whitespace-only paren scan below: the scan stops
+  // at the comment byte and reports "not wrapped", so the "always" branch would
+  // wrap an already-parenthesized name a second time and emit invalid
+  // `(/* c */ (x)) => x`. Prettier leaves such an arrow alone
+  // (canPrintParamsWithoutParens requires `!hasComment(parameters[0])`), so
+  // abstain rather than corrupt.
+  if arrowParamRegionHasComment(src, param.Pos(), nameStart, nameEnd) {
+    return
+  }
+
   // Is the parameter already wrapped in `(` … `)`? Scan over whitespace on
   // each side; the sole parameter of an arrow is delimited by the
   // parameter-list parens when present.
@@ -160,6 +171,31 @@ func scanForwardForByte(src string, from int, target byte) int {
     }
   }
   return -1
+}
+
+// arrowParamRegionHasComment reports whether a `//` or `/*` comment sits in the
+// single parameter's region — its leading trivia (`[paramPos, nameStart)`) or
+// the trailing trivia after the name up to the first real token (`)` or `=>`).
+// The byte scan is safe here because a bare-identifier parameter region holds
+// only comments, whitespace, the identifier, and parentheses (no strings:
+// typed/defaulted params are already excluded by isBareIdentifierParam).
+func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bool {
+  for i := paramPos; i+1 < nameStart && i+1 < len(src); i++ {
+    if src[i] == '/' && (src[i+1] == '*' || src[i+1] == '/') {
+      return true
+    }
+  }
+  for i := nameEnd; i+1 < len(src); i++ {
+    c := src[i]
+    if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+      continue
+    }
+    if c == '/' && (src[i+1] == '*' || src[i+1] == '/') {
+      return true
+    }
+    break
+  }
+  return false
 }
 
 func init() {

@@ -96,6 +96,14 @@ func joinClauseBody(
   if body == nil || body.Kind == shimast.KindBlock {
     return
   }
+  // An empty-statement body (`while (x)\n;`) glues directly to the header with
+  // NO space: Prettier's adjustClause special-cases EmptyStatement and returns
+  // the bare `;` (`while (x);`), only prepending a space when the empty
+  // statement carries a leading comment. This rule's gap->" " rewrite cannot
+  // produce the spaceless `);` glue, so abstain and leave the source shape.
+  if body.Kind == shimast.KindEmptyStatement {
+    return
+  }
   bodyStart := shimscanner.SkipTrivia(src, body.Pos())
   bodyEnd := body.End()
   if bodyStart < 0 || bodyEnd < bodyStart || bodyEnd > len(src) {

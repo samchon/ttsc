@@ -647,10 +647,14 @@ func isSimpleTrailingArg(ctx *PrintContext, node *shimast.Node) bool {
     return false
   case shimast.KindAsExpression:
     // `[] as string[]`: the `reduce(fn, [] as T[])` idiom. Hug when the cast
-    // wraps a simple trailing arg AND the target is a simple type, mirroring
-    // Prettier's isHopefullyShortCallArgument cast branch (see isSimpleCastType).
+    // target is a simple type AND its inner expression is simple at depth 1 —
+    // Prettier's isHopefullyShortCallArgument cast branch is exactly
+    // `isSimpleType(typeAnnotation) && isSimpleCallArgument(node.expression, 1)`.
+    // Depth 1 (not the general isSimpleTrailingArg) is deliberate: it has no
+    // binaryish branch and bottoms a nested call's argument out at depth 0, so
+    // `(a - b) as T` and `makeInit(x) as T[]` are NOT simple and explode.
     if as := node.AsAsExpression(); as != nil && as.Expression != nil {
-      return isSimpleTrailingArg(ctx, as.Expression) && isSimpleCastType(as.Type)
+      return isSimpleCallArg(as.Expression, 1) && isSimpleCastType(as.Type)
     }
   case shimast.KindCallExpression, shimast.KindNewExpression:
     // `reduce(fn, Object.create(null))` / `reduce(fn, new Map<…>())`: Prettier
