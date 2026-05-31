@@ -46,6 +46,11 @@ type listShape struct {
   // mirror Prettier's objectWrap:"preserve" — an object the source
   // wrote with a newline after `{` stays expanded.
   ForceBreak bool
+  // Fill packs the items with Prettier's fill layout — as many per line as
+  // fit — instead of one item per line when the list breaks. The array
+  // printer sets it for a concisely-printed numeric array. Mutually
+  // exclusive with HugLast / HugFirst.
+  Fill bool
 }
 
 // printList renders the list shape as a Doc tree. Empty lists collapse
@@ -84,7 +89,6 @@ func printList(ctx *PrintContext, shape listShape) Doc {
 // comma — when it does not.
 func printListPlain(ctx *PrintContext, shape listShape) Doc {
   sep := Concat(Text(","), Line())
-  body := Join(sep, shape.Items)
 
   flatPad := Doc{Kind: docNil}
   if shape.Space {
@@ -94,6 +98,32 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
   trailing := Doc{Kind: docNil}
   if shape.AddComma {
     trailing = IfBreak(Text(","), Doc{Kind: docNil})
+  }
+
+  var body Doc
+  if shape.Fill {
+    // Each non-last fill content carries its own comma — `[el, ","]` — and the
+    // separator is just a Line. Prettier measures the pack/break decision on
+    // `[content_i, line, content_{i+1}]`, so the next element's comma must be
+    // part of its content or the line would pack one element too many. The
+    // last element carries no comma here; the trailing comma is the shared
+    // ifBreak appended after the body so it tracks the GROUP's break mode (a
+    // fill-mode ifBreak would drop the comma when the last item packs flat,
+    // making the format non-idempotent).
+    parts := make([]Doc, 0, len(shape.Items)*2-1)
+    for i, it := range shape.Items {
+      if i > 0 {
+        parts = append(parts, Line())
+      }
+      if i < len(shape.Items)-1 {
+        parts = append(parts, Concat(it, Text(",")))
+      } else {
+        parts = append(parts, it)
+      }
+    }
+    body = Fill(parts...)
+  } else {
+    body = Join(sep, shape.Items)
   }
 
   openTok := Text(shape.OpenTok)

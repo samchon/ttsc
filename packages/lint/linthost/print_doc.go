@@ -79,6 +79,7 @@ const (
   docConcat
   docLineSuffix
   docConditionalGroup
+  docFill
 )
 
 // Doc is one node in the layout tree. Only the fields relevant to the
@@ -134,6 +135,15 @@ func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
 func ConditionalGroup(options ...Doc) Doc {
   return Doc{Kind: docConditionalGroup, Children: options}
 }
+
+// Fill renders an alternating [content, separator, content, separator, …,
+// content] sequence with Wadler/Prettier "fill" semantics: it places as many
+// contents on a line as fit, breaking a separator to a new line only when the
+// next content (with its separator) would overflow. Used for concisely-printed
+// numeric arrays (`[1, 2, 3, … ]` packed several per line), where a plain
+// one-item-per-line break would waste space. `parts` must have odd length
+// (content at even indices, separators at odd).
+func Fill(parts ...Doc) Doc { return Doc{Kind: docFill, Children: parts} }
 
 // Indent adds `width` columns of indentation to every newline emitted by
 // the child doc. Nesting composes.

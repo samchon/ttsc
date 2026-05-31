@@ -52,5 +52,45 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     Items:    items,
     Space:    false,
     AddComma: ctx.allowsEs5TrailingComma(),
+    Fill:     isConciselyPrintedArray(arr.Elements.Nodes),
   }), covered
+}
+
+// isConciselyPrintedArray reports whether an array should use Prettier's
+// concise "fill" layout: more than one element and every element a numeric
+// literal (optionally a `+`/`-` signed numeric). Prettier packs such arrays
+// several per line; mixed / string / identifier arrays stay one-per-line.
+func isConciselyPrintedArray(elems []*shimast.Node) bool {
+  if len(elems) < 2 {
+    return false
+  }
+  for _, e := range elems {
+    if !isNumericArrayElement(e) {
+      return false
+    }
+  }
+  return true
+}
+
+// isNumericArrayElement reports whether `node` is a numeric literal or a
+// `+`/`-` prefix applied to one.
+func isNumericArrayElement(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+    return true
+  case shimast.KindPrefixUnaryExpression:
+    u := node.AsPrefixUnaryExpression()
+    if u == nil || u.Operand == nil {
+      return false
+    }
+    if u.Operator != shimast.KindPlusToken && u.Operator != shimast.KindMinusToken {
+      return false
+    }
+    return u.Operand.Kind == shimast.KindNumericLiteral ||
+      u.Operand.Kind == shimast.KindBigIntLiteral
+  }
+  return false
 }
