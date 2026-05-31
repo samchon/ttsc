@@ -93,11 +93,6 @@ func (formatPrintWidth) Visits() []shimast.Kind {
 //     re-render still over-breaks some of these; the next slice should
 //     measure fitsFirstLine against `pw - col - trailingNonComment`
 //     before committing to the broken layout.
-//   - Default-combined imports (`import D, { X } from "x"`) are kept
-//     verbatim by printImportDeclaration (its `clause.Name() != nil`
-//     guard), so a default import whose named clause overflows is not
-//     broken; Prettier breaks it. Lifting the guard, threading the default
-//     name into the printed prefix, is a future default-import reflow slice.
 //
 // (A single-specifier `import/export { X } from "long-path"` that overflows
 // only because of the `from "..."` tail is now kept inline by the

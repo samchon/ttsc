@@ -187,7 +187,7 @@ For every uncovered shape the rule produces zero findings and zero edits.
 #### Limitations
 
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
-- No "magic comma" hint (Prettier's preserve-multi-line trick). Width is the only factor in the reflow decision.
+- No Prettier magic-trailing-comma hint. Aside from object-wrap preservation (an object written with a newline after `{` stays expanded) and the same-kind array-of-arrays/objects force-break described above, width is the deciding factor.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
 - A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
