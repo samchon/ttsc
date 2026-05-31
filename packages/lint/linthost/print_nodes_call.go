@@ -197,6 +197,7 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     hugLast = true
     forceFnBreak = false
   }
+  hugFirst := !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes)
   shape := listShape{
     OpenTok:      "(",
     CloseTok:     ")",
@@ -205,9 +206,15 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     AddComma:     addComma,
     HugLast:      hugLast,
     HugLastForce: forceHugLast,
-    HugFirst:     !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes),
-    ForceBreak:   forceFnBreak,
-    BlankBefore:  blankBeforeItems(ctx.Source, list.Nodes),
+    HugFirst:     hugFirst,
+    // A non-empty array second argument reaches HugFirst only via the
+    // React-hook deps branch of shouldHugFirstArgument; let that deps array
+    // break one-per-line instead of being pinned flat on the close line.
+    HugFirstTrailingBreaks: hugFirst && len(list.Nodes) == 2 &&
+      list.Nodes[1] != nil &&
+      list.Nodes[1].Kind == shimast.KindArrayLiteralExpression,
+    ForceBreak:  forceFnBreak,
+    BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
 }
