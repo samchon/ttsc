@@ -54,16 +54,16 @@ func runeWidth(r rune) int {
 func isWideRune(r rune) bool {
   switch {
   case r >= 0x1100 && r <= 0x115F, // Hangul Jamo
-    r >= 0x2E80 && r <= 0x303E, // CJK Radicals .. CJK Symbols (part)
-    r >= 0x3041 && r <= 0x33FF, // Hiragana .. CJK Compatibility
-    r >= 0x3400 && r <= 0x4DBF, // CJK Extension A
-    r >= 0x4E00 && r <= 0x9FFF, // CJK Unified Ideographs
-    r >= 0xA000 && r <= 0xA4CF, // Yi
-    r >= 0xAC00 && r <= 0xD7A3, // Hangul Syllables
-    r >= 0xF900 && r <= 0xFAFF, // CJK Compatibility Ideographs
-    r >= 0xFE30 && r <= 0xFE4F, // CJK Compatibility Forms
-    r >= 0xFF00 && r <= 0xFF60, // Fullwidth Forms
-    r >= 0xFFE0 && r <= 0xFFE6, // Fullwidth signs
+    r >= 0x2E80 && r <= 0x303E,   // CJK Radicals .. CJK Symbols (part)
+    r >= 0x3041 && r <= 0x33FF,   // Hiragana .. CJK Compatibility
+    r >= 0x3400 && r <= 0x4DBF,   // CJK Extension A
+    r >= 0x4E00 && r <= 0x9FFF,   // CJK Unified Ideographs
+    r >= 0xA000 && r <= 0xA4CF,   // Yi
+    r >= 0xAC00 && r <= 0xD7A3,   // Hangul Syllables
+    r >= 0xF900 && r <= 0xFAFF,   // CJK Compatibility Ideographs
+    r >= 0xFE30 && r <= 0xFE4F,   // CJK Compatibility Forms
+    r >= 0xFF00 && r <= 0xFF60,   // Fullwidth Forms
+    r >= 0xFFE0 && r <= 0xFFE6,   // Fullwidth signs
     r >= 0x1F300 && r <= 0x1FAFF, // emoji & pictographs
     r >= 0x20000 && r <= 0x3FFFD: // CJK Extension B and beyond
     return true
