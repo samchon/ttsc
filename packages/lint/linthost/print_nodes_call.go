@@ -911,7 +911,7 @@ func isSimpleTypeNode(node *shimast.Node) bool {
     shimast.KindAnyKeyword, shimast.KindUnknownKeyword, shimast.KindVoidKeyword,
     shimast.KindNeverKeyword, shimast.KindUndefinedKeyword, shimast.KindNullKeyword,
     shimast.KindObjectKeyword, shimast.KindSymbolKeyword, shimast.KindBigIntKeyword,
-    shimast.KindThisType, shimast.KindLiteralType:
+    shimast.KindThisType, shimast.KindLiteralType, shimast.KindTemplateLiteralType:
     return true
   case shimast.KindTypeReference:
     ref := node.AsTypeReferenceNode()
