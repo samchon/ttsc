@@ -1,19 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 630" shape-rendering="geometricPrecision">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ttsc icon">
   <defs>
-    <clipPath id="r">
-      <rect width="630" height="630" rx="80"/>
-    </clipPath>
+    <clipPath id="clip"><rect width="512" height="512" rx="72"/></clipPath>
+    <style>
+      .word {
+        font-family: "Ubuntu Sans", "DejaVu Sans", Arial, sans-serif;
+        font-size: 218px;
+        font-weight: 950;
+        letter-spacing: -10px;
+      }
+    </style>
   </defs>
-  <g clip-path="url(#r)">
-    <rect width="630" height="630" fill="#3178C6"/>
-    <g transform="translate(-26 26)">
-      <g transform="translate(0,630) scale(0.1,-0.1)" fill="#555555">
-        <path d="M 3598 3138 l 2 -258 -410 0 -410 0 0 -1165 0 -1165 -290 0 -290 0 0 1165 0 1165 -410 0 -410 0 0 253 c 0 140 3 257 7 260 3 4 502 6 1107 5 l 1101 -3 3 -257 z"/>
-      </g>
-    </g>
-    <g transform="translate(0,630) scale(0.1,-0.1)" fill="#ffffff">
-      <path d="M 5077 3401 c 160 -40 282 -111 394 -227 58 -62 144 -175 151 -202 2 -8 -272 -192 -438 -295 -6 -4 -30 22 -57 62 -81 118 -166 169 -296 178 -191 13 -314 -87 -313 -254 0 -49 7 -78 27 -118 42 -87 120 -139 365 -245 451 -194 644 -322 764 -504 134 -203 164 -527 73 -768 -100 -262 -348 -440 -697 -499 -108 -19 -364 -16 -480 5 -253 45 -493 170 -641 334 -58 64 -171 231 -164 243 3 4 29 20 58 37 28 16 134 77 234 135 l 181 105 38 -56 c 53 -81 169 -192 239 -229 201 -106 477 -91 613 31 58 53 82 108 82 189 0 73 -9 105 -47 160 -49 70 -149 129 -433 252 -325 140 -465 227 -593 365 -74 80 -144 208 -173 315 -24 89 -30 312 -11 402 67 314 304 533 646 598 111 21 369 13 478 -14 z"/>
-      <path d="M 3598 3138 l 2 -258 -410 0 -410 0 0 -1165 0 -1165 -290 0 -290 0 0 1165 0 1165 -410 0 -410 0 0 253 c 0 140 3 257 7 260 3 4 502 6 1107 5 l 1101 -3 3 -257 z"/>
+  <g clip-path="url(#clip)">
+    <rect width="512" height="512" fill="#3178C6"/>
+    <path d="M90 404 H220 C262 404 276 372 322 372 H426 M220 404 C262 404 276 428 322 428 H426" fill="none" stroke="#BFE2FF" stroke-width="14" stroke-linecap="round" opacity=".55"/>
+    <circle cx="90" cy="404" r="19" fill="#23D18B" opacity=".84"/>
+    <circle cx="322" cy="372" r="18" fill="#58A6FF" opacity=".84"/>
+    <circle cx="322" cy="428" r="18" fill="#F59E0B" opacity=".84"/>
+    <circle cx="426" cy="372" r="18" fill="#FFFFFF" opacity=".74"/>
+    <circle cx="426" cy="428" r="18" fill="#FFFFFF" opacity=".72"/>
+    <g transform="translate(0 -48) scale(1 1.19)">
+      <text class="word" x="41" y="303" textLength="430" lengthAdjust="spacingAndGlyphs" fill="#FFFFFF">ttsc</text>
     </g>
   </g>
 </svg>
