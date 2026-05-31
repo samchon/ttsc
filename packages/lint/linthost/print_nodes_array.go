@@ -32,9 +32,11 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   // A comment between elements (or after `[`) would be dropped by the fresh
-  // separators; bail to verbatim so the enclosing reflow abstains.
+  // separators; bail to verbatim and report UNCOVERED (hard `false`, not
+  // `!nodeSpansMultipleLines`) so an enclosing reflow abstains instead of
+  // breaking around this single-line verbatim array and moving it off its line.
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   items := make([]Doc, 0, len(arr.Elements.Nodes))
   covered := true

@@ -116,10 +116,12 @@ func printParenthesizedExpression(ctx *PrintContext, node *shimast.Node) (Doc, b
   // A comment around the parens (`(/* c */ x)`, `(x /* c */)`) would be dropped
   // by the minted `(`/`)` — the parens are not AST children, so a nested
   // ParenthesizedExpression's gap comment slips past the top-level print-width
-  // scan and is lost on reflow. Bail to verbatim (uncovered) like the
+  // scan and is lost on reflow. Bail to verbatim and report UNCOVERED (hard
+  // `false`, not `!nodeSpansMultipleLines`) so an enclosing reflow abstains
+  // instead of breaking around this single-line verbatim paren, like the
   // object/array/call printers.
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   inner, covered := PrintNode(ctx, paren.Expression)
   return Concat(Text("("), inner, Text(")")), covered

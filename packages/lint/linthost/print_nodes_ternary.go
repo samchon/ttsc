@@ -51,10 +51,12 @@ func buildConditionalChain(ctx *PrintContext, node *shimast.Node, indentCols int
   // A comment around the `?`/`:` markers (`a ? /* c */ b : c`) would be dropped
   // by the minted "? "/": " text — the markers are not AST children, so a
   // nested conditional's gap comment slips past the top-level print-width scan
-  // and is lost on reflow. Bail to verbatim (uncovered) so an enclosing reflow
-  // abstains and the bytes survive.
+  // and is lost on reflow. Bail to verbatim and report UNCOVERED (hard `false`,
+  // not `!nodeSpansMultipleLines`) so an enclosing reflow abstains instead of
+  // breaking around this single-line verbatim conditional and moving it off its
+  // line; the bytes survive.
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   testDoc, c1 := PrintNode(ctx, cond.Condition)
   consDoc, c2 := ternaryArm(ctx, cond.WhenTrue, true)

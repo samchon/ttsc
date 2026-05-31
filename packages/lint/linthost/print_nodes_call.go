@@ -55,10 +55,13 @@ func printCallExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // freshly minted `, ` separators in printArgList. The top-level print-width
   // scan only masks a *direct* child's comments, so a comment inside a NESTED
   // call's argument list slips through and is lost on reflow. Self-guard the
-  // way the object/array printers do: bail to verbatim (and report uncovered so
-  // an enclosing reflow abstains too).
+  // way the object/array printers do: bail to verbatim and report UNCOVERED so
+  // an enclosing reflow abstains too. Uncovered must be hard `false`, not
+  // `!nodeSpansMultipleLines`: a single-line comment-bearing call would
+  // otherwise report covered and let the outer reflow break around it, moving
+  // the verbatim node off its line (the assertFormatUnchanged contract).
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   // Prettier never appends a trailing comma inside a dynamic
   // `import(...)`, so the printer's reflow must agree with
@@ -102,9 +105,11 @@ func printNewExpression(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // gap would be dropped by the minted `Text("new ")` / fresh separators — those
   // gaps are not AST children, so a nested new-expression's comment slips past
   // the top-level scan. Guard unconditionally (the no-args `new Foo` path mints
-  // `new ` too), mirroring printCallExpression's unconditional guard.
+  // `new ` too), mirroring printCallExpression's unconditional guard. Report
+  // UNCOVERED (hard `false`, not `!nodeSpansMultipleLines`) so an enclosing
+  // reflow abstains rather than breaking around this single-line verbatim node.
   if listHasInterItemComments(ctx, node) {
-    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+    return verbatim(ctx, node), false
   }
   if ne.Arguments != nil {
     if hasNilEntry(ne.Arguments) {
@@ -218,7 +223,7 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
       list.Nodes[1].Kind == shimast.KindArrayLiteralExpression,
     HugFirstForce: hugFirst && isReactHookDepsCall(list.Nodes),
     ForceBreak:    forceFnBreak,
-    BlankBefore: blankBeforeItems(ctx.Source, list.Nodes),
+    BlankBefore:   blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
 }
