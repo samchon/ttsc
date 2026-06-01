@@ -18,6 +18,20 @@ Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
 
+## Raw-TypeScript dependencies
+
+The type-check covers your whole program, but at runtime your dependencies are loaded by Node directly. When part of the graph is ESM, Node trips over dependencies that ship raw TypeScript:
+
+- A workspace dependency (a `node_modules` symlink whose real files live outside `node_modules`) gets its types stripped by Node, but its own extensionless relative imports (`import "./util"`) are rejected with `ERR_MODULE_NOT_FOUND`.
+- A published dependency that ships `.ts` inside `node_modules` cannot be loaded at all, because Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
+
+`ttsx` installs Node module hooks in the run, the same approach `tsx` uses, so both cases just work without touching the dependency's `exports`, sources, or `tsconfig`:
+
+- a `resolve` hook probes the candidate extensions (and directory `index` files) for an extensionless relative import anywhere in the graph;
+- a `load` hook transpiles raw `.ts` files under `node_modules`, scoped so workspace neighbours keep Node's native type-stripping path.
+
+These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
+
 ## Pass arguments to the script
 
 Use `--` to separate `ttsx` flags from the script's own args:

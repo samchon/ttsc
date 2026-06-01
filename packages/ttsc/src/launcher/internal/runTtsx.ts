@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   getBoolean,
@@ -213,6 +214,24 @@ function printHelp(): void {
   process.stdout.write("\n");
 }
 
+/**
+ * Node flags that install ttsx's runtime module hooks in the child process.
+ * `--import` loads the registrar before the compiled entry, giving the
+ * `resolve`/`load` hooks whole-graph reach (extensionless relative imports and
+ * raw `.ts` dependencies under `node_modules`) without weakening the up-front
+ * compile gate. `--disable-warning` silences the `ExperimentalWarning` that the
+ * `load` hook's internal `stripTypeScriptTypes` call would otherwise print, the
+ * same flag this repository's own TypeScript runner uses.
+ */
+function runtimeHookArgs(): string[] {
+  const registrar = path.join(__dirname, "registerRuntimeHooks.js");
+  return [
+    "--disable-warning=ExperimentalWarning",
+    "--import",
+    pathToFileURL(registrar).href,
+  ];
+}
+
 function resolvePreload(cwd: string, preload: string): string {
   if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
     return path.resolve(cwd, preload);
@@ -247,6 +266,7 @@ function runPreparedEntry(
       );
     }
     const args = [
+      ...runtimeHookArgs(),
       ...parsed.preload.flatMap((preload) => [
         "-r",
         resolvePreload(cwd, preload),

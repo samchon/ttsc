@@ -59,12 +59,25 @@ jobs:
       - name: Use local ttsc tarballs
         working-directory: experimental/typia
         run: |
-          cat >> pnpm-workspace.yaml <<'YAML'
-
-          overrides:
-            ttsc: file:../tarballs/ttsc.tgz
-            '@ttsc/linux-x64': file:../tarballs/ttsc-linux-x64.tgz
-          YAML
+          # typia's pnpm-workspace.yaml already declares its own `overrides:`
+          # block (and resolves ttsc through a catalog), so appending a second
+          # `overrides:` key makes pnpm fail with a duplicated-mapping-key YAML
+          # error. Merge the local-tarball overrides into the existing block
+          # instead, creating the block only when typia drops it.
+          node -e '
+          const fs = require("fs");
+          const file = "pnpm-workspace.yaml";
+          const entries = [
+            "  ttsc: file:../tarballs/ttsc.tgz",
+            "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
+          ].join("\n");
+          const text = fs.readFileSync(file, "utf8");
+          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
+          const merged = /^overrides:[ \t]*$/m.test(text)
+            ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
+            : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
+          fs.writeFileSync(file, merged);
+          '
 
       - name: Test typia next
         working-directory: experimental/typia
