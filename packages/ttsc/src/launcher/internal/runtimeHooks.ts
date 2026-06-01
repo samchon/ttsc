@@ -288,8 +288,25 @@ function isTypeScriptSource(filename: string): boolean {
   );
 }
 
+/**
+ * True when `filename` lives inside a real `node_modules` package. A
+ * `node_modules/.cache` segment does not count: `ttsx` mirrors the project into
+ * `<root>/node_modules/.cache/ttsc/ttsx/.../fs/...`, so the user's own sources
+ * appear under that cache prefix at runtime. Treating them as dependencies
+ * would type-strip a project file (which `stripTypeScriptTypes` cannot do as
+ * faithfully as the compile gate, e.g. it cannot elide type-only imports) and
+ * steal it from a host loader. A genuine dependency still has a deeper
+ * `node_modules/<pkg>` segment, so it is detected; `.cache` (never a package
+ * name) is the only thing skipped.
+ */
 function isUnderNodeModules(filename: string): boolean {
-  return filename.split(path.sep).includes("node_modules");
+  const segments = filename.split(path.sep);
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    if (segments[i] === "node_modules" && segments[i + 1] !== ".cache") {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isFile(candidate: string): boolean {
