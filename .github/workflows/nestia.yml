@@ -17,12 +17,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  Ubuntu:
+  # Pack the current-platform ttsc tarballs once and share them with every
+  # matrix job below, instead of rebuilding them six times.
+  tarballs:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     env:
       # Only build + pack the current platform (ttsc-linux-x64) — nestia's
-      # overrides below pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
+      # overrides pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
       # cross-platform matrix takes ~20 min for tarballs we never consume.
       TTSC_TARBALLS_CURRENT: "1"
     steps:
@@ -50,6 +51,58 @@ jobs:
 
       - name: Build ttsc tarballs (current platform only)
         run: pnpm package:tgz
+
+      - name: Upload tarballs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttsc-tarballs
+          path: experimental/tarballs/*.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  # Mirror nestia (next)'s own test.yml matrix so each suite runs in parallel,
+  # but against the local ttsc tarballs instead of the published release.
+  nestia:
+    needs: tarballs
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: go, run: "pnpm test:go" }
+          - { name: sdk, run: "pnpm --filter ./tests/test-sdk start" }
+          - { name: migrate, run: "pnpm --filter ./tests/test-migrate start" }
+          - {
+              name: transform-options,
+              run: "pnpm --filter ./tests/test-transform-options start",
+            }
+          - { name: e2e, run: "pnpm --filter ./tests/test-e2e start" }
+          - { name: benchmark, run: "pnpm --filter ./tests/test-benchmark start" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - name: Download ttsc tarballs
+        uses: actions/download-artifact@v4
+        with:
+          name: ttsc-tarballs
+          path: experimental/tarballs
 
       - name: Clone nestia next
         run: |
@@ -79,13 +132,23 @@ jobs:
           fs.writeFileSync(file, merged);
           '
 
-      - name: Test nestia next
+      - name: Install nestia dependencies
+        working-directory: experimental/nestia
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Use System Go For Source Plugin Build
+        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
+
+      - name: Build nestia
         working-directory: experimental/nestia
         env:
-          # nestia's run-with-ttsc-env.cjs resolves the Go toolchain installed
-          # by setup-go above; --no-experimental-detect-module mirrors nestia's
-          # own test.yml so ESM/CJS detection stays off during the e2e run.
+          # Mirror nestia's own test.yml: keep Node's native TS strip / module
+          # detection off so the e2e run matches nestia's CI environment.
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm run test
+        run: pnpm build
+
+      - name: Run ${{ matrix.name }}
+        working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+        run: ${{ matrix.run }}
