@@ -3,11 +3,9 @@
  * Merge per-(project, branch) partial benchmark reports into
  * `website/public/benchmark.json`.
  *
- * Used by `.github/workflows/benchmark.yml` after the `measure` matrix
- * finishes. Each matrix job uploads its `experimental/benchmark/.work/
- * report.json` as a `bench-<project>-<branch>` artifact; the publish job
- * downloads them all into one directory (each artifact is its own subdir)
- * and invokes this script:
+ * Used after collecting partial `experimental/benchmark/.work/report.json`
+ * files into one directory. Each partial may live directly in that directory
+ * or in its own subdirectory before this script is invoked:
  *
  *   node merge-website.mjs <partials-dir> <website-json>
  *
@@ -26,7 +24,7 @@
  *   partials (no measurements anywhere) cannot rotate the host block and
  *   therefore cannot trigger a noisy "host metadata changed" commit.
  * - Partials missing a `report.json` are skipped with a warning so a single
- *   failed matrix job doesn't break the publish job.
+ *   failed partial does not break the merge.
  */
 
 import fs from "node:fs";
