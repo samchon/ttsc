@@ -204,9 +204,18 @@ function moduleFormat(filename: string, source: string): string {
   return hasEsmSyntax(source) ? "module" : "commonjs";
 }
 
-/** True when `source` carries a top-level `import`/`export` statement. */
+/**
+ * True when `source` carries unambiguous ESM syntax: a top-level
+ * `import`/`export` statement, or an `import.meta` reference (which is a syntax
+ * error outside a module). Mirrors the markers Node's own detection keys on.
+ * `stripTypeScriptTypes` has already removed comments, so a keyword inside a
+ * stripped comment cannot produce a false positive.
+ */
 function hasEsmSyntax(source: string): boolean {
-  return /(?:^|[\n;])\s*(?:import|export)\b/.test(source);
+  return (
+    /(?:^|[\n;])\s*(?:import|export)\b/.test(source) ||
+    /\bimport\s*\.\s*meta\b/.test(source)
+  );
 }
 
 /** Package-type cache keyed by directory, mirroring Node's own lookup walk. */
@@ -260,7 +269,12 @@ function readPackageType(directory: string): "module" | "commonjs" | null {
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
-  return specifier.startsWith("./") || specifier.startsWith("../");
+  return (
+    specifier === "." ||
+    specifier === ".." ||
+    specifier.startsWith("./") ||
+    specifier.startsWith("../")
+  );
 }
 
 /** True when `specifier` already carries an extension Node can load directly. */
