@@ -1,14 +1,16 @@
-import { register } from "node:module";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { registerHooks } from "node:module";
+
+import { resolve } from "./runtimeHooks.js";
 
 /**
- * `--import` entry point that installs `ttsx`'s runtime module hooks in the
- * child process. Run before the compiled entry so the `resolve`/`load` hooks in
- * `runtimeHooks` are active for the whole dependency graph.
+ * `--import` entry point that installs `ttsx`'s runtime module hook before the
+ * compiled entry runs.
  *
- * Kept as a dedicated, dependency-free module: it must load in the child's
- * plain Node runtime (not ttsc's), so it pulls in nothing beyond Node builtins
- * and the sibling hooks file.
+ * Uses the synchronous, in-thread `registerHooks` rather than the asynchronous
+ * `register`: `registerHooks` customizes BOTH `import` and `require`, while
+ * `register` only reaches the ESM loader. A dependency's `.ts` pulled in
+ * through `require` — the normal path for a CommonJS-emitted entry and its
+ * graph — must be redirected to tsgo's emit exactly like one reached through
+ * `import`.
  */
-register(pathToFileURL(path.join(__dirname, "runtimeHooks.js")).href);
+registerHooks({ resolve });

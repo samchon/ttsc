@@ -218,10 +218,10 @@ function printHelp(): void {
  * Node flags that install ttsx's runtime module hooks in the child process.
  * `--import` loads the registrar before the compiled entry, giving the
  * `resolve`/`load` hooks whole-graph reach (extensionless relative imports and
- * raw `.ts` dependencies under `node_modules`) without weakening the up-front
- * compile gate. `--disable-warning` silences the `ExperimentalWarning` that the
- * `load` hook's internal `stripTypeScriptTypes` call would otherwise print, the
- * same flag this repository's own TypeScript runner uses.
+ * raw `.ts` dependencies, whether reached through `import` or `require`)
+ * without weakening the up-front compile gate. `--disable-warning` silences the
+ * `ExperimentalWarning` that `registerHooks` would otherwise print, the same
+ * flag this repository's own TypeScript runner uses.
  */
 function runtimeHookArgs(): string[] {
   const registrar = path.join(__dirname, "registerRuntimeHooks.js");
@@ -277,7 +277,10 @@ function runPreparedEntry(
     const result = spawnSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      env: process.env,
+      // The runtime hook tells the entry project's own mirrored sources apart
+      // from dependencies by this exact mirror root, rather than guessing from
+      // the path (which a custom `--cache-dir` would defeat).
+      env: { ...process.env, TTSC_TTSX_PROJECT_MIRROR: execution.cleanupDir },
       windowsHide: true,
     });
     if (result.error) {
