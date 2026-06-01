@@ -72,6 +72,7 @@ jobs:
             "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
           ].join("\n");
           const text = fs.readFileSync(file, "utf8");
+          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
           const merged = /^overrides:[ \t]*$/m.test(text)
             ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
             : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";

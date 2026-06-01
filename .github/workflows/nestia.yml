@@ -59,12 +59,25 @@ jobs:
       - name: Use local ttsc tarballs
         working-directory: experimental/nestia
         run: |
-          cat >> pnpm-workspace.yaml <<'YAML'
-
-          overrides:
-            ttsc: file:../tarballs/ttsc.tgz
-            '@ttsc/linux-x64': file:../tarballs/ttsc-linux-x64.tgz
-          YAML
+          # nestia (next) resolves ttsc through a catalog and may grow its own
+          # top-level `overrides:` block, in which case appending a second one
+          # makes pnpm fail with a duplicated-mapping-key YAML error (see the
+          # typia workflow). Merge the local-tarball overrides into the existing
+          # block instead, creating it only when absent, and no-op on re-run.
+          node -e '
+          const fs = require("fs");
+          const file = "pnpm-workspace.yaml";
+          const text = fs.readFileSync(file, "utf8");
+          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
+          const entries = [
+            "  ttsc: file:../tarballs/ttsc.tgz",
+            "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
+          ].join("\n");
+          const merged = /^overrides:[ \t]*$/m.test(text)
+            ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
+            : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
+          fs.writeFileSync(file, merged);
+          '
 
       - name: Test nestia next
         working-directory: experimental/nestia
