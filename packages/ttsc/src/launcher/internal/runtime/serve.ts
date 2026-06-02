@@ -1,11 +1,12 @@
 import fs from "node:fs";
 
-import { resolveEmittedJavaScript } from "../../../compiler/internal/resolveEmittedJavaScript";
+import { resolveExactEmittedJavaScript } from "../../../compiler/internal/resolveEmittedJavaScript";
 import { classifyExisting } from "./classify";
 import { resolveDependencyJavaScript } from "./dependencyCompiler";
 import { compileLooseEntry } from "./looseCompiler";
 import { detectModuleFormat } from "./moduleSyntax";
 import type { RuntimeEnv } from "./runtimeEnv";
+import { restoreSourceImportBindings } from "./sourceBindings";
 
 /** A TypeScript source's compiled bytes and the format Node should load them as. */
 export interface ServedModule {
@@ -31,7 +32,16 @@ export function serveTypeScript(
   }
   const jsFile = compiledJavaScript(classified, runtime);
   const code = fs.readFileSync(jsFile, "utf8");
-  return { code, format: detectModuleFormat(source, code) };
+  const format = detectModuleFormat(source, code);
+  // CommonJS output can keep a source identifier a transform left behind after
+  // tsgo rewrote the import to a `require()` alias; reconnect those bindings.
+  return {
+    code:
+      format === "commonjs"
+        ? restoreSourceImportBindings(fs.readFileSync(source, "utf8"), code)
+        : code,
+    format,
+  };
 }
 
 function compiledJavaScript(
@@ -45,7 +55,11 @@ function compiledJavaScript(
       classified.packageRoot,
     );
   }
-  const emitted = resolveEmittedJavaScript({
+  // Exact layout mirror only: a gate emit absent here means the source was
+  // never emitted (generated at runtime, or outside the static include), so it
+  // must be loose-compiled — not fuzzy-matched to an unrelated emitted file
+  // that merely shares a basename.
+  const emitted = resolveExactEmittedJavaScript({
     outDir: runtime.entryEmitDir,
     projectRoot: runtime.entrySourceRoot,
     sourceFile: classified.source,

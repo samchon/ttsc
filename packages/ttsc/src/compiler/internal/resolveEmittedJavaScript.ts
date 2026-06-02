@@ -49,6 +49,25 @@ export function resolveEmittedJavaScript(options: {
 }
 
 /**
+ * Locate the JavaScript file emitted for a source by exact layout mirroring
+ * only, never the fuzzy stem-scoring fallback. Returns `null` when the mirrored
+ * path is not on disk. Use this when a missing result must mean "not emitted"
+ * (so the caller can compile on demand) rather than "closest match wins".
+ */
+export function resolveExactEmittedJavaScript(options: {
+  outDir: string;
+  projectRoot: string;
+  sourceFile: string;
+}): string | null {
+  const exact = resolveExactEmittedFile(
+    options.outDir,
+    options.projectRoot,
+    options.sourceFile,
+  );
+  return exact !== null && fs.existsSync(exact) ? exact : null;
+}
+
+/**
  * Derive the exact output path for `sourceFile` by mirroring its position
  * relative to `projectRoot` into `outDir`. Returns `null` when the source is
  * not inside the project root or when the path cannot be determined.
