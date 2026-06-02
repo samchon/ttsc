@@ -53,6 +53,7 @@ export const test_ttsx_handles_concurrent_first_builds_of_a_raw_ts_dependency_ca
         include: ["src"],
       }),
       "src/main.ts":
+        `declare const process: { argv: string[] };\n` +
         `import { value } from "race-dep";\n` +
         `console.log(\`\${process.argv[2]}:\${value()}\`);\n`,
     };
