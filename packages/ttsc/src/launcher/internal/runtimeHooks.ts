@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import type { ResolveHookSync } from "node:module";
 import path from "node:path";
@@ -63,11 +64,17 @@ export const resolve: ResolveHookSync = (specifier, context, nextResolve) => {
     result = { shortCircuit: true, url: rescued };
   }
   const emitted = emittedJavaScriptUrl(result.url);
-  // Drop the resolved `.ts` source's `format` (e.g. `module-typescript`): the
-  // redirect points at emitted JavaScript, and carrying the TypeScript format
-  // would make Node try to type-strip a `.js`. Letting `format` go undefined
-  // has Node detect it from the file and the nearest `package.json`.
-  return emitted === null ? result : { shortCircuit: true, url: emitted };
+  if (emitted === null) {
+    return result;
+  }
+  // Keep every field the resolver produced (e.g. `importAttributes`), only
+  // dropping the resolved `.ts` source's `format` (e.g. `module-typescript`):
+  // the redirect points at emitted JavaScript, and carrying the TypeScript
+  // format would make Node try to type-strip a `.js`. With `format` gone Node
+  // detects it from the file and the nearest `package.json`.
+  const redirected = { ...result, shortCircuit: true, url: emitted };
+  delete (redirected as { format?: unknown }).format;
+  return redirected;
 };
 
 /**
@@ -92,11 +99,19 @@ function emittedJavaScriptUrl(url: string | undefined): string | null {
 /**
  * The entry project's own sources are mirrored beside the compile gate's emit,
  * so the JavaScript for a mirrored `.ts` is the `.js` of the same stem in the
- * same directory.
+ * same directory. A mirrored source with no `.js` beside it was loaded at
+ * runtime but never emitted by the gate — surface that instead of letting Node
+ * fail trying to load the raw `.ts`.
  */
-function gateEmittedSibling(file: string): string | null {
+function gateEmittedSibling(file: string): string {
   const js = withJsExtension(file);
-  return isFile(js) ? js : null;
+  if (!isFile(js)) {
+    throw new Error(
+      `ttsx: ${file} was loaded at runtime but the compile gate emitted no ` +
+        `JavaScript for it (is it included in the entry project's build?)`,
+    );
+  }
+  return js;
 }
 
 /** A package's tsgo build outputs, keyed by its package root. */
@@ -255,7 +270,7 @@ function ownProjectConfig(
   } catch {
     return null;
   }
-  if (path.resolve(project.root) !== path.resolve(packageRoot)) {
+  if (!samePath(project.root, packageRoot)) {
     return null;
   }
   return { emitBase: emitBaseDirectory(project), tsconfig: project.path };
@@ -263,19 +278,31 @@ function ownProjectConfig(
 
 /**
  * A string that changes whenever the cache must be rebuilt: the ttsc version
- * (emit logic), the tsconfig path, and the newest mtime among the package's
- * `.ts` sources and that tsconfig. A completed cache stores this; a later run
- * reuses the cache only on an exact match.
+ * (emit logic), the tsconfig, and the package's full set of `.ts` sources with
+ * their mtimes. Hashing the whole sorted set — not just the newest mtime —
+ * means a deleted or renamed source invalidates the cache too, not only an
+ * edited one. A completed cache stores this; a later run reuses the cache only
+ * on an exact match.
  */
 function freshnessStamp(packageRoot: string, tsconfig: string): string {
-  let newest = statMtimeMs(tsconfig);
-  for (const source of typeScriptSources(packageRoot)) {
-    const mtime = statMtimeMs(source);
-    if (mtime > newest) {
-      newest = mtime;
-    }
+  const digest = createHash("sha1");
+  digest.update(`${path.resolve(tsconfig)}\0${statMtimeMs(tsconfig)}`);
+  for (const source of typeScriptSources(packageRoot).sort()) {
+    digest.update(`\0${source}\0${statMtimeMs(source)}`);
   }
-  return JSON.stringify({ version: ttscVersion(), tsconfig, newest });
+  return JSON.stringify({
+    version: ttscVersion(),
+    digest: digest.digest("hex"),
+  });
+}
+
+/** Same filesystem path, case-insensitively on case-insensitive platforms. */
+function samePath(a: string, b: string): boolean {
+  const ra = path.resolve(a);
+  const rb = path.resolve(b);
+  return process.platform === "win32"
+    ? ra.toLowerCase() === rb.toLowerCase()
+    : ra === rb;
 }
 
 /** Read a cache's freshness stamp, or `null` when it is absent or unreadable. */
@@ -465,9 +492,8 @@ function isTypeScriptSource(filename: string): boolean {
   if (/\.d\.[cm]?ts$/i.test(filename)) {
     return false;
   }
-  return TYPESCRIPT_EXTENSIONS.some((extension) =>
-    filename.endsWith(extension),
-  );
+  const lower = filename.toLowerCase();
+  return TYPESCRIPT_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
 /** Replace a TypeScript extension with its JavaScript counterpart. */
