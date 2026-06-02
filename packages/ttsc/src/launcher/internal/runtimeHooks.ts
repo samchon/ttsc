@@ -134,8 +134,8 @@ export function installCommonJsHooks(): void {
   };
   for (const extension of TYPESCRIPT_EXTENSIONS) {
     internal._extensions[extension] = (module, filename) => {
-      const compiled = compiledJavaScriptFor(realpathIfExists(filename));
-      module._compile(fs.readFileSync(compiled, "utf8"), filename);
+      const runtime = runtimeJavaScriptForSource(filename);
+      module._compile(runtime.source, filename);
     };
   }
 }
@@ -208,10 +208,267 @@ export const load: LoadHookSync = (url, context, nextLoad) => {
   if (!isTypeScriptSource(file)) {
     return nextLoad(url, context);
   }
-  const compiled = compiledJavaScriptFor(realpathIfExists(file));
-  const source = fs.readFileSync(compiled, "utf8");
-  return { format: moduleFormat(file, source), shortCircuit: true, source };
+  const runtime = runtimeJavaScriptForSource(file);
+  return {
+    format: runtime.format,
+    shortCircuit: true,
+    source: runtime.source,
+  };
 };
+
+interface RuntimeJavaScript {
+  readonly format: "module" | "commonjs";
+  readonly source: string;
+}
+
+function runtimeJavaScriptForSource(sourceFile: string): RuntimeJavaScript {
+  const realSourceFile = realpathIfExists(sourceFile);
+  const compiled = compiledJavaScriptFor(realSourceFile);
+  const source = fs.readFileSync(compiled, "utf8");
+  const format = moduleFormat(sourceFile, source);
+  return {
+    format,
+    source:
+      format === "commonjs"
+        ? restoreCommonJsImportBindings(realSourceFile, source)
+        : source,
+  };
+}
+
+interface CommonJsImportBinding {
+  readonly imported: string;
+  readonly local: string;
+  readonly specifier: string;
+}
+
+interface CommonJsRequireBinding {
+  readonly alias: string;
+  readonly end: number;
+}
+
+const IDENTIFIER_SOURCE = "[A-Za-z_$][A-Za-z0-9_$]*";
+
+/**
+ * Native transforms can preserve source-local identifiers after tsgo has
+ * rewritten the matching import into a CommonJS `require()` alias. Restore only
+ * locals that are backed by a real emitted require and are not already declared
+ * by the plugin output itself.
+ */
+function restoreCommonJsImportBindings(
+  sourceFile: string,
+  output: string,
+): string {
+  const bindings = restorableCommonJsImportBindings(sourceFile);
+  if (bindings.length === 0) {
+    return output;
+  }
+  const insertions = new Map<number, string[]>();
+  const restoredLocals = new Set<string>();
+  const syntax = javaScriptSyntaxView(output);
+  for (const binding of bindings) {
+    if (
+      restoredLocals.has(binding.local) ||
+      hasLocalBinding(syntax, binding.local)
+    ) {
+      continue;
+    }
+    const required = commonJsRequireBinding(output, binding.specifier);
+    if (required === null) {
+      continue;
+    }
+    const line = `\nconst ${binding.local} = ${required.alias}.${binding.imported};`;
+    insertions.set(required.end, [
+      ...(insertions.get(required.end) ?? []),
+      line,
+    ]);
+    restoredLocals.add(binding.local);
+  }
+  let restored = output;
+  for (const [index, lines] of [...insertions].sort((a, b) => b[0] - a[0])) {
+    restored =
+      restored.slice(0, index) + lines.join("") + restored.slice(index);
+  }
+  return restored;
+}
+
+function restorableCommonJsImportBindings(
+  sourceFile: string,
+): CommonJsImportBinding[] {
+  const source = readFileOrNull(sourceFile);
+  if (source === null) {
+    return [];
+  }
+  const syntax = javaScriptSyntaxView(source);
+  const bindings: CommonJsImportBinding[] = [];
+  const namedImport = new RegExp(
+    String.raw`^\s*import\s+(?!type\b)(?:(${IDENTIFIER_SOURCE})\s*,\s*)?\{([^}]*)\}\s*from\s*(['"])([^'"]+)\3\s*;?`,
+    "gm",
+  );
+  for (const match of source.matchAll(namedImport)) {
+    if (!isExecutableImportMatch(syntax, match)) {
+      continue;
+    }
+    const defaultLocal = match[1];
+    const namedClause = match[2];
+    const specifier = match[4];
+    if (specifier === undefined) {
+      continue;
+    }
+    if (defaultLocal !== undefined) {
+      bindings.push({ imported: "default", local: defaultLocal, specifier });
+    }
+    if (namedClause === undefined) {
+      continue;
+    }
+    bindings.push(...namedImportBindings(namedClause, specifier));
+  }
+
+  const defaultImport = new RegExp(
+    String.raw`^\s*import\s+(?!type\b)(${IDENTIFIER_SOURCE})\s+from\s*(['"])([^'"]+)\2\s*;?`,
+    "gm",
+  );
+  for (const match of source.matchAll(defaultImport)) {
+    if (!isExecutableImportMatch(syntax, match)) {
+      continue;
+    }
+    const local = match[1];
+    const specifier = match[3];
+    if (local !== undefined && specifier !== undefined) {
+      bindings.push({ imported: "default", local, specifier });
+    }
+  }
+
+  const defaultNamespaceImport = new RegExp(
+    String.raw`^\s*import\s+(?!type\b)(${IDENTIFIER_SOURCE})\s*,\s*\*\s+as\s+${IDENTIFIER_SOURCE}\s+from\s*(['"])([^'"]+)\2\s*;?`,
+    "gm",
+  );
+  for (const match of source.matchAll(defaultNamespaceImport)) {
+    if (!isExecutableImportMatch(syntax, match)) {
+      continue;
+    }
+    const local = match[1];
+    const specifier = match[3];
+    if (local !== undefined && specifier !== undefined) {
+      bindings.push({ imported: "default", local, specifier });
+    }
+  }
+  return bindings;
+}
+
+function isExecutableImportMatch(
+  syntax: string,
+  match: RegExpMatchArray,
+): boolean {
+  if (match.index === undefined) {
+    return false;
+  }
+  return /^\s*import\b/.test(
+    syntax.slice(match.index, match.index + match[0].length),
+  );
+}
+
+function namedImportBindings(
+  namedClause: string,
+  specifier: string,
+): CommonJsImportBinding[] {
+  const bindings: CommonJsImportBinding[] = [];
+  for (const raw of namedClause.split(",")) {
+    const item = raw.trim();
+    if (item === "" || item.startsWith("type ")) {
+      continue;
+    }
+    const match = new RegExp(
+      String.raw`^(${IDENTIFIER_SOURCE})(?:\s+as\s+(${IDENTIFIER_SOURCE}))?$`,
+    ).exec(item);
+    if (match === null) {
+      continue;
+    }
+    const imported = match[1];
+    const local = match[2] ?? imported;
+    if (imported !== undefined && local !== undefined) {
+      bindings.push({ imported, local, specifier });
+    }
+  }
+  return bindings;
+}
+
+function commonJsRequireBinding(
+  output: string,
+  specifier: string,
+): CommonJsRequireBinding | null {
+  for (const candidate of commonJsRequireSpecifierCandidates(specifier)) {
+    const binding = commonJsRequireBindingForSpecifier(output, candidate);
+    if (binding !== null) {
+      return binding;
+    }
+  }
+  return null;
+}
+
+function commonJsRequireBindingForSpecifier(
+  output: string,
+  specifier: string,
+): CommonJsRequireBinding | null {
+  const syntax = javaScriptSyntaxView(output);
+  const requireBinding = new RegExp(
+    String.raw`^\s*(?:const|let|var)\s+(${IDENTIFIER_SOURCE})\s*=\s*(?:${IDENTIFIER_SOURCE}\(\s*)?require\(\s*["']${escapeRegExp(specifier)}["']\s*\)(?:\s*\))?\s*;?`,
+    "gm",
+  );
+  for (const match of output.matchAll(requireBinding)) {
+    if (!isExecutableRequireMatch(syntax, match)) {
+      continue;
+    }
+    const alias = match[1];
+    if (alias !== undefined && match.index !== undefined) {
+      return { alias, end: match.index + match[0].length };
+    }
+  }
+  return null;
+}
+
+function commonJsRequireSpecifierCandidates(specifier: string): string[] {
+  const candidates = [specifier];
+  const [pathPart, suffix] = splitSpecifierSuffix(specifier);
+  const lower = pathPart.toLowerCase();
+  if (lower.endsWith(".mts")) {
+    candidates.push(pathPart.slice(0, -4) + ".mjs" + suffix);
+  } else if (lower.endsWith(".cts")) {
+    candidates.push(pathPart.slice(0, -4) + ".cjs" + suffix);
+  } else if (lower.endsWith(".tsx")) {
+    candidates.push(pathPart.slice(0, -4) + ".js" + suffix);
+  } else if (lower.endsWith(".ts")) {
+    candidates.push(pathPart.slice(0, -3) + ".js" + suffix);
+  }
+  return [...new Set(candidates)];
+}
+
+function isExecutableRequireMatch(
+  syntax: string,
+  match: RegExpMatchArray,
+): boolean {
+  if (match.index === undefined) {
+    return false;
+  }
+  return /^\s*(?:const|let|var)\b/.test(
+    syntax.slice(match.index, match.index + match[0].length),
+  );
+}
+
+function hasLocalBinding(syntax: string, local: string): boolean {
+  const escaped = escapeRegExp(local);
+  return (
+    new RegExp(
+      String.raw`\b(?:const|let|var|function|class)\s+${escaped}\b`,
+    ).test(syntax) ||
+    new RegExp(String.raw`\b(?:const|let|var)\s*\{[^}]*\b${escaped}\b`).test(
+      syntax,
+    )
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /**
  * The compiled JavaScript tsgo emitted for a `.ts` source.
