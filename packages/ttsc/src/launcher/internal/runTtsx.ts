@@ -15,8 +15,8 @@ import { resolveCacheDir } from "./resolveCacheDir";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
- * JavaScript to a PID-isolated temp directory, rewrites ESM specifiers when
- * needed, and executes the compiled entry with the current Node.js runtime.
+ * JavaScript to a PID-isolated temp directory, installs runtime hooks, and then
+ * executes the entry from its source path with the current Node.js runtime.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  * @returns The child-process exit code, or `2` on a ttsx-level error.

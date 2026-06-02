@@ -719,7 +719,10 @@ function addAutoDiscoveredPluginInputs(
       continue;
     }
     const pluginRoot = path.dirname(packageJson);
-    const transform = resolvePluginTransformFile(plugin.transform, packageRoot);
+    const transform = resolvePluginTransformFile(
+      plugin.transform,
+      isRelativeSpecifier(plugin.transform) ? pluginRoot : packageRoot,
+    );
     if (transform !== null) {
       addBuildInput(out, transform);
     }
