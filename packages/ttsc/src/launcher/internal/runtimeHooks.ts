@@ -186,11 +186,25 @@ function sourceTypeScriptForRequest(
 }
 
 function sourceTypeScriptForAbsoluteJavaScript(request: string): string | null {
-  const [pathPart] = splitSpecifierSuffix(request);
-  if (!path.isAbsolute(pathPart) || isFile(pathPart)) {
+  return absoluteJavaScriptSourceCounterpart(request);
+}
+
+function sourceSpecifierFromAbsoluteJavaScript(
+  specifier: string,
+): string | null {
+  const source = absoluteJavaScriptSourceCounterpart(specifier);
+  return source === null ? null : pathToFileURL(source).href;
+}
+
+function absoluteJavaScriptSourceCounterpart(specifier: string): string | null {
+  const [pathPart] = splitSpecifierSuffix(specifier);
+  const target = pathPart.startsWith("file:")
+    ? fileFromFileUrl(pathPart)
+    : pathPart;
+  if (!path.isAbsolute(target) || isFile(target)) {
     return null;
   }
-  for (const candidate of typeScriptCounterparts(pathPart)) {
+  for (const candidate of typeScriptCounterparts(target)) {
     if (isFile(candidate)) {
       return candidate;
     }
@@ -1349,6 +1363,10 @@ function rescueSourceSpecifier(
   specifier: string,
   parentURL: string | undefined,
 ): string | null {
+  const absolute = sourceSpecifierFromAbsoluteJavaScript(specifier);
+  if (absolute !== null) {
+    return absolute;
+  }
   if (!isRelativeSpecifier(specifier)) {
     return null;
   }
