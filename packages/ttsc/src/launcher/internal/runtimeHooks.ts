@@ -76,6 +76,14 @@ const pluginNativeInputCache = new Map<string, readonly string[]>();
  * `ERR_MODULE_NOT_FOUND` when nothing matches.
  */
 export const resolve: ResolveHookSync = (specifier, context, nextResolve) => {
+  const sourceMatch = sourceSpecifierFromTypeScriptParent(
+    specifier,
+    context.parentURL,
+  );
+  if (sourceMatch !== null) {
+    return { shortCircuit: true, url: sourceMatch };
+  }
+
   let result;
   try {
     result = nextResolve(specifier, context);
@@ -114,13 +122,13 @@ export function installCommonJsHooks(): void {
   const internal = Module as unknown as NodeCommonJsModule;
   const resolveFilename = internal._resolveFilename;
   internal._resolveFilename = function (request, parent, isMain, options) {
+    const mapped = sourceTypeScriptForRequest(request, parent);
+    if (mapped !== null) {
+      return mapped;
+    }
     try {
       return resolveFilename.call(this, request, parent, isMain, options);
     } catch (error) {
-      const mapped = sourceTypeScriptForRequest(request, parent);
-      if (mapped !== null) {
-        return mapped;
-      }
       throw error;
     }
   };
@@ -162,12 +170,29 @@ function sourceTypeScriptForRequest(
     return null;
   }
   const parentFile = (parent as { filename?: unknown } | null)?.filename;
-  if (typeof parentFile !== "string") {
+  if (typeof parentFile !== "string" || !isTypeScriptSource(parentFile)) {
     return null;
   }
   const [pathPart] = splitSpecifierSuffix(request);
   const resolved = resolveSourcePathPart(pathPart, path.dirname(parentFile));
   return resolved === null ? null : fileFromFileUrl(resolved);
+}
+
+function sourceSpecifierFromTypeScriptParent(
+  specifier: string,
+  parentURL: string | undefined,
+): string | null {
+  if (
+    parentURL === undefined ||
+    !isTypeScriptUrl(parentURL) ||
+    !isRelativeSpecifier(specifier)
+  ) {
+    return null;
+  }
+  const parentDir = path.dirname(fileFromFileUrl(parentURL));
+  const [pathPart, suffix] = splitSpecifierSuffix(specifier);
+  const resolved = resolveSourcePathPart(pathPart, parentDir);
+  return resolved === null ? null : resolved + suffix;
 }
 
 /**
