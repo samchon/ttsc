@@ -59,7 +59,8 @@ export const resolve: ResolveHookSync = (specifier, context, nextResolve) => {
   } catch (error) {
     const rescued =
       probeRelativeSpecifier(specifier, context.parentURL) ??
-      probeRedirectedTypeScriptSpecifier(specifier, context.parentURL);
+      probeRedirectedTypeScriptSpecifier(specifier, context.parentURL) ??
+      probeDependencyAsset(specifier, context.parentURL);
     if (rescued === null) {
       throw error;
     }
@@ -583,6 +584,53 @@ function probeRedirectedTypeScriptSpecifier(
   const parentDir = path.dirname(fileURLToPath(parentURL));
   const candidate = withJsExtension(path.resolve(parentDir, specifier));
   return isFile(candidate) ? pathToFileURL(candidate).href : null;
+}
+
+/**
+ * Rescue a relative import of a non-TypeScript asset (a co-located
+ * `./data.json`, `./addon.node`, ...) made from a module that lives in a
+ * dependency emit cache.
+ *
+ * Tsgo emits a package's `.ts` sources as `.js` into the per-package cache but
+ * never copies the non-TS assets those sources import; the emitted module's
+ * `import "./data.json"` then resolves beside itself in the cache, where the
+ * asset is absent. Map the specifier back onto the dependency's SOURCE tree —
+ * the cache mirrors `emitBase` under `outDir`, so the asset sits at the same
+ * relative position under `emitBase`. Gated on existence so a genuinely missing
+ * asset still surfaces `ERR_MODULE_NOT_FOUND`. TypeScript sources are left to
+ * the emit redirect; only assets tsgo does not itself emit are rescued here.
+ */
+function probeDependencyAsset(
+  specifier: string,
+  parentURL: string | undefined,
+): string | null {
+  if (!isRelativeSpecifier(specifier)) {
+    return null;
+  }
+  if (parentURL === undefined || !parentURL.startsWith("file:")) {
+    return null;
+  }
+  if (isTypeScriptSource(specifier)) {
+    return null;
+  }
+  const parent = realpathIfExists(fileURLToPath(parentURL));
+  const target = path.resolve(path.dirname(parent), specifier);
+  for (const { outDir, emitBase } of builtProjects.values()) {
+    const relative = path.relative(outDir, parent);
+    if (relative === "" || isOutsideRelativePath(relative)) {
+      continue;
+    }
+    const source = path.resolve(emitBase, path.relative(outDir, target));
+    if (isFile(source)) {
+      return pathToFileURL(source).href;
+    }
+  }
+  return null;
+}
+
+/** True when a `path.relative` result escapes its base (`..` or absolute). */
+function isOutsideRelativePath(relative: string): boolean {
+  return relative.startsWith("..") || path.isAbsolute(relative);
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
