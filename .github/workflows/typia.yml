@@ -89,5 +89,5 @@ jobs:
           # itself once ttsx preserves source identity and the schema tests are
           # actually discovered. Keep the rest of the latest schema suite in CI
           # while upstream typia fixes that specific LLM application case.
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-schema start -- --exclude=llm_application_qualified_param
+          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-schema exec ttsx src/index.ts --exclude llm_application_qualified_param
           pnpm run test:toolchain
