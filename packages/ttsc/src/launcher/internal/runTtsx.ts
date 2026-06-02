@@ -215,21 +215,23 @@ function printHelp(): void {
 }
 
 /**
- * Node flags that install ttsx's runtime module hook in the child process.
- * `--import` loads the registrar before the compiled entry, giving the
- * `resolve` hook whole-graph reach (extensionless relative imports and raw
- * `.ts` dependencies, whether reached through `import` or `require`) without
- * weakening the up-front compile gate. `--disable-warning` silences the
- * `ExperimentalWarning` that `registerHooks` would otherwise print, the same
- * flag this repository's own TypeScript runner uses.
+ * The `NODE_OPTIONS` fragment that installs ttsx's runtime module hooks.
+ *
+ * `--import` loads the registrar before the entry, giving the `resolve`/`load`
+ * hooks whole-graph reach for raw `.ts` (through both `import` and `require`).
+ * It is carried in `NODE_OPTIONS` rather than as a direct CLI flag so that any
+ * Node SUBPROCESS the program spawns (a worker, a `fork`, a test runner)
+ * inherits the same hooks — without them a child would load the project's `.ts`
+ * through Node's native type-stripping, skipping the plugin transforms. The
+ * entry's own emit mapping (`TTSC_TTSX_ENTRY_EMIT_*`) is inherited the same
+ * way. `--disable-warning` silences the `ExperimentalWarning` `registerHooks`
+ * prints.
  */
-function runtimeHookArgs(): string[] {
-  const registrar = path.join(__dirname, "registerRuntimeHooks.js");
-  return [
-    "--disable-warning=ExperimentalWarning",
-    "--import",
-    pathToFileURL(registrar).href,
-  ];
+function runtimeNodeOptions(): string {
+  const registrar = pathToFileURL(
+    path.join(__dirname, "registerRuntimeHooks.js"),
+  ).href;
+  return `--disable-warning=ExperimentalWarning --import ${registrar}`;
 }
 
 function resolvePreload(cwd: string, preload: string): string {
@@ -257,7 +259,6 @@ function runPreparedEntry(
 ): number {
   try {
     const args = [
-      ...runtimeHookArgs(),
       ...parsed.preload.flatMap((preload) => [
         "-r",
         resolvePreload(cwd, preload),
@@ -270,11 +271,13 @@ function runPreparedEntry(
     const result = spawnSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      // The runtime `load` hook maps an entry-project source `.ts` to the
-      // JavaScript the gate emitted via these two paths (a dependency `.ts` is
-      // compiled and located on its own).
       env: {
         ...process.env,
+        // Install the hooks via NODE_OPTIONS so child processes inherit them,
+        // and tell the `load` hook where the gate emitted the entry project.
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, runtimeNodeOptions()]
+          .filter(Boolean)
+          .join(" "),
         TTSC_TTSX_ENTRY_EMIT_DIR: execution.emitDir,
         TTSC_TTSX_ENTRY_EMIT_BASE: execution.emitBase,
       },

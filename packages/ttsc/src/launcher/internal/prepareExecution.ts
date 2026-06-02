@@ -64,17 +64,46 @@ function createProjectContext(
     explicitCacheDir ??
     path.join(project.root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
+  const emitBase = resolveRuntimeSourceRoot(project, filename);
   return {
     tsconfig: project.path,
     root: project.root,
     cacheDir,
     processDir,
     pluginCacheDir: explicitCacheDir,
-    emitDir: path.join(processDir, "emit"),
-    emitBase: resolveRuntimeSourceRoot(project, filename),
+    // Lay the emit out under a path that mirrors `emitBase`'s absolute location,
+    // so a file the program pulls in from OUTSIDE `rootDir` (a source-consumed
+    // workspace package compiled as part of the gate's program) still emits at a
+    // navigable `emitDir/../<package>/...` path rather than escaping a flat
+    // output directory — which makes the transform host bail on the whole
+    // program. `resolveEmittedJavaScript` maps a source back through `emitBase`
+    // into this directory identically.
+    emitDir: mirroredEmitDir(processDir, emitBase),
+    emitBase,
     entryFile: path.resolve(filename),
     built: false,
   };
+}
+
+/**
+ * A directory under `processDir` whose tail mirrors `emitBase`'s absolute path
+ * (e.g. `<processDir>/fs/posix/home/me/app/src`), so emit relative to `rootDir`
+ * stays within a navigable tree even for inputs above `rootDir`.
+ */
+function mirroredEmitDir(processDir: string, emitBase: string): string {
+  const absolute = path.resolve(emitBase);
+  const parsed = path.parse(absolute);
+  const label =
+    parsed.root === path.sep
+      ? "posix"
+      : parsed.root.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") ||
+        "root";
+  return path.join(
+    processDir,
+    "fs",
+    label,
+    path.relative(parsed.root, absolute),
+  );
 }
 
 /**
