@@ -104,7 +104,7 @@ jobs:
         run: |
           pnpm install --no-frozen-lockfile
           node scripts/with-ttsc-cache.cjs pnpm --filter @typia/template build
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=./tests/test-* --filter=!./tests/test-typia-automated --filter=!./tests/test-typia-schema -r start
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-automated exec ttsx src/index.ts
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-schema exec ttsx src/index.ts
+          node scripts/with-ttsc-cache.cjs pnpm --filter=./tests/test-* --filter=!./tests/test-typia-automated --filter=!./tests/test-typia-schema -r start
+          node scripts/with-ttsc-cache.cjs pnpm --filter=@typia/test-typia-automated exec ttsx src/index.ts
+          node scripts/with-ttsc-cache.cjs pnpm --filter=@typia/test-typia-schema exec ttsx src/index.ts
           pnpm run test:toolchain
