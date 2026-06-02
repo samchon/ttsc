@@ -5,13 +5,11 @@ import assert from "node:assert/strict";
  * Verifies `ttsx` resolves a _computed_ dynamic `import()` of a `.ts` sibling
  * inside a raw-`.ts` dependency.
  *
- * Tsgo statically rewrites a literal `import "./x.ts"` to `"./x.js"`, but a
- * computed specifier — `import(`./plugins/${name}.ts`)` — is opaque to that
- * rewrite, so the `.ts` survives to runtime. The dependency's emitted parent
- * lives in the per-package cache whose siblings are `.js`, not `.ts`, so Node's
- * own resolution misses the raw `.ts`; the runtime hook must redirect it to the
- * emitted `.js` counterpart. A regression would crash with
- * `ERR_MODULE_NOT_FOUND` even though the emit exists.
+ * The dependency module keeps its source `.ts` identity, so a computed
+ * `import(`./plugins/${name}.ts`)` resolves beside the source — where
+ * `plugins/beta.ts` lives — and `load` serves its compiled JavaScript. The
+ * resolve hook must accept the concrete `.ts` specifier at the source rather
+ * than failing it; a regression would crash with `ERR_MODULE_NOT_FOUND`.
  *
  * 1. Install a `dyn-dep` whose `index.ts` computes `./plugins/${which}.ts` and
  *    dynamically imports it.

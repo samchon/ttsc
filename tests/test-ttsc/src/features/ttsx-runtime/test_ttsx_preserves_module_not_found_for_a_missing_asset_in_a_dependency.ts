@@ -2,14 +2,14 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies the dependency asset rescue still surfaces `ERR_MODULE_NOT_FOUND`
- * for an asset that genuinely does not exist.
+ * Verifies a dependency's import of a genuinely missing asset still surfaces
+ * `ERR_MODULE_NOT_FOUND`.
  *
- * The hook maps a dependency's failed relative asset import back onto its
- * source tree, but only when the mapped file exists; a missing asset must still
- * fail rather than resolve to nothing. A static missing import is caught at the
- * compile gate (`TS2307`), so a _computed_ dynamic import is used to reach the
- * runtime existence gate — the negative twin of the co-located-asset rescue.
+ * A dependency module keeps its source identity, so a co-located asset resolves
+ * at the source — but one that does not exist there must still fail, not
+ * resolve to nothing. A static missing import is caught at the compile gate
+ * (`TS2307`), so a _computed_ dynamic import is used to reach the runtime
+ * resolver — the negative twin of the co-located-asset case.
  *
  * 1. Install a `dyn-asset` whose `.ts` computes a missing `./ghost.json` and
  *    dynamically imports it.

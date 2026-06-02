@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import type { ResolveHookSync } from "node:module";
+import Module from "node:module";
+import type { LoadHookSync, ResolveHookSync } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -9,24 +10,29 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { runBuild } from "../../compiler/internal/runBuild";
 
 /**
- * Node.js module-customization hook `ttsx` installs (via `registerHooks`) in
+ * Node.js module-customization hooks `ttsx` installs (via `registerHooks`) in
  * the child process it spawns. `registerHooks` is synchronous and in-thread, so
- * it covers BOTH `import` and `require` across the whole graph.
+ * the hooks cover BOTH `import` and `require` across the whole graph.
  *
- * The runtime never re-transpiles TypeScript: every `.ts` a dependency exposes
- * is served as the JavaScript tsgo emits for it, so the same compiler — with
- * the same type-checking, plugin transforms, and `import` elision — produces
- * the code that runs.
+ * The runtime never re-transpiles TypeScript and never relocates a module's
+ * identity: every `.ts` keeps its own source path as its module URL, and the
+ * `load` hook serves the JavaScript tsgo emitted for it as that module's source
+ * — the same model `ts-node`/`tsx` use, but the bytes come from a real,
+ * type-checked, plugin-applied tsgo build instead of a per-file transpile.
  *
- * - The entry project's own sources are already emitted by the up-front compile
- *   gate (`prepareExecution`); the hook resolves each mirrored `.ts` to the
- *   `.js` sitting beside it.
- * - A workspace dependency consumed as raw `.ts` (realpath outside the entry's
- *   mirror) is compiled by tsgo through its OWN `tsconfig` — a full,
- *   type-checked build into a per-package cache — and the hook resolves its
- *   `.ts` sources to that emitted output. Node never sees raw `.ts`, so the
- *   strip-only limits (`node_modules`, `namespace`/`enum`, un-elided type-only
- *   imports) never bite.
+ * Because identity stays at the source, `import.meta.url`, `__dirname`, and
+ * relative `fs`/asset reads all point at the real source tree, exactly as if
+ * the code had been authored in JavaScript there.
+ *
+ * - `resolve` keeps a resolved `.ts` URL as-is and maps a sibling specifier the
+ *   compiler emitted (`./x.js`, or an extensionless `./x`) back to the source
+ *   `.ts`, so resolution lands on real source files.
+ * - `load` replaces a `.ts` source's bytes with its compiled JavaScript: the
+ *   entry project's own sources come from the up-front compile gate's emit; a
+ *   dependency consumed as raw `.ts` is compiled by tsgo through its own
+ *   `tsconfig` into a per-package cache. The returned `format` is always plain
+ *   `module`/`commonjs`, so Node never runs its native type-stripping (which
+ *   bans `.ts` under `node_modules`).
  */
 
 /** Source/JS extensions probed when an extensionless relative import fails. */
@@ -44,81 +50,179 @@ const RESOLVABLE_EXTENSIONS = [
 const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 
 /**
- * Resolve a specifier, then redirect any raw `.ts` it lands on to the
- * JavaScript tsgo emits for it.
+ * Keep a resolved TypeScript source at its own URL, and rescue a relative
+ * specifier the compiler emitted (or an extensionless one) by mapping it back
+ * onto the source tree.
  *
- * The default resolution runs first; on its failure an extensionless relative
- * specifier is rescued by probing candidate extensions (preserving
- * `ERR_MODULE_NOT_FOUND` for a genuinely missing module). Whatever URL results,
- * if it points at a `.ts` source it is replaced with the emitted `.js`.
+ * A successful resolution that lands on a `.ts` is returned with its TypeScript
+ * `format` dropped so the `load` hook decides the real module format. A failed
+ * resolution is retried against the source tree — `./x.js` → `./x.ts`, an
+ * extensionless `./x` → `./x.ts`/directory index — preserving
+ * `ERR_MODULE_NOT_FOUND` when nothing matches.
  */
 export const resolve: ResolveHookSync = (specifier, context, nextResolve) => {
   let result;
   try {
     result = nextResolve(specifier, context);
   } catch (error) {
-    const rescued =
-      probeRelativeSpecifier(specifier, context.parentURL) ??
-      probeRedirectedTypeScriptSpecifier(specifier, context.parentURL) ??
-      probeDependencyAsset(specifier, context.parentURL);
+    const rescued = rescueSourceSpecifier(specifier, context.parentURL);
     if (rescued === null) {
       throw error;
     }
     result = { shortCircuit: true, url: rescued };
   }
-  const emitted = emittedJavaScriptUrl(result.url);
-  if (emitted === null) {
+  if (!isTypeScriptUrl(result.url)) {
     return result;
   }
-  // Keep every field the resolver produced (e.g. `importAttributes`), only
-  // dropping the resolved `.ts` source's `format` (e.g. `module-typescript`):
-  // the redirect points at emitted JavaScript, and carrying the TypeScript
-  // format would make Node try to type-strip a `.js`. With `format` gone Node
-  // detects it from the file and the nearest `package.json`.
-  const redirected = { ...result, shortCircuit: true, url: emitted };
-  delete (redirected as { format?: unknown }).format;
-  return redirected;
+  // Drop any TypeScript `format` the resolver attached (e.g.
+  // `module-typescript`): keeping it would make Node run its native
+  // type-stripping on a file the `load` hook is about to replace with compiled
+  // JavaScript. With it gone, `load` declares the real `module`/`commonjs`.
+  const kept = { ...result, shortCircuit: true };
+  delete (kept as { format?: unknown }).format;
+  return kept;
 };
 
 /**
- * Map a resolved `file:` URL pointing at a TypeScript source to the `file:` URL
- * of the JavaScript tsgo emitted for it, or `null` to leave the URL untouched
- * (already JavaScript, or a `.ts` with no emit available).
+ * Bridge `ttsx`'s source-identity model into the CommonJS loader, which classic
+ * `require()` uses directly and the `registerHooks` `resolve`/`load` hooks do
+ * NOT reach.
+ *
+ * - `Module._resolveFilename` is wrapped so a relative `require` the compiler
+ *   emitted (`./x`, `./x.js`) that the default resolver misses is mapped onto
+ *   the source `.ts`, the same way the ESM `resolve` hook does.
+ * - `Module._extensions` for each TypeScript extension compiles the source to its
+ *   emitted JavaScript and runs THAT under the original `.ts` filename, so
+ *   `__dirname`/`__filename` stay at the source — mirroring the `load` hook.
  */
-function emittedJavaScriptUrl(url: string | undefined): string | null {
-  if (url === undefined || !url.startsWith("file:")) {
-    return null;
+export function installCommonJsHooks(): void {
+  const internal = Module as unknown as NodeCommonJsModule;
+  const resolveFilename = internal._resolveFilename;
+  internal._resolveFilename = function (request, parent, isMain, options) {
+    try {
+      return resolveFilename.call(this, request, parent, isMain, options);
+    } catch (error) {
+      const mapped = sourceTypeScriptForRequest(request, parent);
+      if (mapped !== null) {
+        return mapped;
+      }
+      throw error;
+    }
+  };
+  for (const extension of TYPESCRIPT_EXTENSIONS) {
+    internal._extensions[extension] = (module, filename) => {
+      const compiled = compiledJavaScriptFor(realpathIfExists(filename));
+      module._compile(fs.readFileSync(compiled, "utf8"), filename);
+    };
   }
-  const file = fileURLToPath(url);
-  if (!isTypeScriptSource(file)) {
-    return null;
-  }
-  // Canonicalize once so the mirror test and the dependency build agree on the
-  // path: the entry mirror, a symlinked workspace dependency, and a
-  // case-insensitive filesystem can each spell the same file differently.
-  const canonical = realpathIfExists(file);
-  const emitted = isProjectMirror(canonical)
-    ? gateEmittedSibling(canonical)
-    : emittedDependencyFile(canonical);
-  return emitted === null ? null : pathToFileURL(emitted).href;
+}
+
+/** The internal CommonJS-loader surface `ttsx` patches for `require`. */
+interface NodeCommonJsModule {
+  _resolveFilename(
+    request: string,
+    parent: unknown,
+    isMain: boolean,
+    options?: unknown,
+  ): string;
+  _extensions: Record<
+    string,
+    (
+      module: { _compile(content: string, filename: string): unknown },
+      filename: string,
+    ) => void
+  >;
 }
 
 /**
- * The entry project's own sources are mirrored beside the compile gate's emit,
- * so the JavaScript for a mirrored `.ts` is the `.js` of the same stem in the
- * same directory. A mirrored source with no `.js` beside it was loaded at
- * runtime but never emitted by the gate — surface that instead of letting Node
- * fail trying to load the raw `.ts`.
+ * Map a relative `require` request the default resolver could not find onto the
+ * source `.ts` it was compiled from, or `null` when it is non-relative, has no
+ * usable parent, or matches nothing on disk.
  */
-function gateEmittedSibling(file: string): string {
-  const js = withJsExtension(file);
-  if (!isFile(js)) {
+function sourceTypeScriptForRequest(
+  request: string,
+  parent: unknown,
+): string | null {
+  if (typeof request !== "string" || !isRelativeSpecifier(request)) {
+    return null;
+  }
+  const parentFile = (parent as { filename?: unknown } | null)?.filename;
+  if (typeof parentFile !== "string") {
+    return null;
+  }
+  const [pathPart] = splitSpecifierSuffix(request);
+  const resolved = resolveSourcePathPart(pathPart, path.dirname(parentFile));
+  return resolved === null ? null : fileFromFileUrl(resolved);
+}
+
+/**
+ * Serve a TypeScript source's compiled JavaScript as its module source, keeping
+ * the source `.ts` URL as the module's identity. Everything else is left to the
+ * default loader.
+ */
+export const load: LoadHookSync = (url, context, nextLoad) => {
+  if (!url.startsWith("file:")) {
+    return nextLoad(url, context);
+  }
+  const file = fileFromFileUrl(url);
+  if (!isTypeScriptSource(file)) {
+    return nextLoad(url, context);
+  }
+  const compiled = compiledJavaScriptFor(realpathIfExists(file));
+  const source = fs.readFileSync(compiled, "utf8");
+  return { format: moduleFormat(file, source), shortCircuit: true, source };
+};
+
+/**
+ * The compiled JavaScript tsgo emitted for a `.ts` source: the entry project's
+ * own sources resolve through the up-front compile gate's emit; everything else
+ * is compiled as a dependency package on demand. Throws a clear diagnostic when
+ * the source belongs to no package or the build produced nothing for it.
+ */
+function compiledJavaScriptFor(sourceFile: string): string {
+  const entry = entryProject();
+  if (entry !== null && isInsideDirectory(entry.emitBase, sourceFile)) {
+    const emitted = resolveEmittedJavaScript({
+      outDir: entry.emitDir,
+      projectRoot: entry.emitBase,
+      sourceFile,
+    });
+    if (emitted !== null) {
+      return emitted;
+    }
     throw new Error(
-      `ttsx: ${file} was loaded at runtime but the compile gate emitted no ` +
-        `JavaScript for it (is it included in the entry project's build?)`,
+      `ttsx: ${sourceFile} belongs to the entry project but the compile gate ` +
+        `emitted no JavaScript for it (is it included in the project's build?)`,
     );
   }
-  return js;
+  const emitted = emittedDependencyFile(sourceFile);
+  if (emitted === null) {
+    throw new Error(
+      `ttsx: ${sourceFile} is not inside any package, so its TypeScript ` +
+        `cannot be compiled for execution`,
+    );
+  }
+  return emitted;
+}
+
+/** The entry project's emit, passed by the launcher; `null` outside `ttsx`. */
+interface EntryProject {
+  /** Directory the gate's emit is laid out relative to (the project rootDir). */
+  readonly emitBase: string;
+  /** Directory the gate emitted the entry project's JavaScript into. */
+  readonly emitDir: string;
+}
+let entryProjectCache: EntryProject | null | undefined;
+function entryProject(): EntryProject | null {
+  if (entryProjectCache === undefined) {
+    const emitDir = process.env.TTSC_TTSX_ENTRY_EMIT_DIR;
+    const emitBase = process.env.TTSC_TTSX_ENTRY_EMIT_BASE;
+    entryProjectCache =
+      emitDir && emitBase
+        ? { emitBase: realpathIfExists(emitBase), emitDir }
+        : null;
+  }
+  return entryProjectCache;
 }
 
 /** A package's tsgo build outputs, keyed by its package root. */
@@ -524,11 +628,14 @@ function owningPackageRoot(file: string): string | null {
 }
 
 /**
- * Probe candidate extensions for a relative `specifier` whose bare form failed
- * to resolve. Returns a `file:` URL string for the first match, or `null` when
- * the specifier is non-relative, has no usable parent, or matches nothing.
+ * Rescue a relative specifier whose default resolution failed by mapping it
+ * onto the source tree: a compiler-emitted `./x.js` (`.mjs`/`.cjs`) back to its
+ * `./x.ts` (`.mts`/`.cts`) source, a concrete `.ts` Node refused, or an
+ * extensionless `./x` to `./x.ts`/a directory index. Returns a `file:` URL for
+ * the first on-disk match, or `null` (so the original error stands) when the
+ * specifier is non-relative, has no usable parent, or matches nothing.
  */
-function probeRelativeSpecifier(
+function rescueSourceSpecifier(
   specifier: string,
   parentURL: string | undefined,
 ): string | null {
@@ -538,11 +645,33 @@ function probeRelativeSpecifier(
   if (parentURL === undefined || !parentURL.startsWith("file:")) {
     return null;
   }
-  if (hasConcreteExtension(specifier)) {
-    return null;
+  const parentDir = path.dirname(fileFromFileUrl(parentURL));
+  // A `?query`/`#hash` suffix participates in module identity but not in file
+  // resolution, so split it off, resolve the path, and re-attach it to the URL.
+  const [pathPart, suffix] = splitSpecifierSuffix(specifier);
+  const resolved = resolveSourcePathPart(pathPart, parentDir);
+  return resolved === null ? null : resolved + suffix;
+}
+
+/** Resolve a relative specifier's path part to a `file:` URL on the source tree. */
+function resolveSourcePathPart(
+  pathPart: string,
+  parentDir: string,
+): string | null {
+  if (hasConcreteExtension(pathPart)) {
+    const target = path.resolve(parentDir, pathPart);
+    // A `.js`/`.mjs`/`.cjs` the compiler emitted for a `.ts` source: try the
+    // TypeScript counterpart(s) on disk.
+    for (const candidate of typeScriptCounterparts(target)) {
+      if (isFile(candidate)) {
+        return pathToFileURL(candidate).href;
+      }
+    }
+    // A concrete `.ts` (or a real `.js`) Node's resolver refused: accept it if
+    // it actually exists.
+    return isFile(target) ? pathToFileURL(target).href : null;
   }
-  const parentDir = path.dirname(fileURLToPath(parentURL));
-  const base = path.resolve(parentDir, specifier);
+  const base = path.resolve(parentDir, pathPart);
   for (const extension of RESOLVABLE_EXTENSIONS) {
     const candidate = base + extension;
     if (isFile(candidate)) {
@@ -558,79 +687,31 @@ function probeRelativeSpecifier(
   return null;
 }
 
-/**
- * Rescue a relative specifier that carries a concrete TypeScript-source
- * extension (`./plugins/beta.ts`) but failed to resolve. tsgo statically
- * rewrites a literal `import "./x.ts"` to `"./x.js"`, but a COMPUTED specifier
- * (`import(`./plugins/${name}.ts`)`) survives to runtime — where the emitted
- * parent lives in the per-package cache whose siblings are `.js`, not `.ts`, so
- * Node's own resolution misses. Map it to its JavaScript counterpart beside the
- * parent, gated on existence so a genuinely missing module still surfaces
- * `ERR_MODULE_NOT_FOUND`.
- */
-function probeRedirectedTypeScriptSpecifier(
-  specifier: string,
-  parentURL: string | undefined,
-): string | null {
-  if (!isRelativeSpecifier(specifier)) {
-    return null;
-  }
-  if (parentURL === undefined || !parentURL.startsWith("file:")) {
-    return null;
-  }
-  if (!isTypeScriptSource(specifier)) {
-    return null;
-  }
-  const parentDir = path.dirname(fileURLToPath(parentURL));
-  const candidate = withJsExtension(path.resolve(parentDir, specifier));
-  return isFile(candidate) ? pathToFileURL(candidate).href : null;
+/** Split a specifier into its path part and a `?query`/`#hash` suffix. */
+function splitSpecifierSuffix(specifier: string): [string, string] {
+  const match = /[?#]/.exec(specifier);
+  return match === null
+    ? [specifier, ""]
+    : [specifier.slice(0, match.index), specifier.slice(match.index)];
 }
 
-/**
- * Rescue a relative import of a non-TypeScript asset (a co-located
- * `./data.json`, `./addon.node`, ...) made from a module that lives in a
- * dependency emit cache.
- *
- * Tsgo emits a package's `.ts` sources as `.js` into the per-package cache but
- * never copies the non-TS assets those sources import; the emitted module's
- * `import "./data.json"` then resolves beside itself in the cache, where the
- * asset is absent. Map the specifier back onto the dependency's SOURCE tree —
- * the cache mirrors `emitBase` under `outDir`, so the asset sits at the same
- * relative position under `emitBase`. Gated on existence so a genuinely missing
- * asset still surfaces `ERR_MODULE_NOT_FOUND`. TypeScript sources are left to
- * the emit redirect; only assets tsgo does not itself emit are rescued here.
- */
-function probeDependencyAsset(
-  specifier: string,
-  parentURL: string | undefined,
-): string | null {
-  if (!isRelativeSpecifier(specifier)) {
-    return null;
+/** The TypeScript source filenames a JavaScript emit extension maps back to. */
+function typeScriptCounterparts(target: string): string[] {
+  const lower = target.toLowerCase();
+  if (lower.endsWith(".mjs")) {
+    return [target.slice(0, -4) + ".mts"];
   }
-  if (parentURL === undefined || !parentURL.startsWith("file:")) {
-    return null;
+  if (lower.endsWith(".cjs")) {
+    return [target.slice(0, -4) + ".cts"];
   }
-  if (isTypeScriptSource(specifier)) {
-    return null;
+  if (lower.endsWith(".jsx")) {
+    return [target.slice(0, -4) + ".tsx"];
   }
-  const parent = realpathIfExists(fileURLToPath(parentURL));
-  const target = path.resolve(path.dirname(parent), specifier);
-  for (const { outDir, emitBase } of builtProjects.values()) {
-    const relative = path.relative(outDir, parent);
-    if (relative === "" || isOutsideRelativePath(relative)) {
-      continue;
-    }
-    const source = path.resolve(emitBase, path.relative(outDir, target));
-    if (isFile(source)) {
-      return pathToFileURL(source).href;
-    }
+  if (lower.endsWith(".js")) {
+    const stem = target.slice(0, -3);
+    return [stem + ".ts", stem + ".tsx"];
   }
-  return null;
-}
-
-/** True when a `path.relative` result escapes its base (`..` or absolute). */
-function isOutsideRelativePath(relative: string): boolean {
-  return relative.startsWith("..") || path.isAbsolute(relative);
+  return [];
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
@@ -647,9 +728,26 @@ function hasConcreteExtension(specifier: string): boolean {
   return /\.(?:[cm]?jsx?|json|node|[cm]?tsx?)$/i.test(specifier);
 }
 
+/** True when a resolved `file:` URL points at a TypeScript source. */
+function isTypeScriptUrl(url: string | undefined): boolean {
+  return (
+    url !== undefined &&
+    url.startsWith("file:") &&
+    isTypeScriptSource(fileFromFileUrl(url))
+  );
+}
+
+/** The filesystem path of a `file:` URL, ignoring any `?query`/`#hash`. */
+function fileFromFileUrl(url: string): string {
+  const parsed = new URL(url);
+  parsed.search = "";
+  parsed.hash = "";
+  return fileURLToPath(parsed);
+}
+
 function isTypeScriptSource(filename: string): boolean {
   // Declaration files carry no runtime emit; they are never a runtime module,
-  // so they are not ours to redirect.
+  // so they are not ours to serve.
   if (/\.d\.[cm]?ts$/i.test(filename)) {
     return false;
   }
@@ -657,31 +755,44 @@ function isTypeScriptSource(filename: string): boolean {
   return TYPESCRIPT_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
-/** Replace a TypeScript extension with its JavaScript counterpart. */
-function withJsExtension(filename: string): string {
-  return filename.replace(/\.([cm]?)tsx?$/i, ".$1js");
+/**
+ * The module format Node should run a served TypeScript source as.
+ * `.mts`/`.cts` are authoritative by extension; for `.ts`/`.tsx` the compiled
+ * bytes decide — matching exactly what tsgo emitted, which is more reliable
+ * than re-deriving it from the package `type`.
+ */
+function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
+  const lower = file.toLowerCase();
+  if (lower.endsWith(".mts")) {
+    return "module";
+  }
+  if (lower.endsWith(".cts")) {
+    return "commonjs";
+  }
+  return looksLikeESM(compiled) ? "module" : "commonjs";
 }
 
 /**
- * True when `filename` is one of the entry project's own sources, which `ttsx`
- * mirrors beside the compile gate's emit. The mirror root is passed exactly via
- * `TTSC_TTSX_PROJECT_MIRROR`; absent that (an older launcher), fall back to the
- * default mirror location under `node_modules/.cache`.
+ * Heuristic: classify emitted JS as ESM when it carries an ESM-only marker — a
+ * top-level `import`/`export` statement or `import.meta` — but none of the
+ * well-known CommonJS patterns. The CJS checks run first so a re-exported CJS
+ * bundle with both `require` calls and an `export` is conservatively treated as
+ * CommonJS. `import.meta` is decisive on its own: a module may use it with no
+ * `import`/`export` statement, and it is invalid in CommonJS.
  */
-function isProjectMirror(filename: string): boolean {
-  const root = process.env.TTSC_TTSX_PROJECT_MIRROR;
-  if (root !== undefined && root !== "") {
-    // `filename` is already canonicalized by the caller; canonicalize the root
-    // the same way so a symlinked or differently-cased spelling still matches.
-    return isInsideDirectory(realpathIfExists(root), filename);
+function looksLikeESM(output: string): boolean {
+  if (
+    /\bObject\.defineProperty\(exports\b/.test(output) ||
+    /\bmodule\.exports\b/.test(output) ||
+    /\brequire\(/.test(output) ||
+    /\bexports\./.test(output)
+  ) {
+    return false;
   }
-  const segments = filename.split(path.sep);
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    if (segments[i] === "node_modules" && segments[i + 1] === ".cache") {
-      return true;
-    }
-  }
-  return false;
+  return (
+    /^\s*(?:import|export)\s/m.test(output) ||
+    /\bimport\s*\.\s*meta\b/.test(output)
+  );
 }
 
 /** True when `file` is a descendant of directory `root` (not `root` itself). */

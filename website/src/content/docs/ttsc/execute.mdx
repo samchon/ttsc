@@ -16,7 +16,7 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
-Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
+Projects that enable `allowImportingTsExtensions` are supported. The entry runs from its own source path, and `ttsx` serves each source's compiled JavaScript in place — so `import.meta.url`, `__dirname`, and relative file reads point at the real source tree, not a build directory. The compiled JavaScript lives in a per-run cache directory and is removed after the script exits.
 
 ## Raw-TypeScript dependencies
 
@@ -25,9 +25,9 @@ The type-check covers your whole program, but at runtime your dependencies are l
 - A published dependency that ships `.ts` inside `node_modules` cannot be loaded at all — Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
 - Even a workspace dependency reached through a symlink hits Node's strip-only limits: `namespace`/`enum` and un-elided type-only imports need real code generation, not type erasure, and an extensionless relative import (`import "./util"`) is rejected outright.
 
-`ttsx` installs one synchronous Node module hook — a `resolve` hook that covers both `import` and `require` — which redirects every raw `.ts` it resolves to the JavaScript tsgo emits for it. A dependency that ships raw TypeScript is compiled by tsgo through its own `tsconfig` (or a synthesized one when it ships none) — a full, type-checked build with your plugins applied — into a per-package cache, and the hook resolves the dependency's `.ts` sources to that emit. Node never sees raw `.ts`, so the strip-only limits never apply, and none of this touches the dependency's `exports`, sources, or `tsconfig`.
+`ttsx` keeps every `.ts` at its own source path and serves the JavaScript tsgo emitted for it as that source's bytes — the same model `ts-node` and `tsx` use, but the bytes come from a real, type-checked, plugin-applied tsgo build rather than a per-file transpile. A dependency that ships raw TypeScript is compiled by tsgo through its own `tsconfig` (or a synthesized one when it ships none) into a per-package cache; Node then runs that JavaScript under the dependency's own source identity. Node never sees raw `.ts`, so the strip-only limits never apply, and none of this touches the dependency's `exports`, sources, or `tsconfig`.
 
-The hook never weakens the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included. The dependency build itself runs once and is reused across runs via a freshness stamp (the ttsc version, the resolved compiler options, the tsconfig, and the source mtimes); a dependency's own type error fails the run, and a genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
+Because identity stays at the source, a dependency's `import.meta.url`/`__dirname`-relative reads and its co-located assets resolve exactly as if it were authored in JavaScript. The hook never weakens the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included. A dependency build runs once and is reused across runs via a freshness stamp (the ttsc version, the resolved compiler options, the tsconfig, and the source mtimes); a dependency's own type error fails the run, and a genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
 
 ## Pass arguments to the script
 

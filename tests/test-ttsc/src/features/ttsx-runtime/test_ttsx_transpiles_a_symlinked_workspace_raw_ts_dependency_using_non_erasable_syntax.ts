@@ -11,10 +11,9 @@ import path from "node:path";
  * without help Node would strip its types natively. But native stripping only
  * erases type annotations; it rejects `namespace` / `enum` (which need code
  * generation) with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`. Real workspace packages
- * use those constructs, so ttsx compiles the dependency with tsgo and the
- * resolve hook redirects its `.ts` sources to that emit — the same path it uses
- * under `node_modules` — so the generated code runs and Node never strips raw
- * `.ts`.
+ * use those constructs, so ttsx compiles the dependency with tsgo and `load`
+ * serves that emit as each `.ts` source's bytes — the same path it uses under
+ * `node_modules` — so the generated code runs and Node never strips raw `.ts`.
  *
  * 1. Create an ESM project plus a `ns-dep` package whose `index.ts` exports a
  *    `namespace` wrapping an `enum`, symlinked into `node_modules`.

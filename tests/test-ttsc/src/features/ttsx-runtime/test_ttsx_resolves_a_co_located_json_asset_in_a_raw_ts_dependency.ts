@@ -5,12 +5,12 @@ import assert from "node:assert/strict";
  * Verifies a raw-`.ts` dependency that imports a co-located non-TS asset (here
  * a `./data.json`) runs under `ttsx`.
  *
- * Tsgo emits a package's `.ts` sources as `.js` into the per-package cache but
- * never copies the assets those sources import, so the emitted module's `import
- * "./data.json"` resolves beside itself in the cache, where the asset is
- * absent, and dies with `ERR_MODULE_NOT_FOUND`. The runtime hook must map such
- * an asset import back onto the dependency's source tree, where tsgo left the
- * asset, so the dependency loads it.
+ * `ttsx` keeps each `.ts` at its own source path and serves its compiled
+ * JavaScript as that source's bytes, so a dependency module's `import
+ * "./data.json"` resolves beside its real source — where the asset sits — and
+ * loads naturally. A design that ran the module from a compiled-output
+ * directory would resolve beside the emit, where the asset was never copied,
+ * and die with `ERR_MODULE_NOT_FOUND`.
  *
  * 1. Install a `json-dep` whose `.ts` entry imports a sibling `data.json`.
  * 2. Run `ttsx` against an entry importing the dependency.
