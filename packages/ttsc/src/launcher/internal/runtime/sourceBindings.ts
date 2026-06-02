@@ -83,9 +83,7 @@ function parseSourceImports(sourceText: string): SourceImport[] {
     if (match[1] === "type") {
       continue;
     }
-    const bindings = parseClause(
-      sourceText.slice(match.index, pattern.lastIndex),
-    );
+    const bindings = parseClause(match[2]!);
     if (bindings.length !== 0) {
       out.push({ specifier: match[4]!, bindings });
     }
@@ -94,12 +92,8 @@ function parseSourceImports(sourceText: string): SourceImport[] {
 }
 
 /** Parse the binding clause between `import` and `from`. */
-function parseClause(statement: string): ImportBinding[] {
-  const clause = statement
-    .replace(/^\s*import\s+/, "")
-    .replace(/\s+from\s*$/, "")
-    .replace(/\bfrom\s*$/, "")
-    .trim();
+function parseClause(rawClause: string): ImportBinding[] {
+  const clause = rawClause.trim();
   const bindings: ImportBinding[] = [];
 
   const namespace = /(?:^|,)\s*\*\s+as\s+([A-Za-z_$][\w$]*)/.exec(clause);
@@ -129,11 +123,15 @@ function parseClause(statement: string): ImportBinding[] {
   return bindings;
 }
 
-/** Map each module specifier to its (non-commented) `require()` alias. */
+/**
+ * Map each module specifier to its (non-commented) `require()` alias. The alias
+ * is the binding tsgo declares for the import, whether the `require()` is bare
+ * or wrapped in the `__importDefault` / `__importStar` interop helpers.
+ */
 function collectRequireAliases(code: string): Map<string, string> {
   const out = new Map<string, string>();
   const pattern =
-    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\(\s*["']([^"']+)["']\s*\)/g;
+    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:__import(?:Default|Star)\(\s*)?require\(\s*["']([^"']+)["']\s*\)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(code)) !== null) {
     out.set(match[2]!, match[1]!);
@@ -157,15 +155,24 @@ function usesBareIdentifier(code: string, name: string): boolean {
   return new RegExp(`(?<![.\\w$])${escapeRegExp(name)}(?![\\w$])`).test(code);
 }
 
-/** Offset just past the last `require(...)` alias declaration, else 0. */
+/**
+ * Offset at the end of the line carrying the last `require(...)` alias
+ * declaration, so reconnections are inserted after the aliases (and outside any
+ * `__importDefault(...)` wrapper), not in the middle of one. Returns 0 when no
+ * alias declaration is present.
+ */
 function lastRequireEnd(code: string): number {
-  const pattern = /require\(\s*["'][^"']+["']\s*\)\s*;?/g;
-  let end = 0;
+  const pattern = /require\(\s*["'][^"']+["']\s*\)/g;
+  let lastIndex = -1;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(code)) !== null) {
-    end = pattern.lastIndex;
+    lastIndex = pattern.lastIndex;
   }
-  return end;
+  if (lastIndex === -1) {
+    return 0;
+  }
+  const newline = code.indexOf("\n", lastIndex);
+  return newline === -1 ? code.length : newline;
 }
 
 function escapeRegExp(value: string): string {
