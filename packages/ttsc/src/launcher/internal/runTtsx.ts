@@ -279,6 +279,8 @@ function runPreparedEntry(
         .join(" "),
       TTSC_TTSX_ENTRY_EMIT_DIR: execution.emitDir,
       TTSC_TTSX_ENTRY_EMIT_BASE: execution.emitBase,
+      TTSC_TTSX_ENTRY_PROJECT_ROOT: execution.projectRoot,
+      TTSC_TTSX_ENTRY_TSCONFIG: execution.tsconfig,
     };
     if (parsed.binary !== undefined) {
       env.TTSC_TSGO_BINARY = parsed.binary;

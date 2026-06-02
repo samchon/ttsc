@@ -996,10 +996,7 @@ function compiledJavaScriptFor(sourceFile: string): string {
       if (emitted !== null) {
         return emitted;
       }
-      throw new Error(
-        `ttsx: ${sourceFile} belongs to the entry project but the compile gate ` +
-          `emitted no JavaScript for it (is it included in the project's build?)`,
-      );
+      return emittedLooseEntryFile(entry, sourceFile);
     }
   }
   const emitted = emittedDependencyFile(sourceFile);
@@ -1023,18 +1020,130 @@ interface EntryProject {
   readonly emitBase: string;
   /** Directory the gate emitted the entry project's JavaScript into. */
   readonly emitDir: string;
+  /** Entry project root, used for plugin resolution in loose runtime emits. */
+  readonly root: string;
+  /** Tsconfig the compile gate built, inherited by loose runtime emits. */
+  readonly tsconfig: string;
 }
 let entryProjectCache: EntryProject | null | undefined;
 function entryProject(): EntryProject | null {
   if (entryProjectCache === undefined) {
     const emitDir = process.env.TTSC_TTSX_ENTRY_EMIT_DIR;
     const emitBase = process.env.TTSC_TTSX_ENTRY_EMIT_BASE;
+    const root = process.env.TTSC_TTSX_ENTRY_PROJECT_ROOT;
+    const tsconfig = process.env.TTSC_TTSX_ENTRY_TSCONFIG;
     entryProjectCache =
-      emitDir && emitBase
-        ? { emitBase: realpathIfExists(emitBase), emitDir }
+      emitDir && emitBase && root && tsconfig
+        ? {
+            emitBase: realpathIfExists(emitBase),
+            emitDir,
+            root: realpathIfExists(root),
+            tsconfig: realpathIfExists(tsconfig),
+          }
         : null;
   }
   return entryProjectCache;
+}
+
+/** Runtime-only emits for entry-project sources reached outside the gate graph. */
+const looseEntrySources = new Map<string, string>();
+
+/**
+ * Compile one entry-project source that the initial compile gate did not emit.
+ *
+ * Dynamic imports built from runtime strings are invisible to TypeScript's
+ * program graph, so a file can live under the entry project's source boundary
+ * while still being absent from the up-front gate output. Reuse the project's
+ * tsconfig and plugins, but replace its input set with just the requested file
+ * and emit into the private ttsx runtime directory.
+ */
+function emittedLooseEntryFile(
+  entry: EntryProject,
+  sourceFile: string,
+): string {
+  const cached = looseEntrySources.get(sourceFile);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const fingerprint = createHash("sha1").update(sourceFile).digest("hex");
+  const root = path.join(entry.emitDir, ".ttsx-loose", fingerprint);
+  const outDir = path.join(root, "out");
+  const tsconfig = writeLooseEntryTsconfig(entry, sourceFile, root, outDir);
+  const result = runBuild({
+    cacheDir: process.env.TTSC_TTSX_PLUGIN_CACHE_DIR,
+    checkers: dependencyBuildCheckers(),
+    cwd: entry.root,
+    emit: true,
+    outDir,
+    passthrough: dependencyBuildPassthrough(
+      { rootDir: entry.emitBase },
+      entry.emitBase,
+    ),
+    plugins: process.env.TTSC_TTSX_NO_PLUGINS === "1" ? false : undefined,
+    projectRoot: entry.root,
+    quiet: true,
+    singleThreaded: process.env.TTSC_TTSX_SINGLE_THREADED === "1",
+    tsconfig,
+  });
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || "").trim();
+    throw new Error(
+      `ttsx: failed to compile entry-project runtime source ${sourceFile} ` +
+        `(tsgo exited with status ${result.status})` +
+        (detail ? `\n${detail}` : " (no compiler output)"),
+    );
+  }
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: result.emittedFiles,
+    outDir,
+    projectRoot: entry.emitBase,
+    sourceFile,
+  });
+  if (emitted === null) {
+    throw new Error(
+      `ttsx: ${sourceFile} belongs to the entry project but neither the ` +
+        `compile gate nor the runtime single-file emit produced JavaScript`,
+    );
+  }
+  looseEntrySources.set(sourceFile, emitted);
+  return emitted;
+}
+
+function writeLooseEntryTsconfig(
+  entry: EntryProject,
+  sourceFile: string,
+  root: string,
+  outDir: string,
+): string {
+  fs.mkdirSync(root, { recursive: true });
+  const tsconfig = path.join(root, "tsconfig.json");
+  const content = JSON.stringify(
+    {
+      extends: relativeTsconfigPath(root, entry.tsconfig),
+      compilerOptions: {
+        declaration: false,
+        declarationMap: false,
+        emitDeclarationOnly: false,
+        incremental: false,
+        noEmit: false,
+        outDir: toPosix(outDir),
+        rootDir: toPosix(entry.emitBase),
+        sourceMap: false,
+      },
+      files: [toPosix(sourceFile)],
+    },
+    null,
+    2,
+  );
+  if (readFileOrNull(tsconfig) !== content) {
+    fs.writeFileSync(tsconfig, content, "utf8");
+  }
+  return tsconfig;
+}
+
+function relativeTsconfigPath(fromDir: string, tsconfig: string): string {
+  const relative = toPosix(path.relative(fromDir, tsconfig));
+  return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
 /** A package's tsgo build outputs, keyed by its package root. */

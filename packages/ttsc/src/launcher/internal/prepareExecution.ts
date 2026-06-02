@@ -29,6 +29,8 @@ export function prepareExecution(
   emitBase: string;
   emitDir: string;
   entryFile: string;
+  projectRoot: string;
+  tsconfig: string;
 } {
   const context = createProjectContext(
     path.resolve(options.cwd ?? process.cwd()),
@@ -42,6 +44,8 @@ export function prepareExecution(
       emitBase: context.emitBase,
       emitDir: context.emitDir,
       entryFile: context.entryFile,
+      projectRoot: context.root,
+      tsconfig: context.tsconfig,
     };
   } catch (error) {
     removeRuntimeOutput(context.processDir);
