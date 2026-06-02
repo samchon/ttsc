@@ -1131,6 +1131,7 @@ function writeLooseEntryTsconfig(
         sourceMap: false,
       },
       files: [toPosix(sourceFile)],
+      include: [],
     },
     null,
     2,
