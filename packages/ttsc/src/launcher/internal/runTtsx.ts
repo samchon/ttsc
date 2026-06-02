@@ -215,11 +215,11 @@ function printHelp(): void {
 }
 
 /**
- * Node flags that install ttsx's runtime module hooks in the child process.
+ * Node flags that install ttsx's runtime module hook in the child process.
  * `--import` loads the registrar before the compiled entry, giving the
- * `resolve`/`load` hooks whole-graph reach (extensionless relative imports and
- * raw `.ts` dependencies, whether reached through `import` or `require`)
- * without weakening the up-front compile gate. `--disable-warning` silences the
+ * `resolve` hook whole-graph reach (extensionless relative imports and raw
+ * `.ts` dependencies, whether reached through `import` or `require`) without
+ * weakening the up-front compile gate. `--disable-warning` silences the
  * `ExperimentalWarning` that `registerHooks` would otherwise print, the same
  * flag this repository's own TypeScript runner uses.
  */

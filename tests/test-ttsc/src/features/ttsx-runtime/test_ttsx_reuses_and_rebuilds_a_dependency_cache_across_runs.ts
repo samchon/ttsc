@@ -61,25 +61,36 @@ export const test_ttsx_reuses_and_rebuilds_a_dependency_cache_across_runs =
         cwd: root,
       });
     const depRoot = path.join(root, "node_modules", "cache-dep");
+    const cacheDir = path.join(
+      depRoot,
+      "node_modules",
+      ".cache",
+      "ttsc",
+      "ttsx-deps",
+    );
 
     const first = run();
     assert.equal(first.status, 0, first.stderr);
     assert.equal(first.stdout.trim(), "v1");
 
-    const emit = findEmittedEntry(depRoot);
     assert.notEqual(
-      emit,
+      findEmittedEntry(depRoot),
       null,
       "the dependency compiled into its per-package cache",
     );
-    const firstMtime = fs.statSync(emit!).mtimeMs;
+    // Plant a witness file in the cache directory. Reuse leaves the directory
+    // untouched (the witness survives); a rebuild renames a fresh staging
+    // directory over it (the witness is gone). This proves the stamp-match path
+    // directly — unlike an emit-file mtime, which a deterministic re-emit could
+    // reproduce identically.
+    const witness = path.join(cacheDir, ".reuse-witness");
+    fs.writeFileSync(witness, "");
 
     const second = run();
     assert.equal(second.status, 0, second.stderr);
     assert.equal(second.stdout.trim(), "v1");
-    assert.equal(
-      fs.statSync(emit!).mtimeMs,
-      firstMtime,
+    assert.ok(
+      fs.existsSync(witness),
       "an unchanged dependency is served from cache, not rebuilt",
     );
 
@@ -92,11 +103,14 @@ export const test_ttsx_reuses_and_rebuilds_a_dependency_cache_across_runs =
     const third = run();
     assert.equal(third.status, 0, third.stderr);
     assert.equal(third.stdout.trim(), "v2");
-    const rebuilt = findEmittedEntry(depRoot);
-    assert.notEqual(rebuilt, null, "the edited dependency recompiled");
+    assert.notEqual(
+      findEmittedEntry(depRoot),
+      null,
+      "the edited dependency recompiled",
+    );
     assert.ok(
-      fs.statSync(rebuilt!).mtimeMs > firstMtime,
-      "an edited dependency is rebuilt, not served stale",
+      !fs.existsSync(witness),
+      "an edited dependency is rebuilt (the cache directory was replaced)",
     );
   };
 

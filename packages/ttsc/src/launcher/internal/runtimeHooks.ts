@@ -213,6 +213,13 @@ function buildDependencyPackage(packageRoot: string): BuiltProject {
           (detail ? `\n${detail}` : " (no compiler output)"),
       );
     }
+    // tsgo creates `staging` only as a side effect of emitting into it; a build
+    // that legitimately emits nothing (e.g. every input is declaration-only)
+    // succeeds without creating the directory, so ensure it exists before
+    // stamping. The empty cache then promotes normally and the eventual
+    // resolve gives the proper "no emitted JavaScript" diagnostic, rather than
+    // crashing here with a raw ENOENT on the stamp write.
+    fs.mkdirSync(staging, { recursive: true });
     fs.writeFileSync(path.join(staging, STAMP_FILE), stamp, "utf8");
     promoteDirectory(staging, outDir, stamp);
   } finally {
@@ -319,6 +326,15 @@ function ownProjectConfig(
  * mtime — means a deleted or renamed source invalidates it as well, not only an
  * edited one. A completed cache stores this; a later run reuses it only on an
  * exact match.
+ *
+ * The source set walks the package's own directory tree. A package whose build
+ * reaches `.ts` files OUTSIDE its own root — an `include`/`files` glob pointing
+ * at a sibling directory, or an `extends`-base that itself declares `include` —
+ * is the one case not covered: a content edit to such an out-of-tree input is
+ * not seen here. That layout is an anti-pattern for a consumed package (its
+ * sources should live under its own root), so the stamp does not pay to chase
+ * it; fully closing it would require stamping the input set tsgo actually
+ * reads.
  */
 function freshnessStamp(
   packageRoot: string,

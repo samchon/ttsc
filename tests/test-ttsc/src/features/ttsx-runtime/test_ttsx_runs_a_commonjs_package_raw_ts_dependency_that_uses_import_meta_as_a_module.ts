@@ -6,10 +6,12 @@ import assert from "node:assert/strict";
  * `import.meta` as a module.
  *
  * `import.meta` is a syntax error outside an ES module, yet a `.ts` file can
- * use it without any top-level `import`/`export` statement. The `load` hook's
- * format decision must treat `import.meta` as an ESM marker (as Node's own
- * module detection does); otherwise the file is mislabeled `commonjs` and
- * crashes with "Cannot use 'import.meta' outside a module".
+ * use it without any top-level `import`/`export` statement. tsgo emits a `.js`
+ * that preserves `import.meta`; because the package omits `type: module`, Node
+ * decides the emitted file's format by its own module-syntax detection, which
+ * reads `import.meta` as an ESM marker and loads it as a module rather than
+ * mislabeling it `commonjs` and crashing with "Cannot use 'import.meta' outside
+ * a module".
  *
  * 1. Install a published `meta-dep` with no `type` field whose `.ts` entry uses
  *    `import.meta.url` and no `import`/`export` statement.

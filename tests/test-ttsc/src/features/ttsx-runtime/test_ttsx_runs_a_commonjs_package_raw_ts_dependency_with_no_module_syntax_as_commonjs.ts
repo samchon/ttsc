@@ -6,10 +6,11 @@ import assert from "node:assert/strict";
  * module syntax as CommonJS.
  *
  * When a `node_modules` `.ts` file declares no `import`/`export` and its
- * package omits `type: module`, there is no ESM syntax to override the CommonJS
- * baseline, so the `load` hook must label it `commonjs`. This is the negative
- * twin of the ESM-syntax detection case: the format decision must fall through
- * to CommonJS rather than defaulting to a module.
+ * package omits `type: module`, the `.js` tsgo emits has no ESM syntax either,
+ * so Node — finding no module syntax and no `type: module` — loads it as
+ * CommonJS, the package baseline. This is the negative twin of the ESM-syntax
+ * case: detection falls through to CommonJS rather than defaulting to a
+ * module.
  *
  * 1. Install a published `se-dep` with no `type` field whose `.ts` entry only runs
  *    a side effect (no `import`/`export`).

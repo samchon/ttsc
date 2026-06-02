@@ -20,17 +20,14 @@ Projects that enable `allowImportingTsExtensions` are supported. During the runt
 
 ## Raw-TypeScript dependencies
 
-The type-check covers your whole program, but at runtime your dependencies are loaded by Node directly. When part of the graph is ESM, Node trips over dependencies that ship raw TypeScript:
+The type-check covers your whole program, but at runtime your dependencies are loaded by Node directly, and Node cannot run raw TypeScript everywhere:
 
-- A workspace dependency (a `node_modules` symlink whose real files live outside `node_modules`) gets its types stripped by Node, but its own extensionless relative imports (`import "./util"`) are rejected with `ERR_MODULE_NOT_FOUND`.
-- A published dependency that ships `.ts` inside `node_modules` cannot be loaded at all, because Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
+- A published dependency that ships `.ts` inside `node_modules` cannot be loaded at all — Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
+- Even a workspace dependency reached through a symlink hits Node's strip-only limits: `namespace`/`enum` and un-elided type-only imports need real code generation, not type erasure, and an extensionless relative import (`import "./util"`) is rejected outright.
 
-`ttsx` installs Node module hooks in the run, the same approach `tsx` uses, so both cases just work without touching the dependency's `exports`, sources, or `tsconfig`:
+`ttsx` installs one synchronous Node module hook — a `resolve` hook that covers both `import` and `require` — which redirects every raw `.ts` it resolves to the JavaScript tsgo emits for it. A dependency that ships raw TypeScript is compiled by tsgo through its own `tsconfig` (or a synthesized one when it ships none) — a full, type-checked build with your plugins applied — into a per-package cache, and the hook resolves the dependency's `.ts` sources to that emit. Node never sees raw `.ts`, so the strip-only limits never apply, and none of this touches the dependency's `exports`, sources, or `tsconfig`.
 
-- a `resolve` hook probes the candidate extensions (and directory `index` files) for an extensionless relative import anywhere in the graph;
-- a `load` hook transpiles raw `.ts` files under `node_modules`, scoped so workspace neighbours keep Node's native type-stripping path.
-
-These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
+The hook never weakens the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included. The dependency build itself runs once and is reused across runs via a freshness stamp (the ttsc version, the resolved compiler options, the tsconfig, and the source mtimes); a dependency's own type error fails the run, and a genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
 
 ## Pass arguments to the script
 
@@ -100,7 +97,7 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 `ttsx` uses the same `tsconfig.json` and plugins as `ttsc`. If a lint or check plugin reports an error, the script never runs. Transform plugins rewrite the code before it executes.
 
-Compiled JavaScript is temporary and cleaned after the script exits. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
+The entry project's compiled JavaScript is temporary and cleaned after the script exits. A raw-TypeScript dependency, by contrast, is compiled into a **persistent** per-package cache at `<package>/node_modules/.cache/ttsc/` and kept across runs, rebuilt only when its sources, tsconfig, or the ttsc version change; it lives under `node_modules`, so a standard `node_modules` gitignore already covers it — delete that directory to force a clean rebuild. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
 
 ## See also
 

@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
  * emitted `.js` counterpart. A regression would crash with
  * `ERR_MODULE_NOT_FOUND` even though the emit exists.
  *
- * 1. Install a `dyn-dep` whose `index.ts` computes ``./plugins/${which}.ts`` and
+ * 1. Install a `dyn-dep` whose `index.ts` computes `./plugins/${which}.ts` and
  *    dynamically imports it.
  * 2. Run `ttsx` against an entry that awaits the dependency.
  * 3. Assert the dynamically-imported plugin's value printed.

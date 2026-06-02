@@ -4,10 +4,9 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx loads a published raw `.mts` dependency as a module.
  *
- * The `load` hook treats the file extension as authoritative ahead of any
- * `package.json` lookup: `.mts` is always an ES module regardless of the
- * package `type`. This pins that the extension branch wins for a `.mts` source
- * shipped under `node_modules` with no `type` field.
+ * Tsgo emits a `.mts` source as `.mjs`, which Node always loads as an ES module
+ * regardless of the package `type`. This pins that the extension wins for a
+ * `.mts` source shipped under `node_modules` with no `type` field.
  *
  * 1. Install a published `mts-dep` (no `type` field) whose entry is `index.mts`.
  * 2. Run ttsx against an entry importing it.
