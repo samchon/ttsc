@@ -175,6 +175,10 @@ export function installFileSystemHooks(): void {
   }
   fileSystemHooksInstalled = true;
 
+  fs.existsSync = ((candidate: FsPath): boolean =>
+    nativeFs.existsSync(candidate) ||
+    sourceForVirtualJavaScriptPath(candidate) !== null) as typeof fs.existsSync;
+
   fs.readdirSync = ((directory: FsPath, options?: unknown): unknown => {
     const entries = nativeFs.readdirSync(directory, options as never);
     return mergeVirtualJavaScriptEntries(directory, entries);
@@ -273,14 +277,21 @@ function mergeVirtualJavaScriptEntries(
   directory: FsPath,
   entries: unknown,
 ): unknown {
-  if (
-    !Array.isArray(entries) ||
-    entries.some((entry) => typeof entry !== "string")
-  ) {
+  if (!Array.isArray(entries)) {
     return entries;
   }
-  const virtual = virtualJavaScriptEntries(directory, entries);
-  return virtual.length === 0 ? entries : [...entries, ...virtual];
+  if (entries.every((entry) => typeof entry === "string")) {
+    const virtual = virtualJavaScriptEntries(directory, entries);
+    return virtual.length === 0 ? entries : [...entries, ...virtual];
+  }
+  if (entries.every(isDirentLike)) {
+    const names = entries.map((entry) => entry.name);
+    const virtual = virtualJavaScriptEntries(directory, names);
+    return virtual.length === 0
+      ? entries
+      : [...entries, ...virtual.map(virtualJavaScriptDirent)];
+  }
+  return entries;
 }
 
 function virtualJavaScriptEntries(
@@ -327,6 +338,10 @@ function sourceForVirtualJavaScriptFile(
   if (!isNotFoundError(error)) {
     return null;
   }
+  return sourceForVirtualJavaScriptPath(candidate);
+}
+
+function sourceForVirtualJavaScriptPath(candidate: FsPath): string | null {
   const file = fileSystemPath(candidate);
   if (file === null || isActualFile(file)) {
     return null;
@@ -336,6 +351,30 @@ function sourceForVirtualJavaScriptFile(
     return null;
   }
   return source;
+}
+
+function isDirentLike(entry: unknown): entry is fs.Dirent {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "name" in entry &&
+    typeof (entry as { name?: unknown }).name === "string" &&
+    "isFile" in entry &&
+    typeof (entry as { isFile?: unknown }).isFile === "function"
+  );
+}
+
+function virtualJavaScriptDirent(name: string): fs.Dirent {
+  return {
+    isBlockDevice: () => false,
+    isCharacterDevice: () => false,
+    isDirectory: () => false,
+    isFIFO: () => false,
+    isFile: () => true,
+    isSocket: () => false,
+    isSymbolicLink: () => false,
+    name,
+  } as fs.Dirent;
 }
 
 function statWithVirtualJavaScript(

@@ -12,7 +12,8 @@ import path from "node:path";
  * names that the compile gate emitted into the private runtime tree.
  *
  * 1. Create a project whose entry scans `src/controllers` for `.js` files.
- * 2. Use both sync and async `readdir`/`stat` paths before importing a hit.
+ * 2. Use sync/async `readdir` with `withFileTypes`, `existsSync`, and `stat`
+ *    before importing a hit.
  * 3. Assert the scanner sees `UserController.js`, imports the TypeScript source,
  *    and does not write a real `.js` beside the source.
  */
@@ -37,12 +38,14 @@ export const test_ttsx_exposes_emitted_javascript_counterparts_to_source_directo
         `const fs = require("node:fs") as any;\n` +
         `const path = require("node:path") as any;\n` +
         `const dir = path.join(__dirname, "controllers");\n` +
-        `const syncFiles = fs.readdirSync(dir).filter((file: string) => file.endsWith(".js") && fs.lstatSync(path.join(dir, file)).isFile());\n` +
+        `const syncFiles = fs.readdirSync(dir, { withFileTypes: true })\n` +
+        `  .filter((entry: { name: string; isFile(): boolean }) => entry.name.endsWith(".js") && entry.isFile() && fs.existsSync(path.join(dir, entry.name)))\n` +
+        `  .map((entry: { name: string }) => entry.name);\n` +
         `async function main(): Promise<void> {\n` +
         `  const asyncFiles: string[] = [];\n` +
-        `  for (const file of await fs.promises.readdir(dir)) {\n` +
-        `    const location = path.join(dir, file);\n` +
-        `    if (file.endsWith(".js") && (await fs.promises.stat(location)).isFile()) asyncFiles.push(file);\n` +
+        `  for (const entry of await fs.promises.readdir(dir, { withFileTypes: true })) {\n` +
+        `    const location = path.join(dir, entry.name);\n` +
+        `    if (entry.name.endsWith(".js") && entry.isFile() && (await fs.promises.stat(location)).isFile()) asyncFiles.push(entry.name);\n` +
         `  }\n` +
         `  for (const file of asyncFiles) await import(path.join(dir, file));\n` +
         `  console.log(JSON.stringify({ asyncFiles, loaded: (globalThis as any).__loaded ?? null, syncFiles }));\n` +
