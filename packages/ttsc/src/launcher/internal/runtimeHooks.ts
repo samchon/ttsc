@@ -1187,10 +1187,11 @@ function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   if (lower.endsWith(".cts")) {
     return "commonjs";
   }
-  if (looksLikeCommonJS(compiled)) {
+  const syntax = javaScriptSyntaxView(compiled);
+  if (looksLikeCommonJS(syntax)) {
     return "commonjs";
   }
-  if (looksLikeESM(compiled)) {
+  if (looksLikeESM(syntax)) {
     return "module";
   }
   const packageType = nearestPackageType(file);
@@ -1225,6 +1226,192 @@ function looksLikeCommonJS(output: string): boolean {
     /\bmodule\.exports\b/.test(output) ||
     /\bexports\./.test(output)
   );
+}
+
+/**
+ * A JavaScript view that keeps executable code intact but masks strings,
+ * comments, regex literals, and template raw text. Module-format probes are
+ * intentionally lexical: `exports.foo` in a string is not CommonJS emit, and
+ * `import.meta` in a regex is not ESM syntax.
+ */
+function javaScriptSyntaxView(source: string): string {
+  const out = source.split("");
+
+  const mask = (index: number): void => {
+    if (out[index] !== "\n" && out[index] !== "\r") {
+      out[index] = " ";
+    }
+  };
+
+  const maskQuoted = (index: number, quote: string): number => {
+    mask(index);
+    for (let i = index + 1; i < source.length; i += 1) {
+      mask(i);
+      if (source[i] === "\\") {
+        i += 1;
+        if (i < source.length) {
+          mask(i);
+        }
+      } else if (source[i] === quote) {
+        return i + 1;
+      }
+    }
+    return source.length;
+  };
+
+  const maskLineComment = (index: number): number => {
+    let i = index;
+    for (; i < source.length && source[i] !== "\n"; i += 1) {
+      mask(i);
+    }
+    return i;
+  };
+
+  const maskBlockComment = (index: number): number => {
+    mask(index);
+    mask(index + 1);
+    for (let i = index + 2; i < source.length; i += 1) {
+      mask(i);
+      if (source[i] === "*" && source[i + 1] === "/") {
+        mask(i + 1);
+        return i + 2;
+      }
+    }
+    return source.length;
+  };
+
+  const maskRegex = (index: number): number => {
+    mask(index);
+    let inClass = false;
+    for (let i = index + 1; i < source.length; i += 1) {
+      mask(i);
+      if (source[i] === "\\") {
+        i += 1;
+        if (i < source.length) {
+          mask(i);
+        }
+      } else if (source[i] === "[") {
+        inClass = true;
+      } else if (source[i] === "]") {
+        inClass = false;
+      } else if (source[i] === "/" && !inClass) {
+        let j = i + 1;
+        while (/[A-Za-z]/.test(source[j] ?? "")) {
+          mask(j);
+          j += 1;
+        }
+        return j;
+      } else if (source[i] === "\n" || source[i] === "\r") {
+        return i;
+      }
+    }
+    return source.length;
+  };
+
+  const maskTemplate = (index: number): number => {
+    mask(index);
+    for (let i = index + 1; i < source.length; i += 1) {
+      if (source[i] === "\\") {
+        mask(i);
+        i += 1;
+        if (i < source.length) {
+          mask(i);
+        }
+      } else if (source[i] === "`") {
+        mask(i);
+        return i + 1;
+      } else if (source[i] === "$" && source[i + 1] === "{") {
+        mask(i);
+        mask(i + 1);
+        const close = scanCode(i + 2, true);
+        if (close >= source.length || source[close] !== "}") {
+          return close;
+        }
+        mask(close);
+        i = close;
+      } else {
+        mask(i);
+      }
+    }
+    return source.length;
+  };
+
+  const previousSignificantToken = (index: number): string | undefined => {
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (!/\s/.test(out[i] ?? "")) {
+        if (isIdentifierPart(out[i] ?? "")) {
+          let start = i;
+          while (start > 0 && isIdentifierPart(out[start - 1] ?? "")) {
+            start -= 1;
+          }
+          return out.slice(start, i + 1).join("");
+        }
+        return out[i];
+      }
+    }
+    return undefined;
+  };
+
+  const canStartRegex = (index: number): boolean => {
+    const previous = previousSignificantToken(index);
+    return (
+      previous === undefined ||
+      REGEX_PREFIX_KEYWORDS.has(previous) ||
+      /[({[=,:;!?&|+\-*~^<>%]/.test(previous)
+    );
+  };
+
+  function scanCode(index: number, stopAtBrace: boolean): number {
+    let i = index;
+    let braceDepth = 0;
+    while (i < source.length) {
+      if (stopAtBrace && source[i] === "}") {
+        if (braceDepth === 0) {
+          return i;
+        }
+        braceDepth -= 1;
+        i += 1;
+      } else if (stopAtBrace && source[i] === "{") {
+        braceDepth += 1;
+        i += 1;
+      } else if (source[i] === "'" || source[i] === '"') {
+        i = maskQuoted(i, source[i]);
+      } else if (source[i] === "`") {
+        i = maskTemplate(i);
+      } else if (source[i] === "/" && source[i + 1] === "/") {
+        i = maskLineComment(i);
+      } else if (source[i] === "/" && source[i + 1] === "*") {
+        i = maskBlockComment(i);
+      } else if (source[i] === "/" && canStartRegex(i)) {
+        i = maskRegex(i);
+      } else {
+        i += 1;
+      }
+    }
+    return i;
+  }
+
+  scanCode(0, false);
+  return out.join("");
+}
+
+const REGEX_PREFIX_KEYWORDS = new Set([
+  "await",
+  "case",
+  "delete",
+  "do",
+  "else",
+  "in",
+  "of",
+  "return",
+  "throw",
+  "typeof",
+  "void",
+  "yield",
+]);
+
+function isIdentifierPart(value: string): boolean {
+  return /[A-Za-z0-9_$]/.test(value);
 }
 
 /** Package-type cache keyed by directory, mirroring Node's lookup walk. */
