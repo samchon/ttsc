@@ -1365,24 +1365,25 @@ function javaScriptSyntaxView(source: string): string {
     let i = index;
     let braceDepth = 0;
     while (i < source.length) {
-      if (stopAtBrace && source[i] === "}") {
+      const char = source[i];
+      if (stopAtBrace && char === "}") {
         if (braceDepth === 0) {
           return i;
         }
         braceDepth -= 1;
         i += 1;
-      } else if (stopAtBrace && source[i] === "{") {
+      } else if (stopAtBrace && char === "{") {
         braceDepth += 1;
         i += 1;
-      } else if (source[i] === "'" || source[i] === '"') {
-        i = maskQuoted(i, source[i]);
-      } else if (source[i] === "`") {
+      } else if (char === "'" || char === '"') {
+        i = maskQuoted(i, char);
+      } else if (char === "`") {
         i = maskTemplate(i);
-      } else if (source[i] === "/" && source[i + 1] === "/") {
+      } else if (char === "/" && source[i + 1] === "/") {
         i = maskLineComment(i);
-      } else if (source[i] === "/" && source[i + 1] === "*") {
+      } else if (char === "/" && source[i + 1] === "*") {
         i = maskBlockComment(i);
-      } else if (source[i] === "/" && canStartRegex(i)) {
+      } else if (char === "/" && canStartRegex(i)) {
         i = maskRegex(i);
       } else {
         i += 1;
