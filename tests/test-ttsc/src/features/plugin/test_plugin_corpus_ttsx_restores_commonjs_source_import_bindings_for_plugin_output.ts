@@ -12,13 +12,16 @@ import {
  *
  * Native transforms can emit CommonJS that keeps a source-level identifier
  * after TypeScript has rewritten the corresponding import to a `require()`
- * alias. This locks the runtime shim that reconnects named/default source
- * bindings without redeclaring names the plugin output already owns.
+ * alias. This locks the runtime shim that reconnects named/default/namespace
+ * source bindings without redeclaring names the plugin output already owns or
+ * trusting commented-out `require()` calls.
  *
  * 1. Copy a source-plugin fixture that emits `new Calc()` and `new
- *    DefaultCounter()` from CommonJS output.
+ *    DefaultCounter()` from CommonJS output plus namespace/default+named
+ *    adjacent cases.
  * 2. Run `ttsx --cwd <root> src/main.ts`.
- * 3. Assert it prints the computed value and the plugin-owned shadow binding.
+ * 3. Assert it prints restored values, the plugin-owned shadow binding, and an
+ *    unresolved comment-only import.
  */
 export const test_plugin_corpus_ttsx_restores_commonjs_source_import_bindings_for_plugin_output =
   () => {
@@ -29,5 +32,5 @@ export const test_plugin_corpus_ttsx_restores_commonjs_source_import_bindings_fo
     });
 
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "23:plugin-local");
+    assert.equal(result.stdout.trim(), "72:plugin-local:undefined:true");
   };

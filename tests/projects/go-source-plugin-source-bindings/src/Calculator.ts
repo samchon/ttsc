@@ -5,3 +5,4 @@ export class Calculator {
 }
 
 export const Offset = { value: 11 };
+export type CalculatorShape = Calculator;

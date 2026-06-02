@@ -236,7 +236,7 @@ function runtimeJavaScriptForSource(sourceFile: string): RuntimeJavaScript {
 }
 
 interface CommonJsImportBinding {
-  readonly imported: string;
+  readonly imported: string | null;
   readonly local: string;
   readonly specifier: string;
 }
@@ -276,7 +276,11 @@ function restoreCommonJsImportBindings(
     if (required === null) {
       continue;
     }
-    const line = `\nconst ${binding.local} = ${required.alias}.${binding.imported};`;
+    const expression =
+      binding.imported === null
+        ? required.alias
+        : `${required.alias}.${binding.imported}`;
+    const line = `\nconst ${binding.local} = ${expression};`;
     insertions.set(required.end, [
       ...(insertions.get(required.end) ?? []),
       line,
@@ -339,7 +343,7 @@ function restorableCommonJsImportBindings(
   }
 
   const defaultNamespaceImport = new RegExp(
-    String.raw`^\s*import\s+(?!type\b)(${IDENTIFIER_SOURCE})\s*,\s*\*\s+as\s+${IDENTIFIER_SOURCE}\s+from\s*(['"])([^'"]+)\2\s*;?`,
+    String.raw`^\s*import\s+(?!type\b)(${IDENTIFIER_SOURCE})\s*,\s*\*\s+as\s+(${IDENTIFIER_SOURCE})\s+from\s*(['"])([^'"]+)\3\s*;?`,
     "gm",
   );
   for (const match of source.matchAll(defaultNamespaceImport)) {
@@ -347,9 +351,28 @@ function restorableCommonJsImportBindings(
       continue;
     }
     const local = match[1];
+    const namespaceLocal = match[2];
+    const specifier = match[4];
+    if (specifier !== undefined && local !== undefined) {
+      bindings.push({ imported: "default", local, specifier });
+    }
+    if (specifier !== undefined && namespaceLocal !== undefined) {
+      bindings.push({ imported: null, local: namespaceLocal, specifier });
+    }
+  }
+
+  const namespaceImport = new RegExp(
+    String.raw`^\s*import\s+(?!type\b)\*\s+as\s+(${IDENTIFIER_SOURCE})\s+from\s*(['"])([^'"]+)\2\s*;?`,
+    "gm",
+  );
+  for (const match of source.matchAll(namespaceImport)) {
+    if (!isExecutableImportMatch(syntax, match)) {
+      continue;
+    }
+    const local = match[1];
     const specifier = match[3];
     if (local !== undefined && specifier !== undefined) {
-      bindings.push({ imported: "default", local, specifier });
+      bindings.push({ imported: null, local, specifier });
     }
   }
   return bindings;

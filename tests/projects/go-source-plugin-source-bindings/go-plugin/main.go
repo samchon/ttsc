@@ -68,11 +68,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.total = void 0;
 const Calculator_1 = require("./Calculator");
 const DefaultCounter_1 = require("./DefaultCounter");
+const Namespaced_1 = require("./Namespaced");
 const Shadow_1 = require("./Shadow");
+// const CommentOnly_1 = require("./CommentOnly");
 const ShadowedLocal = "plugin-local";
-const total = new Calc().add(2, 3) + new DefaultCounter().value + Offset.value;
+const total = new Calc().add(2, 3) + new DefaultCounter().value + CounterBase + Offset.value + new NamespacedDefault().value + Namespaced.namespaceValue;
 exports.total = total;
-console.log(String(total) + ":" + ShadowedLocal);
+console.log(String(total) + ":" + ShadowedLocal + ":" + typeof CommentOnly + ":" + String(true));
 void Shadow_1;
 `,
     "Calculator.js": `"use strict";
@@ -88,13 +90,25 @@ exports.Offset = { value: 11 };
 `,
     "DefaultCounter.js": `"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = void 0;
+exports.BaseValue = exports.default = void 0;
 class DefaultCounter {
   constructor() {
     this.value = 7;
   }
 }
 exports.default = DefaultCounter;
+exports.BaseValue = 13;
+`,
+    "Namespaced.js": `"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.namespaceValue = exports.default = void 0;
+class NamespacedDefault {
+  constructor() {
+    this.value = 17;
+  }
+}
+exports.default = NamespacedDefault;
+exports.namespaceValue = 19;
 `,
     "Shadow.js": `"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
