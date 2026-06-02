@@ -90,9 +90,13 @@ function emittedJavaScriptUrl(url: string | undefined): string | null {
   if (!isTypeScriptSource(file)) {
     return null;
   }
-  const emitted = isProjectMirror(file)
-    ? gateEmittedSibling(file)
-    : emittedDependencyFile(realpathIfExists(file));
+  // Canonicalize once so the mirror test and the dependency build agree on the
+  // path: the entry mirror, a symlinked workspace dependency, and a
+  // case-insensitive filesystem can each spell the same file differently.
+  const canonical = realpathIfExists(file);
+  const emitted = isProjectMirror(canonical)
+    ? gateEmittedSibling(canonical)
+    : emittedDependencyFile(canonical);
   return emitted === null ? null : pathToFileURL(emitted).href;
 }
 
@@ -149,12 +153,14 @@ function emittedDependencyFile(sourceFile: string): string | null {
     sourceFile,
   });
   if (emitted === null) {
-    // The package built, but tsgo emitted nothing for this source (e.g. its
-    // own `tsconfig` excludes the file). Surface it instead of letting Node
-    // fail loading the raw `.ts`.
+    // The package built, but no emitted `.js` was found for this source — its
+    // `tsconfig` may exclude the file, its `rootDir` may not contain it, or the
+    // cache may be stale. Surface it (with the cache path to inspect or clear)
+    // instead of letting Node fail loading the raw `.ts`.
     throw new Error(
-      `ttsx: no JavaScript was emitted for ${sourceFile}; ` +
-        `its package at ${packageRoot} excludes it from the build`,
+      `ttsx: ${sourceFile} compiled as part of package ${packageRoot}, but no ` +
+        `emitted JavaScript was found for it under ${built.outDir} (check the ` +
+        `package's tsconfig include/exclude and rootDir, or clear that cache)`,
     );
   }
   return emitted;
@@ -183,7 +189,7 @@ let stagingCounter = 0;
 function buildDependencyPackage(packageRoot: string): BuiltProject {
   const outDir = dependencyCacheDir(packageRoot);
   const project = packageProject(packageRoot);
-  const stamp = freshnessStamp(packageRoot, project.tsconfig);
+  const stamp = freshnessStamp(packageRoot, project.options);
   if (readStamp(outDir) === stamp) {
     return { emitBase: project.emitBase, outDir };
   }
@@ -198,13 +204,15 @@ function buildDependencyPackage(packageRoot: string): BuiltProject {
       tsconfig: project.tsconfig,
     });
     if (result.status !== 0) {
+      const detail = (result.stderr || result.stdout || "").trim();
       throw new Error(
-        `ttsx: failed to compile dependency package ${packageRoot}\n` +
-          (result.stderr || result.stdout),
+        `ttsx: failed to compile dependency package ${packageRoot} ` +
+          `(tsgo exited with status ${result.status})` +
+          (detail ? `\n${detail}` : " (no compiler output)"),
       );
     }
     fs.writeFileSync(path.join(staging, STAMP_FILE), stamp, "utf8");
-    promoteDirectory(staging, outDir);
+    promoteDirectory(staging, outDir, stamp);
   } finally {
     fs.rmSync(staging, { force: true, recursive: true });
   }
@@ -223,24 +231,26 @@ function buildDependencyPackage(packageRoot: string): BuiltProject {
 function packageProject(packageRoot: string): {
   tsconfig: string;
   emitBase: string;
+  options: unknown;
 } {
   const own = ownProjectConfig(packageRoot);
   if (own !== null) {
     return own;
   }
   const root = toPosix(packageRoot);
+  const compilerOptions = {
+    module: "preserve",
+    moduleResolution: "bundler",
+    rootDir: root,
+    // The entry compile gate already type-checked this dependency in the
+    // consuming program; this build only needs runnable emit, so library
+    // declaration files are skipped.
+    skipLibCheck: true,
+    target: "esnext",
+  };
   const content = JSON.stringify(
     {
-      compilerOptions: {
-        module: "preserve",
-        moduleResolution: "bundler",
-        rootDir: root,
-        // The entry compile gate already type-checked this dependency in the
-        // consuming program; this build only needs runnable emit, so library
-        // declaration files are skipped.
-        skipLibCheck: true,
-        target: "esnext",
-      },
+      compilerOptions,
       include: [`${root}/**/*`],
       exclude: [`${root}/node_modules`],
     },
@@ -253,7 +263,7 @@ function packageProject(packageRoot: string): {
   if (readFileOrNull(tsconfig) !== content) {
     fs.writeFileSync(tsconfig, content, "utf8");
   }
-  return { emitBase: packageRoot, tsconfig };
+  return { emitBase: packageRoot, options: compilerOptions, tsconfig };
 }
 
 /**
@@ -263,30 +273,48 @@ function packageProject(packageRoot: string): {
  */
 function ownProjectConfig(
   packageRoot: string,
-): { tsconfig: string; emitBase: string } | null {
+): { tsconfig: string; emitBase: string; options: unknown } | null {
   let project: ReturnType<typeof readProjectConfig>;
   try {
     project = readProjectConfig({ cwd: packageRoot });
-  } catch {
+  } catch (error) {
+    // `readProjectConfig` throws both when no config exists anywhere up the
+    // tree (the cue to synthesize one) and when a config that DOES exist is
+    // unreadable. A broken `tsconfig.json` sitting at the package root is a
+    // real error to surface, not a reason to silently build under a different,
+    // synthesized config.
+    if (isFile(path.join(packageRoot, "tsconfig.json"))) {
+      throw new Error(
+        `ttsx: dependency package ${packageRoot} has an unreadable ` +
+          `tsconfig.json: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     return null;
   }
   if (!samePath(project.root, packageRoot)) {
     return null;
   }
-  return { emitBase: emitBaseDirectory(project), tsconfig: project.path };
+  return {
+    emitBase: emitBaseDirectory(project),
+    options: project.compilerOptions,
+    tsconfig: project.path,
+  };
 }
 
 /**
  * A string that changes whenever the cache must be rebuilt: the ttsc version
- * (emit logic), the tsconfig, and the package's full set of `.ts` sources with
- * their mtimes. Hashing the whole sorted set — not just the newest mtime —
- * means a deleted or renamed source invalidates the cache too, not only an
- * edited one. A completed cache stores this; a later run reuses the cache only
- * on an exact match.
+ * (emit logic), the resolved compiler options, and the package's full set of
+ * `.ts` sources with their mtimes. Hashing the _resolved_ options — not the
+ * leaf tsconfig's mtime — means a change in an `extends`-ed base config
+ * invalidates the cache too (a base config lives outside the package and is
+ * never enumerated as a source). Hashing the whole sorted source set — not just
+ * the newest mtime — means a deleted or renamed source invalidates it as well,
+ * not only an edited one. A completed cache stores this; a later run reuses the
+ * cache only on an exact match.
  */
-function freshnessStamp(packageRoot: string, tsconfig: string): string {
+function freshnessStamp(packageRoot: string, options: unknown): string {
   const digest = createHash("sha1");
-  digest.update(`${path.resolve(tsconfig)}\0${statMtimeMs(tsconfig)}`);
+  digest.update(JSON.stringify(options ?? {}));
   for (const source of typeScriptSources(packageRoot).sort()) {
     digest.update(`\0${source}\0${statMtimeMs(source)}`);
   }
@@ -312,24 +340,52 @@ function readStamp(outDir: string): string | null {
 
 /**
  * Move `staging` onto `outDir` as a complete unit. A plain rename wins when
- * `outDir` is absent; otherwise the existing cache is swapped aside and
- * removed. A concurrent process that promoted first is left in place — its emit
- * is identical (the build is deterministic), so either copy is correct.
+ * `outDir` is absent.
+ *
+ * When `outDir` already exists, the common case under parallel `ttsx` processes
+ * is that a peer promoted the _same_ build first — every process computes an
+ * identical `stamp` from identical sources and options — so if the existing
+ * cache already carries our stamp we keep it and discard `staging`, never
+ * touching the live directory. Only a genuinely stale `outDir` is replaced, and
+ * then the old copy is set aside (not deleted up front) and restored if the
+ * swap-in fails, so a reader never loses a usable cache.
  */
-function promoteDirectory(staging: string, outDir: string): void {
+function promoteDirectory(
+  staging: string,
+  outDir: string,
+  stamp: string,
+): void {
   fs.mkdirSync(path.dirname(outDir), { recursive: true });
   try {
     fs.renameSync(staging, outDir);
     return;
   } catch {
-    // `outDir` already exists; fall through to swap it out.
+    // `outDir` already exists; decide whether it must be replaced.
+  }
+  if (readStamp(outDir) === stamp) {
+    // A peer already promoted our exact build; keep theirs untouched.
+    return;
   }
   const retired = `${outDir}.${process.pid}.${(stagingCounter += 1)}.retired`;
   try {
     fs.renameSync(outDir, retired);
+  } catch {
+    // A peer moved/replaced `outDir` first; leave whatever they put there.
+    return;
+  }
+  try {
     fs.renameSync(staging, outDir);
   } catch {
-    // A concurrent process promoted first; keep theirs.
+    // The swap-in failed (e.g. a peer recreated `outDir`). Prefer whatever is
+    // now in place; if nothing is, restore the cache we set aside rather than
+    // leaving `outDir` missing.
+    if (!fs.existsSync(outDir)) {
+      try {
+        fs.renameSync(retired, outDir);
+      } catch {
+        // A peer won the slot; nothing left to restore.
+      }
+    }
   }
   fs.rmSync(retired, { force: true, recursive: true });
 }
@@ -510,12 +566,9 @@ function withJsExtension(filename: string): string {
 function isProjectMirror(filename: string): boolean {
   const root = process.env.TTSC_TTSX_PROJECT_MIRROR;
   if (root !== undefined && root !== "") {
-    const relative = path.relative(root, filename);
-    return (
-      relative !== "" &&
-      !relative.startsWith("..") &&
-      !path.isAbsolute(relative)
-    );
+    // `filename` is already canonicalized by the caller; canonicalize the root
+    // the same way so a symlinked or differently-cased spelling still matches.
+    return isInsideDirectory(realpathIfExists(root), filename);
   }
   const segments = filename.split(path.sep);
   for (let i = 0; i < segments.length - 1; i += 1) {
@@ -524,6 +577,18 @@ function isProjectMirror(filename: string): boolean {
     }
   }
   return false;
+}
+
+/** True when `file` is a descendant of directory `root` (not `root` itself). */
+function isInsideDirectory(root: string, file: string): boolean {
+  const [a, b] =
+    process.platform === "win32"
+      ? [root.toLowerCase(), file.toLowerCase()]
+      : [root, file];
+  const relative = path.relative(a, b);
+  return (
+    relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+  );
 }
 
 function realpathIfExists(filename: string): string {

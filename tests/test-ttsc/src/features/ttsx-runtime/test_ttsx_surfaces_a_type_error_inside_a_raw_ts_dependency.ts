@@ -5,15 +5,16 @@ import assert from "node:assert/strict";
  * Verifies `ttsx` fails when a raw-`.ts` dependency has a type error of its
  * own.
  *
- * Because each dependency is compiled by the real, type-checking compiler — not
- * just type-stripped — a dependency's own type error is caught and surfaces as
- * a non-zero exit, rather than the broken code running. This pins the "real
- * type-checking, not a strip" guarantee: a regression to a check-free transform
- * would let `bad-dep` run.
+ * `ttsx` type-checks the raw TypeScript it serves rather than stripping it: the
+ * entry's compile gate compiles the consuming program — the imported
+ * dependency's source included — so the dependency's own type error is caught
+ * and surfaces as a non-zero exit with the diagnostic, rather than the broken
+ * code running. A regression to a check-free transform would let `bad-dep`
+ * run.
  *
  * 1. Install a `bad-dep` whose source assigns a string to a `number`.
  * 2. Run `ttsx` against an entry importing it.
- * 3. Assert a non-zero exit (the build failed) and that nothing was printed.
+ * 3. Assert a non-zero exit, nothing printed, and the type diagnostic.
  */
 export const test_ttsx_surfaces_a_type_error_inside_a_raw_ts_dependency =
   () => {
@@ -52,4 +53,7 @@ export const test_ttsx_surfaces_a_type_error_inside_a_raw_ts_dependency =
       "ttsx must fail on the dependency's type error",
     );
     assert.equal(result.stdout.trim(), "");
+    // Pin that the failure is the dependency's own type error, not an unrelated
+    // abort: a strip-only path would never diagnose the bad assignment.
+    assert.match(result.stderr, /not assignable to type 'number'/);
   };
