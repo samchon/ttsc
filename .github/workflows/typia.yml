@@ -98,42 +98,13 @@ jobs:
           };
           fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
           '
-          # The automated suite's runtime `--exclude CommentTagPattern` cannot
-          # prevent ttsx's compile gate from seeing those files, so exclude that
-          # upstream-broken fixture from the temporary tsconfig too.
-          node -e '
-          const fs = require("fs");
-          const file = "tests/test-typia-automated/tsconfig.json";
-          const text = fs.readFileSync(file, "utf8");
-          if (text.includes("CommentTagPattern.ts")) process.exit(0);
-          const body = text.replace(/\s*\}$/u, "");
-          fs.writeFileSync(
-            file,
-            body +
-              (/,\s*$/u.test(body) ? "" : ",") +
-              "\n  \"exclude\": [\"src/features/**/*CommentTagPattern.ts\"]\n}\n",
-          );
-          '
 
       - name: Test typia next
         working-directory: experimental/typia
         run: |
           pnpm install --no-frozen-lockfile
           node scripts/with-ttsc-cache.cjs pnpm --filter @typia/template build
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=./tests/test-* --filter=!./tests/test-typia-automated --filter=!./tests/test-typia-schema --filter=!./tests/test-utils-automated -r start
-          # `CommentTagPattern` currently fails in typia itself because the
-          # fixture contains a bare `@pattern` JSDoc tag with no value. Run the
-          # automated suite while excluding that upstream fixture so this CI
-          # continues validating ttsx against the rest of typia's generated
-          # transform corpus.
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-automated exec ttsx src/index.ts --exclude CommentTagPattern
-          # `UltimateUnion` currently throws from its spoiler generator when
-          # the utilities automated suite runs source-first. Keep the rest of
-          # the suite in the typia compatibility signal.
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-openapiautomated exec ttsx src/index.ts --exclude UltimateUnion
-          # `test_llm_application_qualified_param` currently fails in typia
-          # itself once ttsx preserves source identity and the schema tests are
-          # actually discovered. Keep the rest of the latest schema suite in CI
-          # while upstream typia fixes that specific LLM application case.
-          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-schema exec ttsx src/index.ts --exclude llm_application_qualified_param
+          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=./tests/test-* --filter=!./tests/test-typia-automated --filter=!./tests/test-typia-schema -r start
+          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-automated exec ttsx src/index.ts
+          node scripts/with-ttsc-cache.cjs --ts-node-runtime pnpm --filter=@typia/test-typia-schema exec ttsx src/index.ts
           pnpm run test:toolchain
