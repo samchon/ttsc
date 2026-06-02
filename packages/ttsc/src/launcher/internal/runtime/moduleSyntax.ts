@@ -45,7 +45,8 @@ export function hasEsmSyntax(code: string): boolean {
     }
     if (
       atStatementStart &&
-      (matches(code, i, "import") || matches(code, i, "export"))
+      (isModuleStatement(code, i, "import") ||
+        isModuleStatement(code, i, "export"))
     ) {
       return true;
     }
@@ -127,6 +128,24 @@ function skipRegex(code: string, start: number): number {
   return code.length;
 }
 
+/** Keywords after which a `/` opens a regex literal, not a division operator. */
+const REGEX_PREFIX_KEYWORDS = new Set([
+  "return",
+  "typeof",
+  "instanceof",
+  "case",
+  "delete",
+  "do",
+  "else",
+  "in",
+  "of",
+  "new",
+  "throw",
+  "void",
+  "yield",
+  "await",
+]);
+
 function looksLikeRegex(code: string, start: number): boolean {
   let i = start - 1;
   while (i >= 0 && /\s/.test(code[i]!)) {
@@ -135,17 +154,46 @@ function looksLikeRegex(code: string, start: number): boolean {
   if (i < 0) {
     return true;
   }
-  return "([{=,:;!?&|+-*~^<>".includes(code[i]!);
+  if ("([{=,:;!?&|+-*~^<>".includes(code[i]!)) {
+    return true;
+  }
+  // A `/` right after a keyword like `return` opens a regex, not division.
+  let wordEnd = i + 1;
+  while (i >= 0 && isIdentifierPart(code[i])) {
+    i -= 1;
+  }
+  return REGEX_PREFIX_KEYWORDS.has(code.slice(i + 1, wordEnd));
 }
 
-function matches(code: string, i: number, keyword: string): boolean {
-  return (
-    code.startsWith(keyword, i) && !isIdentifierPart(code[i + keyword.length])
-  );
+/**
+ * True when `keyword` (`import`/`export`) at `i` begins a real module
+ * statement, not an object property key (`{ export: 1 }`), a shorthand (`{
+ * import }`), or a dynamic `import(...)` call. The keyword must be followed by
+ * a continuation that only a declaration/binding form allows.
+ */
+function isModuleStatement(code: string, i: number, keyword: string): boolean {
+  if (
+    !code.startsWith(keyword, i) ||
+    isIdentifierPart(code[i - 1]) ||
+    isIdentifierPart(code[i + keyword.length])
+  ) {
+    return false;
+  }
+  let j = i + keyword.length;
+  while (j < code.length && /\s/.test(code[j]!)) {
+    j += 1;
+  }
+  const next = code[j];
+  // Reject object-key (`:`, `,`, `}`) and dynamic-import / call (`(`) contexts.
+  return next !== ":" && next !== "," && next !== "}" && next !== "(";
 }
 
 function matchesImportMeta(code: string, i: number): boolean {
-  if (!code.startsWith("import", i) || isIdentifierPart(code[i - 1])) {
+  if (
+    !code.startsWith("import", i) ||
+    isIdentifierPart(code[i - 1]) ||
+    isMemberAccess(code, i)
+  ) {
     return false;
   }
   let j = i + "import".length;
@@ -164,4 +212,13 @@ function matchesImportMeta(code: string, i: number): boolean {
 
 function isIdentifierPart(value: string | undefined): boolean {
   return value !== undefined && /[$\w]/.test(value);
+}
+
+/** True when the token at `i` is a member access (`obj.import`), not a keyword. */
+function isMemberAccess(code: string, i: number): boolean {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(code[j]!)) {
+    j -= 1;
+  }
+  return code[j] === ".";
 }

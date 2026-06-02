@@ -85,11 +85,11 @@ function createProjectContext(
     path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const hasRootDir = typeof project.compilerOptions.rootDir === "string";
-  // tsgo rejects `outDir` without an explicit `rootDir` (TS5011). When the
-  // project sets one but not the other, mirror the whole project root so every
-  // reachable source emits under a predictable, mappable layout.
-  const forcedRootDir =
-    project.compilerOptions.outDir && !hasRootDir ? root : undefined;
+  // ttsx always injects its own `--outDir` (the per-run byte store), and tsgo
+  // rejects `outDir` without an explicit `rootDir` (TS5011). So whenever the
+  // project omits `rootDir`, mirror the whole project root: every reachable
+  // source then emits under a predictable, mappable layout.
+  const forcedRootDir = hasRootDir ? undefined : root;
   return {
     tsconfig,
     root,

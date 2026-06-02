@@ -12,6 +12,7 @@ import {
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { realPath } from "./runtime/paths";
 import { type RuntimeEnv, toEnvRecord } from "./runtime/runtimeEnv";
 
 /**
@@ -267,7 +268,7 @@ function runPreparedEntry(
     const result = spawnSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      env: childEnv(parsed, execution),
+      env: childEnv(parsed, execution, cwd),
       windowsHide: true,
     });
     if (result.error) {
@@ -291,16 +292,22 @@ function runPreparedEntry(
 function childEnv(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
+  cwd: string,
 ): NodeJS.ProcessEnv {
   const runtime: RuntimeEnv = {
     entryRoot: execution.entryRoot,
-    entryRealRoot: execution.entryRoot,
+    // Resolve symlinks so a project reached through a symlinked directory
+    // still matches the realpath of its own sources during classification.
+    entryRealRoot: realPath(execution.entryRoot),
     entryTsconfig: execution.tsconfig,
     entrySourceRoot: execution.sourceRoot,
     entryEmitDir: execution.emitDir,
     entryModuleFormat: execution.moduleKind === "esm" ? "module" : "commonjs",
     tsgoBinary: parsed.binary,
-    cacheDir: process.env.TTSC_CACHE_DIR,
+    // Reuse the same plugin-binary cache the entry gate used, so dependency
+    // builds reuse its compiled plugins rather than a different cache root.
+    cacheDir:
+      resolveCacheDir(cwd, parsed.cacheDir) ?? process.env.TTSC_CACHE_DIR,
     noPlugins: parsed.noPlugins,
   };
   const nodeOptions = [process.env.NODE_OPTIONS, runtimeHookNodeOptions()]

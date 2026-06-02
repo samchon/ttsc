@@ -183,20 +183,28 @@ function resolveTargetValue(
   if (!isRecord(value)) {
     return [];
   }
-  for (const condition of [...conditions, "default"]) {
-    if (condition in value) {
-      return resolveTargetValue(value[condition], conditions);
+  // Node selects the first condition in the object's own key order that is
+  // active, not the first active condition in caller priority order.
+  const active = new Set([...conditions, "default"]);
+  for (const key of Object.keys(value)) {
+    if (active.has(key)) {
+      return resolveTargetValue(value[key], conditions);
     }
   }
   return [];
 }
 
-/** Match a `./prefix/*` pattern export and expand its `*` capture. */
+/**
+ * Match a `./prefix/*` pattern export and expand its `*` capture. Node selects
+ * the pattern with the longest matching prefix (then the longest suffix),
+ * independent of key order, so the most specific pattern wins.
+ */
 function resolvePatternExports(
   exports: Record<string, unknown>,
   subpath: string,
   conditions: readonly string[],
 ): string[] {
+  let best: { key: string; prefix: string; suffix: string } | null = null;
   for (const key of Object.keys(exports)) {
     const star = key.indexOf("*");
     if (star === -1) {
@@ -205,20 +213,31 @@ function resolvePatternExports(
     const prefix = key.slice(0, star);
     const suffix = key.slice(star + 1);
     if (
-      subpath.length >= prefix.length + suffix.length &&
-      subpath.startsWith(prefix) &&
-      subpath.endsWith(suffix)
+      subpath.length < prefix.length + suffix.length ||
+      !subpath.startsWith(prefix) ||
+      !subpath.endsWith(suffix)
     ) {
-      const captured = subpath.slice(
-        prefix.length,
-        subpath.length - suffix.length,
-      );
-      return resolveTargetValue(exports[key], conditions).map((target) =>
-        target.replace(/\*/g, captured),
-      );
+      continue;
+    }
+    if (
+      best === null ||
+      prefix.length > best.prefix.length ||
+      (prefix.length === best.prefix.length &&
+        suffix.length > best.suffix.length)
+    ) {
+      best = { key, prefix, suffix };
     }
   }
-  return [];
+  if (best === null) {
+    return [];
+  }
+  const captured = subpath.slice(
+    best.prefix.length,
+    subpath.length - best.suffix.length,
+  );
+  return resolveTargetValue(exports[best.key], conditions).map((target) =>
+    target.replace(/\*/g, captured),
+  );
 }
 
 function readJson(file: string): Record<string, unknown> | null {

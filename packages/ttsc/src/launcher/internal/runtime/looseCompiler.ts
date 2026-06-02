@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { resolveEmittedJavaScript } from "../../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../../compiler/internal/runBuild";
+import { isInside } from "./paths";
 import type { RuntimeEnv } from "./runtimeEnv";
 
 /** Directory under the entry emit root that holds loose-compiled sources. */
@@ -46,7 +47,13 @@ export function compileLooseEntry(
 }
 
 function build(sourceFile: string, runtime: RuntimeEnv): string {
-  const sourceRoot = path.dirname(sourceFile);
+  // Emit relative to the entry's source root so a sibling import in a parent
+  // directory still lands under the loose emit dir instead of polluting the
+  // source tree; fall back to the file's own directory for a source that lives
+  // outside that root.
+  const sourceRoot = isInside(runtime.entrySourceRoot, sourceFile)
+    ? runtime.entrySourceRoot
+    : path.dirname(sourceFile);
   const emitDir = path.join(
     runtime.entryEmitDir,
     LOOSE_DIR,

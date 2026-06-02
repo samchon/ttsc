@@ -7,7 +7,12 @@ import { resolveEmittedJavaScript } from "../../../compiler/internal/resolveEmit
 import { runBuild } from "../../../compiler/internal/runBuild";
 import { collectPluginDescriptorFiles } from "../../../plugin/internal/loadProjectPlugins";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
-import { isJavaScriptOutput, isTypeScriptSource, realPath } from "./paths";
+import {
+  isFile,
+  isJavaScriptOutput,
+  isTypeScriptSource,
+  realPath,
+} from "./paths";
 import type { RuntimeEnv } from "./runtimeEnv";
 
 /** Cache directory a dependency package's compiled JavaScript is promoted to. */
@@ -294,13 +299,12 @@ function mtimeOf(file: string): number {
 }
 
 /**
- * Compiler options synthesized for a dependency that ships no tsconfig.
- * `esnext`
- *
- * - `bundler` is the one combination tsgo accepts that also resolves a package's
- *   raw `.ts` exports and the extensionless relative imports workspace packages
- *   use. The emitted JavaScript keeps whatever module syntax the source had, so
- *   the format of each file is detected from its emit, not assumed here.
+ * Compiler options synthesized for a dependency that ships no tsconfig. The
+ * `esnext` + `bundler` pair is the one combination tsgo accepts that also
+ * resolves a package's raw `.ts` exports and the extensionless relative imports
+ * workspace packages use. The emitted JavaScript keeps whatever module syntax
+ * the source had, so each file's format is detected from its emit, not
+ * assumed.
  */
 function synthesizedCompilerOptions(): Record<string, unknown> {
   return {
@@ -381,14 +385,6 @@ function hasEmittedJavaScript(root: string): boolean {
     }
   }
   return false;
-}
-
-function isFile(file: string): boolean {
-  try {
-    return fs.statSync(file).isFile();
-  } catch {
-    return false;
-  }
 }
 
 function isAlreadyExists(error: unknown): boolean {
