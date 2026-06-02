@@ -13,14 +13,20 @@ import { runBuild } from "../../compiler/internal/runBuild";
 type FsPath = string | Buffer | URL;
 
 const nativeFs = {
+  access: fs.access.bind(fs),
+  accessSync: fs.accessSync.bind(fs),
   existsSync: fs.existsSync.bind(fs),
   lstat: fs.lstat.bind(fs),
   lstatSync: fs.lstatSync.bind(fs),
   promises: {
+    access: fs.promises.access.bind(fs.promises),
     lstat: fs.promises.lstat.bind(fs.promises),
+    readFile: fs.promises.readFile.bind(fs.promises),
     readdir: fs.promises.readdir.bind(fs.promises),
     stat: fs.promises.stat.bind(fs.promises),
   },
+  readFile: fs.readFile.bind(fs),
+  readFileSync: fs.readFileSync.bind(fs),
   readdir: fs.readdir.bind(fs),
   readdirSync: fs.readdirSync.bind(fs),
   realpathSync: fs.realpathSync.bind(fs),
@@ -177,7 +183,59 @@ export function installFileSystemHooks(): void {
 
   fs.existsSync = ((candidate: FsPath): boolean =>
     nativeFs.existsSync(candidate) ||
-    sourceForVirtualJavaScriptPath(candidate) !== null) as typeof fs.existsSync;
+    emittedJavaScriptForVirtualPath(candidate) !==
+      null) as typeof fs.existsSync;
+
+  fs.accessSync = ((candidate: FsPath, mode?: number): void => {
+    try {
+      nativeFs.accessSync(candidate, mode);
+    } catch (error) {
+      const emitted = emittedJavaScriptForVirtualPath(candidate);
+      if (emitted === null) {
+        throw error;
+      }
+      nativeFs.accessSync(emitted, mode);
+    }
+  }) as typeof fs.accessSync;
+
+  fs.access = ((candidate: FsPath, mode: unknown, callback?: unknown) => {
+    const cb = typeof mode === "function" ? mode : callback;
+    if (typeof cb !== "function") {
+      return nativeFs.access(candidate, mode as never);
+    }
+    const actualMode = typeof mode === "function" ? undefined : mode;
+    return nativeFs.access(
+      candidate,
+      actualMode as never,
+      (error: NodeJS.ErrnoException | null) => {
+        if (error === null) {
+          cb(null);
+          return;
+        }
+        const emitted = emittedJavaScriptForVirtualPath(candidate);
+        if (emitted === null) {
+          cb(error);
+          return;
+        }
+        nativeFs.access(emitted, actualMode as never, cb as never);
+      },
+    );
+  }) as typeof fs.access;
+
+  fs.promises.access = (async (
+    candidate: FsPath,
+    mode?: number,
+  ): Promise<void> => {
+    try {
+      await nativeFs.promises.access(candidate, mode);
+    } catch (error) {
+      const emitted = emittedJavaScriptForVirtualPath(candidate);
+      if (emitted === null) {
+        throw error;
+      }
+      await nativeFs.promises.access(emitted, mode);
+    }
+  }) as typeof fs.promises.access;
 
   fs.readdirSync = ((directory: FsPath, options?: unknown): unknown => {
     const entries = nativeFs.readdirSync(directory, options as never);
@@ -271,6 +329,57 @@ export function installFileSystemHooks(): void {
       candidate,
       options,
     )) as typeof fs.promises.lstat;
+
+  fs.readFileSync = ((candidate: FsPath, options?: unknown): unknown => {
+    try {
+      return nativeFs.readFileSync(candidate, options as never);
+    } catch (error) {
+      const emitted = emittedJavaScriptForVirtualPath(candidate);
+      if (emitted === null) {
+        throw error;
+      }
+      return nativeFs.readFileSync(emitted, options as never);
+    }
+  }) as typeof fs.readFileSync;
+
+  fs.readFile = ((candidate: FsPath, options: unknown, callback?: unknown) => {
+    const cb = typeof options === "function" ? options : callback;
+    if (typeof cb !== "function") {
+      return nativeFs.readFile(candidate, options as never);
+    }
+    const actualOptions = typeof options === "function" ? undefined : options;
+    return nativeFs.readFile(
+      candidate,
+      actualOptions as never,
+      (error: NodeJS.ErrnoException | null, content: unknown) => {
+        if (error === null) {
+          cb(null, content);
+          return;
+        }
+        const emitted = emittedJavaScriptForVirtualPath(candidate);
+        if (emitted === null) {
+          cb(error, content);
+          return;
+        }
+        nativeFs.readFile(emitted, actualOptions as never, cb as never);
+      },
+    );
+  }) as typeof fs.readFile;
+
+  fs.promises.readFile = (async (
+    candidate: FsPath,
+    options?: unknown,
+  ): Promise<unknown> => {
+    try {
+      return await nativeFs.promises.readFile(candidate, options as never);
+    } catch (error) {
+      const emitted = emittedJavaScriptForVirtualPath(candidate);
+      if (emitted === null) {
+        throw error;
+      }
+      return nativeFs.promises.readFile(emitted, options as never);
+    }
+  }) as typeof fs.promises.readFile;
 }
 
 function mergeVirtualJavaScriptEntries(
@@ -351,6 +460,15 @@ function sourceForVirtualJavaScriptPath(candidate: FsPath): string | null {
     return null;
   }
   return source;
+}
+
+function emittedJavaScriptForVirtualPath(candidate: FsPath): string | null {
+  const file = fileSystemPath(candidate);
+  if (file === null || isActualFile(file)) {
+    return null;
+  }
+  const source = absoluteJavaScriptSourceCounterpart(file);
+  return source === null ? null : entryEmittedJavaScriptForSource(source);
 }
 
 function isDirentLike(entry: unknown): entry is fs.Dirent {
