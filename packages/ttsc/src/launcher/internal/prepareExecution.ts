@@ -64,13 +64,14 @@ function createProjectContext(
     explicitCacheDir ??
     path.join(project.root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
-  const emitBase = resolveRuntimeSourceRoot(project, filename);
+  const emitBase = resolveRuntimeSourceRoot(project);
   return {
     tsconfig: project.path,
     root: project.root,
     cacheDir,
     processDir,
     pluginCacheDir: explicitCacheDir,
+    passthrough: withDefaultRootDir(project, options.passthrough),
     // Lay the emit out under a path that mirrors `emitBase`'s absolute location,
     // so a file the program pulls in from OUTSIDE `rootDir` (a source-consumed
     // workspace package compiled as part of the gate's program) still emits at a
@@ -107,12 +108,17 @@ function mirroredEmitDir(processDir: string, emitBase: string): string {
 }
 
 /**
- * The directory tsgo lays the project's emit out relative to: the explicit
- * `rootDir`, or the entry file's own directory when none is configured.
+ * The directory ttsx uses as the source-side boundary for the entry build: the
+ * explicit `rootDir`, or the project root when none is configured.
+ *
+ * Tsgo may choose a narrower common-source directory for the actual output
+ * layout when `rootDir` is absent. The runtime resolver can recover that by
+ * scanning the private emit directory, but it still needs this boundary to know
+ * which sources belong to the already-checked entry project rather than
+ * triggering a separate dependency build.
  */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
-  filename: string,
 ): string {
   const rootDir = project.compilerOptions.rootDir;
   if (typeof rootDir === "string") {
@@ -120,7 +126,7 @@ function resolveRuntimeSourceRoot(
       ? rootDir
       : path.resolve(project.root, rootDir);
   }
-  return path.dirname(path.resolve(filename));
+  return project.root;
 }
 
 function buildProject(
@@ -140,7 +146,7 @@ function buildProject(
     env: options.env,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
-    passthrough: options.passthrough,
+    passthrough: context.passthrough,
     plugins: options.plugins,
     quiet: true,
     singleThreaded: options.singleThreaded,
@@ -167,6 +173,16 @@ function removeRuntimeOutput(directory: string): void {
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }
+}
+
+function withDefaultRootDir(
+  project: ReturnType<typeof readProjectConfig>,
+  passthrough?: readonly string[],
+): string[] | undefined {
+  if (typeof project.compilerOptions.rootDir === "string") {
+    return passthrough === undefined ? undefined : [...passthrough];
+  }
+  return ["--rootDir", project.root, ...(passthrough ?? [])];
 }
 
 function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {

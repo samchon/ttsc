@@ -353,7 +353,10 @@ function buildDependencyPackage(packageRoot: string): BuiltProject {
       cwd: packageRoot,
       emit: true,
       outDir: staging,
-      passthrough: dependencyBuildPassthrough(),
+      passthrough: dependencyBuildPassthrough(
+        project.options,
+        project.emitBase,
+      ),
       plugins: process.env.TTSC_TTSX_NO_PLUGINS === "1" ? false : undefined,
       quiet: true,
       singleThreaded: process.env.TTSC_TTSX_SINGLE_THREADED === "1",
@@ -532,20 +535,36 @@ function dependencyBuildCheckers(): number | undefined {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function dependencyBuildPassthrough(): string[] | undefined {
+function dependencyBuildPassthrough(
+  options: unknown,
+  emitBase: string,
+): string[] | undefined {
   const raw = process.env.TTSC_TTSX_TSGO_FLAGS;
+  const defaultRootDir = hasRootDirOption(options)
+    ? []
+    : ["--rootDir", emitBase];
   if (raw === undefined || raw.trim() === "") {
-    return undefined;
+    return defaultRootDir.length === 0 ? undefined : defaultRootDir;
   }
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) &&
+    const passthrough =
+      Array.isArray(parsed) &&
       parsed.every((item): item is string => typeof item === "string")
-      ? parsed
-      : undefined;
+        ? parsed
+        : undefined;
+    return [...defaultRootDir, ...(passthrough ?? [])];
   } catch {
-    return undefined;
+    return defaultRootDir.length === 0 ? undefined : defaultRootDir;
   }
+}
+
+function hasRootDirOption(options: unknown): boolean {
+  return (
+    isRecord(options) &&
+    typeof options.rootDir === "string" &&
+    options.rootDir.length !== 0
+  );
 }
 
 /** Same filesystem path, case-insensitively on case-insensitive platforms. */
