@@ -1,6 +1,11 @@
 import { registerHooks } from "node:module";
 
-import { installCommonJsHooks, load, resolve } from "./runtimeHooks.js";
+import {
+  installCommonJsHooks,
+  installFileSystemHooks,
+  load,
+  resolve,
+} from "./runtimeHooks.js";
 
 /**
  * `--import` entry point that installs `ttsx`'s runtime module hooks before the
@@ -19,3 +24,4 @@ import { installCommonJsHooks, load, resolve } from "./runtimeHooks.js";
  */
 registerHooks({ load, resolve });
 installCommonJsHooks();
+installFileSystemHooks();

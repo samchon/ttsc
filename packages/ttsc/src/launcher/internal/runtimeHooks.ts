@@ -10,6 +10,24 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 
+type FsPath = string | Buffer | URL;
+
+const nativeFs = {
+  existsSync: fs.existsSync.bind(fs),
+  lstat: fs.lstat.bind(fs),
+  lstatSync: fs.lstatSync.bind(fs),
+  promises: {
+    lstat: fs.promises.lstat.bind(fs.promises),
+    readdir: fs.promises.readdir.bind(fs.promises),
+    stat: fs.promises.stat.bind(fs.promises),
+  },
+  readdir: fs.readdir.bind(fs),
+  readdirSync: fs.readdirSync.bind(fs),
+  realpathSync: fs.realpathSync.bind(fs),
+  stat: fs.stat.bind(fs),
+  statSync: fs.statSync.bind(fs),
+};
+
 /**
  * Node.js module-customization hooks `ttsx` installs (via `registerHooks`) in
  * the child process it spawns. `registerHooks` is synchronous and in-thread, so
@@ -138,6 +156,265 @@ export function installCommonJsHooks(): void {
       module._compile(runtime.source, filename);
     };
   }
+}
+
+let fileSystemHooksInstalled = false;
+
+/**
+ * Make emitted `.js` counterparts visible to source-directory scanners.
+ *
+ * Source identity keeps `__dirname` at the real source tree, but some runtime
+ * loaders discover modules by scanning for compiled `.js` files before
+ * importing them. The compile gate already emitted those files into ttsx's
+ * private runtime directory, so expose only proven counterparts through
+ * `readdir`/`stat` without writing beside the user's sources.
+ */
+export function installFileSystemHooks(): void {
+  if (fileSystemHooksInstalled) {
+    return;
+  }
+  fileSystemHooksInstalled = true;
+
+  fs.readdirSync = ((directory: FsPath, options?: unknown): unknown => {
+    const entries = nativeFs.readdirSync(directory, options as never);
+    return mergeVirtualJavaScriptEntries(directory, entries);
+  }) as typeof fs.readdirSync;
+
+  fs.readdir = ((directory: FsPath, options: unknown, callback?: unknown) => {
+    const cb = typeof options === "function" ? options : callback;
+    if (typeof cb !== "function") {
+      return nativeFs.readdir(directory, options as never);
+    }
+    const actualOptions = typeof options === "function" ? undefined : options;
+    return nativeFs.readdir(
+      directory,
+      actualOptions as never,
+      (error: NodeJS.ErrnoException | null, entries: unknown) => {
+        if (error !== null) {
+          cb(error, entries);
+          return;
+        }
+        try {
+          cb(null, mergeVirtualJavaScriptEntries(directory, entries));
+        } catch (mergeError) {
+          cb(mergeError, entries);
+        }
+      },
+    );
+  }) as typeof fs.readdir;
+
+  fs.promises.readdir = (async (
+    directory: FsPath,
+    options?: unknown,
+  ): Promise<unknown> => {
+    const entries = await nativeFs.promises.readdir(
+      directory,
+      options as never,
+    );
+    return mergeVirtualJavaScriptEntries(directory, entries);
+  }) as typeof fs.promises.readdir;
+
+  fs.statSync = ((candidate: FsPath, options?: unknown): fs.Stats => {
+    try {
+      return nativeFs.statSync(candidate, options as never);
+    } catch (error) {
+      const source = sourceForVirtualJavaScriptFile(candidate, error);
+      if (source === null) {
+        throw error;
+      }
+      return nativeFs.statSync(source, options as never);
+    }
+  }) as typeof fs.statSync;
+
+  fs.lstatSync = ((candidate: FsPath, options?: unknown): fs.Stats => {
+    try {
+      return nativeFs.lstatSync(candidate, options as never);
+    } catch (error) {
+      const source = sourceForVirtualJavaScriptFile(candidate, error);
+      if (source === null) {
+        throw error;
+      }
+      return nativeFs.lstatSync(source, options as never);
+    }
+  }) as typeof fs.lstatSync;
+
+  fs.stat = ((candidate: FsPath, options: unknown, callback?: unknown) =>
+    statWithVirtualJavaScript(
+      nativeFs.stat,
+      candidate,
+      options,
+      callback,
+    )) as typeof fs.stat;
+
+  fs.lstat = ((candidate: FsPath, options: unknown, callback?: unknown) =>
+    statWithVirtualJavaScript(
+      nativeFs.lstat,
+      candidate,
+      options,
+      callback,
+    )) as typeof fs.lstat;
+
+  fs.promises.stat = ((candidate: FsPath, options?: unknown) =>
+    promiseStatWithVirtualJavaScript(
+      nativeFs.promises.stat,
+      candidate,
+      options,
+    )) as typeof fs.promises.stat;
+
+  fs.promises.lstat = ((candidate: FsPath, options?: unknown) =>
+    promiseStatWithVirtualJavaScript(
+      nativeFs.promises.lstat,
+      candidate,
+      options,
+    )) as typeof fs.promises.lstat;
+}
+
+function mergeVirtualJavaScriptEntries(
+  directory: FsPath,
+  entries: unknown,
+): unknown {
+  if (
+    !Array.isArray(entries) ||
+    entries.some((entry) => typeof entry !== "string")
+  ) {
+    return entries;
+  }
+  const virtual = virtualJavaScriptEntries(directory, entries);
+  return virtual.length === 0 ? entries : [...entries, ...virtual];
+}
+
+function virtualJavaScriptEntries(
+  directory: FsPath,
+  entries: readonly string[],
+): string[] {
+  const sourceDir = fileSystemPath(directory);
+  const entry = entryProject();
+  if (sourceDir === null || entry === null) {
+    return [];
+  }
+  const realSourceDir = realpathIfExists(sourceDir);
+  if (!isInsideDirectory(entry.emitBase, realSourceDir)) {
+    return [];
+  }
+  const emittedDir = path.join(
+    entry.emitDir,
+    path.relative(entry.emitBase, realSourceDir),
+  );
+  if (!isActualDirectory(emittedDir)) {
+    return [];
+  }
+  const present = new Set(entries);
+  const virtual: string[] = [];
+  for (const emitted of nativeFs.readdirSync(emittedDir)) {
+    if (!isJavaScriptOutputFile(emitted) || present.has(emitted)) {
+      continue;
+    }
+    const source = typeScriptCounterparts(
+      path.join(realSourceDir, emitted),
+    ).find(isActualFile);
+    if (source !== undefined) {
+      present.add(emitted);
+      virtual.push(emitted);
+    }
+  }
+  return virtual;
+}
+
+function sourceForVirtualJavaScriptFile(
+  candidate: FsPath,
+  error: unknown,
+): string | null {
+  if (!isNotFoundError(error)) {
+    return null;
+  }
+  const file = fileSystemPath(candidate);
+  if (file === null || isActualFile(file)) {
+    return null;
+  }
+  const source = absoluteJavaScriptSourceCounterpart(file);
+  if (source === null || entryEmittedJavaScriptForSource(source) === null) {
+    return null;
+  }
+  return source;
+}
+
+function statWithVirtualJavaScript(
+  stat: typeof fs.stat,
+  candidate: FsPath,
+  options: unknown,
+  callback?: unknown,
+): void {
+  const cb = typeof options === "function" ? options : callback;
+  if (typeof cb !== "function") {
+    stat(candidate, options as never);
+    return;
+  }
+  const actualOptions = typeof options === "function" ? undefined : options;
+  stat(
+    candidate,
+    actualOptions as never,
+    (error: NodeJS.ErrnoException | null, stats: fs.Stats) => {
+      const source = sourceForVirtualJavaScriptFile(candidate, error);
+      if (source === null) {
+        cb(error, stats);
+        return;
+      }
+      stat(source, actualOptions as never, cb as never);
+    },
+  );
+}
+
+async function promiseStatWithVirtualJavaScript(
+  stat: typeof fs.promises.stat,
+  candidate: FsPath,
+  options: unknown,
+): Promise<fs.Stats> {
+  try {
+    return await stat(candidate, options as never);
+  } catch (error) {
+    const source = sourceForVirtualJavaScriptFile(candidate, error);
+    if (source === null) {
+      throw error;
+    }
+    return stat(source, options as never);
+  }
+}
+
+function fileSystemPath(candidate: FsPath): string | null {
+  if (typeof candidate === "string") {
+    return candidate;
+  }
+  if (candidate instanceof URL) {
+    return fileFromFileUrl(candidate.href);
+  }
+  return null;
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
+}
+
+function entryEmittedJavaScriptForSource(sourceFile: string): string | null {
+  const entry = entryProject();
+  if (entry === null || !isInsideDirectory(entry.emitBase, sourceFile)) {
+    return null;
+  }
+  const mirrored = withJsExtension(
+    path.join(entry.emitDir, path.relative(entry.emitBase, sourceFile)),
+  );
+  if (isActualFile(mirrored)) {
+    return mirrored;
+  }
+  return resolveEmittedJavaScript({
+    outDir: entry.emitDir,
+    projectRoot: entry.emitBase,
+    sourceFile,
+  });
 }
 
 /** The internal CommonJS-loader surface `ttsx` patches for `require`. */
@@ -1802,16 +2079,32 @@ function isInsideDirectory(root: string, file: string): boolean {
 
 function realpathIfExists(filename: string): string {
   try {
-    return fs.realpathSync(filename);
+    return nativeFs.realpathSync(filename);
   } catch {
     return filename;
   }
 }
 
 function isFile(candidate: string): boolean {
+  return isActualFile(candidate);
+}
+
+function isActualFile(candidate: string): boolean {
   try {
-    return fs.statSync(candidate).isFile();
+    return nativeFs.statSync(candidate).isFile();
   } catch {
     return false;
   }
+}
+
+function isActualDirectory(candidate: string): boolean {
+  try {
+    return nativeFs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isJavaScriptOutputFile(candidate: string): boolean {
+  return /\.(?:[cm]?js)$/i.test(candidate);
 }
