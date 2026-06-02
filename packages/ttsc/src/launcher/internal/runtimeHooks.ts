@@ -1171,12 +1171,13 @@ function isTypeScriptBuildInput(filename: string): boolean {
 }
 
 /**
- * The module format Node should run a served TypeScript source as.
- * `.mts`/`.cts` are authoritative by extension; for `.ts`/`.tsx` a package
- * `type` is authoritative the same way it is for Node's native source
- * classification. A package with no explicit type falls back to emitted syntax
- * so a CommonJS package can still run ESM-shaped output when tsgo preserved
- * it.
+ * The module format Node should run a served TypeScript source as. `.mts` and
+ * `.cts` are authoritative by extension. For `.ts`/`.tsx`, the emitted
+ * JavaScript wins when it clearly declares a format: ttsx runs the compiler's
+ * bytes, so CommonJS emit must not be mislabeled as ESM just because the
+ * package has `"type": "module"`.
+ *
+ * Package `type` is only the fallback for syntax-neutral emit.
  */
 function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   const lower = file.toLowerCase();
@@ -1186,6 +1187,12 @@ function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   if (lower.endsWith(".cts")) {
     return "commonjs";
   }
+  if (looksLikeCommonJS(compiled)) {
+    return "commonjs";
+  }
+  if (looksLikeESM(compiled)) {
+    return "module";
+  }
   const packageType = nearestPackageType(file);
   if (packageType === "module") {
     return "module";
@@ -1193,7 +1200,7 @@ function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   if (packageType === "commonjs") {
     return "commonjs";
   }
-  return looksLikeESM(compiled) ? "module" : "commonjs";
+  return "commonjs";
 }
 
 /**
@@ -1205,6 +1212,18 @@ function looksLikeESM(output: string): boolean {
   return (
     /^\s*(?:import|export)\s/m.test(output) ||
     /\bimport\s*\.\s*meta\b/.test(output)
+  );
+}
+
+/**
+ * Heuristic: classify emitted JS as CommonJS when it carries the markers tsgo
+ * writes for CommonJS emit.
+ */
+function looksLikeCommonJS(output: string): boolean {
+  return (
+    /\bObject\.defineProperty\(exports\b/.test(output) ||
+    /\bmodule\.exports\b/.test(output) ||
+    /\bexports\./.test(output)
   );
 }
 
