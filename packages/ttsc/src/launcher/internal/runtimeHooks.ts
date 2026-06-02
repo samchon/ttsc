@@ -57,7 +57,9 @@ export const resolve: ResolveHookSync = (specifier, context, nextResolve) => {
   try {
     result = nextResolve(specifier, context);
   } catch (error) {
-    const rescued = probeRelativeSpecifier(specifier, context.parentURL);
+    const rescued =
+      probeRelativeSpecifier(specifier, context.parentURL) ??
+      probeRedirectedTypeScriptSpecifier(specifier, context.parentURL);
     if (rescued === null) {
       throw error;
     }
@@ -189,7 +191,7 @@ let stagingCounter = 0;
 function buildDependencyPackage(packageRoot: string): BuiltProject {
   const outDir = dependencyCacheDir(packageRoot);
   const project = packageProject(packageRoot);
-  const stamp = freshnessStamp(packageRoot, project.options);
+  const stamp = freshnessStamp(packageRoot, project.tsconfig, project.options);
   if (readStamp(outDir) === stamp) {
     return { emitBase: project.emitBase, outDir };
   }
@@ -280,13 +282,17 @@ function ownProjectConfig(
   } catch (error) {
     // `readProjectConfig` throws both when no config exists anywhere up the
     // tree (the cue to synthesize one) and when a config that DOES exist is
-    // unreadable. A broken `tsconfig.json` sitting at the package root is a
-    // real error to surface, not a reason to silently build under a different,
-    // synthesized config.
-    if (isFile(path.join(packageRoot, "tsconfig.json"))) {
+    // unreadable. A broken config sitting at the package root is a real error
+    // to surface, not a reason to silently build under a different, synthesized
+    // config. `readProjectConfig` resolves both `tsconfig.json` and
+    // `jsconfig.json`, so a broken one of either name is surfaced.
+    const rootConfig = ["tsconfig.json", "jsconfig.json"].find((name) =>
+      isFile(path.join(packageRoot, name)),
+    );
+    if (rootConfig !== undefined) {
       throw new Error(
         `ttsx: dependency package ${packageRoot} has an unreadable ` +
-          `tsconfig.json: ${error instanceof Error ? error.message : String(error)}`,
+          `${rootConfig}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return null;
@@ -303,18 +309,25 @@ function ownProjectConfig(
 
 /**
  * A string that changes whenever the cache must be rebuilt: the ttsc version
- * (emit logic), the resolved compiler options, and the package's full set of
- * `.ts` sources with their mtimes. Hashing the _resolved_ options — not the
- * leaf tsconfig's mtime — means a change in an `extends`-ed base config
- * invalidates the cache too (a base config lives outside the package and is
- * never enumerated as a source). Hashing the whole sorted source set — not just
- * the newest mtime — means a deleted or renamed source invalidates it as well,
- * not only an edited one. A completed cache stores this; a later run reuses the
- * cache only on an exact match.
+ * (emit logic), the resolved compiler options, the leaf tsconfig's identity and
+ * mtime, and the package's full set of `.ts` sources with their mtimes. Hashing
+ * the _resolved_ options catches a change in an `extends`-ed base config (a
+ * base config lives outside the package and is never enumerated as a source);
+ * also hashing the leaf tsconfig's mtime catches a change to a field the
+ * resolved options omit — notably `include`/`exclude`/`files`, which change the
+ * build's input set. Hashing the whole sorted source set — not just the newest
+ * mtime — means a deleted or renamed source invalidates it as well, not only an
+ * edited one. A completed cache stores this; a later run reuses it only on an
+ * exact match.
  */
-function freshnessStamp(packageRoot: string, options: unknown): string {
+function freshnessStamp(
+  packageRoot: string,
+  tsconfig: string,
+  options: unknown,
+): string {
   const digest = createHash("sha1");
   digest.update(JSON.stringify(options ?? {}));
+  digest.update(`\0${path.resolve(tsconfig)}\0${statMtimeMs(tsconfig)}`);
   for (const source of typeScriptSources(packageRoot).sort()) {
     digest.update(`\0${source}\0${statMtimeMs(source)}`);
   }
@@ -526,6 +539,34 @@ function probeRelativeSpecifier(
     }
   }
   return null;
+}
+
+/**
+ * Rescue a relative specifier that carries a concrete TypeScript-source
+ * extension (`./plugins/beta.ts`) but failed to resolve. tsgo statically
+ * rewrites a literal `import "./x.ts"` to `"./x.js"`, but a COMPUTED specifier
+ * (`import(`./plugins/${name}.ts`)`) survives to runtime — where the emitted
+ * parent lives in the per-package cache whose siblings are `.js`, not `.ts`, so
+ * Node's own resolution misses. Map it to its JavaScript counterpart beside the
+ * parent, gated on existence so a genuinely missing module still surfaces
+ * `ERR_MODULE_NOT_FOUND`.
+ */
+function probeRedirectedTypeScriptSpecifier(
+  specifier: string,
+  parentURL: string | undefined,
+): string | null {
+  if (!isRelativeSpecifier(specifier)) {
+    return null;
+  }
+  if (parentURL === undefined || !parentURL.startsWith("file:")) {
+    return null;
+  }
+  if (!isTypeScriptSource(specifier)) {
+    return null;
+  }
+  const parentDir = path.dirname(fileURLToPath(parentURL));
+  const candidate = withJsExtension(path.resolve(parentDir, specifier));
+  return isFile(candidate) ? pathToFileURL(candidate).href : null;
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
