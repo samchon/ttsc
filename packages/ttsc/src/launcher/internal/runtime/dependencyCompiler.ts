@@ -109,11 +109,10 @@ function planBuild(packageRoot: string, runtime: RuntimeEnv): BuildPlan {
       compilerOptions: { ...options, rootDir: packageRoot },
       files: listTypeScriptSources(packageRoot),
     });
-    tsconfig = path.join(
-      packageRoot,
-      ...CACHE_SEGMENTS.slice(0, -1),
-      "ttsx-dep-tsconfig.json",
-    );
+    // The synthesized tsconfig is written into each build's private staging
+    // dir (see buildAndPromote), never a shared path, so concurrent cold
+    // builds of a tsconfig-less dependency never race on it.
+    tsconfig = path.join(packageRoot, "tsconfig.json");
     project = {
       compilerOptions: { ...options, plugins: [] },
       path: tsconfig,
@@ -160,9 +159,12 @@ function buildAndPromote(
   fs.rmSync(staging, { recursive: true, force: true });
   fs.mkdirSync(staging, { recursive: true });
   try {
+    let tsconfig = plan.tsconfig;
     if (plan.synthTsconfig !== null) {
-      fs.mkdirSync(path.dirname(plan.tsconfig), { recursive: true });
-      fs.writeFileSync(plan.tsconfig, plan.synthTsconfig, "utf8");
+      // Write the synthesized tsconfig into this build's own staging dir so
+      // concurrent builds never share or clobber it.
+      tsconfig = path.join(staging, "ttsx-dep-tsconfig.json");
+      fs.writeFileSync(tsconfig, plan.synthTsconfig, "utf8");
     }
     const result = runBuild({
       binary: runtime.tsgoBinary,
@@ -175,7 +177,7 @@ function buildAndPromote(
       plugins: runtime.noPlugins ? false : undefined,
       projectRoot: packageRoot,
       quiet: true,
-      tsconfig: plan.tsconfig,
+      tsconfig,
     });
     if (result.status !== 0) {
       throw new Error(
