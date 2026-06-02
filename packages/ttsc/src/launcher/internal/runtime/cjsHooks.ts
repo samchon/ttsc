@@ -1,7 +1,7 @@
 import Module from "node:module";
 import path from "node:path";
 
-import { type Resolution, classifyExisting, classifyMissing } from "./classify";
+import { classifyExisting, classifyMissing, targetPath } from "./classify";
 import { resolvePackageTypeScriptTarget } from "./packageTarget";
 import {
   TYPESCRIPT_EXTENSIONS,
@@ -128,15 +128,6 @@ function recover(
   }
   const classified = classifyExisting(tsTarget, runtime);
   return classified === null ? null : targetPath(classified);
-}
-
-/**
- * The filename the loader resolves to. A dependency or entry source resolves to
- * its own path so the extension handler serves its bytes; an extensionless
- * rescue resolves to the existing JavaScript file.
- */
-function targetPath(resolution: Resolution): string {
-  return resolution.kind === "file" ? resolution.file : resolution.source;
 }
 
 function isModuleNotFound(error: unknown): boolean {

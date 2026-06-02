@@ -21,8 +21,6 @@ export interface RuntimeEnv {
   readonly entrySourceRoot: string;
   /** Directory the entry graph was emitted into (mirrors the source layout). */
   readonly entryEmitDir: string;
-  /** Module format the entry project emits (`commonjs` or `module`). */
-  readonly entryModuleFormat: "commonjs" | "module";
   /** Explicit tsgo binary to reuse for dependency/loose builds, if any. */
   readonly tsgoBinary: string | undefined;
   /** Plugin binary cache root shared with the entry build, if any. */
@@ -38,7 +36,6 @@ export const RUNTIME_ENV_KEYS = {
   entryTsconfig: "TTSC_TTSX_ENTRY_TSCONFIG",
   entrySourceRoot: "TTSC_TTSX_ENTRY_SOURCE_ROOT",
   entryEmitDir: "TTSC_TTSX_ENTRY_EMIT_DIR",
-  entryModuleFormat: "TTSC_TTSX_ENTRY_MODULE_FORMAT",
   tsgoBinary: "TTSC_TTSX_TSGO_BINARY",
   cacheDir: "TTSC_TTSX_CACHE_DIR",
   noPlugins: "TTSC_TTSX_NO_PLUGINS",
@@ -52,7 +49,6 @@ export function toEnvRecord(runtime: RuntimeEnv): Record<string, string> {
     [RUNTIME_ENV_KEYS.entryTsconfig]: runtime.entryTsconfig,
     [RUNTIME_ENV_KEYS.entrySourceRoot]: runtime.entrySourceRoot,
     [RUNTIME_ENV_KEYS.entryEmitDir]: runtime.entryEmitDir,
-    [RUNTIME_ENV_KEYS.entryModuleFormat]: runtime.entryModuleFormat,
   };
   if (runtime.tsgoBinary !== undefined) {
     record[RUNTIME_ENV_KEYS.tsgoBinary] = runtime.tsgoBinary;
@@ -98,10 +94,6 @@ export function readRuntimeEnv(): RuntimeEnv | null {
     entryTsconfig: path.resolve(entryTsconfig),
     entrySourceRoot: path.resolve(entrySourceRoot),
     entryEmitDir: path.resolve(entryEmitDir),
-    entryModuleFormat:
-      process.env[RUNTIME_ENV_KEYS.entryModuleFormat] === "module"
-        ? "module"
-        : "commonjs",
     tsgoBinary: process.env[RUNTIME_ENV_KEYS.tsgoBinary] || undefined,
     cacheDir: process.env[RUNTIME_ENV_KEYS.cacheDir] || undefined,
     noPlugins: process.env[RUNTIME_ENV_KEYS.noPlugins] === "1",

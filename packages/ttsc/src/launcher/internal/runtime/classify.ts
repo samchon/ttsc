@@ -60,16 +60,25 @@ export function classifyExisting(
  * Node's original error.
  */
 export function classifyMissing(
-  targetPath: string,
+  target: string,
   runtime: RuntimeEnv,
 ): Resolution | null {
-  const source = typeScriptForTarget(targetPath);
+  const source = typeScriptForTarget(target);
   if (source !== null) {
     return classifyExisting(source, runtime);
   }
-  const javaScript = javaScriptForTarget(targetPath);
+  const javaScript = javaScriptForTarget(target);
   if (javaScript !== null) {
     return { kind: "file", file: javaScript };
   }
   return null;
+}
+
+/**
+ * The file a resolution should load. A dependency or entry source resolves to
+ * its own path (the hooks serve its compiled bytes under that identity); an
+ * extensionless rescue resolves to the existing JavaScript file.
+ */
+export function targetPath(resolution: Resolution): string {
+  return resolution.kind === "file" ? resolution.file : resolution.source;
 }

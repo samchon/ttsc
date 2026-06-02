@@ -89,23 +89,6 @@ export function javaScriptForTarget(target: string): string | null {
 }
 
 /**
- * True when `file` lives inside a real `node_modules` package. A
- * `node_modules/.cache` segment does not count: ttsx writes its own caches
- * under `node_modules/.cache`, and those compiled artifacts must not be
- * mistaken for a raw dependency. A genuine dependency always has a deeper
- * `node_modules/<pkg>` segment, so it is still detected.
- */
-export function isUnderNodeModules(file: string): boolean {
-  const segments = file.split(path.sep);
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    if (segments[i] === "node_modules" && segments[i + 1] !== ".cache") {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Walk upward from `file` to the nearest directory that owns a `package.json`,
  * returning that directory's real path. Returns `null` when no manifest is
  * found before the filesystem root. The real path is used so a package reached

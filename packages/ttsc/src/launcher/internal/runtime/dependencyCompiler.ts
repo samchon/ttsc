@@ -155,6 +155,7 @@ function buildAndPromote(
 ): void {
   const cacheParent = path.dirname(cacheRoot);
   fs.mkdirSync(cacheParent, { recursive: true });
+  reapStaleScratch(cacheRoot);
   const staging = `${cacheRoot}.${process.pid}.${nextScratchId()}.staging`;
   fs.rmSync(staging, { recursive: true, force: true });
   fs.mkdirSync(staging, { recursive: true });
@@ -252,6 +253,45 @@ function nextScratchId(): number {
   return scratchCounter;
 }
 
+/**
+ * Remove `.staging`/`.retired` scratch directories left behind by a crashed
+ * build. Each scratch name embeds the owning pid; one whose pid is no longer
+ * alive (and is not this process) is safe to delete. A live or reused-pid owner
+ * is left untouched, so the worst case is a leak that clears on the next run.
+ */
+function reapStaleScratch(cacheRoot: string): void {
+  const base = `${path.basename(cacheRoot)}.`;
+  const parent = path.dirname(cacheRoot);
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(parent);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (
+      !entry.startsWith(base) ||
+      (!entry.endsWith(".staging") && !entry.endsWith(".retired"))
+    ) {
+      continue;
+    }
+    const pid = Number(entry.slice(base.length).split(".")[0]);
+    if (Number.isInteger(pid) && pid !== process.pid && !isProcessAlive(pid)) {
+      fs.rmSync(path.join(parent, entry), { recursive: true, force: true });
+    }
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // ESRCH = no such process; EPERM = exists but not signalable by us.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 function readStamp(cacheRoot: string): string | null {
   try {
     return fs.readFileSync(path.join(cacheRoot, STAMP_FILE), "utf8");
@@ -261,11 +301,12 @@ function readStamp(cacheRoot: string): string | null {
 }
 
 /**
- * Compute the freshness token. Source mtimes catch edits to the package's own
- * `.ts`; the resolved compiler options (merged through the whole `extends`
- * chain) catch a base-config change no source mtime can see; plugin descriptor
- * mtimes catch a transform edit; the root dir catches a layout change. Mtime is
- * the signal because edits advance it, matching how the runner is exercised.
+ * Compute the freshness token. Each input file contributes its mtime and size;
+ * the resolved compiler options (merged through the whole `extends` chain)
+ * catch a base-config change no source mtime can see; plugin descriptor and
+ * config files catch a transform/config edit; the root dir catches a layout
+ * change. Mtime is the primary signal because edits advance it, and folding in
+ * size catches a same-tick edit on a filesystem with coarse mtime resolution.
  */
 function computeStamp(inputs: {
   configFiles: readonly string[];
@@ -283,7 +324,7 @@ function computeStamp(inputs: {
     ...inputs.configFiles,
   ].sort();
   for (const file of files) {
-    hash.update(`\0${file}\0${mtimeOf(file)}`);
+    hash.update(`\0${file}\0${fileStamp(file)}`);
   }
   return hash.digest("hex");
 }
@@ -292,11 +333,12 @@ function stableOptions(options: Record<string, unknown>): string {
   return JSON.stringify(options, Object.keys(options).sort());
 }
 
-function mtimeOf(file: string): number {
+function fileStamp(file: string): string {
   try {
-    return fs.statSync(file).mtimeMs;
+    const stat = fs.statSync(file);
+    return `${stat.mtimeMs}:${stat.size}`;
   } catch {
-    return 0;
+    return "0:0";
   }
 }
 

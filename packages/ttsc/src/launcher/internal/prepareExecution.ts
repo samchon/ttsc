@@ -31,7 +31,6 @@ export function prepareExecution(
   emitDir: string;
   entryFile: string;
   entryRoot: string;
-  moduleKind: "cjs" | "esm";
   sourceRoot: string;
   tsconfig: string;
 } {
@@ -42,6 +41,9 @@ export function prepareExecution(
   );
   try {
     buildProject(context, options);
+    // Confirm the gate emitted the entry's compiled bytes; the runtime hooks
+    // serve them under the entry's source path. The format of each file is
+    // detected per file at serve time, so nothing about it is needed here.
     const emittedEntry = resolveEmittedJavaScript({
       emittedFiles: context.emittedFiles ?? undefined,
       outDir: context.emitDir,
@@ -51,13 +53,11 @@ export function prepareExecution(
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
     }
-    const output = fs.readFileSync(emittedEntry, "utf8");
     return {
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
       entryFile,
       entryRoot: context.root,
-      moduleKind: looksLikeESM(output) ? "esm" : "cjs",
       sourceRoot: context.sourceRoot,
       tsconfig: context.tsconfig,
     };
@@ -178,22 +178,4 @@ function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
     return undefined;
   }
   return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
-}
-
-/**
- * Heuristic: classify emitted JS as ESM when it contains top-level `import` or
- * `export` statements but none of the well-known CJS patterns. The CJS checks
- * run first so that re-exported CJS bundles with both `require` calls and an
- * `export` declaration are conservatively treated as CJS.
- */
-function looksLikeESM(output: string): boolean {
-  if (
-    /\bObject\.defineProperty\(exports\b/.test(output) ||
-    /\bmodule\.exports\b/.test(output) ||
-    /\brequire\(/.test(output) ||
-    /\bexports\./.test(output)
-  ) {
-    return false;
-  }
-  return /^\s*(import|export)\s/m.test(output);
 }

@@ -302,7 +302,6 @@ function childEnv(
     entryTsconfig: execution.tsconfig,
     entrySourceRoot: execution.sourceRoot,
     entryEmitDir: execution.emitDir,
-    entryModuleFormat: execution.moduleKind === "esm" ? "module" : "commonjs",
     tsgoBinary: parsed.binary,
     // Reuse the same plugin-binary cache the entry gate used, so dependency
     // builds reuse its compiled plugins rather than a different cache root.

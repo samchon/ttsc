@@ -5,6 +5,7 @@ import {
   type Resolution,
   classifyExisting,
   classifyMissing,
+  targetPath,
 } from "./runtime/classify";
 import { resolvePackageTypeScriptTarget } from "./runtime/packageTarget";
 import { isJavaScriptOutput, typeScriptCounterpart } from "./runtime/paths";
@@ -152,16 +153,6 @@ function recoverMissing(
     "node",
   ]);
   return tsTarget === null ? null : classifyExisting(tsTarget, runtime);
-}
-
-/**
- * The file whose URL the resolver returns. A dependency or entry source
- * resolves to the source path itself — `load` serves its compiled bytes under
- * that identity — while an extensionless rescue resolves to the existing
- * JavaScript.
- */
-function targetPath(resolution: Resolution): string {
-  return resolution.kind === "file" ? resolution.file : resolution.source;
 }
 
 function isModuleNotFound(error: unknown): boolean {
