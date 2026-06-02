@@ -416,28 +416,86 @@ function virtualJavaScriptEntries(
   if (!isInsideOrSameDirectory(entry.emitBase, realSourceDir)) {
     return [];
   }
-  const emittedDir = path.join(
-    entry.emitDir,
-    path.relative(entry.emitBase, realSourceDir),
-  );
-  if (!isActualDirectory(emittedDir)) {
-    return [];
-  }
   const present = new Set(entries);
   const virtual: string[] = [];
-  for (const emitted of nativeFs.readdirSync(emittedDir)) {
-    if (!isJavaScriptOutputFile(emitted) || present.has(emitted)) {
-      continue;
-    }
-    const source = typeScriptCounterparts(
-      path.join(realSourceDir, emitted),
-    ).find(isActualFile);
-    if (source !== undefined) {
-      present.add(emitted);
-      virtual.push(emitted);
+  for (const emittedDir of emittedJavaScriptDirectories(entry, realSourceDir)) {
+    for (const emitted of nativeFs.readdirSync(emittedDir)) {
+      if (!isJavaScriptOutputFile(emitted) || present.has(emitted)) {
+        continue;
+      }
+      const source = typeScriptCounterparts(
+        path.join(realSourceDir, emitted),
+      ).find(isActualFile);
+      if (source !== undefined) {
+        present.add(emitted);
+        virtual.push(emitted);
+      }
     }
   }
   return virtual;
+}
+
+function emittedJavaScriptDirectories(
+  entry: EntryProject,
+  sourceDir: string,
+): string[] {
+  const out: string[] = [];
+  const exact = path.join(
+    entry.emitDir,
+    path.relative(entry.emitBase, sourceDir),
+  );
+  if (isActualDirectory(exact)) {
+    out.push(exact);
+  }
+
+  let bestScore = 0;
+  let best: string[] = [];
+  const stack = [entry.emitDir];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = nativeFs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    let hasJavaScript = false;
+    for (const entry of entries) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile() && isJavaScriptOutputFile(entry.name)) {
+        hasJavaScript = true;
+      }
+    }
+    if (!hasJavaScript || samePath(current, exact)) {
+      continue;
+    }
+    const score = sharedTrailingDirectorySegments(current, sourceDir);
+    if (score > bestScore) {
+      bestScore = score;
+      best = [current];
+    } else if (score !== 0 && score === bestScore) {
+      best.push(current);
+    }
+  }
+  return [...out, ...best.filter((directory) => !out.includes(directory))];
+}
+
+function sharedTrailingDirectorySegments(a: string, b: string): number {
+  const split = (value: string): string[] =>
+    path.resolve(value).replace(/\\/g, "/").split("/").filter(Boolean);
+  const left = split(a);
+  const right = split(b);
+  const count = Math.min(left.length, right.length);
+  let shared = 0;
+  for (let i = 1; i <= count; i += 1) {
+    if (left[left.length - i] !== right[right.length - i]) {
+      break;
+    }
+    shared += 1;
+  }
+  return shared;
 }
 
 function sourceForVirtualJavaScriptFile(
