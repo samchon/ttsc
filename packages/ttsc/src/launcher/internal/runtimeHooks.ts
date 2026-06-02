@@ -174,26 +174,45 @@ export const load: LoadHookSync = (url, context, nextLoad) => {
 };
 
 /**
- * The compiled JavaScript tsgo emitted for a `.ts` source: the entry project's
- * own sources resolve through the up-front compile gate's emit; everything else
- * is compiled as a dependency package on demand. Throws a clear diagnostic when
- * the source belongs to no package or the build produced nothing for it.
+ * The compiled JavaScript tsgo emitted for a `.ts` source.
+ *
+ * The compile gate compiles the entry PROGRAM — the entry's own sources AND any
+ * source-consumed workspace dependency pulled into it — with the full program's
+ * type context and plugin transforms. Any source the gate emitted is served
+ * from there, so a transform that crosses package boundaries (e.g. a schema
+ * over a type imported from a workspace package) sees every type, not just the
+ * dependency's own narrower program. A source the gate did NOT emit — a
+ * published `node_modules` package that ships raw `.ts` — is compiled on its
+ * own. Throws a clear diagnostic when neither produces JavaScript for it.
  */
 function compiledJavaScriptFor(sourceFile: string): string {
   const entry = entryProject();
-  if (entry !== null && isInsideDirectory(entry.emitBase, sourceFile)) {
-    const emitted = resolveEmittedJavaScript({
-      outDir: entry.emitDir,
-      projectRoot: entry.emitBase,
-      sourceFile,
-    });
-    if (emitted !== null) {
-      return emitted;
-    }
-    throw new Error(
-      `ttsx: ${sourceFile} belongs to the entry project but the compile gate ` +
-        `emitted no JavaScript for it (is it included in the project's build?)`,
+  if (entry !== null) {
+    // The gate lays a source's emit at `emitDir` + its position relative to the
+    // source root. The root is mirrored under `emitDir` so this holds even for a
+    // workspace dependency the program pulls in from ABOVE `rootDir` (whose
+    // relative path begins with `..`), which `resolveEmittedJavaScript` declines
+    // to map for being outside the project.
+    const mirrored = withJsExtension(
+      path.join(entry.emitDir, path.relative(entry.emitBase, sourceFile)),
     );
+    if (isFile(mirrored)) {
+      return mirrored;
+    }
+    if (isInsideDirectory(entry.emitBase, sourceFile)) {
+      const emitted = resolveEmittedJavaScript({
+        outDir: entry.emitDir,
+        projectRoot: entry.emitBase,
+        sourceFile,
+      });
+      if (emitted !== null) {
+        return emitted;
+      }
+      throw new Error(
+        `ttsx: ${sourceFile} belongs to the entry project but the compile gate ` +
+          `emitted no JavaScript for it (is it included in the project's build?)`,
+      );
+    }
   }
   const emitted = emittedDependencyFile(sourceFile);
   if (emitted === null) {
@@ -203,6 +222,11 @@ function compiledJavaScriptFor(sourceFile: string): string {
     );
   }
   return emitted;
+}
+
+/** Replace a TypeScript source extension with its JavaScript emit counterpart. */
+function withJsExtension(filename: string): string {
+  return filename.replace(/\.([cm]?)tsx?$/i, ".$1js");
 }
 
 /** The entry project's emit, passed by the launcher; `null` outside `ttsx`. */
