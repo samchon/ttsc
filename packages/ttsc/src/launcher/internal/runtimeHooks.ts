@@ -166,7 +166,14 @@ function sourceTypeScriptForRequest(
   request: string,
   parent: unknown,
 ): string | null {
-  if (typeof request !== "string" || !isRelativeSpecifier(request)) {
+  if (typeof request !== "string") {
+    return null;
+  }
+  const absolute = sourceTypeScriptForAbsoluteJavaScript(request);
+  if (absolute !== null) {
+    return absolute;
+  }
+  if (!isRelativeSpecifier(request)) {
     return null;
   }
   const parentFile = (parent as { filename?: unknown } | null)?.filename;
@@ -176,6 +183,19 @@ function sourceTypeScriptForRequest(
   const [pathPart] = splitSpecifierSuffix(request);
   const resolved = resolveSourcePathPart(pathPart, path.dirname(parentFile));
   return resolved === null ? null : fileFromFileUrl(resolved);
+}
+
+function sourceTypeScriptForAbsoluteJavaScript(request: string): string | null {
+  const [pathPart] = splitSpecifierSuffix(request);
+  if (!path.isAbsolute(pathPart) || isFile(pathPart)) {
+    return null;
+  }
+  for (const candidate of typeScriptCounterparts(pathPart)) {
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function sourceSpecifierFromTypeScriptParent(
