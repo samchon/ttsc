@@ -27,6 +27,12 @@ export function hasEsmSyntax(code: string): boolean {
   let atStatementStart = true;
   let i = 0;
   while (i < code.length) {
+    const comment = skipComment(code, i);
+    if (comment !== i) {
+      // A comment is whitespace: it does not end a statement-start position.
+      i = comment;
+      continue;
+    }
     const skipped = skipNonCode(code, i);
     if (skipped !== i) {
       i = skipped;
@@ -59,23 +65,35 @@ export function hasEsmSyntax(code: string): boolean {
   return false;
 }
 
-/** Advance past a string, template, comment, or regex literal starting at `i`. */
+/** Advance past a line or block comment starting at `i`, else return `i`. */
+function skipComment(code: string, i: number): number {
+  if (code[i] !== "/") {
+    return i;
+  }
+  const next = code[i + 1];
+  if (next === "/") {
+    const end = code.indexOf("\n", i + 2);
+    return end === -1 ? code.length : end;
+  }
+  if (next === "*") {
+    const end = code.indexOf("*/", i + 2);
+    return end === -1 ? code.length : end + 2;
+  }
+  return i;
+}
+
+/**
+ * Advance past a string, template, or regex literal starting at `i`. Comments
+ * are handled separately because, unlike these expression literals, a comment
+ * does not end a statement-start position.
+ */
 function skipNonCode(code: string, i: number): number {
   const ch = code[i];
-  const next = code[i + 1];
   if (ch === '"' || ch === "'") {
     return skipQuoted(code, i, ch);
   }
   if (ch === "`") {
     return skipTemplate(code, i);
-  }
-  if (ch === "/" && next === "/") {
-    const end = code.indexOf("\n", i + 2);
-    return end === -1 ? code.length : end;
-  }
-  if (ch === "/" && next === "*") {
-    const end = code.indexOf("*/", i + 2);
-    return end === -1 ? code.length : end + 2;
   }
   if (ch === "/" && looksLikeRegex(code, i)) {
     return skipRegex(code, i);

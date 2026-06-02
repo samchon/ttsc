@@ -8,11 +8,11 @@ import path from "node:path";
  * that package's own cache), and which tsgo binary to reuse.
  */
 export interface RuntimeEnv {
-  /** Entry project root as it exists at runtime (inside the virtual mirror). */
+  /** Entry project root as resolved (possibly through a symlinked directory). */
   readonly entryRoot: string;
   /**
-   * Entry project root on the real filesystem (a symlinked source dir's
-   * realpath escapes the mirror, so both anchors classify entry sources).
+   * Entry project root's real path. A symlinked source dir's realpath differs
+   * from the resolved root, so classification matches against both anchors.
    */
   readonly entryRealRoot: string;
   /** Resolved tsconfig used for the entry compile gate. */

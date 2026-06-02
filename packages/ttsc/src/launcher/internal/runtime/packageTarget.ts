@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   TYPESCRIPT_EXTENSIONS,
+  findOwningPackageRoot,
   isFile,
   isJavaScriptOutput,
   isTypeScriptSource,
@@ -81,8 +82,45 @@ interface ParsedSpecifier {
   readonly subpath: string;
 }
 
+/**
+ * Resolve the TypeScript source a Node `imports` (`#`) subpath maps to when its
+ * published target points at a not-yet-built `.js` file. Node's CommonJS loader
+ * reports `imports` failures without a resolved URL, so unlike `exports` (which
+ * the ESM loader rescues from `error.url`) the `#` subpath must be re-derived
+ * here from the importer's owning package. Returns `null` for a non-`#`
+ * specifier, a relative-less target, or a subpath that backs no `.ts`.
+ */
+export function resolvePackageImportsTarget(
+  specifier: string,
+  parentDir: string,
+  conditions: readonly string[],
+): string | null {
+  if (!specifier.startsWith("#")) {
+    return null;
+  }
+  const packageRoot = findOwningPackageRoot(path.join(parentDir, "index.js"));
+  if (packageRoot === null) {
+    return null;
+  }
+  const manifest = readJson(path.join(packageRoot, "package.json"));
+  if (manifest === null || !isRecord(manifest.imports)) {
+    return null;
+  }
+  const [target] = lookupSubpathMap(manifest.imports, specifier, conditions);
+  // Only a package-relative target can map to a co-located `.ts`; a bare or
+  // nested `#` target resolves through Node's own machinery.
+  if (target === undefined || !target.startsWith(".")) {
+    return null;
+  }
+  return typeScriptForTarget(path.resolve(packageRoot, target));
+}
+
 function parsePackageSpecifier(specifier: string): ParsedSpecifier | null {
-  if (specifier.length === 0 || specifier.startsWith(".")) {
+  if (
+    specifier.length === 0 ||
+    specifier.startsWith(".") ||
+    specifier.startsWith("#")
+  ) {
     return null;
   }
   const segments = specifier.split("/");
@@ -159,10 +197,22 @@ function resolveExports(
     // A conditions object at the top level is the root (".") entry.
     return subpath === "." ? resolveTargetValue(exports, conditions) : [];
   }
-  if (subpath in exports) {
-    return resolveTargetValue(exports[subpath], conditions);
+  return lookupSubpathMap(exports, subpath, conditions);
+}
+
+/**
+ * Look up a subpath in a subpath map (`exports`'s `./` keys or `imports`'s `#`
+ * keys) by exact key, then by the most specific `*` pattern.
+ */
+function lookupSubpathMap(
+  map: Record<string, unknown>,
+  key: string,
+  conditions: readonly string[],
+): string[] {
+  if (key in map) {
+    return resolveTargetValue(map[key], conditions);
   }
-  return resolvePatternExports(exports, subpath, conditions);
+  return resolvePatternExports(map, key, conditions);
 }
 
 /**

@@ -7,7 +7,10 @@ import {
   classifyMissing,
   targetPath,
 } from "./runtime/classify";
-import { resolvePackageTypeScriptTarget } from "./runtime/packageTarget";
+import {
+  resolvePackageImportsTarget,
+  resolvePackageTypeScriptTarget,
+} from "./runtime/packageTarget";
 import { isJavaScriptOutput, typeScriptCounterpart } from "./runtime/paths";
 import { type RuntimeEnv, readRuntimeEnv } from "./runtime/runtimeEnv";
 import { serveTypeScript } from "./runtime/serve";
@@ -148,10 +151,9 @@ function recoverMissing(
   const parentDir = context.parentURL?.startsWith("file:")
     ? path.dirname(fileURLToPath(context.parentURL))
     : runtime.entryRoot;
-  const tsTarget = resolvePackageTypeScriptTarget(specifier, parentDir, [
-    "import",
-    "node",
-  ]);
+  const tsTarget = specifier.startsWith("#")
+    ? resolvePackageImportsTarget(specifier, parentDir, ["import", "node"])
+    : resolvePackageTypeScriptTarget(specifier, parentDir, ["import", "node"]);
   return tsTarget === null ? null : classifyExisting(tsTarget, runtime);
 }
 

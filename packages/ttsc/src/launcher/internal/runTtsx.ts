@@ -16,9 +16,11 @@ import { realPath } from "./runtime/paths";
 import { type RuntimeEnv, toEnvRecord } from "./runtime/runtimeEnv";
 
 /**
- * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
- * JavaScript to a PID-isolated temp directory, rewrites ESM specifiers when
- * needed, and executes the compiled entry with the current Node.js runtime.
+ * CLI entry point for `ttsx`. Type-checks and compiles the owning project via
+ * tsgo into a PID-isolated per-run cache, then runs the entry at its own source
+ * path with the current Node.js runtime: module hooks serve each `.ts`'s
+ * compiled bytes under its source URL so `__dirname` / `import.meta.url`
+ * resolve against the real source tree.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  * @returns The child-process exit code, or `2` on a ttsx-level error.
@@ -226,8 +228,11 @@ function printHelp(): void {
  * module-hooks `ExperimentalWarning`, the same flag this repository's
  * TypeScript runner uses.
  */
+/** Basename of the registrar, used to detect it in an inherited NODE_OPTIONS. */
+const RUNTIME_HOOK_REGISTRAR = "registerRuntimeHooks.js";
+
 function runtimeHookNodeOptions(): string {
-  const registrar = path.join(__dirname, "registerRuntimeHooks.js");
+  const registrar = path.join(__dirname, RUNTIME_HOOK_REGISTRAR);
   return `--disable-warning=ExperimentalWarning --import ${pathToFileURL(registrar).href}`;
 }
 
@@ -283,11 +288,11 @@ function runPreparedEntry(
 
 /**
  * Build the child process environment. Carries the entry project's identity
- * (root, source root, emit dir, module format, tsconfig) so the runtime hooks
- * can tell entry sources from dependencies and reuse the entry's plugins, plus
- * the explicit tsgo binary and plugin cache so dependency builds match the
- * gate. The runtime hook registrar is appended to `NODE_OPTIONS` so every
- * spawned Node subprocess inherits the same hooks.
+ * (root, source root, emit dir, tsconfig) so the runtime hooks can tell entry
+ * sources from dependencies and reuse the entry's plugins, plus the explicit
+ * tsgo binary and plugin cache so dependency builds match the gate. The runtime
+ * hook registrar is appended to `NODE_OPTIONS` so every spawned Node subprocess
+ * inherits the same hooks.
  */
 function childEnv(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
@@ -309,9 +314,14 @@ function childEnv(
       resolveCacheDir(cwd, parsed.cacheDir) ?? process.env.TTSC_CACHE_DIR,
     noPlugins: parsed.noPlugins,
   };
-  const nodeOptions = [process.env.NODE_OPTIONS, runtimeHookNodeOptions()]
-    .filter((value) => value !== undefined && value.length !== 0)
-    .join(" ");
+  const inherited = process.env.NODE_OPTIONS ?? "";
+  // A ttsx child that spawns ttsx already carries the registrar through the
+  // inherited NODE_OPTIONS; appending it again would just grow the string.
+  const nodeOptions = inherited.includes(RUNTIME_HOOK_REGISTRAR)
+    ? inherited
+    : [inherited, runtimeHookNodeOptions()]
+        .filter((value) => value.length !== 0)
+        .join(" ");
   return {
     ...process.env,
     ...toEnvRecord(runtime),

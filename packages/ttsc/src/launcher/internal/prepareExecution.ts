@@ -5,6 +5,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { resolveCacheDir } from "./resolveCacheDir";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -171,11 +172,4 @@ function removeRuntimeOutput(directory: string): void {
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }
-}
-
-function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
-  if (!cacheDir) {
-    return undefined;
-  }
-  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
 }

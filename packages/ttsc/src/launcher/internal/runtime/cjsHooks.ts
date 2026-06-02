@@ -2,7 +2,10 @@ import Module from "node:module";
 import path from "node:path";
 
 import { classifyExisting, classifyMissing, targetPath } from "./classify";
-import { resolvePackageTypeScriptTarget } from "./packageTarget";
+import {
+  resolvePackageImportsTarget,
+  resolvePackageTypeScriptTarget,
+} from "./packageTarget";
 import {
   TYPESCRIPT_EXTENSIONS,
   isJavaScriptOutput,
@@ -119,10 +122,9 @@ function recover(
     const classified = classifyMissing(target, runtime);
     return classified === null ? null : targetPath(classified);
   }
-  const tsTarget = resolvePackageTypeScriptTarget(request, parentDir, [
-    "require",
-    "node",
-  ]);
+  const tsTarget = request.startsWith("#")
+    ? resolvePackageImportsTarget(request, parentDir, ["require", "node"])
+    : resolvePackageTypeScriptTarget(request, parentDir, ["require", "node"]);
   if (tsTarget === null) {
     return null;
   }
