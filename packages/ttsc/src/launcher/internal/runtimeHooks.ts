@@ -413,7 +413,7 @@ function virtualJavaScriptEntries(
     return [];
   }
   const realSourceDir = realpathIfExists(sourceDir);
-  if (!isInsideDirectory(entry.emitBase, realSourceDir)) {
+  if (!isInsideOrSameDirectory(entry.emitBase, realSourceDir)) {
     return [];
   }
   const emittedDir = path.join(
@@ -1457,6 +1457,10 @@ function samePath(a: string, b: string): boolean {
   return process.platform === "win32"
     ? ra.toLowerCase() === rb.toLowerCase()
     : ra === rb;
+}
+
+function isInsideOrSameDirectory(root: string, file: string): boolean {
+  return samePath(root, file) || isInsideDirectory(root, file);
 }
 
 /** Read a cache's freshness stamp, or `null` when it is absent or unreadable. */
