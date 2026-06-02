@@ -1,0 +1,135 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+import { goPath } from "../../internal/plugin-corpus";
+
+/**
+ * Verifies ttsx executes typia transform output inside a raw `.ts` dependency.
+ *
+ * The entry project imports a dependency that ships TypeScript sources and
+ * calls `typia.createIs<T>()`. That dependency is compiled lazily by the
+ * runtime dependency hook, so typia must be auto-discovered and run in the
+ * dependency build, not only in the entry compile gate. Without the transform,
+ * typia's runtime rejects the uncompiled `createIs<T>()` call.
+ *
+ * 1. Link the workspace-installed typia package into a synthetic project.
+ * 2. Run ttsx against an entry importing a raw-`.ts` dependency that uses typia.
+ * 3. Assert the generated validator accepts valid input and rejects invalid input,
+ *    and the dependency emit no longer contains the raw `createIs` call.
+ */
+export const test_ttsx_executes_typia_transform_output_in_a_raw_ts_dependency =
+  () => {
+    const root = TestProject.createProject({
+      "package.json": JSON.stringify({ type: "module", private: true }),
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "ES2022",
+          moduleResolution: "bundler",
+          strict: true,
+          skipLibCheck: true,
+          outDir: "dist",
+          rootDir: "src",
+        },
+        include: ["src"],
+      }),
+      "node_modules/typed-dep/package.json": JSON.stringify({
+        name: "typed-dep",
+        version: "1.0.0",
+        type: "module",
+        exports: { ".": "./src/index.ts" },
+        dependencies: { typia: "*" },
+      }),
+      "node_modules/typed-dep/tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "ES2022",
+          moduleResolution: "bundler",
+          strict: true,
+          skipLibCheck: true,
+          outDir: "lib",
+          rootDir: "src",
+        },
+        include: ["src"],
+      }),
+      "node_modules/typed-dep/src/index.ts":
+        `import typia from "typia";\n` +
+        `interface User {\n` +
+        `  id: string;\n` +
+        `  age: number;\n` +
+        `  tags: string[];\n` +
+        `}\n` +
+        `const isUser = typia.createIs<User>();\n` +
+        `export const verdict = (): string => [\n` +
+        `  isUser({ id: "user-1", age: 42, tags: ["admin"] }),\n` +
+        `  isUser({ id: "user-2", age: "bad", tags: ["admin"] }),\n` +
+        `].join(":");\n`,
+      "src/main.ts": `import { verdict } from "typed-dep";\nconsole.log(verdict());\n`,
+    });
+    fs.symlinkSync(
+      installedTypiaRoot(),
+      path.join(root, "node_modules", "typia"),
+      "junction",
+    );
+
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      {
+        cwd: root,
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "true:false");
+
+    const emitted = findCompiledDependencyEntry(
+      path.join(root, "node_modules", "typed-dep"),
+    );
+    assert.notEqual(emitted, null, "the typia dependency was compiled");
+    assert.equal(
+      fs.readFileSync(emitted!, "utf8").includes("createIs"),
+      false,
+      "typia transformed the raw createIs call before runtime",
+    );
+  };
+
+function installedTypiaRoot(): string {
+  const requireFromWebsite = createRequire(
+    path.join(TestProject.WORKSPACE_ROOT, "website", "package.json"),
+  );
+  return path.dirname(requireFromWebsite.resolve("typia/package.json"));
+}
+
+/** Locate the `index.js` `ttsx` emitted for a compiled dependency package. */
+function findCompiledDependencyEntry(packageRoot: string): string | null {
+  const stack = [
+    path.join(packageRoot, "node_modules", ".cache", "ttsc", "ttsx-deps"),
+  ];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (entry.isFile() && entry.name === "index.js") {
+        return next;
+      }
+    }
+  }
+  return null;
+}

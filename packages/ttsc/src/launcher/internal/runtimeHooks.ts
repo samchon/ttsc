@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import Module from "node:module";
 import type { LoadHookSync, ResolveHookSync } from "node:module";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -48,6 +49,20 @@ const RESOLVABLE_EXTENSIONS = [
 
 /** TypeScript source extensions whose modules are served from tsgo's emit. */
 const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
+
+/** Config file extensions that first-party ttsc plugins auto-discover. */
+const CONFIG_EXTENSIONS = [
+  ".ts",
+  ".cts",
+  ".mts",
+  ".js",
+  ".cjs",
+  ".mjs",
+  ".json",
+] as const;
+
+/** Cached plugin source inputs, keyed by plugin package root. */
+const pluginNativeInputCache = new Map<string, readonly string[]>();
 
 /**
  * Keep a resolved TypeScript source at its own URL, and rescue a relative
@@ -320,7 +335,12 @@ let stagingCounter = 0;
 function buildDependencyPackage(packageRoot: string): BuiltProject {
   const outDir = dependencyCacheDir(packageRoot);
   const project = packageProject(packageRoot);
-  const stamp = freshnessStamp(packageRoot, project.tsconfig, project.options);
+  const stamp = freshnessStamp(
+    packageRoot,
+    project.tsconfig,
+    project.options,
+    project.pluginBaseDirs,
+  );
   if (readStamp(outDir) === stamp) {
     return { emitBase: project.emitBase, outDir };
   }
@@ -328,10 +348,15 @@ function buildDependencyPackage(packageRoot: string): BuiltProject {
   try {
     fs.rmSync(staging, { force: true, recursive: true });
     const result = runBuild({
+      cacheDir: process.env.TTSC_TTSX_PLUGIN_CACHE_DIR,
+      checkers: dependencyBuildCheckers(),
       cwd: packageRoot,
       emit: true,
       outDir: staging,
+      passthrough: dependencyBuildPassthrough(),
+      plugins: process.env.TTSC_TTSX_NO_PLUGINS === "1" ? false : undefined,
       quiet: true,
+      singleThreaded: process.env.TTSC_TTSX_SINGLE_THREADED === "1",
       tsconfig: project.tsconfig,
     });
     if (result.status !== 0) {
@@ -370,6 +395,7 @@ function packageProject(packageRoot: string): {
   tsconfig: string;
   emitBase: string;
   options: unknown;
+  pluginBaseDirs: readonly string[];
 } {
   const own = ownProjectConfig(packageRoot);
   if (own !== null) {
@@ -401,7 +427,12 @@ function packageProject(packageRoot: string): {
   if (readFileOrNull(tsconfig) !== content) {
     fs.writeFileSync(tsconfig, content, "utf8");
   }
-  return { emitBase: packageRoot, options: compilerOptions, tsconfig };
+  return {
+    emitBase: packageRoot,
+    options: compilerOptions,
+    pluginBaseDirs: [],
+    tsconfig,
+  };
 }
 
 /**
@@ -409,9 +440,12 @@ function packageProject(packageRoot: string): {
  * root, or `null` when the nearest config belongs to an ancestor — an ancestor
  * config must not be mistaken for the package's own build.
  */
-function ownProjectConfig(
-  packageRoot: string,
-): { tsconfig: string; emitBase: string; options: unknown } | null {
+function ownProjectConfig(packageRoot: string): {
+  tsconfig: string;
+  emitBase: string;
+  options: unknown;
+  pluginBaseDirs: readonly string[];
+} | null {
   let project: ReturnType<typeof readProjectConfig>;
   try {
     project = readProjectConfig({ cwd: packageRoot });
@@ -439,6 +473,7 @@ function ownProjectConfig(
   return {
     emitBase: emitBaseDirectory(project),
     options: project.compilerOptions,
+    pluginBaseDirs: project.pluginBaseDirs,
     tsconfig: project.path,
   };
 }
@@ -469,17 +504,48 @@ function freshnessStamp(
   packageRoot: string,
   tsconfig: string,
   options: unknown,
+  pluginBaseDirs: readonly string[],
 ): string {
   const digest = createHash("sha1");
   digest.update(JSON.stringify(options ?? {}));
-  digest.update(`\0${path.resolve(tsconfig)}\0${statMtimeMs(tsconfig)}`);
-  for (const source of typeScriptSources(packageRoot).sort()) {
-    digest.update(`\0${source}\0${statMtimeMs(source)}`);
+  for (const source of packageBuildInputs(
+    packageRoot,
+    tsconfig,
+    options,
+    pluginBaseDirs,
+  )) {
+    const stat = statFingerprint(source);
+    digest.update(`\0${source}\0${stat.mtimeMs}\0${stat.size}`);
   }
   return JSON.stringify({
     version: ttscVersion(),
     digest: digest.digest("hex"),
   });
+}
+
+function dependencyBuildCheckers(): number | undefined {
+  const raw = process.env.TTSC_TTSX_CHECKERS;
+  if (raw === undefined) {
+    return undefined;
+  }
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function dependencyBuildPassthrough(): string[] | undefined {
+  const raw = process.env.TTSC_TTSX_TSGO_FLAGS;
+  if (raw === undefined || raw.trim() === "") {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) &&
+      parsed.every((item): item is string => typeof item === "string")
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Same filesystem path, case-insensitively on case-insensitive platforms. */
@@ -549,12 +615,20 @@ function promoteDirectory(
 }
 
 /**
- * Enumerate the TypeScript source files under `packageRoot`, skipping
+ * Enumerate files that can affect a package dependency build, skipping
  * `node_modules`.
  */
-function typeScriptSources(packageRoot: string): string[] {
-  const out: string[] = [];
+function packageBuildInputs(
+  packageRoot: string,
+  tsconfig: string,
+  options: unknown,
+  pluginBaseDirs: readonly string[],
+): string[] {
+  const out = new Set<string>();
   const stack = [packageRoot];
+  addBuildInput(out, tsconfig);
+  addExplicitPluginInputs(out, path.dirname(tsconfig), options, pluginBaseDirs);
+  addAutoDiscoveredPluginInputs(out, packageRoot);
   while (stack.length !== 0) {
     const current = stack.pop()!;
     let entries: fs.Dirent[];
@@ -564,18 +638,269 @@ function typeScriptSources(packageRoot: string): string[] {
       continue;
     }
     for (const entry of entries) {
-      if (entry.name === "node_modules") {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === ".git" ||
+        entry.name === ".hg" ||
+        entry.name === ".svn"
+      ) {
         continue;
       }
       const next = path.join(current, entry.name);
       if (entry.isDirectory()) {
         stack.push(next);
-      } else if (entry.isFile() && isTypeScriptSource(next)) {
-        out.push(next);
+      } else if (entry.isFile() && isDependencyBuildInputFile(next)) {
+        out.add(path.resolve(next));
       }
     }
   }
+  return [...out].sort();
+}
+
+function addExplicitPluginInputs(
+  out: Set<string>,
+  tsconfigDir: string,
+  options: unknown,
+  pluginBaseDirs: readonly string[],
+): void {
+  const plugins = (options as { plugins?: unknown } | null)?.plugins;
+  if (!Array.isArray(plugins)) {
+    return;
+  }
+  for (const [index, plugin] of plugins.entries()) {
+    if (typeof plugin !== "object" || plugin === null) {
+      continue;
+    }
+    const baseDir = pluginBaseDirs[index] ?? tsconfigDir;
+    const transform = (plugin as { transform?: unknown }).transform;
+    if (typeof transform === "string" && transform.length !== 0) {
+      const transformFile = resolvePluginTransformFile(transform, baseDir);
+      if (transformFile !== null) {
+        addBuildInput(out, transformFile);
+        addPluginNativeInputs(
+          out,
+          owningPackageRoot(transformFile) ?? path.dirname(transformFile),
+        );
+      }
+    }
+    const configFile = (plugin as { configFile?: unknown }).configFile;
+    if (typeof configFile !== "string" || configFile.trim() === "") {
+      continue;
+    }
+    addBuildInput(
+      out,
+      path.isAbsolute(configFile)
+        ? configFile
+        : path.resolve(baseDir, configFile),
+    );
+  }
+}
+
+function addAutoDiscoveredPluginInputs(
+  out: Set<string>,
+  packageRoot: string,
+): void {
+  const manifest = readJsonRecord(path.join(packageRoot, "package.json"));
+  if (manifest === null) {
+    return;
+  }
+  for (const name of directDependencyNames(manifest)) {
+    const packageJson = resolveDependencyPackageJson(name, packageRoot);
+    if (packageJson === null) {
+      continue;
+    }
+    const dependencyManifest = readJsonRecord(packageJson);
+    const plugin = packagePluginConfig(dependencyManifest);
+    if (plugin === "missing") {
+      continue;
+    }
+    addBuildInput(out, packageJson);
+    if (plugin === "invalid") {
+      continue;
+    }
+    const pluginRoot = path.dirname(packageJson);
+    const transform = resolvePluginTransformFile(plugin.transform, packageRoot);
+    if (transform !== null) {
+      addBuildInput(out, transform);
+    }
+    addPluginNativeInputs(out, pluginRoot);
+  }
+}
+
+function directDependencyNames(manifest: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const dependencies of [
+    manifest.dependencies,
+    manifest.devDependencies,
+  ]) {
+    if (!isRecord(dependencies)) {
+      continue;
+    }
+    for (const name of Object.keys(dependencies)) {
+      if (seen.has(name)) {
+        continue;
+      }
+      seen.add(name);
+      out.push(name);
+    }
+  }
   return out;
+}
+
+function resolveDependencyPackageJson(
+  name: string,
+  packageRoot: string,
+): string | null {
+  const direct = path.join(packageRoot, "node_modules", ...name.split("/"));
+  const directManifest = path.join(direct, "package.json");
+  if (isFile(directManifest)) {
+    return realpathIfExists(directManifest);
+  }
+  const packageJson = path.join(packageRoot, "package.json");
+  const packageRequire = createRequire(packageJson);
+  try {
+    return realpathIfExists(packageRequire.resolve(`${name}/package.json`));
+  } catch {
+    try {
+      const entry = packageRequire.resolve(name);
+      return nearestPackageJson(entry);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function nearestPackageJson(location: string): string | null {
+  let directory: string;
+  try {
+    const stat = fs.statSync(location);
+    directory = stat.isDirectory() ? location : path.dirname(location);
+  } catch {
+    directory = path.dirname(location);
+  }
+  while (true) {
+    const manifest = path.join(directory, "package.json");
+    if (isFile(manifest)) {
+      return realpathIfExists(manifest);
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) {
+      return null;
+    }
+    directory = parent;
+  }
+}
+
+function packagePluginConfig(
+  manifest: Record<string, unknown> | null,
+): { transform: string } | "invalid" | "missing" {
+  const ttsc = manifest?.ttsc;
+  if (!isRecord(ttsc) || !("plugin" in ttsc)) {
+    return "missing";
+  }
+  const plugin = ttsc.plugin;
+  if (!isRecord(plugin) || Array.isArray(plugin)) {
+    return "invalid";
+  }
+  const transform = plugin.transform;
+  return typeof transform === "string" && transform.length !== 0
+    ? { transform }
+    : "invalid";
+}
+
+function resolvePluginTransformFile(
+  transform: string,
+  baseDir: string,
+): string | null {
+  try {
+    return realpathIfExists(
+      isRelativeSpecifier(transform)
+        ? require.resolve(path.resolve(baseDir, transform))
+        : require.resolve(transform, { paths: [baseDir] }),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function addPluginNativeInputs(out: Set<string>, pluginRoot: string): void {
+  let inputs = pluginNativeInputCache.get(pluginRoot);
+  if (inputs === undefined) {
+    const collected = new Set<string>();
+    collectBuildInput(collected, path.join(pluginRoot, "go.mod"));
+    collectBuildInput(collected, path.join(pluginRoot, "go.sum"));
+    for (const directory of ["native", "driver", "plugin", "go-plugin"]) {
+      collectGoBuildInputs(collected, path.join(pluginRoot, directory));
+    }
+    inputs = [...collected].sort();
+    pluginNativeInputCache.set(pluginRoot, inputs);
+  }
+  for (const input of inputs) {
+    out.add(input);
+  }
+}
+
+function collectBuildInput(out: Set<string>, file: string): void {
+  if (isFile(file)) {
+    out.add(path.resolve(file));
+  }
+}
+
+function collectGoBuildInputs(out: Set<string>, root: string): void {
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === ".git" ||
+        entry.name === ".hg" ||
+        entry.name === ".svn"
+      ) {
+        continue;
+      }
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+      } else if (
+        entry.isFile() &&
+        (entry.name.endsWith(".go") ||
+          entry.name === "go.mod" ||
+          entry.name === "go.sum")
+      ) {
+        out.add(path.resolve(next));
+      }
+    }
+  }
+}
+
+function addBuildInput(out: Set<string>, file: string): void {
+  if (isFile(file)) {
+    out.add(path.resolve(file));
+  }
+}
+
+function isDependencyBuildInputFile(file: string): boolean {
+  const basename = path.basename(file).toLowerCase();
+  if (basename === "package.json") {
+    return true;
+  }
+  if (/^(?:ts|js)config(?:\..*)?\.json$/i.test(basename)) {
+    return true;
+  }
+  if (isTypeScriptBuildInput(file)) {
+    return true;
+  }
+  return CONFIG_EXTENSIONS.some((extension) =>
+    basename.endsWith(`.config${extension}`),
+  );
 }
 
 let cachedTtscVersion: string | undefined;
@@ -594,11 +919,12 @@ function ttscVersion(): string {
   return cachedTtscVersion;
 }
 
-function statMtimeMs(file: string): number {
+function statFingerprint(file: string): { mtimeMs: number; size: number } {
   try {
-    return fs.statSync(file).mtimeMs;
+    const stat = fs.statSync(file);
+    return { mtimeMs: stat.mtimeMs, size: stat.size };
   } catch {
-    return 0;
+    return { mtimeMs: 0, size: 0 };
   }
 }
 
@@ -608,6 +934,19 @@ function readFileOrNull(file: string): string | null {
   } catch {
     return null;
   }
+}
+
+function readJsonRecord(file: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 /** Normalize a filesystem path to forward slashes for use in tsconfig globs. */
@@ -779,11 +1118,18 @@ function isTypeScriptSource(filename: string): boolean {
   return TYPESCRIPT_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
+function isTypeScriptBuildInput(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return TYPESCRIPT_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
 /**
  * The module format Node should run a served TypeScript source as.
- * `.mts`/`.cts` are authoritative by extension; for `.ts`/`.tsx` the compiled
- * bytes decide — matching exactly what tsgo emitted, which is more reliable
- * than re-deriving it from the package `type`.
+ * `.mts`/`.cts` are authoritative by extension; for `.ts`/`.tsx` a package
+ * `type` is authoritative the same way it is for Node's native source
+ * classification. A package with no explicit type falls back to emitted syntax
+ * so a CommonJS package can still run ESM-shaped output when tsgo preserved
+ * it.
  */
 function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   const lower = file.toLowerCase();
@@ -793,30 +1139,81 @@ function moduleFormat(file: string, compiled: string): "module" | "commonjs" {
   if (lower.endsWith(".cts")) {
     return "commonjs";
   }
+  const packageType = nearestPackageType(file);
+  if (packageType === "module") {
+    return "module";
+  }
+  if (packageType === "commonjs") {
+    return "commonjs";
+  }
   return looksLikeESM(compiled) ? "module" : "commonjs";
 }
 
 /**
  * Heuristic: classify emitted JS as ESM when it carries an ESM-only marker — a
- * top-level `import`/`export` statement or `import.meta` — but none of the
- * well-known CommonJS patterns. The CJS checks run first so a re-exported CJS
- * bundle with both `require` calls and an `export` is conservatively treated as
- * CommonJS. `import.meta` is decisive on its own: a module may use it with no
- * `import`/`export` statement, and it is invalid in CommonJS.
+ * top-level `import`/`export` statement or `import.meta`. `require()` is not a
+ * CommonJS signal here: ESM may legally create one via `createRequire`.
  */
 function looksLikeESM(output: string): boolean {
-  if (
-    /\bObject\.defineProperty\(exports\b/.test(output) ||
-    /\bmodule\.exports\b/.test(output) ||
-    /\brequire\(/.test(output) ||
-    /\bexports\./.test(output)
-  ) {
-    return false;
-  }
   return (
     /^\s*(?:import|export)\s/m.test(output) ||
     /\bimport\s*\.\s*meta\b/.test(output)
   );
+}
+
+/** Package-type cache keyed by directory, mirroring Node's lookup walk. */
+const packageTypeCache = new Map<string, "module" | "commonjs" | "none">();
+
+function nearestPackageType(file: string): "module" | "commonjs" | "none" {
+  let directory = path.dirname(file);
+  const chain: string[] = [];
+  while (true) {
+    const cached = packageTypeCache.get(directory);
+    if (cached !== undefined) {
+      return rememberPackageType(chain, cached);
+    }
+    chain.push(directory);
+    const type = readPackageType(directory);
+    if (type !== null) {
+      return rememberPackageType(chain, type);
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) {
+      return rememberPackageType(chain, "none");
+    }
+    directory = parent;
+  }
+}
+
+function rememberPackageType(
+  directories: readonly string[],
+  type: "module" | "commonjs" | "none",
+): "module" | "commonjs" | "none" {
+  for (const directory of directories) {
+    packageTypeCache.set(directory, type);
+  }
+  return type;
+}
+
+function readPackageType(
+  directory: string,
+): "module" | "commonjs" | "none" | null {
+  const manifest = path.join(directory, "package.json");
+  if (!isFile(manifest)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifest, "utf8")) as {
+      type?: unknown;
+    };
+    return parsed.type === "module"
+      ? "module"
+      : parsed.type === "commonjs"
+        ? "commonjs"
+        : "none";
+  } catch {
+    return "none";
+  }
 }
 
 /** True when `file` is a descendant of directory `root` (not `root` itself). */

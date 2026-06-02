@@ -1,106 +1,44 @@
 # Execute (ttsx)
 
-`ttsx` runs a TypeScript file directly, like `tsx` or `ts-node`, but it type-checks first and applies your plugins.
+`ttsx` is the runner form of `ttsc`: it checks a TypeScript entry file, applies your configured plugins, then runs the file.
 
-## Run a file
+## Run a script
 
 ```bash
 npx ttsx src/index.ts
 ```
 
-`ttsx`:
+The script starts only when the check passes. Type errors stop execution, and so do plugin errors such as `@ttsc/lint` errors. Warnings do not stop execution.
 
-1. Resolves `tsconfig.json` from the current directory (or `-P path/to/tsconfig.json`).
-2. Type-checks the project, including every plugin you've configured.
-3. If the check passes, executes the script natively.
-
-Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
-
-Projects that enable `allowImportingTsExtensions` are supported. The entry runs from its own source path, and `ttsx` serves each source's compiled JavaScript in place — so `import.meta.url`, `__dirname`, and relative file reads point at the real source tree, not a build directory. The compiled JavaScript lives in a per-run cache directory and is removed after the script exits.
-
-## Raw-TypeScript dependencies
-
-The type-check covers your whole program, but at runtime your dependencies are loaded by Node directly, and Node cannot run raw TypeScript everywhere:
-
-- A published dependency that ships `.ts` inside `node_modules` cannot be loaded at all — Node refuses to strip types under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
-- Even a workspace dependency reached through a symlink hits Node's strip-only limits: `namespace`/`enum` and un-elided type-only imports need real code generation, not type erasure, and an extensionless relative import (`import "./util"`) is rejected outright.
-
-`ttsx` keeps every `.ts` at its own source path and serves the JavaScript tsgo emitted for it as that source's bytes — the same model `ts-node` and `tsx` use, but the bytes come from a real, type-checked, plugin-applied tsgo build rather than a per-file transpile. A dependency that ships raw TypeScript is compiled by tsgo through its own `tsconfig` (or a synthesized one when it ships none) into a per-package cache; Node then runs that JavaScript under the dependency's own source identity. Node never sees raw `.ts`, so the strip-only limits never apply, and none of this touches the dependency's `exports`, sources, or `tsconfig`.
-
-Because identity stays at the source, a dependency's `import.meta.url`/`__dirname`-relative reads and its co-located assets resolve exactly as if it were authored in JavaScript. The hook never weakens the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included. A dependency build runs once and is reused across runs via a freshness stamp (the ttsc version, the resolved compiler options, the tsconfig, and the source mtimes); a dependency's own type error fails the run, and a genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
-
-## Pass arguments to the script
-
-Use `--` to separate `ttsx` flags from the script's own args:
+Put script arguments after `--`:
 
 ```bash
-npx ttsx src/server.ts -- --port 3000 --watch
+npx ttsx src/server.ts -- --port 3000
 ```
 
-Everything after `--` is passed through to `process.argv` unchanged.
-
-## Preload modules
-
-Same as Node's `--require`:
-
-```bash
-npx ttsx -r ./preload.cjs src/index.ts
-npx ttsx -r dotenv/config src/index.ts
-```
-
-Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to Node's raw `--require` loader; `ttsx` does not compile preload files for you.
-
-## Pick a tsconfig
+Pick a tsconfig with `-P`:
 
 ```bash
 npx ttsx -P tsconfig.scripts.json src/seed.ts
 ```
 
-## Flags
+Preload a module with `-r`, the same as Node's `--require`:
 
-| Flag | Meaning |
-| --- | --- |
-| `-P, --project <file>` | Use an explicit `tsconfig.json`. |
-| `--cwd <dir>` | Resolve the entrypoint and project from this directory. |
-| `--cache-dir <dir>` | Override the runtime and source-plugin cache root. |
-| `--binary <path>` | Use an explicit TypeScript-Go binary. |
-| `--no-plugins` | Build the entry's project without loading ttsc plugins. |
-| `-r, --require <module>` | Preload a module before the entrypoint. Repeatable. |
-| `--singleThreaded` | Run TypeScript-Go single-threaded. Mirrors `tsgo --singleThreaded`. |
-| `--checkers <n>` | Type-checker pool size. Mirrors `tsgo --checkers`. |
-| `-h, --help` | Show help. |
-| `-v, --version` | Print the runner version. |
+```bash
+npx ttsx -r dotenv/config src/index.ts
+```
 
-Any flag `ttsx` does not own, placed **before** the entry file, is forwarded to the tsgo type-check, `ttsx --strict src/index.ts` works like the matching tsgo invocation. Flags **after** the entry go to the running program as its own `process.argv`, the same as `node`.
+## Options
 
-## When ttsx vs ttsc
+| Flag                     | Meaning                              |
+| ------------------------ | ------------------------------------ |
+| `-P, --project <file>`   | Use a specific `tsconfig.json`.      |
+| `--cwd <dir>`            | Run from another working directory.  |
+| `--cache-dir <dir>`      | Use a specific cache directory.      |
+| `--binary <path>`        | Use a specific TypeScript-Go binary. |
+| `--no-plugins`           | Run without ttsc plugins.            |
+| `-r, --require <module>` | Preload a module. Repeatable.        |
+| `-h, --help`             | Show help.                           |
+| `-v, --version`          | Print the version.                   |
 
-| Task                                                 | Use                  |
-| ---------------------------------------------------- | -------------------- |
-| One-off script, fast feedback                        | `ttsx src/script.ts` |
-| Build for deployment                                 | `ttsc`               |
-| Run inside CI to gate on types                       | `ttsc --noEmit`      |
-| Run inside CI to gate on types **and** execute tests | `ttsx test/index.ts` |
-
-## ttsx vs tsx vs ts-node
-
-|                            | `tsx` | `ts-node`           | `ttsx`      |
-| -------------------------- | ----- | ------------------- | ----------- |
-| Transpile speed            | Fast  | Slow                | Fast        |
-| Type-checks before running | No    | No (by default)     | Yes         |
-| Plugin support             | No    | Custom transformers | First-class |
-| TypeScript-Go runtime      | No    | No                  | Yes         |
-
-If you currently use `tsx`: switching is one command; ergonomics are the same.
-
-## Plugins and cache
-
-`ttsx` uses the same `tsconfig.json` and plugins as `ttsc`. If a lint or check plugin reports an error, the script never runs. Transform plugins rewrite the code before it executes.
-
-The entry project's compiled JavaScript is temporary and cleaned after the script exits. A raw-TypeScript dependency, by contrast, is compiled into a **persistent** per-package cache at `<package>/node_modules/.cache/ttsc/` and kept across runs, rebuilt only when its sources, tsconfig, or the ttsc version change; it lives under `node_modules`, so a standard `node_modules` gitignore already covers it — delete that directory to force a clean rebuild. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
-
-## See also
-
-- [TTSC · `ttsc` CLI](/docs/ttsc/compile): the type-check / build front of the same pipeline.
-- [Lint & Prettier](/docs/lint): the linter that runs alongside the compile.
-- [FAQ](/docs/faq): common runner gotchas and Node-version questions.
+Run `npx ttsx --help` for every option.

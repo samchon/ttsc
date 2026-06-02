@@ -52,9 +52,10 @@ function run(argv: readonly string[]): number {
     return 2;
   }
 
+  const cacheDir = resolveCacheDir(cwd, parsed.cacheDir);
   const prepared = prepareExecution(entry, {
     binary: parsed.binary,
-    cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
+    cacheDir,
     checkers: parsed.checkers,
     cwd,
     passthrough: parsed.tsgoFlags,
@@ -70,7 +71,7 @@ function run(argv: readonly string[]): number {
     project: parsed.project,
     singleThreaded: parsed.singleThreaded,
   });
-  return runPreparedEntry(parsed, prepared, cwd);
+  return runPreparedEntry(parsed, prepared, cwd, cacheDir);
 }
 
 function formatError(error: unknown): string {
@@ -256,6 +257,7 @@ function runPreparedEntry(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
+  cacheDir: string | undefined,
 ): number {
   try {
     const args = [
@@ -268,19 +270,39 @@ function runPreparedEntry(
       execution.entryFile,
       ...parsed.passthrough,
     ];
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      // Install the hooks via NODE_OPTIONS so child processes inherit them,
+      // and tell the `load` hook where the gate emitted the entry project.
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, runtimeNodeOptions()]
+        .filter(Boolean)
+        .join(" "),
+      TTSC_TTSX_ENTRY_EMIT_DIR: execution.emitDir,
+      TTSC_TTSX_ENTRY_EMIT_BASE: execution.emitBase,
+    };
+    if (parsed.binary !== undefined) {
+      env.TTSC_TSGO_BINARY = parsed.binary;
+    }
+    if (cacheDir !== undefined) {
+      env.TTSC_TTSX_PLUGIN_CACHE_DIR = cacheDir;
+    }
+    if (parsed.checkers !== undefined) {
+      env.TTSC_TTSX_CHECKERS = String(parsed.checkers);
+    }
+    if (parsed.singleThreaded) {
+      env.TTSC_TTSX_SINGLE_THREADED = "1";
+    }
+    if (parsed.noPlugins) {
+      env.TTSC_TTSX_NO_PLUGINS = "1";
+    }
+    if (parsed.tsgoFlags.length !== 0) {
+      env.TTSC_TTSX_TSGO_FLAGS = JSON.stringify(parsed.tsgoFlags);
+    }
+
     const result = spawnSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      env: {
-        ...process.env,
-        // Install the hooks via NODE_OPTIONS so child processes inherit them,
-        // and tell the `load` hook where the gate emitted the entry project.
-        NODE_OPTIONS: [process.env.NODE_OPTIONS, runtimeNodeOptions()]
-          .filter(Boolean)
-          .join(" "),
-        TTSC_TTSX_ENTRY_EMIT_DIR: execution.emitDir,
-        TTSC_TTSX_ENTRY_EMIT_BASE: execution.emitBase,
-      },
+      env,
       windowsHide: true,
     });
     if (result.error) {
