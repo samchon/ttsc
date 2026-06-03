@@ -316,21 +316,140 @@ function serveDependencyEmit(
   return source === null ? null : { moduleOption: built.moduleOption, source };
 }
 
+/** On-disk completion marker for a built dependency, shared across processes. */
+interface DependencyCacheMeta {
+  rootDir: string;
+  moduleOption?: string;
+}
+
+/**
+ * Build the project that owns a dependency once per run and share the result
+ * across every process the program spawns.
+ *
+ * A program (a benchmark, a worker pool) can fan out into many child processes,
+ * each of which inherits the runtime manifest and would otherwise rebuild every
+ * dependency from scratch — and worse, several at once into the same directory,
+ * corrupting each other. So the build output is content-keyed under the shared
+ * per-run cache: a finished build leaves a meta marker that any later process
+ * (or a second import in this one) reuses, and concurrent first-builders are
+ * serialised by an atomic lock directory.
+ */
 function ensureProjectBuilt(tsconfig: string): BuiltProject {
   const cached = builtProjects.get(tsconfig);
   if (cached !== undefined) {
     return cached;
   }
-  const project = readProjectConfig({
-    cwd: path.dirname(tsconfig),
-    tsconfig,
-  });
   const key = crypto
     .createHash("sha256")
     .update(tsconfig)
     .digest("hex")
     .slice(0, 16);
-  const emitDir = path.join(dependencyCacheRoot(), key);
+  const root = dependencyCacheRoot();
+  const emitDir = path.join(root, key);
+  const metaPath = path.join(root, `${key}.json`);
+  const lockDir = path.join(root, `${key}.lock`);
+
+  const reuse = readDependencyCache(emitDir, metaPath);
+  if (reuse !== null) {
+    builtProjects.set(tsconfig, reuse);
+    return reuse;
+  }
+
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
+    buildDependency(tsconfig, emitDir, metaPath),
+  );
+  builtProjects.set(tsconfig, built);
+  return built;
+}
+
+/** Reuse a dependency another process (or an earlier import) already built. */
+function readDependencyCache(
+  emitDir: string,
+  metaPath: string,
+): BuiltProject | null {
+  let meta: DependencyCacheMeta;
+  try {
+    meta = JSON.parse(fs.readFileSync(metaPath, "utf8")) as DependencyCacheMeta;
+  } catch {
+    return null;
+  }
+  if (!emittedAnything(emitDir)) {
+    return null;
+  }
+  return {
+    emitDir,
+    emittedFiles: undefined,
+    moduleOption: meta.moduleOption,
+    rootDir: meta.rootDir,
+  };
+}
+
+/**
+ * Run `build` while holding an exclusive lock for this dependency, re-checking
+ * the cache once the lock is held (a concurrent builder may have just
+ * finished). A waiter polls for the winner's meta marker, and steals an
+ * abandoned lock (a builder that crashed) after a generous timeout so the run
+ * never wedges.
+ */
+function withBuildLock(
+  lockDir: string,
+  metaPath: string,
+  emitDir: string,
+  build: () => BuiltProject,
+): BuiltProject {
+  const stealAfterMs = 600_000;
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir);
+    } catch {
+      const waited = waitForDependencyCache(emitDir, metaPath, stealAfterMs);
+      if (waited !== null) {
+        return waited;
+      }
+      fs.rmSync(lockDir, { force: true, recursive: true });
+      continue;
+    }
+    try {
+      const reuse = readDependencyCache(emitDir, metaPath);
+      return reuse ?? build();
+    } finally {
+      fs.rmSync(lockDir, { force: true, recursive: true });
+    }
+  }
+}
+
+/** Poll for a concurrent builder's completion, up to `timeoutMs`. */
+function waitForDependencyCache(
+  emitDir: string,
+  metaPath: string,
+  timeoutMs: number,
+): BuiltProject | null {
+  const startedAt = Date.now();
+  for (;;) {
+    const reuse = readDependencyCache(emitDir, metaPath);
+    if (reuse !== null) {
+      return reuse;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return null;
+    }
+    sleepSync(50);
+  }
+}
+
+/** Block the current (synchronous) thread for `ms` without busy-spinning. */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Compile a dependency project to `emitDir` and write its completion marker. */
+function buildDependency(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+): BuiltProject {
+  const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
     cwd: project.root,
@@ -367,25 +486,20 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
         .join("\n"),
     );
   }
-  const built: BuiltProject = {
-    emitDir,
-    // A hint for output matching; `resolveEmittedJavaScript` scans `emitDir`
-    // when it is absent, so an unreported list is fine.
-    emittedFiles:
-      result.emittedFiles && result.emittedFiles.length !== 0
-        ? result.emittedFiles
-        : undefined,
-    moduleOption:
-      typeof project.compilerOptions.module === "string"
-        ? project.compilerOptions.module
-        : undefined,
-    rootDir:
-      typeof project.compilerOptions.rootDir === "string"
-        ? project.compilerOptions.rootDir
-        : project.root,
-  };
-  builtProjects.set(tsconfig, built);
-  return built;
+  const rootDir =
+    typeof project.compilerOptions.rootDir === "string"
+      ? project.compilerOptions.rootDir
+      : project.root;
+  const moduleOption =
+    typeof project.compilerOptions.module === "string"
+      ? project.compilerOptions.module
+      : undefined;
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({ moduleOption, rootDir } satisfies DependencyCacheMeta),
+    "utf8",
+  );
+  return { emitDir, emittedFiles: undefined, moduleOption, rootDir };
 }
 
 function dependencyCacheRoot(): string {
