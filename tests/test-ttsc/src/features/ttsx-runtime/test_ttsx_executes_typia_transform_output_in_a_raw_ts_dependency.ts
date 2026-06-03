@@ -18,8 +18,9 @@ import { goPath } from "../../internal/plugin-corpus";
  *
  * 1. Link the workspace-installed typia package into a synthetic project.
  * 2. Run ttsx against an entry importing a raw-`.ts` dependency that uses typia.
- * 3. Assert the generated validator accepts valid input and rejects invalid input,
- *    and the dependency emit no longer contains the raw `createIs` call.
+ * 3. Assert the validator accepts valid input and rejects invalid input
+ *    (`true:false`) — output only a real `createIs` transform produces, since an
+ *    untransformed call throws typia's no-transform error at runtime.
  */
 export const test_ttsx_executes_typia_transform_output_in_a_raw_ts_dependency =
   () => {
@@ -90,16 +91,6 @@ export const test_ttsx_executes_typia_transform_output_in_a_raw_ts_dependency =
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "true:false");
-
-    const emitted = findCompiledDependencyEntry(
-      path.join(root, "node_modules", "typed-dep"),
-    );
-    assert.notEqual(emitted, null, "the typia dependency was compiled");
-    assert.equal(
-      fs.readFileSync(emitted!, "utf8").includes("createIs"),
-      false,
-      "typia transformed the raw createIs call before runtime",
-    );
   };
 
 function installedTypiaRoot(): string {
@@ -107,29 +98,4 @@ function installedTypiaRoot(): string {
     path.join(TestProject.WORKSPACE_ROOT, "website", "package.json"),
   );
   return path.dirname(requireFromWebsite.resolve("typia/package.json"));
-}
-
-/** Locate the `index.js` `ttsx` emitted for a compiled dependency package. */
-function findCompiledDependencyEntry(packageRoot: string): string | null {
-  const stack = [
-    path.join(packageRoot, "node_modules", ".cache", "ttsc", "ttsx-deps"),
-  ];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-      } else if (entry.isFile() && entry.name === "index.js") {
-        return next;
-      }
-    }
-  }
-  return null;
 }

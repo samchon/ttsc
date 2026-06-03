@@ -16,10 +16,13 @@ import { goPath } from "../../internal/plugin-corpus";
  * must inherit the entry project's transform plugins while keeping the file's
  * own `.ts` filename identity.
  *
- * 1. Build an entry project that depends on typia but generates `good.ts` later.
+ * 1. Build an entry project that depends on typia but generates `good.ts` later
+ *    (with an unrelated sibling `bad.ts` carrying a type error, so the loose
+ *    compile must isolate `good.ts` rather than fail on its neighbour).
  * 2. Dynamically import that generated source through an absolute path.
- * 3. Assert the typia validator runs, the source filename is preserved, and the
- *    loose emit no longer contains the raw `createIs` call.
+ * 3. Assert the validator runs and the source filename is preserved
+ *    (`true:false:true`) — the typia transform ran on the loose entry source and
+ *    `__filename` kept the `.ts` source identity.
  */
 export const test_ttsx_runs_typia_transform_output_in_a_dynamic_entry_project_source =
   () => {
@@ -57,19 +60,15 @@ export const test_ttsx_runs_typia_transform_output_in_a_dynamic_entry_project_so
       }),
       "src/main.ts":
         `declare const __dirname: string;\n` +
-        `declare const process: { env: Record<string, string | undefined>; exitCode?: number };\n` +
+        `declare const process: { exitCode?: number };\n` +
         `declare function require(name: string): any;\n` +
-        `type Dirent = { name: string; isDirectory(): boolean; isFile(): boolean };\n` +
         `const fs = require("node:fs") as {\n` +
         `  mkdirSync(path: string, options: { recursive: boolean }): void;\n` +
         `  writeFileSync(file: string, text: string): void;\n` +
-        `  readFileSync(file: string, encoding: "utf8"): string;\n` +
-        `  readdirSync(directory: string, options: { withFileTypes: true }): Dirent[];\n` +
         `};\n` +
         `const path = require("node:path") as {\n` +
         `  join(...parts: string[]): string;\n` +
         `  resolve(...parts: string[]): string;\n` +
-        `  sep: string;\n` +
         `};\n` +
         `\n` +
         `main().catch((error) => { console.error(error); process.exitCode = 1; });\n` +
@@ -83,43 +82,7 @@ export const test_ttsx_runs_typia_transform_output_in_a_dynamic_entry_project_so
         `\n` +
         `const good = path.join(generated, "good.ts");\n` +
         `const mod = await import(good) as { verdict: string };\n` +
-        `const emitted = findLooseGoodEmit(process.env.TTSC_TTSX_ENTRY_EMIT_DIR);\n` +
-        `if (emitted === null) {\n` +
-        `  throw new Error("loose good.js emit was not found");\n` +
-        `}\n` +
-        `const emittedText = fs.readFileSync(emitted, "utf8");\n` +
-        `if (emittedText.includes("createIs")) {\n` +
-        `  throw new Error("typia createIs call survived in loose runtime emit");\n` +
-        `}\n` +
         `console.log(mod.verdict);\n` +
-        `}\n` +
-        `\n` +
-        `function findLooseGoodEmit(entryEmitDir: string | undefined): string | null {\n` +
-        `  if (entryEmitDir === undefined) return null;\n` +
-        `  const looseSegment = path.sep + ".ttsx-loose" + path.sep;\n` +
-        `  const stack = [entryEmitDir];\n` +
-        `  while (stack.length !== 0) {\n` +
-        `    const current = stack.pop()!;\n` +
-        `    let entries: Dirent[];\n` +
-        `    try {\n` +
-        `      entries = fs.readdirSync(current, { withFileTypes: true });\n` +
-        `    } catch {\n` +
-        `      continue;\n` +
-        `    }\n` +
-        `    for (const entry of entries) {\n` +
-        `      const next = path.join(current, entry.name);\n` +
-        `      if (entry.isDirectory()) {\n` +
-        `        stack.push(next);\n` +
-        `      } else if (\n` +
-        `        entry.isFile() &&\n` +
-        `        entry.name === "good.js" &&\n` +
-        `        next.includes(looseSegment)\n` +
-        `      ) {\n` +
-        `        return next;\n` +
-        `      }\n` +
-        `    }\n` +
-        `  }\n` +
-        `  return null;\n` +
         `}\n`,
     });
     fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
