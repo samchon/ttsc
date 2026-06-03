@@ -27,8 +27,11 @@ export function prepareExecution(
 ): {
   cleanupDir: string;
   emitDir: string;
+  emittedFiles?: readonly string[];
   entryFile: string;
   moduleKind: "cjs" | "esm";
+  projectRoot: string;
+  rootDir: string;
 } {
   const context = createProjectContext(
     path.resolve(options.cwd ?? process.cwd()),
@@ -50,8 +53,11 @@ export function prepareExecution(
     return {
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
+      emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
       moduleKind: looksLikeESM(output) ? "esm" : "cjs",
+      projectRoot: context.root,
+      rootDir: context.runtimeRootDir,
     };
   } catch (error) {
     removeRuntimeOutput(context.processDir);
@@ -87,6 +93,10 @@ function createProjectContext(
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
       : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, filename)),
+    // The source-tree root the emit mirrors (tsgo strips this prefix). Used to
+    // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
+    // the built entry under its source URL.
+    runtimeRootDir: resolveRuntimeSourceRoot(project, filename),
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };

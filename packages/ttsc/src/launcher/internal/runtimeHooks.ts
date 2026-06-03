@@ -1,23 +1,36 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import { registerHooks, stripTypeScriptTypes } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
+import { runBuild } from "../../compiler/internal/runBuild";
+
 /**
- * Node.js module-customization hooks registered inside the child process that
- * `ttsx` spawns. They give the runtime the same whole-graph reach `tsx` has,
- * without weakening the compile gate: type-checking still happens up front in
- * `prepareExecution`'s tsgo build, and these hooks only affect how dependencies
- * are _loaded_ at runtime.
+ * Synchronous Node module hooks installed (via `module.registerHooks`) in the
+ * child process `ttsx` spawns to run a TypeScript entry _from source_.
  *
- * - `resolve` rescues extensionless relative imports anywhere in the graph (e.g.
- *   a workspace dependency exporting raw `.ts` whose own sources use `import
- *   "./foo"`), which Node's ESM resolver rejects.
- * - `load` transpiles raw `.ts` dependencies that live under `node_modules`,
- *   where Node refuses to strip types at all.
+ * They give the runner ts-node-style whole-graph reach without weakening the
+ * compile gate. The owning entry project is type-checked and built up front (by
+ * `prepareExecution`, with its transform plugins such as typia); these hooks
+ * serve that build under the source URLs so `__dirname`/`import.meta.url` keep
+ * pointing at the source tree. Three load paths:
  *
- * Workspace neighbours (realpath outside `node_modules`) keep Node's native
- * type-stripping path, so they stay covered by the up-front compile gate.
+ * 1. A `.ts` belonging to the entry project → serve the pre-built emitted JS
+ *    (transform plugins already applied), mapped by the project's `rootDir`.
+ * 2. Any other raw `.ts` dependency (a published or workspace package that ships
+ *    source) → build its own owning `tsconfig.json` once via `runBuild` and
+ *    serve the emit. A real build (not a type-strip) is required because Node's
+ *    type-stripping cannot do cross-file type-only elision — e.g. a value-shaped
+ *    import of a type+namespace merge survives stripping and dangles at runtime.
+ * 3. No owning tsconfig → fall back to a `mode: "transform"` type-strip.
+ *
+ * The hooks are synchronous and run on the main thread (not a loader worker):
+ * that is what lets a CommonJS `require("./x")` chain reach them and what makes
+ * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  */
 
 /** Source/JS extensions probed when an extensionless relative import fails. */
@@ -31,57 +44,90 @@ const RESOLVABLE_EXTENSIONS = [
   ".cjs",
 ] as const;
 
-/** TypeScript source extensions the `load` hook transpiles under node_modules. */
+/** TypeScript source extensions these hooks compile. */
 const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 
 interface ResolveContext {
   readonly parentURL?: string;
-  readonly conditions?: readonly string[];
-  readonly importAttributes?: Record<string, string>;
+  readonly conditions?: string[];
+  readonly importAttributes?: Record<string, string | undefined>;
 }
 
 interface ResolveResult {
-  readonly url: string;
-  readonly format?: string | null;
-  readonly shortCircuit?: boolean;
+  url: string;
+  format?: string | null;
+  shortCircuit?: boolean;
 }
 
 interface LoadContext {
   readonly format?: string | null;
-  readonly conditions?: readonly string[];
-  readonly importAttributes?: Record<string, string>;
+  readonly conditions?: string[];
+  readonly importAttributes?: Record<string, string | undefined>;
 }
 
 interface LoadResult {
-  readonly format: string;
-  readonly source?: string | Uint8Array;
-  readonly shortCircuit?: boolean;
+  format: string | null | undefined;
+  source?: string | ArrayBuffer | NodeJS.TypedArray;
+  shortCircuit?: boolean;
 }
 
-type NextResolve = (
-  specifier: string,
-  context: ResolveContext,
-) => Promise<ResolveResult>;
-
-type NextLoad = (url: string, context: LoadContext) => Promise<LoadResult>;
+type NextResolve = (specifier: string, context: ResolveContext) => ResolveResult;
+type NextLoad = (url: string, context: LoadContext) => LoadResult;
 
 /**
- * Rescue an extensionless relative specifier that Node's ESM resolver rejected.
- *
- * Node resolves the common cases itself; this hook only runs after
- * `nextResolve` throws, so a successful resolution is never perturbed. When the
- * throwing specifier is relative, the candidate extensions are probed against
- * the parent's directory and the first existing file (or directory index) wins.
- * A genuinely missing module finds no candidate and the original error is
- * rethrown, preserving `ERR_MODULE_NOT_FOUND`.
+ * Runtime manifest written by `runTtsx` (the parent) and read once here. It
+ * describes the already-built entry project so the hooks can serve its emit.
  */
-export async function resolve(
+interface RuntimeManifest {
+  /** Project root of the entry's owning tsconfig. */
+  projectRoot: string;
+  /** Source-tree root the emit mirrors (tsgo strips this prefix). */
+  rootDir: string;
+  /** Directory holding the entry project's emitted JavaScript. */
+  emitDir: string;
+  /** Emitted file list from the entry build, for source→output matching. */
+  emittedFiles?: readonly string[];
+  /** Root directory for per-dependency build output. */
+  depCacheDir: string;
+}
+
+let manifestCache: RuntimeManifest | null | undefined;
+
+function manifest(): RuntimeManifest | null {
+  if (manifestCache !== undefined) {
+    return manifestCache;
+  }
+  const file = process.env.TTSX_RUNTIME_MANIFEST;
+  if (file === undefined || file.length === 0) {
+    manifestCache = null;
+    return manifestCache;
+  }
+  try {
+    manifestCache = JSON.parse(fs.readFileSync(file, "utf8")) as RuntimeManifest;
+  } catch {
+    manifestCache = null;
+  }
+  return manifestCache;
+}
+
+/** Install the resolve/load hooks on the current (main) thread. */
+export function installRuntimeHooks(): void {
+  registerHooks({ load, resolve });
+}
+
+/**
+ * Rescue an extensionless or directory relative specifier that Node's resolver
+ * rejected. Only runs after `nextResolve` throws, so a successful resolution is
+ * never perturbed; a genuinely missing module finds no candidate and the
+ * original error is rethrown, preserving `ERR_MODULE_NOT_FOUND`.
+ */
+function resolve(
   specifier: string,
   context: ResolveContext,
   nextResolve: NextResolve,
-): Promise<ResolveResult> {
+): ResolveResult {
   try {
-    return await nextResolve(specifier, context);
+    return nextResolve(specifier, context);
   } catch (error) {
     const rescued = probeRelativeSpecifier(specifier, context.parentURL);
     if (rescued === null) {
@@ -91,35 +137,219 @@ export async function resolve(
   }
 }
 
-/**
- * Transpile a raw `.ts` dependency that lives under `node_modules`.
- *
- * Node strips types for first-party `.ts` automatically but refuses to do so
- * under `node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`). This
- * hook performs the same type-strip transform for those files, scoped strictly
- * to `node_modules` so workspace neighbours keep Node's native path.
- */
-export async function load(
+/** Cache of built projects keyed by owning tsconfig path. */
+interface BuiltProject {
+  emitDir: string;
+  rootDir: string;
+  emittedFiles?: readonly string[];
+}
+const builtProjects = new Map<string, BuiltProject>();
+
+function load(
   url: string,
   context: LoadContext,
   nextLoad: NextLoad,
-): Promise<LoadResult> {
-  const filename = transpilableNodeModulesPath(url);
-  if (filename === null) {
+): LoadResult {
+  if (!url.startsWith("file:")) {
     return nextLoad(url, context);
   }
-  const source = transpile(filename);
+  const filename = fileURLToPath(url);
+  if (!isTypeScriptSource(filename)) {
+    return nextLoad(url, context);
+  }
+  const real = realPath(filename);
+
+  // 1. Entry project: serve the pre-built emit (transform plugins applied).
+  const served = serveEntryEmit(real);
+  if (served !== null) {
+    return { format: moduleFormat(filename, served), shortCircuit: true, source: served };
+  }
+
+  // 2. Raw `.ts` dependency: build its owning project once and serve.
+  const built = serveDependencyEmit(real);
+  if (built !== null) {
+    return { format: moduleFormat(filename, built), shortCircuit: true, source: built };
+  }
+
+  // 3. No owning tsconfig: type-strip (transform mode handles enums/namespaces).
+  const stripped = stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
+    mode: "transform",
+    sourceUrl: url,
+  });
   return {
-    format: moduleFormat(filename, source),
+    format: moduleFormat(filename, stripped),
     shortCircuit: true,
-    source,
+    source: stripped,
   };
 }
 
 /**
- * Probe candidate extensions for a relative `specifier` whose bare form failed
- * to resolve. Returns a `file:` URL string for the first match, or `null` when
- * the specifier is non-relative, has no usable parent, or matches nothing.
+ * Serve the entry project's pre-built JavaScript for a source file under its
+ * `rootDir`, or `null` when the file is outside the entry project or its emit
+ * is missing.
+ */
+function serveEntryEmit(real: string): string | null {
+  const m = manifest();
+  if (m === null) {
+    return null;
+  }
+  if (real !== m.projectRoot && !real.startsWith(m.projectRoot + path.sep)) {
+    return null;
+  }
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: m.emittedFiles,
+    outDir: m.emitDir,
+    projectRoot: m.rootDir,
+    sourceFile: real,
+  });
+  return readFileOrNull(emitted);
+}
+
+/**
+ * Build the project that owns `real` (nearest `tsconfig.json` above its real
+ * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
+ * or the project does not emit it. The build is plain (transform plugins
+ * disabled): a dependency's own tsconfig may declare plugins it expects a
+ * consumer build to provide, which a raw runtime cannot honour, and the typia
+ * deps that ship source declare none.
+ */
+function serveDependencyEmit(real: string): string | null {
+  const tsconfig = nearestTsconfig(real);
+  if (tsconfig === null) {
+    return null;
+  }
+  const built = ensureProjectBuilt(tsconfig);
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: built.emittedFiles,
+    outDir: built.emitDir,
+    projectRoot: built.rootDir,
+    sourceFile: real,
+  });
+  return readFileOrNull(emitted);
+}
+
+function ensureProjectBuilt(tsconfig: string): BuiltProject {
+  const cached = builtProjects.get(tsconfig);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const project = readProjectConfig({
+    cwd: path.dirname(tsconfig),
+    tsconfig,
+  });
+  const key = crypto
+    .createHash("sha256")
+    .update(tsconfig)
+    .digest("hex")
+    .slice(0, 16);
+  const emitDir = path.join(dependencyCacheRoot(), key);
+  fs.rmSync(emitDir, { force: true, recursive: true });
+  const result = runBuild({
+    cwd: project.root,
+    emit: true,
+    forceListEmittedFiles: true,
+    outDir: emitDir,
+    // A dependency's own transform plugins (if any) cannot be honoured by a
+    // raw runtime build; the source-shipping typia packages declare none.
+    plugins: false,
+    quiet: true,
+    tsconfig,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        `ttsx: dependency build failed for ${tsconfig}`,
+        result.stderr || result.stdout,
+      ]
+        .filter((line) => line.trim().length !== 0)
+        .join("\n"),
+    );
+  }
+  const built: BuiltProject = {
+    emitDir,
+    emittedFiles:
+      result.emittedFiles && result.emittedFiles.length !== 0
+        ? result.emittedFiles
+        : undefined,
+    rootDir:
+      typeof project.compilerOptions.rootDir === "string"
+        ? project.compilerOptions.rootDir
+        : project.root,
+  };
+  builtProjects.set(tsconfig, built);
+  return built;
+}
+
+function dependencyCacheRoot(): string {
+  const m = manifest();
+  return m !== null && m.depCacheDir.length !== 0
+    ? m.depCacheDir
+    : path.join(os.tmpdir(), "ttsx-dep");
+}
+
+/**
+ * The nearest `tsconfig.json` at or above `file`'s directory, or `null`. The
+ * walk stops at a `node_modules` boundary: a tsconfig above `node_modules`
+ * belongs to the consumer, not to the published dependency inside it, so a
+ * dependency that ships no tsconfig of its own has no owning project and is
+ * type-stripped instead. A pnpm-symlinked workspace package is unaffected
+ * because `file` is already its real path (outside `node_modules`).
+ */
+function nearestTsconfig(file: string): string | null {
+  let directory = path.dirname(file);
+  for (;;) {
+    if (path.basename(directory) === "node_modules") {
+      return null;
+    }
+    const candidate = path.join(directory, "tsconfig.json");
+    if (isFile(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) {
+      return null;
+    }
+    directory = parent;
+  }
+}
+
+function readFileOrNull(file: string | null): string | null {
+  if (file === null) {
+    return null;
+  }
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function realPath(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return target;
+  }
+}
+
+/**
+ * Map the JavaScript extension a relative `specifier` carries to the TypeScript
+ * source extensions tsgo would have emitted it from. Running from source, a
+ * `"./x.js"` import (whether authored or rewritten from `"./x.ts"` by
+ * `--rewriteRelativeImportExtensions`) has no `.js` on disk — only `./x.ts`.
+ */
+const JS_TO_TS_EXTENSIONS: ReadonlyMap<string, readonly string[]> = new Map([
+  [".js", [".ts", ".tsx"]],
+  [".jsx", [".tsx"]],
+  [".mjs", [".mts"]],
+  [".cjs", [".cts"]],
+]);
+
+/**
+ * Rescue a relative `specifier` that Node's resolver rejected: map a JavaScript
+ * extension back to its TypeScript source, or probe candidate extensions /
+ * directory indexes for an extensionless form. Returns a `file:` URL for the
+ * first match, or `null` when nothing matches.
  */
 function probeRelativeSpecifier(
   specifier: string,
@@ -131,65 +361,54 @@ function probeRelativeSpecifier(
   if (parentURL === undefined || !parentURL.startsWith("file:")) {
     return null;
   }
-  if (hasConcreteExtension(specifier)) {
+  // A `?query` / `#hash` suffix is part of module identity, not the path; strip
+  // it before resolving and re-attach it to the resolved URL so a loader keying
+  // on the suffix (and `import.meta.url`) sees it preserved.
+  const suffixStart = specifier.search(/[?#]/);
+  const suffix = suffixStart === -1 ? "" : specifier.slice(suffixStart);
+  const pathname =
+    suffixStart === -1 ? specifier : specifier.slice(0, suffixStart);
+  const parentDir = path.dirname(fileURLToPath(parentURL));
+  const base = path.resolve(parentDir, pathname);
+  const withSuffix = (candidate: string): string =>
+    pathToFileURL(candidate).href + suffix;
+
+  const jsExtension = path.extname(base).toLowerCase();
+  const tsExtensions = JS_TO_TS_EXTENSIONS.get(jsExtension);
+  if (tsExtensions !== undefined) {
+    const stem = base.slice(0, base.length - jsExtension.length);
+    for (const extension of tsExtensions) {
+      const candidate = stem + extension;
+      if (isFile(candidate)) {
+        return withSuffix(candidate);
+      }
+    }
     return null;
   }
-  const parentDir = path.dirname(fileURLToPath(parentURL));
-  const base = path.resolve(parentDir, specifier);
+  if (hasConcreteExtension(pathname)) {
+    return null;
+  }
   for (const extension of RESOLVABLE_EXTENSIONS) {
     const candidate = base + extension;
     if (isFile(candidate)) {
-      return pathToFileURL(candidate).href;
+      return withSuffix(candidate);
     }
   }
   for (const extension of RESOLVABLE_EXTENSIONS) {
     const candidate = path.join(base, `index${extension}`);
     if (isFile(candidate)) {
-      return pathToFileURL(candidate).href;
+      return withSuffix(candidate);
     }
   }
   return null;
 }
 
 /**
- * Return the filesystem path of a `file:` URL when it points at a TypeScript
- * source under `node_modules`, otherwise `null`. Both conditions must hold for
- * the `load` hook to take over: workspace `.ts` (outside `node_modules`) and
- * already-JavaScript files fall through to Node.
- */
-function transpilableNodeModulesPath(url: string): string | null {
-  if (!url.startsWith("file:")) {
-    return null;
-  }
-  const filename = fileURLToPath(url);
-  if (!isTypeScriptSource(filename) || !isUnderNodeModules(filename)) {
-    return null;
-  }
-  return filename;
-}
-
-/**
- * Strip TypeScript types from `filename`, transforming TS-only constructs
- * (enums, namespaces, parameter properties) so the result is runnable
- * JavaScript. No transpile cache is kept: Node caches every module by resolved
- * URL, so each dependency file reaches this hook at most once per run.
- */
-function transpile(filename: string): string {
-  return stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
-    mode: "transform",
-    sourceUrl: pathToFileURL(filename).href,
-  });
-}
-
-/**
- * Decide the module format for a transpiled `node_modules` TypeScript file.
- *
- * Type-stripping never rewrites module syntax, so the emitted `source` keeps
- * whatever `import`/`export` or `require` form the author wrote. The format
- * must match that syntax or Node mis-parses the module. The extension is
- * authoritative for `.mts`/`.cts`; otherwise the nearest `package.json` `type`
- * sets the baseline, but unambiguous ESM syntax overrides a CommonJS baseline
- * exactly as Node's own module-syntax detection does.
+ * Decide the module format for compiled/stripped TypeScript output. The output
+ * keeps whatever `import`/`export` or `require` form was emitted, so the format
+ * must match it. The extension is authoritative for `.mts`/`.cts`; otherwise the
+ * nearest `package.json` `type` sets the baseline, but unambiguous ESM syntax
+ * overrides a CommonJS baseline, exactly as Node's own detection does.
  */
 function moduleFormat(filename: string, source: string): string {
   if (filename.endsWith(".mts")) {
@@ -204,13 +423,6 @@ function moduleFormat(filename: string, source: string): string {
   return hasEsmSyntax(source) ? "module" : "commonjs";
 }
 
-/**
- * True when `source` carries unambiguous ESM syntax: a top-level
- * `import`/`export` statement, or an `import.meta` reference (which is a syntax
- * error outside a module). Mirrors the markers Node's own detection keys on.
- * `stripTypeScriptTypes` has already removed comments, so a keyword inside a
- * stripped comment cannot produce a false positive.
- */
 function hasEsmSyntax(source: string): boolean {
   return (
     /(?:^|[\n;])\s*(?:import|export)\b/.test(source) ||
@@ -254,12 +466,12 @@ function rememberPackageType(
 
 /** Read a directory's `package.json` `type`, or `null` when absent/invalid. */
 function readPackageType(directory: string): "module" | "commonjs" | null {
-  const manifest = path.join(directory, "package.json");
-  if (!isFile(manifest)) {
+  const manifestPath = path.join(directory, "package.json");
+  if (!isFile(manifestPath)) {
     return null;
   }
   try {
-    const parsed = JSON.parse(fs.readFileSync(manifest, "utf8")) as {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
       type?: unknown;
     };
     return parsed.type === "module" ? "module" : "commonjs";
@@ -283,30 +495,7 @@ function hasConcreteExtension(specifier: string): boolean {
 }
 
 function isTypeScriptSource(filename: string): boolean {
-  return TYPESCRIPT_EXTENSIONS.some((extension) =>
-    filename.endsWith(extension),
-  );
-}
-
-/**
- * True when `filename` lives inside a real `node_modules` package. A
- * `node_modules/.cache` segment does not count: `ttsx` mirrors the project into
- * `<root>/node_modules/.cache/ttsc/ttsx/.../fs/...`, so the user's own sources
- * appear under that cache prefix at runtime. Treating them as dependencies
- * would type-strip a project file (which `stripTypeScriptTypes` cannot do as
- * faithfully as the compile gate, e.g. it cannot elide type-only imports) and
- * steal it from a host loader. A genuine dependency still has a deeper
- * `node_modules/<pkg>` segment, so it is detected; `.cache` (never a package
- * name) is the only thing skipped.
- */
-function isUnderNodeModules(filename: string): boolean {
-  const segments = filename.split(path.sep);
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    if (segments[i] === "node_modules" && segments[i + 1] !== ".cache") {
-      return true;
-    }
-  }
-  return false;
+  return TYPESCRIPT_EXTENSIONS.some((extension) => filename.endsWith(extension));
 }
 
 function isFile(candidate: string): boolean {
