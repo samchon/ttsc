@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { registerHooks, stripTypeScriptTypes } from "node:module";
+import { Module, registerHooks, stripTypeScriptTypes } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -118,9 +118,56 @@ function manifest(): RuntimeManifest | null {
   return manifestCache;
 }
 
-/** Install the resolve/load hooks on the current (main) thread. */
+let installed = false;
+
+/**
+ * Install the source-loading hooks on the current (main) thread. Idempotent:
+ * the bootstrap installs them for the entry process, and `NODE_OPTIONS`
+ * re-imports the installer in every child process the program spawns — both may
+ * run in the same process.
+ *
+ * Two hooks are needed, because `module.registerHooks` does not intercept a
+ * `require()` made from inside a CommonJS module that was itself reached
+ * through an ESM `import` (the interop translator loads it on the raw CJS
+ * path). The ESM graph goes through `registerHooks`; the CommonJS `require`
+ * graph goes through `Module._extensions` — the canonical loader extension
+ * point `ts-node`/`tsx` use for the same reason.
+ */
 export function installRuntimeHooks(): void {
+  if (installed) {
+    return;
+  }
+  installed = true;
   registerHooks({ load, resolve });
+  installCommonJsHook();
+}
+
+/**
+ * Register a CommonJS `require` handler for each TypeScript source extension so
+ * a `require("./x")` chain compiles `.ts` the same way the ESM `load` hook
+ * does.
+ */
+function installCommonJsHook(): void {
+  const extensions = (
+    Module as unknown as {
+      _extensions: Record<
+        string,
+        (
+          module: { _compile(source: string, filename: string): void },
+          filename: string,
+        ) => void
+      >;
+    }
+  )._extensions;
+  const compile = (
+    module: { _compile(source: string, filename: string): void },
+    filename: string,
+  ): void => {
+    module._compile(resolveServedSource(filename).source, filename);
+  };
+  for (const extension of [".ts", ".tsx", ".cts"]) {
+    extensions[extension] = compile;
+  }
 }
 
 /**
@@ -178,37 +225,40 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return nextLoad(url, context);
   }
-  const real = realPath(filename);
+  const { source, moduleOption } = resolveServedSource(filename, url);
+  return {
+    format: moduleFormat(filename, moduleOption),
+    shortCircuit: true,
+    source,
+  };
+}
 
-  // 1. Entry project: serve the pre-built emit (transform plugins applied).
+/**
+ * Resolve the JavaScript to run for a TypeScript source file, in priority
+ * order: the entry project's pre-built emit (transform plugins applied), a
+ * built raw `.ts` dependency, or — when no tsconfig owns it — a `mode:
+ * "transform"` type-strip. Shared by the ESM `load` hook and the CommonJS
+ * `require` handler.
+ */
+function resolveServedSource(
+  filename: string,
+  url: string = pathToFileURL(filename).href,
+): { source: string; moduleOption?: string } {
+  const real = realPath(filename);
   const served = serveEntryEmit(real);
   if (served !== null) {
-    return {
-      format: moduleFormat(filename, manifest()?.moduleOption),
-      shortCircuit: true,
-      source: served,
-    };
+    return { moduleOption: manifest()?.moduleOption, source: served };
   }
-
-  // 2. Raw `.ts` dependency: build its owning project once and serve.
   const built = serveDependencyEmit(real);
   if (built !== null) {
-    return {
-      format: moduleFormat(filename, built.moduleOption),
-      shortCircuit: true,
-      source: built.source,
-    };
+    return built;
   }
-
-  // 3. No owning tsconfig: type-strip (transform mode handles enums/namespaces).
-  const stripped = stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
-    mode: "transform",
-    sourceUrl: url,
-  });
   return {
-    format: moduleFormat(filename, undefined),
-    shortCircuit: true,
-    source: stripped,
+    moduleOption: undefined,
+    source: stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
+      mode: "transform",
+      sourceUrl: url,
+    }),
   };
 }
 
@@ -237,10 +287,9 @@ function serveEntryEmit(real: string): string | null {
 /**
  * Build the project that owns `real` (nearest `tsconfig.json` above its real
  * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
- * or the project does not emit it. The build is plain (transform plugins
- * disabled): a dependency's own tsconfig may declare plugins it expects a
- * consumer build to provide, which a raw runtime cannot honour, and the typia
- * deps that ship source declare none.
+ * or the project does not emit it. The build honours the dependency's own
+ * tsconfig (transform plugins included), so a source-shipping package that
+ * needs a transform behaves correctly at runtime.
  */
 function serveDependencyEmit(
   real: string,
@@ -288,9 +337,11 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
-    // A dependency's own transform plugins (if any) cannot be honoured by a
-    // raw runtime build; the source-shipping typia packages declare none.
-    plugins: false,
+    // Honour the dependency's own transform plugins: a source-shipping package
+    // can itself depend on a transform (e.g. a fixture whose values are built
+    // with `typia.createRandom`), and its runtime behaviour is wrong without it.
+    // `runBuild` runs on this main thread, so its plugin resolution works the
+    // same as the entry build's.
     quiet: true,
     // Emit only: the entry project's up-front check is the type gate. A
     // dependency build pulls its own transitive sources into the program and
@@ -301,16 +352,15 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
     skipDiagnosticsCheck: true,
     tsconfig,
   });
-  const emittedFiles =
-    result.emittedFiles && result.emittedFiles.length !== 0
-      ? result.emittedFiles
-      : undefined;
-  if (emittedFiles === undefined) {
-    // No output at all (a real, non-diagnostic failure): surface it so the
-    // caller can fall back to type-stripping rather than serve nothing.
+  // Success is "the project wrote JavaScript", not "the build reported a file
+  // list": a native transform host (typia, @ttsc/banner, …) emits without
+  // printing the `--listEmittedFiles` lines, so `result.emittedFiles` is empty
+  // even on a clean build. A genuinely empty output directory is the real
+  // failure; the caller then falls back to type-stripping the one file.
+  if (!emittedAnything(emitDir)) {
     throw new Error(
       [
-        `ttsx: dependency build emitted nothing for ${tsconfig}`,
+        `ttsx: dependency build produced no output for ${tsconfig}`,
         result.stderr || result.stdout,
       ]
         .filter((line) => line.trim().length !== 0)
@@ -319,7 +369,12 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   }
   const built: BuiltProject = {
     emitDir,
-    emittedFiles,
+    // A hint for output matching; `resolveEmittedJavaScript` scans `emitDir`
+    // when it is absent, so an unreported list is fine.
+    emittedFiles:
+      result.emittedFiles && result.emittedFiles.length !== 0
+        ? result.emittedFiles
+        : undefined,
     moduleOption:
       typeof project.compilerOptions.module === "string"
         ? project.compilerOptions.module
@@ -569,4 +624,25 @@ function isFile(candidate: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** True when `directory` holds at least one emitted JavaScript file (any depth). */
+function emittedAnything(directory: string): boolean {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (emittedAnything(full)) {
+        return true;
+      }
+    } else if (entry.isFile() && /\.(?:[cm]?js)$/i.test(entry.name)) {
+      return true;
+    }
+  }
+  return false;
 }

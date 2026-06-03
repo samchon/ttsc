@@ -214,6 +214,20 @@ function printHelp(): void {
   process.stdout.write("\n");
 }
 
+/**
+ * Append a Node flag to an existing `NODE_OPTIONS` value (or start one). Used
+ * to propagate the runtime-hook installer into every child process the program
+ * spawns, so workers launched as `node worker.ts` inherit the source loader.
+ */
+function appendNodeOption(
+  existing: string | undefined,
+  option: string,
+): string {
+  return existing && existing.trim().length !== 0
+    ? `${existing} ${option}`
+    : option;
+}
+
 function resolvePreload(cwd: string, preload: string): string {
   if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
     return path.resolve(cwd, preload);
@@ -289,6 +303,10 @@ function runPreparedEntry(
       cwd,
       env: {
         ...process.env,
+        NODE_OPTIONS: appendNodeOption(
+          process.env.NODE_OPTIONS,
+          `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
+        ),
         TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
         TTSX_RUNTIME_MANIFEST: manifestPath,
       },
