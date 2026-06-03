@@ -138,6 +138,15 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     rs = NewRewriteSet()
   }
   cursors := map[string]int{}
+  // Anchor output-to-source matching on the program's common source directory
+  // (the rootDir layout tsgo itself uses to place emitted files), not on the
+  // directory shared by the rewrite set's sources. A rewrite set can carry
+  // sites from imported dependency sources that sit outside the project root
+  // (e.g. a workspace package served as raw `.ts`); those foreign paths would
+  // otherwise drag the shared directory up above rootDir, lengthen every
+  // project file's tail past what its outDir-anchored output path carries, and
+  // silently drop the rewrite — leaving the project's own emit untransformed.
+  commonDir := p.commonSourceDir()
   // TypeScript-Go's parallel emit invokes this WriteFile callback once per
   // emitted file, concurrently — one goroutine per source file. Serialize the
   // whole callback body under wfMu: the `cursors` map would otherwise trip
@@ -162,7 +171,7 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     // Rewrites are matched after tsgo has printed JavaScript. The source-file
     // association is recovered from the output path because WriteFile receives
     // only the final file name and text.
-    patched, err := applyRewrites(fileName, text, rs, cursors)
+    patched, err := applyRewrites(fileName, text, rs, cursors, commonDir)
     if err != nil {
       return err
     }
@@ -210,8 +219,8 @@ func insertSentinel(text string) string {
 // corresponds to outputName. cursors tracks how many rewrites have already
 // been applied per source path across multiple WriteFile calls so incremental
 // watch rebuilds resume at the right offset rather than re-scanning from zero.
-func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]int) (string, error) {
-  srcPath, ok := findSourceForOutput(outputName, rs)
+func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]int, commonDir string) (string, error) {
+  srcPath, ok := findSourceForOutput(outputName, rs, commonDir)
   if !ok || len(rs.byPath[srcPath]) == 0 {
     return text, nil
   }
@@ -255,12 +264,16 @@ func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]i
 //
 // Ambiguous matches (two or more registered sources with the same tail) return
 // no match so the caller treats the output as having no rewrites.
-func findSourceForOutput(outputName string, rs *RewriteSet) (string, bool) {
+func findSourceForOutput(outputName string, rs *RewriteSet, commonDir string) (string, bool) {
   if len(rs.byPath) == 0 {
     return "", false
   }
   outStem := strings.TrimSuffix(filepath.ToSlash(outputName), filepath.Ext(outputName))
-  commonDir := commonSourceDirectoryFor(rs)
+  if commonDir == "" {
+    // No program anchor available (e.g. a direct EmitFile with no rootDir or
+    // config path): fall back to the directory shared by the rewrite sources.
+    commonDir = commonSourceDirectoryFor(rs)
+  }
   var matched string
   hits := 0
   for srcPath := range rs.byPath {
@@ -277,6 +290,27 @@ func findSourceForOutput(outputName string, rs *RewriteSet) (string, bool) {
     return "", false
   }
   return matched, true
+}
+
+// commonSourceDir returns the program's common source directory — the rootDir
+// anchor tsgo uses to lay out emitted files — normalized to forward slashes
+// with a trailing "/". Because output paths are emitted relative to exactly
+// this directory, anchoring source tails on it makes the output-to-source match
+// exact for project files while leaving out-of-root dependency sources (which
+// never emit) unmatchable. Returns "" when the program cannot provide one, so
+// the caller falls back to the rewrite-set's shared directory.
+func (p *Program) commonSourceDir() string {
+  if p == nil || p.TSProgram == nil {
+    return ""
+  }
+  dir := filepath.ToSlash(p.TSProgram.CommonSourceDirectory())
+  if dir == "" {
+    return ""
+  }
+  if !strings.HasSuffix(dir, "/") {
+    dir += "/"
+  }
+  return dir
 }
 
 // commonSourceDirectoryFor returns the deepest directory (with trailing "/")

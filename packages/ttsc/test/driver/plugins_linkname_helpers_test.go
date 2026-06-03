@@ -22,7 +22,7 @@ func driverConvertDiagnostics(in []*ast.Diagnostic) []driver.Diagnostic
 func driverIsUnusedOverloadSignatureTypeParameterDiagnostic(d *ast.Diagnostic) bool
 
 //go:linkname driverApplyRewrites github.com/samchon/ttsc/packages/ttsc/driver.applyRewrites
-func driverApplyRewrites(outputName, text string, rs *driver.RewriteSet, cursors map[string]int) (string, error)
+func driverApplyRewrites(outputName, text string, rs *driver.RewriteSet, cursors map[string]int, commonDir string) (string, error)
 
 func resetLinkedPluginRegistry() {
   driverPluginRegistry = nil
