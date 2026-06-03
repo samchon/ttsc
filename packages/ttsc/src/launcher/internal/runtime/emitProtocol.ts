@@ -11,10 +11,12 @@ export interface EmitRequest {
   file: string;
 }
 
-/** Response: the emitted JavaScript, or an error message. */
+/** Response: the emitted JavaScript, an error message, or a readiness frame. */
 export interface EmitResponse {
   code?: string;
   error?: string;
+  /** Set on the first frame the host writes, before any request is served. */
+  ready?: boolean;
 }
 
 /** Encode one length-prefixed frame around a UTF-8 JSON payload. */

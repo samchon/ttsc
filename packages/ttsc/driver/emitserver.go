@@ -37,10 +37,13 @@ type emitRequest struct {
 }
 
 // emitResponse carries the emitted JavaScript or a failure message. Exactly one
-// of Code / Error is meaningful per response.
+// of Code / Error is meaningful per response. The first frame the server writes
+// is a readiness handshake (Ready=true) so the client can tell a serve-capable
+// host apart from a binary that fell through to another command.
 type emitResponse struct {
 	Code  string `json:"code,omitempty"`
 	Error string `json:"error,omitempty"`
+	Ready bool   `json:"ready,omitempty"`
 }
 
 // maxEmitFrameBytes bounds a single protocol frame (64 MiB) so a corrupt length
@@ -56,6 +59,15 @@ func RunEmitServer(in io.Reader, out io.Writer, cwd string, emit EmitFileFunc) e
 	reader := bufio.NewReaderSize(in, 1<<16)
 	cache := newProgramCache()
 	defer cache.closeAll()
+
+	// Announce readiness before the first request so the client can detect a
+	// host that does not actually speak this protocol (e.g. an older plugin
+	// binary whose unknown-command fallback runs a build instead).
+	if ready, merr := json.Marshal(emitResponse{Ready: true}); merr == nil {
+		if werr := writeEmitFrame(out, ready); werr != nil {
+			return werr
+		}
+	}
 
 	for {
 		payload, err := readEmitFrame(reader)

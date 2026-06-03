@@ -11,10 +11,7 @@ import {
 } from "../../flags/parser";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
-import {
-  buildDefaultEmitHost,
-  loadProjectPlugins,
-} from "../../plugin/internal/loadProjectPlugins";
+import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 
@@ -82,22 +79,17 @@ function run(argv: readonly string[]): number {
     // project's plugin requirements.
     entries: parsed.noPlugins ? false : undefined,
   });
-  // The per-file emit host: a transform-stage plugin's binary when the project
-  // configures one (typia, …), otherwise the first-party utility host compiled
-  // on demand from ttsc's own Go source. Both speak the same emit protocol — the
-  // plugin host applies its transform, the plain host emits the JavaScript a
-  // bare `ttsc build` writes — so the loader is identical for plugin and
-  // plugin-less projects.
-  const host = loaded.nativePlugins.find(
-    (plugin) =>
-      plugin.stage === "transform" &&
-      typeof plugin.binary === "string" &&
-      plugin.binary !== "",
-  );
-  const hostBin =
-    host !== undefined
-      ? (host.binary as string)
-      : buildDefaultEmitHost({ projectRoot: loaded.project.root, cacheDir });
+  // The child resolves the emit host of each owning tsconfig on demand (the
+  // entry's, and each dependency's), so a dependency shipping raw `.ts` plus its
+  // own typia/banner is served by that plugin's host. The parent only needs the
+  // ttsc helper binary and cache directory to forward for that resolution.
+  const ttscBinary = resolveBinary({ env: process.env });
+  if (ttscBinary === null) {
+    process.stderr.write(
+      "ttsc: could not resolve the ttsc native helper binary.\n",
+    );
+    return 2;
+  }
   // Type-check gate: a TypeScript runner must reject type errors, not just
   // transpile (ts-node's contract, not tsx's). Type-checking is a separate
   // concern from emitting — it runs over the whole program once, where a whole
@@ -141,7 +133,8 @@ function run(argv: readonly string[]): number {
     cwd,
     entry,
     entryTsconfig: loaded.project.path,
-    hostBin,
+    ttscBinary,
+    cacheDir,
     parsed,
   });
 }
@@ -356,10 +349,11 @@ function spawnEntry(options: {
   cwd: string;
   entry: string;
   entryTsconfig: string;
-  hostBin: string;
+  ttscBinary: string;
+  cacheDir: string | undefined;
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">;
 }): number {
-  const { cwd, entry, entryTsconfig, hostBin, parsed } = options;
+  const { cwd, entry, entryTsconfig, ttscBinary, cacheDir, parsed } = options;
   const bootstrap = path.join(__dirname, "runtime", "bootstrap.js");
   const registrar = pathToFileURL(
     path.join(__dirname, "registerRuntimeHooks.js"),
@@ -388,8 +382,9 @@ function spawnEntry(options: {
     env: {
       ...process.env,
       NODE_OPTIONS: nodeOptions,
-      TTSX_EMIT_HOST_BIN: hostBin,
-      TTSX_EMIT_HOST_ARGS: JSON.stringify(["serve"]),
+      TTSX_TTSC_BINARY: ttscBinary,
+      TTSX_CACHE_DIR: cacheDir,
+      TTSX_NO_PLUGINS: parsed.noPlugins ? "1" : "0",
       TTSX_EMIT_HOST_CWD: cwd,
       TTSX_ENTRY_TSCONFIG: entryTsconfig,
       TTSX_ENTRY: entry,

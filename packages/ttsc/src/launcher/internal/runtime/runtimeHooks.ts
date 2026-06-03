@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { type EmitHost, resolveEmitHost } from "../resolveEmitHost";
 import { looseTsconfigFor } from "./looseConfig";
 import { hasEsmSyntax } from "./moduleSyntax";
 import {
@@ -19,7 +20,7 @@ import {
   realPath,
   typeScriptCounterpart,
 } from "./paths";
-import { emitSync } from "./syncEmit";
+import { configureEmitClients, emitSync } from "./syncEmit";
 
 /**
  * Synchronous module hooks that make `ttsx` the ts-node it should be: every
@@ -57,20 +58,59 @@ interface LoadResult {
   shortCircuit?: boolean;
 }
 
-/** The entry's tsconfig and project root, used to scope loose compilation. */
-let fallbackTsconfig = "";
+/** Configuration for resolving the emit host of each owning tsconfig. */
+interface HooksConfig {
+  /** The entry's tsconfig; owns entry files with no nearer tsconfig. */
+  entryTsconfig: string;
+  /** The entry project root; scopes loose compilation and host resolution. */
+  cwd: string;
+  /** Absolute path to the ttsc native helper used to build plugin hosts. */
+  ttscBinary: string;
+  /** Override the plugin/host binary cache directory. */
+  cacheDir?: string;
+  /** Disable plugin discovery (mirrors ttsx `--no-plugins`). */
+  noPlugins: boolean;
+}
+
+let config: HooksConfig = {
+  entryTsconfig: "",
+  cwd: process.cwd(),
+  ttscBinary: "",
+  noPlugins: false,
+};
 let entryRoot = "";
 
-/** Install the hooks. `entryTsconfig` owns files with no nearer tsconfig. */
-export function installHooks(entryTsconfig: string): void {
-  fallbackTsconfig = entryTsconfig;
-  entryRoot = path.dirname(entryTsconfig);
+/** The emit host for one owning tsconfig, resolved once and reused. */
+const hostCache = new Map<string, EmitHost>();
+
+/** Install the hooks. Files with no nearer tsconfig fall back to the entry's. */
+export function installHooks(options: HooksConfig): void {
+  config = options;
+  entryRoot = path.dirname(options.entryTsconfig);
+  configureEmitClients(options.cwd);
   // `@types/node` types the sync hooks with a Promise-returning `next*` (shared
   // with the async loader); these hooks are strictly synchronous, so the
   // structurally-equivalent functions are passed through a cast.
   registerHooks({ resolve, load } as unknown as Parameters<
     typeof registerHooks
   >[0]);
+}
+
+/** The emit host a tsconfig compiles through, memoized by tsconfig path. */
+function hostFor(tsconfig: string): EmitHost {
+  const cached = hostCache.get(tsconfig);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const host = resolveEmitHost({
+    tsconfig,
+    cwd: config.cwd,
+    binary: config.ttscBinary,
+    cacheDir: config.cacheDir,
+    noPlugins: config.noPlugins,
+  });
+  hostCache.set(tsconfig, host);
+  return host;
 }
 
 function resolve(
@@ -180,17 +220,26 @@ function load(
 function emitFile(file: string): string {
   const owner = ownerTsconfig(file);
   if (owner === null) {
-    return emitSync({ tsconfig: looseTsconfigFor(looseInputs(file)), file });
+    // No real project owns the file (a raw `.ts` dependency without its own
+    // tsconfig): emit it loosely through whatever host that loose project maps
+    // to (a plugin-less dependency takes the plain utility host).
+    const loose = looseTsconfigFor(looseInputs(file));
+    return emitSync(hostFor(loose), { tsconfig: loose, file });
   }
+  // The owning project's host carries its plugins; a dependency shipping raw
+  // `.ts` plus its own typia/banner is served by that plugin's host.
+  const host = hostFor(owner);
   try {
-    return emitSync({ tsconfig: owner, file });
+    return emitSync(host, { tsconfig: owner, file });
   } catch (error) {
     if (!isUnemittable(error)) {
       throw error;
     }
     // The owning project parses the file but does not emit it (outside its
-    // `include`, or a generated source): fall back to a loose single-file emit.
-    return emitSync({ tsconfig: looseTsconfigFor(looseInputs(file)), file });
+    // `include`, or a generated source): fall back to a loose single-file emit,
+    // still through the owning project's host so its plugins keep running.
+    const loose = looseTsconfigFor(looseInputs(file));
+    return emitSync(host, { tsconfig: loose, file });
   }
 }
 
@@ -202,7 +251,7 @@ function looseInputs(file: string): {
 } {
   return {
     file,
-    entryTsconfig: fallbackTsconfig,
+    entryTsconfig: config.entryTsconfig,
     entryRoot,
     dependencyModule: dependencyModuleKind(file),
   };
