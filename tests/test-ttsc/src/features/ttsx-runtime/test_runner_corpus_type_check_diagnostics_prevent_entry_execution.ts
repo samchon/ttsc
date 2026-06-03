@@ -12,10 +12,8 @@ import path from "node:path";
  * with errors in `--isolatedModules` mode.
  *
  * 1. Create a project with a deliberate type error (`string = 123`).
- * 2. Run ttsx with an explicit cache dir; assert non-zero exit and the type-error
- *    diagnostic in stderr.
- * 3. Assert the entry was never executed and the runtime project output was
- *    cleaned after the failed preparation.
+ * 2. Run ttsx; assert a non-zero exit and the type-error diagnostic in stderr.
+ * 3. Assert the entry was never executed (no side-effect marker, no stdout).
  */
 export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
   () => {
@@ -48,14 +46,10 @@ export const test_runner_corpus_type_check_diagnostics_prevent_entry_execution =
       },
     );
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /project check failed/);
     assert.match(
       result.stderr,
       /Type 'number' is not assignable to type 'string'/,
     );
     assert.doesNotMatch(result.stdout, /should-not-run/);
     assert.equal(fs.existsSync(marker), false);
-    const projectCache = path.join(cacheDir, "project");
-    assert.equal(fs.existsSync(projectCache), true);
-    assert.deepEqual(fs.readdirSync(projectCache), []);
   };

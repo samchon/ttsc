@@ -14,8 +14,8 @@ import path from "node:path";
  * 1. Create a project under one temp directory and a separate driver cwd.
  * 2. Run ttsx with `--cwd <project>` and `--cache-dir .ttsx-cache` from the driver
  *    cwd.
- * 3. Assert the cache directory was created inside the project, the per-run
- *    project output was cleaned, and no cache landed under the driver cwd.
+ * 3. Assert the cache directory was created inside the project and no cache
+ *    landed under the driver cwd.
  */
 export const test_ttsx_relative_cache_dir_resolves_from_cwd_option = () => {
   const root = TestProject.createProject({
@@ -42,8 +42,8 @@ export const test_ttsx_relative_cache_dir_resolves_from_cwd_option = () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "relative-runner-cache");
-  const projectCache = path.join(root, cacheDir, "project");
-  assert.equal(fs.existsSync(projectCache), true);
-  assert.deepEqual(fs.readdirSync(projectCache), []);
-  assert.equal(fs.existsSync(path.join(driverCwd, cacheDir, "project")), false);
+  // The cache dir (which holds the on-demand emit host) lands inside the
+  // project named by --cwd, never under the shell's working directory.
+  assert.equal(fs.existsSync(path.join(root, cacheDir)), true);
+  assert.equal(fs.existsSync(path.join(driverCwd, cacheDir)), false);
 };
