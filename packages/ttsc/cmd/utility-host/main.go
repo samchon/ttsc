@@ -28,6 +28,8 @@ func run(args []string) int {
     return utility.RunCheck(args[1:])
   case "transform":
     return utility.RunTransform(args[1:])
+  case "serve":
+    return utility.RunServe(args[1:])
   case "-h", "--help", "help":
     printHelp()
     return 0
@@ -45,5 +47,6 @@ func printHelp() {
 Usage:
   utility-host build --tsconfig=tsconfig.json --plugins-json='[...]'
   utility-host check --tsconfig=tsconfig.json --plugins-json='[...]'
-  utility-host transform --tsconfig=tsconfig.json --plugins-json='[...]'`)
+  utility-host transform --tsconfig=tsconfig.json --plugins-json='[...]'
+  utility-host serve`)
 }

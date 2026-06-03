@@ -16,6 +16,18 @@ import { pathToFileURL } from "node:url";
  * Node sees this bootstrap as the main; `process.argv` is rewritten to what the
  * entry expects (`[node, entry, ...args]`).
  */
+/**
+ * Real dynamic import that survives compilation. This bootstrap is emitted as
+ * CommonJS (the ttsc package's module kind), and the TypeScript compiler
+ * downlevels a literal `import()` into `Promise.resolve().then(() => require())`
+ * — which loads an ESM entry through the CommonJS loader and fails. Building the
+ * importer through `new Function` keeps it a genuine `import()` at runtime.
+ */
+const dynamicImport = new Function(
+  "specifier",
+  "return import(specifier);",
+) as (specifier: string) => Promise<unknown>;
+
 const entry = process.env["TTSX_ENTRY"] ?? "";
 const argv: string[] = parseArgv(process.env["TTSX_ARGV"]);
 process.argv = [process.argv[0]!, entry, ...argv];
@@ -28,7 +40,7 @@ if (entry === "") {
 if (isCommonJs(entry)) {
   createRequire(pathToFileURL(entry).href)(entry);
 } else {
-  import(pathToFileURL(entry).href).catch((error: unknown) => {
+  dynamicImport(pathToFileURL(entry).href).catch((error: unknown) => {
     process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
     process.exit(1);
   });

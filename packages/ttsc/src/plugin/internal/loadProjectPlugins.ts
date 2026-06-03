@@ -215,6 +215,30 @@ export function loadProjectPlugins(options: {
   };
 }
 
+/**
+ * Build (once, then cache) the first-party utility host ttsx runs as its
+ * per-file emit server for projects with no transform-stage plugin. The host is
+ * the same `cmd/utility-host` driver binary the linked-plugin fallback compiles;
+ * ttsx runs it in `serve` mode to emit each reached `.ts` exactly as a plain
+ * `ttsc build` would. The cache key (ttsc + tsgo + Go toolchain versions) is
+ * shared with every other source-built host, so the binary is reused across
+ * runs and across plain projects.
+ */
+export function buildDefaultEmitHost(options: {
+  projectRoot: string;
+  cacheDir?: string;
+}): string {
+  return buildSourcePlugin({
+    baseDir: options.projectRoot,
+    cacheDir: options.cacheDir,
+    label: "emit host",
+    pluginName: "ttsx-emit-host",
+    source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+    ttscVersion: readTtscVersion(),
+    tsgoVersion: readTsgoVersion(options.projectRoot),
+  });
+}
+
 function composePluginSources(
   entries: readonly ProjectPluginEntry[],
   plugins: readonly ITtscPlugin[],
