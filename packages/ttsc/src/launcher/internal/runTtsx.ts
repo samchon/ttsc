@@ -10,6 +10,7 @@ import {
   parseFlags,
 } from "../../flags/parser";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
+import { runBuild } from "../../compiler/internal/runBuild";
 import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -90,6 +91,45 @@ function run(argv: readonly string[]): number {
     );
     return 2;
   }
+  // Type-check gate: a TypeScript runner must reject type errors, not just
+  // transpile (ts-node's contract, not tsx's). Type-checking is a separate
+  // concern from emitting — it runs over the whole program once, where a whole
+  // program is correct and safe, while emit stays per-file. The edge cases that
+  // plagued the old gate were all in whole-program *emit* (output-to-source
+  // remap, binding shim), never in the check.
+  const check = runBuild({
+    binary: parsed.binary,
+    cwd,
+    emit: false,
+    checkers: parsed.checkers,
+    // A runner resolves `.ts` import specifiers itself, so the type-check must
+    // accept them (as ts-node and tsx do). The check is no-emit, so the option
+    // is always valid here.
+    passthrough: ["--allowImportingTsExtensions", ...parsed.tsgoFlags],
+    // Type-checking is tsgo's job; a transform plugin (e.g. typia) only rewrites
+    // calls at emit and never changes types, so the gate runs as a plain tsgo
+    // no-emit check, which also keeps tsgo flags off the plugin host's parser.
+    plugins: false,
+    projectRoot: loaded.project.root,
+    singleThreaded: parsed.singleThreaded,
+    tsconfig: loaded.project.path,
+  });
+  // Report and gate on the user's own type errors only. A dependency served as
+  // raw `.ts` (typia, @typia/template) lands its source in the program, so a
+  // whole-program check also surfaces that source's lint (unused type params,
+  // …) — the dependency's concern, not the user's. Keep diagnostics for files
+  // under the entry project's root; tolerate the rest.
+  const userDiagnostics = filterUserDiagnostics(
+    `${check.stderr}${check.stdout}`,
+    cwd,
+    loaded.project.root,
+  );
+  if (userDiagnostics.text !== "") {
+    process.stderr.write(userDiagnostics.text);
+  }
+  if (userDiagnostics.hasErrors) {
+    return check.status === 0 ? 1 : check.status;
+  }
   return spawnEntry({
     cwd,
     entry,
@@ -97,6 +137,47 @@ function run(argv: readonly string[]): number {
     hostBin: host.binary as string,
     parsed,
   });
+}
+
+/**
+ * Keep only the diagnostics whose source file lives under the entry project's
+ * root, dropping noise from dependency sources served as raw `.ts`. A
+ * diagnostic block is the header line (`path(line,col): error TSxxxx: …`) plus
+ * any following continuation lines, until the next header.
+ */
+function filterUserDiagnostics(
+  output: string,
+  cwd: string,
+  projectRoot: string,
+): { text: string; hasErrors: boolean } {
+  const header = /^(.*?)\((\d+),(\d+)\):\s+(error|warning)\s+TS\d+:/;
+  const kept: string[] = [];
+  let keeping = false;
+  let hasErrors = false;
+  for (const raw of output.split("\n")) {
+    const line = raw.replace(/\[[0-9;]*m/g, "");
+    const match = header.exec(line);
+    if (match !== null) {
+      const file = path.resolve(cwd, match[1]!.trim());
+      const relative = path.relative(projectRoot, file);
+      keeping =
+        relative !== "" &&
+        !relative.startsWith("..") &&
+        !path.isAbsolute(relative);
+      if (keeping) {
+        kept.push(line);
+        if (match[4] === "error") {
+          hasErrors = true;
+        }
+      }
+    } else if (keeping && line.trim() !== "") {
+      kept.push(line);
+    }
+  }
+  return {
+    text: kept.length === 0 ? "" : `${kept.join("\n")}\n`,
+    hasErrors,
+  };
 }
 
 function formatError(error: unknown): string {
