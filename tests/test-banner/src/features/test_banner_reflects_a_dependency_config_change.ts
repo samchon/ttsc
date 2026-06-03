@@ -7,23 +7,20 @@ import { TestBanner } from "../internal/TestBanner";
 import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
- * Verifies the @ttsc/banner plugin runs when `ttsx` compiles a raw-`.ts`
- * dependency, not only the entry project.
+ * Verifies `ttsx` reflects a change to a dependency's `@ttsc/banner` config on
+ * the next run.
  *
- * `ttsx` emits a dependency's `.ts` through the host of the dependency's own
- * project — plugins included — rather than plain type-stripping, so a
- * transform/output plugin the dependency configures shapes that emit too. Here
- * `@ttsc/banner` is auto-discovered from the dependency's `package.json` +
- * `banner.config`. Because the emit is in memory, the entry installs a `load`
- * hook (registered after ttsx's, so it sees ttsx's output) that captures the
- * dependency's emitted JavaScript; the captured source must carry the banner.
+ * The runner emits each dependency fresh through its own plugin host rather than
+ * a durable cache, so a change to `banner.config.cjs` is picked up the next run
+ * with no invalidation step to get wrong. The dependency's emitted JavaScript —
+ * captured by a `load` hook the entry installs — carries the new banner text.
  *
- * 1. Create a project plus a symlinked `dep` package that lists `@ttsc/banner`,
- *    ships a `banner.config.cjs`, its own `tsconfig`, and raw `.ts`.
- * 2. Run `ttsx`; the entry captures the dependency's emitted JavaScript.
- * 3. Assert the dependency executed and the captured emit carries the banner.
+ * 1. Compile a symlinked raw-`.ts` dependency with `@ttsc/banner` and capture
+ *    the emitted JavaScript; assert the first banner.
+ * 2. Change only `banner.config.cjs`.
+ * 3. Run again and assert the captured emit carries the new banner.
  */
-export const test_banner_applies_when_ttsx_compiles_a_dependency = () => {
+export const test_banner_reflects_a_dependency_config_change = () => {
   const capture = "dep-emit.js";
   const root = TestProject.createProject({
     "package.json": JSON.stringify({ type: "commonjs", private: true }),
@@ -45,7 +42,7 @@ export const test_banner_applies_when_ttsx_compiles_a_dependency = () => {
       exports: { ".": "./src/index.ts" },
       dependencies: { "@ttsc/banner": "*" },
     }),
-    "packages/dep/banner.config.cjs": `module.exports = { text: "dependency banner" };\n`,
+    "packages/dep/banner.config.cjs": `module.exports = { text: "banner-v1" };\n`,
     "packages/dep/tsconfig.json": JSON.stringify({
       compilerOptions: {
         module: "nodenext",
@@ -67,24 +64,35 @@ export const test_banner_applies_when_ttsx_compiles_a_dependency = () => {
     "junction",
   );
 
-  const result = TestProject.spawn(
-    TestProject.TTSX_BIN,
-    ["--cwd", root, "src/main.ts"],
-    {
+  const run = () =>
+    TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], {
       cwd: root,
       env: {
         PATH: TestBanner.goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         BANNER_CAPTURE: path.join(root, capture),
       },
-    },
-  );
+    });
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), "from-dep");
+  const first = run();
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(first.stdout.trim(), "from-dep");
   TestBanner.assertSingleBanner(
     fs.readFileSync(path.join(root, capture), "utf8"),
-    "dependency banner",
+    "banner-v1",
+  );
+
+  fs.writeFileSync(
+    path.join(root, "packages", "dep", "banner.config.cjs"),
+    `module.exports = { text: "banner-v2" };\n`,
+  );
+
+  const second = run();
+  assert.equal(second.status, 0, second.stderr);
+  assert.equal(second.stdout.trim(), "from-dep");
+  TestBanner.assertSingleBanner(
+    fs.readFileSync(path.join(root, capture), "utf8"),
+    "banner-v2",
   );
 };
 
