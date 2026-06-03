@@ -45,7 +45,7 @@ export const value = plugin.make("input");
     Replacement:   `"replacement"`,
     ConsumeParens: true,
   })
-  _, err = driverApplyRewrites(filepath.Join(root, "bin", "index.js"), `const value = plugin.make("input";`, rewrites, map[string]int{}, "")
+  _, err = driverApplyRewrites(filepath.Join(root, "bin", "index.js"), `const value = plugin.make("input";`, rewrites, map[string]int{})
   if err == nil || !strings.Contains(err.Error(), "unbalanced parens") {
     t.Fatalf("expected scanner error, got %v", err)
   }

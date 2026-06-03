@@ -115,7 +115,7 @@ export const value = plugin.make("input");
   }
 
   long := strings.Repeat("x", 450)
-  _, err = driverApplyRewrites(filepath.Join(root, "bin", "index.js"), long, rewrites, map[string]int{}, "")
+  _, err = driverApplyRewrites(filepath.Join(root, "bin", "index.js"), long, rewrites, map[string]int{})
   if err == nil || !strings.Contains(err.Error(), long[:400]) {
     t.Fatalf("missing-call preview mismatch: %v", err)
   }

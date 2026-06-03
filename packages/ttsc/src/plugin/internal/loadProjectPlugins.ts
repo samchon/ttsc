@@ -317,40 +317,6 @@ function matchesPluginAlias(
 }
 
 /**
- * Resolve the on-disk descriptor files of every enabled plugin entry the
- * project would load (tsconfig `plugins[]` plus package auto-discovery),
- * without loading or building any of them.
- *
- * Ttsx's dependency cache hashes these files so a transform descriptor edit
- * invalidates a previously compiled dependency. Relative descriptors resolve
- * from the same base dir the loader uses (plugin package root for an
- * auto-discovered `ttsc.plugin.transform`, the declaring tsconfig for an
- * explicit entry), so the stamp tracks exactly the file the build will run.
- * Entries whose descriptor cannot be resolved are skipped: a genuinely broken
- * entry surfaces through the normal build, not the freshness stamp.
- */
-export function collectPluginDescriptorFiles(
-  project: ITtscParsedProjectConfig,
-): string[] {
-  const out = new Set<string>();
-  for (const entry of resolvePluginEntries(project).filter(
-    (entry) => entry.config.enabled !== false,
-  )) {
-    const transform = entry.config.transform;
-    if (typeof transform !== "string" || transform.length === 0) {
-      continue;
-    }
-    try {
-      out.add(resolvePluginRequest(transform, entry.baseDir));
-    } catch {
-      // A descriptor that cannot be resolved is reported by the real build,
-      // not by the freshness stamp.
-    }
-  }
-  return [...out].sort();
-}
-
-/**
  * Return `true` when the project has at least one enabled plugin entry.
  *
  * Used by callers that need to skip plugin-specific work when no plugins are
