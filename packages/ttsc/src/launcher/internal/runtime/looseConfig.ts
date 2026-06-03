@@ -29,6 +29,8 @@ export function looseTsconfigFor(options: {
   file: string;
   entryTsconfig: string;
   entryRoot: string;
+  /** Emitted module kind for a dependency source (`esnext` or `commonjs`). */
+  dependencyModule: "esnext" | "commonjs";
 }): string {
   const cached = cache.get(options.file);
   if (cached !== undefined) {
@@ -38,8 +40,8 @@ export function looseTsconfigFor(options: {
   fs.mkdirSync(dir, { recursive: true });
   const outDir = path.join(dir, "out");
   const config = isDependencySource(options.file, options.entryRoot)
-    ? dependencyConfig(options.file, outDir)
-    : entryConfig(options.file, outDir, options.entryTsconfig);
+    ? dependencyConfig(options.file, outDir, options.dependencyModule)
+    : entryConfig(options.file, outDir, options.entryTsconfig, options.entryRoot);
   const configFile = path.join(dir, "tsconfig.json");
   fs.writeFileSync(configFile, JSON.stringify(config), "utf8");
   cache.set(options.file, configFile);
@@ -58,11 +60,15 @@ function isDependencySource(file: string, entryRoot: string): boolean {
   );
 }
 
-function dependencyConfig(file: string, outDir: string): unknown {
+function dependencyConfig(
+  file: string,
+  outDir: string,
+  module: "esnext" | "commonjs",
+): unknown {
   return {
     compilerOptions: {
-      module: "nodenext",
-      moduleResolution: "nodenext",
+      module,
+      moduleResolution: module === "esnext" ? "bundler" : "node",
       target: "esnext",
       rootDir: path.dirname(file),
       outDir,
@@ -81,11 +87,15 @@ function entryConfig(
   file: string,
   outDir: string,
   entryTsconfig: string,
+  entryRoot: string,
 ): unknown {
   return {
     extends: entryTsconfig,
     compilerOptions: {
-      rootDir: path.dirname(file),
+      // Anchor on the project root, not the file's own directory, so a source
+      // that imports a sibling in another top-level folder (`../src/x` from a
+      // generated `./generated/`) still emits a relative path that resolves.
+      rootDir: entryRoot,
       outDir,
       noEmit: false,
       declaration: false,

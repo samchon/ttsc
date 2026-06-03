@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { looseTsconfigFor } from "./looseConfig";
-import { detectModuleFormat } from "./moduleSyntax";
+import { hasEsmSyntax } from "./moduleSyntax";
 import {
   resolvePackageImportsTarget,
   resolvePackageTypeScriptTarget,
@@ -160,21 +160,14 @@ function load(
   if (!url.startsWith("file:")) {
     return nextLoad(url, context);
   }
-  const [base, suffix] = splitUrlSuffix(url);
+  // The suffix is preserved on the URL (so a `./helper.js?query` import keeps
+  // its query in `import.meta.url`) but is not part of the on-disk path to emit.
+  const [base] = splitUrlSuffix(url);
   const file = fileURLToPath(base);
   if (!isTypeScriptSource(file)) {
     return nextLoad(url, context);
   }
-  const emitted = emitFile(file);
-  // Rewrite relative specifiers to the resolved on-disk extension. Node's
-  // ESM→CJS translator resolves a `require("./x")` against the classic CJS
-  // resolver, which never finds `./x.ts`; spelling the extension makes the path
-  // an exact match the `load` hook then emits. Bare specifiers keep going
-  // through `resolve`.
-  const source = rewriteRelativeSpecifiers(emitted, file);
-  // The suffix is dropped from the executed source but preserved on the URL, so
-  // a `./helper.js?query` import keeps its query in `import.meta.url`.
-  void suffix;
+  const source = emitFile(file);
   return { format: moduleFormat(file, source), shortCircuit: true, source };
 }
 
@@ -205,8 +198,37 @@ function looseInputs(file: string): {
   file: string;
   entryTsconfig: string;
   entryRoot: string;
+  dependencyModule: "esnext" | "commonjs";
 } {
-  return { file, entryTsconfig: fallbackTsconfig, entryRoot };
+  return {
+    file,
+    entryTsconfig: fallbackTsconfig,
+    entryRoot,
+    dependencyModule: dependencyModuleKind(file),
+  };
+}
+
+/**
+ * The module kind a standalone dependency source is emitted as, chosen so the
+ * emitted JavaScript's format matches what `moduleFormat` will declare: `.mts`
+ * and an explicit `type: module` are ESM, `.cts` is CommonJS, and otherwise the
+ * source's own syntax decides — a file using `import`/`export`/`import.meta`
+ * runs as a module even in a package without `type: module`, exactly as Node's
+ * detection treats it.
+ */
+function dependencyModuleKind(file: string): "esnext" | "commonjs" {
+  if (file.endsWith(".mts")) return "esnext";
+  if (file.endsWith(".cts")) return "commonjs";
+  if (explicitPackageType(file) === "module") return "esnext";
+  return sourceHasEsmSyntax(file) ? "esnext" : "commonjs";
+}
+
+function sourceHasEsmSyntax(file: string): boolean {
+  try {
+    return hasEsmSyntax(fs.readFileSync(file, "utf8"));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -261,11 +283,15 @@ function moduleFormat(file: string, emittedCode: string): "module" | "commonjs" 
   if (file.endsWith(".cts")) {
     return "commonjs";
   }
-  const explicit = explicitPackageType(file);
-  if (explicit !== null) {
-    return explicit;
+  // An explicit `type: module` is always ESM. Otherwise the emitted syntax
+  // decides: a file with `import`/`export`/`import.meta` is a module even in a
+  // package without `type: module` (Node re-evaluates such a file as ESM), and
+  // anything else is CommonJS. The emit kind was chosen to match, so the two
+  // never disagree.
+  if (explicitPackageType(file) === "module") {
+    return "module";
   }
-  return detectModuleFormat(file, emittedCode);
+  return hasEsmSyntax(emittedCode) ? "module" : "commonjs";
 }
 
 /**
@@ -296,68 +322,6 @@ function explicitPackageType(file: string): "module" | "commonjs" | null {
     }
     dir = parent;
   }
-}
-
-const PROBE_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".mts",
-  ".cts",
-  ".js",
-  ".mjs",
-  ".cjs",
-] as const;
-
-/**
- * Append the resolved extension to relative, extensionless module specifiers in
- * emitted code (`require("./x")`, `from "./x"`, `import("./x")`). Probing the
- * file's own directory mirrors `resolve`, so a specifier that resolves to a
- * directory index or a `.ts` sibling becomes a concrete path Node can load
- * without the classic resolver guessing.
- */
-function rewriteRelativeSpecifiers(code: string, file: string): string {
-  const dir = path.dirname(file);
-  const pattern =
-    /(\brequire\(\s*|\bimport\(\s*|\bfrom\s+)(["'])(\.\.?\/[^"']*)\2/g;
-  return code.replace(
-    pattern,
-    (match, head: string, quote: string, spec: string) => {
-      if (hasConcreteExtension(spec)) {
-        return match;
-      }
-      const resolved = probeRelative(dir, spec);
-      return resolved === null ? match : `${head}${quote}${resolved}${quote}`;
-    },
-  );
-}
-
-/** Resolve a relative specifier to a `./`-prefixed path with extension, or null. */
-function probeRelative(fromDir: string, specifier: string): string | null {
-  const base = path.resolve(fromDir, specifier);
-  for (const extension of PROBE_EXTENSIONS) {
-    if (isFile(base + extension)) {
-      return toRelativeSpecifier(fromDir, base + extension);
-    }
-  }
-  for (const extension of PROBE_EXTENSIONS) {
-    const indexed = path.join(base, `index${extension}`);
-    if (isFile(indexed)) {
-      return toRelativeSpecifier(fromDir, indexed);
-    }
-  }
-  return null;
-}
-
-function toRelativeSpecifier(fromDir: string, target: string): string {
-  let rel = path.relative(fromDir, target).split(path.sep).join("/");
-  if (!rel.startsWith(".")) {
-    rel = `./${rel}`;
-  }
-  return rel;
-}
-
-function hasConcreteExtension(specifier: string): boolean {
-  return PROBE_EXTENSIONS.some((extension) => specifier.endsWith(extension));
 }
 
 function isRelativeSpecifier(specifier: string): boolean {

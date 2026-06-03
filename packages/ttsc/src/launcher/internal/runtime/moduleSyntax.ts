@@ -23,7 +23,7 @@ export function detectModuleFormat(
 }
 
 /** True when `code` carries unambiguous ES module syntax in a code position. */
-function hasEsmSyntax(code: string): boolean {
+export function hasEsmSyntax(code: string): boolean {
   let atStatementStart = true;
   let i = 0;
   while (i < code.length) {
