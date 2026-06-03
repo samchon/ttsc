@@ -1,14 +1,27 @@
-import { register } from "node:module";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { installHooks } from "./runtime/runtimeHooks";
+import { startEmitClient } from "./runtime/syncEmit";
 
 /**
- * `--import` entry point that installs `ttsx`'s runtime module hooks in the
- * child process. Run before the compiled entry so the `resolve`/`load` hooks in
- * `runtimeHooks` are active for the whole dependency graph.
+ * `--import` entry point installed in the child process that runs the entry.
  *
- * Kept as a dedicated, dependency-free module: it must load in the child's
- * plain Node runtime (not ttsc's), so it pulls in nothing beyond Node builtins
- * and the sibling hooks file.
+ * It starts the synchronous emit client (a worker bridging to the persistent
+ * native host the parent selected) and registers the module hooks, so every
+ * `.ts` the entry reaches is emitted on demand through its owning program. The
+ * parent passes the host binary, its arguments, the working directory, and the
+ * entry's tsconfig through the environment so this module stays small and loads
+ * in plain Node.
  */
-register(pathToFileURL(path.join(__dirname, "runtimeHooks.js")).href);
+const serverBin = process.env["TTSX_EMIT_HOST_BIN"];
+const cwd = process.env["TTSX_EMIT_HOST_CWD"] ?? process.cwd();
+const entryTsconfig = process.env["TTSX_ENTRY_TSCONFIG"] ?? "";
+
+if (serverBin !== undefined && serverBin !== "") {
+  let serverArgs: string[] = [];
+  try {
+    serverArgs = JSON.parse(process.env["TTSX_EMIT_HOST_ARGS"] ?? "[]");
+  } catch {
+    serverArgs = [];
+  }
+  startEmitClient({ serverBin, serverArgs, cwd });
+  installHooks(entryTsconfig);
+}

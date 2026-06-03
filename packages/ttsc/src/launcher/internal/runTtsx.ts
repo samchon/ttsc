@@ -9,8 +9,9 @@ import {
   getString,
   parseFlags,
 } from "../../flags/parser";
+import { resolveBinary } from "../../compiler/internal/resolveBinary";
+import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import { getCompilerVersionText } from "./getCompilerVersionText";
-import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
 
 /**
@@ -52,25 +53,50 @@ function run(argv: readonly string[]): number {
     return 2;
   }
 
-  const prepared = prepareExecution(entry, {
-    binary: parsed.binary,
+  // Build the entry project's transform-stage plugin host once. That same
+  // binary runs in `serve` mode as the per-file emit host: each `.ts` the
+  // entry reaches is emitted through its owning program with the plugin's
+  // transform applied, identical to a `ttsc build` of that file.
+  const tsgoBinary = parsed.binary ?? resolveBinary({ env: process.env });
+  if (tsgoBinary === null) {
+    process.stderr.write(
+      "ttsc: @typescript/native-preview is required.\n" +
+        "Install the TypeScript-Go preview in the consuming project:\n" +
+        "  npm i -D @typescript/native-preview\n",
+    );
+    return 2;
+  }
+  const loaded = loadProjectPlugins({
+    binary: tsgoBinary,
     cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
-    checkers: parsed.checkers,
     cwd,
-    passthrough: parsed.tsgoFlags,
-    // `--no-plugins` builds the entry's owning project with plugin
-    // discovery and loading disabled. ttsc's own config loaders use it
-    // when they evaluate a `*.config.ts` through ttsx: that build only
-    // needs to type-check and run the config file, so loading the host
-    // project's transform/check plugins (`@nestia/core`, `typia`, …)
-    // would be both wasteful and wrong — those plugins impose project
-    // requirements (e.g. `strict` mode) the ephemeral config-loader
-    // tsconfig deliberately does not satisfy.
-    plugins: parsed.noPlugins ? false : undefined,
-    project: parsed.project,
-    singleThreaded: parsed.singleThreaded,
+    file: entry,
+    tsconfig: parsed.project ? path.resolve(cwd, parsed.project) : undefined,
+    // `--no-plugins` disables plugin discovery; ttsc's own `*.config.ts`
+    // loaders use it so the ephemeral config tsconfig is not held to the host
+    // project's plugin requirements.
+    entries: parsed.noPlugins ? false : undefined,
   });
-  return runPreparedEntry(parsed, prepared, cwd);
+  const host = loaded.nativePlugins.find(
+    (plugin) =>
+      plugin.stage === "transform" &&
+      typeof plugin.binary === "string" &&
+      plugin.binary !== "",
+  );
+  if (host === undefined) {
+    process.stderr.write(
+      "ttsx: the entry project configures no transform-stage plugin host; " +
+        "the plain-emit fallback host is not yet wired\n",
+    );
+    return 2;
+  }
+  return spawnEntry({
+    cwd,
+    entry,
+    entryTsconfig: loaded.project.path,
+    hostBin: host.binary as string,
+    parsed,
+  });
 }
 
 function formatError(error: unknown): string {
@@ -250,52 +276,61 @@ function isRelativeSpecifier(specifier: string): boolean {
   );
 }
 
-function runPreparedEntry(
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
-  execution: ReturnType<typeof prepareExecution>,
-  cwd: string,
-): number {
-  try {
-    fs.mkdirSync(execution.emitDir, { recursive: true });
-    if (execution.moduleKind === "esm") {
-      rewriteEsmSpecifiers(execution.emitDir);
-      fs.writeFileSync(
-        path.join(execution.emitDir, "package.json"),
-        JSON.stringify({ type: "module" }),
-        "utf8",
-      );
-    }
-    const args = [
-      ...runtimeHookArgs(),
-      ...parsed.preload.flatMap((preload) => [
-        "-r",
-        resolvePreload(cwd, preload),
-      ]),
-      execution.entryFile,
-      ...parsed.passthrough,
-    ];
-    const result = spawnSync(process.execPath, args, {
-      cwd,
-      stdio: "inherit",
-      env: process.env,
-      windowsHide: true,
-    });
-    if (result.error) {
-      process.stderr.write(`${result.error.message}\n`);
-      return 1;
-    }
-    return result.status ?? 1;
-  } finally {
-    removeRuntimeOutput(execution.cleanupDir);
+/**
+ * Run the entry source directly: spawn a child Node that installs the runtime
+ * hooks (via `--import`) and executes the `.ts` entry. The hooks emit each
+ * reached `.ts` on demand through the host the parent built, so there is no
+ * gate, no emitted byte store, and nothing to clean up.
+ */
+function spawnEntry(options: {
+  cwd: string;
+  entry: string;
+  entryTsconfig: string;
+  hostBin: string;
+  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">;
+}): number {
+  const { cwd, entry, entryTsconfig, hostBin, parsed } = options;
+  const bootstrap = path.join(__dirname, "runtime", "bootstrap.js");
+  const registrar = pathToFileURL(
+    path.join(__dirname, "registerRuntimeHooks.js"),
+  ).href;
+  // Install the hooks through NODE_OPTIONS, not a one-off `--import`, so any
+  // child process the entry spawns (e.g. a worker running another `.ts` as its
+  // own main) inherits them and resolves/emits `.ts` the same way.
+  const nodeOptions = [
+    process.env["NODE_OPTIONS"],
+    `--import ${registrar}`,
+    "--disable-warning=ExperimentalWarning",
+  ]
+    .filter((part): part is string => part !== undefined && part !== "")
+    .join(" ");
+  const args = [
+    ...parsed.preload.flatMap((preload) => [
+      "-r",
+      resolvePreload(cwd, preload),
+    ]),
+    bootstrap,
+  ];
+  const result = spawnSync(process.execPath, args, {
+    cwd,
+    stdio: "inherit",
+    windowsHide: true,
+    env: {
+      ...process.env,
+      NODE_OPTIONS: nodeOptions,
+      TTSX_EMIT_HOST_BIN: hostBin,
+      TTSX_EMIT_HOST_ARGS: JSON.stringify(["serve"]),
+      TTSX_EMIT_HOST_CWD: cwd,
+      TTSX_ENTRY_TSCONFIG: entryTsconfig,
+      TTSX_ENTRY: entry,
+      TTSX_ARGV: JSON.stringify(parsed.passthrough),
+    },
+  });
+  if (result.error) {
+    process.stderr.write(`${result.error.message}\n`);
+    return 1;
   }
-}
-
-function removeRuntimeOutput(directory: string): void {
-  try {
-    fs.rmSync(directory, { force: true, recursive: true });
-  } catch {
-    // Best effort: cleanup must not replace the child process exit status.
-  }
+  return result.status ?? 1;
 }
 
 /**
