@@ -263,16 +263,23 @@ function resolveServedSource(
 }
 
 /**
- * Serve the entry project's pre-built JavaScript for a source file under its
- * `rootDir`, or `null` when the file is outside the entry project or its emit
- * is missing.
+ * Serve the entry project's pre-built JavaScript for a source file the build
+ * emitted, or `null` when the file is outside the build or its emit is
+ * missing.
+ *
+ * The bound is the project's `rootDir` (the source root the emit mirrors), not
+ * its tsconfig directory: a project can pull in a file from elsewhere via
+ * `files` with a wider `rootDir` (e.g. the lint config loader compiles a
+ * `*.config.ts` from any directory under `rootDir: "/"`). Anything outside
+ * `rootDir` cannot have a mirrored emit, so it falls through to the dependency
+ * paths.
  */
 function serveEntryEmit(real: string): string | null {
   const m = manifest();
   if (m === null) {
     return null;
   }
-  if (real !== m.projectRoot && !real.startsWith(m.projectRoot + path.sep)) {
+  if (!isWithin(real, m.rootDir)) {
     return null;
   }
   const emitted = resolveEmittedJavaScript({
@@ -282,6 +289,21 @@ function serveEntryEmit(real: string): string | null {
     sourceFile: real,
   });
   return readFileOrNull(emitted);
+}
+
+/**
+ * True when `real` is `directory` itself or sits beneath it. Handles a root
+ * `directory` (`/`, `C:\`): naively appending a separator would yield `//`,
+ * which no path starts with, so a `rootDir: "/"` project would serve nothing.
+ */
+function isWithin(real: string, directory: string): boolean {
+  if (real === directory) {
+    return true;
+  }
+  const prefix = directory.endsWith(path.sep)
+    ? directory
+    : directory + path.sep;
+  return real.startsWith(prefix);
 }
 
 /**
