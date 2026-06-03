@@ -25,8 +25,10 @@ import (
 // EmitFileFunc emits one source file through its owning program and returns the
 // JavaScript. The plugin host supplies this so transform-stage rewrites (e.g.
 // typia's) and any post-processing stay owned by the plugin; the server only
-// caches programs and frames the protocol.
-type EmitFileFunc func(prog *Program, cwd, file string) (string, error)
+// caches programs and frames the protocol. `tsconfig` is the owning project's
+// config path (plugins may read their options from it); `file` is the absolute
+// source path.
+type EmitFileFunc func(prog *Program, cwd, tsconfig, file string) (string, error)
 
 // emitRequest asks the server to emit `File` using the program of `Tsconfig`.
 type emitRequest struct {
@@ -117,7 +119,7 @@ func (c *programCache) emit(cwd, tsconfig, file string, emit EmitFileFunc) (stri
 	if emit == nil {
 		return "", fmt.Errorf("emit server: no emit function configured")
 	}
-	return emit(prog, cwd, file)
+	return emit(prog, cwd, tsconfig, file)
 }
 
 func (c *programCache) closeAll() {
