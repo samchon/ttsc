@@ -196,7 +196,7 @@ function resolve(
   try {
     return nextResolve(specifier, context);
   } catch (error) {
-    const rescued = probeRelativeSpecifier(specifier, context.parentURL);
+    const rescued = probeRescuableSpecifier(specifier, context.parentURL);
     if (rescued === null) {
       throw error;
     }
@@ -590,21 +590,24 @@ const JS_TO_TS_EXTENSIONS: ReadonlyMap<string, readonly string[]> = new Map([
 ]);
 
 /**
- * Rescue a relative `specifier` that Node's resolver rejected: map a JavaScript
+ * Rescue a `specifier` that Node's resolver rejected: map a JavaScript
  * extension back to its TypeScript source, or probe candidate extensions /
  * directory indexes for an extensionless form. Returns a `file:` URL for the
  * first match, or `null` when nothing matches.
+ *
+ * Handles two shapes:
+ * - a relative specifier (`./x`) resolved against a `file:` parent — a normal
+ *   `import`/`require` inside a served module;
+ * - an already-absolute specifier with no parent — the main entry of a
+ *   `child_process.fork(__dirname + "/servant.js")`. fork's main module reaches
+ *   the resolve hook as an absolute `.js` path with `parentURL` undefined, and
+ *   run-from-source ships only the `.ts`, so without this the child dies with
+ *   `Cannot find module servant.js` and a tgrid master waits on it forever.
  */
-function probeRelativeSpecifier(
+function probeRescuableSpecifier(
   specifier: string,
   parentURL: string | undefined,
 ): string | null {
-  if (!isRelativeSpecifier(specifier)) {
-    return null;
-  }
-  if (parentURL === undefined || !parentURL.startsWith("file:")) {
-    return null;
-  }
   // A `?query` / `#hash` suffix is part of module identity, not the path; strip
   // it before resolving and re-attach it to the resolved URL so a loader keying
   // on the suffix (and `import.meta.url`) sees it preserved.
@@ -612,8 +615,18 @@ function probeRelativeSpecifier(
   const suffix = suffixStart === -1 ? "" : specifier.slice(suffixStart);
   const pathname =
     suffixStart === -1 ? specifier : specifier.slice(0, suffixStart);
-  const parentDir = path.dirname(fileURLToPath(parentURL));
-  const base = path.resolve(parentDir, pathname);
+  let base: string;
+  if (isRelativeSpecifier(specifier)) {
+    if (parentURL === undefined || !parentURL.startsWith("file:")) {
+      return null;
+    }
+    const parentDir = path.dirname(fileURLToPath(parentURL));
+    base = path.resolve(parentDir, pathname);
+  } else if (path.isAbsolute(pathname)) {
+    base = pathname;
+  } else {
+    return null;
+  }
   const withSuffix = (candidate: string): string =>
     pathToFileURL(candidate).href + suffix;
 
