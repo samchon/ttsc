@@ -24,8 +24,9 @@ import { runBuild } from "../../compiler/internal/runBuild";
  * 2. Any other raw `.ts` dependency (a published or workspace package that ships
  *    source) → build its own owning `tsconfig.json` once via `runBuild` and
  *    serve the emit. A real build (not a type-strip) is required because Node's
- *    type-stripping cannot do cross-file type-only elision — e.g. a value-shaped
- *    import of a type+namespace merge survives stripping and dangles at runtime.
+ *    type-stripping cannot do cross-file type-only elision — e.g. a
+ *    value-shaped import of a type+namespace merge survives stripping and
+ *    dangles at runtime.
  * 3. No owning tsconfig → fall back to a `mode: "transform"` type-strip.
  *
  * The hooks are synchronous and run on the main thread (not a loader worker):
@@ -71,7 +72,10 @@ interface LoadResult {
   shortCircuit?: boolean;
 }
 
-type NextResolve = (specifier: string, context: ResolveContext) => ResolveResult;
+type NextResolve = (
+  specifier: string,
+  context: ResolveContext,
+) => ResolveResult;
 type NextLoad = (url: string, context: LoadContext) => LoadResult;
 
 /**
@@ -87,6 +91,8 @@ interface RuntimeManifest {
   emitDir: string;
   /** Emitted file list from the entry build, for source→output matching. */
   emittedFiles?: readonly string[];
+  /** The entry tsconfig's `module` option, deciding emit CJS/ESM per file. */
+  moduleOption?: string;
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
 }
@@ -103,7 +109,9 @@ function manifest(): RuntimeManifest | null {
     return manifestCache;
   }
   try {
-    manifestCache = JSON.parse(fs.readFileSync(file, "utf8")) as RuntimeManifest;
+    manifestCache = JSON.parse(
+      fs.readFileSync(file, "utf8"),
+    ) as RuntimeManifest;
   } catch {
     manifestCache = null;
   }
@@ -113,6 +121,18 @@ function manifest(): RuntimeManifest | null {
 /** Install the resolve/load hooks on the current (main) thread. */
 export function installRuntimeHooks(): void {
   registerHooks({ load, resolve });
+}
+
+/**
+ * The module format of the entry source file, derived from the entry project's
+ * `module` option (via the runtime manifest) the same way the served files are
+ * classified. The bootstrap uses it to load the entry through a CommonJS
+ * `require` or an ESM `import`.
+ */
+export function entryModuleFormat(entryFile: string): "module" | "commonjs" {
+  return moduleFormat(entryFile, manifest()?.moduleOption) === "module"
+    ? "module"
+    : "commonjs";
 }
 
 /**
@@ -142,6 +162,7 @@ interface BuiltProject {
   emitDir: string;
   rootDir: string;
   emittedFiles?: readonly string[];
+  moduleOption?: string;
 }
 const builtProjects = new Map<string, BuiltProject>();
 
@@ -162,13 +183,21 @@ function load(
   // 1. Entry project: serve the pre-built emit (transform plugins applied).
   const served = serveEntryEmit(real);
   if (served !== null) {
-    return { format: moduleFormat(filename, served), shortCircuit: true, source: served };
+    return {
+      format: moduleFormat(filename, manifest()?.moduleOption),
+      shortCircuit: true,
+      source: served,
+    };
   }
 
   // 2. Raw `.ts` dependency: build its owning project once and serve.
   const built = serveDependencyEmit(real);
   if (built !== null) {
-    return { format: moduleFormat(filename, built), shortCircuit: true, source: built };
+    return {
+      format: moduleFormat(filename, built.moduleOption),
+      shortCircuit: true,
+      source: built.source,
+    };
   }
 
   // 3. No owning tsconfig: type-strip (transform mode handles enums/namespaces).
@@ -177,7 +206,7 @@ function load(
     sourceUrl: url,
   });
   return {
-    format: moduleFormat(filename, stripped),
+    format: moduleFormat(filename, undefined),
     shortCircuit: true,
     source: stripped,
   };
@@ -213,19 +242,29 @@ function serveEntryEmit(real: string): string | null {
  * consumer build to provide, which a raw runtime cannot honour, and the typia
  * deps that ship source declare none.
  */
-function serveDependencyEmit(real: string): string | null {
+function serveDependencyEmit(
+  real: string,
+): { source: string; moduleOption?: string } | null {
   const tsconfig = nearestTsconfig(real);
   if (tsconfig === null) {
     return null;
   }
-  const built = ensureProjectBuilt(tsconfig);
+  let built: BuiltProject;
+  try {
+    built = ensureProjectBuilt(tsconfig);
+  } catch {
+    // The owning project produced no emit at all; fall back to type-stripping
+    // this single file rather than failing the whole run.
+    return null;
+  }
   const emitted = resolveEmittedJavaScript({
     emittedFiles: built.emittedFiles,
     outDir: built.emitDir,
     projectRoot: built.rootDir,
     sourceFile: real,
   });
-  return readFileOrNull(emitted);
+  const source = readFileOrNull(emitted);
+  return source === null ? null : { moduleOption: built.moduleOption, source };
 }
 
 function ensureProjectBuilt(tsconfig: string): BuiltProject {
@@ -253,12 +292,25 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
     // raw runtime build; the source-shipping typia packages declare none.
     plugins: false,
     quiet: true,
+    // Emit only: the entry project's up-front check is the type gate. A
+    // dependency build pulls its own transitive sources into the program and
+    // would otherwise fail on type diagnostics that belong to those packages
+    // under their own (laxer) config — e.g. unused-type-parameter warnings in a
+    // transitively imported library. We still want the type-aware emit (for
+    // type-only elision), just not the error gate.
+    skipDiagnosticsCheck: true,
     tsconfig,
   });
-  if (result.status !== 0) {
+  const emittedFiles =
+    result.emittedFiles && result.emittedFiles.length !== 0
+      ? result.emittedFiles
+      : undefined;
+  if (emittedFiles === undefined) {
+    // No output at all (a real, non-diagnostic failure): surface it so the
+    // caller can fall back to type-stripping rather than serve nothing.
     throw new Error(
       [
-        `ttsx: dependency build failed for ${tsconfig}`,
+        `ttsx: dependency build emitted nothing for ${tsconfig}`,
         result.stderr || result.stdout,
       ]
         .filter((line) => line.trim().length !== 0)
@@ -267,9 +319,10 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   }
   const built: BuiltProject = {
     emitDir,
-    emittedFiles:
-      result.emittedFiles && result.emittedFiles.length !== 0
-        ? result.emittedFiles
+    emittedFiles,
+    moduleOption:
+      typeof project.compilerOptions.module === "string"
+        ? project.compilerOptions.module
         : undefined,
     rootDir:
       typeof project.compilerOptions.rootDir === "string"
@@ -404,30 +457,40 @@ function probeRelativeSpecifier(
 }
 
 /**
- * Decide the module format for compiled/stripped TypeScript output. The output
- * keeps whatever `import`/`export` or `require` form was emitted, so the format
- * must match it. The extension is authoritative for `.mts`/`.cts`; otherwise the
- * nearest `package.json` `type` sets the baseline, but unambiguous ESM syntax
- * overrides a CommonJS baseline, exactly as Node's own detection does.
+ * Decide the module format the way Node and tsgo do — from configuration, never
+ * by sniffing the emitted text. The file extension is authoritative
+ * (`.mts`/`.mjs` → module, `.cts`/`.cjs` → commonjs); otherwise the owning
+ * tsconfig's `module` option decides: a fixed CommonJS / ES target maps
+ * directly, while the `node*`/`preserve` family (and a file with no owning
+ * tsconfig) defers to the nearest `package.json` `type`, exactly as tsgo chose
+ * when it emitted.
  */
-function moduleFormat(filename: string, source: string): string {
-  if (filename.endsWith(".mts")) {
+function moduleFormat(
+  filename: string,
+  moduleOption: string | undefined,
+): string {
+  if (filename.endsWith(".mts") || filename.endsWith(".mjs")) {
     return "module";
   }
-  if (filename.endsWith(".cts")) {
+  if (filename.endsWith(".cts") || filename.endsWith(".cjs")) {
     return "commonjs";
   }
-  if (nearestPackageType(filename) === "module") {
-    return "module";
+  const option = (moduleOption ?? "").toLowerCase();
+  if (option === "commonjs" || option === "node10" || option === "none") {
+    return "commonjs";
   }
-  return hasEsmSyntax(source) ? "module" : "commonjs";
-}
-
-function hasEsmSyntax(source: string): boolean {
-  return (
-    /(?:^|[\n;])\s*(?:import|export)\b/.test(source) ||
-    /\bimport\s*\.\s*meta\b/.test(source)
-  );
+  if (
+    option === "" ||
+    option === "node16" ||
+    option === "node18" ||
+    option === "nodenext" ||
+    option === "preserve"
+  ) {
+    return nearestPackageType(filename);
+  }
+  // Every remaining `module` target (es2015 … esnext, system, amd, umd) emits
+  // ECMAScript modules.
+  return "module";
 }
 
 /** Package-type cache keyed by directory, mirroring Node's own lookup walk. */
@@ -495,7 +558,9 @@ function hasConcreteExtension(specifier: string): boolean {
 }
 
 function isTypeScriptSource(filename: string): boolean {
-  return TYPESCRIPT_EXTENSIONS.some((extension) => filename.endsWith(extension));
+  return TYPESCRIPT_EXTENSIONS.some((extension) =>
+    filename.endsWith(extension),
+  );
 }
 
 function isFile(candidate: string): boolean {

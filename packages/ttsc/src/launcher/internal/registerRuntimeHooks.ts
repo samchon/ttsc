@@ -1,7 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { installRuntimeHooks } from "./runtimeHooks";
+import { entryModuleFormat, installRuntimeHooks } from "./runtimeHooks";
 
 /**
  * Bootstrap `ttsx` spawns as the child's main module: it installs the runtime
@@ -11,9 +11,9 @@ import { installRuntimeHooks } from "./runtimeHooks";
  * CommonJS `require("./x")` chain only reaches `module.registerHooks` when the
  * entry itself is loaded through a CommonJS `require`. Running the `.ts` as
  * Node's ESM-first main entry leaves inner `require`s on the native loader,
- * where they cannot resolve a sibling `.ts`. So the parent invokes
- * `node registerRuntimeHooks.js <entry> [argv...]` and we `require()` (or
- * dynamically `import()`) the entry after the hooks are live.
+ * where they cannot resolve a sibling `.ts`. So the parent invokes `node
+ * registerRuntimeHooks.js <entry> [argv...]` and we `require()` (or dynamically
+ * `import()`) the entry after the hooks are live.
  *
  * `process.argv` is rewritten to `[node, <entry>, ...argv]` so the program sees
  * the same argv it would under a direct `node <entry>` invocation.
@@ -29,7 +29,7 @@ process.argv = [process.argv[0]!, entry, ...forwarded];
 
 installRuntimeHooks();
 
-const kind = process.env.TTSX_ENTRY_KIND === "esm" ? "esm" : "cjs";
+const kind = entryModuleFormat(path.resolve(entry));
 
 function fail(error: unknown): never {
   // Match Node's own uncaught-exception surfacing for a thrown entry error.
@@ -48,7 +48,7 @@ const dynamicImport = new Function(
   "return import(specifier);",
 ) as (specifier: string) => Promise<unknown>;
 
-if (kind === "esm") {
+if (kind === "module") {
   dynamicImport(pathToFileURL(path.resolve(entry)).href).catch(fail);
 } else {
   try {

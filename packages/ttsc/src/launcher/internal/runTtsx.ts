@@ -239,9 +239,9 @@ function isRelativeSpecifier(specifier: string): boolean {
  *
  * The child is `node [-r preload...] registerRuntimeHooks.js <source-entry>
  * <argv...>` (the bootstrap, run as the main module — not `--import`, so a
- * CommonJS `require` chain reaches the hooks). A runtime manifest pins the entry
- * project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds find
- * tsgo without re-resolving it from inside the hook.
+ * CommonJS `require` chain reaches the hooks). A runtime manifest pins the
+ * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
+ * find tsgo without re-resolving it from inside the hook.
  */
 function runPreparedEntry(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
@@ -262,6 +262,7 @@ function runPreparedEntry(
         depCacheDir,
         emitDir: execution.emitDir,
         emittedFiles: execution.emittedFiles,
+        moduleOption: execution.moduleOption,
         projectRoot: execution.projectRoot,
         rootDir: execution.rootDir,
       }),
@@ -289,7 +290,6 @@ function runPreparedEntry(
       env: {
         ...process.env,
         TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
-        TTSX_ENTRY_KIND: execution.moduleKind === "esm" ? "esm" : "cjs",
         TTSX_RUNTIME_MANIFEST: manifestPath,
       },
       stdio: "inherit",
@@ -312,4 +312,3 @@ function removeRuntimeOutput(directory: string): void {
     // Best effort: cleanup must not replace the child process exit status.
   }
 }
-
