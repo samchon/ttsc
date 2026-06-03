@@ -49,4 +49,7 @@ export const test_runner_corpus_ttsx_keeps_configured_outdir_untouched = () => {
   );
   assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
   assert.equal(fs.existsSync(path.join(root, "dist", "package.json")), false);
+  const projectCache = path.join(cacheDir, "project");
+  assert.equal(fs.existsSync(projectCache), true);
+  assert.deepEqual(fs.readdirSync(projectCache), []);
 };

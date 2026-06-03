@@ -5,11 +5,11 @@ import assert from "node:assert/strict";
  * Verifies ttsx loads a CommonJS-package raw `.ts` dependency that uses ESM
  * syntax as a module.
  *
- * A `.ts` authored with `import`/`export` stays ESM even when its package omits
- * `type: module`; tsgo emits a `.js` preserving that syntax. Because the
- * package omits `type: module`, Node decides the emitted file's format by its
- * own module-syntax detection, which reads the `import`/`export` as ESM and
- * exposes the named exports rather than mislabeling the file CommonJS.
+ * Type-stripping never rewrites module syntax, so a `.ts` file authored with
+ * `import`/`export` stays ESM even when its package omits `type: module`.
+ * Labelling it CommonJS (the package baseline) would make Node reject its named
+ * exports, so the `load` hook's format decision lets unambiguous ESM syntax
+ * override the CommonJS baseline, matching Node's own module-syntax detection.
  *
  * 1. Install a published `pub-dep` with no `type` field whose `.ts` source uses
  *    ESM `export`.

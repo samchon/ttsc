@@ -1,27 +1,14 @@
-import { installHooks } from "./runtime/runtimeHooks";
+import { register } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
- * `--import` entry point installed in the child process that runs the entry.
+ * `--import` entry point that installs `ttsx`'s runtime module hooks in the
+ * child process. Run before the compiled entry so the `resolve`/`load` hooks in
+ * `runtimeHooks` are active for the whole dependency graph.
  *
- * It registers the synchronous module hooks so every `.ts` the entry reaches is
- * emitted on demand through the host that owns it. Each owning tsconfig is
- * resolved to its plugin host lazily on first emit (a dependency shipping raw
- * `.ts` plus its own typia/banner is served by that plugin's host), so the
- * parent passes only what host resolution needs — the ttsc helper binary, the
- * cache directory, the working directory, and the entry's tsconfig — through the
- * environment, keeping this module small.
+ * Kept as a dedicated, dependency-free module: it must load in the child's
+ * plain Node runtime (not ttsc's), so it pulls in nothing beyond Node builtins
+ * and the sibling hooks file.
  */
-const ttscBinary = process.env["TTSX_TTSC_BINARY"] ?? "";
-const cwd = process.env["TTSX_EMIT_HOST_CWD"] ?? process.cwd();
-const entryTsconfig = process.env["TTSX_ENTRY_TSCONFIG"] ?? "";
-const cacheDir = process.env["TTSX_CACHE_DIR"];
-
-if (ttscBinary !== "" && entryTsconfig !== "") {
-  installHooks({
-    entryTsconfig,
-    cwd,
-    ttscBinary,
-    cacheDir: cacheDir === undefined || cacheDir === "" ? undefined : cacheDir,
-    noPlugins: process.env["TTSX_NO_PLUGINS"] === "1",
-  });
-}
+register(pathToFileURL(path.join(__dirname, "runtimeHooks.js")).href);

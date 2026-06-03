@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 /**
  * Verifies ttsx loads a published raw `.cts` dependency as CommonJS.
  *
- * Tsgo emits a `.cts` source as `.cjs`, which Node always loads as CommonJS,
- * and the real compile lowers a TypeScript `export =` assignment into a
- * CommonJS `module.exports`. This pins that an ESM consumer can still import a
- * published `.cts` source through Node's CommonJS interop.
+ * The `load` hook treats `.cts` as authoritatively CommonJS, the counterpart to
+ * the `.mts` rule, and `transform` mode lowers a TypeScript `export =`
+ * assignment into a CommonJS `module.exports`. This pins that an ESM consumer
+ * can still import a published `.cts` source through Node's CommonJS interop.
  *
  * 1. Install a published `cts-dep` whose entry is `index.cts` using `export =`.
  * 2. Run ttsx against an ESM entry importing its default export.

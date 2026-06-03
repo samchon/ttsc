@@ -9,10 +9,8 @@ import {
   getString,
   parseFlags,
 } from "../../flags/parser";
-import { resolveBinary } from "../../compiler/internal/resolveBinary";
-import { runBuild } from "../../compiler/internal/runBuild";
-import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import { getCompilerVersionText } from "./getCompilerVersionText";
+import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
 
 /**
@@ -54,130 +52,25 @@ function run(argv: readonly string[]): number {
     return 2;
   }
 
-  // Build the entry project's transform-stage plugin host once. That same
-  // binary runs in `serve` mode as the per-file emit host: each `.ts` the
-  // entry reaches is emitted through its owning program with the plugin's
-  // transform applied, identical to a `ttsc build` of that file.
-  const tsgoBinary = parsed.binary ?? resolveBinary({ env: process.env });
-  if (tsgoBinary === null) {
-    process.stderr.write(
-      "ttsc: @typescript/native-preview is required.\n" +
-        "Install the TypeScript-Go preview in the consuming project:\n" +
-        "  npm i -D @typescript/native-preview\n",
-    );
-    return 2;
-  }
-  const cacheDir = resolveCacheDir(cwd, parsed.cacheDir);
-  const loaded = loadProjectPlugins({
-    binary: tsgoBinary,
-    cacheDir,
-    cwd,
-    file: entry,
-    tsconfig: parsed.project ? path.resolve(cwd, parsed.project) : undefined,
-    // `--no-plugins` disables plugin discovery; ttsc's own `*.config.ts`
-    // loaders use it so the ephemeral config tsconfig is not held to the host
-    // project's plugin requirements.
-    entries: parsed.noPlugins ? false : undefined,
-  });
-  // The child resolves the emit host of each owning tsconfig on demand (the
-  // entry's, and each dependency's), so a dependency shipping raw `.ts` plus its
-  // own typia/banner is served by that plugin's host. The parent only needs the
-  // ttsc helper binary and cache directory to forward for that resolution.
-  const ttscBinary = resolveBinary({ env: process.env });
-  if (ttscBinary === null) {
-    process.stderr.write(
-      "ttsc: could not resolve the ttsc native helper binary.\n",
-    );
-    return 2;
-  }
-  // Type-check gate: a TypeScript runner must reject type errors, not just
-  // transpile (ts-node's contract, not tsx's). Type-checking is a separate
-  // concern from emitting — it runs over the whole program once, where a whole
-  // program is correct and safe, while emit stays per-file. The edge cases that
-  // plagued the old gate were all in whole-program *emit* (output-to-source
-  // remap, binding shim), never in the check.
-  const check = runBuild({
+  const prepared = prepareExecution(entry, {
     binary: parsed.binary,
-    cwd,
-    emit: false,
+    cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
     checkers: parsed.checkers,
-    // A runner resolves `.ts` import specifiers itself, so the type-check must
-    // accept them (as ts-node and tsx do). The check is no-emit, so the option
-    // is always valid here.
-    passthrough: ["--allowImportingTsExtensions", ...parsed.tsgoFlags],
-    // Type-checking is tsgo's job; a transform plugin (e.g. typia) only rewrites
-    // calls at emit and never changes types, so the gate runs as a plain tsgo
-    // no-emit check, which also keeps tsgo flags off the plugin host's parser.
-    plugins: false,
-    projectRoot: loaded.project.root,
+    cwd,
+    passthrough: parsed.tsgoFlags,
+    // `--no-plugins` builds the entry's owning project with plugin
+    // discovery and loading disabled. ttsc's own config loaders use it
+    // when they evaluate a `*.config.ts` through ttsx: that build only
+    // needs to type-check and run the config file, so loading the host
+    // project's transform/check plugins (`@nestia/core`, `typia`, …)
+    // would be both wasteful and wrong — those plugins impose project
+    // requirements (e.g. `strict` mode) the ephemeral config-loader
+    // tsconfig deliberately does not satisfy.
+    plugins: parsed.noPlugins ? false : undefined,
+    project: parsed.project,
     singleThreaded: parsed.singleThreaded,
-    tsconfig: loaded.project.path,
   });
-  // Report and gate on the user's own type errors only. A dependency served as
-  // raw `.ts` (typia, @typia/template) lands its source in the program, so a
-  // whole-program check also surfaces that source's lint (unused type params,
-  // …) — the dependency's concern, not the user's. Keep diagnostics for files
-  // under the entry project's root; tolerate the rest.
-  const userDiagnostics = filterUserDiagnostics(
-    `${check.stderr}${check.stdout}`,
-    cwd,
-    loaded.project.root,
-  );
-  if (userDiagnostics.text !== "") {
-    process.stderr.write(userDiagnostics.text);
-  }
-  if (userDiagnostics.hasErrors) {
-    return check.status === 0 ? 1 : check.status;
-  }
-  return spawnEntry({
-    cwd,
-    entry,
-    entryTsconfig: loaded.project.path,
-    ttscBinary,
-    cacheDir,
-    parsed,
-  });
-}
-
-/**
- * Keep only the diagnostics whose source file lives under the entry project's
- * root, dropping noise from dependency sources served as raw `.ts`. A
- * diagnostic block is the header line (`path(line,col): error TSxxxx: …`) plus
- * any following continuation lines, until the next header.
- */
-function filterUserDiagnostics(
-  output: string,
-  cwd: string,
-  projectRoot: string,
-): { text: string; hasErrors: boolean } {
-  const header = /^(.*?)\((\d+),(\d+)\):\s+(error|warning)\s+TS\d+:/;
-  const kept: string[] = [];
-  let keeping = false;
-  let hasErrors = false;
-  for (const raw of output.split("\n")) {
-    const line = raw.replace(/\[[0-9;]*m/g, "");
-    const match = header.exec(line);
-    if (match !== null) {
-      const file = path.resolve(cwd, match[1]!.trim());
-      const relative = path.relative(projectRoot, file);
-      keeping =
-        relative !== "" &&
-        !relative.startsWith("..") &&
-        !path.isAbsolute(relative);
-      if (keeping) {
-        kept.push(line);
-        if (match[4] === "error") {
-          hasErrors = true;
-        }
-      }
-    } else if (keeping && line.trim() !== "") {
-      kept.push(line);
-    }
-  }
-  return {
-    text: kept.length === 0 ? "" : `${kept.join("\n")}\n`,
-    hasErrors,
-  };
+  return runPreparedEntry(parsed, prepared, cwd);
 }
 
 function formatError(error: unknown): string {
@@ -321,6 +214,24 @@ function printHelp(): void {
   process.stdout.write("\n");
 }
 
+/**
+ * Node flags that install ttsx's runtime module hooks in the child process.
+ * `--import` loads the registrar before the compiled entry, giving the
+ * `resolve`/`load` hooks whole-graph reach (extensionless relative imports and
+ * raw `.ts` dependencies under `node_modules`) without weakening the up-front
+ * compile gate. `--disable-warning` silences the `ExperimentalWarning` that the
+ * `load` hook's internal `stripTypeScriptTypes` call would otherwise print, the
+ * same flag this repository's own TypeScript runner uses.
+ */
+function runtimeHookArgs(): string[] {
+  const registrar = path.join(__dirname, "registerRuntimeHooks.js");
+  return [
+    "--disable-warning=ExperimentalWarning",
+    "--import",
+    pathToFileURL(registrar).href,
+  ];
+}
+
 function resolvePreload(cwd: string, preload: string): string {
   if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
     return path.resolve(cwd, preload);
@@ -339,61 +250,475 @@ function isRelativeSpecifier(specifier: string): boolean {
   );
 }
 
-/**
- * Run the entry source directly: spawn a child Node that installs the runtime
- * hooks (via `--import`) and executes the `.ts` entry. The hooks emit each
- * reached `.ts` on demand through the host the parent built, so there is no
- * gate, no emitted byte store, and nothing to clean up.
- */
-function spawnEntry(options: {
-  cwd: string;
-  entry: string;
-  entryTsconfig: string;
-  ttscBinary: string;
-  cacheDir: string | undefined;
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">;
-}): number {
-  const { cwd, entry, entryTsconfig, ttscBinary, cacheDir, parsed } = options;
-  const bootstrap = path.join(__dirname, "runtime", "bootstrap.js");
-  const registrar = pathToFileURL(
-    path.join(__dirname, "registerRuntimeHooks.js"),
-  ).href;
-  // Install the hooks through NODE_OPTIONS, not a one-off `--import`, so any
-  // child process the entry spawns (e.g. a worker running another `.ts` as its
-  // own main) inherits them and resolves/emits `.ts` the same way.
-  const nodeOptions = [
-    process.env["NODE_OPTIONS"],
-    `--import ${registrar}`,
-    "--disable-warning=ExperimentalWarning",
-  ]
-    .filter((part): part is string => part !== undefined && part !== "")
-    .join(" ");
-  const args = [
-    ...parsed.preload.flatMap((preload) => [
-      "-r",
-      resolvePreload(cwd, preload),
-    ]),
-    bootstrap,
-  ];
-  const result = spawnSync(process.execPath, args, {
-    cwd,
-    stdio: "inherit",
-    windowsHide: true,
-    env: {
-      ...process.env,
-      NODE_OPTIONS: nodeOptions,
-      TTSX_TTSC_BINARY: ttscBinary,
-      TTSX_CACHE_DIR: cacheDir,
-      TTSX_NO_PLUGINS: parsed.noPlugins ? "1" : "0",
-      TTSX_EMIT_HOST_CWD: cwd,
-      TTSX_ENTRY_TSCONFIG: entryTsconfig,
-      TTSX_ENTRY: entry,
-      TTSX_ARGV: JSON.stringify(parsed.passthrough),
-    },
-  });
-  if (result.error) {
-    process.stderr.write(`${result.error.message}\n`);
-    return 1;
+function runPreparedEntry(
+  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  execution: ReturnType<typeof prepareExecution>,
+  cwd: string,
+): number {
+  try {
+    fs.mkdirSync(execution.emitDir, { recursive: true });
+    if (execution.moduleKind === "esm") {
+      rewriteEsmSpecifiers(execution.emitDir);
+      fs.writeFileSync(
+        path.join(execution.emitDir, "package.json"),
+        JSON.stringify({ type: "module" }),
+        "utf8",
+      );
+    }
+    const args = [
+      ...runtimeHookArgs(),
+      ...parsed.preload.flatMap((preload) => [
+        "-r",
+        resolvePreload(cwd, preload),
+      ]),
+      execution.entryFile,
+      ...parsed.passthrough,
+    ];
+    const result = spawnSync(process.execPath, args, {
+      cwd,
+      stdio: "inherit",
+      env: process.env,
+      windowsHide: true,
+    });
+    if (result.error) {
+      process.stderr.write(`${result.error.message}\n`);
+      return 1;
+    }
+    return result.status ?? 1;
+  } finally {
+    removeRuntimeOutput(execution.cleanupDir);
   }
-  return result.status ?? 1;
+}
+
+function removeRuntimeOutput(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort: cleanup must not replace the child process exit status.
+  }
+}
+
+/**
+ * Walk every `.js`/`.mjs`/`.cjs` file in `root` and rewrite bare relative
+ * specifiers (e.g. `"./foo"`) to include the resolved file extension so Node
+ * can load them with `--input-type=module`. Files that did not change are not
+ * written back.
+ */
+function rewriteEsmSpecifiers(root: string): void {
+  const stack = [root];
+  while (stack.length !== 0) {
+    const current = stack.pop()!;
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (!entry.isFile() || !isJavaScriptOutput(next)) {
+        continue;
+      }
+      const before = fs.readFileSync(next, "utf8");
+      const after = rewriteEsmSpecifiersInText(next, before);
+      if (after !== before) {
+        fs.writeFileSync(next, after, "utf8");
+      }
+    }
+  }
+}
+
+function rewriteEsmSpecifiersInText(fromFile: string, input: string): string {
+  const replacements: Array<{ start: number; end: number; text: string }> = [];
+  scanEsmSpecifiers(fromFile, input, 0, input.length, replacements);
+  if (replacements.length === 0) {
+    return input;
+  }
+  let output = "";
+  let last = 0;
+  for (const replacement of replacements) {
+    output += input.slice(last, replacement.start);
+    output += replacement.text;
+    last = replacement.end;
+  }
+  return output + input.slice(last);
+}
+
+function scanEsmSpecifiers(
+  fromFile: string,
+  input: string,
+  start: number,
+  end: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  let i = start;
+  while (i < end) {
+    if (input[i] === "`") {
+      i = scanTemplateExpressions(fromFile, input, i, replacements);
+      continue;
+    }
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped;
+      continue;
+    }
+    if (isKeywordAt(input, i, "import")) {
+      const next = skipWhitespace(input, i + "import".length);
+      if (input[next] === "(") {
+        rewriteDynamicImportSpecifier(fromFile, input, next, replacements);
+      } else if (isQuote(input[next])) {
+        rewriteStringSpecifier(fromFile, input, next, replacements);
+      } else {
+        rewriteFromSpecifier(fromFile, input, next, replacements);
+      }
+      i += "import".length;
+      continue;
+    }
+    if (isKeywordAt(input, i, "export")) {
+      rewriteFromSpecifier(fromFile, input, i + "export".length, replacements);
+      i += "export".length;
+      continue;
+    }
+    i += 1;
+  }
+}
+
+function rewriteDynamicImportSpecifier(
+  fromFile: string,
+  input: string,
+  openParen: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  const specifier = skipWhitespace(input, openParen + 1);
+  if (isQuote(input[specifier])) {
+    rewriteStringSpecifier(fromFile, input, specifier, replacements);
+  }
+}
+
+function rewriteFromSpecifier(
+  fromFile: string,
+  input: string,
+  start: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  let i = start;
+  let depth = 0;
+  while (i < input.length) {
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped;
+      continue;
+    }
+    const current = input[i]!;
+    if (depth === 0 && current === ";") {
+      return;
+    }
+    if (current === "{" || current === "[" || current === "(") {
+      depth += 1;
+      i += 1;
+      continue;
+    }
+    if (current === "}" || current === "]" || current === ")") {
+      depth = Math.max(0, depth - 1);
+      i += 1;
+      continue;
+    }
+    if (depth === 0 && isKeywordAt(input, i, "from")) {
+      const specifier = skipWhitespace(input, i + "from".length);
+      if (isQuote(input[specifier])) {
+        rewriteStringSpecifier(fromFile, input, specifier, replacements);
+      }
+      return;
+    }
+    i += 1;
+  }
+}
+
+function rewriteStringSpecifier(
+  fromFile: string,
+  input: string,
+  quoteIndex: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): void {
+  const literal = readSimpleStringLiteral(input, quoteIndex);
+  if (literal === null) {
+    return;
+  }
+  const next = withResolvableExtension(fromFile, literal.value);
+  if (next === literal.value) {
+    return;
+  }
+  replacements.push({
+    start: literal.start,
+    end: literal.end,
+    text: next,
+  });
+}
+
+function scanTemplateExpressions(
+  fromFile: string,
+  input: string,
+  start: number,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): number {
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "`") {
+      return i + 1;
+    }
+    if (current === "$" && input[i + 1] === "{") {
+      const expressionStart = i + 2;
+      const expressionEnd = findTemplateExpressionEnd(input, expressionStart);
+      if (expressionEnd === null) {
+        return input.length;
+      }
+      scanEsmSpecifiers(
+        fromFile,
+        input,
+        expressionStart,
+        expressionEnd,
+        replacements,
+      );
+      i = expressionEnd;
+    }
+  }
+  return input.length;
+}
+
+function findTemplateExpressionEnd(
+  input: string,
+  expressionStart: number,
+): number | null {
+  let depth = 1;
+  for (let i = expressionStart; i < input.length; i += 1) {
+    const skipped = skipNonCode(input, i);
+    if (skipped !== i) {
+      i = skipped - 1;
+      continue;
+    }
+    const current = input[i]!;
+    if (current === "{") {
+      depth += 1;
+      continue;
+    }
+    if (current === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Append or fix a file extension on a relative specifier so that Node's ESM
+ * loader can resolve it. The resolution order mirrors Node's own algorithm:
+ * exact file match → directory index → `.js` fallback. Non-relative specifiers
+ * and already-extensioned paths are returned unchanged.
+ */
+function withResolvableExtension(fromFile: string, specifier: string): string {
+  if (!specifier.startsWith(".")) {
+    // Bare specifiers (packages, builtins) need no rewriting.
+    return specifier;
+  }
+  const [pathname, suffix = ""] = splitSpecifierSuffix(specifier);
+  if (/\.(?:[cm]?js|json|node)$/i.test(pathname)) {
+    // Already has a concrete extension the loader understands.
+    return specifier;
+  }
+  const fromDir = path.dirname(fromFile);
+  // 1. Try the specifier as a file path with each JS extension.
+  for (const extension of [".js", ".mjs", ".cjs"]) {
+    if (fs.existsSync(path.resolve(fromDir, pathname + extension))) {
+      return pathname + extension + suffix;
+    }
+  }
+  // 2. Try interpreting it as a directory with an index file.
+  const directory = pathname.replace(/\/+$/, "");
+  for (const extension of [".js", ".mjs", ".cjs"]) {
+    if (fs.existsSync(path.resolve(fromDir, directory, "index" + extension))) {
+      return `${directory}/index${extension}${suffix}`;
+    }
+  }
+  // 3. Last resort: append `.js` and let Node surface the error if it's wrong.
+  return `${pathname}.js${suffix}`;
+}
+
+function splitSpecifierSuffix(specifier: string): [string, string?] {
+  const index = specifier.search(/[?#]/);
+  if (index === -1) {
+    return [specifier];
+  }
+  return [specifier.slice(0, index), specifier.slice(index)];
+}
+
+function isJavaScriptOutput(filename: string): boolean {
+  return /\.(?:[cm]?js)$/i.test(filename);
+}
+
+function skipNonCode(input: string, start: number): number {
+  const current = input[start];
+  const next = input[start + 1];
+  if (current === '"' || current === "'") {
+    return skipString(input, start);
+  }
+  if (current === "`") {
+    return skipTemplate(input, start);
+  }
+  if (current === "/" && next === "/") {
+    return skipLineComment(input, start);
+  }
+  if (current === "/" && next === "*") {
+    return skipBlockComment(input, start);
+  }
+  if (current === "/" && looksLikeRegexStart(input, start)) {
+    return skipRegex(input, start);
+  }
+  return start;
+}
+
+function skipString(input: string, start: number): number {
+  const quote = input[start]!;
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === quote) {
+      return i + 1;
+    }
+  }
+  return input.length;
+}
+
+function skipTemplate(input: string, start: number): number {
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "`") {
+      return i + 1;
+    }
+  }
+  return input.length;
+}
+
+function skipLineComment(input: string, start: number): number {
+  const end = input.indexOf("\n", start + 2);
+  return end === -1 ? input.length : end + 1;
+}
+
+function skipBlockComment(input: string, start: number): number {
+  const end = input.indexOf("*/", start + 2);
+  return end === -1 ? input.length : end + 2;
+}
+
+function skipRegex(input: string, start: number): number {
+  let inClass = false;
+  for (let i = start + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      i += 1;
+      continue;
+    }
+    if (current === "[") {
+      inClass = true;
+      continue;
+    }
+    if (current === "]") {
+      inClass = false;
+      continue;
+    }
+    if (current === "/" && !inClass) {
+      i += 1;
+      while (/[A-Za-z]/.test(input[i] ?? "")) {
+        i += 1;
+      }
+      return i;
+    }
+  }
+  return input.length;
+}
+
+/**
+ * Determine whether the `/` at `start` opens a regex literal rather than a
+ * division operator. This is a conservative approximation: check the preceding
+ * non-whitespace token — if it is an operator character or a keyword that must
+ * be followed by an expression, we assume regex.
+ */
+function looksLikeRegexStart(input: string, start: number): boolean {
+  let i = start - 1;
+  while (i >= 0 && /\s/.test(input[i]!)) {
+    i -= 1;
+  }
+  if (i < 0) {
+    return true;
+  }
+  const previous = input[i]!;
+  if ("([{=,:;!?&|+-*~^<>".includes(previous)) {
+    return true;
+  }
+  const word = readPreviousWord(input, i);
+  return /^(?:return|throw|case|delete|void|typeof|instanceof|in|of|yield|await)$/.test(
+    word,
+  );
+}
+
+function readPreviousWord(input: string, end: number): string {
+  let start = end;
+  while (start >= 0 && isIdentifierPart(input[start]!)) {
+    start -= 1;
+  }
+  return input.slice(start + 1, end + 1);
+}
+
+function readSimpleStringLiteral(
+  input: string,
+  quoteIndex: number,
+): { start: number; end: number; value: string } | null {
+  const quote = input[quoteIndex]!;
+  for (let i = quoteIndex + 1; i < input.length; i += 1) {
+    const current = input[i]!;
+    if (current === "\\") {
+      return null;
+    }
+    if (current === quote) {
+      return {
+        start: quoteIndex + 1,
+        end: i,
+        value: input.slice(quoteIndex + 1, i),
+      };
+    }
+  }
+  return null;
+}
+
+function skipWhitespace(input: string, start: number): number {
+  let i = start;
+  while (i < input.length && /\s/.test(input[i]!)) {
+    i += 1;
+  }
+  return i;
+}
+
+function isKeywordAt(input: string, start: number, keyword: string): boolean {
+  return (
+    input.startsWith(keyword, start) &&
+    !isIdentifierPart(input[start - 1] ?? "") &&
+    !isIdentifierPart(input[start + keyword.length] ?? "")
+  );
+}
+
+function isIdentifierPart(value: string): boolean {
+  return /[$\p{ID_Continue}]/u.test(value);
+}
+
+function isQuote(value: string | undefined): value is '"' | "'" {
+  return value === '"' || value === "'";
 }
