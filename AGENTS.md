@@ -18,6 +18,10 @@ What `ttsc` is, the workspace layout, and the canonical commands, `.codex/skills
 
 Work rules, testing, validation, change integrity, `.codex/skills/development/SKILL.md`. Read before writing or modifying code.
 
+### TypeScript-Go Shim Sync
+
+Keeping `packages/ttsc/shim/*` synced with typescript-go and complete for plugin authors, `.codex/skills/typescript-go-sync/SKILL.md`. Read before adding a re-export, bumping the pinned typescript-go version, or chasing a missing AST/transform/printer/emit API a plugin needs.
+
 ### Documentation
 
 READMEs and website guides, `.codex/skills/documentation/SKILL.md`. Read before writing or modifying docs.

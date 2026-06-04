@@ -27,8 +27,11 @@ export function prepareExecution(
 ): {
   cleanupDir: string;
   emitDir: string;
+  emittedFiles?: readonly string[];
   entryFile: string;
-  moduleKind: "cjs" | "esm";
+  moduleOption?: string;
+  projectRoot: string;
+  rootDir: string;
 } {
   const context = createProjectContext(
     path.resolve(options.cwd ?? process.cwd()),
@@ -46,12 +49,14 @@ export function prepareExecution(
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
     }
-    const output = fs.readFileSync(emittedEntry, "utf8");
     return {
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
+      emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
-      moduleKind: looksLikeESM(output) ? "esm" : "cjs",
+      moduleOption: context.moduleOption,
+      projectRoot: context.root,
+      rootDir: context.runtimeRootDir,
     };
   } catch (error) {
     removeRuntimeOutput(context.processDir);
@@ -87,6 +92,16 @@ function createProjectContext(
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
       : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, filename)),
+    // The source-tree root the emit mirrors (tsgo strips this prefix). Used to
+    // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
+    // the built entry under its source URL.
+    runtimeRootDir: resolveRuntimeSourceRoot(project, filename),
+    // The tsconfig `module` option, so the runtime hooks classify each served
+    // file's format the same way tsgo chose when emitting it.
+    moduleOption:
+      typeof project.compilerOptions.module === "string"
+        ? project.compilerOptions.module
+        : undefined,
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
@@ -260,22 +275,4 @@ function virtualPath(root: string, absolute: string): string {
         "root";
   const relative = path.relative(parsed.root, path.resolve(absolute));
   return path.join(root, label, relative);
-}
-
-/**
- * Heuristic: classify emitted JS as ESM when it contains top-level `import` or
- * `export` statements but none of the well-known CJS patterns. The CJS checks
- * run first so that re-exported CJS bundles with both `require` calls and an
- * `export` declaration are conservatively treated as CJS.
- */
-function looksLikeESM(output: string): boolean {
-  if (
-    /\bObject\.defineProperty\(exports\b/.test(output) ||
-    /\bmodule\.exports\b/.test(output) ||
-    /\brequire\(/.test(output) ||
-    /\bexports\./.test(output)
-  ) {
-    return false;
-  }
-  return /^\s*(import|export)\s/m.test(output);
 }

@@ -26,23 +26,21 @@ replace (
 )
 
 require (
+	github.com/microsoft/typescript-go/shim/ast v0.0.0
 	github.com/microsoft/typescript-go/shim/compiler v0.0.0
+	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/samchon/ttsc/packages/ttsc v0.0.0
 )
 
 require (
-	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/mackerelio/go-osstat v0.2.7 // indirect
 	github.com/microsoft/typescript-go v0.0.0-20260429010842-56ab4af42157 // indirect
-	github.com/microsoft/typescript-go/shim/ast v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/bundled v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/checker v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/core v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/diagnosticwriter v0.0.0 // indirect
-	github.com/microsoft/typescript-go/shim/lsp v0.0.0 // indirect
-	github.com/microsoft/typescript-go/shim/scanner v0.0.0 // indirect
+	github.com/microsoft/typescript-go/shim/printer v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/tspath v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0 // indirect

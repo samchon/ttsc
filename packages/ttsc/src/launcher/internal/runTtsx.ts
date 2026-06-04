@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
+import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import {
   getBoolean,
   getNumber,
@@ -70,7 +70,7 @@ function run(argv: readonly string[]): number {
     project: parsed.project,
     singleThreaded: parsed.singleThreaded,
   });
-  return runPreparedEntry(parsed, prepared, cwd);
+  return runPreparedEntry(parsed, prepared, cwd, entry);
 }
 
 function formatError(error: unknown): string {
@@ -215,21 +215,17 @@ function printHelp(): void {
 }
 
 /**
- * Node flags that install ttsx's runtime module hooks in the child process.
- * `--import` loads the registrar before the compiled entry, giving the
- * `resolve`/`load` hooks whole-graph reach (extensionless relative imports and
- * raw `.ts` dependencies under `node_modules`) without weakening the up-front
- * compile gate. `--disable-warning` silences the `ExperimentalWarning` that the
- * `load` hook's internal `stripTypeScriptTypes` call would otherwise print, the
- * same flag this repository's own TypeScript runner uses.
+ * Append a Node flag to an existing `NODE_OPTIONS` value (or start one). Used
+ * to propagate the runtime-hook installer into every child process the program
+ * spawns, so workers launched as `node worker.ts` inherit the source loader.
  */
-function runtimeHookArgs(): string[] {
-  const registrar = path.join(__dirname, "registerRuntimeHooks.js");
-  return [
-    "--disable-warning=ExperimentalWarning",
-    "--import",
-    pathToFileURL(registrar).href,
-  ];
+function appendNodeOption(
+  existing: string | undefined,
+  option: string,
+): string {
+  return existing && existing.trim().length !== 0
+    ? `${existing} ${option}`
+    : option;
 }
 
 function resolvePreload(cwd: string, preload: string): string {
@@ -250,34 +246,71 @@ function isRelativeSpecifier(specifier: string): boolean {
   );
 }
 
+/**
+ * Run the TypeScript entry from source in a child Node process whose runtime
+ * module hooks serve the already-built entry project and build raw `.ts`
+ * dependencies on demand.
+ *
+ * The child is `node [-r preload...] registerRuntimeHooks.js <source-entry>
+ * <argv...>` (the bootstrap, run as the main module — not `--import`, so a
+ * CommonJS `require` chain reaches the hooks). A runtime manifest pins the
+ * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
+ * find tsgo without re-resolving it from inside the hook.
+ */
 function runPreparedEntry(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
+  sourceEntry: string,
 ): number {
   try {
-    fs.mkdirSync(execution.emitDir, { recursive: true });
-    if (execution.moduleKind === "esm") {
-      rewriteEsmSpecifiers(execution.emitDir);
-      fs.writeFileSync(
-        path.join(execution.emitDir, "package.json"),
-        JSON.stringify({ type: "module" }),
-        "utf8",
-      );
-    }
+    const depCacheDir = path.join(execution.cleanupDir, "deps");
+    const manifestPath = path.join(
+      execution.cleanupDir,
+      "runtime-manifest.json",
+    );
+    fs.mkdirSync(execution.cleanupDir, { recursive: true });
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        depCacheDir,
+        emitDir: execution.emitDir,
+        emittedFiles: execution.emittedFiles,
+        moduleOption: execution.moduleOption,
+        projectRoot: execution.projectRoot,
+        rootDir: execution.rootDir,
+      }),
+      "utf8",
+    );
+
+    const tsgo = resolveTsgo({
+      binary: parsed.binary,
+      cwd: execution.projectRoot,
+    }).binary;
+
+    const bootstrap = path.join(__dirname, "registerRuntimeHooks.js");
     const args = [
-      ...runtimeHookArgs(),
+      "--disable-warning=ExperimentalWarning",
       ...parsed.preload.flatMap((preload) => [
         "-r",
         resolvePreload(cwd, preload),
       ]),
-      execution.entryFile,
+      bootstrap,
+      sourceEntry,
       ...parsed.passthrough,
     ];
     const result = spawnSync(process.execPath, args, {
       cwd,
+      env: {
+        ...process.env,
+        NODE_OPTIONS: appendNodeOption(
+          process.env.NODE_OPTIONS,
+          `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
+        ),
+        TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
+        TTSX_RUNTIME_MANIFEST: manifestPath,
+      },
       stdio: "inherit",
-      env: process.env,
       windowsHide: true,
     });
     if (result.error) {
@@ -296,429 +329,4 @@ function removeRuntimeOutput(directory: string): void {
   } catch {
     // Best effort: cleanup must not replace the child process exit status.
   }
-}
-
-/**
- * Walk every `.js`/`.mjs`/`.cjs` file in `root` and rewrite bare relative
- * specifiers (e.g. `"./foo"`) to include the resolved file extension so Node
- * can load them with `--input-type=module`. Files that did not change are not
- * written back.
- */
-function rewriteEsmSpecifiers(root: string): void {
-  const stack = [root];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || !isJavaScriptOutput(next)) {
-        continue;
-      }
-      const before = fs.readFileSync(next, "utf8");
-      const after = rewriteEsmSpecifiersInText(next, before);
-      if (after !== before) {
-        fs.writeFileSync(next, after, "utf8");
-      }
-    }
-  }
-}
-
-function rewriteEsmSpecifiersInText(fromFile: string, input: string): string {
-  const replacements: Array<{ start: number; end: number; text: string }> = [];
-  scanEsmSpecifiers(fromFile, input, 0, input.length, replacements);
-  if (replacements.length === 0) {
-    return input;
-  }
-  let output = "";
-  let last = 0;
-  for (const replacement of replacements) {
-    output += input.slice(last, replacement.start);
-    output += replacement.text;
-    last = replacement.end;
-  }
-  return output + input.slice(last);
-}
-
-function scanEsmSpecifiers(
-  fromFile: string,
-  input: string,
-  start: number,
-  end: number,
-  replacements: Array<{ start: number; end: number; text: string }>,
-): void {
-  let i = start;
-  while (i < end) {
-    if (input[i] === "`") {
-      i = scanTemplateExpressions(fromFile, input, i, replacements);
-      continue;
-    }
-    const skipped = skipNonCode(input, i);
-    if (skipped !== i) {
-      i = skipped;
-      continue;
-    }
-    if (isKeywordAt(input, i, "import")) {
-      const next = skipWhitespace(input, i + "import".length);
-      if (input[next] === "(") {
-        rewriteDynamicImportSpecifier(fromFile, input, next, replacements);
-      } else if (isQuote(input[next])) {
-        rewriteStringSpecifier(fromFile, input, next, replacements);
-      } else {
-        rewriteFromSpecifier(fromFile, input, next, replacements);
-      }
-      i += "import".length;
-      continue;
-    }
-    if (isKeywordAt(input, i, "export")) {
-      rewriteFromSpecifier(fromFile, input, i + "export".length, replacements);
-      i += "export".length;
-      continue;
-    }
-    i += 1;
-  }
-}
-
-function rewriteDynamicImportSpecifier(
-  fromFile: string,
-  input: string,
-  openParen: number,
-  replacements: Array<{ start: number; end: number; text: string }>,
-): void {
-  const specifier = skipWhitespace(input, openParen + 1);
-  if (isQuote(input[specifier])) {
-    rewriteStringSpecifier(fromFile, input, specifier, replacements);
-  }
-}
-
-function rewriteFromSpecifier(
-  fromFile: string,
-  input: string,
-  start: number,
-  replacements: Array<{ start: number; end: number; text: string }>,
-): void {
-  let i = start;
-  let depth = 0;
-  while (i < input.length) {
-    const skipped = skipNonCode(input, i);
-    if (skipped !== i) {
-      i = skipped;
-      continue;
-    }
-    const current = input[i]!;
-    if (depth === 0 && current === ";") {
-      return;
-    }
-    if (current === "{" || current === "[" || current === "(") {
-      depth += 1;
-      i += 1;
-      continue;
-    }
-    if (current === "}" || current === "]" || current === ")") {
-      depth = Math.max(0, depth - 1);
-      i += 1;
-      continue;
-    }
-    if (depth === 0 && isKeywordAt(input, i, "from")) {
-      const specifier = skipWhitespace(input, i + "from".length);
-      if (isQuote(input[specifier])) {
-        rewriteStringSpecifier(fromFile, input, specifier, replacements);
-      }
-      return;
-    }
-    i += 1;
-  }
-}
-
-function rewriteStringSpecifier(
-  fromFile: string,
-  input: string,
-  quoteIndex: number,
-  replacements: Array<{ start: number; end: number; text: string }>,
-): void {
-  const literal = readSimpleStringLiteral(input, quoteIndex);
-  if (literal === null) {
-    return;
-  }
-  const next = withResolvableExtension(fromFile, literal.value);
-  if (next === literal.value) {
-    return;
-  }
-  replacements.push({
-    start: literal.start,
-    end: literal.end,
-    text: next,
-  });
-}
-
-function scanTemplateExpressions(
-  fromFile: string,
-  input: string,
-  start: number,
-  replacements: Array<{ start: number; end: number; text: string }>,
-): number {
-  for (let i = start + 1; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (current === "\\") {
-      i += 1;
-      continue;
-    }
-    if (current === "`") {
-      return i + 1;
-    }
-    if (current === "$" && input[i + 1] === "{") {
-      const expressionStart = i + 2;
-      const expressionEnd = findTemplateExpressionEnd(input, expressionStart);
-      if (expressionEnd === null) {
-        return input.length;
-      }
-      scanEsmSpecifiers(
-        fromFile,
-        input,
-        expressionStart,
-        expressionEnd,
-        replacements,
-      );
-      i = expressionEnd;
-    }
-  }
-  return input.length;
-}
-
-function findTemplateExpressionEnd(
-  input: string,
-  expressionStart: number,
-): number | null {
-  let depth = 1;
-  for (let i = expressionStart; i < input.length; i += 1) {
-    const skipped = skipNonCode(input, i);
-    if (skipped !== i) {
-      i = skipped - 1;
-      continue;
-    }
-    const current = input[i]!;
-    if (current === "{") {
-      depth += 1;
-      continue;
-    }
-    if (current === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return i;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Append or fix a file extension on a relative specifier so that Node's ESM
- * loader can resolve it. The resolution order mirrors Node's own algorithm:
- * exact file match → directory index → `.js` fallback. Non-relative specifiers
- * and already-extensioned paths are returned unchanged.
- */
-function withResolvableExtension(fromFile: string, specifier: string): string {
-  if (!specifier.startsWith(".")) {
-    // Bare specifiers (packages, builtins) need no rewriting.
-    return specifier;
-  }
-  const [pathname, suffix = ""] = splitSpecifierSuffix(specifier);
-  if (/\.(?:[cm]?js|json|node)$/i.test(pathname)) {
-    // Already has a concrete extension the loader understands.
-    return specifier;
-  }
-  const fromDir = path.dirname(fromFile);
-  // 1. Try the specifier as a file path with each JS extension.
-  for (const extension of [".js", ".mjs", ".cjs"]) {
-    if (fs.existsSync(path.resolve(fromDir, pathname + extension))) {
-      return pathname + extension + suffix;
-    }
-  }
-  // 2. Try interpreting it as a directory with an index file.
-  const directory = pathname.replace(/\/+$/, "");
-  for (const extension of [".js", ".mjs", ".cjs"]) {
-    if (fs.existsSync(path.resolve(fromDir, directory, "index" + extension))) {
-      return `${directory}/index${extension}${suffix}`;
-    }
-  }
-  // 3. Last resort: append `.js` and let Node surface the error if it's wrong.
-  return `${pathname}.js${suffix}`;
-}
-
-function splitSpecifierSuffix(specifier: string): [string, string?] {
-  const index = specifier.search(/[?#]/);
-  if (index === -1) {
-    return [specifier];
-  }
-  return [specifier.slice(0, index), specifier.slice(index)];
-}
-
-function isJavaScriptOutput(filename: string): boolean {
-  return /\.(?:[cm]?js)$/i.test(filename);
-}
-
-function skipNonCode(input: string, start: number): number {
-  const current = input[start];
-  const next = input[start + 1];
-  if (current === '"' || current === "'") {
-    return skipString(input, start);
-  }
-  if (current === "`") {
-    return skipTemplate(input, start);
-  }
-  if (current === "/" && next === "/") {
-    return skipLineComment(input, start);
-  }
-  if (current === "/" && next === "*") {
-    return skipBlockComment(input, start);
-  }
-  if (current === "/" && looksLikeRegexStart(input, start)) {
-    return skipRegex(input, start);
-  }
-  return start;
-}
-
-function skipString(input: string, start: number): number {
-  const quote = input[start]!;
-  for (let i = start + 1; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (current === "\\") {
-      i += 1;
-      continue;
-    }
-    if (current === quote) {
-      return i + 1;
-    }
-  }
-  return input.length;
-}
-
-function skipTemplate(input: string, start: number): number {
-  for (let i = start + 1; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (current === "\\") {
-      i += 1;
-      continue;
-    }
-    if (current === "`") {
-      return i + 1;
-    }
-  }
-  return input.length;
-}
-
-function skipLineComment(input: string, start: number): number {
-  const end = input.indexOf("\n", start + 2);
-  return end === -1 ? input.length : end + 1;
-}
-
-function skipBlockComment(input: string, start: number): number {
-  const end = input.indexOf("*/", start + 2);
-  return end === -1 ? input.length : end + 2;
-}
-
-function skipRegex(input: string, start: number): number {
-  let inClass = false;
-  for (let i = start + 1; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (current === "\\") {
-      i += 1;
-      continue;
-    }
-    if (current === "[") {
-      inClass = true;
-      continue;
-    }
-    if (current === "]") {
-      inClass = false;
-      continue;
-    }
-    if (current === "/" && !inClass) {
-      i += 1;
-      while (/[A-Za-z]/.test(input[i] ?? "")) {
-        i += 1;
-      }
-      return i;
-    }
-  }
-  return input.length;
-}
-
-/**
- * Determine whether the `/` at `start` opens a regex literal rather than a
- * division operator. This is a conservative approximation: check the preceding
- * non-whitespace token — if it is an operator character or a keyword that must
- * be followed by an expression, we assume regex.
- */
-function looksLikeRegexStart(input: string, start: number): boolean {
-  let i = start - 1;
-  while (i >= 0 && /\s/.test(input[i]!)) {
-    i -= 1;
-  }
-  if (i < 0) {
-    return true;
-  }
-  const previous = input[i]!;
-  if ("([{=,:;!?&|+-*~^<>".includes(previous)) {
-    return true;
-  }
-  const word = readPreviousWord(input, i);
-  return /^(?:return|throw|case|delete|void|typeof|instanceof|in|of|yield|await)$/.test(
-    word,
-  );
-}
-
-function readPreviousWord(input: string, end: number): string {
-  let start = end;
-  while (start >= 0 && isIdentifierPart(input[start]!)) {
-    start -= 1;
-  }
-  return input.slice(start + 1, end + 1);
-}
-
-function readSimpleStringLiteral(
-  input: string,
-  quoteIndex: number,
-): { start: number; end: number; value: string } | null {
-  const quote = input[quoteIndex]!;
-  for (let i = quoteIndex + 1; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (current === "\\") {
-      return null;
-    }
-    if (current === quote) {
-      return {
-        start: quoteIndex + 1,
-        end: i,
-        value: input.slice(quoteIndex + 1, i),
-      };
-    }
-  }
-  return null;
-}
-
-function skipWhitespace(input: string, start: number): number {
-  let i = start;
-  while (i < input.length && /\s/.test(input[i]!)) {
-    i += 1;
-  }
-  return i;
-}
-
-function isKeywordAt(input: string, start: number, keyword: string): boolean {
-  return (
-    input.startsWith(keyword, start) &&
-    !isIdentifierPart(input[start - 1] ?? "") &&
-    !isIdentifierPart(input[start + keyword.length] ?? "")
-  );
-}
-
-function isIdentifierPart(value: string): boolean {
-  return /[$\p{ID_Continue}]/u.test(value);
-}
-
-function isQuote(value: string | undefined): value is '"' | "'" {
-  return value === '"' || value === "'";
 }

@@ -39,6 +39,18 @@ type ProgramPlugin interface {
   ApplyProgram(*Program, PluginContext) error
 }
 
+// EmitTransformPlugin contributes an emit-phase AST transformer. The returned
+// PluginTransform runs first in tsgo's per-file emit chain, sharing the emit
+// EmitContext with the builtin transformers, so a plugin returns AST instead of
+// spliced text: it injects its own imports with ec.Factory and references them
+// via NewGeneratedNameForNode, and tsgo's module-transform emits the require and
+// aliases the references itself. This is the AST-integration replacement for the
+// ProgramPlugin + RewriteSet text-splice model. A plugin whose returned
+// transform is nil contributes nothing.
+type EmitTransformPlugin interface {
+  EmitTransform(PluginContext) (PluginTransform, error)
+}
+
 type linkedPluginState struct {
   cwd      string
   entries  []PluginEntry
@@ -116,6 +128,31 @@ func (state linkedPluginState) apply(prog *Program) error {
     }
   }
   return nil
+}
+
+// emitTransforms collects an emit-phase PluginTransform from every registered
+// EmitTransformPlugin, in registration order. Entries that do not implement
+// EmitTransformPlugin, or whose transform is nil, are skipped.
+func (state linkedPluginState) emitTransforms() ([]PluginTransform, error) {
+  var out []PluginTransform
+  for index, entry := range state.entries {
+    plugin, ok := registeredPlugin(index)
+    if !ok {
+      return nil, fmt.Errorf("ttsc driver: linked plugin entry %d was requested but no linked plugin registered at that position", index)
+    }
+    emitter, ok := plugin.(EmitTransformPlugin)
+    if !ok {
+      continue
+    }
+    transform, err := emitter.EmitTransform(state.context(entry))
+    if err != nil {
+      return nil, err
+    }
+    if transform != nil {
+      out = append(out, transform)
+    }
+  }
+  return out, nil
 }
 
 // registeredPlugin returns the plugin registered at position index, or

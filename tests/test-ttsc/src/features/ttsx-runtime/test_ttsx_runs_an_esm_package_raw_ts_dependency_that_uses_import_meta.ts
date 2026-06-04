@@ -2,21 +2,20 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx loads a CommonJS-package raw `.ts` dependency that uses
- * `import.meta` as a module.
+ * Verifies ttsx loads a raw `.ts` dependency that uses `import.meta` from an
+ * ESM package as a module.
  *
- * `import.meta` is a syntax error outside an ES module, yet a `.ts` file can
- * use it without any top-level `import`/`export` statement. The `load` hook's
- * format decision must treat `import.meta` as an ESM marker (as Node's own
- * module detection does); otherwise the file is mislabeled `commonjs` and
- * crashes with "Cannot use 'import.meta' outside a module".
+ * `import.meta` is only valid inside an ES module. A dependency that uses it
+ * declares `type: "module"`; ttsx classifies each served file by that package
+ * `type` (and file extension) — never by sniffing the source — so the file is
+ * loaded as a module and `import.meta.url` is a real value.
  *
- * 1. Install a published `meta-dep` with no `type` field whose `.ts` entry uses
- *    `import.meta.url` and no `import`/`export` statement.
+ * 1. Install a published `meta-dep` with `type: "module"` whose `.ts` entry uses
+ *    `import.meta.url`.
  * 2. Run ttsx against an entry that imports it for side effect.
  * 3. Assert the dependency ran as a module and saw a real `import.meta.url`.
  */
-export const test_ttsx_runs_a_commonjs_package_raw_ts_dependency_that_uses_import_meta_as_a_module =
+export const test_ttsx_runs_an_esm_package_raw_ts_dependency_that_uses_import_meta =
   () => {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module", private: true }),
@@ -34,6 +33,7 @@ export const test_ttsx_runs_a_commonjs_package_raw_ts_dependency_that_uses_impor
       "node_modules/meta-dep/package.json": JSON.stringify({
         name: "meta-dep",
         version: "1.0.0",
+        type: "module",
         exports: { ".": "./effect.ts" },
       }),
       "node_modules/meta-dep/effect.ts": `const here: string = import.meta.url;\n(globalThis as Record<string, unknown>).__metaDep = here.startsWith("file:")\n  ? "meta-ok"\n  : "meta-bad";\n`,

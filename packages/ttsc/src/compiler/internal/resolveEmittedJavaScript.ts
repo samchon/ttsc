@@ -34,18 +34,49 @@ export function resolveEmittedJavaScript(options: {
     return exact;
   }
 
+  // Score the pre-computed emit list first (cheap). When it yields nothing —
+  // because the list is incomplete (a native transform host such as typia emits
+  // without printing the `--listEmittedFiles` lines) or because the emit landed
+  // at a path the exact mirror did not predict (tsgo shifts every output path
+  // when the program pulls a raw-`.ts` dependency that sits outside `rootDir`,
+  // so it strips the common source root rather than `rootDir`) — fall back to a
+  // full recursive scan of `outDir`. Trailing-stem scoring still pins the right
+  // file regardless of how deep the shifted prefix is.
+  const primary = bestStemMatch(
+    options.emittedFiles ?? listJavaScriptFiles(options.outDir),
+    options.sourceFile,
+  );
+  if (primary !== null && fs.existsSync(primary)) {
+    return primary;
+  }
+  if (options.emittedFiles !== undefined) {
+    const fromDir = bestStemMatch(
+      listJavaScriptFiles(options.outDir),
+      options.sourceFile,
+    );
+    if (fromDir !== null && fs.existsSync(fromDir)) {
+      return fromDir;
+    }
+  }
+  return null;
+}
+
+/** Highest trailing-stem-scoring JavaScript output among `files`, or `null`. */
+function bestStemMatch(
+  files: readonly string[],
+  sourceFile: string,
+): string | null {
   let best: string | null = null;
   let bestScore = 0;
-  for (const file of options.emittedFiles ??
-    listJavaScriptFiles(options.outDir)) {
+  for (const file of files) {
     if (!isJavaScriptOutput(file)) continue;
-    const score = sharedSourceStemSegments(file, options.sourceFile);
+    const score = sharedSourceStemSegments(file, sourceFile);
     if (score > bestScore) {
       best = file;
       bestScore = score;
     }
   }
-  return best && fs.existsSync(best) ? best : null;
+  return best;
 }
 
 /**

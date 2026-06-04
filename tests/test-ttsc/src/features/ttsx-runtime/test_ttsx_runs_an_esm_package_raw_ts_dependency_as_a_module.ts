@@ -2,21 +2,19 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx loads a CommonJS-package raw `.ts` dependency that uses ESM
- * syntax as a module.
+ * Verifies ttsx loads a raw `.ts` dependency from an ESM package as a module.
  *
- * Type-stripping never rewrites module syntax, so a `.ts` file authored with
- * `import`/`export` stays ESM even when its package omits `type: module`.
- * Labelling it CommonJS (the package baseline) would make Node reject its named
- * exports, so the `load` hook's format decision lets unambiguous ESM syntax
- * override the CommonJS baseline, matching Node's own module-syntax detection.
+ * A dependency that ships ESM source declares `type: "module"`; ttsx classifies
+ * each served file by that package `type` (and file extension), the same way
+ * Node and tsgo do — never by sniffing the source text. So an `export` in a
+ * `type: "module"` package loads as an ES module without any syntax heuristic.
  *
- * 1. Install a published `pub-dep` with no `type` field whose `.ts` source uses
+ * 1. Install a published `pub-dep` with `type: "module"` whose `.ts` source uses
  *    ESM `export`.
  * 2. Run ttsx against an entry that imports a named export from it.
  * 3. Assert the named export resolved and executed.
  */
-export const test_ttsx_runs_a_commonjs_package_raw_ts_dependency_with_esm_syntax_as_a_module =
+export const test_ttsx_runs_an_esm_package_raw_ts_dependency_as_a_module =
   () => {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module", private: true }),
@@ -34,9 +32,10 @@ export const test_ttsx_runs_a_commonjs_package_raw_ts_dependency_with_esm_syntax
       "node_modules/pub-dep/package.json": JSON.stringify({
         name: "pub-dep",
         version: "1.0.0",
+        type: "module",
         exports: { ".": "./index.ts" },
       }),
-      "node_modules/pub-dep/index.ts": `export const detect = (): string => "detected-as-module";\n`,
+      "node_modules/pub-dep/index.ts": `export const detect = (): string => "loaded-as-module";\n`,
       "src/main.ts": `import { detect } from "pub-dep";\nconsole.log(detect());\n`,
     });
 
@@ -47,5 +46,5 @@ export const test_ttsx_runs_a_commonjs_package_raw_ts_dependency_with_esm_syntax
     );
 
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "detected-as-module");
+    assert.equal(result.stdout.trim(), "loaded-as-module");
   };

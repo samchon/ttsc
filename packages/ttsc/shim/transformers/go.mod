@@ -1,4 +1,4 @@
-module github.com/microsoft/typescript-go/shim/compiler
+module github.com/microsoft/typescript-go/shim/transformers
 
 go 1.26
 
