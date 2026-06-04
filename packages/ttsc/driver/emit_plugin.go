@@ -48,27 +48,52 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 // This replaces the text-splice plugin contract: a plugin returns AST, not text.
 type PluginTransform func(ec *shimprinter.EmitContext, sourceFile *shimast.SourceFile) *shimast.NodeVisitor
 
-// EmitWithPluginTransformer emits every source file by assembling tsgo's emit
-// pipeline from shim parts and running the plugin transformer FIRST in the same
-// EmitContext as the builtin chain (type-erase, import-elision, module-transform,
-// ...). No text-splice and no hand-rolled import aliasing: tsgo's module-transform
-// aliases the plugin's nodes itself.
+// EmitWithPluginTransformer emits with a single plugin transformer. It is a thin
+// wrapper over EmitWithPluginTransformers.
 func (p *Program) EmitWithPluginTransformer(transform PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
+  return p.EmitWithPluginTransformers([]PluginTransform{transform}, writeFile)
+}
+
+// EmitLinkedTransforms emits using the emit-phase transformers contributed by
+// every registered EmitTransformPlugin (in registration order). This is the
+// AST-integration emit path that replaces the ProgramPlugin + RewriteSet
+// text-splice path.
+func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
   }
-  if err := p.ApplyLinkedPlugins(); err != nil {
+  transforms, err := p.plugins.emitTransforms()
+  if err != nil {
     return nil, err
+  }
+  return p.EmitWithPluginTransformers(transforms, writeFile)
+}
+
+// EmitWithPluginTransformers emits every source file by assembling tsgo's emit
+// pipeline from shim parts and running the plugin transformers FIRST (in order)
+// in the same EmitContext as the builtin chain (type-erase, import-elision,
+// module-transform, ...). No text-splice and no hand-rolled import aliasing:
+// tsgo's module-transform aliases the plugins' injected imports itself.
+func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
+  if p == nil || p.TSProgram == nil {
+    return nil, errors.New("driver: nil program")
   }
   host := &pluginEmitHost{program: p.TSProgram, emitResolver: p.Checker.GetEmitResolver()}
   options := p.TSProgram.Options()
   newLine := options.NewLine.GetNewLineCharacter()
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
     ec := shimprinter.NewEmitContext()
-    transformed := transform(ec, sf).VisitSourceFile(sf)
-    shimast.SetParentInChildren(transformed.AsNode())
-    out := transformed
-    for _, tr := range shimcompiler.GetScriptTransformers(ec, host, transformed) {
+    out := sf
+    for _, transform := range transforms {
+      if transform == nil {
+        continue
+      }
+      if visitor := transform(ec, out); visitor != nil {
+        out = visitor.VisitSourceFile(out)
+      }
+    }
+    shimast.SetParentInChildren(out.AsNode())
+    for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
       out = tr.TransformSourceFile(out)
     }
     paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
