@@ -678,6 +678,9 @@ function dependencyCacheRoot(): string {
     : path.join(os.tmpdir(), "ttsx-dep");
 }
 
+/** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
+const tsconfigCache = new Map<string, string | null>();
+
 /**
  * The nearest `tsconfig.json` at or above `file`'s directory, or `null`. The
  * walk stops at a `node_modules` boundary: a tsconfig above `node_modules`
@@ -685,23 +688,43 @@ function dependencyCacheRoot(): string {
  * dependency that ships no tsconfig of its own has no owning project and is
  * type-stripped instead. A pnpm-symlinked workspace package is unaffected
  * because `file` is already its real path (outside `node_modules`).
+ *
+ * The walk is memoised per directory (the whole walked chain shares one
+ * answer), so the thousands of files a fanned-out test corpus imports from the
+ * same handful of projects do not each re-stat the same parent directories.
  */
 function nearestTsconfig(file: string): string | null {
   let directory = path.dirname(file);
+  const chain: string[] = [];
   for (;;) {
-    if (path.basename(directory) === "node_modules") {
-      return null;
+    const cached = tsconfigCache.get(directory);
+    if (cached !== undefined) {
+      return rememberTsconfig(chain, cached);
     }
+    if (path.basename(directory) === "node_modules") {
+      return rememberTsconfig(chain, null);
+    }
+    chain.push(directory);
     const candidate = path.join(directory, "tsconfig.json");
     if (isFile(candidate)) {
-      return candidate;
+      return rememberTsconfig(chain, candidate);
     }
     const parent = path.dirname(directory);
     if (parent === directory) {
-      return null;
+      return rememberTsconfig(chain, null);
     }
     directory = parent;
   }
+}
+
+function rememberTsconfig(
+  directories: readonly string[],
+  result: string | null,
+): string | null {
+  for (const directory of directories) {
+    tsconfigCache.set(directory, result);
+  }
+  return result;
 }
 
 function readFileOrNull(file: string | null): string | null {
