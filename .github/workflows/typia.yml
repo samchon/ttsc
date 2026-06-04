@@ -81,28 +81,8 @@ jobs:
           fs.writeFileSync(file, merged);
           '
 
-      # 시간의 ~85%는 첫 ttsx에서 cmd/ttsc-typia(=tsgo+ttsc+typia native)를
-      # 콜드 컴파일하는 데 쓰인다. 전용 GOCACHE와 플러그인 바이너리 캐시를 run
-      # 간 보존해, 소스 미변경 PR은 풀 스킵(수 초), 소스 변경 PR도 restore-keys로
-      # GOCACHE가 warm이라 증분 빌드가 된다. typia native go 소스 해시로 키를 잡아
-      # 소스가 바뀐 PR에서만 정확-키가 무효화된다.
-      - name: Cache typia native go-build + ttsc plugin binaries
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.temp }}/typia-gocache
-            ${{ runner.temp }}/ttsc-plugin-cache
-          key: typia-native-${{ runner.os }}-${{ hashFiles('experimental/typia/packages/typia/native/**/*.go', 'experimental/typia/packages/typia/native/go.sum') }}
-          restore-keys: |
-            typia-native-${{ runner.os }}-
-
       - name: Test typia next
         working-directory: experimental/typia
-        env:
-          # buildSourcePlugin은 process.env의 GOCACHE를 그대로 go build에 넘기고
-          # (goBuildEnv), TTSC_CACHE_DIR를 플러그인 바이너리 캐시 루트로 읽는다.
-          GOCACHE: ${{ runner.temp }}/typia-gocache
-          TTSC_CACHE_DIR: ${{ runner.temp }}/ttsc-plugin-cache
         run: |
           pnpm install --no-frozen-lockfile
           pnpm run test
