@@ -34,7 +34,27 @@ func (h *pluginEmitHost) WriteFile(fileName string, text string) error {
 func (h *pluginEmitHost) GetEmitModuleFormatOfFile(file shimast.HasFileName) shimcore.ModuleKind {
   return h.program.GetEmitModuleFormatOfFile(file)
 }
-func (h *pluginEmitHost) GetEmitResolver() shimprinter.EmitResolver { return h.emitResolver }
+func (h *pluginEmitHost) GetEmitResolver() shimprinter.EmitResolver {
+  return guardedEmitResolver{h.emitResolver}
+}
+
+// guardedEmitResolver makes tsgo's const-enum inliner safe against plugin-built
+// nodes. The inliner calls GetConstantValue on every property/element access it
+// visits — including synthetic ones a plugin injects — and tsgo's checker can
+// nil-panic while computing a contextual type for such a node. A failure there
+// only means "not a const enum", so recover to nil and leave the node as-is.
+type guardedEmitResolver struct {
+  shimprinter.EmitResolver
+}
+
+func (g guardedEmitResolver) GetConstantValue(node *shimast.Node) (result any) {
+  defer func() {
+    if recover() != nil {
+      result = nil
+    }
+  }()
+  return g.EmitResolver.GetConstantValue(node)
+}
 func (h *pluginEmitHost) GetProjectReferenceFromSource(path shimtspath.Path) *shimtsoptions.SourceOutputAndProjectReference {
   return h.program.GetProjectReferenceFromSource(path)
 }
