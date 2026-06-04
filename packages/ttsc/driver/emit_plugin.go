@@ -42,11 +42,14 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
   return h.program.IsSourceFileFromExternalLibrary(file)
 }
 
-// PluginTransform builds a per-file emit transformer (a node visitor) bound to
-// the emit EmitContext, so nodes it creates with ec.Factory and links with
-// ec.SetOriginal are recognized and aliased by tsgo's builtin module-transform.
-// This replaces the text-splice plugin contract: a plugin returns AST, not text.
-type PluginTransform func(ec *shimprinter.EmitContext, sourceFile *shimast.SourceFile) *shimast.NodeVisitor
+// PluginTransform transforms one source file in the emit phase, bound to the
+// emit EmitContext: nodes it builds with ec.Factory (and links with
+// ec.SetOriginal) are recognized and aliased by tsgo's builtin module-transform.
+// Returning nil leaves the file unchanged. This is the AST-integration contract
+// that replaces text-splice: a plugin returns AST, not text. The shape mirrors a
+// classic ts.TransformerFactory (SourceFile -> SourceFile) so an existing
+// node-based transformer plugs in by just accepting the EmitContext.
+type PluginTransform func(ec *shimprinter.EmitContext, sourceFile *shimast.SourceFile) *shimast.SourceFile
 
 // EmitWithPluginTransformer emits with a single plugin transformer. It is a thin
 // wrapper over EmitWithPluginTransformers.
@@ -88,8 +91,8 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       if transform == nil {
         continue
       }
-      if visitor := transform(ec, out); visitor != nil {
-        out = visitor.VisitSourceFile(out)
+      if next := transform(ec, out); next != nil {
+        out = next
       }
     }
     shimast.SetParentInChildren(out.AsNode())

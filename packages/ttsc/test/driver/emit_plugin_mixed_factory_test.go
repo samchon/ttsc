@@ -36,7 +36,7 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
   // typia 글로벌 factory 대역 (ec와 무관한 독립 factory)
   indep := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
 
-  transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.NodeVisitor {
+  transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
     nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
@@ -60,7 +60,7 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
       return visitor.VisitEachChild(node)
     }
     visitor = ec.NewNodeVisitor(visit)
-    return visitor
+    return visitor.VisitSourceFile(sf)
   }
 
   emitted := map[string]string{}

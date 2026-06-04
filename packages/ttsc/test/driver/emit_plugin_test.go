@@ -42,7 +42,7 @@ func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
   // Plugin transformer: inject `import * as <gen> from "./dep"` and rewrite the
   // `0` initializer to `<gen>.foo`, using NewGeneratedNameForNode(modSpec) for
   // both so they print as the same name.
-  transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.NodeVisitor {
+  transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
     nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
@@ -65,7 +65,7 @@ func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
       return visitor.VisitEachChild(node)
     }
     visitor = ec.NewNodeVisitor(visit)
-    return visitor
+    return visitor.VisitSourceFile(sf)
   }
 
   emitted := map[string]string{}
