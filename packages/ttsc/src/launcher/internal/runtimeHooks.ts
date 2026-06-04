@@ -282,8 +282,6 @@ function resolveServedSource(
  * owning project; an ESM-format orphan keeps the fast in-process strip.
  */
 function transformOrphanSource(filename: string, url: string): string {
-  if (filename.includes("createClone") || filename.includes("createPrune"))
-    process.stderr.write(`__P ORPHAN file=${filename}\n`);
   if (moduleFormat(filename, undefined) === "commonjs") {
     const lowered = emitOrphanAsCommonJs(filename);
     if (lowered !== null) {
@@ -429,8 +427,6 @@ function serveEntryEmit(real: string): string | null {
     return null;
   }
   if (!isWithin(real, m.rootDir)) {
-    if (real.includes("createClone"))
-      process.stderr.write(`__P ENTRY within=false real=${real} root=${m.rootDir}\n`);
     return null;
   }
   const emitted = resolveEmittedJavaScript({
@@ -439,38 +435,6 @@ function serveEntryEmit(real: string): string | null {
     projectRoot: m.rootDir,
     sourceFile: real,
   });
-  if (real.includes("createClone")) {
-    const found = emitted ? fs.existsSync(emitted) : false;
-    process.stderr.write(
-      `__P ENTRY within=true exists=${emitted ? found : "noemit"} emitted=${emitted}\n`,
-    );
-    if (!found && !(globalThis as { __pDumped?: boolean }).__pDumped) {
-      (globalThis as { __pDumped?: boolean }).__pDumped = true;
-      const all: string[] = [];
-      const walk = (d: string): void => {
-        let es: fs.Dirent[];
-        try {
-          es = fs.readdirSync(d, { withFileTypes: true });
-        } catch {
-          return;
-        }
-        for (const e of es) {
-          const f = path.join(d, e.name);
-          if (e.isDirectory()) walk(f);
-          else if (f.endsWith(".js")) all.push(f);
-        }
-      };
-      walk(m.emitDir);
-      const exact = path.resolve(
-        m.emitDir,
-        path.relative(m.rootDir, real).replace(/\.[cm]?ts$/, ".js"),
-      );
-      process.stderr.write(
-        `__P DUMP emitDir=${m.emitDir} jsCount=${all.length} hasCreateClone=${all.some((f) => f.includes("createClone"))} exactPath=${exact} exactExists=${fs.existsSync(exact)} emittedFilesLen=${m.emittedFiles ? m.emittedFiles.length : "undef"}\n`,
-      );
-      process.stderr.write(`__P SAMPLE ${all.slice(0, 5).join(" | ")}\n`);
-    }
-  }
   return readFileOrNull(emitted);
 }
 
