@@ -7,7 +7,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
+import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
+import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -27,7 +29,11 @@ import { runBuild } from "../../compiler/internal/runBuild";
  *    type-stripping cannot do cross-file type-only elision — e.g. a
  *    value-shaped import of a type+namespace merge survives stripping and
  *    dangles at runtime.
- * 3. No owning tsconfig → fall back to a `mode: "transform"` type-strip.
+ * 3. No owning tsconfig → transform the lone file by the format it resolves to: a
+ *    CommonJS-classified file (`.cts`, or a `.ts` in a package without `type:
+ *    "module"`) is lowered to CommonJS through a tsgo single-file emit so its
+ *    `export` syntax becomes `module.exports`; any other (ESM) file keeps the
+ *    fast in-process `mode: "transform"` type-strip.
  *
  * The hooks are synchronous and run on the main thread (not a loader worker):
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
@@ -255,11 +261,92 @@ function resolveServedSource(
   }
   return {
     moduleOption: undefined,
-    source: stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
-      mode: "transform",
-      sourceUrl: url,
-    }),
+    source: transformOrphanSource(filename, url),
   };
+}
+
+/**
+ * Transform a TypeScript source file that no tsconfig owns (a published or
+ * vendored package that ships raw `.ts`/`.cts`/`.mts` straight under
+ * `node_modules`), choosing the lowering by the format the file resolves to.
+ *
+ * Node's in-process `stripTypeScriptTypes` only erases type syntax; it never
+ * rewrites ECMAScript `import`/`export` into CommonJS. That is correct for a
+ * file Node will load as ESM, but wrong for one classified CommonJS — a `.cts`,
+ * or a `.ts` in a package without `type: "module"` — when the author wrote it
+ * with module syntax (`export const`, `export namespace`, `export function`).
+ * Stripping leaves the `export` in place and Node's CommonJS loader dies with
+ * `SyntaxError: Unexpected token 'export'`. So a CommonJS-format orphan is
+ * lowered through a real tsgo `--module commonjs` single-file emit (which also
+ * handles `export =`), exactly the format decision tsgo would have made for an
+ * owning project; an ESM-format orphan keeps the fast in-process strip.
+ */
+function transformOrphanSource(filename: string, url: string): string {
+  if (moduleFormat(filename, undefined) === "commonjs") {
+    const lowered = emitOrphanAsCommonJs(filename);
+    if (lowered !== null) {
+      return lowered;
+    }
+  }
+  return stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
+    mode: "transform",
+    sourceUrl: url,
+  });
+}
+
+/**
+ * Lower a single CommonJS-format source file to CommonJS JavaScript by running
+ * tsgo on the lone file with `--module commonjs`. Emit-only, no diagnostic gate
+ * (the entry project's up-front check is the type gate), matching
+ * `buildDependency`. Returns `null` when tsgo is unavailable or produced no
+ * output, so the caller can fall back to the in-process strip.
+ */
+function emitOrphanAsCommonJs(filename: string): string | null {
+  let tsgo: string;
+  try {
+    tsgo = resolveTsgo({ cwd: path.dirname(filename) }).binary;
+  } catch {
+    return null;
+  }
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-orphan-"));
+  try {
+    const res = spawnNative(
+      tsgo,
+      [
+        filename,
+        // The file is named on the command line, so any tsconfig tsgo would
+        // discover by walking up (the consumer's own) must be ignored — both
+        // because it is not this file's project and because tsgo errors out
+        // ("tsconfig.json is present but will not be loaded") otherwise.
+        "--ignoreConfig",
+        "--module",
+        "commonjs",
+        "--target",
+        "es2022",
+        "--outDir",
+        outDir,
+        "--listEmittedFiles",
+      ],
+      { cwd: path.dirname(filename), encoding: "utf8" },
+    );
+    const emitted = parseFirstEmittedFile(outputText(res.stdout));
+    return emitted === null ? null : readFileOrNull(emitted);
+  } catch {
+    return null;
+  } finally {
+    fs.rmSync(outDir, { force: true, recursive: true });
+  }
+}
+
+/** First `TSFILE:` path tsgo printed under `--listEmittedFiles`, or `null`. */
+function parseFirstEmittedFile(stdout: string): string | null {
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = line.match(/^TSFILE:\s*(.+)$/);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
 }
 
 /**
@@ -596,9 +683,10 @@ const JS_TO_TS_EXTENSIONS: ReadonlyMap<string, readonly string[]> = new Map([
  * first match, or `null` when nothing matches.
  *
  * Handles two shapes:
- * - a relative specifier (`./x`) resolved against a `file:` parent — a normal
+ *
+ * - A relative specifier (`./x`) resolved against a `file:` parent — a normal
  *   `import`/`require` inside a served module;
- * - an already-absolute specifier with no parent — the main entry of a
+ * - An already-absolute specifier with no parent — the main entry of a
  *   `child_process.fork(__dirname + "/servant.js")`. fork's main module reaches
  *   the resolve hook as an absolute `.js` path with `parentURL` undefined, and
  *   run-from-source ships only the `.ts`, so without this the child dies with
