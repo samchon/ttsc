@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-paths",
-  "version": "0.14.2",
+  "version": "0.15.0",
   "description": "@ttsc/paths project-shape feature tests.",
   "type": "module",
   "scripts": {
