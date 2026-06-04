@@ -282,6 +282,8 @@ function resolveServedSource(
  * owning project; an ESM-format orphan keeps the fast in-process strip.
  */
 function transformOrphanSource(filename: string, url: string): string {
+  if (filename.includes("createClone") || filename.includes("createPrune"))
+    process.stderr.write(`__P ORPHAN file=${filename}\n`);
   if (moduleFormat(filename, undefined) === "commonjs") {
     const lowered = emitOrphanAsCommonJs(filename);
     if (lowered !== null) {
@@ -427,6 +429,8 @@ function serveEntryEmit(real: string): string | null {
     return null;
   }
   if (!isWithin(real, m.rootDir)) {
+    if (real.includes("createClone"))
+      process.stderr.write(`__P ENTRY within=false real=${real} root=${m.rootDir}\n`);
     return null;
   }
   const emitted = resolveEmittedJavaScript({
@@ -435,6 +439,10 @@ function serveEntryEmit(real: string): string | null {
     projectRoot: m.rootDir,
     sourceFile: real,
   });
+  if (real.includes("createClone"))
+    process.stderr.write(
+      `__P ENTRY within=true exists=${emitted ? fs.existsSync(emitted) : "noemit"} emitted=${emitted}\n`,
+    );
   return readFileOrNull(emitted);
 }
 
