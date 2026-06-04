@@ -12,3 +12,20 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 func SetParentInChildren(node *Node) {
   innerast.SetParentInChildren(node)
 }
+
+// SetParentInChildrenUnset sets Parent only on nodes that don't already have
+// one, recursing through the whole tree. Unlike SetParentInChildren it does NOT
+// overwrite the parent of original parse-tree nodes that a transform reused
+// inside a rebuilt SourceFile — overwriting those (e.g. an `export namespace`
+// kept verbatim while sibling statements were rewritten) makes tsgo's
+// runtime-syntax/printer mis-resolve the declaration and drop it from emit.
+// Only freshly built (synthetic) nodes need a parent wired, and those start nil.
+func SetParentInChildrenUnset(node *Node) {
+  node.ForEachChild(func(child *Node) bool {
+    if child.Parent == nil {
+      child.Parent = node
+    }
+    SetParentInChildrenUnset(child)
+    return false
+  })
+}

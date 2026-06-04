@@ -115,7 +115,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
         out = next
       }
     }
-    shimast.SetParentInChildren(out.AsNode())
+    shimast.SetParentInChildrenUnset(out.AsNode())
     for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
       out = tr.TransformSourceFile(out)
     }
