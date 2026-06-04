@@ -14,3 +14,11 @@ type EmitHost = innerprinter.EmitHost
 // EmitResolver resolves emit-time facts about nodes (referenced imports,
 // declaration flags, ...) under the checker mutex.
 type EmitResolver = innerprinter.EmitResolver
+
+// EmitTextWriter is the sink the printer emits into; String() yields the text.
+type EmitTextWriter = innerprinter.EmitTextWriter
+
+// NewTextWriter creates a fresh writer for one emit (newLine e.g. "\n").
+func NewTextWriter(newLine string, indentSize int) EmitTextWriter {
+  return innerprinter.NewTextWriter(newLine, indentSize)
+}
