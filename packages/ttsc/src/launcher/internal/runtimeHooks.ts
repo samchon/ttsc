@@ -439,10 +439,38 @@ function serveEntryEmit(real: string): string | null {
     projectRoot: m.rootDir,
     sourceFile: real,
   });
-  if (real.includes("createClone"))
+  if (real.includes("createClone")) {
+    const found = emitted ? fs.existsSync(emitted) : false;
     process.stderr.write(
-      `__P ENTRY within=true exists=${emitted ? fs.existsSync(emitted) : "noemit"} emitted=${emitted}\n`,
+      `__P ENTRY within=true exists=${emitted ? found : "noemit"} emitted=${emitted}\n`,
     );
+    if (!found && !(globalThis as { __pDumped?: boolean }).__pDumped) {
+      (globalThis as { __pDumped?: boolean }).__pDumped = true;
+      const all: string[] = [];
+      const walk = (d: string): void => {
+        let es: fs.Dirent[];
+        try {
+          es = fs.readdirSync(d, { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const e of es) {
+          const f = path.join(d, e.name);
+          if (e.isDirectory()) walk(f);
+          else if (f.endsWith(".js")) all.push(f);
+        }
+      };
+      walk(m.emitDir);
+      const exact = path.resolve(
+        m.emitDir,
+        path.relative(m.rootDir, real).replace(/\.[cm]?ts$/, ".js"),
+      );
+      process.stderr.write(
+        `__P DUMP emitDir=${m.emitDir} jsCount=${all.length} hasCreateClone=${all.some((f) => f.includes("createClone"))} exactPath=${exact} exactExists=${fs.existsSync(exact)} emittedFilesLen=${m.emittedFiles ? m.emittedFiles.length : "undef"}\n`,
+      );
+      process.stderr.write(`__P SAMPLE ${all.slice(0, 5).join(" | ")}\n`);
+    }
+  }
   return readFileOrNull(emitted);
 }
 
