@@ -89,6 +89,17 @@ const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
 ];
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 const CONTRIB_DIRNAME = "contrib";
+// A cold source-plugin build is a multi-second-to-minutes `go build`. When a
+// program fans out into many processes (a `pnpm -r` running several suites in
+// parallel, a benchmark, a worker pool), each inherits the same cold cache and
+// would otherwise launch its own full build of the SAME cache key at the same
+// instant. The atomic lock below lets one process build while the rest poll for
+// its published binary, so the toolchain runs once per cache key instead of N
+// times. A waiter steals an abandoned lock (builder crashed) after this timeout
+// so a fan-out never wedges; it matches the dependency-build lock in
+// runtimeHooks.ts.
+const PLUGIN_BUILD_LOCK_STEAL_MS = 600_000;
+const PLUGIN_BUILD_LOCK_POLL_MS = 50;
 const GLOBAL_CACHE_DIRNAME = "ttsc";
 const PLUGIN_CACHE_DIRNAME = "plugins";
 const CACHE_LAST_USED_FILE = ".last-used";
@@ -143,45 +154,165 @@ export function buildSourcePlugin(opts: {
     return binaryPath;
   }
   fs.mkdirSync(cacheDir, { recursive: true });
-  const label = opts.label ?? "source plugin";
-  if (opts.quiet !== true) {
+  return buildUnderPluginLock(cacheDir, binaryPath, () =>
+    compileSourcePlugin({
+      binaryPath,
+      cacheDir,
+      contributors,
+      dir,
+      entry,
+      goBinary,
+      key,
+      label: opts.label ?? "source plugin",
+      overlayDirs,
+      pluginName: opts.pluginName,
+      quiet: opts.quiet === true,
+      source,
+    }),
+  );
+}
+
+/** Run the actual `go build` and publish the binary; assumes the lock is held. */
+function compileSourcePlugin(opts: {
+  binaryPath: string;
+  cacheDir: string;
+  contributors: readonly ITtscBuildContributor[];
+  dir: string;
+  entry: string;
+  goBinary: string;
+  key: string;
+  label: string;
+  overlayDirs: readonly string[];
+  pluginName: string;
+  quiet: boolean;
+  source: string;
+}): string {
+  if (!opts.quiet) {
     const extra =
-      contributors.length === 0
+      opts.contributors.length === 0
         ? ""
-        : ` + ${contributors.length} contributor(s): ${contributors
+        : ` + ${opts.contributors.length} contributor(s): ${opts.contributors
             .map((c) => c.name)
             .join(", ")}`;
     process.stderr.write(
-      `ttsc: building ${label} "${opts.pluginName}" from ${source}${extra} (this runs once per cache key)\n`,
+      `ttsc: building ${opts.label} "${opts.pluginName}" from ${opts.source}${extra} (this runs once per cache key)\n`,
     );
   }
 
   const scratchDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), `ttsc-plugin-${key}-`),
+    path.join(os.tmpdir(), `ttsc-plugin-${opts.key}-`),
   );
   try {
-    materializeScratchDir(dir, scratchDir);
-    const goModReader = createGoModReader(goBinary, opts.pluginName);
-    if (contributors.length > 0) {
+    materializeScratchDir(opts.dir, scratchDir);
+    const goModReader = createGoModReader(opts.goBinary, opts.pluginName);
+    if (opts.contributors.length > 0) {
       mergeContributors({
-        contributors,
-        entry,
+        contributors: opts.contributors,
+        entry: opts.entry,
         goModReader,
         pluginName: opts.pluginName,
         scratchDir,
       });
     }
-    writeGoWork(scratchDir, overlayDirs, goBinary, opts.pluginName);
+    writeGoWork(scratchDir, opts.overlayDirs, opts.goBinary, opts.pluginName);
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
-    runGoBuild(scratchDir, entry, scratchBinaryName, opts.pluginName, goBinary);
+    runGoBuild(
+      scratchDir,
+      opts.entry,
+      scratchBinaryName,
+      opts.pluginName,
+      opts.goBinary,
+    );
     const builtBinary = path.join(scratchDir, scratchBinaryName);
-    publishBuiltBinary(builtBinary, binaryPath);
-    touchCacheEntry(cacheDir);
-    return binaryPath;
+    publishBuiltBinary(builtBinary, opts.binaryPath);
+    touchCacheEntry(opts.cacheDir);
+    return opts.binaryPath;
   } finally {
     fs.rmSync(scratchDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Build a source plugin while holding an exclusive cross-process lock for its
+ * cache key, so concurrent fan-out (parallel suites, a benchmark, a worker
+ * pool) runs the `go build` once instead of once per process.
+ *
+ * The lock is an atomic `mkdir` on `<cacheDir>.lock`. The winner builds and
+ * publishes the binary; every loser polls for that binary to appear and reuses
+ * it. A loser that waits past `PLUGIN_BUILD_LOCK_STEAL_MS` (the builder
+ * crashed without publishing) steals the abandoned lock and retries. This is
+ * the same shape as `withBuildLock` in the runtime hooks, keyed on the plugin
+ * binary's existence instead of a JSON meta marker.
+ *
+ * Correctness still rests on `publishBuiltBinary`'s atomic rename: the lock is
+ * an optimisation to avoid duplicate work, not the only guard against a
+ * corrupt binary, so a stolen lock that races a slow builder cannot ship a
+ * half-written file.
+ */
+function buildUnderPluginLock(
+  cacheDir: string,
+  binaryPath: string,
+  build: () => string,
+): string {
+  const lockDir = `${cacheDir}.lock`;
+  for (;;) {
+    if (fs.existsSync(binaryPath)) {
+      touchCacheEntry(cacheDir);
+      return binaryPath;
+    }
+    try {
+      // Plain mkdir (no `recursive`): recursive mode is idempotent and would
+      // not throw EEXIST, defeating the lock. The parent `cacheDir` already
+      // exists, so a single-level mkdir is all that is needed and its EEXIST
+      // is exactly the "someone else holds the lock" signal.
+      fs.mkdirSync(lockDir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        // A lock dir we cannot create for an unexpected reason (e.g. a
+        // read-only cache) must not silently skip the build. Fall back to an
+        // unlocked build — correctness is preserved by the atomic publish.
+        return build();
+      }
+      const waited = waitForPluginBinary(binaryPath, PLUGIN_BUILD_LOCK_STEAL_MS);
+      if (waited) {
+        touchCacheEntry(cacheDir);
+        return binaryPath;
+      }
+      // Builder appears to have crashed: steal the abandoned lock and retry.
+      fs.rmSync(lockDir, { force: true, recursive: true });
+      continue;
+    }
+    try {
+      // Re-check under the lock: a previous holder may have just published.
+      if (fs.existsSync(binaryPath)) {
+        touchCacheEntry(cacheDir);
+        return binaryPath;
+      }
+      return build();
+    } finally {
+      fs.rmSync(lockDir, { force: true, recursive: true });
+    }
+  }
+}
+
+/** Poll for the locked builder to publish its binary, up to `timeoutMs`. */
+function waitForPluginBinary(binaryPath: string, timeoutMs: number): boolean {
+  const startedAt = Date.now();
+  for (;;) {
+    if (fs.existsSync(binaryPath)) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
+    }
+    sleepSync(PLUGIN_BUILD_LOCK_POLL_MS);
+  }
+}
+
+/** Block the current (synchronous) thread for `ms` without busy-spinning. */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /**
