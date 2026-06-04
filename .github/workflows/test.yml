@@ -21,6 +21,13 @@ jobs:
   test:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    env:
+      # 매 매트릭스 잡이 build:current(=tsgo 포함 ttsc 콜드 go build)와 소스
+      # 플러그인 빌드를 반복한다. 전용 GOCACHE와 플러그인 바이너리 캐시를 run
+      # 간 보존해(아래 actions/cache), go.sum 불변이면 증분 빌드가 되고 소스
+      # 플러그인은 재사용된다.
+      GOCACHE: ${{ runner.temp }}/ttsc-gocache
+      TTSC_CACHE_DIR: ${{ runner.temp }}/ttsc-plugin-cache
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +57,16 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 10.6.4
+
+      - name: Cache ttsc go-build + source-plugin binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/ttsc-gocache
+            ${{ runner.temp }}/ttsc-plugin-cache
+          key: ttsc-build-${{ matrix.name }}-${{ runner.os }}-${{ hashFiles('packages/ttsc/go.sum', 'packages/ttsc/**/*.go') }}
+          restore-keys: |
+            ttsc-build-${{ matrix.name }}-${{ runner.os }}-
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
