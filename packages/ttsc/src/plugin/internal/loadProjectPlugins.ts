@@ -346,10 +346,22 @@ function resolvePluginEntries(
       config,
     }));
   }
-  const configured = project.compilerOptions.plugins.map((config, index) => ({
-    baseDir: project.pluginBaseDirs[index] ?? project.root,
-    config,
-  }));
+  const configured = project.compilerOptions.plugins.map((config, index) => {
+    // A bare/package plugin specifier (e.g. "typia/lib/transform") must resolve
+    // from the project's own node_modules, not from the tsconfig that declared
+    // it: an `extends`ed base config (a shared `tests/config/tsconfig.json`)
+    // declares the plugin, but the package is installed under the consuming
+    // project. Only a relative specifier ("./plugin") is meaningful relative to
+    // the declaring config's directory. Mirrors discoverPackagePluginEntries.
+    const declaringDir = project.pluginBaseDirs[index];
+    const baseDir =
+      typeof config.transform === "string" &&
+      isRelativePluginSpecifier(config.transform) &&
+      declaringDir !== undefined
+        ? declaringDir
+        : project.root;
+    return { baseDir, config };
+  });
   return [...configured, ...discoverPackagePluginEntries(project, configured)];
 }
 
