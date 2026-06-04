@@ -308,6 +308,18 @@ function emitOrphanAsCommonJs(filename: string): string | null {
   } catch {
     return null;
   }
+  // Content-hash cache: a CJS-format orphan ('s tsgo single-file emit) is lowered
+  // once and reused by every other process in the run, and across runs. Without
+  // it a program that fans out into many processes (the automated test corpus
+  // imports the same vendored `.ts` deps from thousands of generated files) would
+  // re-spawn tsgo per file per process and crawl.
+  const cacheFile = orphanCacheFile(filename, tsgo);
+  if (cacheFile !== null) {
+    const hit = readFileOrNull(cacheFile);
+    if (hit !== null) {
+      return hit;
+    }
+  }
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-orphan-"));
   try {
     const res = spawnNative(
@@ -330,11 +342,59 @@ function emitOrphanAsCommonJs(filename: string): string | null {
       { cwd: path.dirname(filename), encoding: "utf8" },
     );
     const emitted = parseFirstEmittedFile(outputText(res.stdout));
-    return emitted === null ? null : readFileOrNull(emitted);
+    const lowered = emitted === null ? null : readFileOrNull(emitted);
+    if (lowered !== null && cacheFile !== null) {
+      writeOrphanCache(cacheFile, lowered);
+    }
+    return lowered;
   } catch {
     return null;
   } finally {
     fs.rmSync(outDir, { force: true, recursive: true });
+  }
+}
+
+/** Cache root for lowered orphan sources, shared per run (and across runs when
+ * `TTSC_CACHE_DIR` points at a persisted directory). */
+function orphanCacheRoot(): string {
+  const base =
+    process.env.TTSC_CACHE_DIR && process.env.TTSC_CACHE_DIR.length !== 0
+      ? process.env.TTSC_CACHE_DIR
+      : path.join(os.tmpdir(), "ttsc-orphan");
+  return path.join(base, "ttsx-orphan-cjs");
+}
+
+/** Content-addressed cache path for one orphan file's CommonJS lowering, keyed
+ * by source bytes and the tsgo binary so a tsgo bump invalidates it. `null` when
+ * the source cannot be read. */
+function orphanCacheFile(filename: string, tsgo: string): string | null {
+  let source: Buffer;
+  try {
+    source = fs.readFileSync(filename);
+  } catch {
+    return null;
+  }
+  const key = crypto
+    .createHash("sha256")
+    .update(tsgo)
+    .update("\0")
+    .update(source)
+    .digest("hex")
+    .slice(0, 32);
+  return path.join(orphanCacheRoot(), `${key}.js`);
+}
+
+/** Write the lowered source to its cache path atomically (temp + rename), so a
+ * concurrent reader never sees a half-written file. Best-effort: a failure just
+ * means the next process re-lowers. */
+function writeOrphanCache(cacheFile: string, lowered: string): void {
+  try {
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    const tmp = `${cacheFile}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, lowered);
+    fs.renameSync(tmp, cacheFile);
+  } catch {
+    // ignore — caching is an optimization, correctness does not depend on it
   }
 }
 
