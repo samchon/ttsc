@@ -335,6 +335,14 @@ function emitOrphanAsCommonJs(filename: string): string | null {
         "commonjs",
         "--target",
         "es2022",
+        // This is an emit-only lowering: the entry project's up-front build is
+        // the type gate, so the single-file pass does not need to type-check.
+        // Skipping the check (and the lib check it implies) cuts the per-file
+        // cost several-fold, which matters when a program generates and imports
+        // thousands of raw `.ts` files at runtime (a fanned-out test corpus) and
+        // each one would otherwise pay a full single-file check.
+        "--noCheck",
+        "--skipLibCheck",
         "--outDir",
         outDir,
         "--listEmittedFiles",
@@ -435,31 +443,6 @@ function serveEntryEmit(real: string): string | null {
     projectRoot: m.rootDir,
     sourceFile: real,
   });
-  if (
-    real.includes("createClone") &&
-    !(globalThis as { __pd?: boolean }).__pd
-  ) {
-    (globalThis as { __pd?: boolean }).__pd = true;
-    const all: string[] = [];
-    const walk = (d: string): void => {
-      let es: fs.Dirent[];
-      try {
-        es = fs.readdirSync(d, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const e of es) {
-        const f = path.join(d, e.name);
-        if (e.isDirectory()) walk(f);
-        else if (f.endsWith(".js")) all.push(f);
-      }
-    };
-    walk(m.emitDir);
-    const cc = all.filter((f) => f.includes("createClone")).slice(0, 2);
-    process.stderr.write(
-      `__PD real=${real}\n__PD emitDir=${m.emitDir}\n__PD jsCount=${all.length} emittedFilesLen=${m.emittedFiles ? m.emittedFiles.length : "undef"} resolved=${emitted}\n__PD createCloneInDir=${cc.length} ${cc.join(" ")}\n__PD hasTemplateJs=${all.some((f) => f.includes("template"))}\n__PD sample=${all.slice(0, 3).join(" ")}\n`,
-    );
-  }
   return readFileOrNull(emitted);
 }
 
