@@ -54,9 +54,7 @@ jobs:
       - name: Clone typia next
         run: |
           rm -rf experimental/typia
-          # TEMP: clone the native-ttsx integration branch while it is in flight.
-          # Switch back to master (drop --branch) at final merge.
-          git clone --depth=1 --branch feat/native-ttsx-integration https://github.com/samchon/typia experimental/typia
+          git clone --depth=1 https://github.com/samchon/typia experimental/typia
 
       - name: Use local ttsc tarballs
         working-directory: experimental/typia
