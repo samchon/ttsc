@@ -14,8 +14,8 @@
   },
   "homepage": "https://ttsc.dev",
   "devDependencies": {
-    "@typia/interface": "12.0.2",
-    "@typia/utils": "12.0.2",
-    "typia": "12.0.2"
+    "@typia/interface": "13.0.0-dev.20260605.1",
+    "@typia/utils": "13.0.0-dev.20260605.1",
+    "typia": "13.0.0-dev.20260605.1"
   }
 }
