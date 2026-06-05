@@ -25,8 +25,8 @@ func (h *pluginEmitHost) SourceFiles() []*shimast.SourceFile { return h.program.
 func (h *pluginEmitHost) UseCaseSensitiveFileNames() bool {
   return h.program.UseCaseSensitiveFileNames()
 }
-func (h *pluginEmitHost) GetCurrentDirectory() string   { return h.program.GetCurrentDirectory() }
-func (h *pluginEmitHost) CommonSourceDirectory() string { return h.program.CommonSourceDirectory() }
+func (h *pluginEmitHost) GetCurrentDirectory() string    { return h.program.GetCurrentDirectory() }
+func (h *pluginEmitHost) CommonSourceDirectory() string  { return h.program.CommonSourceDirectory() }
 func (h *pluginEmitHost) IsEmitBlocked(file string) bool { return h.program.IsEmitBlocked(file) }
 func (h *pluginEmitHost) WriteFile(fileName string, text string) error {
   return h.program.Host().FS().WriteFile(fileName, text)
@@ -92,6 +92,39 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
   return p.EmitWithPluginTransformers(transforms, writeFile)
 }
 
+// restoreOriginalDeclarationSymbols copies the binder symbol from each original
+// parse-tree node onto the synthetic node a plugin transform recreated in its
+// place. A plugin that rewrites a node nested inside a class/interface/enum (for
+// example a decorator call on a controller method) forces the visitor to rebuild
+// every ancestor container to hold the changed child; those rebuilt containers
+// carry an `original` link (set by the emit context) but NOT the binder symbol,
+// because the emit context's update hook only records the original, it does not
+// copy `DeclarationBase.Symbol`.
+//
+// tsgo's emit resolver then walks the transformed tree in
+// MarkLinkedReferencesRecursively and, when it resolves an identifier whose
+// scope chain passes through one of those rebuilt containers, calls
+// getSymbolOfDeclaration(container) — which reads container.Symbol() and nil-
+// panics on a rebuilt class/interface/enum. Restoring the symbol from the
+// original (the symbol object is shared and node-independent for lookup) lets
+// the resolver mark references the same way it would on the parse tree.
+func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimast.Node) {
+  if node == nil {
+    return
+  }
+  if data := node.DeclarationData(); data != nil && data.Symbol == nil {
+    if original := ec.MostOriginal(node); original != nil {
+      if originalData := original.DeclarationData(); originalData != nil {
+        data.Symbol = originalData.Symbol
+      }
+    }
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    restoreOriginalDeclarationSymbols(ec, child)
+    return false
+  })
+}
+
 // EmitWithPluginTransformers emits every source file by assembling tsgo's emit
 // pipeline from shim parts and running the plugin transformers FIRST (in order)
 // in the same EmitContext as the builtin chain (type-erase, import-elision,
@@ -116,6 +149,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       }
     }
     shimast.SetParentInChildrenUnset(out.AsNode())
+    restoreOriginalDeclarationSymbols(ec, out.AsNode())
     for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
       out = tr.TransformSourceFile(out)
     }
