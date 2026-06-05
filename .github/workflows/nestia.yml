@@ -107,7 +107,7 @@ jobs:
       - name: Clone nestia
         run: |
           rm -rf experimental/nestia
-          git clone --depth=1 --branch master https://github.com/samchon/nestia experimental/nestia
+          git clone --depth=1 --branch feat/native-ttsx-integration https://github.com/samchon/nestia experimental/nestia
 
       - name: Use local ttsc tarballs
         working-directory: experimental/nestia
