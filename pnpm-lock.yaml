@@ -7,8 +7,8 @@ settings:
 catalogs:
   tsgo:
     '@typescript/native-preview':
-      specifier: 7.0.0-dev.20260421.2
-      version: 7.0.0-dev.20260421.2
+      specifier: 7.0.0-dev.20260605.1
+      version: 7.0.0-dev.20260605.1
   utils:
     '@nestia/e2e':
       specifier: ^11.2.0
@@ -32,7 +32,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       bumpp:
         specifier: ^10.4.1
         version: 10.4.1
@@ -55,7 +55,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -70,7 +70,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -100,7 +100,7 @@ importers:
         version: 18.3.29
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       monaco-editor:
         specifier: ^0.52.0
         version: 0.52.2
@@ -126,7 +126,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -187,7 +187,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -229,7 +229,7 @@ importers:
         version: 1.120.0
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       '@vscode/vsce':
         specifier: ^3.6.1
         version: 3.9.1
@@ -253,7 +253,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -268,7 +268,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -286,7 +286,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
@@ -322,7 +322,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
@@ -340,7 +340,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
@@ -367,7 +367,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
@@ -388,7 +388,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -418,7 +418,7 @@ importers:
         version: 25.9.1
       '@typescript/native-preview':
         specifier: catalog:tsgo
-        version: 7.0.0-dev.20260421.2
+        version: 7.0.0-dev.20260605.1
       eslint:
         specifier: ^10.3.0
         version: 10.4.0(jiti@2.7.0)
@@ -2357,43 +2357,51 @@ packages:
     resolution: {integrity: sha512-U3gxVaDVnuZKhSspW/MzMxE1kq7zOdc072FcSNoqA1I9p8HyKbBFfEHoWckBAMgNMph4MamwS5iTVzFmrnt8TQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-fHv1r3ZmVo6zxuAIFmuX3w9QxbcauoG0SsWhmDwm6VmRubLlOJIcmTtlmV3JAb9oOnq8LuzZljzT7Q39fSMQDw==}
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-FR2ToauEC9dIAMV8OeTD7cXjgnpR09p1YZYrQzIpIOfzkg5FPccil+ca75BMbF0jT9h/0x+6+oy7JxzPO8sT+Q==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-KWTR6xbW9t+JS7D5DQIzo75pqVXVWUxF9PMv/+S6xsnOjCVd6g0ixHcFpFMJMKSUQpGPr8Z5f7b8ks6LHW01jg==}
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-vkqJpLeVN5RTtl/ibzasCubv4bQn45KDZRt8hHhneeibw9mZzm+vuvMvH/z/F5Sg/t/nz5kXKdDfhT+CV7aHAA==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-VLMEuml3BhUb+jaL0TXQ4xvVODxJF+RhkI+tBWvlynsJI4khTXEiwWh+wPOJrsfBRYFRMXEu28Odl/HXkYze8w==}
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-YYzUP7HlKNUzfHFND+CgrYpPPcQyrcYmV0GhjxxMVWvlhQe6SvmWQLcZdp8ZW0t1BDfvs+jMtL/lI85TiUpY2w==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-BWLQO3nemLDSV5PoE5GPHe1dU9Dth77Kv8/cle9Ujcp4LhPo0KincdPqFH/qKeU/xvW25mgFueflZ1nc4rKuww==}
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-gBsGhto81phtQHoQczJenb2aY2y4JVrgZDb7LPHQIEiFSEYe0uT6E1DR/ZT0XXdkLXn6wFBwcmoDLlDjo/uW2g==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-qUrJWTB5/wv4wnRG0TRXElAxc2kykNiRNyEIEqBbLmzDlrcvAW7RRy8MXoY1ZyTiKGMu14itZ3x9oW6+blFpRw==}
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-VRtSycQWdN2hMniqVXAzjWG5zgVwT9Yy+yk3O4qGJ+3ncFJ3nYu4VerupNNUNrmP4FFPViS8hjhQJbOUSuINXg==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-Rc6NsWlZmCs5YUKVzKgwoBOoRUGsPzct4BDMRX0csD1devLBBc4AbUXWKsJRbpwIAnqMO1ld4sNHEb+wXgfNHQ==}
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-fBvmDKqL10ST+FnryPLTD1lY8XbEiOYGSa6hi17jYJwCMZA6mLbYPre06lysOB1eO9oRM7N0zUsEQu57YiFWTw==}
+    engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-GQv1+dya1t6EqF2Cpsb+xoozovdX10JUSf6Kl/8xNkTapzmlHd+uMr+8ku3jIASTxoRGn0Mklgjj3MDKrOTuLg==}
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-JDfR4uPr3ZJ7kfkEkPw2y4LvEVcnjLCRTCT9r3MxtYpKg0Oeg88E8TmDPbatVQ48GC9LlhLZ+4WSFSZRGUkIRA==}
+    engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
 
-  '@typescript/native-preview@7.0.0-dev.20260421.2':
-    resolution: {integrity: sha512-CmajHI25HpVWE9R1XFoxr+cphJPxoYD3eFioQtAvXYkMFKnLdICMS9pXre9Pybizb75ejRxjKD5/CVG055rEIg==}
+  '@typescript/native-preview@7.0.0-dev.20260605.1':
+    resolution: {integrity: sha512-JWqt9yAOq2BTh6u6nXiEAfdJVO7akc2bD23OuEwdCcc5sANhp5T3Hgci85NVs9rIQwDh59lqU23phGIUvkc0CA==}
+    engines: {node: '>=16.20.0'}
     hasBin: true
 
   '@typescript/vfs@1.6.4':
@@ -7737,36 +7745,36 @@ snapshots:
       '@typescript-eslint/types': 8.59.4
       eslint-visitor-keys: 5.0.1
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260421.2':
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260605.1':
     optional: true
 
-  '@typescript/native-preview@7.0.0-dev.20260421.2':
+  '@typescript/native-preview@7.0.0-dev.20260605.1':
     optionalDependencies:
-      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260421.2
-      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260421.2
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260605.1
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260605.1
 
   '@typescript/vfs@1.6.4(typescript@5.9.3)':
     dependencies:
