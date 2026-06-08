@@ -1,29 +1,39 @@
 # Functional
 
-Functional-programming policy rules from `eslint-plugin-functional`. Pushes code toward immutability, side-effect-free expressions, and expression-style control flow. Most rules are useful in pieces, projects rarely enable the whole family at `"error"`. Enabling the whole set together expresses a strict functional-core / imperative-shell discipline. Diagnostic-only: `ttsc fix` does not rewrite mutation, classes, exceptions, loops, or branching into a functional design.
+Functional-programming policy rules from `eslint-plugin-functional`. They push code toward immutability, side-effect-free expressions, and expression-style control flow.
+
+Most rules are useful in pieces. Projects rarely enable the whole family at `"error"`. Enabling the whole set together expresses a strict functional-core / imperative-shell discipline.
 
 Source: [`eslint-plugin-functional`](https://github.com/eslint-functional/eslint-plugin-functional) (MIT).
 
-- `functional/functional-parameters`: Enforce functional parameter style: reject `arguments`, reject rest parameters, and optionally enforce a per-function parameter-count policy.
-- `functional/immutable-data`: Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods.
-- `functional/no-class-inheritance`: Reject `abstract` classes and `extends` clauses on class declarations; prefer composition and structural typing.
-- `functional/no-classes`: Reject `class` declarations and class expressions altogether.
-- `functional/no-conditional-statements`: Reject `if` and `switch` _statements_.
-- `functional/no-expression-statements`: Reject expression statements that exist purely for their side effects (`mutate(x);`); pure code is built up from expressions with assigned or returned results.
-- `functional/no-let`: Reject `let` declarations so every binding is `const`.
-- `functional/no-loop-statements`: Reject `for`, `while`, and `do/while` loop statements; use recursive helpers or array methods (`map`, `reduce`) instead.
-- `functional/no-mixed-types`: Reject interfaces and type literals that mix property, method, call, and index member kinds; mixed shapes make composition harder.
-- `functional/no-promise-reject`: Reject any call to `Promise.reject(...)`; resolve with an `Option` / `Result` shape so failures stay in the value channel.
-- `functional/no-return-void`: Reject void returns and functions whose declared return type is `void`; functions should always return a value.
-- `functional/no-this-expressions`: Reject any `this` expression.
-- `functional/no-throw-statements`: Reject `throw` statements; functional code surfaces failures through return values (`Either`, `Result`) instead.
-- `functional/no-try-statements`: Reject `try/catch` and `try/finally` statements as a corollary of `functional/no-throw-statements`.
-- `functional/prefer-immutable-types`: Require declared variable, parameter, and property types to be `readonly` or otherwise structurally immutable.
-- `functional/prefer-property-signatures`: Prefer function-property signatures (`fn: () => T`) over method shorthand (`fn(): T`) in interfaces and type literals.
-- `functional/prefer-readonly-type`: Prefer `readonly` array, tuple, collection, and property types over their mutable counterparts.
-- `functional/prefer-tacit`: Reject trivial wrappers such as `x => f(x)` in favor of the tacit form `f`; reduces noise in functional pipelines.
-- `functional/readonly-type`: Enforce one consistent spelling for readonly types, `readonly T[]` vs `ReadonlyArray<T>`, across the project.
-- `functional/type-declaration-immutability`: Enforce readonly/immutable type declarations by _declaration name_ policy, for projects that want only types matching certain naming conventions to be locked down.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`functional/functional-parameters`](#rule-functional-functional-parameters): Enforce functional parameter style: reject `arguments`, reject rest parameters.
+- [`functional/immutable-data`](#rule-functional-immutable-data): Reject property assignment , element assignment , and `Map`/`Set` mutation methods.
+- [`functional/no-class-inheritance`](#rule-functional-no-class-inheritance): Reject `abstract` classes and `extends` clauses on class declarations.
+- [`functional/no-classes`](#rule-functional-no-classes): Reject `class` declarations and class expressions altogether.
+- [`functional/no-conditional-statements`](#rule-functional-no-conditional-statements): Reject `if` and `switch` _statements_.
+- [`functional/no-expression-statements`](#rule-functional-no-expression-statements): Reject expression statements that exist purely for their side effects.
+- [`functional/no-let`](#rule-functional-no-let): Reject `let` declarations so every binding is `const`.
+- [`functional/no-loop-statements`](#rule-functional-no-loop-statements): Reject `for`, `while`, and `do/while` loop statements.
+- [`functional/no-mixed-types`](#rule-functional-no-mixed-types): Reject interfaces and type literals.
+- [`functional/no-promise-reject`](#rule-functional-no-promise-reject): Reject any call to `Promise.reject(...)`; resolve with an `Option` / `Result` shape.
+- [`functional/no-return-void`](#rule-functional-no-return-void): Reject void returns and functions whose declared return type is `void`.
+- [`functional/no-this-expressions`](#rule-functional-no-this-expressions): Reject any `this` expression.
+- [`functional/no-throw-statements`](#rule-functional-no-throw-statements): Reject `throw` statements; functional code surfaces failures through return values instead.
+- [`functional/no-try-statements`](#rule-functional-no-try-statements): Reject `try/catch` and `try/finally` statements as a corollary of `functional/no-throw-statements`.
+- [`functional/prefer-immutable-types`](#rule-functional-prefer-immutable-types): Require declared variable, parameter, and property types.
+- [`functional/prefer-property-signatures`](#rule-functional-prefer-property-signatures): Prefer function-property signatures over method shorthand in interfaces and type literals.
+- [`functional/prefer-readonly-type`](#rule-functional-prefer-readonly-type): Prefer `readonly` array, tuple, collection, and property types over their mutable counterparts.
+- [`functional/prefer-tacit`](#rule-functional-prefer-tacit): Reject trivial wrappers such as `x => f(x)`.
+- [`functional/readonly-type`](#rule-functional-readonly-type): Enforce one consistent spelling for readonly types, `readonly T[]` vs `ReadonlyArray<T>`, across the project.
+- [`functional/type-declaration-immutability`](#rule-functional-type-declaration-immutability): Enforce readonly/immutable type declarations by _declaration name_ policy, for projects.
+
+## Configuration example
 
 ```ts
 // lint.config.ts
@@ -39,9 +49,449 @@ export default {
     "functional/no-classes": "error",
     "functional/immutable-data": "error",
     "functional/prefer-readonly-type": "error",
-    "functional/type-declaration-immutability": ["error", {
-      rules: [{ identifiers: ".*" }],
-    }],
+    "functional/type-declaration-immutability": [
+      "error",
+      {
+        rules: [{ identifiers: ".*" }],
+      },
+    ],
   },
 } satisfies ITtscLintConfig;
+```
+
+## Rules
+
+<a id="rule-functional-functional-parameters"></a>
+
+### `functional/functional-parameters`
+
+Enforce functional parameter style: reject `arguments`, reject rest parameters, and optionally enforce a per-function parameter-count policy.
+
+Options:
+
+- `allowRestParameter?: boolean`
+
+  Allow rest parameters such as `(...args: readonly string[])`.
+
+- `allowArgumentsKeyword?: boolean`
+
+  Allow the legacy `arguments` object.
+
+- `enforceParameterCount?: boolean | "atLeastOne" | "exactlyOne"`
+
+  Require functions to declare parameters. `true` maps to the conservative at-least-one policy.
+
+Example:
+
+```ts
+// reports: functional/functional-parameters (error)
+function variadic(...args: number[]): number {
+  return args.length;
+}
+```
+
+<a id="rule-functional-immutable-data"></a>
+
+### `functional/immutable-data`
+
+Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods. Configurable to allow mutation inside constructors or initialization expressions.
+
+Options:
+
+- `ignoreMapsAndSets?: boolean`
+
+  Skip mutating `Map` and `Set` methods while still checking arrays and property assignment.
+
+Example:
+
+```ts
+const obj = { value: 1 };
+
+// reports: functional/immutable-data (error)
+obj.value = 2;
+```
+
+<a id="rule-functional-no-class-inheritance"></a>
+
+### `functional/no-class-inheritance`
+
+Reject `abstract` classes and `extends` clauses on class declarations; prefer composition and structural typing.
+
+Example:
+
+```ts
+class Base {}
+
+// reports: functional/no-class-inheritance (error)
+class Derived extends Base {}
+```
+
+<a id="rule-functional-no-classes"></a>
+
+### `functional/no-classes`
+
+Reject `class` declarations and class expressions altogether.
+
+Example:
+
+```ts
+// reports: functional/no-classes (error)
+class Container {
+  value = 1;
+}
+```
+
+<a id="rule-functional-no-conditional-statements"></a>
+
+### `functional/no-conditional-statements`
+
+Reject `if` and `switch` _statements_. The conditional-expression forms (ternary, `&&`, `||`) remain allowed.
+
+Options:
+
+- `allowReturningBranches?: boolean | "ifExhaustive"`
+
+  Reserved for upstream-compatible configs; the current native rule rejects all `if` / `switch` statements regardless of value.
+
+Example:
+
+```ts
+const flag = true;
+
+// reports: functional/no-conditional-statements (error)
+if (flag) {
+}
+```
+
+<a id="rule-functional-no-expression-statements"></a>
+
+### `functional/no-expression-statements`
+
+Reject expression statements that exist purely for their side effects (`mutate(x);`); pure code is built up from expressions with assigned or returned results.
+
+Example:
+
+```ts
+// reports: functional/no-expression-statements (error)
+console.log("saved");
+```
+
+<a id="rule-functional-no-let"></a>
+
+### `functional/no-let`
+
+Reject `let` declarations so every binding is `const`. The shared ignore-pattern options can carve out specific identifier shapes (test locals, loop counters) when a full ban is too aggressive.
+
+Options:
+
+- `allowInForLoopInit?: boolean`
+
+  Permit `let` in a `for` statement initializer.
+
+- `allowInFunctions?: boolean`
+
+  Permit `let` inside functions while still rejecting module-level `let`.
+
+Example:
+
+```ts
+// reports: functional/no-let (error)
+let count = 0;
+```
+
+<a id="rule-functional-no-loop-statements"></a>
+
+### `functional/no-loop-statements`
+
+Reject `for`, `while`, and `do/while` loop statements; use recursive helpers or array methods (`map`, `reduce`) instead.
+
+Example:
+
+```ts
+const items = [1, 2, 3];
+
+// reports: functional/no-loop-statements (error)
+for (const item of items) {
+}
+```
+
+<a id="rule-functional-no-mixed-types"></a>
+
+### `functional/no-mixed-types`
+
+Reject interfaces and type literals that mix property, method, call, and index member kinds; mixed shapes make composition harder.
+
+Options:
+
+- `checkInterfaces?: boolean`
+
+  Check interface member kinds.
+
+- `checkTypeLiterals?: boolean`
+
+  Check type-literal member kinds.
+
+Example:
+
+```ts
+type Mixed = {
+  value: number;
+  // reports: functional/no-mixed-types (error)
+  compute(): number;
+};
+```
+
+<a id="rule-functional-no-promise-reject"></a>
+
+### `functional/no-promise-reject`
+
+Reject any call to `Promise.reject(...)`; resolve with an `Option` / `Result` shape so failures stay in the value channel.
+
+Example:
+
+```ts
+// reports: functional/no-promise-reject (error)
+const rejection = Promise.reject(new Error("nope"));
+```
+
+<a id="rule-functional-no-return-void"></a>
+
+### `functional/no-return-void`
+
+Reject void returns and functions whose declared return type is `void`; functions should always return a value.
+
+Options:
+
+- `allowNull?: boolean`
+
+  Permit a function that returns `null` to satisfy the rule.
+
+- `allowUndefined?: boolean`
+
+  Permit a function that returns `undefined` to satisfy the rule.
+
+- `ignoreInferredTypes?: boolean`
+
+  Skip functions whose return type is inferred to be `void` rather than declared explicitly.
+
+Example:
+
+```ts
+// reports: functional/no-return-void (error)
+function log(): void {
+  // reports: functional/no-return-void (error)
+  return;
+}
+```
+
+<a id="rule-functional-no-this-expressions"></a>
+
+### `functional/no-this-expressions`
+
+Reject any `this` expression. Combined with `functional/no-classes` this leaves no place where `this` is legal; on its own it still forbids `this` in standalone functions, modules, and arrow pipelines.
+
+Example:
+
+```ts
+const value: unknown = "current";
+
+function read(this: { value: unknown }) {
+  // reports: functional/no-this-expressions (error)
+  return this.value;
+}
+```
+
+<a id="rule-functional-no-throw-statements"></a>
+
+### `functional/no-throw-statements`
+
+Reject `throw` statements; functional code surfaces failures through return values (`Either`, `Result`) instead.
+
+Options:
+
+- `allowToRejectPromises?: boolean`
+
+  Reserved for upstream-compatible configs; the current native rule rejects every `throw` statement regardless of value.
+
+Example:
+
+```ts
+function boom(): never {
+  // reports: functional/no-throw-statements (error)
+  throw new Error("boom");
+}
+```
+
+<a id="rule-functional-no-try-statements"></a>
+
+### `functional/no-try-statements`
+
+Reject `try/catch` and `try/finally` statements as a corollary of `functional/no-throw-statements`.
+
+Options:
+
+- `allowCatch?: boolean`
+
+  Allow `try/catch` while still checking `finally` when present.
+
+- `allowFinally?: boolean`
+
+  Allow `try/finally` while still checking `catch` when present.
+
+Example:
+
+```ts
+function run(): void {}
+function recover(error: unknown): void {
+  console.error(error);
+}
+
+// reports: functional/no-try-statements (error)
+try {
+  run();
+} catch (error) {
+  recover(error);
+}
+```
+
+<a id="rule-functional-prefer-immutable-types"></a>
+
+### `functional/prefer-immutable-types`
+
+Require declared variable, parameter, and property types to be `readonly` or otherwise structurally immutable.
+
+Options:
+
+- `enforcement?: | "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "None" | false`
+
+  Minimum accepted immutability. The native subset treats any configured value as readonly-required.
+
+Example:
+
+```ts
+// reports: functional/prefer-immutable-types (error)
+const values: string[] = [];
+```
+
+<a id="rule-functional-prefer-property-signatures"></a>
+
+### `functional/prefer-property-signatures`
+
+Prefer function-property signatures (`fn: () => T`) over method shorthand (`fn(): T`) in interfaces and type literals.
+
+Only the property form accepts `readonly`, so method shorthand silently makes the slot mutable; overloads still need the method form.
+
+Example:
+
+```ts
+interface Api {
+  // reports: functional/prefer-property-signatures (error)
+  run(): void;
+}
+```
+
+<a id="rule-functional-prefer-readonly-type"></a>
+
+### `functional/prefer-readonly-type`
+
+Prefer `readonly` array, tuple, collection, and property types over their mutable counterparts.
+
+Options:
+
+- `allowLocalMutation?: boolean`
+
+  Permit mutation of locals while still policing exported types.
+
+- `allowMutableReturnType?: boolean`
+
+  Permit a mutable return type even when parameters must be readonly.
+
+- `checkImplicit?: boolean`
+
+  Also check property positions that have no explicit type annotation.
+
+- `ignoreCollections?: boolean`
+
+  Skip array / tuple / `Map` / `Set` types.
+
+- `ignoreClass?: boolean | "fieldsOnly"`
+
+  Skip class fields. `"fieldsOnly"` keeps the rule active for non-field class members.
+
+- `ignoreInterface?: boolean`
+
+  Skip interface members entirely.
+
+Example:
+
+```ts
+// reports: functional/prefer-readonly-type (error)
+type Values = string[];
+```
+
+<a id="rule-functional-prefer-tacit"></a>
+
+### `functional/prefer-tacit`
+
+Reject trivial wrappers such as `x => f(x)` in favor of the tacit form `f`; reduces noise in functional pipelines.
+
+Options:
+
+- `checkMemberExpressions?: boolean`
+
+  Check member expressions such as `x => service.map(x)`.
+
+Example:
+
+```ts
+function transform(value: number): number {
+  return value * 2;
+}
+
+// reports: functional/prefer-tacit (error)
+const map = (value: number) => transform(value);
+```
+
+<a id="rule-functional-readonly-type"></a>
+
+### `functional/readonly-type`
+
+Enforce one consistent spelling for readonly types, `readonly T[]` vs `ReadonlyArray<T>`, across the project.
+
+Options:
+
+- `prefer?: "keyword" | "generic"`
+
+  Preferred readonly spelling. Default: `"keyword"`.
+
+Example:
+
+```ts
+// reports: functional/readonly-type (error)
+type Values = ReadonlyArray<string>;
+```
+
+<a id="rule-functional-type-declaration-immutability"></a>
+
+### `functional/type-declaration-immutability`
+
+Enforce readonly/immutable type declarations by _declaration name_ policy, for projects that want only types matching certain naming conventions to be locked down.
+
+Options:
+
+- `rules?: readonly ITtscLintFunctionalTypeDeclarationImmutabilityRule[]`
+
+  Declaration-name policies. Empty means all type declarations.
+
+- `ignoreInterfaces?: boolean`
+
+  Skip interface declarations and only check type aliases.
+
+Example:
+
+```ts
+// reports: functional/type-declaration-immutability (error)
+interface State {
+  values: string[];
+}
 ```

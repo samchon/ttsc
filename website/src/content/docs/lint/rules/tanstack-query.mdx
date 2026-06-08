@@ -1,14 +1,193 @@
 # TanStack Query
 
-TanStack Query rules from `@tanstack/eslint-plugin-query`. Guards the ergonomic and correctness contracts of TanStack Query (`useQuery`, `useMutation`, query-options factories) inside React TypeScript sources.
+TanStack Query rules from `@tanstack/eslint-plugin-query`.
+
+They guard the ergonomic and correctness contracts of TanStack Query (`useQuery`, `useMutation`, query-options factories) inside React TypeScript sources.
 
 Source: [`@tanstack/eslint-plugin-query`](https://github.com/TanStack/query/tree/main/packages/eslint-plugin-query) (MIT).
 
-- `tanstack-query/exhaustive-deps`: Require TanStack Query `queryKey` arrays to include every variable read by the `queryFn` body, mirroring React Hooks dependency tracking.
-- `tanstack-query/infinite-query-property-order`: Require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery` to appear in the order TanStack Query documents.
-- `tanstack-query/mutation-property-order`: Require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
-- `tanstack-query/no-rest-destructuring`: Reject `...rest` destructuring on TanStack Query hook results.
-- `tanstack-query/no-unstable-deps`: Reject passing entire TanStack Query hook results into React dependency arrays.
-- `tanstack-query/no-void-query-fn`: Reject `queryFn` callbacks that resolve to `void`.
-- `tanstack-query/prefer-query-options`: Prefer wrapping query options in the `queryOptions()` helper over inline `{ queryKey, queryFn }` literals.
-- `tanstack-query/stable-query-client`: Reject creating a `QueryClient` inside a React component or hook body. The client must be stable across renders.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`tanstack-query/exhaustive-deps`](#rule-tanstack-query-exhaustive-deps): Require TanStack Query `queryKey` arrays to include every variable read by the `queryFn` body.
+- [`tanstack-query/infinite-query-property-order`](#rule-tanstack-query-infinite-query-property-order): Require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery`.
+- [`tanstack-query/mutation-property-order`](#rule-tanstack-query-mutation-property-order): Require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
+- [`tanstack-query/no-rest-destructuring`](#rule-tanstack-query-no-rest-destructuring): Reject `...rest` destructuring on TanStack Query hook results.
+- [`tanstack-query/no-unstable-deps`](#rule-tanstack-query-no-unstable-deps): Reject passing entire TanStack Query hook results into React dependency arrays.
+- [`tanstack-query/no-void-query-fn`](#rule-tanstack-query-no-void-query-fn): Reject `queryFn` callbacks that resolve to `void`.
+- [`tanstack-query/prefer-query-options`](#rule-tanstack-query-prefer-query-options): Prefer wrapping query options in the `queryOptions()` helper over inline `{ queryKey, queryFn }` literals.
+- [`tanstack-query/stable-query-client`](#rule-tanstack-query-stable-query-client): Reject creating a `QueryClient` inside a React component or hook body.
+
+## Rules
+
+<a id="rule-tanstack-query-exhaustive-deps"></a>
+
+### `tanstack-query/exhaustive-deps`
+
+Require TanStack Query `queryKey` arrays to include every variable read by the `queryFn` body, mirroring React Hooks dependency tracking.
+
+Example:
+
+```ts
+export function useTodo(todoId: string) {
+  return useQuery({
+    queryKey: ["todo"],
+    // reports: tanstack-query/exhaustive-deps (error)
+    queryFn: () => fetchTodo(todoId),
+  });
+}
+```
+
+<a id="rule-tanstack-query-infinite-query-property-order"></a>
+
+### `tanstack-query/infinite-query-property-order`
+
+Require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside `useInfiniteQuery` to appear in the order TanStack Query documents.
+
+Type inference flows through these callbacks in sequence, so a reordered options object widens the page-param type to `unknown`.
+
+Example:
+
+```ts
+export function usePages() {
+  return useInfiniteQuery({
+    queryKey: ["pages"],
+    // reports: tanstack-query/infinite-query-property-order (error)
+    getNextPageParam: (last) => last.next,
+    queryFn: ({ pageParam }) => pageParam,
+  });
+}
+```
+
+<a id="rule-tanstack-query-mutation-property-order"></a>
+
+### `tanstack-query/mutation-property-order`
+
+Require `useMutation` callbacks to declare `onMutate` before `onError` and `onSettled`.
+
+The options object's type inference threads the `onMutate` return value into the later callbacks' `context` parameter, which collapses to `unknown` when the order is wrong.
+
+Example:
+
+```ts
+export function useSave() {
+  return useMutation({
+    mutationFn: async (input: string) => input,
+    // reports: tanstack-query/mutation-property-order (error)
+    onError: () => {},
+    onMutate: () => ({ snapshot: true }),
+  });
+}
+```
+
+<a id="rule-tanstack-query-no-rest-destructuring"></a>
+
+### `tanstack-query/no-rest-destructuring`
+
+Reject `...rest` destructuring on TanStack Query hook results.
+
+The result object is a tracked proxy that only re-renders for the fields you read; rest-destructuring touches every field, subscribes the component to all of them, and disables that optimization.
+
+Example:
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+
+export function Todos() {
+  // reports: tanstack-query/no-rest-destructuring (error)
+  const { data, ...rest } = useQuery({
+    queryKey: ["todos"],
+    queryFn: () => ["todo"],
+  });
+  return data ?? rest.status;
+}
+```
+
+<a id="rule-tanstack-query-no-unstable-deps"></a>
+
+### `tanstack-query/no-unstable-deps`
+
+Reject passing entire TanStack Query hook results into React dependency arrays.
+
+The returned object is a fresh reference on every render, so `useEffect` / `useMemo` / `useCallback` would re-run unconditionally; depend on the specific fields you read instead.
+
+Example:
+
+```ts
+export function Todos() {
+  const result = useQuery({
+    queryKey: ["todos"],
+    queryFn: () => ["todo"],
+  });
+  // reports: tanstack-query/no-unstable-deps (error)
+  React.useEffect(() => {}, [result]);
+  return result.data;
+}
+```
+
+<a id="rule-tanstack-query-no-void-query-fn"></a>
+
+### `tanstack-query/no-void-query-fn`
+
+Reject `queryFn` callbacks that resolve to `void`.
+
+The return value is what TanStack Query caches and exposes as `data`; a void implementation always populates the cache with `undefined` and almost always indicates a forgotten `return`.
+
+Example:
+
+```ts
+export function useTodos() {
+  return useQuery({
+    queryKey: ["todos"],
+    // reports: tanstack-query/no-void-query-fn (error)
+    queryFn: () => {
+      console.log("missing return");
+    },
+  });
+}
+```
+
+<a id="rule-tanstack-query-prefer-query-options"></a>
+
+### `tanstack-query/prefer-query-options`
+
+Prefer wrapping query options in the `queryOptions()` helper over inline `{ queryKey, queryFn }` literals.
+
+The helper co-locates key and fetcher, lets `queryClient.getQueryData` and `setQueryData` share the same typed key, and prevents the same key being paired with two different `queryFn`s.
+
+Example:
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+
+import { fetchTodo } from "./api";
+
+export function useTodo(todoId: string) {
+  // reports: tanstack-query/prefer-query-options (error)
+  return useQuery({
+    queryKey: ["todo", todoId],
+    queryFn: () => fetchTodo(todoId),
+  });
+}
+```
+
+<a id="rule-tanstack-query-stable-query-client"></a>
+
+### `tanstack-query/stable-query-client`
+
+Reject creating a `QueryClient` inside a React component or hook body, the client must be stable across renders.
+
+Example:
+
+```ts
+import { QueryClient } from "@tanstack/react-query";
+
+export function TodosProvider() {
+  // reports: tanstack-query/stable-query-client (error)
+  const client = new QueryClient();
+  return client;
+}
+```

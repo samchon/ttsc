@@ -1,25 +1,404 @@
 # Jest
 
-Jest test source rules from `eslint-plugin-jest`. Apply to TypeScript test files that use the Jest runner (`describe`, `test`/`it`, `expect`, lifecycle hooks). They guard test-quality patterns the type system cannot detect, unended assertions, focused tests left behind, duplicate hook calls.
+Jest test source rules from `eslint-plugin-jest`.
+
+They apply to TypeScript test files that use the Jest runner (`describe`, `test`/`it`, `expect`, lifecycle hooks).
+
+They guard test-quality patterns the type system cannot detect, including unended assertions, focused tests left behind, duplicate hook calls.
 
 Source: [`eslint-plugin-jest`](https://github.com/jest-community/eslint-plugin-jest) (MIT).
 
-- `jest/expect-expect`: Require every Jest test body to contain at least one `expect(...)` call.
-- `jest/max-expects`: Limit the number of `expect(...)` calls inside a single Jest test body.
-- `jest/no-conditional-expect`: Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Jest tests.
-- `jest/no-conditional-in-test`: Reject conditional logic (`if`/`switch`/ternary) inside Jest test bodies.
-- `jest/no-disabled-tests`: Reject `test.skip`, `xit`, `xdescribe`, and other disabled Jest tests.
-- `jest/no-done-callback`: Reject `done` callback parameters in Jest tests and hooks.
-- `jest/no-duplicate-hooks`: Reject duplicate setup/teardown hook calls (`beforeEach`/`beforeAll`/etc.) within the same `describe` block.
-- `jest/no-export`: Reject `export` declarations in Jest test files.
-- `jest/no-focused-tests`: Reject `test.only`, `fit`, `fdescribe`, and other focused Jest tests.
-- `jest/no-hooks`: Reject Jest setup/teardown hooks altogether.
-- `jest/no-identical-title`: Reject duplicate test or `describe` titles at the same suite level. The runner cannot distinguish two tests with the same name in error output.
-- `jest/no-standalone-expect`: Reject `expect(...)` calls outside the body of a Jest test or lifecycle hook.
-- `jest/no-test-prefixes`: Reject `xit`, `fit`, `xdescribe`, `fdescribe`, and the rest of the single-letter Jest test prefix aliases.
-- `jest/no-test-return-statement`: Reject non-Promise `return` statements from Jest test bodies.
-- `jest/prefer-to-have-length`: Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly with `toBe`.
-- `jest/require-to-throw-message`: Require a message argument on `expect(...).toThrow(...)` so a regression with a different error type still surfaces clearly.
-- `jest/valid-describe-callback`: Validate the shape of Jest `describe` callbacks.
-- `jest/valid-expect`: Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
-- `jest/valid-title`: Require non-empty static Jest test and `describe` titles.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`jest/expect-expect`](#rule-jest-expect-expect): Require every Jest test body to contain at least one `expect(...)` call.
+- [`jest/max-expects`](#rule-jest-max-expects): Limit the number of `expect(...)` calls inside a single Jest test body.
+- [`jest/no-conditional-expect`](#rule-jest-no-conditional-expect): Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Jest tests.
+- [`jest/no-conditional-in-test`](#rule-jest-no-conditional-in-test): Reject conditional logic inside Jest test bodies.
+- [`jest/no-disabled-tests`](#rule-jest-no-disabled-tests): Reject `test.skip`, `xit`, `xdescribe`, and other disabled Jest tests.
+- [`jest/no-done-callback`](#rule-jest-no-done-callback): Reject `done` callback parameters in Jest tests and hooks.
+- [`jest/no-duplicate-hooks`](#rule-jest-no-duplicate-hooks): Reject duplicate setup/teardown hook calls within the same `describe` block.
+- [`jest/no-export`](#rule-jest-no-export): Reject `export` declarations in Jest test files.
+- [`jest/no-focused-tests`](#rule-jest-no-focused-tests): Reject `test.only`, `fit`, `fdescribe`, and other focused Jest tests.
+- [`jest/no-hooks`](#rule-jest-no-hooks): Reject Jest setup/teardown hooks altogether.
+- [`jest/no-identical-title`](#rule-jest-no-identical-title): Reject duplicate test or `describe` titles at the same suite level.
+- [`jest/no-standalone-expect`](#rule-jest-no-standalone-expect): Reject `expect(...)` calls outside the body of a Jest test or lifecycle hook.
+- [`jest/no-test-prefixes`](#rule-jest-no-test-prefixes): Reject `xit`, `fit`, `xdescribe`, `fdescribe`, and the rest of the single-letter Jest test prefix aliases.
+- [`jest/no-test-return-statement`](#rule-jest-no-test-return-statement): Reject non-Promise `return` statements from Jest test bodies.
+- [`jest/prefer-to-have-length`](#rule-jest-prefer-to-have-length): Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly with `toBe`.
+- [`jest/require-to-throw-message`](#rule-jest-require-to-throw-message): Require a message argument on `expect(...).toThrow(...)`.
+- [`jest/valid-describe-callback`](#rule-jest-valid-describe-callback): Validate the shape of Jest `describe` callbacks.
+- [`jest/valid-expect`](#rule-jest-valid-expect): Validate `expect(...)` arity and matcher chaining.
+- [`jest/valid-title`](#rule-jest-valid-title): Require non-empty static Jest test and `describe` titles.
+
+## Rules
+
+<a id="rule-jest-expect-expect"></a>
+
+### `jest/expect-expect`
+
+Require every Jest test body to contain at least one `expect(...)` call. A test with no expectations passes silently.
+
+Example:
+
+```ts
+import { test } from "@jest/globals";
+
+// reports: jest/expect-expect (error)
+test("loads data", () => {
+  const value = 1 + 1;
+});
+```
+
+<a id="rule-jest-max-expects"></a>
+
+### `jest/max-expects`
+
+Limit the number of `expect(...)` calls inside a single Jest test body.
+
+A test packed with assertions usually verifies several behaviors at once, making failures ambiguous, splitting per scenario keeps each case diagnostic.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+// reports: jest/max-expects (error)
+test("checks many values", () => {
+  expect(1).toBe(1);
+  expect(2).toBe(2);
+  expect(3).toBe(3);
+  expect(4).toBe(4);
+  expect(5).toBe(5);
+  expect(6).toBe(6);
+});
+```
+
+<a id="rule-jest-no-conditional-expect"></a>
+
+### `jest/no-conditional-expect`
+
+Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Jest tests.
+
+A branch that never executes turns the assertion into a silent no-op, so the test passes without verifying anything.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+test("checks conditionally", () => {
+  if (Math.random() > 0.5) {
+    // reports: jest/no-conditional-expect (error)
+    expect(true).toBe(true);
+  }
+});
+```
+
+<a id="rule-jest-no-conditional-in-test"></a>
+
+### `jest/no-conditional-in-test`
+
+Reject conditional logic (`if`/`switch`/ternary) inside Jest test bodies.
+
+Each test should describe a single deterministic scenario; branching hides which path the runner took when reading a passing log.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+test("branches", () => {
+  // reports: jest/no-conditional-in-test (error)
+  if (Math.random()) {
+    expect(1).toBe(1);
+  }
+});
+```
+
+<a id="rule-jest-no-disabled-tests"></a>
+
+### `jest/no-disabled-tests`
+
+Reject `test.skip`, `xit`, `xdescribe`, and other disabled Jest tests.
+
+Skipped tests appear green in CI but quietly drop coverage for the feature they were meant to pin, so they rot unseen.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+// reports: jest/no-disabled-tests (error)
+test.skip("does not run", () => {
+  expect(1).toBe(1);
+});
+```
+
+<a id="rule-jest-no-done-callback"></a>
+
+### `jest/no-done-callback`
+
+Reject `done` callback parameters in Jest tests and hooks.
+
+The callback style predates async/await and makes error propagation easy to miss, forgetting `done()` hangs the test until timeout. Use `async`/`await` or return a Promise instead.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+// reports: jest/no-done-callback (error)
+test("finishes later", (done) => {
+  expect(1).toBe(1);
+  done();
+});
+```
+
+<a id="rule-jest-no-duplicate-hooks"></a>
+
+### `jest/no-duplicate-hooks`
+
+Reject duplicate setup/teardown hook calls (`beforeEach`/`beforeAll`/etc.) within the same `describe` block.
+
+Jest runs both copies in declaration order, which is almost always a copy-paste mistake.
+
+Example:
+
+```ts
+import { beforeEach, describe } from "@jest/globals";
+
+describe("suite", () => {
+  beforeEach(() => {});
+  // reports: jest/no-duplicate-hooks (error)
+  beforeEach(() => {});
+});
+```
+
+<a id="rule-jest-no-export"></a>
+
+### `jest/no-export`
+
+Reject `export` declarations in Jest test files.
+
+Tests are leaf consumers and should not expose helpers; the runner silently skips test files with any export, so a stray `export` can make a whole file disappear from the suite.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+// reports: jest/no-export (error)
+export const helper = 1;
+```
+
+<a id="rule-jest-no-focused-tests"></a>
+
+### `jest/no-focused-tests`
+
+Reject `test.only`, `fit`, `fdescribe`, and other focused Jest tests.
+
+A focused test silently skips every other test in the file, so a stray `.only` left from debugging hides the rest of the suite in CI.
+
+Example:
+
+```ts
+import { expect, it } from "@jest/globals";
+
+// reports: jest/no-focused-tests (error)
+it.only("runs one test", () => {
+  expect(1).toBe(1);
+});
+```
+
+<a id="rule-jest-no-hooks"></a>
+
+### `jest/no-hooks`
+
+Reject Jest setup/teardown hooks altogether.
+
+Promotes the style where each test arranges and tears down its own state inline, so a reader can understand it in isolation without scrolling to a distant `beforeEach`.
+
+Example:
+
+```ts
+import { beforeAll } from "@jest/globals";
+
+// reports: jest/no-hooks (error)
+beforeAll(() => {});
+```
+
+<a id="rule-jest-no-identical-title"></a>
+
+### `jest/no-identical-title`
+
+Reject duplicate test or `describe` titles at the same suite level, the runner cannot distinguish two tests with the same name in error output.
+
+Example:
+
+```ts
+describe("math", () => {
+  it("adds", () => {
+    expect(1 + 1).toBe(2);
+  });
+
+  // reports: jest/no-identical-title (error)
+  it("adds", () => {
+    expect(2 + 2).toBe(4);
+  });
+});
+```
+
+<a id="rule-jest-no-standalone-expect"></a>
+
+### `jest/no-standalone-expect`
+
+Reject `expect(...)` calls outside the body of a Jest test or lifecycle hook.
+
+Top-level assertions execute at module load before any test starts, so failures never attach to a named case in the runner's report.
+
+Example:
+
+```ts
+import { describe, expect } from "@jest/globals";
+
+describe("suite", () => {
+  // reports: jest/no-standalone-expect (error)
+  expect(1).toBe(1);
+});
+```
+
+<a id="rule-jest-no-test-prefixes"></a>
+
+### `jest/no-test-prefixes`
+
+Reject `xit`, `fit`, `xdescribe`, `fdescribe`, and the rest of the single-letter Jest test prefix aliases.
+
+They duplicate the `.only`/`.skip` variants but read as typos at a glance, making accidental focus or disable harder to spot in review.
+
+Example:
+
+```ts
+import { expect, fit } from "@jest/globals";
+
+// reports: jest/no-test-prefixes (error)
+fit("focuses", () => {
+  expect(1).toBe(1);
+});
+```
+
+<a id="rule-jest-no-test-return-statement"></a>
+
+### `jest/no-test-return-statement`
+
+Reject non-Promise `return` statements from Jest test bodies.
+
+Jest only awaits returned thenables, so a plain `return` value is dropped and following code becomes dead, usually a symptom of a missing `await` or an accidental early exit.
+
+Example:
+
+```ts
+import { test } from "@jest/globals";
+
+test("returns", () => {
+  // reports: jest/no-test-return-statement (error)
+  return 1;
+});
+```
+
+<a id="rule-jest-prefer-to-have-length"></a>
+
+### `jest/prefer-to-have-length`
+
+Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` directly with `toBe`.
+
+The dedicated matcher reports the actual length on failure instead of a bare number mismatch with no context.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+test("checks length", () => {
+  const values = [1, 2, 3];
+  // reports: jest/prefer-to-have-length (error)
+  expect(values.length).toBe(3);
+});
+```
+
+<a id="rule-jest-require-to-throw-message"></a>
+
+### `jest/require-to-throw-message`
+
+Require a message argument on `expect(...).toThrow(...)` so a regression with a different error type still surfaces clearly.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+test("throws", () => {
+  // reports: jest/require-to-throw-message (error)
+  expect(() => {
+    throw new Error("x");
+  }).toThrow();
+});
+```
+
+<a id="rule-jest-valid-describe-callback"></a>
+
+### `jest/valid-describe-callback`
+
+Validate the shape of Jest `describe` callbacks.
+
+The callback must be synchronous and take no arguments, Jest ignores returned Promises and `done`-style parameters at the describe level, silently swallowing setup errors.
+
+Example:
+
+```ts
+import { describe } from "@jest/globals";
+
+describe("suite", // reports: jest/valid-describe-callback (error)
+async () => {});
+```
+
+<a id="rule-jest-valid-expect"></a>
+
+### `jest/valid-expect`
+
+Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
+
+Malformed expects either throw at runtime or pass without asserting anything.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+test("checks value", () => {
+  // reports: jest/valid-expect (error)
+  expect(1);
+});
+```
+
+<a id="rule-jest-valid-title"></a>
+
+### `jest/valid-title`
+
+Require non-empty static Jest test and `describe` titles.
+
+Empty or dynamically-built titles produce unreadable failure output and break filter-by-name flags like `--testNamePattern`.
+
+Example:
+
+```ts
+import { expect, test } from "@jest/globals";
+
+// reports: jest/valid-title (error)
+test("", () => {
+  expect(1).toBe(1);
+});
+```

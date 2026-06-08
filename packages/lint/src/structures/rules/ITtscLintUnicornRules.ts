@@ -107,8 +107,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/error-message"?: TtscLintRuleSetting;
 
   /**
-   * Require consistent case for escape sequences (`\xA9` over `\xa9`, `µ` over
-   * `µ`).
+   * Require consistent case for escape sequences (`\xA9` over `\xa9`, `\u00B5`
+   * over `\u00b5`).
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/escape-case.md
    */
@@ -278,7 +278,7 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-for-loop"?: TtscLintRuleSetting;
 
   /**
-   * Prefer Unicode escape (`©`) over hexadecimal escape (`\xA9`).
+   * Prefer Unicode escape (`\u00A9`) over hexadecimal escape (`\xA9`).
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-hex-escape.md
    */

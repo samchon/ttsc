@@ -1,35 +1,630 @@
 # Testing Library
 
-Testing Library test source rules from `eslint-plugin-testing-library`. Apply to TypeScript test sources that use any `@testing-library/*` package and detect Testing Library anti-patterns, `container` access, `ByTestId` overuse, missing `await` on async queries. AST-only; rules report only after a Testing Library import is present in the file.
+Testing Library test source rules from `eslint-plugin-testing-library`.
+
+They apply to TypeScript test sources that use any `@testing-library/*` package. They detect Testing Library anti-patterns such as `container` access, `ByTestId` overuse, missing `await` on async queries.
 
 Source: [`eslint-plugin-testing-library`](https://github.com/testing-library/eslint-plugin-testing-library) (MIT).
 
-- `testing-library/await-async-events`: Require awaiting async user-event methods (`userEvent.click`, `userEvent.type`, ...) under the v14+ Promise-returning API.
-- `testing-library/await-async-queries`: Require awaiting `findBy*` and `findAllBy*` queries.
-- `testing-library/await-async-utils`: Require awaiting `waitFor`, `waitForElementToBeRemoved`, and the other async Testing Library utilities.
-- `testing-library/consistent-data-testid`: Validate JSX `data-testid` attribute values against a regex pattern.
-- `testing-library/no-await-sync-events`: Reject unnecessary `await` before synchronous event helpers (`fireEvent.click(...)`).
-- `testing-library/no-await-sync-queries`: Reject unnecessary `await` before synchronous queries (`getBy*`, `queryBy*`).
-- `testing-library/no-container`: Reject `container` destructuring and DOM query methods on the render result.
-- `testing-library/no-debugging-utils`: Reject `debug`, `prettyDOM`, `logTestingPlaygroundURL`, and related debugging utilities in committed tests.
-- `testing-library/no-dom-import`: Reject direct `@testing-library/dom` imports when a framework-specific package is installed.
-- `testing-library/no-global-regexp-flag-in-query`: Reject global RegExp flags (`/foo/g`) inside query text matchers.
-- `testing-library/no-manual-cleanup`: Reject manual `cleanup()` calls.
-- `testing-library/no-node-access`: Reject direct DOM node traversal from query results (`.parentElement`, `.firstChild`, `.children`, ...).
-- `testing-library/no-promise-in-fire-event`: Reject Promise-producing expressions passed to `fireEvent`, since `fireEvent` is synchronous and the Promise is dropped.
-- `testing-library/no-render-in-lifecycle`: Reject `render(...)` inside lifecycle hooks (`beforeEach`, etc.).
-- `testing-library/no-test-id-queries`: Reject `*ByTestId` queries.
-- `testing-library/no-unnecessary-act`: Reject unnecessary `act(...)` wrappers around Testing Library helpers.
-- `testing-library/no-wait-for-multiple-assertions`: Reject multiple assertions inside one `waitFor` callback. Split into separate `waitFor`s so each retry boundary is narrow.
-- `testing-library/no-wait-for-side-effects`: Reject side effects inside `waitFor` callbacks, `waitFor` retries the callback, so side effects fire repeatedly.
-- `testing-library/no-wait-for-snapshot`: Reject snapshot assertions inside `waitFor`.
-- `testing-library/prefer-explicit-assert`: Require explicit assertions on the result of standalone queries.
-- `testing-library/prefer-find-by`: Prefer `findBy*` over `waitFor` wrapping a `getBy*`.
-- `testing-library/prefer-implicit-assert`: Avoid redundant `toBeInTheDocument()` around `getBy*` queries.
-- `testing-library/prefer-presence-queries`: Match presence and absence assertions to the query variant that already encodes the same semantic: `getBy*` for presence (throws when missing), `queryBy*` for absence (returns `null` when missing).
-- `testing-library/prefer-query-by-disappearance`: Prefer `queryBy*` inside `waitForElementToBeRemoved`.
-- `testing-library/prefer-query-matchers`: Prefer jest-dom document matchers (`toBeVisible`, `toHaveTextContent`, ...) over generic equality checks on Testing Library queries.
-- `testing-library/prefer-screen-queries`: Prefer `screen.*` over queries on the render-result object.
-- `testing-library/prefer-user-event`: Prefer `userEvent` over `fireEvent`.
-- `testing-library/prefer-user-event-setup`: Prefer `userEvent.setup()` (the v14+ instance pattern) over the static `userEvent.*` calls.
-- `testing-library/render-result-naming-convention`: Require the variable assigned from `render(...)` to use one of the conventional names (`view`, `result`, ...).
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+### Disallow
+
+- [`testing-library/no-await-sync-events`](#rule-testing-library-no-await-sync-events): Reject unnecessary `await` before synchronous event helpers.
+- [`testing-library/no-await-sync-queries`](#rule-testing-library-no-await-sync-queries): Reject unnecessary `await` before synchronous queries.
+- [`testing-library/no-container`](#rule-testing-library-no-container): Reject `container` destructuring and DOM query methods on the render result.
+- [`testing-library/no-debugging-utils`](#rule-testing-library-no-debugging-utils): Reject `debug`, `prettyDOM`, `logTestingPlaygroundURL`, and related debugging utilities in committed tests.
+- [`testing-library/no-dom-import`](#rule-testing-library-no-dom-import): Reject direct `@testing-library/dom` imports.
+- [`testing-library/no-global-regexp-flag-in-query`](#rule-testing-library-no-global-regexp-flag-in-query): Reject global RegExp flags inside query text matchers.
+- [`testing-library/no-manual-cleanup`](#rule-testing-library-no-manual-cleanup): Reject manual `cleanup()` calls.
+- [`testing-library/no-node-access`](#rule-testing-library-no-node-access): Reject direct DOM node traversal from query results.
+- [`testing-library/no-promise-in-fire-event`](#rule-testing-library-no-promise-in-fire-event): Reject Promise-producing expressions passed to `fireEvent`.
+- [`testing-library/no-render-in-lifecycle`](#rule-testing-library-no-render-in-lifecycle): Reject `render(...)` inside lifecycle hooks.
+- [`testing-library/no-test-id-queries`](#rule-testing-library-no-test-id-queries): Reject `*ByTestId` queries.
+- [`testing-library/no-unnecessary-act`](#rule-testing-library-no-unnecessary-act): Reject unnecessary `act(...)` wrappers around Testing Library helpers.
+- [`testing-library/no-wait-for-multiple-assertions`](#rule-testing-library-no-wait-for-multiple-assertions): Reject multiple assertions inside one `waitFor` callback, split into separate `waitFor`s.
+- [`testing-library/no-wait-for-side-effects`](#rule-testing-library-no-wait-for-side-effects): Reject side effects inside `waitFor` callbacks, `waitFor` retries the callback.
+- [`testing-library/no-wait-for-snapshot`](#rule-testing-library-no-wait-for-snapshot): Reject snapshot assertions inside `waitFor`.
+
+### Prefer
+
+- [`testing-library/prefer-explicit-assert`](#rule-testing-library-prefer-explicit-assert): Require explicit assertions on the result of standalone queries.
+- [`testing-library/prefer-find-by`](#rule-testing-library-prefer-find-by): Prefer `findBy*` over `waitFor` wrapping a `getBy*`.
+- [`testing-library/prefer-implicit-assert`](#rule-testing-library-prefer-implicit-assert): Avoid redundant `toBeInTheDocument()` around `getBy*` queries.
+- [`testing-library/prefer-presence-queries`](#rule-testing-library-prefer-presence-queries): Match presence and absence assertions to the query variant that already encodes the same semantic.
+- [`testing-library/prefer-query-by-disappearance`](#rule-testing-library-prefer-query-by-disappearance): Prefer `queryBy*` inside disappearance waits.
+- [`testing-library/prefer-query-matchers`](#rule-testing-library-prefer-query-matchers): Prefer jest-dom document matchers over generic equality checks on Testing Library queries.
+- [`testing-library/prefer-screen-queries`](#rule-testing-library-prefer-screen-queries): Prefer `screen.*` over queries on the render-result object.
+- [`testing-library/prefer-user-event`](#rule-testing-library-prefer-user-event): Prefer `userEvent` over `fireEvent`.
+- [`testing-library/prefer-user-event-setup`](#rule-testing-library-prefer-user-event-setup): Prefer `userEvent.setup()` (the v14+ instance pattern) over the static `userEvent.*` calls.
+
+### Consistency
+
+- [`testing-library/consistent-data-testid`](#rule-testing-library-consistent-data-testid): Validate JSX `data-testid` attribute values against a regex pattern.
+
+### Other checks
+
+- [`testing-library/await-async-events`](#rule-testing-library-await-async-events): Require awaiting async user-event methods under the v14+ Promise-returning API.
+- [`testing-library/await-async-queries`](#rule-testing-library-await-async-queries): Require awaiting `findBy*` and `findAllBy*` queries.
+- [`testing-library/await-async-utils`](#rule-testing-library-await-async-utils): Require awaiting `waitFor`, `waitForElementToBeRemoved`, and the other async Testing Library utilities.
+- [`testing-library/render-result-naming-convention`](#rule-testing-library-render-result-naming-convention): Require the variable assigned from `render(...)` to use one of the conventional names.
+
+## Rules
+
+<a id="rule-testing-library-await-async-events"></a>
+
+### `testing-library/await-async-events`
+
+Require awaiting async user-event methods (`userEvent.click`, `userEvent.type`, ...) under the v14+ Promise-returning API.
+
+Without `await` the next assertion runs against the pre-interaction DOM, which masks effects the user action was meant to trigger.
+
+Example:
+
+```ts
+import userEvent from "@testing-library/user-event";
+
+function testCase() {
+  // reports: testing-library/await-async-events (error)
+  userEvent.click(document.body);
+}
+```
+
+<a id="rule-testing-library-await-async-queries"></a>
+
+### `testing-library/await-async-queries`
+
+Require awaiting `findBy*` and `findAllBy*` queries.
+
+They return a Promise that resolves once the element appears; an unawaited query yields a pending Promise that no matcher can assert against meaningfully.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/await-async-queries (error)
+  screen.findByText("Saved");
+}
+```
+
+<a id="rule-testing-library-await-async-utils"></a>
+
+### `testing-library/await-async-utils`
+
+Require awaiting `waitFor`, `waitForElementToBeRemoved`, and the other async Testing Library utilities.
+
+Skipping the `await` means the test moves on before the predicate settles, so subsequent assertions race against the wait.
+
+Example:
+
+```ts
+import { screen, waitFor } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/await-async-utils (error)
+  waitFor(() => screen.getByText("Done"));
+}
+```
+
+<a id="rule-testing-library-consistent-data-testid"></a>
+
+### `testing-library/consistent-data-testid`
+
+Validate JSX `data-testid` attribute values against a regex pattern.
+
+The options object names the attribute and the pattern, keeping test ids consistently formed across components.
+
+Options:
+
+- `testIdPattern: string`
+
+  Regular expression string every configured test-id attribute value must match. `{fileName}` is replaced with the basename before the first dot.
+
+- `testIdAttribute?: string | readonly string[]`
+
+  Test-id attribute name, or names, to validate. Default: `"data-testid"`.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/consistent-data-testid (error)
+  return screen.getByTestId("Bad Value");
+}
+```
+
+<a id="rule-testing-library-no-await-sync-events"></a>
+
+### `testing-library/no-await-sync-events`
+
+Reject unnecessary `await` before synchronous event helpers (`fireEvent.click(...)`).
+
+The helpers return `boolean` rather than a Promise, so the `await` is a no-op that misleads readers into thinking the helper is async.
+
+Example:
+
+```ts
+import { fireEvent, screen } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-await-sync-events (error)
+  await fireEvent.click(screen.getByText("Save"));
+}
+```
+
+<a id="rule-testing-library-no-await-sync-queries"></a>
+
+### `testing-library/no-await-sync-queries`
+
+Reject unnecessary `await` before synchronous queries (`getBy*`, `queryBy*`).
+
+These queries return DOM nodes directly, so the `await` misleads readers and can shadow a genuine missing `await` on an adjacent `findBy*`.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-await-sync-queries (error)
+  await screen.getByText("Ready");
+}
+```
+
+<a id="rule-testing-library-no-container"></a>
+
+### `testing-library/no-container`
+
+Reject `container` destructuring and DOM query methods on the render result.
+
+`screen` queries the same document but matches how the user sees the page, keeping tests accessibility-first and resilient to layout refactors that move nodes inside the tree.
+
+Example:
+
+```tsx
+import { render } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-container (error)
+  const { container } = render(<button>Save</button>);
+}
+```
+
+<a id="rule-testing-library-no-debugging-utils"></a>
+
+### `testing-library/no-debugging-utils`
+
+Reject `debug`, `prettyDOM`, `logTestingPlaygroundURL`, and related debugging utilities in committed tests.
+
+They print large DOM dumps to CI logs and only exist to help during local authoring.
+
+Example:
+
+```tsx
+import { render } from "@testing-library/react";
+
+function testCase() {
+  const { debug } = render(<button>Save</button>);
+  // reports: testing-library/no-debugging-utils (error)
+  debug();
+}
+```
+
+<a id="rule-testing-library-no-dom-import"></a>
+
+### `testing-library/no-dom-import`
+
+Reject direct `@testing-library/dom` imports when a framework-specific package is installed.
+
+Framework packages (`@testing-library/react`, ...) re-export the same surface plus a `render` that wires the framework's lifecycle, importing `dom` directly skips that wiring.
+
+Example:
+
+```ts
+// reports: testing-library/no-dom-import (error)
+// @ts-ignore
+import { prettyDOM } from "@testing-library/dom";
+// @ts-ignore
+import { render } from "@testing-library/react";
+```
+
+<a id="rule-testing-library-no-global-regexp-flag-in-query"></a>
+
+### `testing-library/no-global-regexp-flag-in-query`
+
+Reject global RegExp flags (`/foo/g`) inside query text matchers.
+
+The matcher reuses the regex across nodes, so a global regex's persistent `lastIndex` state causes the second call to skip matches the first one found.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-global-regexp-flag-in-query (error)
+  return screen.getByText(/save/g);
+}
+```
+
+<a id="rule-testing-library-no-manual-cleanup"></a>
+
+### `testing-library/no-manual-cleanup`
+
+Reject manual `cleanup()` calls.
+
+Framework wrappers (`@testing-library/react`, ...) register automatic cleanup, so explicit calls duplicate the unmount and can race against the runner's between-test reset.
+
+Example:
+
+```ts
+import { cleanup } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-manual-cleanup (error)
+  cleanup();
+}
+```
+
+<a id="rule-testing-library-no-node-access"></a>
+
+### `testing-library/no-node-access`
+
+Reject direct DOM node traversal from query results (`.parentElement`, `.firstChild`, `.children`, ...).
+
+Traversal couples the test to incidental markup; another semantic query names what the assertion actually cares about.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-node-access (error)
+  return screen.getByText("Save").parentElement;
+}
+```
+
+<a id="rule-testing-library-no-promise-in-fire-event"></a>
+
+### `testing-library/no-promise-in-fire-event`
+
+Reject Promise-producing expressions passed to `fireEvent`, since `fireEvent` is synchronous and the Promise is dropped.
+
+Example:
+
+```ts
+import { fireEvent, screen } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-promise-in-fire-event (error)
+  fireEvent.click(await screen.findByRole("button"));
+}
+```
+
+<a id="rule-testing-library-no-render-in-lifecycle"></a>
+
+### `testing-library/no-render-in-lifecycle`
+
+Reject `render(...)` inside lifecycle hooks (`beforeEach`, etc.).
+
+Each test should render its component directly so the arrange step is visible in-place and auto-cleanup runs between cases without sharing state.
+
+Example:
+
+```tsx
+import { beforeEach } from "vitest";
+import { render } from "@testing-library/react";
+
+beforeEach(() => {
+  // reports: testing-library/no-render-in-lifecycle (error)
+  render(<button>Save</button>);
+});
+```
+
+<a id="rule-testing-library-no-test-id-queries"></a>
+
+### `testing-library/no-test-id-queries`
+
+Reject `*ByTestId` queries.
+
+Test ids couple the test to incidental markup and skip the accessibility tree that real users navigate; queries by role, label, or text describe the UI in user-visible terms instead.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-test-id-queries (error)
+  return screen.getByTestId("save");
+}
+```
+
+<a id="rule-testing-library-no-unnecessary-act"></a>
+
+### `testing-library/no-unnecessary-act`
+
+Reject unnecessary `act(...)` wrappers around Testing Library helpers.
+
+`render`, `fireEvent`, and `userEvent` already wrap their work in `act`, so the extra wrapper is dead code that obscures the real state change.
+
+Example:
+
+```ts
+import { act, fireEvent, screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/no-unnecessary-act (error)
+  act(() => {
+    fireEvent.click(screen.getByRole("button"));
+  });
+}
+```
+
+<a id="rule-testing-library-no-wait-for-multiple-assertions"></a>
+
+### `testing-library/no-wait-for-multiple-assertions`
+
+Reject multiple assertions inside one `waitFor` callback, split into separate `waitFor`s so each retry boundary is narrow.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-wait-for-multiple-assertions (error)
+  await waitFor(() => {
+    expect(screen.queryByText("A")).toBeTruthy();
+    expect(screen.queryByText("B")).toBeTruthy();
+  });
+}
+```
+
+<a id="rule-testing-library-no-wait-for-side-effects"></a>
+
+### `testing-library/no-wait-for-side-effects`
+
+Reject side effects inside `waitFor` callbacks, `waitFor` retries the callback, so side effects fire repeatedly.
+
+Example:
+
+```ts
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-wait-for-side-effects (error)
+  await waitFor(() => {
+    fireEvent.click(screen.getByText("Go"));
+  });
+}
+```
+
+<a id="rule-testing-library-no-wait-for-snapshot"></a>
+
+### `testing-library/no-wait-for-snapshot`
+
+Reject snapshot assertions inside `waitFor`.
+
+`waitFor` retries until the callback stops throwing, so the captured snapshot is whichever pass happened to match, usually an intermediate render rather than the settled UI the test cares about.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/no-wait-for-snapshot (error)
+  await waitFor(() => {
+    expect(screen.getByText("B")).toMatchSnapshot();
+  });
+}
+```
+
+<a id="rule-testing-library-prefer-explicit-assert"></a>
+
+### `testing-library/prefer-explicit-assert`
+
+Require explicit assertions on the result of standalone queries.
+
+A bare `screen.getByRole(...)` looks like an assertion but only checks presence (and only for `getBy*`); adding `expect(...)` makes the intent and the matched property obvious.
+
+Example:
+
+```ts
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/prefer-explicit-assert (error)
+  screen.getByText("Save");
+}
+```
+
+<a id="rule-testing-library-prefer-find-by"></a>
+
+### `testing-library/prefer-find-by`
+
+Prefer `findBy*` over `waitFor` wrapping a `getBy*`.
+
+`findBy*` is the dedicated retry-aware query; the manual combination duplicates its semantics and is easy to misconfigure (wrong timeout, missing `await`).
+
+Example:
+
+```ts
+import { screen, waitFor } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/prefer-find-by (error)
+  await waitFor(() => screen.getByText("Saved"));
+}
+```
+
+<a id="rule-testing-library-prefer-implicit-assert"></a>
+
+### `testing-library/prefer-implicit-assert`
+
+Avoid redundant `toBeInTheDocument()` around `getBy*` queries.
+
+`getBy*` already throws when nothing is found, so the extra matcher only restates what the query promises and adds noise to the failure trace.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/prefer-implicit-assert (error)
+  expect(screen.getByText("Save")).toBeInTheDocument();
+}
+```
+
+<a id="rule-testing-library-prefer-presence-queries"></a>
+
+### `testing-library/prefer-presence-queries`
+
+Match presence and absence assertions to the query variant that already encodes the same semantic: `getBy*` for presence (throws when missing), `queryBy*` for absence (returns `null` when missing).
+
+Mixing the two yields confusing failure modes.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/prefer-presence-queries (error)
+  expect(screen.queryByText("Save")).toBeInTheDocument();
+}
+```
+
+<a id="rule-testing-library-prefer-query-by-disappearance"></a>
+
+### `testing-library/prefer-query-by-disappearance`
+
+Prefer `queryBy*` inside disappearance waits.
+
+`waitFor` retries the callback against the disappearing element, but `getBy*` throws on the very state being waited for, which produces a noisy error in the trace each retry.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+
+async function testCase() {
+  // reports: testing-library/prefer-query-by-disappearance (error)
+  await waitFor(() =>
+    expect(screen.getByText("Saved")).not.toBeInTheDocument(),
+  );
+}
+```
+
+<a id="rule-testing-library-prefer-query-matchers"></a>
+
+### `testing-library/prefer-query-matchers`
+
+Prefer jest-dom document matchers (`toBeVisible`, `toHaveTextContent`, ...) over generic equality checks on Testing Library queries.
+
+The dedicated matchers explain failures in terms of the DOM property they assert on, not a structural diff of nodes.
+
+Example:
+
+```ts
+import { expect } from "vitest";
+import { screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/prefer-query-matchers (error)
+  expect(screen.queryByText("Save")).toBeNull();
+}
+```
+
+<a id="rule-testing-library-prefer-screen-queries"></a>
+
+### `testing-library/prefer-screen-queries`
+
+Prefer `screen.*` over queries on the render-result object.
+
+`screen` is the single global query target, so tests stay consistent regardless of which component is mounted and the render call's return value rarely needs destructuring.
+
+Example:
+
+```tsx
+import { render } from "@testing-library/react";
+
+function testCase() {
+  const { getByText } = render(<button>Save</button>);
+  // reports: testing-library/prefer-screen-queries (error)
+  getByText("Save");
+}
+```
+
+<a id="rule-testing-library-prefer-user-event"></a>
+
+### `testing-library/prefer-user-event`
+
+Prefer `userEvent` over `fireEvent`.
+
+`userEvent` simulates the full sequence of DOM events a real user triggers (focus, keydown, input, change, ...) while `fireEvent` dispatches a single event and skips intermediate state.
+
+Example:
+
+```ts
+import { fireEvent, screen } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/prefer-user-event (error)
+  fireEvent.click(screen.getByText("Save"));
+}
+```
+
+<a id="rule-testing-library-prefer-user-event-setup"></a>
+
+### `testing-library/prefer-user-event-setup`
+
+Prefer `userEvent.setup()` (the v14+ instance pattern) over the static `userEvent.*` calls.
+
+The instance binds fresh pointer state per test, removing the cross-test focus and click bookkeeping that the static API leaks.
+
+Example:
+
+```ts
+import userEvent from "@testing-library/user-event";
+
+function testCase() {
+  // reports: testing-library/prefer-user-event-setup (error)
+  userEvent.click(document.body);
+}
+```
+
+<a id="rule-testing-library-render-result-naming-convention"></a>
+
+### `testing-library/render-result-naming-convention`
+
+Require the variable assigned from `render(...)` to use one of the conventional names (`view`, `result`, ...).
+
+The name is a reading cue: a non-conventional one usually signals that the destructured queries are being treated as a component surface instead of a render artifact.
+
+Example:
+
+```tsx
+import { render } from "@testing-library/react";
+
+function testCase() {
+  // reports: testing-library/render-result-naming-convention (error)
+  const wrapper = render(<button>Save</button>);
+}
+```

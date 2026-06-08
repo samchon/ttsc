@@ -1,43 +1,562 @@
 # JSX accessibility
 
-JSX accessibility rules from `eslint-plugin-jsx-a11y`, applied to TSX (and JSX-in-TS) sources. Checks the static structure of JSX elements against WAI-ARIA authoring guidance, interactive controls should be focusable, labels should reference a control, ARIA properties should match the element role, and so on. Runtime accessibility issues require live audits; this family catches the statically-decidable subset. Component alias settings, router-specific anchor settings, and autofixes are deferred.
+JSX accessibility rules from `eslint-plugin-jsx-a11y`, applied to TSX (and JSX-in-TS) sources.
+
+Checks the static structure of JSX elements against WAI-ARIA authoring guidance: interactive controls should be focusable, labels should reference a control, ARIA properties should match the element role, and so on.
+
+Runtime accessibility issues require live audits; this family catches the statically-decidable subset.
 
 Source: [`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y) (MIT).
 
-- `jsx-a11y/alt-text`: Require image-like JSX elements (`<img>`, `<input type="image">`, `<object>`, `<area>`) to expose alt text or an ARIA label.
-- `jsx-a11y/anchor-ambiguous-text`: Reject `<a>` elements whose visible text is one of a small set of phrases that carry no information out of context.
-- `jsx-a11y/anchor-has-content`: Reject empty JSX anchors with no accessible content (text, `aria-label`, or labelled child).
-- `jsx-a11y/anchor-is-valid`: Reject anchors with missing, `#`-only, empty, or `javascript:` `href` values, all of which break navigation semantics.
-- `jsx-a11y/aria-activedescendant-has-tabindex`: Require `tabIndex` on any element carrying `aria-activedescendant` unless the tag is already focusable by default (`<input>`, etc.).
-- `jsx-a11y/aria-props`: Reject `aria-*` JSX attribute names that are not part of the WAI-ARIA States and Properties spec, catches typos such as `aria-labeledby` (missing second `l`) that silently disable assistive-tech support.
-- `jsx-a11y/aria-proptypes`: Validate literal values supplied to ARIA properties against the type the spec declares for them.
-- `jsx-a11y/aria-role`: Require `role` values to be a concrete, non-abstract WAI-ARIA role (`"button"`, `"checkbox"`, ...).
-- `jsx-a11y/aria-unsupported-elements`: Reject ARIA roles and attributes on elements that do not support them (e.g. `<meta>`).
-- `jsx-a11y/autocomplete-valid`: Validate the literal `autocomplete` token against the HTML spec vocabulary and against the `type` of the surrounding input.
-- `jsx-a11y/click-events-have-key-events`: Require keyboard handlers alongside `onClick` on non-interactive JSX elements so the element is also reachable by keyboard.
-- `jsx-a11y/control-has-associated-label`: Require interactive controls to have an accessible label (visible text, `aria-label`, or `aria-labelledby`).
-- `jsx-a11y/heading-has-content`: Reject empty JSX headings, assistive technology cannot announce content that does not exist.
-- `jsx-a11y/html-has-lang`: Require `<html>` JSX elements to declare a non-empty `lang` attribute so screen readers can pick the correct pronunciation.
-- `jsx-a11y/iframe-has-title`: Require every `<iframe>` JSX element to declare a non-empty, unique `title` so assistive tech can announce the embedded content.
-- `jsx-a11y/img-redundant-alt`: Reject redundant words such as _image_, _photo_, or _picture_ inside the `alt` attribute of an `<img>`. The role already conveys "this is an image".
-- `jsx-a11y/interactive-supports-focus`: Require elements with interactive ARIA roles (`role="button"`, `role="link"`, ...) to be focusable.
-- `jsx-a11y/label-has-associated-control`: Require `<label>` elements to either wrap a form control or reference one via `htmlFor`.
-- `jsx-a11y/label-has-for`: Deprecated predecessor of `label-has-associated-control`.
-- `jsx-a11y/lang`: Require the `<html lang>` value to be a valid IETF BCP-47 tag (`"en"`, `"en-US"`, ...).
-- `jsx-a11y/media-has-caption`: Require `<audio>` and `<video>` elements to provide a `<track kind="captions">` child.
-- `jsx-a11y/mouse-events-have-key-events`: Require `onMouseOver` / `onMouseOut` handlers to have `onFocus` / `onBlur` parity so keyboard users get the same interaction.
-- `jsx-a11y/no-access-key`: Reject the `accessKey` JSX attribute, it conflicts with assistive-technology keyboard shortcuts.
-- `jsx-a11y/no-aria-hidden-on-focusable`: Reject `aria-hidden` on focusable JSX elements, focus would land on an element hidden from assistive tech.
-- `jsx-a11y/no-autofocus`: Reject `autoFocus` / `autofocus` JSX attributes, they steal focus on page load and disorient keyboard users.
-- `jsx-a11y/no-distracting-elements`: Reject `<blink>` and `<marquee>`, moving content cannot be paused and harms users with cognitive or visual impairments (WCAG 2.2.2).
-- `jsx-a11y/no-interactive-element-to-noninteractive-role`: Reject non-interactive ARIA roles applied to natively interactive elements.
-- `jsx-a11y/no-noninteractive-element-interactions`: Reject interaction event handlers (`onClick`, `onKeyDown`) placed on known non-interactive elements without a role override.
-- `jsx-a11y/no-noninteractive-element-to-interactive-role`: Reject interactive ARIA roles applied to non-interactive elements.
-- `jsx-a11y/no-noninteractive-tabindex`: Reject `tabIndex` on non-interactive JSX elements that have no interactive role.
-- `jsx-a11y/no-redundant-roles`: Reject explicit `role` attributes that duplicate the native semantics of the element.
-- `jsx-a11y/no-static-element-interactions`: Require static elements with interaction handlers to declare an interactive `role`.
-- `jsx-a11y/prefer-tag-over-role`: Prefer native JSX tags over `div` / `span` plus an equivalent `role`.
-- `jsx-a11y/role-has-required-aria-props`: Require ARIA properties that the chosen role mandates.
-- `jsx-a11y/role-supports-aria-props`: Reject ARIA properties that the role does not support.
-- `jsx-a11y/scope`: Restrict the `scope` attribute to `<th>` cells.
-- `jsx-a11y/tabindex-no-positive`: Reject `tabIndex` values greater than zero.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+### Disallow
+
+- [`jsx-a11y/no-access-key`](#rule-jsx-a11y-no-access-key): Reject the `accessKey` JSX attribute, it conflicts with assistive-technology keyboard shortcuts.
+- [`jsx-a11y/no-aria-hidden-on-focusable`](#rule-jsx-a11y-no-aria-hidden-on-focusable): Reject `aria-hidden` on focusable JSX elements, focus would land on an element hidden from assistive tech.
+- [`jsx-a11y/no-autofocus`](#rule-jsx-a11y-no-autofocus): Reject `autoFocus` / `autofocus` JSX attributes, they steal focus on page load and disorient keyboard users.
+- [`jsx-a11y/no-distracting-elements`](#rule-jsx-a11y-no-distracting-elements): Reject `<blink>` and `<marquee>`, moving content cannot be paused and harms users with cognitive or visual impairments.
+- [`jsx-a11y/no-interactive-element-to-noninteractive-role`](#rule-jsx-a11y-no-interactive-element-to-noninteractive-role): Reject non-interactive ARIA roles applied to natively interactive elements.
+- [`jsx-a11y/no-noninteractive-element-interactions`](#rule-jsx-a11y-no-noninteractive-element-interactions): Reject interaction event handlers placed on known non-interactive elements.
+- [`jsx-a11y/no-noninteractive-element-to-interactive-role`](#rule-jsx-a11y-no-noninteractive-element-to-interactive-role): Reject interactive ARIA roles applied to non-interactive elements.
+- [`jsx-a11y/no-noninteractive-tabindex`](#rule-jsx-a11y-no-noninteractive-tabindex): Reject `tabIndex` on non-interactive JSX elements.
+- [`jsx-a11y/no-redundant-roles`](#rule-jsx-a11y-no-redundant-roles): Reject explicit `role` attributes that duplicate the native semantics of the element.
+- [`jsx-a11y/no-static-element-interactions`](#rule-jsx-a11y-no-static-element-interactions): Require static elements with interaction handlers to declare an interactive `role`.
+
+### Prefer
+
+- [`jsx-a11y/prefer-tag-over-role`](#rule-jsx-a11y-prefer-tag-over-role): Prefer native JSX tags over `div` / `span` plus an equivalent `role`.
+
+### Other checks
+
+- [`jsx-a11y/alt-text`](#rule-jsx-a11y-alt-text): Require image-like JSX elements to expose alt text or an ARIA label.
+- [`jsx-a11y/anchor-ambiguous-text`](#rule-jsx-a11y-anchor-ambiguous-text): Reject `<a>` elements whose visible text is one of a small set of phrases.
+- [`jsx-a11y/anchor-has-content`](#rule-jsx-a11y-anchor-has-content): Reject empty JSX anchors with no accessible content.
+- [`jsx-a11y/anchor-is-valid`](#rule-jsx-a11y-anchor-is-valid): Reject anchors with missing, `#`-only, empty, or `javascript:` `href` values, all.
+- [`jsx-a11y/aria-activedescendant-has-tabindex`](#rule-jsx-a11y-aria-activedescendant-has-tabindex): Require `tabIndex` on any element carrying `aria-activedescendant`.
+- [`jsx-a11y/aria-props`](#rule-jsx-a11y-aria-props): Reject `aria-*` JSX attribute names.
+- [`jsx-a11y/aria-proptypes`](#rule-jsx-a11y-aria-proptypes): Validate literal values supplied to ARIA properties against the type the spec declares for them.
+- [`jsx-a11y/aria-role`](#rule-jsx-a11y-aria-role): Require `role` values to be a concrete, non-abstract WAI-ARIA role.
+- [`jsx-a11y/aria-unsupported-elements`](#rule-jsx-a11y-aria-unsupported-elements): Reject ARIA roles and attributes on elements.
+- [`jsx-a11y/autocomplete-valid`](#rule-jsx-a11y-autocomplete-valid): Validate the literal `autocomplete` token against the HTML spec vocabulary and against the `type` of the surrounding.
+- [`jsx-a11y/click-events-have-key-events`](#rule-jsx-a11y-click-events-have-key-events): Require keyboard handlers alongside `onClick` on non-interactive JSX elements.
+- [`jsx-a11y/control-has-associated-label`](#rule-jsx-a11y-control-has-associated-label): Require interactive controls to have an accessible label.
+- [`jsx-a11y/heading-has-content`](#rule-jsx-a11y-heading-has-content): Reject empty JSX headings , assistive technology cannot announce content.
+- [`jsx-a11y/html-has-lang`](#rule-jsx-a11y-html-has-lang): Require `<html>` JSX elements to declare a non-empty `lang` attribute.
+- [`jsx-a11y/iframe-has-title`](#rule-jsx-a11y-iframe-has-title): Require every `<iframe>` JSX element to declare a non-empty, unique `title`.
+- [`jsx-a11y/img-redundant-alt`](#rule-jsx-a11y-img-redundant-alt): Reject redundant words such as _image_, _photo_, or _picture_ inside the `alt` attribute of an `<img>`.
+- [`jsx-a11y/interactive-supports-focus`](#rule-jsx-a11y-interactive-supports-focus): Require elements with interactive ARIA roles.
+- [`jsx-a11y/label-has-associated-control`](#rule-jsx-a11y-label-has-associated-control): Require `<label>` elements to either wrap a form control or reference one via `htmlFor`.
+- [`jsx-a11y/label-has-for`](#rule-jsx-a11y-label-has-for): Deprecated predecessor of `label-has-associated-control`.
+- [`jsx-a11y/lang`](#rule-jsx-a11y-lang): Require the `<html lang>` value to be a valid IETF BCP-47 tag.
+- [`jsx-a11y/media-has-caption`](#rule-jsx-a11y-media-has-caption): Require `<audio>` and `<video>` elements to provide a `<track kind="captions">` child.
+- [`jsx-a11y/mouse-events-have-key-events`](#rule-jsx-a11y-mouse-events-have-key-events): Require `onMouseOver` / `onMouseOut` handlers to have `onFocus` / `onBlur` parity.
+- [`jsx-a11y/role-has-required-aria-props`](#rule-jsx-a11y-role-has-required-aria-props): Require ARIA properties that the chosen role mandates.
+- [`jsx-a11y/role-supports-aria-props`](#rule-jsx-a11y-role-supports-aria-props): Reject ARIA properties that the role does not support.
+- [`jsx-a11y/scope`](#rule-jsx-a11y-scope): Restrict the `scope` attribute to `<th>` cells.
+- [`jsx-a11y/tabindex-no-positive`](#rule-jsx-a11y-tabindex-no-positive): Reject `tabIndex` values greater than zero.
+
+## Rules
+
+<a id="rule-jsx-a11y-alt-text"></a>
+
+### `jsx-a11y/alt-text`
+
+Require image-like JSX elements (`<img>`, `<input type="image">`, `<object>`, `<area>`) to expose alt text or an ARIA label.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/alt-text (error)
+export const X = () => <img src="/logo.png" />;
+```
+
+<a id="rule-jsx-a11y-anchor-ambiguous-text"></a>
+
+### `jsx-a11y/anchor-ambiguous-text`
+
+Reject `<a>` elements whose visible text is one of a small set of phrases that carry no information out of context.
+
+Screen-reader users navigate by listing links, "click here" / "more" / "read more" turn that list into noise.
+
+Example:
+
+```tsx
+const url = "/docs";
+
+const a = (
+  // reports: jsx-a11y/anchor-ambiguous-text (error)
+  <a href={url}>click here</a>
+);
+```
+
+<a id="rule-jsx-a11y-anchor-has-content"></a>
+
+### `jsx-a11y/anchor-has-content`
+
+Reject empty JSX anchors with no accessible content (text, `aria-label`, or labelled child).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/anchor-has-content (error)
+export const X = () => <a href="/docs" />;
+```
+
+<a id="rule-jsx-a11y-anchor-is-valid"></a>
+
+### `jsx-a11y/anchor-is-valid`
+
+Reject anchors with missing, `#`-only, empty, or `javascript:` `href` values, all of which break navigation semantics.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/anchor-is-valid (error)
+export const X = () => <a href="javascript:void(0)">go</a>;
+```
+
+<a id="rule-jsx-a11y-aria-activedescendant-has-tabindex"></a>
+
+### `jsx-a11y/aria-activedescendant-has-tabindex`
+
+Require `tabIndex` on any element carrying `aria-activedescendant` unless the tag is already focusable by default (`<input>`, etc.).
+
+The composite-widget host must keep document focus for the descendant id to do anything.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/aria-activedescendant-has-tabindex (error)
+export const X = () => <div aria-activedescendant="opt-1" />;
+```
+
+<a id="rule-jsx-a11y-aria-props"></a>
+
+### `jsx-a11y/aria-props`
+
+Reject `aria-*` JSX attribute names that are not part of the WAI-ARIA States and Properties spec, catches typos such as `aria-labeledby` (missing second `l`) that silently disable assistive-tech support.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/aria-props (error)
+export const X = () => <div aria-labeledby="title" />;
+```
+
+<a id="rule-jsx-a11y-aria-proptypes"></a>
+
+### `jsx-a11y/aria-proptypes`
+
+Validate literal values supplied to ARIA properties against the type the spec declares for them.
+
+E.g. `aria-checked` must be one of `true`, `false`, `"mixed"`, and `aria-hidden="yes"` is rejected because the type is boolean.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/aria-proptypes (error)
+export const X = () => <div aria-hidden="yes" />;
+```
+
+<a id="rule-jsx-a11y-aria-role"></a>
+
+### `jsx-a11y/aria-role`
+
+Require `role` values to be a concrete, non-abstract WAI-ARIA role (`"button"`, `"checkbox"`, ...).
+
+Rejects misspellings and abstract roles like `"range"`; computed values are skipped because the concrete role cannot be checked statically.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/aria-role (error)
+export const X = () => <div role="range" />;
+```
+
+<a id="rule-jsx-a11y-aria-unsupported-elements"></a>
+
+### `jsx-a11y/aria-unsupported-elements`
+
+Reject ARIA roles and attributes on elements that do not support them (e.g. `aria-checked` on a `<meta>` tag).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/aria-unsupported-elements (error)
+export const X = () => <meta aria-checked="true" />;
+```
+
+<a id="rule-jsx-a11y-autocomplete-valid"></a>
+
+### `jsx-a11y/autocomplete-valid`
+
+Validate the literal `autocomplete` token against the HTML spec vocabulary and against the `type` of the surrounding input.
+
+E.g. `autocomplete="url"` on `<input type="email">` is rejected because the two sets do not overlap.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/autocomplete-valid (error)
+export const X = () => <input type="email" autoComplete="url" />;
+```
+
+<a id="rule-jsx-a11y-click-events-have-key-events"></a>
+
+### `jsx-a11y/click-events-have-key-events`
+
+Require keyboard handlers alongside `onClick` on non-interactive JSX elements so the element is also reachable by keyboard.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/click-events-have-key-events (error)
+export const X = () => <div onClick={() => {}} />;
+```
+
+<a id="rule-jsx-a11y-control-has-associated-label"></a>
+
+### `jsx-a11y/control-has-associated-label`
+
+Require interactive controls to have an accessible label (visible text, `aria-label`, or `aria-labelledby`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/control-has-associated-label (error)
+export const X = () => <button />;
+```
+
+<a id="rule-jsx-a11y-heading-has-content"></a>
+
+### `jsx-a11y/heading-has-content`
+
+Reject empty JSX headings (`<h1>{}</h1>`), assistive technology cannot announce content that does not exist.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/heading-has-content (error)
+export const X = () => <h1 />;
+```
+
+<a id="rule-jsx-a11y-html-has-lang"></a>
+
+### `jsx-a11y/html-has-lang`
+
+Require `<html>` JSX elements to declare a non-empty `lang` attribute so screen readers can pick the correct pronunciation. Largely superseded by `jsx-a11y/lang`, which also validates the tag value.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/html-has-lang (error)
+export const X = () => <html />;
+```
+
+<a id="rule-jsx-a11y-iframe-has-title"></a>
+
+### `jsx-a11y/iframe-has-title`
+
+Require every `<iframe>` JSX element to declare a non-empty, unique `title` so assistive tech can announce the embedded content.
+
+Empty strings, booleans, numbers, and `{...spread}` without a literal title are all flagged.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/iframe-has-title (error)
+export const X = () => <iframe src="/embed" />;
+```
+
+<a id="rule-jsx-a11y-img-redundant-alt"></a>
+
+### `jsx-a11y/img-redundant-alt`
+
+Reject redundant words such as _image_, _photo_, or _picture_ inside the `alt` attribute of an `<img>`, the role already conveys "this is an image".
+
+Example:
+
+```tsx
+// reports: jsx-a11y/img-redundant-alt (error)
+export const X = () => <img src="/cat.png" alt="A photo of a cat" />;
+```
+
+<a id="rule-jsx-a11y-interactive-supports-focus"></a>
+
+### `jsx-a11y/interactive-supports-focus`
+
+Require elements with interactive ARIA roles (`role="button"`, `role="link"`, ...) to be focusable.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/interactive-supports-focus (error)
+export const X = () => <div role="button" onClick={() => {}} />;
+```
+
+<a id="rule-jsx-a11y-label-has-associated-control"></a>
+
+### `jsx-a11y/label-has-associated-control`
+
+Require `<label>` elements to either wrap a form control or reference one via `htmlFor`.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/label-has-associated-control (error)
+export const X = () => <label>Name</label>;
+```
+
+<a id="rule-jsx-a11y-label-has-for"></a>
+
+### `jsx-a11y/label-has-for`
+
+Deprecated predecessor of `label-has-associated-control`. Checks the same nesting / `htmlFor` association requirement and supports configuring which custom components count as labels.
+
+Off in `recommended`; kept only for legacy configs.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/label-has-for (error)
+export const X = () => <label>Email</label>;
+```
+
+<a id="rule-jsx-a11y-lang"></a>
+
+### `jsx-a11y/lang`
+
+Require the `<html lang>` value to be a valid IETF BCP-47 tag (`"en"`, `"en-US"`, ...). Superset of `html-has-lang`, since it also catches present-but-invalid tags like `lang="foo"`.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/lang (error)
+export const X = () => <html lang="not-a-language" />;
+```
+
+<a id="rule-jsx-a11y-media-has-caption"></a>
+
+### `jsx-a11y/media-has-caption`
+
+Require `<audio>` and `<video>` elements to provide a `<track kind="captions">` child.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/media-has-caption (error)
+export const X = () => <video src="/clip.mp4" />;
+```
+
+<a id="rule-jsx-a11y-mouse-events-have-key-events"></a>
+
+### `jsx-a11y/mouse-events-have-key-events`
+
+Require `onMouseOver` / `onMouseOut` handlers to have `onFocus` / `onBlur` parity so keyboard users get the same interaction.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/mouse-events-have-key-events (error)
+export const X = () => <div onMouseOver={() => {}} />;
+```
+
+<a id="rule-jsx-a11y-no-access-key"></a>
+
+### `jsx-a11y/no-access-key`
+
+Reject the `accessKey` JSX attribute, it conflicts with assistive-technology keyboard shortcuts.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-access-key (error)
+export const X = () => <button accessKey="s">Save</button>;
+```
+
+<a id="rule-jsx-a11y-no-aria-hidden-on-focusable"></a>
+
+### `jsx-a11y/no-aria-hidden-on-focusable`
+
+Reject `aria-hidden` on focusable JSX elements, focus would land on an element hidden from assistive tech.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-aria-hidden-on-focusable (error)
+export const X = () => <button aria-hidden="true">Save</button>;
+```
+
+<a id="rule-jsx-a11y-no-autofocus"></a>
+
+### `jsx-a11y/no-autofocus`
+
+Reject `autoFocus` / `autofocus` JSX attributes, they steal focus on page load and disorient keyboard users.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-autofocus (error)
+export const X = () => <input autoFocus />;
+```
+
+<a id="rule-jsx-a11y-no-distracting-elements"></a>
+
+### `jsx-a11y/no-distracting-elements`
+
+Reject `<blink>` and `<marquee>`, moving content cannot be paused and harms users with cognitive or visual impairments (WCAG 2.2.2). The list is closed: extra elements cannot be added.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-distracting-elements (error)
+export const X = () => <marquee>scroll</marquee>;
+```
+
+<a id="rule-jsx-a11y-no-interactive-element-to-noninteractive-role"></a>
+
+### `jsx-a11y/no-interactive-element-to-noninteractive-role`
+
+Reject non-interactive ARIA roles applied to natively interactive elements (e.g. `<button role="presentation">`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-interactive-element-to-noninteractive-role (error)
+export const X = () => <button role="presentation">Save</button>;
+```
+
+<a id="rule-jsx-a11y-no-noninteractive-element-interactions"></a>
+
+### `jsx-a11y/no-noninteractive-element-interactions`
+
+Reject interaction event handlers (`onClick`, `onKeyDown`) placed on known non-interactive elements without a role override.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-noninteractive-element-interactions (error)
+export const X = () => <li onClick={() => {}}>row</li>;
+```
+
+<a id="rule-jsx-a11y-no-noninteractive-element-to-interactive-role"></a>
+
+### `jsx-a11y/no-noninteractive-element-to-interactive-role`
+
+Reject interactive ARIA roles applied to non-interactive elements (e.g. `<li role="button">`); use the matching interactive tag.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-noninteractive-element-to-interactive-role (error)
+export const X = () => <li role="button">click</li>;
+```
+
+<a id="rule-jsx-a11y-no-noninteractive-tabindex"></a>
+
+### `jsx-a11y/no-noninteractive-tabindex`
+
+Reject `tabIndex` on non-interactive JSX elements that have no interactive role.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-noninteractive-tabindex (error)
+export const X = () => <div tabIndex={0} />;
+```
+
+<a id="rule-jsx-a11y-no-redundant-roles"></a>
+
+### `jsx-a11y/no-redundant-roles`
+
+Reject explicit `role` attributes that duplicate the native semantics of the element (e.g. `<button role="button">`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-redundant-roles (error)
+export const X = () => <button role="button">Save</button>;
+```
+
+<a id="rule-jsx-a11y-no-static-element-interactions"></a>
+
+### `jsx-a11y/no-static-element-interactions`
+
+Require static elements with interaction handlers to declare an interactive `role`.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/no-static-element-interactions (error)
+export const X = () => <div onClick={() => {}}>open</div>;
+```
+
+<a id="rule-jsx-a11y-prefer-tag-over-role"></a>
+
+### `jsx-a11y/prefer-tag-over-role`
+
+Prefer native JSX tags over `div` / `span` plus an equivalent `role` (e.g. `<button>` over `<div role="button">`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/prefer-tag-over-role (error)
+export const X = () => <div role="button">Save</div>;
+```
+
+<a id="rule-jsx-a11y-role-has-required-aria-props"></a>
+
+### `jsx-a11y/role-has-required-aria-props`
+
+Require ARIA properties that the chosen role mandates (e.g. `aria-checked` on `role="checkbox"`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/role-has-required-aria-props (error)
+export const X = () => <div role="checkbox" />;
+```
+
+<a id="rule-jsx-a11y-role-supports-aria-props"></a>
+
+### `jsx-a11y/role-supports-aria-props`
+
+Reject ARIA properties that the role does not support (e.g. `aria-checked` on `role="link"`).
+
+Example:
+
+```tsx
+// reports: jsx-a11y/role-supports-aria-props (error)
+export const X = () => <div role="link" aria-checked="true" />;
+```
+
+<a id="rule-jsx-a11y-scope"></a>
+
+### `jsx-a11y/scope`
+
+Restrict the `scope` attribute to `<th>` cells. On any other tag (`<div scope="col">`, `<td scope="row">`) the attribute is ignored by browsers and confuses table-aware assistive tech.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/scope (error)
+export const X = () => <div scope="col" />;
+```
+
+<a id="rule-jsx-a11y-tabindex-no-positive"></a>
+
+### `jsx-a11y/tabindex-no-positive`
+
+Reject `tabIndex` values greater than zero. Positive indices jump the keyboard focus order out of document order and almost always desynchronize from later DOM changes; `0` and `-1` remain allowed.
+
+Example:
+
+```tsx
+// reports: jsx-a11y/tabindex-no-positive (error)
+export const X = () => <button tabIndex={1}>Save</button>;
+```

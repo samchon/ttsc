@@ -1,27 +1,372 @@
 # Next.js
 
-Next.js framework rules from `@next/eslint-plugin-next`, applied to TypeScript and TSX sources inside Next.js apps. Checks Next.js-specific conventions, pages/app routing, `<Head>` placement, font and script loading, image and link components. That the framework's runtime treats as load-bearing. Rules that need non-TypeScript files or runtime filesystem route discovery are intentionally conservative.
+Next.js framework rules from `@next/eslint-plugin-next`, applied to TypeScript and TSX sources inside Next.js apps.
+
+Checks Next.js-specific conventions that the framework's runtime treats as load-bearing: pages/app routing, `<Head>` placement, font and script loading, image and link components.
 
 Source: [`@next/eslint-plugin-next`](https://github.com/vercel/next.js/tree/canary/packages/eslint-plugin-next) (MIT).
 
-- `nextjs/google-font-display`: Require a non-blocking `display=` value on Google Fonts stylesheet links; reject `auto`, `block`, and `fallback`, which keep text invisible while the font loads and hurt LCP.
-- `nextjs/google-font-preconnect`: Require `rel="preconnect"` for `fonts.gstatic.com` links to shave latency off Google Font fetches.
-- `nextjs/inline-script-id`: Require an `id` attribute on inline `<Script>` components from `next/script`.
-- `nextjs/next-script-for-ga`: Prefer the Next.js Google Analytics integration over hand-written `gtag` script tags.
-- `nextjs/no-assign-module-variable`: Reject local declarations named `module`, which shadow the CommonJS `module` binding Next.js relies on.
-- `nextjs/no-async-client-component`: Reject `async` function bodies on React Client Components.
-- `nextjs/no-before-interactive-script-outside-document`: Restrict the `next/script` `strategy="beforeInteractive"` option to `pages/_document.tsx`, anywhere else, the strategy is downgraded silently.
-- `nextjs/no-css-tags`: Reject raw `<link rel="stylesheet">` tags.
-- `nextjs/no-document-import-in-page`: Restrict `next/document` imports to `pages/_document.tsx`, `Document` cannot be used in a regular page.
-- `nextjs/no-duplicate-head`: Reject more than one `<Head>` element from `next/document` in `pages/_document.tsx`.
-- `nextjs/no-head-element`: Reject raw `<head>` elements outside the `app/` directory. Use `next/head` or the metadata exports.
-- `nextjs/no-head-import-in-document`: Reject `next/head` imports inside `pages/_document.tsx`. Use `next/document`'s `Head` there.
-- `nextjs/no-html-link-for-pages`: Prefer `next/link` for internal anchors with a static `href`, since `Link` performs client-side routing.
-- `nextjs/no-img-element`: Prefer `next/image` over raw `<img>` elements so the framework can optimize the asset.
-- `nextjs/no-page-custom-font`: Reject Google font `<link>` tags inside regular pages files. Load fonts in `_document.tsx` (pages router) or via `next/font` (app router).
-- `nextjs/no-script-component-in-head`: Reject `next/script` inside `next/head`, `<Script>` must appear in the JSX tree, not in `<Head>`.
-- `nextjs/no-styled-jsx-in-document`: Reject styled-jsx tags inside `pages/_document.tsx`, which the server renders incorrectly.
-- `nextjs/no-sync-scripts`: Require `async` or `defer` on external raw `<script>` tags so loading does not block render.
-- `nextjs/no-title-in-document-head`: Reject `<title>` inside `Head` from `next/document`.
-- `nextjs/no-typos`: Catch near-miss typos in Next.js data-fetching export names (`getStaticProps`, `getStaticPaths`, `getServerSideProps`).
-- `nextjs/no-unwanted-polyfillio`: Reject Polyfill.io script URLs, Next.js already polyfills modern browsers, and Polyfill.io has a checkered history.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`nextjs/google-font-display`](#rule-nextjs-google-font-display): Require a non-blocking `display=` value on Google Fonts stylesheet links; reject `auto`, `block`, and `fallback`.
+- [`nextjs/google-font-preconnect`](#rule-nextjs-google-font-preconnect): Require `rel="preconnect"` for `fonts.gstatic.com` links to shave latency off Google Font fetches.
+- [`nextjs/inline-script-id`](#rule-nextjs-inline-script-id): Require an `id` attribute on inline `<Script>` components from `next/script`.
+- [`nextjs/next-script-for-ga`](#rule-nextjs-next-script-for-ga): Prefer the Next.js Google Analytics integration over hand-written `gtag` script tags.
+- [`nextjs/no-assign-module-variable`](#rule-nextjs-no-assign-module-variable): Reject local declarations named `module`.
+- [`nextjs/no-async-client-component`](#rule-nextjs-no-async-client-component): Reject `async` function bodies on React Client Components.
+- [`nextjs/no-before-interactive-script-outside-document`](#rule-nextjs-no-before-interactive-script-outside-document): Restrict the `next/script` `strategy="beforeInteractive"` option to `pages/_document.tsx`.
+- [`nextjs/no-css-tags`](#rule-nextjs-no-css-tags): Reject raw `<link rel="stylesheet">` tags.
+- [`nextjs/no-document-import-in-page`](#rule-nextjs-no-document-import-in-page): Restrict `next/document` imports to `pages/_document.tsx`, `Document` cannot be used in a regular page.
+- [`nextjs/no-duplicate-head`](#rule-nextjs-no-duplicate-head): Reject more than one `<Head>` element from `next/document` in `pages/_document.tsx`.
+- [`nextjs/no-head-element`](#rule-nextjs-no-head-element): Reject raw `<head>` elements outside the `app/` directory, use `next/head` or the metadata exports.
+- [`nextjs/no-head-import-in-document`](#rule-nextjs-no-head-import-in-document): Reject `next/head` imports inside `pages/_document.tsx`, use `next/document`'s `Head` there.
+- [`nextjs/no-html-link-for-pages`](#rule-nextjs-no-html-link-for-pages): Prefer `next/link` for internal anchors with a static `href`.
+- [`nextjs/no-img-element`](#rule-nextjs-no-img-element): Prefer `next/image` over raw `<img>` elements.
+- [`nextjs/no-page-custom-font`](#rule-nextjs-no-page-custom-font): Reject Google font `<link>` tags inside regular pages files.
+- [`nextjs/no-script-component-in-head`](#rule-nextjs-no-script-component-in-head): Reject `next/script` inside `next/head`, `<Script>` must appear in the JSX tree, not in `<Head>`.
+- [`nextjs/no-styled-jsx-in-document`](#rule-nextjs-no-styled-jsx-in-document): Reject styled-jsx tags inside `pages/_document.tsx`.
+- [`nextjs/no-sync-scripts`](#rule-nextjs-no-sync-scripts): Require `async` or `defer` on external raw `<script>` tags.
+- [`nextjs/no-title-in-document-head`](#rule-nextjs-no-title-in-document-head): Reject `<title>` inside `Head` from `next/document`.
+- [`nextjs/no-typos`](#rule-nextjs-no-typos): Catch near-miss typos in Next.js data-fetching export names.
+- [`nextjs/no-unwanted-polyfillio`](#rule-nextjs-no-unwanted-polyfillio): Reject Polyfill.io script URLs, Next.js already polyfills modern browsers, and Polyfill.io has a checkered history.
+
+## Rules
+
+<a id="rule-nextjs-google-font-display"></a>
+
+### `nextjs/google-font-display`
+
+Require a non-blocking `display=` value on Google Fonts stylesheet links; reject `auto`, `block`, and `fallback`, which keep text invisible while the font loads and hurt LCP. Prefer `optional` or `swap`.
+
+Example:
+
+```tsx
+// reports: nextjs/google-font-display (error)
+const a = (
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter"
+  />
+);
+```
+
+<a id="rule-nextjs-google-font-preconnect"></a>
+
+### `nextjs/google-font-preconnect`
+
+Require `rel="preconnect"` for `fonts.gstatic.com` links to shave latency off Google Font fetches.
+
+Example:
+
+```tsx
+// reports: nextjs/google-font-preconnect (error)
+const a = <link href="https://fonts.gstatic.com" />;
+```
+
+<a id="rule-nextjs-inline-script-id"></a>
+
+### `nextjs/inline-script-id`
+
+Require an `id` attribute on inline `<Script>` components from `next/script`.
+
+Next.js uses the id to track the script across client navigations and to satisfy its loading-strategy budget; an inline script without one is silently dropped on subsequent renders.
+
+Example:
+
+```tsx
+import Script from "next/script";
+
+const a = (
+  // reports: nextjs/inline-script-id (error)
+  <Script>{`console.log("hi")`}</Script>
+);
+```
+
+<a id="rule-nextjs-next-script-for-ga"></a>
+
+### `nextjs/next-script-for-ga`
+
+Prefer the Next.js Google Analytics integration over hand-written `gtag` script tags.
+
+Example:
+
+```tsx
+// reports: nextjs/next-script-for-ga (error)
+const a = (
+  <script
+    async
+    src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"
+  />
+);
+```
+
+<a id="rule-nextjs-no-assign-module-variable"></a>
+
+### `nextjs/no-assign-module-variable`
+
+Reject local declarations named `module`, which shadow the CommonJS `module` binding Next.js relies on.
+
+Example:
+
+```ts
+// reports: nextjs/no-assign-module-variable (error)
+const module = {};
+```
+
+<a id="rule-nextjs-no-async-client-component"></a>
+
+### `nextjs/no-async-client-component`
+
+Reject `async` function bodies on React Client Components.
+
+The client-side React runtime can't await a component's render, so an `async` `"use client"` component returns a pending promise that crashes hydration; do data fetching in a Server Component or in `useEffect` instead.
+
+Example:
+
+```tsx
+"use client";
+
+// reports: nextjs/no-async-client-component (error)
+export async function Page() {
+  return <div>hi</div>;
+}
+```
+
+<a id="rule-nextjs-no-before-interactive-script-outside-document"></a>
+
+### `nextjs/no-before-interactive-script-outside-document`
+
+Restrict the `next/script` `strategy="beforeInteractive"` option to `pages/_document.tsx`, anywhere else, the strategy is downgraded silently.
+
+Example:
+
+```tsx
+import Script from "next/script";
+
+// reports: nextjs/no-before-interactive-script-outside-document (error)
+const a = <Script src="/x.js" strategy="beforeInteractive" />;
+```
+
+<a id="rule-nextjs-no-css-tags"></a>
+
+### `nextjs/no-css-tags`
+
+Reject raw `<link rel="stylesheet">` tags.
+
+Next.js handles CSS through its bundler, imported stylesheets, CSS Modules, or `next/font`, and manual stylesheet links skip the runtime's critical-CSS extraction and render-blocking heuristics.
+
+Example:
+
+```tsx
+// reports: nextjs/no-css-tags (error)
+const a = <link rel="stylesheet" href="/styles.css" />;
+```
+
+<a id="rule-nextjs-no-document-import-in-page"></a>
+
+### `nextjs/no-document-import-in-page`
+
+Restrict `next/document` imports to `pages/_document.tsx`, `Document` cannot be used in a regular page.
+
+Example:
+
+```tsx
+// reports: nextjs/no-document-import-in-page (error)
+import Document from "next/document";
+```
+
+<a id="rule-nextjs-no-duplicate-head"></a>
+
+### `nextjs/no-duplicate-head`
+
+Reject more than one `<Head>` element from `next/document` in `pages/_document.tsx`.
+
+Next.js merges metadata into the single `<Head>` it renders into the HTML shell; additional instances are dropped silently and any tags inside them never reach the page.
+
+Example:
+
+```tsx
+const a = (
+  <>
+    <Head />
+    {/* reports: nextjs/no-duplicate-head (error) */}
+    <Head />
+  </>
+);
+```
+
+<a id="rule-nextjs-no-head-element"></a>
+
+### `nextjs/no-head-element`
+
+Reject raw `<head>` elements outside the `app/` directory, use `next/head` or the metadata exports.
+
+Example:
+
+```tsx
+// reports: nextjs/no-head-element (error)
+const a = (
+  <head>
+    <title>Site</title>
+  </head>
+);
+```
+
+<a id="rule-nextjs-no-head-import-in-document"></a>
+
+### `nextjs/no-head-import-in-document`
+
+Reject `next/head` imports inside `pages/_document.tsx`, use `next/document`'s `Head` there.
+
+Example:
+
+```tsx
+// reports: nextjs/no-head-import-in-document (error)
+import Head from "next/head";
+```
+
+<a id="rule-nextjs-no-html-link-for-pages"></a>
+
+### `nextjs/no-html-link-for-pages`
+
+Prefer `next/link` for internal anchors with a static `href`, since `Link` performs client-side routing.
+
+Example:
+
+```tsx
+// reports: nextjs/no-html-link-for-pages (error)
+const a = <a href="/about">about</a>;
+```
+
+<a id="rule-nextjs-no-img-element"></a>
+
+### `nextjs/no-img-element`
+
+Prefer `next/image` over raw `<img>` elements so the framework can optimize the asset.
+
+Example:
+
+```tsx
+// reports: nextjs/no-img-element (error)
+const a = <img src="/hero.png" alt="hero" />;
+```
+
+<a id="rule-nextjs-no-page-custom-font"></a>
+
+### `nextjs/no-page-custom-font`
+
+Reject Google font `<link>` tags inside regular pages files, load fonts in `_document.tsx` (pages router) or via `next/font` (app router).
+
+Example:
+
+```tsx
+// reports: nextjs/no-page-custom-font (error)
+const a = (
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter&display=swap"
+  />
+);
+```
+
+<a id="rule-nextjs-no-script-component-in-head"></a>
+
+### `nextjs/no-script-component-in-head`
+
+Reject `next/script` inside `next/head`, `<Script>` must appear in the JSX tree, not in `<Head>`.
+
+Example:
+
+```tsx
+const a = (
+  <Head>
+    {/* reports: nextjs/no-script-component-in-head (error) */}
+    <Script src="/x.js" />
+  </Head>
+);
+```
+
+<a id="rule-nextjs-no-styled-jsx-in-document"></a>
+
+### `nextjs/no-styled-jsx-in-document`
+
+Reject styled-jsx tags inside `pages/_document.tsx`, which the server renders incorrectly.
+
+Example:
+
+```tsx
+const a = (
+  <div>
+    {/* reports: nextjs/no-styled-jsx-in-document (error) */}
+    <style jsx>{`
+      div {
+        color: red;
+      }
+    `}</style>
+  </div>
+);
+```
+
+<a id="rule-nextjs-no-sync-scripts"></a>
+
+### `nextjs/no-sync-scripts`
+
+Require `async` or `defer` on external raw `<script>` tags so loading does not block render.
+
+Example:
+
+```tsx
+// reports: nextjs/no-sync-scripts (error)
+const a = <script src="https://example.com/x.js" />;
+```
+
+<a id="rule-nextjs-no-title-in-document-head"></a>
+
+### `nextjs/no-title-in-document-head`
+
+Reject `<title>` inside `Head` from `next/document`. Set the title from the metadata exports instead.
+
+Example:
+
+```tsx
+const a = (
+  <Head>
+    {/* reports: nextjs/no-title-in-document-head (error) */}
+    <title>Site</title>
+  </Head>
+);
+```
+
+<a id="rule-nextjs-no-typos"></a>
+
+### `nextjs/no-typos`
+
+Catch near-miss typos in Next.js data-fetching export names (`getStaticProps`, `getStaticPaths`, `getServerSideProps`).
+
+A misspelled export is treated as ordinary module state, so the page silently falls back to client-side rendering with no build-time warning.
+
+Example:
+
+```ts
+// reports: nextjs/no-typos (error)
+export function getstaticprops() {
+  return { props: {} };
+}
+```
+
+<a id="rule-nextjs-no-unwanted-polyfillio"></a>
+
+### `nextjs/no-unwanted-polyfillio`
+
+Reject Polyfill.io script URLs, Next.js already polyfills modern browsers, and Polyfill.io has a checkered history.
+
+Example:
+
+```tsx
+// reports: nextjs/no-unwanted-polyfillio (error)
+const a = <script src="https://polyfill.io/v3/polyfill.min.js" />;
+```

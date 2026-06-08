@@ -1,27 +1,411 @@
 # Solid
 
-Solid TSX rules from `eslint-plugin-solid`. Solid components compile to fine-grained reactivity, so patterns that look correct in React (destructuring props, calling `useEffect`-style hooks with array deps) silently break reactivity in Solid. The native implementation uses direct AST patterns and activates Solid-specific reports after Solid imports are present.
+Solid TSX rules from `eslint-plugin-solid`.
+
+Solid components compile to fine-grained reactivity, so patterns that look correct in React (destructuring props, calling `useEffect`-style hooks with array deps) silently break reactivity in Solid.
+
+This family captures the common Solid-only pitfalls.
 
 Source: [`eslint-plugin-solid`](https://github.com/solidjs-community/eslint-plugin-solid) (MIT).
 
-- `solid/components-return-once`: Reject early and conditional `return` from a Solid component, Solid components must return exactly once at the top level.
-- `solid/event-handlers`: Require DOM event handler props to use canonical Solid casing (`onClick`, not `onclick` / `onClIcK`) so the compiler recognizes them as events.
-- `solid/imports`: Route each Solid export to the correct entry point (`solid-js`, `solid-js/web`, or `solid-js/store`) and merge duplicate imports from the same entry.
-- `solid/jsx-no-duplicate-props`: Reject duplicate JSX props on the same Solid element.
-- `solid/jsx-no-script-url`: Reject `javascript:` URLs in Solid JSX attributes (`href`, `src`, ...). They evaluate the suffix as code in the page context and are a long-standing XSS vector.
-- `solid/jsx-no-undef`: Reject Solid JSX component names that are not declared or imported in scope.
-- `solid/jsx-uses-vars`: Scope-marker compatibility rule (mirrors ESLint's `react/jsx-uses-vars`); registered for config compatibility but does not emit native diagnostics.
-- `solid/no-array-handlers`: Reject array values passed as Solid event handlers, Solid does not unwrap the array form React supports.
-- `solid/no-destructure`: Reject destructured Solid component props, destructuring breaks reactivity by reading the property eagerly.
-- `solid/no-innerhtml`: Reject `innerHTML` JSX attributes because they bypass sanitization and are a common XSS sink.
-- `solid/no-proxy-apis`: Reject Solid APIs that rely on ES6 `Proxy` (including `new Proxy`, `Proxy.revocable`, imports from `solid-js/store`, and dynamic spread shapes through `mergeProps`).
-- `solid/no-react-deps`: Reject React-style dependency arrays in Solid tracked scopes (`createEffect(() => ..., [deps])`).
-- `solid/no-react-specific-props`: Reject React-specific JSX props such as `className` and `htmlFor`, Solid uses `class` and `for`.
-- `solid/no-unknown-namespaces`: Restrict namespaced JSX attributes (`ns:name={...}`) to the built-in Solid namespaces (`on:`, `oncapture:`, `use:`, `prop:`, `attr:`, `bool:`, `style:`, `class:`).
-- `solid/prefer-classlist`: Rewrite `class={cn({ ... })}` / `clsx(...)` / `classnames(...)` calls to the reactive `classlist={{ ... }}` prop.
-- `solid/prefer-for`: Replace inline `array.map(item => <JSX />)` with Solid's `<For>` component so the iteration stays keyed and reactive instead of re-creating every child on each update.
-- `solid/prefer-show`: Rewrite `{cond && <JSX />}` short-circuits in JSX to `<Show when={cond}>...</Show>`.
-- `solid/reactivity`: Reject common Solid reactivity breakages, reading a signal outside a tracking scope, destructuring a `Store`, etc.
-- `solid/self-closing-comp`: Collapse JSX elements with no children to the self-closing form (`<Foo></Foo>` to `<Foo />`).
-- `solid/style-prop`: Require `style={{...}}` keys to be valid kebab-case CSS properties (`"font-size"`, not React's `fontSize`) and dimensioned values to be strings, Solid does not append implicit `px`.
-- `solid/validate-jsx-nesting`: reject JSX nestings that the HTML parser would silently restructure at runtime, `<p>` cannot contain block-level children, `<a>` cannot contain another `<a>`, and `<button>` cannot contain other interactive elements.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`solid/components-return-once`](#rule-solid-components-return-once): Reject early and conditional `return` from a Solid component.
+- [`solid/event-handlers`](#rule-solid-event-handlers): Require DOM event handler props to use canonical Solid casing.
+- [`solid/imports`](#rule-solid-imports): Route each Solid export to the correct entry point and merge duplicate imports from the same entry.
+- [`solid/jsx-no-duplicate-props`](#rule-solid-jsx-no-duplicate-props): Reject duplicate JSX props on the same Solid element.
+- [`solid/jsx-no-script-url`](#rule-solid-jsx-no-script-url): Reject `javascript:` URLs in Solid JSX attributes (`href`, `src`, ...).
+- [`solid/jsx-no-undef`](#rule-solid-jsx-no-undef): Reject Solid JSX component names that are not declared or imported in scope.
+- [`solid/jsx-uses-vars`](#rule-solid-jsx-uses-vars): Scope-marker compatibility rule.
+- [`solid/no-array-handlers`](#rule-solid-no-array-handlers): Reject array values passed as Solid event handlers.
+- [`solid/no-destructure`](#rule-solid-no-destructure): Reject destructured Solid component props, destructuring breaks reactivity by reading the property eagerly.
+- [`solid/no-innerhtml`](#rule-solid-no-innerhtml): Reject `innerHTML` JSX attributes because they bypass sanitization and are a common XSS sink.
+- [`solid/no-proxy-apis`](#rule-solid-no-proxy-apis): Reject Solid APIs that rely on ES6 `Proxy`.
+- [`solid/no-react-deps`](#rule-solid-no-react-deps): Reject React-style dependency arrays in Solid tracked scopes.
+- [`solid/no-react-specific-props`](#rule-solid-no-react-specific-props): Reject React-specific JSX props such as `className` and `htmlFor`.
+- [`solid/no-unknown-namespaces`](#rule-solid-no-unknown-namespaces): Restrict namespaced JSX attributes to the built-in Solid namespaces.
+- [`solid/prefer-classlist`](#rule-solid-prefer-classlist): Rewrite `class={cn({ ... })}` / `clsx(...)` / `classnames(...)` calls to the reactive `classlist={{ ... }}` prop.
+- [`solid/prefer-for`](#rule-solid-prefer-for): Replace inline `array.map(item => <JSX />)` with Solid's `<For>` component so the iteration stays keyed and reactive.
+- [`solid/prefer-show`](#rule-solid-prefer-show): Rewrite `{cond && <JSX />}` short-circuits in JSX to `<Show when={cond}>...</Show>`.
+- [`solid/reactivity`](#rule-solid-reactivity): Reject common Solid reactivity breakages, reading a signal outside a tracking scope, destructuring a `Store`, etc.
+- [`solid/self-closing-comp`](#rule-solid-self-closing-comp): Collapse JSX elements with no children to the self-closing form.
+- [`solid/style-prop`](#rule-solid-style-prop): Require `style={{...}}` keys to be valid kebab-case CSS properties and dimensioned values to be strings.
+- [`solid/validate-jsx-nesting`](#rule-solid-validate-jsx-nesting): Reject JSX nestings that the HTML parser would silently restructure at runtime.
+
+## Rules
+
+<a id="rule-solid-components-return-once"></a>
+
+### `solid/components-return-once`
+
+Reject early and conditional `return` from a Solid component, Solid components must return exactly once at the top level.
+
+Example:
+
+```tsx
+import { Component } from "solid-js";
+
+const App: Component<{ name: string }> = (props) => {
+  // reports: solid/components-return-once (error)
+  if (!props.name) return <span />;
+  return <strong>{props.name}</strong>;
+};
+```
+
+<a id="rule-solid-event-handlers"></a>
+
+### `solid/event-handlers`
+
+Require DOM event handler props to use canonical Solid casing (`onClick`, not `onclick` / `onClIcK`) so the compiler recognizes them as events.
+
+Also flags `on*`-named props bound to non-function values, which look like handlers but are not.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/event-handlers (error)
+const tree = <button onclick="save">save</button>;
+```
+
+<a id="rule-solid-imports"></a>
+
+### `solid/imports`
+
+Route each Solid export to the correct entry point (`solid-js`, `solid-js/web`, or `solid-js/store`) and merge duplicate imports from the same entry.
+
+Example:
+
+```tsx
+// reports: solid/imports (error)
+import { createEffect, render } from "solid-js";
+// reports: solid/imports (error)
+import { createStore } from "solid-js/web";
+```
+
+<a id="rule-solid-jsx-no-duplicate-props"></a>
+
+### `solid/jsx-no-duplicate-props`
+
+Reject duplicate JSX props on the same Solid element. Unlike React, Solid silently keeps the first value, so the duplicate is dead code and almost always a typo.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/jsx-no-duplicate-props (error)
+const tree = <div id="a" id="b" />;
+```
+
+<a id="rule-solid-jsx-no-script-url"></a>
+
+### `solid/jsx-no-script-url`
+
+Reject `javascript:` URLs in Solid JSX attributes (`href`, `src`, ...), they evaluate the suffix as code in the page context and are a long-standing XSS vector.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/jsx-no-script-url (error)
+const tree = <a href="javascript:alert(1)">click</a>;
+```
+
+<a id="rule-solid-jsx-no-undef"></a>
+
+### `solid/jsx-no-undef`
+
+Reject Solid JSX component names that are not declared or imported in scope.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/jsx-no-undef (error)
+const tree = <Missing />;
+```
+
+<a id="rule-solid-jsx-uses-vars"></a>
+
+### `solid/jsx-uses-vars`
+
+Scope-marker compatibility rule (mirrors ESLint's `react/jsx-uses-vars`).
+
+The native engine emits no diagnostics for this id.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+const Button = () => <button />;
+
+const tree = <Button />;
+```
+
+<a id="rule-solid-no-array-handlers"></a>
+
+### `solid/no-array-handlers`
+
+Reject array values passed as Solid event handlers, Solid does not unwrap the array form React supports.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+const [enabled] = createSignal(false);
+
+// reports: solid/no-array-handlers (error)
+const tree = <button onClick={[enabled, () => enabled()]}>x</button>;
+```
+
+<a id="rule-solid-no-destructure"></a>
+
+### `solid/no-destructure`
+
+Reject destructured Solid component props, destructuring breaks reactivity by reading the property eagerly.
+
+Example:
+
+```tsx
+import { Component } from "solid-js";
+
+// reports: solid/no-destructure (error)
+const Hello: Component<{ name: string }> = ({ name }) => <span>{name}</span>;
+```
+
+<a id="rule-solid-no-innerhtml"></a>
+
+### `solid/no-innerhtml`
+
+Reject `innerHTML` JSX attributes because they bypass sanitization and are a common XSS sink. A static string literal is still allowed by default; flip `allowStatic` off to ban that form too.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+const [html] = createSignal("<b>x</b>");
+
+// reports: solid/no-innerhtml (error)
+const tree = <div innerHTML={html()} />;
+```
+
+<a id="rule-solid-no-proxy-apis"></a>
+
+### `solid/no-proxy-apis`
+
+Reject Solid APIs that rely on ES6 `Proxy` (including `new Proxy`, `Proxy.revocable`, imports from `solid-js/store`, and dynamic spread shapes through `mergeProps`).
+
+For shipping to runtimes without `Proxy` support; off by default.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/no-proxy-apis (error)
+const handler = new Proxy({}, {});
+```
+
+<a id="rule-solid-no-react-deps"></a>
+
+### `solid/no-react-deps`
+
+Reject React-style dependency arrays in Solid tracked scopes (`createEffect(() => ..., [deps])`).
+
+Example:
+
+```tsx
+import { createEffect } from "solid-js";
+
+// reports: solid/no-react-deps (error)
+createEffect(() => {}, []);
+```
+
+<a id="rule-solid-no-react-specific-props"></a>
+
+### `solid/no-react-specific-props`
+
+Reject React-specific JSX props such as `className` and `htmlFor`, Solid uses `class` and `for`.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/no-react-specific-props (error)
+const tree = <label className="primary" htmlFor="field" key="save" />;
+```
+
+<a id="rule-solid-no-unknown-namespaces"></a>
+
+### `solid/no-unknown-namespaces`
+
+Restrict namespaced JSX attributes (`ns:name={...}`) to the built-in Solid namespaces (`on:`, `oncapture:`, `use:`, `prop:`, `attr:`, `bool:`, `style:`, `class:`).
+
+Extra names can be allowed through the `allowedNamespaces` option.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/no-unknown-namespaces (error)
+const tree = <div custom:active="true" />;
+```
+
+<a id="rule-solid-prefer-classlist"></a>
+
+### `solid/prefer-classlist`
+
+Rewrite `class={cn({ ... })}` / `clsx(...)` / `classnames(...)` calls to the reactive `classlist={{ ... }}` prop.
+
+Deprecated and off by default upstream.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+const clsx = (input: Record<string, unknown>) =>
+  Object.keys(input).join(" ");
+const [enabled] = createSignal(true);
+
+// reports: solid/prefer-classlist (error)
+const tree = <div class={clsx({ active: enabled() })} />;
+```
+
+<a id="rule-solid-prefer-for"></a>
+
+### `solid/prefer-for`
+
+Replace inline `array.map(item => <JSX />)` with Solid's `<For>` component so the iteration stays keyed and reactive instead of re-creating every child on each update.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+const [items] = createSignal([1, 2, 3]);
+
+// reports: solid/prefer-for (error)
+const tree = (
+  <section>
+    {items().map((item) => (
+      <span>{item}</span>
+    ))}
+  </section>
+);
+```
+
+<a id="rule-solid-prefer-show"></a>
+
+### `solid/prefer-show`
+
+Rewrite `{cond && <JSX />}` short-circuits in JSX to `<Show when={cond}>...</Show>`. Stylistic only, Solid's compiler already handles the boolean form, so it is off by default.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+const [enabled] = createSignal(true);
+
+// reports: solid/prefer-show (error)
+const tree = <section>{enabled() && <strong>Ready</strong>}</section>;
+```
+
+<a id="rule-solid-reactivity"></a>
+
+### `solid/reactivity`
+
+Reject common Solid reactivity breakages, reading a signal outside a tracking scope, destructuring a `Store`, etc.
+
+Example:
+
+```tsx
+import { createEffect, createSignal } from "solid-js";
+
+function App() {
+  const [count] = createSignal(0);
+  createEffect(async () => count());
+  // reports: solid/reactivity (error)
+  return <span>{count}</span>;
+}
+```
+
+<a id="rule-solid-self-closing-comp"></a>
+
+### `solid/self-closing-comp`
+
+Collapse JSX elements with no children to the self-closing form (`<Foo></Foo>` to `<Foo />`). Configurable per component vs HTML element, including a `"void"` mode that only enforces it for void tags.
+
+Example:
+
+```tsx
+import type { Component } from "solid-js";
+
+const Icon: Component = () => <svg />;
+
+// reports: solid/self-closing-comp (error)
+const tree = <Icon></Icon>;
+```
+
+<a id="rule-solid-style-prop"></a>
+
+### `solid/style-prop`
+
+Require `style={{...}}` keys to be valid kebab-case CSS properties (`"font-size"`, not React's `fontSize`) and dimensioned values to be strings, Solid does not append implicit `px`.
+
+Example:
+
+```tsx
+import { createSignal } from "solid-js";
+
+createSignal(0);
+
+// reports: solid/style-prop (error)
+const tree = <span style={{ fontSize: "12px" }} />;
+```
+
+<a id="rule-solid-validate-jsx-nesting"></a>
+
+### `solid/validate-jsx-nesting`
+
+Reject JSX nestings that the HTML parser would silently restructure at runtime, `<p>` cannot contain block-level children, `<a>` cannot contain another `<a>`, and `<button>` cannot contain other interactive elements.
+
+Example:
+
+```tsx
+const a = (
+  <p>
+    {/* reports: solid/validate-jsx-nesting (error) */}
+    <div>block in paragraph</div>
+  </p>
+);
+```

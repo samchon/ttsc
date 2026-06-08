@@ -1,23 +1,313 @@
 # Promise
 
-Promise correctness and style rules from `eslint-plugin-promise`. Checks the chain shape of Promise-using code: every chain ends with `catch`, no callback inside a `then`, no nested `.then().then()`, and so on. AST-local only, type-aware Promise checks belong with `typescript/*` checker rules.
+Promise correctness and style rules from `eslint-plugin-promise`.
+
+They check the chain shape of Promise-using code: every chain ends with `catch`, callbacks stay out of `then`, nested `.then().then()` chains are avoided, and so on.
+
+AST-local only. Type-aware Promise checks belong with `typescript/*` checker rules.
 
 Source: [`eslint-plugin-promise`](https://github.com/eslint-community/eslint-plugin-promise) (ISC).
 
-- `promise/always-return`: Require every `then()` callback to either `return` a value or `throw`.
-- `promise/avoid-new`: Reject every `new Promise(...)` construction.
-- `promise/catch-or-return`: Require unreturned promise chains to terminate with `catch()` so unhandled rejections cannot escape.
-- `promise/no-callback-in-promise`: Reject direct invocation of an error-first callback inside a `then()` or `catch()` handler.
-- `promise/no-multiple-resolved`: Detect Promise executor bodies with more than one resolve/reject call.
-- `promise/no-native`: Require every file that uses `Promise` to import or require the implementation explicitly, instead of reaching the native global.
-- `promise/no-nesting`: Reject nested `then()`/`catch()` calls inside the body of a Promise callback.
-- `promise/no-new-statics`: Reject `new` applied to Promise statics such as `new Promise.resolve(x)`, `new Promise.all([...])`, or `new Promise.race([...])`.
-- `promise/no-promise-in-callback`: Reject building a promise chain inside the body of an error-first callback.
-- `promise/no-return-in-finally`: Reject `return` from inside a `finally()` callback.
-- `promise/no-return-wrap`: Reject `return Promise.resolve(x)` and `return Promise.reject(x)` inside promise callbacks; return the bare value or `throw` instead.
-- `promise/param-names`: Enforce canonical parameter names (`resolve`, `reject`) on Promise executor functions.
-- `promise/prefer-await-to-callbacks`: Flag continuation-passing callback shapes (last parameter is a function and an error-first invocation pattern is detected), suggesting an `async`/`await` rewrite.
-- `promise/prefer-await-to-then`: Prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains inside `async` functions.
-- `promise/prefer-catch`: Prefer `.catch(handler)` over the two-argument form `.then(onFulfilled, onRejected)`.
-- `promise/spec-only`: Reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`, or library-specific extensions shimmed onto the global.
-- `promise/valid-params`: Enforce the argument counts the Promise spec defines for each method, `Promise.all`/`Promise.race` take exactly one argument, `Promise.resolve`/`Promise.reject` take zero or one, `.then` takes one or two, `.catch`/`.finally` take exactly one.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`promise/always-return`](#rule-promise-always-return): Require every `then()` callback to either `return` a value or `throw`.
+- [`promise/avoid-new`](#rule-promise-avoid-new): Reject every `new Promise(...)` construction.
+- [`promise/catch-or-return`](#rule-promise-catch-or-return): Require unreturned promise chains to terminate with `catch()`.
+- [`promise/no-callback-in-promise`](#rule-promise-no-callback-in-promise): Reject direct invocation of an error-first callback inside a `then()` or `catch()` handler.
+- [`promise/no-multiple-resolved`](#rule-promise-no-multiple-resolved): Detect Promise executor bodies with more than one resolve/reject call.
+- [`promise/no-native`](#rule-promise-no-native): Require every file that uses `Promise` to import or require the implementation explicitly.
+- [`promise/no-nesting`](#rule-promise-no-nesting): Reject nested `then()`/`catch()` calls inside the body of a Promise callback.
+- [`promise/no-new-statics`](#rule-promise-no-new-statics): Reject `new` applied to Promise statics such as `new Promise.resolve(x)`.
+- [`promise/no-promise-in-callback`](#rule-promise-no-promise-in-callback): Reject building a promise chain inside the body of an error-first callback.
+- [`promise/no-return-in-finally`](#rule-promise-no-return-in-finally): Reject `return` from inside a `finally()` callback.
+- [`promise/no-return-wrap`](#rule-promise-no-return-wrap): Reject `return Promise.resolve(x)` and `return Promise.reject(x)` inside promise callbacks.
+- [`promise/param-names`](#rule-promise-param-names): Enforce canonical parameter names on Promise executor functions.
+- [`promise/prefer-await-to-callbacks`](#rule-promise-prefer-await-to-callbacks): Flag continuation-passing callback shapes.
+- [`promise/prefer-await-to-then`](#rule-promise-prefer-await-to-then): Prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains inside `async` functions.
+- [`promise/prefer-catch`](#rule-promise-prefer-catch): Prefer `.catch(handler)` over the two-argument form `.then(onFulfilled, onRejected)`.
+- [`promise/spec-only`](#rule-promise-spec-only): Reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`.
+- [`promise/valid-params`](#rule-promise-valid-params): Enforce the argument counts the Promise spec defines for each method, `Promise.all`/`Promise.race` take exactly one.
+
+## Rules
+
+<a id="rule-promise-always-return"></a>
+
+### `promise/always-return`
+
+Require every `then()` callback to either `return` a value or `throw`.
+
+A callback that does neither breaks the chain by returning `undefined`.
+
+Example:
+
+```ts
+// reports: promise/always-return (error)
+Promise.resolve(1).then(() => {
+  console.log("side effect");
+});
+```
+
+<a id="rule-promise-avoid-new"></a>
+
+### `promise/avoid-new`
+
+Reject every `new Promise(...)` construction. Most modern code can use `async`/`await` or existing Promise-returning APIs.
+
+Example:
+
+```ts
+// reports: promise/avoid-new (error)
+new Promise((resolve) => resolve(1));
+```
+
+<a id="rule-promise-catch-or-return"></a>
+
+### `promise/catch-or-return`
+
+Require unreturned promise chains to terminate with `catch()` so unhandled rejections cannot escape.
+
+Example:
+
+```ts
+// reports: promise/catch-or-return (error)
+Promise.resolve(1).then((value) => value + 1);
+```
+
+<a id="rule-promise-no-callback-in-promise"></a>
+
+### `promise/no-callback-in-promise`
+
+Reject direct invocation of an error-first callback inside a `then()` or `catch()` handler.
+
+Synchronously calling the callback from a promise handler can re-enter it on both the fulfilled and rejected paths.
+
+Upstream guidance: defer via `setImmediate`/`process.nextTick` if a callback bridge is genuinely required.
+
+Also flags `.then(callback)` / `.catch(callback)` calls whose handler argument is a bare callback-shaped identifier (`callback`, `cb`, `next`, `done`).
+
+Example:
+
+```ts
+const cb = () => console.log("done");
+Promise.resolve(1).then(() => {
+  // reports: promise/no-callback-in-promise (error)
+  cb();
+});
+```
+
+<a id="rule-promise-no-multiple-resolved"></a>
+
+### `promise/no-multiple-resolved`
+
+Detect Promise executor bodies with more than one resolve/reject call. The native rule does not yet model branch exclusivity, bodies whose calls are split across mutually exclusive branches will be flagged too.
+
+The second call is silently ignored, but the surrounding logic almost always assumed short-circuit.
+
+Example:
+
+```ts
+new Promise((resolve, reject) => {
+  resolve(1);
+  // reports: promise/no-multiple-resolved (error)
+  reject(new Error("already resolved"));
+});
+```
+
+<a id="rule-promise-no-native"></a>
+
+### `promise/no-native`
+
+Require every file that uses `Promise` to import or require the implementation explicitly, instead of reaching the native global.
+
+Useful for projects that substitute Bluebird or another library and want the choice grep-visible per file.
+
+Example:
+
+```ts
+// reports: promise/no-native (error)
+Promise.resolve(1);
+```
+
+<a id="rule-promise-no-nesting"></a>
+
+### `promise/no-nesting`
+
+Reject nested `then()`/`catch()` calls inside the body of a Promise callback. Use chained `.then()` instead.
+
+Example:
+
+```ts
+Promise.resolve(1).then(() => {
+  // reports: promise/no-nesting (error)
+  Promise.resolve(2).then((value) => value);
+});
+```
+
+<a id="rule-promise-no-new-statics"></a>
+
+### `promise/no-new-statics`
+
+Reject `new` applied to Promise statics such as `new Promise.resolve(x)`, `new Promise.all([...])`, or `new Promise.race([...])`.
+
+The statics are plain functions, so `new` throws a `TypeError` at runtime, caught here before the call ships.
+
+Example:
+
+```ts
+// reports: promise/no-new-statics (error)
+new Promise.resolve(1);
+```
+
+<a id="rule-promise-no-promise-in-callback"></a>
+
+### `promise/no-promise-in-callback`
+
+Reject building a promise chain inside the body of an error-first callback.
+
+The callback already owns an error channel, so layering `.then()`/`.catch()` on top creates two incompatible failure pipelines. Upstream advice: promisify the outer API instead.
+
+Example:
+
+```ts
+function done(err: Error | null) {
+  if (err) throw err;
+  // reports: promise/no-promise-in-callback (error)
+  Promise.resolve(1);
+}
+```
+
+<a id="rule-promise-no-return-in-finally"></a>
+
+### `promise/no-return-in-finally`
+
+Reject `return` from inside a `finally()` callback.
+
+The chain's resolved value comes from the prior `then`/`catch`, so any value returned from `finally` is discarded, usually signals confusion about where the chain's value comes from.
+
+Example:
+
+```ts
+Promise.resolve(1).finally(() => {
+  // reports: promise/no-return-in-finally (error)
+  return 2;
+});
+```
+
+<a id="rule-promise-no-return-wrap"></a>
+
+### `promise/no-return-wrap`
+
+Reject `return Promise.resolve(x)` and `return Promise.reject(x)` inside promise callbacks; return the bare value or `throw` instead.
+
+Example:
+
+```ts
+Promise.resolve(1).then(() => {
+  // reports: promise/no-return-wrap (error)
+  return Promise.resolve(2);
+});
+```
+
+<a id="rule-promise-param-names"></a>
+
+### `promise/param-names`
+
+Enforce canonical parameter names (`resolve`, `reject`) on Promise executor functions.
+
+Consistent names make executor bodies greppable and prevent accidental shadowing of the outer `resolve` symbol.
+
+Example:
+
+```ts
+new Promise(
+  (
+    resolve,
+    // reports: promise/param-names (error)
+    fail,
+  ) => fail(new Error("x")),
+);
+```
+
+<a id="rule-promise-prefer-await-to-callbacks"></a>
+
+### `promise/prefer-await-to-callbacks`
+
+Flag continuation-passing callback shapes (last parameter is a function and an error-first invocation pattern is detected), suggesting an `async`/`await` rewrite.
+
+Intended for codebases that have already migrated their I/O surface to promises and want to keep callers consistent.
+
+Example:
+
+```ts
+// reports: promise/prefer-await-to-callbacks (error)
+function load(callback: () => void) {}
+```
+
+<a id="rule-promise-prefer-await-to-then"></a>
+
+### `promise/prefer-await-to-then`
+
+Prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains inside `async` functions.
+
+Sequential awaits compose more naturally with try/catch and avoid the indentation creep of deeply nested handlers.
+
+Example:
+
+```ts
+// reports: promise/prefer-await-to-then (error)
+Promise.resolve(1).then((value) => value);
+```
+
+<a id="rule-promise-prefer-catch"></a>
+
+### `promise/prefer-catch`
+
+Prefer `.catch(handler)` over the two-argument form `.then(onFulfilled, onRejected)`.
+
+The two-argument shape skips rejections raised inside `onFulfilled`, which surprises readers and hides errors from logging middleware.
+
+Example:
+
+```ts
+Promise.resolve(1).then(
+  (value) => value,
+  // reports: promise/prefer-catch (error)
+  (error) => console.error(error),
+);
+```
+
+<a id="rule-promise-spec-only"></a>
+
+### `promise/spec-only`
+
+Reject non-standard `Promise` statics such as `Promise.done`, `Promise.spread`, or library-specific extensions shimmed onto the global.
+
+Sticking to spec methods keeps code portable across Promise implementations.
+
+Example:
+
+```ts
+// reports: promise/spec-only (error)
+Promise.delay(1);
+```
+
+<a id="rule-promise-valid-params"></a>
+
+### `promise/valid-params`
+
+Enforce the argument counts the Promise spec defines for each method, `Promise.all`/`Promise.race` take exactly one argument.
+
+`Promise.resolve`/`Promise.reject` take zero or one, `.then` takes one or two, `.catch`/`.finally` take exactly one.
+
+Extra or missing arguments usually indicate a misread of the API.
+
+Example:
+
+```ts
+// reports: promise/valid-params (error)
+Promise.all();
+```

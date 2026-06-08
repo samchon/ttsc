@@ -2,11 +2,19 @@
 
 A practical rule catalog by family. Each rule maps to an ESLint name where one exists. Severity in `lint.config.ts` is one of `"error"` (fails the build), `"warning"` (prints, exit code 0), `"off"` (skipped).
 
-> **Authoritative source:** rule typings live under [`packages/lint/src/structures/rules/`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules): each family interface (`ITtscLintCoreRules`, `ITtscLintReactRules`, …) owns its own rule keys; [`ITtscLintRules.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules/ITtscLintRules.ts) is the union accepted by `ITtscLintConfig.rules`. The per-family pages below document what each rule does and when to keep it on.
+> **Authoritative source:** rule typings live under [`packages/lint/src/structures/rules/`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules).
+>
+> Each family interface (`ITtscLintCoreRules`, `ITtscLintReactRules`, ...) owns its own rule keys.
+>
+> [`ITtscLintRules.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/structures/rules/ITtscLintRules.ts) is the union accepted by `ITtscLintConfig.rules`.
+>
+> The per-family pages below document what each rule does and when to keep it on.
 
 ## Rule families and config types
 
-Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscLintRules` type is an intersection of family-specific interfaces, so a complete `rules` object and smaller family objects share the same checked property names and option tuples.
+Rule IDs use ESLint-style kebab-case with slash namespaces.
+
+The exported `ITtscLintRules` type is an intersection of family-specific interfaces, so a complete `rules` object and smaller family objects share the same checked property names and option tuples.
 
 | Family | Type | Rules | Namespace |
 | --- | --- | --- | --- |
@@ -32,6 +40,24 @@ Rule IDs use ESLint-style kebab-case with slash namespaces. The exported `ITtscL
 | [Functional](./functional) | `ITtscLintFunctionalRules` | 20 | `functional/*` |
 | [Architecture boundaries](./boundaries) | `ITtscLintBoundariesRules` | 6 | `boundaries/*` |
 | Contributor plugins | `ITtscLintContributorRules` | user-defined | `<namespace>/*` |
+
+## Claim ownership
+
+To the maintainers of the upstream rule families behind these namespaces: the in-tree rules are Go ports for the TypeScript-Go Checker.
+
+I implemented them first so `ttsc` projects can use the rules without running a separate ESLint process. That is a convenience layer, not a claim over your rule family.
+
+If you want to develop and maintain your family inside the `@ttsc/lint` ecosystem yourself, publish it as a contributor plugin.
+
+You may reuse the in-tree Go rule sources under [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost).
+
+The checked fixtures live under [`tests/test-lint/src/cases`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases). Use both as a starting point.
+
+Open an issue at [samchon/ttsc](https://github.com/samchon/ttsc/issues) when the package is ready. I will retire the matching in-tree port and point this catalog at your package.
+
+Partial ownership is fine: name the subset you want to maintain, and I will remove just those rules.
+
+The contributor-plugin path is documented in the [`@ttsc/lint` development guide](/docs/development/walkthroughs/lint).
 
 ```ts
 import type { ITtscLintConfig, ITtscLintReactRules } from "@ttsc/lint";
@@ -64,7 +90,7 @@ export default {
     "prefer-const": "error",
 
     // Comparison
-    "eqeqeq": "error",
+    eqeqeq: "error",
     "no-self-compare": "error",
 
     // Suggestions

@@ -1,152 +1,2314 @@
 # Unicorn
 
-Modernization and style rules from `eslint-plugin-unicorn`, spanning array iteration, string and regex idioms, Node.js APIs, error handling, module syntax, DOM APIs, and code shape. Rewrites legacy patterns into their modern counterparts (`for...of` over `forEach`, `Array#flatMap` over `map().flat()`, `String#replaceAll` over a global-regex `replace`, `Math.trunc` over `| 0`), forbids known anti-patterns (`null` literals, abusive `eslint-disable`, `new Buffer`, `process.exit`, `instanceof Array`), and pins a consistent style for things [ESLint core](./core) and [TypeScript](./typescript) leave underspecified (filename case, numeric separators, catch-binding names, expiring TODOs, escape-sequence case, switch-case braces). Pure-AST; no checker dependencies.
+Modernization and style rules from `eslint-plugin-unicorn`.
+
+They span array iteration, string and regex idioms, Node.js APIs, error handling, module syntax, DOM APIs, and code shape.
+
+They rewrite legacy patterns into modern counterparts, forbid known anti-patterns, and pin a consistent style for things [Core](./core) and [TypeScript](./typescript) leave underspecified.
+
+Pure-AST; no checker dependencies.
 
 Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-unicorn) (MIT).
 
-- `unicorn/better-regex`: Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
-- `unicorn/catch-error-name`: Enforce a canonical parameter name (`error`) in `catch` clauses.
-- `unicorn/consistent-assert`: Enforce consistent assertion style when using `node:assert`.
-- `unicorn/consistent-date-clone`: Prefer passing a `Date` directly to the `Date` constructor when cloning, not `+date` or `date.getTime()`.
-- `unicorn/consistent-destructuring`: Once a property is destructured from an object, require subsequent reads to use the destructured binding.
-- `unicorn/consistent-empty-array-spread`: Require both branches of a ternary spread inside an array literal to be array-typed.
-- `unicorn/consistent-existence-index-check`: Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!== -1`) for `indexOf` / `findIndex` existence checks.
-- `unicorn/consistent-function-scoping`: Hoist function declarations to the highest scope that does not capture any outer variables.
-- `unicorn/consistent-template-literal-escape`: Enforce a consistent style (always `\${` or always `$\{`) when escaping `${` in template literals.
-- `unicorn/custom-error-definition`: Require user-defined `Error` subclasses to set `name`, call `super(message)`, and assign their stack correctly.
-- `unicorn/empty-brace-spaces`: Reject whitespace inside empty `{}` braces.
-- `unicorn/error-message`: Require a non-empty `message` argument when constructing a built-in `Error`.
-- `unicorn/escape-case`: Require consistent case for escape sequences (`\xA9` over `\xa9`, `µ` over `µ`).
-- `unicorn/expiring-todo-comments`: Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
-- `unicorn/explicit-length-check`: Require explicit comparison of `.length` / `.size` instead of relying on truthy coercion.
-- `unicorn/filename-case`: Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
-- `unicorn/import-style`: Restrict each module's allowed import styles (named only, default only, namespace only).
-- `unicorn/isolated-functions`: Reject references to outer-scope variables inside functions marked as isolated (e.g., the body of a web worker).
-- `unicorn/new-for-builtins`: Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`, and forbid `new` on primitive wrappers like `String`, `Number`, `Boolean`.
-- `unicorn/no-abusive-eslint-disable`: Require every `eslint-disable*` directive to name the rules it disables.
-- `unicorn/no-accessor-recursion`: Reject recursive reads on `this.<prop>` inside the getter / setter for `<prop>`.
-- `unicorn/no-anonymous-default-export`: Require a name on every default-exported function, class, or object.
-- `unicorn/no-array-callback-reference`: Reject passing a function reference directly as the callback to `map` / `filter` / `forEach` / etc., which silently leaks extra index/array arguments.
-- `unicorn/no-array-for-each`: Prefer `for...of` over `Array.prototype.forEach`.
-- `unicorn/no-array-method-this-argument`: Reject the second `thisArg` argument to array methods; use an explicit closure instead.
-- `unicorn/no-array-reduce`: Reject `Array#reduce` / `Array#reduceRight` in favor of explicit loops or other helpers.
-- `unicorn/no-array-reverse`: Prefer `Array#toReversed` over the mutating `Array#reverse`.
-- `unicorn/no-array-sort`: Prefer `Array#toSorted` over the mutating `Array#sort`.
-- `unicorn/no-await-expression-member`: Reject member access on an `await` expression without parens; require `(await x).y`.
-- `unicorn/no-await-in-promise-methods`: Reject `await` inside arrays passed to `Promise.all` / `Promise.allSettled` / `Promise.race` / `Promise.any`. The awaits serialize the calls.
-- `unicorn/no-console-spaces`: Reject leading or trailing spaces in arguments to `console.log` and friends, `console` already inserts spaces between arguments.
-- `unicorn/no-document-cookie`: Reject direct reads or assignments to `document.cookie`; use the Cookie Store API or a wrapper.
-- `unicorn/no-empty-file`: Reject source files whose only content is whitespace and/or comments.
-- `unicorn/no-for-loop`: Prefer `for...of` over index-based `for` loops over arrays.
-- `unicorn/no-hex-escape`: Prefer Unicode escape (`©`) over hexadecimal escape (`\xA9`).
-- `unicorn/no-immediate-mutation`: Reject mutating a value on the same expression that produces it (`[...x].push(y)`); separate the construction and the mutation.
-- `unicorn/no-instanceof-builtins`: Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc.. They fail across realms and for subclasses.
-- `unicorn/no-invalid-fetch-options`: Reject GET / HEAD `fetch()` calls that also set a request `body`, which throws at runtime.
-- `unicorn/no-invalid-remove-event-listener`: Reject `removeEventListener` calls whose handler argument is a fresh function reference and therefore matches no registered listener.
-- `unicorn/no-keyword-prefix`: Reject identifiers that start with a reserved word (`newFoo`, `classBar`).
-- `unicorn/no-lonely-if`: Reject `if` as the only statement inside an `else` block; use `else if` instead.
-- `unicorn/no-magic-array-flat-depth`: Reject magic-number depth arguments to `Array#flat`; require `Infinity` or a named constant.
-- `unicorn/no-named-default`: Reject re-importing or re-exporting a default binding under a name that differs from the upstream binding.
-- `unicorn/no-negated-condition`: Reject negated conditions in `if` / `else` and ternaries when the positive form is shorter.
-- `unicorn/no-negation-in-equality-check`: Reject `!a === b`; require `a !== b` or `!(a === b)`.
-- `unicorn/no-nested-ternary`: Reject ternaries nested inside other ternaries.
-- `unicorn/no-new-array`: Reject the `new Array(...)` constructor; use array literals or `Array.from` / `Array.of`.
-- `unicorn/no-new-buffer`: Reject the deprecated `new Buffer()` constructor; use `Buffer.from` or `Buffer.alloc`.
-- `unicorn/no-null`: Reject the `null` literal in favor of `undefined`.
-- `unicorn/no-object-as-default-parameter`: Reject inline object literals as default values for function parameters.
-- `unicorn/no-process-exit`: Reject `process.exit()`; throw or return a non-zero status instead.
-- `unicorn/no-single-promise-in-promise-methods`: Reject `Promise.all` / `Promise.race` / etc. Called with a single-element array; the wrapper is redundant.
-- `unicorn/no-static-only-class`: Reject classes whose every member is `static`; use a plain module-level namespace instead.
-- `unicorn/no-thenable`: Reject defining a property named `then` on objects, modules, or classes, `await` and Promise resolution accidentally invoke it.
-- `unicorn/no-this-assignment`: Reject `const self = this` and similar aliases; capture via arrow functions instead.
-- `unicorn/no-typeof-undefined`: Reject `typeof x === "undefined"`; compare against `undefined` directly.
-- `unicorn/no-unnecessary-array-flat-depth`: Reject `1` as the explicit depth argument of `Array#flat`; the default is already `1`.
-- `unicorn/no-unnecessary-array-splice-count`: Reject `.length` / `Infinity` as the deleteCount argument to `splice` / `toSpliced`; omit it to delete to the end.
-- `unicorn/no-unnecessary-await`: Reject `await` on non-thenable expressions.
-- `unicorn/no-unnecessary-polyfills`: Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
-- `unicorn/no-unnecessary-slice-end`: Reject `.length` / `Infinity` as the end argument to `slice`; omit it to slice to the end.
-- `unicorn/no-unreadable-array-destructuring`: Reject destructuring patterns with long hole runs (`[,,,,a]`); use a named index instead.
-- `unicorn/no-unreadable-iife`: Reject IIFEs whose nesting (multiple parens, arrow IIFE arguments) is hard to read.
-- `unicorn/no-unused-properties`: Reject object properties that are never read after definition.
-- `unicorn/no-useless-collection-argument`: Reject useless initializer arguments (`new Set()`, `new Map([])`, `new Set(undefined)`) on collection constructors.
-- `unicorn/no-useless-error-capture-stack-trace`: Reject `Error.captureStackTrace(this, constructor)` when the surrounding subclass relies on the default `Error` capture.
-- `unicorn/no-useless-fallback-in-spread`: Reject `...(x ?? {})` and similar fallbacks when spreading; the spread of `null` / `undefined` is already a no-op.
-- `unicorn/no-useless-iterator-to-array`: Reject `[...iterator]` / `Array.from(iterator)` when the iterator can be consumed directly (e.g., inside `for...of`).
-- `unicorn/no-useless-length-check`: Reject `arr.length` checks that the iteration method itself already handles.
-- `unicorn/no-useless-promise-resolve-reject`: Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside `async` functions, `return x` and `throw e` work identically.
-- `unicorn/no-useless-spread`: Reject spreading a single iterable into a new collection of the same kind (`[...arr]`, `{...obj}`) when the original would suffice.
-- `unicorn/no-useless-switch-case`: Reject `case` clauses with an empty body that immediately precede a `default` whose body executes for them.
-- `unicorn/no-useless-undefined`: Reject explicit `undefined` returns, default initializers, and arguments where the omission has the same meaning.
-- `unicorn/no-zero-fractions`: Reject `1.0` / `1.` / `.5e0` in favor of `1`, `1`, and `0.5`.
-- `unicorn/number-literal-case`: Enforce one consistent case for the prefix and digits of hex / binary / octal literals (`0xFF` over `0xff`).
-- `unicorn/numeric-separators-style`: Enforce `_` separator grouping (every 3 digits for decimal, every 4 for hex) in numeric literals.
-- `unicorn/prefer-add-event-listener`: Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.
-- `unicorn/prefer-array-find`: Prefer `Array#find` / `Array#findLast` over `filter(...)[0]` / `filter(...).at(-1)`.
-- `unicorn/prefer-array-flat`: Prefer `Array#flat` over legacy flattening idioms (`[].concat(...arrs)`, `reduce` with `concat`).
-- `unicorn/prefer-array-flat-map`: Prefer `Array#flatMap` over `map(...).flat()`.
-- `unicorn/prefer-array-index-of`: Prefer `indexOf` / `lastIndexOf` over `findIndex` / `findLastIndex` when matching by `===`.
-- `unicorn/prefer-array-some`: Prefer `Array#some` over `filter(...).length > 0`, `find(...) !== undefined`, and similar shapes.
-- `unicorn/prefer-at`: Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
-- `unicorn/prefer-bigint-literals`: Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
-- `unicorn/prefer-blob-reading-methods`: Prefer `Blob#arrayBuffer()` / `Blob#text()` over `FileReader#readAsArrayBuffer` / `readAsText`.
-- `unicorn/prefer-class-fields`: Prefer class field declarations over constructor assignments to `this.field = value`.
-- `unicorn/prefer-classlist-toggle`: Prefer `Element#classList.toggle(name, condition)` over manual `add` / `remove` branches.
-- `unicorn/prefer-code-point`: Prefer `String#codePointAt` / `String.fromCodePoint` over `charCodeAt` / `fromCharCode`.
-- `unicorn/prefer-date-now`: Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
-- `unicorn/prefer-default-parameters`: Prefer default parameter syntax over `x = x ?? default` reassignments inside the function body.
-- `unicorn/prefer-dom-node-append`: Prefer `Node#append` over `Node#appendChild`.
-- `unicorn/prefer-dom-node-dataset`: Prefer `Element#dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.
-- `unicorn/prefer-dom-node-remove`: Prefer `ChildNode#remove` over `parent.removeChild(child)`.
-- `unicorn/prefer-dom-node-text-content`: Prefer `Node#textContent` over `HTMLElement#innerText`.
-- `unicorn/prefer-event-target`: Prefer `EventTarget` over Node's `EventEmitter` when the code is shared between Node and the browser.
-- `unicorn/prefer-export-from`: Prefer `export ... from` over importing-then-re-exporting in two statements.
-- `unicorn/prefer-global-this`: Prefer `globalThis` over `window`, `self`, and `global`.
-- `unicorn/prefer-import-meta-properties`: Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath` workarounds.
-- `unicorn/prefer-includes`: Prefer `String#includes` / `Array#includes` over `indexOf(...) !== -1` and `some(x => x === target)`.
-- `unicorn/prefer-json-parse-buffer`: Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) instead of decoding to a string first.
-- `unicorn/prefer-keyboard-event-key`: Prefer `KeyboardEvent#key` over the deprecated `KeyboardEvent#keyCode` / `charCode` / `which`.
-- `unicorn/prefer-logical-operator-over-ternary`: Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.
-- `unicorn/prefer-math-min-max`: Prefer `Math.min` / `Math.max` over ternaries computing the same value.
-- `unicorn/prefer-math-trunc`: Prefer `Math.trunc` over `~~x` / `x | 0` for integer truncation.
-- `unicorn/prefer-modern-dom-apis`: Prefer `before` / `after` / `replaceWith` over `insertBefore` / `replaceChild` / `insertAdjacentText`.
-- `unicorn/prefer-modern-math-apis`: Prefer `Math.log10` / `Math.hypot` / `Math.log2` / `Math.cbrt` over their legacy approximations.
-- `unicorn/prefer-module`: Prefer ES modules (`import` / `export`) over CommonJS (`require` / `module.exports` / `__dirname` / `__filename`).
-- `unicorn/prefer-native-coercion-functions`: Prefer the bare `String` / `Number` / `Boolean` / `BigInt` functions over `x => String(x)` arrow wrappers.
-- `unicorn/prefer-negative-index`: Prefer negative-index lookups (`arr.at(-1)`, `arr.slice(-2)`) over `arr.length - 1` / `arr.length - 2` arithmetic.
-- `unicorn/prefer-node-protocol`: Prefer `node:fs` / `node:path` / etc. Over the bare Node builtin specifier.
-- `unicorn/prefer-number-properties`: Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
-- `unicorn/prefer-object-from-entries`: Prefer `Object.fromEntries` over `reduce`-into-object patterns.
-- `unicorn/prefer-optional-catch-binding`: Prefer `catch { ... }` over `catch (e) { ... }` when `e` is unused.
-- `unicorn/prefer-prototype-methods`: Prefer borrowing prototype methods (`Array.prototype.slice.call`) over `[].slice.call` empty-instance lookups.
-- `unicorn/prefer-query-selector`: Prefer `Document#querySelector` over `getElementById`, `getElementsByClassName`, and `getElementsByTagName`.
-- `unicorn/prefer-reflect-apply`: Prefer `Reflect.apply(fn, thisArg, args)` over `Function.prototype.apply.call(fn, thisArg, args)`.
-- `unicorn/prefer-regexp-test`: Prefer `RegExp#test` over `String#match` / `RegExp#exec` when only a boolean is needed.
-- `unicorn/prefer-response-static-json`: Prefer `Response.json(value)` over `new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } })`.
-- `unicorn/prefer-set-has`: Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
-- `unicorn/prefer-set-size`: Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
-- `unicorn/prefer-simple-condition-first`: Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
-- `unicorn/prefer-single-call`: Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments over consecutive single-argument calls.
-- `unicorn/prefer-spread`: Prefer spread (`[...arr]`, `[...str]`) over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
-- `unicorn/prefer-string-raw`: Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
-- `unicorn/prefer-string-replace-all`: Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.
-- `unicorn/prefer-string-slice`: Prefer `String#slice` over the deprecated `substr` / `substring`.
-- `unicorn/prefer-string-starts-ends-with`: Prefer `String#startsWith` / `String#endsWith` over equivalent `RegExp#test` and slice-then-compare idioms.
-- `unicorn/prefer-string-trim-start-end`: Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.
-- `unicorn/prefer-structured-clone`: Prefer `structuredClone(x)` over `JSON.parse(JSON.stringify(x))` for deep cloning.
-- `unicorn/prefer-switch`: Prefer `switch` over chains of three or more `else if` clauses comparing the same discriminant.
-- `unicorn/prefer-ternary`: Prefer a ternary over `if` / `else` whose two branches differ only in the right-hand side of a common assignment, `return`, or `throw`.
-- `unicorn/prefer-top-level-await`: Prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
-- `unicorn/prefer-type-error`: Require throwing `TypeError` (not a bare `Error`) when the surrounding `if` is a runtime type check.
-- `unicorn/prevent-abbreviations`: Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
-- `unicorn/relative-url-style`: Enforce a single style (always leading `./` vs. Never) for relative URLs passed to `new URL`.
-- `unicorn/require-array-join-separator`: Require an explicit separator argument to `Array#join` instead of relying on the default `","`.
-- `unicorn/require-module-attributes`: Require non-empty `with` / `assert` options on `import` / `export` statements that use them at all.
-- `unicorn/require-module-specifiers`: Require a non-empty specifier list on every `import` / `export` statement.
-- `unicorn/require-number-to-fixed-digits-argument`: Require an explicit digits argument to `Number#toFixed`.
-- `unicorn/require-post-message-target-origin`: Require an explicit `targetOrigin` argument to `window.postMessage`.
-- `unicorn/string-content`: Enforce or replace configured string-content patterns (e.g., curly quotes for straight ones).
-- `unicorn/switch-case-braces`: Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
-- `unicorn/switch-case-break-position`: Enforce a consistent position for `break` (or `return` / `throw`) inside `case` clauses.
-- `unicorn/template-indent`: Re-indent the body of tagged template literals (`html`, `gql`, `sql`) to the indentation of the opening backtick.
-- `unicorn/text-encoding-identifier-case`: Enforce a canonical case for text-encoding identifiers, `"utf-8"` (not `"UTF-8"` / `"utf8"`).
-- `unicorn/throw-new-error`: Require `throw new Error(...)` over `throw Error(...)`.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+Rules whose native port is registered but intentionally diagnostic-free are marked as illustrative in their detailed section.
+
+### Disallow
+
+- [`unicorn/no-abusive-eslint-disable`](#rule-unicorn-no-abusive-eslint-disable): Require every `eslint-disable*` directive to name the rules it disables.
+- [`unicorn/no-accessor-recursion`](#rule-unicorn-no-accessor-recursion): Reject recursive reads on `this.<prop>` inside the getter / setter for `<prop>`.
+- [`unicorn/no-anonymous-default-export`](#rule-unicorn-no-anonymous-default-export): Require a name on every default-exported function, class, or object.
+- [`unicorn/no-array-callback-reference`](#rule-unicorn-no-array-callback-reference): Reject passing a function reference directly as the callback to `map` / `filter` / `forEach` / etc.
+- [`unicorn/no-array-for-each`](#rule-unicorn-no-array-for-each): Prefer `for...of` over `Array.prototype.forEach`.
+- [`unicorn/no-array-method-this-argument`](#rule-unicorn-no-array-method-this-argument): Reject the second `thisArg` argument to array methods.
+- [`unicorn/no-array-reduce`](#rule-unicorn-no-array-reduce): Reject `Array#reduce` / `Array#reduceRight`.
+- [`unicorn/no-array-reverse`](#rule-unicorn-no-array-reverse): Prefer `Array#toReversed` over the mutating `Array#reverse`.
+- [`unicorn/no-array-sort`](#rule-unicorn-no-array-sort): Prefer `Array#toSorted` over the mutating `Array#sort`.
+- [`unicorn/no-await-expression-member`](#rule-unicorn-no-await-expression-member): Reject member access on an `await` expression.
+- [`unicorn/no-await-in-promise-methods`](#rule-unicorn-no-await-in-promise-methods): Reject `await` inside arrays passed to `Promise.all` / `Promise.allSettled` / `Promise.race` / `Promise.any`.
+- [`unicorn/no-console-spaces`](#rule-unicorn-no-console-spaces): Reject leading or trailing spaces in arguments to `console.log` and friends.
+- [`unicorn/no-document-cookie`](#rule-unicorn-no-document-cookie): Reject direct reads or assignments to `document.cookie`.
+- [`unicorn/no-empty-file`](#rule-unicorn-no-empty-file): Reject source files whose only content is whitespace and/or comments.
+- [`unicorn/no-for-loop`](#rule-unicorn-no-for-loop): Prefer `for...of` over index-based `for` loops over arrays.
+- [`unicorn/no-hex-escape`](#rule-unicorn-no-hex-escape): Prefer Unicode escape over hexadecimal escape.
+- [`unicorn/no-immediate-mutation`](#rule-unicorn-no-immediate-mutation): Reject mutating a value on the same expression.
+- [`unicorn/no-instanceof-builtins`](#rule-unicorn-no-instanceof-builtins): Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc., they fail across realms and for subclasses.
+- [`unicorn/no-invalid-fetch-options`](#rule-unicorn-no-invalid-fetch-options): Reject GET / HEAD `fetch()` calls that also set a request `body`.
+- [`unicorn/no-invalid-remove-event-listener`](#rule-unicorn-no-invalid-remove-event-listener): Reject `removeEventListener` calls whose handler argument is a fresh function reference.
+- [`unicorn/no-keyword-prefix`](#rule-unicorn-no-keyword-prefix): Reject identifiers that start with a reserved word.
+- [`unicorn/no-lonely-if`](#rule-unicorn-no-lonely-if): Reject `if` as the only statement inside an `else` block.
+- [`unicorn/no-magic-array-flat-depth`](#rule-unicorn-no-magic-array-flat-depth): Reject magic-number depth arguments to `Array#flat`.
+- [`unicorn/no-named-default`](#rule-unicorn-no-named-default): Reject re-importing or re-exporting a default binding under a name.
+- [`unicorn/no-negated-condition`](#rule-unicorn-no-negated-condition): Reject negated conditions in `if`/`else` and ternaries.
+- [`unicorn/no-negation-in-equality-check`](#rule-unicorn-no-negation-in-equality-check): Reject `!a === b`; require `a !== b` or `!(a === b)`.
+- [`unicorn/no-nested-ternary`](#rule-unicorn-no-nested-ternary): Reject ternaries nested inside other ternaries.
+- [`unicorn/no-new-array`](#rule-unicorn-no-new-array): Reject the `new Array(...)` constructor.
+- [`unicorn/no-new-buffer`](#rule-unicorn-no-new-buffer): Reject the deprecated `new Buffer()` constructor.
+- [`unicorn/no-null`](#rule-unicorn-no-null): Reject the `null` literal in favor of `undefined`.
+- [`unicorn/no-object-as-default-parameter`](#rule-unicorn-no-object-as-default-parameter): Reject inline object literals as default values for function parameters.
+- [`unicorn/no-process-exit`](#rule-unicorn-no-process-exit): Reject `process.exit()`; throw or return a non-zero status instead.
+- [`unicorn/no-single-promise-in-promise-methods`](#rule-unicorn-no-single-promise-in-promise-methods): Reject `Promise.all` / `Promise.race` / etc. called with a single-element array.
+- [`unicorn/no-static-only-class`](#rule-unicorn-no-static-only-class): Reject classes whose every member is `static`.
+- [`unicorn/no-thenable`](#rule-unicorn-no-thenable): Reject defining a property named `then` on objects, modules, or classes.
+- [`unicorn/no-this-assignment`](#rule-unicorn-no-this-assignment): Reject `const self = this` and similar aliases.
+- [`unicorn/no-typeof-undefined`](#rule-unicorn-no-typeof-undefined): Reject `typeof x === "undefined"`; compare against `undefined` directly.
+- [`unicorn/no-unnecessary-array-flat-depth`](#rule-unicorn-no-unnecessary-array-flat-depth): Reject `1` as the explicit depth argument of `Array#flat`.
+- [`unicorn/no-unnecessary-array-splice-count`](#rule-unicorn-no-unnecessary-array-splice-count): Reject `.length` / `Infinity` as the deleteCount argument to `splice` / `toSpliced`.
+- [`unicorn/no-unnecessary-await`](#rule-unicorn-no-unnecessary-await): Reject `await` on non-thenable expressions.
+- [`unicorn/no-unnecessary-polyfills`](#rule-unicorn-no-unnecessary-polyfills): Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
+- [`unicorn/no-unnecessary-slice-end`](#rule-unicorn-no-unnecessary-slice-end): Reject `.length` / `Infinity` as the end argument to `slice`.
+- [`unicorn/no-unreadable-array-destructuring`](#rule-unicorn-no-unreadable-array-destructuring): Reject destructuring patterns with long hole runs.
+- [`unicorn/no-unreadable-iife`](#rule-unicorn-no-unreadable-iife): Reject IIFEs whose nesting is hard to read.
+- [`unicorn/no-unused-properties`](#rule-unicorn-no-unused-properties): Reject object properties that are never read after definition.
+- [`unicorn/no-useless-collection-argument`](#rule-unicorn-no-useless-collection-argument): Reject useless initializer arguments on collection constructors.
+- [`unicorn/no-useless-error-capture-stack-trace`](#rule-unicorn-no-useless-error-capture-stack-trace): Reject `Error.captureStackTrace(this, constructor)`.
+- [`unicorn/no-useless-fallback-in-spread`](#rule-unicorn-no-useless-fallback-in-spread): Reject `...(x ?? {})` and similar fallbacks.
+- [`unicorn/no-useless-iterator-to-array`](#rule-unicorn-no-useless-iterator-to-array): Reject `[...iterator]` / `Array.from(iterator)`.
+- [`unicorn/no-useless-length-check`](#rule-unicorn-no-useless-length-check): Reject `arr.length` checks that the iteration method itself already handles.
+- [`unicorn/no-useless-promise-resolve-reject`](#rule-unicorn-no-useless-promise-resolve-reject): Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside `async` functions.
+- [`unicorn/no-useless-spread`](#rule-unicorn-no-useless-spread): Reject spreading a single iterable into a new collection of the same kind.
+- [`unicorn/no-useless-switch-case`](#rule-unicorn-no-useless-switch-case): Reject `case` clauses with an empty body that immediately precede a `default`.
+- [`unicorn/no-useless-undefined`](#rule-unicorn-no-useless-undefined): Reject explicit `undefined` returns, default initializers, and arguments.
+- [`unicorn/no-zero-fractions`](#rule-unicorn-no-zero-fractions): Reject `1.0` / `1.` / `.5e0` in favor of `1`, `1`, and `0.5`.
+
+### Prefer
+
+- [`unicorn/prefer-add-event-listener`](#rule-unicorn-prefer-add-event-listener): Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.
+- [`unicorn/prefer-array-find`](#rule-unicorn-prefer-array-find): Prefer `Array#find` / `Array#findLast` over `filter(...)[0]` / `filter(...).at(-1)`.
+- [`unicorn/prefer-array-flat`](#rule-unicorn-prefer-array-flat): Prefer `Array#flat` over legacy flattening idioms.
+- [`unicorn/prefer-array-flat-map`](#rule-unicorn-prefer-array-flat-map): Prefer `Array#flatMap` over `map(...).flat()`.
+- [`unicorn/prefer-array-index-of`](#rule-unicorn-prefer-array-index-of): Prefer `indexOf` / `lastIndexOf` over `findIndex` / `findLastIndex`.
+- [`unicorn/prefer-array-some`](#rule-unicorn-prefer-array-some): Prefer `Array#some` over `filter(...).length > 0`, `find(...) !== undefined`, and similar shapes.
+- [`unicorn/prefer-at`](#rule-unicorn-prefer-at): Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
+- [`unicorn/prefer-bigint-literals`](#rule-unicorn-prefer-bigint-literals): Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
+- [`unicorn/prefer-blob-reading-methods`](#rule-unicorn-prefer-blob-reading-methods): Prefer `Blob#arrayBuffer()` / `Blob#text()` over `FileReader#readAsArrayBuffer` / `readAsText`.
+- [`unicorn/prefer-class-fields`](#rule-unicorn-prefer-class-fields): Prefer class field declarations over constructor assignments to `this.field = value`.
+- [`unicorn/prefer-classlist-toggle`](#rule-unicorn-prefer-classlist-toggle): Prefer `Element#classList.toggle(name, condition)` over manual `add` / `remove` branches.
+- [`unicorn/prefer-code-point`](#rule-unicorn-prefer-code-point): Prefer `String#codePointAt` / `String.fromCodePoint` over `charCodeAt` / `fromCharCode`.
+- [`unicorn/prefer-date-now`](#rule-unicorn-prefer-date-now): Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
+- [`unicorn/prefer-default-parameters`](#rule-unicorn-prefer-default-parameters): Prefer default parameter syntax over `x = x ?? default` reassignments inside the function body.
+- [`unicorn/prefer-dom-node-append`](#rule-unicorn-prefer-dom-node-append): Prefer `Node#append` over `Node#appendChild`.
+- [`unicorn/prefer-dom-node-dataset`](#rule-unicorn-prefer-dom-node-dataset): Prefer `Element#dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.
+- [`unicorn/prefer-dom-node-remove`](#rule-unicorn-prefer-dom-node-remove): Prefer `ChildNode#remove` over `parent.removeChild(child)`.
+- [`unicorn/prefer-dom-node-text-content`](#rule-unicorn-prefer-dom-node-text-content): Prefer `Node#textContent` over `HTMLElement#innerText`.
+- [`unicorn/prefer-event-target`](#rule-unicorn-prefer-event-target): Prefer `EventTarget` over Node's `EventEmitter`.
+- [`unicorn/prefer-export-from`](#rule-unicorn-prefer-export-from): Prefer `export ... from` over importing-then-re-exporting in two statements.
+- [`unicorn/prefer-global-this`](#rule-unicorn-prefer-global-this): Prefer `globalThis` over `window`, `self`, and `global`.
+- [`unicorn/prefer-import-meta-properties`](#rule-unicorn-prefer-import-meta-properties): Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath` workarounds.
+- [`unicorn/prefer-includes`](#rule-unicorn-prefer-includes): Prefer `String#includes` / `Array#includes` over `indexOf(...) !== -1` and `some(x => x === target)`.
+- [`unicorn/prefer-json-parse-buffer`](#rule-unicorn-prefer-json-parse-buffer): Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+).
+- [`unicorn/prefer-keyboard-event-key`](#rule-unicorn-prefer-keyboard-event-key): Prefer `KeyboardEvent#key` over the deprecated `KeyboardEvent#keyCode` / `charCode` / `which`.
+- [`unicorn/prefer-logical-operator-over-ternary`](#rule-unicorn-prefer-logical-operator-over-ternary): Prefer `a || b` / `a ?? b` over the equivalent ternary.
+- [`unicorn/prefer-math-min-max`](#rule-unicorn-prefer-math-min-max): Prefer `Math.min` / `Math.max` over ternaries computing the same value.
+- [`unicorn/prefer-math-trunc`](#rule-unicorn-prefer-math-trunc): Prefer `Math.trunc` over `~~x` / `x | 0` for integer truncation.
+- [`unicorn/prefer-modern-dom-apis`](#rule-unicorn-prefer-modern-dom-apis): Prefer `before` / `after` / `replaceWith` over `insertBefore` / `replaceChild` / `insertAdjacentText`.
+- [`unicorn/prefer-modern-math-apis`](#rule-unicorn-prefer-modern-math-apis): Prefer `Math.log10` / `Math.hypot` / `Math.log2` / `Math.cbrt` over their legacy approximations.
+- [`unicorn/prefer-module`](#rule-unicorn-prefer-module): Prefer ES modules over CommonJS.
+- [`unicorn/prefer-native-coercion-functions`](#rule-unicorn-prefer-native-coercion-functions): Prefer the bare `String` / `Number` / `Boolean` / `BigInt` functions over `x => String(x)` arrow wrappers.
+- [`unicorn/prefer-negative-index`](#rule-unicorn-prefer-negative-index): Prefer negative-index lookups over `arr.length - 1` / `arr.length - 2` arithmetic.
+- [`unicorn/prefer-node-protocol`](#rule-unicorn-prefer-node-protocol): Prefer `node:fs` / `node:path` / etc. over the bare Node builtin specifier.
+- [`unicorn/prefer-number-properties`](#rule-unicorn-prefer-number-properties): Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
+- [`unicorn/prefer-object-from-entries`](#rule-unicorn-prefer-object-from-entries): Prefer `Object.fromEntries` over `reduce`-into-object patterns.
+- [`unicorn/prefer-optional-catch-binding`](#rule-unicorn-prefer-optional-catch-binding): Prefer `catch { ... }` over `catch (e) { ... }`.
+- [`unicorn/prefer-prototype-methods`](#rule-unicorn-prefer-prototype-methods): Prefer borrowing prototype methods over `[].slice.call` empty-instance lookups.
+- [`unicorn/prefer-query-selector`](#rule-unicorn-prefer-query-selector): Prefer `Document#querySelector` over `getElementById`, `getElementsByClassName`, and `getElementsByTagName`.
+- [`unicorn/prefer-reflect-apply`](#rule-unicorn-prefer-reflect-apply): Prefer `Reflect.apply(fn, thisArg, args)` over `Function.prototype.apply.call(fn, thisArg, args)`.
+- [`unicorn/prefer-regexp-test`](#rule-unicorn-prefer-regexp-test): Prefer `RegExp#test` over `String#match` / `RegExp#exec`.
+- [`unicorn/prefer-response-static-json`](#rule-unicorn-prefer-response-static-json): Prefer `Response.json(value)`.
+- [`unicorn/prefer-set-has`](#rule-unicorn-prefer-set-has): Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
+- [`unicorn/prefer-set-size`](#rule-unicorn-prefer-set-size): Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
+- [`unicorn/prefer-simple-condition-first`](#rule-unicorn-prefer-simple-condition-first): Prefer the simpler operand on the left of `&&` / `||`.
+- [`unicorn/prefer-single-call`](#rule-unicorn-prefer-single-call): Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments.
+- [`unicorn/prefer-spread`](#rule-unicorn-prefer-spread): Prefer spread over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
+- [`unicorn/prefer-string-raw`](#rule-unicorn-prefer-string-raw): Prefer `String.raw` for path literals and other strings.
+- [`unicorn/prefer-string-replace-all`](#rule-unicorn-prefer-string-replace-all): Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.
+- [`unicorn/prefer-string-slice`](#rule-unicorn-prefer-string-slice): Prefer `String#slice` over the deprecated `substr` / `substring`.
+- [`unicorn/prefer-string-starts-ends-with`](#rule-unicorn-prefer-string-starts-ends-with): Prefer `String#startsWith` / `String#endsWith` over equivalent `RegExp#test` and slice-then-compare idioms.
+- [`unicorn/prefer-string-trim-start-end`](#rule-unicorn-prefer-string-trim-start-end): Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.
+- [`unicorn/prefer-structured-clone`](#rule-unicorn-prefer-structured-clone): Prefer `structuredClone(x)` over `JSON.parse(JSON.stringify(x))` for deep cloning.
+- [`unicorn/prefer-switch`](#rule-unicorn-prefer-switch): Prefer `switch` over chains of three or more `else if` clauses comparing the same discriminant.
+- [`unicorn/prefer-ternary`](#rule-unicorn-prefer-ternary): Prefer a ternary over `if` / `else`.
+- [`unicorn/prefer-top-level-await`](#rule-unicorn-prefer-top-level-await): Prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
+- [`unicorn/prefer-type-error`](#rule-unicorn-prefer-type-error): Require throwing `TypeError` when the surrounding `if` is a runtime type check.
+
+### Require
+
+- [`unicorn/require-array-join-separator`](#rule-unicorn-require-array-join-separator): Require an explicit separator argument to `Array#join`.
+- [`unicorn/require-module-attributes`](#rule-unicorn-require-module-attributes): Require non-empty `with` / `assert` options on `import` / `export` statements.
+- [`unicorn/require-module-specifiers`](#rule-unicorn-require-module-specifiers): Require a non-empty specifier list on every `import` / `export` statement.
+- [`unicorn/require-number-to-fixed-digits-argument`](#rule-unicorn-require-number-to-fixed-digits-argument): Require an explicit digits argument to `Number#toFixed`.
+- [`unicorn/require-post-message-target-origin`](#rule-unicorn-require-post-message-target-origin): Require an explicit `targetOrigin` argument to `window.postMessage`.
+
+### Consistency
+
+- [`unicorn/consistent-assert`](#rule-unicorn-consistent-assert): Enforce consistent assertion style when using `node:assert`.
+- [`unicorn/consistent-date-clone`](#rule-unicorn-consistent-date-clone): Prefer passing a `Date` directly to the `Date` constructor.
+- [`unicorn/consistent-destructuring`](#rule-unicorn-consistent-destructuring): Once a property is destructured from an object, require subsequent reads to use the destructured binding.
+- [`unicorn/consistent-empty-array-spread`](#rule-unicorn-consistent-empty-array-spread): Require both branches of a ternary spread inside an array literal.
+- [`unicorn/consistent-existence-index-check`](#rule-unicorn-consistent-existence-index-check): Enforce a consistent comparison form for `indexOf` / `findIndex` existence checks.
+- [`unicorn/consistent-function-scoping`](#rule-unicorn-consistent-function-scoping): Hoist function declarations to the highest scope.
+- [`unicorn/consistent-template-literal-escape`](#rule-unicorn-consistent-template-literal-escape): Enforce a consistent style when escaping `${` in template literals.
+
+### Other checks
+
+- [`unicorn/better-regex`](#rule-unicorn-better-regex): Rewrite regex literals into shorter, consistent, and safer form.
+- [`unicorn/catch-error-name`](#rule-unicorn-catch-error-name): Enforce a canonical parameter name in `catch` clauses.
+- [`unicorn/custom-error-definition`](#rule-unicorn-custom-error-definition): Require user-defined `Error` subclasses to set `name`, call `super(message)`, and assign their stack correctly.
+- [`unicorn/empty-brace-spaces`](#rule-unicorn-empty-brace-spaces): Reject whitespace inside empty `{}` braces.
+- [`unicorn/error-message`](#rule-unicorn-error-message): Require a non-empty `message` argument.
+- [`unicorn/escape-case`](#rule-unicorn-escape-case): Require consistent case for escape sequences.
+- [`unicorn/expiring-todo-comments`](#rule-unicorn-expiring-todo-comments): Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
+- [`unicorn/explicit-length-check`](#rule-unicorn-explicit-length-check): Require explicit comparison of `.length` / `.size`.
+- [`unicorn/filename-case`](#rule-unicorn-filename-case): Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
+- [`unicorn/import-style`](#rule-unicorn-import-style): Restrict each module's allowed import styles.
+- [`unicorn/isolated-functions`](#rule-unicorn-isolated-functions): Reject references to outer-scope variables inside functions marked as isolated.
+- [`unicorn/new-for-builtins`](#rule-unicorn-new-for-builtins): Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`.
+- [`unicorn/number-literal-case`](#rule-unicorn-number-literal-case): Enforce one consistent case for the prefix and digits of hex / binary / octal literals.
+- [`unicorn/numeric-separators-style`](#rule-unicorn-numeric-separators-style): Enforce `_` separator grouping in numeric literals.
+- [`unicorn/prevent-abbreviations`](#rule-unicorn-prevent-abbreviations): Reject common identifier abbreviations and replace them with their long forms.
+- [`unicorn/relative-url-style`](#rule-unicorn-relative-url-style): Enforce a single style for relative URLs passed to `new URL`.
+- [`unicorn/string-content`](#rule-unicorn-string-content): Enforce or replace configured string-content patterns.
+- [`unicorn/switch-case-braces`](#rule-unicorn-switch-case-braces): Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
+- [`unicorn/switch-case-break-position`](#rule-unicorn-switch-case-break-position): Enforce a consistent position for `break` inside `case` clauses.
+- [`unicorn/template-indent`](#rule-unicorn-template-indent): Re-indent the body of tagged template literals to the indentation of the opening backtick.
+- [`unicorn/text-encoding-identifier-case`](#rule-unicorn-text-encoding-identifier-case): Enforce a canonical case for text-encoding identifiers, `"utf-8"`.
+- [`unicorn/throw-new-error`](#rule-unicorn-throw-new-error): Require `throw new Error(...)` over `throw Error(...)`.
+
+## Rules
+
+<a id="rule-unicorn-better-regex"></a>
+
+### `unicorn/better-regex`
+
+Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
+
+Illustrative shape:
+
+```ts
+const digits = /[0-9]+/;
+```
+
+<a id="rule-unicorn-catch-error-name"></a>
+
+### `unicorn/catch-error-name`
+
+Enforce a canonical parameter name (`error`) in `catch` clauses.
+
+Example:
+
+```ts
+// reports: unicorn/catch-error-name (error)
+try {
+} catch (err) {
+  void err;
+}
+```
+
+<a id="rule-unicorn-consistent-assert"></a>
+
+### `unicorn/consistent-assert`
+
+Enforce consistent assertion style when using `node:assert`.
+
+Example:
+
+```ts
+import assert from "node:assert";
+
+// reports: unicorn/consistent-assert (error)
+assert.equal(1, 1);
+```
+
+<a id="rule-unicorn-consistent-date-clone"></a>
+
+### `unicorn/consistent-date-clone`
+
+Prefer passing a `Date` directly to the `Date` constructor when cloning, not `+date` or `date.getTime()`.
+
+Example:
+
+```ts
+const original = new Date();
+// reports: unicorn/consistent-date-clone (error)
+const clone = new Date(original.getTime());
+```
+
+<a id="rule-unicorn-consistent-destructuring"></a>
+
+### `unicorn/consistent-destructuring`
+
+Once a property is destructured from an object, require subsequent reads to use the destructured binding.
+
+Example:
+
+```ts
+const user = { profile: { name: "Ada" } };
+const { profile } = user;
+
+// reports: unicorn/consistent-destructuring (error)
+console.log(user.profile.name);
+```
+
+<a id="rule-unicorn-consistent-empty-array-spread"></a>
+
+### `unicorn/consistent-empty-array-spread`
+
+Require both branches of a ternary spread inside an array literal to be array-typed.
+
+Example:
+
+```ts
+const cond = true;
+const x = 1;
+// reports: unicorn/consistent-empty-array-spread (error)
+const a = [1, ...(cond ? [x] : 2)];
+```
+
+<a id="rule-unicorn-consistent-existence-index-check"></a>
+
+### `unicorn/consistent-existence-index-check`
+
+Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!== -1`) for `indexOf` / `findIndex` existence checks.
+
+Example:
+
+```ts
+const arr = [1, 2, 3];
+// reports: unicorn/consistent-existence-index-check (error)
+const found = arr.indexOf(2) >= 0;
+```
+
+<a id="rule-unicorn-consistent-function-scoping"></a>
+
+### `unicorn/consistent-function-scoping`
+
+Hoist function declarations to the highest scope that does not capture any outer variables.
+
+Example:
+
+```ts
+function formatNames(names: string[]) {
+  // reports: unicorn/consistent-function-scoping (error)
+  function normalize(name: string) {
+    return name.trim().toLowerCase();
+  }
+
+  return names.map(normalize);
+}
+```
+
+<a id="rule-unicorn-consistent-template-literal-escape"></a>
+
+### `unicorn/consistent-template-literal-escape`
+
+Enforce a consistent style (always `\${` or always `$\{`) when escaping `${` in template literals.
+
+Example:
+
+```ts
+// reports: unicorn/consistent-template-literal-escape (error)
+const template = `Use \${name}, not $\{name}.`;
+```
+
+<a id="rule-unicorn-custom-error-definition"></a>
+
+### `unicorn/custom-error-definition`
+
+Require user-defined `Error` subclasses to set `name`, call `super(message)`, and assign their stack correctly.
+
+Example:
+
+```ts
+// reports: unicorn/custom-error-definition (error)
+class MyError extends Error {
+  constructor() {
+    void 0;
+  }
+}
+```
+
+<a id="rule-unicorn-empty-brace-spaces"></a>
+
+### `unicorn/empty-brace-spaces`
+
+Reject whitespace inside empty `{}` braces.
+
+Example:
+
+```ts
+// reports: unicorn/empty-brace-spaces (error)
+const o = {};
+```
+
+<a id="rule-unicorn-error-message"></a>
+
+### `unicorn/error-message`
+
+Require a non-empty `message` argument when constructing a built-in `Error`.
+
+Example:
+
+```ts
+// reports: unicorn/error-message (error)
+throw new Error();
+```
+
+<a id="rule-unicorn-escape-case"></a>
+
+### `unicorn/escape-case`
+
+Require consistent case for escape sequences (`\xA9` over `\xa9`, `\u00B5` over `\u00b5`).
+
+Example:
+
+```ts
+// reports: unicorn/escape-case (error)
+const s = "\xa9";
+```
+
+<a id="rule-unicorn-expiring-todo-comments"></a>
+
+### `unicorn/expiring-todo-comments`
+
+Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
+
+Example:
+
+```ts
+// reports: unicorn/expiring-todo-comments (error)
+// TODO: remove the legacy branch after migration.
+export const legacyMode = true;
+```
+
+<a id="rule-unicorn-explicit-length-check"></a>
+
+### `unicorn/explicit-length-check`
+
+Require explicit comparison of `.length` / `.size` instead of relying on truthy coercion.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+if (
+  // reports: unicorn/explicit-length-check (error)
+  xs.length
+) {
+  void 0;
+}
+```
+
+<a id="rule-unicorn-filename-case"></a>
+
+### `unicorn/filename-case`
+
+Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
+
+Illustrative shape:
+
+```ts
+// File: UserProfile.ts
+export function renderUserProfile() {}
+```
+
+<a id="rule-unicorn-import-style"></a>
+
+### `unicorn/import-style`
+
+Restrict each module's allowed import styles (named only, default only, namespace only).
+
+Illustrative shape:
+
+```ts
+// With Node.js builtins configured for namespace imports.
+import { readFile } from "node:fs/promises";
+```
+
+<a id="rule-unicorn-isolated-functions"></a>
+
+### `unicorn/isolated-functions`
+
+Reject references to outer-scope variables inside functions marked as isolated (e.g., the body of a web worker).
+
+Illustrative shape:
+
+```ts
+const prefix = "user:";
+const isolated = (task: () => string) => task;
+
+const worker = isolated(() => `${prefix}ready`);
+```
+
+<a id="rule-unicorn-new-for-builtins"></a>
+
+### `unicorn/new-for-builtins`
+
+Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`, and forbid `new` on primitive wrappers like `String`, `Number`, `Boolean`.
+
+Example:
+
+```ts
+// reports: unicorn/new-for-builtins (error)
+const xs = Array(3);
+```
+
+<a id="rule-unicorn-no-abusive-eslint-disable"></a>
+
+### `unicorn/no-abusive-eslint-disable`
+
+Require every `eslint-disable*` directive to name the rules it disables.
+
+Example:
+
+```ts
+// reports: unicorn/no-abusive-eslint-disable (error)
+// eslint-disable-next-line
+const _x = 0;
+```
+
+<a id="rule-unicorn-no-accessor-recursion"></a>
+
+### `unicorn/no-accessor-recursion`
+
+Reject recursive reads on `this.<prop>` inside the getter / setter for `<prop>`.
+
+Example:
+
+```ts
+class C {
+  get value() {
+    // reports: unicorn/no-accessor-recursion (error)
+    return this.value;
+  }
+}
+```
+
+<a id="rule-unicorn-no-anonymous-default-export"></a>
+
+### `unicorn/no-anonymous-default-export`
+
+Require a name on every default-exported function, class, or object.
+
+Example:
+
+```ts
+// reports: unicorn/no-anonymous-default-export (error)
+export default function () {
+  return 1;
+}
+```
+
+<a id="rule-unicorn-no-array-callback-reference"></a>
+
+### `unicorn/no-array-callback-reference`
+
+Reject passing a function reference directly as the callback to `map` / `filter` / `forEach` / etc., which silently leaks extra index/array arguments to the callee.
+
+Example:
+
+```ts
+function isEven(n: number) {
+  return n % 2 === 0;
+}
+// reports: unicorn/no-array-callback-reference (error)
+const evens = [1, 2, 3].filter(isEven);
+```
+
+<a id="rule-unicorn-no-array-for-each"></a>
+
+### `unicorn/no-array-for-each`
+
+Prefer `for...of` over `Array.prototype.forEach`.
+
+Example:
+
+```ts
+// reports: unicorn/no-array-for-each (error)
+[1, 2, 3].forEach((x) => {
+  console.log(x);
+});
+```
+
+<a id="rule-unicorn-no-array-method-this-argument"></a>
+
+### `unicorn/no-array-method-this-argument`
+
+Reject the second `thisArg` argument to array methods; use an explicit closure instead.
+
+Example:
+
+```ts
+// reports: unicorn/no-array-method-this-argument (error)
+[1, 2].forEach(
+  function (x) {
+    console.log(this, x);
+  },
+  { tag: "ctx" },
+);
+```
+
+<a id="rule-unicorn-no-array-reduce"></a>
+
+### `unicorn/no-array-reduce`
+
+Reject `Array#reduce` / `Array#reduceRight` in favor of explicit loops or other helpers.
+
+Example:
+
+```ts
+// reports: unicorn/no-array-reduce (error)
+const total = [1, 2, 3].reduce((a, b) => a + b, 0);
+```
+
+<a id="rule-unicorn-no-array-reverse"></a>
+
+### `unicorn/no-array-reverse`
+
+Prefer `Array#toReversed` over the mutating `Array#reverse`.
+
+Example:
+
+```ts
+// reports: unicorn/no-array-reverse (error)
+const r = [1, 2, 3].reverse();
+```
+
+<a id="rule-unicorn-no-array-sort"></a>
+
+### `unicorn/no-array-sort`
+
+Prefer `Array#toSorted` over the mutating `Array#sort`.
+
+Example:
+
+```ts
+// reports: unicorn/no-array-sort (error)
+const s = [3, 1, 2].sort();
+```
+
+<a id="rule-unicorn-no-await-expression-member"></a>
+
+### `unicorn/no-await-expression-member`
+
+Reject member access on an `await` expression without parens; require `(await x).y`.
+
+Example:
+
+```ts
+async function f() {
+  // reports: unicorn/no-await-expression-member (error)
+  return (await Promise.resolve({ a: 1 })).a;
+}
+```
+
+<a id="rule-unicorn-no-await-in-promise-methods"></a>
+
+### `unicorn/no-await-in-promise-methods`
+
+Reject `await` inside arrays passed to `Promise.all` / `Promise.allSettled` / `Promise.race` / `Promise.any`, the awaits serialize the calls.
+
+Example:
+
+```ts
+async function f() {
+  // reports: unicorn/no-await-in-promise-methods (error)
+  await Promise.all([await Promise.resolve(1), Promise.resolve(2)]);
+}
+```
+
+<a id="rule-unicorn-no-console-spaces"></a>
+
+### `unicorn/no-console-spaces`
+
+Reject leading or trailing spaces in arguments to `console.log` and friends, `console` already inserts spaces between args.
+
+Example:
+
+```ts
+// reports: unicorn/no-console-spaces (error)
+console.log("hello ", "world");
+```
+
+<a id="rule-unicorn-no-document-cookie"></a>
+
+### `unicorn/no-document-cookie`
+
+Reject direct reads or assignments to `document.cookie`; use the Cookie Store API or a wrapper.
+
+Example:
+
+```ts
+// reports: unicorn/no-document-cookie (error)
+document.cookie = "name=value";
+```
+
+<a id="rule-unicorn-no-empty-file"></a>
+
+### `unicorn/no-empty-file`
+
+Reject source files whose only content is whitespace and/or comments.
+
+Example:
+
+```ts
+// reports: unicorn/no-empty-file (error)
+;
+```
+
+<a id="rule-unicorn-no-for-loop"></a>
+
+### `unicorn/no-for-loop`
+
+Prefer `for...of` over index-based `for` loops over arrays.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/no-for-loop (error)
+for (let i = 0; i < xs.length; i++) {
+  void xs[i];
+}
+```
+
+<a id="rule-unicorn-no-hex-escape"></a>
+
+### `unicorn/no-hex-escape`
+
+Prefer Unicode escape (`\u00A9`) over hexadecimal escape (`\xA9`).
+
+Example:
+
+```ts
+// reports: unicorn/no-hex-escape (error)
+const s = "\xA9";
+```
+
+<a id="rule-unicorn-no-immediate-mutation"></a>
+
+### `unicorn/no-immediate-mutation`
+
+Reject mutating a value on the same expression that produces it (`[...x].push(y)`); separate the construction and the mutation.
+
+Example:
+
+```ts
+// reports: unicorn/no-immediate-mutation (error)
+const last = [1, 2, 3].push(4);
+```
+
+<a id="rule-unicorn-no-instanceof-builtins"></a>
+
+### `unicorn/no-instanceof-builtins`
+
+Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc., they fail across realms and for subclasses.
+
+Example:
+
+```ts
+const x: unknown = [];
+// reports: unicorn/no-instanceof-builtins (error)
+if (x instanceof Array) {
+  void x;
+}
+```
+
+<a id="rule-unicorn-no-invalid-fetch-options"></a>
+
+### `unicorn/no-invalid-fetch-options`
+
+Reject GET / HEAD `fetch()` calls that also set a request `body`, which throws at runtime.
+
+Example:
+
+```ts
+// reports: unicorn/no-invalid-fetch-options (error)
+fetch("https://example.com", { method: "GET", body: "x" });
+```
+
+<a id="rule-unicorn-no-invalid-remove-event-listener"></a>
+
+### `unicorn/no-invalid-remove-event-listener`
+
+Reject `removeEventListener` calls whose handler argument is a fresh function reference and therefore matches no registered listener.
+
+Example:
+
+```ts
+const el = new EventTarget();
+// reports: unicorn/no-invalid-remove-event-listener (error)
+el.removeEventListener("click", () => {});
+```
+
+<a id="rule-unicorn-no-keyword-prefix"></a>
+
+### `unicorn/no-keyword-prefix`
+
+Reject identifiers that start with a reserved word (`newFoo`, `classBar`).
+
+Example:
+
+```ts
+// reports: unicorn/no-keyword-prefix (error)
+const newFoo = 1;
+```
+
+<a id="rule-unicorn-no-lonely-if"></a>
+
+### `unicorn/no-lonely-if`
+
+Reject `if` as the only statement inside an `else` block; use `else if` instead.
+
+Example:
+
+```ts
+if (1 === 1) {
+  void 0;
+} else {
+  // reports: unicorn/no-lonely-if (error)
+  if (2 === 2) {
+    void 0;
+  }
+}
+```
+
+<a id="rule-unicorn-no-magic-array-flat-depth"></a>
+
+### `unicorn/no-magic-array-flat-depth`
+
+Reject magic-number depth arguments to `Array#flat`; require `Infinity` or a named constant.
+
+Example:
+
+```ts
+// reports: unicorn/no-magic-array-flat-depth (error)
+const flat = [1, [2, [3]]].flat(2);
+```
+
+<a id="rule-unicorn-no-named-default"></a>
+
+### `unicorn/no-named-default`
+
+Reject re-importing or re-exporting a default binding under a name that differs from the upstream binding.
+
+Example:
+
+```ts
+// reports: unicorn/no-named-default (error)
+import { default as React } from "react";
+```
+
+<a id="rule-unicorn-no-negated-condition"></a>
+
+### `unicorn/no-negated-condition`
+
+Reject negated conditions in `if`/`else` and ternaries when the positive form is shorter.
+
+Example:
+
+```ts
+const x = 1;
+// reports: unicorn/no-negated-condition (error)
+if (x !== 0) {
+  void "nonzero";
+} else {
+  void "zero";
+}
+```
+
+<a id="rule-unicorn-no-negation-in-equality-check"></a>
+
+### `unicorn/no-negation-in-equality-check`
+
+Reject `!a === b`; require `a !== b` or `!(a === b)`.
+
+Example:
+
+```ts
+const a = 1;
+const b = 2;
+// reports: unicorn/no-negation-in-equality-check (error)
+const eq = !a === b;
+```
+
+<a id="rule-unicorn-no-nested-ternary"></a>
+
+### `unicorn/no-nested-ternary`
+
+Reject ternaries nested inside other ternaries.
+
+Example:
+
+```ts
+const x = 1;
+// reports: unicorn/no-nested-ternary (error)
+const r = x === 0 ? "zero" : x > 0 ? "pos" : "neg";
+```
+
+<a id="rule-unicorn-no-new-array"></a>
+
+### `unicorn/no-new-array`
+
+Reject the `new Array(...)` constructor; use array literals or `Array.from` / `Array.of`.
+
+Example:
+
+```ts
+// reports: unicorn/no-new-array (error)
+const a = new Array(3);
+```
+
+<a id="rule-unicorn-no-new-buffer"></a>
+
+### `unicorn/no-new-buffer`
+
+Reject the deprecated `new Buffer()` constructor; use `Buffer.from` or `Buffer.alloc`.
+
+Example:
+
+```ts
+// reports: unicorn/no-new-buffer (error)
+const b = new Buffer(10);
+```
+
+<a id="rule-unicorn-no-null"></a>
+
+### `unicorn/no-null`
+
+Reject the `null` literal in favor of `undefined`.
+
+Example:
+
+```ts
+// reports: unicorn/no-null (error)
+const x = null;
+```
+
+<a id="rule-unicorn-no-object-as-default-parameter"></a>
+
+### `unicorn/no-object-as-default-parameter`
+
+Reject inline object literals as default values for function parameters.
+
+Example:
+
+```ts
+// reports: unicorn/no-object-as-default-parameter (error)
+function f(opts = { tag: "default" }) {
+  void opts;
+}
+```
+
+<a id="rule-unicorn-no-process-exit"></a>
+
+### `unicorn/no-process-exit`
+
+Reject `process.exit()`; throw or return a non-zero status instead.
+
+Example:
+
+```ts
+// reports: unicorn/no-process-exit (error)
+process.exit(1);
+```
+
+<a id="rule-unicorn-no-single-promise-in-promise-methods"></a>
+
+### `unicorn/no-single-promise-in-promise-methods`
+
+Reject `Promise.all` / `Promise.race` / etc. called with a single-element array; the wrapper is redundant.
+
+Example:
+
+```ts
+// reports: unicorn/no-single-promise-in-promise-methods (error)
+const p = Promise.all([Promise.resolve(1)]);
+```
+
+<a id="rule-unicorn-no-static-only-class"></a>
+
+### `unicorn/no-static-only-class`
+
+Reject classes whose every member is `static`; use a plain module-level namespace instead.
+
+Example:
+
+```ts
+// reports: unicorn/no-static-only-class (error)
+class Utility {
+  static helper() {
+    return 42;
+  }
+}
+```
+
+<a id="rule-unicorn-no-thenable"></a>
+
+### `unicorn/no-thenable`
+
+Reject defining a property named `then` on objects, modules, or classes, `await` and Promise resolution accidentally invoke it.
+
+Example:
+
+```ts
+const o = {
+  // reports: unicorn/no-thenable (error)
+  then() {
+    return 1;
+  },
+};
+```
+
+<a id="rule-unicorn-no-this-assignment"></a>
+
+### `unicorn/no-this-assignment`
+
+Reject `const self = this` and similar aliases; capture via arrow functions instead.
+
+Example:
+
+```ts
+class C {
+  m() {
+    // reports: unicorn/no-this-assignment (error)
+    const self = this;
+    return self;
+  }
+}
+```
+
+<a id="rule-unicorn-no-typeof-undefined"></a>
+
+### `unicorn/no-typeof-undefined`
+
+Reject `typeof x === "undefined"`; compare against `undefined` directly.
+
+Example:
+
+```ts
+// reports: unicorn/no-typeof-undefined (error)
+typeof globalThis === "undefined";
+```
+
+<a id="rule-unicorn-no-unnecessary-array-flat-depth"></a>
+
+### `unicorn/no-unnecessary-array-flat-depth`
+
+Reject `1` as the explicit depth argument of `Array#flat`; the default is already `1`.
+
+Example:
+
+```ts
+// reports: unicorn/no-unnecessary-array-flat-depth (error)
+const flat = [1, [2]].flat(1);
+```
+
+<a id="rule-unicorn-no-unnecessary-array-splice-count"></a>
+
+### `unicorn/no-unnecessary-array-splice-count`
+
+Reject `.length` / `Infinity` as the deleteCount argument to `splice` / `toSpliced`; omit it to delete to the end.
+
+Example:
+
+```ts
+const arr = [1, 2, 3];
+// reports: unicorn/no-unnecessary-array-splice-count (error)
+arr.splice(0, arr.length);
+```
+
+<a id="rule-unicorn-no-unnecessary-await"></a>
+
+### `unicorn/no-unnecessary-await`
+
+Reject `await` on non-thenable expressions.
+
+Example:
+
+```ts
+async function f() {
+  // reports: unicorn/no-unnecessary-await (error)
+  const x = await 42;
+}
+```
+
+<a id="rule-unicorn-no-unnecessary-polyfills"></a>
+
+### `unicorn/no-unnecessary-polyfills`
+
+Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
+
+Illustrative shape:
+
+```ts
+import "core-js/features/array/at";
+
+const last = ["a", "b"].at(-1);
+```
+
+<a id="rule-unicorn-no-unnecessary-slice-end"></a>
+
+### `unicorn/no-unnecessary-slice-end`
+
+Reject `.length` / `Infinity` as the end argument to `slice`; omit it to slice to the end.
+
+Example:
+
+```ts
+const arr = [1, 2, 3];
+// reports: unicorn/no-unnecessary-slice-end (error)
+const c = arr.slice(0, arr.length);
+```
+
+<a id="rule-unicorn-no-unreadable-array-destructuring"></a>
+
+### `unicorn/no-unreadable-array-destructuring`
+
+Reject destructuring patterns with long hole runs (`[,,,,a]`); use a named index instead.
+
+Example:
+
+```ts
+// reports: unicorn/no-unreadable-array-destructuring (error)
+const [, , , , a] = [1, 2, 3, 4, 5];
+```
+
+<a id="rule-unicorn-no-unreadable-iife"></a>
+
+### `unicorn/no-unreadable-iife`
+
+Reject IIFEs whose nesting (multiple parens, arrow IIFE arguments) is hard to read.
+
+Example:
+
+```ts
+// reports: unicorn/no-unreadable-iife (error)
+const r = (() => Math.random())();
+```
+
+<a id="rule-unicorn-no-unused-properties"></a>
+
+### `unicorn/no-unused-properties`
+
+Reject object properties that are never read after definition.
+
+Illustrative shape:
+
+```ts
+const user = {
+  id: "u_1",
+  debugLabel: "local-only",
+};
+
+console.log(user.id);
+```
+
+<a id="rule-unicorn-no-useless-collection-argument"></a>
+
+### `unicorn/no-useless-collection-argument`
+
+Reject useless initializer arguments (`new Set()`, `new Map([])`, `new Set(undefined)`) on collection constructors.
+
+Example:
+
+```ts
+// reports: unicorn/no-useless-collection-argument (error)
+const s = new Set([]);
+```
+
+<a id="rule-unicorn-no-useless-error-capture-stack-trace"></a>
+
+### `unicorn/no-useless-error-capture-stack-trace`
+
+Reject `Error.captureStackTrace(this, constructor)` when the surrounding subclass relies on the default `Error` capture.
+
+Example:
+
+```ts
+class MyError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    // reports: unicorn/no-useless-error-capture-stack-trace (error)
+    Error.captureStackTrace(this, MyError);
+  }
+}
+void new MyError("x");
+```
+
+<a id="rule-unicorn-no-useless-fallback-in-spread"></a>
+
+### `unicorn/no-useless-fallback-in-spread`
+
+Reject `...(x ?? {})` and similar fallbacks when spreading; the spread of `null` / `undefined` is already a no-op.
+
+Example:
+
+```ts
+const x: { a: number } | null = null;
+// reports: unicorn/no-useless-fallback-in-spread (error)
+const o = { ...(x ?? {}) };
+```
+
+<a id="rule-unicorn-no-useless-iterator-to-array"></a>
+
+### `unicorn/no-useless-iterator-to-array`
+
+Reject `[...iterator]` / `Array.from(iterator)` when the iterator can be consumed directly (e.g., inside `for...of`).
+
+Example:
+
+```ts
+const arr = [1, 2];
+// reports: unicorn/no-useless-iterator-to-array (error)
+for (const e of [...arr.entries()]) {
+  void e;
+}
+```
+
+<a id="rule-unicorn-no-useless-length-check"></a>
+
+### `unicorn/no-useless-length-check`
+
+Reject `arr.length` checks that the iteration method itself already handles.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/no-useless-length-check (error)
+const hasPositive = xs.length > 0 && xs.some((x) => x > 0);
+```
+
+<a id="rule-unicorn-no-useless-promise-resolve-reject"></a>
+
+### `unicorn/no-useless-promise-resolve-reject`
+
+Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside `async` functions, `return x` and `throw e` work identically.
+
+Example:
+
+```ts
+async function f() {
+  // reports: unicorn/no-useless-promise-resolve-reject (error)
+  return Promise.resolve(1);
+}
+```
+
+<a id="rule-unicorn-no-useless-spread"></a>
+
+### `unicorn/no-useless-spread`
+
+Reject spreading a single iterable into a new collection of the same kind (`[...arr]`, `{...obj}`) when the original would suffice.
+
+Example:
+
+```ts
+// reports: unicorn/no-useless-spread (error)
+const a = [...[1, 2, 3]];
+```
+
+<a id="rule-unicorn-no-useless-switch-case"></a>
+
+### `unicorn/no-useless-switch-case`
+
+Reject `case` clauses with an empty body that immediately precede a `default` whose body executes for them.
+
+Example:
+
+```ts
+const x = 2;
+switch (x) {
+  case 1:
+    void 0;
+    break;
+  // reports: unicorn/no-useless-switch-case (error)
+  case 2:
+  default:
+    void 0;
+}
+```
+
+<a id="rule-unicorn-no-useless-undefined"></a>
+
+### `unicorn/no-useless-undefined`
+
+Reject explicit `undefined` returns, default initializers, and arguments where the omission has the same meaning.
+
+Example:
+
+```ts
+function f() {
+  // reports: unicorn/no-useless-undefined (error)
+  return undefined;
+}
+```
+
+<a id="rule-unicorn-no-zero-fractions"></a>
+
+### `unicorn/no-zero-fractions`
+
+Reject `1.0` / `1.` / `.5e0` in favor of `1`, `1`, and `0.5`.
+
+Example:
+
+```ts
+// reports: unicorn/no-zero-fractions (error)
+const n = 1.0;
+```
+
+<a id="rule-unicorn-number-literal-case"></a>
+
+### `unicorn/number-literal-case`
+
+Enforce one consistent case for the prefix and digits of hex / binary / octal literals (`0xFF` over `0xff`).
+
+Example:
+
+```ts
+// reports: unicorn/number-literal-case (error)
+const n = 0xff;
+```
+
+<a id="rule-unicorn-numeric-separators-style"></a>
+
+### `unicorn/numeric-separators-style`
+
+Enforce `_` separator grouping (every 3 digits for decimal, every 4 for hex) in numeric literals.
+
+Example:
+
+```ts
+// reports: unicorn/numeric-separators-style (error)
+const big = 1_2345;
+```
+
+<a id="rule-unicorn-prefer-add-event-listener"></a>
+
+### `unicorn/prefer-add-event-listener`
+
+Prefer `addEventListener` / `removeEventListener` over assigning to `on*` properties.
+
+Example:
+
+```ts
+const el = document.querySelector("button")!;
+// reports: unicorn/prefer-add-event-listener (error)
+el.onclick = () => {};
+```
+
+<a id="rule-unicorn-prefer-array-find"></a>
+
+### `unicorn/prefer-array-find`
+
+Prefer `Array#find` / `Array#findLast` over `filter(...)[0]` / `filter(...).at(-1)`.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/prefer-array-find (error)
+const first = xs.filter((x) => x > 1)[0];
+```
+
+<a id="rule-unicorn-prefer-array-flat"></a>
+
+### `unicorn/prefer-array-flat`
+
+Prefer `Array#flat` over legacy flattening idioms (`[].concat(...arrs)`, `reduce` with `concat`).
+
+Example:
+
+```ts
+// reports: unicorn/prefer-array-flat (error)
+const flat = [].concat([1, 2], [3, 4]);
+```
+
+<a id="rule-unicorn-prefer-array-flat-map"></a>
+
+### `unicorn/prefer-array-flat-map`
+
+Prefer `Array#flatMap` over `map(...).flat()`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-array-flat-map (error)
+const result = [1, 2].map((x) => [x, x]).flat();
+```
+
+<a id="rule-unicorn-prefer-array-index-of"></a>
+
+### `unicorn/prefer-array-index-of`
+
+Prefer `indexOf` / `lastIndexOf` over `findIndex` / `findLastIndex` when matching by `===`.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/prefer-array-index-of (error)
+const i = xs.findIndex((x) => x === 2);
+```
+
+<a id="rule-unicorn-prefer-array-some"></a>
+
+### `unicorn/prefer-array-some`
+
+Prefer `Array#some` over `filter(...).length > 0`, `find(...) !== undefined`, and similar shapes.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/prefer-array-some (error)
+const hasLarge = xs.filter((x) => x > 1).length > 0;
+```
+
+<a id="rule-unicorn-prefer-at"></a>
+
+### `unicorn/prefer-at`
+
+Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
+
+Example:
+
+```ts
+const xs = [1, 2, 3];
+// reports: unicorn/prefer-at (error)
+const last = xs[xs.length - 1];
+```
+
+<a id="rule-unicorn-prefer-bigint-literals"></a>
+
+### `unicorn/prefer-bigint-literals`
+
+Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-bigint-literals (error)
+const big = BigInt(1);
+```
+
+<a id="rule-unicorn-prefer-blob-reading-methods"></a>
+
+### `unicorn/prefer-blob-reading-methods`
+
+Prefer `Blob#arrayBuffer()` / `Blob#text()` over `FileReader#readAsArrayBuffer` / `readAsText`.
+
+Example:
+
+```ts
+const reader = new FileReader();
+const blob = new Blob(["hello"]);
+// reports: unicorn/prefer-blob-reading-methods (error)
+reader.readAsArrayBuffer(blob);
+```
+
+<a id="rule-unicorn-prefer-class-fields"></a>
+
+### `unicorn/prefer-class-fields`
+
+Prefer class field declarations over constructor assignments to `this.field = value`.
+
+Example:
+
+```ts
+class C {
+  field: number;
+  constructor() {
+    // reports: unicorn/prefer-class-fields (error)
+    this.field = 1;
+  }
+}
+```
+
+<a id="rule-unicorn-prefer-classlist-toggle"></a>
+
+### `unicorn/prefer-classlist-toggle`
+
+Prefer `Element#classList.toggle(name, condition)` over manual `add` / `remove` branches.
+
+Example:
+
+```ts
+const el = document.createElement("button");
+const cond = true;
+// reports: unicorn/prefer-classlist-toggle (error)
+if (cond) {
+  el.classList.add("active");
+} else {
+  el.classList.remove("active");
+}
+```
+
+<a id="rule-unicorn-prefer-code-point"></a>
+
+### `unicorn/prefer-code-point`
+
+Prefer `String#codePointAt` / `String.fromCodePoint` over `charCodeAt` / `fromCharCode`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-code-point (error)
+const code = "a".charCodeAt(0);
+```
+
+<a id="rule-unicorn-prefer-date-now"></a>
+
+### `unicorn/prefer-date-now`
+
+Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-date-now (error)
+const t = new Date().getTime();
+```
+
+<a id="rule-unicorn-prefer-default-parameters"></a>
+
+### `unicorn/prefer-default-parameters`
+
+Prefer default parameter syntax over `x = x ?? default` reassignments inside the function body.
+
+Example:
+
+```ts
+function f(name?: string) {
+  // reports: unicorn/prefer-default-parameters (error)
+  name = name ?? "guest";
+  return name;
+}
+```
+
+<a id="rule-unicorn-prefer-dom-node-append"></a>
+
+### `unicorn/prefer-dom-node-append`
+
+Prefer `Node#append` over `Node#appendChild`.
+
+Example:
+
+```ts
+const parent = document.createElement("div");
+const child = document.createElement("span");
+// reports: unicorn/prefer-dom-node-append (error)
+parent.appendChild(child);
+```
+
+<a id="rule-unicorn-prefer-dom-node-dataset"></a>
+
+### `unicorn/prefer-dom-node-dataset`
+
+Prefer `Element#dataset` over `getAttribute` / `setAttribute` for `data-*` attributes.
+
+Example:
+
+```ts
+const el = document.createElement("div");
+// reports: unicorn/prefer-dom-node-dataset (error)
+el.getAttribute("data-user-id");
+```
+
+<a id="rule-unicorn-prefer-dom-node-remove"></a>
+
+### `unicorn/prefer-dom-node-remove`
+
+Prefer `ChildNode#remove` over `parent.removeChild(child)`.
+
+Example:
+
+```ts
+const parent = document.createElement("div");
+const child = document.createElement("span");
+// reports: unicorn/prefer-dom-node-remove (error)
+parent.removeChild(child);
+```
+
+<a id="rule-unicorn-prefer-dom-node-text-content"></a>
+
+### `unicorn/prefer-dom-node-text-content`
+
+Prefer `Node#textContent` over `HTMLElement#innerText`.
+
+Example:
+
+```ts
+const el = document.createElement("div");
+// reports: unicorn/prefer-dom-node-text-content (error)
+el.innerText;
+```
+
+<a id="rule-unicorn-prefer-event-target"></a>
+
+### `unicorn/prefer-event-target`
+
+Prefer `EventTarget` over Node's `EventEmitter` when the code is shared between Node and the browser.
+
+Example:
+
+```ts
+import { EventEmitter } from "node:events";
+
+// reports: unicorn/prefer-event-target (error)
+const em = new EventEmitter();
+```
+
+<a id="rule-unicorn-prefer-export-from"></a>
+
+### `unicorn/prefer-export-from`
+
+Prefer `export ... from` over importing-then-re-exporting in two statements.
+
+Example:
+
+```ts
+import { useState } from "react";
+
+// reports: unicorn/prefer-export-from (error)
+export { useState };
+```
+
+<a id="rule-unicorn-prefer-global-this"></a>
+
+### `unicorn/prefer-global-this`
+
+Prefer `globalThis` over `window`, `self`, and `global`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-global-this (error)
+const root = window;
+```
+
+<a id="rule-unicorn-prefer-import-meta-properties"></a>
+
+### `unicorn/prefer-import-meta-properties`
+
+Prefer `import.meta.dirname` / `import.meta.filename` over `fileURLToPath` workarounds.
+
+Example:
+
+```ts
+import { fileURLToPath } from "node:url";
+
+// reports: unicorn/prefer-import-meta-properties (error)
+const filename = fileURLToPath(import.meta.url);
+```
+
+<a id="rule-unicorn-prefer-includes"></a>
+
+### `unicorn/prefer-includes`
+
+Prefer `String#includes` / `Array#includes` over `indexOf(...) !== -1` and `some(x => x === target)`.
+
+Example:
+
+```ts
+const arr = [1, 2, 3];
+// reports: unicorn/prefer-includes (error)
+const found = arr.indexOf(2) !== -1;
+```
+
+<a id="rule-unicorn-prefer-json-parse-buffer"></a>
+
+### `unicorn/prefer-json-parse-buffer`
+
+Prefer passing a `Buffer` directly to `JSON.parse` (Node 21+) instead of decoding to a string first.
+
+Example:
+
+```ts
+const buf = Buffer.from('{"ok":true}');
+// reports: unicorn/prefer-json-parse-buffer (error)
+const data = JSON.parse(buf.toString());
+```
+
+<a id="rule-unicorn-prefer-keyboard-event-key"></a>
+
+### `unicorn/prefer-keyboard-event-key`
+
+Prefer `KeyboardEvent#key` over the deprecated `KeyboardEvent#keyCode` / `charCode` / `which`.
+
+Example:
+
+```ts
+const event = new KeyboardEvent("keydown");
+// reports: unicorn/prefer-keyboard-event-key (error)
+const code = event.keyCode;
+```
+
+<a id="rule-unicorn-prefer-logical-operator-over-ternary"></a>
+
+### `unicorn/prefer-logical-operator-over-ternary`
+
+Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.
+
+Example:
+
+```ts
+const x: number | undefined = 1;
+// reports: unicorn/prefer-logical-operator-over-ternary (error)
+const y = x ? x : 0;
+```
+
+<a id="rule-unicorn-prefer-math-min-max"></a>
+
+### `unicorn/prefer-math-min-max`
+
+Prefer `Math.min` / `Math.max` over ternaries computing the same value.
+
+Example:
+
+```ts
+const a = 1;
+const b = 2;
+// reports: unicorn/prefer-math-min-max (error)
+const m = a < b ? a : b;
+```
+
+<a id="rule-unicorn-prefer-math-trunc"></a>
+
+### `unicorn/prefer-math-trunc`
+
+Prefer `Math.trunc` over `~~x` / `x | 0` for integer truncation.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-math-trunc (error)
+const i = ~~3.7;
+```
+
+<a id="rule-unicorn-prefer-modern-dom-apis"></a>
+
+### `unicorn/prefer-modern-dom-apis`
+
+Prefer `before` / `after` / `replaceWith` over `insertBefore` / `replaceChild` / `insertAdjacentText`.
+
+Example:
+
+```ts
+const parent = document.createElement("div");
+const ref = document.createElement("span");
+const node = document.createElement("strong");
+// reports: unicorn/prefer-modern-dom-apis (error)
+parent.insertBefore(node, ref);
+```
+
+<a id="rule-unicorn-prefer-modern-math-apis"></a>
+
+### `unicorn/prefer-modern-math-apis`
+
+Prefer `Math.log10` / `Math.hypot` / `Math.log2` / `Math.cbrt` over their legacy approximations.
+
+Example:
+
+```ts
+const x = 10;
+// reports: unicorn/prefer-modern-math-apis (error)
+const l = Math.log(x) * Math.LOG10E;
+```
+
+<a id="rule-unicorn-prefer-module"></a>
+
+### `unicorn/prefer-module`
+
+Prefer ES modules (`import` / `export`) over CommonJS (`require` / `module.exports` / `__dirname` / `__filename`).
+
+Example:
+
+```ts
+// reports: unicorn/prefer-module (error)
+require("path");
+```
+
+<a id="rule-unicorn-prefer-native-coercion-functions"></a>
+
+### `unicorn/prefer-native-coercion-functions`
+
+Prefer the bare `String` / `Number` / `Boolean` / `BigInt` functions over `x => String(x)` arrow wrappers.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-native-coercion-functions (error)
+const xs = ["1", "2"].map((x) => Number(x));
+```
+
+<a id="rule-unicorn-prefer-negative-index"></a>
+
+### `unicorn/prefer-negative-index`
+
+Prefer negative-index lookups (`arr.at(-1)`, `arr.slice(-2)`) over `arr.length - 1` / `arr.length - 2` arithmetic.
+
+Example:
+
+```ts
+const a = [1, 2, 3];
+// reports: unicorn/prefer-negative-index (error)
+const tail = a.slice(a.length - 1);
+```
+
+<a id="rule-unicorn-prefer-node-protocol"></a>
+
+### `unicorn/prefer-node-protocol`
+
+Prefer `node:fs` / `node:path` / etc. over the bare Node builtin specifier.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-node-protocol (error)
+import * as fs from "fs";
+```
+
+<a id="rule-unicorn-prefer-number-properties"></a>
+
+### `unicorn/prefer-number-properties`
+
+Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-number-properties (error)
+void isNaN(0);
+```
+
+<a id="rule-unicorn-prefer-object-from-entries"></a>
+
+### `unicorn/prefer-object-from-entries`
+
+Prefer `Object.fromEntries` over `reduce`-into-object patterns.
+
+Example:
+
+```ts
+const entries: Array<[string, number]> = [["a", 1]];
+// reports: unicorn/prefer-object-from-entries (error)
+const obj = entries.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
+```
+
+<a id="rule-unicorn-prefer-optional-catch-binding"></a>
+
+### `unicorn/prefer-optional-catch-binding`
+
+Prefer `catch { ... }` over `catch (e) { ... }` when `e` is unused.
+
+Example:
+
+```ts
+try {
+  throw new Error("x");
+  // reports: unicorn/prefer-optional-catch-binding (error)
+} catch (e) {
+  void 0;
+}
+```
+
+<a id="rule-unicorn-prefer-prototype-methods"></a>
+
+### `unicorn/prefer-prototype-methods`
+
+Prefer borrowing prototype methods (`Array.prototype.slice.call`) over `[].slice.call` empty-instance lookups.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-prototype-methods (error)
+const slice = [].slice;
+```
+
+<a id="rule-unicorn-prefer-query-selector"></a>
+
+### `unicorn/prefer-query-selector`
+
+Prefer `Document#querySelector` over `getElementById`, `getElementsByClassName`, and `getElementsByTagName`.
+
+Example:
+
+```ts
+const doc = document;
+// reports: unicorn/prefer-query-selector (error)
+doc.getElementById("main");
+```
+
+<a id="rule-unicorn-prefer-reflect-apply"></a>
+
+### `unicorn/prefer-reflect-apply`
+
+Prefer `Reflect.apply(fn, thisArg, args)` over `Function.prototype.apply.call(fn, thisArg, args)`.
+
+Example:
+
+```ts
+function f(a: number, b: number) {
+  return a + b;
+}
+// reports: unicorn/prefer-reflect-apply (error)
+const r = Function.prototype.apply.call(f, null, [1, 2]);
+```
+
+<a id="rule-unicorn-prefer-regexp-test"></a>
+
+### `unicorn/prefer-regexp-test`
+
+Prefer `RegExp#test` over `String#match` / `RegExp#exec` when only a boolean is needed.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-regexp-test (error)
+if ("abc".match(/a/)) {
+  void 0;
+}
+```
+
+<a id="rule-unicorn-prefer-response-static-json"></a>
+
+### `unicorn/prefer-response-static-json`
+
+Prefer `Response.json(value)` over `new Response( JSON.stringify(value), { headers: {"content-type": "application/json"} })`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-response-static-json (error)
+const r = new Response(JSON.stringify({ ok: true }));
+```
+
+<a id="rule-unicorn-prefer-set-has"></a>
+
+### `unicorn/prefer-set-has`
+
+Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
+
+Example:
+
+```ts
+const x = 2;
+// reports: unicorn/prefer-set-has (error)
+const found = [1, 2, 3].includes(x);
+```
+
+<a id="rule-unicorn-prefer-set-size"></a>
+
+### `unicorn/prefer-set-size`
+
+Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
+
+Example:
+
+```ts
+const s = new Set([1, 2, 3]);
+// reports: unicorn/prefer-set-size (error)
+const n = [...s].length;
+```
+
+<a id="rule-unicorn-prefer-simple-condition-first"></a>
+
+### `unicorn/prefer-simple-condition-first`
+
+Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
+
+Illustrative shape:
+
+```ts
+function isAllowed(user: { role: string }) {
+  return user.role === "admin";
+}
+
+const user = { role: "admin" };
+const featureEnabled = true;
+
+if (isAllowed(user) && featureEnabled) {
+  console.log("enabled");
+}
+```
+
+<a id="rule-unicorn-prefer-single-call"></a>
+
+### `unicorn/prefer-single-call`
+
+Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments over consecutive single-argument calls.
+
+Example:
+
+```ts
+const xs: number[] = [];
+xs.push(1);
+// reports: unicorn/prefer-single-call (error)
+xs.push(2);
+```
+
+<a id="rule-unicorn-prefer-spread"></a>
+
+### `unicorn/prefer-spread`
+
+Prefer spread (`[...arr]`, `[...str]`) over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
+
+Example:
+
+```ts
+const a = [1, 2, 3];
+// reports: unicorn/prefer-spread (error)
+const b = Array.from(a);
+```
+
+<a id="rule-unicorn-prefer-string-raw"></a>
+
+### `unicorn/prefer-string-raw`
+
+Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-string-raw (error)
+const p = "C:\\Users\\me";
+```
+
+<a id="rule-unicorn-prefer-string-replace-all"></a>
+
+### `unicorn/prefer-string-replace-all`
+
+Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g, replacement)`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-string-replace-all (error)
+const out = "abc".replace(/a/g, "x");
+```
+
+<a id="rule-unicorn-prefer-string-slice"></a>
+
+### `unicorn/prefer-string-slice`
+
+Prefer `String#slice` over the deprecated `substr` / `substring`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-string-slice (error)
+const s = "hello".substr(0, 3);
+```
+
+<a id="rule-unicorn-prefer-string-starts-ends-with"></a>
+
+### `unicorn/prefer-string-starts-ends-with`
+
+Prefer `String#startsWith` / `String#endsWith` over equivalent `RegExp#test` and slice-then-compare idioms.
+
+Example:
+
+```ts
+const s = "https://example.com";
+// reports: unicorn/prefer-string-starts-ends-with (error)
+const b = s.slice(0, 4) === "http";
+```
+
+<a id="rule-unicorn-prefer-string-trim-start-end"></a>
+
+### `unicorn/prefer-string-trim-start-end`
+
+Prefer `String#trimStart` / `String#trimEnd` over the deprecated `trimLeft` / `trimRight`.
+
+Example:
+
+```ts
+// reports: unicorn/prefer-string-trim-start-end (error)
+const s = "  hi  ".trimLeft();
+```
+
+<a id="rule-unicorn-prefer-structured-clone"></a>
+
+### `unicorn/prefer-structured-clone`
+
+Prefer `structuredClone(x)` over `JSON.parse(JSON.stringify(x))` for deep cloning.
+
+Example:
+
+```ts
+const original = { a: 1 };
+// reports: unicorn/prefer-structured-clone (error)
+const clone = JSON.parse(JSON.stringify(original));
+```
+
+<a id="rule-unicorn-prefer-switch"></a>
+
+### `unicorn/prefer-switch`
+
+Prefer `switch` over chains of three or more `else if` clauses comparing the same discriminant.
+
+Example:
+
+```ts
+const k = "a";
+// reports: unicorn/prefer-switch (error)
+if (k === "a") {
+  void 0;
+} else if (k === "b") {
+  void 0;
+} else if (k === "c") {
+  void 0;
+}
+```
+
+<a id="rule-unicorn-prefer-ternary"></a>
+
+### `unicorn/prefer-ternary`
+
+Prefer a ternary over `if` / `else` whose two branches differ only in the right-hand side of a common assignment, `return`, or `throw`.
+
+Example:
+
+```ts
+const cond = true;
+function f(): number {
+  // reports: unicorn/prefer-ternary (error)
+  if (cond) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+```
+
+<a id="rule-unicorn-prefer-top-level-await"></a>
+
+### `unicorn/prefer-top-level-await`
+
+Prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
+
+Example:
+
+```ts
+async function load(): Promise<string> {
+  return "ready";
+}
+
+// reports: unicorn/prefer-top-level-await (error)
+load().then((value) => console.log(value));
+```
+
+<a id="rule-unicorn-prefer-type-error"></a>
+
+### `unicorn/prefer-type-error`
+
+Require throwing `TypeError` (not a bare `Error`) when the surrounding `if` is a runtime type check.
+
+Example:
+
+```ts
+function f(x: unknown) {
+  if (typeof x !== "number") {
+    // reports: unicorn/prefer-type-error (error)
+    throw new Error("must be number");
+  }
+  return x;
+}
+```
+
+<a id="rule-unicorn-prevent-abbreviations"></a>
+
+### `unicorn/prevent-abbreviations`
+
+Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
+
+Example:
+
+```ts
+// reports: unicorn/prevent-abbreviations (error)
+const btn = document.querySelector("button");
+```
+
+<a id="rule-unicorn-relative-url-style"></a>
+
+### `unicorn/relative-url-style`
+
+Enforce a single style (always leading `./` vs. never) for relative URLs passed to `new URL`.
+
+Example:
+
+```ts
+const base = "https://example.com";
+const u = new URL(
+  // reports: unicorn/relative-url-style (error)
+  "./dashboard",
+  base,
+);
+```
+
+<a id="rule-unicorn-require-array-join-separator"></a>
+
+### `unicorn/require-array-join-separator`
+
+Require an explicit separator argument to `Array#join` instead of relying on the default `","`.
+
+Example:
+
+```ts
+// reports: unicorn/require-array-join-separator (error)
+const s = [1, 2, 3].join();
+```
+
+<a id="rule-unicorn-require-module-attributes"></a>
+
+### `unicorn/require-module-attributes`
+
+Require non-empty `with` / `assert` options on `import` / `export` statements that use them at all.
+
+Example:
+
+```ts
+// reports: unicorn/require-module-attributes (error)
+import data from "./data.json";
+```
+
+<a id="rule-unicorn-require-module-specifiers"></a>
+
+### `unicorn/require-module-specifiers`
+
+Require a non-empty specifier list on every `import` / `export` statement.
+
+Example:
+
+```ts
+// reports: unicorn/require-module-specifiers (error)
+import "./side-effect.js";
+```
+
+<a id="rule-unicorn-require-number-to-fixed-digits-argument"></a>
+
+### `unicorn/require-number-to-fixed-digits-argument`
+
+Require an explicit digits argument to `Number#toFixed`.
+
+Example:
+
+```ts
+// reports: unicorn/require-number-to-fixed-digits-argument (error)
+const s = (1.234).toFixed();
+```
+
+<a id="rule-unicorn-require-post-message-target-origin"></a>
+
+### `unicorn/require-post-message-target-origin`
+
+Require an explicit `targetOrigin` argument to `window.postMessage`.
+
+Example:
+
+```ts
+const win = window;
+// reports: unicorn/require-post-message-target-origin (error)
+win.postMessage({ kind: "ping" });
+```
+
+<a id="rule-unicorn-string-content"></a>
+
+### `unicorn/string-content`
+
+Enforce or replace configured string-content patterns (e.g., curly quotes for straight ones).
+
+Illustrative shape:
+
+```ts
+// With a configured pattern that replaces "TODO" with "To do".
+const label = "TODO";
+```
+
+<a id="rule-unicorn-switch-case-braces"></a>
+
+### `unicorn/switch-case-braces`
+
+Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
+
+Example:
+
+```ts
+const k = "a";
+switch (k) {
+  // reports: unicorn/switch-case-braces (error)
+  case "a":
+    void 0;
+    break;
+}
+```
+
+<a id="rule-unicorn-switch-case-break-position"></a>
+
+### `unicorn/switch-case-break-position`
+
+Enforce a consistent position for `break` (or `return` / `throw`) inside `case` clauses.
+
+Illustrative shape:
+
+```ts
+const state = "idle";
+function reset(): void {}
+
+switch (state) {
+  case "idle":
+    break;
+    reset();
+}
+```
+
+<a id="rule-unicorn-template-indent"></a>
+
+### `unicorn/template-indent`
+
+Re-indent the body of tagged template literals (`html`, `gql`, `sql`) to the indentation of the opening backtick.
+
+Illustrative shape:
+
+```ts
+function sql(strings: TemplateStringsArray): string {
+  return strings.join("");
+}
+
+const query = sql`
+SELECT *
+    FROM users
+WHERE active = true
+`;
+```
+
+<a id="rule-unicorn-text-encoding-identifier-case"></a>
+
+### `unicorn/text-encoding-identifier-case`
+
+Enforce a canonical case for text-encoding identifiers, `"utf-8"` (not `"UTF-8"` / `"utf8"`).
+
+Example:
+
+```ts
+// reports: unicorn/text-encoding-identifier-case (error)
+const enc = "UTF-8";
+```
+
+<a id="rule-unicorn-throw-new-error"></a>
+
+### `unicorn/throw-new-error`
+
+Require `throw new Error(...)` over `throw Error(...)`.
+
+Example:
+
+```ts
+// reports: unicorn/throw-new-error (error)
+throw Error("oops");
+```

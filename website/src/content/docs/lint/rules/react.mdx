@@ -1,35 +1,578 @@
 # React
 
-React TSX rules. Bundles rules from `eslint-plugin-react`, `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` under one namespace, matching Oxlint's `react/*` plugin layout. Performance-only rules live separately in the [React performance](./react-perf) family because they are opt-in toggles rather than correctness checks.
+React TSX rules.
 
-Source: [`eslint-plugin-react`](https://github.com/jsx-eslint/eslint-plugin-react) (MIT), [`eslint-plugin-react-hooks`](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) (MIT), [`eslint-plugin-react-refresh`](https://github.com/ArnaudBarre/eslint-plugin-react-refresh) (MIT).
+This family bundles rules from `eslint-plugin-react`, `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` under one namespace, matching Oxlint's `react/*` plugin layout.
 
-- `react/button-has-type`: Require explicit, valid `type` values on JSX `<button>` elements (`"button"`, `"submit"`, `"reset"`), the HTML default of `"submit"` causes accidental form submissions.
-- `react/component-hook-factories`: Reject declaring a component or custom Hook inside another component or Hook body.
-- `react/display-name`: require components wrapped in `React.memo(...)` or `React.forwardRef(...)` to be named, either by passing a named function, assigning the call to a named binding, or setting an explicit `displayName`.
-- `react/exhaustive-deps`: Detect high-confidence missing identifiers in React Hook dependency arrays (`useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, `useCallback`).
-- `react/iframe-missing-sandbox`: Require JSX `<iframe>` elements to declare a `sandbox` attribute, which restricts what embedded content can do (scripts, forms, navigation).
-- `react/immutability`: Reject mutating props, state, or Hook return values inside a component or Hook.
-- `react/jsx-key`: Require `key` props on JSX elements produced from arrays or `.map(...)` calls, React uses the key to track list identity across renders.
-- `react/jsx-no-duplicate-props`: Reject duplicate JSX prop names on the same element, later occurrences silently overwrite earlier ones.
-- `react/jsx-no-script-url`: Reject `javascript:` URLs in JSX URL-like props such as `href` and `src`.
-- `react/jsx-no-target-blank`: Reject `<a target="_blank">` (or any JSX element with `target="_blank"`) that does not also carry `rel="noreferrer"` (or `rel="noopener noreferrer"`).
-- `react/jsx-no-undef`: reject JSX elements whose tag is an uppercase identifier with no value-level declaration anywhere in the source file.
-- `react/jsx-no-useless-fragment`: reject JSX fragments that wrap exactly one element child or have no meaningful content. The child (or nothing) can be returned directly.
-- `react/no-array-index-key`: Reject `key={index}` patterns inside JSX lists, array index keys reorder incorrectly on insertion.
-- `react/no-children-prop`: Reject passing children through an explicit `children` JSX prop.
-- `react/no-danger`: Reject `dangerouslySetInnerHTML` altogether.
-- `react/no-danger-with-children`: Reject combining `dangerouslySetInnerHTML` with JSX children, React throws at runtime in this case.
-- `react/no-direct-mutation-state`: Reject direct writes to `this.state` outside constructor initialization.
-- `react/no-find-dom-node`: Reject `findDOMNode(...)` calls.
-- `react/no-is-mounted`: Reject `this.isMounted()` calls on class components.
-- `react/no-string-refs`: Reject string-form JSX refs (`ref="myInput"`).
-- `react/no-unescaped-entities`: Reject unescaped `>`, `"`, `'`, and `}` characters in JSX text content, they render literally and almost always come from forgotten HTML escaping.
-- `react/only-export-components`: Keep React Fast Refresh component modules from exporting non-component values.
-- `react/refs`: Reject reading or writing `ref.current` during render.
-- `react/rules-of-hooks`: Enforce the Rules of Hooks: only call Hooks at the top level of a component or custom Hook, never inside conditionals, loops, or nested functions.
-- `react/set-state-in-effect`: Reject unconditional `setState` calls in `useEffect` bodies.
-- `react/set-state-in-render`: Reject calling `setState` during render.
-- `react/style-prop-object`: Reject string-form `style` values such as `style="color: red"`.
-- `react/use-memo`: Reject `useMemo` calculation callbacks that do not return a value.
-- `react/void-dom-elements-no-children`: Reject `children` or `dangerouslySetInnerHTML` on void DOM elements (`<img>`, `<br>`, `<input>`, etc.).
+Performance-only rules live in a separate [React performance](./react-perf) family because they are opt-in toggles rather than correctness checks.
+
+Source: [`eslint-plugin-react`](https://github.com/jsx-eslint/eslint-plugin-react) (MIT), [`eslint-plugin-react-hooks`](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) (MIT).
+
+[`eslint-plugin-react-refresh`](https://github.com/ArnaudBarre/eslint-plugin-react-refresh) (MIT).
+
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+### Disallow
+
+- [`react/no-array-index-key`](#rule-react-no-array-index-key): Reject `key={index}` patterns inside JSX lists, array index keys reorder incorrectly on insertion.
+- [`react/no-children-prop`](#rule-react-no-children-prop): Reject passing children through an explicit `children` JSX prop.
+- [`react/no-danger`](#rule-react-no-danger): Reject `dangerouslySetInnerHTML` altogether.
+- [`react/no-danger-with-children`](#rule-react-no-danger-with-children): Reject combining `dangerouslySetInnerHTML` with JSX children.
+- [`react/no-direct-mutation-state`](#rule-react-no-direct-mutation-state): Reject direct writes to `this.state` outside constructor initialization.
+- [`react/no-find-dom-node`](#rule-react-no-find-dom-node): Reject `findDOMNode(...)` calls.
+- [`react/no-is-mounted`](#rule-react-no-is-mounted): Reject `this.isMounted()` calls on class components.
+- [`react/no-string-refs`](#rule-react-no-string-refs): Reject string-form JSX refs.
+- [`react/no-unescaped-entities`](#rule-react-no-unescaped-entities): Reject unescaped `>`, `"`, `'`, and `}` characters in JSX text content.
+
+### Other checks
+
+- [`react/button-has-type`](#rule-react-button-has-type): Require explicit, valid `type` values on JSX `<button>` elements.
+- [`react/display-name`](#rule-react-display-name): Require components wrapped in `React.memo(...)` or `React.forwardRef(...)`.
+- [`react/exhaustive-deps`](#rule-react-exhaustive-deps): Detect high-confidence missing identifiers in React Hook dependency arrays.
+- [`react/component-hook-factories`](#rule-react-component-hook-factories): Reject declaring a component or custom Hook inside another component or Hook body.
+- [`react/iframe-missing-sandbox`](#rule-react-iframe-missing-sandbox): Require JSX `<iframe>` elements to declare a `sandbox` attribute.
+- [`react/immutability`](#rule-react-immutability): Reject mutating props, state, or Hook return values inside a component or Hook.
+- [`react/jsx-key`](#rule-react-jsx-key): Require `key` props on JSX elements produced from arrays or `.map(...)` calls.
+- [`react/jsx-no-duplicate-props`](#rule-react-jsx-no-duplicate-props): Reject duplicate JSX prop names on the same element, later occurrences silently overwrite earlier ones.
+- [`react/jsx-no-script-url`](#rule-react-jsx-no-script-url): Reject `javascript:` URLs in JSX URL-like props.
+- [`react/jsx-no-target-blank`](#rule-react-jsx-no-target-blank): Reject `<a target="_blank">` that does not also carry `rel="noreferrer"`.
+- [`react/jsx-no-undef`](#rule-react-jsx-no-undef): Reject JSX elements whose tag is an uppercase identifier with no value-level declaration anywhere in the source file.
+- [`react/jsx-no-useless-fragment`](#rule-react-jsx-no-useless-fragment): Reject JSX fragments that wrap exactly one element child or have no meaningful content.
+- [`react/only-export-components`](#rule-react-only-export-components): Keep React Fast Refresh component modules from exporting non-component values.
+- [`react/refs`](#rule-react-refs): Reject reading or writing `ref.current` during render.
+- [`react/rules-of-hooks`](#rule-react-rules-of-hooks): Enforce the Rules of Hooks: only call Hooks at the top level of a component or custom Hook.
+- [`react/set-state-in-effect`](#rule-react-set-state-in-effect): Reject unconditional `setState` calls in `useEffect` bodies.
+- [`react/set-state-in-render`](#rule-react-set-state-in-render): Reject calling `setState` during render.
+- [`react/style-prop-object`](#rule-react-style-prop-object): Reject string-form `style` values such.
+- [`react/use-memo`](#rule-react-use-memo): Reject `useMemo` calculation callbacks.
+- [`react/void-dom-elements-no-children`](#rule-react-void-dom-elements-no-children): Reject `children` or `dangerouslySetInnerHTML` on void DOM elements.
+
+## Rules
+
+<a id="rule-react-button-has-type"></a>
+
+### `react/button-has-type`
+
+Require explicit, valid `type` values on JSX `<button>` elements (`"button"`, `"submit"`, `"reset"`), the HTML default of `"submit"` causes accidental form submissions.
+
+Example:
+
+```tsx
+// reports: react/button-has-type (error)
+const a = <button>Submit</button>;
+```
+
+<a id="rule-react-display-name"></a>
+
+### `react/display-name`
+
+Require components wrapped in `React.memo(...)` or `React.forwardRef(...)` to be named, either by passing a named function, assigning the call to a named binding, or setting an explicit `displayName`.
+
+Anonymous wrappers leave the resulting component nameless in React DevTools and runtime stack frames.
+
+Example:
+
+```tsx
+import { memo } from "react";
+
+// reports: react/display-name (error)
+export default memo(() => <div />);
+```
+
+<a id="rule-react-exhaustive-deps"></a>
+
+### `react/exhaustive-deps`
+
+Detect high-confidence missing identifiers in React Hook dependency arrays (`useEffect`, `useLayoutEffect`, `useInsertionEffect`, `useMemo`, `useCallback`).
+
+Example:
+
+```tsx
+import { useEffect } from "react";
+
+function Component(props: { value: number }) {
+  // reports: react/exhaustive-deps (error)
+  useEffect(() => {
+    console.log(props.value);
+  }, []);
+  return null;
+}
+```
+
+<a id="rule-react-component-hook-factories"></a>
+
+### `react/component-hook-factories`
+
+Reject declaring a component or custom Hook inside another component or Hook body.
+
+Each render rebuilds the inner function, giving it a new identity that discards its state and breaks memoization.
+
+Example:
+
+```tsx
+import { useState } from "react";
+
+function Component() {
+  // reports: react/component-hook-factories (error)
+  function useNested() {
+    const [value] = useState(0);
+    return value;
+  }
+  return <div>{useNested()}</div>;
+}
+```
+
+<a id="rule-react-iframe-missing-sandbox"></a>
+
+### `react/iframe-missing-sandbox`
+
+Require JSX `<iframe>` elements to declare a `sandbox` attribute, which restricts what embedded content can do (scripts, forms, navigation).
+
+Example:
+
+```tsx
+const url = "/embed";
+
+// reports: react/iframe-missing-sandbox (error)
+const a = <iframe src={url} />;
+```
+
+<a id="rule-react-immutability"></a>
+
+### `react/immutability`
+
+Reject mutating props, state, or Hook return values inside a component or Hook.
+
+React treats these as read-only; mutating a memoized value can desync renders from the dependencies React tracked it under.
+
+Example:
+
+```tsx
+function Component(props: { value: { count: number } }) {
+  // reports: react/immutability (error)
+  props.value.count = 1;
+  return <div>{props.value.count}</div>;
+}
+```
+
+<a id="rule-react-jsx-key"></a>
+
+### `react/jsx-key`
+
+Require `key` props on JSX elements produced from arrays or `.map(...)` calls, React uses the key to track list identity across renders.
+
+Example:
+
+```tsx
+const items = [1, 2, 3];
+
+// reports: react/jsx-key (error)
+const a = [<span>one</span>, <span>two</span>];
+```
+
+<a id="rule-react-jsx-no-duplicate-props"></a>
+
+### `react/jsx-no-duplicate-props`
+
+Reject duplicate JSX prop names on the same element, later occurrences silently overwrite earlier ones.
+
+Example:
+
+```tsx
+// reports: react/jsx-no-duplicate-props (error)
+const a = <div className="x" className="y" />;
+```
+
+<a id="rule-react-jsx-no-script-url"></a>
+
+### `react/jsx-no-script-url`
+
+Reject `javascript:` URLs in JSX URL-like props such as `href` and `src`.
+
+Such URLs evaluate the URL body as script, the same code-execution surface as `eval`, and a common XSS vector when the value is user-controlled.
+
+Example:
+
+```tsx
+// reports: react/jsx-no-script-url (error)
+const a = <a href="javascript:void(0)">click</a>;
+```
+
+<a id="rule-react-jsx-no-target-blank"></a>
+
+### `react/jsx-no-target-blank`
+
+Reject `<a target="_blank">` (or any JSX element with `target="_blank"`) that does not also carry `rel="noreferrer"` (or `rel="noopener noreferrer"`).
+
+Without those tokens the opened page can navigate the originating window through `window.opener`, a phishing and tab-nabbing vector.
+
+Example:
+
+```tsx
+const url = "https://example.com";
+
+const a = (
+  // reports: react/jsx-no-target-blank (error)
+  <a href={url} target="_blank">
+    open
+  </a>
+);
+```
+
+<a id="rule-react-jsx-no-undef"></a>
+
+### `react/jsx-no-undef`
+
+Reject JSX elements whose tag is an uppercase identifier with no value-level declaration anywhere in the source file.
+
+Lowercase tags are intrinsic HTML; qualified `<Foo.Bar>` forms are skipped because resolving the outer name requires module-level information that belongs to the type checker.
+
+Example:
+
+```tsx
+// reports: react/jsx-no-undef (error)
+const a = <Missing />;
+```
+
+<a id="rule-react-jsx-no-useless-fragment"></a>
+
+### `react/jsx-no-useless-fragment`
+
+Reject JSX fragments that wrap exactly one element child or have no meaningful content, the child (or nothing) can be returned directly.
+
+Covers both the short `<>...</>` form and explicit `<Fragment>` / `<React.Fragment>` elements.
+
+Example:
+
+```tsx
+const Child = () => <span>child</span>;
+
+const a = (
+  // reports: react/jsx-no-useless-fragment (error)
+  <>
+    <Child />
+  </>
+);
+```
+
+<a id="rule-react-no-array-index-key"></a>
+
+### `react/no-array-index-key`
+
+Reject `key={index}` patterns inside JSX lists, array index keys reorder incorrectly on insertion.
+
+Example:
+
+```tsx
+const items = ["a", "b", "c"];
+
+// reports: react/no-array-index-key (error)
+const a = items.map((value, index) => <li key={index}>{value}</li>);
+```
+
+<a id="rule-react-no-children-prop"></a>
+
+### `react/no-children-prop`
+
+Reject passing children through an explicit `children` JSX prop.
+
+The nested-tag form is shorter, mirrors HTML, and avoids the double-children footgun where a `children` prop and nested JSX both target the same slot.
+
+Example:
+
+```tsx
+const Box = (props: { children?: unknown }) => <section>{props.children}</section>;
+
+// reports: react/no-children-prop (error)
+const a = <Box children="hello" />;
+```
+
+<a id="rule-react-no-danger"></a>
+
+### `react/no-danger`
+
+Reject `dangerouslySetInnerHTML` altogether.
+
+The prop bypasses React's escaping and injects raw HTML into the DOM, a common XSS vector when the input is not sanitized upstream.
+
+Example:
+
+```tsx
+const html = "<strong>trusted</strong>";
+
+// reports: react/no-danger (error)
+const a = <div dangerouslySetInnerHTML={{ __html: html }} />;
+```
+
+<a id="rule-react-no-danger-with-children"></a>
+
+### `react/no-danger-with-children`
+
+Reject combining `dangerouslySetInnerHTML` with JSX children, React throws at runtime in this case.
+
+Example:
+
+```tsx
+const html = "<strong>trusted</strong>";
+
+// reports: react/no-danger-with-children (error)
+const a = <div dangerouslySetInnerHTML={{ __html: html }}>extra</div>;
+```
+
+<a id="rule-react-no-direct-mutation-state"></a>
+
+### `react/no-direct-mutation-state`
+
+Reject direct writes to `this.state` outside constructor initialization. Use `this.setState(...)` instead.
+
+Example:
+
+```tsx
+import { Component } from "react";
+
+class Counter extends Component<unknown, { count: number }> {
+  bump() {
+    // reports: react/no-direct-mutation-state (error)
+    this.state.count = 1;
+  }
+}
+```
+
+<a id="rule-react-no-find-dom-node"></a>
+
+### `react/no-find-dom-node`
+
+Reject `findDOMNode(...)` calls.
+
+The API is deprecated, blocks future React internals work, and breaks component abstraction by reaching across composition boundaries; attach a `ref` to the target element instead.
+
+Example:
+
+```tsx
+const ReactDOM = { findDOMNode: (component: unknown) => component };
+const component = {};
+
+// reports: react/no-find-dom-node (error)
+const a = ReactDOM.findDOMNode(component);
+```
+
+<a id="rule-react-no-is-mounted"></a>
+
+### `react/no-is-mounted`
+
+Reject `this.isMounted()` calls on class components.
+
+The API is deprecated, and anti-patterns around it usually hide a memory leak in async callbacks; cancel the work in `componentWillUnmount` instead.
+
+Example:
+
+```tsx
+class Widget extends Component {
+  refresh() {
+    // reports: react/no-is-mounted (error)
+    if (this.isMounted()) {
+    }
+  }
+}
+```
+
+<a id="rule-react-no-string-refs"></a>
+
+### `react/no-string-refs`
+
+Reject string-form JSX refs (`ref="myInput"`).
+
+The API is legacy, slated for removal, and has well-known issues with static typing, owner tracking, and stale references; use `useRef` or a callback ref instead.
+
+Example:
+
+```tsx
+// reports: react/no-string-refs (error)
+const a = <input ref="name" />;
+```
+
+<a id="rule-react-no-unescaped-entities"></a>
+
+### `react/no-unescaped-entities`
+
+Reject unescaped `>`, `"`, `'`, and `}` characters in JSX text content, they render literally and almost always come from forgotten HTML escaping.
+
+Example:
+
+```tsx
+// reports: react/no-unescaped-entities (error)
+const a = <p>She said "hello"</p>;
+```
+
+<a id="rule-react-only-export-components"></a>
+
+### `react/only-export-components`
+
+Keep React Fast Refresh component modules from exporting non-component values. Mixing a component export with a constant or hook in the same file invalidates HMR.
+
+Options:
+
+- `extraHOCs?: readonly string[]`
+
+  Extra higher-order component names that wrap component exports. Default: `[ ]`.
+
+- `allowExportNames?: readonly string[]`
+
+  Export names the active framework handles during refresh, such as route metadata exports. Default: `[ ]`.
+
+- `allowConstantExport?: boolean`
+
+  Permit literal / string / boolean / template / binary constant exports alongside component exports. Default: `false`.
+
+- `checkJS?: boolean`
+
+  Also scan JavaScript files that import React. TSX files are always scanned. Default: `false`.
+
+Example:
+
+```tsx
+export const helper = 1;
+
+// reports: react/only-export-components (error)
+export function Widget() {
+  return <div>hi</div>;
+}
+```
+
+<a id="rule-react-refs"></a>
+
+### `react/refs`
+
+Reject reading or writing `ref.current` during render.
+
+Refs persist mutably across renders without re-rendering, so touching them in render breaks the pure-render contract and produces inconsistent output between render passes.
+
+Example:
+
+```tsx
+function Component() {
+  const ref = useRef<number>(0);
+  // reports: react/refs (error)
+  const value = ref.current;
+  return <div>{value}</div>;
+}
+```
+
+<a id="rule-react-rules-of-hooks"></a>
+
+### `react/rules-of-hooks`
+
+Enforce the Rules of Hooks: only call Hooks at the top level of a component or custom Hook, never inside conditionals, loops, or nested functions.
+
+Example:
+
+```tsx
+import { useState } from "react";
+
+function Component({ enabled }: { enabled: boolean }) {
+  if (enabled) {
+    // reports: react/rules-of-hooks (error)
+    const [value] = useState(0);
+  }
+  return null;
+}
+```
+
+<a id="rule-react-set-state-in-effect"></a>
+
+### `react/set-state-in-effect`
+
+Reject unconditional `setState` calls in `useEffect` bodies.
+
+The state update schedules another render and re-runs the effect, which usually loops forever; the value almost always belongs in `useMemo` or derived state instead.
+
+Example:
+
+```tsx
+import { useEffect, useState } from "react";
+
+function Component() {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    // reports: react/set-state-in-effect (error)
+    setValue(1);
+  }, []);
+  return <div>{value}</div>;
+}
+```
+
+<a id="rule-react-set-state-in-render"></a>
+
+### `react/set-state-in-render`
+
+Reject calling `setState` during render.
+
+Render must stay pure; queuing an update from the render body schedules another render that queues another update, producing an infinite render loop unless guarded by an explicit equality check.
+
+Example:
+
+```tsx
+import { useState } from "react";
+
+function Component() {
+  const [value, setValue] = useState(0);
+  // reports: react/set-state-in-render (error)
+  setValue(1);
+  return <div>{value}</div>;
+}
+```
+
+<a id="rule-react-style-prop-object"></a>
+
+### `react/style-prop-object`
+
+Reject string-form `style` values such as `style="color: red"` or `style={\`...`}`.
+
+React expects a `{ camelCaseProp: value }` object, not the HTML-style CSS string, and the latter is silently coerced and never applied.
+
+Example:
+
+```tsx
+// reports: react/style-prop-object (error)
+const a = <div style="color: red" />;
+```
+
+<a id="rule-react-use-memo"></a>
+
+### `react/use-memo`
+
+Reject `useMemo` calculation callbacks that do not return a value.
+
+A block-bodied callback without `return` memoizes `undefined`, silently discarding the intended computation, a common mistake when wrapping an object literal in `{ ... }` instead of `({ ... })`.
+
+Example:
+
+```tsx
+import { useMemo } from "react";
+
+function Component() {
+  // reports: react/use-memo (error)
+  const value = useMemo(() => ({ label: "Save" }), []);
+  return <div>{value}</div>;
+}
+```
+
+<a id="rule-react-void-dom-elements-no-children"></a>
+
+### `react/void-dom-elements-no-children`
+
+Reject `children` or `dangerouslySetInnerHTML` on void DOM elements (`<img>`, `<br>`, `<input>`, etc.).
+
+Void elements have no content model, so React throws at render time when you try to give them any.
+
+Example:
+
+```tsx
+// reports: react/void-dom-elements-no-children (error)
+const a = <img src="/x">caption</img>;
+```

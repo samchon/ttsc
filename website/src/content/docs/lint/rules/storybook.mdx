@@ -1,22 +1,327 @@
 # Storybook
 
-Storybook CSF and configuration rules from `eslint-plugin-storybook`. Checks Component Story Format conventions (default export meta, named story exports, play-function shape) and configuration pitfalls in `.storybook/main.ts`. Apply to `*.stories.ts(x)` and `.storybook/main.ts` files.
+Storybook CSF and configuration rules from `eslint-plugin-storybook`.
+
+They check Component Story Format conventions (default export meta, named story exports, play-function shape) and configuration pitfalls in `.storybook/main.ts`.
 
 Source: [`eslint-plugin-storybook`](https://github.com/storybookjs/eslint-plugin-storybook) (MIT).
 
-- `storybook/await-interactions`: Require `await` on Storybook interaction helpers (`userEvent`, `expect`, `waitFor`, ...) inside a `play` function.
-- `storybook/context-in-play-function`: Require forwarding the play-function `context` argument when invoking another story's `play` function.
-- `storybook/csf-component`: Require the CSF default meta object to declare a `component`.
-- `storybook/default-exports`: Require every story file to provide the CSF default export.
-- `storybook/hierarchy-separator`: Reject the legacy `|` separator in Storybook story titles (`"Foo|Bar"`).
-- `storybook/meta-inline-properties`: Require `title` and `args` in CSF meta to be inline literals, not references to outside variables or function calls.
-- `storybook/meta-satisfies-type`: Require CSF meta objects to type-check with `satisfies Meta<…>` rather than a `: Meta<…>` annotation or `as` cast.
-- `storybook/no-redundant-story-name`: Reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
-- `storybook/no-renderer-packages`: Reject direct imports from Storybook renderer packages (`@storybook/react`, etc.); use the user-facing package surface.
-- `storybook/no-stories-of`: Reject the legacy `storiesOf(...)` builder API.
-- `storybook/no-title-property-in-meta`: Reject the `title` property in CSF meta when the project uses Storybook's auto-title generation.
-- `storybook/no-uninstalled-addons`: Validate Storybook addon names against the project's dependencies, so misspelled addon ids surface at lint time.
-- `storybook/prefer-pascal-case`: Require named story exports to use PascalCase.
-- `storybook/story-exports`: Require every story file to export at least one named story alongside the default meta.
-- `storybook/use-storybook-expect`: Require `expect` to be imported from `@storybook/test` in play functions, not from Jest.
-- `storybook/use-storybook-testing-library`: Reject direct Testing Library imports inside story files; use the Storybook-bundled re-exports.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`storybook/await-interactions`](#rule-storybook-await-interactions): Require `await` on Storybook interaction helpers inside a `play` function.
+- [`storybook/context-in-play-function`](#rule-storybook-context-in-play-function): Require forwarding the play-function `context` argument.
+- [`storybook/csf-component`](#rule-storybook-csf-component): Require the CSF default meta object to declare a `component`.
+- [`storybook/default-exports`](#rule-storybook-default-exports): Require every story file to provide the CSF default export.
+- [`storybook/hierarchy-separator`](#rule-storybook-hierarchy-separator): Reject the legacy `|` separator in Storybook story titles.
+- [`storybook/meta-inline-properties`](#rule-storybook-meta-inline-properties): Require `title` and `args` in CSF meta.
+- [`storybook/meta-satisfies-type`](#rule-storybook-meta-satisfies-type): Require CSF meta objects to type-check with `satisfies Meta<...>` rather than.
+- [`storybook/no-redundant-story-name`](#rule-storybook-no-redundant-story-name): Reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
+- [`storybook/no-renderer-packages`](#rule-storybook-no-renderer-packages): Reject direct imports from Storybook renderer packages.
+- [`storybook/no-stories-of`](#rule-storybook-no-stories-of): Reject the legacy `storiesOf(...)` builder API.
+- [`storybook/no-title-property-in-meta`](#rule-storybook-no-title-property-in-meta): Reject the `title` property in CSF meta.
+- [`storybook/no-uninstalled-addons`](#rule-storybook-no-uninstalled-addons): Validate Storybook addon names against the project's dependencies.
+- [`storybook/prefer-pascal-case`](#rule-storybook-prefer-pascal-case): Require named story exports to use PascalCase.
+- [`storybook/story-exports`](#rule-storybook-story-exports): Require every story file to export at least one named story alongside the default meta.
+- [`storybook/use-storybook-expect`](#rule-storybook-use-storybook-expect): Require `expect` to be imported from `@storybook/test` in play functions, not from Jest.
+- [`storybook/use-storybook-testing-library`](#rule-storybook-use-storybook-testing-library): Reject direct Testing Library imports inside story files.
+
+## Rules
+
+<a id="rule-storybook-await-interactions"></a>
+
+### `storybook/await-interactions`
+
+Require `await` on Storybook interaction helpers (`userEvent`, `expect`, `waitFor`, ...) inside a `play` function.
+
+The interactions addon intercepts the awaited promises to record steps, so a missing `await` skips that frame in the debugger and races the next assertion.
+
+Example:
+
+```ts
+export default { component: Button };
+export const Primary = {
+  play: async () => {
+    // reports: storybook/await-interactions (error)
+    userEvent.click(button);
+  },
+};
+```
+
+<a id="rule-storybook-context-in-play-function"></a>
+
+### `storybook/context-in-play-function`
+
+Require forwarding the play-function `context` argument when invoking another story's `play` function.
+
+Storybook hangs the canvas, step tracker, and interactions addon off `context`; omitting it leaves the nested call without the runtime hooks it needs to drive the canvas.
+
+Example:
+
+```ts
+export default { component: Button };
+export const Primary = {};
+export const Secondary = {
+  play: async (context) => {
+    // reports: storybook/context-in-play-function (error)
+    Primary.play();
+  },
+};
+```
+
+<a id="rule-storybook-csf-component"></a>
+
+### `storybook/csf-component`
+
+Require the CSF default meta object to declare a `component`.
+
+The reference unlocks Storybook's auto-generated controls, prop-table docs, and CSF3 default render, without it those features silently no-op.
+
+Example:
+
+```ts
+// reports: storybook/csf-component (error)
+export default { title: "Atoms/Button" };
+export const Primary = {};
+```
+
+<a id="rule-storybook-default-exports"></a>
+
+### `storybook/default-exports`
+
+Require every story file to provide the CSF default export.
+
+Storybook keys all per-file configuration (title, decorators, parameters, component) off that default; files without it are skipped at indexing time.
+
+Example:
+
+```ts
+// reports: storybook/default-exports (error)
+export const Primary = {};
+```
+
+<a id="rule-storybook-hierarchy-separator"></a>
+
+### `storybook/hierarchy-separator`
+
+Reject the legacy `|` separator in Storybook story titles (`"Foo|Bar"`).
+
+Storybook 6 standardized on `/` for hierarchy and treats `|` as a literal character, so the title collapses into a single sidebar entry instead of nested folders.
+
+Example:
+
+```ts
+export default {
+  // reports: storybook/hierarchy-separator (warn)
+  title: "Atoms|Button",
+  component: Button,
+};
+export const Primary = {};
+```
+
+<a id="rule-storybook-meta-inline-properties"></a>
+
+### `storybook/meta-inline-properties`
+
+Require `title` and `args` in CSF meta to be inline literals, not references to outside variables or function calls.
+
+Storybook's indexer and upgrade codemods read these via static analysis and skip stories where the value is not literal.
+
+Example:
+
+```ts
+const title = "Atoms/Button";
+export default {
+  // reports: storybook/meta-inline-properties (error)
+  title,
+  component: Button,
+};
+export const Primary = {};
+```
+
+<a id="rule-storybook-meta-satisfies-type"></a>
+
+### `storybook/meta-satisfies-type`
+
+Require CSF meta objects to type-check with `satisfies Meta<...>` rather than a `: Meta<...>` annotation or `as` cast.
+
+`satisfies` preserves the narrowed literal types so dependent `StoryObj` declarations can infer the component's args precisely.
+
+Example:
+
+```ts
+// reports: storybook/meta-satisfies-type (error)
+export default { component: Button };
+export const Primary = {};
+```
+
+<a id="rule-storybook-no-redundant-story-name"></a>
+
+### `storybook/no-redundant-story-name`
+
+Reject `name` metadata on a story when it matches Storybook's auto-derived name from the export identifier.
+
+The explicit value adds boilerplate and drifts from the export when one side is renamed without the other.
+
+Example:
+
+```ts
+export default { component: Button };
+export const Primary = {
+  // reports: storybook/no-redundant-story-name (warn)
+  name: "Primary",
+};
+```
+
+<a id="rule-storybook-no-renderer-packages"></a>
+
+### `storybook/no-renderer-packages`
+
+Reject direct imports from Storybook renderer packages (`@storybook/react`, etc.); use the user-facing package surface.
+
+Example:
+
+```ts
+// reports: storybook/no-renderer-packages (error)
+import type { Meta } from "@storybook/react";
+
+export default { component: Button };
+export const Primary = {};
+```
+
+<a id="rule-storybook-no-stories-of"></a>
+
+### `storybook/no-stories-of`
+
+Reject the legacy `storiesOf(...)` builder API.
+
+Storybook 7 removed it in favour of CSF default-export metadata; remaining uses block the migration to CSF3 and the modern indexer.
+
+Example:
+
+```ts
+import {
+  // reports: storybook/no-stories-of (error)
+  storiesOf,
+} from "@storybook/react";
+
+storiesOf("Atoms/Button", module);
+```
+
+<a id="rule-storybook-no-title-property-in-meta"></a>
+
+### `storybook/no-title-property-in-meta`
+
+Reject the `title` property in CSF meta when the project uses Storybook's auto-title generation.
+
+CSF3 derives the title from the file path, so an explicit `title` is redundant and drifts from the on-disk layout when files are moved.
+
+Example:
+
+```ts
+export default {
+  // reports: storybook/no-title-property-in-meta (error)
+  title: "Atoms/Button",
+  component: Button,
+};
+export const Primary = {};
+```
+
+<a id="rule-storybook-no-uninstalled-addons"></a>
+
+### `storybook/no-uninstalled-addons`
+
+Validate Storybook addon names against the project's dependencies, so misspelled addon ids surface at lint time.
+
+Options:
+
+- `packageJsonLocation?: string`
+
+  Explicit `package.json` path used to validate configured Storybook addons. When omitted, the rule walks upward from the linted config file.
+
+- `ignore?: readonly string[]`
+
+  Addon package names to skip when checking installation status. Default: `[ ]`.
+
+Example:
+
+```ts
+export default {
+  addons: [
+    "@storybook/addon-links",
+    // reports: storybook/no-uninstalled-addons (error)
+    "@storybook/addon-essentials",
+  ],
+};
+```
+
+<a id="rule-storybook-prefer-pascal-case"></a>
+
+### `storybook/prefer-pascal-case`
+
+Require named story exports to use PascalCase.
+
+Storybook derives the displayed story name from the export identifier and inserts spaces at case boundaries, so non-PascalCase exports render with awkward or merged labels in the sidebar.
+
+Example:
+
+```ts
+export default { component: Button };
+// reports: storybook/prefer-pascal-case (warn)
+export const primary = {};
+```
+
+<a id="rule-storybook-story-exports"></a>
+
+### `storybook/story-exports`
+
+Require every story file to export at least one named story alongside the default meta.
+
+A file with only the default export contributes nothing to the sidebar and usually means a story was deleted but the file was not.
+
+Example:
+
+```ts
+// reports: storybook/story-exports (error)
+export default { component: Button };
+export const __namedExportsOrder = ["Primary"];
+```
+
+<a id="rule-storybook-use-storybook-expect"></a>
+
+### `storybook/use-storybook-expect`
+
+Require `expect` to be imported from `@storybook/test` in play functions, not from Jest.
+
+The Storybook re-export is built for the browser interactions runner; Jest's `expect` ships only Node-only matchers and throws when the play function executes in a browser preview.
+
+Example:
+
+```ts
+export default { component: Button };
+export const Primary = {
+  play: () => {
+    // reports: storybook/use-storybook-expect (error)
+    expect(button).toBeVisible();
+  },
+};
+```
+
+<a id="rule-storybook-use-storybook-testing-library"></a>
+
+### `storybook/use-storybook-testing-library`
+
+Reject direct Testing Library imports inside story files; use the Storybook-bundled re-exports.
+
+Example:
+
+```ts
+// reports: storybook/use-storybook-testing-library (error)
+import { screen } from "@testing-library/react";
+
+export default { component: Button };
+export const Primary = {};
+```

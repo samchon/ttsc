@@ -1,19 +1,225 @@
 # Cypress
 
-Cypress end-to-end test rules. Apply to TypeScript/TSX sources that use the Cypress runner (`cy.*` commands and Mocha-style `describe`/`it` blocks). Mirror the rule set from `eslint-plugin-cypress` and detect Cypress-specific anti-patterns such as async test bodies, missing assertions before screenshots, or deprecated XPath selectors.
+Cypress end-to-end test rules.
+
+They apply to TypeScript/TSX sources that use the Cypress runner (`cy.*` commands and Mocha-style `describe`/`it` blocks).
+
+They mirror the rule set from `eslint-plugin-cypress` and detect Cypress-specific anti-patterns such as async test bodies, missing assertions before screenshots, or deprecated XPath selectors.
 
 Source: [`eslint-plugin-cypress`](https://github.com/cypress-io/eslint-plugin-cypress) (MIT).
 
-- `cypress/assertion-before-screenshot`: Require at least one Cypress assertion before `cy.screenshot()`.
-- `cypress/no-and`: Prefer `cy.should()` over `.and()` when starting a Cypress assertion chain, `.and()` only makes sense after a preceding `.should()`.
-- `cypress/no-assigning-return-values`: Reject assigning the return value of a Cypress command.
-- `cypress/no-async-before`: Reject `async` Cypress `before` / `beforeEach` hooks.
-- `cypress/no-async-tests`: Reject `async` Cypress `it`/`specify` test callbacks.
-- `cypress/no-chained-get`: Reject chained `.get(...).get(...)` calls.
-- `cypress/no-debug`: Reject `cy.debug()` and chained `.debug()` commands.
-- `cypress/no-force`: Reject `{ force: true }` on Cypress action commands such as `.click({ force: true })`.
-- `cypress/no-pause`: Reject `cy.pause()` and chained `.pause()` commands.
-- `cypress/no-unnecessary-waiting`: Reject numeric `cy.wait(ms)` sleeps. They create flaky tests.
-- `cypress/no-xpath`: Reject `cy.xpath(...)` selectors.
-- `cypress/require-data-selectors`: Require `cy.get()` selectors to target a `data-*` attribute when the selector is a string literal, separates testing concerns from styling.
-- `cypress/unsafe-to-chain-command`: Reject chaining further Cypress commands after action commands.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`cypress/assertion-before-screenshot`](#rule-cypress-assertion-before-screenshot): Require at least one Cypress assertion before each `cy.screenshot()` call.
+- [`cypress/no-and`](#rule-cypress-no-and): Prefer `cy.should()` over `.and()` when starting a Cypress assertion chain.
+- [`cypress/no-assigning-return-values`](#rule-cypress-no-assigning-return-values): Reject assigning the return value of a Cypress command.
+- [`cypress/no-async-before`](#rule-cypress-no-async-before): Reject `async` Cypress `before` / `beforeEach` hooks.
+- [`cypress/no-async-tests`](#rule-cypress-no-async-tests): Reject `async` Cypress `it`/`specify` test callbacks.
+- [`cypress/no-chained-get`](#rule-cypress-no-chained-get): Reject chained `.get(...).get(...)` calls.
+- [`cypress/no-debug`](#rule-cypress-no-debug): Reject `cy.debug()` and chained `.debug()` commands.
+- [`cypress/no-force`](#rule-cypress-no-force): Reject `{ force: true }` on Cypress action commands.
+- [`cypress/no-pause`](#rule-cypress-no-pause): Reject `cy.pause()` and chained `.pause()` commands.
+- [`cypress/no-unnecessary-waiting`](#rule-cypress-no-unnecessary-waiting): Reject numeric `cy.wait(ms)` sleeps, they create flaky tests.
+- [`cypress/no-xpath`](#rule-cypress-no-xpath): Reject `cy.xpath(...)` selectors.
+- [`cypress/require-data-selectors`](#rule-cypress-require-data-selectors): Require `cy.get()` selectors to target a `data-*` attribute.
+- [`cypress/unsafe-to-chain-command`](#rule-cypress-unsafe-to-chain-command): Reject chaining further Cypress commands after action commands.
+
+## Rules
+
+<a id="rule-cypress-assertion-before-screenshot"></a>
+
+### `cypress/assertion-before-screenshot`
+
+Require at least one Cypress assertion (e.g. `cy.should(...)`) before each `cy.screenshot()` call, so the captured screenshot reflects a stable application state.
+
+Example:
+
+```ts
+cy.get("[data-cy=dialog]");
+// reports: cypress/assertion-before-screenshot (error)
+cy.screenshot();
+```
+
+<a id="rule-cypress-no-and"></a>
+
+### `cypress/no-and`
+
+Prefer `cy.should()` over `.and()` when starting a Cypress assertion chain, `.and()` only makes sense after a preceding `.should()`.
+
+Example:
+
+```ts
+// reports: cypress/no-and (error)
+cy.get("button").and("be.visible");
+```
+
+<a id="rule-cypress-no-assigning-return-values"></a>
+
+### `cypress/no-assigning-return-values`
+
+Reject assigning the return value of a Cypress command.
+
+Cypress commands are asynchronous wrappers; assignment yields a chainer proxy rather than the underlying subject.
+
+Example:
+
+```ts
+// reports: cypress/no-assigning-return-values (error)
+const button = cy.get("button");
+```
+
+<a id="rule-cypress-no-async-before"></a>
+
+### `cypress/no-async-before`
+
+Reject `async` Cypress `before` / `beforeEach` hooks.
+
+Cypress already serializes commands; an `async` hook breaks the runner's ordering.
+
+Example:
+
+```ts
+// reports: cypress/no-async-before (error)
+beforeEach(async function () {
+  await cy.get("button");
+});
+```
+
+<a id="rule-cypress-no-async-tests"></a>
+
+### `cypress/no-async-tests`
+
+Reject `async` Cypress `it`/`specify` test callbacks.
+
+Cypress builds a synchronous command queue when the test body runs and replays it later; an `async` body resolves before the queue executes, so the test reports success before any command has run.
+
+Example:
+
+```ts
+// reports: cypress/no-async-tests (error)
+it("saves", async () => {
+  await cy.get("button");
+});
+```
+
+<a id="rule-cypress-no-chained-get"></a>
+
+### `cypress/no-chained-get`
+
+Reject chained `.get(...).get(...)` calls.
+
+Subsequent `.get()` calls do not narrow the previous subject; use a single selector or `.find()`.
+
+Example:
+
+```ts
+// reports: cypress/no-chained-get (error)
+cy.get("form").get("button");
+```
+
+<a id="rule-cypress-no-debug"></a>
+
+### `cypress/no-debug`
+
+Reject `cy.debug()` and chained `.debug()` commands.
+
+The helpers drop into the browser debugger and pause the runner indefinitely, fine for local exploration but hangs CI when one slips into a committed test.
+
+Example:
+
+```ts
+// reports: cypress/no-debug (error)
+cy.get("button").debug();
+```
+
+<a id="rule-cypress-no-force"></a>
+
+### `cypress/no-force`
+
+Reject `{ force: true }` on Cypress action commands such as `.click({ force: true })`. The option masks real UX issues.
+
+Example:
+
+```ts
+// reports: cypress/no-force (error)
+cy.get("button").click({ force: true });
+```
+
+<a id="rule-cypress-no-pause"></a>
+
+### `cypress/no-pause`
+
+Reject `cy.pause()` and chained `.pause()` commands.
+
+They halt the Cypress runner until manually resumed, which is a local-debugging affordance that hangs CI when committed.
+
+Example:
+
+```ts
+// reports: cypress/no-pause (error)
+cy.pause();
+```
+
+<a id="rule-cypress-no-unnecessary-waiting"></a>
+
+### `cypress/no-unnecessary-waiting`
+
+Reject numeric `cy.wait(ms)` sleeps, they create flaky tests. Wait on a Cypress retry-aware assertion (`should`, `findBy*`, intercepted requests) instead.
+
+Example:
+
+```ts
+// reports: cypress/no-unnecessary-waiting (error)
+cy.wait(250);
+```
+
+<a id="rule-cypress-no-xpath"></a>
+
+### `cypress/no-xpath`
+
+Reject `cy.xpath(...)` selectors.
+
+The plugin shipping `cy.xpath` is deprecated, and XPath expressions tend to encode brittle DOM structure rather than the semantic attributes Cypress otherwise targets.
+
+Example:
+
+```ts
+// reports: cypress/no-xpath (error)
+cy.xpath("//button");
+```
+
+<a id="rule-cypress-require-data-selectors"></a>
+
+### `cypress/require-data-selectors`
+
+Require `cy.get()` selectors to target a `data-*` attribute when the selector is a string literal, separates testing concerns from styling.
+
+Example:
+
+```ts
+// reports: cypress/require-data-selectors (error)
+cy.get(".submit").click();
+```
+
+<a id="rule-cypress-unsafe-to-chain-command"></a>
+
+### `cypress/unsafe-to-chain-command`
+
+Reject chaining further Cypress commands after action commands (e.g. `.click().then(...)`). Configurable per-command via the options object.
+
+Options:
+
+- `methods?: readonly string[]`
+
+  Additional Cypress command names that should be treated as unsafe action commands when another command is chained after them. Default: `[ ]`.
+
+Example:
+
+```ts
+// reports: cypress/unsafe-to-chain-command (error)
+cy.get("input").type("a").type("b");
+```

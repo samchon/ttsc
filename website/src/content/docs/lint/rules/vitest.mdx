@@ -1,19 +1,257 @@
 # Vitest
 
-Vitest test source rules from `@vitest/eslint-plugin`. Vitest reuses much of Jest's testing surface but ships its own runner and configuration. These rules mirror the ergonomic subset of `eslint-plugin-jest` adapted for Vitest semantics, focused tests, identical titles, conditional logic, valid `expect` shape.
+Vitest test source rules from `@vitest/eslint-plugin`.
+
+Vitest reuses much of Jest's testing surface but ships its own runner and configuration.
+
+These rules mirror the ergonomic subset of `eslint-plugin-jest` adapted for Vitest semantics, including focused tests, identical titles, conditional logic, valid `expect` shape.
 
 Source: [`@vitest/eslint-plugin`](https://github.com/vitest-dev/eslint-plugin-vitest) (MIT).
 
-- `vitest/expect-expect`: Require every Vitest test body to contain at least one `expect(...)` call.
-- `vitest/no-conditional-expect`: Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Vitest tests.
-- `vitest/no-conditional-tests`: Reject `test(...)`/`it(...)` declarations inside loops or `if` branches.
-- `vitest/no-disabled-tests`: Reject `test.skip`, `it.skip`, `describe.skip`, and `.todo` variants.
-- `vitest/no-done-callback`: Reject `done` callback parameters in Vitest tests and lifecycle hooks.
-- `vitest/no-focused-tests`: Reject `test.only`, `it.only`, and `describe.only`.
-- `vitest/no-identical-title`: Reject duplicate Vitest test or `describe` titles within the same suite scope.
-- `vitest/no-standalone-expect`: Reject `expect(...)` calls outside Vitest tests and hooks.
-- `vitest/no-test-return-statement`: Reject `return` statements that return non-Promise values from a Vitest test callback.
-- `vitest/prefer-to-have-length`: Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` with `toBe`.
-- `vitest/valid-describe-callback`: Validate the shape of Vitest `describe` callbacks.
-- `vitest/valid-expect`: Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
-- `vitest/valid-title`: Require non-empty static Vitest test and `describe` titles.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`vitest/expect-expect`](#rule-vitest-expect-expect): Require every Vitest test body to contain at least one `expect(...)` call.
+- [`vitest/no-conditional-expect`](#rule-vitest-no-conditional-expect): Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Vitest tests.
+- [`vitest/no-conditional-tests`](#rule-vitest-no-conditional-tests): Reject `test(...)`/`it(...)` declarations inside loops or `if` branches.
+- [`vitest/no-disabled-tests`](#rule-vitest-no-disabled-tests): Reject `test.skip`, `it.skip`, `describe.skip`, and `.todo` variants.
+- [`vitest/no-done-callback`](#rule-vitest-no-done-callback): Reject `done` callback parameters in Vitest tests and lifecycle hooks.
+- [`vitest/no-focused-tests`](#rule-vitest-no-focused-tests): Reject `test.only`, `it.only`, and `describe.only`.
+- [`vitest/no-identical-title`](#rule-vitest-no-identical-title): Reject duplicate Vitest test or `describe` titles within the same suite scope.
+- [`vitest/no-standalone-expect`](#rule-vitest-no-standalone-expect): Reject `expect(...)` calls outside Vitest tests and hooks.
+- [`vitest/no-test-return-statement`](#rule-vitest-no-test-return-statement): Reject `return` statements that return non-Promise values from a Vitest test callback.
+- [`vitest/prefer-to-have-length`](#rule-vitest-prefer-to-have-length): Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` with `toBe`.
+- [`vitest/valid-describe-callback`](#rule-vitest-valid-describe-callback): Validate the shape of Vitest `describe` callbacks.
+- [`vitest/valid-expect`](#rule-vitest-valid-expect): Validate `expect(...)` arity and matcher chaining.
+- [`vitest/valid-title`](#rule-vitest-valid-title): Require non-empty static Vitest test and `describe` titles.
+
+## Rules
+
+<a id="rule-vitest-expect-expect"></a>
+
+### `vitest/expect-expect`
+
+Require every Vitest test body to contain at least one `expect(...)` call. A test with no assertions still passes, giving a false-positive signal.
+
+Example:
+
+```ts
+// reports: vitest/expect-expect (error)
+test("loads", () => {
+  render();
+});
+```
+
+<a id="rule-vitest-no-conditional-expect"></a>
+
+### `vitest/no-conditional-expect`
+
+Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional branches in Vitest tests.
+
+A branch that never runs turns the assertion into a silent no-op rather than a failure.
+
+Example:
+
+```ts
+const ready = true;
+const value = 1;
+it("checks conditionally", () => {
+  if (ready) {
+    // reports: vitest/no-conditional-expect (error)
+    expect(value).toBe(1);
+  }
+});
+```
+
+<a id="rule-vitest-no-conditional-tests"></a>
+
+### `vitest/no-conditional-tests`
+
+Reject `test(...)`/`it(...)` declarations inside loops or `if` branches.
+
+Vitest collects tests at module load, so a conditional declaration produces a different suite shape than the file appears to describe.
+
+Example:
+
+```ts
+if (process.env.CI) {
+  // reports: vitest/no-conditional-tests (error)
+  test("ci only", () => expect(true).toBe(true));
+}
+```
+
+<a id="rule-vitest-no-disabled-tests"></a>
+
+### `vitest/no-disabled-tests`
+
+Reject `test.skip`, `it.skip`, `describe.skip`, and `.todo` variants.
+
+Disabled tests rot in place and quietly drop coverage for the feature they were meant to pin.
+
+Example:
+
+```ts
+// reports: vitest/no-disabled-tests (error)
+test.skip("temporarily ignored", () => {
+  expect(value).toBe(1);
+});
+```
+
+<a id="rule-vitest-no-done-callback"></a>
+
+### `vitest/no-done-callback`
+
+Reject `done` callback parameters in Vitest tests and lifecycle hooks.
+
+The callback style predates async/await and makes failure propagation easy to miss; return a Promise or mark the body `async` instead.
+
+Example:
+
+```ts
+// reports: vitest/no-done-callback (error)
+it("uses callback", (done) => {
+  done();
+});
+```
+
+<a id="rule-vitest-no-focused-tests"></a>
+
+### `vitest/no-focused-tests`
+
+Reject `test.only`, `it.only`, and `describe.only`.
+
+A focused suite silently skips the rest of the file, so a stray `.only` left from debugging hides every other test in CI.
+
+Example:
+
+```ts
+// reports: vitest/no-focused-tests (error)
+test.only("focused", () => {
+  expect(value).toBe(1);
+});
+```
+
+<a id="rule-vitest-no-identical-title"></a>
+
+### `vitest/no-identical-title`
+
+Reject duplicate Vitest test or `describe` titles within the same suite scope.
+
+The runner cannot disambiguate two siblings with identical names in its error output or filter flags.
+
+Example:
+
+```ts
+const add = (left: number, right: number) => left + right;
+describe("math", () => {
+  test("adds", () => expect(add()).toBe(1));
+  // reports: vitest/no-identical-title (error)
+  test("adds", () => expect(add()).toBe(2));
+});
+```
+
+<a id="rule-vitest-no-standalone-expect"></a>
+
+### `vitest/no-standalone-expect`
+
+Reject `expect(...)` calls outside Vitest tests and hooks.
+
+Top-level assertions execute at module load before any test starts, so failures never attach to a named case.
+
+Example:
+
+```ts
+// reports: vitest/no-standalone-expect (error)
+expect(value).toBe(1);
+```
+
+<a id="rule-vitest-no-test-return-statement"></a>
+
+### `vitest/no-test-return-statement`
+
+Reject `return` statements that return non-Promise values from a Vitest test callback.
+
+The runner ignores the value and following code is dead, which usually masks a missing `await` or stray early-exit.
+
+Example:
+
+```ts
+const buildValue = () => 1;
+test("returns", () => {
+  // reports: vitest/no-test-return-statement (error)
+  return buildValue();
+});
+```
+
+<a id="rule-vitest-prefer-to-have-length"></a>
+
+### `vitest/prefer-to-have-length`
+
+Prefer `expect(value).toHaveLength(n)` over asserting on `value.length` with `toBe`.
+
+The dedicated matcher reports the actual length on failure instead of a bare number mismatch.
+
+Example:
+
+```ts
+const items = [1, 2, 3];
+test("length", () => {
+  // reports: vitest/prefer-to-have-length (error)
+  expect(items.length).toBe(3);
+});
+```
+
+<a id="rule-vitest-valid-describe-callback"></a>
+
+### `vitest/valid-describe-callback`
+
+Validate the shape of Vitest `describe` callbacks.
+
+The callback must be synchronous and take no arguments, the runner ignores returned Promises and `done`-style parameters at the describe level.
+
+Example:
+
+```ts
+// reports: vitest/valid-describe-callback (error)
+describe("suite", async () => {
+  test("case", () => expect(value).toBe(1));
+});
+```
+
+<a id="rule-vitest-valid-expect"></a>
+
+### `vitest/valid-expect`
+
+Validate `expect(...)` arity and matcher chaining: exactly one argument, terminated by a matcher call, and async matchers properly awaited.
+
+Malformed expects either throw at runtime or pass without asserting anything.
+
+Example:
+
+```ts
+const value = 1;
+test("bare", () => {
+  // reports: vitest/valid-expect (error)
+  expect(value);
+});
+```
+
+<a id="rule-vitest-valid-title"></a>
+
+### `vitest/valid-title`
+
+Require non-empty static Vitest test and `describe` titles.
+
+Empty or dynamically-built titles produce unreadable failure output and break filter-by-name flags.
+
+Example:
+
+```ts
+// reports: vitest/valid-title (error)
+test("", () => {
+  expect(value).toBe(1);
+});
+```

@@ -1,104 +1,1984 @@
 # TypeScript
 
-TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed under the `typescript/*` namespace. Each rule either requires TypeScript syntax (interface, `enum`, `namespace`, `as`, `!`, `import type`, type parameters, declaration merging, parameter properties, triple-slash references) or originates from `@typescript-eslint` as a TS-aware extension that has no counterpart in plain ESLint. Generic JS/TS rules stay unnamespaced in [Core](./core).
+TypeScript-only rules and `@typescript-eslint` plugin equivalents live under the `typescript/*` namespace.
+
+Every rule here either requires TypeScript syntax or originates from a TS-aware `@typescript-eslint` extension with no plain ESLint counterpart.
+
+TypeScript-only syntax includes interfaces, `enum`, `namespace`, `as`, `!`, `import type`, type parameters, declaration merging, parameter properties, and triple-slash references.
+
+Generic JS/TS rules (such as `eqeqeq`, `no-console`) stay unnamespaced in [Core](./core).
+
+This family deliberately mirrors `typescript-eslint`'s rule ids, but **only** under the `typescript/*` prefix. `@ttsc/lint` does not accept legacy bare names or `@typescript-eslint/*` aliases for these rules.
 
 Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-eslint) (MIT).
 
-- `typescript/adjacent-overload-signatures`: Require overload declarations for the same member to be written adjacently.
-- `typescript/array-type`: Enforce one consistent spelling of array types.
-- `typescript/await-thenable`: Reject `await` on operands that are not thenable.
-- `typescript/ban-ts-comment`: Reject `@ts-ignore` and `@ts-expect-error` comments.
-- `typescript/ban-tslint-comment`: Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
-- `typescript/class-literal-property-style`: Prefer a `static readonly` field over a `get` accessor whose body is a single `return <literal>;`.
-- `typescript/consistent-generic-constructors`: Reject the redundant pattern where a variable is annotated with a generic type AND the same generic arguments are repeated on the constructor: `const m: Map<K, V> = new Map<K, V>()`.
-- `typescript/consistent-indexed-object-style`: Prefer `Record<K, V>` over `{ [key: K]: V }` when an object type has a single index signature and no other members.
-- `typescript/consistent-type-assertions`: Prefer the `as` form of type assertions over the angle-bracket form `<T>expr`, which is ambiguous inside JSX.
-- `typescript/consistent-type-definitions`: Enforce one consistent shape for object types.
-- `typescript/consistent-type-exports`: require type-only re-exports to use `export type { ... }` instead of mixing them with value-level re-exports.
-- `typescript/consistent-type-imports`: Require imports that only reference types to use `import type {}` so the import has no runtime cost.
-- `typescript/explicit-function-return-type`: require every exported function and method declaration to carry an explicit return-type annotation.
-- `typescript/explicit-member-accessibility`: Require an explicit accessibility modifier (`public`, `private`, or `protected`) on every class member declaration.
-- `typescript/method-signature-style`: Prefer a function-property signature (`f: () => void`) over a shorthand method signature (`f(): void`) in interfaces and type literals so the strict-function-types contravariance check applies.
-- `typescript/no-array-delete`: Reject `delete arr[i]` against array elements.
-- `typescript/no-array-for-each`: Prefer `for ... of` over `Array.prototype.forEach()`.
-- `typescript/no-base-to-string`: reject string-coercion contexts (`` `${x}` ``, `x + ""`, `String(x)`) where `x` has a type whose `toString` resolves to the default `Object.prototype.toString` and would print `"[object Object]"`.
-- `typescript/no-confusing-non-null-assertion`: Reject non-null assertions placed where they visually merge with a following operator, `a! == b` (reads as `!=`), `a! in b`, or `a! instanceof B`.
-- `typescript/no-confusing-void-expression`: Reject `void X` expressions used in any position where the surrounding context expects a value, initializer, call argument, `return` operand, conditional, binary, or ternary subexpression.
-- `typescript/no-deprecated`: reject references to declarations marked `@deprecated` in their JSDoc.
-- `typescript/no-duplicate-enum-values`: Reject `enum` declarations whose members share the same literal value.
-- `typescript/no-dynamic-delete`: Reject computed bracket-key `delete` expressions (`delete obj[x]`) where `x` is not a string literal, since these escape type tracking.
-- `typescript/no-empty-interface`: Reject empty `interface` declarations.
-- `typescript/no-empty-object-type`: Reject `{}` as a type annotation.
-- `typescript/no-explicit-any`: Reject `any` type annotations.
-- `typescript/no-extra-non-null-assertion`: Reject `x!!`, chained non-null assertions where the inner one already removes nullability.
-- `typescript/no-extraneous-class`: Reject classes that exist purely as a namespace for static members or that are entirely empty.
-- `typescript/no-floating-promises`: Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
-- `typescript/no-for-in-array`: Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple, `for...in` yields enumerable property names, not array values.
-- `typescript/no-import-type-side-effects`: Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`.
-- `typescript/no-inferrable-types`: Reject explicit type annotations that TypeScript can already infer from the initializer (`const x: number = 1`).
-- `typescript/no-invalid-void-type`: Reject `void` used as anything other than a function return type.
-- `typescript/no-magic-numbers`: TypeScript-aware extension of `no-magic-numbers` that additionally ignores enum member values.
-- `typescript/no-meaningless-void-operator`: Reject `void X` where `X` is already statically typed `void`, the operator adds nothing because the operand already evaluates to `undefined` (type-aware).
-- `typescript/no-misused-new`: Reject signatures that fake a constructor or an instance `new` method, `interface I { new (): I }` (TypeScript treats this as the type of `new I()` regardless of intent) and `class C { new(): C }`.
-- `typescript/no-misused-promises`: Reject Promise values supplied where a non-Promise was expected.
-- `typescript/no-misused-spread`: Reject spread expressions whose operand is syntactically wrong for the surrounding context.
-- `typescript/no-mixed-enums`: Reject `enum`s that mix numeric and string members, which makes the resulting type unsafe for reverse lookups.
-- `typescript/no-namespace`: Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
-- `typescript/no-non-null-asserted-nullish-coalescing`: Reject `x! ?? y`. The `!` collapses `null | undefined` to a non-nullish value, so the `??` branch is unreachable.
-- `typescript/no-non-null-asserted-optional-chain`: Reject `x!?.y`. The non-null assertion makes the optional chain meaningless because the inner expression is already known to be defined.
-- `typescript/no-non-null-assertion`: Reject postfix `!` non-null assertions altogether.
-- `typescript/no-redundant-type-constituents`: reject union and intersection type constituents that the type system absorbs anyway, `string | any` collapses to `any`, `T & never` collapses to `never`, `T & unknown` collapses to `T`, and repeated constituents add nothing.
-- `typescript/no-require-imports`: Reject `require(...)` calls and `import x = require(...)` declarations.
-- `typescript/no-restricted-types`: reject specific type-reference names that are almost always a mistake, by default the global wrapper types `Object`, `Function`, `Number`, `String`, and `Boolean`.
-- `typescript/no-this-alias`: Reject aliasing `this` to a local (`const self = this`, `const that = this`, destructuring `const { x } = this`).
-- `typescript/no-unnecessary-boolean-literal-compare`: reject direct comparison of a boolean-typed value with `true` / `false` literals, `x === true` is just `x`, `x !== false` is just `x`.
-- `typescript/no-unnecessary-condition`: Reject conditions whose static type proves the runtime truthiness is fixed, `if ({})`, `if (null)`, `while ("")`, `0 && f()`.
-- `typescript/no-unnecessary-parameter-property-assignment`: Reject `this.x = x` in a constructor body when `x` is already declared as a parameter property, TypeScript performs the assignment automatically.
-- `typescript/no-unnecessary-qualifier`: Reject namespace/enum qualifiers that the surrounding scope makes unnecessary, inside `namespace Foo { Foo.bar }` the `Foo.` prefix can be dropped.
-- `typescript/no-unnecessary-template-expression`: reject template literals that carry no template-only behavior, a `` `${"abc"}` `` interpolation, a lone `` `${name}` `` span around a string-typed value, or a `` `abc` `` no-substitution literal with no escaped backticks.
-- `typescript/no-unnecessary-type-arguments`: reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default.
-- `typescript/no-unnecessary-type-assertion`: Reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type, the assertion adds nothing (type-aware).
-- `typescript/no-unnecessary-type-constraint`: Reject `<T extends unknown>` and similar constraints that match everything.
-- `typescript/no-unsafe-argument`: Reject passing an `any`-typed value to a parameter whose declared type is concrete, the `any` enters the callee with type-checking disabled (type-aware).
-- `typescript/no-unsafe-assignment`: Reject assigning an `any`-typed value to a variable, parameter, or property whose declared type is concrete (type-aware).
-- `typescript/no-unsafe-call`: Reject calling a value whose static type is `any` (type-aware).
-- `typescript/no-unsafe-declaration-merging`: Reject declaration merging between an `interface` and a `class` with the same name.
-- `typescript/no-unsafe-enum-comparison`: Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string` of the same widened primitive, the comparison silently accepts unrelated enums and raw literals that happen to share the underlying primitive.
-- `typescript/no-unsafe-function-type`: Reject the unsafe `Function` type, which matches every callable regardless of signature.
-- `typescript/no-unsafe-member-access`: Reject member access (`x.foo`, `x[key]`) on a value whose static type is `any` (type-aware).
-- `typescript/no-unsafe-return`: Reject a `return` expression whose static type is `any` from a function whose declared return type is a concrete (non-`any` / non-`unknown` / non-`void`) shape, the `any` leaks past the type boundary and disables every downstream check on the returned value.
-- `typescript/no-unsafe-unary-minus`: Reject the unary `-` operator applied to an operand whose static type is not number-like or bigint-like, `-x` silently coerces strings, objects, and other shapes via `Number(x)` and almost always indicates a bug.
-- `typescript/no-useless-constructor`: TypeScript-aware extension of `no-useless-constructor` that tolerates a constructor existing solely to expose parameter properties.
-- `typescript/no-useless-empty-export`: Reject redundant `export {}` declarations in module files.
-- `typescript/no-wrapper-object-types`: Reject the wrapper object types `String`, `Number`, `Boolean`, `Symbol`, and `BigInt`.
-- `typescript/non-nullable-type-assertion-style`: reject `x as Foo` assertions whose target type is the non-nullable version of `x`'s static type. Replace with the shorter `x!` non-null assertion.
-- `typescript/only-throw-error`: Reject `throw X` where `X` is statically known not to derive from `Error`, string literals, numbers, plain object literals, and the like.
-- `typescript/parameter-properties`: Reject TypeScript parameter-property constructors (`constructor(public foo: T)`). Prefer plain field declarations so the class shape is visible from the member list instead of buried in the constructor parameter list.
-- `typescript/prefer-as-const`: Prefer `as const` over `as "literal"` assertions.
-- `typescript/prefer-enum-initializers`: Require every `enum` member to have an explicit initializer.
-- `typescript/prefer-find`: Prefer `array.find(predicate)` over `array.filter(predicate)[0]` / `.shift()` when only the first match is needed.
-- `typescript/prefer-function-type`: Prefer a type alias over an interface that declares only a single call signature, the type form composes better with structural typing.
-- `typescript/prefer-includes`: Prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes) on array, tuple, and string receivers.
-- `typescript/prefer-literal-enum-member`: Prefer literal initializers (`= 0`, `= "FOO"`) for enum members over computed expressions, so the value is decidable at compile time.
-- `typescript/prefer-namespace-keyword`: Prefer the `namespace` keyword over the legacy `module Foo {}` form.
-- `typescript/prefer-nullish-coalescing`: prefer `??` over `||` (and `??=` over `||=`, and `??` over the ternary `x ? x : y`) when the intent is to default `null` / `undefined`.
-- `typescript/prefer-optional-chain`: prefer an optional chain (`a?.b?.c`) over chained boolean guards such as `a && a.b && a.b.c` or `a != null && a.b`.
-- `typescript/prefer-promise-reject-errors`: Reject `Promise.reject(value)` where `value` is statically known not to derive from `Error`, type-aware analog of `only-throw-error` for the rejection side of the promise contract.
-- `typescript/prefer-readonly`: reject private class fields that could carry `readonly`.
-- `typescript/prefer-reduce-type-parameter`: Prefer `arr.reduce<T>(..., initial)` over `arr.reduce(..., initial as T)` so the accumulator type is fixed at the call site instead of widened inside the initial-value assertion.
-- `typescript/prefer-regexp-exec`: Prefer `regex.exec(str)` over `str.match(regex)` when the regex carries the `g` flag, where `.match` returns only the matched substrings and discards capture groups.
-- `typescript/prefer-return-this-type`: Prefer the explicit `this` return type for chainable methods over the surrounding class name, fluent subclasses preserve their concrete `this` instead of widening to the base.
-- `typescript/prefer-string-starts-ends-with`: Prefer `str.startsWith(p)` / `str.endsWith(p)` over `str.indexOf(p) === 0`, `str.indexOf(p, str.length - p.length) !== -1`, `str.lastIndexOf(p) === str.length - p.length`, and the anchored-regex `/^p/.test(str)` / `/p$/.test(str)` idioms.
-- `typescript/promise-function-async`: Require functions whose return type is `Promise<T>` to be declared with the `async` keyword so synchronous throws surface as a rejected Promise.
-- `typescript/related-getter-setter-pairs`: Reject a `get` accessor whose declared return type does not match the parameter type of its companion `set` accessor on the same class, readers should not observe a type the writer cannot accept (type-aware).
-- `typescript/require-array-sort-compare`: require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
-- `typescript/require-await`: Reject `async` functions whose body contains no `await` expression.
-- `typescript/restrict-plus-operands`: reject `+` expressions whose operands are not both `number`, both `string`, or both `bigint`.
-- `typescript/restrict-template-expressions`: reject template-literal interpolations whose expression carries a type that does not stringify cleanly, `${obj}` prints `"[object Object]"`, `${null}` prints `"null"`, and so on.
-- `typescript/return-await`: Reject `return promise` inside `try`, `catch`, or `finally`; require `return await promise`.
-- `typescript/sort-type-constituents`: Sort the members of union (`A | B | C`) and intersection (`A & B & C`) types into a canonical order so reorderings don't show up as diffs.
-- `typescript/strict-boolean-expressions`: Reject non-boolean values used in a boolean context such as `if`, `&&`, `||`, or `!`. Name the intent with an explicit comparison.
-- `typescript/switch-exhaustiveness-check`: require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
-- `typescript/triple-slash-reference`: Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
-- `typescript/unbound-method`: reject referencing a class instance method as a value instead of calling it (`obj.method` passed as a callback, aliased to a variable, or stored on another object).
-- `typescript/use-unknown-in-catch-callback-variable`: Require the callback parameter of `.catch(...)` and the second argument of `.then(...)` to be typed `unknown`.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+### Disallow
+
+- [`typescript/no-array-delete`](#rule-typescript-no-array-delete): Reject `delete arr[i]` against array elements.
+- [`typescript/no-array-for-each`](#rule-typescript-no-array-for-each): Prefer `for ... of` over `Array.prototype.forEach()`.
+- [`typescript/no-base-to-string`](#rule-typescript-no-base-to-string): Reject string-coercion contexts where `x` has a type.
+- [`typescript/no-extraneous-class`](#rule-typescript-no-extraneous-class): Reject classes that exist purely as a namespace for static members or that are entirely empty.
+- [`typescript/no-confusing-non-null-assertion`](#rule-typescript-no-confusing-non-null-assertion): Reject non-null assertions placed where they visually merge with a following operator.
+- [`typescript/no-confusing-void-expression`](#rule-typescript-no-confusing-void-expression): Reject `void X` expressions used in any position.
+- [`typescript/no-deprecated`](#rule-typescript-no-deprecated): Reject references to declarations marked `@deprecated` in their JSDoc.
+- [`typescript/no-duplicate-enum-values`](#rule-typescript-no-duplicate-enum-values): Reject `enum` declarations whose members share the same literal value.
+- [`typescript/no-dynamic-delete`](#rule-typescript-no-dynamic-delete): Reject computed bracket-key `delete` expressions.
+- [`typescript/no-empty-interface`](#rule-typescript-no-empty-interface): Reject empty `interface` declarations.
+- [`typescript/no-empty-object-type`](#rule-typescript-no-empty-object-type): Reject `{}` as a type annotation.
+- [`typescript/no-explicit-any`](#rule-typescript-no-explicit-any): Reject `any` type annotations.
+- [`typescript/no-extra-non-null-assertion`](#rule-typescript-no-extra-non-null-assertion): Reject `x!!`, chained non-null assertions.
+- [`typescript/no-floating-promises`](#rule-typescript-no-floating-promises): Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+- [`typescript/no-for-in-array`](#rule-typescript-no-for-in-array): Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple.
+- [`typescript/no-import-type-side-effects`](#rule-typescript-no-import-type-side-effects): Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`.
+- [`typescript/no-inferrable-types`](#rule-typescript-no-inferrable-types): Reject explicit type annotations that TypeScript can already infer from the initializer.
+- [`typescript/no-invalid-void-type`](#rule-typescript-no-invalid-void-type): Reject `void` used as anything other than a function return type.
+- [`typescript/no-magic-numbers`](#rule-typescript-no-magic-numbers): TypeScript-aware extension of `no-magic-numbers`.
+- [`typescript/no-meaningless-void-operator`](#rule-typescript-no-meaningless-void-operator): Reject `void X` where `X` is already statically typed `void`, the `void` operator adds nothing.
+- [`typescript/no-misused-new`](#rule-typescript-no-misused-new): Reject signatures that fake a constructor or an instance `new` method.
+- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject Promise values supplied where a non-Promise was expected.
+- [`typescript/no-misused-spread`](#rule-typescript-no-misused-spread): Reject spread expressions whose operand is syntactically wrong for the surrounding context.
+- [`typescript/no-mixed-enums`](#rule-typescript-no-mixed-enums): Reject `enum`s that mix numeric and string members.
+- [`typescript/no-namespace`](#rule-typescript-no-namespace): Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
+- [`typescript/no-non-null-asserted-nullish-coalescing`](#rule-typescript-no-non-null-asserted-nullish-coalescing): Reject `x! ?? y`, the `!` collapses `null | undefined` to a non-nullish value.
+- [`typescript/no-non-null-asserted-optional-chain`](#rule-typescript-no-non-null-asserted-optional-chain): Reject `x!?.y`, the non-null assertion makes the optional chain meaningless.
+- [`typescript/no-non-null-assertion`](#rule-typescript-no-non-null-assertion): Reject postfix `!` non-null assertions altogether.
+- [`typescript/no-redundant-type-constituents`](#rule-typescript-no-redundant-type-constituents): Reject union and intersection type constituents.
+- [`typescript/no-restricted-types`](#rule-typescript-no-restricted-types): Reject specific type-reference names.
+- [`typescript/no-require-imports`](#rule-typescript-no-require-imports): Reject `require(...)` calls and `import x = require(...)` declarations.
+- [`typescript/no-this-alias`](#rule-typescript-no-this-alias): Reject aliasing `this` to a local.
+- [`typescript/no-unnecessary-boolean-literal-compare`](#rule-typescript-no-unnecessary-boolean-literal-compare): Reject direct comparison of a boolean-typed value with `true` / `false` literals.
+- [`typescript/no-unnecessary-condition`](#rule-typescript-no-unnecessary-condition): Reject conditions whose static type proves the runtime truthiness is fixed.
+- [`typescript/no-unnecessary-parameter-property-assignment`](#rule-typescript-no-unnecessary-parameter-property-assignment): Reject `this.x = x` in a constructor body.
+- [`typescript/no-unnecessary-qualifier`](#rule-typescript-no-unnecessary-qualifier): Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }`.
+- [`typescript/no-unnecessary-template-expression`](#rule-typescript-no-unnecessary-template-expression): Reject template literals that carry no template-only behavior, a `${"abc"}` interpolation.
+- [`typescript/no-unnecessary-type-arguments`](#rule-typescript-no-unnecessary-type-arguments): Reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default.
+- [`typescript/no-unnecessary-type-assertion`](#rule-typescript-no-unnecessary-type-assertion): Reject `x as T` and `<T>x` assertions.
+- [`typescript/no-unnecessary-type-constraint`](#rule-typescript-no-unnecessary-type-constraint): Reject `<T extends unknown>` and similar constraints.
+- [`typescript/no-unsafe-argument`](#rule-typescript-no-unsafe-argument): Reject passing an `any`-typed value into a parameter.
+- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject assigning an `any`-typed value into a concretely typed location.
+- [`typescript/no-unsafe-call`](#rule-typescript-no-unsafe-call): Reject calling a value whose static type is `any`.
+- [`typescript/no-unsafe-declaration-merging`](#rule-typescript-no-unsafe-declaration-merging): Reject declaration merging between an `interface` and a `class` with the same name.
+- [`typescript/no-unsafe-enum-comparison`](#rule-typescript-no-unsafe-enum-comparison): Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string`.
+- [`typescript/no-unsafe-function-type`](#rule-typescript-no-unsafe-function-type): Reject the unsafe `Function` type, which matches every callable regardless of signature.
+- [`typescript/no-unsafe-member-access`](#rule-typescript-no-unsafe-member-access): Reject property access on a receiver.
+- [`typescript/no-unsafe-return`](#rule-typescript-no-unsafe-return): Reject a `return` expression whose static type is `any` from a function whose declared return type is a concrete shape.
+- [`typescript/no-unsafe-unary-minus`](#rule-typescript-no-unsafe-unary-minus): Reject the unary `-` operator applied to an operand.
+- [`typescript/no-useless-constructor`](#rule-typescript-no-useless-constructor): TypeScript-aware extension of `no-useless-constructor`.
+- [`typescript/no-useless-empty-export`](#rule-typescript-no-useless-empty-export): Reject redundant `export {}` declarations in module files.
+- [`typescript/no-wrapper-object-types`](#rule-typescript-no-wrapper-object-types): Reject the wrapper object types `String`, `Number`, `Boolean`, `Symbol`, and `BigInt`.
+
+### Prefer
+
+- [`typescript/prefer-as-const`](#rule-typescript-prefer-as-const): Prefer `as const` over `as "literal"` assertions.
+- [`typescript/prefer-enum-initializers`](#rule-typescript-prefer-enum-initializers): Require every `enum` member to have an explicit initializer.
+- [`typescript/prefer-find`](#rule-typescript-prefer-find): Prefer `arr.find(predicate)` over `arr.filter(predicate)[0]` and `arr.filter(predicate).at(0)`.
+- [`typescript/prefer-function-type`](#rule-typescript-prefer-function-type): Prefer a type alias over an interface.
+- [`typescript/prefer-includes`](#rule-typescript-prefer-includes): Prefer `array.includes(x)` over `array.indexOf(x) !== -1`.
+- [`typescript/prefer-literal-enum-member`](#rule-typescript-prefer-literal-enum-member): Prefer literal initializers for enum members over computed expressions.
+- [`typescript/prefer-namespace-keyword`](#rule-typescript-prefer-namespace-keyword): Prefer the `namespace` keyword over the legacy `module Foo {}` form.
+- [`typescript/prefer-nullish-coalescing`](#rule-typescript-prefer-nullish-coalescing): Prefer `??` over `||` when the intent is to default `null` / `undefined`.
+- [`typescript/prefer-optional-chain`](#rule-typescript-prefer-optional-chain): Prefer an optional chain over chained boolean guards.
+- [`typescript/prefer-promise-reject-errors`](#rule-typescript-prefer-promise-reject-errors): Reject `Promise.reject(value)` where `value` is statically known not to derive from `Error`, string literals.
+- [`typescript/prefer-readonly`](#rule-typescript-prefer-readonly): Reject private class fields that could carry `readonly`.
+- [`typescript/prefer-reduce-type-parameter`](#rule-typescript-prefer-reduce-type-parameter): Prefer `arr.reduce<T>(callback, initial)` over the assertion-on- initial-value pattern.
+- [`typescript/prefer-regexp-exec`](#rule-typescript-prefer-regexp-exec): Prefer `re.exec(str)` over `str.match(re)`.
+- [`typescript/prefer-return-this-type`](#rule-typescript-prefer-return-this-type): When an instance method always `return this`, declare its return type as `this`.
+- [`typescript/prefer-string-starts-ends-with`](#rule-typescript-prefer-string-starts-ends-with): Prefer `str.startsWith(prefix)` / `str.endsWith(suffix)` over the `indexOf` / `lastIndexOf` and anchored-regex idioms.
+
+### Require
+
+- [`typescript/require-array-sort-compare`](#rule-typescript-require-array-sort-compare): Require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
+- [`typescript/require-await`](#rule-typescript-require-await): Reject `async` functions whose body contains no `await` expression.
+
+### Consistency
+
+- [`typescript/consistent-indexed-object-style`](#rule-typescript-consistent-indexed-object-style): Prefer `Record<K, V>` over `{ [key: K]: V }`.
+- [`typescript/consistent-type-assertions`](#rule-typescript-consistent-type-assertions): Prefer the `as` form of type assertions over the angle-bracket form `<T>expr`.
+- [`typescript/consistent-generic-constructors`](#rule-typescript-consistent-generic-constructors): Reject the redundant pattern where a variable is annotated with a generic type AND the same generic arguments.
+- [`typescript/consistent-type-definitions`](#rule-typescript-consistent-type-definitions): Enforce one consistent shape for object types.
+- [`typescript/consistent-type-exports`](#rule-typescript-consistent-type-exports): Require type-only re-exports to use `export type { ... }` instead of the value form `export { ... }`.
+- [`typescript/consistent-type-imports`](#rule-typescript-consistent-type-imports): Require imports that only reference types to use `import type {}`.
+- [`typescript/sort-type-constituents`](#rule-typescript-sort-type-constituents): Require union and intersection type constituents.
+
+### Other checks
+
+- [`typescript/adjacent-overload-signatures`](#rule-typescript-adjacent-overload-signatures): Require overload declarations for the same member.
+- [`typescript/array-type`](#rule-typescript-array-type): Enforce one consistent spelling of array types.
+- [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject `await` on operands that are not thenable.
+- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-ignore` and `@ts-expect-error` comments.
+- [`typescript/ban-tslint-comment`](#rule-typescript-ban-tslint-comment): Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
+- [`typescript/class-literal-property-style`](#rule-typescript-class-literal-property-style): Prefer a `static readonly` field over a `get` accessor.
+- [`typescript/explicit-function-return-type`](#rule-typescript-explicit-function-return-type): Require every exported function and method declaration to carry an explicit return-type annotation.
+- [`typescript/explicit-member-accessibility`](#rule-typescript-explicit-member-accessibility): Require an explicit accessibility modifier on every class member declaration.
+- [`typescript/method-signature-style`](#rule-typescript-method-signature-style): Prefer a function-property signature over a shorthand method signature in interfaces and type literals.
+- [`typescript/non-nullable-type-assertion-style`](#rule-typescript-non-nullable-type-assertion-style): Reject `x as Foo` assertions whose target type is the non-nullable version of `x`'s static type.
+- [`typescript/only-throw-error`](#rule-typescript-only-throw-error): Reject `throw X` where `X` is statically known not to derive from `Error`, string literals.
+- [`typescript/parameter-properties`](#rule-typescript-parameter-properties): Reject TypeScript parameter-property constructors (`constructor(public foo: T)`).
+- [`typescript/promise-function-async`](#rule-typescript-promise-function-async): Require functions whose return type is `Promise<T>` (or a Promise-like thenable).
+- [`typescript/related-getter-setter-pairs`](#rule-typescript-related-getter-setter-pairs): Reject a `get` accessor whose declared return type does not match the parameter type of its companion `set` accessor.
+- [`typescript/restrict-plus-operands`](#rule-typescript-restrict-plus-operands): Reject `+` expressions whose operands are not both `number`, both `string`, or both `bigint`.
+- [`typescript/restrict-template-expressions`](#rule-typescript-restrict-template-expressions): Reject template-literal interpolations.
+- [`typescript/return-await`](#rule-typescript-return-await): Reject `return promise` inside `try`, `catch`, or `finally`.
+- [`typescript/strict-boolean-expressions`](#rule-typescript-strict-boolean-expressions): Reject non-boolean values used in a boolean context.
+- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every member of a union or `enum` discriminant to be covered by an explicit `case`.
+- [`typescript/triple-slash-reference`](#rule-typescript-triple-slash-reference): Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
+- [`typescript/unbound-method`](#rule-typescript-unbound-method): Reject referencing a class instance method as a value.
+- [`typescript/use-unknown-in-catch-callback-variable`](#rule-typescript-use-unknown-in-catch-callback-variable): Require the callback parameter of `.catch(...)` and the second argument of `.then(...)`.
+
+## Rules
+
+<a id="rule-typescript-adjacent-overload-signatures"></a>
+
+### `typescript/adjacent-overload-signatures`
+
+Require overload declarations for the same member to be written adjacently.
+
+Splitting overloads with other members hides the full signature set from readers and tools.
+
+Example:
+
+```ts
+interface I {
+  load(): void;
+  save(): void;
+  // reports: typescript/adjacent-overload-signatures (error)
+  load(options: { cache: boolean }): void;
+}
+```
+
+<a id="rule-typescript-array-type"></a>
+
+### `typescript/array-type`
+
+Enforce one consistent spelling of array types.
+
+By default the rule prefers `T[]` / `readonly T[]` over `Array<T>` / `ReadonlyArray<T>`, matching `@typescript-eslint`'s `array-type` default.
+
+Example:
+
+```ts
+// reports: typescript/array-type (error)
+const a: Array<string> = [];
+```
+
+<a id="rule-typescript-await-thenable"></a>
+
+### `typescript/await-thenable`
+
+Reject `await` on operands that are not thenable.
+
+Type-aware, the Checker decides whether the awaited expression has a `then` method. Autofixable: drops the `await`.
+
+Example:
+
+```ts
+async function bad(): Promise<number> {
+  // reports: typescript/await-thenable (error)
+  return await 42;
+}
+```
+
+<a id="rule-typescript-ban-ts-comment"></a>
+
+### `typescript/ban-ts-comment`
+
+Reject `@ts-ignore` and `@ts-expect-error` comments.
+
+The rule flags both directives unconditionally. There is no description-based allowance, and the `@typescript-eslint` options are not implemented.
+
+Example:
+
+```ts
+// reports: typescript/ban-ts-comment (error)
+// @ts-ignore
+const count: number = "oops";
+```
+
+<a id="rule-typescript-ban-tslint-comment"></a>
+
+### `typescript/ban-tslint-comment`
+
+Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
+
+Example:
+
+```ts
+// reports: typescript/ban-tslint-comment (error)
+// tslint:disable
+const x = 1;
+```
+
+<a id="rule-typescript-class-literal-property-style"></a>
+
+### `typescript/class-literal-property-style`
+
+Prefer a `static readonly` field over a `get` accessor whose body is a single `return <literal>;`.
+
+The getter form re-runs the body on every read and obscures that the value is fixed; a readonly field is shorter, narrows to the literal type, and signals "this is a constant" at the call site.
+
+Skipped when the class also declares a `set` accessor for the same member name, the setter's side effects cannot be reproduced by a field.
+
+Example:
+
+```ts
+class StringGetter {
+  // reports: typescript/class-literal-property-style (error)
+  static get label(): string {
+    return "ttsc";
+  }
+}
+```
+
+<a id="rule-typescript-consistent-indexed-object-style"></a>
+
+### `typescript/consistent-indexed-object-style`
+
+Prefer `Record<K, V>` over `{ [key: K]: V }` when an object type has a single index signature and no other members.
+
+Example:
+
+```ts
+// reports: typescript/consistent-indexed-object-style (error)
+type Dict = { [key: string]: number };
+const d: Dict = {};
+```
+
+<a id="rule-typescript-consistent-type-assertions"></a>
+
+### `typescript/consistent-type-assertions`
+
+Prefer the `as` form of type assertions over the angle-bracket form `<T>expr`, which is ambiguous inside JSX.
+
+Example:
+
+```ts
+const input: unknown = "value";
+
+// reports: typescript/consistent-type-assertions (error)
+const value = <string>input;
+```
+
+<a id="rule-typescript-consistent-generic-constructors"></a>
+
+### `typescript/consistent-generic-constructors`
+
+Reject the redundant pattern where a variable is annotated with a generic type AND the same generic arguments are repeated on the constructor: `const m: Map<K, V> = new Map<K, V>()`.
+
+One of the two type-argument lists carries the binding; stating both is noise.
+
+Example:
+
+```ts
+// reports: typescript/consistent-generic-constructors (error)
+const a: Map<string, number> = new Map<string, number>();
+```
+
+<a id="rule-typescript-consistent-type-definitions"></a>
+
+### `typescript/consistent-type-definitions`
+
+Enforce one consistent shape for object types.
+
+By default the rule prefers `interface` over `type` aliases for plain object shapes.
+
+Example:
+
+```ts
+// reports: typescript/consistent-type-definitions (error)
+type Shape = {
+  name: string;
+};
+```
+
+<a id="rule-typescript-consistent-type-exports"></a>
+
+### `typescript/consistent-type-exports`
+
+Require type-only re-exports to use `export type { ... }` instead of the value form `export { ... }` when the exported binding only refers to a type alias or interface in the same file.
+
+The type form has no runtime cost and signals intent to the downstream import.
+
+Example:
+
+```ts
+interface MixedType {
+  ok: true;
+}
+
+const mixedValue = { ok: true };
+
+// reports: typescript/consistent-type-exports (error)
+export { OnlyType };
+```
+
+<a id="rule-typescript-consistent-type-imports"></a>
+
+### `typescript/consistent-type-imports`
+
+Require imports that only reference types to use `import type {}` so the import has no runtime cost.
+
+Example:
+
+```ts
+// reports: typescript/consistent-type-imports (error)
+import { Foo } from "./types-fixture";
+
+const x: Foo | null = null;
+```
+
+<a id="rule-typescript-explicit-function-return-type"></a>
+
+### `typescript/explicit-function-return-type`
+
+Require every exported function and method declaration to carry an explicit return-type annotation.
+
+Implicit return types let downstream consumers depend on inference details that can shift with future edits; the explicit annotation pins the contract.
+
+Example:
+
+```ts
+// reports: typescript/explicit-function-return-type (error)
+function noReturnType(x: number) {
+  return x + 1;
+}
+```
+
+<a id="rule-typescript-explicit-member-accessibility"></a>
+
+### `typescript/explicit-member-accessibility`
+
+Require an explicit accessibility modifier (`public`, `private`, or `protected`) on every class member declaration.
+
+Implicit public is permitted by TypeScript but obscures intent, the modifier makes the encapsulation contract self-documenting. Members declared with the `#name` private-hash form are exempt.
+
+Example:
+
+```ts
+class Implicit {
+  // reports: typescript/explicit-member-accessibility (error)
+  value: number = 0;
+}
+```
+
+<a id="rule-typescript-method-signature-style"></a>
+
+### `typescript/method-signature-style`
+
+Prefer a function-property signature (`f: () => void`) over a shorthand method signature (`f(): void`) in interfaces and type literals so the strict-function-types contravariance check applies.
+
+Example:
+
+```ts
+interface Service {
+  // reports: typescript/method-signature-style (error)
+  run(input: string): number;
+  keep: (input: string) => number;
+}
+```
+
+<a id="rule-typescript-no-array-delete"></a>
+
+### `typescript/no-array-delete`
+
+Reject `delete arr[i]` against array elements.
+
+`delete` leaves a hole; use `arr.splice` to shrink the array.
+
+Example:
+
+```ts
+const arr: number[] = [1, 2, 3];
+// reports: typescript/no-array-delete (error)
+delete arr[0];
+```
+
+<a id="rule-typescript-no-array-for-each"></a>
+
+### `typescript/no-array-for-each`
+
+Prefer `for ... of` over `Array.prototype.forEach()`. The for-of form supports early termination (`break`/`return`) and `await`, while `forEach` swallows both.
+
+Example:
+
+```ts
+// reports: typescript/no-array-for-each (error)
+[1, 2, 3].forEach((value) => {});
+```
+
+<a id="rule-typescript-no-base-to-string"></a>
+
+### `typescript/no-base-to-string`
+
+Reject string-coercion contexts (`${x}`, `x + ""`, `String(x)`) where `x` has a type whose `toString` resolves to the default `Object.prototype.toString` and would print `"[object Object]"`.
+
+Type-aware via the Checker. Stringish primitives, `Date`, `Error`, arrays, regexes, and any object that overrides `toString` are safe.
+
+Plain `{}` literals, `Record<...>` shapes, and structural interfaces with no `toString` member are the ones that produce the useless default string.
+
+Example:
+
+```ts
+const plain = { id: 1 };
+
+// reports: typescript/no-base-to-string (error)
+const message = `value: ${plain}`;
+```
+
+<a id="rule-typescript-no-extraneous-class"></a>
+
+### `typescript/no-extraneous-class`
+
+Reject classes that exist purely as a namespace for static members or that are entirely empty.
+
+A namespace import or plain functions are clearer than `class Util { static foo() {} }`, the class adds indirection without providing instance behavior.
+
+Example:
+
+```ts
+// reports: typescript/no-extraneous-class (error)
+class StaticOnly {
+  static factory(): number {
+    return 1;
+  }
+  static readonly defaultValue = 42;
+}
+```
+
+<a id="rule-typescript-no-confusing-non-null-assertion"></a>
+
+### `typescript/no-confusing-non-null-assertion`
+
+Reject non-null assertions placed where they visually merge with a following operator, `a! == b` (reads as `!=`), `a! in b`, or `a! instanceof B`.
+
+Wrap the assertion in parentheses (`(a!) == b`) or drop it entirely.
+
+Example:
+
+```ts
+function f(x: number | null, y: number) {
+  // reports: typescript/no-confusing-non-null-assertion (error)
+  return x! === y;
+}
+```
+
+<a id="rule-typescript-no-confusing-void-expression"></a>
+
+### `typescript/no-confusing-void-expression`
+
+Reject `void X` expressions used in any position where the surrounding context expects a value, initializer, call argument, `return` operand, conditional, binary, or ternary subexpression.
+
+The only acceptable positions are an expression statement (`void x;`), an arrow function's concise body (`() => void x`), and the operand of an enclosing `void` operator (`void void x`).
+
+Example:
+
+```ts
+function writeAuditLog(): void {}
+
+// reports: typescript/no-confusing-void-expression (error)
+const a = void writeAuditLog();
+```
+
+<a id="rule-typescript-no-deprecated"></a>
+
+### `typescript/no-deprecated`
+
+Reject references to declarations marked `@deprecated` in their JSDoc.
+
+Type-aware via the Checker.
+
+The rule resolves the symbol at each identifier, property access, call, `new`, or JSX tag-name location, walks the symbol's declarations for an attached `@deprecated` JSDoc tag, and reports at the reference.
+
+References inside the same declaration block as the deprecation marker are skipped so the deprecation site itself doesn't fire.
+
+Example:
+
+```ts
+// reports: typescript/no-deprecated (error)
+const a = oldFn();
+```
+
+<a id="rule-typescript-no-duplicate-enum-values"></a>
+
+### `typescript/no-duplicate-enum-values`
+
+Reject `enum` declarations whose members share the same literal value.
+
+Reverse lookup (`E[E.X]`) returns whichever member is listed last, so duplicates almost always reflect a copy-paste mistake.
+
+Example:
+
+```ts
+enum E {
+  A = 1,
+  B = 2,
+  // reports: typescript/no-duplicate-enum-values (error)
+  C = 1,
+}
+```
+
+<a id="rule-typescript-no-dynamic-delete"></a>
+
+### `typescript/no-dynamic-delete`
+
+Reject computed bracket-key `delete` expressions (`delete obj[x]`) where `x` is not a string literal, since these escape type tracking.
+
+Example:
+
+```ts
+const key = "name";
+const box: Record<string, string> = { name: "ttsc" };
+
+// reports: typescript/no-dynamic-delete (error)
+delete box[key];
+delete box["name"];
+```
+
+<a id="rule-typescript-no-empty-interface"></a>
+
+### `typescript/no-empty-interface`
+
+Reject empty `interface` declarations.
+
+An empty interface that does not `extends` anything is equivalent to `unknown` and almost always represents incomplete typing work.
+
+Example:
+
+```ts
+// reports: typescript/no-empty-interface (error)
+interface Empty {}
+const e: Empty = {};
+```
+
+<a id="rule-typescript-no-empty-object-type"></a>
+
+### `typescript/no-empty-object-type`
+
+Reject `{}` as a type annotation.
+
+`{}` matches every non-nullish value and is almost never intended; use `Record<string, unknown>` for a generic object, or `object` for any non-primitive.
+
+Example:
+
+```ts
+// reports: typescript/no-empty-object-type (error)
+type T = {};
+const v: T = {};
+```
+
+<a id="rule-typescript-no-explicit-any"></a>
+
+### `typescript/no-explicit-any`
+
+Reject `any` type annotations.
+
+Typically configured as `"warning"` during incremental migrations.
+
+Example:
+
+```ts
+function f(
+  // reports: typescript/no-explicit-any (error)
+  x: any,
+): number {
+  return Number(x);
+}
+f(0);
+```
+
+<a id="rule-typescript-no-extra-non-null-assertion"></a>
+
+### `typescript/no-extra-non-null-assertion`
+
+Reject `x!!`, chained non-null assertions where the inner one already removes nullability. Autofixable: drops the extra `!`.
+
+Example:
+
+```ts
+function f(x: number | null) {
+  // reports: typescript/no-extra-non-null-assertion (error)
+  return x!!;
+}
+```
+
+<a id="rule-typescript-no-floating-promises"></a>
+
+### `typescript/no-floating-promises`
+
+Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+
+Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code.
+
+Acceptable sinks are `await`, `.catch(...)`, `.then(_, onRejected)`, `.finally(...)`, assignment, the `void` operator, and `return`.
+
+Example:
+
+```ts
+function getPromise(): Promise<number> {
+  return Promise.resolve(1);
+}
+
+// reports: typescript/no-floating-promises (error)
+getPromise();
+```
+
+<a id="rule-typescript-no-for-in-array"></a>
+
+### `typescript/no-for-in-array`
+
+Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple.
+
+Type-aware via the Checker. `for...in` iterates enumerable property names (yielded as strings, including any inherited or custom-added members).
+
+Not array values or numeric indices, almost always a mistake for `for...of`, `Array#forEach`, or an indexed `for` loop.
+
+Example:
+
+```ts
+const numbers = [1, 2, 3];
+function sideEffect(value: unknown): void {
+  console.log(value);
+}
+
+// reports: typescript/no-for-in-array (error)
+for (const key in numbers) {
+  sideEffect(key);
+}
+```
+
+<a id="rule-typescript-no-import-type-side-effects"></a>
+
+### `typescript/no-import-type-side-effects`
+
+Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`. Autofixable.
+
+Example:
+
+```ts
+// reports: typescript/no-import-type-side-effects (error)
+import { type Bar, type Foo } from "./types-fixture";
+
+const x: Foo | null = null;
+const y: Bar | null = null;
+```
+
+<a id="rule-typescript-no-inferrable-types"></a>
+
+### `typescript/no-inferrable-types`
+
+Reject explicit type annotations that TypeScript can already infer from the initializer (`const x: number = 1`).
+
+Example:
+
+```ts
+// reports: typescript/no-inferrable-types (error)
+const a: number = 5;
+```
+
+<a id="rule-typescript-no-invalid-void-type"></a>
+
+### `typescript/no-invalid-void-type`
+
+Reject `void` used as anything other than a function return type. `void` in a union (`string | void`) or as a non-allow-listed generic argument is almost always a confusion with `undefined`.
+
+Allowed positions: function/method/arrow return-type annotations and generic arguments to `Promise` / `Generator` / `AsyncGenerator` / `Iterator` / `AsyncIterator` / `IterableIterator` / `AsyncIterableIterator`.
+
+Example:
+
+```ts
+// reports: typescript/no-invalid-void-type (error)
+type Result = string | void;
+```
+
+<a id="rule-typescript-no-magic-numbers"></a>
+
+### `typescript/no-magic-numbers`
+
+TypeScript-aware extension of `no-magic-numbers` that additionally ignores enum member values.
+
+Example:
+
+```ts
+function isLong(value: number): boolean {
+  // reports: typescript/no-magic-numbers (error)
+  return value > 86400;
+}
+```
+
+<a id="rule-typescript-no-meaningless-void-operator"></a>
+
+### `typescript/no-meaningless-void-operator`
+
+Reject `void X` where `X` is already statically typed `void`, the `void` operator adds nothing because the operand already evaluates to `undefined`.
+
+The operator is meaningful only on a value- returning expression that the caller wants to discard.
+
+Type-aware, the Checker decides whether the operand carries the `void` type. The upstream `checkNever` option is left at its default of `false`: only `void`-typed operands trigger, `never` does not.
+
+Example:
+
+```ts
+function voidReturning(): void {}
+
+// reports: typescript/no-meaningless-void-operator (error)
+void voidReturning();
+```
+
+<a id="rule-typescript-no-misused-new"></a>
+
+### `typescript/no-misused-new`
+
+Reject signatures that fake a constructor or an instance `new` method, `interface I { new (): I }` (TypeScript treats this as the type of `new I()` regardless of intent) and `class C { new(): C }`.
+
+Use a separate construct signature on a factory type when the intent is "anything callable with `new`".
+
+Example:
+
+```ts
+interface I {
+  // reports: typescript/no-misused-new (error)
+  constructor(): void;
+}
+```
+
+<a id="rule-typescript-no-misused-promises"></a>
+
+### `typescript/no-misused-promises`
+
+Reject Promise values supplied where a non-Promise was expected.
+
+Covers conditional positions (`if (promise)`, `while`, `for`, ternary, `&&`, `||`, `??`) where the Promise is truthy by reference.
+
+And `async` callbacks passed to APIs that expect a void-returning function (e.g. `Array#forEach`, JSX event handlers), where the returned Promise is silently dropped.
+
+Example:
+
+```ts
+function getPromise(): Promise<boolean> {
+  return Promise.resolve(true);
+}
+function sideEffect(): void {
+  console.log("ready");
+}
+
+async function inIf(): Promise<void> {
+  // reports: typescript/no-misused-promises (error)
+  if (getPromise()) {
+    sideEffect();
+  }
+}
+```
+
+<a id="rule-typescript-no-misused-spread"></a>
+
+### `typescript/no-misused-spread`
+
+Reject spread expressions whose operand is syntactically wrong for the surrounding context.
+
+AST-only subset of the upstream rule, no Checker required.
+
+Fires on object literal spread inside an array literal or a call/construct argument (`[...{ a: 1 }]`, `f(...{ a: 1 })`) and on array literal spread inside an object literal (`{ ...[1, 2] }`).
+
+General iterability detection still needs the full type-aware rule.
+
+Example:
+
+```ts
+// reports: typescript/no-misused-spread (error)
+const fromArr = [...{ a: 1 }];
+```
+
+<a id="rule-typescript-no-mixed-enums"></a>
+
+### `typescript/no-mixed-enums`
+
+Reject `enum`s that mix numeric and string members, which makes the resulting type unsafe for reverse lookups.
+
+Example:
+
+```ts
+enum Mixed {
+  A = 1,
+  // reports: typescript/no-mixed-enums (error)
+  B = "two",
+}
+```
+
+<a id="rule-typescript-no-namespace"></a>
+
+### `typescript/no-namespace`
+
+Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
+
+ES modules replace the legacy namespace concept; ambient `declare namespace` in `.d.ts` files stays allowed by default for global typings compatibility.
+
+Example:
+
+```ts
+// reports: typescript/no-namespace (error)
+namespace Foo {
+  export const x = 1;
+}
+```
+
+<a id="rule-typescript-no-non-null-asserted-nullish-coalescing"></a>
+
+### `typescript/no-non-null-asserted-nullish-coalescing`
+
+Reject `x! ?? y`, the `!` collapses `null | undefined` to a non-nullish value, so the `??` branch is unreachable.
+
+Example:
+
+```ts
+const maybe: string | undefined = undefined;
+
+// reports: typescript/no-non-null-asserted-nullish-coalescing (error)
+const value = maybe! ?? "fallback";
+```
+
+<a id="rule-typescript-no-non-null-asserted-optional-chain"></a>
+
+### `typescript/no-non-null-asserted-optional-chain`
+
+Reject `x!?.y`, the non-null assertion makes the optional chain meaningless because the inner expression is already known to be defined.
+
+Example:
+
+```ts
+const o: { a?: { b: number } } = {};
+// reports: typescript/no-non-null-asserted-optional-chain (error)
+const x = o?.a!;
+```
+
+<a id="rule-typescript-no-non-null-assertion"></a>
+
+### `typescript/no-non-null-assertion`
+
+Reject postfix `!` non-null assertions altogether.
+
+The operator suppresses a real `null` / `undefined` possibility without inserting a check; prefer a narrowing branch, optional chaining, or refining the type at its source.
+
+Example:
+
+```ts
+function f(x: number | null): number {
+  // reports: typescript/no-non-null-assertion (error)
+  return x!;
+}
+f(1);
+```
+
+<a id="rule-typescript-no-redundant-type-constituents"></a>
+
+### `typescript/no-redundant-type-constituents`
+
+Reject union and intersection type constituents that the type system absorbs anyway, `string | any` collapses to `any`.
+
+`T & never` collapses to `never`, `T & unknown` collapses to `T`, and repeated constituents add nothing.
+
+AST-only baseline: only the literal `any` / `unknown` / `never` keyword constituents and duplicates matched by textual identity are reported.
+
+Subset relations such as `string | "foo"` and generic alias resolution still require the type-aware path.
+
+Example:
+
+```ts
+// reports: typescript/no-redundant-type-constituents (error)
+type WithAny = string | any;
+```
+
+<a id="rule-typescript-no-restricted-types"></a>
+
+### `typescript/no-restricted-types`
+
+Reject specific type-reference names that are almost always a mistake, by default the global wrapper types `Object`, `Function`, `Number`, `String`, and `Boolean`.
+
+The lowercase primitives (`number`, `string`, `boolean`) and explicit call signatures convey the intended type without the runtime-boxing semantics that the wrapper names imply.
+
+AST-only baseline: shadow guard reuses the same file-scope check as `no-wrapper-object-types` so a user-declared `interface String {}` is not flagged as the global wrapper.
+
+Example:
+
+```ts
+// reports: typescript/no-restricted-types (error)
+const a: Object = {};
+```
+
+<a id="rule-typescript-no-require-imports"></a>
+
+### `typescript/no-require-imports`
+
+Reject `require(...)` calls and `import x = require(...)` declarations.
+
+Use ES module `import` syntax so the type-only / runtime-import distinction is preserved and declaration shape stays consistent.
+
+Example:
+
+```ts
+// reports: typescript/no-require-imports (error)
+const fs = require("fs");
+```
+
+<a id="rule-typescript-no-this-alias"></a>
+
+### `typescript/no-this-alias`
+
+Reject aliasing `this` to a local (`const self = this`, `const that = this`, destructuring `const { x } = this`).
+
+Arrow functions and `.bind(this)` make the workaround unnecessary; the alias also breaks type narrowing on `this`.
+
+Example:
+
+```ts
+class A {
+  m() {
+    // reports: typescript/no-this-alias (error)
+    const self = this;
+    return self;
+  }
+}
+```
+
+<a id="rule-typescript-no-unnecessary-boolean-literal-compare"></a>
+
+### `typescript/no-unnecessary-boolean-literal-compare`
+
+Reject direct comparison of a boolean-typed value with `true` / `false` literals, `x === true` is just `x`, `x !== false` is just `x`.
+
+The literal compare adds noise without changing the result whenever the non-literal side is provably pure boolean.
+
+Type-aware via the Checker. Skipped when the value side carries `null` / `undefined`, the literal compare is also stripping nullability there, and the rewrite would lose information.
+
+Example:
+
+```ts
+const flag = true;
+
+// reports: typescript/no-unnecessary-boolean-literal-compare (error)
+const yes = flag === true;
+```
+
+<a id="rule-typescript-no-unnecessary-condition"></a>
+
+### `typescript/no-unnecessary-condition`
+
+Reject conditions whose static type proves the runtime truthiness is fixed, `if ({})`, `if (null)`, `while ("")`, `0 && f()`.
+
+The conditional becomes either dead code (the always-false arm) or unconditional execution (the always-true arm); the explicit shape (`if (true)`, deleting the dead branch, or widening the type) names the intent.
+
+Type-aware via the Checker. The rule stays silent on `any`, `unknown`, plain `boolean`, plain `string`, plain `number`, unions that mix truthy and falsy outcomes.
+
+And any other shape whose runtime truthiness is not statically decidable, only the provably always-truthy / always-falsy positions are flagged.
+
+Example:
+
+```ts
+const obj = { value: 1 };
+function sideEffect(value: unknown): void {
+  console.log(value);
+}
+
+// reports: typescript/no-unnecessary-condition (error)
+if (obj) {
+  sideEffect(obj);
+}
+```
+
+<a id="rule-typescript-no-unnecessary-parameter-property-assignment"></a>
+
+### `typescript/no-unnecessary-parameter-property-assignment`
+
+Reject `this.x = x` in a constructor body when `x` is already declared as a parameter property, TypeScript performs the assignment automatically.
+
+Example:
+
+```ts
+class Repeated {
+  constructor(
+    public value: string,
+    private readonly count: number,
+    normal: string,
+  ) {
+    // reports: typescript/no-unnecessary-parameter-property-assignment (error)
+    this.value = value;
+    // reports: typescript/no-unnecessary-parameter-property-assignment (error)
+    this.count = count;
+    this.normal = normal;
+  }
+}
+```
+
+<a id="rule-typescript-no-unnecessary-qualifier"></a>
+
+### `typescript/no-unnecessary-qualifier`
+
+Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }` where the `Foo.` qualifier names the same lexical scope the access lives in.
+
+Dropping the qualifier leaves the identical binding lookup.
+
+AST-only: walks `Parent` links for an enclosing namespace or enum declaration whose identifier matches the qualifier's head.
+
+The Checker is not required because the upstream rule operates on lexical scope identity, which the AST already encodes via declaration ancestry.
+
+Example:
+
+```ts
+namespace Foo {
+  export const Bar = 1;
+  // reports: typescript/no-unnecessary-qualifier (error)
+  export const alias = Foo.Bar;
+}
+```
+
+<a id="rule-typescript-no-unnecessary-template-expression"></a>
+
+### `typescript/no-unnecessary-template-expression`
+
+Reject template literals that carry no template-only behavior, a `${"abc"}` interpolation, a lone `${name}` span around a string-typed value, or a `abc` no-substitution literal with no escaped backticks.
+
+Each of these collapses to a regular string literal without changing meaning, so the backtick form is just noise.
+
+Type-aware via the Checker. The interpolation forms are flagged only when the span's expression statically resolves to a string-like type and the surrounding head / tail text is empty.
+
+The runtime coercion is then a no-op, mirroring the upstream rule.
+
+Example:
+
+```ts
+// reports: typescript/no-unnecessary-template-expression (error)
+const a = `${"abc"}`;
+```
+
+<a id="rule-typescript-no-unnecessary-type-arguments"></a>
+
+### `typescript/no-unnecessary-type-arguments`
+
+Reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default, the argument adds nothing.
+
+Type-aware via the Checker. Walks the resolved type parameters of the call's signature and compares each explicit argument against the parameter's declared default.
+
+Only the contiguous trailing run of default-equal arguments is reported, TypeScript can only omit a suffix of the type-argument list.
+
+Example:
+
+```ts
+function withDefault<T = string>(value?: T): T | undefined {
+  return value;
+}
+
+// reports: typescript/no-unnecessary-type-arguments (error)
+const a = withDefault<string>("hello");
+```
+
+<a id="rule-typescript-no-unnecessary-type-assertion"></a>
+
+### `typescript/no-unnecessary-type-assertion`
+
+Reject `x as T` and `<T>x` assertions whose target type is the same as `x`'s already-known static type, the assertion adds nothing.
+
+Also rejects `x!` non-null assertions when `x` is already statically non-nullable. The `as const` syntax is excluded because it produces a strictly different type and is handled by the `prefer-as-const` rule.
+
+Type-aware via the Checker.
+
+Example:
+
+```ts
+const definitelyString: string = "ready";
+
+// reports: typescript/no-unnecessary-type-assertion (error)
+const a = definitelyString as string;
+```
+
+<a id="rule-typescript-no-unnecessary-type-constraint"></a>
+
+### `typescript/no-unnecessary-type-constraint`
+
+Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint.
+
+Example:
+
+```ts
+// reports: typescript/no-unnecessary-type-constraint (error)
+function identity<T extends unknown>(value: T): T {
+  return value;
+}
+```
+
+<a id="rule-typescript-no-unsafe-argument"></a>
+
+### `typescript/no-unsafe-argument`
+
+Reject passing an `any`-typed value into a parameter whose type is concrete. The call still runs, but every static guarantee the function's signature would otherwise enforce is silently dropped.
+
+Type-aware via the Checker. `unknown` is not flagged.
+
+Example:
+
+```ts
+const anyValue: any = JSON.parse("{}");
+function takesNumber(value: number): void {
+  console.log(value);
+}
+
+// reports: typescript/no-unsafe-argument (error)
+takesNumber(anyValue);
+```
+
+<a id="rule-typescript-no-unsafe-assignment"></a>
+
+### `typescript/no-unsafe-assignment`
+
+Reject assigning an `any`-typed value into a concretely typed location, variable initializer with an explicit annotation, or a reassignment whose left-hand side has a static type.
+
+Type-aware via the Checker. `unknown` is not flagged.
+
+Example:
+
+```ts
+const anyValue: any = JSON.parse("{}");
+
+// reports: typescript/no-unsafe-assignment (error)
+const num: number = anyValue;
+```
+
+<a id="rule-typescript-no-unsafe-call"></a>
+
+### `typescript/no-unsafe-call`
+
+Reject calling a value whose static type is `any`. The runtime call still happens, but the signature is unchecked and the return type spreads `any` to every downstream use.
+
+Type-aware via the Checker. Visits plain calls, `new`, and tagged templates. `unknown` is not flagged.
+
+Example:
+
+```ts
+const anyValue: any = JSON.parse("{}");
+
+// reports: typescript/no-unsafe-call (error)
+anyValue();
+```
+
+<a id="rule-typescript-no-unsafe-declaration-merging"></a>
+
+### `typescript/no-unsafe-declaration-merging`
+
+Reject declaration merging between an `interface` and a `class` with the same name.
+
+The interface grafts members onto the class type without forcing a runtime implementation, so the class object lies about what it exposes.
+
+Example:
+
+```ts
+class Merged {
+  value = 1;
+}
+
+// reports: typescript/no-unsafe-declaration-merging (error)
+interface Merged {
+  other: string;
+}
+```
+
+<a id="rule-typescript-no-unsafe-enum-comparison"></a>
+
+### `typescript/no-unsafe-enum-comparison`
+
+Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string` of the same widened primitive.
+
+The comparison silently accepts unrelated enums and raw literals that happen to share the underlying primitive.
+
+Type-aware via the Checker. The rule fires when one side carries an enum type and the other is the widened primitive without naming the same enum.
+
+Comparisons against members of the same enum, and against `any` / `unknown` / `never` (to keep generic helpers quiet), pass through.
+
+Example:
+
+```ts
+enum Color {
+  Red = "red",
+  Blue = "blue",
+}
+
+const color: Color = Color.Red;
+
+// reports: typescript/no-unsafe-enum-comparison (error)
+const matchesRed = color === "red";
+```
+
+<a id="rule-typescript-no-unsafe-function-type"></a>
+
+### `typescript/no-unsafe-function-type`
+
+Reject the unsafe `Function` type, which matches every callable regardless of signature.
+
+Declare the specific call signature instead.
+
+Example:
+
+```ts
+// reports: typescript/no-unsafe-function-type (error)
+type Callback = Function;
+```
+
+<a id="rule-typescript-no-unsafe-member-access"></a>
+
+### `typescript/no-unsafe-member-access`
+
+Reject property access on a receiver whose static type is `any`. The lookup still resolves at runtime, but the property type is `any` and spreads through the rest of the program.
+
+Type-aware via the Checker. Visits dot access and computed element access. `unknown` is not flagged.
+
+Example:
+
+```ts
+const anyValue: any = JSON.parse("{}");
+
+// reports: typescript/no-unsafe-member-access (error)
+const prop = anyValue.displayName;
+```
+
+<a id="rule-typescript-no-unsafe-return"></a>
+
+### `typescript/no-unsafe-return`
+
+Reject a `return` expression whose static type is `any` from a function whose declared return type is a concrete (non-`any` / non-`unknown` / non-`void`) shape.
+
+The `any` leaks past the type boundary and disables every downstream check on the returned value.
+
+Type-aware via the Checker. The rule walks each `return` to its enclosing function-like declaration, asks the Checker for that function's signature, and compares the declared return type against the expression type.
+
+`unknown`-typed expressions pass through because they cannot be used without further narrowing.
+
+Example:
+
+```ts
+function asNumber(): number {
+  // reports: typescript/no-unsafe-return (error)
+  return anyValue;
+}
+```
+
+<a id="rule-typescript-no-unsafe-unary-minus"></a>
+
+### `typescript/no-unsafe-unary-minus`
+
+Reject the unary `-` operator applied to an operand whose static type is not number-like or bigint-like, `-x` silently coerces strings, objects, and other shapes via `Number(x)` and almost always indicates a bug.
+
+Type-aware via the Checker. `any` / `unknown` / `never` operands pass through to match the upstream `allowAny`-style defaults that keep generic helpers quiet.
+
+Example:
+
+```ts
+const text = "42";
+
+// reports: typescript/no-unsafe-unary-minus (error)
+const a = -text;
+```
+
+<a id="rule-typescript-no-useless-constructor"></a>
+
+### `typescript/no-useless-constructor`
+
+TypeScript-aware extension of `no-useless-constructor` that tolerates a constructor existing solely to expose parameter properties.
+
+Example:
+
+```ts
+class EmptyNoParams {
+  // reports: typescript/no-useless-constructor (error)
+  constructor() {}
+}
+```
+
+<a id="rule-typescript-no-useless-empty-export"></a>
+
+### `typescript/no-useless-empty-export`
+
+Reject redundant `export {}` declarations in module files.
+
+The file is already a module via its other top-level `import` / `export`.
+
+Example:
+
+```ts
+export const marker = 1;
+
+// reports: typescript/no-useless-empty-export (error)
+export {};
+```
+
+<a id="rule-typescript-no-wrapper-object-types"></a>
+
+### `typescript/no-wrapper-object-types`
+
+Reject the wrapper object types `String`, `Number`, `Boolean`, `Symbol`, and `BigInt`.
+
+Autofixable to the corresponding primitive. `Object` stays detection-only because it has slightly different semantics.
+
+Example:
+
+```ts
+// reports: typescript/no-wrapper-object-types (error)
+type Name = String;
+```
+
+<a id="rule-typescript-non-nullable-type-assertion-style"></a>
+
+### `typescript/non-nullable-type-assertion-style`
+
+Reject `x as Foo` assertions whose target type is the non-nullable version of `x`'s static type, replace with the shorter `x!` non-null assertion.
+
+Type-aware via the Checker. Fires when the source expression's static type is `Foo | null`, `Foo | undefined`, or `Foo | null | undefined`, and the asserted type equals the non-nullable subset.
+
+Example:
+
+```ts
+function readValue(maybeUndefined: string | undefined) {
+  // reports: typescript/non-nullable-type-assertion-style (error)
+  return maybeUndefined as string;
+}
+```
+
+<a id="rule-typescript-only-throw-error"></a>
+
+### `typescript/only-throw-error`
+
+Reject `throw X` where `X` is statically known not to derive from `Error`, string literals, numbers, plain object literals, and the like.
+
+Type-aware via the Checker. Non-Error throws lose the stack trace and confuse `instanceof` checks in the surrounding `catch`.
+
+Example:
+
+```ts
+function throwStringLiteral(): never {
+  // reports: typescript/only-throw-error (error)
+  throw "boom";
+}
+```
+
+<a id="rule-typescript-parameter-properties"></a>
+
+### `typescript/parameter-properties`
+
+Reject TypeScript parameter-property constructors (`constructor(public foo: T)`).
+
+Prefer plain field declarations so the class shape is visible from the member list instead of buried inside the constructor parameter list.
+
+AST-only, the trigger is a syntactic modifier (`public` / `private` / `protected` / `readonly` / `override`) on a constructor parameter.
+
+Example:
+
+```ts
+class ParameterShorthand {
+  constructor(
+    // reports: typescript/parameter-properties (error)
+    public name: string,
+    // reports: typescript/parameter-properties (error)
+    private readonly id: number,
+    // reports: typescript/parameter-properties (error)
+    protected count: number,
+  ) {}
+}
+```
+
+<a id="rule-typescript-prefer-as-const"></a>
+
+### `typescript/prefer-as-const`
+
+Prefer `as const` over `as "literal"` assertions. Autofixable.
+
+Example:
+
+```ts
+// reports: typescript/prefer-as-const (error)
+const status = "ready" as "ready";
+```
+
+<a id="rule-typescript-prefer-enum-initializers"></a>
+
+### `typescript/prefer-enum-initializers`
+
+Require every `enum` member to have an explicit initializer.
+
+Implicit auto-increment is fine for novelty enums but dangerous once a value gets persisted.
+
+Example:
+
+```ts
+enum E {
+  // reports: typescript/prefer-enum-initializers (error)
+  A,
+}
+```
+
+<a id="rule-typescript-prefer-find"></a>
+
+### `typescript/prefer-find`
+
+Prefer `arr.find(predicate)` over `arr.filter(predicate)[0]` and `arr.filter(predicate).at(0)`.
+
+Type-aware via the Checker. Fires only when the receiver of `filter` is provably an array or tuple.
+
+`find` short-circuits on the first match instead of materializing the whole filtered array, so it expresses the "get me the first match" intent more directly and is strictly faster on large inputs.
+
+Non-zero index accesses (`[1]`, `.at(1)`, ...) are intentionally skipped because `find` cannot express them.
+
+Example:
+
+```ts
+// reports: typescript/prefer-find (error)
+const first = list.filter((s) => s.length > 0)[0];
+```
+
+<a id="rule-typescript-prefer-function-type"></a>
+
+### `typescript/prefer-function-type`
+
+Prefer a type alias over an interface that declares only a single call signature, the type form composes better with structural typing.
+
+Example:
+
+```ts
+// reports: typescript/prefer-function-type (error)
+interface F {
+  (x: number): string;
+}
+```
+
+<a id="rule-typescript-prefer-includes"></a>
+
+### `typescript/prefer-includes`
+
+Prefer `array.includes(x)` over `array.indexOf(x) !== -1` (and the matching `=== -1`, `>= 0`, `< 0`, `> -1` shapes).
+
+Type-aware via the Checker. Fires only when the receiver of `indexOf` is provably an array, tuple, or string.
+
+The `includes`-style call states the intent directly and avoids the sentinel-vs-position confusion that comes with comparing an `indexOf` return value against `-1`.
+
+Example:
+
+```ts
+const list = ["a", "b"];
+function sideEffect(value: unknown): void {
+  console.log(value);
+}
+
+// reports: typescript/prefer-includes (error)
+if (list.indexOf("a") !== -1) {
+  sideEffect(list);
+}
+```
+
+<a id="rule-typescript-prefer-literal-enum-member"></a>
+
+### `typescript/prefer-literal-enum-member`
+
+Prefer literal initializers (`= 0`, `= "FOO"`) for enum members over computed expressions, so the value is decidable at compile time.
+
+Example:
+
+```ts
+const base = 1;
+
+enum Value {
+  Fixed = 1,
+  // reports: typescript/prefer-literal-enum-member (error)
+  Computed = base + 1,
+}
+```
+
+<a id="rule-typescript-prefer-namespace-keyword"></a>
+
+### `typescript/prefer-namespace-keyword`
+
+Prefer the `namespace` keyword over the legacy `module Foo {}` form. Autofixable.
+
+Example:
+
+```ts
+// reports: typescript/prefer-namespace-keyword (error)
+module Foo {
+  export const x = 1;
+}
+```
+
+<a id="rule-typescript-prefer-nullish-coalescing"></a>
+
+### `typescript/prefer-nullish-coalescing`
+
+Prefer `??` over `||` (and `??=` over `||=`, and `??` over the ternary `x ? x : y`) when the intent is to default `null` / `undefined`.
+
+`||` short-circuits on every falsy value (0, "", false, NaN), so "default this if missing" silently coerces legitimate zeros and empty strings.
+
+The AST-only baseline skips operands the surrounding context already coerces to boolean (`if (a || b)`, `!(a || b)`, ternary condition, etc.).
+
+Example:
+
+```ts
+const maybe: string | undefined = undefined;
+const other = "fallback";
+
+// reports: typescript/prefer-nullish-coalescing (error)
+const a = maybe || other;
+```
+
+<a id="rule-typescript-prefer-optional-chain"></a>
+
+### `typescript/prefer-optional-chain`
+
+Prefer an optional chain (`a?.b?.c`) over chained boolean guards such as `a && a.b && a.b.c` or `a != null && a.b`.
+
+The optional-chain form is shorter and short-circuits to `undefined` instead of the leftmost falsy value, which is almost always the intent when guarding a property access against a nullish base.
+
+AST-only: the rule matches by the textual identity of the guard against the receiver of the right-hand access, and skips chains that cross a call expression with arguments.
+
+Example:
+
+```ts
+const obj: { profile?: { name?: string; load?(): string } } | null = {
+  profile: { name: "Ada" },
+};
+
+// reports: typescript/prefer-optional-chain (error)
+const profile = obj && obj.profile;
+```
+
+<a id="rule-typescript-prefer-promise-reject-errors"></a>
+
+### `typescript/prefer-promise-reject-errors`
+
+Reject `Promise.reject(value)` where `value` is statically known not to derive from `Error`, string literals, numbers, plain primitives, and the like.
+
+Type-aware via the Checker. Mirrors `typescript/only-throw-error` for the rejection side of the promise contract.
+
+A non-Error rejection loses the structured stack trace and breaks downstream `instanceof Error` checks in `.catch(...)` / `try { await ... } catch (err)` handlers.
+
+Covers `Promise.reject(arg)`, `<promise>.reject(arg)` on a Promise-typed receiver, and `reject(arg)` calls bound to the second parameter of a `new Promise((_, reject) => ...)` executor.
+
+`any` and `unknown` pass through, matching upstream's `allowThrowingAny` / `allowThrowingUnknown` defaults.
+
+Example:
+
+```ts
+function rejectStringLiteral(): Promise<never> {
+  // reports: typescript/prefer-promise-reject-errors (error)
+  return Promise.reject("boom");
+}
+```
+
+<a id="rule-typescript-prefer-readonly"></a>
+
+### `typescript/prefer-readonly`
+
+Reject private class fields that could carry `readonly`.
+
+AST-only baseline: fires on a `PropertyDeclaration` inside a class body that is `private` (or uses the `#name` private-hash form), does not already carry `readonly`, and is initialized at the declaration site.
+
+A field initialized at declaration time is set before the constructor runs, so locking it as `readonly` rules out accidental reassignments without changing runtime behavior.
+
+The fully type-aware upstream rule also walks assignments inside the constructor and other methods; the AST baseline targets the narrow but safe shape.
+
+Example:
+
+```ts
+class Foo {
+  // reports: typescript/prefer-readonly (error)
+  private a = 1;
+}
+```
+
+<a id="rule-typescript-prefer-reduce-type-parameter"></a>
+
+### `typescript/prefer-reduce-type-parameter`
+
+Prefer `arr.reduce<T>(callback, initial)` over the assertion-on- initial-value pattern `arr.reduce(callback, initial as T)`.
+
+Type-aware via the Checker. The accumulator type bound through a call-site type parameter constrains the callback's accumulator parameter directly.
+
+An `as` on the seed only widens the runtime value and lets the callback infer the accumulator's parameter type from the seed's widened literal shape instead.
+
+The rule fires only when the `.reduce` receiver is provably an array or tuple, the call has no existing type arguments, and the second argument is an `as` or angle-bracket type assertion.
+
+Example:
+
+```ts
+const intoSet = names.reduce(
+  (acc, name) => {
+    acc.add(name);
+    return acc;
+  },
+  // reports: typescript/prefer-reduce-type-parameter (error)
+  new Set<string>() as Set<string>,
+);
+```
+
+<a id="rule-typescript-prefer-regexp-exec"></a>
+
+### `typescript/prefer-regexp-exec`
+
+Prefer `re.exec(str)` over `str.match(re)` when the regex has no `g` flag.
+
+Type-aware via the Checker. Both shapes return the same `RegExpExecArray | null` for first-match queries, but `String#match` silently switches to "every match" the moment the regex gains the `g` flag.
+
+A typo at the regex literal changes the call's return shape from `[fullMatch, ...captures]` to a flat `string[]` of matches. The AST-only baseline reads the flag suffix off the regex literal directly.
+
+Non-literal regex arguments (a `new RegExp(...)`, a variable holding `/.../`) are conservatively skipped because static flag tracking would explode in scope.
+
+Example:
+
+```ts
+// reports: typescript/prefer-regexp-exec (error)
+const match = text.match(/invoice/);
+```
+
+<a id="rule-typescript-prefer-return-this-type"></a>
+
+### `typescript/prefer-return-this-type`
+
+When an instance method always `return this`, declare its return type as `this` instead of the enclosing class name so subclass call sites keep the narrower receiver type and method-chaining stays polymorphic.
+
+Type-aware via the Checker. Fires only when the method declares an explicit non-`this` return-type annotation AND every value-returning `return` statement in the body returns exactly `this`.
+
+Methods with no annotation, methods with at least one non-`this` return, `async` methods, generators, constructors.
+
+Accessors, and static methods are skipped, each has return-shape semantics the `this` rewrite does not preserve.
+
+Example:
+
+```ts
+function sideEffect(name: string): void {
+  console.log(name);
+}
+
+class Chainable {
+  // reports: typescript/prefer-return-this-type (error)
+  setName(name: string): Chainable {
+    sideEffect(name);
+    return this;
+  }
+}
+```
+
+<a id="rule-typescript-prefer-string-starts-ends-with"></a>
+
+### `typescript/prefer-string-starts-ends-with`
+
+Prefer `str.startsWith(prefix)` / `str.endsWith(suffix)` over the `indexOf` / `lastIndexOf` and anchored-regex idioms, `str.indexOf(p) === 0`.
+
+`str.indexOf(p, str.length - p.length) !== -1`, `str.lastIndexOf(p) === str.length - p.length`, `/^prefix/.test(str)`, and `/suffix$/.test(str)`.
+
+Type-aware via the Checker. Fires only when the string-position subject is provably a `string`-like type.
+
+The dedicated methods state the intent directly and avoid the off-by-one arithmetic and regex-anchor pitfalls of the older shapes.
+
+Example:
+
+```ts
+const text = "https://example.com";
+const needle = "https";
+
+// reports: typescript/prefer-string-starts-ends-with (error)
+const a = text.indexOf(needle) === 0;
+```
+
+<a id="rule-typescript-promise-function-async"></a>
+
+### `typescript/promise-function-async`
+
+Require functions whose return type is `Promise<T>` (or a Promise-like thenable) to be declared with the `async` keyword.
+
+Type-aware via the Checker. An `async` function wraps a synchronous `throw` into a rejected Promise so the caller's `await` / `.catch(...)` observes it.
+
+The non-async equivalent throws synchronously and bypasses every Promise-aware handler downstream. Marking the function `async` keeps the rejection channel consistent with the declared return type.
+
+Overload signatures, abstract methods, and declaration-merging hosts (functions with no body) are skipped, there is no body to wrap.
+
+Example:
+
+```ts
+// reports: typescript/promise-function-async (error)
+function makePromise(): Promise<number> {
+  return getPromise();
+}
+```
+
+<a id="rule-typescript-related-getter-setter-pairs"></a>
+
+### `typescript/related-getter-setter-pairs`
+
+Reject a `get` accessor whose declared return type does not match the parameter type of its companion `set` accessor on the same class.
+
+The accessor pair presents a single conceptual field to callers, `obj.x = v` followed by `w = obj.x` should round-trip with compatible types, but TypeScript otherwise lets the two accessors carry independent annotations.
+
+Type-aware. The comparison resolves both sides through the Checker so type aliases, generic parameters, and union constituents collapse to the same set of values before equality is decided.
+
+Example:
+
+```ts
+class Mismatch {
+  private _value = "abc";
+  // reports: typescript/related-getter-setter-pairs (error)
+  get value(): string {
+    return this._value;
+  }
+  set value(next: number) {
+    this._value = String(next);
+  }
+}
+```
+
+<a id="rule-typescript-require-array-sort-compare"></a>
+
+### `typescript/require-array-sort-compare`
+
+Require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
+
+Without a comparator both methods coerce elements to strings and sort lexically, so `[10, 2, 1].sort()` returns `[1, 10, 2]`, almost never the intent.
+
+Type-aware via the Checker: only fires when the receiver is provably an array or tuple, so user-defined methods named `sort` / `toSorted` on non-array types do not trigger the rule.
+
+Example:
+
+```ts
+const numbers = [3, 1, 2];
+
+// reports: typescript/require-array-sort-compare (error)
+numbers.sort();
+```
+
+<a id="rule-typescript-require-await"></a>
+
+### `typescript/require-await`
+
+Reject `async` functions whose body contains no `await` expression.
+
+An async function with no `await` only inflates the return type to `Promise<T>` without doing any asynchronous work; collapse it to a sync function.
+
+Async generators are accepted as long as they have at least one `yield`.
+
+Example:
+
+```ts
+function syncWork(): number {
+  return 1;
+}
+
+// reports: typescript/require-await (error)
+async function noAwait(): Promise<number> {
+  return syncWork();
+}
+```
+
+<a id="rule-typescript-restrict-plus-operands"></a>
+
+### `typescript/restrict-plus-operands`
+
+Reject `+` expressions whose operands are not both `number`, both `string`, or both `bigint`.
+
+Type-aware via the Checker. `1 + "a"`, `null + 5`, and `obj + 1` are silently coerced by the runtime, almost always a bug.
+
+Mixed `number`/`string` concatenations are likewise rejected: the author should convert explicitly with `String(x)` or use a template literal.
+
+Example:
+
+```ts
+// reports: typescript/restrict-plus-operands (error)
+const a = 1 + "a";
+```
+
+<a id="rule-typescript-restrict-template-expressions"></a>
+
+### `typescript/restrict-template-expressions`
+
+Reject template-literal interpolations whose expression carries a type that does not stringify cleanly, `${obj}` prints `"[object Object]"`, `${null}` prints `"null"`, and so on.
+
+Type-aware via the Checker. Each `${...}` span's type must be string-like, number-like, bigint-like, or boolean-like.
+
+`any`, `unknown`, and `never` pass through to avoid false positives on generic helpers, matching upstream `allowAny` / `allowNever` defaults. Union and intersection types must have every constituent stringify cleanly.
+
+Example:
+
+```ts
+const obj = { id: 1 };
+const maybe: string | null = null;
+
+// reports: typescript/restrict-template-expressions (error)
+const a = `id=${obj}`;
+// reports: typescript/restrict-template-expressions (error)
+const b = `value=${null}`;
+// reports: typescript/restrict-template-expressions (error)
+const c = `value=${undefined}`;
+// reports: typescript/restrict-template-expressions (error)
+const d = `value=${maybe}`;
+```
+
+<a id="rule-typescript-return-await"></a>
+
+### `typescript/return-await`
+
+Reject `return promise` inside `try`, `catch`, or `finally`; require `return await promise`.
+
+Without the `await`, the surrounding handler unbinds before the promise settles, so a rejection skips the `catch` block entirely and the `finally` cleanup races the result.
+
+Example:
+
+```ts
+function getPromise(): Promise<number> {
+  return Promise.resolve(1);
+}
+
+async function returnInsideTry(): Promise<number> {
+  try {
+    // reports: typescript/return-await (error)
+    return getPromise();
+  } catch (err) {
+    return 0;
+  }
+}
+```
+
+<a id="rule-typescript-sort-type-constituents"></a>
+
+### `typescript/sort-type-constituents`
+
+Require union and intersection type constituents to be listed in a canonical group order, keyword primitives alphabetized first, named / object references alphabetized next, `null` / `undefined` last.
+
+Two authors writing the same set of values can otherwise disagree on the spelling, and the canonical order eliminates that discussion from review.
+
+AST-only baseline: ordering is decided by syntactic group (keyword primitive vs. named reference vs. nullish) and a within-group source-text sort.
+
+Nested unions / intersections are skipped, only the outermost shape, the one the author wrote, fires the diagnostic.
+
+Example:
+
+```ts
+// reports: typescript/sort-type-constituents (error)
+type OutOfOrderPrimitives = string | number;
+```
+
+<a id="rule-typescript-strict-boolean-expressions"></a>
+
+### `typescript/strict-boolean-expressions`
+
+Reject non-boolean values used in a boolean context.
+
+Type-aware via the Checker. Fires when the test of an `if`, `while`, `do`, `for`, or ternary, the operand of `!`, or either side of `&&` / `||` carries a type whose flags are not pure boolean.
+
+Numbers (`if (count)` is truthy for any non-zero), strings (`""` is falsy), and nullable objects (`if (obj)` conflates `null` / `undefined` with a present object) all silently coerce in boolean position.
+
+An explicit comparison (`count !== 0`, `str.length > 0`, `obj != null`) names the intent.
+
+Example:
+
+```ts
+const count = 1;
+function sideEffect(value: unknown): void {
+  console.log(value);
+}
+
+// reports: typescript/strict-boolean-expressions (error)
+if (count) {
+  sideEffect(count);
+}
+```
+
+<a id="rule-typescript-switch-exhaustiveness-check"></a>
+
+### `typescript/switch-exhaustiveness-check`
+
+Require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
+
+Type-aware via the Checker. The rule resolves the discriminant type, walks each constituent of the union (or each member of the enum).
+
+Matches it against the `case` expressions in the body, and flags the switch when at least one constituent is uncovered and no `default` clause is present.
+
+A `default` clause covers the remaining shape and silences the rule.
+
+Example:
+
+```ts
+type Tag = "a" | "b" | "c";
+function sideEffect(value: string): void {
+  console.log(value);
+}
+
+function handle(tag: Tag): void {
+  // reports: typescript/switch-exhaustiveness-check (error)
+  switch (tag) {
+    case "a":
+      sideEffect("a");
+      break;
+    case "b":
+      sideEffect("b");
+      break;
+  }
+}
+```
+
+<a id="rule-typescript-triple-slash-reference"></a>
+
+### `typescript/triple-slash-reference`
+
+Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
+
+Replace with `import` (or `import type`) declarations and `compilerOptions.types` in `tsconfig.json`.
+
+Example:
+
+```ts
+// reports: typescript/triple-slash-reference (error)
+/// <reference path="./other-fixture.d.ts" />
+const x = 1;
+```
+
+<a id="rule-typescript-unbound-method"></a>
+
+### `typescript/unbound-method`
+
+Reject referencing a class instance method as a value instead of calling it (`obj.method` passed as a callback, aliased to a variable, or stored on another object).
+
+Type-aware via the Checker. JavaScript methods are not bound to their receiver, once extracted, `this` resolves to whatever the caller supplies (usually `undefined` in strict mode or the host object the value lands on).
+
+Safe positions, immediate call (`obj.method()`), assignment target, `typeof` / `delete` operand, `instanceof` / `in` operand, and tagged-template tag, pass through.
+
+Static methods are exempt because the constructor is stably bound.
+
+Example:
+
+```ts
+const g = new Greeter();
+
+// reports: typescript/unbound-method (error)
+const captured = g.greet;
+```
+
+<a id="rule-typescript-use-unknown-in-catch-callback-variable"></a>
+
+### `typescript/use-unknown-in-catch-callback-variable`
+
+Require the callback parameter of `.catch(...)` and the second argument of `.then(...)` to be typed `unknown`.
+
+Mirrors TypeScript 4.4+ `useUnknownInCatchVariables`, which made `catch (e)` default to `unknown`, the same discipline applied to promise rejection handlers so a rejection cannot smuggle in an implicit `any`.
+
+Example:
+
+```ts
+function getPromise(): Promise<number> {
+  return Promise.resolve(1);
+}
+function sideEffect(): void {
+  console.log("handled");
+}
+
+async function catchNoAnnotation(): Promise<void> {
+  // reports: typescript/use-unknown-in-catch-callback-variable (error)
+  getPromise().catch((err) => {
+    sideEffect();
+  });
+}
+```

@@ -1,19 +1,294 @@
 # JSDoc
 
-Documentation-comment validation rules. Bundles `eslint-plugin-jsdoc` content checks (tag names, parameter coverage, descriptions) with the lone `eslint-plugin-tsdoc` syntax check (`jsdoc/tsdoc-syntax`). Both target `/** ... */` comments. Formatting concerns (alignment, indentation) are configured through the top-level [`format`](/docs/lint/format) block, not here.
+Documentation-comment validation rules.
+
+This family bundles `eslint-plugin-jsdoc` content checks (tag names, parameter coverage, descriptions) with the lone `eslint-plugin-tsdoc` syntax check (`jsdoc/tsdoc-syntax`).
+
+Both target `/** ... */` comments.
+
+The TSDoc syntax check is too small to justify a dedicated family.
+
+Formatting concerns (alignment, indentation) are configured through the top-level [`format`](/docs/lint/format) block, not here.
 
 Source: [`eslint-plugin-jsdoc`](https://github.com/gajus/eslint-plugin-jsdoc) (BSD-3-Clause, attribution required), [`eslint-plugin-tsdoc`](https://github.com/microsoft/tsdoc) (MIT).
 
-- `jsdoc/check-tag-names`: Reject unknown JSDoc block-tag names.
-- `jsdoc/check-values`: Validate `@access` values against the closed set `public`, `protected`, `private`, `package`.
-- `jsdoc/empty-tags`: Reject content on marker-only JSDoc tags (`@async`, `@public`, `@override`, ...), these tags take no value.
-- `jsdoc/no-types`: Reject JSDoc type braces in TypeScript sources, since the surrounding TypeScript already carries the type.
-- `jsdoc/reject-any-type`: Reject `any` and `*` inside JSDoc type braces. These escape the documented type system the same way TypeScript `any` does.
-- `jsdoc/reject-function-type`: Reject the unsafe `Function` type inside JSDoc type braces.
-- `jsdoc/require-description`: Require JSDoc blocks to include a leading block-level description. Every documented identifier should explain itself.
-- `jsdoc/require-param-description`: Require every `@param` tag that names a parameter to also carry a description after the name.
-- `jsdoc/require-param-name`: Require every `@param` tag to include the parameter name it documents.
-- `jsdoc/require-property-description`: Require every `@property` tag that names a property to also carry a description.
-- `jsdoc/require-property-name`: Require every `@property` tag to include the property name it documents.
-- `jsdoc/require-returns-description`: Require every `@returns` tag to carry a description of the returned value.
-- `jsdoc/tsdoc-syntax`: Detect structural TSDoc problems in documentation comments: malformed top-level block tags (`@` followed by non-letter) and malformed or unclosed inline tags (`{@link ...}`).
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`jsdoc/check-tag-names`](#rule-jsdoc-check-tag-names): Reject unknown JSDoc block-tag names.
+- [`jsdoc/check-values`](#rule-jsdoc-check-values): Validate `@access` values against the closed set `public`, `protected`, `private`, `package`.
+- [`jsdoc/empty-tags`](#rule-jsdoc-empty-tags): Reject content on marker-only JSDoc tags.
+- [`jsdoc/no-types`](#rule-jsdoc-no-types): Reject JSDoc type braces in TypeScript sources.
+- [`jsdoc/reject-any-type`](#rule-jsdoc-reject-any-type): Reject `any` and `*` inside JSDoc type braces.
+- [`jsdoc/reject-function-type`](#rule-jsdoc-reject-function-type): Reject the unsafe `Function` type inside JSDoc type braces.
+- [`jsdoc/require-description`](#rule-jsdoc-require-description): Require JSDoc blocks to include a leading block-level description, every documented identifier should explain itself.
+- [`jsdoc/require-param-description`](#rule-jsdoc-require-param-description): Require every `@param` tag that names a parameter to also carry a description after the name.
+- [`jsdoc/require-param-name`](#rule-jsdoc-require-param-name): Require every `@param` tag to include the parameter name it documents.
+- [`jsdoc/require-property-description`](#rule-jsdoc-require-property-description): Require every `@property` tag that names a property to also carry a description.
+- [`jsdoc/require-property-name`](#rule-jsdoc-require-property-name): Require every `@property` tag to include the property name it documents.
+- [`jsdoc/require-returns-description`](#rule-jsdoc-require-returns-description): Require every `@returns` tag to carry a description of the returned value.
+- [`jsdoc/tsdoc-syntax`](#rule-jsdoc-tsdoc-syntax): Detect structural TSDoc problems in documentation comments.
+
+## Rules
+
+<a id="rule-jsdoc-check-tag-names"></a>
+
+### `jsdoc/check-tag-names`
+
+Reject unknown JSDoc block-tag names. Catches typos like `@returs` or `@parm`.
+
+Example:
+
+```ts
+// reports: jsdoc/check-tag-names (error)
+/**
+ * Returns the display name.
+ * @returs display name
+ */
+export function handle(name: string): string {
+  return name;
+}
+```
+
+<a id="rule-jsdoc-check-values"></a>
+
+### `jsdoc/check-values`
+
+Validate `@access` values against the closed set `public`, `protected`, `private`, `package`.
+
+(Upstream extends to `@version`/`@since`/`@license`/`@kind`/`@import` value checks; those shapes are not yet implemented in the native engine.)
+
+Catches typos and stale enum members that slip past doc tooling.
+
+Example:
+
+```ts
+// reports: jsdoc/check-values (error)
+/**
+ * Internal cache value.
+ * @access internal
+ */
+export const value = 1;
+```
+
+<a id="rule-jsdoc-empty-tags"></a>
+
+### `jsdoc/empty-tags`
+
+Reject content on marker-only JSDoc tags (`@async`, `@public`, `@override`, ...), these tags take no value.
+
+Example:
+
+```ts
+// reports: jsdoc/empty-tags (error)
+/**
+ * Loads the cache.
+ * @async loads from disk
+ */
+export async function load(): Promise<void> {}
+```
+
+<a id="rule-jsdoc-no-types"></a>
+
+### `jsdoc/no-types`
+
+Reject JSDoc type braces in TypeScript sources, since the surrounding TypeScript already carries the type.
+
+Example:
+
+```ts
+// reports: jsdoc/no-types (error)
+/**
+ * Normalizes a display name.
+ * @param {string} name - Display name.
+ * @returns {string} Normalized display name.
+ */
+export function handle(name: string): string {
+  return name;
+}
+```
+
+<a id="rule-jsdoc-reject-any-type"></a>
+
+### `jsdoc/reject-any-type`
+
+Reject `any` and `*` inside JSDoc type braces, these escape the documented type system the same way TypeScript `any` does.
+
+Example:
+
+```ts
+// reports: jsdoc/reject-any-type (error)
+/**
+ * Passes through a payload.
+ * @param {any} value - Payload.
+ */
+export function handle(value: unknown): unknown {
+  return value;
+}
+```
+
+<a id="rule-jsdoc-reject-function-type"></a>
+
+### `jsdoc/reject-function-type`
+
+Reject the unsafe `Function` type inside JSDoc type braces.
+
+Mirrors the `typescript/no-unsafe-function-type` rule from ITtscLintTypeScriptRules for JSDoc comments.
+
+Example:
+
+```ts
+// reports: jsdoc/reject-function-type (error)
+/**
+ * Registers a callback.
+ * @param {Function} handler - Callback.
+ */
+export function register(handler: () => void): void {
+  handler();
+}
+```
+
+<a id="rule-jsdoc-require-description"></a>
+
+### `jsdoc/require-description`
+
+Require JSDoc blocks to include a leading block-level description, every documented identifier should explain itself.
+
+Example:
+
+```ts
+// reports: jsdoc/require-description (error)
+export function handle(name: string): string {
+  return name;
+}
+```
+
+<a id="rule-jsdoc-require-param-description"></a>
+
+### `jsdoc/require-param-description`
+
+Require every `@param` tag that names a parameter to also carry a description after the name.
+
+A name-only `@param` adds nothing beyond the signature, so the rule pushes authors to either describe the parameter or drop the tag.
+
+Example:
+
+```ts
+// reports: jsdoc/require-param-description (error)
+/**
+ * Normalizes a display name.
+ * @param name
+ */
+export function handle(name: string): string {
+  return name;
+}
+```
+
+<a id="rule-jsdoc-require-param-name"></a>
+
+### `jsdoc/require-param-name`
+
+Require every `@param` tag to include the parameter name it documents.
+
+A bare `@param` cannot be linked to a signature position, so doc tooling silently drops it.
+
+Example:
+
+```ts
+// reports: jsdoc/require-param-name (error)
+/**
+ * Normalizes a display name.
+ * @param
+ */
+export function handle(name: string): string {
+  return name;
+}
+```
+
+<a id="rule-jsdoc-require-property-description"></a>
+
+### `jsdoc/require-property-description`
+
+Require every `@property` tag that names a property to also carry a description.
+
+Mirrors `require-param-description` for typedef and object-shape comments, where a name-only entry adds nothing the surrounding type doesn't convey.
+
+Example:
+
+```ts
+// reports: jsdoc/require-property-description (error)
+/**
+ * Runtime options.
+ * @property name
+ */
+export interface Options {
+  name: string;
+}
+```
+
+<a id="rule-jsdoc-require-property-name"></a>
+
+### `jsdoc/require-property-name`
+
+Require every `@property` tag to include the property name it documents.
+
+Without the name the tag cannot be linked to a member of the surrounding typedef, and doc generators discard it.
+
+Example:
+
+```ts
+// reports: jsdoc/require-property-name (error)
+/**
+ * Runtime options.
+ * @property
+ */
+export interface Options {
+  name: string;
+}
+```
+
+<a id="rule-jsdoc-require-returns-description"></a>
+
+### `jsdoc/require-returns-description`
+
+Require every `@returns` tag to carry a description of the returned value.
+
+The TypeScript signature already states the return type, so the tag earns its keep only when it explains what the value means, not its shape.
+
+Example:
+
+```ts
+// reports: jsdoc/require-returns-description (error)
+/**
+ * Computes the retry count.
+ * @returns
+ */
+export function compute(): number {
+  return 1;
+}
+```
+
+<a id="rule-jsdoc-tsdoc-syntax"></a>
+
+### `jsdoc/tsdoc-syntax`
+
+Detect structural TSDoc problems in documentation comments: malformed top-level block tags (`@` followed by non-letter) and malformed or unclosed inline tags (`...`).
+
+The broader TSDoc grammar, closed-set tag names, escape sequences, `{Type}`-annotation rejection, fenced-code rules, is not yet implemented.
+
+TSDoc is Microsoft's curated dialect that powers API Extractor and the rest of the Microsoft TypeScript documentation pipeline.
+
+Upstream `eslint-plugin-tsdoc` ships exactly one rule; it lives here rather than in a one-rule `tsdoc/*` family.
+
+Example:
+
+```ts
+// reports: jsdoc/tsdoc-syntax (error)
+/**
+ * Links to {@link
+ */
+export function handle(): void {}
+```

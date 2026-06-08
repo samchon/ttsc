@@ -1,20 +1,253 @@
 # Security
 
-Security-focused TypeScript source rules from `eslint-plugin-security`. Reports likely security smells, non-literal sinks for eval, file I/O, regex construction, child-process spawning, cryptographic primitives. That warrant human review even if no exploit is statically provable. Treat findings as _hints_, not proofs.
+Security-focused TypeScript source rules from `eslint-plugin-security`.
+
+Reports likely security smells that warrant human review even if no exploit is statically provable: non-literal sinks for eval, file I/O, regex construction, child-process spawning, and cryptographic primitives.
+
+Treat findings as _hints_, not proofs.
 
 Source: [`eslint-plugin-security@4.0.0`](https://github.com/eslint-community/eslint-plugin-security) (Apache-2.0, distribution requires propagating the upstream NOTICE attribution).
 
-- `security/detect-bidi-characters`: Detect Trojan-Source bidi control characters (U+202A, U+202E, ...) hidden inside source.
-- `security/detect-buffer-noassert`: Detect Buffer reads/writes called with `noAssert = true`, which skips Node's offset/length bounds checks.
-- `security/detect-child-process`: Detect any import of `child_process` and any `exec`/`execSync` call whose command argument is not a string literal.
-- `security/detect-disable-mustache-escape`: Detect assignments setting `escapeMarkup = false` (or the equivalent option on Handlebars/Mustache-style engines), which turns off HTML entity escaping in template output.
-- `security/detect-eval-with-expression`: Detect `eval(...)` calls whose argument is not a string literal.
-- `security/detect-new-buffer`: Detect `new Buffer(input)` constructions with non-literal input, historical source of allocation-disclosure bugs.
-- `security/detect-no-csrf-before-method-override`: Detect Express applications mounting `csrf` middleware before `methodOverride`, which lets the CSRF token be bypassed.
-- `security/detect-non-literal-fs-filename`: Detect `fs` calls (`readFile`, `writeFile`, `createReadStream`, ...) whose filename argument is not a string literal.
-- `security/detect-non-literal-regexp`: Detect `new RegExp(...)` construction whose pattern argument is not a string literal.
-- `security/detect-non-literal-require`: Detect `require(...)` calls whose specifier is computed at runtime.
-- `security/detect-object-injection`: Detect dynamic bracket-access such as `obj[req.body.x] = ...`, which can let caller-controlled keys overwrite prototype-shaped properties or pull out unintended fields.
-- `security/detect-possible-timing-attacks`: Detect direct equality comparisons involving secret-like identifiers (`if (token === expected)`). Use `crypto.timingSafeEqual` instead.
-- `security/detect-pseudoRandomBytes`: Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptographically secure.
-- `security/detect-unsafe-regex`: Detect regex literals with catastrophic backtracking potential (ReDoS), typically nested or overlapping quantifiers over the same character set.
+## Rule index
+
+Each rule name links to the detailed section below.
+
+Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
+
+- [`security/detect-bidi-characters`](#rule-security-detect-bidi-characters): Detect Trojan-Source bidi control characters hidden inside source.
+- [`security/detect-buffer-noassert`](#rule-security-detect-buffer-noassert): Detect Buffer reads/writes called with `noAssert = true`.
+- [`security/detect-child-process`](#rule-security-detect-child-process): Detect any import of `child_process` and any `exec`/`execSync` call.
+- [`security/detect-disable-mustache-escape`](#rule-security-detect-disable-mustache-escape): Detect assignments setting `escapeMarkup = false` (or the equivalent option on Handlebars/Mustache-style engines).
+- [`security/detect-eval-with-expression`](#rule-security-detect-eval-with-expression): Detect `eval(...)` calls whose argument is not a string literal.
+- [`security/detect-new-buffer`](#rule-security-detect-new-buffer): Detect `new Buffer(input)` constructions with non-literal input, historical source of allocation-disclosure bugs.
+- [`security/detect-no-csrf-before-method-override`](#rule-security-detect-no-csrf-before-method-override): Detect Express applications mounting `csrf` middleware before `methodOverride`.
+- [`security/detect-non-literal-fs-filename`](#rule-security-detect-non-literal-fs-filename): Detect `fs` calls whose filename argument is not a string literal.
+- [`security/detect-non-literal-regexp`](#rule-security-detect-non-literal-regexp): Detect `new RegExp(...)` construction.
+- [`security/detect-non-literal-require`](#rule-security-detect-non-literal-require): Detect `require(...)` calls whose specifier is computed at runtime.
+- [`security/detect-object-injection`](#rule-security-detect-object-injection): Detect dynamic bracket-access such as `obj[req.body.x] = ...`.
+- [`security/detect-possible-timing-attacks`](#rule-security-detect-possible-timing-attacks): Detect direct equality comparisons involving secret-like identifiers , use `crypto.timingSafeEqual` instead.
+- [`security/detect-pseudoRandomBytes`](#rule-security-detect-pseudorandombytes): Detect `crypto.pseudoRandomBytes`, which produces values.
+- [`security/detect-unsafe-regex`](#rule-security-detect-unsafe-regex): Detect regex literals with catastrophic backtracking potential (ReDoS).
+
+## Rules
+
+<a id="rule-security-detect-bidi-characters"></a>
+
+### `security/detect-bidi-characters`
+
+Detect Trojan-Source bidi control characters (U+202A, U+202E, ...) hidden inside source.
+
+Example:
+
+```ts
+const safe = "user";
+// reports: security/detect-bidi-characters (error)
+const access = "user‮";
+```
+
+<a id="rule-security-detect-buffer-noassert"></a>
+
+### `security/detect-buffer-noassert`
+
+Detect Buffer reads/writes called with `noAssert = true`, which skips Node's offset/length bounds checks.
+
+The flag lets the offset slide past the buffer end and read unrelated memory, so production code should never set it.
+
+Example:
+
+```ts
+const buffer = Buffer.alloc(8);
+buffer.readDoubleLE(0, false);
+// reports: security/detect-buffer-noassert (error)
+buffer.readDoubleLE(0, true);
+```
+
+<a id="rule-security-detect-child-process"></a>
+
+### `security/detect-child-process`
+
+Detect any import of `child_process` and any `exec`/`execSync` call whose command argument is not a string literal.
+
+Non-literal commands are the canonical shell-injection sink in Node services.
+
+Example:
+
+```ts
+// reports: security/detect-child-process (error)
+require("child_process").exec(command);
+```
+
+<a id="rule-security-detect-disable-mustache-escape"></a>
+
+### `security/detect-disable-mustache-escape`
+
+Detect assignments setting `escapeMarkup = false` (or the equivalent option on Handlebars/Mustache-style engines), which turns off HTML entity escaping in template output.
+
+Result: an unguarded XSS sink for caller-controlled strings.
+
+Example:
+
+```ts
+escapeMarkup = false;
+// reports: security/detect-disable-mustache-escape (error)
+view.escapeMarkup = false;
+```
+
+<a id="rule-security-detect-eval-with-expression"></a>
+
+### `security/detect-eval-with-expression`
+
+Detect `eval(...)` calls whose argument is not a string literal.
+
+Any expression argument means caller-controlled data can reach a code-execution sink. The rule flags the call shape, not proven taint.
+
+Example:
+
+```ts
+eval("alert()");
+// reports: security/detect-eval-with-expression (error)
+eval(userInput);
+```
+
+<a id="rule-security-detect-new-buffer"></a>
+
+### `security/detect-new-buffer`
+
+Detect `new Buffer(input)` constructions with non-literal input, historical source of allocation-disclosure bugs.
+
+Example:
+
+```ts
+new Buffer("safe");
+// reports: security/detect-new-buffer (error)
+new Buffer(input);
+```
+
+<a id="rule-security-detect-no-csrf-before-method-override"></a>
+
+### `security/detect-no-csrf-before-method-override`
+
+Detect Express applications mounting `csrf` middleware before `methodOverride`, which lets the CSRF token be bypassed.
+
+Example:
+
+```ts
+express.methodOverride();
+express.csrf();
+// reports: security/detect-no-csrf-before-method-override (error)
+express.methodOverride();
+```
+
+<a id="rule-security-detect-non-literal-fs-filename"></a>
+
+### `security/detect-non-literal-fs-filename`
+
+Detect `fs` calls (`readFile`, `writeFile`, `createReadStream`, ...) whose filename argument is not a string literal.
+
+Dynamic filenames are the standard path-traversal sink; sanitise or allow-list before the call.
+
+Example:
+
+```ts
+import fs from "fs";
+
+fs.readFileSync("./safe.json");
+// reports: security/detect-non-literal-fs-filename (error)
+fs.readFileSync(filename);
+```
+
+<a id="rule-security-detect-non-literal-regexp"></a>
+
+### `security/detect-non-literal-regexp`
+
+Detect `new RegExp(...)` construction whose pattern argument is not a string literal.
+
+Caller-controlled patterns can both trigger catastrophic backtracking and let an attacker reshape the matcher to bypass intended validation.
+
+Example:
+
+```ts
+new RegExp("^[a-z]+$");
+// reports: security/detect-non-literal-regexp (error)
+new RegExp(pattern);
+```
+
+<a id="rule-security-detect-non-literal-require"></a>
+
+### `security/detect-non-literal-require`
+
+Detect `require(...)` calls whose specifier is computed at runtime.
+
+A dynamic specifier lets caller-controlled data choose the module to load, bypassing any module allow-list on Node.
+
+Example:
+
+```ts
+require("node:fs");
+// reports: security/detect-non-literal-require (error)
+require(moduleName);
+```
+
+<a id="rule-security-detect-object-injection"></a>
+
+### `security/detect-object-injection`
+
+Detect dynamic bracket-access such as `obj[req.body.x] = ...`, which can let caller-controlled keys overwrite prototype-shaped properties or pull out unintended fields.
+
+Fires on virtually any computed property access; expect a high false-positive rate in normal application code.
+
+Example:
+
+```ts
+object["safe"];
+// reports: security/detect-object-injection (error)
+object[key];
+```
+
+<a id="rule-security-detect-possible-timing-attacks"></a>
+
+### `security/detect-possible-timing-attacks`
+
+Detect direct equality comparisons involving secret-like identifiers (`if (token === expected)`), use `crypto.timingSafeEqual` instead.
+
+Example:
+
+```ts
+if (age === 5) {
+}
+// reports: security/detect-possible-timing-attacks (error)
+if (password === "mypass") {
+}
+```
+
+<a id="rule-security-detect-pseudorandombytes"></a>
+
+### `security/detect-pseudoRandomBytes`
+
+Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptographically secure.
+
+Tokens, session ids, and key material must use `crypto.randomBytes` (or Web Crypto's `getRandomValues`) instead.
+
+Example:
+
+```ts
+crypto.randomBytes;
+// reports: security/detect-pseudoRandomBytes (error)
+crypto.pseudoRandomBytes;
+```
+
+<a id="rule-security-detect-unsafe-regex"></a>
+
+### `security/detect-unsafe-regex`
+
+Detect regex literals with catastrophic backtracking potential (ReDoS), typically nested or overlapping quantifiers over the same character set.
+
+Matching caller-controlled input against such a pattern can block the event loop for seconds.
+
+Example:
+
+```ts
+/^d+1337d+$/;
+// reports: security/detect-unsafe-regex (error)
+/(x+x+)+y/;
+```

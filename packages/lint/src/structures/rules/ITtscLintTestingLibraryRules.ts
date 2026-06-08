@@ -257,9 +257,9 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/prefer-presence-queries"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `queryBy*` inside `waitForElementToBeRemoved`.
+   * Prefer `queryBy*` inside disappearance waits.
    *
-   * The helper retries the callback against the disappearing element, but
+   * `waitFor` retries the callback against the disappearing element, but
    * `getBy*` throws on the very state being waited for, which produces a noisy
    * error in the trace each retry.
    *
